@@ -8,6 +8,7 @@ A top-down arcade game designed by kids: the **Little Ones** team against the **
 - After a push the Big One rests for 2.5 s (pale vision cone) and pushes nobody.
 - After a hug he is shocked for 2.5 s: he can't move or push, and he can't be hugged again yet.
 - Your house is a safe zone: the Big One can't get in. Bushes hide you.
+- When you hug him, you jump on his back for a second — hearts everywhere.
 - 1–2 players + bots (5 Little Ones in total). Bots mostly rescue fallen friends.
 
 ## Versions
@@ -29,11 +30,28 @@ Open the file in any modern browser — no build step. Works on desktop, tablet 
 
 `P` — pause, `M` — sound, `L` — language (English / Español (AR) / Русский).
 
-## Skins
+## Items
 
-Menu → **Skins**: 8 looks for the Little Ones (Classic, Sunny, Sporty, King, Smarty, Ninja, Kitty, Pirate)
-and 5 for the Big One (Classic, Ogre, Robot, Captain, Bear). Players can't pick the same look; bots get the rest.
-Keyboard on the Skins screen: A/D — Player 1, ←/→ — Player 2, Z/X — Big One.
+Items pop up on the map every 7–11 s (max 3, they vanish after 20 s):
+
+| Item | Effect |
+|---|---|
+| 👟 Speed boots | 1.55× faster for 6 s |
+| 👻 Invisibility potion | the Big One can't see you for 6 s |
+| 🛡 Shield | blocks one push |
+| 🍌 Banana | a trap for the Big One: he slips and lies down for 2.5 s — and can be hugged from any side |
+
+## Places
+
+Park, Beach (palms, sandcastles, umbrellas, pool, sea), Winter (snowy pines, snowmen, snowdrifts, frozen pond,
+snowfall) and Schoolyard (court lines, hopscotch, footballs, hedges, sandbox, school windows).
+Menu → **Place**: *Auto* (changes every level) or a fixed place.
+
+## Outfits
+
+Menu → **Skins**: each player builds an outfit from 4 parts — hair (8), hat (12), jacket (10, incl. hoodies,
+superhero cape, ninja) and pants (8, incl. shorts); 🎲 picks a random outfit. The Big One has 5 looks
+(Classic, Ogre, Robot, Captain, Bear). Bots get different outfits every level.
 
 ## Levels
 
@@ -56,5 +74,5 @@ One HTML file, one ES module:
 
 ## Tuning
 
-`CFG` — gameplay numbers (`HUG_STUN`, `PUSH_RECOVER`, `BOT_ATTACK_PAUSE`, …), `I18N` — texts,
-`LITTLE_SKINS` / `BIG_SKINS` — skins, `LITTLE_SCALE` / `BIG_SCALE` — character size in 3D.
+`CFG` — gameplay numbers (`HUG_STUN`, `PUSH_RECOVER`, `BOT_ATTACK_PAUSE`, `ITEM_*`, `SLIP_STUN`, …), `I18N` — texts,
+`HAIRS` / `HATS` / `JACKETS` / `PANTS` / `BIG_SKINS` — outfits, `THEMES` — places, `LITTLE_SCALE` / `BIG_SCALE` — character size in 3D.
