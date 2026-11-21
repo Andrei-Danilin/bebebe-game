@@ -1,0 +1,1398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#2b3a2e">
+<title>BeBeBe Atrapar</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #2b3a2e; overflow: hidden; overscroll-behavior: none; }
+  body { display: flex; align-items: center; justify-content: center; font-family: system-ui, "Segoe UI", Arial, sans-serif; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  canvas { display: block; border-radius: 14px; box-shadow: 0 10px 40px rgba(0,0,0,.45); touch-action: none; }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<script>
+"use strict";
+
+// =====================================================================
+//  НАСТРОЙКИ ИГРЫ — их удобно менять вместе с детьми
+// =====================================================================
+const CFG = {
+  BIG_HP: 6,                 // сердечек у Большого на 1-м уровне
+  HP_PER_LEVEL: 1,           // +сердечко с каждым уровнем
+  BIG_HP_MAX: 12,
+  DOWN_TIME: 18,             // сек — сколько ждёт маленький со сломанной ногой
+  RESCUE_TIME: 1.0,          // сек — сколько стоять рядом, чтобы поднять друга
+  PLAYER_SPEED: 150,
+  BOT_SPEED: 135,
+  BIG_PATROL_SPEED: 70,
+  BIG_CHASE_SPEED: 112,
+  CHASE_PER_LEVEL: 4,        // Большой быстрее на каждом уровне
+  BIG_SPEED_PER_HIT: 4,      // и злится после каждой обнимашки
+  VISION_RANGE: 230,         // как далеко видит Большой
+  VISION_HALF: Math.PI / 4,  // половина угла обзора (45° => всего 90°)
+  BEHIND_ANGLE: 2.2,         // насколько «сзади» надо быть для обнимашки (~126°)
+  INVULN_AFTER_RESCUE: 1.5,
+  HUG_STUN: 0.9,
+  BUSH_HIDES: true,          // в кустах Большой не видит (если не вплотную)
+  BOT_ATTACK_PAUSE: [12, 20]  // сек — как часто боты сами идут обнимать (главное для них — спасать)
+};
+
+// =====================================================================
+//  ЯЗЫКИ: English (по умолчанию), Español (Argentina), Русский
+// =====================================================================
+const I18N = {
+  en: {
+    name: "English", subtitle: "Little Ones vs. the Big One",
+    rules: n => [
+      "Sneak up BEHIND the Big One and hug him: he loses a heart",
+      "If he SEES you (yellow beam), he pushes you and breaks your leg",
+      "Friends run over and stand next to you for 1 second to help you up",
+      `If nobody helps you within ${n} seconds, you're out`,
+      "Bushes hide you. Your house is safe: the Big One can't get in"
+    ],
+    level: "Level", lvShort: "Lv.", onePlayer: "1 player", twoPlayers: "2 players",
+    controls1: "Keyboard: Player 1 — W A S D, Player 2 — arrows  •  P — pause  •  M — sound  •  L — language",
+    controls2: "Tablet/phone: drag your finger  •  Gamepad: stick, A — play, X — two players",
+    pause: "Paused", play: "Play", menu: "Menu",
+    win: "YOU WIN!", winSub: "The Big One is all hugged out!", next: n => `Level ${n} ▶`,
+    lose: "The Big One won...", loseSub: (h, m) => `Hugs: ${h} of ${m}. Try again?`, again: "Try again",
+    big: "Big One", hug: "Hug! -1", bang: "BAM!", saved: "Saved!", out: "Out...", help: n => `${n}: HELP!`,
+    touch1: "Drag your finger on the screen to run", touch2: "Player 1: finger on the left  •  Player 2: on the right",
+    rotate: "Turn your device sideways ↻", me: "Me", botChip: "B", safe: "SAFE",
+    bots: ["Bip", "Bop", "Bum", "Bam"]
+  },
+  es: {
+    name: "Español", subtitle: "Los Chiquitos contra el Grandote",
+    rules: n => [
+      "Acercate al Grandote POR DETRÁS y abrazalo: pierde un corazón",
+      "Si te VE (rayo amarillo), te empuja y te rompés la pierna",
+      "Tus amigos vienen y se quedan 1 segundo al lado tuyo para ayudarte",
+      `Si nadie te ayuda en ${n} segundos, quedás afuera`,
+      "En los arbustos no te ve. Tu casa es segura: el Grandote no puede entrar"
+    ],
+    level: "Nivel", lvShort: "Niv.", onePlayer: "1 jugador", twoPlayers: "2 jugadores",
+    controls1: "Teclado: Jugador 1 — W A S D, Jugador 2 — flechas  •  P — pausa  •  M — sonido  •  L — idioma",
+    controls2: "Tablet/celu: deslizá el dedo  •  Joystick: palanca, A — jugar, X — de a dos",
+    pause: "Pausa", play: "Jugar", menu: "Menú",
+    win: "¡GANARON!", winSub: "¡Abrazaron al Grandote hasta el final!", next: n => `Nivel ${n} ▶`,
+    lose: "Ganó el Grandote...", loseSub: (h, m) => `Abrazos: ${h} de ${m}. ¿Otra vez?`, again: "Otra vez",
+    big: "Grandote", hug: "¡Abrazo! -1", bang: "¡PUM!", saved: "¡Salvado!", out: "Afuera...", help: n => `${n}: ¡AYUDA!`,
+    touch1: "Deslizá el dedo por la pantalla para correr", touch2: "Jugador 1: dedo a la izquierda  •  Jugador 2: a la derecha",
+    rotate: "Girá el dispositivo ↻", me: "Yo", botChip: "B", safe: "ZONA SEGURA",
+    bots: ["Bip", "Bop", "Bum", "Bam"]
+  },
+  ru: {
+    name: "Русский", subtitle: "Маленькие против Большого",
+    rules: n => [
+      "Подкрадись к Большому СЗАДИ и обними — минус сердечко",
+      "Увидит тебя (жёлтый луч) — толкнёт, и нога сломается",
+      "Друзья подбегают и стоят рядом 1 секунду — ты снова в игре",
+      `Никто не помог за ${n} секунд — ты выбыл`,
+      "В кустах Большой не видит. Домик — безопасная зона, Большой туда не зайдёт"
+    ],
+    level: "Уровень", lvShort: "Ур.", onePlayer: "1 игрок", twoPlayers: "2 игрока",
+    controls1: "Клавиатура: Игрок 1 — W A S D, Игрок 2 — стрелки  •  P — пауза  •  M — звук  •  L — язык",
+    controls2: "Планшет/телефон: водите пальцем  •  Геймпад: стик, A — играть, X — вдвоём",
+    pause: "Пауза", play: "Играть", menu: "Меню",
+    win: "ПОБЕДА!", winSub: "Большого обняли со всех сторон!", next: n => `Уровень ${n} ▶`,
+    lose: "Большой победил...", loseSub: (h, m) => `Обнимашек: ${h} из ${m}. Ещё разок?`, again: "Ещё раз",
+    big: "Большой", hug: "Обнимашки! -1", bang: "БАХ!", saved: "Спасён!", out: "Выбыл...", help: n => `${n}: ПОМОГИТЕ!`,
+    touch1: "Води пальцем по экрану, чтобы бежать", touch2: "Игрок 1 — палец слева, Игрок 2 — палец справа",
+    rotate: "Поверни устройство боком ↻", me: "Я", botChip: "Б", safe: "БЕЗОПАСНО",
+    bots: ["Бип", "Боп", "Бум", "Бац"]
+  }
+};
+const LANGS = ["en", "es", "ru"];
+let lang = "en";
+try { const saved = localStorage.getItem("bebebe-lang"); if (LANGS.includes(saved)) lang = saved; } catch (e) { /* без хранилища — английский */ }
+const L = () => I18N[lang];
+function setLang(l) {
+  lang = l;
+  document.documentElement.lang = l;
+  try { localStorage.setItem("bebebe-lang", l); } catch (e) { /* ok */ }
+}
+
+// =====================================================================
+//  ЭКРАН (масштаб под любой экран: ПК, планшет, телефон)
+// =====================================================================
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+const W = 960, H = 640, CELL = 32, COLS = 30, ROWS = 20, FINE = 8, FW = W / FINE, FH = H / FINE;
+const TAU = Math.PI * 2;
+const OUT = "#3d2b1f";        // мультяшный контур
+let VIEW = 1;
+const isTouch = ("ontouchstart" in window) || (navigator.maxTouchPoints > 0);
+
+function fit() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const s = Math.min(window.innerWidth / W, window.innerHeight / H);
+  const cw = Math.floor(W * s), ch = Math.floor(H * s);
+  canvas.style.width = cw + "px"; canvas.style.height = ch + "px";
+  canvas.width = Math.max(1, Math.floor(cw * dpr)); canvas.height = Math.max(1, Math.floor(ch * dpr));
+  VIEW = canvas.width / W;
+}
+window.addEventListener("resize", fit);
+fit();
+document.documentElement.lang = lang;
+
+// =====================================================================
+//  ПОМОЩНИКИ
+// =====================================================================
+const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const rand = (a, b) => a + Math.random() * (b - a);
+const normAng = a => { a = (a + Math.PI) % TAU; if (a < 0) a += TAU; return a - Math.PI; };
+const angDiff = (a, b) => Math.abs(normAng(b - a));
+const turnToward = (cur, target, step) => { const d = normAng(target - cur); return Math.abs(d) <= step ? target : cur + Math.sign(d) * step; };
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+// =====================================================================
+//  МИР
+// =====================================================================
+let obstacles = [], bushes = [], floors = [], decor = [], trees = [], flowers = [];
+const blocked = new Uint8Array(COLS * ROWS), blockedBig = new Uint8Array(COLS * ROWS);
+let safeZone = null;   // домик маленьких — Большой туда не заходит
+const moveGrid = new Uint8Array(FW * FH), seeGrid = new Uint8Array(FW * FH), moveGridBig = new Uint8Array(FW * FH);
+const inSafe = p => !!safeZone && p.x > safeZone.x && p.x < safeZone.x + safeZone.w && p.y > safeZone.y && p.y < safeZone.y + safeZone.h;
+let spawns = { small: [], big: { x: 0, y: 0 } };
+
+function covers(o, x, y, sight) {
+  if (o.shape === "rect") return x >= o.x && x <= o.x + o.w && y >= o.y && y <= o.y + o.h;
+  return Math.hypot(x - o.x, y - o.y) < (sight ? o.sr : o.r);
+}
+function buildGrids() {
+  for (let j = 0; j < FH; j++) for (let i = 0; i < FW; i++) {
+    const x = (i + 0.5) * FINE, y = (j + 0.5) * FINE;
+    moveGrid[j * FW + i] = obstacles.some(o => o.move && covers(o, x, y, false)) ? 1 : 0;
+    seeGrid[j * FW + i] = obstacles.some(o => o.sight && covers(o, x, y, true)) ? 1 : 0;
+    moveGridBig[j * FW + i] = moveGrid[j * FW + i] || (safeZone && covers(safeZone, x, y, false)) ? 1 : 0;
+  }
+  for (let cy = 0; cy < ROWS; cy++) for (let cx = 0; cx < COLS; cx++) {
+    const px = cx * CELL, py = cy * CELL;
+    blocked[cy * COLS + cx] = obstacles.some(o => {
+      if (!o.move) return false;
+      if (o.shape === "rect") return px < o.x + o.w && px + CELL > o.x && py < o.y + o.h && py + CELL > o.y;
+      const nx = clamp(o.x, px, px + CELL), ny = clamp(o.y, py, py + CELL);
+      return Math.hypot(o.x - nx, o.y - ny) < o.r - 2;
+    }) ? 1 : 0;
+    const sz = safeZone;
+    blockedBig[cy * COLS + cx] = blocked[cy * COLS + cx] || (sz && px < sz.x + sz.w && px + CELL > sz.x && py < sz.y + sz.h && py + CELL > sz.y) ? 1 : 0;
+  }
+}
+const moveSolidAt = (x, y) => (x < 0 || y < 0 || x >= W || y >= H) ? true : moveGrid[((y / FINE) | 0) * FW + ((x / FINE) | 0)] === 1;
+const moveSolidBigAt = (x, y) => (x < 0 || y < 0 || x >= W || y >= H) ? true : moveGridBig[((y / FINE) | 0) * FW + ((x / FINE) | 0)] === 1;
+const seeSolidAt = (x, y) => (x < 0 || y < 0 || x >= W || y >= H) ? true : seeGrid[((y / FINE) | 0) * FW + ((x / FINE) | 0)] === 1;
+
+function los(x1, y1, x2, y2, solid) {
+  const d = Math.hypot(x2 - x1, y2 - y1), n = Math.ceil(d / 5);
+  for (let i = 1; i < n; i++) { const t = i / n; if (solid(x1 + (x2 - x1) * t, y1 + (y2 - y1) * t)) return false; }
+  return true;
+}
+function losWide(x1, y1, x2, y2, r, solid = moveSolidAt) {
+  const d = Math.hypot(x2 - x1, y2 - y1) || 1;
+  const nx = -(y2 - y1) / d * r, ny = (x2 - x1) / d * r;
+  return los(x1, y1, x2, y2, solid) && los(x1 + nx, y1 + ny, x2 + nx, y2 + ny, solid) && los(x1 - nx, y1 - ny, x2 - nx, y2 - ny, solid);
+}
+
+// =====================================================================
+//  ГЕНЕРАТОР УРОВНЕЙ (по рисунку: домик маленьких, дом Большого,
+//  здание с комнатами, ёлки, камни, кусты, лужа)
+// =====================================================================
+function generateLevel(lv, attempt) {
+  const rng = mulberry32(lv * 7919 + attempt * 104729 + 13);
+  const ri = (a, b) => a + Math.floor(rng() * (b - a + 1));
+  const items = [], occ = new Uint8Array(COLS * ROWS);
+  const inb = (x, y) => x >= 0 && y >= 0 && x < COLS && y < ROWS;
+  const reserve = (x, y, w, h) => { for (let yy = y; yy < y + h; yy++) for (let xx = x; xx < x + w; xx++) if (inb(xx, yy)) occ[yy * COLS + xx] = 1; };
+  const isFree = (x, y, w, h, m) => {
+    for (let yy = y; yy < y + h; yy++) for (let xx = x; xx < x + w; xx++) if (!inb(xx, yy)) return false;
+    for (let yy = y - m; yy < y + h + m; yy++) for (let xx = x - m; xx < x + w + m; xx++) if (inb(xx, yy) && occ[yy * COLS + xx]) return false;
+    return true;
+  };
+  const inGap = (v, gaps) => gaps.some(g => v >= g && v < g + 2);
+  const hWall = (x1, x2, y, kind, gaps = []) => {
+    let run = null;
+    for (let x = x1; x <= x2 + 1; x++) {
+      const gap = x > x2 || inGap(x, gaps);
+      if (!gap) { if (run === null) run = x; }
+      else if (run !== null) { items.push({ t: "wall", x: run, y, w: x - run, h: 1, kind }); run = null; }
+    }
+  };
+  const vWall = (x, y1, y2, kind, gaps = []) => {
+    let run = null;
+    for (let y = y1; y <= y2 + 1; y++) {
+      const gap = y > y2 || inGap(y, gaps);
+      if (!gap) { if (run === null) run = y; }
+      else if (run !== null) { items.push({ t: "wall", x, y: run, w: 1, h: y - run, kind }); run = null; }
+    }
+  };
+
+  // Домик маленьких (SMALL)
+  hWall(0, 6, 0, "home"); hWall(0, 6, 5, "home", [2]); vWall(0, 1, 4, "home"); vWall(6, 1, 4, "home", [2]);
+  items.push({ t: "floor", x: 1, y: 1, w: 5, h: 4, kind: "wood" });
+  items.push({ t: "decor", kind: "bed", x: 1, y: 1, w: 1, h: 1, c: "#7cc6fe" });
+  items.push({ t: "decor", kind: "bed", x: 3, y: 1, w: 1, h: 1, c: "#ffb86b" });
+  items.push({ t: "decor", kind: "bed", x: 5, y: 1, w: 1, h: 1, c: "#c3a6ff" });
+  const small = [[1.5, 3.5], [2.5, 2.5], [3.5, 3.5], [4.5, 2.5], [5.5, 3.5]];
+  items.push({ t: "safe", x: 0, y: 0, w: 7, h: 6 });
+  reserve(0, 0, 9, 8);
+
+  // Дом Большого (BIG)
+  hWall(0, 5, 14, "bighome", [2]); hWall(0, 5, 19, "bighome"); vWall(0, 15, 18, "bighome"); vWall(5, 15, 18, "bighome", [16]);
+  items.push({ t: "floor", x: 1, y: 15, w: 4, h: 4, kind: "dark" });
+  items.push({ t: "decor", kind: "bigbed", x: 1, y: 17, w: 2, h: 2 });
+  const bigPt = [3, 16];
+  reserve(0, 12, 8, 8);
+
+  // Здание с комнатами
+  const bw = ri(9, 11), bx = COLS - bw, by = ri(0, 2), bh = ri(13, ROWS - by), bb = by + bh - 1;
+  const hy = by + Math.floor(bh / 2) + ri(-1, 1);
+  const topDoor = by > 0 ? ri(bx + 2, COLS - 4) : -10;
+  const botDoor = bb < ROWS - 1 ? ri(bx + 2, COLS - 4) : -10;
+  hWall(bx, COLS - 1, by, "build", by > 0 ? [topDoor] : []);
+  hWall(bx, COLS - 1, bb, "build", bb < ROWS - 1 ? [botDoor] : []);
+  vWall(bx, by + 1, bb - 1, "build", [ri(by + 2, hy - 3), ri(hy + 2, bb - 3)]);
+  vWall(COLS - 1, by + 1, bb - 1, "build");
+  const hDoor = ri(bx + 2, COLS - 4);
+  hWall(bx + 1, COLS - 2, hy, "build", [hDoor]);
+  const tryV = (y1, y2, doorX) => {
+    if (rng() < 0.35 || y2 - y1 + 1 < 4) return;
+    const vx = ri(bx + 3, COLS - 4);
+    if ([doorX, doorX + 1, hDoor, hDoor + 1].includes(vx)) return;
+    vWall(vx, y1, y2, "build", [ri(y1, y2 - 1)]);
+  };
+  tryV(by + 1, hy - 1, topDoor);
+  tryV(hy + 1, bb - 1, botDoor);
+  items.push({ t: "floor", x: bx + 1, y: by + 1, w: bw - 2, h: bh - 2, kind: "tile" });
+  reserve(bx - 3, by - 2, bw + 3, bh + 4);
+
+  // Природа
+  if (rng() < 0.5 || lv % 3 === 0) {
+    for (let k = 0; k < 80; k++) {
+      const w = ri(3, 4), h = 2, x = ri(1, COLS - w - 1), y = ri(1, ROWS - h - 1);
+      if (isFree(x, y, w, h, 2)) { items.push({ t: "pond", x, y, w, h }); reserve(x, y, w, h); break; }
+    }
+  }
+  const place = (n, make, w = 1, h = 1, m = 2) => {
+    let placed = 0;
+    for (let k = 0; k < 500 && placed < n; k++) {
+      const x = ri(0, COLS - w), y = ri(0, ROWS - h);
+      if (isFree(x, y, w, h, m)) { items.push(make(x, y)); reserve(x, y, w, h); placed++; }
+    }
+  };
+  place(Math.min(15, 7 + lv), (x, y) => ({ t: "tree", x, y, v: rng() < 0.6 ? "pine" : "round", s: 0.9 + rng() * 0.25 }));
+  place(ri(2, 4), (x, y) => ({ t: "rock", x, y, s: 0.9 + rng() * 0.3 }));
+  place(ri(3, 5), (x, y) => ({ t: "bush", x, y }), 2, 2, 0);
+
+  // Зеркалим карту для разнообразия (1-й уровень — как на рисунке)
+  const fx = lv > 1 && rng() < 0.5, fy = lv > 1 && rng() < 0.5;
+  const tx = (x, w) => fx ? COLS - x - w : x, ty = (y, h) => fy ? ROWS - y - h : y;
+  for (const it of items) { const w = it.w || 1, h = it.h || 1; if (it.t === "bush") { it.x = tx(it.x, 2); it.y = ty(it.y, 2); } else { it.x = tx(it.x, w); it.y = ty(it.y, h); } }
+  const tp = ([x, y]) => [fx ? COLS - x : x, fy ? ROWS - y : y];
+  const fl = [];
+  for (let i = 0; i < 60; i++) fl.push({ x: rng() * W, y: rng() * H, c: ["#fff27a", "#ff9ecb", "#ffffff", "#b5e3ff"][ri(0, 3)] });
+  return { items, small: small.map(tp), big: tp(bigPt), flowers: fl };
+}
+
+function applyWorld(gen) {
+  obstacles = []; bushes = []; floors = []; decor = []; trees = []; safeZone = null;
+  flowers = gen.flowers;
+  for (const it of gen.items) {
+    const px = it.x * CELL, py = it.y * CELL;
+    if (it.t === "wall") obstacles.push({ shape: "rect", x: px, y: py, w: it.w * CELL, h: it.h * CELL, move: true, sight: true, kind: it.kind });
+    else if (it.t === "pond") obstacles.push({ shape: "rect", x: px, y: py, w: it.w * CELL, h: it.h * CELL, move: true, sight: false, kind: "pond" });
+    else if (it.t === "tree") { const t = { shape: "circle", x: px + 16, y: py + 16, r: 12, sr: 15, move: true, sight: true, kind: "tree", v: it.v, s: it.s }; obstacles.push(t); trees.push(t); }
+    else if (it.t === "rock") obstacles.push({ shape: "circle", x: px + 16, y: py + 16, r: 16, sr: 16, move: true, sight: true, kind: "rock", s: it.s });
+    else if (it.t === "bush") bushes.push({ x: px + CELL, y: py + CELL, r: 30 });
+    else if (it.t === "safe") safeZone = { shape: "rect", x: px, y: py, w: it.w * CELL, h: it.h * CELL };
+    else if (it.t === "floor") floors.push({ x: px, y: py, w: it.w * CELL, h: it.h * CELL, kind: it.kind });
+    else if (it.t === "decor") decor.push({ x: px, y: py, w: it.w * CELL, h: it.h * CELL, kind: it.kind, c: it.c });
+  }
+  spawns = { small: gen.small.map(([x, y]) => ({ x: x * CELL, y: y * CELL })), big: { x: gen.big[0] * CELL, y: gen.big[1] * CELL } };
+  buildGrids();
+}
+
+function connectivity() {
+  const N = COLS * ROWS, seen = new Uint8Array(N);
+  const s = cellIdx(spawns.small[0].x, spawns.small[0].y);
+  if (blocked[s]) return { ok: false, seen };
+  const q = [s]; seen[s] = 1;
+  while (q.length) {
+    const i = q.pop(), cx = i % COLS, cy = (i / COLS) | 0;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = cx + dx, ny = cy + dy;
+      if (nx < 0 || ny < 0 || nx >= COLS || ny >= ROWS) continue;
+      const j = ny * COLS + nx;
+      if (!blocked[j] && !seen[j]) { seen[j] = 1; q.push(j); }
+    }
+  }
+  let ok = true;
+  for (let i = 0; i < N; i++) if (!blocked[i] && !seen[i]) { ok = false; break; }
+  return { ok, seen };
+}
+
+function loadLevel(lv) {
+  let res = null;
+  for (let attempt = 0; attempt < 40; attempt++) {
+    applyWorld(generateLevel(lv, attempt));
+    res = connectivity();
+    if (res.ok) return;
+  }
+  // запасной вариант: закрываем недоступные «карманы» живой изгородью
+  for (let i = 0; i < COLS * ROWS; i++) if (!blocked[i] && !res.seen[i]) {
+    obstacles.push({ shape: "rect", x: (i % COLS) * CELL, y: ((i / COLS) | 0) * CELL, w: CELL, h: CELL, move: true, sight: true, kind: "hedge" });
+  }
+  buildGrids();
+}
+
+// ---------- Поиск пути (A*) ----------
+function cellIdx(x, y) { return clamp(Math.floor(y / CELL), 0, ROWS - 1) * COLS + clamp(Math.floor(x / CELL), 0, COLS - 1); }
+function nearestFree(idx, grid = blocked) {
+  if (!grid[idx]) return idx;
+  const seen = new Uint8Array(COLS * ROWS), q = [idx];
+  seen[idx] = 1;
+  for (let h = 0; h < q.length; h++) {
+    const i = q[h];
+    if (!grid[i]) return i;
+    const cx = i % COLS, cy = (i / COLS) | 0;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = cx + dx, ny = cy + dy;
+      if (nx < 0 || ny < 0 || nx >= COLS || ny >= ROWS) continue;
+      const j = ny * COLS + nx;
+      if (!seen[j]) { seen[j] = 1; q.push(j); }
+    }
+  }
+  return idx;
+}
+const DIRS = [[1, 0, 1], [-1, 0, 1], [0, 1, 1], [0, -1, 1], [1, 1, 1.414], [1, -1, 1.414], [-1, 1, 1.414], [-1, -1, 1.414]];
+function findPath(sx, sy, gx, gy, extraCost, grid = blocked) {
+  const N = COLS * ROWS;
+  const s = nearestFree(cellIdx(sx, sy), grid), g = nearestFree(cellIdx(gx, gy), grid);
+  const gs = new Float32Array(N).fill(Infinity), fs = new Float32Array(N).fill(Infinity);
+  const came = new Int32Array(N).fill(-1), closed = new Uint8Array(N);
+  const gcx = g % COLS, gcy = (g / COLS) | 0;
+  const h = i => { const dx = Math.abs(i % COLS - gcx), dy = Math.abs(((i / COLS) | 0) - gcy); return Math.max(dx, dy) + 0.414 * Math.min(dx, dy); };
+  const open = [s];
+  gs[s] = 0; fs[s] = h(s);
+  while (open.length) {
+    let bi = 0;
+    for (let k = 1; k < open.length; k++) if (fs[open[k]] < fs[open[bi]]) bi = k;
+    const cur = open[bi];
+    open[bi] = open[open.length - 1]; open.pop();
+    if (closed[cur]) continue;
+    if (cur === g) break;
+    closed[cur] = 1;
+    const cx = cur % COLS, cy = (cur / COLS) | 0;
+    for (const [dx, dy, c] of DIRS) {
+      const nx = cx + dx, ny = cy + dy;
+      if (nx < 0 || ny < 0 || nx >= COLS || ny >= ROWS) continue;
+      const j = ny * COLS + nx;
+      if (grid[j] || closed[j]) continue;
+      if (dx && dy && (grid[cy * COLS + nx] || grid[ny * COLS + cx])) continue;
+      const ng = gs[cur] + c + (extraCost ? extraCost((nx + 0.5) * CELL, (ny + 0.5) * CELL) : 0);
+      if (ng < gs[j]) { gs[j] = ng; came[j] = cur; fs[j] = ng + h(j); open.push(j); }
+    }
+  }
+  if (g !== s && came[g] === -1) return [];
+  const pts = [];
+  let c = g;
+  while (c !== s && c !== -1) { pts.push({ x: (c % COLS + 0.5) * CELL, y: (((c / COLS) | 0) + 0.5) * CELL }); c = came[c]; }
+  pts.reverse();
+  if (pts.length && !(grid === blockedBig ? moveSolidBigAt : moveSolidAt)(gx, gy)) pts[pts.length - 1] = { x: gx, y: gy };
+  return pts;
+}
+
+// ---------- Движение ----------
+function resolveWalls(e) {
+  for (const o of obstacles) {
+    if (!o.move) continue;
+    if (o.shape === "rect") {
+      const nx = clamp(e.x, o.x, o.x + o.w), ny = clamp(e.y, o.y, o.y + o.h);
+      const dx = e.x - nx, dy = e.y - ny, d2 = dx * dx + dy * dy;
+      if (d2 >= e.r * e.r) continue;
+      if (d2 > 1e-6) { const d = Math.sqrt(d2); e.x += dx / d * (e.r - d); e.y += dy / d * (e.r - d); }
+      else {
+        const l = e.x - o.x, r = o.x + o.w - e.x, t = e.y - o.y, b = o.y + o.h - e.y, m = Math.min(l, r, t, b);
+        if (m === l) e.x = o.x - e.r; else if (m === r) e.x = o.x + o.w + e.r; else if (m === t) e.y = o.y - e.r; else e.y = o.y + o.h + e.r;
+      }
+    } else {
+      const dx = e.x - o.x, dy = e.y - o.y, d = Math.hypot(dx, dy) || 0.01, min = e.r + o.r;
+      if (d < min) { e.x += dx / d * (min - d); e.y += dy / d * (min - d); }
+    }
+  }
+  if (e.isBig && safeZone) {
+    const o = safeZone, nx = clamp(e.x, o.x, o.x + o.w), ny = clamp(e.y, o.y, o.y + o.h);
+    const dx = e.x - nx, dy = e.y - ny, d2 = dx * dx + dy * dy;
+    if (d2 < e.r * e.r) {
+      if (d2 > 1e-6) { const d = Math.sqrt(d2); e.x += dx / d * (e.r - d); e.y += dy / d * (e.r - d); }
+      else {
+        const l = e.x - o.x, r = o.x + o.w - e.x, t = e.y - o.y, b = o.y + o.h - e.y, m = Math.min(l, r, t, b);
+        if (m === l) e.x = o.x - e.r; else if (m === r) e.x = o.x + o.w + e.r; else if (m === t) e.y = o.y - e.r; else e.y = o.y + o.h + e.r;
+      }
+    }
+  }
+  e.x = clamp(e.x, e.r, W - e.r);
+  e.y = clamp(e.y, e.r, H - e.r);
+}
+function moveEntity(e, vx, vy, dt) { e.x += vx * dt; e.y += vy * dt; resolveWalls(e); }
+
+function inCone(x, y) {
+  const dx = x - big.x, dy = y - big.y, d = Math.hypot(dx, dy);
+  return d < CFG.VISION_RANGE + 25 && angDiff(big.dir, Math.atan2(dy, dx)) < CFG.VISION_HALF + 0.2;
+}
+function clearTo(e, x, y, avoidCone) {
+  if (!losWide(e.x, e.y, x, y, e.r - 1, e.isBig ? moveSolidBigAt : moveSolidAt)) return false;
+  if (avoidCone && big.stun <= 0) for (let t = 0.2; t <= 1.001; t += 0.2) if (inCone(e.x + (x - e.x) * t, e.y + (y - e.y) * t)) return false;
+  return true;
+}
+function steerTo(e, gx, gy, speed, dt, avoidCone) {
+  e.repath -= dt;
+  let tx = gx, ty = gy;
+  if (!clearTo(e, gx, gy, avoidCone)) {
+    if (e.repath <= 0 || !e.path.length) {
+      e.path = findPath(e.x, e.y, gx, gy, avoidCone ? ((x, y) => (inCone(x, y) ? 20 : 0)) : null, e.isBig ? blockedBig : blocked);
+      e.repath = rand(0.3, 0.45);
+    }
+    while (e.path.length && Math.hypot(e.path[0].x - e.x, e.path[0].y - e.y) < 8) e.path.shift();
+    while (e.path.length > 1 && clearTo(e, e.path[1].x, e.path[1].y, avoidCone)) e.path.shift();
+    if (e.path.length) { tx = e.path[0].x; ty = e.path[0].y; }
+  } else e.path = [];
+  const dx = tx - e.x, dy = ty - e.y, d = Math.hypot(dx, dy);
+  if (d < 1.5) return false;
+  const sp = Math.min(speed, d / dt);
+  moveEntity(e, dx / d * sp, dy / d * sp, dt);
+  e.moveDir = Math.atan2(dy, dx);
+  e.walk += dt * sp / 14;
+  return true;
+}
+function randomFreePoint() {
+  for (let k = 0; k < 300; k++) {
+    const cx = Math.floor(Math.random() * COLS), cy = Math.floor(Math.random() * ROWS);
+    if (blockedBig[cy * COLS + cx]) continue;
+    const p = { x: (cx + 0.5) * CELL, y: (cy + 0.5) * CELL };
+    if (dist(p, big) > 150) return p;
+  }
+  return { x: W / 2, y: H / 2 };
+}
+const inBush = l => CFG.BUSH_HIDES && bushes.some(b => Math.hypot(l.x - b.x, l.y - b.y) < b.r - 6);
+
+// =====================================================================
+//  ПЕРСОНАЖИ
+// =====================================================================
+const LOOKS = [
+  { shirt: "#3b82f6", hair: "#6b3e1f" }, { shirt: "#22c55e", hair: "#f2c14e" },
+  { shirt: "#f59e0b", hair: "#2b2b2b" }, { shirt: "#a855f7", hair: "#c2410c" },
+  { shirt: "#ec4899", hair: "#5b3a29" }
+];
+
+let littles = [], big = null, texts = [], particles = [];
+let botAttackCd = 0, prevToken = null;
+let mode = "menu", numPlayers = 1, level = 1, attackToken = null, muted = false, shake = 0;
+let stats = { hugs: 0, time: 0 };
+let buttons = [];
+
+function makeLittle(i, kind, botIndex, controls) {
+  const sp = spawns.small[i];
+  return {
+    id: i, x: sp.x, y: sp.y, r: 11, kind, botIndex, look: LOOKS[i], controls,
+    state: "ok", downTimer: 0, rescue: 0, invuln: 0, kx: 0, ky: 0,
+    path: [], repath: 0, dir: Math.PI / 2, moveDir: 0, walk: 0, moving: false, hugCd: 0,
+    task: "idle", fleeT: 0, fleeGoal: null, fleeRe: 0, lurkT: rand(0, 2), offset: rand(-0.5, 0.5), tokenT: 0
+  };
+}
+function resetWorld(n) {
+  numPlayers = n;
+  loadLevel(level);
+  littles = [];
+  const p1 = n === 1
+    ? { up: ["KeyW", "ArrowUp"], down: ["KeyS", "ArrowDown"], left: ["KeyA", "ArrowLeft"], right: ["KeyD", "ArrowRight"] }
+    : { up: ["KeyW"], down: ["KeyS"], left: ["KeyA"], right: ["KeyD"] };
+  littles.push(makeLittle(0, "player", -1, p1));
+  if (n === 2) littles.push(makeLittle(1, "player", -1, { up: ["ArrowUp"], down: ["ArrowDown"], left: ["ArrowLeft"], right: ["ArrowRight"] }));
+  let bi = 0;
+  while (littles.length < 5) { littles.push(makeLittle(littles.length, "bot", bi, null)); bi++; }
+  const maxHp = Math.min(CFG.BIG_HP_MAX, CFG.BIG_HP + (level - 1) * CFG.HP_PER_LEVEL);
+  big = {
+    isBig: true, x: spawns.big.x, y: spawns.big.y, r: 22, dir: -Math.PI / 2, hp: maxHp, maxHp,
+    state: "look", timer: 4, lookSign: 1, lastSeen: null, goal: null, patrolT: 0,
+    path: [], repath: 0, moveDir: 0, walk: 0, moving: false, stun: 0, stunFace: 0, pushCd: 0, hugCd: 0, flash: 0
+  };
+  texts = []; particles = []; attackToken = null; prevToken = null; botAttackCd = rand(3, 5); shake = 0; sticks.clear();
+  stats = { hugs: 0, time: 0 };
+}
+function startGame(n) { resetWorld(n); mode = "play"; }
+function nextLevel() { level++; startGame(numPlayers); }
+function toMenu() { resetWorld(numPlayers); mode = "menu"; }
+function changeLevel(d) { level = clamp(level + d, 1, 99); resetWorld(numPlayers); }
+
+// =====================================================================
+//  ЗВУК
+// =====================================================================
+let actx = null;
+function initAudio() {
+  if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { actx = null; } }
+  else if (actx.state === "suspended") actx.resume();
+}
+function beep(f, dur, type = "square", vol = 0.06, delay = 0) {
+  if (!actx || muted) return;
+  const t0 = actx.currentTime + delay;
+  const o = actx.createOscillator(), g = actx.createGain();
+  o.type = type; o.frequency.setValueAtTime(f, t0);
+  g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  o.connect(g); g.connect(actx.destination);
+  o.start(t0); o.stop(t0 + dur + 0.02);
+}
+const SFX = {
+  push: () => { beep(180, 0.08, "sawtooth", 0.08); beep(90, 0.25, "sawtooth", 0.08, 0.05); },
+  hug: () => { beep(660, 0.1, "triangle", 0.09); beep(880, 0.15, "triangle", 0.09, 0.09); },
+  rescue: () => { beep(523, 0.1, "square", 0.05); beep(784, 0.18, "square", 0.05, 0.1); },
+  out: () => { beep(330, 0.2, "triangle", 0.08); beep(220, 0.35, "triangle", 0.08, 0.18); },
+  alert: () => beep(990, 0.07, "square", 0.04),
+  win: () => [523, 659, 784, 1047].forEach((f, i) => beep(f, 0.22, "triangle", 0.08, i * 0.15)),
+  lose: () => [392, 330, 262].forEach((f, i) => beep(f, 0.3, "triangle", 0.08, i * 0.25))
+};
+
+// =====================================================================
+//  УПРАВЛЕНИЕ: клавиатура, касания (джойстики), геймпад
+// =====================================================================
+const keys = new Set();
+window.addEventListener("keydown", e => {
+  if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"].includes(e.code)) e.preventDefault();
+  initAudio();
+  if (!keys.has(e.code)) onKey(e.code);
+  keys.add(e.code);
+});
+window.addEventListener("keyup", e => keys.delete(e.code));
+window.addEventListener("blur", () => { keys.clear(); sticks.clear(); });
+window.addEventListener("contextmenu", e => e.preventDefault());
+
+function onKey(code) {
+  if (code === "KeyM") { muted = !muted; return; }
+  if (code === "KeyL") { setLang(LANGS[(LANGS.indexOf(lang) + 1) % LANGS.length]); return; }
+  if (mode === "menu") {
+    if (code === "Digit1" || code === "Numpad1") startGame(1);
+    if (code === "Digit2" || code === "Numpad2") startGame(2);
+    if (code === "ArrowLeft") changeLevel(-1);
+    if (code === "ArrowRight") changeLevel(1);
+  } else if (mode === "play") {
+    if (code === "KeyP" || code === "Escape") mode = "pause";
+  } else if (mode === "pause") {
+    if (code === "KeyP" || code === "Escape") mode = "play";
+    if (code === "KeyQ") toMenu();
+  } else if (mode === "win") {
+    if (code === "Enter" || code === "Space") nextLevel();
+    if (code === "Escape" || code === "KeyQ") toMenu();
+  } else if (mode === "lose") {
+    if (code === "Enter" || code === "Space") startGame(numPlayers);
+    if (code === "Escape" || code === "KeyQ") toMenu();
+  }
+}
+
+// Касания: левая половина — игрок 1, правая — игрок 2 (в игре на одного — весь экран)
+const sticks = new Map();
+const shortName = l => l.kind === "player" ? (numPlayers === 1 ? L().me : String(l.id + 1)) : L().bots[l.botIndex];
+const STICK_R = 55;
+function toGame(e) {
+  const rect = canvas.getBoundingClientRect();
+  return { x: (e.clientX - rect.left) * W / rect.width, y: (e.clientY - rect.top) * H / rect.height };
+}
+canvas.addEventListener("pointerdown", e => {
+  e.preventDefault();
+  initAudio();
+  const p = toGame(e);
+  for (const b of buttons) if (p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h) { b.act(); return; }
+  if (mode === "play" && e.pointerType !== "mouse") {
+    const player = numPlayers === 2 && p.x > W / 2 ? 1 : 0;
+    for (const [id, s] of sticks) if (s.player === player) sticks.delete(id);
+    sticks.set(e.pointerId, { player, ox: p.x, oy: p.y, x: p.x, y: p.y });
+    try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* ok */ }
+  } else if (mode === "pause") mode = "play";
+});
+canvas.addEventListener("pointermove", e => {
+  const s = sticks.get(e.pointerId);
+  if (!s) return;
+  const p = toGame(e);
+  s.x = p.x; s.y = p.y;
+  const dx = s.x - s.ox, dy = s.y - s.oy, d = Math.hypot(dx, dy);
+  if (d > STICK_R * 1.6) { s.ox = s.x - dx / d * STICK_R * 1.6; s.oy = s.y - dy / d * STICK_R * 1.6; }  // джойстик «едет» за пальцем
+});
+const endStick = e => sticks.delete(e.pointerId);
+canvas.addEventListener("pointerup", endStick);
+canvas.addEventListener("pointercancel", endStick);
+
+// Геймпады
+let pads = [];
+const padPrev = [];
+function pollPads() {
+  const list = navigator.getGamepads ? Array.from(navigator.getGamepads()).filter(Boolean) : [];
+  pads = list.map((p, i) => {
+    const btn = p.buttons.map(b => b.pressed);
+    const prev = padPrev[i] || [];
+    for (const b of [0, 1, 2, 3, 9, 14, 15]) if (btn[b] && !prev[b]) onPadButton(b);
+    padPrev[i] = btn;
+    let x = p.axes[0] || 0, y = p.axes[1] || 0;
+    if (Math.hypot(x, y) < 0.25) { x = 0; y = 0; }
+    if (btn[14]) x = -1; if (btn[15]) x = 1; if (btn[12]) y = -1; if (btn[13]) y = 1;
+    return { x, y };
+  });
+}
+function onPadButton(b) {
+  initAudio();
+  if (mode === "menu") {
+    if (b === 0) startGame(1);
+    if (b === 2 || b === 3) startGame(2);
+    if (b === 14) changeLevel(-1);
+    if (b === 15) changeLevel(1);
+  } else if (mode === "play") { if (b === 9) mode = "pause"; }
+  else if (mode === "pause") { if (b === 9 || b === 0) mode = "play"; if (b === 1) toMenu(); }
+  else if (mode === "win") { if (b === 0 || b === 9) nextLevel(); if (b === 1) toMenu(); }
+  else if (mode === "lose") { if (b === 0 || b === 9) startGame(numPlayers); if (b === 1) toMenu(); }
+}
+
+function inputFor(l) {
+  const pi = l.id;
+  let x = 0, y = 0;
+  const c = l.controls, pressed = arr => arr.some(k => keys.has(k));
+  x += (pressed(c.right) ? 1 : 0) - (pressed(c.left) ? 1 : 0);
+  y += (pressed(c.down) ? 1 : 0) - (pressed(c.up) ? 1 : 0);
+  pads.forEach((p, i) => { if (numPlayers === 1 || i === pi) { x += p.x; y += p.y; } });
+  for (const s of sticks.values()) {
+    if (s.player !== pi) continue;
+    const dx = (s.x - s.ox) / STICK_R, dy = (s.y - s.oy) / STICK_R;
+    if (Math.hypot(dx, dy) > 0.15) { x += dx; y += dy; }
+  }
+  const d = Math.hypot(x, y);
+  if (d > 1) { x /= d; y /= d; }
+  return { x, y };
+}
+
+// =====================================================================
+//  ЛОГИКА
+// =====================================================================
+function popText(x, y, text, color) { texts.push({ x, y, text, color, t: 0 }); }
+function burst(x, y, kind, color, n) {
+  for (let i = 0; i < n; i++) {
+    const a = rand(0, TAU), s = rand(40, 140);
+    particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - (kind === "heart" ? 60 : 0), t: 0, life: rand(0.6, 1.1), kind, color });
+  }
+}
+function canSee(l) {
+  if (inSafe(l)) return false;          // в домике Большой не видит и не трогает
+  const dx = l.x - big.x, dy = l.y - big.y, d = Math.hypot(dx, dy);
+  const diff = angDiff(big.dir, Math.atan2(dy, dx));
+  if (d < big.r + l.r + 22 && diff < 1.9) return true;
+  if (d > 45 && inBush(l)) return false;
+  return d < CFG.VISION_RANGE && diff < CFG.VISION_HALF && los(big.x, big.y, l.x, l.y, seeSolidAt);
+}
+function push(t) {
+  const a = Math.atan2(t.y - big.y, t.x - big.x);
+  t.state = "down"; t.downTimer = CFG.DOWN_TIME; t.rescue = 0; t.path = [];
+  t.kx = Math.cos(a) * 360; t.ky = Math.sin(a) * 360;
+  if (attackToken === t) attackToken = null;
+  big.pushCd = 0.9;
+  shake = 0.25;
+  popText(t.x, t.y - 40, L().bang, "#ffcc00");
+  burst(t.x, t.y, "dust", "#e5d3a1", 10);
+  SFX.push();
+}
+function hug(l, a) {
+  big.hp--; big.hugCd = 1.4; big.stun = CFG.HUG_STUN; big.stunFace = a; big.flash = 0.3;
+  big.state = "chase"; big.lastSeen = { x: l.x, y: l.y };
+  l.hugCd = 1.5; l.kx = Math.cos(a) * 200; l.ky = Math.sin(a) * 200;
+  stats.hugs++;
+  popText(big.x, big.y - 70, L().hug, "#ff6fa8");
+  burst(big.x, big.y - 30, "heart", "#ff4d8d", 12);
+  SFX.hug();
+  if (l.kind === "bot") {
+    if (attackToken === l) attackToken = null;
+    l.lurkT = rand(3, 6); l.fleeT = 1.3; l.fleeGoal = null;
+  }
+  if (big.hp <= 0) { mode = "win"; SFX.win(); burst(big.x, big.y - 30, "heart", "#ff4d8d", 40); }
+}
+
+function updatePlayers(dt) {
+  for (const l of littles) {
+    if (l.kind !== "player") continue;
+    l.moving = false;
+    if (l.state !== "ok") continue;
+    const v = inputFor(l), m = Math.hypot(v.x, v.y);
+    if (m > 0.05) {
+      moveEntity(l, v.x * CFG.PLAYER_SPEED, v.y * CFG.PLAYER_SPEED, dt);
+      l.dir = Math.atan2(v.y, v.x);
+      l.walk += dt * 12 * m;
+      l.moving = true;
+    }
+  }
+}
+
+function fleePoint(b) {
+  if (safeZone) {                        // домик рядом — бежим в домик
+    const home = { x: safeZone.x + safeZone.w / 2, y: safeZone.y + safeZone.h / 2 };
+    if (dist(b, home) < 260) return home;
+  }
+  const away = Math.atan2(b.y - big.y, b.x - big.x);
+  for (const k of [0, 0.6, -0.6, 1.2, -1.2, 1.8, -1.8]) {
+    const a = away + k;
+    const x = clamp(b.x + Math.cos(a) * 140, 20, W - 20), y = clamp(b.y + Math.sin(a) * 140, 20, H - 20);
+    if (!moveSolidAt(x, y) && !inCone(x, y)) return { x, y };
+  }
+  return { x: clamp(b.x + Math.cos(away) * 140, 20, W - 20), y: clamp(b.y + Math.sin(away) * 140, 20, H - 20) };
+}
+
+// Боты: 1) спасают упавших (сначала игроков), 2) убегают, если их видят,
+//       3) по очереди подкрадываются сзади, остальные ждут неподалёку
+function updateBots(dt) {
+  const bots = littles.filter(l => l.kind === "bot" && l.state === "ok");
+  const downed = littles.filter(l => l.state === "down")
+    .sort((a, b) => ((a.kind === "player" ? 0 : 1) - (b.kind === "player" ? 0 : 1)) || (a.downTimer - b.downTimer));
+  const free = new Set(bots), rescueTarget = new Map();
+  for (const d of downed) {
+    let best = null, bd = Infinity;
+    for (const b of free) { const dd = dist(b, d); if (dd < bd) { bd = dd; best = b; } }
+    if (best) { free.delete(best); rescueTarget.set(best, d); }
+  }
+  if (attackToken && (attackToken.state !== "ok" || !free.has(attackToken))) attackToken = null;
+
+  for (const l of littles) if (l.kind === "bot") l.moving = false;
+  botAttackCd -= dt;
+  for (const b of bots) {
+    b.fleeT = Math.max(0, b.fleeT - dt);
+    b.lurkT = Math.max(0, b.lurkT - dt);
+    b.fleeRe -= dt;
+    const seen = big.stun <= 0 && canSee(b);
+    const speed = CFG.BOT_SPEED;
+    let moved = false;
+
+    if (rescueTarget.has(b) && !(seen && dist(b, big) < 90)) {
+      const d = rescueTarget.get(b);
+      b.task = "rescue";
+      if (dist(b, d) > b.r + d.r + 4) moved = steerTo(b, d.x, d.y, speed, dt, false);
+    } else {
+      if (seen && b.fleeT <= 0) { b.fleeT = 1.0; b.fleeGoal = null; }
+      if (seen) b.fleeT = Math.max(b.fleeT, 0.6);
+      if (b.fleeT > 0) {
+        b.task = "flee";
+        if (attackToken === b) { attackToken = null; b.lurkT = rand(3, 6); }
+        if (!b.fleeGoal || b.fleeRe <= 0 || dist(b, b.fleeGoal) < 15) { b.fleeGoal = fleePoint(b); b.fleeRe = 0.5; }
+        moved = steerTo(b, b.fleeGoal.x, b.fleeGoal.y, speed, dt, false);
+      } else {
+        if (!attackToken && botAttackCd <= 0 && b.lurkT <= 0 && free.has(b)) { attackToken = b; b.tokenT = 8; }
+        const back = big.dir + Math.PI;
+        if (attackToken === b) {
+          b.task = "attack";
+          b.tokenT -= dt;
+          if (b.tokenT <= 0) { attackToken = null; b.lurkT = rand(3, 6); }
+          const a = back + b.offset;
+          const rr = dist(b, big) > 95 ? 75 : big.r + b.r - 3;
+          moved = steerTo(b, big.x + Math.cos(a) * rr, big.y + Math.sin(a) * rr, speed, dt, true);
+        } else {
+          b.task = "lurk";
+          const a = back + b.offset * 2.2;
+          const gx = clamp(big.x + Math.cos(a) * 170, 24, W - 24), gy = clamp(big.y + Math.sin(a) * 170, 24, H - 24);
+          if (Math.hypot(gx - b.x, gy - b.y) > 20) moved = steerTo(b, gx, gy, speed * 0.8, dt, true);
+        }
+      }
+    }
+    b.moving = moved;
+    if (moved) b.dir = turnToward(b.dir, b.moveDir, 10 * dt);
+  }
+  // один бот за раз и с паузой между попытками — чтобы главными героями были игроки
+  if (prevToken && attackToken !== prevToken) botAttackCd = rand(CFG.BOT_ATTACK_PAUSE[0], CFG.BOT_ATTACK_PAUSE[1]);
+  prevToken = attackToken;
+}
+
+function updateBig(dt) {
+  big.flash = Math.max(0, big.flash - dt);
+  big.hugCd = Math.max(0, big.hugCd - dt);
+  big.moving = false;
+  if (big.stun > 0) { big.stun -= dt; big.dir = turnToward(big.dir, big.stunFace, 3.6 * dt); return; }
+  if (big.pushCd > 0) { big.pushCd -= dt; return; }
+
+  const boost = (level - 1) * CFG.CHASE_PER_LEVEL + (big.maxHp - big.hp) * CFG.BIG_SPEED_PER_HIT;
+  let target = null, td = Infinity;
+  for (const l of littles) {
+    if (l.state !== "ok" || l.invuln > 0) continue;
+    if (canSee(l)) { const d = dist(big, l); if (d < td) { td = d; target = l; } }
+  }
+  if (target) {
+    if (big.state !== "chase") { popText(big.x, big.y - 75, "!", "#ff3b30"); SFX.alert(); }
+    big.state = "chase";
+    big.lastSeen = { x: target.x, y: target.y };
+    big.moving = steerTo(big, target.x, target.y, CFG.BIG_CHASE_SPEED + boost, dt, false);
+    big.dir = turnToward(big.dir, Math.atan2(target.y - big.y, target.x - big.x), 7 * dt);
+    if (td < big.r + target.r + 8) push(target);
+    return;
+  }
+  if (big.state === "chase" || big.state === "search") {
+    big.state = "search";
+    big.moving = steerTo(big, big.lastSeen.x, big.lastSeen.y, CFG.BIG_CHASE_SPEED * 0.85 + boost, dt, false);
+    if (big.moving) big.dir = turnToward(big.dir, big.moveDir, 6 * dt);
+    if (!big.moving || dist(big, big.lastSeen) < 10) { big.state = "look"; big.timer = rand(1.5, 2.5); big.lookSign = Math.random() < 0.5 ? -1 : 1; }
+    return;
+  }
+  if (big.state === "look") {
+    big.dir += big.lookSign * 1.7 * dt;
+    big.timer -= dt;
+    if (big.timer <= 0) { big.state = "patrol"; big.goal = randomFreePoint(); big.path = []; big.repath = 0; big.patrolT = 10; }
+    return;
+  }
+  if (!big.goal) { big.goal = randomFreePoint(); big.patrolT = 10; }
+  big.patrolT -= dt;
+  big.moving = steerTo(big, big.goal.x, big.goal.y, CFG.BIG_PATROL_SPEED + boost * 0.5, dt, false);
+  if (big.moving) big.dir = turnToward(big.dir, big.moveDir, 5 * dt);
+  if (!big.moving || dist(big, big.goal) < 12 || big.patrolT <= 0) {
+    big.state = "look"; big.timer = rand(1, 2.2); big.lookSign = Math.random() < 0.5 ? -1 : 1; big.goal = null;
+  }
+}
+
+function separate() {
+  const all = littles.filter(l => l.state !== "out");
+  for (let i = 0; i < all.length; i++) for (let j = i + 1; j < all.length; j++) {
+    const a = all[i], b = all[j];
+    const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 0.01, min = a.r + b.r;
+    if (d >= min) continue;
+    const am = a.state === "ok" ? 1 : 0, bm = b.state === "ok" ? 1 : 0, s = am + bm;
+    if (!s) continue;
+    const o = min - d;
+    a.x -= dx / d * o * am / s; a.y -= dy / d * o * am / s;
+    b.x += dx / d * o * bm / s; b.y += dy / d * o * bm / s;
+    resolveWalls(a); resolveWalls(b);
+  }
+  for (const l of all) {
+    const dx = l.x - big.x, dy = l.y - big.y, d = Math.hypot(dx, dy) || 0.01, min = l.r + big.r;
+    if (d >= min) continue;
+    if (l.state === "ok") { l.x += dx / d * (min - d); l.y += dy / d * (min - d); resolveWalls(l); }
+    else { big.x -= dx / d * (min - d); big.y -= dy / d * (min - d); resolveWalls(big); }
+  }
+}
+function checkContacts() {
+  for (const l of littles) {
+    if (mode !== "play") return;
+    if (l.state !== "ok") continue;
+    const dx = l.x - big.x, dy = l.y - big.y, d = Math.hypot(dx, dy);
+    if (d > big.r + l.r + 4) continue;
+    const a = Math.atan2(dy, dx), diff = angDiff(big.dir, a);
+    if (diff > CFG.BEHIND_ANGLE) {
+      const wants = l.kind === "player" || l.task === "attack";   // боты обнимают только когда сами решили
+      if (wants && big.hugCd <= 0 && l.hugCd <= 0 && big.stun <= 0) hug(l, a);
+    }
+    else if (diff < 1.9 && big.stun <= 0 && big.pushCd <= 0 && l.invuln <= 0 && !inSafe(l)) push(l);
+  }
+}
+function updateDowned(dt) {
+  for (const l of littles) {
+    if (l.state !== "down") continue;
+    l.downTimer -= dt;
+    const helper = littles.some(o => o !== l && o.state === "ok" && dist(o, l) < o.r + l.r + 12);
+    l.rescue = helper ? l.rescue + dt : Math.max(0, l.rescue - dt);
+    if (l.rescue >= CFG.RESCUE_TIME) {
+      l.state = "ok"; l.invuln = CFG.INVULN_AFTER_RESCUE; l.rescue = 0;
+      popText(l.x, l.y - 40, L().saved, "#7CFC9A");
+      burst(l.x, l.y - 10, "star", "#7CFC9A", 10);
+      SFX.rescue();
+    } else if (l.downTimer <= 0) {
+      l.state = "out";
+      popText(l.x, l.y - 40, L().out, "#e5e7eb");
+      SFX.out();
+    }
+  }
+}
+function updateFx(dt) {
+  for (const t of texts) { t.t += dt; t.y -= 30 * dt; }
+  texts = texts.filter(t => t.t < 1.2);
+  for (const p of particles) { p.t += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.96; p.vy *= 0.96; }
+  particles = particles.filter(p => p.t < p.life);
+  shake = Math.max(0, shake - dt);
+}
+function update(dt) {
+  stats.time += dt;
+  for (const l of littles) {
+    l.invuln = Math.max(0, l.invuln - dt);
+    l.hugCd = Math.max(0, l.hugCd - dt);
+    if (Math.abs(l.kx) + Math.abs(l.ky) > 5) {
+      moveEntity(l, l.kx, l.ky, dt);
+      const f = Math.exp(-7 * dt); l.kx *= f; l.ky *= f;
+    } else { l.kx = 0; l.ky = 0; }
+  }
+  updatePlayers(dt);
+  updateBots(dt);
+  updateBig(dt);
+  separate();
+  checkContacts();
+  updateDowned(dt);
+  updateFx(dt);
+  const players = littles.filter(p => p.kind === "player");
+  if (mode === "play" && players.length && players.every(p => p.state === "out")) { mode = "lose"; SFX.lose(); }
+}
+
+// =====================================================================
+//  РИСОВАНИЕ (мультяшный стиль: толстый контур, яркие цвета)
+// =====================================================================
+function rr(x, y, w, h, r) {
+  r = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+function circle(x, y, r) { ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); }
+function ellipse(x, y, rx, ry) { ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, TAU); }
+function fillStroke(fill, lw = 3, stroke = OUT) { ctx.fillStyle = fill; ctx.fill(); ctx.lineWidth = lw; ctx.strokeStyle = stroke; ctx.stroke(); }
+function label(text, x, y, size, color, align = "center") {
+  ctx.font = `900 ${size}px system-ui, "Segoe UI", "Arial Rounded MT Bold", Arial, sans-serif`;
+  ctx.textAlign = align; ctx.textBaseline = "middle";
+  ctx.lineJoin = "round"; ctx.lineWidth = Math.max(3, size / 4.5); ctx.strokeStyle = OUT;
+  ctx.strokeText(text, x, y);
+  ctx.fillStyle = color; ctx.fillText(text, x, y);
+}
+function fitText(text, x, y, size, maxW, align, color, weight) {
+  let sz = size;
+  do { ctx.font = `${weight} ${sz}px system-ui, "Segoe UI", sans-serif`; sz -= 0.5; } while (ctx.measureText(text).width > maxW && sz > 9);
+  ctx.textAlign = align; ctx.textBaseline = "middle"; ctx.fillStyle = color;
+  ctx.fillText(text, x, y);
+}
+function heartPath(x, y, s) {
+  ctx.beginPath();
+  ctx.moveTo(x, y + s * 0.3);
+  ctx.bezierCurveTo(x, y, x - s * 0.5, y, x - s * 0.5, y + s * 0.3);
+  ctx.bezierCurveTo(x - s * 0.5, y + s * 0.6, x, y + s * 0.8, x, y + s);
+  ctx.bezierCurveTo(x, y + s * 0.8, x + s * 0.5, y + s * 0.6, x + s * 0.5, y + s * 0.3);
+  ctx.bezierCurveTo(x + s * 0.5, y, x, y, x, y + s * 0.3);
+}
+function drawHeart(x, y, s, fill, outline = true) { heartPath(x, y, s); ctx.fillStyle = fill; ctx.fill(); if (outline) { ctx.lineWidth = 2; ctx.strokeStyle = OUT; ctx.stroke(); } }
+
+const WALL_COLORS = { home: ["#7cc6fe", "#b9e2ff"], bighome: ["#e5534b", "#f29b95"], build: ["#f4b860", "#fbd9a0"], hedge: ["#3f9a4a", "#6cc26f"] };
+
+function drawGround() {
+  ctx.fillStyle = "#9be06f"; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = "#8fd463";
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) if ((x + y) % 2 === 0) ctx.fillRect(x * CELL, y * CELL, CELL, CELL);
+  for (const f of flowers) {
+    ctx.fillStyle = f.c;
+    for (let k = 0; k < 4; k++) { circle(f.x + Math.cos(k * TAU / 4) * 2.5, f.y + Math.sin(k * TAU / 4) * 2.5, 2); ctx.fill(); }
+    ctx.fillStyle = "#f59e0b"; circle(f.x, f.y, 1.6); ctx.fill();
+  }
+  for (const f of floors) {
+    if (f.kind === "wood") {
+      ctx.fillStyle = "#f3d9a4"; ctx.fillRect(f.x, f.y, f.w, f.h);
+      ctx.strokeStyle = "#e0bf82"; ctx.lineWidth = 2;
+      for (let y = f.y + 16; y < f.y + f.h; y += 16) { ctx.beginPath(); ctx.moveTo(f.x, y); ctx.lineTo(f.x + f.w, y); ctx.stroke(); }
+    } else if (f.kind === "dark") {
+      ctx.fillStyle = "#d8a7a2"; ctx.fillRect(f.x, f.y, f.w, f.h);
+      ctx.strokeStyle = "#c48f8a"; ctx.lineWidth = 2;
+      for (let y = f.y + 16; y < f.y + f.h; y += 16) { ctx.beginPath(); ctx.moveTo(f.x, y); ctx.lineTo(f.x + f.w, y); ctx.stroke(); }
+    } else {
+      ctx.fillStyle = "#f2ebdf"; ctx.fillRect(f.x, f.y, f.w, f.h);
+      ctx.fillStyle = "#e4d9c6";
+      for (let y = 0; y < f.h / CELL; y++) for (let x = 0; x < f.w / CELL; x++) if ((x + y) % 2) ctx.fillRect(f.x + x * CELL, f.y + y * CELL, CELL, CELL);
+    }
+  }
+  if (safeZone) {
+    const f = floors.find(fl => fl.x >= safeZone.x && fl.y >= safeZone.y && fl.x < safeZone.x + safeZone.w && fl.y < safeZone.y + safeZone.h);
+    if (f) {
+      ctx.save();
+      ctx.globalAlpha = 0.35 + Math.sin(T * 2) * 0.1;
+      ctx.strokeStyle = "#22c55e"; ctx.lineWidth = 4; ctx.setLineDash([10, 8]);
+      rr(f.x + 4, f.y + 4, f.w - 8, f.h - 8, 10); ctx.stroke();
+      ctx.restore();
+      ctx.save(); ctx.globalAlpha = 0.55;
+      fitText("🛡 " + L().safe, f.x + f.w / 2, f.y + f.h - 14, 13, f.w - 12, "center", "#15803d", 900);
+      ctx.restore();
+    }
+  }
+  for (const d of decor) {
+    if (d.kind === "bed") {
+      rr(d.x + 4, d.y + 3, d.w - 8, d.h - 6, 6); fillStroke(d.c, 2.5);
+      rr(d.x + 7, d.y + 5, d.w - 14, 9, 4); fillStroke("#fff", 2);
+    } else if (d.kind === "bigbed") {
+      rr(d.x + 4, d.y + 4, d.w - 8, d.h - 8, 8); fillStroke("#7f1d1d", 3);
+      rr(d.x + 8, d.y + 8, d.w - 16, 14, 5); fillStroke("#fff", 2);
+      ctx.fillStyle = "#fde68a";                          // крестик, как на рисунке
+      ctx.fillRect(d.x + d.w / 2 - 4, d.y + 26, 8, 26); ctx.fillRect(d.x + d.w / 2 - 13, d.y + 35, 26, 8);
+    }
+  }
+  // лужи
+  for (const o of obstacles) if (o.kind === "pond") {
+    rr(o.x - 4, o.y - 2, o.w + 8, o.h + 4, 26); fillStroke("#5ab8f0", 3.5);
+    ctx.strokeStyle = "rgba(255,255,255,.7)"; ctx.lineWidth = 2.5; ctx.lineCap = "round";
+    for (let k = 0; k < 3; k++) { const x = o.x + 14 + k * (o.w - 28) / 2; ctx.beginPath(); ctx.arc(x, o.y + o.h / 2 + (k % 2 ? 6 : -6), 7, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke(); }
+    ctx.lineCap = "butt";
+    ellipse(o.x + o.w - 16, o.y + 14, 8, 6); fillStroke("#4caf50", 2);
+  }
+  // стены: сначала общий контур, потом заливка (чтобы швы не были видны)
+  const walls = obstacles.filter(o => o.shape === "rect" && o.kind !== "pond");
+  ctx.fillStyle = OUT;
+  for (const o of walls) rr(o.x - 3, o.y - 3, o.w + 6, o.h + 6, 8), ctx.fill();
+  for (const o of walls) { ctx.fillStyle = WALL_COLORS[o.kind][0]; ctx.fillRect(o.x, o.y, o.w, o.h); }
+  for (const o of walls) { ctx.fillStyle = WALL_COLORS[o.kind][1]; ctx.fillRect(o.x + 4, o.y + 4, o.w - 8, Math.min(8, o.h - 8)); }
+  // камни
+  for (const o of obstacles) if (o.kind === "rock") {
+    const r = 19 * o.s;
+    ctx.fillStyle = "rgba(0,0,0,.15)"; ellipse(o.x + 3, o.y + 6, r, r * 0.7); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(o.x, o.y, r, r * 0.85, 0, 0, TAU); fillStroke("#a8b0ba", 3);
+    ellipse(o.x - r * 0.3, o.y - r * 0.3, r * 0.35, r * 0.22); ctx.fillStyle = "#d3d9df"; ctx.fill();
+  }
+}
+
+function drawCone() {
+  const n = 48, a0 = big.dir - CFG.VISION_HALF;
+  ctx.beginPath(); ctx.moveTo(big.x, big.y);
+  for (let i = 0; i <= n; i++) {
+    const a = a0 + i * (2 * CFG.VISION_HALF / n), cx = Math.cos(a), sy = Math.sin(a);
+    let r = 0;
+    while (r < CFG.VISION_RANGE) { r += 5; if (seeSolidAt(big.x + cx * r, big.y + sy * r)) { r -= 5; break; } }
+    ctx.lineTo(big.x + cx * r, big.y + sy * r);
+  }
+  ctx.closePath();
+  ctx.fillStyle = big.stun > 0 ? "rgba(200,210,255,.2)" : (big.state === "chase" ? "rgba(255,70,50,.32)" : "rgba(255,240,90,.38)");
+  ctx.fill();
+}
+function drawBackZone(t) {
+  if (big.stun > 0) return;
+  const back = big.dir + Math.PI, spread = Math.PI - CFG.BEHIND_ANGLE;
+  ctx.beginPath(); ctx.moveTo(big.x, big.y);
+  ctx.arc(big.x, big.y, big.r + 20, back - spread, back + spread); ctx.closePath();
+  ctx.fillStyle = `rgba(255,120,170,${0.3 + Math.sin(t * 5) * 0.1})`; ctx.fill();
+  drawHeart(big.x + Math.cos(back) * (big.r + 12), big.y + Math.sin(back) * (big.r + 12) - 6, 12, "#ff6fa8");
+}
+
+function drawTree(o, faded) {
+  const s = o.s;
+  ctx.save();
+  ctx.globalAlpha = faded ? 0.45 : 1;
+  ctx.fillStyle = "rgba(0,0,0,.18)"; ellipse(o.x + 4, o.y + 4, 24 * s, 10 * s); ctx.fill();
+  rr(o.x - 6 * s, o.y - 18 * s, 12 * s, 22 * s, 4); fillStroke("#8b5a2b", 3);
+  if (o.v === "pine") {           // ёлка-конус, как на рисунке
+    for (let k = 0; k < 2; k++) {
+      const top = o.y - (68 - k * 18) * s, base = o.y - (22 - k * 6) * s, hw = (22 + k * 4) * s;
+      ctx.beginPath();
+      ctx.moveTo(o.x, top);
+      ctx.quadraticCurveTo(o.x + hw * 0.4, (top + base) / 2, o.x + hw, base);
+      ctx.quadraticCurveTo(o.x, base + 8 * s, o.x - hw, base);
+      ctx.quadraticCurveTo(o.x - hw * 0.4, (top + base) / 2, o.x, top);
+      ctx.closePath();
+      fillStroke(k === 0 ? "#2f9e44" : "#37b24d", 3);
+    }
+    ctx.fillStyle = "rgba(255,255,255,.25)"; ellipse(o.x - 7 * s, o.y - 46 * s, 4 * s, 9 * s); ctx.fill();
+  } else {                       // круглое дерево
+    circle(o.x, o.y - 40 * s, 24 * s); fillStroke("#40c057", 3);
+    circle(o.x - 10 * s, o.y - 46 * s, 9 * s); ctx.fillStyle = "#69db7c"; ctx.fill();
+    for (const [dx, dy] of [[8, -32], [-6, -30], [12, -48]]) { circle(o.x + dx * s, o.y + dy * s, 3.5 * s); fillStroke("#ff6b6b", 1.5); }
+  }
+  ctx.restore();
+}
+
+function drawFace(x, y, r, dir, angry, sad) {
+  const sx = Math.cos(dir), sy = Math.sin(dir);
+  if (sy < -0.55) return false;           // смотрит от нас — видим затылок
+  const fx = sx * r * 0.35, fy = Math.max(0, sy) * r * 0.15 + r * 0.05;
+  for (const k of [-1, 1]) {
+    const ex = x + fx + k * r * 0.38, ey = y + fy;
+    circle(ex, ey, r * 0.28); fillStroke("#fff", 1.5);
+    circle(ex + sx * r * 0.08, ey + Math.max(0, sy) * r * 0.06, r * 0.15); ctx.fillStyle = "#111"; ctx.fill();
+    if (angry) {
+      ctx.strokeStyle = OUT; ctx.lineWidth = Math.max(2.5, r * 0.16); ctx.lineCap = "round";
+      ctx.beginPath(); ctx.moveTo(ex - k * r * 0.32, ey - r * 0.48); ctx.lineTo(ex + k * r * 0.18, ey - r * 0.3); ctx.stroke();
+      ctx.lineCap = "butt";
+    }
+  }
+  ctx.strokeStyle = OUT; ctx.lineWidth = Math.max(1.5, r * 0.1); ctx.lineCap = "round";
+  ctx.beginPath();
+  if (sad || angry) ctx.arc(x + fx, y + fy + r * 0.62, r * 0.22, Math.PI * 1.15, Math.PI * 1.85);
+  else ctx.arc(x + fx, y + fy + r * 0.3, r * 0.2, Math.PI * 0.15, Math.PI * 0.85);
+  ctx.stroke(); ctx.lineCap = "butt";
+  return true;
+}
+
+function drawLittle(l, t) {
+  const down = l.state === "down";
+  const bob = l.moving ? Math.abs(Math.sin(l.walk)) * 2.5 : 0;
+  ctx.save();
+  if (l.invuln > 0 && Math.floor(t * 12) % 2) ctx.globalAlpha = 0.5;
+  ctx.fillStyle = "rgba(0,0,0,.2)"; ellipse(l.x, l.y + 3, 12, 5); ctx.fill();
+  if (down) {                                      // лежит, нога в гипсе
+    ellipse(l.x + 1, l.y - 4, 11, 7); fillStroke(l.look.shirt, 2.5);
+    rr(l.x + 8, l.y - 9, 15, 8, 3); fillStroke("#fff", 2.5);
+    ctx.fillStyle = "#ef4444"; ctx.fillRect(l.x + 14, l.y - 8, 3, 6); ctx.fillRect(l.x + 12, l.y - 6.5, 7, 3);
+    circle(l.x - 13, l.y - 7, 9); fillStroke("#ffd8b5", 2.5);
+    ctx.beginPath(); ctx.arc(l.x - 13, l.y - 7, 9, Math.PI * 0.6, Math.PI * 1.4); ctx.fillStyle = l.look.hair; ctx.fill();
+    ctx.strokeStyle = OUT; ctx.lineWidth = 2; ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(l.x - 14, l.y - 11); ctx.lineTo(l.x - 10, l.y - 9); ctx.moveTo(l.x - 14, l.y - 4); ctx.lineTo(l.x - 10, l.y - 6); ctx.stroke();
+    ctx.lineCap = "butt";
+    ctx.fillStyle = "#60a5fa"; const tf = (t * 2) % 1;
+    ellipse(l.x - 8, l.y - 12 + tf * 8, 1.8, 2.6); ctx.globalAlpha *= 1 - tf; ctx.fill();
+    ctx.restore();
+    return;
+  }
+  // ножки
+  const step = l.moving ? Math.sin(l.walk) * 3 : 0;
+  ctx.fillStyle = "#3b3b4f";
+  ellipse(l.x - 4, l.y - 1 + step * 0.4, 3.5, 3); ctx.fill();
+  ellipse(l.x + 4, l.y - 1 - step * 0.4, 3.5, 3); ctx.fill();
+  // тело
+  rr(l.x - 8, l.y - 15 - bob, 16, 14, 6); fillStroke(l.look.shirt, 2.5);
+  // голова
+  const hy = l.y - 24 - bob;
+  circle(l.x, hy, 10); fillStroke("#ffd8b5", 2.5);
+  const front = Math.sin(l.dir) >= -0.55;
+  ctx.beginPath();
+  if (front) ctx.arc(l.x, hy, 10, Math.PI * 1.05, Math.PI * 1.95);
+  else ctx.arc(l.x, hy, 10, Math.PI * 0.85, Math.PI * 2.15);
+  ctx.closePath(); ctx.fillStyle = l.look.hair; ctx.fill(); ctx.lineWidth = 2.5; ctx.strokeStyle = OUT; ctx.stroke();
+  drawFace(l.x, hy + 1, 10, l.dir, false, false);
+  ctx.restore();
+}
+
+function drawGhost(l, t) {
+  const y = l.y - 22 + Math.sin(t * 3 + l.id) * 4;
+  ctx.save(); ctx.globalAlpha = 0.6;
+  ctx.beginPath();
+  ctx.arc(l.x, y, 10, Math.PI, 0);
+  ctx.lineTo(l.x + 10, y + 12);
+  for (let k = 0; k < 4; k++) ctx.quadraticCurveTo(l.x + 10 - (k + 0.5) * 5, y + (k % 2 ? 16 : 8), l.x + 10 - (k + 1) * 5, y + 12);
+  ctx.closePath(); fillStroke("#fff", 2.5);
+  label("x x", l.x, y, 9, "#555");
+  ctx.restore();
+}
+
+function drawBig(t) {
+  const b = big;
+  const bob = b.moving ? Math.abs(Math.sin(b.walk)) * 3 : 0;
+  const step = b.moving ? Math.sin(b.walk) * 4 : 0;
+  ctx.fillStyle = "rgba(0,0,0,.22)"; ellipse(b.x, b.y + 4, 26, 10); ctx.fill();
+  ctx.fillStyle = "#2d2d3f";
+  ellipse(b.x - 9, b.y - 1 + step * 0.4, 7, 5); ctx.fill();
+  ellipse(b.x + 9, b.y - 1 - step * 0.4, 7, 5); ctx.fill();
+  // руки
+  const arm = b.state === "chase" ? -6 : 0;
+  circle(b.x - 25, b.y - 22 - bob + arm, 7); fillStroke("#f4b183", 2.5);
+  circle(b.x + 25, b.y - 22 - bob + arm, 7); fillStroke("#f4b183", 2.5);
+  // тело
+  rr(b.x - 22, b.y - 40 - bob, 44, 38, 16); fillStroke(b.flash > 0 ? "#ffd1dc" : "#9b2c3a", 3.5);
+  rr(b.x - 12, b.y - 30 - bob, 24, 20, 8); ctx.fillStyle = "rgba(255,255,255,.18)"; ctx.fill();
+  // голова
+  const hy = b.y - 54 - bob;
+  circle(b.x, hy, 17); fillStroke("#f4b183", 3.5);
+  const front = Math.sin(b.dir) >= -0.55;
+  ctx.beginPath();
+  if (front) { for (let k = 0; k < 5; k++) { const a = Math.PI * (1.1 + k * 0.2); ctx.lineTo(b.x + Math.cos(a) * 21, hy + Math.sin(a) * 21); ctx.lineTo(b.x + Math.cos(a + 0.1) * 15, hy + Math.sin(a + 0.1) * 15); } }
+  else ctx.arc(b.x, hy, 17, Math.PI * 0.8, Math.PI * 2.2);
+  ctx.closePath(); ctx.fillStyle = "#3a2418"; ctx.fill();
+  drawFace(b.x, hy + 2, 17, b.dir, b.state === "chase" || b.state === "search", false);
+  if (b.stun > 0) for (let i = 0; i < 3; i++) { const a = t * 5 + i * TAU / 3; label("★", b.x + Math.cos(a) * 22, hy - 22 + Math.sin(a) * 6, 15, "#fde047"); }
+  if (b.state === "chase" && b.stun <= 0) label("!", b.x, hy - 30, 24, "#ff3b30");
+}
+
+function drawBushes() {
+  for (const b of bushes) {
+    const inside = littles.some(l => l.kind === "player" && l.state !== "out" && Math.hypot(l.x - b.x, l.y - b.y) < b.r + 4);
+    ctx.save();
+    ctx.globalAlpha = inside ? 0.55 : 1;
+    ctx.fillStyle = "rgba(0,0,0,.15)"; ellipse(b.x + 3, b.y + 8, b.r, b.r * 0.55); ctx.fill();
+    const blobs = [[-14, 2, 16], [14, 2, 16], [0, -10, 18], [-6, 8, 14], [8, 9, 14]];
+    ctx.fillStyle = OUT;
+    for (const [dx, dy, r] of blobs) { circle(b.x + dx, b.y + dy, r + 3); ctx.fill(); }
+    ctx.fillStyle = "#51cf66";
+    for (const [dx, dy, r] of blobs) { circle(b.x + dx, b.y + dy, r); ctx.fill(); }
+    ctx.fillStyle = "#8ce99a";
+    circle(b.x - 6, b.y - 16, 6); ctx.fill();
+    for (const [dx, dy] of [[-12, -2], [10, -4], [2, 10]]) { circle(b.x + dx, b.y + dy, 3); fillStroke("#e64980", 1.5); }
+    ctx.restore();
+  }
+}
+
+function drawMarkers(t) {
+  for (const l of littles) {
+    if (l.state === "out") continue;
+    const isPlayer = l.kind === "player";
+    const name = shortName(l);
+    if (l.state === "ok") {
+      if (isPlayer) {
+        ctx.strokeStyle = "#fff"; ctx.lineWidth = 3; ellipse(l.x, l.y + 2, 15, 7); ctx.stroke();
+        label(name, l.x, l.y - 45, 14, l.look.shirt);
+        ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.moveTo(l.x - 5, l.y - 37); ctx.lineTo(l.x + 5, l.y - 37); ctx.lineTo(l.x, l.y - 32); ctx.fill();
+      } else label(name, l.x, l.y - 43, 10, "#fff7d6");
+    } else {
+      const cy = l.y - 6;
+      ctx.lineWidth = 4; ctx.lineCap = "round";
+      ctx.strokeStyle = "rgba(0,0,0,.25)"; circle(l.x, cy, 22); ctx.stroke();
+      ctx.strokeStyle = l.downTimer < 5 && Math.floor(t * 6) % 2 ? "#fff" : "#ef4444";
+      ctx.beginPath(); ctx.arc(l.x, cy, 22, -Math.PI / 2, -Math.PI / 2 + TAU * (l.downTimer / CFG.DOWN_TIME)); ctx.stroke();
+      if (l.rescue > 0) { ctx.strokeStyle = "#4ade80"; ctx.beginPath(); ctx.arc(l.x, cy, 27, -Math.PI / 2, -Math.PI / 2 + TAU * (l.rescue / CFG.RESCUE_TIME)); ctx.stroke(); }
+      ctx.lineCap = "butt";
+      label(String(Math.ceil(l.downTimer)), l.x + 28, cy - 20, 14, "#fecaca");
+      label(isPlayer ? L().help(name) : "SOS", l.x, cy - 36, 11 * (1 + Math.sin(t * 8) * 0.1), "#fde047");
+    }
+  }
+}
+
+function drawFx() {
+  for (const p of particles) {
+    ctx.globalAlpha = 1 - p.t / p.life;
+    if (p.kind === "heart") drawHeart(p.x, p.y, 11, p.color, false);
+    else { ctx.fillStyle = p.color; circle(p.x, p.y, p.kind === "star" ? 3 : 4); ctx.fill(); }
+  }
+  ctx.globalAlpha = 1;
+  for (const tx of texts) { ctx.globalAlpha = Math.max(0, 1 - tx.t / 1.2); label(tx.text, tx.x, tx.y, 20, tx.color); }
+  ctx.globalAlpha = 1;
+}
+
+function drawWorld(t) {
+  drawGround();
+  drawBackZone(t);
+  drawCone();
+  const items = [];
+  for (const o of trees) items.push({ y: o.y + 6, draw: () => {
+    const behind = littles.some(l => l.state !== "out" && l.y < o.y && l.y > o.y - 75 && Math.abs(l.x - o.x) < 28) || (big.y < o.y && big.y > o.y - 80 && Math.abs(big.x - o.x) < 36);
+    drawTree(o, behind);
+  } });
+  for (const l of littles) if (l.state !== "out") items.push({ y: l.y, draw: () => drawLittle(l, t) });
+  items.push({ y: big.y, draw: () => drawBig(t) });
+  items.sort((a, b) => a.y - b.y).forEach(i => i.draw());
+  drawBushes();
+  for (const l of littles) if (l.state === "out") drawGhost(l, t);
+  drawMarkers(t);
+  drawFx();
+}
+
+function addButton(x, y, w, h, text, color, act, size = 24) {
+  ctx.fillStyle = "rgba(0,0,0,.3)"; rr(x + 3, y + 5, w, h, 18); ctx.fill();
+  rr(x, y, w, h, 18); fillStroke(color, 4);
+  ctx.fillStyle = "rgba(255,255,255,.25)"; rr(x + 8, y + 6, w - 16, h * 0.35, 10); ctx.fill();
+  label(text, x + w / 2, y + h / 2 + 1, size, "#fff");
+  buttons.push({ x, y, w, h, act });
+}
+function toggleFullscreen() {
+  const d = document;
+  try {
+    if (!d.fullscreenElement && !d.webkitFullscreenElement) (d.documentElement.requestFullscreen || d.documentElement.webkitRequestFullscreen).call(d.documentElement);
+    else (d.exitFullscreen || d.webkitExitFullscreen).call(d);
+  } catch (e) { /* не везде поддерживается */ }
+}
+
+function drawHUD(t) {
+  const hpW = 112 + big.maxHp * 21;
+  rr(10, 8, hpW, 34, 14); fillStroke("rgba(255,255,255,.8)", 3);
+  label(L().big, 18, 25, 15, "#9b2c3a", "left");
+  for (let i = 0; i < big.maxHp; i++) drawHeart(108 + i * 21, 15, 18, i < big.hp ? "#ff3b5c" : "#e5e7eb");
+
+  const chipW = 32, totalW = littles.length * chipW + 14, x0 = W - totalW - 10;
+  rr(x0, 8, totalW, 34, 14); fillStroke("rgba(255,255,255,.8)", 3);
+  littles.forEach((l, i) => {
+    const cx = x0 + 7 + i * chipW + chipW / 2, cy = 25;
+    ctx.globalAlpha = l.state === "out" ? 0.35 : 1;
+    circle(cx, cy, 11); fillStroke(l.state === "ok" ? l.look.shirt : "#9ca3af", 2.5);
+    ctx.globalAlpha = 1;
+    if (l.state === "down") label(String(Math.ceil(l.downTimer)), cx, cy, 11, "#fecaca");
+    else if (l.state === "out") label("✕", cx, cy, 12, "#fff");
+    else label(l.kind === "player" ? shortName(l) : L().botChip, cx, cy, l.kind === "player" && numPlayers === 1 ? 8 : 10, "#fff");
+  });
+
+  const s = Math.floor(stats.time);
+  rr(W / 2 - 95, 8, 110, 34, 14); fillStroke("rgba(255,255,255,.8)", 3);
+  label(`${L().lvShort} ${level}  ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`, W / 2 - 40, 25, 14, OUT);
+  addButton(W / 2 + 22, 8, 40, 34, "II", "#64748b", () => { mode = "pause"; }, 16);
+  addButton(W / 2 + 68, 8, 40, 34, "⛶", "#64748b", toggleFullscreen, 18);
+
+  for (const st of sticks.values()) {
+    ctx.globalAlpha = 0.35; circle(st.ox, st.oy, STICK_R); fillStroke("#fff", 3);
+    ctx.globalAlpha = 0.7;
+    const dx = st.x - st.ox, dy = st.y - st.oy, d = Math.hypot(dx, dy), k = d > STICK_R ? STICK_R / d : 1;
+    circle(st.ox + dx * k, st.oy + dy * k, 24); fillStroke(LOOKS[st.player].shirt, 3);
+    ctx.globalAlpha = 1;
+  }
+  if (isTouch && stats.time < 5) {
+    label(numPlayers === 2 ? L().touch2 : L().touch1, W / 2, H - 26, 18, "#fff");
+  }
+}
+
+function drawOverlay() {
+  if (mode === "play") return;
+  ctx.fillStyle = "rgba(20,30,25,.55)"; ctx.fillRect(0, 0, W, H);
+  if (mode === "menu") {
+    rr(W / 2 - 360, 30, 720, 580, 30); fillStroke("rgba(255,250,235,.95)", 5);
+    label("BeBeBe Atrapar", W / 2 - 40, 92, 54, "#ffcf33");
+    label(L().subtitle, W / 2, 136, 22, "#ff6fa8");
+    const icons = ["❤", "👀", "🤝", "⏱", "🏠"];
+    L().rules(CFG.DOWN_TIME).forEach((r, i) => {
+      ctx.font = "20px system-ui, 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(icons[i], W / 2 - 312, 182 + i * 34);
+      fitText(r, W / 2 - 287, 182 + i * 34, 17, 640, "left", OUT, 700);
+    });
+    addButton(W / 2 - 150, 360, 52, 52, "◀", "#94a3b8", () => changeLevel(-1));
+    rr(W / 2 - 88, 360, 176, 52, 16); fillStroke("#fff", 4);
+    label(`${L().level} ${level}`, W / 2, 387, 24, OUT);
+    addButton(W / 2 + 98, 360, 52, 52, "▶", "#94a3b8", () => changeLevel(1));
+    addButton(W / 2 - 250, 432, 230, 72, L().onePlayer, "#3b82f6", () => startGame(1), 28);
+    addButton(W / 2 + 20, 432, 230, 72, L().twoPlayers, "#22c55e", () => startGame(2), 28);
+    fitText(L().controls1, W / 2, 540, 15, 690, "center", "#475569", 600);
+    fitText(L().controls2, W / 2, 566, 15, 690, "center", "#475569", 600);
+    // переключатель языка
+    LANGS.forEach((code, i) => {
+      const bx = W / 2 + 196 + i * 54, by = 46, active = code === lang;
+      addButton(bx, by, 48, 34, code.toUpperCase(), active ? "#ff6fa8" : "#cbd5e1", () => setLang(code), 15);
+    });
+  } else if (mode === "pause") {
+    label(L().pause, W / 2, H / 2 - 70, 56, "#fff");
+    addButton(W / 2 - 230, H / 2, 220, 66, L().play, "#22c55e", () => { mode = "play"; });
+    addButton(W / 2 + 10, H / 2, 220, 66, L().menu, "#64748b", toMenu);
+  } else if (mode === "win") {
+    label(L().win, W / 2, H / 2 - 110, 78, "#ffcf33");
+    label(L().winSub, W / 2, H / 2 - 40, 26, "#fff");
+    addButton(W / 2 - 250, H / 2 + 20, 260, 70, L().next(level + 1), "#22c55e", nextLevel);
+    addButton(W / 2 + 30, H / 2 + 20, 220, 70, L().menu, "#64748b", toMenu);
+  } else if (mode === "lose") {
+    label(L().lose, W / 2, H / 2 - 100, 58, "#fca5a5");
+    label(L().loseSub(stats.hugs, big.maxHp), W / 2, H / 2 - 35, 24, "#fff");
+    addButton(W / 2 - 250, H / 2 + 20, 240, 70, L().again, "#f59e0b", () => startGame(numPlayers));
+    addButton(W / 2 + 10, H / 2 + 20, 240, 70, L().menu, "#64748b", toMenu);
+  }
+}
+
+function draw(t) {
+  buttons = [];
+  ctx.setTransform(VIEW, 0, 0, VIEW, 0, 0);
+  ctx.save();
+  if (shake > 0) ctx.translate(rand(-4, 4) * shake * 4, rand(-4, 4) * shake * 4);
+  drawWorld(t);
+  ctx.restore();
+  if (mode !== "menu") drawHUD(t);
+  drawOverlay();
+  if (isTouch && window.innerHeight > window.innerWidth) {
+    ctx.fillStyle = "rgba(20,30,25,.92)"; ctx.fillRect(0, 0, W, H);
+    label(L().rotate, W / 2, H / 2, 44, "#fff");
+  }
+}
+
+// =====================================================================
+//  ГЛАВНЫЙ ЦИКЛ
+// =====================================================================
+resetWorld(1);
+let last = performance.now(), T = 0;
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now; T += dt;
+  pollPads();
+  const portrait = isTouch && window.innerHeight > window.innerWidth;
+  if (mode === "play" && !portrait) update(dt);
+  else { updateFx(dt); if (mode === "menu") big.dir += dt * 0.8; }
+  draw(T);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
