@@ -37,9 +37,10 @@ const CFG = {
   VISION_HALF: Math.PI / 4,  // половина угла обзора (45° => всего 90°)
   BEHIND_ANGLE: 2.2,         // насколько «сзади» надо быть для обнимашки (~126°)
   INVULN_AFTER_RESCUE: 1.5,
-  HUG_STUN: 0.9,
+  HUG_STUN: 2.5,             // сек — Большой в шоке после обнимашки: стоит, не толкает, обнимать нельзя
+  PUSH_RECOVER: 2.5,         // сек — после толчка Большой отдыхает и никого не толкает
   BUSH_HIDES: true,          // в кустах Большой не видит (если не вплотную)
-  BOT_ATTACK_PAUSE: [12, 20]  // сек — как часто боты сами идут обнимать (главное для них — спасать)
+  BOT_ATTACK_PAUSE: [20, 30]  // сек — как часто боты сами идут обнимать (главное для них — спасать)
 };
 
 // =====================================================================
@@ -64,7 +65,8 @@ const I18N = {
     big: "Big One", hug: "Hug! -1", bang: "BAM!", saved: "Saved!", out: "Out...", help: n => `${n}: HELP!`,
     touch1: "Drag your finger on the screen to run", touch2: "Player 1: finger on the left  •  Player 2: on the right",
     rotate: "Turn your device sideways ↻", me: "Me", botChip: "B", safe: "SAFE",
-    bots: ["Bip", "Bop", "Bum", "Bam"]
+    bots: ["Bip", "Bop", "Bum", "Bam"],
+    skins: "Skins", player1: "Player 1", player2: "Player 2", ok: "OK"
   },
   es: {
     name: "Español", subtitle: "Los Chiquitos contra el Grandote",
@@ -84,7 +86,8 @@ const I18N = {
     big: "Grandote", hug: "¡Abrazo! -1", bang: "¡PUM!", saved: "¡Salvado!", out: "Afuera...", help: n => `${n}: ¡AYUDA!`,
     touch1: "Deslizá el dedo por la pantalla para correr", touch2: "Jugador 1: dedo a la izquierda  •  Jugador 2: a la derecha",
     rotate: "Girá el dispositivo ↻", me: "Yo", botChip: "B", safe: "ZONA SEGURA",
-    bots: ["Bip", "Bop", "Bum", "Bam"]
+    bots: ["Bip", "Bop", "Bum", "Bam"],
+    skins: "Personajes", player1: "Jugador 1", player2: "Jugador 2", ok: "Listo"
   },
   ru: {
     name: "Русский", subtitle: "Маленькие против Большого",
@@ -104,7 +107,8 @@ const I18N = {
     big: "Большой", hug: "Обнимашки! -1", bang: "БАХ!", saved: "Спасён!", out: "Выбыл...", help: n => `${n}: ПОМОГИТЕ!`,
     touch1: "Води пальцем по экрану, чтобы бежать", touch2: "Игрок 1 — палец слева, Игрок 2 — палец справа",
     rotate: "Поверни устройство боком ↻", me: "Я", botChip: "Б", safe: "БЕЗОПАСНО",
-    bots: ["Бип", "Боп", "Бум", "Бац"]
+    bots: ["Бип", "Боп", "Бум", "Бац"],
+    skins: "Скины", player1: "Игрок 1", player2: "Игрок 2", ok: "Готово"
   }
 };
 const LANGS = ["en", "es", "ru"];
@@ -491,11 +495,40 @@ const inBush = l => CFG.BUSH_HIDES && bushes.some(b => Math.hypot(l.x - b.x, l.y
 // =====================================================================
 //  ПЕРСОНАЖИ
 // =====================================================================
-const LOOKS = [
-  { shirt: "#3b82f6", hair: "#6b3e1f" }, { shirt: "#22c55e", hair: "#f2c14e" },
-  { shirt: "#f59e0b", hair: "#2b2b2b" }, { shirt: "#a855f7", hair: "#c2410c" },
-  { shirt: "#ec4899", hair: "#5b3a29" }
+// ---------- Скины маленьких ----------
+//  style: причёска (short | long | spiky | bun | none), acc: аксессуар
+const LITTLE_SKINS = [
+  { shirt: "#3b82f6", hair: "#6b3e1f", skin: "#ffd8b5", style: "short", acc: "none",     name: { en: "Classic", es: "Clásico", ru: "Классика" } },
+  { shirt: "#22c55e", hair: "#f2c14e", skin: "#ffe0c2", style: "long",  acc: "bow",      name: { en: "Sunny", es: "Solcito", ru: "Солнышко" } },
+  { shirt: "#f59e0b", hair: "#2b2b2b", skin: "#c68642", style: "short", acc: "cap",      name: { en: "Sporty", es: "Deportista", ru: "Спортсмен" } },
+  { shirt: "#a855f7", hair: "#c2410c", skin: "#f1c27d", style: "spiky", acc: "crown",    name: { en: "King", es: "Rey", ru: "Король" } },
+  { shirt: "#ec4899", hair: "#5b3a29", skin: "#8d5524", style: "bun",   acc: "glasses",  name: { en: "Smarty", es: "Sabionda", ru: "Умница" } },
+  { shirt: "#1f2937", hair: "#111827", skin: "#ffd8b5", style: "none",  acc: "headband", name: { en: "Ninja", es: "Ninja", ru: "Ниндзя" } },
+  { shirt: "#9ca3af", hair: "#6b7280", skin: "#ffe0c2", style: "short", acc: "ears",     name: { en: "Kitty", es: "Gatito", ru: "Котик" } },
+  { shirt: "#dc2626", hair: "#3b2a20", skin: "#c68642", style: "none",  acc: "bandana",  name: { en: "Pirate", es: "Pirata", ru: "Пират" } }
 ];
+// ---------- Скины Большого ----------
+const BIG_SKINS = [
+  { shirt: "#9b2c3a", skin: "#f4b183", hair: "#3a2418", top: "spiky",  name: { en: "Classic", es: "Clásico", ru: "Классика" } },
+  { shirt: "#7c5a2e", skin: "#8fcf6a", hair: "#4d7c2a", top: "horns",  name: { en: "Ogre", es: "Ogro", ru: "Огр" } },
+  { shirt: "#64748b", skin: "#cbd5e1", hair: "#475569", top: "robot",  name: { en: "Robot", es: "Robot", ru: "Робот" } },
+  { shirt: "#1e3a8a", skin: "#f1c27d", hair: "#1f2937", top: "pirate", name: { en: "Captain", es: "Capitán", ru: "Капитан" } },
+  { shirt: "#92400e", skin: "#b7793f", hair: "#78350f", top: "bear",   name: { en: "Bear", es: "Oso", ru: "Медведь" } }
+];
+let skinSel = { p1: 0, p2: 1, big: 0 };
+try { const sv = JSON.parse(localStorage.getItem("bebebe-skins") || "null"); if (sv) skinSel = { ...skinSel, ...sv }; } catch (e) { /* ok */ }
+skinSel.p1 = clamp(skinSel.p1 | 0, 0, LITTLE_SKINS.length - 1);
+skinSel.p2 = clamp(skinSel.p2 | 0, 0, LITTLE_SKINS.length - 1);
+skinSel.big = clamp(skinSel.big | 0, 0, BIG_SKINS.length - 1);
+if (skinSel.p2 === skinSel.p1) skinSel.p2 = (skinSel.p1 + 1) % LITTLE_SKINS.length;
+function cycleSkin(key, d) {
+  const n = key === "big" ? BIG_SKINS.length : LITTLE_SKINS.length;
+  let v = skinSel[key];
+  do { v = (v + d + n) % n; } while (key !== "big" && v === skinSel[key === "p1" ? "p2" : "p1"]);
+  skinSel[key] = v;
+  try { localStorage.setItem("bebebe-skins", JSON.stringify(skinSel)); } catch (e) { /* ok */ }
+  resetWorld(numPlayers);
+}
 
 let littles = [], big = null, texts = [], particles = [];
 let botAttackCd = 0, prevToken = null;
@@ -503,10 +536,10 @@ let mode = "menu", numPlayers = 1, level = 1, attackToken = null, muted = false,
 let stats = { hugs: 0, time: 0 };
 let buttons = [];
 
-function makeLittle(i, kind, botIndex, controls) {
+function makeLittle(i, kind, botIndex, controls, look) {
   const sp = spawns.small[i];
   return {
-    id: i, x: sp.x, y: sp.y, r: 11, kind, botIndex, look: LOOKS[i], controls,
+    id: i, x: sp.x, y: sp.y, r: 11, kind, botIndex, look, controls,
     state: "ok", downTimer: 0, rescue: 0, invuln: 0, kx: 0, ky: 0,
     path: [], repath: 0, dir: Math.PI / 2, moveDir: 0, walk: 0, moving: false, hugCd: 0,
     task: "idle", fleeT: 0, fleeGoal: null, fleeRe: 0, lurkT: rand(0, 2), offset: rand(-0.5, 0.5), tokenT: 0
@@ -519,15 +552,17 @@ function resetWorld(n) {
   const p1 = n === 1
     ? { up: ["KeyW", "ArrowUp"], down: ["KeyS", "ArrowDown"], left: ["KeyA", "ArrowLeft"], right: ["KeyD", "ArrowRight"] }
     : { up: ["KeyW"], down: ["KeyS"], left: ["KeyA"], right: ["KeyD"] };
-  littles.push(makeLittle(0, "player", -1, p1));
-  if (n === 2) littles.push(makeLittle(1, "player", -1, { up: ["ArrowUp"], down: ["ArrowDown"], left: ["ArrowLeft"], right: ["ArrowRight"] }));
+  littles.push(makeLittle(0, "player", -1, p1, LITTLE_SKINS[skinSel.p1]));
+  if (n === 2) littles.push(makeLittle(1, "player", -1, { up: ["ArrowUp"], down: ["ArrowDown"], left: ["ArrowLeft"], right: ["ArrowRight"] }, LITTLE_SKINS[skinSel.p2]));
+  const botSkins = LITTLE_SKINS.filter((_, i) => i !== skinSel.p1 && (n === 1 || i !== skinSel.p2));
   let bi = 0;
-  while (littles.length < 5) { littles.push(makeLittle(littles.length, "bot", bi, null)); bi++; }
+  while (littles.length < 5) { littles.push(makeLittle(littles.length, "bot", bi, null, botSkins[bi % botSkins.length])); bi++; }
   const maxHp = Math.min(CFG.BIG_HP_MAX, CFG.BIG_HP + (level - 1) * CFG.HP_PER_LEVEL);
   big = {
     isBig: true, x: spawns.big.x, y: spawns.big.y, r: 22, dir: -Math.PI / 2, hp: maxHp, maxHp,
     state: "look", timer: 4, lookSign: 1, lastSeen: null, goal: null, patrolT: 0,
-    path: [], repath: 0, moveDir: 0, walk: 0, moving: false, stun: 0, stunFace: 0, pushCd: 0, hugCd: 0, flash: 0
+    path: [], repath: 0, moveDir: 0, walk: 0, moving: false, stun: 0, stunFace: 0, stunTurn: 0, pushCd: 0, noPush: 0, hugCd: 0, flash: 0,
+    skin: BIG_SKINS[skinSel.big]
   };
   texts = []; particles = []; attackToken = null; prevToken = null; botAttackCd = rand(3, 5); shake = 0; sticks.clear();
   stats = { hugs: 0, time: 0 };
@@ -586,6 +621,14 @@ function onKey(code) {
     if (code === "Digit2" || code === "Numpad2") startGame(2);
     if (code === "ArrowLeft") changeLevel(-1);
     if (code === "ArrowRight") changeLevel(1);
+  } else if (mode === "skins") {
+    if (code === "KeyA") cycleSkin("p1", -1);
+    if (code === "KeyD") cycleSkin("p1", 1);
+    if (code === "ArrowLeft") cycleSkin("p2", -1);
+    if (code === "ArrowRight") cycleSkin("p2", 1);
+    if (code === "KeyZ") cycleSkin("big", -1);
+    if (code === "KeyX") cycleSkin("big", 1);
+    if (code === "Enter" || code === "Escape" || code === "Space") mode = "menu";
   } else if (mode === "play") {
     if (code === "KeyP" || code === "Escape") mode = "pause";
   } else if (mode === "pause") {
@@ -655,6 +698,11 @@ function onPadButton(b) {
     if (b === 2 || b === 3) startGame(2);
     if (b === 14) changeLevel(-1);
     if (b === 15) changeLevel(1);
+    if (b === 1) mode = "skins";
+  } else if (mode === "skins") {
+    if (b === 14) cycleSkin("p1", -1);
+    if (b === 15) cycleSkin("p1", 1);
+    if (b === 0 || b === 1 || b === 9) mode = "menu";
   } else if (mode === "play") { if (b === 9) mode = "pause"; }
   else if (mode === "pause") { if (b === 9 || b === 0) mode = "play"; if (b === 1) toMenu(); }
   else if (mode === "win") { if (b === 0 || b === 9) nextLevel(); if (b === 1) toMenu(); }
@@ -702,13 +750,15 @@ function push(t) {
   t.kx = Math.cos(a) * 360; t.ky = Math.sin(a) * 360;
   if (attackToken === t) attackToken = null;
   big.pushCd = 0.9;
+  big.noPush = CFG.PUSH_RECOVER;          // передышка: какое-то время никого не толкает
   shake = 0.25;
   popText(t.x, t.y - 40, L().bang, "#ffcc00");
   burst(t.x, t.y, "dust", "#e5d3a1", 10);
   SFX.push();
 }
 function hug(l, a) {
-  big.hp--; big.hugCd = 1.4; big.stun = CFG.HUG_STUN; big.stunFace = a; big.flash = 0.3;
+  big.hp--; big.hugCd = CFG.HUG_STUN + 0.3; big.stun = CFG.HUG_STUN; big.stunFace = a; big.flash = 0.3;
+  big.stunTurn = Math.abs(normAng(a - big.dir)) / CFG.HUG_STUN;   // медленно поворачивается, пока в шоке
   big.state = "chase"; big.lastSeen = { x: l.x, y: l.y };
   l.hugCd = 1.5; l.kx = Math.cos(a) * 200; l.ky = Math.sin(a) * 200;
   stats.hugs++;
@@ -771,7 +821,7 @@ function updateBots(dt) {
     b.fleeT = Math.max(0, b.fleeT - dt);
     b.lurkT = Math.max(0, b.lurkT - dt);
     b.fleeRe -= dt;
-    const seen = big.stun <= 0 && canSee(b);
+    const seen = big.stun <= 0 && big.noPush <= 0 && canSee(b);
     const speed = CFG.BOT_SPEED;
     let moved = false;
 
@@ -817,12 +867,18 @@ function updateBig(dt) {
   big.flash = Math.max(0, big.flash - dt);
   big.hugCd = Math.max(0, big.hugCd - dt);
   big.moving = false;
-  if (big.stun > 0) { big.stun -= dt; big.dir = turnToward(big.dir, big.stunFace, 3.6 * dt); return; }
-  if (big.pushCd > 0) { big.pushCd -= dt; return; }
+  big.noPush = Math.max(0, big.noPush - dt);
+  if (big.stun > 0) { big.stun -= dt; big.dir = turnToward(big.dir, big.stunFace, big.stunTurn * dt); return; }
+  if (big.pushCd > 0) {
+    big.pushCd -= dt;
+    if (big.pushCd <= 0) { big.state = "look"; big.timer = Math.max(0.5, big.noPush); big.lookSign = Math.random() < 0.5 ? -1 : 1; }
+    return;
+  }
 
   const boost = (level - 1) * CFG.CHASE_PER_LEVEL + (big.maxHp - big.hp) * CFG.BIG_SPEED_PER_HIT;
   let target = null, td = Infinity;
   for (const l of littles) {
+    if (big.noPush > 0) break;               // отдыхает — никого не ловит
     if (l.state !== "ok" || l.invuln > 0) continue;
     if (canSee(l)) { const d = dist(big, l); if (d < td) { td = d; target = l; } }
   }
@@ -888,7 +944,7 @@ function checkContacts() {
       const wants = l.kind === "player" || l.task === "attack";   // боты обнимают только когда сами решили
       if (wants && big.hugCd <= 0 && l.hugCd <= 0 && big.stun <= 0) hug(l, a);
     }
-    else if (diff < 1.9 && big.stun <= 0 && big.pushCd <= 0 && l.invuln <= 0 && !inSafe(l)) push(l);
+    else if (diff < 1.9 && big.stun <= 0 && big.pushCd <= 0 && big.noPush <= 0 && l.invuln <= 0 && !inSafe(l)) push(l);
   }
 }
 function updateDowned(dt) {
@@ -1057,7 +1113,7 @@ function drawCone() {
     ctx.lineTo(big.x + cx * r, big.y + sy * r);
   }
   ctx.closePath();
-  ctx.fillStyle = big.stun > 0 ? "rgba(200,210,255,.2)" : (big.state === "chase" ? "rgba(255,70,50,.32)" : "rgba(255,240,90,.38)");
+  ctx.fillStyle = big.stun > 0 || big.noPush > 0 ? "rgba(200,210,255,.22)" : (big.state === "chase" ? "rgba(255,70,50,.32)" : "rgba(255,240,90,.38)");
   ctx.fill();
 }
 function drawBackZone(t) {
@@ -1117,18 +1173,84 @@ function drawFace(x, y, r, dir, angry, sad) {
   return true;
 }
 
+function drawHairBack(x, hy, r, look) {
+  if (look.style === "long") { rr(x - r - 2, hy - 2, r * 2 + 4, r * 1.6, 6); fillStroke(look.hair, 2.5); }
+  if (look.style === "bun") { circle(x, hy - r - 3, r * 0.5); fillStroke(look.hair, 2.5); }
+}
+function drawHairTop(x, hy, r, look, front) {
+  if (look.style === "none") return;
+  ctx.beginPath();
+  if (look.style === "spiky") {
+    const a0 = front ? Math.PI * 1.02 : Math.PI * 0.85, a1 = front ? Math.PI * 1.98 : Math.PI * 2.15, n = 5;
+    ctx.moveTo(x + Math.cos(a0) * r, hy + Math.sin(a0) * r);
+    for (let k = 0; k <= n; k++) {
+      const a = a0 + (a1 - a0) * k / n, am = a0 + (a1 - a0) * (k + 0.5) / n;
+      ctx.lineTo(x + Math.cos(a) * r, hy + Math.sin(a) * r);
+      if (k < n) ctx.lineTo(x + Math.cos(am) * r * 1.35, hy + Math.sin(am) * r * 1.35);
+    }
+  } else if (front) ctx.arc(x, hy, r, Math.PI * 1.05, Math.PI * 1.95);
+  else ctx.arc(x, hy, r, Math.PI * 0.85, Math.PI * 2.15);
+  ctx.closePath(); fillStroke(look.hair, 2.5);
+}
+function eyePos(x, y, r, dir) {
+  const sx = Math.cos(dir), sy = Math.sin(dir);
+  const fx = sx * r * 0.35, fy = Math.max(0, sy) * r * 0.15 + r * 0.05;
+  return [[x + fx - r * 0.38, y + fy], [x + fx + r * 0.38, y + fy]];
+}
+function drawAccessory(x, hy, r, look, dir, front) {
+  const sx = Math.cos(dir);
+  switch (look.acc) {
+    case "bow":
+      ctx.save(); ctx.translate(x + r * 0.6, hy - r * 0.8);
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-7, -5); ctx.lineTo(-7, 5); ctx.closePath(); fillStroke("#ff6fa8", 2);
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(7, -5); ctx.lineTo(7, 5); ctx.closePath(); fillStroke("#ff6fa8", 2);
+      circle(0, 0, 2.5); fillStroke("#ffd1e3", 1.5); ctx.restore(); break;
+    case "cap":
+      ctx.beginPath(); ctx.arc(x, hy - 1, r + 1, Math.PI, 0); ctx.closePath(); fillStroke("#ef4444", 2.5);
+      if (front) { ellipse(x + sx * 6, hy - 1, r * 0.9, 3.5); fillStroke("#b91c1c", 2); }
+      break;
+    case "crown": {
+      const cy = hy - r - 1;
+      ctx.beginPath(); ctx.moveTo(x - 8, cy + 4); ctx.lineTo(x - 8, cy - 4); ctx.lineTo(x - 4, cy); ctx.lineTo(x, cy - 7);
+      ctx.lineTo(x + 4, cy); ctx.lineTo(x + 8, cy - 4); ctx.lineTo(x + 8, cy + 4); ctx.closePath(); fillStroke("#facc15", 2);
+      circle(x, cy - 1, 1.6); ctx.fillStyle = "#ef4444"; ctx.fill(); break;
+    }
+    case "headband":
+      ctx.fillStyle = "#ef4444"; ctx.fillRect(x - r, hy - r * 0.55, r * 2, 4.5);
+      ctx.strokeStyle = OUT; ctx.lineWidth = 1.5; ctx.strokeRect(x - r, hy - r * 0.55, r * 2, 4.5);
+      if (!front || Math.abs(sx) > 0.3) { ctx.strokeStyle = "#ef4444"; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x - sx * r, hy - r * 0.4); ctx.lineTo(x - sx * (r + 8), hy - r * 0.1 + 3); ctx.stroke(); }
+      break;
+    case "glasses":
+      if (!front) break;
+      ctx.strokeStyle = OUT; ctx.lineWidth = 2;
+      for (const [ex, ey] of eyePos(x, hy + 1, r, dir)) { circle(ex, ey, r * 0.36); ctx.stroke(); }
+      break;
+    case "ears":
+      for (const k of [-1, 1]) {
+        ctx.beginPath(); ctx.moveTo(x + k * 3, hy - r + 1); ctx.lineTo(x + k * 10, hy - r - 7); ctx.lineTo(x + k * 10, hy - 3); ctx.closePath();
+        fillStroke(look.hair, 2);
+      }
+      break;
+    case "bandana":
+      ctx.beginPath(); ctx.arc(x, hy, r + 0.5, Math.PI * 1.02, Math.PI * 1.98); ctx.closePath(); fillStroke("#1f2937", 2.5);
+      circle(x, hy - r * 0.62, 1.8); ctx.fillStyle = "#fff"; ctx.fill();
+      if (front) { const [, [ex, ey]] = eyePos(x, hy + 1, r, dir); circle(ex, ey, r * 0.3); ctx.fillStyle = "#111"; ctx.fill(); }
+      break;
+  }
+}
+
 function drawLittle(l, t) {
-  const down = l.state === "down";
+  const down = l.state === "down", look = l.look;
   const bob = l.moving ? Math.abs(Math.sin(l.walk)) * 2.5 : 0;
   ctx.save();
   if (l.invuln > 0 && Math.floor(t * 12) % 2) ctx.globalAlpha = 0.5;
   ctx.fillStyle = "rgba(0,0,0,.2)"; ellipse(l.x, l.y + 3, 12, 5); ctx.fill();
   if (down) {                                      // лежит, нога в гипсе
-    ellipse(l.x + 1, l.y - 4, 11, 7); fillStroke(l.look.shirt, 2.5);
+    ellipse(l.x + 1, l.y - 4, 11, 7); fillStroke(look.shirt, 2.5);
     rr(l.x + 8, l.y - 9, 15, 8, 3); fillStroke("#fff", 2.5);
     ctx.fillStyle = "#ef4444"; ctx.fillRect(l.x + 14, l.y - 8, 3, 6); ctx.fillRect(l.x + 12, l.y - 6.5, 7, 3);
-    circle(l.x - 13, l.y - 7, 9); fillStroke("#ffd8b5", 2.5);
-    ctx.beginPath(); ctx.arc(l.x - 13, l.y - 7, 9, Math.PI * 0.6, Math.PI * 1.4); ctx.fillStyle = l.look.hair; ctx.fill();
+    circle(l.x - 13, l.y - 7, 9); fillStroke(look.skin, 2.5);
+    if (look.style !== "none") { ctx.beginPath(); ctx.arc(l.x - 13, l.y - 7, 9, Math.PI * 0.6, Math.PI * 1.4); ctx.fillStyle = look.hair; ctx.fill(); }
     ctx.strokeStyle = OUT; ctx.lineWidth = 2; ctx.lineCap = "round";
     ctx.beginPath(); ctx.moveTo(l.x - 14, l.y - 11); ctx.lineTo(l.x - 10, l.y - 9); ctx.moveTo(l.x - 14, l.y - 4); ctx.lineTo(l.x - 10, l.y - 6); ctx.stroke();
     ctx.lineCap = "butt";
@@ -1137,22 +1259,18 @@ function drawLittle(l, t) {
     ctx.restore();
     return;
   }
-  // ножки
   const step = l.moving ? Math.sin(l.walk) * 3 : 0;
   ctx.fillStyle = "#3b3b4f";
   ellipse(l.x - 4, l.y - 1 + step * 0.4, 3.5, 3); ctx.fill();
   ellipse(l.x + 4, l.y - 1 - step * 0.4, 3.5, 3); ctx.fill();
-  // тело
-  rr(l.x - 8, l.y - 15 - bob, 16, 14, 6); fillStroke(l.look.shirt, 2.5);
-  // голова
-  const hy = l.y - 24 - bob;
-  circle(l.x, hy, 10); fillStroke("#ffd8b5", 2.5);
-  const front = Math.sin(l.dir) >= -0.55;
-  ctx.beginPath();
-  if (front) ctx.arc(l.x, hy, 10, Math.PI * 1.05, Math.PI * 1.95);
-  else ctx.arc(l.x, hy, 10, Math.PI * 0.85, Math.PI * 2.15);
-  ctx.closePath(); ctx.fillStyle = l.look.hair; ctx.fill(); ctx.lineWidth = 2.5; ctx.strokeStyle = OUT; ctx.stroke();
+  rr(l.x - 8, l.y - 15 - bob, 16, 14, 6); fillStroke(look.shirt, 2.5);
+  if (look.acc === "bandana") { ctx.strokeStyle = "rgba(255,255,255,.7)"; ctx.lineWidth = 2; for (let k = 0; k < 2; k++) { ctx.beginPath(); ctx.moveTo(l.x - 7, l.y - 11 - bob + k * 5); ctx.lineTo(l.x + 7, l.y - 11 - bob + k * 5); ctx.stroke(); } }
+  const hy = l.y - 24 - bob, front = Math.sin(l.dir) >= -0.55;
+  drawHairBack(l.x, hy, 10, look);
+  circle(l.x, hy, 10); fillStroke(look.skin, 2.5);
+  drawHairTop(l.x, hy, 10, look, front);
   drawFace(l.x, hy + 1, 10, l.dir, false, false);
+  drawAccessory(l.x, hy, 10, look, l.dir, front);
   ctx.restore();
 }
 
@@ -1168,32 +1286,58 @@ function drawGhost(l, t) {
   ctx.restore();
 }
 
-function drawBig(t) {
-  const b = big;
+function drawBig(t, b = big) {
+  const sk = b.skin;
   const bob = b.moving ? Math.abs(Math.sin(b.walk)) * 3 : 0;
   const step = b.moving ? Math.sin(b.walk) * 4 : 0;
+  const shocked = b.stun > 0, resting = b.noPush > 0 && !shocked;
   ctx.fillStyle = "rgba(0,0,0,.22)"; ellipse(b.x, b.y + 4, 26, 10); ctx.fill();
   ctx.fillStyle = "#2d2d3f";
   ellipse(b.x - 9, b.y - 1 + step * 0.4, 7, 5); ctx.fill();
   ellipse(b.x + 9, b.y - 1 - step * 0.4, 7, 5); ctx.fill();
-  // руки
-  const arm = b.state === "chase" ? -6 : 0;
-  circle(b.x - 25, b.y - 22 - bob + arm, 7); fillStroke("#f4b183", 2.5);
-  circle(b.x + 25, b.y - 22 - bob + arm, 7); fillStroke("#f4b183", 2.5);
+  // руки (в шоке — вверх)
+  const arm = shocked ? -18 : (b.state === "chase" ? -6 : 0);
+  circle(b.x - 25, b.y - 22 - bob + arm, 7); fillStroke(sk.skin, 2.5);
+  circle(b.x + 25, b.y - 22 - bob + arm, 7); fillStroke(sk.skin, 2.5);
   // тело
-  rr(b.x - 22, b.y - 40 - bob, 44, 38, 16); fillStroke(b.flash > 0 ? "#ffd1dc" : "#9b2c3a", 3.5);
-  rr(b.x - 12, b.y - 30 - bob, 24, 20, 8); ctx.fillStyle = "rgba(255,255,255,.18)"; ctx.fill();
+  rr(b.x - 22, b.y - 40 - bob, 44, 38, 16); fillStroke(b.flash > 0 ? "#ffd1dc" : sk.shirt, 3.5);
+  if (sk.top === "pirate") { ctx.strokeStyle = "rgba(255,255,255,.55)"; ctx.lineWidth = 3; for (let k = 0; k < 3; k++) { ctx.beginPath(); ctx.moveTo(b.x - 19, b.y - 32 - bob + k * 9); ctx.lineTo(b.x + 19, b.y - 32 - bob + k * 9); ctx.stroke(); } }
+  else if (sk.top === "robot") { rr(b.x - 10, b.y - 32 - bob, 20, 14, 4); fillStroke("#0ea5e9", 2); circle(b.x - 4, b.y - 25 - bob, 2); ctx.fillStyle = "#fde047"; ctx.fill(); }
+  else { rr(b.x - 12, b.y - 30 - bob, 24, 20, 8); ctx.fillStyle = "rgba(255,255,255,.18)"; ctx.fill(); }
   // голова
-  const hy = b.y - 54 - bob;
-  circle(b.x, hy, 17); fillStroke("#f4b183", 3.5);
-  const front = Math.sin(b.dir) >= -0.55;
-  ctx.beginPath();
-  if (front) { for (let k = 0; k < 5; k++) { const a = Math.PI * (1.1 + k * 0.2); ctx.lineTo(b.x + Math.cos(a) * 21, hy + Math.sin(a) * 21); ctx.lineTo(b.x + Math.cos(a + 0.1) * 15, hy + Math.sin(a + 0.1) * 15); } }
-  else ctx.arc(b.x, hy, 17, Math.PI * 0.8, Math.PI * 2.2);
-  ctx.closePath(); ctx.fillStyle = "#3a2418"; ctx.fill();
-  drawFace(b.x, hy + 2, 17, b.dir, b.state === "chase" || b.state === "search", false);
-  if (b.stun > 0) for (let i = 0; i < 3; i++) { const a = t * 5 + i * TAU / 3; label("★", b.x + Math.cos(a) * 22, hy - 22 + Math.sin(a) * 6, 15, "#fde047"); }
-  if (b.state === "chase" && b.stun <= 0) label("!", b.x, hy - 30, 24, "#ff3b30");
+  const hy = b.y - 54 - bob, front = Math.sin(b.dir) >= -0.55, r = 17;
+  if (sk.top === "bear") for (const k of [-1, 1]) { circle(b.x + k * 13, hy - 13, 7); fillStroke(sk.skin, 3); circle(b.x + k * 13, hy - 13, 3.5); ctx.fillStyle = "#e8b48a"; ctx.fill(); }
+  if (sk.top === "robot") { ctx.strokeStyle = OUT; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(b.x, hy - r); ctx.lineTo(b.x, hy - r - 10); ctx.stroke(); circle(b.x, hy - r - 12, 4); fillStroke(Math.floor(t * 3) % 2 ? "#ef4444" : "#fca5a5", 2); }
+  if (sk.top === "robot") { rr(b.x - r, hy - r, r * 2, r * 2, 9); fillStroke(sk.skin, 3.5); }
+  else { circle(b.x, hy, r); fillStroke(sk.skin, 3.5); }
+  if (sk.top === "spiky") {
+    ctx.beginPath();
+    if (front) { for (let k = 0; k < 5; k++) { const a = Math.PI * (1.1 + k * 0.2); ctx.lineTo(b.x + Math.cos(a) * 21, hy + Math.sin(a) * 21); ctx.lineTo(b.x + Math.cos(a + 0.1) * 15, hy + Math.sin(a + 0.1) * 15); } }
+    else ctx.arc(b.x, hy, r, Math.PI * 0.8, Math.PI * 2.2);
+    ctx.closePath(); ctx.fillStyle = sk.hair; ctx.fill();
+  } else if (sk.top === "horns") {
+    for (const k of [-1, 1]) { ctx.beginPath(); ctx.moveTo(b.x + k * 8, hy - 13); ctx.quadraticCurveTo(b.x + k * 18, hy - 22, b.x + k * 15, hy - 30); ctx.lineTo(b.x + k * 14, hy - 13); ctx.closePath(); fillStroke("#fef3c7", 2.5); }
+  } else if (sk.top === "pirate") {
+    ctx.beginPath(); ctx.moveTo(b.x - 24, hy - 8); ctx.quadraticCurveTo(b.x, hy - 40, b.x + 24, hy - 8); ctx.quadraticCurveTo(b.x, hy - 16, b.x - 24, hy - 8); ctx.closePath(); fillStroke("#111827", 3);
+    circle(b.x, hy - 19, 3.5); ctx.fillStyle = "#fff"; ctx.fill();
+    if (front) { ctx.beginPath(); ctx.arc(b.x, hy + 6, 13, Math.PI * 0.1, Math.PI * 0.9); ctx.lineTo(b.x - 8, hy + 18); ctx.quadraticCurveTo(b.x, hy + 24, b.x + 8, hy + 18); ctx.closePath(); fillStroke(sk.hair, 2.5); }
+  } else if (sk.top === "bear" && front) {
+    ellipse(b.x, hy + 7, 8, 6); fillStroke("#e8b48a", 2); circle(b.x, hy + 4, 2.5); ctx.fillStyle = OUT; ctx.fill();
+  }
+  if (shocked && front) {                     // глаза-спиральки и открытый рот
+    for (const [ex, ey] of eyePos(b.x, hy + 2, r, b.dir)) {
+      ctx.strokeStyle = OUT; ctx.lineWidth = 2; ctx.beginPath();
+      for (let k = 0; k < 14; k++) { const a = k * 0.9 + t * 8, rr2 = k * 0.42; ctx.lineTo(ex + Math.cos(a) * rr2, ey + Math.sin(a) * rr2); }
+      ctx.stroke();
+    }
+    ellipse(b.x + Math.cos(b.dir) * 5, hy + 11, 4, 5); fillStroke("#7f1d1d", 2);
+  } else drawFace(b.x, hy + 2, r, b.dir, b.state === "chase" || b.state === "search", resting);
+  if (shocked) {
+    for (let i = 0; i < 3; i++) { const a = t * 5 + i * TAU / 3; label("★", b.x + Math.cos(a) * 24, hy - 26 + Math.sin(a) * 6, 15, "#fde047"); }
+    label("?!", b.x + 24, hy - 26, 18, "#fff");
+  } else if (resting) {
+    label("💦", b.x + 20, hy - 18 + Math.sin(t * 6) * 2, 14, "#fff");
+  } else if (b.state === "chase") label("!", b.x, hy - 30, 24, "#ff3b30");
 }
 
 function drawBushes() {
@@ -1311,7 +1455,7 @@ function drawHUD(t) {
     ctx.globalAlpha = 0.35; circle(st.ox, st.oy, STICK_R); fillStroke("#fff", 3);
     ctx.globalAlpha = 0.7;
     const dx = st.x - st.ox, dy = st.y - st.oy, d = Math.hypot(dx, dy), k = d > STICK_R ? STICK_R / d : 1;
-    circle(st.ox + dx * k, st.oy + dy * k, 24); fillStroke(LOOKS[st.player].shirt, 3);
+    circle(st.ox + dx * k, st.oy + dy * k, 24); fillStroke(LITTLE_SKINS[st.player === 0 ? skinSel.p1 : skinSel.p2].shirt, 3);
     ctx.globalAlpha = 1;
   }
   if (isTouch && stats.time < 5) {
@@ -1332,10 +1476,11 @@ function drawOverlay() {
       ctx.fillText(icons[i], W / 2 - 312, 182 + i * 34);
       fitText(r, W / 2 - 287, 182 + i * 34, 17, 640, "left", OUT, 700);
     });
-    addButton(W / 2 - 150, 360, 52, 52, "◀", "#94a3b8", () => changeLevel(-1));
-    rr(W / 2 - 88, 360, 176, 52, 16); fillStroke("#fff", 4);
-    label(`${L().level} ${level}`, W / 2, 387, 24, OUT);
-    addButton(W / 2 + 98, 360, 52, 52, "▶", "#94a3b8", () => changeLevel(1));
+    addButton(W / 2 - 250, 360, 52, 52, "◀", "#94a3b8", () => changeLevel(-1));
+    rr(W / 2 - 192, 360, 124, 52, 16); fillStroke("#fff", 4);
+    fitText(`${L().level} ${level}`, W / 2 - 130, 387, 22, 112, "center", OUT, 900);
+    addButton(W / 2 - 62, 360, 52, 52, "▶", "#94a3b8", () => changeLevel(1));
+    addButton(W / 2 + 20, 360, 230, 52, "🎨 " + L().skins, "#ff8fab", () => { mode = "skins"; }, 22);
     addButton(W / 2 - 250, 432, 230, 72, L().onePlayer, "#3b82f6", () => startGame(1), 28);
     addButton(W / 2 + 20, 432, 230, 72, L().twoPlayers, "#22c55e", () => startGame(2), 28);
     fitText(L().controls1, W / 2, 540, 15, 690, "center", "#475569", 600);
@@ -1345,6 +1490,31 @@ function drawOverlay() {
       const bx = W / 2 + 196 + i * 54, by = 46, active = code === lang;
       addButton(bx, by, 48, 34, code.toUpperCase(), active ? "#ff6fa8" : "#cbd5e1", () => setLang(code), 15);
     });
+  } else if (mode === "skins") {
+    rr(W / 2 - 400, 40, 800, 560, 30); fillStroke("rgba(255,250,235,.96)", 5);
+    label("🎨 " + L().skins, W / 2, 86, 40, "#ff6fa8");
+    const cols = [
+      { key: "p1", title: L().player1, list: LITTLE_SKINS, color: "#3b82f6" },
+      { key: "p2", title: L().player2, list: LITTLE_SKINS, color: "#22c55e" },
+      { key: "big", title: L().big, list: BIG_SKINS, color: "#9b2c3a" }
+    ];
+    cols.forEach((c, i) => {
+      const cx = W / 2 - 250 + i * 250, sel = skinSel[c.key], sk = c.list[sel];
+      rr(cx - 110, 120, 220, 380, 22); fillStroke("#fff", 3.5);
+      label(c.title, cx, 148, 22, c.color);
+      ctx.fillStyle = "#9be06f"; rr(cx - 90, 172, 180, 220, 18); ctx.fill();
+      ctx.save();
+      const scale = c.key === "big" ? 2.3 : 3.6, gy = c.key === "big" ? 370 : 360;
+      ctx.translate(cx, gy); ctx.scale(scale, scale);
+      if (c.key === "big") drawBig(T, { x: 0, y: 0, dir: Math.PI / 2, moving: true, walk: T * 6, stun: 0, noPush: 0, state: "patrol", flash: 0, skin: sk });
+      else drawLittle({ x: 0, y: 0, state: "ok", moving: true, walk: T * 8, invuln: 0, dir: Math.PI / 2 + Math.sin(T) * 0.4, look: sk }, T);
+      ctx.restore();
+      fitText(sk.name[lang], cx, 420, 22, 190, "center", OUT, 900);
+      label(`${sel + 1} / ${c.list.length}`, cx, 446, 13, "#94a3b8");
+      addButton(cx - 96, 460, 60, 30, "◀", "#94a3b8", () => cycleSkin(c.key, -1), 16);
+      addButton(cx + 36, 460, 60, 30, "▶", "#94a3b8", () => cycleSkin(c.key, 1), 16);
+    });
+    addButton(W / 2 - 110, 520, 220, 60, L().ok, "#22c55e", () => { mode = "menu"; }, 26);
   } else if (mode === "pause") {
     label(L().pause, W / 2, H / 2 - 70, 56, "#fff");
     addButton(W / 2 - 230, H / 2, 220, 66, L().play, "#22c55e", () => { mode = "play"; });
@@ -1369,7 +1539,7 @@ function draw(t) {
   if (shake > 0) ctx.translate(rand(-4, 4) * shake * 4, rand(-4, 4) * shake * 4);
   drawWorld(t);
   ctx.restore();
-  if (mode !== "menu") drawHUD(t);
+  if (mode !== "menu" && mode !== "skins") drawHUD(t);
   drawOverlay();
   if (isTouch && window.innerHeight > window.innerWidth) {
     ctx.fillStyle = "rgba(20,30,25,.92)"; ctx.fillRect(0, 0, W, H);
@@ -1388,7 +1558,7 @@ function frame(now) {
   pollPads();
   const portrait = isTouch && window.innerHeight > window.innerWidth;
   if (mode === "play" && !portrait) update(dt);
-  else { updateFx(dt); if (mode === "menu") big.dir += dt * 0.8; }
+  else { updateFx(dt); if (mode === "menu" || mode === "skins") big.dir += dt * 0.8; }
   draw(T);
   requestAnimationFrame(frame);
 }
