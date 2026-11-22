@@ -110,7 +110,8 @@ const CFG = {
   KISS_DAMAGE: 0.5,          // сердечка за попадание
   KISS_BLUSH: 1.5,           // сек — Большой краснеет: стоит, не толкает, обнимать можно
   KISS_STEP: 4,              // px — шаг проверки полёта (меньше клетки сетки FINE)
-  KISS_BTN: 70               // px — кнопка 💋 на сенсорном экране
+  KISS_BTN: 70,              // px — кнопка 💋 на сенсорном экране
+  PAD_KISS: 2                // кнопка геймпада для поцелуя: X (Xbox) / □ (PlayStation)
 };
 // Рукавицы из магазина: сколько сердечек забирает одна обнимашка, цена и сколько сильных обнимашек в наборе
 const GLOVES = {
@@ -626,7 +627,7 @@ function inCone(x, y) {
 }
 function clearTo(e, x, y, avoidCone) {
   if (!losWide(e.x, e.y, x, y, e.r - 1, e.isBig ? moveSolidBigAt : moveSolidAt)) return false;
-  if (avoidCone && big.stun <= 0) for (let t = 0.2; t <= 1.001; t += 0.2) if (inCone(e.x + (x - e.x) * t, e.y + (y - e.y) * t)) return false;
+  if (avoidCone && big.stun <= 0 && big.blush <= 0) for (let t = 0.2; t <= 1.001; t += 0.2) if (inCone(e.x + (x - e.x) * t, e.y + (y - e.y) * t)) return false;
   return true;
 }
 function steerTo(e, gx, gy, speed, dt, avoidCone) {
@@ -1060,7 +1061,6 @@ function closeNameInput(save) {
 }
 
 // Геймпады
-const PAD_KISS = 2;     // кнопка поцелуя: X (Xbox) / □ (PlayStation)
 let pads = [];
 const padPrev = [];
 function pollPads() {
@@ -1095,7 +1095,7 @@ function onPadButton(b, pad = 0) {
     if (b === 0 || b === 1 || b === 9) mode = "skins";
   } else if (mode === "play") {
     if (b === 9) mode = "pause";
-    if (b === PAD_KISS && (numPlayers === 1 || pad < numPlayers)) throwKiss(numPlayers === 1 ? 0 : pad);
+    if (b === CFG.PAD_KISS && (numPlayers === 1 || pad < numPlayers)) throwKiss(numPlayers === 1 ? 0 : pad);
   }
   else if (mode === "pause") { if (b === 9 || b === 0) mode = "play"; if (b === 1) toMenu(); }
   else if (mode === "win") { if (b === 0 || b === 9) nextLevel(); if (b === 1) toMenu(); }
@@ -1189,7 +1189,7 @@ function winSoon() { pendingWin = CFG.HUG_ANIM; big.stun = 99; }
 // ---------- Воздушные поцелуи: летят прямо, полсердечка, Большой краснеет ----------
 function throwKiss(pi) {
   const l = littles[pi];
-  if (mode !== "play" || !l || l.kind !== "player" || !canAct(l) || progress.inv.kisses <= 0) return false;
+  if (mode !== "play" || pendingWin > 0 || !l || l.kind !== "player" || !canAct(l) || progress.inv.kisses <= 0) return false;
   if (inSafe(l)) { popText(l.x, l.y - 40, L().noKissHome, "#fca5a5"); return false; }   // из домика нельзя
   if (l.kissCd > 0) return false;
   progress.inv.kisses--; saveProgress();
@@ -1201,7 +1201,7 @@ function throwKiss(pi) {
 }
 function kissHit(k) {
   burst(big.x, big.y - 30, "heart", "#ff4d8d", 10);
-  if (big.stun > 0 || big.blush > 0) return;            // в шоке или уже красный — только сердечки
+  if (big.stun > 0 || big.hugCd > 0 || big.blush > 0) return;   // в шоке (и 0.3 с после него) или уже красный — только сердечки
   big.hp = Math.max(0, big.hp - CFG.KISS_DAMAGE);
   big.blush = CFG.KISS_BLUSH; big.blushBy = k.owner;
   big.pushCd = 0; big.path = []; big.moving = false; big.flash = 0.2;
@@ -1216,8 +1216,8 @@ function updateKisses(dt) {
     while (left > 0 && !k.done) {
       const s = Math.min(CFG.KISS_STEP, left, CFG.KISS_RANGE - k.travel);
       k.x += k.dx * s; k.y += k.dy * s; k.travel += s; left -= s;
-      if (dist(k, big) < big.r + CFG.KISS_HIT_PAD) { k.done = true; kissHit(k); }
-      else if (seeSolidAt(k.x, k.y)) { k.done = true; burst(k.x - k.dx * CFG.KISS_STEP, k.y - k.dy * CFG.KISS_STEP, "star", "#ff9ecb", 8); }   // стена, дерево, камень, край карты
+      if (seeSolidAt(k.x, k.y)) { k.done = true; burst(k.x - k.dx * CFG.KISS_STEP, k.y - k.dy * CFG.KISS_STEP, "star", "#ff9ecb", 8); }   // стена, дерево, камень, край карты
+      else if (dist(k, big) < big.r + CFG.KISS_HIT_PAD && los(k.x, k.y, big.x, big.y, seeSolidAt)) { k.done = true; kissHit(k); }   // сквозь стену не попадает
       else if (k.travel >= CFG.KISS_RANGE) { k.done = true; burst(k.x, k.y, "star", "#ffd1e3", 5); }
     }
   }
@@ -1454,9 +1454,10 @@ function updateBig(dt) {
   big.noPush = Math.max(0, big.noPush - dt);
   if (big.blush > 0) {                                   // покраснел: время идёт и пока лежит после банана
     big.blush = Math.max(0, big.blush - dt);
-    if (big.blush <= 0 && big.slip <= 0 && big.stun <= 0) {   // прошло — идёт к тому, кто бросил (поиск повернёт его туда)
+    if (big.blush <= 0 && big.slip <= 0 && big.stun <= 0) {   // прошло — поворачивается к тому, кто бросил, и в погоню
       const th = littles[big.blushBy] || littles[0];
       big.state = "chase"; big.lastSeen = { x: th.x, y: th.y };
+      big.dir = Math.atan2(th.y - big.y, th.x - big.x); big.path = [];
       return;
     }
   }
@@ -2931,6 +2932,7 @@ function makeKissMesh() {
   return g;
 }
 function syncKisses(t) {
+  if (!kisses.length && !kissMeshes.size) return;
   const alive = new Set(kisses.map(k => k.id));
   for (const [id, g] of kissMeshes) if (!alive.has(id)) { kissGroup.remove(g); disposeTree(g); kissMeshes.delete(id); }
   for (const k of kisses) {
@@ -3186,9 +3188,9 @@ window.__bb = {
   get buttonRects() { return buttons.map(b => ({ id: b.id || b.act.name, x: b.x, y: b.y, w: b.w, h: b.h })); },
   get names() { return allNames(); }, setName, nameOf, inDanger, get stars() { return bonusStars; }, spawnStar, giveReward,
   get dangerZone() { return dangerZone; }, get safeZone() { return safeZone; }, get texts() { return texts; }, generateLevel,
-  world: { COLS, ROWS, CELL, get blocked() { return Array.from(blocked); },
+  world: { COLS, ROWS, CELL, get blocked() { return Array.from(blocked); }, seeSolid: seeSolidAt, get bushes() { return bushes.map(q => ({ ...q })); },
     get obstacles() { return obstacles.map(o => ({ kind: o.kind, shape: o.shape, x: o.x, y: o.y, w: o.w, h: o.h, r: o.r, move: o.move, sight: o.sight })); } },
-  get kisses() { return kisses; }, throwKiss, buyKisses, resetProgress, heartFill, bigBoost
+  get kisses() { return kisses; }, throwKiss, buyKisses, resetProgress, heartFill, bigBoost, fmtHearts
 };
 </script>
 </body>

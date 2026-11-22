@@ -644,7 +644,65 @@ test("kisses stop at walls and fly over ponds", async ({ page }) => {
   expect(pond.maxX).toBeGreaterThan(pond.end);       // flew over the whole pond
 });
 
-// Thrower 50 px behind the Big One (he faces away), so the kiss reaches him in a frame or two.
+test("trees, rocks and the map edge stop kisses; bushes do not", async ({ page }) => {
+  await installTestHelpers(page);
+  const r = await page.evaluate(spot => {
+    const b = window.__bb, t = window.__t, l = b.littles[0], w = b.world, out = {};
+    t.calm(900, 600); b.big.noPush = 999; t.pin([0]);
+    b.progress.inv.kisses = 20;
+    // flies from (x, y) along dir; returns how far it got and how long it lived
+    const fly = (x, y, dir) => {
+      Object.assign(l, { x, y, dir, kissCd: 0, state: "ok" });
+      if (!b.throwKiss(0)) return null;
+      const k = b.kisses[b.kisses.length - 1], path = [];
+      for (let i = 0; i < 60 && b.kisses.includes(k); i++) { path.push({ x: k.x, y: k.y }); b.update(1 / 60); }
+      return { path, alive: b.kisses.includes(k) };
+    };
+    const clear = (x1, x2, y) => { for (let x = x1; x <= x2; x += 2) if (w.seeSolid(x, y)) return false; return true; };
+    for (const kind of ["tree", "rock"]) {
+      const o = w.obstacles.find(q => q.kind === kind && q.x > 120 && !b.inSafe(q) && clear(q.x - 70, q.x - 28, q.y) && Math.hypot(q.x - b.big.x, q.y - b.big.y) > 150);
+      if (!o) { out[kind] = "none"; continue; }
+      const f = fly(o.x - 60, o.y, 0);
+      out[kind] = { alive: f.alive, maxX: Math.max(...f.path.map(p => p.x)), edge: o.x - o.r, frames: f.path.length };
+    }
+    const bush = w.bushes.find(q => clear(q.x - 70, q.x + 70, q.y) && !b.inSafe({ x: q.x - 60, y: q.y }) && Math.hypot(q.x - b.big.x, q.y - b.big.y) > 150);
+    if (bush) { const f = fly(bush.x - 60, bush.y, 0); out.bush = { maxX: Math.max(...f.path.map(p => p.x)), far: bush.x + bush.r }; } else out.bush = "none";
+    const e = fly(spot.x, 16, -Math.PI / 2);          // up, into the top edge of the map
+    out.edge = { alive: e.alive, frames: e.path.length, minY: Math.min(...e.path.map(p => p.y)) };
+    return out;
+  }, KISS_SPOT);
+  for (const kind of ["tree", "rock"]) {
+    expect(r[kind]).not.toBe("none");
+    expect(r[kind].alive).toBe(false);
+    expect(r[kind].maxX).toBeLessThan(r[kind].edge + 2);   // stopped at the trunk/stone
+    expect(r[kind].frames).toBeLessThan(10);
+  }
+  expect(r.bush).not.toBe("none");
+  expect(r.bush.maxX).toBeGreaterThan(r.bush.far);   // flew through the bush
+  expect(r.edge.alive).toBe(false);
+  expect(r.edge.frames).toBeLessThan(4);
+  expect(r.edge.minY).toBeGreaterThanOrEqual(0);
+});
+
+test("a kiss never hits the Big One through a wall", async ({ page }) => {
+  await installTestHelpers(page);
+  const r = await page.evaluate(spot => {
+    const b = window.__bb, t = window.__t, big = b.big, l = b.littles[0];
+    t.pin([0]);
+    // he stands pressed against the far side of the house wall (x 192..224); the kiss comes from the other side
+    Object.assign(big, { x: 206, y: spot.y, dir: Math.PI, state: "look", timer: 9999, stun: 0, slip: 0, noPush: 999, pushCd: 0, hugCd: 0, blush: 0 });
+    b.progress.inv.kisses = 5;
+    Object.assign(l, { x: 252, y: spot.y, dir: Math.PI, kissCd: 0, state: "ok" });
+    const hp0 = big.hp;
+    b.throwKiss(0);
+    for (let i = 0; i < 30 && b.kisses.length; i++) b.update(1 / 60);
+    return { lost: hp0 - big.hp, blush: big.blush, flying: b.kisses.length };
+  }, KISS_SPOT);
+  expect(r).toEqual({ lost: 0, blush: 0, flying: 0 });
+});
+
+// Thrower 50 px behind the Big One (he faces away), so the kiss reaches him in a frame or two. Level 1: the strip under the
+// Little Ones' house (rows 6–7, x 0..288) is always free (the pond is near the map centre).
 async function kissScene(page) {
   await installTestHelpers(page);
   await page.evaluate(() => {
@@ -656,7 +714,7 @@ async function kissScene(page) {
       for (let i = 0; i < 30 && b.kisses.length; i++) b.update(1 / 60);
     };
     t.pin([0]);
-    Object.assign(window.__bb.big, { x: 500, y: 320, dir: 0, state: "look", timer: 9999, stun: 0, stunFace: 0, stunTurn: 0, slip: 0, noPush: 0, pushCd: 0, hugCd: 0 });
+    Object.assign(window.__bb.big, { x: 200, y: 228, dir: 0, state: "look", timer: 9999, stun: 0, stunFace: 0, stunTurn: 0, slip: 0, noPush: 0, pushCd: 0, hugCd: 0 });
     window.__bb.progress.inv.kisses = 10;
   });
 }
@@ -675,8 +733,17 @@ test("a kiss takes half a heart and makes him blush", async ({ page }) => {
     Object.assign(b.littles[1], { x: 860, y: 600 });
     for (let i = 0; i < 60 && big.blush > 0; i++) b.update(1 / 60);
     out.state = big.state; out.lastSeen = big.lastSeen; out.thrower = { x: l.x, y: l.y };
+    const facing = () => Math.abs(Math.atan2(Math.sin(Math.atan2(l.y - big.y, l.x - big.x) - big.dir), Math.cos(Math.atan2(l.y - big.y, l.x - big.x) - big.dir)));
+    out.faceNow = facing();
+    l.invuln = 99;                                    // he may chase, but must not push the thrower during the check
+    const d0 = Math.hypot(l.x - big.x, l.y - big.y);
+    t.step(5 / 60);
+    out.faceLater = facing(); out.closer = d0 - Math.hypot(l.x - big.x, l.y - big.y);
     return out;
   });
+  expect(r.faceNow).toBeLessThan(0.2);               // turned to the thrower (he threw from behind)
+  expect(r.faceLater).toBeLessThan(0.6);
+  expect(r.closer).toBeGreaterThanOrEqual(0);        // and does not walk away from him
   expect(r.lost).toBe(0.5);
   expect(r.blush).toBeGreaterThan(1.4);
   expect(r.texts).toContain("Mwah!");
@@ -699,8 +766,14 @@ test("kisses during shock or blush do no damage", async ({ page }) => {
     const bl = big.blush;
     t.kissHim();
     out.second = { lost: hp0 - big.hp, refreshed: big.blush > bl };
+    t.step(2);                                        // the blush is over
+    const hp1 = big.hp;
+    Object.assign(big, { stun: 0, hugCd: 0.2, blush: 0, state: "look", timer: 9999, x: 200, y: 228, dir: 0 });   // the last 0.3 s after a hug's shock
+    t.kissHim();
+    out.hugCd = { lost: hp1 - big.hp, blush: big.blush };
     return out;
   });
+  expect(r.hugCd).toEqual({ lost: 0, blush: 0 });
   expect(r.shock).toEqual({ lost: 0, blush: 0, flying: 0 });
   expect(r.first).toBe(0.5);
   expect(r.second).toEqual({ lost: 0.5, refreshed: false });
@@ -730,10 +803,14 @@ test("the last half heart by a kiss wins the level", async ({ page }) => {
     const b = window.__bb, t = window.__t;
     b.big.hp = 0.5;
     t.kissHim();
-    const hp = b.big.hp;
+    const hp = b.big.hp, n = b.progress.inv.kisses;
+    b.littles[0].kissCd = 0;
+    const again = b.throwKiss(0), n2 = b.progress.inv.kisses;   // the level is already won: nothing is spent
     t.step(1.5);
-    return { hp, mode: b.mode, reward: b.lastReward };
+    return { hp, mode: b.mode, reward: b.lastReward, again, spent: n - n2 };
   });
+  expect(r.again).toBe(false);
+  expect(r.spent).toBe(0);
   expect(r.hp).toBe(0);
   expect(r.mode).toBe("win");
   expect(r.reward.win).toBe(true);
@@ -744,12 +821,14 @@ test("hearts bar shows half hearts", async ({ page }) => {
   const r = await page.evaluate(() => {
     const b = window.__bb, f = b.heartFill, big = b.big, out = {};
     out.fill = [f(0, 2.5), f(1, 2.5), f(2, 2.5), f(3, 2.5), f(5, 6), f(0, 0), f(0, 0.5)];
+    out.lose = [2.5, 0.5, 0, 3].map(b.fmtHearts);
     big.hp = big.maxHp - 0.5; out.boostHalf = b.bigBoost();
     big.hp = big.maxHp - 1.5; out.boostOneHalf = b.bigBoost();
     big.hp = big.maxHp; out.boost0 = b.bigBoost();
     return out;
   });
   expect(r.fill).toEqual([1, 1, 0.5, 0, 1, 0, 0.5]);
+  expect(r.lose).toEqual(["2½", "½", "0", "3"]);       // "Hearts taken" on the lose screen
   expect(r.boost0).toBe(0);                          // level 1
   expect(r.boostHalf).toBe(0);                       // half a heart is not a whole heart lost
   expect(r.boostOneHalf).toBe(4);                    // one whole heart: BIG_SPEED_PER_HIT
