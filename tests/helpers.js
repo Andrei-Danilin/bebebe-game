@@ -26,7 +26,8 @@ function clearOnce(l) {
   } catch (e) { /* ok */ }
 }
 
-async function openGame(page, { lang = "en", clearStorage = true } = {}) {
+// `query` is appended to the URL (e.g. "?phone=1").
+async function openGame(page, { lang = "en", clearStorage = true, query = "" } = {}) {
   const errors = [];
   page.on("pageerror", e => errors.push(String(e)));
   page.on("console", m => { if (m.type() === "error") errors.push("console: " + m.text()); });
@@ -38,7 +39,7 @@ async function openGame(page, { lang = "en", clearStorage = true } = {}) {
   if (clearStorage) {
     await page.addInitScript(clearOnce, lang);
   }
-  await page.goto(GAME_URL);
+  await page.goto(GAME_URL + query);
   await page.waitForFunction(() => window.__bbReady === true, null, { timeout: 30_000 });
   return errors;
 }

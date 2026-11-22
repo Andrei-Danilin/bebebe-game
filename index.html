@@ -20,6 +20,7 @@
   #wrap { position: relative; border-radius: 14px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,.45); background: #5f9e4a; }
   #wrap canvas { position: absolute; left: 0; top: 0; display: block; }
   #gl { pointer-events: none; }
+  body.phone #wrap { border-radius: 0; box-shadow: none; }   /* телефон: игра на весь экран */
   #game { touch-action: none; }
   /* поле ввода имени поверх подписи на холсте (шрифт ≥ 16px — iPhone не увеличивает страницу) */
   .name-input { position: absolute; box-sizing: border-box; margin: 0; padding: 0 6px; border: 2px solid #ff6fa8; border-radius: 10px; line-height: 1; background: #fff; color: #3d2b1f; font-weight: 900; font-family: system-ui, "Segoe UI", Arial, sans-serif; text-align: center; outline: none; -webkit-user-select: text; user-select: text; z-index: 5; }
@@ -112,6 +113,31 @@ const CFG = {
   KISS_STEP: 4,              // px — шаг проверки полёта (меньше клетки сетки FINE)
   KISS_BTN: 70,              // px — кнопка 💋 на сенсорном экране
   PAD_KISS: 2,               // кнопка геймпада для поцелуя: X (Xbox) / □ (PlayStation)
+  // режим телефона (SPEC-005): камера ближе и едет за героем, мини-карта, крупные кнопки
+  PHONE_MAX_SHORT_SIDE: 500, // CSS px — короткая сторона экрана сенсорного устройства не больше этого = телефон (iPad ≥ 744)
+  PHONE_UI_H: 420,           // UI px — высота слоя интерфейса на телефоне (ширина = 420 × соотношение сторон)
+  PHONE_VIEW_ROWS: 10,       // клеток по высоте видно на телефоне (вся карта — 20)
+  CAM_EDGE: 1,               // клеток — камера телефона показывает за краем карты не больше этого
+  CAM_LOOKAHEAD_RATE: 3,     // 1/сек — как плавно камера забегает вперёд и возвращается
+  CAM_ZOOM_TIME: 1.2,        // сек — после победы камера отъезжает на всю карту (и обратно)
+  CAM_EDGE_MAX: 4,           // клеток — дальше этого за край камера не заходит, даже чтобы герой не прятался под мини-картой
+  CAM_HERO_PAD: 12,          // CSS px — запас вокруг героя от верхней полосы и мини-карты
+  CAM_HERO_RAMP: 120,        // CSS px — полоса, на которой камера плавно уводит героя из-под мини-карты
+  CAM_HERO_SIDE: 36,         // CSS px — герой не ближе этого к левому и правому краю экрана
+  CAM_HERO_H: 90,            // px мира — высота имени над головой героя (его тоже держим на виду)
+  CAM_SHADOW_PAD: 1.5,       // клеток — запас рамки тени вокруг видимой земли
+  CAM_SHADOW_H: 2,           // клеток — углы видимой земли поднимаем на эту высоту: рамка тени захватывает стены, деревья и героев у края кадра
+  CAM_FOLLOW: 6,             // 1/сек — как быстро камера догоняет героя
+  CAM_LOOKAHEAD: 1.5,        // клеток — камера чуть забегает вперёд по ходу героя
+  MINIMAP_W: 0.26,           // доля ширины интерфейса — ширина мини-карты (3:2)
+  MINIMAP_MARGIN: 8,         // UI px — отступ мини-карты от краёв
+  ARROW_D: 30,               // CSS px — кружок стрелки у края экрана (диаметр)
+  PHONE_KISS_BTN: 80,        // CSS px — кнопка 💋 на телефоне
+  STICK_ZONE: 0.55,          // доля ширины слева, где касание создаёт джойстик
+  PHONE_STICK_R: 60,         // CSS px — радиус джойстика на телефоне
+  PHONE_BTN_MIN: 44,         // CSS px — кнопка на телефоне не меньше
+  PHONE_BTN_GAP: 8,          // CSS px — между соседними кнопками
+  PHONE_TEXT: { title: 24, main: 15, hint: 13, input: 16 },   // CSS px — самый мелкий текст на телефоне
   // типы уровней (SPEC-002): 1-й — рисунок детей, дальше по очереди
   TYPE_ORDER: ["meadow", "maze", "village", "river", "rooms", "arena"],
   BANNER_TIME: 2,            // сек — надпись «Уровень N: тип» в начале уровня появляется и исчезает
@@ -278,6 +304,7 @@ const W = 960, H = 640, CELL = 32, COLS = 30, ROWS = 20, FINE = 8, FW = W / FINE
 const TAU = Math.PI * 2;
 const OUT = "#3d2b1f";        // мультяшный контур
 let VIEW = 1, CSS_W = W, CSS_H = H, DPR = 1;
+let UW = W, UH = H;             // логический размер слоя интерфейса (на компьютере = миру; на телефоне — свой, SPEC-005)
 let renderer = null;           // создаётся в разделе 3D
 const isTouch = ("ontouchstart" in window) || (navigator.maxTouchPoints > 0);
 // Запущено как приложение с экрана «Домой» (для тестов: ?standalone=1)
@@ -291,6 +318,17 @@ function isStandalone() {
 const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 const STANDALONE = isStandalone();                 // режим отображения не меняется за сессию
 const showInstallHint = () => isIOS && !STANDALONE;
+// Телефон (SPEC-005): сенсорный экран с короткой стороной ≤ PHONE_MAX_SHORT_SIDE; ?phone=1 / ?phone=0 — принудительно.
+function isPhone() {
+  try {
+    const q = new URLSearchParams(location.search).get("phone");
+    if (q === "1") return true;
+    if (q === "0") return false;
+    return isTouch && Math.min(screen.width, screen.height) <= CFG.PHONE_MAX_SHORT_SIDE;
+  } catch (e) { return false; }
+}
+const PHONE = isPhone();                           // решается один раз при запуске, как STANDALONE
+if (PHONE) document.body.classList.add("phone");
 
 // Место для игры: body без отступов safe-area (вырез и полоска «домой» на iPhone).
 function playArea() {
@@ -300,16 +338,26 @@ function playArea() {
   return { w: w > 0 ? w : window.innerWidth, h: h > 0 ? h : window.innerHeight };
 }
 
+let onFit = null;               // телефон: 3D-камера подстраивается под форму холста (задаётся в разделе 3D)
 function fit() {
   DPR = Math.min(window.devicePixelRatio || 1, isTouch ? 1.5 : 2);   // на планшетах чуть меньше пикселей — плавнее
   const area = playArea();
-  const s = Math.min(area.w / W, area.h / H);
-  CSS_W = Math.floor(W * s); CSS_H = Math.floor(H * s);
+  const oldCSSW = CSS_W;
+  if (PHONE) {
+    // телефон: весь экран без полос; интерфейс — высотой PHONE_UI_H, ширина по соотношению сторон
+    CSS_W = Math.max(1, Math.floor(area.w)); CSS_H = Math.max(1, Math.floor(area.h));
+    UH = CFG.PHONE_UI_H; UW = UH * CSS_W / CSS_H;
+  } else {
+    const s = Math.min(area.w / W, area.h / H);
+    CSS_W = Math.floor(W * s); CSS_H = Math.floor(H * s);
+  }
   wrap.style.width = CSS_W + "px"; wrap.style.height = CSS_H + "px";
   canvas.style.width = CSS_W + "px"; canvas.style.height = CSS_H + "px";
   canvas.width = Math.max(1, Math.floor(CSS_W * DPR)); canvas.height = Math.max(1, Math.floor(CSS_H * DPR));
-  VIEW = canvas.width / W;
+  VIEW = canvas.width / UW;
   if (renderer) { renderer.setPixelRatio(DPR); renderer.setSize(CSS_W, CSS_H, true); }
+  if (onFit) onFit();
+  if (PHONE && nameInput && CSS_W !== oldCSSW) closeNameInput(true);   // телефон повернули — имя сохраняем, поле закрываем (клавиатура меняет только высоту)
   placeNameInput();
 }
 window.addEventListener("resize", () => fit());
@@ -1224,6 +1272,20 @@ function resolveWalls(e) {
 }
 function moveEntity(e, vx, vy, dt) { e.x += vx * dt; e.y += vy * dt; resolveWalls(e); }
 
+// Большой «спокоен»: в шоке, отдыхает после толчка или краснеет — конус бледный (3D и мини-карта)
+const bigCalm = () => big.stun > 0 || big.noPush > 0 || big.blush > 0;
+// многоугольник взгляда Большого в px мира: [x0, y0 (он сам), x1, y1, …] — n + 1 лучей, обрезанных стенами
+function visionPoly(n, out = []) {
+  out.length = 2 * (n + 2); out[0] = big.x; out[1] = big.y;
+  const a0 = big.dir - CFG.VISION_HALF;
+  for (let i = 0; i <= n; i++) {
+    const a = a0 + i * (2 * CFG.VISION_HALF / n), cx = Math.cos(a), sy = Math.sin(a);
+    let r = 0;
+    while (r < CFG.VISION_RANGE) { r += 5; if (seeSolidAt(big.x + cx * r, big.y + sy * r)) { r -= 5; break; } }
+    out[2 * i + 2] = big.x + cx * r; out[2 * i + 3] = big.y + sy * r;
+  }
+  return out;
+}
 function inCone(x, y) {
   const dx = x - big.x, dy = y - big.y, d = Math.hypot(dx, dy);
   return d < CFG.VISION_RANGE + 25 && angDiff(big.dir, Math.atan2(dy, dx)) < CFG.VISION_HALF + 0.2;
@@ -1472,6 +1534,7 @@ function makeLittle(i, kind, botIndex, controls, look) {
   };
 }
 function resetWorld(n) {
+  if (PHONE) n = 1;                  // на телефоне играет один (SPEC-005)
   numPlayers = n;
   loadLevel(level);
   littles = [];
@@ -1507,7 +1570,8 @@ function showBanner() {
   banner = { text: L().levelIntro(level, L().types[levelType(level)]), t: 0 };
 }
 const bannerAlpha = () => !banner ? 0 : clamp(Math.min(banner.t, CFG.BANNER_TIME - banner.t) / CFG.BANNER_FADE, 0, 1);
-function startGame(n) { resetWorld(n); mode = "play"; showBanner(); }
+// camSnap: начало уровня — камера телефона сразу у героя (в resetWorld нельзя: он же открывает меню, где камера показывает всю карту)
+function startGame(n) { resetWorld(n); mode = "play"; showBanner(); camSnap(); }
 function nextLevel() { level++; startGame(numPlayers); }
 function toMenu() { resetWorld(numPlayers); mode = "menu"; }
 function changeLevel(d) { level = clamp(level + d, 1, Math.min(99, progress.unlocked)); resetWorld(numPlayers); }
@@ -1603,9 +1667,11 @@ function kissKeyPlayer(code) {
 const sticks = new Map();
 const chipName = l => numPlayers === 1 ? L().me : String(l.id + 1);   // короткая метка игрока в кружке HUD
 const STICK_R = 55;
+// радиус джойстика в UI px: на телефоне — PHONE_STICK_R в CSS px (под палец), иначе как было
+const stickR = () => PHONE ? CFG.PHONE_STICK_R * UW / CSS_W : STICK_R;
 function toGame(e) {
   const rect = canvas.getBoundingClientRect();
-  return { x: (e.clientX - rect.left) * W / rect.width, y: (e.clientY - rect.top) * H / rect.height };
+  return { x: (e.clientX - rect.left) * UW / rect.width, y: (e.clientY - rect.top) * UH / rect.height };
 }
 const hitButton = p => buttons.find(b => p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h);
 let pendingUp = null;   // кнопка, которая срабатывает на отпускании (поле имени: iOS даёт фокус только в pointerup/click)
@@ -1618,7 +1684,8 @@ canvas.addEventListener("pointerdown", e => {
   if (hit && hit.onUp) { pendingUp = { id: hit.id, pointerId: e.pointerId }; return; }
   if (hit) { hit.act(); return; }
   if (mode === "play" && e.pointerType !== "mouse") {
-    const player = numPlayers === 2 && p.x > W / 2 ? 1 : 0;
+    if (PHONE && p.x > UW * CFG.STICK_ZONE) return;   // телефон: справа — только кнопки
+    const player = numPlayers === 2 && p.x > UW / 2 ? 1 : 0;
     for (const [id, s] of sticks) if (s.player === player) sticks.delete(id);
     sticks.set(e.pointerId, { player, ox: p.x, oy: p.y, x: p.x, y: p.y });
     try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* ok */ }
@@ -1630,7 +1697,8 @@ canvas.addEventListener("pointermove", e => {
   const p = toGame(e);
   s.x = p.x; s.y = p.y;
   const dx = s.x - s.ox, dy = s.y - s.oy, d = Math.hypot(dx, dy);
-  if (d > STICK_R * 1.6) { s.ox = s.x - dx / d * STICK_R * 1.6; s.oy = s.y - dy / d * STICK_R * 1.6; }  // джойстик «едет» за пальцем
+  const R = stickR();
+  if (d > R * 1.6) { s.ox = s.x - dx / d * R * 1.6; s.oy = s.y - dy / d * R * 1.6; }  // джойстик «едет» за пальцем
 });
 const endStick = e => sticks.delete(e.pointerId);
 canvas.addEventListener("pointerup", e => {
@@ -1646,8 +1714,8 @@ canvas.addEventListener("pointercancel", endStick);
 let nameInput = null;   // { el, slot, rect }
 function placeNameInput() {
   if (!nameInput) return;
-  const k = CSS_W / W, r = nameInput.rect;
-  Object.assign(nameInput.el.style, { left: r.x * k + "px", top: r.y * k + "px", width: r.w * k + "px", height: r.h * k + "px", fontSize: Math.max(16, r.h * k * 0.5) + "px" });
+  const k = CSS_W / UW, r = nameInput.rect;
+  Object.assign(nameInput.el.style, { left: r.x * k + "px", top: r.y * k + "px", width: r.w * k + "px", height: r.h * k + "px", fontSize: Math.max(CFG.PHONE_TEXT.input, r.h * k * 0.5) + "px" });
 }
 function openNameInput(rect, slot) {
   closeNameInput(true);
@@ -1702,7 +1770,7 @@ function onPadButton(b, pad = 0) {
     if (b === 0 || b === 1 || b === 9) mode = "menu";
   } else if (mode === "skins") {
     if (b === 2) randomOutfit("p1");
-    if (b === 3) randomOutfit("p2");
+    if (b === 3 && !PHONE) randomOutfit("p2");   // на телефоне игрока 2 нет
     if (b === 0 || b === 1 || b === 9) mode = "menu";
   } else if (mode === "names") {
     if (b === 0 || b === 1 || b === 9) mode = "skins";
@@ -1724,7 +1792,7 @@ function inputFor(l) {
   pads.forEach((p, i) => { if (numPlayers === 1 || i === pi) { x += p.x; y += p.y; } });
   for (const s of sticks.values()) {
     if (s.player !== pi) continue;
-    const dx = (s.x - s.ox) / STICK_R, dy = (s.y - s.oy) / STICK_R;
+    const R = stickR(), dx = (s.x - s.ox) / R, dy = (s.y - s.oy) / R;
     if (Math.hypot(dx, dy) > 0.15) { x += dx; y += dy; }
   }
   const d = Math.hypot(x, y);
@@ -2294,12 +2362,14 @@ function label(text, x, y, size, color, align = "center") {
   ctx.lineJoin = "round"; ctx.lineWidth = Math.max(3, size / 4.5); ctx.strokeStyle = OUT;
   ctx.strokeText(text, x, y);
   ctx.fillStyle = color; ctx.fillText(text, x, y);
+  if (PHONE) noteText("drawn", size);
 }
-function fitText(text, x, y, size, maxW, align, color, weight) {
+function fitText(text, x, y, size, maxW, align, color, weight, min = 9) {
   let sz = size + 0.5;
-  do { sz -= 0.5; ctx.font = `${weight} ${sz}px system-ui, "Segoe UI", sans-serif`; } while (ctx.measureText(text).width > maxW && sz > 9);
+  do { sz = Math.max(min, sz - 0.5); ctx.font = `${weight} ${sz}px system-ui, "Segoe UI", sans-serif`; } while (ctx.measureText(text).width > maxW && sz > min);
   ctx.textAlign = align; ctx.textBaseline = "middle"; ctx.fillStyle = color;
   ctx.fillText(text, x, y);
+  if (PHONE) noteText("drawn", sz);
   return sz;   // размер, которым написано
 }
 // Текст в несколько строк (по словам), не больше lines строк; не влезает — мельче
@@ -2322,14 +2392,15 @@ function wrapText(text, x, y, size, maxW, lines, color, weight) {
   rows.forEach((r, i) => ctx.fillText(r, x, y0 + i * lh));
 }
 // Подпись с контуром, которая сжимается под ширину (не мельче 11px), а если не влезает — обрезается «…»
-function labelFit(text, x, y, size, maxW, color, align = "center") {
+function labelFit(text, x, y, size, maxW, color, align = "center", min = 11) {
   const font = sz => `900 ${sz}px system-ui, "Segoe UI", "Arial Rounded MT Bold", Arial, sans-serif`;
   let sz = size;
   ctx.font = font(sz);
-  while (ctx.measureText(text).width > maxW && sz > 11) { sz -= 0.5; ctx.font = font(sz); }
+  while (ctx.measureText(text).width > maxW && sz > min) { sz = Math.max(min, sz - 0.5); ctx.font = font(sz); }
   let chars = Array.from(text);
   while (chars.length > 1 && ctx.measureText(text).width > maxW) { chars = chars.slice(0, -1); text = chars.join("").trimEnd() + "…"; }
   label(text, x, y, sz, color, align);
+  return sz;
 }
 function heartPath(x, y, s) {
   ctx.beginPath();
@@ -2387,7 +2458,7 @@ function drawKiss(x, y, s) {
 function drawMarkers(t) {
   if (safeZone) {
     const s = toScreen(safeZone.x + safeZone.w / 2, safeZone.y + safeZone.h - 22, 0);
-    ctx.save(); ctx.globalAlpha = 0.75; fitText("🛡 " + L().safe, s.x, s.y, 14, 150, "center", "#14532d", 900); ctx.restore();
+    ctx.save(); ctx.globalAlpha = 0.75; fitText("🛡 " + L().safe, s.x, s.y, fz(14, "hint"), PHONE ? cpx(200) : 150, "center", "#14532d", 900, PHONE ? minPx("hint") : 9); ctx.restore();
   }
   if (big.stun <= 0) {
     const back = big.dir + Math.PI, p = toScreen(big.x + Math.cos(back) * (big.r + 16), big.y + Math.sin(back) * (big.r + 16), 4);
@@ -2399,18 +2470,18 @@ function drawMarkers(t) {
       const hd = toScreen(l.x, l.y, l.state === "rest" ? 56 : 72);
       if (l.state === "rest") {
         const z = (t * 1.2 + l.id * 0.3) % 1;
-        ctx.save(); ctx.globalAlpha = 1 - z; label("z", hd.x + 10 + z * 14, hd.y - 6 - z * 22, 12 + z * 8, "#e0e7ff"); ctx.restore();
-        label(fmtTime(Math.max(0, l.restTimer)), hd.x, hd.y + 6, isPlayer ? 14 : 11, isPlayer ? P_COLORS[l.id] : "#e5e7eb");
-      } else label("🏠 " + name, hd.x, hd.y - 6, isPlayer ? 13 : 10, "#e5e7eb");
+        ctx.save(); ctx.globalAlpha = 1 - z; label("z", hd.x + 10 + z * 14, hd.y - 6 - z * 22, fz(12, "hint") + z * 8, "#e0e7ff"); ctx.restore();
+        label(fmtTime(Math.max(0, l.restTimer)), hd.x, hd.y + 6, fz(isPlayer ? 14 : 11, "hint"), isPlayer ? P_COLORS[l.id] : "#e5e7eb");
+      } else label("🏠 " + name, hd.x, hd.y - 6, fz(isPlayer ? 13 : 10, "hint"), "#e5e7eb");
       continue;
     }
     if (l.state === "ok") {
       const hd = toScreen(l.x, l.y, 72);
       ctx.save(); if (inBush(l)) ctx.globalAlpha = 0.4;     // в кустах имя бледное
       if (isPlayer) {
-        label(name, hd.x, hd.y - 10, 15, P_COLORS[l.id]);
+        label(name, hd.x, hd.y - 10, fz(15, "main"), P_COLORS[l.id]);
         ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.moveTo(hd.x - 5, hd.y - 1); ctx.lineTo(hd.x + 5, hd.y - 1); ctx.lineTo(hd.x, hd.y + 5); ctx.fill();
-      } else label(name, hd.x, hd.y - 4, 11, "#ffffff");
+      } else label(name, hd.x, hd.y - 4, fz(11, "hint"), "#ffffff");
       ctx.restore();
       const ic = (l.fx.boots > 0 ? "👟" : "") + (l.fx.cloak > 0 ? "👻" : "") + (l.fx.shield > 0 ? "🛡" : "");
       if (l.dangerT > CFG.DANGER_TIME - CFG.DANGER_WARN) {   // в доме Большого: большой отсчёт 3, 2, 1 (выше значков предметов)
@@ -2426,14 +2497,15 @@ function drawMarkers(t) {
       ctx.beginPath(); ctx.arc(c.x, c.y, 24, -Math.PI / 2, -Math.PI / 2 + TAU * (l.downTimer / CFG.DOWN_TIME)); ctx.stroke();
       if (l.rescue > 0) { ctx.strokeStyle = "#4ade80"; ctx.beginPath(); ctx.arc(c.x, c.y, 29, -Math.PI / 2, -Math.PI / 2 + TAU * (l.rescue / CFG.RESCUE_TIME)); ctx.stroke(); }
       ctx.lineCap = "butt";
-      label(String(Math.ceil(l.downTimer)), c.x + 30, c.y - 22, 15, "#fecaca");
-      label(isPlayer ? L().help(name) : "SOS", c.x, c.y - 40, 12 * (1 + Math.sin(t * 8) * 0.1), "#fde047");
+      label(String(Math.ceil(l.downTimer)), c.x + 30, c.y - 22, fz(15, "main"), "#fecaca");
+      const pulse = 1 + Math.sin(t * 8) * 0.1;   // телефон: пульсирует вверх от минимального размера
+      label(isPlayer ? L().help(name) : "SOS", c.x, c.y - 40, PHONE ? fz(12, "main") * (pulse + 0.1) : 12 * pulse, "#fde047");
     }
   }
   const bh = toScreen(big.x, big.y, 134);
   if (big.slip <= 0) {                                    // имя Большого над головой — выше значков «!», «?!», «💦» (они на bh.y − 18…+14)
     ctx.save(); if (inBush(big)) ctx.globalAlpha = 0.4;
-    label(nameFor("big"), bh.x, bh.y - 34, 14, "#ff4d4d");
+    label(nameFor("big"), bh.x, bh.y - 34, fz(14, "main"), "#ff4d4d");
     ctx.restore();
   }
   if (big.slip > 0) label("🍌💫", bh.x + 10, bh.y + 30, 20, "#fff");
@@ -2453,7 +2525,7 @@ function drawFx() {
   ctx.globalAlpha = 1;
   for (const tx of texts) {
     const s = toScreen(tx.x, tx.y, 40);
-    ctx.globalAlpha = Math.max(0, 1 - tx.t / 1.2); label(tx.text, s.x, s.y, 21, tx.color);
+    ctx.globalAlpha = Math.max(0, 1 - tx.t / 1.2); label(tx.text, s.x, s.y, fz(21, "main"), tx.color);
   }
   ctx.globalAlpha = 1;
 }
@@ -2463,7 +2535,8 @@ function addButton(x, y, w, h, text, color, act, size = 24) {
   rr(x, y, w, h, 18); fillStroke(color, 4);
   ctx.fillStyle = "rgba(255,255,255,.25)"; rr(x + 8, y + 6, w - 16, h * 0.35, 10); ctx.fill();
   label(text, x + w / 2, y + h / 2 + 1, size, "#fff");
-  const b = { x, y, w, h, act };
+  if (PHONE) noteText("main", size);
+  const b = { x, y, w, h, act, text, textW: ctx.measureText(text).width };
   buttons.push(b);
   return b;
 }
@@ -2475,10 +2548,123 @@ function toggleFullscreen() {
   } catch (e) { /* не везде поддерживается */ }
 }
 
+// джойстики: основание и шарик под пальцем
+function drawSticks() {
+  const SR = stickR();
+  for (const st of sticks.values()) {
+    ctx.globalAlpha = 0.35; circle(st.ox, st.oy, SR); fillStroke("#fff", 3);
+    ctx.globalAlpha = 0.7;
+    const dx = st.x - st.ox, dy = st.y - st.oy, d = Math.hypot(dx, dy), k = d > SR ? SR / d : 1;
+    circle(st.ox + dx * k, st.oy + dy * k, 24); fillStroke(P_COLORS[st.player], 3);
+    ctx.globalAlpha = 1;
+  }
+}
+// ---------- Общие тексты HUD (компьютер и телефон) ----------
+const timerText = () => { const s = Math.floor(stats.time); return `${L().lvShort} ${level}  ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
+// кружок команды: секунды до «домой» у упавшего, «z» у отдыхающего, иначе метка игрока или бота
+const chipText = l => l.state === "down" ? String(Math.ceil(l.downTimer)) : l.state === "home" || l.state === "rest" ? "z" : l.kind === "player" ? chipName(l) : L().botChip;
+const restText = l => "💤 " + L().resting(nameOf(l), fmtTime(Math.max(0, l.state === "rest" ? l.restTimer : CFG.REST_TIME)));
+
+// ---------- Телефон (SPEC-005): размеры в CSS px, крупный HUD ----------
+// CSS px → UI px: на телефоне кнопки и шрифты задаются в CSS px (под палец), рисуем в UI px
+const cpx = n => n * UW / CSS_W;
+const minPx = cat => cpx(CFG.PHONE_TEXT[cat]);   // самый мелкий текст этого вида в UI px
+// самый мелкий шрифт за кадр (UI px): по видам (title/main/hint) и всего нарисованного (drawn); где была надпись уровня
+let textSizes = {}, bannerRect = null, rotateShown = false;
+const noteText = (cat, s) => { if (!(s >= textSizes[cat])) textSizes[cat] = s; };
+// размер текста: на компьютере как задан; на телефоне не мельче PHONE_TEXT[cat] CSS px (записывается там, где рисуется)
+function fz(size, cat) {
+  if (!PHONE) return size;
+  const s = Math.max(size, minPx(cat));
+  noteText(cat, s);
+  return s;
+}
+const hudFont = sz => `900 ${sz}px system-ui, "Segoe UI", "Arial Rounded MT Bold", Arial, sans-serif`;
+// геометрия верхней полосы и кружков команды телефона (их же обходят камера и стрелки)
+const phoneTopBar = () => cpx(6) + cpx(CFG.PHONE_BTN_MIN);
+function teamRect() {
+  const mm = minimapRect(), cd = cpx(30), cw = cd + cpx(3), w = littles.length * cw + cpx(10), h = cd + cpx(8);
+  return { x: mm.x + mm.w - w, y: mm.y + mm.h + cpx(CFG.PHONE_BTN_GAP), w, h, cd, cw };
+}
+// места экрана, где героя не видно: верхняя полоса и угол мини-карты с кружками (pad — запас);
+// sides — ещё полосы у левого и правого края (для камеры: герой с именем целиком на экране)
+function phoneOccluders(pad = 0, sides = 0) {
+  const mm = minimapRect(), tr = teamRect(), top = phoneTopBar();
+  // ways — куда камере уводить героя из-под этого места, по порядку: сначала первый, второй — когда первый упёрся
+  const r = [{ x: -1e4, y: -1e4, w: 2e4, h: 1e4 + top + pad, ways: ["down"] },
+    { x: mm.x - pad, y: -1e4, w: 2e4, h: 1e4 + tr.y + tr.h + pad, ways: ["down", "left"] }];
+  if (sides) r.push({ x: -1e4, y: -1e4, w: 1e4 + sides, h: 2e4, ways: ["right"] }, { x: UW - sides, y: -1e4, w: 2e4, h: 2e4, ways: ["left"] });
+  return r;
+}
+// верхняя полоса телефона: слева имя Большого и сердечки, дальше уровень/время, пауза, «во весь экран»;
+// справа сверху мини-карта, под ней кружки команды; внизу справа 💋 и рядом рукавицы
+function drawHUDPhone(t) {
+  if (mode === "win" || mode === "lose") return;   // итоги — свой экран
+  const m = cpx(8), gap = cpx(CFG.PHONE_BTN_GAP), bh = cpx(CFG.PHONE_BTN_MIN), top = cpx(6), pad = cpx(10);
+  const mm = minimapRect(), main = minPx("main"), hint = minPx("hint");
+  const plate = (id, x, y, w, h) => { rr(x, y, w, h, cpx(14)); fillStroke("rgba(255,255,255,.85)", 3); hudRects.push({ id, x, y, w, h }); };
+  // уровень и время + кнопки
+  const timeTxt = timerText();
+  ctx.font = hudFont(main);
+  const tw = ctx.measureText(timeTxt).width + 2 * pad, nBtn = STANDALONE ? 1 : 2, gw = tw + nBtn * (gap + bh);
+  // имя Большого и сердечки: не влезает — сердечки плотнее, потом имя короче
+  const bigName = nameFor("big"), room = mm.x - gap - m - gw - gap;
+  let hStep = cpx(21), hSize = cpx(18), nameW = Math.min(ctx.measureText(bigName).width, cpx(110));
+  const plateW = () => pad + nameW + pad * 0.6 + big.maxHp * hStep + pad * 0.4;
+  if (plateW() > room) { hStep = Math.max(cpx(12), (room - pad * 2 - nameW) / big.maxHp); hSize = Math.min(hSize, hStep * 0.95); }
+  if (plateW() > room) nameW = Math.max(cpx(36), room - pad * 2 - big.maxHp * hStep);
+  const pw = plateW();
+  plate("hearts", m, top, pw, bh);
+  noteText("main", labelFit(bigName, m + pad, top + bh / 2, main, nameW, "#9b2c3a", "left", main));
+  const hx = m + pad + nameW + pad * 0.6 + hStep / 2;
+  for (let i = 0; i < big.maxHp; i++) drawHpHeart(hx + i * hStep, top + bh / 2 - hSize / 2 - 1, hSize, heartFill(i, big.hp));
+  // группа по центру свободного места
+  const gx = m + pw + Math.max(gap, (mm.x - gap - (m + pw) - gw) / 2);
+  plate("timer", gx, top, tw, bh);
+  noteText("main", fitText(timeTxt, gx + tw / 2, top + bh / 2 + 1, main, tw, "center", OUT, 900, main));
+  addButton(gx + tw + gap, top, bh, bh, "II", "#64748b", () => { mode = "pause"; }, fz(main, "main"));
+  if (!STANDALONE) addButton(gx + tw + gap + bh + gap, top, bh, bh, "⛶", "#64748b", toggleFullscreen, fz(main, "main"));
+  // кружки команды под мини-картой
+  const tr = teamRect();
+  plate("team", tr.x, tr.y, tr.w, tr.h);
+  littles.forEach((l, i) => {
+    const cx = tr.x + cpx(5) + i * tr.cw + tr.cw / 2, cy = tr.y + tr.h / 2;
+    ctx.globalAlpha = l.state === "home" || l.state === "rest" ? 0.45 : 1;
+    circle(cx, cy, tr.cd / 2); fillStroke(l.state === "ok" ? l.look.shirt : "#9ca3af", 2.5);
+    ctx.globalAlpha = 1;
+    noteText("hint", labelFit(chipText(l), cx, cy, hint, tr.cd - cpx(4), l.state === "down" ? "#fecaca" : "#fff", "center", hint));
+  });
+  // внизу справа: 💋 и рукавицы рядом
+  const kissOn = mode === "play" && progress.inv.kisses > 0;
+  if (kissOn) kissButton(0);
+  const kr = kissBtnRect(0), gl = gloveOf(0), gh = cpx(44), gEach = cpx(80);
+  let rightEdge = kissOn ? kr.x - gap : UW - m;
+  if (gl) {
+    const gx0 = rightEdge - gEach, gy0 = UH - m - gh;
+    plate("gloves", gx0, gy0, gEach, gh);
+    drawMitten(gx0 + cpx(22), gy0 + gh / 2, cpx(28), gl);
+    noteText("main", fitText("×" + progress.inv[gl], gx0 + cpx(54), gy0 + gh / 2 + 1, main, gEach - cpx(40), "center", OUT, 900, main));
+    rightEdge = gx0 - gap;
+  }
+  drawSticks();
+  // подсказка (первые секунды) и «отдыхает» — внизу, левее кнопок
+  const bw = rightEdge - m, bcx = m + bw / 2;
+  if (stats.time < 5) {
+    const hy = UH - m - cpx(16), hs = labelFit(L().touch1, bcx, hy, cpx(17), bw, "#fff", "center", hint), tw2 = Math.min(bw, ctx.measureText(L().touch1).width);
+    noteText("hint", hs); hudRects.push({ id: "hint", x: bcx - tw2 / 2, y: hy - hs * 0.7, w: tw2, h: hs * 1.4 });
+  }
+  littles.filter(l => l.kind === "player" && (l.state === "home" || l.state === "rest")).forEach((l, i) => {
+    const rh = cpx(40), ry = UH - m - rh - i * (rh + gap) - (stats.time < 5 ? cpx(36) : 0);
+    rr(m, ry, bw, rh, cpx(14)); fillStroke("rgba(30,41,59,.8)", 3); hudRects.push({ id: "rest", x: m, y: ry, w: bw, h: rh });
+    noteText("main", fitText(restText(l), bcx, ry + rh / 2, cpx(17), bw - 2 * pad, "center", "#e0e7ff", 800, main));
+  });
+  if (showMinimap()) { drawMinimap(t); drawEdgeArrows(); }
+}
 function drawHUD(t) {
+  if (PHONE) { drawHUDPhone(t); return; }
   // имя Большого + сердечки; полоска не налезает на таймер в центре
   const many = big.maxHp > 8, hStep = many ? 17 : 21, hSize = many ? 15 : 18;   // много сердечек — ставим плотнее, чтобы влезло имя
-  const bigName = nameFor("big"), hearts = big.maxHp * hStep, timerX = W / 2 - 95;
+  const bigName = nameFor("big"), hearts = big.maxHp * hStep, timerX = UW / 2 - 95;
   ctx.font = `900 15px system-ui, "Segoe UI", "Arial Rounded MT Bold", Arial, sans-serif`;
   const nameW = Math.min(ctx.measureText(bigName).width, timerX - 10 - 8 - 8 - 18 - hearts - 6);
   const hx = 18 + nameW + 18, hpW = hx + hearts - 10 - (hStep - hSize / 2) + 9;
@@ -2486,16 +2672,15 @@ function drawHUD(t) {
   labelFit(bigName, 18, 25, 15, nameW, "#9b2c3a", "left");
   for (let i = 0; i < big.maxHp; i++) drawHpHeart(hx + i * hStep, 25 - hSize / 2 - 1, hSize, heartFill(i, big.hp));
 
-  const chipW = 32, totalW = littles.length * chipW + 14, x0 = W - totalW - 10;
+  const chipW = 32, totalW = littles.length * chipW + 14, x0 = UW - totalW - 10;
   rr(x0, 8, totalW, 34, 14); fillStroke("rgba(255,255,255,.8)", 3);
   littles.forEach((l, i) => {
     const cx = x0 + 7 + i * chipW + chipW / 2, cy = 25;
     ctx.globalAlpha = l.state === "home" || l.state === "rest" ? 0.45 : 1;
     circle(cx, cy, 11); fillStroke(l.state === "ok" ? l.look.shirt : "#9ca3af", 2.5);
     ctx.globalAlpha = 1;
-    if (l.state === "down") label(String(Math.ceil(l.downTimer)), cx, cy, 11, "#fecaca");
-    else if (l.state === "home" || l.state === "rest") label("z", cx, cy, 12, "#fff");
-    else label(l.kind === "player" ? chipName(l) : L().botChip, cx, cy, l.kind === "player" && numPlayers === 1 ? 8 : 10, "#fff");
+    const down = l.state === "down", zz = l.state === "home" || l.state === "rest";
+    label(chipText(l), cx, cy, down ? 11 : zz ? 12 : l.kind === "player" && numPlayers === 1 ? 8 : 10, down ? "#fecaca" : "#fff");
   });
 
   const gls = [0, 1].filter(pi => pi < numPlayers).map(pi => gloveOf(pi)).filter(Boolean);
@@ -2507,34 +2692,26 @@ function drawHUD(t) {
     if (showKiss) { const i = kinds.length; drawKiss(30 + i * 70, 67, 26); label("×" + progress.inv.kisses, 58 + i * 70, 65, 16, OUT); }
   }
   if (isTouch && mode === "play" && progress.inv.kisses > 0) for (let pi = 0; pi < numPlayers; pi++) kissButton(pi);
-  const s = Math.floor(stats.time);
-  rr(W / 2 - 95, 8, 110, 34, 14); fillStroke("rgba(255,255,255,.8)", 3);
-  label(`${L().lvShort} ${level}  ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`, W / 2 - 40, 25, 14, OUT);
-  addButton(W / 2 + 22, 8, 40, 34, "II", "#64748b", () => { mode = "pause"; }, 16);
-  if (!STANDALONE) addButton(W / 2 + 68, 8, 40, 34, "⛶", "#64748b", toggleFullscreen, 18);   // на iPhone нет Fullscreen API
+  rr(UW / 2 - 95, 8, 110, 34, 14); fillStroke("rgba(255,255,255,.8)", 3);
+  label(timerText(), UW / 2 - 40, 25, 14, OUT);
+  addButton(UW / 2 + 22, 8, 40, 34, "II", "#64748b", () => { mode = "pause"; }, 16);
+  if (!STANDALONE) addButton(UW / 2 + 68, 8, 40, 34, "⛶", "#64748b", toggleFullscreen, 18);   // на iPhone нет Fullscreen API
 
-  for (const st of sticks.values()) {
-    ctx.globalAlpha = 0.35; circle(st.ox, st.oy, STICK_R); fillStroke("#fff", 3);
-    ctx.globalAlpha = 0.7;
-    const dx = st.x - st.ox, dy = st.y - st.oy, d = Math.hypot(dx, dy), k = d > STICK_R ? STICK_R / d : 1;
-    circle(st.ox + dx * k, st.oy + dy * k, 24); fillStroke(P_COLORS[st.player], 3);
-    ctx.globalAlpha = 1;
-  }
+  drawSticks();
   if (isTouch && stats.time < 5) {
-    label(numPlayers === 2 ? L().touch2 : L().touch1, W / 2, H - 26, 18, "#fff");
+    label(numPlayers === 2 ? L().touch2 : L().touch1, UW / 2, UH - 26, 18, "#fff");
   }
   littles.filter(l => l.kind === "player" && (l.state === "home" || l.state === "rest")).forEach((l, i) => {
-    const tl = l.state === "rest" ? l.restTimer : CFG.REST_TIME;
-    const txt = L().resting(nameOf(l), fmtTime(Math.max(0, tl)));
-    rr(W / 2 - 230, H - 58 - i * 44, 460, 38, 14); fillStroke("rgba(30,41,59,.75)", 3);
-    fitText("💤 " + txt, W / 2, H - 39 - i * 44, 17, 440, "center", "#e0e7ff", 800);
+    rr(UW / 2 - 230, UH - 58 - i * 44, 460, 38, 14); fillStroke("rgba(30,41,59,.75)", 3);
+    fitText(restText(l), UW / 2, UH - 39 - i * 44, 17, 440, "center", "#e0e7ff", 800);
   });
 }
 
 // Круглая кнопка 💋 игрока pi: внизу справа (один игрок) или на своей стороне (двое); касание здесь — не джойстик
 function kissBtnRect(pi) {
+  if (PHONE) { const d = cpx(CFG.PHONE_KISS_BTN), m = cpx(12); return { x: UW - m - d, y: UH - m - d, w: d, h: d }; }   // телефон: один игрок
   const d = CFG.KISS_BTN, m = 14, left = numPlayers === 2 && pi === 0;
-  return { x: left ? m : W - m - d, y: H - m - d, w: d, h: d };
+  return { x: left ? m : UW - m - d, y: UH - m - d, w: d, h: d };
 }
 function kissButton(pi) {
   const l = littles[pi];
@@ -2550,59 +2727,445 @@ function kissButton(pi) {
     ctx.beginPath(); ctx.arc(cx, cy, r - 6, -Math.PI / 2, -Math.PI / 2 + TAU * (1 - l.kissCd / CFG.KISS_COOLDOWN)); ctx.stroke(); ctx.lineCap = "butt";
   }
   ctx.restore();
-  circle(cx + r * 0.72, cy - r * 0.72, 13); fillStroke("#ff4d8d", 2.5);
-  label(String(progress.inv.kisses), cx + r * 0.72, cy - r * 0.72 + 1, 13, "#fff");
+  const br = PHONE ? cpx(15) : 13;
+  circle(cx + r * 0.72, cy - r * 0.72, br); fillStroke("#ff4d8d", 2.5);
+  label(String(progress.inv.kisses), cx + r * 0.72, cy - r * 0.72 + 1, fz(13, "hint"), "#fff");
   buttons.push({ ...rc, act: () => throwKiss(pi), id: "kiss:" + pi });
+}
+
+// ---------- Мини-карта и стрелки у края (SPEC-005, только телефон) ----------
+// mmState — один объект на все кадры; маркеры — переиспользуемые объекты (mmCount штук нарисовано в этом кадре)
+let mmBase = null, mmKey = "", mmDraws = 0, mmShown = false, edgeArrows = [], hudRects = [];
+const mmState = { x: 0, y: 0, w: 0, h: 0, markers: [] };
+let mmCount = 0;
+const showMinimap = () => PHONE && (mode === "play" || mode === "pause");
+// правый верхний угол, ширина MINIMAP_W от ширины интерфейса, 3:2 (как карта 30×20)
+function minimapRect() {
+  const m = CFG.MINIMAP_MARGIN, w = Math.round(UW * CFG.MINIMAP_W), h = w * 2 / 3;
+  return { x: UW - m - w, y: m, w, h };
+}
+// смесь двух цветов "#rrggbb" (f = доля второго)
+function mixHex(a, b, f) {
+  if (!/^#[0-9a-f]{6}$/i.test(a) || !/^#[0-9a-f]{6}$/i.test(b)) return a;
+  const p = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)), x = p(a), y = p(b);
+  return `rgb(${x.map((v, i) => Math.round(v + (y[i] - v) * f)).join(",")})`;
+}
+// нижний слой: земля, стены, вода, кусты, домики — рисуется один раз на уровень (номер и попытку из levelInfo), место и размер;
+// перезапуск того же уровня ничего не перерисовывает
+function minimapBase(r) {
+  const li = levelInfo || {}, key = [li.lv, li.attempt, li.fallback, currentPlace(), r.w, VIEW].join(":");
+  if (mmBase && key === mmKey) return mmBase;
+  mmKey = key; mmDraws++;
+  const th = THEMES[currentPlace()], c = mmBase || (mmBase = document.createElement("canvas"));
+  c.width = Math.max(1, Math.round(r.w * VIEW)); c.height = Math.max(1, Math.round(r.h * VIEW));
+  const g = c.getContext("2d");
+  g.setTransform(c.width / W, 0, 0, c.height / H, 0, 0);          // рисуем в px карты
+  g.fillStyle = th.g1; g.fillRect(0, 0, W, H);
+  for (const f of floors) {
+    const col = f.kind === "bridge" ? th.bridge?.[0] : f.kind === "square" ? th.square?.[0] : null;
+    if (col) { g.fillStyle = col; g.fillRect(f.x, f.y, f.w, f.h); }
+  }
+  if (safeZone) { g.fillStyle = "rgba(59,130,246,.45)"; g.fillRect(safeZone.x, safeZone.y, safeZone.w, safeZone.h); }
+  if (dangerZone) { g.fillStyle = "rgba(239,68,68,.4)"; g.fillRect(dangerZone.x, dangerZone.y, dangerZone.w, dangerZone.h); }
+  for (const o of obstacles) {
+    const col = o.kind === "water" || o.kind === "pond" ? th.water?.c || "#5ab8f0"
+      : o.kind === "tree" ? "#2f7d32" : o.kind === "rock" ? "#94a3b8"
+      : o.kind === "cottage" ? th.cottage?.roof || "#ef4444"
+      : o.kind === "maze" || o.kind === "hedge" ? th.maze?.wall || "#3f9a4a"
+      : (th.walls[o.kind] || th.walls.build)[0];
+    g.fillStyle = o.sight && o.shape === "rect" ? mixHex(col, "#1e293b", 0.3) : col;   // стены темнее — видно и на снегу
+    if (o.shape === "circle") { g.beginPath(); g.arc(o.x, o.y, o.r, 0, TAU); g.fill(); }
+    else g.fillRect(o.x, o.y, o.w, o.h);
+  }
+  g.fillStyle = "#2e8b3e";
+  for (const b of bushes) { g.beginPath(); g.arc(b.x, b.y, b.r * 0.5, 0, TAU); g.fill(); }
+  return c;
+}
+function mark(kind, x, y) {
+  const m = mmState.markers[mmCount] || (mmState.markers[mmCount] = { kind: "", x: 0, y: 0 });
+  m.kind = kind; m.x = x; m.y = y; mmCount++;
+}
+// верхний слой каждый кадр: герой, боты, упавшие (мигают), Большой с конусом, звёздочки, предметы, рамка камеры
+function drawMinimap(t) {
+  const r = minimapRect(), sx = r.w / W, sy = r.h / H;
+  const X = x => r.x + x * sx, Y = y => r.y + y * sy;
+  const dot = (x, y, rad, fill, ring = "#fff", lw = 1.5) => { circle(x, y, rad); fillStroke(fill, lw, ring); };
+  mmCount = 0;
+  ctx.save();
+  rr(r.x, r.y, r.w, r.h, 10); ctx.fillStyle = "rgba(15,23,42,.35)"; ctx.fill();
+  ctx.clip();
+  ctx.globalAlpha = 0.85; ctx.drawImage(minimapBase(r), r.x, r.y, r.w, r.h); ctx.globalAlpha = 1;
+  // конус Большого — тот же многоугольник и то же «спокоен», что в 3D
+  const vp = coneBuf;                     // посчитан в этом же кадре для 3D-конуса (updateCone)
+  ctx.beginPath(); ctx.moveTo(X(vp[0]), Y(vp[1]));
+  for (let i = 2; i < vp.length; i += 2) ctx.lineTo(X(vp[i]), Y(vp[i + 1]));
+  ctx.closePath(); ctx.fillStyle = bigCalm() ? "rgba(255,255,255,.25)" : "rgba(250,204,21,.55)"; ctx.fill();
+  mark("cone", X(big.x), Y(big.y));
+  for (const s of bonusStars) { dot(X(s.x), Y(s.y), 3.5, "#facc15", OUT, 1); mark("star", X(s.x), Y(s.y)); }
+  for (const it of items) { dot(X(it.x), Y(it.y), 3, "#fb923c"); mark("item", X(it.x), Y(it.y)); }
+  const hero = camHero(), blink = Math.sin(t * 10) > 0;
+  for (const l of littles) {
+    if (l === hero) continue;
+    if (l.state === "down") { dot(X(l.x), Y(l.y), 4.5, blink ? "#22c55e" : "#fff", OUT); mark("downed", X(l.x), Y(l.y)); continue; }
+    ctx.globalAlpha = l.state === "home" || l.state === "rest" ? 0.5 : 1;
+    dot(X(l.x), Y(l.y), 3.6, "#fff", OUT, 1.2); ctx.globalAlpha = 1;
+    mark("bot", X(l.x), Y(l.y));
+  }
+  dot(X(big.x), Y(big.y), 5, "#ef4444"); mark("big", X(big.x), Y(big.y));
+  if (hero) { dot(X(hero.x), Y(hero.y), 4.5, hero.state === "down" && blink ? "#fff" : P_COLORS[0], "#fff", 2); mark("hero", X(hero.x), Y(hero.y)); }
+  const v = camRect();
+  ctx.lineWidth = 3; ctx.strokeStyle = "rgba(30,41,59,.6)"; ctx.strokeRect(X(v.x), Y(v.y), v.w * sx, v.h * sy);   // тёмная подложка — рамку видно и на снегу
+  ctx.lineWidth = 1.5; ctx.strokeStyle = "#fff"; ctx.strokeRect(X(v.x), Y(v.y), v.w * sx, v.h * sy);
+  mark("view", X(v.x + v.w / 2), Y(v.y + v.h / 2));
+  ctx.restore();
+  rr(r.x, r.y, r.w, r.h, 10); ctx.lineWidth = 2; ctx.strokeStyle = "rgba(255,255,255,.75)"; ctx.stroke();
+  Object.assign(mmState, r); mmShown = true;
+}
+// стрелки у края экрана: Большой (красная) и упавшие друзья (зелёная с ❗), если их не видно —
+// за краем экрана или под мини-картой, кружками команды, верхней полосой; на линии герой → цель,
+// в стороне от мини-карты, табличек HUD и кнопок (от идеального места идём по краю в обе стороны)
+function drawEdgeArrows() {
+  const hero = camHero();
+  if (!hero || mode !== "play") return;
+  const R = cpx(CFG.ARROW_D / 2), E = R * 1.55;                      // E — с кончиком стрелки
+  const hs = toScreen(hero.x, hero.y), hidden = phoneOccluders();
+  const x0 = E + 2, x1 = UW - E - 2, y0 = E + 2, y1 = UH - E - 2, Wd = x1 - x0, Ht = y1 - y0, per = 2 * (Wd + Ht);
+  const blocks = [minimapRect(), ...buttons, ...hudRects];
+  const free = (x, y) => {
+    for (const b of blocks) if (x > b.x - E - 2 && x < b.x + b.w + E + 2 && y > b.y - E - 2 && y < b.y + b.h + E + 2) return false;
+    for (const a of edgeArrows) if (Math.abs(x - a.x) < 2 * E && Math.abs(y - a.y) < 2 * E) return false;
+    return true;
+  };
+  // точка на краю по пути вдоль периметра (по часовой от левого верхнего угла)
+  let px = 0, py = 0;
+  const at = s => {
+    s = ((s % per) + per) % per;
+    if (s < Wd) { px = x0 + s; py = y0; } else if (s < Wd + Ht) { px = x1; py = y0 + s - Wd; }
+    else if (s < 2 * Wd + Ht) { px = x1 - (s - Wd - Ht); py = y1; } else { px = x0; py = y1 - (s - 2 * Wd - Ht); }
+  };
+  const targets = [{ kind: "big", o: big }, ...littles.filter(l => l !== hero && l.state === "down").map(o => ({ kind: "downed", o }))];
+  for (const { kind, o } of targets) {
+    const ts = toScreen(o.x, o.y);
+    const onScreen = ts.x >= 0 && ts.x <= UW && ts.y >= 0 && ts.y <= UH;
+    if (onScreen && !hidden.some(b => ts.x > b.x && ts.x < b.x + b.w && ts.y > b.y && ts.y < b.y + b.h)) continue;
+    const a = Math.atan2(ts.y - hs.y, ts.x - hs.x), dx = Math.cos(a), dy = Math.sin(a);
+    let k = Infinity;
+    if (dx > 1e-6) k = Math.min(k, (x1 - hs.x) / dx); else if (dx < -1e-6) k = Math.min(k, (x0 - hs.x) / dx);
+    if (dy > 1e-6) k = Math.min(k, (y1 - hs.y) / dy); else if (dy < -1e-6) k = Math.min(k, (y0 - hs.y) / dy);
+    const ix = clamp(hs.x + dx * k, x0, x1), iy = clamp(hs.y + dy * k, y0, y1);
+    // идеальное место → координата вдоль периметра
+    const s0 = Math.abs(iy - y0) < 0.5 ? ix - x0 : Math.abs(ix - x1) < 0.5 ? Wd + iy - y0 : Math.abs(iy - y1) < 0.5 ? Wd + Ht + x1 - ix : 2 * Wd + Ht + y1 - iy;
+    let fx = ix, fy = iy;
+    if (!free(ix, iy)) {
+      for (let d = 4; d < per / 2; d += 4) {
+        at(s0 + d); if (free(px, py)) { fx = px; fy = py; break; }
+        at(s0 - d); if (free(px, py)) { fx = px; fy = py; break; }
+      }
+    }
+    const col = kind === "big" ? "#ef4444" : "#22c55e";
+    ctx.save(); ctx.translate(fx, fy); ctx.rotate(a);
+    ctx.beginPath(); ctx.moveTo(E, 0); ctx.lineTo(R * 0.75, -R * 0.55); ctx.lineTo(R * 0.75, R * 0.55); ctx.closePath(); fillStroke(col, 2.5, "#fff");
+    ctx.restore();
+    circle(fx, fy, R); fillStroke(col, 3, "#fff");
+    if (kind === "big") drawHeart(fx, fy - R * 0.45, R * 0.95, "#fff", false); else label("❗", fx, fy + 1, R * 1.1, "#fff");
+    edgeArrows.push({ kind, x: fx, y: fy, angle: a, r: E });
+  }
+}
+// ---------- Экраны телефона (SPEC-005): меню, наряды, друзья, магазин, пауза, победа — в слое UI 420 px высотой ----------
+// размеры в CSS px; текст не мельче PHONE_TEXT своего вида; сжимается под ширину только до этого минимума
+function pLabel(text, x, y, cat, css, color, align = "center", maxW = 1e4) {
+  const min = cpx(CFG.PHONE_TEXT[cat]), sz = labelFit(text, x, y, Math.max(cpx(css), min), maxW, color, align, min);
+  noteText(cat, sz);
+  return sz;
+}
+function pText(text, x, y, cat, css, maxW, align = "center", color = OUT, weight = 800) {
+  const min = cpx(CFG.PHONE_TEXT[cat]), sz = fitText(text, x, y, Math.max(cpx(css), min), maxW, align, color, weight, min);
+  noteText(cat, sz);
+  return sz;
+}
+// несколько строк от верхнего края y; возвращает высоту
+function pWrap(text, x, y, cat, css, maxW, lines, color = OUT, weight = 700, align = "center") {
+  const min = cpx(CFG.PHONE_TEXT[cat]);
+  let sz = Math.max(cpx(css), min), rows = [];
+  for (;;) {
+    ctx.font = `${weight} ${sz}px system-ui, "Segoe UI", sans-serif`;
+    rows = [];
+    let cur = "";
+    for (const wd of text.split(" ")) {
+      const t = cur ? cur + " " + wd : wd;
+      if (ctx.measureText(t).width > maxW && cur) { rows.push(cur); cur = wd; } else cur = t;
+    }
+    rows.push(cur);
+    if ((rows.length <= lines && rows.every(r => ctx.measureText(r).width <= maxW)) || sz <= min) break;
+    sz = Math.max(min, sz - 0.5);
+  }
+  ctx.textAlign = align; ctx.textBaseline = "middle"; ctx.fillStyle = color;
+  const lh = sz * 1.25;
+  rows.forEach((r, i) => ctx.fillText(r, x, y + lh / 2 + i * lh));
+  noteText(cat, sz);
+  return rows.length * lh;
+}
+// кнопка: надпись сжимается под ширину, но не мельче основного текста
+function pButton(x, y, w, h, text, color, act, css = 18) {
+  const min = cpx(CFG.PHONE_TEXT.main);
+  let sz = Math.max(cpx(css), min);
+  ctx.font = hudFont(sz);
+  while (ctx.measureText(text).width > w - cpx(14) && sz > min) { sz = Math.max(min, sz - 0.5); ctx.font = hudFont(sz); }
+  const b = addButton(x, y, w, h, text, color, act, sz);
+  b.size = sz;
+  return b;
+}
+// рамка экрана: отступы и светлая карточка на весь экран
+function phoneFrame(card = true) {
+  const m = cpx(8), p = cpx(12), f = { X0: m + p, X1: UW - m - p, Y0: m + p, Y1: UH - m - p, g: cpx(CFG.PHONE_BTN_GAP), B: cpx(CFG.PHONE_BTN_MIN) };
+  if (card) { rr(m, m, UW - 2 * m, UH - 2 * m, cpx(22)); fillStroke("rgba(255,250,235,.96)", 4); }
+  return f;
+}
+// наряды: колонка игрока 1 (шире: 4 строки нарядов) и колонка Большого; окошки 3D-превью
+function phoneSkinCols() {
+  const { X0, X1, Y0 } = phoneFrame(false), gap = cpx(16), inner = X1 - X0 - gap, w1 = inner * 0.62, w2 = inner - w1, pv = cpx(110), py = Y0 + cpx(52);
+  return [
+    { key: "p1", x: X0, w: w1, panel: { x: X0, y: py, w: pv, h: pv } },
+    { key: "big", x: X0 + w1 + gap, w: w2, panel: { x: X0 + w1 + gap + (w2 - pv) / 2, y: py, w: pv, h: pv } }
+  ];
+}
+// карточки магазина (компьютер и телефон): рукавицы, мега-рукавицы, воздушные поцелуи
+const shopCards = () => [
+  ...["mittens", "mega"].map(k => ({ k, name: L().gloves[k], desc: L().gloveDesc(GLOVES[k].power), pack: L().pack(GLOVES[k].charges), have: L().have(progress.inv[k]), n: progress.inv[k], price: GLOVES[k].price, buy: () => buyGloves(k) })),
+  { k: "kisses", name: L().kisses, desc: L().kissDesc, pack: L().kissPack(KISSES.pack), have: L().kissHave(progress.inv.kisses), n: progress.inv.kisses, price: KISSES.price, buy: buyKisses }
+];
+// кнопки экрана итогов (компьютер и телефон): [надпись, цвет, действие]
+function endActions(m) {
+  const menu = [L().menu, "#64748b", toMenu];
+  if (m === "win") return [[L().next(level + 1), "#22c55e", nextLevel],
+    ["🛒 " + L().shop, "#f59e0b", () => { level = clamp(level + 1, 1, progress.unlocked); resetWorld(numPlayers); mode = "shop"; }], menu];
+  return [[L().again, "#f59e0b", () => startGame(numPlayers)], ["🛒 " + L().shop, "#f59e0b", () => { resetWorld(numPlayers); mode = "shop"; }], menu];
+}
+function drawOverlayPhone() {
+  const c = cpx;
+  if (mode === "menu") {
+    const f = phoneFrame(), { X0, X1, Y0, Y1, g, B } = f;
+    const R = Math.min(c(360), Math.max(c(290), (X1 - X0) * 0.44)), rx = X1 - R, lw = rx - c(16) - X0, lcx = X0 + lw / 2;
+    // слева: название, правила, управление пальцем (+ подсказка «установить»)
+    pLabel("BeBeBe Atrapar", lcx, Y0 + c(14), "title", 28, "#ffcf33", "center", lw);
+    pText(L().subtitle, lcx, Y0 + c(40), "main", 16, lw, "center", "#ff6fa8", 900);
+    const icons = ["❤", "👀", "🤝", "⏱", "🏠", "🍌"];
+    let y = Y0 + c(54);
+    L().rules(CFG.DOWN_TIME).forEach((r, i) => {
+      ctx.font = `${c(15)}px system-ui, 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(icons[i], X0 + c(9), y + c(8));
+      y += pWrap(r, X0 + c(22), y, "hint", 13, lw - c(22), 2, OUT, 700, "left") + c(3);
+    });
+    y += c(4);
+    y += pWrap(L().touch1, lcx, y, "hint", 14, lw, 2, "#475569", 700);
+    if (showInstallHint()) { pWrap(L().installHint, lcx, y + c(2), "hint", 13, lw, 2, "#2563eb", 800); installHintShown = true; }
+    // справа: языки и монетки, тип уровня, выбор уровня, место, «Играть», наряды и магазин
+    const fixed = B + c(18) + B + B + c(56) + B, gy = Math.max(g, (Y1 - Y0 - fixed - c(4)) / 4);
+    let ry = Y0;
+    LANGS.forEach((code, i) => {
+      const active = code === lang;
+      addButton(rx + i * (B + g), ry, B, B, code.toUpperCase(), active ? "#ff6fa8" : "#cbd5e1", () => setLang(code), fz(15, "main"));
+    });
+    const cx0 = rx + 3 * (B + g), cw = X1 - cx0;
+    rr(cx0, ry + c(4), cw, B - c(8), c(12)); fillStroke("#fff", 3);
+    hudRects.push({ id: "coins", x: cx0, y: ry + c(4), w: cw, h: B - c(8) });
+    drawCoin(cx0 + c(14), ry + B / 2, c(9)); pText(String(progress.coins), cx0 + c(26), ry + B / 2 + 1, "main", 15, cw / 2 - c(30), "left", OUT, 900);
+    drawStar(cx0 + cw / 2 + c(10), ry + B / 2, c(9), true); pText(String(totalStars()), cx0 + cw / 2 + c(22), ry + B / 2 + 1, "main", 15, cw / 2 - c(26), "left", OUT, 900);
+    const above = ry + B;
+    ry += B + gy;
+    const tName = L().types[levelType(level)], tY = ry + c(9);
+    const tSize = pText(tName, rx + R / 2, tY, "main", 15, R, "center", "#7c3aed", 800), tw = ctx.measureText(tName).width;
+    // на телефоне правила в левой колонке; rulesBottom — низ того, что над надписью в её колонке (ряд языков и монеток)
+    typeLabel = { text: tName, x: rx + R / 2 - tw / 2, y: tY - tSize / 2, w: tw, h: tSize, size: tSize, rulesBottom: above };
+    ry += c(18) + c(4);
+    addButton(rx, ry, B, B, "◀", "#94a3b8", () => changeLevel(-1), fz(20, "main"));
+    const canNext = level < progress.unlocked;
+    addButton(rx + R - B, ry, B, B, canNext ? "▶" : "🔒", canNext ? "#94a3b8" : "#cbd5e1", () => changeLevel(1), fz(canNext ? 20 : 16, "main"));
+    const bx = rx + B + g, bw = R - 2 * (B + g);
+    rr(bx, ry, bw, B, c(12)); fillStroke("#fff", 3);
+    hudRects.push({ id: "level", x: bx, y: ry, w: bw, h: B });
+    pText(`${L().level} ${level}`, bx + bw / 2, ry + c(15), "main", 16, bw - c(8), "center", OUT, 900);
+    for (let k = 0; k < 3; k++) drawStar(bx + bw / 2 - c(14) + k * c(14), ry + c(33), c(5.5), k < (progress.stars[level] || 0));
+    ry += B + gy;
+    const placeTxt = (placeSel === "auto" ? L().auto + ": " : "") + L().places[currentPlace()];
+    pButton(rx, ry, R, B, "🗺 " + placeTxt, "#38bdf8", cyclePlace, 17);
+    ry += B + gy;
+    pButton(rx, ry, R, c(56), "▶ " + L().play, "#3b82f6", () => startGame(1), 26);
+    ry += c(56) + gy;
+    const hw = (R - g) / 2;
+    pButton(rx, ry, hw, B, "🎨 " + L().skins, "#ff8fab", () => { mode = "skins"; }, 17);
+    pButton(rx + hw + g, ry, hw, B, "🛒 " + L().shop, "#f59e0b", () => { mode = "shop"; }, 17);
+  } else if (mode === "skins") {
+    const f = phoneFrame(), { Y0, Y1, g, B } = f, cols = phoneSkinCols();
+    const titles = { p1: [L().player1, P_COLORS[0]], big: [L().big, "#9b2c3a"] };
+    cols.forEach(col => {
+      const [title, color] = titles[col.key], pnl = col.panel, isBig = col.key === "big";
+      rr(col.x - c(6), Y0 - c(6), col.w + c(12), Y1 - Y0 + c(12), c(16)); fillStroke("#fff", 3);
+      pLabel(title, col.x + c(6), Y0 + B / 2, "main", 20, color, "left", col.w - (isBig ? c(12) : B + c(20)));
+      if (!isBig) addButton(col.x + col.w - B, Y0, B, B, "🎲", "#fbbf24", () => randomOutfit("p1"), fz(18, "main"));
+      ctx.clearRect(pnl.x, pnl.y, pnl.w, pnl.h);              // окошко: здесь видно 3D-превью
+      ctx.lineWidth = 3; ctx.strokeStyle = OUT; ctx.strokeRect(pnl.x, pnl.y, pnl.w, pnl.h);
+      const row = (x, y, w, sl, list, sel, act) => {           // ◀ подпись и название ▶
+        addButton(x, y, B, B, "◀", "#94a3b8", () => act(-1), fz(16, "main"));
+        addButton(x + w - B, y, B, B, "▶", "#94a3b8", () => act(1), fz(16, "main"));
+        pText(L().slots[sl], x + w / 2, y + c(11), "hint", 13, w - 2 * B - c(8), "center", "#94a3b8", 800);
+        pText(list[sel].name[lang], x + w / 2, y + c(31), "main", 15, w - 2 * B - c(8), "center", OUT, 900);
+      };
+      if (isBig) {
+        const ny = pnl.y + pnl.h + g;
+        nameLabel({ x: col.x, y: ny, w: col.w, h: B }, "big", color);
+        row(col.x, ny + B + g, col.w, "look", BIG_SKINS, skinSel.big, d => cycleBig(d));
+        const hw = (col.w - g) / 2;
+        pButton(col.x, Y1 - B, hw, B, L().ok, "#22c55e", () => { mode = "menu"; }, 18);
+        pButton(col.x + hw + g, Y1 - B, hw, B, "👥 " + L().friends, "#a78bfa", openFriends, 17);
+      } else {
+        pWrap(L().tapToRename, pnl.x + pnl.w / 2, pnl.y + pnl.h + c(8), "hint", 13, pnl.w, 4, "#64748b", 700);
+        const x = pnl.x + pnl.w + c(12), w = col.x + col.w - x;
+        nameLabel({ x, y: pnl.y, w, h: B }, "p1", color);
+        ["hair", "hat", "jacket", "pants"].forEach((sl, r) => row(x, pnl.y + B + g + r * (B + g), w, sl, SLOTS[sl], skinSel.p1[sl], d => cycleOutfit("p1", sl, d)));
+      }
+    });
+  } else if (mode === "names") {
+    const { X0, X1, Y0, Y1, g, B } = phoneFrame();
+    pLabel("👥 " + L().friends, UW / 2, Y0 + c(16), "title", 26, "#8b5cf6");
+    pText(L().tapToRename, UW / 2, Y0 + c(44), "hint", 14, X1 - X0, "center", "#64748b", 700);
+    const cw = (X1 - X0 - c(16)) / 2;
+    for (let i = 0; i < BOT_SLOTS; i++) {
+      const x = X0 + (i % 2) * (cw + c(16)), y = Y0 + c(66) + Math.floor(i / 2) * (B + c(16)), look = makeLook(botOutfit(i));
+      circle(x + c(20), y + B / 2 + c(4), c(17)); fillStroke(look.shirt, 3);
+      circle(x + c(20), y + B / 2 - c(4), c(9)); fillStroke(look.skin, 2.5);
+      nameLabel({ x: x + c(48), y, w: cw - c(48), h: B }, "bot" + (i + 1), "#3d2b1f");
+    }
+    pButton(UW / 2 - c(110), Y1 - B, c(220), B, "◀ " + L().skins, "#22c55e", backToSkins, 18);
+  } else if (mode === "shop") {
+    const { X0, X1, Y0, g, B } = phoneFrame();
+    pLabel("🛒 " + L().shop, X0 + c(4), Y0 + B / 2, "title", 26, "#f59e0b", "left");
+    const titleW = ctx.measureText("🛒 " + L().shop).width;
+    const px = X0 + c(4) + titleW + c(16), pw = c(104);
+    rr(px, Y0 + c(4), pw, B - c(8), c(12)); fillStroke("#fff", 3);
+    hudRects.push({ id: "coins", x: px, y: Y0 + c(4), w: pw, h: B - c(8) });
+    drawCoin(px + c(16), Y0 + B / 2, c(10)); pText(String(progress.coins), px + c(30), Y0 + B / 2 + 1, "main", 17, pw - c(36), "left", OUT, 900);
+    const okW = c(100);
+    pButton(X1 - okW, Y0, okW, B, L().ok, "#22c55e", () => { mode = "menu"; }, 18);
+    const rTxt = resetArmed ? L().sure : L().reset, rx1 = X1 - okW - g, rMin = px + pw + g;
+    ctx.font = hudFont(cpx(CFG.PHONE_TEXT.main));
+    const rW = Math.min(rx1 - rMin, Math.max(c(110), ctx.measureText(rTxt).width + c(20)));
+    pButton(rx1 - rW, Y0, rW, B, rTxt, resetArmed ? "#ef4444" : "#94a3b8", resetProgress, 15);
+    // три карточки: рукавицы, мега-рукавицы, воздушные поцелуи
+    const cards = shopCards();
+    const cw = (X1 - X0 - 2 * c(8)) / 3, ch = c(220), y0 = Y0 + B + c(8);
+    cards.forEach((cd, i) => {
+      const x0 = X0 + i * (cw + c(8)), cx = x0 + cw / 2, tw = cw - c(14);
+      rr(x0, y0, cw, ch, c(16)); fillStroke("#fff", 3);
+      if (cd.k === "kisses") drawKiss(cx, y0 + c(22), c(38)); else drawMitten(cx, y0 + c(20), c(32), cd.k);
+      let y = y0 + c(40);
+      y += pWrap(cd.name, cx, y, "main", 15, tw, 2, OUT, 900);
+      y += pWrap(cd.desc, cx, y, "hint", 13, tw, 2, "#475569", 700);
+      pText(cd.pack, cx, y + c(8), "hint", 13, tw, "center", "#64748b", 600);
+      pText(cd.have, cx, y + c(24), "hint", 13, tw, "center", cd.n > 0 ? "#15803d" : "#94a3b8", 800);
+      const ok = progress.coins >= cd.price, by = y0 + ch - c(20) - B, txt = `${L().buy}  ${cd.price}      `;
+      const btn = pButton(cx - c(80), by, c(160), B, txt, ok ? "#22c55e" : "#cbd5e1", cd.buy, 17);
+      btn.id = "buy:" + cd.k;
+      ctx.font = hudFont(btn.size);
+      const vis = ctx.measureText(`${L().buy}  ${cd.price}`).width, full = ctx.measureText(txt).width;
+      drawCoin(cx - full / 2 + vis + c(14), by + B / 2, c(9));                // монетка после цены
+      if (!ok) pText(L().notEnough, cx, y0 + ch - c(10), "hint", 13, tw, "center", "#ef4444", 700);
+    });
+    // кто что надевает (на телефоне — только игрок 1)
+    const wy = y0 + ch + g, wl = `${L().player1} ${L().wears}:`;
+    pLabel(wl, X0 + c(4), wy + B / 2, "main", 17, P_COLORS[0], "left");
+    const lw = ctx.measureText(wl).width;
+    ["none", "mittens", "mega"].forEach((k, j) => {
+      const on = progress.equip[0] === k, bw = c(118), bx = X0 + c(4) + lw + c(16) + j * (bw + g);
+      addButton(bx, wy, bw, B, k === "none" ? L().none : "", on ? "#ff6fa8" : "#cbd5e1", () => setEquip(0, k), fz(16, "main"));
+      if (k !== "none") { drawMitten(bx + c(28), wy + B / 2, c(26), k); pLabel("×" + progress.inv[k], bx + c(72), wy + B / 2, "main", 16, "#fff"); }
+    });
+  } else if (mode === "pause") {
+    const bw = c(180), bh = c(60), g = c(16);
+    pLabel(L().pause, UW / 2, UH / 2 - c(56), "title", 44, "#fff");
+    pButton(UW / 2 - bw - g / 2, UH / 2, bw, bh, L().play, "#22c55e", () => { mode = "play"; }, 24);
+    pButton(UW / 2 + g / 2, UH / 2, bw, bh, L().menu, "#64748b", toMenu, 24);
+  } else if (mode === "win" || mode === "lose") {
+    // слева — заголовок и звёзды, справа — итоги и монетки, внизу — кнопки
+    const { X0, X1, Y0, Y1, g } = phoneFrame(false), lx = X0 + (X1 - X0) * 0.27, rx = X0 + (X1 - X0) * 0.72, colW = (X1 - X0) * 0.46;
+    const rw = lastReward || { stars: 1, coins: 0, nobodyOut: false, fast: false, target: 0 }, bh = c(56);
+    let acts;
+    if (mode === "win") {
+      pLabel(L().win, lx, Y0 + c(30), "title", 40, "#ffcf33", "center", colW);
+      pWrap(L().winSub, lx, Y0 + c(58), "main", 16, colW, 2, "#fff", 900);
+      for (let k = 0; k < 3; k++) drawStar(lx - c(56) + k * c(56), Y0 + c(140), c(22), k < rw.stars);
+      [[true, L().victory], [rw.nobodyOut, L().nobodyOut], [rw.fast, L().fast(fmtTime(rw.target))]].forEach(([okk, txt], i) => {
+        pLabel((okk ? "✔ " : "✘ ") + txt, rx, Y0 + c(26) + i * c(28), "main", 16, okk ? "#bbf7d0" : "#cbd5e1", "center", colW);
+      });
+      drawCoin(rx - c(36), Y0 + c(122), c(15)); pLabel("+" + rw.coins, rx - c(14), Y0 + c(122), "title", 28, "#fde047", "left");
+      let ly = Y0 + c(156);
+      if (rw.starCoins > 0) { pLabel("✨ " + L().starCoins(rw.starCoins), rx, ly, "main", 16, "#fde047", "center", colW); ly += c(26); }
+      if (rw.penalty > 0) pLabel(L().restPenalty(rw.penalty), rx, ly, "main", 15, "#fca5a5", "center", colW);
+      acts = endActions("win").map((a, i) => [...a, c([200, 150, 150][i])]);
+    } else {
+      pLabel(L().lose, lx, Y0 + c(40), "title", 36, "#fca5a5", "center", colW);
+      pWrap(L().loseSub(fmtHearts(big.maxHp - big.hp), big.maxHp), lx, Y0 + c(70), "main", 17, colW, 3, "#fff", 900);
+      const sc = lastReward ? lastReward.starCoins || 0 : 0, hugCoins = lastReward ? lastReward.coins - sc : 0;
+      if (hugCoins > 0) { drawCoin(rx - c(70), Y0 + c(60), c(12)); pLabel(L().forHugs(hugCoins), rx - c(50), Y0 + c(60), "main", 18, "#fde047", "left", colW - c(30)); }
+      if (sc > 0) pLabel("✨ " + L().starCoins(sc), rx, Y0 + c(90), "main", 16, "#fde047", "center", colW);
+      acts = endActions("lose").map((a, i) => [...a, c([180, 150, 150][i])]);
+    }
+    const total = acts.reduce((s, a) => s + a[3], 0) + g * 1.5 * (acts.length - 1);
+    let bx = UW / 2 - total / 2;
+    for (const [txt, col, act, w] of acts) { pButton(bx, Y1 - bh, w, bh, txt, col, act, 22); bx += w + g * 1.5; }
+  }
 }
 
 function drawOverlay() {
   if (mode === "play") return;
-  ctx.fillStyle = "rgba(20,30,25,.55)"; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = "rgba(20,30,25,.55)"; ctx.fillRect(0, 0, UW, UH);
+  if (PHONE) { drawOverlayPhone(); return; }
   if (mode === "menu") {
-    rr(W / 2 - 360, 30, 720, 580, 30); fillStroke("rgba(255,250,235,.95)", 5);
-    label("BeBeBe Atrapar", W / 2 - 40, 92, 54, "#ffcf33");
-    label(L().subtitle, W / 2, 136, 22, "#ff6fa8");
+    rr(UW / 2 - 360, 30, 720, 580, 30); fillStroke("rgba(255,250,235,.95)", 5);
+    label("BeBeBe Atrapar", UW / 2 - 40, 92, 54, "#ffcf33");
+    label(L().subtitle, UW / 2, 136, 22, "#ff6fa8");
     const icons = ["❤", "👀", "🤝", "⏱", "🏠", "🍌"], rules = L().rules(CFG.DOWN_TIME), RULE_Y = 172, RULE_DY = 29, RULE_SIZE = 16;
     rules.forEach((r, i) => {
       ctx.font = "19px system-ui, 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-      ctx.fillText(icons[i], W / 2 - 312, RULE_Y + i * RULE_DY);
-      fitText(r, W / 2 - 287, RULE_Y + i * RULE_DY, RULE_SIZE, 640, "left", OUT, 700);
+      ctx.fillText(icons[i], UW / 2 - 312, RULE_Y + i * RULE_DY);
+      fitText(r, UW / 2 - 287, RULE_Y + i * RULE_DY, RULE_SIZE, 640, "left", OUT, 700);
     });
     // тип выбранного уровня — между правилами и переключателем уровня
     const tName = L().types[levelType(level)], tY = 340;
-    const tSize = fitText(tName, W / 2 - 130, tY, 15, 240, "center", "#7c3aed", 800), tw = ctx.measureText(tName).width;
-    typeLabel = { text: tName, x: W / 2 - 130 - tw / 2, y: tY - tSize / 2, w: tw, h: tSize, size: tSize, rulesBottom: RULE_Y + (rules.length - 1) * RULE_DY + RULE_SIZE / 2 };
-    addButton(W / 2 - 250, 350, 52, 50, "◀", "#94a3b8", () => changeLevel(-1));
-    rr(W / 2 - 192, 350, 124, 50, 16); fillStroke("#fff", 4);
-    fitText(`${L().level} ${level}`, W / 2 - 130, 368, 20, 112, "center", OUT, 900);
-    for (let k = 0; k < 3; k++) drawStar(W / 2 - 146 + k * 16, 389, 7, k < (progress.stars[level] || 0));
+    const tSize = fitText(tName, UW / 2 - 130, tY, 15, 240, "center", "#7c3aed", 800), tw = ctx.measureText(tName).width;
+    typeLabel = { text: tName, x: UW / 2 - 130 - tw / 2, y: tY - tSize / 2, w: tw, h: tSize, size: tSize, rulesBottom: RULE_Y + (rules.length - 1) * RULE_DY + RULE_SIZE / 2 };
+    addButton(UW / 2 - 250, 350, 52, 50, "◀", "#94a3b8", () => changeLevel(-1));
+    rr(UW / 2 - 192, 350, 124, 50, 16); fillStroke("#fff", 4);
+    fitText(`${L().level} ${level}`, UW / 2 - 130, 368, 20, 112, "center", OUT, 900);
+    for (let k = 0; k < 3; k++) drawStar(UW / 2 - 146 + k * 16, 389, 7, k < (progress.stars[level] || 0));
     const canNext = level < progress.unlocked;
-    addButton(W / 2 - 62, 350, 52, 50, canNext ? "▶" : "🔒", canNext ? "#94a3b8" : "#cbd5e1", () => changeLevel(1), canNext ? 24 : 18);
+    addButton(UW / 2 - 62, 350, 52, 50, canNext ? "▶" : "🔒", canNext ? "#94a3b8" : "#cbd5e1", () => changeLevel(1), canNext ? 24 : 18);
     // монетки и звёзды
-    rr(W / 2 - 345, 118, 170, 34, 14); fillStroke("#fff", 3);
-    drawCoin(W / 2 - 322, 135, 11); label(String(progress.coins), W / 2 - 304, 135, 18, OUT, "left");
-    drawStar(W / 2 - 235, 135, 11, true); label(String(totalStars()), W / 2 - 220, 135, 18, OUT, "left");
+    rr(UW / 2 - 345, 118, 170, 34, 14); fillStroke("#fff", 3);
+    drawCoin(UW / 2 - 322, 135, 11); label(String(progress.coins), UW / 2 - 304, 135, 18, OUT, "left");
+    drawStar(UW / 2 - 235, 135, 11, true); label(String(totalStars()), UW / 2 - 220, 135, 18, OUT, "left");
     const placeTxt = (placeSel === "auto" ? L().auto + ": " : "") + L().places[currentPlace()];
-    addButton(W / 2 + 20, 350, 230, 50, "🗺 " + placeTxt, "#38bdf8", cyclePlace, placeTxt.length > 14 ? 16 : 20);
-    addButton(W / 2 - 250, 414, 230, 64, L().onePlayer, "#3b82f6", () => startGame(1), 28);
-    addButton(W / 2 + 20, 414, 230, 64, L().twoPlayers, "#22c55e", () => startGame(2), 28);
-    addButton(W / 2 - 250, 490, 230, 44, "🎨 " + L().skins, "#ff8fab", () => { mode = "skins"; }, 20);
-    addButton(W / 2 + 20, 490, 230, 44, "🛒 " + L().shop, "#f59e0b", () => { mode = "shop"; }, 20);
+    addButton(UW / 2 + 20, 350, 230, 50, "🗺 " + placeTxt, "#38bdf8", cyclePlace, placeTxt.length > 14 ? 16 : 20);
+    addButton(UW / 2 - 250, 414, 230, 64, L().onePlayer, "#3b82f6", () => startGame(1), 28);
+    addButton(UW / 2 + 20, 414, 230, 64, L().twoPlayers, "#22c55e", () => startGame(2), 28);
+    addButton(UW / 2 - 250, 490, 230, 44, "🎨 " + L().skins, "#ff8fab", () => { mode = "skins"; }, 20);
+    addButton(UW / 2 + 20, 490, 230, 44, "🛒 " + L().shop, "#f59e0b", () => { mode = "shop"; }, 20);
     const hint = showInstallHint(), cy = hint ? 550 : 558;    // с подсказкой строки управления чуть выше
-    fitText(L().controls1, W / 2, cy, 15, 690, "center", "#475569", 600);
-    fitText(L().controls2, W / 2, cy + 22, 15, 690, "center", "#475569", 600);
-    if (hint) { fitText(L().installHint, W / 2, cy + 46, 15, 690, "center", "#2563eb", 800); installHintShown = true; }
+    fitText(L().controls1, UW / 2, cy, 15, 690, "center", "#475569", 600);
+    fitText(L().controls2, UW / 2, cy + 22, 15, 690, "center", "#475569", 600);
+    if (hint) { fitText(L().installHint, UW / 2, cy + 46, 15, 690, "center", "#2563eb", 800); installHintShown = true; }
     // переключатель языка
     LANGS.forEach((code, i) => {
-      const bx = W / 2 + 196 + i * 54, by = 46, active = code === lang;
+      const bx = UW / 2 + 196 + i * 54, by = 46, active = code === lang;
       addButton(bx, by, 48, 34, code.toUpperCase(), active ? "#ff6fa8" : "#cbd5e1", () => setLang(code), 15);
     });
   } else if (mode === "skins") {
-    rr(W / 2 - 400, 26, 800, 590, 30); fillStroke("rgba(255,250,235,.96)", 5);
-    label("🎨 " + L().skins, W / 2, 62, 34, "#ff6fa8");
+    rr(UW / 2 - 400, 26, 800, 590, 30); fillStroke("rgba(255,250,235,.96)", 5);
+    label("🎨 " + L().skins, UW / 2, 62, 34, "#ff6fa8");
     const panels = skinPanels();
-    [["p1", L().player1, P_COLORS[0]], ["p2", L().player2, P_COLORS[1]], ["big", L().big, "#9b2c3a"]].forEach(([key, title, color], i) => {
-      const cx = W / 2 - 250 + i * 250, pnl = panels[i];
+    const cols = { p1: [L().player1, P_COLORS[0]], p2: [L().player2, P_COLORS[1]], big: [L().big, "#9b2c3a"] };
+    panels.forEach((pnl, i) => {
+      const key = pnl.key, [title, color] = cols[key], cx = skinCx(i);
       rr(cx - 115, 88, 230, 466, 22); fillStroke("#fff", 3.5);
       label(title, cx - (key === "big" ? 0 : 18), 112, 20, color);
       if (key !== "big") addButton(cx + 62, 96, 42, 32, "🎲", "#fbbf24", () => randomOutfit(key), 18);
@@ -2619,33 +3182,30 @@ function drawOverlay() {
         fitText(list[sel].name[lang], cx, y + 28, 15, 130, "center", OUT, 900);
       });
     });
-    fitText(L().tapToRename, W / 2 - 270, 586, 14, 250, "center", "#64748b", 700);
-    addButton(W / 2 - 100, 564, 200, 44, L().ok, "#22c55e", () => { mode = "menu"; }, 22);
-    addButton(W / 2 + 130, 564, 230, 44, "👥 " + L().friends, "#a78bfa", openFriends, 20);
+    fitText(L().tapToRename, UW / 2 - 270, 586, 14, 250, "center", "#64748b", 700);
+    addButton(UW / 2 - 100, 564, 200, 44, L().ok, "#22c55e", () => { mode = "menu"; }, 22);
+    addButton(UW / 2 + 130, 564, 230, 44, "👥 " + L().friends, "#a78bfa", openFriends, 20);
   } else if (mode === "names") {
     // имена ботов-друзей
-    rr(W / 2 - 300, 50, 600, 540, 30); fillStroke("rgba(255,250,235,.96)", 5);
-    label("👥 " + L().friends, W / 2, 94, 34, "#8b5cf6");
-    fitText(L().tapToRename, W / 2, 134, 16, 520, "center", "#64748b", 700);
+    rr(UW / 2 - 300, 50, 600, 540, 30); fillStroke("rgba(255,250,235,.96)", 5);
+    label("👥 " + L().friends, UW / 2, 94, 34, "#8b5cf6");
+    fitText(L().tapToRename, UW / 2, 134, 16, 520, "center", "#64748b", 700);
     for (let i = 0; i < BOT_SLOTS; i++) {
       const y = 162 + i * 80, look = makeLook(botOutfit(i));
-      circle(W / 2 - 200, y + 28, 24); fillStroke(look.shirt, 3);
-      circle(W / 2 - 200, y + 18, 13); fillStroke(look.skin, 2.5);
-      nameLabel({ x: W / 2 - 160, y, w: 360, h: 56 }, "bot" + (i + 1), "#3d2b1f");
+      circle(UW / 2 - 200, y + 28, 24); fillStroke(look.shirt, 3);
+      circle(UW / 2 - 200, y + 18, 13); fillStroke(look.skin, 2.5);
+      nameLabel({ x: UW / 2 - 160, y, w: 360, h: 56 }, "bot" + (i + 1), "#3d2b1f");
     }
-    addButton(W / 2 - 110, 506, 220, 54, "◀ " + L().skins, "#22c55e", backToSkins, 20);
+    addButton(UW / 2 - 110, 506, 220, 54, "◀ " + L().skins, "#22c55e", backToSkins, 20);
   } else if (mode === "shop") {
-    rr(W / 2 - 400, 26, 800, 590, 30); fillStroke("rgba(255,250,235,.96)", 5);
-    label("🛒 " + L().shop, W / 2, 64, 34, "#f59e0b");
-    rr(W / 2 + 230, 46, 150, 38, 14); fillStroke("#fff", 3);
-    drawCoin(W / 2 + 254, 65, 12); label(String(progress.coins), W / 2 + 274, 65, 20, OUT, "left");
+    rr(UW / 2 - 400, 26, 800, 590, 30); fillStroke("rgba(255,250,235,.96)", 5);
+    label("🛒 " + L().shop, UW / 2, 64, 34, "#f59e0b");
+    rr(UW / 2 + 230, 46, 150, 38, 14); fillStroke("#fff", 3);
+    drawCoin(UW / 2 + 254, 65, 12); label(String(progress.coins), UW / 2 + 274, 65, 20, OUT, "left");
     // три карточки: рукавицы, мега-рукавицы, воздушные поцелуи
-    const cards = [
-      ...["mittens", "mega"].map(k => ({ k, name: L().gloves[k], desc: L().gloveDesc(GLOVES[k].power), pack: L().pack(GLOVES[k].charges), have: L().have(progress.inv[k]), n: progress.inv[k], price: GLOVES[k].price, buy: () => buyGloves(k) })),
-      { k: "kisses", name: L().kisses, desc: L().kissDesc, pack: L().kissPack(KISSES.pack), have: L().kissHave(progress.inv.kisses), n: progress.inv.kisses, price: KISSES.price, buy: buyKisses }
-    ];
+    const cards = shopCards();
     cards.forEach((c, i) => {
-      const w = 250, x0 = W / 2 - 385 + i * (w + 10), cx = x0 + w / 2, y0 = 92;
+      const w = 250, x0 = UW / 2 - 385 + i * (w + 10), cx = x0 + w / 2, y0 = 92;
       rr(x0, y0, w, 292, 22); fillStroke("#fff", 3.5);
       if (c.k === "kisses") drawKiss(cx, y0 + 52, 78); else drawMitten(cx, y0 + 48, 66, c.k);
       fitText(c.name, cx, y0 + 102, 19, w - 20, "center", OUT, 900);
@@ -2662,50 +3222,53 @@ function drawOverlay() {
     // кто что надевает
     [0, 1].forEach(pi => {
       const y = 398 + pi * 60;
-      label(`${pi === 0 ? L().player1 : L().player2} ${L().wears}:`, W / 2 - 360, y + 24, 17, P_COLORS[pi], "left");
+      label(`${pi === 0 ? L().player1 : L().player2} ${L().wears}:`, UW / 2 - 360, y + 24, 17, P_COLORS[pi], "left");
       ["none", "mittens", "mega"].forEach((k, j) => {
-        const on = progress.equip[pi] === k, bx = W / 2 - 110 + j * 165;
+        const on = progress.equip[pi] === k, bx = UW / 2 - 110 + j * 165;
         addButton(bx, y, 155, 48, k === "none" ? L().none : "", on ? "#ff6fa8" : "#cbd5e1", () => setEquip(pi, k), 16);
         if (k !== "none") { drawMitten(bx + 34, y + 24, 30, k); label("×" + progress.inv[k], bx + 90, y + 24, 16, "#fff"); }
       });
     });
-    addButton(W / 2 - 100, 540, 200, 50, L().ok, "#22c55e", () => { mode = "menu"; }, 22);
-    addButton(W / 2 + 200, 548, 180, 36, resetArmed ? L().sure : L().reset, resetArmed ? "#ef4444" : "#94a3b8", resetProgress, 13);
+    addButton(UW / 2 - 100, 540, 200, 50, L().ok, "#22c55e", () => { mode = "menu"; }, 22);
+    addButton(UW / 2 + 200, 548, 180, 36, resetArmed ? L().sure : L().reset, resetArmed ? "#ef4444" : "#94a3b8", resetProgress, 13);
   } else if (mode === "pause") {
-    label(L().pause, W / 2, H / 2 - 70, 56, "#fff");
-    addButton(W / 2 - 230, H / 2, 220, 66, L().play, "#22c55e", () => { mode = "play"; });
-    addButton(W / 2 + 10, H / 2, 220, 66, L().menu, "#64748b", toMenu);
+    label(L().pause, UW / 2, UH / 2 - 70, 56, "#fff");
+    addButton(UW / 2 - 230, UH / 2, 220, 66, L().play, "#22c55e", () => { mode = "play"; });
+    addButton(UW / 2 + 10, UH / 2, 220, 66, L().menu, "#64748b", toMenu);
   } else if (mode === "win") {
-    label(L().win, W / 2, 92, 72, "#ffcf33");
-    label(L().winSub, W / 2, 146, 22, "#fff");
+    label(L().win, UW / 2, 92, 72, "#ffcf33");
+    label(L().winSub, UW / 2, 146, 22, "#fff");
     const rw = lastReward || { stars: 1, coins: 0, nobodyOut: false, fast: false, target: 0 };
-    for (let k = 0; k < 3; k++) drawStar(W / 2 - 80 + k * 80, 214, 32, k < rw.stars);
+    for (let k = 0; k < 3; k++) drawStar(UW / 2 - 80 + k * 80, 214, 32, k < rw.stars);
     [[true, L().victory], [rw.nobodyOut, L().nobodyOut], [rw.fast, L().fast(fmtTime(rw.target))]].forEach(([okk, txt], i) => {
-      label((okk ? "✔ " : "✘ ") + txt, W / 2, 274 + i * 28, 18, okk ? "#bbf7d0" : "#cbd5e1");
+      label((okk ? "✔ " : "✘ ") + txt, UW / 2, 274 + i * 28, 18, okk ? "#bbf7d0" : "#cbd5e1");
     });
-    drawCoin(W / 2 - 40, 362, 18); label("+" + rw.coins, W / 2 - 14, 362, 30, "#fde047", "left");
+    drawCoin(UW / 2 - 40, 362, 18); label("+" + rw.coins, UW / 2 - 14, 362, 30, "#fde047", "left");
     let ly = 394;
-    if (rw.starCoins > 0) { label("✨ " + L().starCoins(rw.starCoins), W / 2, ly, 16, "#fde047"); ly += 22; }
-    if (rw.penalty > 0) label(L().restPenalty(rw.penalty), W / 2, ly, 15, "#fca5a5");
-    addButton(W / 2 - 360, 440, 260, 66, L().next(level + 1), "#22c55e", nextLevel, 24);
-    addButton(W / 2 - 85, 440, 200, 66, "🛒 " + L().shop, "#f59e0b", () => { level = clamp(level + 1, 1, progress.unlocked); resetWorld(numPlayers); mode = "shop"; }, 22);
-    addButton(W / 2 + 130, 440, 200, 66, L().menu, "#64748b", toMenu, 22);
+    if (rw.starCoins > 0) { label("✨ " + L().starCoins(rw.starCoins), UW / 2, ly, 16, "#fde047"); ly += 22; }
+    if (rw.penalty > 0) label(L().restPenalty(rw.penalty), UW / 2, ly, 15, "#fca5a5");
+    const geo = [[UW / 2 - 360, 440, 260, 66, 24], [UW / 2 - 85, 440, 200, 66, 22], [UW / 2 + 130, 440, 200, 66, 22]];
+    endActions("win").forEach(([txt, col, act], i) => { const [x, y, w, h, sz] = geo[i]; addButton(x, y, w, h, txt, col, act, sz); });
   } else if (mode === "lose") {
-    label(L().lose, W / 2, H / 2 - 100, 58, "#fca5a5");
-    label(L().loseSub(fmtHearts(big.maxHp - big.hp), big.maxHp), W / 2, H / 2 - 35, 24, "#fff");
+    label(L().lose, UW / 2, UH / 2 - 100, 58, "#fca5a5");
+    label(L().loseSub(fmtHearts(big.maxHp - big.hp), big.maxHp), UW / 2, UH / 2 - 35, 24, "#fff");
     const sc = lastReward ? lastReward.starCoins || 0 : 0, hugCoins = lastReward ? lastReward.coins - sc : 0;
-    if (hugCoins > 0) { drawCoin(W / 2 - 70, H / 2 - 2, 13); label(L().forHugs(hugCoins), W / 2 - 50, H / 2 - 2, 20, "#fde047", "left"); }
-    if (sc > 0) label("✨ " + L().starCoins(sc), W / 2, H / 2 + (hugCoins > 0 ? 22 : 0), 16, "#fde047");
-    addButton(W / 2 - 360, H / 2 + 40, 240, 66, L().again, "#f59e0b", () => startGame(numPlayers), 22);
-    addButton(W / 2 - 100, H / 2 + 40, 200, 66, "🛒 " + L().shop, "#f59e0b", () => { resetWorld(numPlayers); mode = "shop"; }, 22);
-    addButton(W / 2 + 120, H / 2 + 40, 240, 66, L().menu, "#64748b", toMenu, 22);
+    if (hugCoins > 0) { drawCoin(UW / 2 - 70, UH / 2 - 2, 13); label(L().forHugs(hugCoins), UW / 2 - 50, UH / 2 - 2, 20, "#fde047", "left"); }
+    if (sc > 0) label("✨ " + L().starCoins(sc), UW / 2, UH / 2 + (hugCoins > 0 ? 22 : 0), 16, "#fde047");
+    const geo = [[UW / 2 - 360, UH / 2 + 40, 240, 66], [UW / 2 - 100, UH / 2 + 40, 200, 66], [UW / 2 + 120, UH / 2 + 40, 240, 66]];
+    endActions("lose").forEach(([txt, col, act], i) => { const [x, y, w, h] = geo[i]; addButton(x, y, w, h, txt, col, act, 22); });
   }
 }
 
 // Подпись с именем: прямоугольник-кнопка с ✏️; тап открывает поле ввода ровно на её месте
 function nameLabel(rect, slot, color) {
   rr(rect.x, rect.y, rect.w, rect.h, 12); fillStroke("#f8fafc", 3);
-  fitText(nameFor(slot) + " ✏️", rect.x + rect.w / 2, rect.y + rect.h / 2 + 1, Math.min(22, rect.h * 0.5), rect.w - 16, "center", color, 900);
+  if (PHONE) {
+    const min = cpx(CFG.PHONE_TEXT.main);
+    noteText("main", fitText(nameFor(slot) + " ✏️", rect.x + rect.w / 2, rect.y + rect.h / 2 + 1, Math.max(min, Math.min(cpx(20), rect.h * 0.5)), rect.w - cpx(12), "center", color, 900, min));
+    buttons.push({ ...rect, act: () => openNameInput(rect, slot), id: "name:" + slot, onUp: true, textW: ctx.measureText(nameFor(slot) + " ✏️").width });
+    return;
+  } else fitText(nameFor(slot) + " ✏️", rect.x + rect.w / 2, rect.y + rect.h / 2 + 1, Math.min(22, rect.h * 0.5), rect.w - 16, "center", color, 900);
   buttons.push({ ...rect, act: () => openNameInput(rect, slot), id: "name:" + slot, onUp: true });
 }
 function openFriends() { closeNameInput(true); mode = "names"; }
@@ -2716,23 +3279,43 @@ function drawBanner() {
   const a = bannerAlpha();
   if (a <= 0) return;
   ctx.save(); ctx.globalAlpha = a;
+  if (PHONE) {
+    // телефон: невысокая плашка под верхней полосой, левее мини-карты — герой в центре экрана виден
+    const m = cpx(8), gap = cpx(CFG.PHONE_BTN_GAP), size = minPx("title"), h = cpx(42), areaW = minimapRect().x - gap - m;
+    ctx.font = `900 ${size}px system-ui, "Segoe UI", sans-serif`;
+    const w = Math.min(areaW, ctx.measureText(banner.text).width + cpx(40)), x = m + (areaW - w) / 2, y = cpx(6) + cpx(CFG.PHONE_BTN_MIN) + gap;
+    rr(x, y, w, h, cpx(18)); fillStroke("rgba(255,250,235,.93)", 3);
+    noteText("title", fitText(banner.text, x + w / 2, y + h / 2 + 1, size, w - cpx(20), "center", "#ff6fa8", 900, size));
+    bannerRect = { x, y, w, h };
+    ctx.restore(); return;
+  }
   ctx.font = `900 34px system-ui, "Segoe UI", sans-serif`;
   const w = Math.min(640, ctx.measureText(banner.text).width) + 60;
-  rr(W / 2 - w / 2, 96, w, 62, 26); fillStroke("rgba(255,250,235,.93)", 4);
-  fitText(banner.text, W / 2, 128, 34, 640, "center", "#ff6fa8", 900);
+  rr(UW / 2 - w / 2, 96, w, 62, 26); fillStroke("rgba(255,250,235,.93)", 4);
+  fitText(banner.text, UW / 2, 128, 34, 640, "center", "#ff6fa8", 900);
   ctx.restore();
 }
 function drawUI(t) {
   if (nameInput && mode !== "skins" && mode !== "names") closeNameInput(false);
-  buttons = []; installHintShown = false; typeLabel = null;
+  buttons = []; installHintShown = false; typeLabel = null; mmShown = false; edgeArrows = []; hudRects = []; textSizes = {}; bannerRect = null;
   ctx.setTransform(VIEW, 0, 0, VIEW, 0, 0);
-  ctx.clearRect(0, 0, W, H);
+  ctx.clearRect(0, 0, UW, UH);
   if (mode !== "menu" && mode !== "skins" && mode !== "names" && mode !== "shop") { drawMarkers(t); drawFx(); drawHUD(t); }
   if (mode === "play" && banner) drawBanner();
   drawOverlay();
+  if (PHONE && nameInput) {                // телефон: поле ввода следует за своей подписью (клавиатура могла поменять высоту экрана)
+    const b = buttons.find(q => q.id === "name:" + nameInput.slot);
+    if (b) { nameInput.rect = { x: b.x, y: b.y, w: b.w, h: b.h }; placeNameInput(); }
+  }
+  rotateShown = false;
   if (isTouch && window.innerHeight > window.innerWidth) {
-    ctx.fillStyle = "rgba(20,30,25,.92)"; ctx.fillRect(0, 0, W, H);
-    label(L().rotate, W / 2, H / 2, 44, "#fff");
+    ctx.fillStyle = "rgba(20,30,25,.92)"; ctx.fillRect(0, 0, UW, UH);
+    if (PHONE) {   // телефон: узкий экран — крупно в несколько строк; кнопки под заставкой не нажимаются
+      buttons = []; rotateShown = true;
+      const h = pWrap(L().rotate, UW / 2, 0, "title", 30, UW - cpx(32), 3, "#fff", 900);   // мерка
+      ctx.fillStyle = "rgba(20,30,25,1)"; ctx.fillRect(0, 0, UW, UH);
+      pWrap(L().rotate, UW / 2, UH / 2 - h / 2, "title", 30, UW - cpx(32), 3, "#fff", 900);
+    } else label(L().rotate, UW / 2, UH / 2, 44, "#fff");
   }
 }
 
@@ -2769,8 +3352,9 @@ sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.03;
 scene.add(sun, sun.target);
 
 // Камера: наклон сверху, вся карта помещается в кадр
+const CAM_EL = 63 * Math.PI / 180, camDir = new THREE.Vector3(0, Math.sin(CAM_EL), Math.cos(CAM_EL));   // камера всегда смотрит под этим углом
 function fitCamera() {
-  const el = 63 * Math.PI / 180, dir = new THREE.Vector3(0, Math.sin(el), Math.cos(el));
+  const dir = camDir;
   const corners = [[0, 0, 0], [COLS, 0, 0], [0, 0, ROWS], [COLS, 0, ROWS], [0, WALL_H, 0], [COLS, WALL_H, 0]].map(c => new THREE.Vector3(...c));
   const v = new THREE.Vector3();
   for (let d = 12; d < 90; d += 0.2) {
@@ -2782,10 +3366,141 @@ function fitCamera() {
 }
 fitCamera();
 
+// Видимая земля: углы кадра — лучи до земли (y = 0); из-за наклона это трапеция (дальний край шире).
+// Направление камеры не меняется, поэтому углы = точка взгляда + расстояние × смещения (считаем их при расстоянии 1).
+function groundCorners() {
+  const D = 10, probe = new THREE.PerspectiveCamera(camera.fov, camera.aspect, 0.1, 500);
+  probe.position.copy(camDir).multiplyScalar(D); probe.lookAt(0, 0, 0); probe.updateMatrixWorld(); probe.updateProjectionMatrix();
+  const p = new THREE.Vector3(), r = new THREE.Vector3();
+  return [[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([nx, ny]) => {
+    p.set(nx, ny, 0.5).unproject(probe); r.copy(p).sub(probe.position);
+    const t = -probe.position.y / r.y;
+    return { x: (probe.position.x + r.x * t) / D, z: (probe.position.z + r.z * t) / D };
+  });
+}
+// габарит трапеции (в клетках от точки взгляда при расстоянии 1)
+const cornersBox = cs => ({ x0: Math.min(...cs.map(c => c.x)), x1: Math.max(...cs.map(c => c.x)), z0: Math.min(...cs.map(c => c.z)), z1: Math.max(...cs.map(c => c.z)) });
+const camLook = camTarget.clone();            // куда камера смотрит сейчас (на компьютере всегда центр карты)
+let camDist = camBase.distanceTo(camTarget);  // расстояние от камеры до точки взгляда
+let camCorners = groundCorners(), camOff = cornersBox(camCorners);
+// видимая земля сейчас, в px мира: { x, y, w, h } — габарит трапеции
+function camRect() {
+  return { x: (camLook.x + camDist * camOff.x0) * CELL, y: (camLook.z + camDist * camOff.z0) * CELL,
+    w: camDist * (camOff.x1 - camOff.x0) * CELL, h: camDist * (camOff.z1 - camOff.z0) * CELL };
+}
+
+// ---------- Камера телефона (SPEC-005): ближе, едет за героем, у краёв карты останавливается ----------
+// cam.x/y — точка взгляда в режиме «за героем» (px мира), lax/lay — забегание вперёд (px),
+// zoom: 0 — за героем, 1 — вся карта (меню, победа); dFollow/dFull — расстояния для этих двух видов.
+const cam = { x: W / 2, y: H / 2, lax: 0, lay: 0, zoom: 1, dFollow: camDist, dFull: camDist, full: camTarget.clone() };
+const camHero = () => littles.find(l => l.kind === "player") || null;
+// оси камеры тени (как в three.js: смотрит от солнца на цель, «верх» — +y); смещение солнца от цели постоянно
+const sunOff = sun.position.clone().sub(camTarget);
+const LZ = sunOff.clone().normalize(), LX = new THREE.Vector3(0, 1, 0).cross(LZ).normalize(), LY = LZ.clone().cross(LX);
+const SHADOW_FULL = { l: sun.shadow.camera.left, r: sun.shadow.camera.right, b: sun.shadow.camera.bottom, t: sun.shadow.camera.top };   // на всю карту, как на компьютере
+let shadowBox = SHADOW_FULL;                  // рамка тени вида «за героем» (оси света, от точки взгляда)
+// где на экране окажется точка мира (dx, dz px от точки взгляда, высота h px) в виде «за героем»
+const camProbe = new THREE.PerspectiveCamera(camera.fov, W / H, camera.near, camera.far), _pv = new THREE.Vector3();
+function uiOf(dx, dz, h = 0) {
+  _pv.set(P(dx), h * U, P(dz)).project(camProbe);
+  return { x: (_pv.x + 1) / 2 * UW, y: (1 - _pv.y) / 2 * UH };
+}
+// точку взгляда двигаем так, чтобы видимая земля выходила за край карты не больше CAM_EDGE (+ extra) клеток
+function clampLook(x, y, extra = 0) {
+  const m = (CFG.CAM_EDGE + extra) * CELL, d = cam.dFollow * CELL;
+  const axis = (v, o0, o1, size) => {
+    const lo = -m - o0 * d, hi = size + m - o1 * d;
+    return lo > hi ? size / 2 - (o0 + o1) * d / 2 : clamp(v, lo, hi);
+  };
+  return { x: axis(x, camOff.x0, camOff.x1, W), y: axis(y, camOff.z0, camOff.z1, H) };
+}
+// цель камеры для героя в (x, y): с краю карты — упор; если ноги или имя героя попали под верхнюю полосу,
+// под мини-карту с кружками команды или к самому краю экрана (дальний край видимой земли шире ближнего),
+// камера заходит за край карты дальше — всего не больше CAM_EDGE_MAX клеток. Всё плавно, без скачков цели:
+// под мини-карту — сначала вниз, и уже на подходе слева (полоса CAM_HERO_RAMP) понемногу; если вниз упёрлось —
+// понемногу вбок (на той же полосе остатка), поэтому на переходе имя может ненадолго задеть угол кружков.
+function followGoal(l, x, y) {
+  const g = clampLook(x, y);
+  if (!showMinimap()) return g;
+  const pad = cpx(CFG.CAM_HERO_PAD), side = cpx(CFG.CAM_HERO_SIDE), ramp = cpx(CFG.CAM_HERO_RAMP), extra = CFG.CAM_EDGE_MAX - CFG.CAM_EDGE;
+  const mm = minimapRect(), tr = teamRect(), topY = phoneTopBar() + pad, mmX = mm.x - pad, mmY = tr.y + tr.h + pad;
+  const move = (dx, dy) => { const c = clampLook(g.x + dx, g.y + dy, extra), d = Math.hypot(c.x - g.x, c.y - g.y); g.x = c.x; g.y = c.y; return d; };
+  for (let pass = 0; pass < 3; pass++) {
+    for (const h of [0, CFG.CAM_HERO_H]) {
+      let p = uiOf(l.x - g.x, l.y - g.y, h);
+      const kx = (uiOf(l.x - g.x + CELL, l.y - g.y, h).x - p.x) / CELL, ky = (uiOf(l.x - g.x, l.y - g.y + CELL, h).y - p.y) / CELL;   // UI px на px мира
+      if (p.x < side) move(-(side - p.x) / kx, 0);                       // у левого края экрана — камера левее
+      else if (p.x > UW - side) move((p.x - UW + side) / kx, 0);         // у правого — правее
+      p = uiOf(l.x - g.x, l.y - g.y, h);
+      if (p.y < topY) move(0, -(topY - p.y) / ky);                       // под верхней полосой — камера выше (герой ниже)
+      p = uiOf(l.x - g.x, l.y - g.y, h);
+      if (p.y < mmY && p.x > mmX - ramp) {                               // мини-карта с кружками и полоса подхода слева
+        const t = clamp((p.x - mmX + ramp) / ramp, 0, 1), want = (mmY - p.y) / ky * t;
+        const got = move(0, -want), rest = (want - got) * ky;            // сколько (UI px) не хватило, если упёрлись в край
+        if (t >= 1 && rest > 0.5) move(((p.x - mmX) / kx) * clamp(rest / ramp, 0, 1), 0);
+      }
+    }
+  }
+  return g;
+}
+// поставить камеру по состоянию cam (сразу, чтобы toScreen был верным и без кадра)
+function applyCamera() {
+  const z = cam.zoom, e = z * z * (3 - 2 * z);   // плавное начало и конец
+  camDist = cam.dFollow + (cam.dFull - cam.dFollow) * e;
+  camLook.set(P(cam.x) + (cam.full.x - P(cam.x)) * e, 0, P(cam.y) + (cam.full.z - P(cam.y)) * e);
+  camBase.copy(camLook).addScaledVector(camDir, camDist);
+  camera.position.copy(camBase); camera.updateMatrixWorld();
+  // тень едет с камерой: рамка по видимой земле в осях света, центр — на сетке текселей тени (без мерцания при движении)
+  const tu = (shadowBox.r - shadowBox.l) / sun.shadow.mapSize.x, tv = (shadowBox.t - shadowBox.b) / sun.shadow.mapSize.y;
+  const u = camLook.dot(LX), v = camLook.dot(LY), du = Math.round(u / tu) * tu - u, dv = Math.round(v / tv) * tv - v, k = 1 - e;
+  sun.target.position.copy(camLook).addScaledVector(LX, du * k).addScaledVector(LY, dv * k);
+  sun.position.copy(sun.target.position).add(sunOff);
+  const mix = key => shadowBox[key] + (SHADOW_FULL[key] - shadowBox[key]) * e;
+  Object.assign(sun.shadow.camera, { left: mix("l"), right: mix("r"), bottom: mix("b"), top: mix("t") });
+  sun.shadow.camera.updateProjectionMatrix();
+}
+// новый уровень: камера сразу у героя, без долгого полёта от центра карты
+function camSnap() {
+  if (!PHONE) return;
+  const l = camHero();
+  const g = l ? followGoal(l, l.x, l.y) : { x: W / 2, y: H / 2 };
+  Object.assign(cam, { x: g.x, y: g.y, lax: 0, lay: 0, zoom: 0 });
+  applyCamera();
+}
+// каждый кадр из главного цикла: плавно за героем, вперёд по ходу; не в игре (меню, победа) — вся карта
+function updateCamera(dt) {
+  if (!PHONE) return;
+  const l = camHero();
+  const k = 1 - Math.exp(-CFG.CAM_FOLLOW * dt), kl = 1 - Math.exp(-CFG.CAM_LOOKAHEAD_RATE * dt);
+  // вперёд смотрим, только пока герой идёт сам (упал, отдыхает, обнимает — камера на нём)
+  const ahead = !!l && l.moving && l.state === "ok" && !(l.hugAnim > 0), la = CFG.CAM_LOOKAHEAD * CELL;
+  cam.lax += ((ahead ? Math.cos(l.dir) * la : 0) - cam.lax) * kl;
+  cam.lay += ((ahead ? Math.sin(l.dir) * la : 0) - cam.lay) * kl;
+  if (l) { const g = followGoal(l, l.x + cam.lax, l.y + cam.lay); cam.x += (g.x - cam.x) * k; cam.y += (g.y - cam.y) * k; }
+  const out = mode !== "play" && mode !== "pause";
+  cam.zoom = clamp(cam.zoom + (out ? dt : -dt) / CFG.CAM_ZOOM_TIME, 0, 1);
+  applyCamera();
+}
+// телефон: холст любой формы — камера берёт его соотношение сторон (без растяжения)
+if (PHONE) {
+  onFit = () => {
+    camera.aspect = CSS_W / CSS_H; fitCamera();
+    cam.full.copy(camTarget); cam.dFull = camBase.distanceTo(camTarget);
+    camCorners = groundCorners(); camOff = cornersBox(camCorners); cam.dFollow = CFG.PHONE_VIEW_ROWS / (camOff.z1 - camOff.z0);
+    camProbe.aspect = camera.aspect; camProbe.position.copy(camDir).multiplyScalar(cam.dFollow); camProbe.lookAt(0, 0, 0);
+    camProbe.updateMatrixWorld(); camProbe.updateProjectionMatrix();
+    // рамка тени вида «за героем»: углы видимой земли на земле и на высоте стен/героев, в осях света, + запас
+    const pts = camCorners.flatMap(c => [0, CFG.CAM_SHADOW_H].map(h => new THREE.Vector3(c.x * cam.dFollow, h, c.z * cam.dFollow)));
+    const us = pts.map(q => q.dot(LX)), vs = pts.map(q => q.dot(LY)), pad = CFG.CAM_SHADOW_PAD;
+    shadowBox = { l: Math.min(...us) - pad, r: Math.max(...us) + pad, b: Math.min(...vs) - pad, t: Math.max(...vs) + pad };
+    applyCamera();
+  };
+  onFit();
+}
 const _v = new THREE.Vector3();
 function toScreen(x, y, h = 0) {
   _v.set(P(x), h * U, P(y)).project(camera);
-  return { x: (_v.x + 1) / 2 * W, y: (1 - _v.y) / 2 * H };
+  return { x: (_v.x + 1) / 2 * UW, y: (1 - _v.y) / 2 * UH };
 }
 
 // ---------- Материалы ----------
@@ -3292,7 +4007,7 @@ function buildMap3D() {
 }
 
 // ---------- Конус обзора и «зона обнимашек» ----------
-const CONE_N = 48;
+const CONE_N = 48, coneBuf = [];
 const coneGeo = new THREE.BufferGeometry();
 coneGeo.setAttribute("position", new THREE.BufferAttribute(new Float32Array((CONE_N + 2) * 3), 3));
 const coneIdx = []; for (let i = 1; i <= CONE_N; i++) coneIdx.push(0, i + 1, i);
@@ -3301,18 +4016,10 @@ const coneMat = new THREE.MeshBasicMaterial({ color: "#fff05a", transparent: tru
 const coneMesh = new THREE.Mesh(coneGeo, coneMat); coneMesh.frustumCulled = false; coneMesh.renderOrder = 2;
 scene.add(coneMesh);
 function updateCone() {
-  const pos = coneGeo.attributes.position.array;
-  const bx = P(big.x), bz = P(big.y);
-  pos[0] = bx; pos[1] = 0.05; pos[2] = bz;
-  const a0 = big.dir - CFG.VISION_HALF;
-  for (let i = 0; i <= CONE_N; i++) {
-    const a = a0 + i * (2 * CFG.VISION_HALF / CONE_N), cx = Math.cos(a), sy = Math.sin(a);
-    let r = 0;
-    while (r < CFG.VISION_RANGE) { r += 5; if (seeSolidAt(big.x + cx * r, big.y + sy * r)) { r -= 5; break; } }
-    pos[(i + 1) * 3] = P(big.x + cx * r); pos[(i + 1) * 3 + 1] = 0.05; pos[(i + 1) * 3 + 2] = P(big.y + sy * r);
-  }
+  const pos = coneGeo.attributes.position.array, vp = visionPoly(CONE_N, coneBuf);
+  for (let i = 0; i <= CONE_N + 1; i++) { pos[i * 3] = P(vp[2 * i]); pos[i * 3 + 1] = 0.05; pos[i * 3 + 2] = P(vp[2 * i + 1]); }
   coneGeo.attributes.position.needsUpdate = true;
-  const calm = big.stun > 0 || big.noPush > 0 || big.blush > 0;
+  const calm = bigCalm();
   coneMat.color.set(calm ? "#d4dcff" : (big.state === "chase" ? "#ff4632" : "#fff05a"));
   coneMat.opacity = calm ? 0.22 : (big.state === "chase" ? 0.34 : 0.4);
 }
@@ -3850,7 +4557,7 @@ function syncScene(t) {
   }
   if (safeGlow) safeGlow.material.opacity = 0.18 + Math.sin(t * 2) * 0.08;
   camera.position.copy(camBase);
-  if (shake > 0) camera.position.add(new THREE.Vector3(rand(-1, 1), rand(-1, 1), rand(-1, 1)).multiplyScalar(shake * 0.6));
+  if (shake > 0) camera.position.add(new THREE.Vector3(rand(-1, 1), rand(-1, 1), rand(-1, 1)).multiplyScalar(shake * 0.6 * (PHONE ? camDist / cam.dFull : 1)));   // телефон: камера ближе — трясёт слабее
 }
 
 // ---------- Превью нарядов (рисуется в «окошки» UI-слоя) ----------
@@ -3869,19 +4576,22 @@ function previewModel(key, build) {
   }
   return m;
 }
-const skinPanels = () => [0, 1, 2].map(i => ({ x: W / 2 - 250 + i * 250 - 95, y: 136, w: 190, h: 140 }));
+const SKIN_KEYS = ["p1", "p2", "big"];   // компьютер; телефон — phoneSkinCols()
+const skinCx = i => UW / 2 - (SKIN_KEYS.length - 1) * 125 + i * 250;   // центр колонки
+const skinPanels = () => PHONE ? phoneSkinCols().map(col => ({ key: col.key, ...col.panel }))
+  : SKIN_KEYS.map((key, i) => ({ key, x: skinCx(i) - 95, y: 136, w: 190, h: 140 }));
 function renderPreviews(t) {
   const lp1 = makeLook(skinSel.p1), lp2 = makeLook(skinSel.p2);
-  const defs = [
-    ["L" + JSON.stringify(lp1), () => buildLittleModel(lp1, false)],
-    ["L" + JSON.stringify(lp2), () => buildLittleModel(lp2, false)],
-    ["B" + skinSel.big, () => buildBigModel(BIG_SKINS[skinSel.big])]
-  ];
-  const s = CSS_W / W;
+  const defs = {
+    p1: ["L" + JSON.stringify(lp1), () => buildLittleModel(lp1, false)],
+    p2: ["L" + JSON.stringify(lp2), () => buildLittleModel(lp2, false)],
+    big: ["B" + skinSel.big, () => buildBigModel(BIG_SKINS[skinSel.big])]
+  };
+  const s = CSS_W / UW;
   renderer.setScissorTest(true);
-  skinPanels().forEach((p, i) => {
+  skinPanels().forEach(p => {
     previewCache.forEach(m => { m.root.visible = false; });
-    const [key, build] = defs[i], m = previewModel(key, build), isBig = key.startsWith("B");
+    const [key, build] = defs[p.key], m = previewModel(key, build), isBig = key.startsWith("B");
     m.root.visible = true;
     m.root.rotation.y = t * 0.9;
     const walk = t * (isBig ? 6 : 8);
@@ -3892,7 +4602,7 @@ function renderPreviews(t) {
     if (isBig) { previewCam.position.set(0, 2.0, 6.4); previewCam.lookAt(0, 1.4, 0); }
     else { previewCam.position.set(0, 1.0, 3.2); previewCam.lookAt(0, 0.66, 0); }
     previewCam.aspect = p.w / p.h; previewCam.updateProjectionMatrix();
-    const vx = p.x * s, vy = (H - p.y - p.h) * s, vw = p.w * s, vh = p.h * s;
+    const vx = p.x * s, vy = (UH - p.y - p.h) * s, vw = p.w * s, vh = p.h * s;
     renderer.setViewport(vx, vy, vw, vh); renderer.setScissor(vx, vy, vw, vh);
     renderer.render(previewScene, previewCam);
   });
@@ -3915,12 +4625,14 @@ document.getElementById("loading").remove();
 window.__bbReady = true;
 let last = performance.now(), T = 0;
 function frame(now) {
-  const dt = Math.min(0.05, (now - last) / 1000);
+  // первая метка rAF бывает раньше performance.now() при запуске: dt < 0 раскачивал тряску камеры (shake − dt) — не меньше 0
+  const dt = Math.max(0, Math.min(0.05, (now - last) / 1000));
   last = now; T += dt;
   pollPads();
   const portrait = isTouch && window.innerHeight > window.innerWidth;
   if (mode === "play" && !portrait) update(dt);
   else { updateFx(dt); if (mode === "menu" || mode === "skins" || mode === "names" || mode === "shop") big.dir += dt * 0.8; }
+  updateCamera(dt);                       // телефон: камера за героем (3D-слой, не логика)
   render3D(T);
   drawUI(T);
   requestAnimationFrame(frame);
@@ -3944,8 +4656,23 @@ window.__bb = {
   get level() { return level; }, set level(v) { level = v; },
   update, inSafe, I18N, startGame, resetWorld, cycleOutfit, randomOutfit, cycleBig, cyclePlace, setLang, toScreen,
   get items() { return items; }, get progress() { return progress; }, buyGloves, setEquip, get lastReward() { return lastReward; }, spawnItem, get placeSel() { return placeSel; }, set placeSel(v) { placeSel = v; },
+  // SPEC-005 (телефон): phone; camera — позиция и точка взгляда в единицах 3D (1 = клетка), точка взгляда и видимая земля в px мира,
+  // ahead — забегание вперёд (px); shake — тряска сейчас
+  phone: PHONE, get shake() { return shake; },
+  get camera() {
+    const v = q => ({ x: q.x, y: q.y, z: q.z });
+    return { pos3: v(camera.position), look3: v(camLook), target: { x: camLook.x * CELL, y: camLook.z * CELL }, aspect: camera.aspect,
+      rect: camRect(), zoom: PHONE ? cam.zoom : 1, dist: camDist, ahead: { x: cam.lax, y: cam.lay } };
+  },
   isStandalone, get installHintShown() { return installHintShown; }, get buttonNames() { return buttons.map(b => b.act.name); },
-  get buttonRects() { return buttons.map(b => ({ id: b.id || b.act.name, x: b.x, y: b.y, w: b.w, h: b.h })); },
+  get buttonRects() { return buttons.map(b => ({ id: b.id || b.act.name, x: b.x, y: b.y, w: b.w, h: b.h, text: b.text, textW: b.textW })); },
+  updateCamera, camSnap, stickR, skinPanels, resetBannerTimer() { bannerShownAt = -Infinity; },
+  get textSizes() { return { ...textSizes }; }, get rotateShown() { return rotateShown; }, get bannerRect() { return bannerRect && { ...bannerRect }; },
+  get minimap() { return mmShown ? { x: mmState.x, y: mmState.y, w: mmState.w, h: mmState.h, baseDraws: mmDraws, markers: mmState.markers.slice(0, mmCount).map(m => ({ ...m })) } : null; },
+  get edgeArrows() { return edgeArrows.map(a => ({ ...a })); }, get hudRects() { return hudRects.map(r => ({ ...r })); },
+  get sticks() { return [...sticks].map(([id, s]) => ({ id, ...s })); },
+  // слой интерфейса: размер в UI px, размер холста в CSS px, scale = CSS px на UI px (SPEC-005)
+  get uiSize() { return { w: UW, h: UH, cssW: CSS_W, cssH: CSS_H, scale: CSS_W / UW }; }, toGame,
   get names() { return allNames(); }, setName, nameOf, inDanger, get stars() { return bonusStars; }, spawnStar, giveReward,
   get dangerZone() { return dangerZone; }, get safeZone() { return safeZone; }, get texts() { return texts; }, generateLevel,
   world: { COLS, ROWS, CELL, get blocked() { return Array.from(blocked); }, get blockedBig() { return Array.from(blockedBig); }, seeSolid: seeSolidAt, get bushes() { return bushes.map(q => ({ ...q })); },
