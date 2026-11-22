@@ -54,18 +54,19 @@ test.describe("desktop", () => {
     expect(await page.evaluate(() => window.__bb.phone)).toBe(false);
     await frames(page);
     expectDesktop(await snapshot(page));        // menu
-    await page.evaluate(() => {
-      const b = window.__bb;
+    const itemEvery = await page.evaluate(() => {
+      const b = window.__bb, saved = b.CFG.ITEM_EVERY;
       b.startGame(1);
       // nothing may shake the camera: a calm Big One who pushes nobody, no items (a banana slip shakes it too)
       Object.assign(b.big, { state: "look", timer: 999, stun: 999, noPush: 999 });
       b.items.length = 0; b.CFG.ITEM_EVERY = [999, 999];
+      return saved;
     });
     await step(page, 2);
     await page.waitForFunction(() => window.__bb.shake === 0);
     await frames(page);
     const snapPlay = await snapshot(page);
-    await page.evaluate(() => { window.__bb.CFG.ITEM_EVERY = [7, 11]; });
+    await page.evaluate(v => { window.__bb.CFG.ITEM_EVERY = v; }, itemEvery);   // restore the live CFG
     expectDesktop(snapPlay);                    // play
     expect(errors).toEqual([]);
   });
@@ -231,8 +232,8 @@ test.describe("phone camera", () => {
     expect(cam.rect.w / cam.rect.h).toBeGreaterThan(ui.cssW / ui.cssH * 0.9);
     expect(cam.rect.w / cam.rect.h).toBeLessThan(ui.cssW / ui.cssH * 1.2);
     // at the start the hero is in his house in the top-left corner: the view stops at the edge — 1 cell beyond it, more only
-    // as far as needed to keep him clear of the screen side and the top bar (at most CAM_EDGE_MAX cells more)
-    const lim = await page.evaluate(() => (window.__bb.CFG.CAM_EDGE + window.__bb.CFG.CAM_EDGE_MAX) * 32);
+    // as far as needed to keep him clear of the screen side and the top bar (at most CAM_EDGE_MAX cells in all)
+    const lim = await page.evaluate(() => window.__bb.CFG.CAM_EDGE_MAX * 32);   // never more than CAM_EDGE_MAX cells beyond the edge
     expect(cam.rect.x).toBeGreaterThanOrEqual(-lim - EPS); expect(cam.rect.x).toBeLessThanOrEqual(-32 + EPS);
     expect(cam.rect.y).toBeGreaterThanOrEqual(-lim - EPS); expect(cam.rect.y).toBeLessThanOrEqual(-32 + EPS);
     let s = await heroScreen(page);
@@ -327,6 +328,24 @@ test.describe("phone camera", () => {
     for (const p of [d.feet, d.head]) for (const r of blocked) {
       expect(p.x > r.x && p.x < r.x + r.w && p.y > r.y && p.y < r.y + r.h, `hero point ${JSON.stringify(p)} under ${JSON.stringify(r)}`).toBe(false);
     }
+    expect(errors).toEqual([]);
+  });
+
+  test("the follow goal changes smoothly when the hero walks the top-right diagonal", async ({ page }) => {
+    const errors = await phonePlay(page);
+    await frames(page);
+    const r = await page.evaluate(() => {
+      const b = window.__bb, l = b.littles[0], out = [];
+      for (let k = 0; k <= 60; k++) {             // from the middle-right to the top-right corner, 4 px steps on each axis
+        Object.assign(l, { x: 700 + k * 4, y: 260 - k * 4, moving: false });
+        b.camSnap();                              // the camera goes straight to its follow goal
+        out.push(b.camera.target);
+      }
+      return out;
+    });
+    let worst = 0;
+    for (let i = 1; i < r.length; i++) worst = Math.max(worst, Math.hypot(r[i].x - r[i - 1].x, r[i].y - r[i - 1].y));
+    expect(worst, "largest jump of the camera goal for a 5.7 px step").toBeLessThan(20);
     expect(errors).toEqual([]);
   });
 
@@ -566,20 +585,28 @@ test.describe("phone mini-map", () => {
     expect(down.length).toBe(1);
     expect(Math.abs(down[0].angle - Math.atan2(r.ts.y - r.hs.y, r.ts.x - r.hs.x))).toBeLessThan(0.01);
     // a downed friend on screen but under the mini-map also gets an arrow
-    await page.evaluate(() => {
-      const b = window.__bb, mm = b.minimap, cam = b.camera;
-      // world point under the mini-map centre: walk the grid and take the cell whose screen point is inside the mini-map
-      let best = null;
-      for (let y = 16; y < 640; y += 16) for (let x = 16; x < 960; x += 16) {
+    const best = await page.evaluate(() => {
+      const b = window.__bb, mm = b.minimap;
+      // a world point whose screen point is inside the mini-map
+      grid: for (let y = 16; y < 640; y += 16) for (let x = 16; x < 960; x += 16) {
         const s = b.toScreen(x, y);
-        if (s.x > mm.x + 10 && s.x < mm.x + mm.w - 10 && s.y > mm.y + 10 && s.y < mm.y + mm.h - 10) { best = { x, y }; break; }
+        if (s.x > mm.x + 10 && s.x < mm.x + mm.w - 10 && s.y > mm.y + 10 && s.y < mm.y + mm.h - 10) {
+          Object.assign(b.littles[1], { x: 900, y: 40, state: "ok" });
+          Object.assign(b.littles[2], { x, y, state: "down", downTimer: 18, rescue: 0 });
+          return { x, y };
+        }
       }
-      Object.assign(b.littles[1], { x: 900, y: 40, state: "ok" });
-      Object.assign(b.littles[2], { ...best, state: "down", downTimer: 18, rescue: 0 });
-      void cam;
+      return null;
     });
+    expect(best).not.toBeNull();
     await frames(page);
-    r = await page.evaluate(() => ({ arrows: window.__bb.edgeArrows, mm: window.__bb.minimap, buttons: window.__bb.buttonRects }));
+    r = await page.evaluate(() => {
+      const b = window.__bb, f = b.littles[2];
+      return { arrows: b.edgeArrows, mm: b.minimap, buttons: b.buttonRects, fs: b.toScreen(f.x, f.y), ui: b.uiSize, st: f.state };
+    });
+    expect(r.st).toBe("down");
+    expect(r.fs.x > 0 && r.fs.x < r.ui.w && r.fs.y > 0 && r.fs.y < r.ui.h, "the friend is on screen").toBe(true);
+    expect(r.fs.x > r.mm.x && r.fs.x < r.mm.x + r.mm.w && r.fs.y > r.mm.y && r.fs.y < r.mm.y + r.mm.h, "…but under the mini-map").toBe(true);
     expect(r.arrows.filter(a => a.kind === "downed").length, "an arrow for the friend under the mini-map").toBe(1);
     for (const a of r.arrows) {
       const box = { x: a.x - a.r, y: a.y - a.r, w: 2 * a.r, h: 2 * a.r };
@@ -760,6 +787,26 @@ test.describe("phone menus", () => {
     expect(Math.abs(box.height - r.rect.h * s)).toBeLessThan(1.5);
     const font = await input.evaluate(el => parseFloat(getComputedStyle(el).fontSize));
     expect(font).toBeGreaterThanOrEqual(16);
+    expect(errors).toEqual([]);
+  });
+
+  test("the name input stays open and over its label when the keyboard shrinks the page", async ({ page }) => {
+    const errors = await openGame(page, { query: "?phone=1" });
+    await page.evaluate(() => { window.__bb.mode = "skins"; });
+    await frames(page);
+    let r = await page.evaluate(() => ({ ui: window.__bb.uiSize, rect: window.__bb.buttonRects.find(q => q.id === "name:p1") }));
+    await page.touchscreen.tap((r.rect.x + r.rect.w / 2) * r.ui.scale, (r.rect.y + r.rect.h / 2) * r.ui.scale);
+    const input = page.locator("input.name-input");
+    await expect(input).toHaveCount(1);
+    await page.setViewportSize({ width: 844, height: 250 });   // Android: the keyboard makes the page shorter
+    await frames(page); await frames(page);
+    await expect(input).toHaveCount(1);
+    r = await page.evaluate(() => ({ ui: window.__bb.uiSize, rect: window.__bb.buttonRects.find(q => q.id === "name:p1") }));
+    const box = await input.boundingBox(), cv = await page.locator("#game").boundingBox(), s = r.ui.scale;
+    expect(Math.abs(box.x - cv.x - r.rect.x * s)).toBeLessThan(1.5);
+    expect(Math.abs(box.y - cv.y - r.rect.y * s)).toBeLessThan(1.5);
+    expect(Math.abs(box.width - r.rect.w * s)).toBeLessThan(1.5);
+    expect(Math.abs(box.height - r.rect.h * s)).toBeLessThan(1.5);
     expect(errors).toEqual([]);
   });
 

@@ -122,10 +122,11 @@ const CFG = {
   CAM_ZOOM_TIME: 1.2,        // сек — после победы камера отъезжает на всю карту (и обратно)
   CAM_EDGE_MAX: 4,           // клеток — дальше этого за край камера не заходит, даже чтобы герой не прятался под мини-картой
   CAM_HERO_PAD: 12,          // CSS px — запас вокруг героя от верхней полосы и мини-карты
+  CAM_HERO_RAMP: 120,        // CSS px — полоса, на которой камера плавно уводит героя из-под мини-карты
   CAM_HERO_SIDE: 36,         // CSS px — герой не ближе этого к левому и правому краю экрана
   CAM_HERO_H: 90,            // px мира — высота имени над головой героя (его тоже держим на виду)
   CAM_SHADOW_PAD: 1.5,       // клеток — запас рамки тени вокруг видимой земли
-  CAM_SHADOW_H: 2,           // клеток — до какой высоты тени должны попадать в рамку (стены, деревья, герои)
+  CAM_SHADOW_H: 2,           // клеток — углы видимой земли поднимаем на эту высоту: рамка тени захватывает стены, деревья и героев у края кадра
   CAM_FOLLOW: 6,             // 1/сек — как быстро камера догоняет героя
   CAM_LOOKAHEAD: 1.5,        // клеток — камера чуть забегает вперёд по ходу героя
   MINIMAP_W: 0.26,           // доля ширины интерфейса — ширина мини-карты (3:2)
@@ -341,7 +342,7 @@ let onFit = null;               // телефон: 3D-камера подстр�
 function fit() {
   DPR = Math.min(window.devicePixelRatio || 1, isTouch ? 1.5 : 2);   // на планшетах чуть меньше пикселей — плавнее
   const area = playArea();
-  const oldUW = UW;
+  const oldCSSW = CSS_W;
   if (PHONE) {
     // телефон: весь экран без полос; интерфейс — высотой PHONE_UI_H, ширина по соотношению сторон
     CSS_W = Math.max(1, Math.floor(area.w)); CSS_H = Math.max(1, Math.floor(area.h));
@@ -356,7 +357,7 @@ function fit() {
   VIEW = canvas.width / UW;
   if (renderer) { renderer.setPixelRatio(DPR); renderer.setSize(CSS_W, CSS_H, true); }
   if (onFit) onFit();
-  if (nameInput && UW !== oldUW) closeNameInput(true);   // слой интерфейса поменял размер — имя сохраняем, поле закрываем
+  if (PHONE && nameInput && CSS_W !== oldCSSW) closeNameInput(true);   // телефон повернули — имя сохраняем, поле закрываем (клавиатура меняет только высоту)
   placeNameInput();
 }
 window.addEventListener("resize", () => fit());
@@ -2469,7 +2470,7 @@ function drawMarkers(t) {
       const hd = toScreen(l.x, l.y, l.state === "rest" ? 56 : 72);
       if (l.state === "rest") {
         const z = (t * 1.2 + l.id * 0.3) % 1;
-        ctx.save(); ctx.globalAlpha = 1 - z; label("z", hd.x + 10 + z * 14, hd.y - 6 - z * 22, fz(12 + z * 8, "hint"), "#e0e7ff"); ctx.restore();
+        ctx.save(); ctx.globalAlpha = 1 - z; label("z", hd.x + 10 + z * 14, hd.y - 6 - z * 22, fz(12, "hint") + z * 8, "#e0e7ff"); ctx.restore();
         label(fmtTime(Math.max(0, l.restTimer)), hd.x, hd.y + 6, fz(isPlayer ? 14 : 11, "hint"), isPlayer ? P_COLORS[l.id] : "#e5e7eb");
       } else label("🏠 " + name, hd.x, hd.y - 6, fz(isPlayer ? 13 : 10, "hint"), "#e5e7eb");
       continue;
@@ -2497,7 +2498,8 @@ function drawMarkers(t) {
       if (l.rescue > 0) { ctx.strokeStyle = "#4ade80"; ctx.beginPath(); ctx.arc(c.x, c.y, 29, -Math.PI / 2, -Math.PI / 2 + TAU * (l.rescue / CFG.RESCUE_TIME)); ctx.stroke(); }
       ctx.lineCap = "butt";
       label(String(Math.ceil(l.downTimer)), c.x + 30, c.y - 22, fz(15, "main"), "#fecaca");
-      label(isPlayer ? L().help(name) : "SOS", c.x, c.y - 40, fz(12 * (1 + Math.sin(t * 8) * 0.1), "main"), "#fde047");
+      const pulse = 1 + Math.sin(t * 8) * 0.1;   // телефон: пульсирует вверх от минимального размера
+      label(isPlayer ? L().help(name) : "SOS", c.x, c.y - 40, PHONE ? fz(12, "main") * (pulse + 0.1) : 12 * pulse, "#fde047");
     }
   }
   const bh = toScreen(big.x, big.y, 134);
@@ -2588,8 +2590,10 @@ function teamRect() {
 // sides — ещё полосы у левого и правого края (для камеры: герой с именем целиком на экране)
 function phoneOccluders(pad = 0, sides = 0) {
   const mm = minimapRect(), tr = teamRect(), top = phoneTopBar();
-  const r = [{ x: -1e4, y: -1e4, w: 2e4, h: 1e4 + top + pad }, { x: mm.x - pad, y: -1e4, w: 2e4, h: 1e4 + tr.y + tr.h + pad }];
-  if (sides) r.push({ x: -1e4, y: -1e4, w: 1e4 + sides, h: 2e4 }, { x: UW - sides, y: -1e4, w: 2e4, h: 2e4 });
+  // ways — куда камере уводить героя из-под этого места, по порядку: сначала первый, второй — когда первый упёрся
+  const r = [{ x: -1e4, y: -1e4, w: 2e4, h: 1e4 + top + pad, ways: ["down"] },
+    { x: mm.x - pad, y: -1e4, w: 2e4, h: 1e4 + tr.y + tr.h + pad, ways: ["down", "left"] }];
+  if (sides) r.push({ x: -1e4, y: -1e4, w: 1e4 + sides, h: 2e4, ways: ["right"] }, { x: UW - sides, y: -1e4, w: 2e4, h: 2e4, ways: ["left"] });
   return r;
 }
 // верхняя полоса телефона: слева имя Большого и сердечки, дальше уровень/время, пауза, «во весь экран»;
@@ -2734,7 +2738,6 @@ function kissButton(pi) {
 let mmBase = null, mmKey = "", mmDraws = 0, mmShown = false, edgeArrows = [], hudRects = [];
 const mmState = { x: 0, y: 0, w: 0, h: 0, markers: [] };
 let mmCount = 0;
-const visBuf = [];                                   // многоугольник взгляда для мини-карты
 const showMinimap = () => PHONE && (mode === "play" || mode === "pause");
 // правый верхний угол, ширина MINIMAP_W от ширины интерфейса, 3:2 (как карта 30×20)
 function minimapRect() {
@@ -2793,7 +2796,7 @@ function drawMinimap(t) {
   ctx.clip();
   ctx.globalAlpha = 0.85; ctx.drawImage(minimapBase(r), r.x, r.y, r.w, r.h); ctx.globalAlpha = 1;
   // конус Большого — тот же многоугольник и то же «спокоен», что в 3D
-  const vp = visionPoly(CONE_N, visBuf);
+  const vp = coneBuf;                     // посчитан в этом же кадре для 3D-конуса (updateCone)
   ctx.beginPath(); ctx.moveTo(X(vp[0]), Y(vp[1]));
   for (let i = 2; i < vp.length; i += 2) ctx.lineTo(X(vp[i]), Y(vp[i + 1]));
   ctx.closePath(); ctx.fillStyle = bigCalm() ? "rgba(255,255,255,.25)" : "rgba(250,204,21,.55)"; ctx.fill();
@@ -3300,6 +3303,10 @@ function drawUI(t) {
   if (mode !== "menu" && mode !== "skins" && mode !== "names" && mode !== "shop") { drawMarkers(t); drawFx(); drawHUD(t); }
   if (mode === "play" && banner) drawBanner();
   drawOverlay();
+  if (PHONE && nameInput) {                // телефон: поле ввода следует за своей подписью (клавиатура могла поменять высоту экрана)
+    const b = buttons.find(q => q.id === "name:" + nameInput.slot);
+    if (b) { nameInput.rect = { x: b.x, y: b.y, w: b.w, h: b.h }; placeNameInput(); }
+  }
   rotateShown = false;
   if (isTouch && window.innerHeight > window.innerWidth) {
     ctx.fillStyle = "rgba(20,30,25,.92)"; ctx.fillRect(0, 0, UW, UH);
@@ -3393,7 +3400,7 @@ const LZ = sunOff.clone().normalize(), LX = new THREE.Vector3(0, 1, 0).cross(LZ)
 const SHADOW_FULL = { l: sun.shadow.camera.left, r: sun.shadow.camera.right, b: sun.shadow.camera.bottom, t: sun.shadow.camera.top };   // на всю карту, как на компьютере
 let shadowBox = SHADOW_FULL;                  // рамка тени вида «за героем» (оси света, от точки взгляда)
 // где на экране окажется точка мира (dx, dz px от точки взгляда, высота h px) в виде «за героем»
-const camProbe = new THREE.PerspectiveCamera(30, W / H, 0.5, 200), _pv = new THREE.Vector3();
+const camProbe = new THREE.PerspectiveCamera(camera.fov, W / H, camera.near, camera.far), _pv = new THREE.Vector3();
 function uiOf(dx, dz, h = 0) {
   _pv.set(P(dx), h * U, P(dz)).project(camProbe);
   return { x: (_pv.x + 1) / 2 * UW, y: (1 - _pv.y) / 2 * UH };
@@ -3407,31 +3414,32 @@ function clampLook(x, y, extra = 0) {
   };
   return { x: axis(x, camOff.x0, camOff.x1, W), y: axis(y, camOff.z0, camOff.z1, H) };
 }
-// цель камеры для героя в (x, y): с краю карты — упор; если ноги или голова героя попали под верхнюю полосу,
+// цель камеры для героя в (x, y): с краю карты — упор; если ноги или имя героя попали под верхнюю полосу,
 // под мини-карту с кружками команды или к самому краю экрана (дальний край видимой земли шире ближнего),
-// камера заходит за край карты дальше (не больше CAM_EDGE_MAX клеток)
+// камера заходит за край карты дальше — всего не больше CAM_EDGE_MAX клеток. Всё плавно, без скачков цели:
+// под мини-карту — сначала вниз, и уже на подходе слева (полоса CAM_HERO_RAMP) понемногу; если вниз упёрлось —
+// понемногу вбок (на той же полосе остатка), поэтому на переходе имя может ненадолго задеть угол кружков.
 function followGoal(l, x, y) {
   const g = clampLook(x, y);
   if (!showMinimap()) return g;
-  const occ = phoneOccluders(cpx(CFG.CAM_HERO_PAD), cpx(CFG.CAM_HERO_SIDE));
-  for (let i = 0; i < 4; i++) {
-    let shift = null;
+  const pad = cpx(CFG.CAM_HERO_PAD), side = cpx(CFG.CAM_HERO_SIDE), ramp = cpx(CFG.CAM_HERO_RAMP), extra = CFG.CAM_EDGE_MAX - CFG.CAM_EDGE;
+  const mm = minimapRect(), tr = teamRect(), topY = phoneTopBar() + pad, mmX = mm.x - pad, mmY = tr.y + tr.h + pad;
+  const move = (dx, dy) => { const c = clampLook(g.x + dx, g.y + dy, extra), d = Math.hypot(c.x - g.x, c.y - g.y); g.x = c.x; g.y = c.y; return d; };
+  for (let pass = 0; pass < 3; pass++) {
     for (const h of [0, CFG.CAM_HERO_H]) {
-      const p = uiOf(l.x - g.x, l.y - g.y, h), o = occ.find(r => p.x > r.x && p.x < r.x + r.w && p.y > r.y && p.y < r.y + r.h);
-      if (!o) continue;
-      const ky = (uiOf(l.x - g.x, l.y - g.y + CELL, h).y - p.y) / CELL, kx = (uiOf(l.x - g.x + CELL, l.y - g.y, h).x - p.x) / CELL;
-      // сколько px мира сдвинуть камеру, чтобы точка ушла под препятствие, левее или правее него
-      const down = o.y + o.h < UH ? (o.y + o.h - p.y) / ky + 1 : Infinity;
-      const left = o.x > 0 ? (p.x - o.x) / kx + 1 : Infinity, right = o.x + o.w < UW ? (o.x + o.w - p.x) / kx + 1 : Infinity;
-      const best = Math.min(down, left, right);
-      if (best === Infinity) break;
-      shift = best === down ? { x: 0, y: -down } : best === left ? { x: left, y: 0 } : { x: -right, y: 0 };
-      break;
+      let p = uiOf(l.x - g.x, l.y - g.y, h);
+      const kx = (uiOf(l.x - g.x + CELL, l.y - g.y, h).x - p.x) / CELL, ky = (uiOf(l.x - g.x, l.y - g.y + CELL, h).y - p.y) / CELL;   // UI px на px мира
+      if (p.x < side) move(-(side - p.x) / kx, 0);                       // у левого края экрана — камера левее
+      else if (p.x > UW - side) move((p.x - UW + side) / kx, 0);         // у правого — правее
+      p = uiOf(l.x - g.x, l.y - g.y, h);
+      if (p.y < topY) move(0, -(topY - p.y) / ky);                       // под верхней полосой — камера выше (герой ниже)
+      p = uiOf(l.x - g.x, l.y - g.y, h);
+      if (p.y < mmY && p.x > mmX - ramp) {                               // мини-карта с кружками и полоса подхода слева
+        const t = clamp((p.x - mmX + ramp) / ramp, 0, 1), want = (mmY - p.y) / ky * t;
+        const got = move(0, -want), rest = (want - got) * ky;            // сколько (UI px) не хватило, если упёрлись в край
+        if (t >= 1 && rest > 0.5) move(((p.x - mmX) / kx) * clamp(rest / ramp, 0, 1), 0);
+      }
     }
-    if (!shift) break;
-    const c = clampLook(g.x + shift.x, g.y + shift.y, CFG.CAM_EDGE_MAX);
-    if (Math.abs(c.x - g.x) + Math.abs(c.y - g.y) < 0.5) break;
-    g.x = c.x; g.y = c.y;
   }
   return g;
 }
@@ -3443,8 +3451,8 @@ function applyCamera() {
   camBase.copy(camLook).addScaledVector(camDir, camDist);
   camera.position.copy(camBase); camera.updateMatrixWorld();
   // тень едет с камерой: рамка по видимой земле в осях света, центр — на сетке текселей тени (без мерцания при движении)
-  const tex = (shadowBox.r - shadowBox.l) / sun.shadow.mapSize.x, u = camLook.dot(LX), v = camLook.dot(LY);
-  const du = Math.round(u / tex) * tex - u, dv = Math.round(v / tex) * tex - v, k = 1 - e;
+  const tu = (shadowBox.r - shadowBox.l) / sun.shadow.mapSize.x, tv = (shadowBox.t - shadowBox.b) / sun.shadow.mapSize.y;
+  const u = camLook.dot(LX), v = camLook.dot(LY), du = Math.round(u / tu) * tu - u, dv = Math.round(v / tv) * tv - v, k = 1 - e;
   sun.target.position.copy(camLook).addScaledVector(LX, du * k).addScaledVector(LY, dv * k);
   sun.position.copy(sun.target.position).add(sunOff);
   const mix = key => shadowBox[key] + (SHADOW_FULL[key] - shadowBox[key]) * e;
