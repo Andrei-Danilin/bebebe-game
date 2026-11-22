@@ -31,7 +31,9 @@ test("every world goes from the drawing to the maze", async ({ page }) => {
     b.world = "beach"; b.level = 9; b.startGame(1);
     const li = b.levelInfo, run = { world: b.world, level: b.level, info: { world: li.world, lv: li.lv, type: li.type } };
     b.world = "nowhere";                                  // not a world: ignored
-    return { out, cfg: b.CFG.WORLD_TYPES, worlds: b.WORLDS, start, run, after: b.world, placeSel: "placeSel" in b, cyclePlace: "cyclePlace" in b };
+    const clampLv = [25, 0, -3, 7.6].map(v => { b.level = v; return b.level; });
+    b.level = 9;
+    return { out, cfg: b.CFG.WORLD_TYPES, worlds: b.WORLDS, start, run, after: b.world, clampLv, placeSel: "placeSel" in b, cyclePlace: "cyclePlace" in b };
   }, WORLDS);
   expect(r.cfg).toEqual(WORLD_TYPES);
   expect(r.worlds).toEqual(WORLDS);
@@ -42,6 +44,7 @@ test("every world goes from the drawing to the maze", async ({ page }) => {
   expect(r.start).toEqual({ world: "park", level: 1 });
   expect(r.run).toEqual({ world: "beach", level: 9, info: { world: "beach", lv: 9, type: "river" } });
   expect(r.after).toBe("beach");
+  expect(r.clampLv).toEqual([20, 1, 1, 7]);                // __bb.level stays inside 1–20
   // the place of a level is its world: the place picker is gone
   expect(r.placeSel).toBe(false);
   expect(r.cyclePlace).toBe(false);
@@ -149,6 +152,12 @@ test("the Big One gets faster inside a world and never outruns a player", async 
     const b = window.__bb, C = b.CFG, d = {};
     for (const w of W) { d[w] = []; for (let n = 1; n <= 20; n++) d[w].push(b.difficulty(w, n)); }
     const cfg = { start: C.WORLD_SPEED_START, per: C.SPEED_PER_LEVEL, max: C.BIG_CHASE_MAX, oldChase: "CHASE_PER_LEVEL" in C, oldHp: "HP_PER_LEVEL" in C };
+    // a CFG change can never make any speed outrun a player; a short WORLD_SPEED_START list falls back to its last value
+    const keep = { patrol: C.BIG_PATROL_SPEED, start: C.WORLD_SPEED_START };
+    try {
+      C.BIG_PATROL_SPEED = 400; cfg.fastPatrol = b.difficulty("park", 1);
+      C.BIG_PATROL_SPEED = keep.patrol; C.WORLD_SPEED_START = [0, 5]; cfg.shortStart = b.difficulty("winter", 1).boost;
+    } finally { C.BIG_PATROL_SPEED = keep.patrol; C.WORLD_SPEED_START = keep.start; }
     // the game uses it: hearts at the start and the Big One's real speeds
     const game = {};
     b.world = "school"; b.level = 5; b.startGame(1);
@@ -156,7 +165,7 @@ test("the Big One gets faster inside a world and never outruns a player", async 
     // the last heart in the hardest level: the anger boost must not push him past the ceiling
     b.world = "winter"; b.level = 20; b.startGame(1);
     game.winter20 = { maxHp: b.big.maxHp };
-    b.big.hp = 1; game.winter20.lastHeart = b.bigSpeeds();
+    b.big.hp = 1; game.winter20.lastHeart = b.bigSpeeds(); game.winter20.boost = b.bigBoost(); game.winter20.d = b.difficulty("winter", 20, 11);
     b.big.hp = 0.5; game.winter20.halfHeart = b.bigSpeeds();
     b.world = "park"; b.level = 20; b.startGame(1);
     b.big.hp = 1; game.park20 = { lastHeart: b.bigSpeeds() };
@@ -167,12 +176,16 @@ test("the Big One gets faster inside a world and never outruns a player", async 
   expect(r.cfg.per).toBe(PER);
   expect(r.cfg.max).toBeCloseTo(MAX, 6);                  // 142.5, from PLAYER_SPEED
   expect([r.cfg.oldChase, r.cfg.oldHp]).toEqual([false, false]);
+  expect(r.cfg.fastPatrol.patrol).toBeCloseTo(MAX, 6);
+  expect(r.cfg.shortStart).toBe(5);
   // the formulas
   WORLDS.forEach((w, wi) => {
     for (let n = 1; n <= 20; n++) {
       const x = r.d[w][n - 1], boost = START[wi] + (n - 1) * PER, at = `${w} ${n}`;
-      expect(Object.keys(x).sort(), at).toEqual(["chase", "hearts", "patrol"]);
+      expect(Object.keys(x).sort(), at).toEqual(["boost", "chase", "hearts", "patrol", "search"]);
+      expect(x.boost, at).toBeCloseTo(boost, 6);
       expect(x.chase, at).toBeCloseTo(Math.min(MAX, 112 + boost), 6);
+      expect(x.search, at).toBeCloseTo(Math.min(MAX, 112 * 0.85 + boost), 6);
       expect(x.patrol, at).toBeCloseTo(70 + boost / 2, 6);
       expect(x.hearts, at).toBe(Math.min(12, 6 + Math.floor((n - 1) / 4) + wi));
       expect(x.chase, `${at}: faster than a player`).toBeLessThanOrEqual(MAX + 1e-9);
@@ -199,11 +212,13 @@ test("the Big One gets faster inside a world and never outruns a player", async 
   expect(r.game.school5.speeds.chase).toBeCloseTo(r.d.school[4].chase, 6);
   expect(r.game.school5.speeds.patrol).toBeCloseTo(r.d.school[4].patrol, 6);
   expect(r.game.winter20.maxHp).toBe(12);
+  expect(r.game.winter20.boost).toBeCloseTo(r.game.winter20.d.boost, 6);
+  expect(r.game.winter20.lastHeart).toEqual({ chase: r.game.winter20.d.chase, search: r.game.winter20.d.search, patrol: r.game.winter20.d.patrol });
   for (const s of [r.game.winter20.lastHeart, r.game.winter20.halfHeart, r.game.park20.lastHeart]) {
     expect(s.chase).toBeCloseTo(MAX, 6);                  // capped (with 11 hearts of anger: far above before the cap)
     expect(s.search).toBeLessThanOrEqual(MAX + 1e-9);
   }
-  expect(r.game.winter20.lastHeart.patrol).toBeCloseTo(70 + (15 + 19 * PER + 11 * 4) / 2, 6);   // patrol + half of the boost, as before
+  expect(r.game.winter20.lastHeart.patrol).toBeCloseTo(70 + (15 + 19 * PER + 11 * 4) / 2, 6);   // patrol + half of the boost, as before (under the cap)
 
   // the real movement: an angry Big One at the last heart of Winter 20 runs no faster than the ceiling
   const run = await page.evaluate(() => {
@@ -711,7 +726,7 @@ test("the menu shows four worlds and switches between them", async ({ page }) =>
   expect(d.cards.map(c => c.name)).toEqual(["Park", "School", "Beach", "Winter"]);
   expect(d.cards.map(c => c.stars)).toEqual(["⭐ 5/60", "⭐ 1/60", "⭐ 0/60", "⭐ 0/60"]);   // stars of each world
   expect(d.cards.map(c => c.selected)).toEqual([true, false, false, false]);
-  expect(d.names).not.toContain("nextWorld");                                       // the old place button is gone
+  expect(d.names).not.toContain("cyclePlace");                                      // the old place button is gone
   // the cards are buttons in one row, inside the menu card, not on each other, above the level selector
   const cr = WORLDS.map(w => d.rects.find(q => q.id === "world:" + w));
   for (const q of cr) expect(q, "card button").toBeTruthy();
@@ -731,6 +746,11 @@ test("the menu shows four worlds and switches between them", async ({ page }) =>
   const after = await page.evaluate(() => ({ world: window.__bb.world, level: window.__bb.level, mode: window.__bb.mode, last: JSON.parse(localStorage.getItem("bebebe-progress")).lastWorld,
     selected: window.__bb.worldCards.map(c => c.selected), type: window.__bb.typeLabel.text, built: window.__bb.levelInfo.world }));
   expect(after).toEqual({ world: "school", level: 4, mode: "menu", last: "school", selected: [false, true, false, false], type: "Meadow", built: "school" });
+  // a click on the world that is already selected keeps the level the player picked
+  await page.keyboard.press("ArrowLeft");
+  await frames(page);
+  await page.mouse.click(at.x, at.y);
+  expect(await page.evaluate(() => [window.__bb.world, window.__bb.level])).toEqual(["school", 3]);
   // the keyboard: ↓ next world, ↑ previous world (wraps around); ← → still change the level
   const seq = [];
   for (const k of ["ArrowDown", "ArrowUp", "ArrowUp", "ArrowUp", "ArrowLeft"]) { await page.keyboard.press(k); seq.push(await page.evaluate(() => [window.__bb.world, window.__bb.level])); }

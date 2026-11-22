@@ -154,6 +154,7 @@ test("worlds unlock their own levels", async ({ page }) => {
   for (const w of Object.keys(start.worlds)) expect(start.worlds[w], w).toEqual({ unlocked: 1, stars: {} });   // every world open from the start
   expect(start.lastWorld).toBe("park");
   expect("unlocked" in start || "stars" in start).toBe(false);
+  expect(await page.evaluate(() => window.__bb.CFG.STARS_PER_LEVEL)).toBe(3);
   // a win in School level 1 opens School 2 only, the stars stay in School
   await page.evaluate(() => { const b = window.__bb; b.world = "school"; b.level = 1; b.startGame(1); });
   await winLevel(page);
@@ -224,12 +225,12 @@ test("winning level 20 finishes the world", async ({ page }) => {
   expect(end.buttons).toContain("toMenu");
   expect(end.unlocked).toBe(20);
   // the texts in every language
-  const I = await page.evaluate(() => { const I = window.__bb.I18N; return ["en", "es", "ru"].map(l => [I[l].worlds, I[l].worldDone(I[l].worlds.school), I[l].worldDone(I[l].worlds.park)]); });
+  const I = await page.evaluate(() => { const I = window.__bb.I18N; return ["en", "es", "ru"].map(l => [I[l].worlds, I[l].worldDone(I[l].worlds.school, "school"), I[l].worldDone(I[l].worlds.park, "park"), I[l].worldDone(I[l].worlds.winter, "winter"), I[l].worldDone(I[l].worlds.beach, "beach")]); });
   expect(I[0][0]).toEqual({ park: "Park", school: "School", beach: "Beach", winter: "Winter" });
   expect(I[1][0]).toEqual({ park: "Parque", school: "Escuela", beach: "Playa", winter: "Invierno" });
   expect(I[2][0]).toEqual({ park: "Парк", school: "Школа", beach: "Пляж", winter: "Зима" });
   expect(I.map(x => x[2])).toEqual(["You finished the Park!", "¡Terminaste Parque!", "Парк пройден!"]);
-  expect(I[2][1]).toBe("Школа пройдена!");
+  expect(I[2].slice(1)).toEqual(["Школа пройдена!", "Парк пройден!", "Зима пройдена!", "Пляж пройден!"]);   // the gender comes from the world key
   for (const lang of ["es", "ru"]) {
     await page.evaluate(l => window.__bb.setLang(l), lang);
     await frames(page);
@@ -610,6 +611,16 @@ test("old saves move into the Park", async ({ page }) => {
   expect(part.worlds).toEqual({ park: { unlocked: 1, stars: {} }, school: { unlocked: 20, stars: {} }, beach: { unlocked: 7, stars: { 2: 3 } }, winter: { unlocked: 1, stars: {} } });
   expect(part.lastWorld).toBe("park");
   expect((await load({ coins: 1, lastWorld: "winter" })).lastWorld).toBe("winter");
+  // a stale page wrote both worlds and the old flat fields: the flat ones merge into the Park (higher unlocked, best stars), then go away
+  const both = await load({ coins: 9, worlds: { park: { unlocked: 4, stars: { 1: 1, 2: 3 } }, school: { unlocked: 2, stars: {} } }, unlocked: 6, stars: { 1: 3, 2: 1, 25: 3 } });
+  expect(both.worlds.park).toEqual({ unlocked: 6, stars: { 1: 3, 2: 3 } });
+  expect(both.worlds.school).toEqual({ unlocked: 2, stars: {} });
+  expect(both.coins).toBe(9);
+  const bothSaved = JSON.parse(await page.evaluate(() => localStorage.getItem("bebebe-progress")));
+  expect("unlocked" in bothSaved || "stars" in bothSaved).toBe(false);
+  expect(bothSaved.worlds.park).toEqual({ unlocked: 6, stars: { 1: 3, 2: 3 } });
+  const lower = await load({ worlds: { park: { unlocked: 9, stars: { 3: 3 } } }, unlocked: 2, stars: { 3: 1 } });
+  expect(lower.worlds.park).toEqual({ unlocked: 9, stars: { 3: 3 } });   // the newer world data is never lowered
 });
 
 test("throwing spends a kiss and has a cooldown", async ({ page }) => {
@@ -684,6 +695,28 @@ test("kiss keys for one and two players", async ({ page }) => {
   });
   await page.waitForFunction(() => window.__bb.progress.inv.kisses === 14);
   expect(await page.evaluate(() => window.__bb.littles[1].kissCd > 0 && window.__bb.littles[0].kissCd === 0)).toBe(true);
+});
+
+test("the gamepad d-pad up/down switches worlds in the menu", async ({ page }) => {
+  await page.evaluate(() => {
+    const b = window.__bb; b.mode = "menu";
+    window.__press = k => { window.__pads = [{ index: 0, axes: [0, 0], buttons: Array.from({ length: 17 }, (_, i) => ({ pressed: i === k, value: 0 })) }]; };
+    window.__press(-1);
+    Object.defineProperty(navigator, "getGamepads", { configurable: true, value: () => window.__pads });
+  });
+  const press = async k => { await page.evaluate(n => window.__press(n), k); await frames(page); await page.evaluate(() => window.__press(-1)); await frames(page); };
+  await press(13);                                                  // d-pad down: next world
+  expect(await page.evaluate(() => window.__bb.world)).toBe("school");
+  await press(12);                                                  // d-pad up: previous world
+  expect(await page.evaluate(() => window.__bb.world)).toBe("park");
+  await press(12);                                                  // wraps around
+  expect(await page.evaluate(() => window.__bb.world)).toBe("winter");
+  // on the pause and win screens the d-pad up/down changes nothing
+  for (const m of ["pause", "win"]) {
+    await page.evaluate(v => { window.__bb.mode = v; }, m);
+    await press(13); await press(12);
+    expect(await page.evaluate(() => [window.__bb.mode, window.__bb.world]), m).toEqual([m, "winter"]);
+  }
 });
 
 test.describe("on a touch screen", () => {
