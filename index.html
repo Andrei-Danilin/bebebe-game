@@ -2,14 +2,21 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="BeBeBe">
 <meta name="theme-color" content="#2b3a2e">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <title>BeBeBe Atrapar 3D</title>
 <style>
   html, body { margin: 0; height: 100%; background: #2b3a2e; overflow: hidden; overscroll-behavior: none; }
   body { display: flex; align-items: center; justify-content: center; font-family: system-ui, "Segoe UI", Arial, sans-serif; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  /* iPhone: keep the game out from under the notch and the home indicator (viewport-fit=cover) */
+  body { box-sizing: border-box; padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px); }
   #wrap { position: relative; border-radius: 14px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,.45); background: #5f9e4a; }
   #wrap canvas { position: absolute; left: 0; top: 0; display: block; }
   #gl { pointer-events: none; }
@@ -102,7 +109,7 @@ const I18N = {
     lose: "The Big One won...", loseSub: (h, m) => `Hearts taken: ${h} of ${m}. Try again?`, again: "Try again",
     big: "Big One", hug: "Hug! -1", bang: "BAM!", saved: "Saved!", out: "Going home to rest", back: "Back in the game!", resting: (n, t) => `${n}: resting… back in ${t}`, restPenalty: n => `−${n} for rests`, help: n => `${n}: HELP!`,
     touch1: "Drag your finger on the screen to run", touch2: "Player 1: finger on the left  •  Player 2: on the right",
-    rotate: "Turn your device sideways ↻", me: "Me", botChip: "B", safe: "SAFE",
+    rotate: "Turn your device sideways ↻", installHint: "Install on iPhone: Share ⬆️ → Add to Home Screen", me: "Me", botChip: "B", safe: "SAFE",
     bots: ["Bip", "Bop", "Bum", "Bam"],
     skins: "Skins", player1: "Player 1", player2: "Player 2", ok: "OK",
     slots: { hair: "Hair", hat: "Hat", jacket: "Jacket", pants: "Pants", look: "Look" },
@@ -132,7 +139,7 @@ const I18N = {
     lose: "Ganó el Grandote...", loseSub: (h, m) => `Corazones: ${h} de ${m}. ¿Otra vez?`, again: "Otra vez",
     big: "Grandote", hug: "¡Abrazo! -1", bang: "¡PUM!", saved: "¡Salvado!", out: "Me voy a descansar", back: "¡De vuelta!", resting: (n, t) => `${n}: descansando… volvés en ${t}`, restPenalty: n => `−${n} por descansos`, help: n => `${n}: ¡AYUDA!`,
     touch1: "Deslizá el dedo por la pantalla para correr", touch2: "Jugador 1: dedo a la izquierda  •  Jugador 2: a la derecha",
-    rotate: "Girá el dispositivo ↻", me: "Yo", botChip: "B", safe: "ZONA SEGURA",
+    rotate: "Girá el dispositivo ↻", installHint: "Instalala en el iPhone: Compartir ⬆️ → Agregar a pantalla de inicio", me: "Yo", botChip: "B", safe: "ZONA SEGURA",
     bots: ["Bip", "Bop", "Bum", "Bam"],
     skins: "Personajes", player1: "Jugador 1", player2: "Jugador 2", ok: "Listo",
     slots: { hair: "Pelo", hat: "Gorro", jacket: "Campera", pants: "Pantalón", look: "Aspecto" },
@@ -162,7 +169,7 @@ const I18N = {
     lose: "Большой победил...", loseSub: (h, m) => `Сердечек забрали: ${h} из ${m}. Ещё разок?`, again: "Ещё раз",
     big: "Большой", hug: "Обнимашки! -1", bang: "БАХ!", saved: "Спасён!", out: "Иду отдыхать", back: "Снова в игре!", resting: (n, t) => `${n}: отдых… вернёшься через ${t}`, restPenalty: n => `−${n} за отдых`, help: n => `${n}: ПОМОГИТЕ!`,
     touch1: "Води пальцем по экрану, чтобы бежать", touch2: "Игрок 1 — палец слева, Игрок 2 — палец справа",
-    rotate: "Поверни устройство боком ↻", me: "Я", botChip: "Б", safe: "БЕЗОПАСНО",
+    rotate: "Поверни устройство боком ↻", installHint: "Установить на iPhone: Поделиться ⬆️ → На экран «Домой»", me: "Я", botChip: "Б", safe: "БЕЗОПАСНО",
     bots: ["Бип", "Боп", "Бум", "Бац"],
     skins: "Скины", player1: "Игрок 1", player2: "Игрок 2", ok: "Готово",
     slots: { hair: "Причёска", hat: "Головной убор", jacket: "Куртка", pants: "Штаны", look: "Вид" },
@@ -197,10 +204,30 @@ const OUT = "#3d2b1f";        // мультяшный контур
 let VIEW = 1, CSS_W = W, CSS_H = H, DPR = 1;
 let renderer = null;           // создаётся в разделе 3D
 const isTouch = ("ontouchstart" in window) || (navigator.maxTouchPoints > 0);
+// Запущено как приложение с экрана «Домой» (для тестов: ?standalone=1)
+function isStandalone() {
+  try {
+    return navigator.standalone === true || window.matchMedia("(display-mode: standalone)").matches
+      || new URLSearchParams(location.search).get("standalone") === "1";
+  } catch (e) { return false; }
+}
+// iPhone/iPad (iPadOS притворяется Маком, но с тачем)
+const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+const STANDALONE = isStandalone();                 // режим отображения не меняется за сессию
+const showInstallHint = () => isIOS && !STANDALONE;
+
+// Место для игры: body без отступов safe-area (вырез и полоска «домой» на iPhone).
+function playArea() {
+  const b = document.body, cs = getComputedStyle(b);
+  const w = b.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+  const h = b.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+  return { w: w > 0 ? w : window.innerWidth, h: h > 0 ? h : window.innerHeight };
+}
 
 function fit() {
   DPR = Math.min(window.devicePixelRatio || 1, isTouch ? 1.5 : 2);   // на планшетах чуть меньше пикселей — плавнее
-  const s = Math.min(window.innerWidth / W, window.innerHeight / H);
+  const area = playArea();
+  const s = Math.min(area.w / W, area.h / H);
   CSS_W = Math.floor(W * s); CSS_H = Math.floor(H * s);
   wrap.style.width = CSS_W + "px"; wrap.style.height = CSS_H + "px";
   canvas.style.width = CSS_W + "px"; canvas.style.height = CSS_H + "px";
@@ -209,6 +236,7 @@ function fit() {
   if (renderer) { renderer.setPixelRatio(DPR); renderer.setSize(CSS_W, CSS_H, true); }
 }
 window.addEventListener("resize", () => fit());
+window.addEventListener("orientationchange", () => requestAnimationFrame(() => fit()));   // iOS обновляет safe-area чуть позже
 
 // =====================================================================
 //  ПОМОЩНИКИ
@@ -662,6 +690,7 @@ let botAttackCd = 0, prevToken = null;
 let mode = "menu", numPlayers = 1, level = 1, attackToken = null, muted = false, shake = 0;
 let stats = { hugs: 0, time: 0 };
 let buttons = [];
+let installHintShown = false;   // подсказка «на экран Домой» нарисована в этом кадре (для тестов)
 let items = [], itemCd = 5, itemSeq = 0, pendingWin = 0, lastReward = null, resetArmed = false;
 // ---------- Прогресс: открытые уровни, звёзды, монетки, рукавицы (хранится в этом браузере) ----------
 let progress = { unlocked: 1, stars: {}, coins: 0, inv: { mittens: 0, mega: 0 }, equip: ["none", "none"] };
@@ -1431,7 +1460,7 @@ function drawHUD(t) {
   rr(W / 2 - 95, 8, 110, 34, 14); fillStroke("rgba(255,255,255,.8)", 3);
   label(`${L().lvShort} ${level}  ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`, W / 2 - 40, 25, 14, OUT);
   addButton(W / 2 + 22, 8, 40, 34, "II", "#64748b", () => { mode = "pause"; }, 16);
-  addButton(W / 2 + 68, 8, 40, 34, "⛶", "#64748b", toggleFullscreen, 18);
+  if (!STANDALONE) addButton(W / 2 + 68, 8, 40, 34, "⛶", "#64748b", toggleFullscreen, 18);   // на iPhone нет Fullscreen API
 
   for (const st of sticks.values()) {
     ctx.globalAlpha = 0.35; circle(st.ox, st.oy, STICK_R); fillStroke("#fff", 3);
@@ -1480,8 +1509,10 @@ function drawOverlay() {
     addButton(W / 2 + 20, 414, 230, 64, L().twoPlayers, "#22c55e", () => startGame(2), 28);
     addButton(W / 2 - 250, 490, 230, 44, "🎨 " + L().skins, "#ff8fab", () => { mode = "skins"; }, 20);
     addButton(W / 2 + 20, 490, 230, 44, "🛒 " + L().shop, "#f59e0b", () => { mode = "shop"; }, 20);
-    fitText(L().controls1, W / 2, 558, 15, 690, "center", "#475569", 600);
-    fitText(L().controls2, W / 2, 582, 15, 690, "center", "#475569", 600);
+    const hint = showInstallHint(), cy = hint ? 550 : 558;    // с подсказкой строки управления чуть выше
+    fitText(L().controls1, W / 2, cy, 15, 690, "center", "#475569", 600);
+    fitText(L().controls2, W / 2, cy + 22, 15, 690, "center", "#475569", 600);
+    if (hint) { fitText(L().installHint, W / 2, cy + 46, 15, 690, "center", "#2563eb", 800); installHintShown = true; }
     // переключатель языка
     LANGS.forEach((code, i) => {
       const bx = W / 2 + 196 + i * 54, by = 46, active = code === lang;
@@ -1567,7 +1598,7 @@ function drawOverlay() {
 }
 
 function drawUI(t) {
-  buttons = [];
+  buttons = []; installHintShown = false;
   ctx.setTransform(VIEW, 0, 0, VIEW, 0, 0);
   ctx.clearRect(0, 0, W, H);
   if (mode !== "menu" && mode !== "skins" && mode !== "shop") { drawMarkers(t); drawFx(); drawHUD(t); }
@@ -2537,13 +2568,24 @@ function frame(now) {
 }
 requestAnimationFrame(frame);
 
+// Офлайн-кэш (sw.js): только по http(s). С диска (file://) и на странице claude.ai — ничего не делаем и молчим.
+function registerServiceWorker() {
+  try {
+    if ((location.protocol === "http:" || location.protocol === "https:") && navigator.serviceWorker) {
+      navigator.serviceWorker.register("sw.js").catch(() => { /* регистрацию запретили — игра работает и так */ });
+    }
+  } catch (e) { /* нет доступа к serviceWorker */ }
+}
+registerServiceWorker();
+
 // для отладки и тестов
 window.__bb = {
   get mode() { return mode; }, set mode(v) { mode = v; },
   get littles() { return littles; }, get big() { return big; }, get stats() { return stats; },
   get level() { return level; }, set level(v) { level = v; },
   update, inSafe, I18N, startGame, resetWorld, cycleOutfit, randomOutfit, cycleBig, cyclePlace, setLang, toScreen,
-  get items() { return items; }, get progress() { return progress; }, buyGloves, setEquip, get lastReward() { return lastReward; }, spawnItem, get placeSel() { return placeSel; }, set placeSel(v) { placeSel = v; }
+  get items() { return items; }, get progress() { return progress; }, buyGloves, setEquip, get lastReward() { return lastReward; }, spawnItem, get placeSel() { return placeSel; }, set placeSel(v) { placeSel = v; },
+  isStandalone, get installHintShown() { return installHintShown; }, get buttonNames() { return buttons.map(b => b.act.name); }
 };
 </script>
 </body>

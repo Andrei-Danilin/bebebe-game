@@ -13,6 +13,6 @@ You orchestrate `<SPEC>` (`specs/<SPEC file>`) under `docs/process/orchestration
 - After the last step: `tester` whole suite; one screenshot per new or changed screen/place, looked at.
 - Reviews: `code-reviewer` + `architect-reviewer` in parallel, each with the spec path and `git diff master...<branch>`. Fix loop at most two rounds; after the last fix round one `code-reviewer` on the fix commits only. A CRITICAL/HIGH left stops the run before the merge.
 - `doc-keeper`: `game-design.md`, `architecture.md`, `README.md`; commit `<SPEC>: docs`.
-- Merge: `git checkout master && git merge --no-ff <branch> -m "Merge <SPEC>: <title>"`; whole suite on `master`; `git branch -d <branch>`; never push.
-- Close: spec `Status: done (<merge hash>)`, move to `specs/_archive/`, delete the run-state file, commit `<SPEC>: close`.
+- Merge: `git checkout master && git merge --no-ff <branch> -m "Merge <SPEC>: <title>"`; whole suite on `master`; `git branch -d <branch>`; then `git push origin master` (only `master`, never `--force`, never spec branches) and `gh run watch` until the Pages deploy is green (a red deploy is reported, not retried blindly).
+- Close: spec `Status: done (<merge hash>)`, move to `specs/_archive/`, delete the run-state file, commit `<SPEC>: close`, `git push origin master`, `gh run watch` (must stay green).
 - Final report short: merge hash, step list with commits, AC → test table, counts, findings by severity (fixed/left), BACKLOG additions.
