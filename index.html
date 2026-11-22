@@ -125,6 +125,7 @@ const CFG = {
   CAM_LOOKAHEAD: 1.5,        // клеток — камера чуть забегает вперёд по ходу героя
   MINIMAP_W: 0.26,           // доля ширины интерфейса — ширина мини-карты (3:2)
   STICK_ZONE: 0.55,          // доля ширины слева, где касание создаёт джойстик
+  PHONE_STICK_R: 60,         // CSS px — радиус джойстика на телефоне
   PHONE_BTN_MIN: 44,         // CSS px — кнопка на телефоне не меньше
   PHONE_BTN_GAP: 8,          // CSS px — между соседними кнопками
   PHONE_TEXT: { title: 24, main: 15, hint: 13, input: 16 },   // CSS px — самый мелкий текст на телефоне
@@ -1508,6 +1509,7 @@ function makeLittle(i, kind, botIndex, controls, look) {
   };
 }
 function resetWorld(n) {
+  if (PHONE) n = 1;                  // на телефоне играет один (SPEC-005)
   numPlayers = n;
   loadLevel(level);
   littles = [];
@@ -1639,6 +1641,8 @@ function kissKeyPlayer(code) {
 const sticks = new Map();
 const chipName = l => numPlayers === 1 ? L().me : String(l.id + 1);   // короткая метка игрока в кружке HUD
 const STICK_R = 55;
+// радиус джойстика в UI px: на телефоне — PHONE_STICK_R в CSS px (под палец), иначе как было
+const stickR = () => PHONE ? CFG.PHONE_STICK_R * UW / CSS_W : STICK_R;
 function toGame(e) {
   const rect = canvas.getBoundingClientRect();
   return { x: (e.clientX - rect.left) * UW / rect.width, y: (e.clientY - rect.top) * UH / rect.height };
@@ -1654,6 +1658,7 @@ canvas.addEventListener("pointerdown", e => {
   if (hit && hit.onUp) { pendingUp = { id: hit.id, pointerId: e.pointerId }; return; }
   if (hit) { hit.act(); return; }
   if (mode === "play" && e.pointerType !== "mouse") {
+    if (PHONE && p.x > UW * CFG.STICK_ZONE) return;   // телефон: справа — только кнопки
     const player = numPlayers === 2 && p.x > UW / 2 ? 1 : 0;
     for (const [id, s] of sticks) if (s.player === player) sticks.delete(id);
     sticks.set(e.pointerId, { player, ox: p.x, oy: p.y, x: p.x, y: p.y });
@@ -1666,7 +1671,8 @@ canvas.addEventListener("pointermove", e => {
   const p = toGame(e);
   s.x = p.x; s.y = p.y;
   const dx = s.x - s.ox, dy = s.y - s.oy, d = Math.hypot(dx, dy);
-  if (d > STICK_R * 1.6) { s.ox = s.x - dx / d * STICK_R * 1.6; s.oy = s.y - dy / d * STICK_R * 1.6; }  // джойстик «едет» за пальцем
+  const R = stickR();
+  if (d > R * 1.6) { s.ox = s.x - dx / d * R * 1.6; s.oy = s.y - dy / d * R * 1.6; }  // джойстик «едет» за пальцем
 });
 const endStick = e => sticks.delete(e.pointerId);
 canvas.addEventListener("pointerup", e => {
@@ -1760,7 +1766,7 @@ function inputFor(l) {
   pads.forEach((p, i) => { if (numPlayers === 1 || i === pi) { x += p.x; y += p.y; } });
   for (const s of sticks.values()) {
     if (s.player !== pi) continue;
-    const dx = (s.x - s.ox) / STICK_R, dy = (s.y - s.oy) / STICK_R;
+    const R = stickR(), dx = (s.x - s.ox) / R, dy = (s.y - s.oy) / R;
     if (Math.hypot(dx, dy) > 0.15) { x += dx; y += dy; }
   }
   const d = Math.hypot(x, y);
@@ -2550,10 +2556,11 @@ function drawHUD(t) {
   addButton(UW / 2 + 22, 8, 40, 34, "II", "#64748b", () => { mode = "pause"; }, 16);
   if (!STANDALONE) addButton(UW / 2 + 68, 8, 40, 34, "⛶", "#64748b", toggleFullscreen, 18);   // на iPhone нет Fullscreen API
 
+  const SR = stickR();
   for (const st of sticks.values()) {
-    ctx.globalAlpha = 0.35; circle(st.ox, st.oy, STICK_R); fillStroke("#fff", 3);
+    ctx.globalAlpha = 0.35; circle(st.ox, st.oy, SR); fillStroke("#fff", 3);
     ctx.globalAlpha = 0.7;
-    const dx = st.x - st.ox, dy = st.y - st.oy, d = Math.hypot(dx, dy), k = d > STICK_R ? STICK_R / d : 1;
+    const dx = st.x - st.ox, dy = st.y - st.oy, d = Math.hypot(dx, dy), k = d > SR ? SR / d : 1;
     circle(st.ox + dx * k, st.oy + dy * k, 24); fillStroke(P_COLORS[st.player], 3);
     ctx.globalAlpha = 1;
   }
@@ -2622,7 +2629,7 @@ function drawOverlay() {
     const placeTxt = (placeSel === "auto" ? L().auto + ": " : "") + L().places[currentPlace()];
     addButton(UW / 2 + 20, 350, 230, 50, "🗺 " + placeTxt, "#38bdf8", cyclePlace, placeTxt.length > 14 ? 16 : 20);
     addButton(UW / 2 - 250, 414, 230, 64, L().onePlayer, "#3b82f6", () => startGame(1), 28);
-    addButton(UW / 2 + 20, 414, 230, 64, L().twoPlayers, "#22c55e", () => startGame(2), 28);
+    if (!PHONE) addButton(UW / 2 + 20, 414, 230, 64, L().twoPlayers, "#22c55e", () => startGame(2), 28);
     addButton(UW / 2 - 250, 490, 230, 44, "🎨 " + L().skins, "#ff8fab", () => { mode = "skins"; }, 20);
     addButton(UW / 2 + 20, 490, 230, 44, "🛒 " + L().shop, "#f59e0b", () => { mode = "shop"; }, 20);
     const hint = showInstallHint(), cy = hint ? 550 : 558;    // с подсказкой строки управления чуть выше
@@ -2638,8 +2645,9 @@ function drawOverlay() {
     rr(UW / 2 - 400, 26, 800, 590, 30); fillStroke("rgba(255,250,235,.96)", 5);
     label("🎨 " + L().skins, UW / 2, 62, 34, "#ff6fa8");
     const panels = skinPanels();
-    [["p1", L().player1, P_COLORS[0]], ["p2", L().player2, P_COLORS[1]], ["big", L().big, "#9b2c3a"]].forEach(([key, title, color], i) => {
-      const cx = UW / 2 - 250 + i * 250, pnl = panels[i];
+    const cols = { p1: [L().player1, P_COLORS[0]], p2: [L().player2, P_COLORS[1]], big: [L().big, "#9b2c3a"] };
+    panels.forEach((pnl, i) => {
+      const key = pnl.key, [title, color] = cols[key], cx = skinCx(i);
       rr(cx - 115, 88, 230, 466, 22); fillStroke("#fff", 3.5);
       label(title, cx - (key === "big" ? 0 : 18), 112, 20, color);
       if (key !== "big") addButton(cx + 62, 96, 42, 32, "🎲", "#fbbf24", () => randomOutfit(key), 18);
@@ -2697,7 +2705,7 @@ function drawOverlay() {
       if (!ok) fitText(L().notEnough, cx, y0 + 274, 12, w - 24, "center", "#ef4444", 700);
     });
     // кто что надевает
-    [0, 1].forEach(pi => {
+    (PHONE ? [0] : [0, 1]).forEach(pi => {   // телефон: только игрок 1
       const y = 398 + pi * 60;
       label(`${pi === 0 ? L().player1 : L().player2} ${L().wears}:`, UW / 2 - 360, y + 24, 17, P_COLORS[pi], "left");
       ["none", "mittens", "mega"].forEach((k, j) => {
@@ -3994,19 +4002,21 @@ function previewModel(key, build) {
   }
   return m;
 }
-const skinPanels = () => [0, 1, 2].map(i => ({ x: UW / 2 - 250 + i * 250 - 95, y: 136, w: 190, h: 140 }));
+const SKIN_KEYS = PHONE ? ["p1", "big"] : ["p1", "p2", "big"];   // телефон: без игрока 2
+const skinCx = i => UW / 2 - (SKIN_KEYS.length - 1) * 125 + i * 250;   // центр колонки
+const skinPanels = () => SKIN_KEYS.map((key, i) => ({ key, x: skinCx(i) - 95, y: 136, w: 190, h: 140 }));
 function renderPreviews(t) {
   const lp1 = makeLook(skinSel.p1), lp2 = makeLook(skinSel.p2);
-  const defs = [
-    ["L" + JSON.stringify(lp1), () => buildLittleModel(lp1, false)],
-    ["L" + JSON.stringify(lp2), () => buildLittleModel(lp2, false)],
-    ["B" + skinSel.big, () => buildBigModel(BIG_SKINS[skinSel.big])]
-  ];
+  const defs = {
+    p1: ["L" + JSON.stringify(lp1), () => buildLittleModel(lp1, false)],
+    p2: ["L" + JSON.stringify(lp2), () => buildLittleModel(lp2, false)],
+    big: ["B" + skinSel.big, () => buildBigModel(BIG_SKINS[skinSel.big])]
+  };
   const s = CSS_W / UW;
   renderer.setScissorTest(true);
-  skinPanels().forEach((p, i) => {
+  skinPanels().forEach(p => {
     previewCache.forEach(m => { m.root.visible = false; });
-    const [key, build] = defs[i], m = previewModel(key, build), isBig = key.startsWith("B");
+    const [key, build] = defs[p.key], m = previewModel(key, build), isBig = key.startsWith("B");
     m.root.visible = true;
     m.root.rotation.y = t * 0.9;
     const walk = t * (isBig ? 6 : 8);
@@ -4079,7 +4089,8 @@ window.__bb = {
   isStandalone, get installHintShown() { return installHintShown; }, get buttonNames() { return buttons.map(b => b.act.name); },
   get buttonRects() { return buttons.map(b => ({ id: b.id || b.act.name, x: b.x, y: b.y, w: b.w, h: b.h, text: b.text })); },
   // слой интерфейса: размер в UI px, размер холста в CSS px, scale = CSS px на UI px (SPEC-005)
-  updateCamera, camSnap,
+  updateCamera, camSnap, stickR, skinPanels,
+  get sticks() { return [...sticks].map(([id, s]) => ({ id, ...s })); },
   get uiSize() { return { w: UW, h: UH, cssW: CSS_W, cssH: CSS_H, scale: CSS_W / UW }; }, toGame,
   get names() { return allNames(); }, setName, nameOf, inDanger, get stars() { return bonusStars; }, spawnStar, giveReward,
   get dangerZone() { return dangerZone; }, get safeZone() { return safeZone; }, get texts() { return texts; }, generateLevel,

@@ -281,3 +281,132 @@ test.describe("phone camera", () => {
     expect(errors).toEqual([]);
   });
 });
+
+// Touch helper: dispatches pointer events (pointerType "touch") at UI points, converted to CSS px with uiSize.
+async function touch(page, type, x, y, id = 7) {
+  await page.evaluate(([type, x, y, id]) => {
+    const c = document.getElementById("game"), bb = c.getBoundingClientRect(), s = window.__bb.uiSize.scale;
+    c.dispatchEvent(new PointerEvent(type, { clientX: bb.left + x * s, clientY: bb.top + y * s, pointerId: id, pointerType: "touch", isPrimary: true, bubbles: true, cancelable: true }));
+  }, [type, x, y, id]);
+}
+const heroPos = page => page.evaluate(() => ({ x: window.__bb.littles[0].x, y: window.__bb.littles[0].y }));
+
+test.describe("phone controls", () => {
+  test.use(PHONE_CTX);
+
+  test("joystick appears under the finger on the left only", async ({ page }) => {
+    const errors = await phonePlay(page);
+    await placeHero(page, 560, 300);
+    await frames(page);
+    const ui = await page.evaluate(() => window.__bb.uiSize);
+    const R = await page.evaluate(() => window.__bb.stickR());
+    expect(Math.abs(R * ui.scale - 60)).toBeLessThan(0.01);          // base radius 60 CSS px
+    // left part: the stick is created under the finger
+    await touch(page, "pointerdown", 150, 300);
+    let st = await page.evaluate(() => window.__bb.sticks);
+    expect(st.length).toBe(1);
+    expect(Math.abs(st[0].ox - 150)).toBeLessThan(0.5); expect(Math.abs(st[0].oy - 300)).toBeLessThan(0.5);
+    await touch(page, "pointermove", 150 + R * 0.6, 300);           // a bit to the right
+    // one evaluate, so the real frame loop does not add steps in between
+    const walk = await page.evaluate(() => {
+      const b = window.__bb, l = b.littles[0], x0 = l.x, y0 = l.y;
+      for (let i = 0; i < 30; i++) b.update(1 / 60);
+      return { dx: l.x - x0, dy: l.y - y0 };
+    });
+    expect(walk.dx).toBeGreaterThan(150 * 0.5 * 0.6 - 2);             // he walks right at the speed the stick says (as today)
+    expect(walk.dx).toBeLessThan(150 * 0.5 * 0.6 + 2);
+    expect(Math.abs(walk.dy)).toBeLessThan(2);
+    let p0, p1;
+    // a far drag: the base follows the finger
+    await touch(page, "pointermove", 150 + 300, 300);
+    st = await page.evaluate(() => window.__bb.sticks);
+    expect(st[0].ox).toBeGreaterThan(250);
+    expect(Math.abs(Math.hypot(st[0].x - st[0].ox, st[0].y - st[0].oy) - R * 1.6)).toBeLessThan(0.5);
+    await touch(page, "pointerup", 450, 300);
+    expect(await page.evaluate(() => window.__bb.sticks.length)).toBe(0);
+    // right part, not on a button: nothing
+    p0 = await heroPos(page);
+    await touch(page, "pointerdown", ui.w * 0.8, 200, 8);
+    await touch(page, "pointermove", ui.w * 0.8 - 60, 200, 8);
+    expect(await page.evaluate(() => window.__bb.sticks.length)).toBe(0);
+    await step(page, 0.5);
+    p1 = await heroPos(page);
+    expect(Math.hypot(p1.x - p0.x, p1.y - p0.y)).toBeLessThan(3);    // a stick would move him ≥ 20 px (3: a bot may bump him)
+    await touch(page, "pointerup", ui.w * 0.8 - 60, 200, 8);
+    // buttons win over the stick: the kiss button (right) and the pause button (left part of the screen)
+    await page.evaluate(() => { window.__bb.progress.inv.kisses = 5; });
+    await frames(page);
+    const rects = await page.evaluate(() => window.__bb.buttonRects);
+    const kiss = rects.find(r => r.id === "kiss:0"), pause = rects.find(r => r.text === "II");
+    expect(pause.x + pause.w / 2).toBeLessThan(ui.w * 0.55);
+    await touch(page, "pointerdown", kiss.x + kiss.w / 2, kiss.y + kiss.h / 2, 9);
+    expect(await page.evaluate(() => window.__bb.sticks.length)).toBe(0);
+    await touch(page, "pointerup", kiss.x + kiss.w / 2, kiss.y + kiss.h / 2, 9);
+    await touch(page, "pointerdown", pause.x + pause.w / 2, pause.y + pause.h / 2, 10);
+    expect(await page.evaluate(() => window.__bb.sticks.length)).toBe(0);
+    expect(await page.evaluate(() => window.__bb.mode)).toBe("pause");
+    await touch(page, "pointerup", pause.x + pause.w / 2, pause.y + pause.h / 2, 10);
+    expect(errors).toEqual([]);
+  });
+
+  test("phones play with one player", async ({ page }) => {
+    const errors = await openGame(page, { query: "?phone=1" });
+    const en = await page.evaluate(() => window.__bb.I18N.en);
+    await frames(page);
+    let texts = (await page.evaluate(() => window.__bb.buttonRects)).map(r => r.text);
+    expect(texts).toContain(en.onePlayer);
+    expect(texts).not.toContain(en.twoPlayers);
+    // startGame(2) falls back to one player
+    await page.evaluate(() => window.__bb.startGame(2));
+    let players = await page.evaluate(() => window.__bb.littles.filter(l => l.kind === "player").length);
+    expect(players).toBe(1);
+    expect(await page.evaluate(() => window.__bb.littles.length)).toBe(5);
+    // key 2 in the menu too
+    await page.evaluate(() => { window.__bb.mode = "menu"; });
+    await page.keyboard.press("Digit2");
+    expect(await page.evaluate(() => window.__bb.mode)).toBe("play");
+    players = await page.evaluate(() => window.__bb.littles.filter(l => l.kind === "player").length);
+    expect(players).toBe(1);
+    // the kiss button is in the one-player place (bottom right)
+    await page.evaluate(() => { window.__bb.progress.inv.kisses = 5; });
+    await frames(page);
+    const ui = await page.evaluate(() => window.__bb.uiSize);
+    const kisses = (await page.evaluate(() => window.__bb.buttonRects)).filter(r => r.id.startsWith("kiss:"));
+    expect(kisses.map(k => k.id)).toEqual(["kiss:0"]);
+    expect(kisses[0].x).toBeGreaterThan(ui.w / 2);
+    // skins: Player 1 and the Big One, no Player 2
+    await page.evaluate(() => { window.__bb.mode = "skins"; });
+    await frames(page);
+    const ids = (await page.evaluate(() => window.__bb.buttonRects)).map(r => r.id);
+    expect(ids).toContain("name:p1"); expect(ids).toContain("name:big"); expect(ids).not.toContain("name:p2");
+    expect(await page.evaluate(() => window.__bb.skinPanels().map(p => p.key))).toEqual(["p1", "big"]);
+    // shop: "who wears what" only for Player 1
+    await page.evaluate(() => { window.__bb.mode = "shop"; });
+    await frames(page);
+    texts = (await page.evaluate(() => window.__bb.buttonRects)).map(r => r.text);
+    expect(texts.filter(t => t === en.none).length).toBe(1);
+    expect(errors).toEqual([]);
+  });
+});
+
+test.describe("desktop touch", () => {
+  test.use({ hasTouch: true });
+
+  test("off the phone, two players and the right-half stick stay as before", async ({ page }) => {
+    const errors = await openGame(page);
+    const en = await page.evaluate(() => window.__bb.I18N.en);
+    await frames(page);
+    expect((await page.evaluate(() => window.__bb.buttonRects)).map(r => r.text)).toContain(en.twoPlayers);
+    await page.evaluate(() => window.__bb.startGame(2));
+    expect(await page.evaluate(() => window.__bb.littles.filter(l => l.kind === "player").length)).toBe(2);
+    expect(await page.evaluate(() => window.__bb.stickR())).toBe(55);
+    await touch(page, "pointerdown", 800, 400);                       // right half → player 2's stick
+    const st = await page.evaluate(() => window.__bb.sticks);
+    expect(st.length).toBe(1); expect(st[0].player).toBe(1);
+    await touch(page, "pointerup", 800, 400);
+    await page.evaluate(() => { window.__bb.mode = "skins"; });
+    await frames(page);
+    expect(await page.evaluate(() => window.__bb.skinPanels().map(p => p.key))).toEqual(["p1", "p2", "big"]);
+    expect(errors).toEqual([]);
+  });
+});
