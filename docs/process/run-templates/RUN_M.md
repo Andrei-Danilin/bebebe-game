@@ -12,6 +12,6 @@ You orchestrate `<SPEC>` (`specs/<SPEC file>`) under `docs/process/orchestration
 - Visual check: for each new screen/place/model one screenshot (throwaway script), looked at before the review.
 - Review: reviewer(s) get the spec path and `git diff master...<branch>` only. Fix loop at most two rounds; a CRITICAL/HIGH left stops the run before the merge.
 - `doc-keeper`: docs as in `orchestration-rules.md` §6; commit `<SPEC>: docs`.
-- Merge: `git checkout master && git merge --no-ff <branch> -m "Merge <SPEC>: <title>"`; whole suite on `master`; `git branch -d <branch>`; then `git push origin master` (only `master`, never `--force`, never spec branches) and `gh run watch` until the Pages deploy is green (a red deploy is reported, not retried blindly).
+- Merge: `git checkout master && git merge --no-ff <branch> -m "Merge <SPEC>: <title>"`; `git branch -d <branch>` (no local suite rerun on `master` unless it got code commits since the branch; the Pages workflow checks it); then `git push origin master` (only `master`, never `--force`, never spec branches) and `gh run watch` until the Pages deploy is green (a red deploy is reported, not retried blindly).
 - Close: spec `Status: done (<merge hash>)`, move to `specs/_archive/`, commit `<SPEC>: close`, `git push origin master`, `gh run watch` (must stay green).
 - Final report short: merge hash, AC → test table, counts, review findings by severity (fixed/left), screenshots looked at, BACKLOG additions.

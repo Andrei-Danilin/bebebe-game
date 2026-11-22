@@ -16,7 +16,7 @@ All roles use `model: "opus"`. Start every run with `claude --model opus`; the f
 ## 2. Tests
 - TDD: each acceptance criterion gets a Playwright test that fails before the change (the run report names it).
 - While working: only the touched test files (`npx playwright test tests/<file>`), or `-g "<name>"`.
-- **Before the merge: the whole suite once** (`npx playwright test`, ~1.5 min). After the merge on `master`: the whole suite once more.
+- **Before the merge: the whole suite once** (`npx playwright test`, ~15–25 min). Rule (Andrei, 2026-11-22): the whole suite runs **once**, on the branch, before the merge; no local rerun on `master` after the merge — the Pages workflow on the push is the check on `master`. Exception: if `master` got code or test commits since the branch was made (not only docs/specs), run the whole suite once on `master` before the push.
 - A rule decided by the kids is pinned by a test in `tests/gameplay.spec.js`; changing such a test needs the spec to say the rule changes.
 - Visual work: one screenshot per new screen/place via `page.screenshot` in a throwaway script (not committed), looked at before the review.
 - Never paste full test logs into reports: counts, failing test names, the first assertion line.
@@ -33,8 +33,8 @@ All roles use `model: "opus"`. Start every run with `claude --model opus`; the f
 
 ## 5. Git (this repo: Claude Code commits and merges)
 - Branch `SPEC-NNN-short-description` off `master`; commits `SPEC-NNN: <what>` with explicit paths and the attribution lines from the system reminder; the machine's git identity, never changed.
-- Merge `--no-ff` into `master` after green tests and a review without open CRITICAL/HIGH; whole suite on `master`; `git branch -d` the spec branch.
-- Remote `origin` = `github.com/Andrei-Danilin/bebebe-game` (public). After the merge and a green whole suite on `master`: `git push origin master` — only `master`, never `--force`, never spec branches. Then `gh run watch` until the Pages workflow (tests + deploy) is green; a red deploy is reported, not retried blindly.
+- Merge `--no-ff` into `master` after green tests and a review without open CRITICAL/HIGH; `git branch -d` the spec branch (no local suite rerun on `master`, see §2).
+- Remote `origin` = `github.com/Andrei-Danilin/bebebe-game` (public). After the merge: `git push origin master` — only `master`, never `--force`, never spec branches. Then `gh run watch` until the Pages workflow (tests + deploy) is green; a red deploy is reported, not retried blindly.
 - No `reset --hard`, no `branch -D`, no history rewrite on `master`.
 - The spec file is updated (`Status: done (<hash>)`) and moved to `specs/_archive/` in a final commit on `master` (`SPEC-NNN: close`), which is pushed too (the deploy runs again and must stay green).
 

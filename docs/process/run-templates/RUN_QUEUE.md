@@ -18,8 +18,8 @@ You run a queue of specs one after another, unattended, under `CLAUDE.md` and `d
 
 **Unattended decisions:** when a spec leaves something open, take the reading closest to its text and to `docs/game-design.md`, note it in the spec's final report and in `specs/BACKLOG.md` as "decided during the run, check with the kids". Never change a rule marked as the kids' decision.
 
-**Stop the whole queue** (mark the spec `stopped`, write why in the queue state, leave the branch as it is, do not start the next spec) when: a CRITICAL/HIGH finding is left after the template's fix rounds; the whole suite is red on `master` after the merge; the Pages deploy is red; a merge conflict you cannot resolve without changing another spec's behaviour; anything in `CLAUDE.md` "Never" would be needed. Later specs build on earlier ones, so never skip a stopped spec.
+**Stop the whole queue** (mark the spec `stopped`, write why in the queue state, leave the branch as it is, do not start the next spec) when: a CRITICAL/HIGH finding is left after the template's fix rounds; the Pages workflow tests are red on `master` after the merge; the Pages deploy is red; a merge conflict you cannot resolve without changing another spec's behaviour; anything in `CLAUDE.md` "Never" would be needed. Later specs build on earlier ones, so never skip a stopped spec.
 
 **Context:** keep each spec's work in its own run-state file and subagents; after a spec is closed, keep only its queue-state row in mind and re-read the template and the next spec from disk.
 
-**After the last spec:** whole suite on `master` once more, then a final report in the chat: per spec — merge hash, deploy status, AC → test summary, findings fixed/left, decisions made during the run; then the BACKLOG additions and anything Andrei should check on the iPhone or with the kids.
+**After the last spec:** a final report in the chat: per spec — merge hash, deploy status, AC → test summary, findings fixed/left, decisions made during the run; then the BACKLOG additions and anything Andrei should check on the iPhone or with the kids.
