@@ -8,7 +8,7 @@ A top-down arcade game designed by kids: the **Little Ones** team against the **
 - If he **sees** you (yellow vision cone), he pushes you and your leg breaks: you can't move.
 - A friend must stand next to you for 3 seconds to help you up. If the friend steps away, the progress slowly
   drains; if the friend gets pushed, it starts over. Bots set off to help 2–3 seconds after you fall.
-  If nobody helps within 18 seconds, you limp home and rest there for 2 minutes, then come back.
+  If nobody helps within 18 seconds, you limp home and rest there for 30 seconds, then come back.
   There is no game over — but every rest costs coins (−3).
 - After a push the Big One rests for 2.5 s (pale vision cone) and pushes nobody.
 - After a hug he is shocked for 2.5 s: he can't move or push, and he can't be hugged again yet.
@@ -22,6 +22,9 @@ A top-down arcade game designed by kids: the **Little Ones** team against the **
 - **Air kisses** (from the shop): send one from afar and it flies where you look. A hit takes half a heart and the
   Big One blushes for 1.5 s: he stands still, pushes nobody — and you can hug him from behind. Walls, trees and
   rocks stop a kiss; ponds and bushes don't. No kissing from your house.
+- **Rescue kits** 🩹 (from the shop): while your leg is broken, while you limp home or while you rest in the
+  house, use one and you jump up right where you are, with 2 s of protection. Used before the 18 seconds run
+  out, it doesn't count as a rest (no coin penalty, the "nobody rested" star stays). Only players use them.
 - 1–2 players + bots (5 Little Ones in total; one player on a phone). Bots mostly rescue fallen friends.
 
 ## Install on iPhone
@@ -50,7 +53,7 @@ On a phone (held sideways) the game switches to **phone mode**; iPads and comput
 - When the Big One or a fallen friend is off screen, an **arrow at the screen edge** points to them
   (red with a heart = the Big One, green with ❗ = a friend who needs help).
 - Put a finger anywhere on the **left part** of the screen: the joystick appears right there. The right part is
-  for buttons; the 💋 button is bottom right.
+  for buttons; the 💋 button is bottom right (while you are down, limping or resting, the 🩹 button takes its place).
 - Big buttons and texts; menus laid out for a wide, short screen.
 - **One player** only (bots fill the team).
 
@@ -76,6 +79,9 @@ Open the file in any modern browser — no build step. Works on desktop, tablet 
 | Air kiss 💋 — keyboard | `E` or `Space` (one player) / `E` (two players) | `Enter` |
 | Air kiss 💋 — touch | 💋 button bottom right (one player) / bottom left (two players) | 💋 button bottom right |
 | Air kiss 💋 — gamepad | X (Xbox) / □ (PlayStation) | X / □ on pad 2 |
+| Rescue kit 🩹 — keyboard | `Q` | `Right Shift` |
+| Rescue kit 🩹 — touch | 🩹 button in the 💋 button's place (shows only while you are down, limping home or resting, and have kits) | 🩹 button in the 💋 button's place |
+| Rescue kit 🩹 — gamepad | Y (Xbox) / △ (PlayStation) | Y / △ on pad 2 |
 
 `P` — pause, `M` — sound, `L` — language (English / Español (AR) / Русский).
 
@@ -96,7 +102,7 @@ Items pop up on the map every 7–11 s (max 3, they vanish after 20 s):
 ## Progress, coins and the shop
 
 Progress is saved in the browser (`localStorage`, key `bebebe-progress`): unlocked levels and best stars in each
-world, the last world you picked, coins, gloves and air kisses. Win a level to unlock the next one in that world.
+world, the last world you picked, coins, gloves, air kisses and rescue kits. Win a level to unlock the next one in that world.
 Saves from before the worlds move into the Park (levels above 20 are dropped; coins, gloves, kisses and names stay).
 
 In the table, `n` is the level number in its world (1–20) and `w` the world: Park 0, School 1, Beach 2, Winter 3.
@@ -111,18 +117,20 @@ Coins for a win: `10 + 5 × n + 10 × w`, +10 if nobody had to rest, +10 if fast
 −3 for every rest (never below 5). Bonus stars add +3 each on top (rests never eat them); they go into the
 coin box the moment you pick them up, so you keep them even without a win.
 
-**Shop** (menu, or after a level): gloves and air kisses, bought with coins in packs.
+**Shop** (menu, or after a level): gloves, air kisses and rescue kits, bought with coins in packs.
 
 | Item | Price | Pack | Effect |
 |---|---|---|---|
 | Warm mittens | 30 | 3 power hugs | a hug takes 2 hearts |
 | Mega hug mittens | 60 | 3 power hugs | a hug takes 3 hearts |
 | 💋 Air kisses | 20 | 5 kisses | flies up to 7 cells; a hit takes ½ heart and the Big One blushes for 1.5 s |
+| 🩹 Rescue kit | 15 | 3 kits | get up at once (down, limping home or resting) with 2 s of protection |
 
 Each player chooses which gloves to wear; a power hug uses one charge from the shared stock, and when it runs
 out hugs are normal again. Gloves show on the character's hands; the HUD shows how many power hugs are left.
 Air kisses are one shared stock for both players (bots don't throw them); each throw uses one, even a miss, and
-a player can throw one per second. The Big One's hearts bar shows half hearts.
+a player can throw one per second. Rescue kits are one shared stock too; the first time a player with kits
+falls in a level, a hint says "Press 🩹 to get up!". The Big One's hearts bar shows half hearts.
 "Reset progress" (tap twice) starts over.
 
 ## Worlds
@@ -193,8 +201,8 @@ One HTML file, one ES module:
 
 ## Tuning
 
-`CFG` — gameplay numbers (`HUG_STUN`, `PUSH_RECOVER`, `BOT_ATTACK_PAUSE`, `ITEM_*`, `SLIP_STUN`, `COINS_*`, `FAST_TIME`, `RESCUE_*`, `STAR_*`, `DANGER_*`, `NAME_MAX`, `KISS_*`, `PAD_KISS`, `WORLD_TYPES` (level types in a world), difficulty `WORLD_SPEED_START` / `SPEED_PER_LEVEL` / `CHASE_MAX_SHARE` / `HP_*`, `LAYOUT` (level type sizes), `BANNER_*`, fairness limits, phone mode `PHONE_*` / `CAM_*` / `MINIMAP_*` / `STICK_ZONE`, …),
-`GLOVES` — gloves (power, price, pack size), `KISSES` — air kiss price and pack, `I18N` — texts,
+`CFG` — gameplay numbers (`HUG_STUN`, `PUSH_RECOVER`, `BOT_ATTACK_PAUSE`, `ITEM_*`, `SLIP_STUN`, `COINS_*`, `FAST_TIME`, `RESCUE_*`, `STAR_*`, `DANGER_*`, `NAME_MAX`, `KISS_*`, `PAD_KISS`, `REST_TIME`, `KIT_*`, `PAD_KIT`, `WORLD_TYPES` (level types in a world), difficulty `WORLD_SPEED_START` / `SPEED_PER_LEVEL` / `CHASE_MAX_SHARE` / `HP_*`, `LAYOUT` (level type sizes), `BANNER_*`, fairness limits, phone mode `PHONE_*` / `CAM_*` / `MINIMAP_*` / `STICK_ZONE`, …),
+`GLOVES` — gloves (power, price, pack size), `KISSES` — air kiss price and pack, `RESCUE_KIT` — rescue kit price and pack, `I18N` — texts,
 `HAIRS` / `HATS` / `JACKETS` / `PANTS` / `BIG_SKINS` — outfits, `THEMES` — worlds (places), `LITTLE_SCALE` / `BIG_SCALE` — character size in 3D.
 
 ## Development

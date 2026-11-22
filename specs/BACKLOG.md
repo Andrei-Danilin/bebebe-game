@@ -79,3 +79,18 @@ One line each: what, where it came from. The spec author turns a line into a spe
 - Phone banner: the spot is picked once and not re-checked while the hero runs during its 2 s; the joystick base is not avoided either (SPEC-006 AC 13).
 - Flaky test: phone.spec "edge arrows point to the off-screen Big One and downed friends" failed once in 4 local runs (0 downed arrows, expected 1) — bots and the Big One keep moving next to the hero; pin them (big.state "look", other bots away) (seen during the SPEC-006 banner fix).
 - Make the test suite fast again (Andrei, 2026-11-22): the whole suite grew from ~10 to ~24 min locally (137 tests; phone.spec ~6–8 min, levels.spec 80-level checks, SwiftShader ~15 s GPU stalls after teleports). Profile the slowest tests, share pages/setup where safe, cut redundant matrix cases, check Playwright workers; target ≤ 10 min locally.
+- Test speed lead: `page.evaluate(() => Object.assign(littles[i], …))` returns the Little object, so Playwright serializes it with its 3D parts — about 20 s per call under touch. Wrap the arrow body in braces (no return value) in the older tests (SPEC-007).
+- Rescue kit keys: one player uses only Q (Right Shift does nothing); with two players Q is player 1 and Right Shift player 2; gamepad Y / △ (SPEC-007, decided during the run, check with the kids).
+- The first-time kit hint shows once per level in total, not per player (in 2P, player 2 may never see it), only when the player owns kits, for 4 s (SPEC-007, decided during the run, check with the kids).
+- A kit can't be used outside play or while a win is pending; after a kit the kiss button in the same slot is locked for 0.6 s (`KIT_SLOT_LOCK`) so a double tap doesn't spend a kiss (SPEC-007, decided during the run, check with the kids).
+- A kit also stops the push slide, so the Little One gets up exactly where he lies (SPEC-007, decided during the run, check with the kids).
+- The desktop shop is 880 px wide with four cards; on a 667 px phone the "you have" line becomes a number badge on the picture (SPEC-007, decided during the run, check with the kids).
+- New texts "pack" and "you have" for the kit card (`kitPack` / `kitHave`), which the spec table didn't list (SPEC-007, decided during the run, check with the kids).
+- Q means "menu" on the pause and win screens, so a kid who presses Q there (the kit key) leaves the level; consider moving "menu" off Q (SPEC-007).
+- The first-time kit hint timer is set in `push` (logic layer), which couples logic to the HUD — untangle it in the headless-core work (SPEC-007).
+- Phone banner: its spot is picked before a `kitHint` plate or a rest bar appears and can end up over it later (SPEC-007).
+- No test for a kit used while a bot is mid-rescue (the logic is safe: rescue progress is reset) (SPEC-007).
+- `drawOverlayPhone` is about 200 lines; move the phone shop into its own `phoneShop()` (SPEC-007).
+- The desktop shop has no overlap test for the card texts (es/ru); the sparkle and rescue sound of a kit are not asserted (SPEC-007).
+- The 🩹 emoji looks different on each platform; a canvas-drawn icon (`drawKit`) in the hint would look the same everywhere (SPEC-007).
+- The menu controls line doesn't mention E / Q (kisses / kits) (SPEC-007).
