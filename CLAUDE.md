@@ -34,7 +34,7 @@ A top-down 3D arcade game that Andrei makes with his kids from their scenario an
 1. One feature = one spec (format: `specs/README.md`). Work strictly within one spec; anything new that comes up goes to `specs/BACKLOG.md`, not into the running spec.
 2. **Branch** `SPEC-NNN-short-description` off `master` (`git branch --show-current` first; never edit on `master`).
 3. **TDD**: for each acceptance criterion write the failing Playwright test first, then the code.
-4. **Verify** (agent `tester`): `npx playwright test` — the touched spec files first, the **whole suite once before the merge** (it takes about a minute and a half).
+4. **Verify** (agent `tester`): `npx playwright test` — the touched spec files first, the **whole suite once before the merge** (it takes about 9–10 minutes).
 5. **Review** (agent `code-reviewer`, + `architect-reviewer` for tier L): on `git diff master...<branch>` and the spec only. CRITICAL/HIGH are fixed; at most two fix rounds.
 6. **Commit** in small steps, explicit paths only, message `SPEC-NNN: <what>`, ending with the attribution lines from your system reminder. Use the machine's git identity; never change git config.
 7. **Merge** `git checkout master && git merge --no-ff SPEC-NNN-...` (message `Merge SPEC-NNN: <title>`), run the whole suite once on `master`, then `git branch -d SPEC-NNN-...`. **Push and deploy:** remote `origin` = `github.com/Andrei-Danilin/bebebe-game`; after the green suite on `master`, `git push origin master` (only `master`, never `--force`, never spec branches), then `gh run watch` until the Pages deploy is green; a red deploy is reported, not retried blindly.
@@ -54,6 +54,7 @@ Never: `git push --force`, pushing anything but `master`, `git reset --hard`, `g
 ## Test gotchas
 
 - Tests use software WebGL (SwiftShader); they are slow per frame, so gameplay is advanced with `step(page, seconds)` (logic only), not by waiting.
+- Tests that change `__bb.CFG` restore it and call `__bb.clearLevelCache()` (the level cache keeps the accepted attempt per level).
 - `openGame()` clears `localStorage` once per test; a test about saving reloads the page and checks `window.__bb.progress`.
 - A test that needs a calm Big One sets `big.state = "look"` and a large `big.timer`, and moves him away; bots keep moving — pin what you assert.
 - If `CHROME_PATH` is set, Playwright uses that browser instead of its own Chromium.

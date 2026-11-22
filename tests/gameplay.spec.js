@@ -628,7 +628,7 @@ test("kisses stop at walls and fly over ponds", async ({ page }) => {
   expect(wall.minX).toBeGreaterThan(210);
   const pond = await page.evaluate(() => {
     const b = window.__bb, t = window.__t;
-    b.level = 3; b.startGame(1);                      // level 3 always has a pond
+    b.level = 1; b.startGame(1);                      // level 1 (the kids' drawing, fixed by tests/fixtures/level1.json) has a pond
     const p = b.world.obstacles.find(o => o.kind === "pond");
     if (!p) return null;
     const l = b.littles[0], y = p.y + p.h / 2;
