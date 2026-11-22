@@ -12,14 +12,17 @@ const GAME_URL = "file://" + path.join(ROOT, "index.html").replace(/\\/g, "/");
 const THREE_DIR = path.join(ROOT, "node_modules", "three", "build");
 
 // Init script (runs before every document of the page): clears localStorage once per test and sets the language.
-// A reload never clears: on CI the sessionStorage flag alone was sometimes gone after page.reload(),
-// so saved data vanished in the "survives a reload" tests.
+// Every test gets a fresh browser context, so only its first document clears. A reload or a later goto never clears:
+// on CI the sessionStorage flag alone was sometimes gone after page.reload(), and saved data vanished
+// ("names are saved, cleaned and survive a reload", "star coins are added to the reward"). So the flag is kept in
+// localStorage too, and a reload is recognised by its navigation type.
 function clearOnce(l) {
   try {
     const nav = performance.getEntriesByType("navigation")[0];
     if (nav && nav.type === "reload") return;
-    if (sessionStorage.getItem("bb-test-init")) return;
-    localStorage.clear(); localStorage.setItem("bebebe-lang", l); sessionStorage.setItem("bb-test-init", "1");
+    if (sessionStorage.getItem("bb-test-init") || localStorage.getItem("bb-test-init")) return;
+    localStorage.clear(); localStorage.setItem("bebebe-lang", l);
+    localStorage.setItem("bb-test-init", "1"); sessionStorage.setItem("bb-test-init", "1");
   } catch (e) { /* ok */ }
 }
 
