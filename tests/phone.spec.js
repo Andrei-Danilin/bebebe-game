@@ -732,6 +732,10 @@ for (const [vw, vh] of PHONE_SIZES) {
           expect(L.size * d.ui.scale).toBeGreaterThanOrEqual(15 - 0.01);
           for (const q of d.buttons) expect(overlaps(L, q), `${label}: type label on ${q.id || q.text}`).toBe(false);
           expect(d.buttons.map(q => q.text)).toEqual(expect.arrayContaining(["◀"]));
+          // SPEC-006: four world cards, each a button of at least 44×44 CSS px (checked above), the type label under them
+          const cards = d.buttons.filter(q => String(q.id).startsWith("world:"));
+          expect(cards.map(q => q.id), label).toEqual(["world:park", "world:school", "world:beach", "world:winter"]);
+          expect(L.y, `${label}: type label under the world cards`).toBeGreaterThanOrEqual(Math.max(...cards.map(q => q.y + q.h)));
         }
         if (name === "shop") expect(d.buttons.map(q => q.id)).toEqual(expect.arrayContaining(["buy:mittens", "buy:mega", "buy:kisses"]));
         if (name === "skins") expect(d.buttons.map(q => q.id)).toEqual(expect.arrayContaining(["name:p1", "name:big"]));
@@ -759,6 +763,21 @@ for (const [vw, vh] of PHONE_SIZES) {
 
 test.describe("phone menus", () => {
   test.use(PHONE_CTX);
+
+  test("tapping a world card selects that world", async ({ page }) => {
+    const errors = await openGame(page, { query: "?phone=1" });
+    await page.evaluate(() => { const b = window.__bb; b.progress.worlds.winter.unlocked = 5; b.progress.worlds.winter.stars = { 1: 2, 4: 3 }; b.mode = "menu"; });
+    await frames(page);
+    const at = await page.evaluate(() => {
+      const b = window.__bb, q = b.buttonRects.find(r => r.id === "world:winter"), c = document.getElementById("game").getBoundingClientRect(), s = c.width / b.uiSize.w;
+      return { x: c.left + (q.x + q.w / 2) * s, y: c.top + (q.y + q.h / 2) * s, stars: b.worldCards.find(k => k.world === "winter").stars };
+    });
+    expect(at.stars).toBe("⭐ 5/60");
+    await page.touchscreen.tap(at.x, at.y);
+    await frames(page);
+    expect(await page.evaluate(() => [window.__bb.world, window.__bb.level, window.__bb.progress.lastWorld, window.__bb.worldCards.find(k => k.selected).world])).toEqual(["winter", 5, "winter", "winter"]);
+    expect(errors).toEqual([]);
+  });
 
   test("tapping the real menu Play button starts a one-player game", async ({ page }) => {
     const errors = await openGame(page, { query: "?phone=1" });

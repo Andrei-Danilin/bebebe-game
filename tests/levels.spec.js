@@ -652,13 +652,13 @@ test("start banner shows the level type", async ({ page }) => {
   // the type names and the intro line, exactly as in the spec
   const I = await page.evaluate(() => {
     const I = window.__bb.I18N, out = {};
-    for (const l of ["en", "es", "ru"]) out[l] = { types: I[l].types, intro: I[l].levelIntro(5, I[l].types.river) };
+    for (const l of ["en", "es", "ru"]) out[l] = { types: I[l].types, intro: I[l].levelIntro(I[l].worlds.beach, 8, I[l].types.river) };
     return out;
   });
   expect(I.en.types).toEqual({ classic: "Our drawing", meadow: "Meadow", maze: "Maze", village: "Village", river: "River with bridges", rooms: "House with rooms", arena: "Ring arena" });
   expect(I.es.types).toEqual({ classic: "Nuestro dibujo", meadow: "Pradera", maze: "Laberinto", village: "Pueblito", river: "Río con puentes", rooms: "Casa con cuartos", arena: "Arena" });
   expect(I.ru.types).toEqual({ classic: "Наш рисунок", meadow: "Поляна", maze: "Лабиринт", village: "Деревня", river: "Река с мостиками", rooms: "Дом с комнатами", arena: "Арена с кольцом" });
-  expect([I.en.intro, I.es.intro, I.ru.intro]).toEqual(["Level 5: River with bridges", "Nivel 5: Río con puentes", "Уровень 5: Река с мостиками"]);
+  expect([I.en.intro, I.es.intro, I.ru.intro]).toEqual(["Beach · Level 8: River with bridges", "Playa · Nivel 8: Río con puentes", "Пляж · Уровень 8: Река с мостиками"]);
 
   // the banner appears at the start, does not stop the game and is gone after ~2 s
   const r = await page.evaluate(() => {
@@ -671,7 +671,7 @@ test("start banner shows the level type", async ({ page }) => {
     for (let i = 0; i < 72; i++) b.update(1 / 60);
     return { start, mid, moved, end: b.banner, mode: b.mode, buttons: b.buttonNames };
   });
-  expect(r.start.text).toBe("Level 17: Maze");
+  expect(r.start.text).toBe("Park · Level 17: Maze");
   expect(r.start.alpha).toBeLessThan(0.5);          // fades in
   expect(r.mid.alpha).toBeGreaterThan(0.9);         // fully visible in the middle
   expect(r.moved).toBeGreaterThan(20);              // the game runs under the banner
@@ -681,11 +681,69 @@ test("start banner shows the level type", async ({ page }) => {
   // a restart within 1 s of the last banner shows no new banner; later it does again
   await page.waitForTimeout(1100);
   const again = await page.evaluate(() => { const b = window.__bb; b.startGame(1); const one = b.banner && b.banner.text; b.startGame(1); return { one, two: b.banner }; });
-  expect(again.one).toBe("Level 17: Maze");          // more than 1 s since the last banner: shown
+  expect(again.one).toBe("Park · Level 17: Maze");          // more than 1 s since the last banner: shown
   expect(again.two).toBeNull();                     // restarted right away: not shown again
   await page.waitForTimeout(1100);
   const later = await page.evaluate(() => { const b = window.__bb; b.setLang("ru"); b.level = 8; b.startGame(1); return b.banner && b.banner.text; });
-  expect(later).toBe("Уровень 8: Река с мостиками");
+  expect(later).toBe("Парк · Уровень 8: Река с мостиками");
+});
+
+// ---------- SPEC-006 AC 9: the banner names the world ----------
+test("the banner names the world", async ({ page }) => {
+  const r = [];
+  for (const [lang, w, n] of [["en", "winter", 17], ["es", "school", 8], ["ru", "beach", 1], ["en", "park", 14]]) {
+    await page.waitForTimeout(1100);   // past BANNER_REPEAT since the last start
+    r.push(await page.evaluate(([l, wd, lv]) => { const b = window.__bb; b.setLang(l); b.world = wd; b.level = lv; b.startGame(1); return b.banner && b.banner.text; }, [lang, w, n]));
+  }
+  expect(r).toEqual(["Winter · Level 17: Maze", "Escuela · Nivel 8: Río con puentes", "Пляж · Уровень 1: Наш рисунок", "Park · Level 14: Ring arena"]);
+});
+
+// ---------- SPEC-006 AC 8: the menu shows the four worlds ----------
+test("the menu shows four worlds and switches between them", async ({ page }) => {
+  await page.evaluate(() => {
+    const b = window.__bb, p = b.progress.worlds;
+    p.park.stars = { 1: 3, 2: 2 }; p.park.unlocked = 3; p.school.stars = { 1: 1 }; p.school.unlocked = 4; p.winter.unlocked = 2;
+    b.world = "park"; b.level = 3; b.mode = "menu";
+  });
+  await frames(page);
+  const d = await page.evaluate(() => ({ cards: window.__bb.worldCards, rects: window.__bb.buttonRects, names: window.__bb.buttonNames, type: window.__bb.typeLabel }));
+  expect(d.cards.map(c => c.world)).toEqual(WORLDS);
+  expect(d.cards.map(c => c.name)).toEqual(["Park", "School", "Beach", "Winter"]);
+  expect(d.cards.map(c => c.stars)).toEqual(["⭐ 5/60", "⭐ 1/60", "⭐ 0/60", "⭐ 0/60"]);   // stars of each world
+  expect(d.cards.map(c => c.selected)).toEqual([true, false, false, false]);
+  expect(d.names).not.toContain("nextWorld");                                       // the old place button is gone
+  // the cards are buttons in one row, inside the menu card, not on each other, above the level selector
+  const cr = WORLDS.map(w => d.rects.find(q => q.id === "world:" + w));
+  for (const q of cr) expect(q, "card button").toBeTruthy();
+  expect(new Set(cr.map(q => q.y)).size).toBe(1);
+  for (let i = 1; i < 4; i++) expect(cr[i].x).toBeGreaterThan(cr[i - 1].x + cr[i - 1].w);
+  expect(cr[0].x).toBeGreaterThanOrEqual(120); expect(cr[3].x + cr[3].w).toBeLessThanOrEqual(840);
+  const arrow = d.rects.find(q => q.text === "◀");
+  expect(arrow.y).toBeGreaterThanOrEqual(cr[0].y + cr[0].h);
+  expect(d.type.y).toBeGreaterThanOrEqual(cr[0].y + cr[0].h);
+  // a click on School selects it, remembers it and shows its newest open level
+  const at = await page.evaluate(() => {
+    const q = window.__bb.buttonRects.find(r => r.id === "world:school"), c = document.getElementById("game").getBoundingClientRect();
+    return { x: c.left + (q.x + q.w / 2) * c.width / 960, y: c.top + (q.y + q.h / 2) * c.height / 640 };
+  });
+  await page.mouse.click(at.x, at.y);
+  await frames(page);
+  const after = await page.evaluate(() => ({ world: window.__bb.world, level: window.__bb.level, mode: window.__bb.mode, last: JSON.parse(localStorage.getItem("bebebe-progress")).lastWorld,
+    selected: window.__bb.worldCards.map(c => c.selected), type: window.__bb.typeLabel.text, built: window.__bb.levelInfo.world }));
+  expect(after).toEqual({ world: "school", level: 4, mode: "menu", last: "school", selected: [false, true, false, false], type: "Meadow", built: "school" });
+  // the keyboard: ↓ next world, ↑ previous world (wraps around); ← → still change the level
+  const seq = [];
+  for (const k of ["ArrowDown", "ArrowUp", "ArrowUp", "ArrowUp", "ArrowLeft"]) { await page.keyboard.press(k); seq.push(await page.evaluate(() => [window.__bb.world, window.__bb.level])); }
+  expect(seq).toEqual([["beach", 1], ["school", 4], ["park", 3], ["winter", 2], ["winter", 1]]);
+  // the names and the star line in every language
+  const I = await page.evaluate(() => ["en", "es", "ru"].map(l => window.__bb.I18N[l].worldStars(7, 60)));
+  expect(I).toEqual(["⭐ 7/60", "⭐ 7/60", "⭐ 7/60"]);
+  for (const lang of ["es", "ru"]) {
+    await page.evaluate(l => window.__bb.setLang(l), lang);
+    await frames(page);
+    const names = await page.evaluate(() => window.__bb.worldCards.map(c => c.name));
+    expect(names).toEqual(lang === "es" ? ["Parque", "Escuela", "Playa", "Invierno"] : ["Парк", "Школа", "Пляж", "Зима"]);
+  }
 });
 
 test("the menu shows the selected level's type and it fits", async ({ page }) => {
