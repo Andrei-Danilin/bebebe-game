@@ -151,7 +151,10 @@ const CFG = {
   PHONE_TEXT: { title: 24, main: 15, hint: 13, input: 16 },   // CSS px — самый мелкий текст на телефоне
   // карточки магазина на телефоне (SPEC-007 AC 10), CSS px: картинка (обычная, самая маленькая, насколько может вырасти),
   // ширина картинки в её высотах, радиус кружка «у вас», поля, промежуток, отступ кружка от картинки, поле текста сбоку; строк не больше
-  PHONE_SHOP: { pic: 30, picMin: 18, picGrow: 16, picW: 1.3, badge: 11, pad: 6, sp: 3, gap: 2, side: 5, nameLines: 2, descLines: 4, packLines: 2, haveLines: 2, noLines: 2 },
+  // picBox — высота рамки картинки в её размерах (пластырь наискосок выше картинки), badgeMin — самый маленький кружок,
+  // scan — шаг подбора размера картинки, eps — допуск сравнения (UI px)
+  PHONE_SHOP: { pic: 30, picMin: 18, picGrow: 16, picW: 1.3, picBox: 1.1, badge: 11, badgeMin: 9, pad: 6, sp: 3, gap: 2, side: 5,
+    nameLines: 2, descLines: 4, packLines: 2, shortLines: 1, haveLines: 2, noLines: 2, scan: 1, eps: 0.01 },
   // типы уровней внутри каждого мира (SPEC-006): 1 — рисунок детей, 2–4 поляна, 5–7 деревня, 8–10 река,
   // 11–13 дом с комнатами, 14–16 арена, 17–20 лабиринт; число записей = уровней в мире
   WORLD_TYPES: ["classic", "meadow", "meadow", "meadow", "village", "village", "village", "river", "river", "river",
@@ -2741,7 +2744,7 @@ const restText = l => "💤 " + L().resting(nameOf(l), fmtTime(Math.max(0, l.sta
 const cpx = n => n * UW / CSS_W;
 const minPx = cat => cpx(CFG.PHONE_TEXT[cat]);   // самый мелкий текст этого вида в UI px
 // самый мелкий шрифт за кадр (UI px): по видам (title/main/hint) и всего нарисованного (drawn); где была надпись уровня
-let textSizes = {}, bannerRect = null, rotateShown = false;
+let textSizes = {}, bannerRect = null, rotateShown = false, shopLayout = null;   // shopLayout — шаг раскладки магазина телефона (тесты)
 const noteText = (cat, s) => { if (!(s >= textSizes[cat])) textSizes[cat] = s; };
 // размер текста: на компьютере как задан; на телефоне не мельче PHONE_TEXT[cat] CSS px (записывается там, где рисуется)
 function fz(size, cat) {
@@ -3102,7 +3105,8 @@ function pRows(text, cat, css, maxW, lines, weight = 700) {
     rows = [];
     let cur = "";
     // слова по пробелам; длинное слово с дефисом можно перенести после дефиса («Мега-» / «рукавицы»)
-    for (const wd of text.split(" ")) wd.split(/(?<=-)/).forEach((part, j) => {
+    // без lookbehind в регулярках: Safari до iOS 16.4 не разбирает модуль, и игра не запускается
+    for (const wd of text.split(" ")) (wd.match(/[^-]*-|[^-]+/g) ?? [""]).forEach((part, j) => {
       const t = !cur ? part : cur + (j ? "" : " ") + part;
       if (scaledW(t) > maxW && cur) { rows.push(cur); cur = part; } else cur = t;
     });
@@ -3342,47 +3346,65 @@ function drawOverlayPhone() {
     // Места мало (узкий телефон, широкий шрифт, длинные тексты) — уступаем по шагам, теряя как можно меньше (AC 10):
     // 1) картинка меньше; 2) «у вас» → кружок с числом у картинки; 3) набор коротко («📦 ×3»); 4) описание теряет строки («…»).
     const S = CFG.PHONE_SHOP, cards = shopCards(), cg = c(8), nC = cards.length, cw = (X1 - X0 - (nC - 1) * cg) / nC, tw = cw - 2 * c(S.side);
-    const y0 = Y0 + B + cg, ch = Y1 - B - g - y0, pad = c(S.pad), sp = c(S.sp), bw = Math.min(c(160), cw - c(10)), br = c(S.badge);
+    const y0 = Y0 + B + cg, ch = Y1 - B - g - y0, pad = c(S.pad), sp = c(S.sp), bw = Math.min(c(160), cw - c(10)), eps = S.eps;
+    let br = c(S.badge);
     const bl = cards.map(cd => ({ name: clipRows(pRows(cd.name, "main", 15, tw, S.nameLines, 900), S.nameLines),
       desc: clipRows(pRows(cd.desc, "hint", 13, tw, S.descLines, 700), S.descLines),
       pack: clipRows(pRows(cd.pack, "hint", 13, tw, S.packLines, 600), S.packLines),
-      packShort: clipRows(pRows(L().packShort(cd.packN), "hint", 13, tw, 1, 600), 1),
+      packShort: clipRows(pRows(L().packShort(cd.packN), "hint", 13, tw, S.shortLines, 600), S.shortLines),
       have: clipRows(pRows(cd.have, "hint", 13, tw, S.haveLines, 800), S.haveLines),
       no: progress.coins >= cd.price ? null : clipRows(pRows(L().notEnough, "hint", 13, tw, S.noLines, 700), S.noLines) }));
     const noH = Math.max(0, ...bl.map(b => b.no ? b.no.h + sp : 0));
     const by = y0 + ch - pad - noH - B;                                      // кнопки «Купить» — одна высота
     const avail = by - sp - (y0 + pad);                                      // картинка и тексты над кнопкой
-    const rowH = (p, m) => Math.max(p, m.badge ? 2 * br : 0);                // верхний ряд: картинка (и кружок рядом)
-    const lowH = (b, m) => (m.short ? b.packShort.h : b.pack.h) + (m.badge ? 0 : b.have.h);
+    const rowH = (p, m) => Math.max(p * S.picBox, m.badge ? 2 * br : 0);     // верхний ряд: картинка (и кружок рядом)
+    const packOf = (b, m) => m.short ? b.packShort : b.pack;
+    const lowH = (b, m) => packOf(b, m).h + (m.badge ? 0 : b.have.h);
     const slackOf = (b, p, m) => avail - rowH(p, m) - sp - b.name.h - b.desc.h - sp - lowH(b, m);
     const slack = (p, m) => Math.min(...bl.map(b => slackOf(b, p, m)));
     const steps = [{ badge: false, short: false }, { badge: true, short: false }, { badge: true, short: true }];
     const pBase = c(S.pic), pMin = c(S.picMin);
     let m = steps[0], picH = pBase;
-    if (slack(pBase, m) >= 0) picH = pBase + Math.min(c(S.picGrow), slack(pBase, m));   // место есть — картинка крупнее
+    if (slack(pBase, m) >= 0) picH = pBase + Math.min(c(S.picGrow), slack(pBase, m) / S.picBox);   // место есть — картинка крупнее
     else {
       let found = null;                                                      // самая крупная картинка, при которой всё влезает
       for (const st of steps) {
         m = st;
-        for (let p = pBase; p >= pMin - 0.01 && found === null; p -= c(1)) if (slack(p, m) >= 0) found = p;
+        for (let p = pBase; p >= pMin - eps && found === null; p -= c(S.scan)) if (slack(p, m) >= 0) found = p;
         if (found !== null) break;
       }
       picH = found ?? pMin;
     }
-    // всё ещё тесно (очень широкий шрифт) — описание теряет строки, в крайнем случае название — до одной строки
+    // шаг: 0 — всё полностью, 1 — кружок «у вас», 2 — и набор коротко, 3 — описание/название обрезаны, 4 — последний шаг
+    let stepUsed = steps.indexOf(m);
+    // всё ещё тесно (очень широкий шрифт) — описание теряет строки, потом название — до одной строки
+    const cutRows = (b, key, min, over) => {
+      if (over <= eps) return over;
+      const t = b[key], keep = Math.max(min, t.rows.length - Math.ceil(over / t.lh - eps));
+      if (keep < t.rows.length) { b[key] = clipRows(t, keep); stepUsed = Math.max(stepUsed, 3); }
+      return over - (t.h - b[key].h);
+    };
+    bl.forEach(b => { let over = -slackOf(b, picH, m); over = cutRows(b, "desc", 0, over); cutRows(b, "name", 1, over); });
+    // последний шаг — всегда без наложений: кружок не выше картинки, набор — до одной строки и совсем без него,
+    // и (только если и это не помогло) картинка меньше своего минимума
+    if (slack(picH, m) < -eps) {
+      stepUsed = 4;
+      if (m.badge) br = Math.max(c(S.badgeMin), Math.min(br, picH * S.picBox / 2));
+      const pk = m.short ? "packShort" : "pack";
+      bl.forEach(b => { let over = -slackOf(b, picH, m); over = cutRows(b, pk, 1, over); cutRows(b, pk, 0, over); });
+      if (slack(picH, m) < -eps) { picH = Math.max(c(S.scan), picH + slack(picH, m) / S.picBox); if (m.badge) br = Math.min(br, picH * S.picBox / 2); }
+    }
+    stepUsed = Math.max(stepUsed, 0);
+    shopLayout = { step: stepUsed, badge: m.badge, short: m.short, picH: picH / cpx(1), badgeR: br / cpx(1),
+      packs: bl.map(b => packOf(b, m).rows.join(" ")) };
     const top = rowH(picH, m);
-    bl.forEach(b => {
-      let over = -slackOf(b, picH, m);
-      if (over > 0) { const keep = Math.max(0, b.desc.rows.length - Math.ceil(over / b.desc.lh - 1e-6)); over -= b.desc.h - keep * b.desc.lh; b.desc = clipRows(b.desc, keep); }
-      if (over > 0) { const keep = Math.max(1, b.name.rows.length - Math.ceil(over / b.name.lh - 1e-6)); b.name = clipRows(b.name, keep); }
-    });
     const box = (id, b, x, y) => { if (b.rows.length) hudRects.push({ id, x: x - b.w / 2, y, w: b.w, h: b.h }); };   // части карточек: тест проверяет, что не налезают
     cards.forEach((cd, i) => {
       const x0 = X0 + i * (cw + cg), cx = x0 + cw / 2, b = bl[i];
       rr(x0, y0, cw, ch, c(16)); fillStroke("#fff", 3);
-      const pcy = y0 + pad + top / 2, pw = picH * S.picW;
+      const pcy = y0 + pad + top / 2, pw = picH * S.picW, ph = picH * S.picBox;
       shopPicture(cd.k, cx, pcy, picH);
-      hudRects.push({ id: "card-pic:" + cd.k, x: cx - pw / 2, y: pcy - picH / 2, w: pw, h: picH });
+      hudRects.push({ id: "card-pic:" + cd.k, x: cx - pw / 2, y: pcy - ph / 2, w: pw, h: ph });
       if (m.badge) {                                                         // сколько есть — кружок с числом справа от картинки
         const bx = cx + pw / 2 + c(S.gap) + br;
         circle(bx, pcy, br); fillStroke(cd.n > 0 ? "#16a34a" : "#94a3b8", 2.5);
@@ -3394,7 +3416,7 @@ function drawOverlayPhone() {
       box("card-desc:" + cd.k, b.desc, cx, y); pDraw(b.desc, cx, y, "#475569");
       let yl = by - sp - (m.badge ? 0 : b.have.h);
       if (!m.badge) { box("card-have:" + cd.k, b.have, cx, yl); pDraw(b.have, cx, yl, cd.n > 0 ? "#15803d" : "#94a3b8"); }
-      const pk = m.short ? b.packShort : b.pack;
+      const pk = packOf(b, m);
       yl -= pk.h;
       box("card-pack:" + cd.k, pk, cx, yl); pDraw(pk, cx, yl, "#64748b");
       const ok = !b.no, txt = `${L().buy}  ${cd.price}      `;
@@ -3684,7 +3706,7 @@ function drawBanner() {
 }
 function drawUI(t) {
   if (nameInput && mode !== "skins" && mode !== "names") closeNameInput(false);
-  buttons = []; installHintShown = false; typeLabel = null; worldCards = []; winLine = ""; mmShown = false; edgeArrows = []; hudRects = []; textSizes = {}; bannerRect = null; kitHintRect = null;
+  buttons = []; installHintShown = false; typeLabel = null; worldCards = []; winLine = ""; mmShown = false; edgeArrows = []; hudRects = []; textSizes = {}; bannerRect = null; kitHintRect = null; shopLayout = null;
   ctx.setTransform(VIEW, 0, 0, VIEW, 0, 0);
   ctx.clearRect(0, 0, UW, UH);
   if (mode !== "menu" && mode !== "skins" && mode !== "names" && mode !== "shop") { drawMarkers(t); drawFx(); drawHUD(t); }
@@ -5071,6 +5093,7 @@ window.__bb = {
     get obstacles() { return obstacles.map(o => ({ kind: o.kind, shape: o.shape, x: o.x, y: o.y, w: o.w, h: o.h, r: o.r, move: o.move, sight: o.sight })); } },
   get kisses() { return kisses; }, throwKiss, buyKisses, resetProgress, heartFill, bigBoost, fmtHearts,
   RESCUE_KIT, buyRescueKit, useRescueKit, get kitHint() { return kitHintRect; },   // SPEC-007
+  GLOVES, KISSES, get shopLayout() { return shopLayout; },                         // SPEC-007 AC 10
   levelType, levelReport, get levelInfo() { return levelInfo; }, clearLevelCache, CFG, THEMES,
   get banner() { return banner; }, bannerAlpha, get typeLabel() { return typeLabel; },
   // всё состояние мира, которое levelReport сохраняет и возвращает (для теста «не трогает идущую игру»)

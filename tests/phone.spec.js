@@ -1020,10 +1020,13 @@ test.describe("phone portrait", () => {
 // SPEC-007 AC 10: the phone shop cards never overlap, also with wider fonts (CI and iPhone fonts are wider than Windows).
 // The font scale (CFG.TEXT_TEST_SCALE) multiplies the measured width of every phone pRows text, like the banner test.
 // Card parts are recorded in hudRects: card-pic, card-name, card-desc, card-pack, card-have, card-badge, card-no.
+// __bb.shopLayout.step is how far the layout had to give way: 0 everything, 1 "you have" as a badge, 2 and the short
+// pack, 3 description/name cut, 4 the last step. A wider font never makes it go back.
 const SHOP_KINDS = ["mittens", "mega", "kisses", "rescues"];
-function shopProblems(d, label, poor) {
+function shopProblems(d, label) {
   const out = [], s = d.ui.scale, push = (ok, what) => { if (!ok) out.push(`${label}: ${what}`); };
   push(d.mode === "shop", `mode ${d.mode}`);
+  push(!!d.layout, "no shopLayout");
   const parts = d.hud.filter(h => /^card-/.test(h.id)), buys = d.buttons.filter(q => String(q.id).startsWith("buy:"));
   push(buys.length === 4, `${buys.length} buy buttons`);
   // each card's column: between the midpoints to the neighbour cards' buy buttons
@@ -1032,7 +1035,7 @@ function shopProblems(d, label, poor) {
     const mine = parts.filter(p => p.id.endsWith(":" + k)), has = id => mine.some(p => p.id === `card-${id}:${k}`);
     for (const id of ["pic", "name", "pack"]) push(has(id), `${k}: no ${id}`);
     push(has("have") || has("badge"), `${k}: neither "you have" nor a badge`);
-    push(has("no") === poor, `${k}: "not enough coins" ${poor ? "missing" : "shown"}`);
+    push(has("no") === d.poor[i], `${k}: "not enough coins" ${d.poor[i] ? "missing" : "shown"}`);
     for (const p of mine) {
       push(p.x >= cols[i][0] - 0.01 && p.x + p.w <= cols[i][1] + 0.01, `${p.id} leaves its card ${JSON.stringify(p)}`);
       push(p.y >= -0.01 && p.y + p.h <= d.ui.h + 0.01, `${p.id} off the screen`);
@@ -1046,6 +1049,7 @@ function shopProblems(d, label, poor) {
   return out;
 }
 
+const SHOP_SCALES = [1, 1.15, 1.3];
 for (const [vw, vh] of PHONE_SIZES) {
   test.describe(`phone shop ${vw}×${vh}`, () => {
     test.use({ ...PHONE_CTX, viewport: { width: vw, height: vh } });
@@ -1056,22 +1060,43 @@ for (const [vw, vh] of PHONE_SIZES) {
       const fails = [];
       let cases = 0;
       try {
-        for (const lang of ["en", "es", "ru"]) for (const coins of [10, 999]) for (const fontScale of [1, 1.15]) {
-          const d = await page.evaluate(async ([lg, cn, fs]) => {
-            const b = window.__bb;
-            b.setLang(lg); b.CFG.TEXT_TEST_SCALE = fs;
-            Object.assign(b.progress, { coins: cn }); Object.assign(b.progress.inv, { mittens: 0, mega: 1, kisses: 12, rescues: 3 });
-            b.mode = "shop";
-            await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-            return { ui: b.uiSize, hud: b.hudRects, buttons: b.buttonRects, texts: b.textSizes, min: b.CFG.PHONE_TEXT, mode: b.mode };
-          }, [lang, coins, fontScale]);
-          cases++;
-          fails.push(...shopProblems(d, `${vw}×${vh} ${lang} ${coins} coins font ×${fontScale}`, coins < 15));
+        for (const lang of ["en", "es", "ru"]) for (const coins of [10, 999]) {
+          let lastStep = -1;
+          for (const fontScale of SHOP_SCALES) {
+            const d = await page.evaluate(async ([lg, cn, fs]) => {
+              const b = window.__bb;
+              b.setLang(lg); b.CFG.TEXT_TEST_SCALE = fs;
+              Object.assign(b.progress, { coins: cn }); Object.assign(b.progress.inv, { mittens: 0, mega: 1, kisses: 12, rescues: 3 });
+              b.mode = "shop";
+              await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+              // which cards cannot be bought: from the real prices
+              const prices = [b.GLOVES.mittens.price, b.GLOVES.mega.price, b.KISSES.price, b.RESCUE_KIT.price], L = b.I18N[lg];
+              const fullPacks = [L.pack(b.GLOVES.mittens.charges), L.pack(b.GLOVES.mega.charges), L.kissPack(b.KISSES.pack), L.kitPack(b.RESCUE_KIT.pack)];
+              return { ui: b.uiSize, hud: b.hudRects, buttons: b.buttonRects, texts: b.textSizes, min: b.CFG.PHONE_TEXT, mode: b.mode,
+                layout: b.shopLayout, poor: prices.map(p => cn < p), fullPacks };
+            }, [lang, coins, fontScale]);
+            const label = `${vw}×${vh} ${lang} ${coins} coins font ×${fontScale}`;
+            cases++;
+            fails.push(...shopProblems(d, label));
+            if (!d.layout) continue;
+            if (d.layout.step < lastStep) fails.push(`${label}: step ${d.layout.step} went back from ${lastStep}`);
+            lastStep = d.layout.step;
+            // a wide phone with real widths: nothing gives way — "you have" as text, the full pack text, no badge
+            if (vw === 932 && lang === "en" && fontScale === 1) {
+              const ids = d.hud.map(h => h.id);
+              if (d.layout.step !== 0) fails.push(`${label}: step ${d.layout.step}, want 0`);
+              for (const k of SHOP_KINDS) {
+                if (!ids.includes("card-have:" + k)) fails.push(`${label}: no "you have" text for ${k}`);
+                if (ids.includes("card-badge:" + k)) fails.push(`${label}: a badge for ${k}`);
+              }
+              if (d.layout.short || JSON.stringify(d.layout.packs) !== JSON.stringify(d.fullPacks)) fails.push(`${label}: packs ${JSON.stringify(d.layout.packs)}`);
+            }
+          }
         }
       } finally {
         await page.evaluate(() => { window.__bb.CFG.TEXT_TEST_SCALE = 1; });
       }
-      expect(cases).toBe(3 * 2 * 2);
+      expect(cases).toBe(3 * 2 * SHOP_SCALES.length);
       expect(errors).toEqual([]);
       expect(fails, fails.slice(0, 12).join("\n")).toEqual([]);
     });
