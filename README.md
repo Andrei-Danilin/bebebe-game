@@ -79,6 +79,9 @@ Open the file in any modern browser — no build step. Works on desktop, tablet 
 
 `P` — pause, `M` — sound, `L` — language (English / Español (AR) / Русский).
 
+In the menu: `↑` / `↓` (or the gamepad D-pad up/down) switch worlds, `←` / `→` (D-pad left/right) pick the level;
+on a touch screen tap a world card and the ◀ ▶ buttons.
+
 ## Items
 
 Items pop up on the map every 7–11 s (max 3, they vanish after 20 s):
@@ -92,16 +95,19 @@ Items pop up on the map every 7–11 s (max 3, they vanish after 20 s):
 
 ## Progress, coins and the shop
 
-Progress is saved in the browser (`localStorage`, key `bebebe-progress`): unlocked levels, best stars per level,
-coins, gloves and air kisses. Win a level to unlock the next one.
+Progress is saved in the browser (`localStorage`, key `bebebe-progress`): unlocked levels and best stars in each
+world, the last world you picked, coins, gloves and air kisses. Win a level to unlock the next one in that world.
+Saves from before the worlds move into the Park (levels above 20 are dropped; coins, gloves, kisses and names stay).
+
+In the table, `n` is the level number in its world (1–20) and `w` the world: Park 0, School 1, Beach 2, Winter 3.
 
 | Stars | For |
 |---|---|
 | ⭐ | winning the level |
 | ⭐ | nobody had to rest |
-| ⭐ | winning fast: under `60 + 15 × level` seconds |
+| ⭐ | winning fast: under `60 + 15 × n + 10 × w` seconds |
 
-Coins for a win: `10 + 5 × level`, +10 if nobody had to rest, +10 if fast, +2 for every hug by a player,
+Coins for a win: `10 + 5 × n + 10 × w`, +10 if nobody had to rest, +10 if fast, +2 for every hug by a player,
 −3 for every rest (never below 5). Bonus stars add +3 each on top (rests never eat them); they go into the
 coin box the moment you pick them up, so you keep them even without a win.
 
@@ -119,11 +125,13 @@ Air kisses are one shared stock for both players (bots don't throw them); each t
 a player can throw one per second. The Big One's hearts bar shows half hearts.
 "Reset progress" (tap twice) starts over.
 
-## Places
+## Worlds
 
-Park, Beach (palms, sandcastles, umbrellas, pool, sea), Winter (snowy pines, snowmen, snowdrifts, frozen pond,
-snowfall) and Schoolyard (court lines, hopscotch, footballs, hedges, sandbox, school windows).
-Menu → **Place**: *Auto* (changes every level) or a fixed place.
+Four worlds of 20 levels each, all open from the start: **Park**, **School** (court lines, hopscotch, footballs,
+hedges, sandbox, school windows), **Beach** (palms, sandcastles, umbrellas, pool, sea) and **Winter** (snowy pines,
+snowmen, snowdrifts, frozen pond, snowfall). The menu shows the four worlds as cards (name, a small picture, stars
+collected out of 60); under them you pick a level of the selected world. Levels open one by one inside each world.
+After level 20 the win screen says the world is done and offers the menu and the shop.
 
 ## Outfits
 
@@ -141,25 +149,34 @@ typed names are kept. Saved in the browser (`localStorage`, key `bebebe-names`).
 
 ## Levels
 
-Maps are generated from the level number: the same number always gives the same map. Level 1 is
-**Our drawing**, the kids' own map: the Little Ones' house top-left, the Big One's house bottom-left, a
-building with rooms on the right, pine trees, bushes, a pond and rocks. From level 2 on, six level types take
-turns:
+Maps are generated from the world and the level number: the same level always gives the same map, and each
+world has its own maps. Inside every world the levels go from open maps to the mazes:
 
-| Type | What it is like |
-|---|---|
-| Meadow | open grass: the Big One sees far, only bushes hide you |
-| Maze | hedge corridors to sneak around corners, with one or two open plazas |
-| Village | little cottages with roofs, streets between them and a square with a fountain |
-| River with bridges | the houses are on opposite banks; you can see across the water but cross only on the bridges |
-| House with rooms | a big building with rooms and doors, careful in the doorways; some rooms have two doors |
-| Ring arena | a ring of walls with gaps around a block in the middle, made for chases |
+| Levels | Type | What it is like |
+|---|---|---|
+| 1 | Our drawing | the kids' own map: the Little Ones' house top-left, the Big One's house bottom-left, a building with rooms on the right, pine trees, bushes, a pond and rocks (the same map in every world) |
+| 2–4 | Meadow | open grass: the Big One sees far, only bushes hide you |
+| 5–7 | Village | little cottages with roofs, streets between them and a square with a fountain |
+| 8–10 | River with bridges | the houses are on opposite banks; you can see across the water but cross only on the bridges |
+| 11–13 | House with rooms | a big building with rooms and doors, careful in the doorways; some rooms have two doors |
+| 14–16 | Ring arena | a ring of walls with gaps around a block in the middle, made for chases |
+| 17–20 | Maze | hedge corridors to sneak around corners, with one or two open plazas |
 
-When a level starts, a banner shows "Level N: type"; the menu shows the type of the selected level. Every place
-(park, beach, winter, schoolyard) has its own look for each type: hedges, fences, snow walls or lockers in the
-maze, a blue, turquoise, icy or canal river, and so on. Every level is checked to be fair: nobody gets stuck,
-the Big One can go everywhere except your house, and both houses' doors are clear. Every 6 levels there is one
-bush fewer. Each next level adds a heart and some speed to the Big One.
+Later levels of the same type have one bush fewer each. When a level starts, a banner shows
+"World · Level N: type" (e.g. "Park · Level 17: Maze"); the menu shows the type of the selected level. Every
+world has its own look for each type: hedges, lockers, fences or snow walls in the maze, a blue, canal,
+turquoise or icy river, and so on. Every level is checked to be fair: nobody gets stuck, the Big One can go
+everywhere except your house, and both houses' doors are clear.
+
+The Big One gets a little faster with each level of a world, and each next world starts a little faster than
+the one before. He never runs faster than 95 % of a player without boots, even when angry. His hearts:
+
+| World | Level 1 | Level 20 |
+|---|---|---|
+| Park | 6 | 10 |
+| School | 7 | 11 |
+| Beach | 8 | 12 |
+| Winter | 9 | 12 |
 
 ## How v2 is built
 
@@ -176,9 +193,9 @@ One HTML file, one ES module:
 
 ## Tuning
 
-`CFG` — gameplay numbers (`HUG_STUN`, `PUSH_RECOVER`, `BOT_ATTACK_PAUSE`, `ITEM_*`, `SLIP_STUN`, `COINS_*`, `FAST_TIME`, `RESCUE_*`, `STAR_*`, `DANGER_*`, `NAME_MAX`, `KISS_*`, `PAD_KISS`, `TYPE_ORDER`, `LAYOUT` (level type sizes), `BANNER_*`, fairness limits, phone mode `PHONE_*` / `CAM_*` / `MINIMAP_*` / `STICK_ZONE`, …),
+`CFG` — gameplay numbers (`HUG_STUN`, `PUSH_RECOVER`, `BOT_ATTACK_PAUSE`, `ITEM_*`, `SLIP_STUN`, `COINS_*`, `FAST_TIME`, `RESCUE_*`, `STAR_*`, `DANGER_*`, `NAME_MAX`, `KISS_*`, `PAD_KISS`, `WORLD_TYPES` (level types in a world), difficulty `WORLD_SPEED_START` / `SPEED_PER_LEVEL` / `CHASE_MAX_SHARE` / `HP_*`, `LAYOUT` (level type sizes), `BANNER_*`, fairness limits, phone mode `PHONE_*` / `CAM_*` / `MINIMAP_*` / `STICK_ZONE`, …),
 `GLOVES` — gloves (power, price, pack size), `KISSES` — air kiss price and pack, `I18N` — texts,
-`HAIRS` / `HATS` / `JACKETS` / `PANTS` / `BIG_SKINS` — outfits, `THEMES` — places, `LITTLE_SCALE` / `BIG_SCALE` — character size in 3D.
+`HAIRS` / `HATS` / `JACKETS` / `PANTS` / `BIG_SKINS` — outfits, `THEMES` — worlds (places), `LITTLE_SCALE` / `BIG_SCALE` — character size in 3D.
 
 ## Development
 
