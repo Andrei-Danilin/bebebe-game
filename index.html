@@ -112,6 +112,17 @@ const CFG = {
   KISS_STEP: 4,              // px — шаг проверки полёта (меньше клетки сетки FINE)
   KISS_BTN: 70,              // px — кнопка 💋 на сенсорном экране
   PAD_KISS: 2,               // кнопка геймпада для поцелуя: X (Xbox) / □ (PlayStation)
+  // режим телефона (SPEC-005): камера ближе и едет за героем, мини-карта, крупные кнопки
+  PHONE_MAX_SHORT_SIDE: 500, // CSS px — короткая сторона экрана сенсорного устройства не больше этого = телефон (iPad ≥ 744)
+  PHONE_UI_H: 420,           // UI px — высота слоя интерфейса на телефоне (ширина = 420 × соотношение сторон)
+  PHONE_VIEW_ROWS: 10,       // клеток по высоте видно на телефоне (вся карта — 20)
+  CAM_FOLLOW: 6,             // 1/сек — как быстро камера догоняет героя
+  CAM_LOOKAHEAD: 1.5,        // клеток — камера чуть забегает вперёд по ходу героя
+  MINIMAP_W: 0.26,           // доля ширины интерфейса — ширина мини-карты (3:2)
+  STICK_ZONE: 0.55,          // доля ширины слева, где касание создаёт джойстик
+  PHONE_BTN_MIN: 44,         // CSS px — кнопка на телефоне не меньше
+  PHONE_BTN_GAP: 8,          // CSS px — между соседними кнопками
+  PHONE_TEXT: { title: 24, main: 15, hint: 13, input: 16 },   // CSS px — самый мелкий текст на телефоне
   // типы уровней (SPEC-002): 1-й — рисунок детей, дальше по очереди
   TYPE_ORDER: ["meadow", "maze", "village", "river", "rooms", "arena"],
   BANNER_TIME: 2,            // сек — надпись «Уровень N: тип» в начале уровня появляется и исчезает
@@ -291,6 +302,16 @@ function isStandalone() {
 const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 const STANDALONE = isStandalone();                 // режим отображения не меняется за сессию
 const showInstallHint = () => isIOS && !STANDALONE;
+// Телефон (SPEC-005): сенсорный экран с короткой стороной ≤ PHONE_MAX_SHORT_SIDE; ?phone=1 / ?phone=0 — принудительно.
+function isPhone() {
+  try {
+    const q = new URLSearchParams(location.search).get("phone");
+    if (q === "1") return true;
+    if (q === "0") return false;
+    return isTouch && Math.min(screen.width, screen.height) <= CFG.PHONE_MAX_SHORT_SIDE;
+  } catch (e) { return false; }
+}
+const PHONE = isPhone();                           // решается один раз при запуске, как STANDALONE
 
 // Место для игры: body без отступов safe-area (вырез и полоска «домой» на iPhone).
 function playArea() {
@@ -3944,6 +3965,12 @@ window.__bb = {
   get level() { return level; }, set level(v) { level = v; },
   update, inSafe, I18N, startGame, resetWorld, cycleOutfit, randomOutfit, cycleBig, cyclePlace, setLang, toScreen,
   get items() { return items; }, get progress() { return progress; }, buyGloves, setEquip, get lastReward() { return lastReward; }, spawnItem, get placeSel() { return placeSel; }, set placeSel(v) { placeSel = v; },
+  phone: PHONE,
+  // камера: позиция и точка взгляда в единицах 3D (1 = клетка), точка взгляда ещё и в px мира
+  get camera() {
+    const v = q => ({ x: q.x, y: q.y, z: q.z });
+    return { pos3: v(camera.position), look3: v(camTarget), target: { x: camTarget.x * CELL, y: camTarget.z * CELL } };
+  },
   isStandalone, get installHintShown() { return installHintShown; }, get buttonNames() { return buttons.map(b => b.act.name); },
   get buttonRects() { return buttons.map(b => ({ id: b.id || b.act.name, x: b.x, y: b.y, w: b.w, h: b.h })); },
   get names() { return allNames(); }, setName, nameOf, inDanger, get stars() { return bonusStars; }, spawnStar, giveReward,
