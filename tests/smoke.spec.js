@@ -1,6 +1,8 @@
 // Smoke tests: the game loads, every screen and place renders, nothing throws.
 const { test, expect } = require("@playwright/test");
-const { openGame, step } = require("./helpers");
+const { openGame, step, ROOT } = require("./helpers");
+const fs = require("fs");
+const path = require("path");
 
 test("loads to the menu without errors", async ({ page }) => {
   const errors = await openGame(page);
@@ -44,3 +46,11 @@ for (const lang of ["en", "es", "ru"]) {
     expect(errors).toEqual([]);
   });
 }
+
+// Safari before iOS 16.4 cannot parse a regex lookbehind: the whole module fails with a SyntaxError and the game does
+// not start at all (older iPads). Keep (?<= and (?<! out of index.html.
+test("index.html has no regex lookbehind (older iPads)", () => {
+  const src = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
+  expect(src.includes("(?<="), "(?<= in index.html").toBe(false);
+  expect(src.includes("(?<!"), "(?<! in index.html").toBe(false);
+});

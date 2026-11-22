@@ -35,6 +35,10 @@ Two minutes in the house is too long for kids, so the rest becomes 30 s. And a n
 7. A short hint the first time a player goes down while owning kits: "Press 🩹 to get up!" (once per level). → screenshot check
 8. `__bb` gets `useRescueKit(playerIndex)`, `buyRescueKit`; all numbers in `CFG`/`RESCUE_KIT`; strings in en/es/ru; whole suite green.
 9. Screenshots looked at (throwaway): the shop with four cards (desktop + phone, three languages), the 🩹 button on the phone while down, the hint.
+10. **Phone shop text never overlaps** (post-merge fix). At 667×375, 844×390 and 932×430, in en/es/ru, the four shop cards' texts (name, description, pack, have, "not enough coins") never overlap each other, the picture or the buy button, and never drop below the `PHONE_TEXT` minimums — measured with the real text widths and again with a simulated 15 % wider font (CI and iPhone fonts are wider than Windows). When a card runs out of room the layout gives up space step by step (smaller picture, "you have" as a badge, then shorter pack text) instead of overlapping. → `tests/phone.spec.js` "the phone shop fits with wider fonts"
+
+## Post-merge fix
+The first deploy of the merge (7829676, run 45076714728) was red on CI only: at 667×375 in Spanish, with the Linux fonts, the names wrapped to two lines and the kisses description to three, so `card-desc:kisses` overlapped `card-pack:kisses` (`tests/phone.spec.js` "every phone button is big enough at 667×375"). AC 10 was added and fixed on branch `SPEC-007-phone-shop-fix` before the spec was closed.
 
 ## Implementation steps
 1. Failing tests: rest 30 s (AC 1), inventory and migration (AC 2), use cases (AC 4–5).
