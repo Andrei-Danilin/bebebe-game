@@ -1,6 +1,6 @@
 # SPEC-005 — Phone mode: camera follows the hero, mini-map, big controls
 
-Status: ready
+Status: done (2e5be21)
 Complexity: L
 Branch: SPEC-005-phone-mode
 Decided by: Andrei and the kids after playing on the iPhone (2026-11-21): on a phone everything is too small; the camera should come closer and follow the hero, showing about half of the map; the whole map stays visible as a mini-map in a corner; the joystick appears where the finger touches, drawn on screen; phone mode only on phones (iPad and computer stay as they are); on a phone only one player. Everything else (detection rule, sizes, edge arrows, layouts): Claude (spec author).
