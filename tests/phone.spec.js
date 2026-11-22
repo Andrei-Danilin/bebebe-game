@@ -761,6 +761,86 @@ for (const [vw, vh] of PHONE_SIZES) {
   });
 }
 
+// SPEC-006 AC 13: the level banner on a phone never covers the hero (CI fonts are wider than Windows ones).
+// One page per phone size; world, language, hero position and the font scale are set through __bb, no reloads.
+// The hero's screen rect: feet to the name above the head (toScreen at the name height, as drawMarkers does),
+// as wide as his body or his name. The whole matrix runs again with a simulated 15 % wider banner font.
+const BANNER_LEVELS = [1, 11];   // "Our drawing" and a two-digit level with the longest es type (rooms; ru and en nearly the longest)
+for (const [vw, vh] of PHONE_SIZES) {
+  test.describe(`phone banner ${vw}×${vh}`, () => {
+    test.use({ ...PHONE_CTX, viewport: { width: vw, height: vh } });
+
+    test(`the phone banner never covers the hero (${vw}×${vh})`, async ({ page }) => {
+      test.slow();
+      const errors = await openGame(page, { query: "?phone=1" });
+      const fails = [];
+      let cases = 0;
+      try {
+        for (const world of ["park", "school", "beach", "winter"]) for (const n of BANNER_LEVELS) {
+          await page.evaluate(([w, lv]) => {
+            const b = window.__bb;
+            b.progress.inv.kisses = 5; b.progress.inv.mittens = 3; b.progress.equip[0] = "mittens";   // 💋 and mittens bottom right
+            b.progress.worlds[w].unlocked = 20; b.world = w; b.level = lv; b.startGame(1);
+            Object.assign(b.big, { state: "look", timer: 999, stun: 999, noPush: 999 });
+            const l = b.littles[0]; window.__heroStart = { x: l.x, y: l.y };
+          }, [world, n]);
+          for (const lang of ["en", "es", "ru"]) for (const pos of ["start", "centre"]) for (const fontScale of [1, 1.15]) {
+            const label = `${vw}×${vh} ${world} ${n} ${lang} hero at ${pos} font ×${fontScale}`;
+            // set up, let the game draw two frames and measure in one evaluate: the banner can't time out in between
+            const d = await page.evaluate(async ([lg, ps, fs]) => {
+              let b = window.__bb, l = b.littles[0];
+              b.setLang(lg);
+              if (ps === "start") Object.assign(l, window.__heroStart);
+              else Object.assign(l, { x: b.grid.COLS * b.grid.CELL / 2, y: b.grid.ROWS * b.grid.CELL / 2 });
+              Object.assign(l, { vx: 0, vy: 0 });
+              b.camSnap();
+              b.CFG.BANNER_FONT_TEST_SCALE = fs;
+              b.stats.time = 0;                       // the touch hint is on screen (first 5 s)
+              b.resetBannerTimer(); b.showBanner();
+              b.banner.t = b.CFG.BANNER_TIME / 2;     // fully shown
+              await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+              b = window.__bb; l = b.littles[0];
+              const s = b.uiSize.scale, P = b.CFG.PHONE_BANNER;
+              const feet = b.toScreen(l.x, l.y), head = b.toScreen(l.x, l.y, P.heroHead);
+              const side = P.heroSide * Math.max(Math.abs(b.toScreen(l.x + l.r, l.y).x - feet.x), Math.abs(b.toScreen(l.x + l.r, l.y, P.heroHead).x - head.x));
+              const ctx = document.createElement("canvas").getContext("2d"), nameSize = Math.max(15, b.CFG.PHONE_TEXT.main / s);
+              ctx.font = `900 ${nameSize}px system-ui, "Segoe UI", "Arial Rounded MT Bold", Arial, sans-serif`;
+              const nameW = ctx.measureText(b.nameOf(l)).width + Math.max(3, nameSize / 4.5);
+              const x0 = Math.min(feet.x - side, head.x - nameW / 2), x1 = Math.max(feet.x + side, head.x + nameW / 2);
+              const y0 = head.y - P.heroName - nameSize * P.heroText, y1 = feet.y + side * P.heroFeet;
+              const r = b.bannerRect;
+              let textW = 0;
+              if (r) { ctx.font = `900 ${r.size}px system-ui, "Segoe UI", sans-serif`; textW = ctx.measureText(r.text).width * b.CFG.BANNER_FONT_TEST_SCALE; }
+              return { ui: b.uiSize, banner: r, textW, hero: { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }, feet,
+                mm: b.minimap, hud: b.hudRects, buttons: b.buttonRects, mode: b.mode, fullText: b.banner && b.banner.text,
+                state: { t: b.banner && b.banner.t, alpha: b.bannerAlpha(), time: b.stats.time } };
+            }, [lang, pos, fontScale]);
+            cases++;
+            const s = d.ui.scale, pad = 8 / s - 0.01, B = d.banner;
+            const check = (ok, what) => { if (!ok) fails.push(`${label}: ${what} — banner ${JSON.stringify(B)}`); };
+            check(d.mode === "play" && B, `banner shown (mode ${d.mode}, ${JSON.stringify(d.state)})`);
+            if (!B) continue;
+            check(B.x >= -0.01 && B.y >= -0.01 && B.x + B.w <= d.ui.w + 0.01 && B.y + B.h <= d.ui.h + 0.01, "inside the screen");
+            check(B.size * s >= 24 - 0.01, `text ${B.size * s} CSS px, under 24`);
+            check(d.textW <= B.w + 0.5, `text ${d.textW.toFixed(1)} wider than the banner ${B.w.toFixed(1)}`);
+            check(B.text === d.fullText || B.short, `text "${B.text}" is neither the full nor the short one`);
+            if (pos === "centre") check(Math.abs(d.feet.x - d.ui.w / 2) < d.ui.w * 0.2 && Math.abs(d.feet.y - d.ui.h / 2) < d.ui.h * 0.25, `hero not near the centre ${JSON.stringify(d.feet)}`);
+            check(!overlaps(B, d.hero, pad), `closer than 8 CSS px to the hero ${JSON.stringify(d.hero)}`);
+            check(!d.mm || !overlaps(B, d.mm, pad), "closer than 8 CSS px to the mini-map");
+            for (const h of d.hud) check(!overlaps(B, h, pad), `closer than 8 CSS px to ${h.id} ${JSON.stringify(h)}`);
+            for (const q of d.buttons) check(!overlaps(B, q, pad), `closer than 8 CSS px to button ${q.id}`);
+          }
+        }
+      } finally {
+        await page.evaluate(() => { window.__bb.CFG.BANNER_FONT_TEST_SCALE = 1; });
+      }
+      expect(cases).toBe(4 * BANNER_LEVELS.length * 3 * 2 * 2);
+      expect(errors).toEqual([]);
+      expect(fails, fails.slice(0, 12).join("\n")).toEqual([]);
+    });
+  });
+}
+
 test.describe("phone menus", () => {
   test.use(PHONE_CTX);
 

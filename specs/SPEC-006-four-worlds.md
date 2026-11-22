@@ -59,6 +59,10 @@ With `w` = world index (0–3) and `n` = level (1–20):
 10. **Win screen** "next level" goes to the next level of the same world; after level 20 it says the world is done (new string) and offers the menu.
 11. **No regressions.** Whole suite green (tests that used `level` numbers above 20 or `placeSel` are moved to the world API; their intent stays). `__bb.placeSel`/`cyclePlace` removed or mapped to worlds (say which).
 12. Screenshots looked at (throwaway): the menu in all three languages on desktop and phone; one level of each type in a different world; a maze in Winter.
+13. **Phone banner never covers the hero** (post-merge fix). In phone mode the level banner sits in the vertical half of the screen where the hero isn't (top or bottom band, centred horizontally), clear of the mini-map, HUD, joystick hint and buttons; its width is limited with `fitText`; if the full text still doesn't fit, it uses the short phone variant `levelIntroShort(world, n, type)` ("Park · 1: Our drawing", en/es/ru). For 667×375, 844×390 and 932×430, every world, en/es/ru, the hero at his start position and at the screen centre: the banner rect keeps ≥ 8 CSS px from the hero's screen rect and from the mini-map, HUD and buttons, measured with the real text width and again with a simulated 15 % wider font. Desktop unchanged. → `tests/phone.spec.js` "the phone banner never covers the hero"
+
+## Post-merge fix
+The first deploy of the merge (25e2c47, run 45051462306) was red on CI only: at 667×375 the longer banner "Park · Level 1: Our drawing", measured with the Linux fonts, reached the Little Ones' house top-left and covered the hero (`tests/phone.spec.js` "every phone button is big enough at 667×375"). AC 13 was added and fixed on branch `SPEC-006-phone-banner` before the spec was closed.
 
 ## Implementation steps
 1. Tests first: fixture still green, `difficulty` formulas (AC 5), migration (AC 7).

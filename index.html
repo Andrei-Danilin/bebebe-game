@@ -152,6 +152,11 @@ const CFG = {
   BANNER_TIME: 2,            // сек — надпись «Уровень N: тип» в начале уровня появляется и исчезает
   BANNER_FADE: 0.4,          // сек — появление и исчезание
   BANNER_REPEAT: 1,          // сек — перезапуск раньше этого после прошлой надписи её не показывает
+  // надпись уровня на телефоне (SPEC-006 AC 13), CSS px: высота, поля по бокам текста, отступ текста от края, скругление,
+  // шаг поиска места; прямоугольник героя на экране: высота имени над ногами (px мира, как в drawMarkers),
+  // подъём имени над этой точкой, полуширина тела в радиусах героя, полувысота имени в его кеглях, запас под ногами в полуширинах
+  PHONE_BANNER: { h: 42, pad: 20, edge: 10, radius: 18, scan: 2, heroHead: 72, heroName: 10, heroSide: 1.5, heroText: 0.75, heroFeet: 0.6 },
+  BANNER_FONT_TEST_SCALE: 1, // только для тестов: ширина текста надписи × это (шрифты CI и iPhone шире)
   LEVEL_ATTEMPTS: 40,        // столько раз пробуем построить честный уровень, потом — запасной вариант
   // правила честности уровня
   DOOR_APRON: 2,             // клеток свободно перед каждой дверью домиков
@@ -220,7 +225,7 @@ const I18N = {
     kisses: "Air kisses", kissDesc: "Send from afar: ½ heart and he blushes", kissPack: n => `Pack: ${n} air kisses`,
     kissHave: n => `You have: ${n} ${n === 1 ? "kiss" : "kisses"}`, kissHit: "Mwah!", noKissHome: "Not from the house!", blush: "So shy!",
     types: { classic: "Our drawing", meadow: "Meadow", maze: "Maze", village: "Village", river: "River with bridges", rooms: "House with rooms", arena: "Ring arena" },
-    levelIntro: (w, n, t) => `${w} · Level ${n}: ${t}`, worldStars: (n, max) => `⭐ ${n}/${max}`
+    levelIntro: (w, n, t) => `${w} · Level ${n}: ${t}`, levelIntroShort: (w, n, t) => `${w} · ${n}: ${t}`, worldStars: (n, max) => `⭐ ${n}/${max}`
   },
   es: {
     name: "Español", subtitle: "Los Chiquitos contra el Grandote",
@@ -255,7 +260,7 @@ const I18N = {
     kisses: "Besitos voladores", kissDesc: "Mandalo de lejos: ½ corazón y se pone colorado", kissPack: n => `Paquete: ${n} besitos voladores`,
     kissHave: n => `Tenés: ${n} ${n === 1 ? "besito" : "besitos"}`, kissHit: "¡Muak!", noKissHome: "¡Desde la casita no!", blush: "¡Qué vergüenza!",
     types: { classic: "Nuestro dibujo", meadow: "Pradera", maze: "Laberinto", village: "Pueblito", river: "Río con puentes", rooms: "Casa con cuartos", arena: "Arena" },
-    levelIntro: (w, n, t) => `${w} · Nivel ${n}: ${t}`, worldStars: (n, max) => `⭐ ${n}/${max}`
+    levelIntro: (w, n, t) => `${w} · Nivel ${n}: ${t}`, levelIntroShort: (w, n, t) => `${w} · ${n}: ${t}`, worldStars: (n, max) => `⭐ ${n}/${max}`
   },
   ru: {
     name: "Русский", subtitle: "Маленькие против Большого",
@@ -291,7 +296,7 @@ const I18N = {
     kisses: "Воздушные поцелуи", kissDesc: "Издалека: ½ сердечка, и он краснеет", kissPack: n => `В наборе: ${n} ${ruPlural(n, ["поцелуй", "поцелуя", "поцелуев"])}`,
     kissHave: n => `У вас: ${n} ${ruPlural(n, ["поцелуй", "поцелуя", "поцелуев"])}`, kissHit: "Чмок!", noKissHome: "Из домика нельзя!", blush: "Ой, смущён!",
     types: { classic: "Наш рисунок", meadow: "Поляна", maze: "Лабиринт", village: "Деревня", river: "Река с мостиками", rooms: "Дом с комнатами", arena: "Арена с кольцом" },
-    levelIntro: (w, n, t) => `${w} · Уровень ${n}: ${t}`, worldStars: (n, max) => `⭐ ${n}/${max}`
+    levelIntro: (w, n, t) => `${w} · Уровень ${n}: ${t}`, levelIntroShort: (w, n, t) => `${w} · ${n}: ${t}`, worldStars: (n, max) => `⭐ ${n}/${max}`
   }
 };
 const LANGS = ["en", "es", "ru"];
@@ -1634,7 +1639,9 @@ function showBanner() {
   const now = performance.now() / 1000;
   if (now - bannerShownAt < CFG.BANNER_REPEAT) { banner = null; return; }
   bannerShownAt = now;
-  banner = { text: L().levelIntro(L().worlds[curWorld], level, L().types[levelType(curWorld, level)]), t: 0 };
+  const wn = L().worlds[curWorld], tn = L().types[levelType(curWorld, level)];
+  // short — короткий вариант для телефона, если полный не влез (SPEC-006 AC 13); place — место на телефоне, выбирается при первом показе
+  banner = { text: L().levelIntro(wn, level, tn), short: L().levelIntroShort(wn, level, tn), t: 0, place: null };
 }
 const bannerAlpha = () => !banner ? 0 : clamp(Math.min(banner.t, CFG.BANNER_TIME - banner.t) / CFG.BANNER_FADE, 0, 1);
 // camSnap: начало уровня — камера телефона сразу у героя (в resetWorld нельзя: он же открывает меню, где камера показывает всю карту)
@@ -3412,19 +3419,66 @@ function nameLabel(rect, slot, color) {
 function openFriends() { closeNameInput(true); mode = "names"; }
 function backToSkins() { closeNameInput(true); mode = "skins"; }
 
+// прямоугольник героя на экране (UI px): от ног до имени над головой (как в drawMarkers), шириной с тело или имя
+function heroScreenRect(l) {
+  const P = CFG.PHONE_BANNER, feet = toScreen(l.x, l.y), head = toScreen(l.x, l.y, P.heroHead);
+  const side = P.heroSide * Math.max(Math.abs(toScreen(l.x + l.r, l.y).x - feet.x), Math.abs(toScreen(l.x + l.r, l.y, P.heroHead).x - head.x));
+  const ns = Math.max(15, minPx("main"));   // кегль имени игрока: fz(15, "main") в drawMarkers
+  ctx.font = hudFont(ns);
+  const nw = ctx.measureText(nameOf(l)).width + Math.max(3, ns / 4.5);   // с обводкой
+  const x0 = Math.min(feet.x - side, head.x - nw / 2), x1 = Math.max(feet.x + side, head.x + nw / 2);
+  const y0 = head.y - P.heroName - ns * P.heroText, y1 = feet.y + side * P.heroFeet;
+  return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+}
+// место надписи уровня на телефоне (SPEC-006 AC 13): в той половине экрана, где нет героя — сверху под верхней полосой
+// или снизу над подсказкой; по центру самого широкого свободного места, в стороне (PHONE_BTN_GAP) от мини-карты,
+// табличек HUD, кнопок и героя. Ищем от края к середине экрана; на каждой высоте сначала полный текст, потом короткий.
+// Нигде не влезло — короткий текст в самом широком месте.
+function placePhoneBanner() {
+  const P = CFG.PHONE_BANNER, m = cpx(8), gap = cpx(CFG.PHONE_BTN_GAP), h = cpx(P.h), step = cpx(P.scan), mid = UH / 2;
+  const hero = camHero(), hr = hero && heroScreenRect(hero);
+  const blocks = [minimapRect(), ...buttons, ...hudRects];
+  if (hr) blocks.push(hr);
+  ctx.font = `900 ${minPx("title")}px system-ui, "Segoe UI", sans-serif`;
+  const texts = [banner.text, banner.short].map(text => ({ text, w: ctx.measureText(text).width * CFG.BANNER_FONT_TEST_SCALE + 2 * cpx(P.pad) }));
+  // самый широкий свободный отрезок по x для плашки на высоте y
+  const span = y => {
+    let segs = [[m, UW - m]];
+    for (const b of blocks) {
+      if (b.y >= y + h + gap || b.y + b.h <= y - gap) continue;
+      const a = b.x - gap, c = b.x + b.w + gap;
+      segs = segs.flatMap(([s0, e0]) => [[s0, Math.min(e0, a)], [Math.max(s0, c), e0]]).filter(([s0, e0]) => e0 > s0);
+    }
+    return segs.reduce((best, sg) => sg[1] - sg[0] > best[1] - best[0] ? sg : best, [0, 0]);
+  };
+  // низ: над подсказкой «проведи пальцем» и плашками «отдыхает» (они по всей ширине слева от кнопок)
+  const low = hudRects.filter(r => r.id === "hint" || r.id === "rest").reduce((v, r) => Math.min(v, r.y - gap), UH - m);
+  const bands = [{ from: phoneTopBar() + gap, to: mid - h, dir: 1 }, { from: low - h, to: mid, dir: -1 }];
+  if (hr && hr.y + hr.h / 2 < mid) bands.reverse();          // герой в верхней половине — сначала низ
+  let best = null;
+  for (const bd of bands) {
+    for (let y = bd.from; (y - bd.to) * bd.dir <= 0; y += step * bd.dir) {
+      const [s0, e0] = span(y);
+      for (const t of texts) if (t.w <= e0 - s0) return { x: (s0 + e0 - t.w) / 2, y, w: t.w, h, text: t.text };
+      if (!best || e0 - s0 > best.w) best = { x: s0, y, w: e0 - s0, h, text: banner.short };
+    }
+  }
+  return best || { x: m, y: phoneTopBar() + gap, w: minimapRect().x - gap - m, h, text: banner.short };
+}
 // «Уровень N: тип» — плашка под верхней панелью, плавно появляется и исчезает, кнопок не добавляет
 function drawBanner() {
   const a = bannerAlpha();
   if (a <= 0) return;
   ctx.save(); ctx.globalAlpha = a;
   if (PHONE) {
-    // телефон: невысокая плашка под верхней полосой, левее мини-карты — герой в центре экрана виден
-    const m = cpx(8), gap = cpx(CFG.PHONE_BTN_GAP), size = minPx("title"), h = cpx(42), areaW = minimapRect().x - gap - m;
-    ctx.font = `900 ${size}px system-ui, "Segoe UI", sans-serif`;
-    const w = Math.min(areaW, ctx.measureText(banner.text).width + cpx(40)), x = m + (areaW - w) / 2, y = cpx(6) + cpx(CFG.PHONE_BTN_MIN) + gap;
-    rr(x, y, w, h, cpx(18)); fillStroke("rgba(255,250,235,.93)", 3);
-    noteText("title", fitText(banner.text, x + w / 2, y + h / 2 + 1, size, w - cpx(20), "center", "#ff6fa8", 900, size));
-    bannerRect = { x, y, w, h };
+    // телефон (SPEC-006 AC 13): место выбирается один раз, при первом показе (не прыгает, пока герой бегает)
+    const P = CFG.PHONE_BANNER, key = UW + "x" + UH;
+    if (!banner.place || banner.place.key !== key) banner.place = { key, ...placePhoneBanner() };
+    const { x, y, w, h, text } = banner.place, size = minPx("title");
+    rr(x, y, w, h, cpx(P.radius)); fillStroke("rgba(255,250,235,.93)", 3);
+    const sz = fitText(text, x + w / 2, y + h / 2 + 1, size, (w - 2 * cpx(P.edge)) / CFG.BANNER_FONT_TEST_SCALE, "center", "#ff6fa8", 900, size);
+    noteText("title", sz);
+    bannerRect = { x, y, w, h, text, size: sz, short: text !== banner.text };
     ctx.restore(); return;
   }
   ctx.font = `900 34px system-ui, "Segoe UI", sans-serif`;
@@ -4808,7 +4862,7 @@ window.__bb = {
   },
   isStandalone, get installHintShown() { return installHintShown; }, get buttonNames() { return buttons.map(b => b.act.name); },
   get buttonRects() { return buttons.map(b => ({ id: b.id || b.act.name, x: b.x, y: b.y, w: b.w, h: b.h, text: b.text, textW: b.textW })); },
-  updateCamera, camSnap, stickR, skinPanels, resetBannerTimer() { bannerShownAt = -Infinity; },
+  updateCamera, camSnap, stickR, skinPanels, resetBannerTimer() { bannerShownAt = -Infinity; }, showBanner,
   get textSizes() { return { ...textSizes }; }, get rotateShown() { return rotateShown; }, get bannerRect() { return bannerRect && { ...bannerRect }; },
   get minimap() { return mmShown ? { x: mmState.x, y: mmState.y, w: mmState.w, h: mmState.h, baseDraws: mmDraws, markers: mmState.markers.slice(0, mmCount).map(m => ({ ...m })) } : null; },
   get edgeArrows() { return edgeArrows.map(a => ({ ...a })); }, get hudRects() { return hudRects.map(r => ({ ...r })); },
