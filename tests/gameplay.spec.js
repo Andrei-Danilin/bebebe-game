@@ -1185,3 +1185,141 @@ test("a kit while down keeps the nobody-out star", async ({ page }) => {
   expect(r.penalty).toBe(0);
   expect(r.stars).toBeGreaterThanOrEqual(2);
 });
+
+test("kit keys for one and two players", async ({ page }) => {
+  await installTestHelpers(page);
+  const r = await page.evaluate(() => {
+    const b = window.__bb, t = window.__t, out = {};
+    const press = code => { t.key(code, true); t.key(code, false); };
+    const down = (...ids) => ids.forEach(i => Object.assign(b.littles[i], { state: "down", downTimer: 10, rescue: 0 }));
+    out.pad = b.CFG.PAD_KIT;
+    b.progress.inv.rescues = 20;
+    t.calm(); t.pin([0]); down(0);
+    press("ShiftRight"); out.shift1 = [b.littles[0].state, b.progress.inv.rescues];      // Right Shift is the key of player 2
+    press("KeyQ"); out.q1 = [b.littles[0].state, b.progress.inv.rescues];
+    press("KeyQ"); out.qOk = b.progress.inv.rescues;                                     // on his feet: nothing spent
+    b.startGame(2); t.calm(); t.pin([0, 1]); down(0, 1);
+    press("ShiftLeft"); out.shiftLeft = b.littles.slice(0, 2).map(l => l.state);
+    press("ShiftRight"); out.shift2 = b.littles.slice(0, 2).map(l => l.state);
+    press("KeyQ"); out.q2 = b.littles.slice(0, 2).map(l => l.state);
+    out.left = b.progress.inv.rescues;
+    down(0, 1);
+    return out;
+  });
+  expect(r.pad).toBe(3);
+  expect(r.shift1).toEqual(["down", 20]);
+  expect(r.q1).toEqual(["ok", 19]);
+  expect(r.qOk).toBe(19);
+  expect(r.shiftLeft).toEqual(["down", "down"]);
+  expect(r.shift2).toEqual(["down", "ok"]);
+  expect(r.q2).toEqual(["ok", "ok"]);
+  expect(r.left).toBe(17);
+  // gamepad: button 3 (Y on Xbox, triangle on PlayStation); the second pad is player 2 in a two-player game
+  await page.evaluate(() => {
+    const pad = (i, on) => ({ index: i, axes: [0, 0], buttons: Array.from({ length: 17 }, (_, k) => ({ pressed: on && k === 3, value: 0 })) });
+    window.__pads = [pad(0, false), pad(1, true)];
+    Object.defineProperty(navigator, "getGamepads", { configurable: true, value: () => window.__pads });
+  });
+  await page.waitForFunction(() => window.__bb.progress.inv.rescues === 16);
+  expect(await page.evaluate(() => window.__bb.littles.slice(0, 2).map(l => l.state))).toEqual(["down", "ok"]);
+  // one player: the first pad
+  await page.evaluate(() => {
+    const b = window.__bb; window.__pads = [];
+    b.startGame(1); window.__t.calm(); window.__t.pin([0]);
+    Object.assign(b.littles[0], { state: "down", downTimer: 10 });
+  });
+  await frames(page);
+  await page.evaluate(() => { window.__pads = [{ index: 0, axes: [0, 0], buttons: Array.from({ length: 17 }, (_, k) => ({ pressed: k === 3, value: 0 })) }]; });
+  await page.waitForFunction(() => window.__bb.progress.inv.rescues === 15);
+  expect(await page.evaluate(() => window.__bb.littles[0].state)).toBe("ok");
+});
+
+// pushes player 1 for real: the Big One right in front of him, looking at him
+async function pushPlayer(page) {
+  await page.evaluate(() => {
+    const b = window.__bb, l = b.littles[0];
+    Object.assign(b.big, { state: "look", timer: 999, stun: 0, noPush: 0, pushCd: 0, slip: 0, blush: 0, hugCd: 0, x: 500, y: 320, dir: 0 });
+    Object.assign(l, { state: "ok", invuln: 0, dizzy: 0, hugAnim: 0, x: 535, y: 320, kx: 0, ky: 0 });
+    for (let i = 0; i < 12 && l.state === "ok"; i++) b.update(1 / 60);
+    Object.assign(b.big, { x: 900, y: 600, stun: 999 });
+  });
+  await frames(page);
+}
+
+test("the kit hint shows the first time a player goes down with kits, once per level", async ({ page }) => {
+  await installTestHelpers(page);
+  await page.evaluate(() => { const b = window.__bb; b.progress.inv.rescues = 0; window.__t.pin([0]); });
+  await pushPlayer(page);                                    // no kits: no hint (and the one hint is still to come)
+  expect(await page.evaluate(() => [window.__bb.littles[0].state, window.__bb.kitHint])).toEqual(["down", null]);
+  await page.evaluate(() => { const b = window.__bb; b.littles[0].state = "ok"; b.progress.inv.rescues = 2; });
+  await pushPlayer(page);
+  const h = await page.evaluate(() => ({ st: window.__bb.littles[0].state, hint: window.__bb.kitHint, want: window.__bb.I18N.en.kitHint }));
+  expect(h.st).toBe("down");
+  expect(h.hint && h.hint.text).toContain(h.want);
+  await page.evaluate(() => window.__bb.useRescueKit(0));
+  await frames(page);
+  expect(await page.evaluate(() => window.__bb.kitHint)).toBe(null);       // up again: the hint is gone
+  await pushPlayer(page);
+  expect(await page.evaluate(() => [window.__bb.littles[0].state, window.__bb.kitHint])).toEqual(["down", null]);   // once per level
+  await page.evaluate(() => { window.__bb.startGame(1); window.__t.pin([0]); });
+  await pushPlayer(page);
+  expect(await page.evaluate(() => window.__bb.kitHint && window.__bb.kitHint.text)).toContain(h.want);   // a new level: again
+  await page.evaluate(() => window.__bb.update(window.__bb.CFG.KIT_HINT_TIME + 0.1));
+  await frames(page);
+  expect(await page.evaluate(() => window.__bb.kitHint)).toBe(null);       // and it is short
+});
+
+test.describe("rescue kit on a touch screen", () => {
+  test.use({ hasTouch: true });
+
+  test("the kit button shows only when it can be used", async ({ page }) => {
+    await installTestHelpers(page);
+    const ids = () => page.evaluate(() => window.__bb.buttonRects.filter(q => /^(kit|kiss):/.test(q.id)).map(q => ({ id: q.id, x: q.x, y: q.y, w: q.w, h: q.h })));
+    await page.evaluate(() => { const b = window.__bb; b.progress.inv.kisses = 5; b.progress.inv.rescues = 2; window.__t.calm(); window.__t.pin([0]); });
+    await frames(page);
+    const ok = await ids();
+    expect(ok.map(q => q.id)).toEqual(["kiss:0"]);                       // on his feet: the kiss button
+    for (const st of ["down", "home", "rest"]) {
+      await page.evaluate(s => { Object.assign(window.__bb.littles[0], { state: s, downTimer: 10, restTimer: 20, restSpot: { x: 500, y: 300 }, x: 500, y: 300 }); }, st);
+      await frames(page);
+      const q = await ids();
+      expect(q.map(v => v.id), st).toEqual(["kit:0"]);                   // in the place of the kiss button
+      expect([q[0].x, q[0].y, q[0].w, q[0].h], st).toEqual([ok[0].x, ok[0].y, ok[0].w, ok[0].h]);
+    }
+    // a bot lying down gets no button
+    await page.evaluate(() => { const b = window.__bb; b.littles[0].state = "ok"; Object.assign(b.littles[3], { kind: "bot", state: "down", downTimer: 10 }); });
+    await frames(page);
+    expect((await ids()).map(q => q.id)).toEqual(["kiss:0"]);
+    // a tap on it gets him up and never starts a joystick
+    await page.evaluate(() => { Object.assign(window.__bb.littles[0], { state: "down", downTimer: 10, x: 500, y: 300 }); });
+    await frames(page);
+    const rect = (await ids())[0];
+    const r = await page.evaluate(rc => {
+      const b = window.__bb, c = document.getElementById("game"), bb = c.getBoundingClientRect(), l = b.littles[0];
+      const ev = (type, x, y) => c.dispatchEvent(new PointerEvent(type, { clientX: bb.left + x * bb.width / 960, clientY: bb.top + y * bb.height / 640, pointerId: 7, pointerType: "touch", isPrimary: true, bubbles: true, cancelable: true }));
+      const cx = rc.x + rc.w / 2, cy = rc.y + rc.h / 2;
+      ev("pointerdown", cx, cy);
+      ev("pointermove", cx - 140, cy - 80);
+      const out = { state: l.state, left: b.progress.inv.rescues, sticks: b.sticks.length };
+      ev("pointerup", cx - 140, cy - 80);
+      return out;
+    }, rect);
+    expect(r).toEqual({ state: "ok", left: 1, sticks: 0 });
+    // no kits: no kit button (the kiss button stays)
+    await page.evaluate(() => { const b = window.__bb; b.progress.inv.rescues = 0; Object.assign(b.littles[0], { state: "down", downTimer: 10 }); });
+    await frames(page);
+    expect((await ids()).map(q => q.id)).toEqual(["kiss:0"]);
+    // two players: each on his own side, in the place of his kiss button
+    await page.evaluate(() => {
+      const b = window.__bb; b.startGame(2); window.__t.calm(); window.__t.pin([0, 1]);
+      b.progress.inv.kisses = 5; b.progress.inv.rescues = 2;
+      Object.assign(b.littles[0], { state: "down", downTimer: 10 });
+    });
+    await frames(page);
+    const two = await ids();
+    expect(two.map(q => q.id).sort()).toEqual(["kiss:1", "kit:0"]);
+    const k0 = two.find(q => q.id === "kit:0"), k1 = two.find(q => q.id === "kiss:1");
+    expect(k0.x + k0.w).toBeLessThan(960 / 2);
+    expect(k1.x).toBeGreaterThan(960 / 2);
+  });
+});

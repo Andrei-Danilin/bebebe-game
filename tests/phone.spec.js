@@ -660,6 +660,20 @@ const PHONE_SCENES = {
       Object.assign(b.littles[0], { state: "rest", restTimer: 100 });
     });
   },
+  // SPEC-007: the hero was pushed and owns kits: the 🩹 button in the kiss button's place, the first-time hint, mittens
+  down: async page => {
+    await page.evaluate(() => {
+      const b = window.__bb; b.resetBannerTimer();
+      b.progress.inv.kisses = 5; b.progress.inv.mittens = 3; b.progress.equip[0] = "mittens"; b.progress.inv.rescues = 3;
+      b.startGame(1);
+      const l = b.littles[0];
+      Object.assign(b.big, { state: "look", timer: 999, stun: 0, noPush: 0, pushCd: 0, slip: 0, blush: 0, hugCd: 0, x: 465, y: 320, dir: 0 });
+      Object.assign(l, { state: "ok", invuln: 0, dizzy: 0, x: 500, y: 320, kx: 0, ky: 0 });
+      for (let i = 0; i < 12 && l.state === "ok"; i++) b.update(1 / 60);
+      Object.assign(b.big, { x: 900, y: 600, stun: 999 });
+      b.camSnap();
+    });
+  },
   pause: async page => {
     await page.evaluate(() => { const b = window.__bb; b.startGame(1); b.stats.time = 30; b.mode = "pause"; });
   },
@@ -722,7 +736,7 @@ for (const [vw, vh] of PHONE_SIZES) {
           return { ui: b.uiSize, buttons: b.buttonRects, hud: b.hudRects, mm: b.minimap, texts: b.textSizes, banner: b.bannerRect,
             hero: b.toScreen(l.x, l.y), head: b.toScreen(l.x, l.y, 72), mode: b.mode, typeLabel: b.typeLabel };
         });
-        expect(d.mode, label).toBe(name === "rest" || name === "long" ? "play" : name);
+        expect(d.mode, label).toBe(name === "rest" || name === "long" || name === "down" ? "play" : name);
         checkPhoneScreen(label, d, minText);
         expect(d.texts.main || d.texts.title, `${label}: texts recorded`).toBeTruthy();
         if (name === "menu") {
@@ -754,6 +768,15 @@ for (const [vw, vh] of PHONE_SIZES) {
           for (const p of [d.hero, d.head]) expect(p.x >= d.banner.x && p.x <= d.banner.x + d.banner.w && p.y >= d.banner.y && p.y <= d.banner.y + d.banner.h).toBe(false);
         }
         if (name === "rest") expect(d.hud.map(h => h.id)).toContain("rest");
+        if (name === "down") {
+          // the 🩹 button ≈ 80 CSS px in the kiss button's place (bottom right), in buttonRects (the banner avoids those)
+          const kit = d.buttons.find(b => b.id === "kit:0");
+          expect(kit, `${label}: kit button`).toBeTruthy();
+          expect(d.buttons.some(b => b.id === "kiss:0"), `${label}: no kiss button while down`).toBe(false);
+          expect(Math.abs(kit.w * d.ui.scale - 80)).toBeLessThan(1);
+          expect(kit.x).toBeGreaterThan(d.ui.w / 2); expect(kit.y).toBeGreaterThan(d.ui.h / 2);
+          expect(d.hud.map(h => h.id)).toEqual(expect.arrayContaining(["gloves", "kitHint"]));
+        }
         if (name === "pause") expect(d.buttons.length).toBeGreaterThanOrEqual(3);
       }
       expect(errors).toEqual([]);

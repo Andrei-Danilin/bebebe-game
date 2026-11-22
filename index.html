@@ -121,6 +121,8 @@ const CFG = {
   KISS_STEP: 4,              // px — шаг проверки полёта (меньше клетки сетки FINE)
   KISS_BTN: 70,              // px — кнопка 💋 на сенсорном экране
   PAD_KISS: 2,               // кнопка геймпада для поцелуя: X (Xbox) / □ (PlayStation)
+  PAD_KIT: 3,                // кнопка геймпада для спасалки 🩹: Y (Xbox) / △ (PlayStation) (SPEC-007)
+  KIT_HINT_TIME: 4,          // сек — подсказка «Нажми 🩹» в первый раз за уровень, когда игрок со спасалками упал
   // режим телефона (SPEC-005): камера ближе и едет за героем, мини-карта, крупные кнопки
   PHONE_MAX_SHORT_SIDE: 500, // CSS px — короткая сторона экрана сенсорного устройства не больше этого = телефон (iPad ≥ 744)
   PHONE_UI_H: 420,           // UI px — высота слоя интерфейса на телефоне (ширина = 420 × соотношение сторон)
@@ -1514,6 +1516,7 @@ let typeLabel = null;           // тип выбранного уровня в �
 let items = [], itemCd = 5, itemSeq = 0, pendingWin = 0, lastReward = null, resetArmed = false;
 let bonusStars = [], starCd = 10, starSeq = 0;   // бонусные звёздочки (отдельно от предметов)
 let kisses = [], kissSeq = 0;                      // летящие воздушные поцелуи
+let kitHintT = 0, kitHintDone = false, kitHintPi = 0, kitHintRect = null;   // подсказка «Нажми 🩹» (SPEC-007): раз за уровень
 // ---------- Прогресс: миры (открытые уровни, звёзды), монетки, рукавицы (хранится в этом браузере) ----------
 // SPEC-006: progress.worlds = { park|school|beach|winter: { unlocked, stars: { [n]: 1..3 } } }, lastWorld — мир в меню
 const freshWorld = () => ({ unlocked: 1, stars: {} });
@@ -1645,6 +1648,7 @@ function resetWorld(n) {
   items = []; itemCd = rand(4, 7); pendingWin = 0;
   bonusStars = []; starCd = rand(CFG.STAR_EVERY[0], CFG.STAR_EVERY[1]);
   kisses = [];
+  kitHintT = 0; kitHintDone = false;
   texts = []; particles = []; attackToken = null; prevToken = null; botAttackCd = rand(3, 5); shake = 0; sticks.clear();
   stats = { hugs: 0, time: 0, playerHugs: 0, rests: 0, starCoins: 0 };
   lastReward = null; resetArmed = false;
@@ -1738,6 +1742,8 @@ function onKey(code) {
     if (code === "KeyP" || code === "Escape") mode = "pause";
     const kp = kissKeyPlayer(code);
     if (kp >= 0) throwKiss(kp);
+    const rp = kitKeyPlayer(code);
+    if (rp >= 0) useRescueKit(rp);
   } else if (mode === "pause") {
     if (code === "KeyP" || code === "Escape") mode = "play";
     if (code === "KeyQ") toMenu();
@@ -1755,6 +1761,12 @@ function kissKeyPlayer(code) {
   if (code === "KeyE") return 0;
   if (numPlayers === 1) return code === "Space" ? 0 : -1;
   return code === "Enter" || code === "NumpadEnter" ? 1 : -1;
+}
+
+// Спасалка 🩹 (SPEC-007): один игрок — Q; двое — игрок 1 Q, игрок 2 правый Shift
+function kitKeyPlayer(code) {
+  if (code === "KeyQ") return 0;
+  return numPlayers === 2 && code === "ShiftRight" ? 1 : -1;
 }
 
 // Касания: левая половина — игрок 1, правая — игрок 2 (в игре на одного — весь экран)
@@ -1838,12 +1850,14 @@ function closeNameInput(save) {
 // Геймпады
 let pads = [];
 const padPrev = [];
+// кнопки, у которых ловим нажатие: A, B, X, Y, Start, крестовина (+ поцелуй и спасалка из CFG)
+const PAD_EDGE = [...new Set([0, 1, 2, 3, 9, 12, 13, 14, 15, CFG.PAD_KISS, CFG.PAD_KIT])];
 function pollPads() {
   const list = navigator.getGamepads ? Array.from(navigator.getGamepads()).filter(Boolean) : [];
   pads = list.map((p, i) => {
     const btn = p.buttons.map(b => b.pressed);
     const prev = padPrev[i] || [];
-    for (const b of [0, 1, 2, 3, 9, 12, 13, 14, 15]) if (btn[b] && !prev[b]) onPadButton(b, i);
+    for (const b of PAD_EDGE) if (btn[b] && !prev[b]) onPadButton(b, i);
     padPrev[i] = btn;
     let x = p.axes[0] || 0, y = p.axes[1] || 0;
     if (Math.hypot(x, y) < 0.25) { x = 0; y = 0; }
@@ -1873,6 +1887,7 @@ function onPadButton(b, pad = 0) {
   } else if (mode === "play") {
     if (b === 9) mode = "pause";
     if (b === CFG.PAD_KISS && (numPlayers === 1 || pad < numPlayers)) throwKiss(numPlayers === 1 ? 0 : pad);
+    if (b === CFG.PAD_KIT && (numPlayers === 1 || pad < numPlayers)) useRescueKit(numPlayers === 1 ? 0 : pad);
   }
   else if (mode === "pause") { if (b === 9 || b === 0) mode = "play"; if (b === 1) toMenu(); }
   else if (mode === "win") { if (b === 0 || b === 9) nextLevel(); if (b === 1) toMenu(); }
@@ -1932,6 +1947,8 @@ function push(t) {
   t.botWait = rand(CFG.BOT_RESCUE_DELAY[0], CFG.BOT_RESCUE_DELAY[1]);   // боты пойдут спасать чуть позже
   t.kx = Math.cos(a) * 360; t.ky = Math.sin(a) * 360;
   if (attackToken === t) attackToken = null;
+  // первый раз за уровень упал игрок со спасалками — короткая подсказка «Нажми 🩹» (SPEC-007)
+  if (t.kind === "player" && !kitHintDone && progress.inv.rescues > 0) { kitHintDone = true; kitHintT = CFG.KIT_HINT_TIME; kitHintPi = t.id; }
   big.pushCd = 0.9;
   big.noPush = CFG.PUSH_RECOVER;          // передышка: какое-то время никого не толкает
   shake = 0.25;
@@ -2345,6 +2362,7 @@ function useRescueKit(pi) {
   const l = littles[pi];
   if (mode !== "play" || pendingWin > 0 || !canUseKit(l)) return false;   // боты, игрок на ногах, нет спасалок — ничего
   progress.inv.rescues--; saveProgress();
+  if (kitHintPi === pi) kitHintT = 0;                   // встал — подсказка больше не нужна
   // лёжа (таймер ещё не кончился) — это не отдых: stats.rests не растёт; дома — уже засчитанный отдых остаётся
   l.state = "ok"; l.invuln = CFG.KIT_INVULN; l.rescue = 0; l.downTimer = 0; l.restTimer = 0; l.path = [];
   l.kx = 0; l.ky = 0; l.moving = false; l.botWait = 0; l.fleeT = 0;
@@ -2448,6 +2466,7 @@ function update(dt) {
       const f = Math.exp(-7 * dt); l.kx *= f; l.ky *= f;
     } else { l.kx = 0; l.ky = 0; }
   }
+  kitHintT = Math.max(0, kitHintT - dt);
   updatePlayers(dt);
   updateBots(dt);
   updateBig(dt);
@@ -2576,6 +2595,18 @@ function drawKiss(x, y, s) {
   ctx.beginPath(); ctx.moveTo(-15, 4); ctx.quadraticCurveTo(0, 8, 15, 4); ctx.lineWidth = 2.5; ctx.strokeStyle = "#b8104f"; ctx.stroke();
   ctx.fillStyle = "rgba(255,255,255,.7)"; ellipse(-6, -3, 3.5, 1.8); ctx.fill();
   heartPath(14, -20, 13); fillStroke("#ff8fb8", 2.5);                    // летящее сердечко
+  ctx.restore();
+}
+// Спасалка 🩹: пластырь наискосок с подушечкой и сердечком (картинка в магазине, на кнопке и в HUD)
+function drawKit(x, y, s) {
+  ctx.save(); ctx.translate(x, y); ctx.scale(s / 40, s / 40);
+  ctx.save(); ctx.rotate(-0.6);
+  rr(-21, -8.5, 42, 17, 8.5); fillStroke("#f6c39b", 3);                  // пластырь
+  rr(-8, -7, 16, 14, 3); ctx.fillStyle = "#fff4ea"; ctx.fill();          // подушечка
+  ctx.fillStyle = "rgba(160,95,60,.45)";                                  // дырочки на концах
+  for (const dx of [-16, -12, 12, 16]) for (const dy of [-3, 3]) { circle(dx, dy, 1.2); ctx.fill(); }
+  ctx.restore();
+  heartPath(0, -5, 10); fillStroke("#ff4d8d", 1.5);                       // сердечко
   ctx.restore();
 }
 
@@ -2766,11 +2797,11 @@ function drawHUDPhone(t) {
     ctx.globalAlpha = 1;
     noteText("hint", labelFit(chipText(l), cx, cy, hint, tr.cd - cpx(4), l.state === "down" ? "#fecaca" : "#fff", "center", hint));
   });
-  // внизу справа: 💋 и рукавицы рядом
-  const kissOn = mode === "play" && progress.inv.kisses > 0;
-  if (kissOn) kissButton(0);
+  // внизу справа: 💋 (или 🩹, пока герой лежит, хромает домой или отдыхает — SPEC-007) и рукавицы рядом
+  const kitOn = mode === "play" && canUseKit(littles[0]), kissOn = mode === "play" && !kitOn && progress.inv.kisses > 0;
+  if (kitOn) kitButton(0); else if (kissOn) kissButton(0);
   const kr = kissBtnRect(0), gl = gloveOf(0), gh = cpx(44), gEach = cpx(80);
-  let rightEdge = kissOn ? kr.x - gap : UW - m;
+  let rightEdge = kitOn || kissOn ? kr.x - gap : UW - m;
   if (gl) {
     const gx0 = rightEdge - gEach, gy0 = UH - m - gh;
     plate("gloves", gx0, gy0, gEach, gh);
@@ -2785,11 +2816,16 @@ function drawHUDPhone(t) {
     const hy = UH - m - cpx(16), hs = labelFit(L().touch1, bcx, hy, cpx(17), bw, "#fff", "center", hint), tw2 = Math.min(bw, ctx.measureText(L().touch1).width);
     noteText("hint", hs); hudRects.push({ id: "hint", x: bcx - tw2 / 2, y: hy - hs * 0.7, w: tw2, h: hs * 1.4 });
   }
-  littles.filter(l => l.kind === "player" && (l.state === "home" || l.state === "rest")).forEach((l, i) => {
+  const resting = littles.filter(l => l.kind === "player" && (l.state === "home" || l.state === "rest"));
+  resting.forEach((l, i) => {
     const rh = cpx(40), ry = UH - m - rh - i * (rh + gap) - (stats.time < 5 ? cpx(36) : 0);
     rr(m, ry, bw, rh, cpx(14)); fillStroke("rgba(30,41,59,.8)", 3); hudRects.push({ id: "rest", x: m, y: ry, w: bw, h: rh });
     noteText("main", fitText(restText(l), bcx, ry + rh / 2, cpx(17), bw - 2 * pad, "center", "#e0e7ff", 800, main));
   });
+  if (kitHintOn()) {                                     // «Нажми 🩹» — над плашками «отдыхает»
+    const rh = cpx(40), ry = UH - m - rh - resting.length * (rh + gap) - (stats.time < 5 ? cpx(36) : 0);
+    drawKitHint(m, ry, bw, rh, cpx(14), sz => noteText("main", sz), cpx(17), main);
+  }
   if (showMinimap()) { drawMinimap(t); drawEdgeArrows(); }
 }
 function drawHUD(t) {
@@ -2816,14 +2852,18 @@ function drawHUD(t) {
   });
 
   const gls = [0, 1].filter(pi => pi < numPlayers).map(pi => gloveOf(pi)).filter(Boolean);
-  const kinds = [...new Set(gls)], showKiss = !isTouch && progress.inv.kisses > 0;
-  if (kinds.length || showKiss) {                          // сколько сильных обнимашек и поцелуев осталось
-    const n = kinds.length + (showKiss ? 1 : 0);
+  const kinds = [...new Set(gls)], showKiss = !isTouch && progress.inv.kisses > 0, showKit = !isTouch && progress.inv.rescues > 0;
+  if (kinds.length || showKiss || showKit) {               // сколько сильных обнимашек, поцелуев и спасалок осталось
+    const n = kinds.length + (showKiss ? 1 : 0) + (showKit ? 1 : 0);
     rr(10, 48, 20 + n * 70, 34, 14); fillStroke("rgba(255,255,255,.8)", 3);
     kinds.forEach((k, i) => { drawMitten(30 + i * 70, 65, 26, k); label("×" + progress.inv[k], 58 + i * 70, 65, 16, OUT); });
     if (showKiss) { const i = kinds.length; drawKiss(30 + i * 70, 67, 26); label("×" + progress.inv.kisses, 58 + i * 70, 65, 16, OUT); }
+    if (showKit) { const i = kinds.length + (showKiss ? 1 : 0); drawKit(30 + i * 70, 65, 30); label("×" + progress.inv.rescues, 58 + i * 70, 65, 16, OUT); }
   }
-  if (isTouch && mode === "play" && progress.inv.kisses > 0) for (let pi = 0; pi < numPlayers; pi++) kissButton(pi);
+  // кнопка игрока: 💋, а пока он лежит, хромает домой или отдыхает и спасалки есть — 🩹 на том же месте (SPEC-007)
+  if (isTouch && mode === "play") for (let pi = 0; pi < numPlayers; pi++) {
+    if (canUseKit(littles[pi])) kitButton(pi); else if (progress.inv.kisses > 0) kissButton(pi);
+  }
   rr(UW / 2 - 95, 8, 110, 34, 14); fillStroke("rgba(255,255,255,.8)", 3);
   label(timerText(), UW / 2 - 40, 25, 14, OUT);
   addButton(UW / 2 + 22, 8, 40, 34, "II", "#64748b", () => { mode = "pause"; }, 16);
@@ -2833,10 +2873,24 @@ function drawHUD(t) {
   if (isTouch && stats.time < 5) {
     label(numPlayers === 2 ? L().touch2 : L().touch1, UW / 2, UH - 26, 18, "#fff");
   }
-  littles.filter(l => l.kind === "player" && (l.state === "home" || l.state === "rest")).forEach((l, i) => {
+  const resting = littles.filter(l => l.kind === "player" && (l.state === "home" || l.state === "rest"));
+  resting.forEach((l, i) => {
     rr(UW / 2 - 230, UH - 58 - i * 44, 460, 38, 14); fillStroke("rgba(30,41,59,.75)", 3);
     fitText(restText(l), UW / 2, UH - 39 - i * 44, 17, 440, "center", "#e0e7ff", 800);
   });
+  if (kitHintOn()) drawKitHint(UW / 2 - 230, UH - 58 - resting.length * 44, 460, 38, 14, () => {}, 18, 9);   // над плашками «отдыхает»
+}
+
+// Подсказка «Нажми 🩹» (SPEC-007): видна KIT_HINT_TIME сек, пока упавший игрок может встать спасалкой.
+// Без сенсорного экрана — ещё и клавиша этого игрока: Q (игрок 2 вдвоём — Shift справа)
+const kitHintOn = () => mode === "play" && kitHintT > 0 && canUseKit(littles[kitHintPi]);
+const kitHintText = () => L().kitHint + (PHONE || isTouch ? "" : numPlayers === 2 && kitHintPi === 1 ? " (Shift ⇨)" : " (Q)");
+function drawKitHint(x, y, w, h, r, note, size, min) {
+  const text = kitHintText();
+  rr(x, y, w, h, r); fillStroke("rgba(255,250,235,.95)", 3);
+  hudRects.push({ id: "kitHint", x, y, w, h });
+  note(fitText(text, x + w / 2, y + h / 2 + 1, size, w - 2 * r, "center", "#be185d", 900, min));
+  kitHintRect = { x, y, w, h, text };
 }
 
 // Круглая кнопка 💋 игрока pi: внизу справа (один игрок) или на своей стороне (двое); касание здесь — не джойстик
@@ -2863,6 +2917,20 @@ function kissButton(pi) {
   circle(cx + r * 0.72, cy - r * 0.72, br); fillStroke("#ff4d8d", 2.5);
   label(String(progress.inv.kisses), cx + r * 0.72, cy - r * 0.72 + 1, fz(13, "hint"), "#fff");
   buttons.push({ ...rc, act: () => throwKiss(pi), id: "kiss:" + pi });
+}
+// Круглая кнопка 🩹 игрока pi — на месте 💋 (поцелуй лёжа всё равно не бросить); мигает кольцом, сверху — сколько спасалок
+function kitButton(pi) {
+  const rc = kissBtnRect(pi), r = rc.w / 2, cx = rc.x + r, cy = rc.y + r, pulse = 0.5 + 0.5 * Math.sin(performance.now() / 180);
+  ctx.save(); ctx.globalAlpha = 0.95;
+  ctx.fillStyle = "rgba(0,0,0,.3)"; circle(cx + 2, cy + 4, r); ctx.fill();
+  circle(cx, cy, r); fillStroke("#dcfce7", 4, numPlayers === 2 ? P_COLORS[pi] : OUT);
+  ctx.globalAlpha = 0.35 + 0.5 * pulse; circle(cx, cy, r - 6); ctx.lineWidth = 4; ctx.strokeStyle = "#22c55e"; ctx.stroke();
+  ctx.globalAlpha = 1; drawKit(cx, cy, r * 1.3);
+  ctx.restore();
+  const br = PHONE ? cpx(15) : 13;
+  circle(cx + r * 0.72, cy - r * 0.72, br); fillStroke("#16a34a", 2.5);
+  label(String(progress.inv.rescues), cx + r * 0.72, cy - r * 0.72 + 1, fz(13, "hint"), "#fff");
+  buttons.push({ ...rc, act: () => useRescueKit(pi), id: "kit:" + pi });
 }
 
 // ---------- Мини-карта и стрелки у края (SPEC-005, только телефон) ----------
@@ -3491,7 +3559,7 @@ function placePhoneBanner() {
     return segs.reduce((best, sg) => sg[1] - sg[0] > best[1] - best[0] ? sg : best, [0, 0]);
   };
   // низ: над подсказкой «проведи пальцем» и плашками «отдыхает» (они по всей ширине слева от кнопок)
-  const low = hudRects.filter(r => r.id === "hint" || r.id === "rest").reduce((v, r) => Math.min(v, r.y - gap), UH - m);
+  const low = hudRects.filter(r => r.id === "hint" || r.id === "rest" || r.id === "kitHint").reduce((v, r) => Math.min(v, r.y - gap), UH - m);
   const bands = [{ from: phoneTopBar() + gap, to: mid - h, dir: 1 }, { from: low - h, to: mid, dir: -1 }];
   if (hr && hr.y + hr.h / 2 < mid) bands.reverse();          // герой в верхней половине — сначала низ
   for (const bd of bands) {
@@ -3527,7 +3595,7 @@ function drawBanner() {
 }
 function drawUI(t) {
   if (nameInput && mode !== "skins" && mode !== "names") closeNameInput(false);
-  buttons = []; installHintShown = false; typeLabel = null; worldCards = []; winLine = ""; mmShown = false; edgeArrows = []; hudRects = []; textSizes = {}; bannerRect = null;
+  buttons = []; installHintShown = false; typeLabel = null; worldCards = []; winLine = ""; mmShown = false; edgeArrows = []; hudRects = []; textSizes = {}; bannerRect = null; kitHintRect = null;
   ctx.setTransform(VIEW, 0, 0, VIEW, 0, 0);
   ctx.clearRect(0, 0, UW, UH);
   if (mode !== "menu" && mode !== "skins" && mode !== "names" && mode !== "shop") { drawMarkers(t); drawFx(); drawHUD(t); }
@@ -4913,7 +4981,7 @@ window.__bb = {
   grid: { COLS, ROWS, CELL, get blocked() { return Array.from(blocked); }, get blockedBig() { return Array.from(blockedBig); }, seeSolid: seeSolidAt, get bushes() { return bushes.map(q => ({ ...q })); },
     get obstacles() { return obstacles.map(o => ({ kind: o.kind, shape: o.shape, x: o.x, y: o.y, w: o.w, h: o.h, r: o.r, move: o.move, sight: o.sight })); } },
   get kisses() { return kisses; }, throwKiss, buyKisses, resetProgress, heartFill, bigBoost, fmtHearts,
-  RESCUE_KIT, buyRescueKit, useRescueKit,   // SPEC-007
+  RESCUE_KIT, buyRescueKit, useRescueKit, get kitHint() { return kitHintRect; },   // SPEC-007
   levelType, levelReport, get levelInfo() { return levelInfo; }, clearLevelCache, CFG, THEMES,
   get banner() { return banner; }, bannerAlpha, get typeLabel() { return typeLabel; },
   // всё состояние мира, которое levelReport сохраняет и возвращает (для теста «не трогает идущую игру»)
