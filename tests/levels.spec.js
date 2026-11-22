@@ -690,7 +690,7 @@ test("start banner shows the level type", async ({ page }) => {
 
 test("the menu shows the selected level's type and it fits", async ({ page }) => {
   for (const [lang, lv, want] of [["en", 8, "River with bridges"], ["es", 11, "Casa con cuartos"], ["ru", 8, "Река с мостиками"], ["ru", 14, "Арена с кольцом"], ["en", 1, "Our drawing"]]) {
-    await page.evaluate(([l, n]) => { const b = window.__bb; b.setLang(l); b.progress.unlocked = 20; b.level = n; b.mode = "menu"; }, [lang, lv]);
+    await page.evaluate(([l, n]) => { const b = window.__bb; b.setLang(l); b.progress.worlds.park.unlocked = 20; b.level = n; b.mode = "menu"; }, [lang, lv]);
     await frames(page);
     const r = await page.evaluate(() => ({ label: window.__bb.typeLabel, rects: window.__bb.buttonRects }));
     expect(r.label.text, `${lang} level ${lv}`).toBe(want);

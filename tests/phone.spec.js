@@ -316,7 +316,7 @@ test.describe("phone camera", () => {
 
   test("a hero in a top-right house is not hidden under the mini-map, team chips or top bar", async ({ page }) => {
     const errors = await openGame(page, { query: "?phone=1" });
-    await page.evaluate(() => { const b = window.__bb; b.progress.unlocked = 20; b.world = "beach"; b.level = 12; b.startGame(1); Object.assign(b.big, { stun: 999 }); });   // rooms, the house top-right
+    await page.evaluate(() => { const b = window.__bb; b.progress.worlds.beach.unlocked = 20; b.world = "beach"; b.level = 12; b.startGame(1); Object.assign(b.big, { stun: 999 }); });   // rooms, the house top-right
     await frames(page);
     const d = await page.evaluate(() => {
       const b = window.__bb, l = b.littles[0];
@@ -645,7 +645,7 @@ const PHONE_SCENES = {
   long: async page => {
     await page.evaluate(() => {
       const b = window.__bb; b.resetBannerTimer();
-      b.progress.unlocked = 20; b.world = "winter"; b.level = 13; b.setName("big", "Великолепный"); b.progress.inv.kisses = 5;
+      b.progress.worlds.winter.unlocked = 20; b.world = "winter"; b.level = 13; b.setName("big", "Великолепный"); b.progress.inv.kisses = 5;
       b.startGame(1); Object.assign(b.big, { state: "look", timer: 999, stun: 999 });
       b.big.hp = b.big.maxHp - 1.5;
     });
@@ -664,7 +664,7 @@ const PHONE_SCENES = {
     await page.evaluate(() => { const b = window.__bb; b.startGame(1); b.stats.time = 30; b.mode = "pause"; });
   },
   menu: async page => {
-    await page.evaluate(() => { const b = window.__bb; b.progress.unlocked = 10; b.level = 5; b.progress.stars[5] = 2; b.resetWorld(1); b.mode = "menu"; });
+    await page.evaluate(() => { const b = window.__bb; b.progress.worlds.park.unlocked = 10; b.level = 5; b.progress.worlds.park.stars[5] = 2; b.resetWorld(1); b.mode = "menu"; });
   },
   skins: async page => { await page.evaluate(() => { window.__bb.mode = "skins"; }); },
   names: async page => { await page.evaluate(() => { window.__bb.mode = "names"; }); },

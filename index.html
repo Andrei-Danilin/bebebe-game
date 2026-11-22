@@ -86,9 +86,11 @@ const CFG = {
   // монетки за уровень
   COINS_WIN: 10, COINS_PER_LEVEL: 5, COINS_NOBODY_OUT: 10, COINS_FAST: 10, COINS_PER_HUG: 2,
   COINS_PER_REST: 3, COINS_MIN_WIN: 5,   // каждый ушедший отдыхать отнимает монетки (но не меньше минимума)
+  COINS_PER_WORLD: 10,       // +монетки за победу в каждом следующем мире (SPEC-006)
   REST_TIME: 120,            // сек — сколько отдыхает в домике тот, кого не спасли
   HOME_SPEED: 85,            // как быстро он хромает к домику
-  FAST_TIME: lv => 60 + lv * 15,  // сек — успеть за это время = третья звезда
+  FAST_TIME: lv => 60 + lv * 15,  // сек — успеть за это время = третья звезда (lv — номер в мире)
+  FAST_PER_WORLD: 10,        // сек — и ещё столько в каждом следующем мире: у Большого больше сердечек (SPEC-006)
   // бонусные звёздочки: подбирают только игроки
   STAR_EVERY: [10, 15],      // сек — как часто появляется звёздочка
   STAR_MAX: 2,               // сколько может лежать одновременно (отдельно от предметов)
@@ -205,7 +207,7 @@ const I18N = {
     rotate: "Turn your device sideways ↻", installHint: "Install on iPhone: Share ⬆️ → Add to Home Screen", me: "Me", botChip: "B", safe: "SAFE",
     skins: "Skins", player1: "Player 1", player2: "Player 2", ok: "OK",
     slots: { hair: "Hair", hat: "Hat", jacket: "Jacket", pants: "Pants", look: "Look" },
-    place: "Place", auto: "Auto", places: { park: "Park", beach: "Beach", winter: "Winter", school: "Schoolyard" },
+    worlds: { park: "Park", school: "School", beach: "Beach", winter: "Winter" }, worldDone: w => `You finished the ${w}!`,
     items: { boots: "Speed boots!", cloak: "Invisible!", shield: "Shield!" }, blocked: "Blocked!", slip: "Whoops!",
     shop: "Shop", buy: "Buy", have: n => `You have: ${n} power ${n === 1 ? "hug" : "hugs"}`, wears: "wears", none: "None",
     gloves: { mittens: "Warm mittens", mega: "Mega hug mittens" }, gloveDesc: p => `Each hug takes ${p} hearts`,
@@ -240,7 +242,7 @@ const I18N = {
     rotate: "Girá el dispositivo ↻", installHint: "Instalala en el iPhone: Compartir ⬆️ → Agregar a pantalla de inicio", me: "Yo", botChip: "B", safe: "ZONA SEGURA",
     skins: "Personajes", player1: "Jugador 1", player2: "Jugador 2", ok: "Listo",
     slots: { hair: "Pelo", hat: "Gorro", jacket: "Campera", pants: "Pantalón", look: "Aspecto" },
-    place: "Lugar", auto: "Auto", places: { park: "Plaza", beach: "Playa", winter: "Invierno", school: "Patio del cole" },
+    worlds: { park: "Parque", school: "Escuela", beach: "Playa", winter: "Invierno" }, worldDone: w => `¡Terminaste ${w}!`,
     items: { boots: "¡Zapatillas veloces!", cloak: "¡Invisible!", shield: "¡Escudo!" }, blocked: "¡Bloqueado!", slip: "¡Upa!",
     shop: "Tienda", buy: "Comprar", have: n => `Tenés: ${n} ${n === 1 ? "abrazo potente" : "abrazos potentes"}`, wears: "usa", none: "Nada",
     gloves: { mittens: "Mitones abrigados", mega: "Mitones del abrazo gigante" }, gloveDesc: p => `Cada abrazo saca ${p} corazones`,
@@ -275,7 +277,8 @@ const I18N = {
     rotate: "Поверни устройство боком ↻", installHint: "Установить на iPhone: Поделиться ⬆️ → На экран «Домой»", me: "Я", botChip: "Б", safe: "БЕЗОПАСНО",
     skins: "Скины", player1: "Игрок 1", player2: "Игрок 2", ok: "Готово",
     slots: { hair: "Причёска", hat: "Головной убор", jacket: "Куртка", pants: "Штаны", look: "Вид" },
-    place: "Место", auto: "Авто", places: { park: "Парк", beach: "Пляж", winter: "Зима", school: "Школьный двор" },
+    worlds: { park: "Парк", school: "Школа", beach: "Пляж", winter: "Зима" },
+    worldDone: w => `${w} ${["Школа", "Зима"].includes(w) ? "пройдена" : "пройден"}!`,   // род: Школа/Зима пройдена, Парк/Пляж пройден
     items: { boots: "Сапоги-скороходы!", cloak: "Невидимка!", shield: "Щит!" }, blocked: "Щит спас!", slip: "Поскользнулся!",
     shop: "Магазин", buy: "Купить", have: n => `У вас: ${n} ${["сильная обнимашка", "сильные обнимашки", "сильных обнимашек"][n % 10 === 1 && n % 100 !== 11 ? 0 : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 1 : 2]}`, wears: "носит", none: "Ничего",
     gloves: { mittens: "Тёплые рукавицы", mega: "Мега-рукавицы" }, gloveDesc: p => `Каждая обнимашка забирает ${p} сердечка`,
@@ -1441,6 +1444,8 @@ const currentPlace = () => curWorld;
 // следующий мир в меню (временная кнопка до нового меню SPEC-006)
 function nextWorld() {
   curWorld = WORLDS[(worldIndex(curWorld) + 1) % WORLDS.length];
+  progress.lastWorld = curWorld; saveProgress();
+  level = worldProgress().unlocked;
   resetWorld(numPlayers);
 }
 // ---------- Имена: игроки, Большой, боты (localStorage bebebe-names; "" = имя по умолчанию на текущем языке) ----------
@@ -1490,18 +1495,50 @@ let typeLabel = null;           // тип выбранного уровня в �
 let items = [], itemCd = 5, itemSeq = 0, pendingWin = 0, lastReward = null, resetArmed = false;
 let bonusStars = [], starCd = 10, starSeq = 0;   // бонусные звёздочки (отдельно от предметов)
 let kisses = [], kissSeq = 0;                      // летящие воздушные поцелуи
-// ---------- Прогресс: открытые уровни, звёзды, монетки, рукавицы (хранится в этом браузере) ----------
-const freshProgress = () => ({ unlocked: 1, stars: {}, coins: 0, inv: { mittens: 0, mega: 0, kisses: 0 }, equip: ["none", "none"] });
-let progress = freshProgress();
+// ---------- Прогресс: миры (открытые уровни, звёзды), монетки, рукавицы (хранится в этом браузере) ----------
+// SPEC-006: progress.worlds = { park|school|beach|winter: { unlocked, stars: { [n]: 1..3 } } }, lastWorld — мир в меню
+const STARS_PER_LEVEL = 3;
+const freshWorld = () => ({ unlocked: 1, stars: {} });
+const freshProgress = () => ({ worlds: Object.fromEntries(WORLDS.map(w => [w, freshWorld()])), lastWorld: WORLDS[0],
+  coins: 0, inv: { mittens: 0, mega: 0, kisses: 0 }, equip: ["none", "none"] });
+// один мир из сохранения: испорченное → по умолчанию, уровни за пределами мира отбрасываются
+function cleanWorld(v) {
+  const max = levelsPerWorld(), out = freshWorld();
+  if (!v || typeof v !== "object") return out;
+  const u = Math.floor(Number(v.unlocked));
+  if (Number.isFinite(u)) out.unlocked = clamp(u, 1, max);
+  if (v.stars && typeof v.stars === "object") for (const [k, x] of Object.entries(v.stars)) {
+    const n = Number(k), st = Math.floor(Number(x));
+    if (Number.isInteger(n) && n >= 1 && n <= max && st > 0) out.stars[n] = Math.min(STARS_PER_LEVEL, st);
+  }
+  return out;
+}
+// Сохранение → прогресс. Старое (до SPEC-006: unlocked и stars без миров) переезжает в Парк; поля unlocked/stars
+// из объекта убираются (при следующем сохранении их нет). Никогда не бросает.
+function loadProgress(pv) {
+  const p = freshProgress();
+  if (!pv || typeof pv !== "object") return p;
+  const { unlocked, stars, worlds, lastWorld, ...rest } = pv;
+  const src = worlds && typeof worlds === "object" ? worlds : { [WORLDS[0]]: { unlocked, stars } };
+  const out = { ...p, ...rest, worlds: {}, lastWorld: WORLDS.includes(lastWorld) ? lastWorld : WORLDS[0],
+    inv: { ...p.inv, ...(pv.inv && typeof pv.inv === "object" ? pv.inv : {}) }, equip: Array.isArray(pv.equip) ? pv.equip : p.equip };
+  for (const w of WORLDS) out.worlds[w] = cleanWorld(src[w]);
+  const k = Number(out.inv.kisses);                        // старые сохранения без поцелуев (или испорченные) → 0
+  out.inv.kisses = Number.isFinite(k) && k > 0 ? Math.floor(k) : 0;
+  return out;
+}
+let progress = freshProgress(), migrated = false;
 try {
   const pv = JSON.parse(localStorage.getItem("bebebe-progress") || "null");
-  if (pv) progress = { ...progress, ...pv, inv: { ...progress.inv, ...(pv.inv || {}) }, stars: pv.stars || {}, equip: pv.equip || ["none", "none"] };
-  const k = Number(progress.inv.kisses);                   // старые сохранения без поцелуев (или испорченные) → 0
-  progress.inv.kisses = Number.isFinite(k) && k > 0 ? Math.floor(k) : 0;
-} catch (e) { /* ok */ }
+  progress = loadProgress(pv);
+  migrated = !!pv && typeof pv === "object" && !pv.worlds && ("unlocked" in pv || "stars" in pv);
+} catch (e) { progress = freshProgress(); }
 const saveProgress = () => { try { localStorage.setItem("bebebe-progress", JSON.stringify(progress)); } catch (e) { /* ok */ } };
-level = clamp(progress.unlocked, 1, levelsPerWorld());   // временно до progress.worlds (SPEC-006, шаг 4)
-const totalStars = () => Object.values(progress.stars).reduce((a, b) => a + b, 0);
+if (migrated) saveProgress();                              // переезд старого сохранения — один раз
+const worldProgress = (w = curWorld) => progress.worlds[w];
+curWorld = progress.lastWorld;
+level = worldProgress().unlocked;                          // меню открывается на последнем мире, на его новом уровне
+const totalStars = () => WORLDS.reduce((a, w) => a + Object.values(progress.worlds[w].stars).reduce((x, y) => x + y, 0), 0);
 const fmtHearts = n => (Math.floor(n) || (n % 1 ? "" : "0")) + (n % 1 ? "½" : "");   // 2.5 → «2½», 0.5 → «½»
 const fmtTime = sec => `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, "0")}`;
 const gloveOf = pi => { const g = progress.equip[pi]; return g && g !== "none" && progress.inv[g] > 0 ? g : null; };
@@ -1522,23 +1559,27 @@ function resetProgress() {
   if (!resetArmed) { resetArmed = true; return; }
   resetArmed = false;
   progress = freshProgress();
+  progress.lastWorld = curWorld;
   saveProgress(); level = 1; resetWorld(numPlayers);
 }
 function giveReward(win) {
   const ph = stats.playerHugs;
   const starCoins = stats.starCoins;        // монетки за звёздочки уже в копилке (начислены при подборе)
   if (!win) { const c = ph * CFG.COINS_PER_HUG; progress.coins += c; saveProgress(); lastReward = { win: false, coins: c + starCoins, starCoins }; return; }
-  const rests = stats.rests, nobodyOut = rests === 0, target = CFG.FAST_TIME(level), fast = stats.time <= target;
+  const wi = worldIndex(curWorld), wp = worldProgress();
+  const rests = stats.rests, nobodyOut = rests === 0, target = CFG.FAST_TIME(level) + wi * CFG.FAST_PER_WORLD, fast = stats.time <= target;
   const stars = 1 + (nobodyOut ? 1 : 0) + (fast ? 1 : 0);
   const penalty = rests * CFG.COINS_PER_REST;
-  const coins = Math.max(CFG.COINS_MIN_WIN, CFG.COINS_WIN + level * CFG.COINS_PER_LEVEL + (nobodyOut ? CFG.COINS_NOBODY_OUT : 0) + (fast ? CFG.COINS_FAST : 0) + ph * CFG.COINS_PER_HUG - penalty);
-  const prevStars = progress.stars[level] || 0;
-  progress.stars[level] = Math.max(prevStars, stars);
-  progress.unlocked = Math.max(progress.unlocked, Math.min(levelsPerWorld(), level + 1));
+  const coins = Math.max(CFG.COINS_MIN_WIN, CFG.COINS_WIN + level * CFG.COINS_PER_LEVEL + wi * CFG.COINS_PER_WORLD + (nobodyOut ? CFG.COINS_NOBODY_OUT : 0) + (fast ? CFG.COINS_FAST : 0) + ph * CFG.COINS_PER_HUG - penalty);
+  const prevStars = wp.stars[level] || 0;
+  wp.stars[level] = Math.max(prevStars, stars);
+  wp.unlocked = Math.max(wp.unlocked, Math.min(levelsPerWorld(), level + 1));   // только в этом мире
+  progress.lastWorld = curWorld;
   progress.coins += coins;
   saveProgress();
   // звёздочки — сверх награды, после минимума: штраф за отдых их не съедает
-  lastReward = { win: true, coins: coins + starCoins, starCoins, stars, nobodyOut, fast, target, penalty, newBest: stars > prevStars };
+  lastReward = { win: true, coins: coins + starCoins, starCoins, stars, nobodyOut, fast, target, penalty, newBest: stars > prevStars,
+    world: curWorld, level, worldDone: level >= levelsPerWorld() };
 }
 
 function makeLittle(i, kind, botIndex, controls, look) {
@@ -1590,9 +1631,10 @@ function showBanner() {
 const bannerAlpha = () => !banner ? 0 : clamp(Math.min(banner.t, CFG.BANNER_TIME - banner.t) / CFG.BANNER_FADE, 0, 1);
 // camSnap: начало уровня — камера телефона сразу у героя (в resetWorld нельзя: он же открывает меню, где камера показывает всю карту)
 function startGame(n) { resetWorld(n); mode = "play"; showBanner(); camSnap(); }
-function nextLevel() { level = Math.min(level + 1, levelsPerWorld()); startGame(numPlayers); }
+// следующий уровень того же мира; после последнего мир пройден — в меню
+function nextLevel() { if (level >= levelsPerWorld()) { toMenu(); return; } level++; startGame(numPlayers); }
 function toMenu() { resetWorld(numPlayers); mode = "menu"; }
-function changeLevel(d) { level = clamp(level + d, 1, Math.min(levelsPerWorld(), progress.unlocked)); resetWorld(numPlayers); }
+function changeLevel(d) { level = clamp(level + d, 1, worldProgress().unlocked); resetWorld(numPlayers); }
 
 // =====================================================================
 //  ЗВУК
@@ -2967,11 +3009,20 @@ const shopCards = () => [
   ...["mittens", "mega"].map(k => ({ k, name: L().gloves[k], desc: L().gloveDesc(GLOVES[k].power), pack: L().pack(GLOVES[k].charges), have: L().have(progress.inv[k]), n: progress.inv[k], price: GLOVES[k].price, buy: () => buyGloves(k) })),
   { k: "kisses", name: L().kisses, desc: L().kissDesc, pack: L().kissPack(KISSES.pack), have: L().kissHave(progress.inv.kisses), n: progress.inv.kisses, price: KISSES.price, buy: buyKisses }
 ];
+// строка под «Победа!»: после последнего уровня мира — «мир пройден» (SPEC-006); winLine — для тестов
+let winLine = "";
+function winText() {
+  winLine = lastReward && lastReward.worldDone ? L().worldDone(L().worlds[lastReward.world]) : L().winSub;
+  return winLine;
+}
 // кнопки экрана итогов (компьютер и телефон): [надпись, цвет, действие]
 function endActions(m) {
   const menu = [L().menu, "#64748b", toMenu];
-  if (m === "win") return [[L().next(level + 1), "#22c55e", nextLevel],
-    ["🛒 " + L().shop, "#f59e0b", () => { level = clamp(level + 1, 1, Math.min(levelsPerWorld(), progress.unlocked)); resetWorld(numPlayers); mode = "shop"; }], menu];
+  if (m === "win") {
+    const shop = ["🛒 " + L().shop, "#f59e0b", () => { level = clamp(level + 1, 1, worldProgress().unlocked); resetWorld(numPlayers); mode = "shop"; }];
+    if (level >= levelsPerWorld()) return [[L().menu, "#22c55e", toMenu], shop];   // мир пройден: дальше — меню
+    return [[L().next(level + 1), "#22c55e", nextLevel], shop, menu];
+  }
   return [[L().again, "#f59e0b", () => startGame(numPlayers)], ["🛒 " + L().shop, "#f59e0b", () => { resetWorld(numPlayers); mode = "shop"; }], menu];
 }
 function drawOverlayPhone() {
@@ -3012,15 +3063,15 @@ function drawOverlayPhone() {
     typeLabel = { text: tName, x: rx + R / 2 - tw / 2, y: tY - tSize / 2, w: tw, h: tSize, size: tSize, rulesBottom: above };
     ry += c(18) + c(4);
     addButton(rx, ry, B, B, "◀", "#94a3b8", () => changeLevel(-1), fz(20, "main"));
-    const canNext = level < progress.unlocked;
+    const canNext = level < worldProgress().unlocked;
     addButton(rx + R - B, ry, B, B, canNext ? "▶" : "🔒", canNext ? "#94a3b8" : "#cbd5e1", () => changeLevel(1), fz(canNext ? 20 : 16, "main"));
     const bx = rx + B + g, bw = R - 2 * (B + g);
     rr(bx, ry, bw, B, c(12)); fillStroke("#fff", 3);
     hudRects.push({ id: "level", x: bx, y: ry, w: bw, h: B });
     pText(`${L().level} ${level}`, bx + bw / 2, ry + c(15), "main", 16, bw - c(8), "center", OUT, 900);
-    for (let k = 0; k < 3; k++) drawStar(bx + bw / 2 - c(14) + k * c(14), ry + c(33), c(5.5), k < (progress.stars[level] || 0));
+    for (let k = 0; k < 3; k++) drawStar(bx + bw / 2 - c(14) + k * c(14), ry + c(33), c(5.5), k < (worldProgress().stars[level] || 0));
     ry += B + gy;
-    const placeTxt = L().places[curWorld];   // мир (временно, до нового меню SPEC-006)
+    const placeTxt = L().worlds[curWorld];   // мир (временно, до нового меню SPEC-006)
     pButton(rx, ry, R, B, "🗺 " + placeTxt, "#38bdf8", nextWorld, 17);
     ry += B + gy;
     pButton(rx, ry, R, c(56), "▶ " + L().play, "#3b82f6", () => startGame(1), 26);
@@ -3125,7 +3176,7 @@ function drawOverlayPhone() {
     let acts;
     if (mode === "win") {
       pLabel(L().win, lx, Y0 + c(30), "title", 40, "#ffcf33", "center", colW);
-      pWrap(L().winSub, lx, Y0 + c(58), "main", 16, colW, 2, "#fff", 900);
+      pWrap(winText(), lx, Y0 + c(58), "main", 16, colW, 2, "#fff", 900);
       for (let k = 0; k < 3; k++) drawStar(lx - c(56) + k * c(56), Y0 + c(140), c(22), k < rw.stars);
       [[true, L().victory], [rw.nobodyOut, L().nobodyOut], [rw.fast, L().fast(fmtTime(rw.target))]].forEach(([okk, txt], i) => {
         pLabel((okk ? "✔ " : "✘ ") + txt, rx, Y0 + c(26) + i * c(28), "main", 16, okk ? "#bbf7d0" : "#cbd5e1", "center", colW);
@@ -3170,14 +3221,14 @@ function drawOverlay() {
     addButton(UW / 2 - 250, 350, 52, 50, "◀", "#94a3b8", () => changeLevel(-1));
     rr(UW / 2 - 192, 350, 124, 50, 16); fillStroke("#fff", 4);
     fitText(`${L().level} ${level}`, UW / 2 - 130, 368, 20, 112, "center", OUT, 900);
-    for (let k = 0; k < 3; k++) drawStar(UW / 2 - 146 + k * 16, 389, 7, k < (progress.stars[level] || 0));
-    const canNext = level < progress.unlocked;
+    for (let k = 0; k < 3; k++) drawStar(UW / 2 - 146 + k * 16, 389, 7, k < (worldProgress().stars[level] || 0));
+    const canNext = level < worldProgress().unlocked;
     addButton(UW / 2 - 62, 350, 52, 50, canNext ? "▶" : "🔒", canNext ? "#94a3b8" : "#cbd5e1", () => changeLevel(1), canNext ? 24 : 18);
     // монетки и звёзды
     rr(UW / 2 - 345, 118, 170, 34, 14); fillStroke("#fff", 3);
     drawCoin(UW / 2 - 322, 135, 11); label(String(progress.coins), UW / 2 - 304, 135, 18, OUT, "left");
     drawStar(UW / 2 - 235, 135, 11, true); label(String(totalStars()), UW / 2 - 220, 135, 18, OUT, "left");
-    const placeTxt = L().places[curWorld];   // мир (временно, до нового меню SPEC-006)
+    const placeTxt = L().worlds[curWorld];   // мир (временно, до нового меню SPEC-006)
     addButton(UW / 2 + 20, 350, 230, 50, "🗺 " + placeTxt, "#38bdf8", nextWorld, placeTxt.length > 14 ? 16 : 20);
     addButton(UW / 2 - 250, 414, 230, 64, L().onePlayer, "#3b82f6", () => startGame(1), 28);
     addButton(UW / 2 + 20, 414, 230, 64, L().twoPlayers, "#22c55e", () => startGame(2), 28);
@@ -3270,7 +3321,7 @@ function drawOverlay() {
     addButton(UW / 2 + 10, UH / 2, 220, 66, L().menu, "#64748b", toMenu);
   } else if (mode === "win") {
     label(L().win, UW / 2, 92, 72, "#ffcf33");
-    label(L().winSub, UW / 2, 146, 22, "#fff");
+    label(winText(), UW / 2, 146, 22, "#fff");
     const rw = lastReward || { stars: 1, coins: 0, nobodyOut: false, fast: false, target: 0 };
     for (let k = 0; k < 3; k++) drawStar(UW / 2 - 80 + k * 80, 214, 32, k < rw.stars);
     [[true, L().victory], [rw.nobodyOut, L().nobodyOut], [rw.fast, L().fast(fmtTime(rw.target))]].forEach(([okk, txt], i) => {
@@ -3280,8 +3331,10 @@ function drawOverlay() {
     let ly = 394;
     if (rw.starCoins > 0) { label("✨ " + L().starCoins(rw.starCoins), UW / 2, ly, 16, "#fde047"); ly += 22; }
     if (rw.penalty > 0) label(L().restPenalty(rw.penalty), UW / 2, ly, 15, "#fca5a5");
-    const geo = [[UW / 2 - 360, 440, 260, 66, 24], [UW / 2 - 85, 440, 200, 66, 22], [UW / 2 + 130, 440, 200, 66, 22]];
-    endActions("win").forEach(([txt, col, act], i) => { const [x, y, w, h, sz] = geo[i]; addButton(x, y, w, h, txt, col, act, sz); });
+    const acts = endActions("win");
+    const geo = acts.length === 3 ? [[UW / 2 - 360, 440, 260, 66, 24], [UW / 2 - 85, 440, 200, 66, 22], [UW / 2 + 130, 440, 200, 66, 22]]
+      : [[UW / 2 - 240, 440, 260, 66, 24], [UW / 2 + 40, 440, 200, 66, 22]];
+    acts.forEach(([txt, col, act], i) => { const [x, y, w, h, sz] = geo[i]; addButton(x, y, w, h, txt, col, act, sz); });
   } else if (mode === "lose") {
     label(L().lose, UW / 2, UH / 2 - 100, 58, "#fca5a5");
     label(L().loseSub(fmtHearts(big.maxHp - big.hp), big.maxHp), UW / 2, UH / 2 - 35, 24, "#fff");
@@ -4689,6 +4742,7 @@ window.__bb = {
   get level() { return level; }, set level(v) { level = v; },
   // SPEC-006: world — мир идущего/выбранного уровня (не мир — игнорируется), level — номер в мире
   get world() { return curWorld; }, set world(v) { if (WORLDS.includes(v)) curWorld = v; }, WORLDS, difficulty, bigSpeeds,
+  changeLevel, get winLine() { return winLine; },
   update, inSafe, I18N, startGame, resetWorld, cycleOutfit, randomOutfit, cycleBig, setLang, toScreen,
   get items() { return items; }, get progress() { return progress; }, buyGloves, setEquip, get lastReward() { return lastReward; }, spawnItem,
   // SPEC-005 (телефон): phone; camera — позиция и точка взгляда в единицах 3D (1 = клетка), точка взгляда и видимая земля в px мира,
