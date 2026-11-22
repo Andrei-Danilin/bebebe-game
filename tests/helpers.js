@@ -11,6 +11,21 @@ const ROOT = path.resolve(__dirname, "..");
 const GAME_URL = "file://" + path.join(ROOT, "index.html").replace(/\\/g, "/");
 const THREE_DIR = path.join(ROOT, "node_modules", "three", "build");
 
+// Init script (runs before every document of the page): clears localStorage once per test and sets the language.
+// Every test gets a fresh browser context, so only its first document clears. A reload or a later goto never clears:
+// on CI the sessionStorage flag alone was sometimes gone after page.reload(), and saved data vanished
+// ("names are saved, cleaned and survive a reload", "star coins are added to the reward"). So the flag is kept in
+// localStorage too, and a reload is recognised by its navigation type.
+function clearOnce(l) {
+  try {
+    const nav = performance.getEntriesByType("navigation")[0];
+    if (nav && nav.type === "reload") return;
+    if (sessionStorage.getItem("bb-test-init") || localStorage.getItem("bb-test-init")) return;
+    localStorage.clear(); localStorage.setItem("bebebe-lang", l);
+    localStorage.setItem("bb-test-init", "1"); sessionStorage.setItem("bb-test-init", "1");
+  } catch (e) { /* ok */ }
+}
+
 async function openGame(page, { lang = "en", clearStorage = true } = {}) {
   const errors = [];
   page.on("pageerror", e => errors.push(String(e)));
@@ -21,7 +36,7 @@ async function openGame(page, { lang = "en", clearStorage = true } = {}) {
     await route.fulfill({ path: file, contentType: "application/javascript", headers: { "Access-Control-Allow-Origin": "*" } });
   });
   if (clearStorage) {
-    await page.addInitScript(l => { try { if (!sessionStorage.getItem("bb-test-init")) { localStorage.clear(); localStorage.setItem("bebebe-lang", l); sessionStorage.setItem("bb-test-init", "1"); } } catch (e) { /* ok */ } }, lang);
+    await page.addInitScript(clearOnce, lang);
   }
   await page.goto(GAME_URL);
   await page.waitForFunction(() => window.__bbReady === true, null, { timeout: 30_000 });
@@ -48,7 +63,7 @@ async function openGameHttp(page, { lang = "en", query = "", clearStorage = true
   page.on("console", m => { if (m.type() === "error") errors.push("console: " + m.text()); });
   await routeThree(page.context());
   if (clearStorage) {
-    await page.addInitScript(l => { try { if (!sessionStorage.getItem("bb-test-init")) { localStorage.clear(); localStorage.setItem("bebebe-lang", l); sessionStorage.setItem("bb-test-init", "1"); } } catch (e) { /* ok */ } }, lang);
+    await page.addInitScript(clearOnce, lang);
   }
   await page.goto(HTTP_BASE + query);
   await page.waitForFunction(() => window.__bbReady === true, null, { timeout: 30_000 });
