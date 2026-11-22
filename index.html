@@ -4617,7 +4617,8 @@ document.getElementById("loading").remove();
 window.__bbReady = true;
 let last = performance.now(), T = 0;
 function frame(now) {
-  const dt = Math.min(0.05, (now - last) / 1000);
+  // первая метка rAF бывает раньше performance.now() при запуске: dt < 0 раскачивал тряску камеры (shake − dt) — не меньше 0
+  const dt = Math.max(0, Math.min(0.05, (now - last) / 1000));
   last = now; T += dt;
   pollPads();
   const portrait = isTouch && window.innerHeight > window.innerWidth;

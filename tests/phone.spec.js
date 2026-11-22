@@ -30,7 +30,7 @@ const close = (a, b, eps) => Math.abs(a - b) <= eps;
 async function snapshot(page) {
   return page.evaluate(pts => ({
     screen: pts.map(([x, y, h]) => window.__bb.toScreen(x, y, h)),
-    camera: window.__bb.camera
+    camera: window.__bb.camera, shake: window.__bb.shake, mode: window.__bb.mode
   }), DESKTOP_POINTS);
 }
 
@@ -67,6 +67,21 @@ test.describe("desktop", () => {
     const snapPlay = await snapshot(page);
     await page.evaluate(() => { window.__bb.CFG.ITEM_EVERY = [7, 11]; });
     expectDesktop(snapPlay);                    // play
+    expect(errors).toEqual([]);
+  });
+
+  // The first requestAnimationFrame timestamp can be earlier than performance.now() at start-up (seen under load):
+  // a negative dt grew the camera shake in the menu. The first frame here gets a timestamp 5 s early.
+  test("an early first frame timestamp does not shake the camera", async ({ page }) => {
+    await page.addInitScript(() => {
+      const raf = window.requestAnimationFrame.bind(window);
+      let first = true;
+      window.requestAnimationFrame = cb => raf(t => { const e = first; first = false; cb(e ? t - 5000 : t); });
+    });
+    const errors = await openGame(page);
+    await frames(page);
+    expect(await page.evaluate(() => window.__bb.shake)).toBe(0);
+    expectDesktop(await snapshot(page));
     expect(errors).toEqual([]);
   });
 
