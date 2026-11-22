@@ -30,7 +30,7 @@ Today every level is the same picture (Little Ones' house top-left, the Big One'
 Level 1 = `classic` (the current generator, unchanged). From level 2: `TYPE_ORDER = ["meadow", "maze", "village", "river", "rooms", "arena"]`, `type = TYPE_ORDER[(lv - 2) % 6]`; `tier = Math.floor((lv - 2) / 6)` (0 for levels 2–7, 1 for 8–13, …).
 
 Common to every type (except `classic`):
-- **Houses**: the Little Ones' house (7×6, as today, with its `safe` zone, beds and spawns) in one corner; the Big One's house (6×6, as today) in a different corner, either the diagonal or the same side, chosen by the seed. Built in the canonical top-left / bottom-left / bottom-right positions, then the global mirror (`fx`, `fy`) as today, so all four corners occur. Each house door has 2 free cells in front of it.
+- **Houses**: the Little Ones' house (7×6, as today, with its `safe` zone, beds and spawns) in one corner; the Big One's house (6×6, as today) in a different corner, either the diagonal or the same side, chosen by the seed. Built in the canonical top-left / bottom-left / bottom-right positions, then the global mirror (`fx`, `fy`) as today, so all four corners occur. Each house door has 2 free cells in front of it. If SPEC-003 is already merged, the Big One's house also emits its `danger` zone item in every type (and the classic one keeps it).
 - **Seeds**: everything comes from `mulberry32` seeded by `lv` (and `attempt`); no `Math.random` in generation.
 - **Theme dressing** happens in 3D only (the generator stays place-free).
 
