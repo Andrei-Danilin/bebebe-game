@@ -4,31 +4,31 @@ One `index.html` (+ PWA files, see below): a small non-module script (offline hi
 
 ## Layers (keep them apart)
 1. **Logic** — world, level generator, pathfinding, rules, bots, the Big One, items, progress. Works in "logic pixels": 960×640, `CELL = 32` (1 cell = 1 unit in 3D). Knows nothing about Three.js.
-2. **3D** — builds meshes from the world (`buildMap3D`, `buildCharacters`) and copies state into them every frame (`syncScene` → `syncLittle`, `syncBig`, `syncItems`, `updateCone`). Only reads game state.
+2. **3D** — builds meshes from the world (`buildMap3D`, `buildCharacters`) and copies state into them every frame (`syncScene` → `syncLittle`, `syncBig`, `syncItems`, `syncStars`, `syncKisses`, `updateCone`). Only reads game state.
 3. **2D UI** — menus, HUD, name tags, timers, shop, skins screen; positions of world things via `toScreen(x, y, heightPx)`. Buttons are registered each frame in `buttons[]` and hit-tested on `pointerdown`.
 
 ## Sections of index.html (approximate lines; search the header comment)
 | Lines | Section |
 |---|---|
-| 48–111 | `CFG` (all game numbers), `GLOVES` |
-| 112–219 | `I18N` (en / es / ru), `setLang` |
-| 220–266 | screen, `fit()` (letterboxing, DPR; also re-places an open name input) |
-| 267–338 | helpers, world state (`obstacles`, `bushes`, grids, `safeZone`/`inSafe`, `dangerZone`/`inDanger`, `reachable`, `canAct`) |
-| 339–511 | level generator: `hWallTo`/`vWallTo`, **`bigHouse()`**, `generateLevel` (seeded by level), `applyWorld`, `connectivity`, `loadLevel` |
-| 512–644 | A* (`findPath`), movement (`resolveWalls`, `steerTo`, `inCone`, `randomFreePoint`) |
-| 645–868 | characters data: outfits (`HAIRS`, `HATS`, `JACKETS`, `PANTS`, `makeLook`), `BIG_SKINS`, places (`PLACES`, `currentPlace`), **names** (`NAME_SLOTS`, `cleanName`, `nameFor`, `setName`, `nameOf`), **progress** (`progress`, `giveReward`, `buyGloves`, `setEquip`), `makeLittle`, `resetWorld`, `startGame` |
-| 869–900 | sound (`beep`, `SFX`) |
-| 901–1074 | input: keyboard `onKey`, touch sticks, `hitButton`/`pendingUp`, **name input overlay** (`openNameInput`, `closeNameInput`, `placeNameInput`), gamepads, `inputFor` |
-| 1075–1554 | **logic**: `canSee`, `helps`, `push`, `hug`, items (`spawnItem`, `updateItems`), bonus stars (`starSpotOk`, `spawnStar`, `updateStars`), `updatePlayers`, `updateBots`, `lurkPoint`, `nearestExit`, `updateBig`, `separate`, `checkContacts`, `updateDowned`, `updateDanger`/`throwOut`/`freeCellNear`, `updateResting`, `update` |
-| 1555–1921 | 2D layer: drawing helpers (`labelFit`), `drawMarkers`, `drawFx`, `drawHUD`, `drawOverlay` (menu, skins, names, shop, pause, win, lose), `nameLabel`, `drawUI` |
-| 1922–2017 | 3D setup: renderer, camera fit, lights, toon materials, `part()` (mesh + outline), ground texture |
-| 2018–2353 | places: `THEMES`, `makeTreeFor`, `makeRockFor`, `makeBushFor`, `makePondFor`, `paintGround`, `buildMap3D` (`bigHomeMats`) |
-| 2354–2383 | vision cone and hug zone meshes |
-| 2384–2618 | characters 3D: `addFace`, `addHair` (hats), `buildLittleModel(look, isPlayer, pid, glove)` (incl. `dizzyStars`), `setCloak`, `buildBigModel(skin)` |
-| 2619–2722 | `buildCharacters`, `rebuild3D`, items 3D (`syncItems`), bonus stars 3D (`makeStarMesh`, `syncStars`) |
-| 2723–2859 | per-frame sync: `syncLittle`, `syncBig`, `syncScene` (fades, snow, waves, camera shake, red pulse of the Big One's walls) |
-| 2860–2912 | skins screen previews (scissor viewports) |
-| 2913–end | main loop, `window.__bb` |
+| 48–126 | `CFG` (all game numbers), `GLOVES`, `KISSES`, `ruPlural` (Russian plural forms) |
+| 127–240 | `I18N` (en / es / ru), `setLang` |
+| 241–287 | screen, `fit()` (letterboxing, DPR; also re-places an open name input) |
+| 288–359 | helpers, world state (`obstacles`, `bushes`, grids, `safeZone`/`inSafe`, `dangerZone`/`inDanger`, `reachable`, `canAct`) |
+| 360–532 | level generator: `hWallTo`/`vWallTo`, **`bigHouse()`**, `generateLevel` (seeded by level), `applyWorld`, `connectivity`, `loadLevel` |
+| 533–665 | A* (`findPath`), movement (`resolveWalls`, `steerTo`, `inCone`, `randomFreePoint`) |
+| 666–901 | characters data: outfits (`HAIRS`, `HATS`, `JACKETS`, `PANTS`, `makeLook`), `BIG_SKINS`, places (`PLACES`, `currentPlace`), **names** (`NAME_SLOTS`, `cleanName`, `nameFor`, `setName`, `nameOf`), **progress** (`freshProgress`, `progress`, `fmtHearts`, `giveReward`, `buyGloves`, `buyKisses`, `setEquip`, `resetProgress`), `makeLittle`, `resetWorld`, `startGame` |
+| 902–935 | sound (`beep`, `SFX`, incl. `kiss`, `mwah`) |
+| 936–1121 | input: keyboard `onKey`, `kissKeyPlayer`, touch sticks, `hitButton`/`pendingUp`, **name input overlay** (`openNameInput`, `closeNameInput`, `placeNameInput`), gamepads (`pollPads`, `onPadButton(b, pad)`), `inputFor` |
+| 1122–1656 | **logic**: `canSee`, `helps`, `push`, `hug`, `winSoon`, **air kisses** (`throwKiss`, `kissHit`, `updateKisses`), `heartFill`, `bigBoost`, items (`spawnItem`, `updateItems`), bonus stars (`starSpotOk`, `spawnStar`, `updateStars`), `updatePlayers`, `updateBots`, `lurkPoint`, `nearestExit`, `updateBig`, `separate`, `checkContacts`, `updateDowned`, `updateDanger`/`throwOut`/`freeCellNear`, `updateResting`, `update` |
+| 1657–2101 | 2D layer: drawing helpers (`fitText`, `wrapText`, `labelFit`, `drawHpHeart`, `drawKiss`), `drawMarkers`, `drawFx`, `drawHUD`, `kissBtnRect`/`kissButton`, `drawOverlay` (menu, skins, names, shop, pause, win, lose), `nameLabel`, `drawUI` |
+| 2102–2197 | 3D setup: renderer, camera fit, lights, toon materials, `part()` (mesh + outline), ground texture |
+| 2198–2533 | places: `THEMES`, `makeTreeFor`, `makeRockFor`, `makeBushFor`, `makePondFor`, `paintGround`, `buildMap3D` (`bigHomeMats`) |
+| 2534–2563 | vision cone and hug zone meshes (`updateCone`) |
+| 2564–2801 | characters 3D: `addFace`, `addHair` (hats), `buildLittleModel(look, isPlayer, pid, glove)` (incl. `dizzyStars`), `setCloak`, `buildBigModel(skin)` (incl. `headMat`, `cheeks`) |
+| 2802–2951 | `buildCharacters`, `rebuild3D`, items 3D (`syncItems`), bonus stars 3D (`makeStarMesh`, `syncStars`), air kisses 3D (`KISS_Y`, `makeKissMesh`, `syncKisses`, `clearKissMeshes`) |
+| 2952–3095 | per-frame sync: `syncLittle`, `syncBig`, `syncScene` (fades, snow, waves, camera shake, red pulse of the Big One's walls) |
+| 3096–3148 | skins screen previews (scissor viewports) |
+| 3149–end | main loop, `window.__bb` |
 
 ## The Big One's house (SPEC-003)
 - **`bigHouse(items, x0, y0, doors)`** (generator section) emits everything of the 6×6 house: `bighome` walls with 2-cell doors (`doors: [{ side: "top"|"bottom"|"left"|"right", at }]`), the dark floor, the bed, and the danger item `{ t: "danger", x, y, w, h, exits }` = the floor; `exits` are 2-cell spots `CFG.DANGER_EXIT` cells outside each door. The mirror step in `generateLevel` mirrors `exits` too. Level 1: doors top and right, same layout as before. **SPEC-002 (level types) should place the Big One's house through `bigHouse()`** so every level type gets the danger zone.
@@ -46,10 +46,24 @@ One `index.html` (+ PWA files, see below): a small non-module script (offline hi
 - **Name input overlay**: `nameLabel(rect, slot, color)` draws a label button with ✏️ and registers it with `onUp: true`; such buttons fire on **`pointerup`** of the same pointer (`pendingUp`), because iOS Safari opens the keyboard only for a focus inside a pointerup/click. `openNameInput(rect, slot)` puts an HTML `<input class="name-input">` exactly over the rect (`placeNameInput`, from `CSS_W / W`, font ≥ 16 px, `enterkeyhint="done"`, `autocapitalize="words"`); Enter, blur or a tap on the canvas saves, Escape cancels; saving an unchanged name keeps the default. While `nameInput` is open, `keydown` and gamepad buttons are ignored; `drawUI` closes it when the mode is no longer `skins`/`names`.
 - In play: `drawMarkers` draws names above heads (40 % alpha in a bush) and the Big One's name above him; `drawHUD` starts the hearts bar with his name (`labelFit` shrinks or cuts long names; hearts get denser above 8).
 
+## Air kisses (SPEC-004)
+- **Shop and stock**: `KISSES = { price, pack }`; `buyKisses()` takes `KISSES.price` coins and adds `KISSES.pack` to `progress.inv.kisses` (one pool for both players); not enough coins → `SFX.out`. The shop draws three cards from one list (mittens, mega, kisses; button ids `buy:<kind>`), card text by `fitText`/`wrapText`; texts `kisses`, `kissDesc`, `kissPack(n)`, `kissHave(n)` (ru uses `ruPlural`), pop texts `kissHit`, `noKissHome`, `blush`.
+- **Throw**: `throwKiss(pi)` works only in `play`, without `pendingWin`, for a `player` with `canAct` and `inv.kisses > 0`. In `safeZone` → pop text `noKissHome`, nothing spent. Then `kissCd` must be 0: one kiss is spent (saved), `l.kissCd = CFG.KISS_COOLDOWN` (counted down in `update`), and a kiss `{ id, owner, x, y, dx, dy, travel }` starts at the player's front along `l.dir`. Inputs: `onKey` → `kissKeyPlayer(code)` (one player: `KeyE`/`Space` → 0; two players: `KeyE` → 0, `Enter`/`NumpadEnter` → 1); gamepad button `CFG.PAD_KISS` (2 = X / □) in `onPadButton(b, pad)` (with two players pad i throws for player i); touch `kissButton(pi)`.
+- **Flight**: `updateKisses(dt)` (called in `update` after `updateHugAnim`) moves each kiss in steps of `CFG.KISS_STEP` at `CFG.KISS_SPEED`, up to `CFG.KISS_RANGE`. Each step checks, in this order: `seeSolidAt` (the sight grid: every wall kind, trees, rocks, cottages, the map edge → puff, done; ponds, water, bushes pass); the hit `dist < big.r + CFG.KISS_HIT_PAD` **and** `los(kiss, big, seeSolidAt)` (never through a wall); the end of the range. Sight-blocking walls added by SPEC-002 stop kisses automatically through the same grid.
+- **Hit**: `kissHit(k)` always bursts hearts; no damage while `big.stun`, `big.hugCd` (the 0.3 s after the shock) or `big.blush` > 0. Otherwise `big.hp -= CFG.KISS_DAMAGE` (floor 0), `big.blush = CFG.KISS_BLUSH`, `big.blushBy = k.owner`, `pushCd` cleared, pop texts `kissHit` + `blush`, `SFX.mwah`; `hp` 0 → `winSoon()` (the same path as the last hug: `pendingWin`, rewards, stars).
+- **Touch button**: `kissBtnRect(pi)` (size `CFG.KISS_BTN`; bottom right, or bottom left for P1 with two players). `drawHUD` calls `kissButton(pi)` only on touch, in `play`, with `inv.kisses > 0`; it pushes `{ id: "kiss:<pi>" }` into `buttons[]`. `pointerdown` hit-tests `buttons[]` before it starts a stick, so a touch on the button never starts a joystick. Grey when not `canAct`, in the house or during `kissCd` (cooldown arc). Without touch the HUD shows `💋 ×N` next to the mittens.
+- **3D**: `syncKisses` keeps one mesh per kiss in `kissGroup` (`kissMeshes` by id): an extruded pink heart at `KISS_Y` (chest height) with a sparkle trail; `rebuild3D` clears them. The Big One's blush (`syncBig`): `headMat.emissive` red, `cheeks` visible, head tilted up, hands together; 💗 label in `drawMarkers`; pale cone in `updateCone`.
+
+## Half hearts (SPEC-004)
+- `big.hp` holds 0.5 steps (hug power is whole, kiss damage 0.5, both exact in floating point).
+- `heartFill(i, hp)` = `clamp(hp - i, 0, 1)` (1 full, 0.5 half, 0 empty); `drawHpHeart(x, y, s, f)` draws a half as left red / right grey. `drawHUD` uses both for the hearts bar.
+- `bigBoost()` = level boost + `Math.floor(maxHp - hp) * CFG.BIG_SPEED_PER_HIT` (only whole hearts lost speed him up); used by `updateBig`.
+- `fmtHearts(n)`: 2.5 → `2½`, 0.5 → `½`, 0 → `0`; the lose screen passes it to `loseSub`.
+
 ## States
 - **Game `mode`**: `menu` · `skins` · `names` (bot names, opened by "👥 Friends" on the skins screen) · `shop` · `play` · `pause` · `win` (· `lose` — screen still exists but is not reached since "no game over").
-- **Little One `state`**: `ok` → `down` (pushed; `downTimer` = `CFG.DOWN_TIME`) → rescued (`rescue` reaches `CFG.RESCUE_TIME` while a helper stands next to him, drains at `CFG.RESCUE_DRAIN` otherwise, reset to 0 when the helper is pushed) → `ok` (`invuln`) | not rescued → `home` (limps to `restSpot` = its spawn in the house) → `rest` (`restTimer` = `CFG.REST_TIME`) → `ok`. Extra: `hugAnim` > 0 while riding the Big One's shoulders; `fx.boots/cloak/shield` timers; `dangerT` (seconds in the Big One's house); `dizzy` (after being thrown out: can't move or hug, the Big One ignores him); `botWait` (set on a fall from `CFG.BOT_RESCUE_DELAY`; bots ignore the downed one until it is 0). **`canAct(l)`** = `ok`, no `hugAnim`, no `dizzy` — used for moving, hugging, contacts, picking stars.
-- **Big One**: `state` `look` / `patrol` / `chase` / `search`; overlays `stun` (after a hug, can't move/push, no new hug), `slip` (banana: lying, can be hugged from any side), `pushCd` (stands after a push), `noPush` (rest after a push: sees nobody).
+- **Little One `state`**: `ok` → `down` (pushed; `downTimer` = `CFG.DOWN_TIME`) → rescued (`rescue` reaches `CFG.RESCUE_TIME` while a helper stands next to him, drains at `CFG.RESCUE_DRAIN` otherwise, reset to 0 when the helper is pushed) → `ok` (`invuln`) | not rescued → `home` (limps to `restSpot` = its spawn in the house) → `rest` (`restTimer` = `CFG.REST_TIME`) → `ok`. Extra: `hugAnim` > 0 while riding the Big One's shoulders; `fx.boots/cloak/shield` timers; `dangerT` (seconds in the Big One's house); `dizzy` (after being thrown out: can't move or hug, the Big One ignores him); `botWait` (set on a fall from `CFG.BOT_RESCUE_DELAY`; bots ignore the downed one until it is 0). **`canAct(l)`** = `ok`, no `hugAnim`, no `dizzy` — used for moving, hugging, contacts, picking stars, throwing kisses. `kissCd` (SPEC-004): seconds until this player can throw the next air kiss.
+- **Big One**: `state` `look` / `patrol` / `chase` / `search`; overlays `stun` (after a hug, can't move/push, no new hug), `slip` (banana: lying, can be hugged from any side), `pushCd` (stands after a push), `noPush` (rest after a push: sees nobody), `blush` / `blushBy` (SPEC-004, after an air kiss: seconds left and the thrower's player index). While `blush` > 0 he doesn't move, turn or push, bots don't flee and the cone is pale, but he **can be hugged** (`hug` sets `blush = 0`, then the usual `stun`). `blush` also counts down while he lies after a banana (`slip`). When it reaches 0 with no `slip`/`stun`: `state = "chase"`, `lastSeen` = the thrower's position, `dir` turned to the thrower at once; if it ends during `slip`, the slip end sends him to `look` as usual.
 - **Bots**: `task` `rescue` / `flee` / `attack` / `lurk` / `leave` (walking out of the Big One's house); one attacker at a time (`attackToken`, `botAttackCd`).
 
 ## PWA (SPEC-001)
@@ -61,9 +75,9 @@ One `index.html` (+ PWA files, see below): a small non-module script (offline hi
 - On iOS the home-screen app has its own `localStorage`, separate from Safari.
 
 ## Save data (localStorage)
-- `bebebe-progress`: `{ unlocked, stars: {level: 1..3}, coins, inv: {mittens, mega}, equip: [p1, p2] }` (loaded by merging with defaults).
+- `bebebe-progress`: `{ unlocked, stars: {level: 1..3}, coins, inv: {mittens, mega, kisses}, equip: [p1, p2] }`. Defaults come from `freshProgress()` (also used by `resetProgress`); loading merges with them, and `inv.kisses` is forced to a whole number ≥ 0 (old saves without it, or broken values → 0).
 - `bebebe-outfits`: `{ p1: {hair, hat, jacket, pants}, p2: {...}, big }`. `bebebe-place`: `auto|park|beach|winter|school`. `bebebe-lang`: `en|es|ru`.
 - `bebebe-names` (SPEC-003): `{ p1, p2, big, bots: [b1, b2, b3, b4] }` — only typed names, `""` = language default; every field cleaned on load, missing or broken data → defaults.
 
 ## window.__bb (for tests)
-`mode` (get/set), `littles`, `big`, `stats`, `items`, `progress`, `lastReward`, `level` (get/set), `placeSel` (get/set), `I18N`; functions `update(dt)`, `startGame(n)`, `resetWorld(n)`, `inSafe(p)`, `spawnItem()`, `buyGloves(kind)`, `setEquip(pi, kind)`, `cycleOutfit`, `randomOutfit`, `cycleBig`, `cyclePlace`, `setLang`, `toScreen`, `isStandalone()`; `installHintShown` (the install hint was drawn this frame), `buttonNames` (names of the buttons' handlers this frame, e.g. `toggleFullscreen`), `buttonRects` (`{ id, x, y, w, h }` per button; name labels have id `name:<slot>`). SPEC-003: `names` (get: `{ p1, p2, big, bots }` as shown), `setName(slot, text)`, `nameOf(l)`, `inDanger(p)`, `dangerZone`, `safeZone`, `stars` (the bonus star list), `spawnStar(x?, y?)`, `giveReward(win)`, `texts` (pop texts), `generateLevel(lv, attempt)`, `world` (`COLS`, `ROWS`, `CELL`, `blocked` as an array). `window.__bbReady` is `true` once the first frame can run.
+`mode` (get/set), `littles`, `big`, `stats`, `items`, `progress`, `lastReward`, `level` (get/set), `placeSel` (get/set), `I18N`; functions `update(dt)`, `startGame(n)`, `resetWorld(n)`, `inSafe(p)`, `spawnItem()`, `buyGloves(kind)`, `setEquip(pi, kind)`, `cycleOutfit`, `randomOutfit`, `cycleBig`, `cyclePlace`, `setLang`, `toScreen`, `isStandalone()`; `installHintShown` (the install hint was drawn this frame), `buttonNames` (names of the buttons' handlers this frame, e.g. `toggleFullscreen`), `buttonRects` (`{ id, x, y, w, h }` per button; name labels have id `name:<slot>`). SPEC-003: `names` (get: `{ p1, p2, big, bots }` as shown), `setName(slot, text)`, `nameOf(l)`, `inDanger(p)`, `dangerZone`, `safeZone`, `stars` (the bonus star list), `spawnStar(x?, y?)`, `giveReward(win)`, `texts` (pop texts), `generateLevel(lv, attempt)`, `world` (`COLS`, `ROWS`, `CELL`, `blocked` as an array; SPEC-004 adds `seeSolid(x, y)` = `seeSolidAt`, `bushes` (copies), `obstacles` (`{ kind, shape, x, y, w, h, r, move, sight }`)). SPEC-004: `kisses` (get: the flying list), `throwKiss(pi)`, `buyKisses()`, `resetProgress()` (needs two calls, like the button), `heartFill(i, hp)`, `bigBoost()`, `fmtHearts(n)`; `buttonRects` ids include `kiss:<pi>` and `buy:<kind>`. `window.__bbReady` is `true` once the first frame can run.
