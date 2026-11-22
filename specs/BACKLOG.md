@@ -22,3 +22,12 @@ One line each: what, where it came from. The spec author turns a line into a spe
 - Decided during the run, check with the kids: while dizzy a Little One also cannot hug; his house timer pauses while he rides on the Big One's shoulders.
 - Decided during the run, check with the kids: the small HUD chips keep "Me" / "1" / "2" / "B"; names are shown above heads, in the hearts bar, in "HELP!" and in the resting bar.
 - Decided during the run, check with the kids: opening a name field and closing it without a change keeps the language default (only a changed name counts as typed).
+- SPEC-004 run, open point: the menu controls line does not mention the kiss keys yet (E / Space, two players E / Enter, gamepad X) and the six rule lines do not mention air kisses.
+- Decided during the run, check with the kids: the kiss button on the gamepad is X (Xbox) / □ (PlayStation); in a two-player game the second gamepad throws for player 2.
+- Decided during the run, check with the kids: Space throws a kiss only in a one-player game (with two players: E and Enter).
+- Decided during the run, check with the kids: the kiss shop card says "Pack: 5 air kisses" and "You have: N kisses" (new texts; the glove texts talk about power hugs).
+- Decided during the run, check with the kids: on a keyboard the HUD shows "💋 ×N" next to the mittens; on a touch screen the count is on the 💋 button. The button is also grey when the player is down, dizzy or on the Big One's shoulders.
+- Decided during the run, check with the kids: the blushing Big One does not turn while blushing; afterwards he walks to where the thrower is (turning on the way) instead of snapping round.
+- Decided during the run, check with the kids: a kiss on a Big One lying after a banana takes half a heart and he blushes; the blush time runs while he lies; if it ends before he stands up he just looks around (no chase).
+- Decided during the run, check with the kids: bots do not run away from a blushing Big One (he cannot push); a kiss during his short stand after a push ends that stand.
+- Decided during the run, check with the kids: a hit shows two pop texts ("Mwah!" and "So shy!"); a kiss during shock or blush only makes hearts; the lose screen writes half hearts as "2½".
