@@ -125,7 +125,8 @@ const CFG = {
   HOMES_DIAGONAL: ["meadow", "village", "arena"],   // открытые типы: дом Большого всегда по диагонали от домика маленьких
   // раскладки типов: [от, до]; кустов на каждом tier на 1 меньше (но не меньше BUSH_MIN)
   LAYOUT: {
-    meadow: { bushes: [10, 12], trees: [6, 9], rocks: [2, 4], ponds: [0, 2], pondW: [2, 3] }
+    meadow: { bushes: [10, 12], trees: [6, 9], rocks: [2, 4], ponds: [0, 2], pondW: [2, 3] },
+    maze: { module: 3, bushes: [3, 4], trees: [0, 2], plazas: [1, 2] }
   }
 };
 // Рукавицы из магазина: сколько сердечек забирает одна обнимашка, цена и сколько сильных обнимашек в наборе
@@ -520,10 +521,113 @@ function meadowLayout(ctx) {
   place(bushCount(ctx, L.bushes), genBush, 2, 2, 1);
 }
 
+// Лабиринт из живой изгороди на сетке модулей 3×3 клетки: коридор 2 клетки + стена 1 клетка.
+// Модули, задевающие домики с площадками у дверей, — одна открытая «область дома». Сначала идеальный лабиринт
+// (Краскал), потом «плетение»: пробиваем стены у тупиков, пока их не останется ≤ MAZE_DEAD_ENDS; плюс 1–2 площади 5×5.
+function mazeLayout(ctx) {
+  const { rng, ri, items, occ, reserve, place } = ctx, L = CFG.LAYOUT.maze, M = L.module;
+  const MC = Math.floor(COLS / M), MR = Math.ceil(ROWS / M), N = MC * MR;   // 10 × 7; крайние модули доходят до края карты
+  const x0 = i => i * M, x1 = i => i === MC - 1 ? COLS - 1 : i * M + M - 2;
+  const y0 = j => j * M, y1 = j => j === MR - 1 ? ROWS - 1 : j * M + M - 2;
+  const id = (i, j) => j * MC + i;
+  // модуль (с его стенами справа и снизу) задевает домик или площадку у двери
+  const home = new Uint8Array(N);
+  for (let j = 0; j < MR; j++) for (let i = 0; i < MC; i++) {
+    for (let y = y0(j); y <= Math.min(ROWS - 1, y0(j) + M - 1); y++) for (let x = x0(i); x <= Math.min(COLS - 1, x0(i) + M - 1); x++) if (occ[y * COLS + x]) home[id(i, j)] = 1;
+  }
+  const edges = [];
+  for (let j = 0; j < MR; j++) for (let i = 0; i < MC; i++) {
+    if (i < MC - 1) edges.push({ a: id(i, j), b: id(i + 1, j), i, j, h: true, open: false });
+    if (j < MR - 1) edges.push({ a: id(i, j), b: id(i, j + 1), i, j, h: false, open: false });
+  }
+  const edgeOf = (a, b) => edges.find(e => (e.a === a && e.b === b) || (e.a === b && e.b === a));
+  const par = Array.from({ length: N }, (_, k) => k);
+  const find = a => { while (par[a] !== a) a = par[a] = par[par[a]]; return a; };
+  const dg = new Uint8Array(N);   // сколько проходов у модуля
+  const openE = e => { if (!e.open) { e.open = true; dg[e.a]++; dg[e.b]++; } };
+  const join = e => { const a = find(e.a), b = find(e.b); if (a === b) return false; par[a] = b; openE(e); return true; };
+  // области домов — открыты внутри
+  for (const e of edges) if (home[e.a] && home[e.b]) { join(e); openE(e); }
+  // площади: блок 2×2 модуля (5×5 клеток), не в широком крайнем столбце, не на доме и не рядом с другой площадью
+  const plaza = new Uint8Array(N), plazas = [];
+  const want = ri(L.plazas[0], L.plazas[1]);
+  for (let k = 0; k < 60 && plazas.length < want; k++) {
+    const i = ri(0, MC - 3), j = ri(0, MR - 2);
+    let ok = true;
+    for (let dj = -1; dj <= 2 && ok; dj++) for (let di = -1; di <= 2 && ok; di++) {
+      const a = i + di, b = j + dj;
+      if (a < 0 || b < 0 || a >= MC || b >= MR) continue;
+      const inside = di >= 0 && di <= 1 && dj >= 0 && dj <= 1;
+      if ((inside && home[id(a, b)]) || plaza[id(a, b)]) ok = false;
+    }
+    if (!ok) continue;
+    for (const [di, dj] of [[0, 0], [1, 0], [0, 1], [1, 1]]) plaza[id(i + di, j + dj)] = 1;
+    for (const [a, b] of [[id(i, j), id(i + 1, j)], [id(i, j + 1), id(i + 1, j + 1)], [id(i, j), id(i, j + 1)], [id(i + 1, j), id(i + 1, j + 1)]]) { const e = edgeOf(a, b); join(e); openE(e); }
+    plazas.push({ i, j, x: x0(i), y: y0(j), w: x1(i + 1) - x0(i) + 1, h: y1(j + 1) - y0(j) + 1 });
+  }
+  // идеальный лабиринт
+  const order = edges.filter(e => !e.open);
+  for (let k = order.length - 1; k > 0; k--) { const r = Math.floor(rng() * (k + 1)); [order[k], order[r]] = [order[r], order[k]]; }
+  for (const e of order) join(e);
+  // тупики: обычный модуль с одним проходом
+  const deg = m => dg[m];
+  const deadList = () => { const r = []; for (let m = 0; m < N; m++) if (!home[m] && !plaza[m] && deg(m) === 1) r.push(m); return r; };
+  let dead = deadList();
+  const before = dead.length, target = Math.floor(before * CFG.MAZE_DEAD_ENDS);
+  for (let k = dead.length - 1; k > 0; k--) { const r = Math.floor(rng() * (k + 1)); [dead[k], dead[r]] = [dead[r], dead[k]]; }
+  for (const m of dead) {
+    if (deadList().length <= target) break;
+    if (deg(m) !== 1) continue;
+    const closed = edges.filter(e => !e.open && (e.a === m || e.b === m));
+    if (!closed.length) continue;
+    const other = e => e.a === m ? e.b : e.a;
+    const pick = closed.find(e => !home[other(e)] && !plaza[other(e)] && deg(other(e)) === 1) || closed[Math.floor(rng() * closed.length)];
+    openE(pick);
+  }
+  ctx.meta.deadEndsBefore = before;
+  ctx.meta.deadEndsAfter = deadList().length;
+  // стены в клетки (кроме домиков и площадок у дверей)
+  const wall = new Uint8Array(COLS * ROWS);
+  const put = (x, y) => { if (x >= 0 && y >= 0 && x < COLS && y < ROWS && !occ[y * COLS + x]) wall[y * COLS + x] = 1; };
+  for (const e of edges) {
+    if (e.open) continue;
+    if (e.h) for (let y = y0(e.j); y <= y1(e.j); y++) put(x1(e.i) + 1, y);
+    else for (let x = x0(e.i); x <= x1(e.i); x++) put(x, y1(e.j) + 1);
+  }
+  for (let j = 0; j < MR - 1; j++) for (let i = 0; i < MC - 1; i++) {   // столбики на перекрёстках
+    const near = [edgeOf(id(i, j), id(i + 1, j)), edgeOf(id(i, j + 1), id(i + 1, j + 1)), edgeOf(id(i, j), id(i, j + 1)), edgeOf(id(i + 1, j), id(i + 1, j + 1))];
+    if (near.some(e => !e.open)) put(x1(i) + 1, y1(j) + 1);
+  }
+  // склеиваем клетки стен в прямоугольники: сначала горизонтальные отрезки ≥ 2, остальное — вертикальными
+  const used = new Uint8Array(COLS * ROWS);
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+    if (!wall[y * COLS + x] || used[y * COLS + x]) continue;
+    let e = x; while (e + 1 < COLS && wall[y * COLS + e + 1]) e++;
+    if (e > x) { items.push({ t: "wall", x, y, w: e - x + 1, h: 1, kind: "maze" }); for (let k = x; k <= e; k++) used[y * COLS + k] = 1; }
+  }
+  for (let x = 0; x < COLS; x++) for (let y = 0; y < ROWS; y++) {
+    if (!wall[y * COLS + x] || used[y * COLS + x]) continue;
+    let e = y; while (e + 1 < ROWS && wall[(e + 1) * COLS + x] && !used[(e + 1) * COLS + x]) e++;
+    items.push({ t: "wall", x, y, w: 1, h: e - y + 1, kind: "maze" }); for (let k = y; k <= e; k++) used[k * COLS + x] = 1;
+  }
+  for (let k = 0; k < COLS * ROWS; k++) if (wall[k]) occ[k] = 1;
+  // деревья — в центрах площадей, кусты — по одному на площадь, остальные — в широких местах коридоров
+  const trees = Math.min(plazas.length, ri(L.trees[0], L.trees[1])), tree = genTree(rng);
+  for (let k = 0; k < trees; k++) { const q = plazas[k], cx = q.x + 2, cy = q.y + 2; items.push(tree(cx, cy)); reserve(cx, cy, 1, 1); }
+  let bushes = bushCount(ctx, L.bushes);
+  for (const q of plazas) {
+    if (bushes <= 0) break;
+    const c = [[q.x, q.y], [q.x + q.w - 2, q.y], [q.x, q.y + q.h - 2], [q.x + q.w - 2, q.y + q.h - 2]][ri(0, 3)];
+    items.push(genBush(c[0], c[1])); reserve(c[0], c[1], 2, 2); bushes--;
+  }
+  place(bushes, genBush, 2, 2, 0);
+  ctx.meta.areas = { plazas: plazas.map(q => ({ x: q.x, y: q.y, w: q.w, h: q.h })) };
+}
+
 const LAYOUTS = {
-  classic: classicLayout, meadow: meadowLayout,
+  classic: classicLayout, meadow: meadowLayout, maze: mazeLayout,
   // пока только домики — раскладки появляются по шагам SPEC-002
-  maze: () => {}, village: () => {}, river: () => {}, rooms: () => {}, arena: () => {}
+  village: () => {}, river: () => {}, rooms: () => {}, arena: () => {}
 };
 
 function generateLevel(lv, attempt) {
@@ -561,6 +665,7 @@ function generateLevel(lv, attempt) {
   const tx = (x, w) => fx ? COLS - x - w : x, ty = (y, h) => fy ? ROWS - y - h : y;
   for (const it of items) { const w = it.w || 1, h = it.h || 1; if (it.t === "bush") { it.x = tx(it.x, 2); it.y = ty(it.y, 2); } else { it.x = tx(it.x, w); it.y = ty(it.y, h); } }
   for (const it of items) if (it.exits) for (const e of it.exits) { e.x = tx(e.x, e.w); e.y = ty(e.y, e.h); }
+  for (const list of Object.values(ctx.meta.areas || {})) for (const r of list) { r.x = tx(r.x, r.w); r.y = ty(r.y, r.h); }
   const tp = ([x, y]) => [fx ? COLS - x : x, fy ? ROWS - y : y];
   // двери домиков (проём + направление наружу) — для правил честности
   const md = d => ({ x: tx(d.x, d.w), y: ty(d.y, d.h), w: d.w, h: d.h, dx: fx ? -d.dx : d.dx, dy: fy ? -d.dy : d.dy });
@@ -648,7 +753,7 @@ const cellFree = (grid, [x, y]) => x >= 0 && y >= 0 && x < COLS && y < ROWS && !
 // Тупики на сетке Большого: узлы — «окна» 2×2 свободных клеток (там он помещается), соседи — сдвиг на клетку.
 // Листья обрезаем по одному: обрезанная цепочка — тупиковый коридор, её длина в клетках = окон + 1.
 // count — сколько концов тупиков, longest — самый длинный тупиковый коридор (клеток).
-function deadEndScan() {
+function deadEndScan(skip = null) {
   const WC = COLS - 1, WR = ROWS - 1, NW = WC * WR, ok = new Uint8Array(NW), deg = new Uint8Array(NW), len = new Uint16Array(NW), gone = new Uint8Array(NW);
   const fr = (x, y) => !blockedBig[y * COLS + x];
   for (let j = 0; j < WR; j++) for (let i = 0; i < WC; i++) ok[j * WC + i] = fr(i, j) && fr(i + 1, j) && fr(i, j + 1) && fr(i + 1, j + 1) ? 1 : 0;
@@ -659,7 +764,7 @@ function deadEndScan() {
   };
   const q = [];
   let count = 0, longest = 0;
-  for (let w = 0; w < NW; w++) if (ok[w]) { deg[w] = nb(w).length; if (deg[w] <= 1) { q.push(w); len[w] = 1; gone[w] = 1; count++; } }
+  for (let w = 0; w < NW; w++) if (ok[w]) { deg[w] = nb(w).length; if (deg[w] <= 1) { q.push(w); len[w] = 1; gone[w] = 1; if (!skip || !skip(w % WC, (w / WC) | 0)) count++; } }
   for (let h = 0; h < q.length; h++) {
     const w = q[h];
     for (const u of nb(w)) {
@@ -699,7 +804,10 @@ function validateLevel(gen, type) {
   }
   housePath = isFinite(housePath) ? Math.round(housePath * 10) / 10 : -1;
   // 6: тупики (в лабиринте — сколько концов осталось от тупиков идеального лабиринта)
-  const de = deadEndScan(), before = gen.meta && gen.meta.deadEndsBefore != null ? gen.meta.deadEndsBefore : null;
+  // в лабиринте концы тупиков считаем только вне домиков с их площадками у дверей (там не лабиринт)
+  const A = CFG.DOOR_APRON, grow = r => r && { x: r.x - A, y: r.y - A, w: r.w + 2 * A, h: r.h + 2 * A };
+  const nearHome = (i, j) => [grow(sz), grow(bigBox)].some(r => r && i + 1 >= r.x && i < r.x + r.w && j + 1 >= r.y && j < r.y + r.h);
+  const de = deadEndScan(type === "maze" ? nearHome : null), before = gen.meta && gen.meta.deadEndsBefore != null ? gen.meta.deadEndsBefore : null;
   const deadEnds = { count: de.count, longest: de.longest, before };
   // 7: кусты
   const bushes = gen.items.filter(it => it.t === "bush").length;

@@ -124,3 +124,42 @@ test("meadow is open with bushes", async ({ page }) => {
     expect(c.small[0] !== c.big[0] && c.small[1] !== c.big[1], at).toBe(true);
   }
 });
+
+test("maze has 2-wide corridors and few dead ends", async ({ page }) => {
+  const levels = await levelsOf(page, "maze");
+  expect(levels.map(x => x.lv)).toEqual([3, 9, 15, 21, 27, 33, 39, 45, 51, 57]);
+  for (const { lv, tier, r, gen } of levels) {
+    const at = `level ${lv}`;
+    expect(r.fallback, at).toBe(false);
+    const maze = gen.items.filter(it => it.t === "wall" && it.kind === "maze");
+    expect(maze.length, at).toBeGreaterThan(10);
+    for (const w of maze) expect(w.w === 1 || w.h === 1, `${at}: wall ${JSON.stringify(w)}`).toBe(true);
+    const mz = cellsOf(gen, it => it.t === "wall" && it.kind === "maze");
+    const solid = cellsOf(gen, it => ["wall", "cottage", "pond", "water", "tree", "rock"].includes(it.t));
+    // walls are 1 cell thick: no 2×2 block of maze wall
+    const thick = [];
+    for (let y = 0; y < 19; y++) for (let x = 0; x < 29; x++) if (mz[y][x] && mz[y][x + 1] && mz[y + 1][x] && mz[y + 1][x + 1]) thick.push(`${x},${y}`);
+    expect(thick, `${at}: thick maze walls`).toEqual([]);
+    // corridors are 2 wide: no free run of exactly 1 cell between two maze walls (rows and columns)
+    const narrow = [];
+    for (let y = 0; y < 20; y++) for (let x = 1; x < 29; x++) if (!solid[y][x] && mz[y][x - 1] && mz[y][x + 1]) narrow.push(`${x},${y} row`);
+    for (let x = 0; x < 30; x++) for (let y = 1; y < 19; y++) if (!solid[y][x] && mz[y - 1][x] && mz[y + 1][x]) narrow.push(`${x},${y} column`);
+    expect(narrow, at).toEqual([]);
+    // braided: at most a quarter of the perfect maze's dead ends are left
+    expect(r.deadEnds.before, at).toBeGreaterThan(0);
+    expect(r.deadEnds.count, `${at}: ${JSON.stringify(r.deadEnds)}`).toBeLessThanOrEqual(Math.floor(r.deadEnds.before * 0.25));
+    // 1–2 open plazas of 4×4 to 5×5 without maze walls
+    const plazas = gen.meta.areas.plazas;
+    expect(inRange(plazas.length, [1, 2]), at).toBe(true);
+    for (const q of plazas) {
+      expect(inRange(q.w, [4, 5]) && inRange(q.h, [4, 5]), `${at}: plaza ${JSON.stringify(q)}`).toBe(true);
+      const inPlaza = [];
+      for (let y = q.y; y < q.y + q.h; y++) for (let x = q.x; x < q.x + q.w; x++) if (mz[y][x]) inPlaza.push(`${x},${y}`);
+      expect(inPlaza, `${at}: maze walls in plaza ${JSON.stringify(q)}`).toEqual([]);
+    }
+    const bushes = count(gen, it => it.t === "bush"), trees = count(gen, it => it.t === "tree");
+    expect(inRange(bushes, bushRange(2, [3, 4], tier)), `${at}: ${bushes} bushes`).toBe(true);
+    expect(trees <= Math.min(2, plazas.length), at).toBe(true);
+    expect(count(gen, it => it.t === "rock" || it.t === "pond"), at).toBe(0);
+  }
+});
