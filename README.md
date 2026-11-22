@@ -4,7 +4,8 @@ A top-down arcade game designed by kids: the **Little Ones** team against the **
 
 - Sneak up **behind** the Big One and hug him — he loses a heart.
 - If he **sees** you (yellow vision cone), he pushes you and your leg breaks: you can't move.
-- A friend must stand next to you for 1 second to help you up. If nobody helps within 18 seconds, you're out.
+- A friend must stand next to you for 1 second to help you up. If nobody helps within 18 seconds, you limp home
+  and rest there for 2 minutes, then come back. There is no game over — but every rest costs coins (−3).
 - After a push the Big One rests for 2.5 s (pale vision cone) and pushes nobody.
 - After a hug he is shocked for 2.5 s: he can't move or push, and he can't be hugged again yet.
 - Your house is a safe zone: the Big One can't get in. Bushes hide you.
@@ -49,11 +50,11 @@ coins and gloves. Win a level to unlock the next one.
 | Stars | For |
 |---|---|
 | ⭐ | winning the level |
-| ⭐ | nobody was out |
+| ⭐ | nobody had to rest |
 | ⭐ | winning fast: under `60 + 15 × level` seconds |
 
-Coins for a win: `10 + 5 × level`, +10 if nobody was out, +10 if fast, +2 for every hug by a player.
-A lost level still pays +2 per player hug.
+Coins for a win: `10 + 5 × level`, +10 if nobody had to rest, +10 if fast, +2 for every hug by a player,
+−3 for every rest (never below 5).
 
 **Shop** (menu, or after a level): gloves bought with coins as packs of power hugs.
 

@@ -69,6 +69,9 @@ const CFG = {
   SLIP_STUN: 2.5,            // сек — Большой лежит после банана (обнимать можно с любой стороны!)
   // монетки за уровень
   COINS_WIN: 10, COINS_PER_LEVEL: 5, COINS_NOBODY_OUT: 10, COINS_FAST: 10, COINS_PER_HUG: 2,
+  COINS_PER_REST: 3, COINS_MIN_WIN: 5,   // каждый ушедший отдыхать отнимает монетки (но не меньше минимума)
+  REST_TIME: 120,            // сек — сколько отдыхает в домике тот, кого не спасли
+  HOME_SPEED: 85,            // как быстро он хромает к домику
   FAST_TIME: lv => 60 + lv * 15   // сек — успеть за это время = третья звезда
 };
 // Рукавицы из магазина: сколько сердечек забирает одна обнимашка, цена и сколько сильных обнимашек в наборе
@@ -87,7 +90,7 @@ const I18N = {
       "Sneak up BEHIND the Big One and hug him: he loses a heart",
       "If he SEES you (yellow beam), he pushes you and breaks your leg",
       "Friends run over and stand next to you for 1 second to help you up",
-      `If nobody helps you within ${n} seconds, you're out`,
+      `If nobody helps within ${n} s, you limp home and rest for ${Math.round(CFG.REST_TIME / 60)} min`,
       "Bushes hide you. Your house is safe: the Big One can't get in",
       "Grab items: speed boots, invisibility, shield — and a banana he slips on!"
     ],
@@ -97,7 +100,7 @@ const I18N = {
     pause: "Paused", play: "Play", menu: "Menu",
     win: "YOU WIN!", winSub: "The Big One is all hugged out!", next: n => `Level ${n} ▶`,
     lose: "The Big One won...", loseSub: (h, m) => `Hearts taken: ${h} of ${m}. Try again?`, again: "Try again",
-    big: "Big One", hug: "Hug! -1", bang: "BAM!", saved: "Saved!", out: "Out...", help: n => `${n}: HELP!`,
+    big: "Big One", hug: "Hug! -1", bang: "BAM!", saved: "Saved!", out: "Going home to rest", back: "Back in the game!", resting: (n, t) => `${n}: resting… back in ${t}`, restPenalty: n => `−${n} for rests`, help: n => `${n}: HELP!`,
     touch1: "Drag your finger on the screen to run", touch2: "Player 1: finger on the left  •  Player 2: on the right",
     rotate: "Turn your device sideways ↻", me: "Me", botChip: "B", safe: "SAFE",
     bots: ["Bip", "Bop", "Bum", "Bam"],
@@ -108,7 +111,7 @@ const I18N = {
     shop: "Shop", buy: "Buy", have: n => `You have: ${n} power ${n === 1 ? "hug" : "hugs"}`, wears: "wears", none: "None",
     gloves: { mittens: "Warm mittens", mega: "Mega hug mittens" }, gloveDesc: p => `Each hug takes ${p} hearts`,
     pack: n => `Pack: ${n} power hugs`, notEnough: "Not enough coins", reset: "Reset progress", sure: "Sure? Tap again",
-    victory: "Victory", nobodyOut: "Nobody was out", fast: t => `Fast: under ${t}`, forHugs: n => `+${n} for hugs`,
+    victory: "Victory", nobodyOut: "Nobody had to rest", fast: t => `Fast: under ${t}`, forHugs: n => `+${n} for hugs`,
     megaHug: p => `Power hug! -${p}`, coinsWord: "coins"
   },
   es: {
@@ -117,7 +120,7 @@ const I18N = {
       "Acercate al Grandote POR DETRÁS y abrazalo: pierde un corazón",
       "Si te VE (rayo amarillo), te empuja y te rompés la pierna",
       "Tus amigos vienen y se quedan 1 segundo al lado tuyo para ayudarte",
-      `Si nadie te ayuda en ${n} segundos, quedás afuera`,
+      `Si nadie te ayuda en ${n} segundos, vas a casa a descansar ${Math.round(CFG.REST_TIME / 60)} minutos`,
       "En los arbustos no te ve. Tu casa es segura: el Grandote no puede entrar",
       "Agarrá cosas: zapatillas veloces, invisibilidad, escudo ¡y una banana para que se resbale!"
     ],
@@ -127,7 +130,7 @@ const I18N = {
     pause: "Pausa", play: "Jugar", menu: "Menú",
     win: "¡GANARON!", winSub: "¡Abrazaron al Grandote hasta el final!", next: n => `Nivel ${n} ▶`,
     lose: "Ganó el Grandote...", loseSub: (h, m) => `Corazones: ${h} de ${m}. ¿Otra vez?`, again: "Otra vez",
-    big: "Grandote", hug: "¡Abrazo! -1", bang: "¡PUM!", saved: "¡Salvado!", out: "Afuera...", help: n => `${n}: ¡AYUDA!`,
+    big: "Grandote", hug: "¡Abrazo! -1", bang: "¡PUM!", saved: "¡Salvado!", out: "Me voy a descansar", back: "¡De vuelta!", resting: (n, t) => `${n}: descansando… volvés en ${t}`, restPenalty: n => `−${n} por descansos`, help: n => `${n}: ¡AYUDA!`,
     touch1: "Deslizá el dedo por la pantalla para correr", touch2: "Jugador 1: dedo a la izquierda  •  Jugador 2: a la derecha",
     rotate: "Girá el dispositivo ↻", me: "Yo", botChip: "B", safe: "ZONA SEGURA",
     bots: ["Bip", "Bop", "Bum", "Bam"],
@@ -138,7 +141,7 @@ const I18N = {
     shop: "Tienda", buy: "Comprar", have: n => `Tenés: ${n} ${n === 1 ? "abrazo potente" : "abrazos potentes"}`, wears: "usa", none: "Nada",
     gloves: { mittens: "Mitones abrigados", mega: "Mitones del abrazo gigante" }, gloveDesc: p => `Cada abrazo saca ${p} corazones`,
     pack: n => `Paquete: ${n} abrazos potentes`, notEnough: "No te alcanzan las monedas", reset: "Borrar progreso", sure: "¿Seguro? Tocá otra vez",
-    victory: "Victoria", nobodyOut: "No quedó nadie afuera", fast: t => `Rápido: menos de ${t}`, forHugs: n => `+${n} por los abrazos`,
+    victory: "Victoria", nobodyOut: "Nadie tuvo que descansar", fast: t => `Rápido: menos de ${t}`, forHugs: n => `+${n} por los abrazos`,
     megaHug: p => `¡Abrazo potente! -${p}`, coinsWord: "monedas"
   },
   ru: {
@@ -147,7 +150,7 @@ const I18N = {
       "Подкрадись к Большому СЗАДИ и обними — минус сердечко",
       "Увидит тебя (жёлтый луч) — толкнёт, и нога сломается",
       "Друзья подбегают и стоят рядом 1 секунду — ты снова в игре",
-      `Никто не помог за ${n} секунд — ты выбыл`,
+      `Никто не помог за ${n} сек — идёшь в домик отдыхать ${Math.round(CFG.REST_TIME / 60)} минуты`,
       "В кустах Большой не видит. Домик — безопасная зона, Большой туда не зайдёт",
       "Собирай предметы: сапоги-скороходы, невидимку, щит — и банан, на котором он поскользнётся!"
     ],
@@ -157,7 +160,7 @@ const I18N = {
     pause: "Пауза", play: "Играть", menu: "Меню",
     win: "ПОБЕДА!", winSub: "Большого обняли со всех сторон!", next: n => `Уровень ${n} ▶`,
     lose: "Большой победил...", loseSub: (h, m) => `Сердечек забрали: ${h} из ${m}. Ещё разок?`, again: "Ещё раз",
-    big: "Большой", hug: "Обнимашки! -1", bang: "БАХ!", saved: "Спасён!", out: "Выбыл...", help: n => `${n}: ПОМОГИТЕ!`,
+    big: "Большой", hug: "Обнимашки! -1", bang: "БАХ!", saved: "Спасён!", out: "Иду отдыхать", back: "Снова в игре!", resting: (n, t) => `${n}: отдых… вернёшься через ${t}`, restPenalty: n => `−${n} за отдых`, help: n => `${n}: ПОМОГИТЕ!`,
     touch1: "Води пальцем по экрану, чтобы бежать", touch2: "Игрок 1 — палец слева, Игрок 2 — палец справа",
     rotate: "Поверни устройство боком ↻", me: "Я", botChip: "Б", safe: "БЕЗОПАСНО",
     bots: ["Бип", "Боп", "Бум", "Бац"],
@@ -168,7 +171,7 @@ const I18N = {
     shop: "Магазин", buy: "Купить", have: n => `У вас: ${n} ${["сильная обнимашка", "сильные обнимашки", "сильных обнимашек"][n % 10 === 1 && n % 100 !== 11 ? 0 : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 1 : 2]}`, wears: "носит", none: "Ничего",
     gloves: { mittens: "Тёплые рукавицы", mega: "Мега-рукавицы" }, gloveDesc: p => `Каждая обнимашка забирает ${p} сердечка`,
     pack: n => `В наборе: ${n} сильные обнимашки`, notEnough: "Не хватает монеток", reset: "Сбросить прогресс", sure: "Точно? Нажми ещё раз",
-    victory: "Победа", nobodyOut: "Никто не выбыл", fast: t => `Быстро: меньше ${t}`, forHugs: n => `+${n} за обнимашки`,
+    victory: "Победа", nobodyOut: "Никто не ушёл отдыхать", fast: t => `Быстро: меньше ${t}`, forHugs: n => `+${n} за обнимашки`,
     megaHug: p => `Сильная обнимашка! -${p}`, coinsWord: "монетки"
   }
 };
@@ -688,15 +691,16 @@ function resetProgress() {
 function giveReward(win) {
   const ph = stats.playerHugs;
   if (!win) { const c = ph * CFG.COINS_PER_HUG; progress.coins += c; saveProgress(); lastReward = { win: false, coins: c }; return; }
-  const nobodyOut = littles.every(l => l.state !== "out"), target = CFG.FAST_TIME(level), fast = stats.time <= target;
+  const rests = stats.rests, nobodyOut = rests === 0, target = CFG.FAST_TIME(level), fast = stats.time <= target;
   const stars = 1 + (nobodyOut ? 1 : 0) + (fast ? 1 : 0);
-  const coins = CFG.COINS_WIN + level * CFG.COINS_PER_LEVEL + (nobodyOut ? CFG.COINS_NOBODY_OUT : 0) + (fast ? CFG.COINS_FAST : 0) + ph * CFG.COINS_PER_HUG;
+  const penalty = rests * CFG.COINS_PER_REST;
+  const coins = Math.max(CFG.COINS_MIN_WIN, CFG.COINS_WIN + level * CFG.COINS_PER_LEVEL + (nobodyOut ? CFG.COINS_NOBODY_OUT : 0) + (fast ? CFG.COINS_FAST : 0) + ph * CFG.COINS_PER_HUG - penalty);
   const prevStars = progress.stars[level] || 0;
   progress.stars[level] = Math.max(prevStars, stars);
   progress.unlocked = Math.max(progress.unlocked, Math.min(99, level + 1));
   progress.coins += coins;
   saveProgress();
-  lastReward = { win: true, coins, stars, nobodyOut, fast, target, newBest: stars > prevStars };
+  lastReward = { win: true, coins, stars, nobodyOut, fast, target, penalty, newBest: stars > prevStars };
 }
 
 function makeLittle(i, kind, botIndex, controls, look) {
@@ -729,7 +733,7 @@ function resetWorld(n) {
   };
   items = []; itemCd = rand(4, 7); pendingWin = 0;
   texts = []; particles = []; attackToken = null; prevToken = null; botAttackCd = rand(3, 5); shake = 0; sticks.clear();
-  stats = { hugs: 0, time: 0, playerHugs: 0 };
+  stats = { hugs: 0, time: 0, playerHugs: 0, rests: 0 };
   lastReward = null; resetArmed = false;
   rebuild3D();
 }
@@ -1161,7 +1165,7 @@ function updateBig(dt) {
 }
 
 function separate() {
-  const all = littles.filter(l => l.state !== "out" && l.hugAnim <= 0);
+  const all = littles.filter(l => (l.state === "ok" || l.state === "down") && l.hugAnim <= 0);
   for (let i = 0; i < all.length; i++) for (let j = i + 1; j < all.length; j++) {
     const a = all[i], b = all[j];
     const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 0.01, min = a.r + b.r;
@@ -1205,10 +1209,30 @@ function updateDowned(dt) {
       popText(l.x, l.y - 40, L().saved, "#7CFC9A");
       burst(l.x, l.y - 10, "star", "#7CFC9A", 10);
       SFX.rescue();
-    } else if (l.downTimer <= 0) {
-      l.state = "out";
+    } else if (l.downTimer <= 0) {          // никто не помог — встаёт и хромает в домик отдыхать
+      l.state = "home"; l.path = []; l.rescue = 0;
+      l.restSpot = { ...spawns.small[l.id] };
+      stats.rests++;
+      if (attackToken === l) attackToken = null;
       popText(l.x, l.y - 40, L().out, "#e5e7eb");
       SFX.out();
+    }
+  }
+}
+function updateResting(dt) {
+  for (const l of littles) {
+    if (l.state === "home") {
+      l.moving = steerTo(l, l.restSpot.x, l.restSpot.y, CFG.HOME_SPEED, dt, false);
+      if (l.moving) l.dir = turnToward(l.dir, l.moveDir, 8 * dt);
+      if (!l.moving || dist(l, l.restSpot) < 6) { l.state = "rest"; l.restTimer = CFG.REST_TIME; l.moving = false; l.dir = Math.PI / 2; }
+    } else if (l.state === "rest") {
+      l.restTimer -= dt; l.moving = false;
+      if (l.restTimer <= 0) {
+        l.state = "ok"; l.invuln = 2; l.fleeT = 0;
+        popText(l.x, l.y - 40, L().back, "#7CFC9A");
+        burst(l.x, l.y - 10, "star", "#7CFC9A", 10);
+        SFX.rescue();
+      }
     }
   }
 }
@@ -1236,11 +1260,12 @@ function update(dt) {
   separate();
   checkContacts();
   updateDowned(dt);
+  updateResting(dt);
   updateItems(dt);
   updateFx(dt);
   if (pendingWin > 0) { pendingWin -= dt; if (pendingWin <= 0 && mode === "play") { mode = "win"; giveReward(true); SFX.win(); burst(big.x, big.y - 30, "heart", "#ff4d8d", 40); } }
   const players = littles.filter(p => p.kind === "player");
-  if (mode === "play" && players.length && players.every(p => p.state === "out")) { mode = "lose"; giveReward(false); SFX.lose(); }
+  // проигрыша больше нет: кого не спасли — отдыхает в домике и возвращается (за это меньше монеток)
 }
 
 // =====================================================================
@@ -1311,8 +1336,16 @@ function drawMarkers(t) {
     drawHeart(p.x, p.y - 7, 14, "#ff6fa8");
   }
   for (const l of littles) {
-    if (l.state === "out") continue;
     const isPlayer = l.kind === "player", name = shortName(l);
+    if (l.state === "home" || l.state === "rest") {
+      const hd = toScreen(l.x, l.y, l.state === "rest" ? 56 : 72);
+      if (l.state === "rest") {
+        const z = (t * 1.2 + l.id * 0.3) % 1;
+        ctx.save(); ctx.globalAlpha = 1 - z; label("z", hd.x + 10 + z * 14, hd.y - 6 - z * 22, 12 + z * 8, "#e0e7ff"); ctx.restore();
+        label(fmtTime(Math.max(0, l.restTimer)), hd.x, hd.y + 6, isPlayer ? 14 : 11, isPlayer ? P_COLORS[l.id] : "#e5e7eb");
+      } else label("🏠 " + name, hd.x, hd.y - 6, isPlayer ? 13 : 10, "#e5e7eb");
+      continue;
+    }
     if (l.state === "ok") {
       const hd = toScreen(l.x, l.y, 72);
       if (isPlayer) {
@@ -1380,11 +1413,11 @@ function drawHUD(t) {
   rr(x0, 8, totalW, 34, 14); fillStroke("rgba(255,255,255,.8)", 3);
   littles.forEach((l, i) => {
     const cx = x0 + 7 + i * chipW + chipW / 2, cy = 25;
-    ctx.globalAlpha = l.state === "out" ? 0.35 : 1;
+    ctx.globalAlpha = l.state === "home" || l.state === "rest" ? 0.45 : 1;
     circle(cx, cy, 11); fillStroke(l.state === "ok" ? l.look.shirt : "#9ca3af", 2.5);
     ctx.globalAlpha = 1;
     if (l.state === "down") label(String(Math.ceil(l.downTimer)), cx, cy, 11, "#fecaca");
-    else if (l.state === "out") label("✕", cx, cy, 12, "#fff");
+    else if (l.state === "home" || l.state === "rest") label("z", cx, cy, 12, "#fff");
     else label(l.kind === "player" ? shortName(l) : L().botChip, cx, cy, l.kind === "player" && numPlayers === 1 ? 8 : 10, "#fff");
   });
 
@@ -1410,6 +1443,12 @@ function drawHUD(t) {
   if (isTouch && stats.time < 5) {
     label(numPlayers === 2 ? L().touch2 : L().touch1, W / 2, H - 26, 18, "#fff");
   }
+  littles.filter(l => l.kind === "player" && (l.state === "home" || l.state === "rest")).forEach((l, i) => {
+    const tl = l.state === "rest" ? l.restTimer : CFG.REST_TIME;
+    const txt = L().resting(numPlayers === 1 ? L().me : (l.id === 0 ? L().player1 : L().player2), fmtTime(Math.max(0, tl)));
+    rr(W / 2 - 230, H - 58 - i * 44, 460, 38, 14); fillStroke("rgba(30,41,59,.75)", 3);
+    fitText("💤 " + txt, W / 2, H - 39 - i * 44, 17, 440, "center", "#e0e7ff", 800);
+  });
 }
 
 function drawOverlay() {
@@ -1512,7 +1551,8 @@ function drawOverlay() {
     [[true, L().victory], [rw.nobodyOut, L().nobodyOut], [rw.fast, L().fast(fmtTime(rw.target))]].forEach(([okk, txt], i) => {
       label((okk ? "✔ " : "✘ ") + txt, W / 2, 274 + i * 28, 18, okk ? "#bbf7d0" : "#cbd5e1");
     });
-    drawCoin(W / 2 - 40, 372, 18); label("+" + rw.coins, W / 2 - 14, 372, 30, "#fde047", "left");
+    drawCoin(W / 2 - 40, 366, 18); label("+" + rw.coins, W / 2 - 14, 366, 30, "#fde047", "left");
+    if (rw.penalty > 0) label(L().restPenalty(rw.penalty), W / 2, 396, 15, "#fca5a5");
     addButton(W / 2 - 360, 420, 260, 66, L().next(level + 1), "#22c55e", nextLevel, 24);
     addButton(W / 2 - 85, 420, 200, 66, "🛒 " + L().shop, "#f59e0b", () => { level = clamp(level + 1, 1, progress.unlocked); resetWorld(numPlayers); mode = "shop"; }, 22);
     addButton(W / 2 + 130, 420, 200, 66, L().menu, "#64748b", toMenu, 22);
@@ -2298,12 +2338,35 @@ function syncItems(t) {
 // ---------- Анимация каждый кадр ----------
 const swing = (m, a) => { m.legs[0].rotation.x = a; m.legs[1].rotation.x = -a; m.arms[0].rotation.x = -a * 0.8; m.arms[1].rotation.x = a * 0.8; };
 function syncLittle(l, t) {
-  const m = l.model, down = l.state === "down", out = l.state === "out";
-  m.root.visible = !out && !(l.invuln > 0 && Math.floor(t * 12) % 2);
-  m.ghost.visible = out;
+  const m = l.model, down = l.state === "down", going = l.state === "home", resting = l.state === "rest";
+  m.root.visible = !(l.invuln > 0 && Math.floor(t * 12) % 2);
+  m.ghost.visible = false;
   m.root.position.set(P(l.x), 0, P(l.y));
-  if (out) { m.ghost.position.set(P(l.x), 0.9 + Math.sin(t * 3 + l.id) * 0.15, P(l.y)); m.ghost.rotation.y = Math.sin(t + l.id) * 0.4; return; }
-  m.cast.visible = down;
+  m.cast.visible = down || going || resting;
+  if (going || resting) {
+    if (m.ring) m.ring.visible = false;
+    m.bubble.visible = false; for (const bt of m.boots) bt.visible = false;
+    setCloak(m, false);
+    m.arms[0].rotation.z = -0.18; m.arms[1].rotation.z = 0.18;
+    m.root.rotation.y = Math.PI / 2 - l.dir;
+    if (going) {                                          // хромает к домику
+      m.rig.rotation.set(0, 0, Math.sin(l.walk) * 0.12);
+      m.rig.position.set(0, Math.abs(Math.sin(l.walk)) * 0.04, 0);
+      m.legs[0].rotation.x = Math.sin(l.walk) * 0.5; m.legs[1].rotation.x = 0.1;
+      m.arms[0].rotation.x = 0; m.arms[1].rotation.x = 0;
+      m.head.rotation.x = 0.25;
+      m.face.mouth.rotation.z = 0;
+    } else {                                              // сидит и отдыхает
+      m.rig.rotation.set(0, 0, 0);
+      m.rig.position.set(0, -0.2, 0);
+      m.legs[0].rotation.x = -1.45; m.legs[1].rotation.x = -1.45;
+      m.arms[0].rotation.x = -0.5; m.arms[1].rotation.x = -0.5;
+      m.head.rotation.x = 0.35 + Math.sin(t * 1.5 + l.id) * 0.08;
+      m.face.mouth.rotation.z = Math.PI;
+    }
+    return;
+  }
+  m.head.rotation.x = 0;
   if (m.ring) m.ring.visible = !down && l.hugAnim <= 0;
   const fx = l.fx || { boots: 0, cloak: 0, shield: 0 };
   for (const bt of m.boots) bt.visible = fx.boots > 0 && !down;
@@ -2377,12 +2440,12 @@ function syncScene(t) {
   backMat.opacity = 0.3 + Math.sin(t * 5) * 0.1;
   for (const ft of fadeTrees) {
     const o = ft.o;
-    const behind = littles.some(l => l.state !== "out" && l.y < o.y + 4 && l.y > o.y - 80 && Math.abs(l.x - o.x) < 30) || (big.y < o.y + 4 && big.y > o.y - 90 && Math.abs(big.x - o.x) < 40);
+    const behind = littles.some(l => l.y < o.y + 4 && l.y > o.y - 80 && Math.abs(l.x - o.x) < 30) || (big.y < o.y + 4 && big.y > o.y - 90 && Math.abs(big.x - o.x) < 40);
     ft.a += ((behind ? 0.35 : 1) - ft.a) * 0.2;
     for (const mt of ft.mats) { mt.opacity = ft.a; mt.userData.outline.opacity = ft.a; mt.depthWrite = ft.a > 0.95; }
   }
   for (const fb of fadeBushes) {
-    const inside = littles.some(l => l.kind === "player" && l.state !== "out" && Math.hypot(l.x - fb.b.x, l.y - fb.b.y) < fb.b.r + 4);
+    const inside = littles.some(l => l.kind === "player" && Math.hypot(l.x - fb.b.x, l.y - fb.b.y) < fb.b.r + 4);
     fb.a += ((inside ? 0.45 : 1) - fb.a) * 0.2;
     for (const mt of fb.mats) { mt.opacity = fb.a; mt.userData.outline.opacity = fb.a; mt.depthWrite = fb.a > 0.95; }
   }
