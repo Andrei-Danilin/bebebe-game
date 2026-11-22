@@ -66,7 +66,15 @@ const CFG = {
   BOOTS_TIME: 6, BOOTS_MULT: 1.55,   // сапоги-скороходы: время и во сколько раз быстрее
   CLOAK_TIME: 6,             // невидимость
   SHIELD_TIME: 25,           // щит держится, пока не сработает (или до конца времени)
-  SLIP_STUN: 2.5             // сек — Большой лежит после банана (обнимать можно с любой стороны!)
+  SLIP_STUN: 2.5,            // сек — Большой лежит после банана (обнимать можно с любой стороны!)
+  // монетки за уровень
+  COINS_WIN: 10, COINS_PER_LEVEL: 5, COINS_NOBODY_OUT: 10, COINS_FAST: 10, COINS_PER_HUG: 2,
+  FAST_TIME: lv => 60 + lv * 15   // сек — успеть за это время = третья звезда
+};
+// Рукавицы из магазина: сколько сердечек забирает одна обнимашка, цена и сколько сильных обнимашек в наборе
+const GLOVES = {
+  mittens: { power: 2, price: 30, charges: 3, color: "#ef4444", cuff: "#ffffff" },
+  mega:    { power: 3, price: 60, charges: 3, color: "#f472b6", cuff: "#facc15" }
 };
 
 // =====================================================================
@@ -88,7 +96,7 @@ const I18N = {
     controls2: "Tablet/phone: drag your finger  •  Gamepad: stick, A — play, X — two players",
     pause: "Paused", play: "Play", menu: "Menu",
     win: "YOU WIN!", winSub: "The Big One is all hugged out!", next: n => `Level ${n} ▶`,
-    lose: "The Big One won...", loseSub: (h, m) => `Hugs: ${h} of ${m}. Try again?`, again: "Try again",
+    lose: "The Big One won...", loseSub: (h, m) => `Hearts taken: ${h} of ${m}. Try again?`, again: "Try again",
     big: "Big One", hug: "Hug! -1", bang: "BAM!", saved: "Saved!", out: "Out...", help: n => `${n}: HELP!`,
     touch1: "Drag your finger on the screen to run", touch2: "Player 1: finger on the left  •  Player 2: on the right",
     rotate: "Turn your device sideways ↻", me: "Me", botChip: "B", safe: "SAFE",
@@ -96,7 +104,12 @@ const I18N = {
     skins: "Skins", player1: "Player 1", player2: "Player 2", ok: "OK",
     slots: { hair: "Hair", hat: "Hat", jacket: "Jacket", pants: "Pants", look: "Look" },
     place: "Place", auto: "Auto", places: { park: "Park", beach: "Beach", winter: "Winter", school: "Schoolyard" },
-    items: { boots: "Speed boots!", cloak: "Invisible!", shield: "Shield!" }, blocked: "Blocked!", slip: "Whoops!"
+    items: { boots: "Speed boots!", cloak: "Invisible!", shield: "Shield!" }, blocked: "Blocked!", slip: "Whoops!",
+    shop: "Shop", buy: "Buy", have: n => `You have: ${n} power ${n === 1 ? "hug" : "hugs"}`, wears: "wears", none: "None",
+    gloves: { mittens: "Warm mittens", mega: "Mega hug mittens" }, gloveDesc: p => `Each hug takes ${p} hearts`,
+    pack: n => `Pack: ${n} power hugs`, notEnough: "Not enough coins", reset: "Reset progress", sure: "Sure? Tap again",
+    victory: "Victory", nobodyOut: "Nobody was out", fast: t => `Fast: under ${t}`, forHugs: n => `+${n} for hugs`,
+    megaHug: p => `Power hug! -${p}`, coinsWord: "coins"
   },
   es: {
     name: "Español", subtitle: "Los Chiquitos contra el Grandote",
@@ -113,7 +126,7 @@ const I18N = {
     controls2: "Tablet/celu: deslizá el dedo  •  Joystick: palanca, A — jugar, X — de a dos",
     pause: "Pausa", play: "Jugar", menu: "Menú",
     win: "¡GANARON!", winSub: "¡Abrazaron al Grandote hasta el final!", next: n => `Nivel ${n} ▶`,
-    lose: "Ganó el Grandote...", loseSub: (h, m) => `Abrazos: ${h} de ${m}. ¿Otra vez?`, again: "Otra vez",
+    lose: "Ganó el Grandote...", loseSub: (h, m) => `Corazones: ${h} de ${m}. ¿Otra vez?`, again: "Otra vez",
     big: "Grandote", hug: "¡Abrazo! -1", bang: "¡PUM!", saved: "¡Salvado!", out: "Afuera...", help: n => `${n}: ¡AYUDA!`,
     touch1: "Deslizá el dedo por la pantalla para correr", touch2: "Jugador 1: dedo a la izquierda  •  Jugador 2: a la derecha",
     rotate: "Girá el dispositivo ↻", me: "Yo", botChip: "B", safe: "ZONA SEGURA",
@@ -121,7 +134,12 @@ const I18N = {
     skins: "Personajes", player1: "Jugador 1", player2: "Jugador 2", ok: "Listo",
     slots: { hair: "Pelo", hat: "Gorro", jacket: "Campera", pants: "Pantalón", look: "Aspecto" },
     place: "Lugar", auto: "Auto", places: { park: "Plaza", beach: "Playa", winter: "Invierno", school: "Patio del cole" },
-    items: { boots: "¡Zapatillas veloces!", cloak: "¡Invisible!", shield: "¡Escudo!" }, blocked: "¡Bloqueado!", slip: "¡Upa!"
+    items: { boots: "¡Zapatillas veloces!", cloak: "¡Invisible!", shield: "¡Escudo!" }, blocked: "¡Bloqueado!", slip: "¡Upa!",
+    shop: "Tienda", buy: "Comprar", have: n => `Tenés: ${n} ${n === 1 ? "abrazo potente" : "abrazos potentes"}`, wears: "usa", none: "Nada",
+    gloves: { mittens: "Mitones abrigados", mega: "Mitones del abrazo gigante" }, gloveDesc: p => `Cada abrazo saca ${p} corazones`,
+    pack: n => `Paquete: ${n} abrazos potentes`, notEnough: "No te alcanzan las monedas", reset: "Borrar progreso", sure: "¿Seguro? Tocá otra vez",
+    victory: "Victoria", nobodyOut: "No quedó nadie afuera", fast: t => `Rápido: menos de ${t}`, forHugs: n => `+${n} por los abrazos`,
+    megaHug: p => `¡Abrazo potente! -${p}`, coinsWord: "monedas"
   },
   ru: {
     name: "Русский", subtitle: "Маленькие против Большого",
@@ -138,7 +156,7 @@ const I18N = {
     controls2: "Планшет/телефон: водите пальцем  •  Геймпад: стик, A — играть, X — вдвоём",
     pause: "Пауза", play: "Играть", menu: "Меню",
     win: "ПОБЕДА!", winSub: "Большого обняли со всех сторон!", next: n => `Уровень ${n} ▶`,
-    lose: "Большой победил...", loseSub: (h, m) => `Обнимашек: ${h} из ${m}. Ещё разок?`, again: "Ещё раз",
+    lose: "Большой победил...", loseSub: (h, m) => `Сердечек забрали: ${h} из ${m}. Ещё разок?`, again: "Ещё раз",
     big: "Большой", hug: "Обнимашки! -1", bang: "БАХ!", saved: "Спасён!", out: "Выбыл...", help: n => `${n}: ПОМОГИТЕ!`,
     touch1: "Води пальцем по экрану, чтобы бежать", touch2: "Игрок 1 — палец слева, Игрок 2 — палец справа",
     rotate: "Поверни устройство боком ↻", me: "Я", botChip: "Б", safe: "БЕЗОПАСНО",
@@ -146,7 +164,12 @@ const I18N = {
     skins: "Скины", player1: "Игрок 1", player2: "Игрок 2", ok: "Готово",
     slots: { hair: "Причёска", hat: "Головной убор", jacket: "Куртка", pants: "Штаны", look: "Вид" },
     place: "Место", auto: "Авто", places: { park: "Парк", beach: "Пляж", winter: "Зима", school: "Школьный двор" },
-    items: { boots: "Сапоги-скороходы!", cloak: "Невидимка!", shield: "Щит!" }, blocked: "Щит спас!", slip: "Поскользнулся!"
+    items: { boots: "Сапоги-скороходы!", cloak: "Невидимка!", shield: "Щит!" }, blocked: "Щит спас!", slip: "Поскользнулся!",
+    shop: "Магазин", buy: "Купить", have: n => `У вас: ${n} ${["сильная обнимашка", "сильные обнимашки", "сильных обнимашек"][n % 10 === 1 && n % 100 !== 11 ? 0 : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 1 : 2]}`, wears: "носит", none: "Ничего",
+    gloves: { mittens: "Тёплые рукавицы", mega: "Мега-рукавицы" }, gloveDesc: p => `Каждая обнимашка забирает ${p} сердечка`,
+    pack: n => `В наборе: ${n} сильные обнимашки`, notEnough: "Не хватает монеток", reset: "Сбросить прогресс", sure: "Точно? Нажми ещё раз",
+    victory: "Победа", nobodyOut: "Никто не выбыл", fast: t => `Быстро: меньше ${t}`, forHugs: n => `+${n} за обнимашки`,
+    megaHug: p => `Сильная обнимашка! -${p}`, coinsWord: "монетки"
   }
 };
 const LANGS = ["en", "es", "ru"];
@@ -636,7 +659,45 @@ let botAttackCd = 0, prevToken = null;
 let mode = "menu", numPlayers = 1, level = 1, attackToken = null, muted = false, shake = 0;
 let stats = { hugs: 0, time: 0 };
 let buttons = [];
-let items = [], itemCd = 5, itemSeq = 0, pendingWin = 0;
+let items = [], itemCd = 5, itemSeq = 0, pendingWin = 0, lastReward = null, resetArmed = false;
+// ---------- Прогресс: открытые уровни, звёзды, монетки, рукавицы (хранится в этом браузере) ----------
+let progress = { unlocked: 1, stars: {}, coins: 0, inv: { mittens: 0, mega: 0 }, equip: ["none", "none"] };
+try {
+  const pv = JSON.parse(localStorage.getItem("bebebe-progress") || "null");
+  if (pv) progress = { ...progress, ...pv, inv: { ...progress.inv, ...(pv.inv || {}) }, stars: pv.stars || {}, equip: pv.equip || ["none", "none"] };
+} catch (e) { /* ok */ }
+const saveProgress = () => { try { localStorage.setItem("bebebe-progress", JSON.stringify(progress)); } catch (e) { /* ok */ } };
+level = clamp(progress.unlocked, 1, 99);
+const totalStars = () => Object.values(progress.stars).reduce((a, b) => a + b, 0);
+const fmtTime = sec => `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, "0")}`;
+const gloveOf = pi => { const g = progress.equip[pi]; return g && g !== "none" && progress.inv[g] > 0 ? g : null; };
+function buyGloves(kind) {
+  const g = GLOVES[kind];
+  if (progress.coins < g.price) { SFX.out(); return; }
+  progress.coins -= g.price; progress.inv[kind] += g.charges;
+  if (progress.equip[0] === "none") progress.equip[0] = kind;
+  saveProgress(); SFX.item();
+}
+function setEquip(pi, kind) { progress.equip[pi] = kind; saveProgress(); resetWorld(numPlayers); }
+function resetProgress() {
+  if (!resetArmed) { resetArmed = true; return; }
+  resetArmed = false;
+  progress = { unlocked: 1, stars: {}, coins: 0, inv: { mittens: 0, mega: 0 }, equip: ["none", "none"] };
+  saveProgress(); level = 1; resetWorld(numPlayers);
+}
+function giveReward(win) {
+  const ph = stats.playerHugs;
+  if (!win) { const c = ph * CFG.COINS_PER_HUG; progress.coins += c; saveProgress(); lastReward = { win: false, coins: c }; return; }
+  const nobodyOut = littles.every(l => l.state !== "out"), target = CFG.FAST_TIME(level), fast = stats.time <= target;
+  const stars = 1 + (nobodyOut ? 1 : 0) + (fast ? 1 : 0);
+  const coins = CFG.COINS_WIN + level * CFG.COINS_PER_LEVEL + (nobodyOut ? CFG.COINS_NOBODY_OUT : 0) + (fast ? CFG.COINS_FAST : 0) + ph * CFG.COINS_PER_HUG;
+  const prevStars = progress.stars[level] || 0;
+  progress.stars[level] = Math.max(prevStars, stars);
+  progress.unlocked = Math.max(progress.unlocked, Math.min(99, level + 1));
+  progress.coins += coins;
+  saveProgress();
+  lastReward = { win: true, coins, stars, nobodyOut, fast, target, newBest: stars > prevStars };
+}
 
 function makeLittle(i, kind, botIndex, controls, look) {
   const sp = spawns.small[i];
@@ -668,13 +729,14 @@ function resetWorld(n) {
   };
   items = []; itemCd = rand(4, 7); pendingWin = 0;
   texts = []; particles = []; attackToken = null; prevToken = null; botAttackCd = rand(3, 5); shake = 0; sticks.clear();
-  stats = { hugs: 0, time: 0 };
+  stats = { hugs: 0, time: 0, playerHugs: 0 };
+  lastReward = null; resetArmed = false;
   rebuild3D();
 }
 function startGame(n) { resetWorld(n); mode = "play"; }
 function nextLevel() { level++; startGame(numPlayers); }
 function toMenu() { resetWorld(numPlayers); mode = "menu"; }
-function changeLevel(d) { level = clamp(level + d, 1, 99); resetWorld(numPlayers); }
+function changeLevel(d) { level = clamp(level + d, 1, Math.min(99, progress.unlocked)); resetWorld(numPlayers); }
 
 // =====================================================================
 //  ЗВУК
@@ -728,6 +790,8 @@ function onKey(code) {
     if (code === "Digit2" || code === "Numpad2") startGame(2);
     if (code === "ArrowLeft") changeLevel(-1);
     if (code === "ArrowRight") changeLevel(1);
+  } else if (mode === "shop") {
+    if (code === "Enter" || code === "Escape" || code === "Space") mode = "menu";
   } else if (mode === "skins") {
     if (code === "KeyR") randomOutfit("p1");
     if (code === "Enter" || code === "Escape" || code === "Space") mode = "menu";
@@ -801,6 +865,8 @@ function onPadButton(b) {
     if (b === 14) changeLevel(-1);
     if (b === 15) changeLevel(1);
     if (b === 1) mode = "skins";
+  } else if (mode === "shop") {
+    if (b === 0 || b === 1 || b === 9) mode = "menu";
   } else if (mode === "skins") {
     if (b === 2) randomOutfit("p1");
     if (b === 3) randomOutfit("p2");
@@ -869,15 +935,20 @@ function push(t) {
   SFX.push();
 }
 function hug(l, a) {
-  big.hp--; big.hugCd = CFG.HUG_STUN + 0.3; big.stun = CFG.HUG_STUN; big.stunFace = a; big.flash = 0.3;
+  let power = 1;
+  const gl = l.kind === "player" ? gloveOf(l.id) : null;
+  if (gl) { power = GLOVES[gl].power; progress.inv[gl]--; saveProgress(); }   // рукавицы: сразу 2–3 сердечка
+  big.hp = Math.max(0, big.hp - power); big.hugCd = CFG.HUG_STUN + 0.3; big.stun = CFG.HUG_STUN; big.stunFace = a; big.flash = 0.3;
   big.stunTurn = Math.abs(normAng(a - big.dir)) / CFG.HUG_STUN;   // медленно поворачивается, пока в шоке
   big.state = "chase"; big.lastSeen = { x: l.x, y: l.y };
   big.slip = 0;
   l.hugCd = 1.5 + CFG.HUG_ANIM; l.hugAnim = CFG.HUG_ANIM;   // запрыгивает на спину
   l.path = [];
   stats.hugs++;
-  popText(big.x, big.y - 70, L().hug, "#ff6fa8");
-  burst(big.x, big.y - 30, "heart", "#ff4d8d", 12);
+  if (l.kind === "player") stats.playerHugs++;
+  popText(big.x, big.y - 70, power > 1 ? L().megaHug(power) : L().hug, power > 1 ? "#facc15" : "#ff6fa8");
+  burst(big.x, big.y - 30, "heart", "#ff4d8d", 12 * power);
+  if (power > 1) shake = 0.3;
   SFX.hug();
   if (l.kind === "bot") {
     if (attackToken === l) attackToken = null;
@@ -1167,9 +1238,9 @@ function update(dt) {
   updateDowned(dt);
   updateItems(dt);
   updateFx(dt);
-  if (pendingWin > 0) { pendingWin -= dt; if (pendingWin <= 0 && mode === "play") { mode = "win"; SFX.win(); burst(big.x, big.y - 30, "heart", "#ff4d8d", 40); } }
+  if (pendingWin > 0) { pendingWin -= dt; if (pendingWin <= 0 && mode === "play") { mode = "win"; giveReward(true); SFX.win(); burst(big.x, big.y - 30, "heart", "#ff4d8d", 40); } }
   const players = littles.filter(p => p.kind === "player");
-  if (mode === "play" && players.length && players.every(p => p.state === "out")) { mode = "lose"; SFX.lose(); }
+  if (mode === "play" && players.length && players.every(p => p.state === "out")) { mode = "lose"; giveReward(false); SFX.lose(); }
 }
 
 // =====================================================================
@@ -1206,6 +1277,26 @@ function heartPath(x, y, s) {
   ctx.bezierCurveTo(x - s * 0.5, y + s * 0.6, x, y + s * 0.8, x, y + s);
   ctx.bezierCurveTo(x, y + s * 0.8, x + s * 0.5, y + s * 0.6, x + s * 0.5, y + s * 0.3);
   ctx.bezierCurveTo(x + s * 0.5, y, x, y, x, y + s * 0.3);
+}
+function drawCoin(x, y, r) {
+  circle(x, y, r); fillStroke("#facc15", Math.max(1.5, r / 5));
+  circle(x, y, r * 0.62); ctx.lineWidth = Math.max(1, r / 7); ctx.strokeStyle = "#ca8a04"; ctx.stroke();
+  ctx.fillStyle = "#fff7c2"; circle(x - r * 0.35, y - r * 0.35, r * 0.2); ctx.fill();
+}
+function drawStar(x, y, r, filled) {
+  ctx.beginPath();
+  for (let k = 0; k < 10; k++) { const a = -Math.PI / 2 + k * Math.PI / 5, rr2 = k % 2 ? r * 0.45 : r; ctx.lineTo(x + Math.cos(a) * rr2, y + Math.sin(a) * rr2); }
+  ctx.closePath(); fillStroke(filled ? "#facc15" : "rgba(255,255,255,.35)", Math.max(2, r / 7));
+}
+function drawMitten(x, y, s, kind) {
+  const g = GLOVES[kind];
+  ctx.save(); ctx.translate(x, y); ctx.scale(s / 40, s / 40);
+  rr(-14, -18, 28, 34, 13); fillStroke(g.color, 3);                       // ладошка
+  ctx.save(); ctx.translate(-14, -2); ctx.rotate(-0.6); rr(-6, -10, 12, 18, 6); fillStroke(g.color, 3); ctx.restore();   // большой палец
+  rr(-15, 12, 30, 10, 4); fillStroke(g.cuff, 3);                          // манжета
+  if (kind === "mega") { heartPath(0, -10, 14); ctx.fillStyle = "#fff"; ctx.fill(); }
+  else { ctx.fillStyle = "rgba(255,255,255,.8)"; for (const [dx, dy] of [[-5, -6], [5, -2], [-2, 5]]) { circle(dx, dy, 2); ctx.fill(); } }
+  ctx.restore();
 }
 function drawHeart(x, y, s, fill, outline = true) { heartPath(x, y, s); ctx.fillStyle = fill; ctx.fill(); if (outline) { ctx.lineWidth = 2; ctx.strokeStyle = OUT; ctx.stroke(); } }
 
@@ -1297,6 +1388,12 @@ function drawHUD(t) {
     else label(l.kind === "player" ? shortName(l) : L().botChip, cx, cy, l.kind === "player" && numPlayers === 1 ? 8 : 10, "#fff");
   });
 
+  const gls = [0, 1].filter(pi => pi < numPlayers).map(pi => gloveOf(pi)).filter(Boolean);
+  if (gls.length) {                                        // сколько сильных обнимашек осталось
+    const kinds = [...new Set(gls)];
+    rr(10, 48, 20 + kinds.length * 70, 34, 14); fillStroke("rgba(255,255,255,.8)", 3);
+    kinds.forEach((k, i) => { drawMitten(30 + i * 70, 65, 26, k); label("×" + progress.inv[k], 58 + i * 70, 65, 16, OUT); });
+  }
   const s = Math.floor(stats.time);
   rr(W / 2 - 95, 8, 110, 34, 14); fillStroke("rgba(255,255,255,.8)", 3);
   label(`${L().lvShort} ${level}  ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`, W / 2 - 40, 25, 14, OUT);
@@ -1330,13 +1427,20 @@ function drawOverlay() {
     });
     addButton(W / 2 - 250, 350, 52, 50, "◀", "#94a3b8", () => changeLevel(-1));
     rr(W / 2 - 192, 350, 124, 50, 16); fillStroke("#fff", 4);
-    fitText(`${L().level} ${level}`, W / 2 - 130, 376, 22, 112, "center", OUT, 900);
-    addButton(W / 2 - 62, 350, 52, 50, "▶", "#94a3b8", () => changeLevel(1));
+    fitText(`${L().level} ${level}`, W / 2 - 130, 368, 20, 112, "center", OUT, 900);
+    for (let k = 0; k < 3; k++) drawStar(W / 2 - 146 + k * 16, 389, 7, k < (progress.stars[level] || 0));
+    const canNext = level < progress.unlocked;
+    addButton(W / 2 - 62, 350, 52, 50, canNext ? "▶" : "🔒", canNext ? "#94a3b8" : "#cbd5e1", () => changeLevel(1), canNext ? 24 : 18);
+    // монетки и звёзды
+    rr(W / 2 - 345, 118, 170, 34, 14); fillStroke("#fff", 3);
+    drawCoin(W / 2 - 322, 135, 11); label(String(progress.coins), W / 2 - 304, 135, 18, OUT, "left");
+    drawStar(W / 2 - 235, 135, 11, true); label(String(totalStars()), W / 2 - 220, 135, 18, OUT, "left");
     const placeTxt = (placeSel === "auto" ? L().auto + ": " : "") + L().places[currentPlace()];
     addButton(W / 2 + 20, 350, 230, 50, "🗺 " + placeTxt, "#38bdf8", cyclePlace, placeTxt.length > 14 ? 16 : 20);
     addButton(W / 2 - 250, 414, 230, 64, L().onePlayer, "#3b82f6", () => startGame(1), 28);
     addButton(W / 2 + 20, 414, 230, 64, L().twoPlayers, "#22c55e", () => startGame(2), 28);
-    addButton(W / 2 - 115, 490, 230, 44, "🎨 " + L().skins, "#ff8fab", () => { mode = "skins"; }, 20);
+    addButton(W / 2 - 250, 490, 230, 44, "🎨 " + L().skins, "#ff8fab", () => { mode = "skins"; }, 20);
+    addButton(W / 2 + 20, 490, 230, 44, "🛒 " + L().shop, "#f59e0b", () => { mode = "shop"; }, 20);
     fitText(L().controls1, W / 2, 558, 15, 690, "center", "#475569", 600);
     fitText(L().controls2, W / 2, 582, 15, 690, "center", "#475569", 600);
     // переключатель языка
@@ -1366,20 +1470,59 @@ function drawOverlay() {
       });
     });
     addButton(W / 2 - 100, 564, 200, 44, L().ok, "#22c55e", () => { mode = "menu"; }, 22);
+  } else if (mode === "shop") {
+    rr(W / 2 - 400, 26, 800, 590, 30); fillStroke("rgba(255,250,235,.96)", 5);
+    label("🛒 " + L().shop, W / 2, 64, 34, "#f59e0b");
+    rr(W / 2 + 230, 46, 150, 38, 14); fillStroke("#fff", 3);
+    drawCoin(W / 2 + 254, 65, 12); label(String(progress.coins), W / 2 + 274, 65, 20, OUT, "left");
+    ["mittens", "mega"].forEach((k, i) => {
+      const g = GLOVES[k], x0 = W / 2 - 370 + i * 380, w = 360;
+      rr(x0, 96, w, 270, 22); fillStroke("#fff", 3.5);
+      drawMitten(x0 + 70, 170, 84, k);
+      fitText(L().gloves[k], x0 + 228, 130, 20, 220, "center", OUT, 900);
+      fitText(L().gloveDesc(g.power), x0 + 228, 162, 15, 216, "center", "#475569", 700);
+      fitText(L().pack(g.charges), x0 + 228, 186, 14, 216, "center", "#64748b", 600);
+      fitText(L().have(progress.inv[k]), x0 + 228, 216, 15, 216, "center", progress.inv[k] > 0 ? "#15803d" : "#94a3b8", 800);
+      const ok = progress.coins >= g.price;
+      addButton(x0 + 70, 250, 220, 56, `${L().buy}  ${g.price}      `, ok ? "#22c55e" : "#cbd5e1", () => buyGloves(k), 20);
+      drawCoin(x0 + 262, 278, 11);
+      if (!ok) fitText(L().notEnough, x0 + w / 2, 330, 13, 300, "center", "#ef4444", 700);
+    });
+    // кто что надевает
+    [0, 1].forEach(pi => {
+      const y = 392 + pi * 62;
+      label(`${pi === 0 ? L().player1 : L().player2} ${L().wears}:`, W / 2 - 360, y + 24, 17, P_COLORS[pi], "left");
+      ["none", "mittens", "mega"].forEach((k, j) => {
+        const on = progress.equip[pi] === k, bx = W / 2 - 110 + j * 165;
+        addButton(bx, y, 155, 48, k === "none" ? L().none : "", on ? "#ff6fa8" : "#cbd5e1", () => setEquip(pi, k), 16);
+        if (k !== "none") { drawMitten(bx + 34, y + 24, 30, k); label("×" + progress.inv[k], bx + 90, y + 24, 16, "#fff"); }
+      });
+    });
+    addButton(W / 2 - 100, 540, 200, 50, L().ok, "#22c55e", () => { mode = "menu"; }, 22);
+    addButton(W / 2 + 200, 548, 180, 36, resetArmed ? L().sure : L().reset, resetArmed ? "#ef4444" : "#94a3b8", resetProgress, 13);
   } else if (mode === "pause") {
     label(L().pause, W / 2, H / 2 - 70, 56, "#fff");
     addButton(W / 2 - 230, H / 2, 220, 66, L().play, "#22c55e", () => { mode = "play"; });
     addButton(W / 2 + 10, H / 2, 220, 66, L().menu, "#64748b", toMenu);
   } else if (mode === "win") {
-    label(L().win, W / 2, H / 2 - 110, 78, "#ffcf33");
-    label(L().winSub, W / 2, H / 2 - 40, 26, "#fff");
-    addButton(W / 2 - 250, H / 2 + 20, 260, 70, L().next(level + 1), "#22c55e", nextLevel);
-    addButton(W / 2 + 30, H / 2 + 20, 220, 70, L().menu, "#64748b", toMenu);
+    label(L().win, W / 2, 92, 72, "#ffcf33");
+    label(L().winSub, W / 2, 146, 22, "#fff");
+    const rw = lastReward || { stars: 1, coins: 0, nobodyOut: false, fast: false, target: 0 };
+    for (let k = 0; k < 3; k++) drawStar(W / 2 - 80 + k * 80, 214, 32, k < rw.stars);
+    [[true, L().victory], [rw.nobodyOut, L().nobodyOut], [rw.fast, L().fast(fmtTime(rw.target))]].forEach(([okk, txt], i) => {
+      label((okk ? "✔ " : "✘ ") + txt, W / 2, 274 + i * 28, 18, okk ? "#bbf7d0" : "#cbd5e1");
+    });
+    drawCoin(W / 2 - 40, 372, 18); label("+" + rw.coins, W / 2 - 14, 372, 30, "#fde047", "left");
+    addButton(W / 2 - 360, 420, 260, 66, L().next(level + 1), "#22c55e", nextLevel, 24);
+    addButton(W / 2 - 85, 420, 200, 66, "🛒 " + L().shop, "#f59e0b", () => { level = clamp(level + 1, 1, progress.unlocked); resetWorld(numPlayers); mode = "shop"; }, 22);
+    addButton(W / 2 + 130, 420, 200, 66, L().menu, "#64748b", toMenu, 22);
   } else if (mode === "lose") {
     label(L().lose, W / 2, H / 2 - 100, 58, "#fca5a5");
-    label(L().loseSub(stats.hugs, big.maxHp), W / 2, H / 2 - 35, 24, "#fff");
-    addButton(W / 2 - 250, H / 2 + 20, 240, 70, L().again, "#f59e0b", () => startGame(numPlayers));
-    addButton(W / 2 + 10, H / 2 + 20, 240, 70, L().menu, "#64748b", toMenu);
+    label(L().loseSub(big.maxHp - big.hp, big.maxHp), W / 2, H / 2 - 35, 24, "#fff");
+    if (lastReward && lastReward.coins > 0) { drawCoin(W / 2 - 70, H / 2 + 2, 13); label(L().forHugs(lastReward.coins), W / 2 - 50, H / 2 + 2, 20, "#fde047", "left"); }
+    addButton(W / 2 - 360, H / 2 + 40, 240, 66, L().again, "#f59e0b", () => startGame(numPlayers), 22);
+    addButton(W / 2 - 100, H / 2 + 40, 200, 66, "🛒 " + L().shop, "#f59e0b", () => { resetWorld(numPlayers); mode = "shop"; }, 22);
+    addButton(W / 2 + 120, H / 2 + 40, 240, 66, L().menu, "#64748b", toMenu, 22);
   }
 }
 
@@ -1387,7 +1530,7 @@ function drawUI(t) {
   buttons = [];
   ctx.setTransform(VIEW, 0, 0, VIEW, 0, 0);
   ctx.clearRect(0, 0, W, H);
-  if (mode !== "menu" && mode !== "skins") { drawMarkers(t); drawFx(); drawHUD(t); }
+  if (mode !== "menu" && mode !== "skins" && mode !== "shop") { drawMarkers(t); drawFx(); drawHUD(t); }
   drawOverlay();
   if (isTouch && window.innerHeight > window.innerWidth) {
     ctx.fillStyle = "rgba(20,30,25,.92)"; ctx.fillRect(0, 0, W, H);
@@ -1948,9 +2091,9 @@ function addHair(head, look) {
 }
 const CLOAK_MAT = new THREE.MeshToonMaterial({ color: "#c4b5fd", gradientMap: gradTex, transparent: true, opacity: 0.28, depthWrite: false });
 const CLOAK_OUT = new THREE.MeshBasicMaterial({ color: "#7c3aed", side: THREE.BackSide, transparent: true, opacity: 0.18, depthWrite: false });
-function buildLittleModel(look, isPlayer, pid = 0) {
+function buildLittleModel(look, isPlayer, pid = 0, glove = null) {
   const root = new THREE.Group(), rig = new THREE.Group(); root.add(rig);
-  const legs = [], arms = [], boots = [];
+  const legs = [], arms = [], boots = [], gloveParts = [];
   const tee = look.pattern === "plain" || look.pattern === "stripes";
   for (const k of [-1, 1]) {
     const pv = new THREE.Group(); pv.position.set(k * 0.1, 0.3, 0);
@@ -1991,6 +2134,12 @@ function buildLittleModel(look, isPlayer, pid = 0) {
     const arm = part(capsule(0.06, 0.15), tee ? look.skin : look.shirt, 0.022); arm.position.y = -0.12; pv.add(arm);
     if (tee) { const sl = part(new THREE.CylinderGeometry(0.075, 0.07, 0.09, 10), look.shirt, 0.015); sl.position.y = -0.02; pv.add(sl); }
     else { const hand = part(sphere(0.06, 8, 6), look.skin, 0.015); hand.position.y = -0.24; pv.add(hand); }
+    if (glove) {                                           // рукавицы из магазина
+      const gm = part(sphere(0.095, 12, 10), GLOVES[glove].color, 0.018); gm.scale.set(1, 1.15, 0.95); gm.position.y = -0.27; pv.add(gm);
+      const cuff = part(new THREE.CylinderGeometry(0.085, 0.085, 0.05, 12), GLOVES[glove].cuff, 0.01); cuff.position.y = -0.18; pv.add(cuff);
+      const th = part(sphere(0.04, 8, 6), GLOVES[glove].color, 0.01); th.position.set(-k * 0.07, -0.25, 0.04); pv.add(th);
+      gloveParts.push(gm, cuff, th);
+    }
     rig.add(pv); arms.push(pv);
   }
   const head = new THREE.Group(); head.position.y = 0.98; rig.add(head);
@@ -2011,7 +2160,7 @@ function buildLittleModel(look, isPlayer, pid = 0) {
   ghost.add(part(capsule(0.25, 0.3), "", 0.02, gm));
   for (const k of [-1, 1]) { const e = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.025, 0.02), toon("#555555")); e.position.set(k * 0.1, 0.12, 0.25); e.rotation.z = 0.7; ghost.add(e); const e2 = e.clone(); e2.rotation.z = -0.7; ghost.add(e2); }
   ghost.visible = false;
-  return { root, rig, legs, arms, head, body, cast, face, ghost, ring, boots, bubble, cape, cloaked: false };
+  return { root, rig, legs, arms, head, body, cast, face, ghost, ring, boots, bubble, cape, gloveParts, cloaked: false };
 }
 function setCloak(m, on) {
   if (m.cloaked === on) return;
@@ -2085,7 +2234,7 @@ function buildCharacters() {
   scene.remove(charGroup); disposeTree(charGroup);
   charGroup = new THREE.Group(); scene.add(charGroup);
   for (const l of littles) {
-    l.model = buildLittleModel(l.look, l.kind === "player", l.id);
+    l.model = buildLittleModel(l.look, l.kind === "player", l.id, l.kind === "player" ? gloveOf(l.id) : null);
     l.model.rig.scale.setScalar(LITTLE_SCALE); l.model.ghost.scale.setScalar(LITTLE_SCALE);
     charGroup.add(l.model.root, l.model.ghost);
   }
@@ -2158,6 +2307,7 @@ function syncLittle(l, t) {
   if (m.ring) m.ring.visible = !down && l.hugAnim <= 0;
   const fx = l.fx || { boots: 0, cloak: 0, shield: 0 };
   for (const bt of m.boots) bt.visible = fx.boots > 0 && !down;
+  if (m.gloveParts.length) { const on = l.kind === "player" && !!gloveOf(l.id); for (const gp of m.gloveParts) gp.visible = on; }
   m.bubble.visible = fx.shield > 0 && !down;
   if (m.bubble.visible) m.bubble.scale.setScalar(1 + Math.sin(t * 5) * 0.04);
   setCloak(m, fx.cloak > 0);
@@ -2317,7 +2467,7 @@ function frame(now) {
   pollPads();
   const portrait = isTouch && window.innerHeight > window.innerWidth;
   if (mode === "play" && !portrait) update(dt);
-  else { updateFx(dt); if (mode === "menu" || mode === "skins") big.dir += dt * 0.8; }
+  else { updateFx(dt); if (mode === "menu" || mode === "skins" || mode === "shop") big.dir += dt * 0.8; }
   render3D(T);
   drawUI(T);
   requestAnimationFrame(frame);
@@ -2330,7 +2480,7 @@ window.__bb = {
   get littles() { return littles; }, get big() { return big; }, get stats() { return stats; },
   get level() { return level; }, set level(v) { level = v; },
   update, startGame, resetWorld, cycleOutfit, randomOutfit, cycleBig, cyclePlace, setLang, toScreen,
-  get items() { return items; }, spawnItem, get placeSel() { return placeSel; }, set placeSel(v) { placeSel = v; }
+  get items() { return items; }, get progress() { return progress; }, buyGloves, setEquip, get lastReward() { return lastReward; }, spawnItem, get placeSel() { return placeSel; }, set placeSel(v) { placeSel = v; }
 };
 </script>
 </body>

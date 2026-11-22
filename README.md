@@ -41,6 +41,31 @@ Items pop up on the map every 7–11 s (max 3, they vanish after 20 s):
 | 🛡 Shield | blocks one push |
 | 🍌 Banana | a trap for the Big One: he slips and lies down for 2.5 s — and can be hugged from any side |
 
+## Progress, coins and the shop
+
+Progress is saved in the browser (`localStorage`, key `bebebe-progress`): unlocked levels, best stars per level,
+coins and gloves. Win a level to unlock the next one.
+
+| Stars | For |
+|---|---|
+| ⭐ | winning the level |
+| ⭐ | nobody was out |
+| ⭐ | winning fast: under `60 + 15 × level` seconds |
+
+Coins for a win: `10 + 5 × level`, +10 if nobody was out, +10 if fast, +2 for every hug by a player.
+A lost level still pays +2 per player hug.
+
+**Shop** (menu, or after a level): gloves bought with coins as packs of power hugs.
+
+| Gloves | Price | Pack | Effect |
+|---|---|---|---|
+| Warm mittens | 30 | 3 power hugs | a hug takes 2 hearts |
+| Mega hug mittens | 60 | 3 power hugs | a hug takes 3 hearts |
+
+Each player chooses which gloves to wear; a power hug uses one charge from the shared stock, and when it runs
+out hugs are normal again. Gloves show on the character's hands; the HUD shows how many power hugs are left.
+"Reset progress" (tap twice) starts over.
+
 ## Places
 
 Park, Beach (palms, sandcastles, umbrellas, pool, sea), Winter (snowy pines, snowmen, snowdrifts, frozen pond,
@@ -74,5 +99,6 @@ One HTML file, one ES module:
 
 ## Tuning
 
-`CFG` — gameplay numbers (`HUG_STUN`, `PUSH_RECOVER`, `BOT_ATTACK_PAUSE`, `ITEM_*`, `SLIP_STUN`, …), `I18N` — texts,
+`CFG` — gameplay numbers (`HUG_STUN`, `PUSH_RECOVER`, `BOT_ATTACK_PAUSE`, `ITEM_*`, `SLIP_STUN`, `COINS_*`, `FAST_TIME`, …),
+`GLOVES` — gloves (power, price, pack size), `I18N` — texts,
 `HAIRS` / `HATS` / `JACKETS` / `PANTS` / `BIG_SKINS` — outfits, `THEMES` — places, `LITTLE_SCALE` / `BIG_SCALE` — character size in 3D.
