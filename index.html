@@ -153,9 +153,12 @@ const CFG = {
   BANNER_FADE: 0.4,          // сек — появление и исчезание
   BANNER_REPEAT: 1,          // сек — перезапуск раньше этого после прошлой надписи её не показывает
   // надпись уровня на телефоне (SPEC-006 AC 13), CSS px: высота, поля по бокам текста, отступ текста от края, скругление,
-  // шаг поиска места; прямоугольник героя на экране: высота имени над ногами (px мира, как в drawMarkers),
-  // подъём имени над этой точкой, полуширина тела в радиусах героя, полувысота имени в его кеглях, запас под ногами в полуширинах
-  PHONE_BANNER: { h: 42, pad: 20, edge: 10, radius: 18, scan: 2, heroHead: 72, heroName: 10, heroSide: 1.5, heroText: 0.75, heroFeet: 0.6 },
+  // шаг поиска места; прямоугольник героя на экране: полуширина тела в радиусах героя, полувысота имени в его кеглях,
+  // запас под ногами в полуширинах тела
+  PHONE_BANNER: { h: 42, pad: 20, edge: 10, radius: 18, scan: 2, heroSide: 1.5, heroText: 0.75, heroFeet: 0.6 },
+  // имя игрока над головой (drawMarkers; его же обходит надпись уровня на телефоне): высота точки над ногами (px мира),
+  // подъём имени над ней (UI px), кегль (на телефоне не мельче PHONE_TEXT.main)
+  NAME_TAG: { h: 72, up: 10, size: 15 },
   BANNER_FONT_TEST_SCALE: 1, // только для тестов: ширина текста надписи × это (шрифты CI и iPhone шире)
   LEVEL_ATTEMPTS: 40,        // столько раз пробуем построить честный уровень, потом — запасной вариант
   // правила честности уровня
@@ -2448,10 +2451,11 @@ function rr(x, y, w, h, r) {
 function circle(x, y, r) { ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); }
 function ellipse(x, y, rx, ry) { ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, TAU); }
 function fillStroke(fill, lw = 3, stroke = OUT) { ctx.fillStyle = fill; ctx.fill(); ctx.lineWidth = lw; ctx.strokeStyle = stroke; ctx.stroke(); }
+const labelStroke = size => Math.max(3, size / 4.5);   // толщина обводки надписи label()
 function label(text, x, y, size, color, align = "center") {
-  ctx.font = `900 ${size}px system-ui, "Segoe UI", "Arial Rounded MT Bold", Arial, sans-serif`;
+  ctx.font = `900 ${size}px system-ui, "Segoe UI", "Arial Rounded MT Bold", Arial, sans-serif`;   // = hudFont(size)
   ctx.textAlign = align; ctx.textBaseline = "middle";
-  ctx.lineJoin = "round"; ctx.lineWidth = Math.max(3, size / 4.5); ctx.strokeStyle = OUT;
+  ctx.lineJoin = "round"; ctx.lineWidth = labelStroke(size); ctx.strokeStyle = OUT;
   ctx.strokeText(text, x, y);
   ctx.fillStyle = color; ctx.fillText(text, x, y);
   if (PHONE) noteText("drawn", size);
@@ -2547,6 +2551,12 @@ function drawKiss(x, y, s) {
 }
 
 // Подписи над 3D-героями (имена, таймеры, SOS, значки Большого)
+// имя игрока над головой: hd — точка над ногами (над ней же имена ботов), x/y — где имя, кегль и обводка;
+// рисует drawMarkers, обходит надпись уровня на телефоне (heroScreenRect) — один источник
+function playerNameTag(l) {
+  const T = CFG.NAME_TAG, hd = toScreen(l.x, l.y, T.h), size = PHONE ? Math.max(T.size, minPx("main")) : T.size;
+  return { hd, x: hd.x, y: hd.y - T.up, size, stroke: labelStroke(size) };
+}
 function drawMarkers(t) {
   if (safeZone) {
     const s = toScreen(safeZone.x + safeZone.w / 2, safeZone.y + safeZone.h - 22, 0);
@@ -2568,10 +2578,11 @@ function drawMarkers(t) {
       continue;
     }
     if (l.state === "ok") {
-      const hd = toScreen(l.x, l.y, 72);
+      const tag = playerNameTag(l), hd = tag.hd;
       ctx.save(); if (inBush(l)) ctx.globalAlpha = 0.4;     // в кустах имя бледное
       if (isPlayer) {
-        label(name, hd.x, hd.y - 10, fz(15, "main"), P_COLORS[l.id]);
+        label(name, tag.x, tag.y, tag.size, P_COLORS[l.id]);
+        if (PHONE) noteText("main", tag.size);
         ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.moveTo(hd.x - 5, hd.y - 1); ctx.lineTo(hd.x + 5, hd.y - 1); ctx.lineTo(hd.x, hd.y + 5); ctx.fill();
       } else label(name, hd.x, hd.y - 4, fz(11, "hint"), "#ffffff");
       ctx.restore();
@@ -3419,21 +3430,20 @@ function nameLabel(rect, slot, color) {
 function openFriends() { closeNameInput(true); mode = "names"; }
 function backToSkins() { closeNameInput(true); mode = "skins"; }
 
-// прямоугольник героя на экране (UI px): от ног до имени над головой (как в drawMarkers), шириной с тело или имя
+// прямоугольник героя на экране (UI px): от ног до имени над головой (playerNameTag, как в drawMarkers), шириной с тело или имя
 function heroScreenRect(l) {
-  const P = CFG.PHONE_BANNER, feet = toScreen(l.x, l.y), head = toScreen(l.x, l.y, P.heroHead);
-  const side = P.heroSide * Math.max(Math.abs(toScreen(l.x + l.r, l.y).x - feet.x), Math.abs(toScreen(l.x + l.r, l.y, P.heroHead).x - head.x));
-  const ns = Math.max(15, minPx("main"));   // кегль имени игрока: fz(15, "main") в drawMarkers
-  ctx.font = hudFont(ns);
-  const nw = ctx.measureText(nameOf(l)).width + Math.max(3, ns / 4.5);   // с обводкой
-  const x0 = Math.min(feet.x - side, head.x - nw / 2), x1 = Math.max(feet.x + side, head.x + nw / 2);
-  const y0 = head.y - P.heroName - ns * P.heroText, y1 = feet.y + side * P.heroFeet;
+  const P = CFG.PHONE_BANNER, tag = playerNameTag(l), head = tag.hd, feet = toScreen(l.x, l.y);
+  const side = P.heroSide * Math.max(Math.abs(toScreen(l.x + l.r, l.y).x - feet.x), Math.abs(toScreen(l.x + l.r, l.y, CFG.NAME_TAG.h).x - head.x));
+  ctx.font = hudFont(tag.size);
+  const nw = ctx.measureText(nameOf(l)).width + tag.stroke;   // с обводкой
+  const x0 = Math.min(feet.x - side, tag.x - nw / 2), x1 = Math.max(feet.x + side, tag.x + nw / 2);
+  const y0 = tag.y - tag.size * P.heroText, y1 = feet.y + side * P.heroFeet;
   return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
 }
 // место надписи уровня на телефоне (SPEC-006 AC 13): в той половине экрана, где нет героя — сверху под верхней полосой
 // или снизу над подсказкой; по центру самого широкого свободного места, в стороне (PHONE_BTN_GAP) от мини-карты,
 // табличек HUD, кнопок и героя. Ищем от края к середине экрана; на каждой высоте сначала полный текст, потом короткий.
-// Нигде не влезло — короткий текст в самом широком месте.
+// Нигде не влезло — null: надпись не показываем (она только для сведения).
 function placePhoneBanner() {
   const P = CFG.PHONE_BANNER, m = cpx(8), gap = cpx(CFG.PHONE_BTN_GAP), h = cpx(P.h), step = cpx(P.scan), mid = UH / 2;
   const hero = camHero(), hr = hero && heroScreenRect(hero);
@@ -3455,15 +3465,13 @@ function placePhoneBanner() {
   const low = hudRects.filter(r => r.id === "hint" || r.id === "rest").reduce((v, r) => Math.min(v, r.y - gap), UH - m);
   const bands = [{ from: phoneTopBar() + gap, to: mid - h, dir: 1 }, { from: low - h, to: mid, dir: -1 }];
   if (hr && hr.y + hr.h / 2 < mid) bands.reverse();          // герой в верхней половине — сначала низ
-  let best = null;
   for (const bd of bands) {
     for (let y = bd.from; (y - bd.to) * bd.dir <= 0; y += step * bd.dir) {
       const [s0, e0] = span(y);
       for (const t of texts) if (t.w <= e0 - s0) return { x: (s0 + e0 - t.w) / 2, y, w: t.w, h, text: t.text };
-      if (!best || e0 - s0 > best.w) best = { x: s0, y, w: e0 - s0, h, text: banner.short };
     }
   }
-  return best || { x: m, y: phoneTopBar() + gap, w: minimapRect().x - gap - m, h, text: banner.short };
+  return null;
 }
 // «Уровень N: тип» — плашка под верхней панелью, плавно появляется и исчезает, кнопок не добавляет
 function drawBanner() {
@@ -3472,9 +3480,10 @@ function drawBanner() {
   ctx.save(); ctx.globalAlpha = a;
   if (PHONE) {
     // телефон (SPEC-006 AC 13): место выбирается один раз, при первом показе (не прыгает, пока герой бегает)
-    const P = CFG.PHONE_BANNER, key = UW + "x" + UH;
-    if (!banner.place || banner.place.key !== key) banner.place = { key, ...placePhoneBanner() };
-    const { x, y, w, h, text } = banner.place, size = minPx("title");
+    const P = CFG.PHONE_BANNER, key = `${UW}x${UH}x${CSS_W}`;
+    if (!banner.place || banner.place.key !== key) banner.place = { key, spot: placePhoneBanner() };
+    if (!banner.place.spot) { ctx.restore(); return; }       // нигде не влезло — не показываем
+    const { x, y, w, h, text } = banner.place.spot, size = minPx("title");
     rr(x, y, w, h, cpx(P.radius)); fillStroke("rgba(255,250,235,.93)", 3);
     const sz = fitText(text, x + w / 2, y + h / 2 + 1, size, (w - 2 * cpx(P.edge)) / CFG.BANNER_FONT_TEST_SCALE, "center", "#ff6fa8", 900, size);
     noteText("title", sz);
