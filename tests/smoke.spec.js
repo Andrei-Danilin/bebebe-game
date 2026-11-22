@@ -24,9 +24,9 @@ test("every screen draws without errors", async ({ page }) => {
 });
 
 for (const place of ["park", "beach", "winter", "school"]) {
-  test(`place ${place}: builds and plays 20 s without errors`, async ({ page }) => {
+  test(`world ${place}: builds and plays 20 s without errors`, async ({ page }) => {
     const errors = await openGame(page);
-    await page.evaluate(p => { window.__bb.placeSel = p; window.__bb.level = 1; window.__bb.startGame(1); }, place);
+    await page.evaluate(p => { window.__bb.world = p; window.__bb.level = 1; window.__bb.startGame(1); }, place);
     await step(page, 20);
     await page.waitForTimeout(150);
     expect(await page.evaluate(() => window.__bb.mode)).toBe("play");

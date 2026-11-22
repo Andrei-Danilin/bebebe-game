@@ -59,3 +59,17 @@ One line each: what, where it came from. The spec author turns a line into a spe
 - SPEC-005 decided during the run, check with the kids: in the very top-right corner (both camera limits reached) the hero's name may sit under the team chips — the camera stays smooth instead of jumping.
 - SPEC-005 final review: the top-right diagonal test checks only that the camera moves smoothly — add clearance from the mini-map along the path and the 4-cell bound at the corner.
 - SPEC-005 final review: remove the unused `ways`/`sides` of `phoneOccluders`; place the name input only when its rect changes (now every frame).
+- `__bb.world` now means the world name; the old map grid moved to `__bb.grid` (SPEC-006, decided during the run, check with the kids).
+- Seeds: level 1 is seed 1 in every world, levels 2–20 use (worldIndex + 1) × 100 + n (SPEC-006, decided during the run, check with the kids).
+- ↑/↓ and the D-pad up/down switch worlds in the menu; the total ⭐ counter is kept next to the per-world ⭐ s/60 (SPEC-006, decided during the run, check with the kids).
+- Russian "пройдена" for Школа/Зима and "пройден" for Парк/Пляж (the spec text had one form) (SPEC-006, decided during the run, check with the kids).
+- After level 20 the win screen offers Menu + Shop, and Enter goes to the menu (SPEC-006, decided during the run, check with the kids).
+- The old flat `unlocked`/`stars` are removed from the save after migration (merged into the Park if both they and `worlds` are present) (SPEC-006, decided during the run, check with the kids).
+- The search speed is capped like chase, so late in Winter searching is as fast as chasing (the spec only capped chase) (SPEC-006, decided during the run, check with the kids).
+- Spanish `worldDone` has no article ("¡Terminaste Parque!"); maybe "¡Terminaste el Parque!" / "la Escuela" (SPEC-006).
+- The 3D decorations are seeded by level number only, so the same n has the same decorations in every world (SPEC-006).
+- The ×0.85 search and ½ patrol factors are still literals in the code, not `CFG` (pre-existing) (SPEC-006).
+- The desktop controls line doesn't mention ↑/↓ for worlds (SPEC-006).
+- The HUD plate shows "Lv. N" without the world name (SPEC-006).
+- A beach umbrella overlaps a maze wall end in Beach 18 (cosmetic) (SPEC-006).
+- No test covers the world-card picture (screenshot only) (SPEC-006).

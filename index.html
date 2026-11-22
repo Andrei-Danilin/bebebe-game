@@ -50,8 +50,9 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.m
 //  НАСТРОЙКИ ИГРЫ — их удобно менять вместе с детьми
 // =====================================================================
 const CFG = {
-  BIG_HP: 6,                 // сердечек у Большого на 1-м уровне
-  HP_PER_LEVEL: 1,           // +сердечко с каждым уровнем
+  BIG_HP: 6,                 // сердечек у Большого на 1-м уровне Парка
+  HP_LEVELS_PER_HEART: 4,    // +сердечко каждые 4 уровня мира (SPEC-006)
+  HP_PER_WORLD: 1,           // и +1 в каждом следующем мире
   BIG_HP_MAX: 12,
   DOWN_TIME: 18,             // сек — сколько ждёт маленький со сломанной ногой
   RESCUE_TIME: 3.0,          // сек — сколько стоять рядом, чтобы поднять друга
@@ -61,8 +62,11 @@ const CFG = {
   BOT_SPEED: 135,
   BIG_PATROL_SPEED: 70,
   BIG_CHASE_SPEED: 112,
-  CHASE_PER_LEVEL: 4,        // Большой быстрее на каждом уровне
+  WORLD_SPEED_START: [0, 5, 10, 15],   // px/s — каждый следующий мир начинается чуть быстрее (SPEC-006)
+  SPEED_PER_LEVEL: 1.2,      // px/s — Большой быстрее на каждом уровне мира
   BIG_SPEED_PER_HIT: 4,      // и злится после каждой обнимашки
+  CHASE_MAX_SHARE: 0.95,     // потолок: в погоне Большой не быстрее этой доли скорости игрока (без сапог)
+  get BIG_CHASE_MAX() { return this.CHASE_MAX_SHARE * this.PLAYER_SPEED; },   // 142.5 px/s
   VISION_RANGE: 230,         // как далеко видит Большой
   VISION_HALF: Math.PI / 4,  // половина угла обзора (45° => всего 90°)
   BEHIND_ANGLE: 2.2,         // насколько «сзади» надо быть для обнимашки (~126°)
@@ -82,9 +86,12 @@ const CFG = {
   // монетки за уровень
   COINS_WIN: 10, COINS_PER_LEVEL: 5, COINS_NOBODY_OUT: 10, COINS_FAST: 10, COINS_PER_HUG: 2,
   COINS_PER_REST: 3, COINS_MIN_WIN: 5,   // каждый ушедший отдыхать отнимает монетки (но не меньше минимума)
+  COINS_PER_WORLD: 10,       // +монетки за победу в каждом следующем мире (SPEC-006)
+  STARS_PER_LEVEL: 3,        // звёзд за уровень (победа, никто не отдыхал, быстро)
   REST_TIME: 120,            // сек — сколько отдыхает в домике тот, кого не спасли
   HOME_SPEED: 85,            // как быстро он хромает к домику
-  FAST_TIME: lv => 60 + lv * 15,  // сек — успеть за это время = третья звезда
+  FAST_TIME: lv => 60 + lv * 15,  // сек — успеть за это время = третья звезда (lv — номер в мире)
+  FAST_PER_WORLD: 10,        // сек — и ещё столько в каждом следующем мире: у Большого больше сердечек (SPEC-006)
   // бонусные звёздочки: подбирают только игроки
   STAR_EVERY: [10, 15],      // сек — как часто появляется звёздочка
   STAR_MAX: 2,               // сколько может лежать одновременно (отдельно от предметов)
@@ -138,8 +145,10 @@ const CFG = {
   PHONE_BTN_MIN: 44,         // CSS px — кнопка на телефоне не меньше
   PHONE_BTN_GAP: 8,          // CSS px — между соседними кнопками
   PHONE_TEXT: { title: 24, main: 15, hint: 13, input: 16 },   // CSS px — самый мелкий текст на телефоне
-  // типы уровней (SPEC-002): 1-й — рисунок детей, дальше по очереди
-  TYPE_ORDER: ["meadow", "maze", "village", "river", "rooms", "arena"],
+  // типы уровней внутри каждого мира (SPEC-006): 1 — рисунок детей, 2–4 поляна, 5–7 деревня, 8–10 река,
+  // 11–13 дом с комнатами, 14–16 арена, 17–20 лабиринт; число записей = уровней в мире
+  WORLD_TYPES: ["classic", "meadow", "meadow", "meadow", "village", "village", "village", "river", "river", "river",
+    "rooms", "rooms", "rooms", "arena", "arena", "arena", "maze", "maze", "maze", "maze"],
   BANNER_TIME: 2,            // сек — надпись «Уровень N: тип» в начале уровня появляется и исчезает
   BANNER_FADE: 0.4,          // сек — появление и исчезание
   BANNER_REPEAT: 1,          // сек — перезапуск раньше этого после прошлой надписи её не показывает
@@ -199,7 +208,7 @@ const I18N = {
     rotate: "Turn your device sideways ↻", installHint: "Install on iPhone: Share ⬆️ → Add to Home Screen", me: "Me", botChip: "B", safe: "SAFE",
     skins: "Skins", player1: "Player 1", player2: "Player 2", ok: "OK",
     slots: { hair: "Hair", hat: "Hat", jacket: "Jacket", pants: "Pants", look: "Look" },
-    place: "Place", auto: "Auto", places: { park: "Park", beach: "Beach", winter: "Winter", school: "Schoolyard" },
+    worlds: { park: "Park", school: "School", beach: "Beach", winter: "Winter" }, worldDone: (w, key) => `You finished the ${w}!`,
     items: { boots: "Speed boots!", cloak: "Invisible!", shield: "Shield!" }, blocked: "Blocked!", slip: "Whoops!",
     shop: "Shop", buy: "Buy", have: n => `You have: ${n} power ${n === 1 ? "hug" : "hugs"}`, wears: "wears", none: "None",
     gloves: { mittens: "Warm mittens", mega: "Mega hug mittens" }, gloveDesc: p => `Each hug takes ${p} hearts`,
@@ -211,7 +220,7 @@ const I18N = {
     kisses: "Air kisses", kissDesc: "Send from afar: ½ heart and he blushes", kissPack: n => `Pack: ${n} air kisses`,
     kissHave: n => `You have: ${n} ${n === 1 ? "kiss" : "kisses"}`, kissHit: "Mwah!", noKissHome: "Not from the house!", blush: "So shy!",
     types: { classic: "Our drawing", meadow: "Meadow", maze: "Maze", village: "Village", river: "River with bridges", rooms: "House with rooms", arena: "Ring arena" },
-    levelIntro: (n, t) => `Level ${n}: ${t}`
+    levelIntro: (w, n, t) => `${w} · Level ${n}: ${t}`, worldStars: (n, max) => `⭐ ${n}/${max}`
   },
   es: {
     name: "Español", subtitle: "Los Chiquitos contra el Grandote",
@@ -234,7 +243,7 @@ const I18N = {
     rotate: "Girá el dispositivo ↻", installHint: "Instalala en el iPhone: Compartir ⬆️ → Agregar a pantalla de inicio", me: "Yo", botChip: "B", safe: "ZONA SEGURA",
     skins: "Personajes", player1: "Jugador 1", player2: "Jugador 2", ok: "Listo",
     slots: { hair: "Pelo", hat: "Gorro", jacket: "Campera", pants: "Pantalón", look: "Aspecto" },
-    place: "Lugar", auto: "Auto", places: { park: "Plaza", beach: "Playa", winter: "Invierno", school: "Patio del cole" },
+    worlds: { park: "Parque", school: "Escuela", beach: "Playa", winter: "Invierno" }, worldDone: (w, key) => `¡Terminaste ${w}!`,
     items: { boots: "¡Zapatillas veloces!", cloak: "¡Invisible!", shield: "¡Escudo!" }, blocked: "¡Bloqueado!", slip: "¡Upa!",
     shop: "Tienda", buy: "Comprar", have: n => `Tenés: ${n} ${n === 1 ? "abrazo potente" : "abrazos potentes"}`, wears: "usa", none: "Nada",
     gloves: { mittens: "Mitones abrigados", mega: "Mitones del abrazo gigante" }, gloveDesc: p => `Cada abrazo saca ${p} corazones`,
@@ -246,7 +255,7 @@ const I18N = {
     kisses: "Besitos voladores", kissDesc: "Mandalo de lejos: ½ corazón y se pone colorado", kissPack: n => `Paquete: ${n} besitos voladores`,
     kissHave: n => `Tenés: ${n} ${n === 1 ? "besito" : "besitos"}`, kissHit: "¡Muak!", noKissHome: "¡Desde la casita no!", blush: "¡Qué vergüenza!",
     types: { classic: "Nuestro dibujo", meadow: "Pradera", maze: "Laberinto", village: "Pueblito", river: "Río con puentes", rooms: "Casa con cuartos", arena: "Arena" },
-    levelIntro: (n, t) => `Nivel ${n}: ${t}`
+    levelIntro: (w, n, t) => `${w} · Nivel ${n}: ${t}`, worldStars: (n, max) => `⭐ ${n}/${max}`
   },
   ru: {
     name: "Русский", subtitle: "Маленькие против Большого",
@@ -269,7 +278,8 @@ const I18N = {
     rotate: "Поверни устройство боком ↻", installHint: "Установить на iPhone: Поделиться ⬆️ → На экран «Домой»", me: "Я", botChip: "Б", safe: "БЕЗОПАСНО",
     skins: "Скины", player1: "Игрок 1", player2: "Игрок 2", ok: "Готово",
     slots: { hair: "Причёска", hat: "Головной убор", jacket: "Куртка", pants: "Штаны", look: "Вид" },
-    place: "Место", auto: "Авто", places: { park: "Парк", beach: "Пляж", winter: "Зима", school: "Школьный двор" },
+    worlds: { park: "Парк", school: "Школа", beach: "Пляж", winter: "Зима" },
+    worldDone: (w, key) => `${w} ${key === "school" || key === "winter" ? "пройдена" : "пройден"}!`,   // род по миру: Школа/Зима пройдена, Парк/Пляж пройден
     items: { boots: "Сапоги-скороходы!", cloak: "Невидимка!", shield: "Щит!" }, blocked: "Щит спас!", slip: "Поскользнулся!",
     shop: "Магазин", buy: "Купить", have: n => `У вас: ${n} ${["сильная обнимашка", "сильные обнимашки", "сильных обнимашек"][n % 10 === 1 && n % 100 !== 11 ? 0 : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 1 : 2]}`, wears: "носит", none: "Ничего",
     gloves: { mittens: "Тёплые рукавицы", mega: "Мега-рукавицы" }, gloveDesc: p => `Каждая обнимашка забирает ${p} сердечка`,
@@ -281,7 +291,7 @@ const I18N = {
     kisses: "Воздушные поцелуи", kissDesc: "Издалека: ½ сердечка, и он краснеет", kissPack: n => `В наборе: ${n} ${ruPlural(n, ["поцелуй", "поцелуя", "поцелуев"])}`,
     kissHave: n => `У вас: ${n} ${ruPlural(n, ["поцелуй", "поцелуя", "поцелуев"])}`, kissHit: "Чмок!", noKissHome: "Из домика нельзя!", blush: "Ой, смущён!",
     types: { classic: "Наш рисунок", meadow: "Поляна", maze: "Лабиринт", village: "Деревня", river: "Река с мостиками", rooms: "Дом с комнатами", arena: "Арена с кольцом" },
-    levelIntro: (n, t) => `Уровень ${n}: ${t}`
+    levelIntro: (w, n, t) => `${w} · Уровень ${n}: ${t}`, worldStars: (n, max) => `⭐ ${n}/${max}`
   }
 };
 const LANGS = ["en", "es", "ru"];
@@ -495,9 +505,24 @@ function bigHouse(items, x0, y0, doors) {
 
 // ---------- Тип уровня и домики ----------
 // lc — контекст раскладки (уровень, сид, занятые клетки, домики…), не путать с ctx (2D-холст)
-// Тип уровня: 1-й — рисунок детей (classic), дальше TYPE_ORDER по кругу; tier растёт каждые 6 уровней
-const levelType = lv => lv <= 1 ? "classic" : CFG.TYPE_ORDER[(lv - 2) % CFG.TYPE_ORDER.length];
-const levelTier = lv => lv <= 1 ? 0 : Math.floor((lv - 2) / CFG.TYPE_ORDER.length);
+// Уровень — (мир, n) (SPEC-006): четыре мира по CFG.WORLD_TYPES.length уровней; место (тема) уровня — его мир
+const WORLDS = ["park", "school", "beach", "winter"];
+const worldIndex = world => Math.max(0, WORLDS.indexOf(world));
+const levelsPerWorld = () => CFG.WORLD_TYPES.length;
+const levelPos = n => clamp(Math.floor(n) || 1, 1, levelsPerWorld()) - 1;
+const levelKey = (world, n) => world + ":" + n;
+// Тип уровня — по списку CFG.WORLD_TYPES (одинаковый во всех мирах)
+const levelType = (world, n) => CFG.WORLD_TYPES[levelPos(n)];
+// tier — номер уровня внутри своего блока одного типа (0, 1, 2, 3): чем дальше, тем меньше укрытий
+function levelTier(world, n) {
+  const T = CFG.WORLD_TYPES, i = levelPos(n);
+  let t = 0;
+  for (let k = i; k > 0 && T[k - 1] === T[i]; k--) t++;
+  return t;
+}
+// Сид: 1-й уровень — рисунок детей, во всех мирах одна и та же раскладка (сид 1, как раньше у уровня 1);
+// дальше сид от (номер мира, n) — у каждого мира свои карты
+const levelSeed = (world, n) => n <= 1 ? 1 : (worldIndex(world) + 1) * 100 + n;
 
 // Дверь дома (x0, y0, w×h) в виде проёма в клетках + направление наружу (dx, dy)
 function houseDoor(x0, y0, w, h, d) {
@@ -933,9 +958,9 @@ const LAYOUTS = {
 };
 
 // ---------- Сборка уровня ----------
-function generateLevel(lv, attempt) {
-  const type = levelType(lv), tier = levelTier(lv);
-  const rng = mulberry32(lv * 7919 + attempt * 104729 + 13);
+function generateLevel(world, lv, attempt) {
+  const type = levelType(world, lv), tier = levelTier(world, lv);
+  const rng = mulberry32(levelSeed(world, lv) * 7919 + attempt * 104729 + 13);
   const ri = (a, b) => a + Math.floor(rng() * (b - a + 1));
   const items = [], occ = new Uint8Array(COLS * ROWS);
   const inb = (x, y) => x >= 0 && y >= 0 && x < COLS && y < ROWS;
@@ -1020,24 +1045,24 @@ function connectivity() {
 }
 
 // Уровень для игры строится тем же циклом попыток, что проверяет levelReport (validateLevel, запасной вариант)
-let levelInfo = null;   // { lv, type, attempt, fallback, cached, ms } — какой уровень сейчас построен
-// уровень → принятая попытка: перезапуск и стрелки в меню строят её сразу, без перебора попыток.
+let levelInfo = null;   // { world, lv, type, attempt, fallback, cached, ms } — какой уровень сейчас построен
+// уровень ("мир:n") → принятая попытка: перезапуск и стрелки в меню строят её сразу, без перебора попыток.
 // Если она вдруг не проходит проверку (поменяли CFG) — запись удаляется и уровень строится заново с попытки 0,
 // как в levelReport.
 const levelCache = new Map();
 const clearLevelCache = () => levelCache.clear();
-function loadLevel(lv) {
-  const t0 = performance.now(), type = levelType(lv), c = levelCache.get(lv);
+function loadLevel(world, lv) {
+  const t0 = performance.now(), type = levelType(world, lv), key = levelKey(world, lv), c = levelCache.get(key);
   if (c !== undefined && c < CFG.LEVEL_ATTEMPTS) {
-    const gen = generateLevel(lv, c);
+    const gen = generateLevel(world, lv, c);
     applyWorld(gen);
     const rep = validateLevel(gen, type);
-    if (rep.ok) { reachable = rep.seen; levelInfo = { lv, type, attempt: c, fallback: false, cached: true, ms: performance.now() - t0 }; return; }
+    if (rep.ok) { reachable = rep.seen; levelInfo = { world, lv, type, attempt: c, fallback: false, cached: true, ms: performance.now() - t0 }; return; }
   }
-  levelCache.delete(lv);
-  const r = buildLevel(lv);
-  if (!r.fallback) levelCache.set(lv, r.attempt);
-  levelInfo = { lv, type: r.type, attempt: r.attempt, fallback: r.fallback, cached: false, ms: r.ms };
+  levelCache.delete(key);
+  const r = buildLevel(world, lv);
+  if (!r.fallback) levelCache.set(key, r.attempt);
+  levelInfo = { world, lv, type: r.type, attempt: r.attempt, fallback: r.fallback, cached: false, ms: r.ms };
 }
 
 // ---------- Честность уровня (SPEC-002) ----------
@@ -1138,12 +1163,12 @@ function validateLevel(gen, type) {
 // Для запасного варианта — «лучшая» неудачная: меньше нарушенных правил, а нарушившие достижимость
 // (smallReach / bigReach) — в самом конце (их «карманы» пришлось бы закрывать).
 const failScore = fails => fails.length + (fails.includes("smallReach") || fails.includes("bigReach") ? 100 : 0);
-function buildLevel(lv) {
-  const type = levelType(lv), t0 = performance.now(), N = Math.max(1, CFG.LEVEL_ATTEMPTS);
+function buildLevel(world, lv) {
+  const type = levelType(world, lv), t0 = performance.now(), N = Math.max(1, CFG.LEVEL_ATTEMPTS);
   let rep = null, attempt = 0, tries = 0, best = null;
   const rejects = [];   // почему отброшены прежние попытки
   for (; attempt < N; attempt++) {
-    const gen = generateLevel(lv, attempt);
+    const gen = generateLevel(world, lv, attempt);
     applyWorld(gen); tries++;
     rep = validateLevel(gen, type);
     if (rep.ok) break;
@@ -1155,7 +1180,7 @@ function buildLevel(lv) {
     // запасной вариант: попытка с меньшим числом нарушенных правил; «карманы», куда не дойдут маленькие
     // или (вне их домика) Большой, закрываем живой изгородью
     attempt = best.attempt;
-    const gen = generateLevel(lv, attempt);
+    const gen = generateLevel(world, lv, attempt);
     applyWorld(gen);
     rep = validateLevel(gen, type);
     const bigSeen = floodCells(cellIdx(spawns.big.x, spawns.big.y), blockedBig);
@@ -1164,17 +1189,17 @@ function buildLevel(lv) {
     }
     buildGrids();
     rep.seen = connectivity().seen;
-    console.warn(`level ${lv} (${type}): no fair layout in ${N} attempts (kept attempt ${attempt}: ${rep.fails.join(", ")}), pockets filled`);
+    console.warn(`level ${levelKey(world, lv)} (${type}): no fair layout in ${N} attempts (kept attempt ${attempt}: ${rep.fails.join(", ")}), pockets filled`);
   }
   reachable = rep.seen;
   const { seen, ok, ...report } = rep;
-  return { type, tier: levelTier(lv), attempt, attempts: tries, fallback, ...report, rejects, ms: performance.now() - t0 };
+  return { type, tier: levelTier(world, lv), attempt, attempts: tries, fallback, ...report, rejects, ms: performance.now() - t0 };
 }
 // Отчёт о честности уровня (для тестов): строит уровень и возвращает мир идущей игры как был
-function levelReport(lv) {
+function levelReport(world, lv) {
   const keep = { obstacles, bushes, floors, decor, trees, flowers, safeZone, dangerZone, spawns, reachable };
   const grids = [blocked, blockedBig, moveGrid, seeGrid, moveGridBig], copies = grids.map(g => g.slice());
-  try { return buildLevel(lv); }
+  try { return buildLevel(world, lv); }
   finally {
     ({ obstacles, bushes, floors, decor, trees, flowers, safeZone, dangerZone, spawns, reachable } = keep);
     grids.forEach((g, k) => g.set(copies[k]));
@@ -1394,12 +1419,10 @@ const BIG_SKINS = [
   { shirt: "#92400e", skin: "#b7793f", hair: "#78350f", top: "bear",   name: { en: "Bear", es: "Oso", ru: "Медведь" } }
 ];
 let skinSel = { p1: { hair: 0, hat: 1, jacket: 0, pants: 0 }, p2: { hair: 1, hat: 4, jacket: 1, pants: 3 }, big: 0 };
-let placeSel = "auto";
 try {
   const sv = JSON.parse(localStorage.getItem("bebebe-outfits") || "null");
   if (sv && sv.p1 && sv.p2) skinSel = sv;
-  const pl = localStorage.getItem("bebebe-place"); if (pl) placeSel = pl;
-} catch (e) { /* ok */ }
+} catch (e) { /* ok */ }   // старый ключ bebebe-place больше не читается: место уровня — его мир (SPEC-006)
 for (const pk of ["p1", "p2"]) for (const k of Object.keys(SLOTS)) skinSel[pk][k] = clamp(skinSel[pk][k] | 0, 0, SLOTS[k].length - 1);
 skinSel.big = clamp(skinSel.big | 0, 0, BIG_SKINS.length - 1);
 const saveSkins = () => { try { localStorage.setItem("bebebe-outfits", JSON.stringify(skinSel)); } catch (e) { /* ok */ } };
@@ -1416,15 +1439,17 @@ function cycleBig(d) {
   skinSel.big = (skinSel.big + d + BIG_SKINS.length) % BIG_SKINS.length;
   saveSkins(); resetWorld(numPlayers);
 }
-// ---------- Места ----------
-const PLACES = ["park", "beach", "winter", "school"];
-const currentPlace = () => placeSel === "auto" ? PLACES[(level - 1) % PLACES.length] : placeSel;
-function cyclePlace() {
-  const opts = ["auto", ...PLACES];
-  placeSel = opts[(opts.indexOf(placeSel) + 1) % opts.length];
-  try { localStorage.setItem("bebebe-place", placeSel); } catch (e) { /* ok */ }
+// ---------- Миры (SPEC-006): место уровня — его мир ----------
+let curWorld = WORLDS[0];
+// выбор мира в меню (карточка, ↑/↓, крестовина геймпада): запоминается, показывается новый открытый уровень мира
+function selectWorld(w) {
+  if (!WORLDS.includes(w) || w === curWorld) return;
+  curWorld = w;
+  progress.lastWorld = curWorld; saveProgress();
+  level = worldProgress().unlocked;
   resetWorld(numPlayers);
 }
+const cycleWorld = d => selectWorld(WORLDS[(worldIndex(curWorld) + d + WORLDS.length) % WORLDS.length]);
 // ---------- Имена: игроки, Большой, боты (localStorage bebebe-names; "" = имя по умолчанию на текущем языке) ----------
 const NAME_SLOTS = ["p1", "p2", "big", "bot1", "bot2", "bot3", "bot4"];
 const BOT_SLOTS = 4;
@@ -1472,18 +1497,56 @@ let typeLabel = null;           // тип выбранного уровня в �
 let items = [], itemCd = 5, itemSeq = 0, pendingWin = 0, lastReward = null, resetArmed = false;
 let bonusStars = [], starCd = 10, starSeq = 0;   // бонусные звёздочки (отдельно от предметов)
 let kisses = [], kissSeq = 0;                      // летящие воздушные поцелуи
-// ---------- Прогресс: открытые уровни, звёзды, монетки, рукавицы (хранится в этом браузере) ----------
-const freshProgress = () => ({ unlocked: 1, stars: {}, coins: 0, inv: { mittens: 0, mega: 0, kisses: 0 }, equip: ["none", "none"] });
-let progress = freshProgress();
+// ---------- Прогресс: миры (открытые уровни, звёзды), монетки, рукавицы (хранится в этом браузере) ----------
+// SPEC-006: progress.worlds = { park|school|beach|winter: { unlocked, stars: { [n]: 1..3 } } }, lastWorld — мир в меню
+const freshWorld = () => ({ unlocked: 1, stars: {} });
+const freshProgress = () => ({ worlds: Object.fromEntries(WORLDS.map(w => [w, freshWorld()])), lastWorld: WORLDS[0],
+  coins: 0, inv: { mittens: 0, mega: 0, kisses: 0 }, equip: ["none", "none"] });
+// один мир из сохранения: испорченное → по умолчанию, уровни за пределами мира отбрасываются
+function cleanWorld(v) {
+  const max = levelsPerWorld(), out = freshWorld();
+  if (!v || typeof v !== "object") return out;
+  const u = Math.floor(Number(v.unlocked));
+  if (Number.isFinite(u)) out.unlocked = clamp(u, 1, max);
+  if (v.stars && typeof v.stars === "object") for (const [k, x] of Object.entries(v.stars)) {
+    const n = Number(k), st = Math.floor(Number(x));
+    if (Number.isInteger(n) && n >= 1 && n <= max && st > 0) out.stars[n] = Math.min(CFG.STARS_PER_LEVEL, st);
+  }
+  return out;
+}
+// Сохранение → прогресс. Старое (до SPEC-006: unlocked и stars без миров) переезжает в Парк; если есть и worlds,
+// и старые поля (старая вкладка дописала их), они сливаются с Парком: больший unlocked, лучшие звёзды уровня.
+// Поля unlocked/stars из объекта убираются. Никогда не бросает.
+const hasFlatProgress = pv => !!pv && typeof pv === "object" && ("unlocked" in pv || "stars" in pv);
+function loadProgress(pv) {
+  const p = freshProgress();
+  if (!pv || typeof pv !== "object") return p;
+  const { unlocked, stars, worlds, lastWorld, ...rest } = pv;
+  const src = worlds && typeof worlds === "object" ? worlds : {};
+  const out = { ...p, ...rest, worlds: {}, lastWorld: WORLDS.includes(lastWorld) ? lastWorld : WORLDS[0],
+    inv: { ...p.inv, ...(pv.inv && typeof pv.inv === "object" ? pv.inv : {}) }, equip: Array.isArray(pv.equip) ? pv.equip : p.equip };
+  for (const w of WORLDS) out.worlds[w] = cleanWorld(src[w]);
+  if (hasFlatProgress(pv)) {
+    const old = cleanWorld({ unlocked, stars }), park = out.worlds[WORLDS[0]];
+    park.unlocked = Math.max(park.unlocked, old.unlocked);
+    for (const [n, st] of Object.entries(old.stars)) park.stars[n] = Math.max(park.stars[n] || 0, st);
+  }
+  const k = Number(out.inv.kisses);                        // старые сохранения без поцелуев (или испорченные) → 0
+  out.inv.kisses = Number.isFinite(k) && k > 0 ? Math.floor(k) : 0;
+  return out;
+}
+let progress = freshProgress(), migrated = false;
 try {
   const pv = JSON.parse(localStorage.getItem("bebebe-progress") || "null");
-  if (pv) progress = { ...progress, ...pv, inv: { ...progress.inv, ...(pv.inv || {}) }, stars: pv.stars || {}, equip: pv.equip || ["none", "none"] };
-  const k = Number(progress.inv.kisses);                   // старые сохранения без поцелуев (или испорченные) → 0
-  progress.inv.kisses = Number.isFinite(k) && k > 0 ? Math.floor(k) : 0;
-} catch (e) { /* ok */ }
+  progress = loadProgress(pv);
+  migrated = hasFlatProgress(pv);
+} catch (e) { progress = freshProgress(); }
 const saveProgress = () => { try { localStorage.setItem("bebebe-progress", JSON.stringify(progress)); } catch (e) { /* ok */ } };
-level = clamp(progress.unlocked, 1, 99);
-const totalStars = () => Object.values(progress.stars).reduce((a, b) => a + b, 0);
+if (migrated) saveProgress();                              // переезд старого сохранения — один раз
+const worldProgress = (w = curWorld) => progress.worlds[w];
+curWorld = progress.lastWorld;
+level = worldProgress().unlocked;                          // меню открывается на последнем мире, на его новом уровне
+const totalStars = () => WORLDS.reduce((a, w) => a + Object.values(progress.worlds[w].stars).reduce((x, y) => x + y, 0), 0);
 const fmtHearts = n => (Math.floor(n) || (n % 1 ? "" : "0")) + (n % 1 ? "½" : "");   // 2.5 → «2½», 0.5 → «½»
 const fmtTime = sec => `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, "0")}`;
 const gloveOf = pi => { const g = progress.equip[pi]; return g && g !== "none" && progress.inv[g] > 0 ? g : null; };
@@ -1504,23 +1567,27 @@ function resetProgress() {
   if (!resetArmed) { resetArmed = true; return; }
   resetArmed = false;
   progress = freshProgress();
+  progress.lastWorld = curWorld;
   saveProgress(); level = 1; resetWorld(numPlayers);
 }
 function giveReward(win) {
   const ph = stats.playerHugs;
   const starCoins = stats.starCoins;        // монетки за звёздочки уже в копилке (начислены при подборе)
   if (!win) { const c = ph * CFG.COINS_PER_HUG; progress.coins += c; saveProgress(); lastReward = { win: false, coins: c + starCoins, starCoins }; return; }
-  const rests = stats.rests, nobodyOut = rests === 0, target = CFG.FAST_TIME(level), fast = stats.time <= target;
+  const wi = worldIndex(curWorld), wp = worldProgress(), n = clamp(level, 1, levelsPerWorld());
+  const rests = stats.rests, nobodyOut = rests === 0, target = CFG.FAST_TIME(n) + wi * CFG.FAST_PER_WORLD, fast = stats.time <= target;
   const stars = 1 + (nobodyOut ? 1 : 0) + (fast ? 1 : 0);
   const penalty = rests * CFG.COINS_PER_REST;
-  const coins = Math.max(CFG.COINS_MIN_WIN, CFG.COINS_WIN + level * CFG.COINS_PER_LEVEL + (nobodyOut ? CFG.COINS_NOBODY_OUT : 0) + (fast ? CFG.COINS_FAST : 0) + ph * CFG.COINS_PER_HUG - penalty);
-  const prevStars = progress.stars[level] || 0;
-  progress.stars[level] = Math.max(prevStars, stars);
-  progress.unlocked = Math.max(progress.unlocked, Math.min(99, level + 1));
+  const coins = Math.max(CFG.COINS_MIN_WIN, CFG.COINS_WIN + n * CFG.COINS_PER_LEVEL + wi * CFG.COINS_PER_WORLD + (nobodyOut ? CFG.COINS_NOBODY_OUT : 0) + (fast ? CFG.COINS_FAST : 0) + ph * CFG.COINS_PER_HUG - penalty);
+  const prevStars = wp.stars[n] || 0;
+  wp.stars[n] = Math.max(prevStars, stars);
+  wp.unlocked = Math.max(wp.unlocked, Math.min(levelsPerWorld(), n + 1));   // только в этом мире
+  progress.lastWorld = curWorld;
   progress.coins += coins;
   saveProgress();
   // звёздочки — сверх награды, после минимума: штраф за отдых их не съедает
-  lastReward = { win: true, coins: coins + starCoins, starCoins, stars, nobodyOut, fast, target, penalty, newBest: stars > prevStars };
+  lastReward = { win: true, coins: coins + starCoins, starCoins, stars, nobodyOut, fast, target, penalty, newBest: stars > prevStars,
+    world: curWorld, level: n, worldDone: n >= levelsPerWorld() };
 }
 
 function makeLittle(i, kind, botIndex, controls, look) {
@@ -1536,7 +1603,7 @@ function makeLittle(i, kind, botIndex, controls, look) {
 function resetWorld(n) {
   if (PHONE) n = 1;                  // на телефоне играет один (SPEC-005)
   numPlayers = n;
-  loadLevel(level);
+  loadLevel(curWorld, level);
   littles = [];
   const p1 = n === 1
     ? { up: ["KeyW", "ArrowUp"], down: ["KeyS", "ArrowDown"], left: ["KeyA", "ArrowLeft"], right: ["KeyD", "ArrowRight"] }
@@ -1545,7 +1612,7 @@ function resetWorld(n) {
   if (n === 2) littles.push(makeLittle(1, "player", -1, { up: ["ArrowUp"], down: ["ArrowDown"], left: ["ArrowLeft"], right: ["ArrowRight"] }, makeLook(skinSel.p2)));
   let bi = 0;
   while (littles.length < 5) { littles.push(makeLittle(littles.length, "bot", bi, null, makeLook(botOutfit(bi)))); bi++; }
-  const maxHp = Math.min(CFG.BIG_HP_MAX, CFG.BIG_HP + (level - 1) * CFG.HP_PER_LEVEL);
+  const maxHp = difficulty(curWorld, level).hearts;
   big = {
     isBig: true, x: spawns.big.x, y: spawns.big.y, r: 22, dir: -Math.PI / 2, hp: maxHp, maxHp,
     state: "look", timer: 4, lookSign: 1, lastSeen: null, goal: null, patrolT: 0,
@@ -1567,14 +1634,15 @@ function showBanner() {
   const now = performance.now() / 1000;
   if (now - bannerShownAt < CFG.BANNER_REPEAT) { banner = null; return; }
   bannerShownAt = now;
-  banner = { text: L().levelIntro(level, L().types[levelType(level)]), t: 0 };
+  banner = { text: L().levelIntro(L().worlds[curWorld], level, L().types[levelType(curWorld, level)]), t: 0 };
 }
 const bannerAlpha = () => !banner ? 0 : clamp(Math.min(banner.t, CFG.BANNER_TIME - banner.t) / CFG.BANNER_FADE, 0, 1);
 // camSnap: начало уровня — камера телефона сразу у героя (в resetWorld нельзя: он же открывает меню, где камера показывает всю карту)
 function startGame(n) { resetWorld(n); mode = "play"; showBanner(); camSnap(); }
-function nextLevel() { level++; startGame(numPlayers); }
+// следующий уровень того же мира; после последнего мир пройден — в меню
+function nextLevel() { if (level >= levelsPerWorld()) { toMenu(); return; } level++; startGame(numPlayers); }
 function toMenu() { resetWorld(numPlayers); mode = "menu"; }
-function changeLevel(d) { level = clamp(level + d, 1, Math.min(99, progress.unlocked)); resetWorld(numPlayers); }
+function changeLevel(d) { level = clamp(level + d, 1, worldProgress().unlocked); resetWorld(numPlayers); }
 
 // =====================================================================
 //  ЗВУК
@@ -1633,6 +1701,8 @@ function onKey(code) {
     if (code === "Digit2" || code === "Numpad2") startGame(2);
     if (code === "ArrowLeft") changeLevel(-1);
     if (code === "ArrowRight") changeLevel(1);
+    if (code === "ArrowUp") cycleWorld(-1);       // миры (SPEC-006)
+    if (code === "ArrowDown") cycleWorld(1);
   } else if (mode === "shop") {
     if (code === "Enter" || code === "Escape" || code === "Space") mode = "menu";
   } else if (mode === "skins") {
@@ -1749,7 +1819,7 @@ function pollPads() {
   pads = list.map((p, i) => {
     const btn = p.buttons.map(b => b.pressed);
     const prev = padPrev[i] || [];
-    for (const b of [0, 1, 2, 3, 9, 14, 15]) if (btn[b] && !prev[b]) onPadButton(b, i);
+    for (const b of [0, 1, 2, 3, 9, 12, 13, 14, 15]) if (btn[b] && !prev[b]) onPadButton(b, i);
     padPrev[i] = btn;
     let x = p.axes[0] || 0, y = p.axes[1] || 0;
     if (Math.hypot(x, y) < 0.25) { x = 0; y = 0; }
@@ -1765,6 +1835,8 @@ function onPadButton(b, pad = 0) {
     if (b === 2 || b === 3) startGame(2);
     if (b === 14) changeLevel(-1);
     if (b === 15) changeLevel(1);
+    if (b === 12) cycleWorld(-1);                  // крестовина ↑/↓ — миры (SPEC-006)
+    if (b === 13) cycleWorld(1);
     if (b === 1) mode = "skins";
   } else if (mode === "shop") {
     if (b === 0 || b === 1 || b === 9) mode = "menu";
@@ -1906,8 +1978,21 @@ function updateKisses(dt) {
 }
 // Сердечко i в полоске: 1 — целое, 0.5 — половинка, 0 — пустое
 const heartFill = (i, hp) => clamp(hp - i, 0, 1);
-// Насколько Большой быстрее: уровень + каждое ЦЕЛОЕ потерянное сердечко
-const bigBoost = () => (level - 1) * CFG.CHASE_PER_LEVEL + Math.floor(big.maxHp - big.hp) * CFG.BIG_SPEED_PER_HIT;
+// Сложность (SPEC-006): мир начинается с WORLD_SPEED_START[w], каждый уровень мира +SPEED_PER_LEVEL;
+// злость — каждое ЦЕЛОЕ потерянное сердечко +BIG_SPEED_PER_HIT. Ни одна скорость не больше BIG_CHASE_MAX (вместе со злостью).
+const levelBoost = (world, n) => (CFG.WORLD_SPEED_START[worldIndex(world)] ?? CFG.WORLD_SPEED_START.at(-1)) + levelPos(n) * CFG.SPEED_PER_LEVEL;
+const bigHearts = (world, n) => Math.min(CFG.BIG_HP_MAX, CFG.BIG_HP + Math.floor(levelPos(n) / CFG.HP_LEVELS_PER_HEART) + worldIndex(world) * CFG.HP_PER_WORLD);
+const chaseCap = v => Math.min(CFG.BIG_CHASE_MAX, v);
+// Единственный источник чисел Большого: { chase, search, patrol, hearts, boost } уровня (мир, n);
+// lost — сколько сердечек уже отняли (злость), по умолчанию 0; boost — прибавка без потолка
+function difficulty(world, n, lost = 0) {
+  const boost = levelBoost(world, n) + Math.floor(lost) * CFG.BIG_SPEED_PER_HIT;
+  return { chase: chaseCap(CFG.BIG_CHASE_SPEED + boost), search: chaseCap(CFG.BIG_CHASE_SPEED * 0.85 + boost),
+    patrol: chaseCap(CFG.BIG_PATROL_SPEED + boost * 0.5), hearts: bigHearts(world, n), boost };
+}
+const bigDifficulty = () => difficulty(curWorld, level, big.maxHp - big.hp);
+const bigBoost = () => bigDifficulty().boost;                     // насколько Большой быстрее сейчас (без потолка)
+function bigSpeeds() { const d = bigDifficulty(); return { chase: d.chase, search: d.search, patrol: d.patrol }; }
 function updateHugAnim(dt) {
   for (const l of littles) {
     if (l.hugAnim <= 0) continue;
@@ -2157,7 +2242,7 @@ function updateBig(dt) {
     return;
   }
 
-  const boost = bigBoost();
+  const speed = bigSpeeds();
   let target = null, td = Infinity;
   for (const l of littles) {
     if (big.noPush > 0) break;               // отдыхает — никого не ловит
@@ -2168,14 +2253,14 @@ function updateBig(dt) {
     if (big.state !== "chase") { popText(big.x, big.y - 75, "!", "#ff3b30"); SFX.alert(); }
     big.state = "chase";
     big.lastSeen = { x: target.x, y: target.y };
-    big.moving = steerTo(big, target.x, target.y, CFG.BIG_CHASE_SPEED + boost, dt, false);
+    big.moving = steerTo(big, target.x, target.y, speed.chase, dt, false);
     big.dir = turnToward(big.dir, Math.atan2(target.y - big.y, target.x - big.x), 7 * dt);
     if (td < big.r + target.r + 8) push(target);
     return;
   }
   if (big.state === "chase" || big.state === "search") {
     big.state = "search";
-    big.moving = steerTo(big, big.lastSeen.x, big.lastSeen.y, CFG.BIG_CHASE_SPEED * 0.85 + boost, dt, false);
+    big.moving = steerTo(big, big.lastSeen.x, big.lastSeen.y, speed.search, dt, false);
     if (big.moving) big.dir = turnToward(big.dir, big.moveDir, 6 * dt);
     if (!big.moving || dist(big, big.lastSeen) < 10) { big.state = "look"; big.timer = rand(1.5, 2.5); big.lookSign = Math.random() < 0.5 ? -1 : 1; }
     return;
@@ -2188,7 +2273,7 @@ function updateBig(dt) {
   }
   if (!big.goal) { big.goal = randomFreePoint(); big.patrolT = 10; }
   big.patrolT -= dt;
-  big.moving = steerTo(big, big.goal.x, big.goal.y, CFG.BIG_PATROL_SPEED + boost * 0.5, dt, false);
+  big.moving = steerTo(big, big.goal.x, big.goal.y, speed.patrol, dt, false);
   if (big.moving) big.dir = turnToward(big.dir, big.moveDir, 5 * dt);
   if (!big.moving || dist(big, big.goal) < 12 || big.patrolT <= 0) {
     big.state = "look"; big.timer = rand(1, 2.2); big.lookSign = Math.random() < 0.5 ? -1 : 1; big.goal = null;
@@ -2753,10 +2838,10 @@ function mixHex(a, b, f) {
 // нижний слой: земля, стены, вода, кусты, домики — рисуется один раз на уровень (номер и попытку из levelInfo), место и размер;
 // перезапуск того же уровня ничего не перерисовывает
 function minimapBase(r) {
-  const li = levelInfo || {}, key = [li.lv, li.attempt, li.fallback, currentPlace(), r.w, VIEW].join(":");
+  const li = levelInfo || {}, key = [li.world, li.lv, li.attempt, li.fallback, r.w, VIEW].join(":");
   if (mmBase && key === mmKey) return mmBase;
   mmKey = key; mmDraws++;
-  const th = THEMES[currentPlace()], c = mmBase || (mmBase = document.createElement("canvas"));
+  const th = THEMES[li.world || curWorld], c = mmBase || (mmBase = document.createElement("canvas"));
   c.width = Math.max(1, Math.round(r.w * VIEW)); c.height = Math.max(1, Math.round(r.h * VIEW));
   const g = c.getContext("2d");
   g.setTransform(c.width / W, 0, 0, c.height / H, 0, 0);          // рисуем в px карты
@@ -2934,11 +3019,57 @@ const shopCards = () => [
   ...["mittens", "mega"].map(k => ({ k, name: L().gloves[k], desc: L().gloveDesc(GLOVES[k].power), pack: L().pack(GLOVES[k].charges), have: L().have(progress.inv[k]), n: progress.inv[k], price: GLOVES[k].price, buy: () => buyGloves(k) })),
   { k: "kisses", name: L().kisses, desc: L().kissDesc, pack: L().kissPack(KISSES.pack), have: L().kissHave(progress.inv.kisses), n: progress.inv.kisses, price: KISSES.price, buy: buyKisses }
 ];
+// ---------- Карточки миров в меню (SPEC-006): название, картинка из цветов THEMES, звёзды мира ----------
+let worldCards = [];   // карточки этого кадра: { world, x, y, w, h, name, stars, selected } (для тестов)
+const worldStarsOf = w => Object.values(progress.worlds[w].stars).reduce((a, b) => a + b, 0);
+// маленькая картинка мира: земля, вода, домик и куст в цветах темы (снежинки зимой)
+function worldPicture(w, x, y, sz) {
+  const th = THEMES[w], r = sz * 0.2;
+  ctx.save(); rr(x, y, sz, sz, r); ctx.clip();
+  ctx.fillStyle = th.g1; ctx.fillRect(x, y, sz, sz);
+  ctx.fillStyle = th.water.c; ctx.fillRect(x, y + sz * 0.72, sz, sz * 0.28);
+  ctx.fillStyle = th.cottage.wall; ctx.fillRect(x + sz * 0.14, y + sz * 0.42, sz * 0.34, sz * 0.27);
+  ctx.fillStyle = th.cottage.roof; ctx.beginPath();
+  ctx.moveTo(x + sz * 0.07, y + sz * 0.44); ctx.lineTo(x + sz * 0.31, y + sz * 0.18); ctx.lineTo(x + sz * 0.55, y + sz * 0.44); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = th.maze.wall; ctx.beginPath(); ctx.arc(x + sz * 0.75, y + sz * 0.5, sz * 0.16, 0, Math.PI * 2); ctx.fill();
+  ctx.lineWidth = Math.max(1, sz * 0.04); ctx.strokeStyle = OUT; ctx.stroke();
+  if (th.snow) { ctx.fillStyle = "#fff"; for (const [a, b] of [[0.2, 0.1], [0.62, 0.14], [0.88, 0.28], [0.45, 0.62]]) { ctx.beginPath(); ctx.arc(x + sz * a, y + sz * b, sz * 0.045, 0, Math.PI * 2); ctx.fill(); } }
+  ctx.restore();
+  rr(x, y, sz, sz, r); ctx.lineWidth = 2; ctx.strokeStyle = OUT; ctx.stroke();
+}
+// карточка-кнопка мира; выбранная — жёлтая с розовой рамкой
+function worldCard(w, x, y, cw, ch) {
+  const sel = w === curWorld, k = PHONE ? cpx(1) : 1, pad = 6 * k, pic = ch - 2 * pad;
+  rr(x, y, cw, ch, 14 * k); fillStroke(sel ? "#fff1a8" : "#ffffff", (sel ? 5 : 3) * k, sel ? "#ff6fa8" : OUT);
+  worldPicture(w, x + pad, y + pad, pic);
+  const tx = x + pad + pic + 7 * k, tw = x + cw - pad - tx, name = L().worlds[w];
+  const stars = L().worldStars(worldStarsOf(w), CFG.STARS_PER_LEVEL * levelsPerWorld());
+  let w1, w2;
+  if (PHONE) {
+    pText(name, tx, y + ch * 0.32, "main", 15, tw, "left", OUT, 900); w1 = ctx.measureText(name).width;
+    pText(stars, tx, y + ch * 0.72, "hint", 13, tw, "left", "#a16207", 800); w2 = ctx.measureText(stars).width;
+  } else {
+    fitText(name, tx, y + ch * 0.34, 18, tw, "left", OUT, 900); w1 = ctx.measureText(name).width;
+    fitText(stars, tx, y + ch * 0.72, 14, tw, "left", "#a16207", 800); w2 = ctx.measureText(stars).width;
+  }
+  buttons.push({ x, y, w: cw, h: ch, act: () => selectWorld(w), id: "world:" + w, text: name, textW: Math.max(w1, w2) });
+  worldCards.push({ world: w, x, y, w: cw, h: ch, name, stars, selected: sel });
+}
+
+// строка под «Победа!»: после последнего уровня мира — «мир пройден» (SPEC-006); winLine — для тестов
+let winLine = "";
+function winText() {
+  winLine = lastReward && lastReward.worldDone ? L().worldDone(L().worlds[lastReward.world], lastReward.world) : L().winSub;
+  return winLine;
+}
 // кнопки экрана итогов (компьютер и телефон): [надпись, цвет, действие]
 function endActions(m) {
   const menu = [L().menu, "#64748b", toMenu];
-  if (m === "win") return [[L().next(level + 1), "#22c55e", nextLevel],
-    ["🛒 " + L().shop, "#f59e0b", () => { level = clamp(level + 1, 1, progress.unlocked); resetWorld(numPlayers); mode = "shop"; }], menu];
+  if (m === "win") {
+    const shop = ["🛒 " + L().shop, "#f59e0b", () => { level = clamp(level + 1, 1, worldProgress().unlocked); resetWorld(numPlayers); mode = "shop"; }];
+    if (level >= levelsPerWorld()) return [[L().menu, "#22c55e", toMenu], shop];   // мир пройден: дальше — меню
+    return [[L().next(level + 1), "#22c55e", nextLevel], shop, menu];
+  }
   return [[L().again, "#f59e0b", () => startGame(numPlayers)], ["🛒 " + L().shop, "#f59e0b", () => { resetWorld(numPlayers); mode = "shop"; }], menu];
 }
 function drawOverlayPhone() {
@@ -2959,8 +3090,8 @@ function drawOverlayPhone() {
     y += c(4);
     y += pWrap(L().touch1, lcx, y, "hint", 14, lw, 2, "#475569", 700);
     if (showInstallHint()) { pWrap(L().installHint, lcx, y + c(2), "hint", 13, lw, 2, "#2563eb", 800); installHintShown = true; }
-    // справа: языки и монетки, тип уровня, выбор уровня, место, «Играть», наряды и магазин
-    const fixed = B + c(18) + B + B + c(56) + B, gy = Math.max(g, (Y1 - Y0 - fixed - c(4)) / 4);
+    // справа: языки и монетки, миры (2×2), тип уровня, выбор уровня, «Играть», наряды и магазин
+    const PLAY_H = c(50), fixed = B + (2 * B + g) + c(22) + B + PLAY_H + B, gy = Math.max(g, (Y1 - Y0 - fixed - c(4)) / 4);
     let ry = Y0;
     LANGS.forEach((code, i) => {
       const active = code === lang;
@@ -2971,27 +3102,29 @@ function drawOverlayPhone() {
     hudRects.push({ id: "coins", x: cx0, y: ry + c(4), w: cw, h: B - c(8) });
     drawCoin(cx0 + c(14), ry + B / 2, c(9)); pText(String(progress.coins), cx0 + c(26), ry + B / 2 + 1, "main", 15, cw / 2 - c(30), "left", OUT, 900);
     drawStar(cx0 + cw / 2 + c(10), ry + B / 2, c(9), true); pText(String(totalStars()), cx0 + cw / 2 + c(22), ry + B / 2 + 1, "main", 15, cw / 2 - c(26), "left", OUT, 900);
-    const above = ry + B;
     ry += B + gy;
-    const tName = L().types[levelType(level)], tY = ry + c(9);
+    worldCards = [];
+    const cw2 = (R - g) / 2;
+    WORLDS.forEach((w, i) => worldCard(w, rx + (i % 2) * (cw2 + g), ry + Math.floor(i / 2) * (B + g), cw2, B));
+    ry += 2 * B + g;
+    const above = ry;
+    ry += gy;
+    const tName = L().types[levelType(curWorld, level)], tY = ry + c(9);
     const tSize = pText(tName, rx + R / 2, tY, "main", 15, R, "center", "#7c3aed", 800), tw = ctx.measureText(tName).width;
-    // на телефоне правила в левой колонке; rulesBottom — низ того, что над надписью в её колонке (ряд языков и монеток)
+    // на телефоне правила в левой колонке; rulesBottom — низ того, что над надписью в её колонке (карточки миров)
     typeLabel = { text: tName, x: rx + R / 2 - tw / 2, y: tY - tSize / 2, w: tw, h: tSize, size: tSize, rulesBottom: above };
     ry += c(18) + c(4);
     addButton(rx, ry, B, B, "◀", "#94a3b8", () => changeLevel(-1), fz(20, "main"));
-    const canNext = level < progress.unlocked;
+    const canNext = level < worldProgress().unlocked;
     addButton(rx + R - B, ry, B, B, canNext ? "▶" : "🔒", canNext ? "#94a3b8" : "#cbd5e1", () => changeLevel(1), fz(canNext ? 20 : 16, "main"));
     const bx = rx + B + g, bw = R - 2 * (B + g);
     rr(bx, ry, bw, B, c(12)); fillStroke("#fff", 3);
     hudRects.push({ id: "level", x: bx, y: ry, w: bw, h: B });
     pText(`${L().level} ${level}`, bx + bw / 2, ry + c(15), "main", 16, bw - c(8), "center", OUT, 900);
-    for (let k = 0; k < 3; k++) drawStar(bx + bw / 2 - c(14) + k * c(14), ry + c(33), c(5.5), k < (progress.stars[level] || 0));
+    for (let k = 0; k < CFG.STARS_PER_LEVEL; k++) drawStar(bx + bw / 2 - c(14) + k * c(14), ry + c(33), c(5.5), k < (worldProgress().stars[level] || 0));
     ry += B + gy;
-    const placeTxt = (placeSel === "auto" ? L().auto + ": " : "") + L().places[currentPlace()];
-    pButton(rx, ry, R, B, "🗺 " + placeTxt, "#38bdf8", cyclePlace, 17);
-    ry += B + gy;
-    pButton(rx, ry, R, c(56), "▶ " + L().play, "#3b82f6", () => startGame(1), 26);
-    ry += c(56) + gy;
+    pButton(rx, ry, R, PLAY_H, "▶ " + L().play, "#3b82f6", () => startGame(1), 26);
+    ry += PLAY_H + gy;
     const hw = (R - g) / 2;
     pButton(rx, ry, hw, B, "🎨 " + L().skins, "#ff8fab", () => { mode = "skins"; }, 17);
     pButton(rx + hw + g, ry, hw, B, "🛒 " + L().shop, "#f59e0b", () => { mode = "shop"; }, 17);
@@ -3092,8 +3225,8 @@ function drawOverlayPhone() {
     let acts;
     if (mode === "win") {
       pLabel(L().win, lx, Y0 + c(30), "title", 40, "#ffcf33", "center", colW);
-      pWrap(L().winSub, lx, Y0 + c(58), "main", 16, colW, 2, "#fff", 900);
-      for (let k = 0; k < 3; k++) drawStar(lx - c(56) + k * c(56), Y0 + c(140), c(22), k < rw.stars);
+      pWrap(winText(), lx, Y0 + c(58), "main", 16, colW, 2, "#fff", 900);
+      for (let k = 0; k < CFG.STARS_PER_LEVEL; k++) drawStar(lx - c(56) + k * c(56), Y0 + c(140), c(22), k < rw.stars);
       [[true, L().victory], [rw.nobodyOut, L().nobodyOut], [rw.fast, L().fast(fmtTime(rw.target))]].forEach(([okk, txt], i) => {
         pLabel((okk ? "✔ " : "✘ ") + txt, rx, Y0 + c(26) + i * c(28), "main", 16, okk ? "#bbf7d0" : "#cbd5e1", "center", colW);
       });
@@ -3124,33 +3257,36 @@ function drawOverlay() {
     rr(UW / 2 - 360, 30, 720, 580, 30); fillStroke("rgba(255,250,235,.95)", 5);
     label("BeBeBe Atrapar", UW / 2 - 40, 92, 54, "#ffcf33");
     label(L().subtitle, UW / 2, 136, 22, "#ff6fa8");
-    const icons = ["❤", "👀", "🤝", "⏱", "🏠", "🍌"], rules = L().rules(CFG.DOWN_TIME), RULE_Y = 172, RULE_DY = 29, RULE_SIZE = 16;
+    const icons = ["❤", "👀", "🤝", "⏱", "🏠", "🍌"], rules = L().rules(CFG.DOWN_TIME), RULE_Y = 168, RULE_DY = 23, RULE_SIZE = 16;
     rules.forEach((r, i) => {
       ctx.font = "19px system-ui, 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
       ctx.fillText(icons[i], UW / 2 - 312, RULE_Y + i * RULE_DY);
       fitText(r, UW / 2 - 287, RULE_Y + i * RULE_DY, RULE_SIZE, 640, "left", OUT, 700);
     });
-    // тип выбранного уровня — между правилами и переключателем уровня
-    const tName = L().types[levelType(level)], tY = 340;
-    const tSize = fitText(tName, UW / 2 - 130, tY, 15, 240, "center", "#7c3aed", 800), tw = ctx.measureText(tName).width;
-    typeLabel = { text: tName, x: UW / 2 - 130 - tw / 2, y: tY - tSize / 2, w: tw, h: tSize, size: tSize, rulesBottom: RULE_Y + (rules.length - 1) * RULE_DY + RULE_SIZE / 2 };
-    addButton(UW / 2 - 250, 350, 52, 50, "◀", "#94a3b8", () => changeLevel(-1));
-    rr(UW / 2 - 192, 350, 124, 50, 16); fillStroke("#fff", 4);
-    fitText(`${L().level} ${level}`, UW / 2 - 130, 368, 20, 112, "center", OUT, 900);
-    for (let k = 0; k < 3; k++) drawStar(UW / 2 - 146 + k * 16, 389, 7, k < (progress.stars[level] || 0));
-    const canNext = level < progress.unlocked;
-    addButton(UW / 2 - 62, 350, 52, 50, canNext ? "▶" : "🔒", canNext ? "#94a3b8" : "#cbd5e1", () => changeLevel(1), canNext ? 24 : 18);
+    // миры: четыре карточки в ряд под правилами
+    const CARD_Y = 298, CARD_H = 56, CARD_W = 160, CARD_GAP = 12, cx0 = UW / 2 - (4 * CARD_W + 3 * CARD_GAP) / 2;
+    worldCards = [];
+    WORLDS.forEach((w, i) => worldCard(w, cx0 + i * (CARD_W + CARD_GAP), CARD_Y, CARD_W, CARD_H));
+    // под ними — выбор уровня этого мира, справа от него — тип уровня
+    const LV_Y = 364;
+    addButton(UW / 2 - 250, LV_Y, 52, 50, "◀", "#94a3b8", () => changeLevel(-1));
+    rr(UW / 2 - 192, LV_Y, 124, 50, 16); fillStroke("#fff", 4);
+    fitText(`${L().level} ${level}`, UW / 2 - 130, LV_Y + 18, 20, 112, "center", OUT, 900);
+    for (let k = 0; k < CFG.STARS_PER_LEVEL; k++) drawStar(UW / 2 - 146 + k * 16, LV_Y + 39, 7, k < (worldProgress().stars[level] || 0));
+    const canNext = level < worldProgress().unlocked;
+    addButton(UW / 2 - 62, LV_Y, 52, 50, canNext ? "▶" : "🔒", canNext ? "#94a3b8" : "#cbd5e1", () => changeLevel(1), canNext ? 24 : 18);
+    const tName = L().types[levelType(curWorld, level)], tY = LV_Y + 25;
+    const tSize = fitText(tName, UW / 2 + 135, tY, 22, 230, "center", "#7c3aed", 800), tw = ctx.measureText(tName).width;
+    typeLabel = { text: tName, x: UW / 2 + 135 - tw / 2, y: tY - tSize / 2, w: tw, h: tSize, size: tSize, rulesBottom: CARD_Y + CARD_H };
     // монетки и звёзды
     rr(UW / 2 - 345, 118, 170, 34, 14); fillStroke("#fff", 3);
     drawCoin(UW / 2 - 322, 135, 11); label(String(progress.coins), UW / 2 - 304, 135, 18, OUT, "left");
     drawStar(UW / 2 - 235, 135, 11, true); label(String(totalStars()), UW / 2 - 220, 135, 18, OUT, "left");
-    const placeTxt = (placeSel === "auto" ? L().auto + ": " : "") + L().places[currentPlace()];
-    addButton(UW / 2 + 20, 350, 230, 50, "🗺 " + placeTxt, "#38bdf8", cyclePlace, placeTxt.length > 14 ? 16 : 20);
-    addButton(UW / 2 - 250, 414, 230, 64, L().onePlayer, "#3b82f6", () => startGame(1), 28);
-    addButton(UW / 2 + 20, 414, 230, 64, L().twoPlayers, "#22c55e", () => startGame(2), 28);
-    addButton(UW / 2 - 250, 490, 230, 44, "🎨 " + L().skins, "#ff8fab", () => { mode = "skins"; }, 20);
-    addButton(UW / 2 + 20, 490, 230, 44, "🛒 " + L().shop, "#f59e0b", () => { mode = "shop"; }, 20);
-    const hint = showInstallHint(), cy = hint ? 550 : 558;    // с подсказкой строки управления чуть выше
+    addButton(UW / 2 - 250, 428, 230, 58, L().onePlayer, "#3b82f6", () => startGame(1), 28);
+    addButton(UW / 2 + 20, 428, 230, 58, L().twoPlayers, "#22c55e", () => startGame(2), 28);
+    addButton(UW / 2 - 250, 496, 230, 44, "🎨 " + L().skins, "#ff8fab", () => { mode = "skins"; }, 20);
+    addButton(UW / 2 + 20, 496, 230, 44, "🛒 " + L().shop, "#f59e0b", () => { mode = "shop"; }, 20);
+    const hint = showInstallHint(), cy = hint ? 554 : 562;    // с подсказкой строки управления чуть выше
     fitText(L().controls1, UW / 2, cy, 15, 690, "center", "#475569", 600);
     fitText(L().controls2, UW / 2, cy + 22, 15, 690, "center", "#475569", 600);
     if (hint) { fitText(L().installHint, UW / 2, cy + 46, 15, 690, "center", "#2563eb", 800); installHintShown = true; }
@@ -3237,9 +3373,9 @@ function drawOverlay() {
     addButton(UW / 2 + 10, UH / 2, 220, 66, L().menu, "#64748b", toMenu);
   } else if (mode === "win") {
     label(L().win, UW / 2, 92, 72, "#ffcf33");
-    label(L().winSub, UW / 2, 146, 22, "#fff");
+    label(winText(), UW / 2, 146, 22, "#fff");
     const rw = lastReward || { stars: 1, coins: 0, nobodyOut: false, fast: false, target: 0 };
-    for (let k = 0; k < 3; k++) drawStar(UW / 2 - 80 + k * 80, 214, 32, k < rw.stars);
+    for (let k = 0; k < CFG.STARS_PER_LEVEL; k++) drawStar(UW / 2 - 80 + k * 80, 214, 32, k < rw.stars);
     [[true, L().victory], [rw.nobodyOut, L().nobodyOut], [rw.fast, L().fast(fmtTime(rw.target))]].forEach(([okk, txt], i) => {
       label((okk ? "✔ " : "✘ ") + txt, UW / 2, 274 + i * 28, 18, okk ? "#bbf7d0" : "#cbd5e1");
     });
@@ -3247,8 +3383,10 @@ function drawOverlay() {
     let ly = 394;
     if (rw.starCoins > 0) { label("✨ " + L().starCoins(rw.starCoins), UW / 2, ly, 16, "#fde047"); ly += 22; }
     if (rw.penalty > 0) label(L().restPenalty(rw.penalty), UW / 2, ly, 15, "#fca5a5");
-    const geo = [[UW / 2 - 360, 440, 260, 66, 24], [UW / 2 - 85, 440, 200, 66, 22], [UW / 2 + 130, 440, 200, 66, 22]];
-    endActions("win").forEach(([txt, col, act], i) => { const [x, y, w, h, sz] = geo[i]; addButton(x, y, w, h, txt, col, act, sz); });
+    const acts = endActions("win");
+    const geo = acts.length === 3 ? [[UW / 2 - 360, 440, 260, 66, 24], [UW / 2 - 85, 440, 200, 66, 22], [UW / 2 + 130, 440, 200, 66, 22]]
+      : [[UW / 2 - 240, 440, 260, 66, 24], [UW / 2 + 40, 440, 200, 66, 22]];
+    acts.forEach(([txt, col, act], i) => { const [x, y, w, h, sz] = geo[i]; addButton(x, y, w, h, txt, col, act, sz); });
   } else if (mode === "lose") {
     label(L().lose, UW / 2, UH / 2 - 100, 58, "#fca5a5");
     label(L().loseSub(fmtHearts(big.maxHp - big.hp), big.maxHp), UW / 2, UH / 2 - 35, 24, "#fff");
@@ -3297,7 +3435,7 @@ function drawBanner() {
 }
 function drawUI(t) {
   if (nameInput && mode !== "skins" && mode !== "names") closeNameInput(false);
-  buttons = []; installHintShown = false; typeLabel = null; mmShown = false; edgeArrows = []; hudRects = []; textSizes = {}; bannerRect = null;
+  buttons = []; installHintShown = false; typeLabel = null; worldCards = []; winLine = ""; mmShown = false; edgeArrows = []; hudRects = []; textSizes = {}; bannerRect = null;
   ctx.setTransform(VIEW, 0, 0, VIEW, 0, 0);
   ctx.clearRect(0, 0, UW, UH);
   if (mode !== "menu" && mode !== "skins" && mode !== "names" && mode !== "shop") { drawMarkers(t); drawFx(); drawHUD(t); }
@@ -3576,6 +3714,7 @@ const THEMES = {
 };
 const HEDGE_COLORS = ["#3f9a4a", "#7bd07e"];
 let mapGroup = null, builtKey = "";
+const mapKey = () => { const li = levelInfo || {}; return [li.world, li.lv, li.attempt, li.fallback].join(":"); };   // какой уровень построен в 3D
 const fadeTrees = [], fadeBushes = [], waves = [];
 let safeGlow = null, snow = null;
 const bigHomeMats = [];   // материалы стен дома Большого — мигают красным при обратном отсчёте
@@ -3902,11 +4041,11 @@ function paintGround(place) {
 }
 
 function buildMap3D() {
-  const place = currentPlace(), th = THEMES[place];
+  const place = (levelInfo && levelInfo.world) || curWorld, th = THEMES[place];   // место — мир построенного уровня
   if (mapGroup) { scene.remove(mapGroup); disposeTree(mapGroup); }
   mapGroup = new THREE.Group(); scene.add(mapGroup);
   fadeTrees.length = 0; fadeBushes.length = 0; waves.length = 0; snow = null; bigHomeMats.length = 0;
-  builtKey = level + ":" + place;
+  builtKey = mapKey();
   scene.background.set(th.bg); scene.fog.color.set(th.bg);
   paintGround(place);
 
@@ -4279,7 +4418,7 @@ function buildCharacters() {
   charGroup.add(big.model.root);
 }
 function rebuild3D() {
-  if (builtKey !== level + ":" + currentPlace() || !mapGroup) buildMap3D();
+  if (builtKey !== mapKey() || !mapGroup) buildMap3D();
   buildCharacters();
   clearItemMeshes();
   clearStarMeshes();
@@ -4653,9 +4792,12 @@ registerServiceWorker();
 window.__bb = {
   get mode() { return mode; }, set mode(v) { mode = v; },
   get littles() { return littles; }, get big() { return big; }, get stats() { return stats; },
-  get level() { return level; }, set level(v) { level = v; },
-  update, inSafe, I18N, startGame, resetWorld, cycleOutfit, randomOutfit, cycleBig, cyclePlace, setLang, toScreen,
-  get items() { return items; }, get progress() { return progress; }, buyGloves, setEquip, get lastReward() { return lastReward; }, spawnItem, get placeSel() { return placeSel; }, set placeSel(v) { placeSel = v; },
+  get level() { return level; }, set level(v) { level = clamp(Math.floor(v) || 1, 1, levelsPerWorld()); },
+  // SPEC-006: world — мир идущего/выбранного уровня (не мир — игнорируется), level — номер в мире
+  get world() { return curWorld; }, set world(v) { if (WORLDS.includes(v)) curWorld = v; }, WORLDS, difficulty, bigSpeeds,
+  changeLevel, get winLine() { return winLine; }, selectWorld, get worldCards() { return worldCards.map(q => ({ ...q })); },
+  update, inSafe, I18N, startGame, resetWorld, cycleOutfit, randomOutfit, cycleBig, setLang, toScreen,
+  get items() { return items; }, get progress() { return progress; }, buyGloves, setEquip, get lastReward() { return lastReward; }, spawnItem,
   // SPEC-005 (телефон): phone; camera — позиция и точка взгляда в единицах 3D (1 = клетка), точка взгляда и видимая земля в px мира,
   // ahead — забегание вперёд (px); shake — тряска сейчас
   phone: PHONE, get shake() { return shake; },
@@ -4675,7 +4817,8 @@ window.__bb = {
   get uiSize() { return { w: UW, h: UH, cssW: CSS_W, cssH: CSS_H, scale: CSS_W / UW }; }, toGame,
   get names() { return allNames(); }, setName, nameOf, inDanger, get stars() { return bonusStars; }, spawnStar, giveReward,
   get dangerZone() { return dangerZone; }, get safeZone() { return safeZone; }, get texts() { return texts; }, generateLevel,
-  world: { COLS, ROWS, CELL, get blocked() { return Array.from(blocked); }, get blockedBig() { return Array.from(blockedBig); }, seeSolid: seeSolidAt, get bushes() { return bushes.map(q => ({ ...q })); },
+  // сетка карты (до SPEC-006 называлась world)
+  grid: { COLS, ROWS, CELL, get blocked() { return Array.from(blocked); }, get blockedBig() { return Array.from(blockedBig); }, seeSolid: seeSolidAt, get bushes() { return bushes.map(q => ({ ...q })); },
     get obstacles() { return obstacles.map(o => ({ kind: o.kind, shape: o.shape, x: o.x, y: o.y, w: o.w, h: o.h, r: o.r, move: o.move, sight: o.sight })); } },
   get kisses() { return kisses; }, throwKiss, buyKisses, resetProgress, heartFill, bigBoost, fmtHearts,
   levelType, levelReport, get levelInfo() { return levelInfo; }, clearLevelCache, CFG, THEMES,

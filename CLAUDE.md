@@ -24,7 +24,7 @@ A top-down 3D arcade game that Andrei makes with his kids from their scenario an
 4. **JS style:** ES2022, `let`/`const` only (never `var`), short comments in Russian or English, code identifiers in English.
 5. **Kid-friendly:** nothing scary or violent in visuals or texts (the Big One "pushes", nobody "dies"); big readable UI; works with touch, keyboard and gamepad.
 6. **Keep `window.__bb` working.** Tests drive the game through it; a spec that adds state the tests need exposes it there.
-7. **Progress is player data.** `localStorage` keys `bebebe-progress`, `bebebe-outfits`, `bebebe-place`, `bebebe-lang`, `bebebe-names`: a change to their shape keeps old saves loading (merge with defaults, never throw).
+7. **Progress is player data.** `localStorage` keys `bebebe-progress`, `bebebe-outfits`, `bebebe-place` (no longer read since SPEC-006; old saves may still have it), `bebebe-lang`, `bebebe-names`: a change to their shape keeps old saves loading (merge with defaults, never throw).
 8. **`sw.js` `SW_VERSION` is bumped** when the precache list or a cache strategy changes (a change to `index.html` alone needs no bump: it is network-first). A new three.js version (the URL in `index.html` and `THREE_BASE` in `sw.js` must match — a test checks it) or a redrawn icon → bump.
 
 ## Workflow (spec-driven) and Git
@@ -34,7 +34,7 @@ A top-down 3D arcade game that Andrei makes with his kids from their scenario an
 1. One feature = one spec (format: `specs/README.md`). Work strictly within one spec; anything new that comes up goes to `specs/BACKLOG.md`, not into the running spec.
 2. **Branch** `SPEC-NNN-short-description` off `master` (`git branch --show-current` first; never edit on `master`).
 3. **TDD**: for each acceptance criterion write the failing Playwright test first, then the code.
-4. **Verify** (agent `tester`): `npx playwright test` — the touched spec files first, the **whole suite once before the merge** (it takes about 9–10 minutes).
+4. **Verify** (agent `tester`): `npx playwright test` — the touched spec files first, the **whole suite once before the merge** (it takes about 15 minutes).
 5. **Review** (agent `code-reviewer`, + `architect-reviewer` for tier L): on `git diff master...<branch>` and the spec only. CRITICAL/HIGH are fixed; at most two fix rounds.
 6. **Commit** in small steps, explicit paths only, message `SPEC-NNN: <what>`, ending with the attribution lines from your system reminder. Use the machine's git identity; never change git config.
 7. **Merge** `git checkout master && git merge --no-ff SPEC-NNN-...` (message `Merge SPEC-NNN: <title>`), run the whole suite once on `master`, then `git branch -d SPEC-NNN-...`. **Push and deploy:** remote `origin` = `github.com/Andrei-Danilin/bebebe-game`; after the green suite on `master`, `git push origin master` (only `master`, never `--force`, never spec branches), then `gh run watch` until the Pages deploy is green; a red deploy is reported, not retried blindly.
