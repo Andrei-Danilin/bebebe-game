@@ -103,3 +103,79 @@ test.describe("tablet", () => {
     expect(await page.evaluate(() => window.__bb.phone)).toBe(false);
   });
 });
+
+// AC 2: in phone mode both canvases fill playArea() (no letterbox), the UI layer has its own size (PHONE_UI_H × aspect).
+for (const [vw, vh] of [[667, 375], [844, 390], [932, 430]]) {
+  test.describe(`phone ${vw}×${vh}`, () => {
+    test.use({ ...PHONE_CTX, viewport: { width: vw, height: vh } });
+
+    test(`phone mode fills the screen at ${vw}×${vh}`, async ({ page }) => {
+      const errors = await openGame(page, { query: "?phone=1" });
+      await frames(page);
+      // playArea() = body minus safe-area padding (no insets in the test browser → the viewport)
+      const area = await page.evaluate(() => {
+        const b = document.body, cs = getComputedStyle(b);
+        return { w: b.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight), h: b.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) };
+      });
+      expect(area).toEqual({ w: vw, h: vh });
+      for (const sel of ["#game", "#gl"]) {
+        const box = await page.locator(sel).boundingBox();
+        expect(Math.abs(box.x), `${sel} x`).toBeLessThanOrEqual(1);
+        expect(Math.abs(box.y), `${sel} y`).toBeLessThanOrEqual(1);
+        expect(Math.abs(box.width - area.w), `${sel} width ${box.width}`).toBeLessThanOrEqual(1);
+        expect(Math.abs(box.height - area.h), `${sel} height ${box.height}`).toBeLessThanOrEqual(1);
+      }
+      const ui = await page.evaluate(() => window.__bb.uiSize);
+      expect(ui.h).toBe(420);
+      expect(Math.abs(ui.w - 420 * ui.cssW / ui.cssH)).toBeLessThanOrEqual(1);
+      expect(Math.abs(ui.cssW - vw)).toBeLessThanOrEqual(1);
+      expect(Math.abs(ui.cssH - vh)).toBeLessThanOrEqual(1);
+      expect(Math.abs(ui.scale - ui.cssW / ui.w)).toBeLessThan(1e-9);
+      // 3D follows the canvas shape: no stretching
+      const cam = await page.evaluate(() => window.__bb.camera);
+      expect(Math.abs(cam.aspect - ui.cssW / ui.cssH)).toBeLessThan(1e-6);
+      // pointers map CSS px → UI px
+      for (const [cx, cy] of [[0, 0], [vw / 2, vh / 2], [vw - 1, vh - 1], [100, 300]]) {
+        const p = await page.evaluate(([x, y]) => window.__bb.toGame({ clientX: x, clientY: y }), [cx, cy]);
+        expect(Math.abs(p.x - cx * ui.w / ui.cssW), `x of ${cx}`).toBeLessThan(0.01);
+        expect(Math.abs(p.y - cy * ui.h / ui.cssH), `y of ${cy}`).toBeLessThan(0.01);
+      }
+      // a real tap on the pause button (UI rect → CSS px) hits it
+      await page.evaluate(() => { window.__bb.startGame(1); });
+      await frames(page);
+      const pause = (await page.evaluate(() => window.__bb.buttonRects)).find(b => b.text === "II");
+      await page.touchscreen.tap((pause.x + pause.w / 2) * ui.scale, (pause.y + pause.h / 2) * ui.scale);
+      expect(await page.evaluate(() => window.__bb.mode)).toBe("pause");
+      // every screen draws without errors (layouts come in step 6)
+      for (const m of ["menu", "skins", "names", "shop", "play", "pause", "win", "lose"]) {
+        await page.evaluate(v => { window.__bb.mode = v; }, m);
+        await frames(page);
+      }
+      expect(errors).toEqual([]);
+    });
+  });
+}
+
+test.describe("phone resize", () => {
+  test.use(PHONE_CTX);
+
+  test("the UI size follows a resize of the phone screen", async ({ page }) => {
+    const errors = await openGame(page, { query: "?phone=1" });
+    await page.setViewportSize({ width: 667, height: 375 });
+    await frames(page);
+    const ui = await page.evaluate(() => window.__bb.uiSize);
+    expect(ui.h).toBe(420);
+    expect(ui.w).toBe(Math.round(420 * 667 / 375));
+    expect(Math.abs(ui.cssW - 667)).toBeLessThanOrEqual(1);
+    expect(errors).toEqual([]);
+  });
+});
+
+test.describe("desktop UI size", () => {
+  test("desktop UI space is the world size", async ({ page }) => {
+    await openGame(page);
+    const ui = await page.evaluate(() => window.__bb.uiSize);
+    expect({ w: ui.w, h: ui.h }).toEqual({ w: 960, h: 640 });
+    expect(ui.cssW).toBe(960); expect(ui.cssH).toBe(640); expect(ui.scale).toBe(1);
+  });
+});

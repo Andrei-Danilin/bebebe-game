@@ -20,6 +20,7 @@
   #wrap { position: relative; border-radius: 14px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,.45); background: #5f9e4a; }
   #wrap canvas { position: absolute; left: 0; top: 0; display: block; }
   #gl { pointer-events: none; }
+  body.phone #wrap { border-radius: 0; box-shadow: none; }   /* телефон: игра на весь экран */
   #game { touch-action: none; }
   /* поле ввода имени поверх подписи на холсте (шрифт ≥ 16px — iPhone не увеличивает страницу) */
   .name-input { position: absolute; box-sizing: border-box; margin: 0; padding: 0 6px; border: 2px solid #ff6fa8; border-radius: 10px; line-height: 1; background: #fff; color: #3d2b1f; font-weight: 900; font-family: system-ui, "Segoe UI", Arial, sans-serif; text-align: center; outline: none; -webkit-user-select: text; user-select: text; z-index: 5; }
@@ -313,6 +314,7 @@ function isPhone() {
   } catch (e) { return false; }
 }
 const PHONE = isPhone();                           // решается один раз при запуске, как STANDALONE
+if (PHONE) document.body.classList.add("phone");
 
 // Место для игры: body без отступов safe-area (вырез и полоска «домой» на iPhone).
 function playArea() {
@@ -322,16 +324,24 @@ function playArea() {
   return { w: w > 0 ? w : window.innerWidth, h: h > 0 ? h : window.innerHeight };
 }
 
+let onFit = null;               // телефон: 3D-камера подстраивается под форму холста (задаётся в разделе 3D)
 function fit() {
   DPR = Math.min(window.devicePixelRatio || 1, isTouch ? 1.5 : 2);   // на планшетах чуть меньше пикселей — плавнее
   const area = playArea();
-  const s = Math.min(area.w / W, area.h / H);
-  CSS_W = Math.floor(W * s); CSS_H = Math.floor(H * s);
+  if (PHONE) {
+    // телефон: весь экран без полос; интерфейс — высотой PHONE_UI_H, ширина по соотношению сторон
+    CSS_W = Math.max(1, Math.floor(area.w)); CSS_H = Math.max(1, Math.floor(area.h));
+    UH = CFG.PHONE_UI_H; UW = Math.round(UH * CSS_W / CSS_H);
+  } else {
+    const s = Math.min(area.w / W, area.h / H);
+    CSS_W = Math.floor(W * s); CSS_H = Math.floor(H * s);
+  }
   wrap.style.width = CSS_W + "px"; wrap.style.height = CSS_H + "px";
   canvas.style.width = CSS_W + "px"; canvas.style.height = CSS_H + "px";
   canvas.width = Math.max(1, Math.floor(CSS_W * DPR)); canvas.height = Math.max(1, Math.floor(CSS_H * DPR));
   VIEW = canvas.width / UW;
   if (renderer) { renderer.setPixelRatio(DPR); renderer.setSize(CSS_W, CSS_H, true); }
+  if (onFit) onFit();
   placeNameInput();
 }
 window.addEventListener("resize", () => fit());
@@ -2485,7 +2495,7 @@ function addButton(x, y, w, h, text, color, act, size = 24) {
   rr(x, y, w, h, 18); fillStroke(color, 4);
   ctx.fillStyle = "rgba(255,255,255,.25)"; rr(x + 8, y + 6, w - 16, h * 0.35, 10); ctx.fill();
   label(text, x + w / 2, y + h / 2 + 1, size, "#fff");
-  const b = { x, y, w, h, act };
+  const b = { x, y, w, h, act, text };
   buttons.push(b);
   return b;
 }
@@ -2803,6 +2813,8 @@ function fitCamera() {
   camBase.copy(camera.position);
 }
 fitCamera();
+// телефон: холст любой формы — камера берёт его соотношение сторон (без растяжения)
+if (PHONE) { onFit = () => { camera.aspect = CSS_W / CSS_H; fitCamera(); }; onFit(); }
 
 const _v = new THREE.Vector3();
 function toScreen(x, y, h = 0) {
@@ -3970,10 +3982,12 @@ window.__bb = {
   // камера: позиция и точка взгляда в единицах 3D (1 = клетка), точка взгляда ещё и в px мира
   get camera() {
     const v = q => ({ x: q.x, y: q.y, z: q.z });
-    return { pos3: v(camera.position), look3: v(camTarget), target: { x: camTarget.x * CELL, y: camTarget.z * CELL } };
+    return { pos3: v(camera.position), look3: v(camTarget), target: { x: camTarget.x * CELL, y: camTarget.z * CELL }, aspect: camera.aspect };
   },
   isStandalone, get installHintShown() { return installHintShown; }, get buttonNames() { return buttons.map(b => b.act.name); },
-  get buttonRects() { return buttons.map(b => ({ id: b.id || b.act.name, x: b.x, y: b.y, w: b.w, h: b.h })); },
+  get buttonRects() { return buttons.map(b => ({ id: b.id || b.act.name, x: b.x, y: b.y, w: b.w, h: b.h, text: b.text })); },
+  // слой интерфейса: размер в UI px, размер холста в CSS px, scale = CSS px на UI px (SPEC-005)
+  get uiSize() { return { w: UW, h: UH, cssW: CSS_W, cssH: CSS_H, scale: CSS_W / UW }; }, toGame,
   get names() { return allNames(); }, setName, nameOf, inDanger, get stars() { return bonusStars; }, spawnStar, giveReward,
   get dangerZone() { return dangerZone; }, get safeZone() { return safeZone; }, get texts() { return texts; }, generateLevel,
   world: { COLS, ROWS, CELL, get blocked() { return Array.from(blocked); }, get blockedBig() { return Array.from(blockedBig); }, seeSolid: seeSolidAt, get bushes() { return bushes.map(q => ({ ...q })); },
