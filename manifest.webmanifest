@@ -1,0 +1,16 @@
+{
+  "name": "BeBeBe Atrapar",
+  "short_name": "BeBeBe",
+  "description": "A 3D arcade game designed by kids: the Little Ones against the Big One.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#2b3a2e",
+  "theme_color": "#2b3a2e",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
