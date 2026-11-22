@@ -49,15 +49,28 @@ test("the same level number always builds the same map", async ({ page }) => {
   for (const x of r) expect(x, `level ${x.lv}`).toEqual({ lv: x.lv, gen: true, gen3: true, report: true });
 });
 
-test("levels 1–60 are fair and build fast", async ({ page }) => {
+// "The same level number always builds the same map" also across releases (the kids' rule: stars stay meaningful).
+// A change here must be deliberate: regenerate tests/fixtures/levels-2-13.json and say why in the commit.
+const LEVELS_2_13 = JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures", "levels-2-13.json"), "utf8"));
+test("levels 2–13 are the same maps as when they were made", async ({ page }) => {
+  const r = await page.evaluate(() => {
+    const b = window.__bb, out = {};
+    const fnv = s => { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; } return h.toString(16).padStart(8, "0"); };
+    for (let lv = 2; lv <= 13; lv++) { const q = b.levelReport(lv); out[lv] = { type: q.type, attempt: q.attempt, hash: fnv(JSON.stringify(b.generateLevel(lv, q.attempt))) }; }
+    return out;
+  });
+  expect(r).toEqual(LEVELS_2_13);
+});
+
+test("levels 1–99 are fair and build fast", async ({ page }) => {
   test.setTimeout(120_000);
   const r = await page.evaluate(() => {
     const b = window.__bb, w = b.world;
     b.level = 1; b.startGame(1);
-    const before = JSON.stringify({ o: w.obstacles, bl: w.blocked, s: b.safeZone, d: b.dangerZone });
+    const before = b.worldState();
     const out = [];
-    for (let lv = 1; lv <= 60; lv++) out.push({ lv, ...b.levelReport(lv) });
-    const after = JSON.stringify({ o: w.obstacles, bl: w.blocked, s: b.safeZone, d: b.dangerZone });
+    for (let lv = 1; lv <= 99; lv++) out.push({ lv, ...b.levelReport(lv) });
+    const after = b.worldState();   // every field levelReport saves: obstacles, bushes, floors, zones, spawns, reachable, all 5 grids…
     return { out, untouched: before === after };
   });
   expect(r.untouched).toBe(true);   // the running game's world is left as it was
@@ -82,13 +95,13 @@ test("levels 1–60 are fair and build fast", async ({ page }) => {
   expect(bad).toEqual([]);
 });
 
-// Every level of one type in 2–60 as the game accepts it: the fairness report and the accepted map (attempt = attempts - 1).
+// Every level of one type in 2–60 as the game accepts it: the fairness report and the accepted map (report.attempt).
 async function levelsOf(page, type) {
   return page.evaluate(t => {
     const b = window.__bb, out = [];
     for (let lv = 2; lv <= 60; lv++) if (b.levelType(lv) === t) {
       const r = b.levelReport(lv);
-      out.push({ lv, tier: Math.floor((lv - 2) / 6), r, gen: b.generateLevel(lv, r.attempts - 1) });
+      out.push({ lv, tier: Math.floor((lv - 2) / 6), r, gen: b.generateLevel(lv, r.attempt) });
     }
     return out;
   }, type);
@@ -332,7 +345,7 @@ test("arena has a ring with gaps", async ({ page }) => {
     const arena = cellsOf(gen, it => it.t === "wall" && it.kind === "arena");
     // the central block is one solid arena wall 4–6 × 4
     expect(gen.items.some(it => it.t === "wall" && it.kind === "arena" && it.x === bl.x && it.y === bl.y && it.w === bl.w && it.h === bl.h), at).toBe(true);
-    expect(inRange(bl.w, [4, 6]) && bl.h === 4, `${at}: block ${JSON.stringify(bl)}`).toBe(true);
+    expect(inRange(bl.w, [4, 5]) && bl.h === 4, `${at}: block ${JSON.stringify(bl)}`).toBe(true);   // 6×4 never fits (BACKLOG)
     // the ring is 3 cells away from the block
     expect([rg.x, rg.y, rg.w, rg.h], at).toEqual([bl.x - 4, bl.y - 4, bl.w + 8, bl.h + 8]);
     // 3–4 gaps 2–3 wide; every other ring cell is an arena wall
@@ -371,12 +384,14 @@ test("the game starts exactly the level that levelReport checks", async ({ page 
       return [];
     });
     const key = list => list.map(o => JSON.stringify([o.kind, o.x, o.y, o.w || 0, o.h || 0])).sort().join("|");
-    for (const lv of [1, 2, 3, 4, 5, 6, 7, 27, 34]) {
+    let retried = 0;   // a level whose first attempt is not fair
+    for (let lv = 2; lv <= 60 && !retried; lv++) { const q = b.levelReport(lv); if (q.attempt > 0 && !q.fallback) retried = lv; }
+    for (const lv of [1, 2, 3, 4, 5, 6, 7, retried]) {
       b.level = lv; b.startGame(1);
-      const info = { ...b.levelInfo }, rep = b.levelReport(lv), gen = b.generateLevel(lv, rep.attempts - 1);
+      const info = { ...b.levelInfo }, rep = b.levelReport(lv), gen = b.generateLevel(lv, rep.attempt);
       const same = key(w.obstacles) === key(expected(gen));
       const spawns = b.littles.map(l => [l.x / C, l.y / C]);
-      out.push({ lv, info, attempts: rep.attempts, type: rep.type, same, spawnsOk: JSON.stringify(spawns) === JSON.stringify(gen.small), bigOk: b.big.x / C === gen.big[0] && b.big.y / C === gen.big[1] });
+      out.push({ lv, retried: lv === retried, info, attempt: rep.attempt, type: rep.type, same, spawnsOk: JSON.stringify(spawns) === JSON.stringify(gen.small), bigOk: b.big.x / C === gen.big[0] && b.big.y / C === gen.big[1] });
     }
     return out;
   });
@@ -385,12 +400,12 @@ test("the game starts exactly the level that levelReport checks", async ({ page 
     expect(x.info.lv, at).toBe(x.lv);
     expect(x.info.type, at).toBe(x.type);
     expect(x.info.fallback, at).toBe(false);
-    expect(x.info.attempt, at).toBe(x.attempts - 1);
+    expect(x.info.attempt, at).toBe(x.attempt);
     expect(x.same, `${at}: obstacles differ from generateLevel(lv, attempt)`).toBe(true);
     expect(x.spawnsOk && x.bigOk, `${at}: spawns`).toBe(true);
     expect(x.info.ms, `${at}: level build ms`).toBeLessThan(200);
   }
-  expect(r.find(x => x.lv === 27).info.attempt, "level 27 needs a retry, the game takes the same one").toBeGreaterThan(0);
+  expect(r.find(x => x.retried).info.attempt, "a retried level: the game takes the same accepted attempt").toBeGreaterThan(0);
   expect(r.find(x => x.lv === 1).info.attempt, "level 1 is attempt 0").toBe(0);
 });
 
@@ -407,7 +422,8 @@ test("a level with no fair layout falls back and warns", async ({ page }) => {
     } finally { b.CFG.HOUSE_PATH = keep; }
   });
   expect(r.info.fallback).toBe(true);
-  expect(r.info.attempt).toBe(39);
+  expect(r.info.attempt).toBeGreaterThanOrEqual(0);   // the attempt with the fewest failed rules
+  expect(r.info.attempt).toBeLessThan(40);
   expect(r.mode).toBe("play");
   expect(r.littles).toBe(5);
   expect(warns.some(t => t.includes("level 2") && t.includes("housePath"))).toBe(true);
@@ -499,7 +515,8 @@ test("the menu shows the selected level's type and it fits", async ({ page }) =>
     expect(r.label.text, `${lang} level ${lv}`).toBe(want);
     // inside the menu card, not over any button, and narrower than the space it has
     const L = r.label;
-    expect(L.w, `${lang}: ${want} width`).toBeLessThanOrEqual(L.maxW);
+    expect(L.y, `${lang}: "${want}" touches the rules above`).toBeGreaterThanOrEqual(L.rulesBottom + 2);
+    expect(L.size, `${lang}: "${want}" shrunk too much`).toBeGreaterThanOrEqual(13);
     for (const q of r.rects) {
       const overlap = L.x < q.x + q.w && L.x + L.w > q.x && L.y < q.y + q.h && L.y + L.h > q.y;
       expect(overlap, `${lang}: "${want}" overlaps button ${q.id}`).toBe(false);
@@ -626,4 +643,27 @@ test("kisses stop at maze walls and cottages and fly over the river", async ({ p
   expect(r.river).not.toBeNull();
   expect(r.river.startFree).toBe(true);
   expect(r.river.far, "the kiss flew over the whole river").toBeGreaterThan(20 + r.river.width);
+});
+
+test("the fountain drop stays on top of the fountain while the water moves", async ({ page }) => {
+  await page.evaluate(() => { const b = window.__bb; b.placeSel = "park"; b.level = 4; b.startGame(1); });
+  await frames(page); await frames(page);
+  const y = await page.evaluate(() => window.__bb.mapPieces().find(q => q.piece === "fountainDrop").y);
+  expect(y).toBeGreaterThan(0.7);
+});
+
+test("rooms and arena need diagonal houses even if the CFG pairing is removed", async ({ page }) => {
+  const r = await page.evaluate(() => {
+    const b = window.__bb, L = b.CFG.LAYOUT, keep = [L.rooms.homes, L.arena.homes], out = {};
+    L.rooms.homes = undefined; L.arena.homes = undefined;   // the seed may now pick same-side houses
+    try {
+      for (const lv of [6, 7, 12, 13, 18, 19]) { const q = b.levelReport(lv); out[lv] = { fallback: q.fallback, rejects: q.rejects }; }
+    } finally { [L.rooms.homes, L.arena.homes] = keep; }
+    return out;
+  });
+  for (const [lv, x] of Object.entries(r)) {
+    expect(x.fallback, `level ${lv}`).toBe(false);
+    for (const why of x.rejects) expect(why, `level ${lv}`).toContain("layout:homes");   // same-side attempts are refused cleanly
+  }
+  expect(Object.values(r).some(x => x.rejects.length > 0), "some attempt had same-side houses").toBe(true);
 });

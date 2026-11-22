@@ -1,0 +1,62 @@
+{
+  "2": {
+    "type": "meadow",
+    "attempt": 0,
+    "hash": "d2965001"
+  },
+  "3": {
+    "type": "maze",
+    "attempt": 0,
+    "hash": "4dfa0e3c"
+  },
+  "4": {
+    "type": "village",
+    "attempt": 0,
+    "hash": "bf42ef78"
+  },
+  "5": {
+    "type": "river",
+    "attempt": 0,
+    "hash": "2c44e855"
+  },
+  "6": {
+    "type": "rooms",
+    "attempt": 0,
+    "hash": "51778d9b"
+  },
+  "7": {
+    "type": "arena",
+    "attempt": 0,
+    "hash": "21251a82"
+  },
+  "8": {
+    "type": "meadow",
+    "attempt": 0,
+    "hash": "488edf3a"
+  },
+  "9": {
+    "type": "maze",
+    "attempt": 1,
+    "hash": "46980737"
+  },
+  "10": {
+    "type": "village",
+    "attempt": 1,
+    "hash": "b14fa6a0"
+  },
+  "11": {
+    "type": "river",
+    "attempt": 0,
+    "hash": "dd6e9915"
+  },
+  "12": {
+    "type": "rooms",
+    "attempt": 0,
+    "hash": "db9435f4"
+  },
+  "13": {
+    "type": "arena",
+    "attempt": 0,
+    "hash": "cb70f8f3"
+  }
+}
