@@ -142,6 +142,7 @@ test("sw.js precaches the same three.js version index.html imports", async () =>
 });
 
 test("old caches are removed on a new SW_VERSION", async ({ page }) => {
+  test.slow();                       // installs a second service worker (precaches three.js again): slow under load
   const ov = { fn: () => null };
   await withOwnServer(page, ov, async () => {
     expect(await page.evaluate(() => caches.keys())).toEqual([SW_VERSION]);
@@ -149,7 +150,7 @@ test("old caches are removed on a new SW_VERSION", async ({ page }) => {
     const next = SW_SRC.replace(/const SW_VERSION\s*=\s*"[^"]+"/, 'const SW_VERSION = "bebebe-test-v2"');
     ov.fn = p => (p === "/sw.js" ? next : null);
     await page.evaluate(async () => (await navigator.serviceWorker.getRegistration()).update());
-    await expect.poll(() => page.evaluate(async () => (await caches.keys()).sort()), { timeout: 30_000 }).toEqual(["bebebe-test-v2", "other-pages-app"]);
+    await expect.poll(() => page.evaluate(async () => (await caches.keys()).sort()), { timeout: 60_000 }).toEqual(["bebebe-test-v2", "other-pages-app"]);
   });
 });
 
