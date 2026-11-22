@@ -3,7 +3,7 @@
 const { test, expect } = require("@playwright/test");
 const path = require("path");
 const fs = require("fs");
-const { openGame } = require("./helpers");
+const { openGame, frames } = require("./helpers");
 
 const LEVEL1 = JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures", "level1.json"), "utf8"));
 const TYPE_ORDER = ["meadow", "maze", "village", "river", "rooms", "arena"];
@@ -449,4 +449,60 @@ test("every place dresses every level type", async ({ page }) => {
   const waterColors = new Set(r.filter(x => x.type === "river").map(x => x.got.water[0]));
   expect(mazeColors.size).toBe(4);
   expect(waterColors.size).toBe(4);
+});
+
+test("start banner shows the level type", async ({ page }) => {
+  // the type names and the intro line, exactly as in the spec
+  const I = await page.evaluate(() => {
+    const I = window.__bb.I18N, out = {};
+    for (const l of ["en", "es", "ru"]) out[l] = { types: I[l].types, intro: I[l].levelIntro(5, I[l].types.river) };
+    return out;
+  });
+  expect(I.en.types).toEqual({ classic: "Our drawing", meadow: "Meadow", maze: "Maze", village: "Village", river: "River with bridges", rooms: "House with rooms", arena: "Ring arena" });
+  expect(I.es.types).toEqual({ classic: "Nuestro dibujo", meadow: "Pradera", maze: "Laberinto", village: "Pueblito", river: "Río con puentes", rooms: "Casa con cuartos", arena: "Arena" });
+  expect(I.ru.types).toEqual({ classic: "Наш рисунок", meadow: "Поляна", maze: "Лабиринт", village: "Деревня", river: "Река с мостиками", rooms: "Дом с комнатами", arena: "Арена с кольцом" });
+  expect([I.en.intro, I.es.intro, I.ru.intro]).toEqual(["Level 5: River with bridges", "Nivel 5: Río con puentes", "Уровень 5: Река с мостиками"]);
+
+  // the banner appears at the start, does not stop the game and is gone after ~2 s
+  const r = await page.evaluate(() => {
+    const b = window.__bb; b.level = 3; b.startGame(1);
+    const start = b.banner && { text: b.banner.text, alpha: b.bannerAlpha() };
+    const bot = b.littles[2], from = { x: bot.x, y: bot.y };
+    for (let i = 0; i < 60; i++) b.update(1 / 60);
+    const mid = b.banner && { text: b.banner.text, alpha: b.bannerAlpha() };
+    const moved = Math.hypot(bot.x - from.x, bot.y - from.y);
+    for (let i = 0; i < 72; i++) b.update(1 / 60);
+    return { start, mid, moved, end: b.banner, mode: b.mode, buttons: b.buttonNames };
+  });
+  expect(r.start.text).toBe("Level 3: Maze");
+  expect(r.start.alpha).toBeLessThan(0.5);          // fades in
+  expect(r.mid.alpha).toBeGreaterThan(0.9);         // fully visible in the middle
+  expect(r.moved).toBeGreaterThan(20);              // the game runs under the banner
+  expect(r.mode).toBe("play");
+  expect(r.end).toBeNull();                         // gone after ~2 s
+
+  // a restart within 1 s of the last banner shows no new banner; later it does again
+  await page.waitForTimeout(1100);
+  const again = await page.evaluate(() => { const b = window.__bb; b.startGame(1); const one = b.banner && b.banner.text; b.startGame(1); return { one, two: b.banner }; });
+  expect(again.one).toBe("Level 3: Maze");          // more than 1 s since the last banner: shown
+  expect(again.two).toBeNull();                     // restarted right away: not shown again
+  await page.waitForTimeout(1100);
+  const later = await page.evaluate(() => { const b = window.__bb; b.setLang("ru"); b.level = 5; b.startGame(1); return b.banner && b.banner.text; });
+  expect(later).toBe("Уровень 5: Река с мостиками");
+});
+
+test("the menu shows the selected level's type and it fits", async ({ page }) => {
+  for (const [lang, lv, want] of [["en", 5, "River with bridges"], ["es", 6, "Casa con cuartos"], ["ru", 5, "Река с мостиками"], ["ru", 7, "Арена с кольцом"], ["en", 1, "Our drawing"]]) {
+    await page.evaluate(([l, n]) => { const b = window.__bb; b.setLang(l); b.progress.unlocked = 10; b.level = n; b.mode = "menu"; }, [lang, lv]);
+    await frames(page);
+    const r = await page.evaluate(() => ({ label: window.__bb.typeLabel, rects: window.__bb.buttonRects }));
+    expect(r.label.text, `${lang} level ${lv}`).toBe(want);
+    // inside the menu card, not over any button, and narrower than the space it has
+    const L = r.label;
+    expect(L.w, `${lang}: ${want} width`).toBeLessThanOrEqual(L.maxW);
+    for (const q of r.rects) {
+      const overlap = L.x < q.x + q.w && L.x + L.w > q.x && L.y < q.y + q.h && L.y + L.h > q.y;
+      expect(overlap, `${lang}: "${want}" overlaps button ${q.id}`).toBe(false);
+    }
+  }
 });

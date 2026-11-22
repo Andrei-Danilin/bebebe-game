@@ -114,6 +114,9 @@ const CFG = {
   PAD_KISS: 2,               // кнопка геймпада для поцелуя: X (Xbox) / □ (PlayStation)
   // типы уровней (SPEC-002): 1-й — рисунок детей, дальше по очереди
   TYPE_ORDER: ["meadow", "maze", "village", "river", "rooms", "arena"],
+  BANNER_TIME: 2,            // сек — надпись «Уровень N: тип» в начале уровня появляется и исчезает
+  BANNER_FADE: 0.4,          // сек — появление и исчезание
+  BANNER_REPEAT: 1,          // сек — перезапуск раньше этого после прошлой надписи её не показывает
   LEVEL_ATTEMPTS: 40,        // столько раз пробуем построить честный уровень, потом — запасной вариант
   // правила честности уровня
   DOOR_APRON: 2,             // клеток свободно перед каждой дверью домиков
@@ -179,7 +182,9 @@ const I18N = {
     starCoins: n => `Bonus stars: +${n}`, thrownOut: "Get out of my house!", friends: "Friends", tapToRename: "Tap a name to change it",
     defaultBig: "Big One", defaultBots: ["Bo", "Mia", "Tom", "Lulu"],
     kisses: "Air kisses", kissDesc: "Send from afar: ½ heart and he blushes", kissPack: n => `Pack: ${n} air kisses`,
-    kissHave: n => `You have: ${n} ${n === 1 ? "kiss" : "kisses"}`, kissHit: "Mwah!", noKissHome: "Not from the house!", blush: "So shy!"
+    kissHave: n => `You have: ${n} ${n === 1 ? "kiss" : "kisses"}`, kissHit: "Mwah!", noKissHome: "Not from the house!", blush: "So shy!",
+    types: { classic: "Our drawing", meadow: "Meadow", maze: "Maze", village: "Village", river: "River with bridges", rooms: "House with rooms", arena: "Ring arena" },
+    levelIntro: (n, t) => `Level ${n}: ${t}`
   },
   es: {
     name: "Español", subtitle: "Los Chiquitos contra el Grandote",
@@ -212,7 +217,9 @@ const I18N = {
     starCoins: n => `Estrellitas: +${n}`, thrownOut: "¡Fuera de mi casa!", friends: "Amigos", tapToRename: "Tocá un nombre para cambiarlo",
     defaultBig: "Grandote", defaultBots: ["Tito", "Mora", "Lupe", "Facu"],
     kisses: "Besitos voladores", kissDesc: "Mandalo de lejos: ½ corazón y se pone colorado", kissPack: n => `Paquete: ${n} besitos voladores`,
-    kissHave: n => `Tenés: ${n} ${n === 1 ? "besito" : "besitos"}`, kissHit: "¡Muak!", noKissHome: "¡Desde la casita no!", blush: "¡Qué vergüenza!"
+    kissHave: n => `Tenés: ${n} ${n === 1 ? "besito" : "besitos"}`, kissHit: "¡Muak!", noKissHome: "¡Desde la casita no!", blush: "¡Qué vergüenza!",
+    types: { classic: "Nuestro dibujo", meadow: "Pradera", maze: "Laberinto", village: "Pueblito", river: "Río con puentes", rooms: "Casa con cuartos", arena: "Arena" },
+    levelIntro: (n, t) => `Nivel ${n}: ${t}`
   },
   ru: {
     name: "Русский", subtitle: "Маленькие против Большого",
@@ -245,7 +252,9 @@ const I18N = {
     starCoins: n => `Звёздочки: +${n}`, thrownOut: "Вон из моего дома!", friends: "Друзья", tapToRename: "Нажми на имя, чтобы поменять",
     defaultBig: "Большой", defaultBots: ["Тёма", "Маша", "Вася", "Соня"],
     kisses: "Воздушные поцелуи", kissDesc: "Издалека: ½ сердечка, и он краснеет", kissPack: n => `В наборе: ${n} ${ruPlural(n, ["поцелуй", "поцелуя", "поцелуев"])}`,
-    kissHave: n => `У вас: ${n} ${ruPlural(n, ["поцелуй", "поцелуя", "поцелуев"])}`, kissHit: "Чмок!", noKissHome: "Из домика нельзя!", blush: "Ой, смущён!"
+    kissHave: n => `У вас: ${n} ${ruPlural(n, ["поцелуй", "поцелуя", "поцелуев"])}`, kissHit: "Чмок!", noKissHome: "Из домика нельзя!", blush: "Ой, смущён!",
+    types: { classic: "Наш рисунок", meadow: "Поляна", maze: "Лабиринт", village: "Деревня", river: "Река с мостиками", rooms: "Дом с комнатами", arena: "Арена с кольцом" },
+    levelIntro: (n, t) => `Уровень ${n}: ${t}`
   }
 };
 const LANGS = ["en", "es", "ru"];
@@ -1352,7 +1361,8 @@ let botAttackCd = 0, prevToken = null;
 let mode = "menu", numPlayers = 1, level = 1, attackToken = null, muted = false, shake = 0;
 let stats = { hugs: 0, time: 0 };
 let buttons = [];
-let installHintShown = false;   // подсказка «на экран Домой» нарисована в этом кадре (для тестов)
+let installHintShown = false;
+let typeLabel = null;           // тип выбранного уровня в меню: { text, x, y, w, h, maxW } (для тестов)   // подсказка «на экран Домой» нарисована в этом кадре (для тестов)
 let items = [], itemCd = 5, itemSeq = 0, pendingWin = 0, lastReward = null, resetArmed = false;
 let bonusStars = [], starCd = 10, starSeq = 0;   // бонусные звёздочки (отдельно от предметов)
 let kisses = [], kissSeq = 0;                      // летящие воздушные поцелуи
@@ -1444,7 +1454,16 @@ function resetWorld(n) {
   lastReward = null; resetArmed = false;
   rebuild3D();
 }
-function startGame(n) { resetWorld(n); mode = "play"; }
+// Надпись в начале уровня: не мешает играть; при быстром перезапуске (< BANNER_REPEAT сек) не показывается снова
+let banner = null, bannerShownAt = -Infinity;
+function showBanner() {
+  const now = performance.now() / 1000;
+  if (now - bannerShownAt < CFG.BANNER_REPEAT) { banner = null; return; }
+  bannerShownAt = now;
+  banner = { text: L().levelIntro(level, L().types[levelType(level)]), t: 0 };
+}
+const bannerAlpha = () => !banner ? 0 : clamp(Math.min(banner.t, CFG.BANNER_TIME - banner.t) / CFG.BANNER_FADE, 0, 1);
+function startGame(n) { resetWorld(n); mode = "play"; showBanner(); }
 function nextLevel() { level++; startGame(numPlayers); }
 function toMenu() { resetWorld(numPlayers); mode = "menu"; }
 function changeLevel(d) { level = clamp(level + d, 1, Math.min(99, progress.unlocked)); resetWorld(numPlayers); }
@@ -2176,6 +2195,7 @@ function updateFx(dt) {
 }
 function update(dt) {
   stats.time += dt;
+  if (banner && (banner.t += dt) >= CFG.BANNER_TIME) banner = null;
   for (const l of littles) {
     l.invuln = Math.max(0, l.invuln - dt);
     l.hugCd = Math.max(0, l.hugCd - dt);
@@ -2497,6 +2517,11 @@ function drawOverlay() {
       ctx.fillText(icons[i], W / 2 - 312, 172 + i * 29);
       fitText(r, W / 2 - 287, 172 + i * 29, 16, 640, "left", OUT, 700);
     });
+    // тип выбранного уровня — над переключателем уровня
+    const tName = L().types[levelType(level)], tMax = 240;
+    fitText(tName, W / 2 - 130, 337, 16, tMax, "center", "#7c3aed", 800);
+    const tw = ctx.measureText(tName).width;
+    typeLabel = { text: tName, x: W / 2 - 130 - tw / 2, y: 337 - 9, w: tw, h: 18, maxW: tMax };
     addButton(W / 2 - 250, 350, 52, 50, "◀", "#94a3b8", () => changeLevel(-1));
     rr(W / 2 - 192, 350, 124, 50, 16); fillStroke("#fff", 4);
     fitText(`${L().level} ${level}`, W / 2 - 130, 368, 20, 112, "center", OUT, 900);
@@ -2636,12 +2661,24 @@ function nameLabel(rect, slot, color) {
 function openFriends() { closeNameInput(true); mode = "names"; }
 function backToSkins() { closeNameInput(true); mode = "skins"; }
 
+// «Уровень N: тип» — плашка под верхней панелью, плавно появляется и исчезает, кнопок не добавляет
+function drawBanner() {
+  const a = bannerAlpha();
+  if (a <= 0) return;
+  ctx.save(); ctx.globalAlpha = a;
+  ctx.font = `900 34px system-ui, "Segoe UI", sans-serif`;
+  const w = Math.min(640, ctx.measureText(banner.text).width) + 60;
+  rr(W / 2 - w / 2, 96, w, 62, 26); fillStroke("rgba(255,250,235,.93)", 4);
+  fitText(banner.text, W / 2, 128, 34, 640, "center", "#ff6fa8", 900);
+  ctx.restore();
+}
 function drawUI(t) {
   if (nameInput && mode !== "skins" && mode !== "names") closeNameInput(false);
-  buttons = []; installHintShown = false;
+  buttons = []; installHintShown = false; typeLabel = null;
   ctx.setTransform(VIEW, 0, 0, VIEW, 0, 0);
   ctx.clearRect(0, 0, W, H);
   if (mode !== "menu" && mode !== "skins" && mode !== "names" && mode !== "shop") { drawMarkers(t); drawFx(); drawHUD(t); }
+  if (mode === "play" && banner) drawBanner();
   drawOverlay();
   if (isTouch && window.innerHeight > window.innerWidth) {
     ctx.fillStyle = "rgba(20,30,25,.92)"; ctx.fillRect(0, 0, W, H);
@@ -3865,6 +3902,7 @@ window.__bb = {
     get obstacles() { return obstacles.map(o => ({ kind: o.kind, shape: o.shape, x: o.x, y: o.y, w: o.w, h: o.h, r: o.r, move: o.move, sight: o.sight })); } },
   get kisses() { return kisses; }, throwKiss, buyKisses, resetProgress, heartFill, bigBoost, fmtHearts,
   levelType, levelReport, get levelInfo() { return levelInfo; }, CFG, THEMES,
+  get banner() { return banner; }, bannerAlpha, get typeLabel() { return typeLabel; },
   // детали 3D-карты с метками: [{ piece, color }] (для тестов оформления) и цвет текстуры земли в точке
   mapPieces() { const r = []; if (mapGroup) mapGroup.traverse(q => { if (q.userData.piece && q.material && q.material.color) r.push({ piece: q.userData.piece, color: "#" + q.material.color.getHexString() }); }); return r; },
   groundColorAt(x, y) { const d = groundCanvas.getContext("2d").getImageData(Math.round(x * 2), Math.round(y * 2), 1, 1).data; return "#" + [d[0], d[1], d[2]].map(v => v.toString(16).padStart(2, "0")).join(""); }
