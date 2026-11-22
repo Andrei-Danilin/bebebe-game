@@ -1,6 +1,6 @@
 # Architecture — bebebe-game v2 (3D)
 
-One `index.html`: a small non-module script (offline hint) and one `<script type="module">` that imports Three.js r187 from jsDelivr. Two stacked canvases inside `#wrap`: `#gl` (WebGL, Three.js) below, `#game` (2D, UI and input) on top.
+One `index.html` (+ PWA files, see below): a small non-module script (offline hint) and one `<script type="module">` that imports Three.js r187 from jsDelivr. Two stacked canvases inside `#wrap`: `#gl` (WebGL, Three.js) below, `#game` (2D, UI and input) on top.
 
 ## Layers (keep them apart)
 1. **Logic** — world, level generator, pathfinding, rules, bots, the Big One, items, progress. Works in "logic pixels": 960×640, `CELL = 32` (1 cell = 1 unit in 3D). Knows nothing about Three.js.
@@ -36,9 +36,17 @@ One `index.html`: a small non-module script (offline hint) and one `<script type
 - **Big One**: `state` `look` / `patrol` / `chase` / `search`; overlays `stun` (after a hug, can't move/push, no new hug), `slip` (banana: lying, can be hugged from any side), `pushCd` (stands after a push), `noPush` (rest after a push: sees nobody).
 - **Bots**: `task` `rescue` / `flee` / `attack` / `lurk`; one attacker at a time (`attackToken`, `botAttackCd`).
 
+## PWA (SPEC-001)
+- **Site files** (all that GitHub Pages publishes): `index.html`, `manifest.webmanifest`, `sw.js`, `icons/` (`icon.svg` source → PNGs by `scripts/make-icons.js` / `npm run icons`), `v1-2d/`. Workflow `.github/workflows/pages.yml`: job `test` (whole Playwright suite) → job `deploy`.
+- **`index.html` head**: `<link rel="manifest">`, `apple-touch-icon`, `apple-mobile-web-app-*` metas, `viewport-fit=cover`. `body` is padded with `env(safe-area-inset-*)`; `playArea()` (screen section) returns the body's box minus that padding and `fit()` sizes the canvases from it (on `resize` and, a frame later, on `orientationchange`).
+- **`isStandalone()`** (screen section, computed once into `STANDALONE`): `navigator.standalone`, `(display-mode: standalone)` or `?standalone=1` (tests). Hides the HUD fullscreen button (`drawHUD`) and the install hint. `isIOS` + `showInstallHint()` → one menu line `I18N.installHint` under the controls text (`drawOverlay`, menu).
+- **`sw.js`**: `SW_VERSION` names the cache. `install` precaches `./`, `./index.html`, the manifest, the icons and jsDelivr `three.module.js` + `three.core.js` (CORS), then `skipWaiting()`. `activate` deletes other `bebebe-*` caches only (all Pages projects of the account share the origin), `clients.claim()`. Fetch: navigations and `index.html` network-first — the cache answers when the network fails, returns a non-OK status, or takes longer than `NET_TIMEOUT_MS` (root fallback `./`); three.js and `icons/` cache-first; everything else network-first. Bump `SW_VERSION` when the precache list (e.g. the three.js version), an icon or a strategy changes.
+- **Registration guard** (`registerServiceWorker()`, main loop section, after `__bbReady`): only on `http:`/`https:` with `navigator.serviceWorker`, inside `try/catch`, rejected promise swallowed — nothing happens on `file://` or in the claude.ai page.
+- On iOS the home-screen app has its own `localStorage`, separate from Safari.
+
 ## Save data (localStorage)
 - `bebebe-progress`: `{ unlocked, stars: {level: 1..3}, coins, inv: {mittens, mega}, equip: [p1, p2] }` (loaded by merging with defaults).
 - `bebebe-outfits`: `{ p1: {hair, hat, jacket, pants}, p2: {...}, big }`. `bebebe-place`: `auto|park|beach|winter|school`. `bebebe-lang`: `en|es|ru`.
 
 ## window.__bb (for tests)
-`mode` (get/set), `littles`, `big`, `stats`, `items`, `progress`, `lastReward`, `level` (get/set), `placeSel` (get/set), `I18N`; functions `update(dt)`, `startGame(n)`, `resetWorld(n)`, `inSafe(p)`, `spawnItem()`, `buyGloves(kind)`, `setEquip(pi, kind)`, `cycleOutfit`, `randomOutfit`, `cycleBig`, `cyclePlace`, `setLang`, `toScreen`. `window.__bbReady` is `true` once the first frame can run.
+`mode` (get/set), `littles`, `big`, `stats`, `items`, `progress`, `lastReward`, `level` (get/set), `placeSel` (get/set), `I18N`; functions `update(dt)`, `startGame(n)`, `resetWorld(n)`, `inSafe(p)`, `spawnItem()`, `buyGloves(kind)`, `setEquip(pi, kind)`, `cycleOutfit`, `randomOutfit`, `cycleBig`, `cyclePlace`, `setLang`, `toScreen`, `isStandalone()`; `installHintShown` (the install hint was drawn this frame), `buttonNames` (names of the buttons' handlers this frame, e.g. `toggleFullscreen`). `window.__bbReady` is `true` once the first frame can run.

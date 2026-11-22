@@ -2,6 +2,8 @@
 
 A top-down arcade game designed by kids: the **Little Ones** team against the **Big One**.
 
+**Play:** https://andrei-danilin.github.io/bebebe-game/
+
 - Sneak up **behind** the Big One and hug him — he loses a heart.
 - If he **sees** you (yellow vision cone), he pushes you and your leg breaks: you can't move.
 - A friend must stand next to you for 1 second to help you up. If nobody helps within 18 seconds, you limp home
@@ -12,11 +14,25 @@ A top-down arcade game designed by kids: the **Little Ones** team against the **
 - When you hug him, you jump on his back for a second — hearts everywhere.
 - 1–2 players + bots (5 Little Ones in total). Bots mostly rescue fallen friends.
 
+## Install on iPhone
+
+1. Open https://andrei-danilin.github.io/bebebe-game/ in **Safari** (the menu shows a hint).
+2. Tap **Share** ⬆️ → **Add to Home Screen** → **Add**.
+3. Start **BeBeBe** from the home screen: full screen, no browser bar. Turn the phone sideways.
+
+- After the first open it works **offline** (airplane mode too).
+- The home-screen app keeps its **own progress**, separate from Safari (coins, stars and outfits from Safari do not carry over).
+- The ring/silent switch mutes the sound; sound starts after the first tap.
+
+## Install on Android
+
+Open the link in **Chrome** → menu ⋮ → **Install app** (or **Add to Home screen**).
+
 ## Versions
 
 | Folder | What | Needs internet |
 |---|---|---|
-| `index.html` | **v2 — 3D** (Three.js r187, toon shading, outlines, shadows) | yes, loads three.js from jsDelivr |
+| `index.html` | **v2 — 3D** (Three.js r187, toon shading, outlines, shadows) | the first time (three.js from jsDelivr); offline afterwards when opened from the web |
 | `v1-2d/index.html` | v1 — 2D canvas version | no |
 
 Open the file in any modern browser — no build step. Works on desktop, tablet and phone.
@@ -112,8 +128,13 @@ Rules for Claude Code: [`CLAUDE.md`](CLAUDE.md). Game rules: [`docs/game-design.
 
 ```bash
 npm run setup          # once: Playwright + three.js for the tests, Chromium, Claude Code agents
-npx playwright test    # all tests (~1.5 min): smoke, gameplay rules, i18n
+npx playwright test    # all tests: smoke, gameplay rules, i18n, PWA (starts scripts/serve.js itself)
+npm run serve          # the game over http on http://localhost:8123/ (service worker, manifest)
+npm run icons          # icons/icon.svg → the PNG app icons
 ```
+
+Every push to `master` runs the tests on GitHub Actions and publishes the site (`index.html`, `manifest.webmanifest`,
+`sw.js`, `icons/`, `v1-2d/`) to GitHub Pages (`.github/workflows/pages.yml`).
 
 Run a spec: `claude --model opus` at the repo root, paste `docs/process/run-templates/RUN_S.md`
 (or `RUN_M` / `RUN_L`, as the spec's `Complexity:` says) with the spec name filled in.

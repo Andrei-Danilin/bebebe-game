@@ -34,8 +34,9 @@ All roles use `model: "opus"`. Start every run with `claude --model opus`; the f
 ## 5. Git (this repo: Claude Code commits and merges)
 - Branch `SPEC-NNN-short-description` off `master`; commits `SPEC-NNN: <what>` with explicit paths and the attribution lines from the system reminder; the machine's git identity, never changed.
 - Merge `--no-ff` into `master` after green tests and a review without open CRITICAL/HIGH; whole suite on `master`; `git branch -d` the spec branch.
-- No push (no remote). No `reset --hard`, no `branch -D`, no history rewrite on `master`.
-- The spec file is updated (`Status: done (<hash>)`) and moved to `specs/_archive/` in a final commit on `master` (`SPEC-NNN: close`).
+- Remote `origin` = `github.com/Andrei-Danilin/bebebe-game` (public). After the merge and a green whole suite on `master`: `git push origin master` — only `master`, never `--force`, never spec branches. Then `gh run watch` until the Pages workflow (tests + deploy) is green; a red deploy is reported, not retried blindly.
+- No `reset --hard`, no `branch -D`, no history rewrite on `master`.
+- The spec file is updated (`Status: done (<hash>)`) and moved to `specs/_archive/` in a final commit on `master` (`SPEC-NNN: close`), which is pushed too (the deploy runs again and must stay green).
 
 ## 6. Documentation
 - `doc-keeper` updates `docs/game-design.md` when a rule or number changed, `architecture.md` when a section, state or `__bb` field changed, `README.md` when a player-facing feature or command changed. Commit `SPEC-NNN: docs`.
