@@ -1026,25 +1026,33 @@ test("hearts bar shows half hearts", async ({ page }) => {
   expect(r.boostOneHalf).toBe(4);                    // one whole heart: BIG_SPEED_PER_HIT
 });
 
-test("the shop shows three cards in one row", async ({ page }) => {
+// SPEC-007 AC 3: a fourth card, the rescue kit
+test("the shop shows four cards in one row", async ({ page }) => {
   for (const lang of ["en", "es", "ru"]) {
     await page.evaluate(l => { window.__bb.setLang(l); window.__bb.mode = "shop"; }, lang);
     await frames(page);
     const rects = await page.evaluate(() => window.__bb.buttonRects.filter(q => q.id.startsWith("buy:")));
-    expect(rects.map(q => q.id)).toEqual(["buy:mittens", "buy:mega", "buy:kisses"]);
+    expect(rects.map(q => q.id)).toEqual(["buy:mittens", "buy:mega", "buy:kisses", "buy:rescues"]);
     expect(new Set(rects.map(q => q.y)).size).toBe(1);
-    for (let i = 1; i < 3; i++) expect(rects[i].x).toBeGreaterThan(rects[i - 1].x + rects[i - 1].w);
-    expect(rects[0].x).toBeGreaterThan(80);
-    expect(rects[2].x + rects[2].w).toBeLessThan(880);
+    for (let i = 1; i < 4; i++) expect(rects[i].x).toBeGreaterThan(rects[i - 1].x + rects[i - 1].w);
+    expect(rects[0].x).toBeGreaterThan(40);                // inside the shop panel (880 px wide)
+    expect(rects[3].x + rects[3].w).toBeLessThan(920);
+    for (const q of rects) expect(q.textW, `${lang}: ${q.id} text fits`).toBeLessThanOrEqual(q.w + 0.5);
   }
-  await page.evaluate(() => { window.__bb.progress.coins = 20; });
+  const click = async id => {
+    const buy = await page.evaluate(k => {
+      const q = window.__bb.buttonRects.find(r => r.id === k), c = document.getElementById("game").getBoundingClientRect();
+      return { x: c.left + (q.x + q.w / 2) * c.width / 960, y: c.top + (q.y + q.h / 2) * c.height / 640 };
+    }, id);
+    await page.mouse.click(buy.x, buy.y);
+  };
+  await page.evaluate(() => { window.__bb.progress.coins = 35; });
   await frames(page);
-  const buy = await page.evaluate(() => {
-    const q = window.__bb.buttonRects.find(r => r.id === "buy:kisses"), c = document.getElementById("game").getBoundingClientRect();
-    return { x: c.left + (q.x + q.w / 2) * c.width / 960, y: c.top + (q.y + q.h / 2) * c.height / 640 };
-  });
-  await page.mouse.click(buy.x, buy.y);
+  await click("buy:kisses");
   expect(await page.evaluate(() => window.__bb.progress.inv.kisses)).toBe(5);
+  await frames(page);
+  await click("buy:rescues");
+  expect(await page.evaluate(() => [window.__bb.progress.inv.rescues, window.__bb.progress.coins])).toEqual([3, 0]);
 });
 
 // ---------- Rescue kit 🩹 (SPEC-007) ----------

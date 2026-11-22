@@ -3083,8 +3083,8 @@ function pText(text, x, y, cat, css, maxW, align = "center", color = OUT, weight
   noteText(cat, sz);
   return sz;
 }
-// несколько строк от верхнего края y; возвращает высоту
-function pWrap(text, x, y, cat, css, maxW, lines, color = OUT, weight = 700, align = "center") {
+// несколько строк: сначала мерка (pRows: строки, кегль, высота h, ширина w самой длинной строки), потом рисуем (pDraw)
+function pRows(text, cat, css, maxW, lines, weight = 700) {
   const min = cpx(CFG.PHONE_TEXT[cat]);
   let sz = Math.max(cpx(css), min), rows = [];
   for (;;) {
@@ -3099,11 +3099,19 @@ function pWrap(text, x, y, cat, css, maxW, lines, color = OUT, weight = 700, ali
     if ((rows.length <= lines && rows.every(r => ctx.measureText(r).width <= maxW)) || sz <= min) break;
     sz = Math.max(min, sz - 0.5);
   }
-  ctx.textAlign = align; ctx.textBaseline = "middle"; ctx.fillStyle = color;
   const lh = sz * 1.25;
-  rows.forEach((r, i) => ctx.fillText(r, x, y + lh / 2 + i * lh));
-  noteText(cat, sz);
-  return rows.length * lh;
+  return { rows, sz, lh, h: rows.length * lh, w: Math.max(...rows.map(r => ctx.measureText(r).width)), cat, weight };
+}
+function pDraw(b, x, y, color = OUT, align = "center") {
+  ctx.font = `${b.weight} ${b.sz}px system-ui, "Segoe UI", sans-serif`;
+  ctx.textAlign = align; ctx.textBaseline = "middle"; ctx.fillStyle = color;
+  b.rows.forEach((r, i) => ctx.fillText(r, x, y + b.lh / 2 + i * b.lh));
+  noteText(b.cat, b.sz);
+  return b.h;
+}
+// несколько строк от верхнего края y; возвращает высоту
+function pWrap(text, x, y, cat, css, maxW, lines, color = OUT, weight = 700, align = "center") {
+  return pDraw(pRows(text, cat, css, maxW, lines, weight), x, y, color, align);
 }
 // кнопка: надпись сжимается под ширину, но не мельче основного текста
 function pButton(x, y, w, h, text, color, act, css = 18) {
@@ -3129,11 +3137,18 @@ function phoneSkinCols() {
     { key: "big", x: X0 + w1 + gap, w: w2, panel: { x: X0 + w1 + gap + (w2 - pv) / 2, y: py, w: pv, h: pv } }
   ];
 }
-// карточки магазина (компьютер и телефон): рукавицы, мега-рукавицы, воздушные поцелуи
+// карточки магазина (компьютер и телефон): рукавицы, мега-рукавицы, воздушные поцелуи, спасалка (SPEC-007)
 const shopCards = () => [
   ...["mittens", "mega"].map(k => ({ k, name: L().gloves[k], desc: L().gloveDesc(GLOVES[k].power), pack: L().pack(GLOVES[k].charges), have: L().have(progress.inv[k]), n: progress.inv[k], price: GLOVES[k].price, buy: () => buyGloves(k) })),
-  { k: "kisses", name: L().kisses, desc: L().kissDesc, pack: L().kissPack(KISSES.pack), have: L().kissHave(progress.inv.kisses), n: progress.inv.kisses, price: KISSES.price, buy: buyKisses }
+  { k: "kisses", name: L().kisses, desc: L().kissDesc, pack: L().kissPack(KISSES.pack), have: L().kissHave(progress.inv.kisses), n: progress.inv.kisses, price: KISSES.price, buy: buyKisses },
+  { k: "rescues", name: L().kit, desc: L().kitDesc, pack: L().kitPack(RESCUE_KIT.pack), have: L().kitHave(progress.inv.rescues), n: progress.inv.rescues, price: RESCUE_KIT.price, buy: buyRescueKit }
 ];
+// картинка карточки: s — размер (как у drawMitten)
+function shopPicture(k, x, y, s) {
+  if (k === "kisses") drawKiss(x, y + s * 0.05, s * 1.18);
+  else if (k === "rescues") drawKit(x, y, s * 1.15);
+  else drawMitten(x, y, s, k);
+}
 // ---------- Карточки миров в меню (SPEC-006): название, картинка из цветов THEMES, звёзды мира ----------
 let worldCards = [];   // карточки этого кадра: { world, x, y, w, h, name, stars, selected } (для тестов)
 const worldStarsOf = w => Object.values(progress.worlds[w].stars).reduce((a, b) => a + b, 0);
@@ -3286,7 +3301,7 @@ function drawOverlayPhone() {
     }
     pButton(UW / 2 - c(110), Y1 - B, c(220), B, "◀ " + L().skins, "#22c55e", backToSkins, 18);
   } else if (mode === "shop") {
-    const { X0, X1, Y0, g, B } = phoneFrame();
+    const { X0, X1, Y0, Y1, g, B } = phoneFrame();
     pLabel("🛒 " + L().shop, X0 + c(4), Y0 + B / 2, "title", 26, "#f59e0b", "left");
     const titleW = ctx.measureText("🛒 " + L().shop).width;
     const px = X0 + c(4) + titleW + c(16), pw = c(104);
@@ -3299,25 +3314,47 @@ function drawOverlayPhone() {
     ctx.font = hudFont(cpx(CFG.PHONE_TEXT.main));
     const rW = Math.min(rx1 - rMin, Math.max(c(110), ctx.measureText(rTxt).width + c(20)));
     pButton(rx1 - rW, Y0, rW, B, rTxt, resetArmed ? "#ef4444" : "#94a3b8", resetProgress, 15);
-    // три карточки: рукавицы, мега-рукавицы, воздушные поцелуи
-    const cards = shopCards();
-    const cw = (X1 - X0 - 2 * c(8)) / 3, ch = c(220), y0 = Y0 + B + c(8);
+    // четыре карточки в ряд: рукавицы, мега-рукавицы, воздушные поцелуи, спасалка (SPEC-007). Сверху картинка, название,
+    // описание; снизу (к кнопке) набор и «у вас»; кнопки «Купить» на одной высоте, под ними «не хватает монеток».
+    // Не влезает (узкий телефон, длинные тексты) — «у вас» превращается в кружок с числом на картинке.
+    const cards = shopCards(), cg = c(8), nC = cards.length, cw = (X1 - X0 - (nC - 1) * cg) / nC, tw = cw - c(12);
+    const y0 = Y0 + B + cg, ch = Y1 - B - g - y0, pad = c(6), sp = c(3), bw = Math.min(c(160), cw - c(10));
+    let picH = c(30);
+    const bl = cards.map(cd => ({ name: pRows(cd.name, "main", 15, tw, 2, 900), desc: pRows(cd.desc, "hint", 13, tw, 3, 700),
+      pack: pRows(cd.pack, "hint", 13, tw, 2, 600), have: pRows(cd.have, "hint", 13, tw, 2, 800),
+      no: progress.coins >= cd.price ? null : pRows(L().notEnough, "hint", 13, tw, 2, 700) }));
+    const noH = Math.max(0, ...bl.map(b => b.no ? b.no.h + sp : 0));
+    const by = y0 + ch - pad - noH - B;                                      // кнопки «Купить» — одна высота
+    const topH = b => pad + picH + sp + b.name.h + b.desc.h, lowH = (b, have) => b.pack.h + (have ? b.have.h : 0) + sp;
+    const room = Math.min(...bl.map(b => by - lowH(b, true) - (y0 + topH(b) + sp)));
+    const badge = room < 0;
+    if (room > 0) picH += Math.min(c(16), room);                              // место есть — картинка крупнее
+    const box = (id, b, x, y) => hudRects.push({ id, x: x - b.w / 2, y, w: b.w, h: b.h });   // тексты карточек: тест проверяет, что не налезают
     cards.forEach((cd, i) => {
-      const x0 = X0 + i * (cw + c(8)), cx = x0 + cw / 2, tw = cw - c(14);
+      const x0 = X0 + i * (cw + cg), cx = x0 + cw / 2, b = bl[i];
       rr(x0, y0, cw, ch, c(16)); fillStroke("#fff", 3);
-      if (cd.k === "kisses") drawKiss(cx, y0 + c(22), c(38)); else drawMitten(cx, y0 + c(20), c(32), cd.k);
-      let y = y0 + c(40);
-      y += pWrap(cd.name, cx, y, "main", 15, tw, 2, OUT, 900);
-      y += pWrap(cd.desc, cx, y, "hint", 13, tw, 2, "#475569", 700);
-      pText(cd.pack, cx, y + c(8), "hint", 13, tw, "center", "#64748b", 600);
-      pText(cd.have, cx, y + c(24), "hint", 13, tw, "center", cd.n > 0 ? "#15803d" : "#94a3b8", 800);
-      const ok = progress.coins >= cd.price, by = y0 + ch - c(20) - B, txt = `${L().buy}  ${cd.price}      `;
-      const btn = pButton(cx - c(80), by, c(160), B, txt, ok ? "#22c55e" : "#cbd5e1", cd.buy, 17);
+      const pcy = y0 + pad + picH / 2;
+      shopPicture(cd.k, cx, pcy, picH);
+      if (badge) {                                                           // сколько есть — кружок с числом
+        const r = c(12), bx = cx + picH * 0.75, by0 = pcy - picH * 0.2;
+        circle(bx, by0, r); fillStroke(cd.n > 0 ? "#16a34a" : "#94a3b8", 2.5);
+        noteText("hint", fitText(String(cd.n), bx, by0 + 1, minPx("hint"), r * 1.7, "center", "#fff", 900, minPx("hint")));
+        hudRects.push({ id: "card-badge:" + cd.k, x: bx - r, y: by0 - r, w: 2 * r, h: 2 * r });
+      }
+      let y = y0 + pad + picH + sp;
+      box("card-name:" + cd.k, b.name, cx, y); y += pDraw(b.name, cx, y, OUT);
+      box("card-desc:" + cd.k, b.desc, cx, y); pDraw(b.desc, cx, y, "#475569");
+      let yl = by - sp - (badge ? 0 : b.have.h);
+      if (!badge) { box("card-have:" + cd.k, b.have, cx, yl); pDraw(b.have, cx, yl, cd.n > 0 ? "#15803d" : "#94a3b8"); }
+      yl -= b.pack.h;
+      box("card-pack:" + cd.k, b.pack, cx, yl); pDraw(b.pack, cx, yl, "#64748b");
+      const ok = !b.no, txt = `${L().buy}  ${cd.price}      `;
+      const btn = pButton(cx - bw / 2, by, bw, B, txt, ok ? "#22c55e" : "#cbd5e1", cd.buy, 17);
       btn.id = "buy:" + cd.k;
       ctx.font = hudFont(btn.size);
       const vis = ctx.measureText(`${L().buy}  ${cd.price}`).width, full = ctx.measureText(txt).width;
       drawCoin(cx - full / 2 + vis + c(14), by + B / 2, c(9));                // монетка после цены
-      if (!ok) pText(L().notEnough, cx, y0 + ch - c(10), "hint", 13, tw, "center", "#ef4444", 700);
+      if (b.no) { const ny = by + B + sp; box("card-no:" + cd.k, b.no, cx, ny); pDraw(b.no, cx, ny, "#ef4444"); }
     });
     // кто что надевает (на телефоне — только игрок 1)
     const wy = y0 + ch + g, wl = `${L().player1} ${L().wears}:`;
@@ -3449,26 +3486,29 @@ function drawOverlay() {
     }
     addButton(UW / 2 - 110, 506, 220, 54, "◀ " + L().skins, "#22c55e", backToSkins, 20);
   } else if (mode === "shop") {
-    rr(UW / 2 - 400, 26, 800, 590, 30); fillStroke("rgba(255,250,235,.96)", 5);
+    rr(UW / 2 - 440, 26, 880, 590, 30); fillStroke("rgba(255,250,235,.96)", 5);
     label("🛒 " + L().shop, UW / 2, 64, 34, "#f59e0b");
-    rr(UW / 2 + 230, 46, 150, 38, 14); fillStroke("#fff", 3);
-    drawCoin(UW / 2 + 254, 65, 12); label(String(progress.coins), UW / 2 + 274, 65, 20, OUT, "left");
-    // три карточки: рукавицы, мега-рукавицы, воздушные поцелуи
-    const cards = shopCards();
+    rr(UW / 2 + 250, 46, 150, 38, 14); fillStroke("#fff", 3);
+    drawCoin(UW / 2 + 274, 65, 12); label(String(progress.coins), UW / 2 + 294, 65, 20, OUT, "left");
+    // четыре карточки: рукавицы, мега-рукавицы, воздушные поцелуи, спасалка (SPEC-007)
+    const cards = shopCards(), gap = 10, w = (850 - (cards.length - 1) * gap) / cards.length;
     cards.forEach((c, i) => {
-      const w = 250, x0 = UW / 2 - 385 + i * (w + 10), cx = x0 + w / 2, y0 = 92;
+      const x0 = UW / 2 - 425 + i * (w + gap), cx = x0 + w / 2, y0 = 92, bw = Math.min(190, w - 20);
       rr(x0, y0, w, 292, 22); fillStroke("#fff", 3.5);
-      if (c.k === "kisses") drawKiss(cx, y0 + 52, 78); else drawMitten(cx, y0 + 48, 66, c.k);
-      fitText(c.name, cx, y0 + 102, 19, w - 20, "center", OUT, 900);
-      wrapText(c.desc, cx, y0 + 128, 14, w - 24, 2, "#475569", 700);
-      fitText(c.pack, cx, y0 + 170, 13, w - 24, "center", "#64748b", 600);
-      fitText(c.have, cx, y0 + 192, 14, w - 24, "center", c.n > 0 ? "#15803d" : "#94a3b8", 800);
-      const ok = progress.coins >= c.price;
-      addButton(cx - 95, y0 + 210, 190, 50, `${L().buy}  ${c.price}      `, ok ? "#22c55e" : "#cbd5e1", c.buy, 19).id = "buy:" + c.k;
+      shopPicture(c.k, cx, y0 + 44, 62);
+      wrapText(c.name, cx, y0 + 93, 18, w - 20, 2, OUT, 900);
+      wrapText(c.desc, cx, y0 + 140, 14, w - 22, 2, "#475569", 700);
+      fitText(c.pack, cx, y0 + 182, 13, w - 22, "center", "#64748b", 600);
+      fitText(c.have, cx, y0 + 202, 14, w - 22, "center", c.n > 0 ? "#15803d" : "#94a3b8", 800);
+      const ok = progress.coins >= c.price, txt = `${L().buy}  ${c.price}      `;
       ctx.font = `900 19px system-ui, "Segoe UI", "Arial Rounded MT Bold", Arial, sans-serif`;
-      const vis = ctx.measureText(`${L().buy}  ${c.price}`).width, full = ctx.measureText(`${L().buy}  ${c.price}      `).width;
-      drawCoin(cx - full / 2 + vis + 16, y0 + 236, 10);                       // монетка после цены
-      if (!ok) fitText(L().notEnough, cx, y0 + 274, 12, w - 24, "center", "#ef4444", 700);
+      let fs = 19;
+      while (ctx.measureText(txt).width > bw - 12 && fs > 14) { fs -= 0.5; ctx.font = `900 ${fs}px system-ui, "Segoe UI", "Arial Rounded MT Bold", Arial, sans-serif`; }
+      addButton(cx - bw / 2, y0 + 216, bw, 50, txt, ok ? "#22c55e" : "#cbd5e1", c.buy, fs).id = "buy:" + c.k;
+      ctx.font = `900 ${fs}px system-ui, "Segoe UI", "Arial Rounded MT Bold", Arial, sans-serif`;
+      const vis = ctx.measureText(`${L().buy}  ${c.price}`).width, full = ctx.measureText(txt).width;
+      drawCoin(cx - full / 2 + vis + fs * 0.85, y0 + 242, 10);                 // монетка после цены
+      if (!ok) fitText(L().notEnough, cx, y0 + 279, 12, w - 22, "center", "#ef4444", 700);
     });
     // кто что надевает
     [0, 1].forEach(pi => {
