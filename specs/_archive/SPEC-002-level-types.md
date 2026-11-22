@@ -1,6 +1,6 @@
 # SPEC-002 — Level types: meadow, maze, rooms, river, village, arena
 
-Status: ready
+Status: done (080b3d3)
 Complexity: L
 Branch: SPEC-002-level-types
 Decided by: the kids with Andrei (2026-11-21): all six types (Meadow, Maze, House with rooms, River with bridges, Village, Ring arena); the same level number always gives the same map; types come in turn as the level grows; level 1 stays their drawing. Everything else below (order, sizes, constraints, wall looks, banner): Claude (spec author).
