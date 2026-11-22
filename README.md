@@ -22,7 +22,7 @@ A top-down arcade game designed by kids: the **Little Ones** team against the **
 - **Air kisses** (from the shop): send one from afar and it flies where you look. A hit takes half a heart and the
   Big One blushes for 1.5 s: he stands still, pushes nobody — and you can hug him from behind. Walls, trees and
   rocks stop a kiss; ponds and bushes don't. No kissing from your house.
-- 1–2 players + bots (5 Little Ones in total). Bots mostly rescue fallen friends.
+- 1–2 players + bots (5 Little Ones in total; one player on a phone). Bots mostly rescue fallen friends.
 
 ## Install on iPhone
 
@@ -38,6 +38,25 @@ A top-down arcade game designed by kids: the **Little Ones** team against the **
 
 Open the link in **Chrome** → menu ⋮ → **Install app** (or **Add to Home screen**).
 
+## Playing on a phone
+
+On a phone (held sideways) the game switches to **phone mode**; iPads and computers keep the normal view.
+
+- The game fills the whole screen (clear of the notch and the home bar).
+- The camera comes closer — about half of the map, 10 rows tall — and follows your hero, so everyone is
+  twice as big.
+- A **mini-map** in the top-right corner shows the whole level: walls, both houses, you, your friends, the Big One
+  with his vision cone, stars and items, and a frame of what the screen shows. Fallen friends blink.
+- When the Big One or a fallen friend is off screen, an **arrow at the screen edge** points to them
+  (red with a heart = the Big One, green with ❗ = a friend who needs help).
+- Put a finger anywhere on the **left part** of the screen: the joystick appears right there. The right part is
+  for buttons; the 💋 button is bottom right.
+- Big buttons and texts; menus laid out for a wide, short screen.
+- **One player** only (bots fill the team).
+
+A phone is a touch screen whose short side is at most 500 CSS px. To force it: add `?phone=1` to the address
+(phone mode on any device, handy for trying it on a computer) or `?phone=0` (never phone mode).
+
 ## Versions
 
 | Folder | What | Needs internet |
@@ -52,7 +71,7 @@ Open the file in any modern browser — no build step. Works on desktop, tablet 
 | Input | Player 1 | Player 2 |
 |---|---|---|
 | Keyboard | W A S D | Arrow keys |
-| Touch | finger on the left half | finger on the right half |
+| Touch | finger on the left half (phone: joystick under the finger, left part of the screen) | finger on the right half (not on a phone) |
 | Gamepad | pad 1 | pad 2 |
 | Air kiss 💋 — keyboard | `E` or `Space` (one player) / `E` (two players) | `Enter` |
 | Air kiss 💋 — touch | 💋 button bottom right (one player) / bottom left (two players) | 💋 button bottom right |
@@ -151,13 +170,13 @@ One HTML file, one ES module:
 - **3D layer** (`#gl` canvas): Three.js scene built from the generated level — walls, trees, bushes,
   pond, rocks, fence, decorative forest; characters are assembled from primitives with `MeshToonMaterial`
   and inverted-hull outlines; the vision cone is a ground mesh rebuilt each frame with ray marching.
-- **2D layer** (`#game` canvas on top): menus, HUD, name tags, rescue timers — positions are projected
-  from 3D with `toScreen()`. The Skins screen cuts "windows" in this layer where 3D previews are rendered
+- **2D layer** (`#game` canvas on top): menus, HUD, name tags, rescue timers, the phone mini-map — positions are
+  projected from 3D with `toScreen()`. On a phone the camera follows the hero and the 2D layer has its own size. The Skins screen cuts "windows" in this layer where 3D previews are rendered
   with scissor viewports.
 
 ## Tuning
 
-`CFG` — gameplay numbers (`HUG_STUN`, `PUSH_RECOVER`, `BOT_ATTACK_PAUSE`, `ITEM_*`, `SLIP_STUN`, `COINS_*`, `FAST_TIME`, `RESCUE_*`, `STAR_*`, `DANGER_*`, `NAME_MAX`, `KISS_*`, `PAD_KISS`, `TYPE_ORDER`, `LAYOUT` (level type sizes), `BANNER_*`, fairness limits, …),
+`CFG` — gameplay numbers (`HUG_STUN`, `PUSH_RECOVER`, `BOT_ATTACK_PAUSE`, `ITEM_*`, `SLIP_STUN`, `COINS_*`, `FAST_TIME`, `RESCUE_*`, `STAR_*`, `DANGER_*`, `NAME_MAX`, `KISS_*`, `PAD_KISS`, `TYPE_ORDER`, `LAYOUT` (level type sizes), `BANNER_*`, fairness limits, phone mode `PHONE_*` / `CAM_*` / `MINIMAP_*` / `STICK_ZONE`, …),
 `GLOVES` — gloves (power, price, pack size), `KISSES` — air kiss price and pack, `I18N` — texts,
 `HAIRS` / `HATS` / `JACKETS` / `PANTS` / `BIG_SKINS` — outfits, `THEMES` — places, `LITTLE_SCALE` / `BIG_SCALE` — character size in 3D.
 

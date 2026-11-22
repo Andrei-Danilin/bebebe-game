@@ -8,7 +8,7 @@ One line each: what, where it came from. The spec author turns a line into a spe
 - More items: trampoline, snowballs (winter), water pistol (beach) — Claude's suggestions, not asked yet.
 - Hug visibility when the Big One faces the camera (the Little One on his shoulders is partly hidden).
 - The lose screen code is unreachable since "no game over" — remove it or reuse it for a "Give up" button.
-- `index.html` is ~2,950 lines: consider splitting into modules (needs a decision: it breaks "opens by double-click" from file://).
+- `index.html` is ~4,700 lines: consider splitting into modules (needs a decision: it breaks "opens by double-click" from file://).
 - Progress between Safari and the installed iPhone app (separate storage on iOS) — out of scope in SPEC-001.
 - `navigator.storage.persist()` once, so iOS is less likely to clear the home-screen app's progress when the phone is low on space (SPEC-001 architect review).
 - An "update available" hint in the installed app (today a new version shows on the next launch, because `index.html` is network-first) — SPEC-001 run.
@@ -43,3 +43,16 @@ One line each: what, where it came from. The spec author turns a line into a spe
 - Kids' level editor: the kids draw their own levels (SPEC-002, out of scope).
 - Split the pure level generator (generateLevel, LAYOUTS, validateLevel) into its own module so it can be tested without the browser — needs a spec: hard rule 1 (one file, opens by double-click) (SPEC-002 architect review).
 - SPEC-002 decided during the run, check with Andrei: when no fair layout is found in 40 attempts, the game keeps the attempt that broke the fewest rules (attempts where somebody can't reach every cell come last) and closes with hedges every free cell the Little Ones, or the Big One outside their house, can't reach.
+- Two players on a tablet with split controls (SPEC-005, out of scope).
+- Camera options toggle: full map / follow the hero, chosen in the menu (SPEC-005, out of scope).
+- Split the 2D layer (~935 lines now) into screen modules with shared content helpers and separate desktop/phone geometry; still one file unless a spec says otherwise (SPEC-005 architect review).
+- Tests: software GPU (SwiftShader) stalls 13–20 s on the first frame after teleporting the Big One or downing a bot (the edge-arrow and 667-sizes tests are `test.slow()`) — find what recompiles (SPEC-005 run).
+- At 932×430 the phone layouts leave spare space: they are sized for 667×375 and not stretched (SPEC-005 run).
+- SPEC-005 decided during the run, check with the kids: the phone shows about 10 rows × 22 columns at 844×390.
+- SPEC-005 decided during the run, check with the kids: the camera may go up to 4 cells past the map edge so the hero is never hidden under the mini-map, the team chips or the top bar.
+- SPEC-005 decided during the run, check with the kids: on the menu, skins and shop screens the phone camera also zooms out to the whole map.
+- SPEC-005 decided during the run, check with the kids: shadows follow the camera; the fog is unchanged.
+- SPEC-005 decided during the run, check with the kids: the mini-map and the edge arrows show only in play and pause; flying kisses are not on the mini-map; downed friends blink green/white on it.
+- SPEC-005 decided during the run, check with the kids: arrows — the Big One is a red circle with a white heart, a downed friend a green circle with ❗; when the direct spot on the edge is taken, the arrow moves to the nearest free spot of the edge.
+- SPEC-005 decided during the run, check with the kids: phone HUD — mittens next to the 💋 button bottom right, team chips under the mini-map, the level banner as a plate under the top bar.
+- SPEC-005 decided during the run, check with the kids: the phone menu is in two columns, with the six rules in small (hint) size because they don't fit at the main size; no keyboard line on a phone, only the touch line; the skins screen has no "Skins" heading; no new texts were needed.
