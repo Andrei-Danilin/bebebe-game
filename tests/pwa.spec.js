@@ -53,7 +53,7 @@ test("icons exist with the right sizes", async ({ page }) => {
   for (const name of ["apple-touch-icon.png", "icon-512-maskable.png"]) {
     const minAlpha = await page.evaluate(async src => {
       const img = new Image(); img.src = src; await img.decode();
-      const c = document.createElement("canvas"); c.width = img.width; c.height = img.height;
+      const c = new OffscreenCanvas(img.width, img.height);
       const g = c.getContext("2d"); g.drawImage(img, 0, 0);
       const d = g.getImageData(0, 0, c.width, c.height).data;
       let min = 255; for (let i = 3; i < d.length; i += 4) min = Math.min(min, d[i]);
