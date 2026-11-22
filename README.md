@@ -19,6 +19,9 @@ A top-down arcade game designed by kids: the **Little Ones** team against the **
 - Golden **bonus stars** pop up around the map now and then: run over one for +3 coins. Only players can pick
   them up — bots leave them to you.
 - When you hug him, you jump on his back for a second — hearts everywhere.
+- **Air kisses** (from the shop): send one from afar and it flies where you look. A hit takes half a heart and the
+  Big One blushes for 1.5 s: he stands still, pushes nobody — and you can hug him from behind. Walls, trees and
+  rocks stop a kiss; ponds and bushes don't. No kissing from your house.
 - 1–2 players + bots (5 Little Ones in total). Bots mostly rescue fallen friends.
 
 ## Install on iPhone
@@ -51,6 +54,9 @@ Open the file in any modern browser — no build step. Works on desktop, tablet 
 | Keyboard | W A S D | Arrow keys |
 | Touch | finger on the left half | finger on the right half |
 | Gamepad | pad 1 | pad 2 |
+| Air kiss 💋 — keyboard | `E` or `Space` (one player) / `E` (two players) | `Enter` |
+| Air kiss 💋 — touch | 💋 button bottom right (one player) / bottom left (two players) | 💋 button bottom right |
+| Air kiss 💋 — gamepad | X (Xbox) / □ (PlayStation) | X / □ on pad 2 |
 
 `P` — pause, `M` — sound, `L` — language (English / Español (AR) / Русский).
 
@@ -68,7 +74,7 @@ Items pop up on the map every 7–11 s (max 3, they vanish after 20 s):
 ## Progress, coins and the shop
 
 Progress is saved in the browser (`localStorage`, key `bebebe-progress`): unlocked levels, best stars per level,
-coins and gloves. Win a level to unlock the next one.
+coins, gloves and air kisses. Win a level to unlock the next one.
 
 | Stars | For |
 |---|---|
@@ -80,15 +86,18 @@ Coins for a win: `10 + 5 × level`, +10 if nobody had to rest, +10 if fast, +2 f
 −3 for every rest (never below 5). Bonus stars add +3 each on top (rests never eat them); they go into the
 coin box the moment you pick them up, so you keep them even without a win.
 
-**Shop** (menu, or after a level): gloves bought with coins as packs of power hugs.
+**Shop** (menu, or after a level): gloves and air kisses, bought with coins in packs.
 
-| Gloves | Price | Pack | Effect |
+| Item | Price | Pack | Effect |
 |---|---|---|---|
 | Warm mittens | 30 | 3 power hugs | a hug takes 2 hearts |
 | Mega hug mittens | 60 | 3 power hugs | a hug takes 3 hearts |
+| 💋 Air kisses | 20 | 5 kisses | flies up to 7 cells; a hit takes ½ heart and the Big One blushes for 1.5 s |
 
 Each player chooses which gloves to wear; a power hug uses one charge from the shared stock, and when it runs
 out hugs are normal again. Gloves show on the character's hands; the HUD shows how many power hugs are left.
+Air kisses are one shared stock for both players (bots don't throw them); each throw uses one, even a miss, and
+a player can throw one per second. The Big One's hearts bar shows half hearts.
 "Reset progress" (tap twice) starts over.
 
 ## Places
@@ -132,8 +141,8 @@ One HTML file, one ES module:
 
 ## Tuning
 
-`CFG` — gameplay numbers (`HUG_STUN`, `PUSH_RECOVER`, `BOT_ATTACK_PAUSE`, `ITEM_*`, `SLIP_STUN`, `COINS_*`, `FAST_TIME`, `RESCUE_*`, `STAR_*`, `DANGER_*`, `NAME_MAX`, …),
-`GLOVES` — gloves (power, price, pack size), `I18N` — texts,
+`CFG` — gameplay numbers (`HUG_STUN`, `PUSH_RECOVER`, `BOT_ATTACK_PAUSE`, `ITEM_*`, `SLIP_STUN`, `COINS_*`, `FAST_TIME`, `RESCUE_*`, `STAR_*`, `DANGER_*`, `NAME_MAX`, `KISS_*`, `PAD_KISS`, …),
+`GLOVES` — gloves (power, price, pack size), `KISSES` — air kiss price and pack, `I18N` — texts,
 `HAIRS` / `HATS` / `JACKETS` / `PANTS` / `BIG_SKINS` — outfits, `THEMES` — places, `LITTLE_SCALE` / `BIG_SCALE` — character size in 3D.
 
 ## Development
