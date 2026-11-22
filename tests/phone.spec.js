@@ -354,7 +354,8 @@ test.describe("phone controls", () => {
     const en = await page.evaluate(() => window.__bb.I18N.en);
     await frames(page);
     let texts = (await page.evaluate(() => window.__bb.buttonRects)).map(r => r.text);
-    expect(texts).toContain(en.onePlayer);
+    expect(texts).toContain("▶ " + en.play);                      // only "Play"
+    expect(texts).not.toContain(en.onePlayer);
     expect(texts).not.toContain(en.twoPlayers);
     // startGame(2) falls back to one player
     await page.evaluate(() => window.__bb.startGame(2));
@@ -523,6 +524,7 @@ const PHONE_SIZES = [[667, 375], [844, 390], [932, 430]];
 const PHONE_SCENES = {
   // play with everything on: banner, touch hint, kiss button, mittens, a downed bot (arrow), a pop text
   play: async page => {
+    await page.waitForTimeout(1100);   // a restart within BANNER_REPEAT (1 s) shows no banner
     await page.evaluate(() => {
       const b = window.__bb;
       b.progress.inv.kisses = 5; b.progress.inv.mittens = 3; b.progress.equip[0] = "mittens";
@@ -542,6 +544,22 @@ const PHONE_SCENES = {
   },
   pause: async page => {
     await page.evaluate(() => { const b = window.__bb; b.startGame(1); b.stats.time = 30; b.mode = "pause"; });
+  },
+  menu: async page => {
+    await page.evaluate(() => { const b = window.__bb; b.progress.unlocked = 10; b.level = 5; b.progress.stars[5] = 2; b.resetWorld(1); b.mode = "menu"; });
+  },
+  skins: async page => { await page.evaluate(() => { window.__bb.mode = "skins"; }); },
+  names: async page => { await page.evaluate(() => { window.__bb.mode = "names"; }); },
+  shop: async page => { await page.evaluate(() => { const b = window.__bb; b.progress.coins = 25; b.mode = "shop"; }); },
+  win: async page => {
+    await page.evaluate(() => {
+      const b = window.__bb; b.startGame(1);
+      Object.assign(b.stats, { time: 50, starCoins: 3, rests: 1 });
+      b.giveReward(true); b.mode = "win";
+    });
+  },
+  lose: async page => {
+    await page.evaluate(() => { const b = window.__bb; b.startGame(1); b.stats.starCoins = 3; b.stats.playerHugs = 2; b.giveReward(false); b.mode = "lose"; });
   }
 };
 
@@ -572,17 +590,32 @@ for (const [vw, vh] of PHONE_SIZES) {
     test.use({ ...PHONE_CTX, viewport: { width: vw, height: vh } });
 
     test(`every phone button is big enough at ${vw}×${vh}`, async ({ page }) => {
+      test.slow();
       const errors = await openGame(page, { query: "?phone=1" });
       const minText = await page.evaluate(() => window.__bb.CFG.PHONE_TEXT);
-      for (const [name, setup] of Object.entries(PHONE_SCENES)) {
+      for (const [name0, setup] of (vw === 667 ? ["en", "es", "ru"] : ["en"]).flatMap(lg => Object.entries(PHONE_SCENES).map(([n, f]) => [lg + " " + n, async pg => { await pg.evaluate(l => window.__bb.setLang(l), lg); await f(pg); }]))) {
+        const name = name0.split(" ")[1], label = name0;
         await setup(page);
         await frames(page);
         const d = await page.evaluate(() => {
           const b = window.__bb, l = b.littles[0];
           return { ui: b.uiSize, buttons: b.buttonRects, hud: b.hudRects, mm: b.minimap, texts: b.textSizes, banner: b.bannerRect,
-            hero: b.toScreen(l.x, l.y), head: b.toScreen(l.x, l.y, 72), mode: b.mode };
+            hero: b.toScreen(l.x, l.y), head: b.toScreen(l.x, l.y, 72), mode: b.mode, typeLabel: b.typeLabel };
         });
-        checkPhoneScreen(name, d, minText);
+        expect(d.mode, label).toBe(name === "rest" ? "play" : name);
+        checkPhoneScreen(label, d, minText);
+        expect(d.texts.main || d.texts.title, `${label}: texts recorded`).toBeTruthy();
+        if (name === "menu") {
+          const L = d.typeLabel;
+          expect(L, `${label}: type label`).toBeTruthy();
+          expect(L.y).toBeGreaterThanOrEqual(L.rulesBottom + 2);
+          expect(L.size * d.ui.scale).toBeGreaterThanOrEqual(15 - 0.01);
+          for (const q of d.buttons) expect(overlaps(L, q), `${label}: type label on ${q.id || q.text}`).toBe(false);
+          expect(d.buttons.map(q => q.text)).toEqual(expect.arrayContaining(["◀"]));
+        }
+        if (name === "shop") expect(d.buttons.map(q => q.id)).toEqual(expect.arrayContaining(["buy:mittens", "buy:mega", "buy:kisses"]));
+        if (name === "skins") expect(d.buttons.map(q => q.id)).toEqual(expect.arrayContaining(["name:p1", "name:big"]));
+        if (name === "names") expect(d.buttons.filter(q => String(q.id).startsWith("name:bot")).length).toBe(4);
         if (name === "play") {
           expect(d.texts.main, "play: main texts recorded").toBeTruthy();
           expect(d.texts.hint, "play: hint text recorded").toBeTruthy();
@@ -603,3 +636,68 @@ for (const [vw, vh] of PHONE_SIZES) {
     });
   });
 }
+
+test.describe("phone menus", () => {
+  test.use(PHONE_CTX);
+
+  test("tapping the real menu Play button starts a one-player game", async ({ page }) => {
+    const errors = await openGame(page, { query: "?phone=1" });
+    await frames(page);
+    const r = await page.evaluate(() => ({ ui: window.__bb.uiSize, play: window.__bb.buttonRects.find(q => q.text === "▶ " + window.__bb.I18N.en.play) }));
+    expect(r.play).toBeTruthy();
+    await page.touchscreen.tap((r.play.x + r.play.w / 2) * r.ui.scale, (r.play.y + r.play.h / 2) * r.ui.scale);
+    expect(await page.evaluate(() => window.__bb.mode)).toBe("play");
+    expect(await page.evaluate(() => window.__bb.littles.filter(l => l.kind === "player").length)).toBe(1);
+    expect(errors).toEqual([]);
+  });
+
+  test("tapping a name on the skins screen opens a big enough input right over it", async ({ page }) => {
+    const errors = await openGame(page, { query: "?phone=1" });
+    await page.evaluate(() => { window.__bb.mode = "skins"; });
+    await frames(page);
+    const r = await page.evaluate(() => ({ ui: window.__bb.uiSize, rect: window.__bb.buttonRects.find(q => q.id === "name:p1") }));
+    const s = r.ui.scale;
+    await page.touchscreen.tap((r.rect.x + r.rect.w / 2) * s, (r.rect.y + r.rect.h / 2) * s);
+    const input = page.locator("input.name-input");
+    await expect(input).toHaveCount(1);
+    const box = await input.boundingBox(), canvasBox = await page.locator("#game").boundingBox();
+    expect(Math.abs(box.x - canvasBox.x - r.rect.x * s)).toBeLessThan(1.5);
+    expect(Math.abs(box.y - canvasBox.y - r.rect.y * s)).toBeLessThan(1.5);
+    expect(Math.abs(box.width - r.rect.w * s)).toBeLessThan(1.5);
+    expect(Math.abs(box.height - r.rect.h * s)).toBeLessThan(1.5);
+    const font = await input.evaluate(el => parseFloat(getComputedStyle(el).fontSize));
+    expect(font).toBeGreaterThanOrEqual(16);
+    expect(errors).toEqual([]);
+  });
+
+  test("the install hint fits the phone menu on iPhone Safari", async ({ browser }) => {
+    const IPHONE_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1";
+    const ctx = await browser.newContext({ ...PHONE_CTX, viewport: { width: 667, height: 375 }, userAgent: IPHONE_UA });
+    const page = await ctx.newPage();
+    const errors = await openGame(page, { query: "?phone=1" });
+    const minText = await page.evaluate(() => window.__bb.CFG.PHONE_TEXT);
+    for (const lang of ["en", "es", "ru"]) {
+      await page.evaluate(l => window.__bb.setLang(l), lang);
+      await frames(page);
+      const d = await page.evaluate(() => { const b = window.__bb; return { ui: b.uiSize, buttons: b.buttonRects, hud: b.hudRects, mm: b.minimap, texts: b.textSizes, shown: b.installHintShown }; });
+      expect(d.shown, lang).toBe(true);
+      checkPhoneScreen("menu " + lang, d, minText);
+    }
+    expect(errors).toEqual([]);
+    await ctx.close();
+  });
+});
+
+test.describe("phone portrait", () => {
+  test.use({ ...PHONE_CTX, viewport: { width: 390, height: 844 } });
+
+  test("the rotate overlay is big and nothing behind it can be tapped", async ({ page }) => {
+    const errors = await openGame(page, { query: "?phone=1" });
+    await frames(page);
+    const d = await page.evaluate(() => ({ ui: window.__bb.uiSize, shown: window.__bb.rotateShown, texts: window.__bb.textSizes, buttons: window.__bb.buttonRects }));
+    expect(d.shown).toBe(true);
+    expect(d.texts.title * d.ui.scale).toBeGreaterThanOrEqual(24 - 0.01);
+    expect(d.buttons).toEqual([]);
+    expect(errors).toEqual([]);
+  });
+});
