@@ -149,6 +149,9 @@ const CFG = {
   PHONE_BTN_MIN: 44,         // CSS px — кнопка на телефоне не меньше
   PHONE_BTN_GAP: 8,          // CSS px — между соседними кнопками
   PHONE_TEXT: { title: 24, main: 15, hint: 13, input: 16 },   // CSS px — самый мелкий текст на телефоне
+  // карточки магазина на телефоне (SPEC-007 AC 10), CSS px: картинка (обычная, самая маленькая, насколько может вырасти),
+  // ширина картинки в её высотах, радиус кружка «у вас», поля, промежуток, отступ кружка от картинки, поле текста сбоку; строк не больше
+  PHONE_SHOP: { pic: 30, picMin: 18, picGrow: 16, picW: 1.3, badge: 11, pad: 6, sp: 3, gap: 2, side: 5, nameLines: 2, descLines: 4, packLines: 2, haveLines: 2, noLines: 2 },
   // типы уровней внутри каждого мира (SPEC-006): 1 — рисунок детей, 2–4 поляна, 5–7 деревня, 8–10 река,
   // 11–13 дом с комнатами, 14–16 арена, 17–20 лабиринт; число записей = уровней в мире
   WORLD_TYPES: ["classic", "meadow", "meadow", "meadow", "village", "village", "village", "river", "river", "river",
@@ -163,7 +166,7 @@ const CFG = {
   // имя игрока над головой (drawMarkers; его же обходит надпись уровня на телефоне): высота точки над ногами (px мира),
   // подъём имени над ней (UI px), кегль (на телефоне не мельче PHONE_TEXT.main)
   NAME_TAG: { h: 72, up: 10, size: 15 },
-  BANNER_FONT_TEST_SCALE: 1, // только для тестов: ширина текста надписи × это (шрифты CI и iPhone шире)
+  TEXT_TEST_SCALE: 1,        // только для тестов: ширина текста надписи уровня и карточек магазина на телефоне × это (шрифты CI и iPhone шире)
   LEVEL_ATTEMPTS: 40,        // столько раз пробуем построить честный уровень, потом — запасной вариант
   // правила честности уровня
   DOOR_APRON: 2,             // клеток свободно перед каждой дверью домиков
@@ -234,7 +237,7 @@ const I18N = {
     kisses: "Air kisses", kissDesc: "Send from afar: ½ heart and he blushes", kissPack: n => `Pack: ${n} air kisses`,
     kissHave: n => `You have: ${n} ${n === 1 ? "kiss" : "kisses"}`, kissHit: "Mwah!", noKissHome: "Not from the house!", blush: "So shy!",
     kit: "Rescue kit", kitDesc: "Get up at once and play on", kitPack: n => `Pack: ${n} rescue kits`, kitHave: n => `You have: ${n} ${n === 1 ? "kit" : "kits"}`,
-    kitUsed: "Back in the game!", kitHint: "Press 🩹 to get up!", kitKey1: "Q", kitKey2: "Shift ⇨",
+    kitUsed: "Back in the game!", kitHint: "Press 🩹 to get up!", kitKey1: "Q", kitKey2: "Shift ⇨", packShort: n => `📦 ×${n}`,
     types: { classic: "Our drawing", meadow: "Meadow", maze: "Maze", village: "Village", river: "River with bridges", rooms: "House with rooms", arena: "Ring arena" },
     levelIntro: (w, n, t) => `${w} · Level ${n}: ${t}`, levelIntroShort: (w, n, t) => `${w} · ${n}: ${t}`, worldStars: (n, max) => `⭐ ${n}/${max}`
   },
@@ -271,7 +274,7 @@ const I18N = {
     kisses: "Besitos voladores", kissDesc: "Mandalo de lejos: ½ corazón y se pone colorado", kissPack: n => `Paquete: ${n} besitos voladores`,
     kissHave: n => `Tenés: ${n} ${n === 1 ? "besito" : "besitos"}`, kissHit: "¡Muak!", noKissHome: "¡Desde la casita no!", blush: "¡Qué vergüenza!",
     kit: "Curita mágica", kitDesc: "Levantate al toque y seguí jugando", kitPack: n => `Paquete: ${n} curitas`, kitHave: n => `Tenés: ${n} ${n === 1 ? "curita" : "curitas"}`,
-    kitUsed: "¡De vuelta al juego!", kitHint: "¡Tocá 🩹 para levantarte!", kitKey1: "Q", kitKey2: "Shift ⇨",
+    kitUsed: "¡De vuelta al juego!", kitHint: "¡Tocá 🩹 para levantarte!", kitKey1: "Q", kitKey2: "Shift ⇨", packShort: n => `📦 ×${n}`,
     types: { classic: "Nuestro dibujo", meadow: "Pradera", maze: "Laberinto", village: "Pueblito", river: "Río con puentes", rooms: "Casa con cuartos", arena: "Arena" },
     levelIntro: (w, n, t) => `${w} · Nivel ${n}: ${t}`, levelIntroShort: (w, n, t) => `${w} · ${n}: ${t}`, worldStars: (n, max) => `⭐ ${n}/${max}`
   },
@@ -310,7 +313,7 @@ const I18N = {
     kissHave: n => `У вас: ${n} ${ruPlural(n, ["поцелуй", "поцелуя", "поцелуев"])}`, kissHit: "Чмок!", noKissHome: "Из домика нельзя!", blush: "Ой, смущён!",
     kit: "Спасалка", kitDesc: "Сразу встать и играть дальше", kitPack: n => `В наборе: ${n} ${ruPlural(n, ["спасалка", "спасалки", "спасалок"])}`,
     kitHave: n => `У вас: ${n} ${ruPlural(n, ["спасалка", "спасалки", "спасалок"])}`, kitUsed: "Снова в игре!", kitHint: "Нажми 🩹, чтобы встать!",
-    kitKey1: "Q", kitKey2: "Shift ⇨",
+    kitKey1: "Q", kitKey2: "Shift ⇨", packShort: n => `📦 ×${n}`,
     types: { classic: "Наш рисунок", meadow: "Поляна", maze: "Лабиринт", village: "Деревня", river: "Река с мостиками", rooms: "Дом с комнатами", arena: "Арена с кольцом" },
     levelIntro: (w, n, t) => `${w} · Уровень ${n}: ${t}`, levelIntroShort: (w, n, t) => `${w} · ${n}: ${t}`, worldStars: (n, max) => `⭐ ${n}/${max}`
   }
@@ -3089,6 +3092,8 @@ function pText(text, x, y, cat, css, maxW, align = "center", color = OUT, weight
   return sz;
 }
 // несколько строк: сначала мерка (pRows: строки, кегль, высота h, ширина w самой длинной строки), потом рисуем (pDraw)
+// ширина строки при мерке: × CFG.TEXT_TEST_SCALE (тесты изображают более широкие шрифты CI и iPhone)
+const scaledW = t => ctx.measureText(t).width * CFG.TEXT_TEST_SCALE;
 function pRows(text, cat, css, maxW, lines, weight = 700) {
   const min = cpx(CFG.PHONE_TEXT[cat]);
   let sz = Math.max(cpx(css), min), rows = [];
@@ -3096,16 +3101,17 @@ function pRows(text, cat, css, maxW, lines, weight = 700) {
     ctx.font = `${weight} ${sz}px system-ui, "Segoe UI", sans-serif`;
     rows = [];
     let cur = "";
-    for (const wd of text.split(" ")) {
-      const t = cur ? cur + " " + wd : wd;
-      if (ctx.measureText(t).width > maxW && cur) { rows.push(cur); cur = wd; } else cur = t;
-    }
+    // слова по пробелам; длинное слово с дефисом можно перенести после дефиса («Мега-» / «рукавицы»)
+    for (const wd of text.split(" ")) wd.split(/(?<=-)/).forEach((part, j) => {
+      const t = !cur ? part : cur + (j ? "" : " ") + part;
+      if (scaledW(t) > maxW && cur) { rows.push(cur); cur = part; } else cur = t;
+    });
     rows.push(cur);
-    if ((rows.length <= lines && rows.every(r => ctx.measureText(r).width <= maxW)) || sz <= min) break;
+    if ((rows.length <= lines && rows.every(r => scaledW(r) <= maxW)) || sz <= min) break;
     sz = Math.max(min, sz - 0.5);
   }
   const lh = sz * 1.25;
-  return { rows, sz, lh, h: rows.length * lh, w: Math.max(...rows.map(r => ctx.measureText(r).width)), cat, weight };
+  return { rows, sz, lh, h: rows.length * lh, w: Math.max(...rows.map(scaledW)), cat, weight, maxW };
 }
 function pDraw(b, x, y, color = OUT, align = "center") {
   ctx.font = `${b.weight} ${b.sz}px system-ui, "Segoe UI", sans-serif`;
@@ -3113,6 +3119,18 @@ function pDraw(b, x, y, color = OUT, align = "center") {
   b.rows.forEach((r, i) => ctx.fillText(r, x, y + b.lh / 2 + i * b.lh));
   noteText(b.cat, b.sz);
   return b.h;
+}
+// не больше n строк и каждая не шире b.maxW: лишнее отрезается «…» (магазин телефона, когда места не хватило)
+function clipRows(b, n) {
+  ctx.font = `${b.weight} ${b.sz}px system-ui, "Segoe UI", sans-serif`;
+  const rows = b.rows.slice(0, Math.max(0, n)), more = b.rows.length > rows.length;
+  const cut = (r, dots) => {
+    let chs = Array.from(r), t = dots ? r + "…" : r;
+    while (chs.length > 1 && scaledW(t) > b.maxW) { chs = chs.slice(0, -1); t = chs.join("").trimEnd() + "…"; }
+    return t;
+  };
+  for (let i = 0; i < rows.length; i++) rows[i] = cut(rows[i], more && i === rows.length - 1);
+  return { ...b, rows, h: rows.length * b.lh, w: rows.length ? Math.max(...rows.map(scaledW)) : 0 };
 }
 // несколько строк от верхнего края y; возвращает высоту
 function pWrap(text, x, y, cat, css, maxW, lines, color = OUT, weight = 700, align = "center") {
@@ -3144,9 +3162,9 @@ function phoneSkinCols() {
 }
 // карточки магазина (компьютер и телефон): рукавицы, мега-рукавицы, воздушные поцелуи, спасалка (SPEC-007)
 const shopCards = () => [
-  ...["mittens", "mega"].map(k => ({ k, name: L().gloves[k], desc: L().gloveDesc(GLOVES[k].power), pack: L().pack(GLOVES[k].charges), have: L().have(progress.inv[k]), n: progress.inv[k], price: GLOVES[k].price, buy: () => buyGloves(k) })),
-  { k: "kisses", name: L().kisses, desc: L().kissDesc, pack: L().kissPack(KISSES.pack), have: L().kissHave(progress.inv.kisses), n: progress.inv.kisses, price: KISSES.price, buy: buyKisses },
-  { k: "rescues", name: L().kit, desc: L().kitDesc, pack: L().kitPack(RESCUE_KIT.pack), have: L().kitHave(progress.inv.rescues), n: progress.inv.rescues, price: RESCUE_KIT.price, buy: buyRescueKit }
+  ...["mittens", "mega"].map(k => ({ k, name: L().gloves[k], desc: L().gloveDesc(GLOVES[k].power), pack: L().pack(GLOVES[k].charges), packN: GLOVES[k].charges, have: L().have(progress.inv[k]), n: progress.inv[k], price: GLOVES[k].price, buy: () => buyGloves(k) })),
+  { k: "kisses", name: L().kisses, desc: L().kissDesc, pack: L().kissPack(KISSES.pack), packN: KISSES.pack, have: L().kissHave(progress.inv.kisses), n: progress.inv.kisses, price: KISSES.price, buy: buyKisses },
+  { k: "rescues", name: L().kit, desc: L().kitDesc, pack: L().kitPack(RESCUE_KIT.pack), packN: RESCUE_KIT.pack, have: L().kitHave(progress.inv.rescues), n: progress.inv.rescues, price: RESCUE_KIT.price, buy: buyRescueKit }
 ];
 // картинка карточки: s — размер (как у drawMitten)
 function shopPicture(k, x, y, s) {
@@ -3321,39 +3339,64 @@ function drawOverlayPhone() {
     pButton(rx1 - rW, Y0, rW, B, rTxt, resetArmed ? "#ef4444" : "#94a3b8", resetProgress, 15);
     // четыре карточки в ряд: рукавицы, мега-рукавицы, воздушные поцелуи, спасалка (SPEC-007). Сверху картинка, название,
     // описание; снизу (к кнопке) набор и «у вас»; кнопки «Купить» на одной высоте, под ними «не хватает монеток».
-    // Не влезает (узкий телефон, длинные тексты) — «у вас» превращается в кружок с числом на картинке.
-    const cards = shopCards(), cg = c(8), nC = cards.length, cw = (X1 - X0 - (nC - 1) * cg) / nC, tw = cw - c(12);
-    const y0 = Y0 + B + cg, ch = Y1 - B - g - y0, pad = c(6), sp = c(3), bw = Math.min(c(160), cw - c(10));
-    let picH = c(30);
-    const bl = cards.map(cd => ({ name: pRows(cd.name, "main", 15, tw, 2, 900), desc: pRows(cd.desc, "hint", 13, tw, 3, 700),
-      pack: pRows(cd.pack, "hint", 13, tw, 2, 600), have: pRows(cd.have, "hint", 13, tw, 2, 800),
-      no: progress.coins >= cd.price ? null : pRows(L().notEnough, "hint", 13, tw, 2, 700) }));
+    // Места мало (узкий телефон, широкий шрифт, длинные тексты) — уступаем по шагам, теряя как можно меньше (AC 10):
+    // 1) картинка меньше; 2) «у вас» → кружок с числом у картинки; 3) набор коротко («📦 ×3»); 4) описание теряет строки («…»).
+    const S = CFG.PHONE_SHOP, cards = shopCards(), cg = c(8), nC = cards.length, cw = (X1 - X0 - (nC - 1) * cg) / nC, tw = cw - 2 * c(S.side);
+    const y0 = Y0 + B + cg, ch = Y1 - B - g - y0, pad = c(S.pad), sp = c(S.sp), bw = Math.min(c(160), cw - c(10)), br = c(S.badge);
+    const bl = cards.map(cd => ({ name: clipRows(pRows(cd.name, "main", 15, tw, S.nameLines, 900), S.nameLines),
+      desc: clipRows(pRows(cd.desc, "hint", 13, tw, S.descLines, 700), S.descLines),
+      pack: clipRows(pRows(cd.pack, "hint", 13, tw, S.packLines, 600), S.packLines),
+      packShort: clipRows(pRows(L().packShort(cd.packN), "hint", 13, tw, 1, 600), 1),
+      have: clipRows(pRows(cd.have, "hint", 13, tw, S.haveLines, 800), S.haveLines),
+      no: progress.coins >= cd.price ? null : clipRows(pRows(L().notEnough, "hint", 13, tw, S.noLines, 700), S.noLines) }));
     const noH = Math.max(0, ...bl.map(b => b.no ? b.no.h + sp : 0));
     const by = y0 + ch - pad - noH - B;                                      // кнопки «Купить» — одна высота
-    const topH = b => pad + picH + sp + b.name.h + b.desc.h, lowH = (b, have) => b.pack.h + (have ? b.have.h : 0) + sp;
-    const roomOf = have => Math.min(...bl.map(b => by - lowH(b, have) - (y0 + topH(b) + sp)));
-    const room = roomOf(true), badge = room < 0;
-    if (room > 0) picH += Math.min(c(16), room);                              // место есть — картинка крупнее
-    else if (badge) { const r2 = roomOf(false); if (r2 < 0) picH = Math.max(c(18), picH + r2); }   // и без «у вас» тесно — картинка меньше
-    const box = (id, b, x, y) => hudRects.push({ id, x: x - b.w / 2, y, w: b.w, h: b.h });   // тексты карточек: тест проверяет, что не налезают
+    const avail = by - sp - (y0 + pad);                                      // картинка и тексты над кнопкой
+    const rowH = (p, m) => Math.max(p, m.badge ? 2 * br : 0);                // верхний ряд: картинка (и кружок рядом)
+    const lowH = (b, m) => (m.short ? b.packShort.h : b.pack.h) + (m.badge ? 0 : b.have.h);
+    const slackOf = (b, p, m) => avail - rowH(p, m) - sp - b.name.h - b.desc.h - sp - lowH(b, m);
+    const slack = (p, m) => Math.min(...bl.map(b => slackOf(b, p, m)));
+    const steps = [{ badge: false, short: false }, { badge: true, short: false }, { badge: true, short: true }];
+    const pBase = c(S.pic), pMin = c(S.picMin);
+    let m = steps[0], picH = pBase;
+    if (slack(pBase, m) >= 0) picH = pBase + Math.min(c(S.picGrow), slack(pBase, m));   // место есть — картинка крупнее
+    else {
+      let found = null;                                                      // самая крупная картинка, при которой всё влезает
+      for (const st of steps) {
+        m = st;
+        for (let p = pBase; p >= pMin - 0.01 && found === null; p -= c(1)) if (slack(p, m) >= 0) found = p;
+        if (found !== null) break;
+      }
+      picH = found ?? pMin;
+    }
+    // всё ещё тесно (очень широкий шрифт) — описание теряет строки, в крайнем случае название — до одной строки
+    const top = rowH(picH, m);
+    bl.forEach(b => {
+      let over = -slackOf(b, picH, m);
+      if (over > 0) { const keep = Math.max(0, b.desc.rows.length - Math.ceil(over / b.desc.lh - 1e-6)); over -= b.desc.h - keep * b.desc.lh; b.desc = clipRows(b.desc, keep); }
+      if (over > 0) { const keep = Math.max(1, b.name.rows.length - Math.ceil(over / b.name.lh - 1e-6)); b.name = clipRows(b.name, keep); }
+    });
+    const box = (id, b, x, y) => { if (b.rows.length) hudRects.push({ id, x: x - b.w / 2, y, w: b.w, h: b.h }); };   // части карточек: тест проверяет, что не налезают
     cards.forEach((cd, i) => {
       const x0 = X0 + i * (cw + cg), cx = x0 + cw / 2, b = bl[i];
       rr(x0, y0, cw, ch, c(16)); fillStroke("#fff", 3);
-      const pcy = y0 + pad + picH / 2;
+      const pcy = y0 + pad + top / 2, pw = picH * S.picW;
       shopPicture(cd.k, cx, pcy, picH);
-      if (badge) {                                                           // сколько есть — кружок с числом
-        const r = c(12), bx = cx + picH * 0.75, by0 = pcy - picH * 0.2;
-        circle(bx, by0, r); fillStroke(cd.n > 0 ? "#16a34a" : "#94a3b8", 2.5);
-        noteText("hint", fitText(String(cd.n), bx, by0 + 1, minPx("hint"), r * 1.7, "center", "#fff", 900, minPx("hint")));
-        hudRects.push({ id: "card-badge:" + cd.k, x: bx - r, y: by0 - r, w: 2 * r, h: 2 * r });
+      hudRects.push({ id: "card-pic:" + cd.k, x: cx - pw / 2, y: pcy - picH / 2, w: pw, h: picH });
+      if (m.badge) {                                                         // сколько есть — кружок с числом справа от картинки
+        const bx = cx + pw / 2 + c(S.gap) + br;
+        circle(bx, pcy, br); fillStroke(cd.n > 0 ? "#16a34a" : "#94a3b8", 2.5);
+        noteText("hint", fitText(String(cd.n), bx, pcy + 1, minPx("hint"), br * 1.7, "center", "#fff", 900, minPx("hint")));
+        hudRects.push({ id: "card-badge:" + cd.k, x: bx - br, y: pcy - br, w: 2 * br, h: 2 * br });
       }
-      let y = y0 + pad + picH + sp;
+      let y = y0 + pad + top + sp;
       box("card-name:" + cd.k, b.name, cx, y); y += pDraw(b.name, cx, y, OUT);
       box("card-desc:" + cd.k, b.desc, cx, y); pDraw(b.desc, cx, y, "#475569");
-      let yl = by - sp - (badge ? 0 : b.have.h);
-      if (!badge) { box("card-have:" + cd.k, b.have, cx, yl); pDraw(b.have, cx, yl, cd.n > 0 ? "#15803d" : "#94a3b8"); }
-      yl -= b.pack.h;
-      box("card-pack:" + cd.k, b.pack, cx, yl); pDraw(b.pack, cx, yl, "#64748b");
+      let yl = by - sp - (m.badge ? 0 : b.have.h);
+      if (!m.badge) { box("card-have:" + cd.k, b.have, cx, yl); pDraw(b.have, cx, yl, cd.n > 0 ? "#15803d" : "#94a3b8"); }
+      const pk = m.short ? b.packShort : b.pack;
+      yl -= pk.h;
+      box("card-pack:" + cd.k, pk, cx, yl); pDraw(pk, cx, yl, "#64748b");
       const ok = !b.no, txt = `${L().buy}  ${cd.price}      `;
       const btn = pButton(cx - bw / 2, by, bw, B, txt, ok ? "#22c55e" : "#cbd5e1", cd.buy, 17);
       btn.id = "buy:" + cd.k;
@@ -3593,7 +3636,7 @@ function placePhoneBanner() {
   const blocks = [minimapRect(), ...buttons, ...hudRects];
   if (hr) blocks.push(hr);
   ctx.font = `900 ${minPx("title")}px system-ui, "Segoe UI", sans-serif`;
-  const texts = [banner.text, banner.short].map(text => ({ text, w: ctx.measureText(text).width * CFG.BANNER_FONT_TEST_SCALE + 2 * cpx(P.pad) }));
+  const texts = [banner.text, banner.short].map(text => ({ text, w: ctx.measureText(text).width * CFG.TEXT_TEST_SCALE + 2 * cpx(P.pad) }));
   // самый широкий свободный отрезок по x для плашки на высоте y
   const span = y => {
     let segs = [[m, UW - m]];
@@ -3628,7 +3671,7 @@ function drawBanner() {
     if (!banner.place.spot) { ctx.restore(); return; }       // нигде не влезло — не показываем
     const { x, y, w, h, text } = banner.place.spot, size = minPx("title");
     rr(x, y, w, h, cpx(P.radius)); fillStroke("rgba(255,250,235,.93)", 3);
-    const sz = fitText(text, x + w / 2, y + h / 2 + 1, size, (w - 2 * cpx(P.edge)) / CFG.BANNER_FONT_TEST_SCALE, "center", "#ff6fa8", 900, size);
+    const sz = fitText(text, x + w / 2, y + h / 2 + 1, size, (w - 2 * cpx(P.edge)) / CFG.TEXT_TEST_SCALE, "center", "#ff6fa8", 900, size);
     noteText("title", sz);
     bannerRect = { x, y, w, h, text, size: sz, short: text !== banner.text };
     ctx.restore(); return;
