@@ -1272,7 +1272,7 @@ test("the kit hint shows the first time a player goes down with kits, once per l
   await page.evaluate(() => { window.__bb.startGame(1); window.__t.pin([0]); });
   await pushPlayer(page);
   expect(await page.evaluate(() => window.__bb.kitHint && window.__bb.kitHint.text)).toContain(h.want);   // a new level: again
-  await page.evaluate(() => window.__bb.update(window.__bb.CFG.KIT_HINT_TIME + 0.1));
+  await step(page, (await page.evaluate(() => window.__bb.CFG.KIT_HINT_TIME)) + 0.1);
   await frames(page);
   expect(await page.evaluate(() => window.__bb.kitHint)).toBe(null);       // and it is short
 });
@@ -1329,5 +1329,53 @@ test.describe("rescue kit on a touch screen", () => {
     const k0 = two.find(q => q.id === "kit:0"), k1 = two.find(q => q.id === "kiss:1");
     expect(k0.x + k0.w).toBeLessThan(960 / 2);
     expect(k1.x).toBeGreaterThan(960 / 2);
+  });
+});
+
+// review fix 2: the double tap on the shared slot — the 💋 that appears there does not fire at once
+test("a kit does not throw an air kiss right after", async ({ page }) => {
+  await downPlayer(page);
+  const r = await page.evaluate(() => {
+    const b = window.__bb, l = b.littles[0], out = {};
+    b.progress.inv.rescues = 1; b.progress.inv.kisses = 3;
+    Object.assign(l, { x: 270, y: 48, dir: 0, kissCd: 0 });   // outside the house: kisses are allowed here
+    out.used = b.useRescueKit(0);
+    out.lock = b.CFG.KIT_SLOT_LOCK;
+    out.kiss = b.throwKiss(0); out.kisses = b.progress.inv.kisses;
+    return out;
+  });
+  expect(r).toEqual({ used: true, lock: 0.6, kiss: false, kisses: 3 });
+  await step(page, 0.65);
+  expect(await page.evaluate(() => [window.__bb.throwKiss(0), window.__bb.progress.inv.kisses])).toEqual([true, 2]);
+});
+
+test.describe("rescue kit while paused or winning", () => {
+  test.use({ hasTouch: true });
+
+  // review fix 1: one rule for the button, the hint and useRescueKit
+  test("no kit while paused or while the win is coming", async ({ page }) => {
+    await downPlayer(page);
+    const kitButton = () => page.evaluate(() => window.__bb.buttonRects.some(q => q.id === "kit:0"));
+    await page.evaluate(() => { window.__bb.progress.inv.rescues = 2; });
+    await frames(page);
+    expect(await kitButton()).toBe(true);                                    // in play: the button is there
+    await page.evaluate(() => { window.__bb.mode = "pause"; });
+    await frames(page);
+    expect(await kitButton(), "paused: no button").toBe(false);
+    expect(await page.evaluate(() => [window.__bb.useRescueKit(0), window.__bb.littles[0].state, window.__bb.progress.inv.rescues])).toEqual([false, "down", 2]);
+    // two players: player 2 gives the last hug (pendingWin = HUG_ANIM), player 1 lies down
+    await page.evaluate(() => {
+      const b = window.__bb, t = window.__t;
+      b.startGame(2); t.calm(); t.pin([0, 1]);
+      b.progress.inv.rescues = 2;
+      Object.assign(b.littles[0], { state: "down", downTimer: 10, x: 300, y: 500 });
+      Object.assign(b.big, { state: "look", timer: 999, stun: 0, hugCd: 0, noPush: 0, slip: 0, pushCd: 0, blush: 0, x: 500, y: 320, dir: 0, hp: 1 });
+      Object.assign(b.littles[1], { state: "ok", hugCd: 0, hugAnim: 0, invuln: 0, kx: 0, ky: 0, x: 500 - 34, y: 320 });
+      b.update(1 / 60);
+    });
+    const w = await page.evaluate(() => ({ hp: window.__bb.big.hp, mode: window.__bb.mode, used: window.__bb.useRescueKit(0), state: window.__bb.littles[0].state, left: window.__bb.progress.inv.rescues }));
+    expect(w).toEqual({ hp: 0, mode: "play", used: false, state: "down", left: 2 });
+    await frames(page);
+    expect(await page.evaluate(() => [window.__bb.mode, window.__bb.buttonRects.some(q => q.id === "kit:0")]), "win coming: no button").toEqual(["play", false]);
   });
 });

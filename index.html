@@ -90,6 +90,7 @@ const CFG = {
   STARS_PER_LEVEL: 3,        // звёзд за уровень (победа, никто не отдыхал, быстро)
   REST_TIME: 30,             // сек — сколько отдыхает в домике тот, кого не спасли (SPEC-007: решение детей)
   KIT_INVULN: 2,             // сек — защита после спасалки 🩹 (SPEC-007)
+  KIT_SLOT_LOCK: 0.6,        // сек — после спасалки 💋 на том же месте не срабатывает (двойной тап)
   HOME_SPEED: 85,            // как быстро он хромает к домику
   FAST_TIME: lv => 60 + lv * 15,  // сек — успеть за это время = третья звезда (lv — номер в мире)
   FAST_PER_WORLD: 10,        // сек — и ещё столько в каждом следующем мире: у Большого больше сердечек (SPEC-006)
@@ -233,7 +234,7 @@ const I18N = {
     kisses: "Air kisses", kissDesc: "Send from afar: ½ heart and he blushes", kissPack: n => `Pack: ${n} air kisses`,
     kissHave: n => `You have: ${n} ${n === 1 ? "kiss" : "kisses"}`, kissHit: "Mwah!", noKissHome: "Not from the house!", blush: "So shy!",
     kit: "Rescue kit", kitDesc: "Get up at once and play on", kitPack: n => `Pack: ${n} rescue kits`, kitHave: n => `You have: ${n} ${n === 1 ? "kit" : "kits"}`,
-    kitUsed: "Back in the game!", kitHint: "Press 🩹 to get up!",
+    kitUsed: "Back in the game!", kitHint: "Press 🩹 to get up!", kitKey1: "Q", kitKey2: "Shift ⇨",
     types: { classic: "Our drawing", meadow: "Meadow", maze: "Maze", village: "Village", river: "River with bridges", rooms: "House with rooms", arena: "Ring arena" },
     levelIntro: (w, n, t) => `${w} · Level ${n}: ${t}`, levelIntroShort: (w, n, t) => `${w} · ${n}: ${t}`, worldStars: (n, max) => `⭐ ${n}/${max}`
   },
@@ -270,7 +271,7 @@ const I18N = {
     kisses: "Besitos voladores", kissDesc: "Mandalo de lejos: ½ corazón y se pone colorado", kissPack: n => `Paquete: ${n} besitos voladores`,
     kissHave: n => `Tenés: ${n} ${n === 1 ? "besito" : "besitos"}`, kissHit: "¡Muak!", noKissHome: "¡Desde la casita no!", blush: "¡Qué vergüenza!",
     kit: "Curita mágica", kitDesc: "Levantate al toque y seguí jugando", kitPack: n => `Paquete: ${n} curitas`, kitHave: n => `Tenés: ${n} ${n === 1 ? "curita" : "curitas"}`,
-    kitUsed: "¡De vuelta al juego!", kitHint: "¡Tocá 🩹 para levantarte!",
+    kitUsed: "¡De vuelta al juego!", kitHint: "¡Tocá 🩹 para levantarte!", kitKey1: "Q", kitKey2: "Shift ⇨",
     types: { classic: "Nuestro dibujo", meadow: "Pradera", maze: "Laberinto", village: "Pueblito", river: "Río con puentes", rooms: "Casa con cuartos", arena: "Arena" },
     levelIntro: (w, n, t) => `${w} · Nivel ${n}: ${t}`, levelIntroShort: (w, n, t) => `${w} · ${n}: ${t}`, worldStars: (n, max) => `⭐ ${n}/${max}`
   },
@@ -309,6 +310,7 @@ const I18N = {
     kissHave: n => `У вас: ${n} ${ruPlural(n, ["поцелуй", "поцелуя", "поцелуев"])}`, kissHit: "Чмок!", noKissHome: "Из домика нельзя!", blush: "Ой, смущён!",
     kit: "Спасалка", kitDesc: "Сразу встать и играть дальше", kitPack: n => `В наборе: ${n} ${ruPlural(n, ["спасалка", "спасалки", "спасалок"])}`,
     kitHave: n => `У вас: ${n} ${ruPlural(n, ["спасалка", "спасалки", "спасалок"])}`, kitUsed: "Снова в игре!", kitHint: "Нажми 🩹, чтобы встать!",
+    kitKey1: "Q", kitKey2: "Shift ⇨",
     types: { classic: "Наш рисунок", meadow: "Поляна", maze: "Лабиринт", village: "Деревня", river: "Река с мостиками", rooms: "Дом с комнатами", arena: "Арена с кольцом" },
     levelIntro: (w, n, t) => `${w} · Уровень ${n}: ${t}`, levelIntroShort: (w, n, t) => `${w} · ${n}: ${t}`, worldStars: (n, max) => `⭐ ${n}/${max}`
   }
@@ -1850,14 +1852,15 @@ function closeNameInput(save) {
 // Геймпады
 let pads = [];
 const padPrev = [];
-// кнопки, у которых ловим нажатие: A, B, X, Y, Start, крестовина (+ поцелуй и спасалка из CFG)
-const PAD_EDGE = [...new Set([0, 1, 2, 3, 9, 12, 13, 14, 15, CFG.PAD_KISS, CFG.PAD_KIT])];
+// кнопки, у которых ловим нажатие: A, B, X, Y, Start, крестовина (+ поцелуй и спасалка из CFG — читаем каждый раз)
+const padEdge = () => [...new Set([0, 1, 2, 3, 9, 12, 13, 14, 15, CFG.PAD_KISS, CFG.PAD_KIT])];
 function pollPads() {
   const list = navigator.getGamepads ? Array.from(navigator.getGamepads()).filter(Boolean) : [];
+  const edge = padEdge();
   pads = list.map((p, i) => {
     const btn = p.buttons.map(b => b.pressed);
     const prev = padPrev[i] || [];
-    for (const b of PAD_EDGE) if (btn[b] && !prev[b]) onPadButton(b, i);
+    for (const b of edge) if (btn[b] && !prev[b]) onPadButton(b, i);
     padPrev[i] = btn;
     let x = p.axes[0] || 0, y = p.axes[1] || 0;
     if (Math.hypot(x, y) < 0.25) { x = 0; y = 0; }
@@ -2357,15 +2360,17 @@ function checkContacts() {
 }
 // ---------- Спасалка 🩹 (SPEC-007): игрок сразу встаёт там, где он есть — лёжа, по дороге в домик или отдыхая ----------
 const KIT_STATES = ["down", "home", "rest"];
-const canUseKit = l => !!l && l.kind === "player" && KIT_STATES.includes(l.state) && progress.inv.rescues > 0;
+// одно правило для кнопки, подсказки и useRescueKit: идёт игра (не пауза, победа ещё не наступает), игрок лежит/хромает/отдыхает
+const canUseKit = l => mode === "play" && pendingWin <= 0 && !!l && l.kind === "player" && KIT_STATES.includes(l.state) && progress.inv.rescues > 0;
 function useRescueKit(pi) {
   const l = littles[pi];
-  if (mode !== "play" || pendingWin > 0 || !canUseKit(l)) return false;   // боты, игрок на ногах, нет спасалок — ничего
+  if (!canUseKit(l)) return false;                       // боты, игрок на ногах, нет спасалок, пауза — ничего
   progress.inv.rescues--; saveProgress();
   if (kitHintPi === pi) kitHintT = 0;                   // встал — подсказка больше не нужна
   // лёжа (таймер ещё не кончился) — это не отдых: stats.rests не растёт; дома — уже засчитанный отдых остаётся
   l.state = "ok"; l.invuln = CFG.KIT_INVULN; l.rescue = 0; l.downTimer = 0; l.restTimer = 0; l.path = [];
   l.kx = 0; l.ky = 0; l.moving = false; l.botWait = 0; l.fleeT = 0;
+  l.kissCd = Math.max(l.kissCd, CFG.KIT_SLOT_LOCK);      // второй тап по тому же месту (там уже 💋) не бросает поцелуй
   popText(l.x, l.y - 40, L().kitUsed, "#7CFC9A");
   burst(l.x, l.y - 10, "star", "#fde68a", 14);
   SFX.rescue();
@@ -2798,8 +2803,8 @@ function drawHUDPhone(t) {
     noteText("hint", labelFit(chipText(l), cx, cy, hint, tr.cd - cpx(4), l.state === "down" ? "#fecaca" : "#fff", "center", hint));
   });
   // внизу справа: 💋 (или 🩹, пока герой лежит, хромает домой или отдыхает — SPEC-007) и рукавицы рядом
-  const kitOn = mode === "play" && canUseKit(littles[0]), kissOn = mode === "play" && !kitOn && progress.inv.kisses > 0;
-  if (kitOn) kitButton(0); else if (kissOn) kissButton(0);
+  const kitOn = canUseKit(littles[0]), kissOn = mode === "play" && !kitOn && progress.inv.kisses > 0;
+  if (kitOn) kitButton(0, t); else if (kissOn) kissButton(0);
   const kr = kissBtnRect(0), gl = gloveOf(0), gh = cpx(44), gEach = cpx(80);
   let rightEdge = kitOn || kissOn ? kr.x - gap : UW - m;
   if (gl) {
@@ -2862,7 +2867,7 @@ function drawHUD(t) {
   }
   // кнопка игрока: 💋, а пока он лежит, хромает домой или отдыхает и спасалки есть — 🩹 на том же месте (SPEC-007)
   if (isTouch && mode === "play") for (let pi = 0; pi < numPlayers; pi++) {
-    if (canUseKit(littles[pi])) kitButton(pi); else if (progress.inv.kisses > 0) kissButton(pi);
+    if (canUseKit(littles[pi])) kitButton(pi, t); else if (progress.inv.kisses > 0) kissButton(pi);
   }
   rr(UW / 2 - 95, 8, 110, 34, 14); fillStroke("rgba(255,255,255,.8)", 3);
   label(timerText(), UW / 2 - 40, 25, 14, OUT);
@@ -2884,7 +2889,7 @@ function drawHUD(t) {
 // Подсказка «Нажми 🩹» (SPEC-007): видна KIT_HINT_TIME сек, пока упавший игрок может встать спасалкой.
 // Без сенсорного экрана — ещё и клавиша этого игрока: Q (игрок 2 вдвоём — Shift справа)
 const kitHintOn = () => mode === "play" && kitHintT > 0 && canUseKit(littles[kitHintPi]);
-const kitHintText = () => L().kitHint + (PHONE || isTouch ? "" : numPlayers === 2 && kitHintPi === 1 ? " (Shift ⇨)" : " (Q)");
+const kitHintText = () => L().kitHint + (PHONE || isTouch ? "" : ` (${numPlayers === 2 && kitHintPi === 1 ? L().kitKey2 : L().kitKey1})`);
 function drawKitHint(x, y, w, h, r, note, size, min) {
   const text = kitHintText();
   rr(x, y, w, h, r); fillStroke("rgba(255,250,235,.95)", 3);
@@ -2919,8 +2924,8 @@ function kissButton(pi) {
   buttons.push({ ...rc, act: () => throwKiss(pi), id: "kiss:" + pi });
 }
 // Круглая кнопка 🩹 игрока pi — на месте 💋 (поцелуй лёжа всё равно не бросить); мигает кольцом, сверху — сколько спасалок
-function kitButton(pi) {
-  const rc = kissBtnRect(pi), r = rc.w / 2, cx = rc.x + r, cy = rc.y + r, pulse = 0.5 + 0.5 * Math.sin(performance.now() / 180);
+function kitButton(pi, t) {
+  const rc = kissBtnRect(pi), r = rc.w / 2, cx = rc.x + r, cy = rc.y + r, pulse = 0.5 + 0.5 * Math.sin(t * 5.5);
   ctx.save(); ctx.globalAlpha = 0.95;
   ctx.fillStyle = "rgba(0,0,0,.3)"; circle(cx + 2, cy + 4, r); ctx.fill();
   circle(cx, cy, r); fillStroke("#dcfce7", 4, numPlayers === 2 ? P_COLORS[pi] : OUT);
@@ -3326,9 +3331,10 @@ function drawOverlayPhone() {
     const noH = Math.max(0, ...bl.map(b => b.no ? b.no.h + sp : 0));
     const by = y0 + ch - pad - noH - B;                                      // кнопки «Купить» — одна высота
     const topH = b => pad + picH + sp + b.name.h + b.desc.h, lowH = (b, have) => b.pack.h + (have ? b.have.h : 0) + sp;
-    const room = Math.min(...bl.map(b => by - lowH(b, true) - (y0 + topH(b) + sp)));
-    const badge = room < 0;
+    const roomOf = have => Math.min(...bl.map(b => by - lowH(b, have) - (y0 + topH(b) + sp)));
+    const room = roomOf(true), badge = room < 0;
     if (room > 0) picH += Math.min(c(16), room);                              // место есть — картинка крупнее
+    else if (badge) { const r2 = roomOf(false); if (r2 < 0) picH = Math.max(c(18), picH + r2); }   // и без «у вас» тесно — картинка меньше
     const box = (id, b, x, y) => hudRects.push({ id, x: x - b.w / 2, y, w: b.w, h: b.h });   // тексты карточек: тест проверяет, что не налезают
     cards.forEach((cd, i) => {
       const x0 = X0 + i * (cw + cg), cx = x0 + cw / 2, b = bl[i];
