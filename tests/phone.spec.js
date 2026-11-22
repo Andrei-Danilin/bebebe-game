@@ -410,3 +410,110 @@ test.describe("desktop touch", () => {
     expect(errors).toEqual([]);
   });
 });
+
+// AC 6–7: mini-map and edge arrows.
+const overlaps = (a, b, pad = 0) => a.x < b.x + b.w + pad && a.x + a.w + pad > b.x && a.y < b.y + b.h + pad && a.y + a.h + pad > b.y;
+const kindsOf = mm => new Set(mm.markers.map(m => m.kind));
+
+test.describe("phone mini-map", () => {
+  test.use(PHONE_CTX);
+
+  test("mini-map shows the level and everyone on it", async ({ page }) => {
+    const errors = await phonePlay(page);
+    await placeHero(page, 560, 300);
+    await frames(page);
+    const ui = await page.evaluate(() => window.__bb.uiSize);
+    let mm = await page.evaluate(() => window.__bb.minimap);
+    expect(mm).toBeTruthy();
+    // top-right, inside the UI (which is inside the safe area), 26 % of the width, 3:2
+    expect(mm.x + mm.w).toBeLessThanOrEqual(ui.w); expect(mm.x + mm.w).toBeGreaterThan(ui.w - 20);
+    expect(mm.y).toBeGreaterThanOrEqual(0); expect(mm.y).toBeLessThan(20);
+    expect(Math.abs(mm.w - 0.26 * ui.w)).toBeLessThan(1);
+    expect(Math.abs(mm.w / mm.h - 1.5)).toBeLessThan(0.01);
+    for (const k of ["hero", "bot", "big", "cone", "view"]) expect(kindsOf(mm).has(k), k).toBe(true);
+    const hero = mm.markers.find(m => m.kind === "hero");
+    expect(Math.abs(hero.x - (mm.x + 560 * mm.w / 960))).toBeLessThan(1);
+    expect(Math.abs(hero.y - (mm.y + 300 * mm.h / 640))).toBeLessThan(1);
+    expect(mm.markers.filter(m => m.kind === "bot").length).toBe(4);
+    // a star, an item and a downed bot appear
+    await page.evaluate(() => { const b = window.__bb; b.spawnStar(); b.spawnItem(); Object.assign(b.littles[1], { state: "down", downTimer: 18, rescue: 0 }); });
+    await frames(page);
+    mm = await page.evaluate(() => window.__bb.minimap);
+    for (const k of ["star", "item", "downed"]) expect(kindsOf(mm).has(k), k).toBe(true);
+    // nothing in the HUD sits on the mini-map
+    const rects = await page.evaluate(() => window.__bb.buttonRects);
+    for (const r of rects) expect(overlaps(r, mm), `button ${r.id} ${r.text}`).toBe(false);
+    for (const r of await page.evaluate(() => window.__bb.hudRects)) expect(overlaps(r, mm), `hud ${r.id}`).toBe(false);
+    // the base layer is cached: not redrawn every frame, redrawn for a new level or place
+    const b0 = mm.baseDraws;
+    for (let i = 0; i < 5; i++) await frames(page);
+    expect(await page.evaluate(() => window.__bb.minimap.baseDraws)).toBe(b0);
+    await page.evaluate(() => window.__bb.startGame(1));            // same level again: same picture
+    await frames(page);
+    expect(await page.evaluate(() => window.__bb.minimap.baseDraws)).toBe(b0);
+    await page.evaluate(() => { window.__bb.level = 3; window.__bb.startGame(1); });
+    await frames(page);
+    expect(await page.evaluate(() => window.__bb.minimap.baseDraws)).toBe(b0 + 1);
+    await page.evaluate(() => { window.__bb.placeSel = "beach"; window.__bb.startGame(1); });
+    await frames(page);
+    expect(await page.evaluate(() => window.__bb.minimap.baseDraws)).toBe(b0 + 2);
+    expect(errors).toEqual([]);
+  });
+
+  test("edge arrows point to the off-screen Big One and downed friends", async ({ page }) => {
+    // Each teleport (the Big One, a downed bot) costs a ~15 s GPU stall in SwiftShader on the next frame —
+    // on desktop too, not caused by the phone code — so this test gets the slow timeout.
+    test.slow();
+    const errors = await phonePlay(page);
+    await placeHero(page, 560, 300);
+    const ui = await page.evaluate(() => window.__bb.uiSize);
+    // the Big One far away in the bottom-left: one red arrow at the edge, towards him
+    await page.evaluate(() => Object.assign(window.__bb.big, { x: 60, y: 600 }));
+    await frames(page);
+    let r = await page.evaluate(() => {
+      const b = window.__bb, l = b.littles[0];
+      return { arrows: b.edgeArrows, hs: b.toScreen(l.x, l.y), ts: b.toScreen(b.big.x, b.big.y), mm: b.minimap, buttons: b.buttonRects };
+    });
+    expect(r.ts.x < 0 || r.ts.x > ui.w || r.ts.y < 0 || r.ts.y > ui.h).toBe(true);   // really off screen
+    let big = r.arrows.filter(a => a.kind === "big");
+    expect(big.length).toBe(1);
+    const want = Math.atan2(r.ts.y - r.hs.y, r.ts.x - r.hs.x);
+    expect(Math.abs(big[0].angle - want)).toBeLessThan(0.01);
+    const edgeDist = a => Math.min(a.x, ui.w - a.x, a.y, ui.h - a.y);
+    expect(edgeDist(big[0])).toBeLessThan(40);                                         // at the screen edge
+    const toArrow = Math.atan2(big[0].y - r.hs.y, big[0].x - r.hs.x);
+    expect(Math.abs(toArrow - want)).toBeLessThan(0.35);                               // on the side facing him
+    // bring him on screen: no arrow
+    await page.evaluate(() => Object.assign(window.__bb.big, { x: 620, y: 330 }));
+    await frames(page);
+    expect(await page.evaluate(() => window.__bb.edgeArrows.filter(a => a.kind === "big").length)).toBe(0);
+    // a downed bot off screen in the top-right (where the mini-map is): a green arrow, clear of the mini-map and buttons
+    await page.evaluate(() => Object.assign(window.__bb.littles[1], { x: 900, y: 40, state: "down", downTimer: 18, rescue: 0 }));
+    await frames(page);
+    r = await page.evaluate(() => {
+      const b = window.__bb, l = b.littles[0];
+      return { arrows: b.edgeArrows, hs: b.toScreen(l.x, l.y), ts: b.toScreen(b.littles[1].x, b.littles[1].y), mm: b.minimap, buttons: b.buttonRects };
+    });
+    expect(r.ts.y).toBeLessThan(0);
+    const down = r.arrows.filter(a => a.kind === "downed");
+    expect(down.length).toBe(1);
+    expect(Math.abs(down[0].angle - Math.atan2(r.ts.y - r.hs.y, r.ts.x - r.hs.x))).toBeLessThan(0.01);
+    for (const a of r.arrows) {
+      const box = { x: a.x - a.r, y: a.y - a.r, w: 2 * a.r, h: 2 * a.r };
+      expect(overlaps(box, r.mm), "arrow on the mini-map").toBe(false);
+      for (const bt of r.buttons) expect(overlaps(box, bt), `arrow on button ${bt.id}`).toBe(false);
+      expect(box.x).toBeGreaterThanOrEqual(0); expect(box.x + box.w).toBeLessThanOrEqual(ui.w);
+      expect(box.y).toBeGreaterThanOrEqual(0); expect(box.y + box.h).toBeLessThanOrEqual(ui.h);
+    }
+    expect(errors).toEqual([]);
+  });
+});
+
+test("desktop has no mini-map and no edge arrows", async ({ page }) => {
+  const errors = await openGame(page);
+  await page.evaluate(() => { const b = window.__bb; b.startGame(1); Object.assign(b.littles[1], { state: "down", downTimer: 18 }); });
+  await frames(page);
+  expect(await page.evaluate(() => window.__bb.minimap)).toBe(null);
+  expect(await page.evaluate(() => window.__bb.edgeArrows)).toEqual([]);
+  expect(errors).toEqual([]);
+});

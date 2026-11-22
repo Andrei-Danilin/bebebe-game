@@ -124,6 +124,8 @@ const CFG = {
   CAM_FOLLOW: 6,             // 1/сек — как быстро камера догоняет героя
   CAM_LOOKAHEAD: 1.5,        // клеток — камера чуть забегает вперёд по ходу героя
   MINIMAP_W: 0.26,           // доля ширины интерфейса — ширина мини-карты (3:2)
+  MINIMAP_MARGIN: 8,         // UI px — отступ мини-карты от краёв
+  ARROW_R: 16,               // UI px — радиус кружка стрелки у края экрана
   STICK_ZONE: 0.55,          // доля ширины слева, где касание создаёт джойстик
   PHONE_STICK_R: 60,         // CSS px — радиус джойстика на телефоне
   PHONE_BTN_MIN: 44,         // CSS px — кнопка на телефоне не меньше
@@ -2526,13 +2528,16 @@ function drawHUD(t) {
   const nameW = Math.min(ctx.measureText(bigName).width, timerX - 10 - 8 - 8 - 18 - hearts - 6);
   const hx = 18 + nameW + 18, hpW = hx + hearts - 10 - (hStep - hSize / 2) + 9;
   rr(10, 8, hpW, 34, 14); fillStroke("rgba(255,255,255,.8)", 3);
+  hudRects.push({ id: "hearts", x: 10, y: 8, w: hpW, h: 34 });
   labelFit(bigName, 18, 25, 15, nameW, "#9b2c3a", "left");
   for (let i = 0; i < big.maxHp; i++) drawHpHeart(hx + i * hStep, 25 - hSize / 2 - 1, hSize, heartFill(i, big.hp));
 
-  const chipW = 32, totalW = littles.length * chipW + 14, x0 = UW - totalW - 10;
-  rr(x0, 8, totalW, 34, 14); fillStroke("rgba(255,255,255,.8)", 3);
+  const chipW = 32, totalW = littles.length * chipW + 14, mmr = showMinimap() ? minimapRect() : null;
+  const x0 = mmr ? mmr.x + mmr.w - totalW : UW - totalW - 10, y0 = mmr ? mmr.y + mmr.h + 6 : 8;   // телефон: под мини-картой
+  rr(x0, y0, totalW, 34, 14); fillStroke("rgba(255,255,255,.8)", 3);
+  hudRects.push({ id: "team", x: x0, y: y0, w: totalW, h: 34 });
   littles.forEach((l, i) => {
-    const cx = x0 + 7 + i * chipW + chipW / 2, cy = 25;
+    const cx = x0 + 7 + i * chipW + chipW / 2, cy = y0 + 17;
     ctx.globalAlpha = l.state === "home" || l.state === "rest" ? 0.45 : 1;
     circle(cx, cy, 11); fillStroke(l.state === "ok" ? l.look.shirt : "#9ca3af", 2.5);
     ctx.globalAlpha = 1;
@@ -2546,12 +2551,14 @@ function drawHUD(t) {
   if (kinds.length || showKiss) {                          // сколько сильных обнимашек и поцелуев осталось
     const n = kinds.length + (showKiss ? 1 : 0);
     rr(10, 48, 20 + n * 70, 34, 14); fillStroke("rgba(255,255,255,.8)", 3);
+    hudRects.push({ id: "gloves", x: 10, y: 48, w: 20 + n * 70, h: 34 });
     kinds.forEach((k, i) => { drawMitten(30 + i * 70, 65, 26, k); label("×" + progress.inv[k], 58 + i * 70, 65, 16, OUT); });
     if (showKiss) { const i = kinds.length; drawKiss(30 + i * 70, 67, 26); label("×" + progress.inv.kisses, 58 + i * 70, 65, 16, OUT); }
   }
   if (isTouch && mode === "play" && progress.inv.kisses > 0) for (let pi = 0; pi < numPlayers; pi++) kissButton(pi);
   const s = Math.floor(stats.time);
   rr(UW / 2 - 95, 8, 110, 34, 14); fillStroke("rgba(255,255,255,.8)", 3);
+  hudRects.push({ id: "timer", x: UW / 2 - 95, y: 8, w: 110, h: 34 });
   label(`${L().lvShort} ${level}  ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`, UW / 2 - 40, 25, 14, OUT);
   addButton(UW / 2 + 22, 8, 40, 34, "II", "#64748b", () => { mode = "pause"; }, 16);
   if (!STANDALONE) addButton(UW / 2 + 68, 8, 40, 34, "⛶", "#64748b", toggleFullscreen, 18);   // на iPhone нет Fullscreen API
@@ -2571,8 +2578,10 @@ function drawHUD(t) {
     const tl = l.state === "rest" ? l.restTimer : CFG.REST_TIME;
     const txt = L().resting(nameOf(l), fmtTime(Math.max(0, tl)));
     rr(UW / 2 - 230, UH - 58 - i * 44, 460, 38, 14); fillStroke("rgba(30,41,59,.75)", 3);
+    hudRects.push({ id: "rest", x: UW / 2 - 230, y: UH - 58 - i * 44, w: 460, h: 38 });
     fitText("💤 " + txt, UW / 2, UH - 39 - i * 44, 17, 440, "center", "#e0e7ff", 800);
   });
+  if (showMinimap()) { drawMinimap(t); drawEdgeArrows(); }
 }
 
 // Круглая кнопка 💋 игрока pi: внизу справа (один игрок) или на своей стороне (двое); касание здесь — не джойстик
@@ -2597,6 +2606,121 @@ function kissButton(pi) {
   circle(cx + r * 0.72, cy - r * 0.72, 13); fillStroke("#ff4d8d", 2.5);
   label(String(progress.inv.kisses), cx + r * 0.72, cy - r * 0.72 + 1, 13, "#fff");
   buttons.push({ ...rc, act: () => throwKiss(pi), id: "kiss:" + pi });
+}
+
+// ---------- Мини-карта и стрелки у края (SPEC-005, только телефон) ----------
+let mmBase = null, mmKey = "", mmDraws = 0, mmState = null, edgeArrows = [], hudRects = [];
+const showMinimap = () => PHONE && (mode === "play" || mode === "pause");
+// правый верхний угол, ширина MINIMAP_W от ширины интерфейса, 3:2 (как карта 30×20)
+function minimapRect() {
+  const m = CFG.MINIMAP_MARGIN, w = Math.round(UW * CFG.MINIMAP_W), h = w * 2 / 3;
+  return { x: UW - m - w, y: m, w, h };
+}
+// смесь двух цветов "#rrggbb" (f = доля второго)
+function mixHex(a, b, f) {
+  if (!/^#[0-9a-f]{6}$/i.test(a) || !/^#[0-9a-f]{6}$/i.test(b)) return a;
+  const p = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)), x = p(a), y = p(b);
+  return `rgb(${x.map((v, i) => Math.round(v + (y[i] - v) * f)).join(",")})`;
+}
+// нижний слой: земля, стены, вода, кусты, домики — рисуется один раз на уровень, место и размер
+function minimapBase(r) {
+  const key = builtKey + ":" + r.w + ":" + VIEW;
+  if (mmBase && key === mmKey) return mmBase;
+  mmKey = key; mmDraws++;
+  const th = THEMES[currentPlace()], c = mmBase || (mmBase = document.createElement("canvas"));
+  c.width = Math.max(1, Math.round(r.w * VIEW)); c.height = Math.max(1, Math.round(r.h * VIEW));
+  const g = c.getContext("2d");
+  g.setTransform(c.width / W, 0, 0, c.height / H, 0, 0);          // рисуем в px карты
+  g.fillStyle = th.g1; g.fillRect(0, 0, W, H);
+  for (const f of floors) {
+    const col = f.kind === "bridge" ? th.bridge?.[0] : f.kind === "square" ? th.square?.[0] : null;
+    if (col) { g.fillStyle = col; g.fillRect(f.x, f.y, f.w, f.h); }
+  }
+  if (safeZone) { g.fillStyle = "rgba(59,130,246,.45)"; g.fillRect(safeZone.x, safeZone.y, safeZone.w, safeZone.h); }
+  if (dangerZone) { g.fillStyle = "rgba(239,68,68,.4)"; g.fillRect(dangerZone.x, dangerZone.y, dangerZone.w, dangerZone.h); }
+  for (const o of obstacles) {
+    const col = o.kind === "water" || o.kind === "pond" ? th.water?.c || "#5ab8f0"
+      : o.kind === "tree" ? "#2f7d32" : o.kind === "rock" ? "#94a3b8"
+      : o.kind === "cottage" ? th.cottage?.roof || "#ef4444"
+      : o.kind === "maze" || o.kind === "hedge" ? th.maze?.wall || "#3f9a4a"
+      : (th.walls[o.kind] || th.walls.build)[0];
+    g.fillStyle = o.sight && o.shape === "rect" ? mixHex(col, "#1e293b", 0.3) : col;   // стены темнее — видно и на снегу
+    if (o.shape === "circle") { g.beginPath(); g.arc(o.x, o.y, o.r, 0, TAU); g.fill(); }
+    else g.fillRect(o.x, o.y, o.w, o.h);
+  }
+  g.fillStyle = "#2e8b3e";
+  for (const b of bushes) { g.beginPath(); g.arc(b.x, b.y, b.r * 0.5, 0, TAU); g.fill(); }
+  return c;
+}
+// верхний слой каждый кадр: герой, боты, упавшие (мигают), Большой с конусом, звёздочки, предметы, рамка камеры
+function drawMinimap(t) {
+  const r = minimapRect(), sx = r.w / W, sy = r.h / H, markers = [];
+  const X = x => r.x + x * sx, Y = y => r.y + y * sy, mark = (kind, x, y) => markers.push({ kind, x, y });
+  const dot = (x, y, rad, fill, ring = "#fff", lw = 1.5) => { circle(x, y, rad); fillStroke(fill, lw, ring); };
+  ctx.save();
+  rr(r.x, r.y, r.w, r.h, 10); ctx.fillStyle = "rgba(15,23,42,.35)"; ctx.fill();
+  ctx.clip();
+  ctx.globalAlpha = 0.85; ctx.drawImage(minimapBase(r), r.x, r.y, r.w, r.h); ctx.globalAlpha = 1;
+  // конус Большого — тот же многоугольник, что в 3D (обрезан стенами)
+  const pos = coneGeo.attributes.position.array, calm = big.stun > 0 || big.slip > 0 || big.blush > 0;
+  ctx.beginPath(); ctx.moveTo(X(pos[0] * CELL), Y(pos[2] * CELL));
+  for (let i = 1; i <= CONE_N + 1; i++) ctx.lineTo(X(pos[i * 3] * CELL), Y(pos[i * 3 + 2] * CELL));
+  ctx.closePath(); ctx.fillStyle = calm ? "rgba(255,255,255,.25)" : "rgba(250,204,21,.55)"; ctx.fill();
+  mark("cone", X(big.x), Y(big.y));
+  for (const s of bonusStars) { dot(X(s.x), Y(s.y), 3.5, "#facc15", OUT, 1); mark("star", X(s.x), Y(s.y)); }
+  for (const it of items) { dot(X(it.x), Y(it.y), 3, "#fb923c"); mark("item", X(it.x), Y(it.y)); }
+  const hero = camHero(), blink = Math.sin(t * 10) > 0;
+  for (const l of littles) {
+    if (l === hero) continue;
+    if (l.state === "down") { dot(X(l.x), Y(l.y), 4, blink ? "#22c55e" : "#fff", OUT); mark("downed", X(l.x), Y(l.y)); continue; }
+    ctx.globalAlpha = l.state === "home" || l.state === "rest" ? 0.5 : 1;
+    dot(X(l.x), Y(l.y), 2.8, "#fff", OUT, 1); ctx.globalAlpha = 1;
+    mark("bot", X(l.x), Y(l.y));
+  }
+  dot(X(big.x), Y(big.y), 5, "#ef4444"); mark("big", X(big.x), Y(big.y));
+  if (hero) { dot(X(hero.x), Y(hero.y), 4.5, hero.state === "down" && blink ? "#fff" : P_COLORS[0], "#fff", 2); mark("hero", X(hero.x), Y(hero.y)); }
+  const v = camRect();
+  ctx.lineWidth = 3; ctx.strokeStyle = "rgba(30,41,59,.6)"; ctx.strokeRect(X(v.x), Y(v.y), v.w * sx, v.h * sy);   // тёмная подложка — рамку видно и на снегу
+  ctx.lineWidth = 1.5; ctx.strokeStyle = "#fff"; ctx.strokeRect(X(v.x), Y(v.y), v.w * sx, v.h * sy);
+  mark("view", X(v.x + v.w / 2), Y(v.y + v.h / 2));
+  ctx.restore();
+  rr(r.x, r.y, r.w, r.h, 10); ctx.lineWidth = 2; ctx.strokeStyle = "rgba(255,255,255,.75)"; ctx.stroke();
+  mmState = { ...r, baseDraws: mmDraws, markers };
+}
+// стрелки у края экрана: Большой (красная) и упавшие друзья (зелёная с ❗), если их не видно;
+// на линии герой → цель, в стороне от мини-карты, верхней полосы и кнопок
+function drawEdgeArrows() {
+  const hero = camHero();
+  if (!hero || mode !== "play") return;
+  const R = CFG.ARROW_R, E = R + 9;                                  // E — с кончиком стрелки
+  const hs = toScreen(hero.x, hero.y);
+  const box = { x0: E + 2, x1: UW - E - 2, y0: E + 2, y1: UH - E - 2 };
+  const blocks = [minimapRect(), ...buttons, ...hudRects].map(b => ({ x: b.x - E - 2, y: b.y - E - 2, w: b.w + 2 * E + 4, h: b.h + 2 * E + 4 }));
+  const targets = [{ kind: "big", o: big }, ...littles.filter(l => l !== hero && l.state === "down").map(o => ({ kind: "downed", o }))];
+  for (const { kind, o } of targets) {
+    const ts = toScreen(o.x, o.y);
+    if (ts.x >= 0 && ts.x <= UW && ts.y >= 0 && ts.y <= UH) continue;
+    const a = Math.atan2(ts.y - hs.y, ts.x - hs.x), dx = Math.cos(a), dy = Math.sin(a);
+    let k = Infinity;
+    if (dx > 1e-6) k = Math.min(k, (box.x1 - hs.x) / dx); else if (dx < -1e-6) k = Math.min(k, (box.x0 - hs.x) / dx);
+    if (dy > 1e-6) k = Math.min(k, (box.y1 - hs.y) / dy); else if (dy < -1e-6) k = Math.min(k, (box.y0 - hs.y) / dy);
+    const p = { x: clamp(hs.x + dx * k, box.x0, box.x1), y: clamp(hs.y + dy * k, box.y0, box.y1) };
+    const side = Math.abs(p.x - box.x0) < 0.5 || Math.abs(p.x - box.x1) < 0.5;   // на левом/правом краю едем вверх-вниз
+    for (let i = 0; i < 8; i++) {
+      const b = blocks.find(q => p.x > q.x && p.x < q.x + q.w && p.y > q.y && p.y < q.y + q.h);
+      if (!b) break;
+      if (side) { const lo = b.y, hi = b.y + b.h; p.y = (lo >= box.y0 && (p.y - lo < hi - p.y || hi > box.y1)) ? lo : hi; }
+      else { const lo = b.x, hi = b.x + b.w; p.x = (lo >= box.x0 && (p.x - lo < hi - p.x || hi > box.x1)) ? lo : hi; }
+      p.x = clamp(p.x, box.x0, box.x1); p.y = clamp(p.y, box.y0, box.y1);
+    }
+    const col = kind === "big" ? "#ef4444" : "#22c55e";
+    ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(a);
+    ctx.beginPath(); ctx.moveTo(E, 0); ctx.lineTo(R - 4, -9); ctx.lineTo(R - 4, 9); ctx.closePath(); fillStroke(col, 2.5, "#fff");
+    ctx.restore();
+    circle(p.x, p.y, R); fillStroke(col, 3, "#fff");
+    if (kind === "big") drawHeart(p.x, p.y + 1, 15, "#fff", false); else label("❗", p.x, p.y + 1, 17, "#fff");
+    edgeArrows.push({ kind, x: p.x, y: p.y, angle: a, r: E });
+  }
 }
 
 function drawOverlay() {
@@ -2769,7 +2893,7 @@ function drawBanner() {
 }
 function drawUI(t) {
   if (nameInput && mode !== "skins" && mode !== "names") closeNameInput(false);
-  buttons = []; installHintShown = false; typeLabel = null;
+  buttons = []; installHintShown = false; typeLabel = null; mmState = null; edgeArrows = []; hudRects = [];
   ctx.setTransform(VIEW, 0, 0, VIEW, 0, 0);
   ctx.clearRect(0, 0, UW, UH);
   if (mode !== "menu" && mode !== "skins" && mode !== "names" && mode !== "shop") { drawMarkers(t); drawFx(); drawHUD(t); }
@@ -4090,6 +4214,7 @@ window.__bb = {
   get buttonRects() { return buttons.map(b => ({ id: b.id || b.act.name, x: b.x, y: b.y, w: b.w, h: b.h, text: b.text })); },
   // слой интерфейса: размер в UI px, размер холста в CSS px, scale = CSS px на UI px (SPEC-005)
   updateCamera, camSnap, stickR, skinPanels,
+  get minimap() { return mmState; }, get edgeArrows() { return edgeArrows; }, get hudRects() { return hudRects; },
   get sticks() { return [...sticks].map(([id, s]) => ({ id, ...s })); },
   get uiSize() { return { w: UW, h: UH, cssW: CSS_W, cssH: CSS_H, scale: CSS_W / UW }; }, toGame,
   get names() { return allNames(); }, setName, nameOf, inDanger, get stars() { return bonusStars; }, spawnStar, giveReward,
