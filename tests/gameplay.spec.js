@@ -94,20 +94,19 @@ test("bots wait before they go to rescue", async ({ page }) => {
     Object.assign(b.big, { state: "look", timer: 999, stun: 0, noPush: 0, pushCd: 0, slip: 0, x: 500, y: 320, dir: 0 });
     Object.assign(l, { state: "ok", invuln: 0, x: 535, y: 320 });
     b.update(1 / 60);
-    const out = { st: l.state, wait: l.botWait, early: 0 };
+    const out = { st: l.state, wait: l.botWait, first: -1 };
+    t.calm(900, 100);                                 // the Big One walks away: only the delay can hold the bots back
     const rescuers = () => b.littles.filter(q => q.kind === "bot" && q.task === "rescue").length;
-    for (let i = 0; i < 110; i++) { b.update(1 / 60); out.early += rescuers(); }   // first ~1.8 s
-    t.step(1.4);
-    out.late = rescuers();
+    for (let i = 1; i <= 4 * 60 && out.first < 0; i++) { b.update(1 / 60); if (rescuers()) out.first = i / 60; }
     out.stillDown = l.state;
     return out;
   });
   expect(r.st).toBe("down");
   expect(r.wait).toBeGreaterThanOrEqual(1.9);
   expect(r.wait).toBeLessThanOrEqual(3);
-  expect(r.early).toBe(0);                          // nobody sets off at once
+  expect(r.first).toBeGreaterThan(r.wait - 0.1);    // nobody sets off before the delay is over…
+  expect(r.first).toBeLessThan(r.wait + 0.2);       // …and a bot goes to help right after it
   expect(r.stillDown).toBe("down");
-  expect(r.late).toBeGreaterThanOrEqual(1);         // after 2–3 s a bot goes to help
 });
 
 test("not rescued in time: limps home, rests 2 minutes, comes back", async ({ page }) => {
@@ -351,6 +350,8 @@ test("stars spawn only in fair places", async ({ page }) => {
           if (!seen[c]) out.push(`lv${lv}: unreachable`);
           if (b.inSafe(st)) out.push(`lv${lv}: in the safe house`);
           if (b.inDanger(st)) out.push(`lv${lv}: in the Big One's house`);
+          const dz = b.dangerZone, m = 2 * CELL;                         // walls and doorway cells of his house too
+          if (st.x > dz.x - m && st.x < dz.x + dz.w + m && st.y > dz.y - m && st.y < dz.y + dz.h + m) out.push(`lv${lv}: in the Big One's doorway`);
           if (Math.hypot(dx, dy) < 6 * CELL) out.push(`lv${lv}: too close to the house`);
           if (b.items.some(it => cellOf(it) === c)) out.push(`lv${lv}: on an item`);
         }
@@ -412,4 +413,30 @@ test("star coins are added to the reward", async ({ page }) => {
   expect(r.starCoins).toBe(3);
   expect(r.coins).toBe(5 + 3);                      // COINS_MIN_WIN + star coins
   expect(await page.evaluate(() => window.__bb.progress.coins)).toBe(3 + 8);
+  // a lost level: the reward keeps the star coins apart, nothing is counted twice
+  await page.evaluate(() => { const b = window.__bb; b.placeSel = "park"; b.level = 1; b.startGame(1); });
+  await installTestHelpers(page);
+  expect(await take()).toBe(14);
+  const lost = await page.evaluate(() => { const b = window.__bb; b.stats.playerHugs = 2; b.giveReward(false); b.mode = "lose"; return { r: b.lastReward, coins: b.progress.coins }; });
+  expect(lost.r.win).toBe(false);
+  expect(lost.r.starCoins).toBe(3);
+  expect(lost.r.coins).toBe(2 * 2 + 3);             // hugs + star coins
+  expect(lost.coins).toBe(14 + 4);
+  await page.waitForTimeout(300);                   // the lose screen draws without errors
+});
+
+test("a danger zone without exits throws out to the nearest free cell", async ({ page }) => {
+  await installTestHelpers(page);
+  const r = await page.evaluate(() => {
+    const b = window.__bb, t = window.__t, l = b.littles[0], z = b.dangerZone;
+    t.calm(900, 100); t.pin([0]);
+    z.exits.length = 0;                               // e.g. a future level type that forgets the exits
+    Object.assign(l, { state: "ok", x: z.x + z.w / 2, y: z.y + z.h / 2, invuln: 0 });
+    t.step(5.1);
+    const d = Math.hypot(Math.max(z.x - l.x, 0, l.x - z.x - z.w), Math.max(z.y - l.y, 0, l.y - z.y - z.h));
+    return { in: b.inDanger(l), dz: l.dizzy, d };
+  });
+  expect(r.in).toBe(false);
+  expect(r.dz).toBeGreaterThan(1.5);
+  expect(r.d).toBeLessThan(3 * 32);                 // right next to the house, not the map centre
 });

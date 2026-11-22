@@ -70,7 +70,7 @@ test("names can be typed on the skins screen", async ({ page }) => {
   const input = page.locator("#wrap input");
   await expect(input).toHaveCount(1);
   await expect(input).toBeFocused();
-  expect(await input.getAttribute("maxlength")).toBe("12");
+  expect(await input.getAttribute("maxlength")).toBe("24");     // room for 12 emoji (2 UTF-16 units each); the save cuts to 12
   expect(await input.getAttribute("enterkeyhint")).toBe("done");
   expect(await input.getAttribute("autocapitalize")).toBe("words");
   expect(await input.inputValue()).toBe("Big One");

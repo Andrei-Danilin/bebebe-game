@@ -14,7 +14,6 @@ One line each: what, where it came from. The spec author turns a line into a spe
 - An "update available" hint in the installed app (today a new version shows on the next launch, because `index.html` is network-first) — SPEC-001 run.
 - SPEC-003 run, open point: a Little One knocked down **inside** the Big One's house can only be rescued by a player (bots leave the house after 2 s, a rescue takes 3 s).
 - SPEC-003 run, open point: the menu rules do not mention the bonus stars and the dangerous Big One's house yet (the six rule lines are full).
-- SPEC-003 run, open point: the name field has `maxlength` 12 as the spec says, but the browser counts emoji as 2, so typing allows ~6 emoji (saved names are limited to 12 code points).
 - SPEC-003 balance: with 1 idle player, bots rescue ~55 % of bot falls (before: ~100 %); most unrescued falls are one chain per level where the Big One picks off each bot that comes to help. Maybe the kids want the bots to wait until the Big One walks away.
 - Decided during the run, check with the kids: star coins go into the coin box the moment a star is picked up (so they are kept if the level is left or the page closed); the win screen shows them as their own line and inside the total.
 - Decided during the run, check with the kids: the Big One's house has two doors; a Little One who stays too long is thrown out 2 cells outside the door nearest to him.
