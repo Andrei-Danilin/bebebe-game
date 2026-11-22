@@ -73,3 +73,8 @@ One line each: what, where it came from. The spec author turns a line into a spe
 - The HUD plate shows "Lv. N" without the world name (SPEC-006).
 - A beach umbrella overlaps a maze wall end in Beach 18 (cosmetic) (SPEC-006).
 - No test covers the world-card picture (screenshot only) (SPEC-006).
+- Phone edge arrows are placed before the level banner and do not avoid it; an arrow can sit under the banner for its 2 s (SPEC-006 AC 13 fix).
+- Decided during the run, check with the kids: on a phone the level banner goes to the screen half without the hero and may use the short text "Park · 1: Our drawing" (SPEC-006 AC 13).
+- Phone banner: spots that straddle the screen middle are never tried, so the short text is used more often than needed on small screens (SPEC-006 AC 13).
+- Phone banner: the spot is picked once and not re-checked while the hero runs during its 2 s; the joystick base is not avoided either (SPEC-006 AC 13).
+- Flaky test: phone.spec "edge arrows point to the off-screen Big One and downed friends" failed once in 4 local runs (0 downed arrows, expected 1) — bots and the Big One keep moving next to the hero; pin them (big.state "look", other bots away) (seen during the SPEC-006 banner fix).
