@@ -73,3 +73,5 @@ One line each: what, where it came from. The spec author turns a line into a spe
 - The HUD plate shows "Lv. N" without the world name (SPEC-006).
 - A beach umbrella overlaps a maze wall end in Beach 18 (cosmetic) (SPEC-006).
 - No test covers the world-card picture (screenshot only) (SPEC-006).
+- Phone edge arrows are placed before the level banner and do not avoid it; an arrow can sit under the banner for its 2 s (SPEC-006 AC 13 fix).
+- Decided during the run, check with the kids: on a phone the level banner goes to the screen half without the hero and may use the short text "Park · 1: Our drawing" (SPEC-006 AC 13).
