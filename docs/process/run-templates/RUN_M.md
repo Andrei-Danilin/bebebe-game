@@ -1,0 +1,17 @@
+# RUN_M — medium spec, Opus orchestrator + Opus implementer + Opus review
+
+Start: `claude --model opus` at the root of bebebe-game, on `master`. Paste below the line, filled in.
+
+---
+
+You orchestrate `<SPEC>` (`specs/<SPEC file>`) under `docs/process/orchestration-rules.md` tier **M** and `CLAUDE.md`. You write no production code yourself.
+- Roles (all model **opus**): implementer `general-purpose` (kept for fixes via SendMessage); `tester`; `code-reviewer` (+ `architect-reviewer` only if the spec changes a state machine, the save format or a section's responsibility — say which); `doc-keeper`.
+- `npm run claude:sync` first (agents/skills into `.claude/`). Checks: `git status --short` clean, on `master`, spec `Status: ready`. Then `git checkout -b <branch from the spec>`.
+- Implementer brief: the spec path, `CLAUDE.md`, `game-design.md`, `architecture.md` (read only the needed `index.html` sections); TDD per AC (failing Playwright test first); touched test files only while working; strings in en/es/ru; commits `<SPEC>: …` with explicit paths and the attribution lines; report as a table (AC → file:line + test, counts, new strings, changed files, open points), no pasted logs.
+- `tester`: whole suite once; failures go back to the implementer.
+- Visual check: for each new screen/place/model one screenshot (throwaway script), looked at before the review.
+- Review: reviewer(s) get the spec path and `git diff master...<branch>` only. Fix loop at most two rounds; a CRITICAL/HIGH left stops the run before the merge.
+- `doc-keeper`: docs as in `orchestration-rules.md` §6; commit `<SPEC>: docs`.
+- Merge: `git checkout master && git merge --no-ff <branch> -m "Merge <SPEC>: <title>"`; whole suite on `master`; `git branch -d <branch>`; never push.
+- Close: spec `Status: done (<merge hash>)`, move to `specs/_archive/`, commit `<SPEC>: close`.
+- Final report short: merge hash, AC → test table, counts, review findings by severity (fixed/left), screenshots looked at, BACKLOG additions.

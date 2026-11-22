@@ -1,0 +1,17 @@
+# RUN_S — small spec, one Opus session + one Opus review
+
+Start: `claude --model opus` at the root of bebebe-game, on `master`. Paste below the line, with `<SPEC>` filled in.
+
+---
+
+Implement `<SPEC>` (`specs/<SPEC file>`) yourself, following `docs/process/orchestration-rules.md` tier **S** and `CLAUDE.md`.
+1. `npm run claude:sync` (agents/skills into `.claude/`). Checks: `git status --short` clean; on `master`; the spec file exists and its `Status:` is `ready`. Stop if one fails.
+2. `git checkout -b <branch from the spec>`.
+3. Read `CLAUDE.md`, the spec, `docs/game-design.md`, and only the `index.html` sections that `architecture.md` points to.
+4. TDD per AC: failing Playwright test first, then code. Tests while working: the touched test file only.
+5. Commits `<SPEC>: <what>`, explicit paths, attribution lines from your system reminder. New strings in `en`, `es` (voseo), `ru`.
+6. Whole suite once (`npx playwright test`). Then ONE read-only `code-reviewer` (model opus) with only the spec path and `git diff master...<branch>`. Fix CRITICAL/HIGH and cheap MEDIUM in one round; a second review only if a HIGH was fixed.
+7. `doc-keeper` (model opus): update `game-design.md` / `architecture.md` / `README.md` if needed; commit `<SPEC>: docs`.
+8. `git checkout master && git merge --no-ff <branch> -m "Merge <SPEC>: <title>"`; whole suite once on `master`; `git branch -d <branch>`. Never push.
+9. Spec `Status: done (<merge hash>)`, move it to `specs/_archive/`, commit `<SPEC>: close` on `master`.
+10. Report (short): merge hash, AC → test table, test counts, review findings (fixed/left), new strings, open points for BACKLOG.

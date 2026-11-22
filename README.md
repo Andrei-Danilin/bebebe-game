@@ -103,3 +103,17 @@ One HTML file, one ES module:
 `CFG` — gameplay numbers (`HUG_STUN`, `PUSH_RECOVER`, `BOT_ATTACK_PAUSE`, `ITEM_*`, `SLIP_STUN`, `COINS_*`, `FAST_TIME`, …),
 `GLOVES` — gloves (power, price, pack size), `I18N` — texts,
 `HAIRS` / `HATS` / `JACKETS` / `PANTS` / `BIG_SKINS` — outfits, `THEMES` — places, `LITTLE_SCALE` / `BIG_SCALE` — character size in 3D.
+
+## Development
+
+Work is spec-driven: Claude (in the claude.ai project "BeBeBe Atrapar") writes a spec with Andrei and the kids
+into `specs/`, Claude Code implements it on a branch with tests first, reviews, merges into `master`.
+Rules for Claude Code: [`CLAUDE.md`](CLAUDE.md). Game rules: [`docs/game-design.md`](docs/game-design.md).
+
+```bash
+npm run setup          # once: Playwright + three.js for the tests, Chromium, Claude Code agents
+npx playwright test    # all tests (~1.5 min): smoke, gameplay rules, i18n
+```
+
+Run a spec: `claude --model opus` at the repo root, paste `docs/process/run-templates/RUN_S.md`
+(or `RUN_M` / `RUN_L`, as the spec's `Complexity:` says) with the spec name filled in.
