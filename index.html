@@ -127,7 +127,8 @@ const CFG = {
   LAYOUT: {
     meadow: { bushes: [10, 12], trees: [6, 9], rocks: [2, 4], ponds: [0, 2], pondW: [2, 3] },
     maze: { module: 3, bushes: [3, 4], trees: [0, 2], plazas: [1, 2] },
-    village: { cottages: [5, 8], cottageA: [3, 4], cottageB: [3, 5], street: 2, squareW: [5, 6], squareH: [4, 5], bushes: [5, 7], trees: [3, 6], rocks: [0, 2] }
+    village: { cottages: [5, 8], cottageA: [3, 4], cottageB: [3, 5], street: 2, squareW: [5, 6], squareH: [4, 5], bushes: [5, 7], trees: [3, 6], rocks: [0, 2] },
+    river: { width: [2, 3], bend: [4, 6], bridges: [2, 3], bridgeW: [2, 3], bushes: [6, 8], trees: [5, 8], rocks: [1, 3] }
   }
 };
 // Рукавицы из магазина: сколько сердечек забирает одна обнимашка, цена и сколько сильных обнимашек в наборе
@@ -505,6 +506,22 @@ function classicLayout(ctx) {
   place(ri(3, 5), (x, y) => ({ t: "bush", x, y }), 2, 2, 0);
 }
 // общие кусочки раскладок
+// Клетки стен (сетка COLS×ROWS) → прямоугольники-стены kind: сначала горизонтальные отрезки ≥ 2, остальное — вертикальными;
+// клетки стен занимаются в occ
+function emitWalls(items, occ, wall, kind) {
+  const used = new Uint8Array(COLS * ROWS);
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+    if (!wall[y * COLS + x] || used[y * COLS + x]) continue;
+    let e = x; while (e + 1 < COLS && wall[y * COLS + e + 1]) e++;
+    if (e > x) { items.push({ t: "wall", x, y, w: e - x + 1, h: 1, kind }); for (let k = x; k <= e; k++) used[y * COLS + k] = 1; }
+  }
+  for (let x = 0; x < COLS; x++) for (let y = 0; y < ROWS; y++) {
+    if (!wall[y * COLS + x] || used[y * COLS + x]) continue;
+    let e = y; while (e + 1 < ROWS && wall[(e + 1) * COLS + x] && !used[(e + 1) * COLS + x]) e++;
+    items.push({ t: "wall", x, y, w: 1, h: e - y + 1, kind }); for (let k = y; k <= e; k++) used[k * COLS + x] = 1;
+  }
+  for (let k = 0; k < COLS * ROWS; k++) if (wall[k]) occ[k] = 1;
+}
 const genTree = rng => (x, y) => ({ t: "tree", x, y, v: rng() < 0.6 ? "pine" : "round", s: 0.9 + rng() * 0.25 });
 const genRock = rng => (x, y) => ({ t: "rock", x, y, s: 0.9 + rng() * 0.3 });
 const genBush = (x, y) => ({ t: "bush", x, y });
@@ -599,19 +616,7 @@ function mazeLayout(ctx) {
     const near = [edgeOf(id(i, j), id(i + 1, j)), edgeOf(id(i, j + 1), id(i + 1, j + 1)), edgeOf(id(i, j), id(i, j + 1)), edgeOf(id(i + 1, j), id(i + 1, j + 1))];
     if (near.some(e => !e.open)) put(x1(i) + 1, y1(j) + 1);
   }
-  // склеиваем клетки стен в прямоугольники: сначала горизонтальные отрезки ≥ 2, остальное — вертикальными
-  const used = new Uint8Array(COLS * ROWS);
-  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
-    if (!wall[y * COLS + x] || used[y * COLS + x]) continue;
-    let e = x; while (e + 1 < COLS && wall[y * COLS + e + 1]) e++;
-    if (e > x) { items.push({ t: "wall", x, y, w: e - x + 1, h: 1, kind: "maze" }); for (let k = x; k <= e; k++) used[y * COLS + k] = 1; }
-  }
-  for (let x = 0; x < COLS; x++) for (let y = 0; y < ROWS; y++) {
-    if (!wall[y * COLS + x] || used[y * COLS + x]) continue;
-    let e = y; while (e + 1 < ROWS && wall[(e + 1) * COLS + x] && !used[(e + 1) * COLS + x]) e++;
-    items.push({ t: "wall", x, y, w: 1, h: e - y + 1, kind: "maze" }); for (let k = y; k <= e; k++) used[k * COLS + x] = 1;
-  }
-  for (let k = 0; k < COLS * ROWS; k++) if (wall[k]) occ[k] = 1;
+  emitWalls(items, occ, wall, "maze");
   // деревья — в центрах площадей, кусты — по одному на площадь, остальные — в широких местах коридоров
   const trees = Math.min(plazas.length, ri(L.trees[0], L.trees[1])), tree = genTree(rng);
   for (let k = 0; k < trees; k++) { const q = plazas[k], cx = q.x + 2, cy = q.y + 2; items.push(tree(cx, cy)); reserve(cx, cy, 1, 1); }
@@ -654,10 +659,64 @@ function villageLayout(ctx) {
   place(ri(L.rocks[0], L.rocks[1]), genRock(rng));
 }
 
+// Река с мостиками: вода 2–3 клетки от края до края между домиками (горизонтально; при доме Большого по диагонали —
+// иногда вертикально), каждые 4–6 клеток сдвигается на ±1; 2–3 мостика шириной 2–3 клетки; кусты на обоих берегах
+function riverLayout(ctx) {
+  const { rng, ri, items, reserve, place } = ctx, L = CFG.LAYOUT.river, A = CFG.DOOR_APRON;
+  const diag = ctx.homes.variant === "diagonal", vertical = diag && rng() < 0.5;
+  const along = vertical ? ROWS : COLS, w = ri(L.width[0], L.width[1]);
+  // полоса между домиками с их площадками у дверей
+  const lo = vertical ? ctx.homes.small.w + A : ctx.homes.small.h + A;
+  const hi = vertical ? ctx.homes.big.x - A - 1 : ctx.homes.big.y - A - 1;
+  const maxOff = hi - w + 1, top = new Array(along);
+  let off = ri(lo, maxOff);
+  for (let pos = 0; pos < along;) {
+    const seg = ri(L.bend[0], L.bend[1]);
+    for (let k = 0; k < seg && pos < along; k++) top[pos++] = off;
+    const d = rng() < 0.5 ? -1 : 1;
+    off = off + d >= lo && off + d <= maxOff ? off + d : off - d;
+  }
+  // мостики: по одному в каждой части реки, на прямом куске; при домах на одной стороне — не у самих домов
+  const nb = ri(L.bridges[0], L.bridges[1]), bridge = new Uint8Array(along), bridges = [];
+  const minS = !vertical && !diag ? ctx.homes.small.w + A + 1 : 1;
+  for (let k = 0; k < nb; k++) {
+    const bw = ri(L.bridgeW[0], L.bridgeW[1]), p0 = Math.floor(k * along / nb), p1 = Math.floor((k + 1) * along / nb) - 1;
+    const cand = [];
+    for (let st = Math.max(p0, minS); st + bw - 1 <= Math.min(p1, along - 2); st++) {
+      let ok = true;
+      for (let q = st; q < st + bw; q++) if (top[q] !== top[st] || bridge[q]) ok = false;
+      if (ok && !bridge[st - 1] && !bridge[st + bw]) cand.push(st);
+    }
+    if (!cand.length) continue;
+    const st = cand[ri(0, cand.length - 1)];
+    for (let q = st; q < st + bw; q++) bridge[q] = 1;
+    bridges.push(vertical ? { x: top[st], y: st, w, h: bw } : { x: st, y: top[st], w: bw, h: w });
+  }
+  if (bridges.length < L.bridges[0]) ctx.meta.bad = "bridges";
+  // вода — прямыми кусками без мостиков
+  for (let p = 0; p < along;) {
+    if (bridge[p]) { p++; continue; }
+    let e = p; while (e + 1 < along && !bridge[e + 1] && top[e + 1] === top[p]) e++;
+    const r = vertical ? { x: top[p], y: p, w, h: e - p + 1 } : { x: p, y: top[p], w: e - p + 1, h: w };
+    items.push({ t: "water", ...r }); reserve(r.x, r.y, r.w, r.h);
+    p = e + 1;
+  }
+  for (const b of bridges) { items.push({ t: "floor", kind: "bridge", ...b }); reserve(b.x, b.y, b.w, b.h); }
+  // берег клетки: 0 — сторона домика маленьких, 1 — другая
+  const bank = (x, y) => vertical ? (x < top[y] ? 0 : 1) : (y < top[x] ? 0 : 1);
+  const nBush = bushCount(ctx, L.bushes), half = Math.ceil(nBush / 2);
+  place(half, genBush, 2, 2, 0, (x, y) => bank(x, y) === 0);
+  place(nBush - half, genBush, 2, 2, 0, (x, y) => bank(x, y) === 1);
+  place(ri(L.trees[0], L.trees[1]), genTree(rng));
+  place(ri(L.rocks[0], L.rocks[1]), genRock(rng));
+  ctx.meta.areas = { bridges: bridges.map(b => ({ ...b })) };
+  ctx.meta.vertical = vertical;
+}
+
 const LAYOUTS = {
   classic: classicLayout, meadow: meadowLayout, maze: mazeLayout, village: villageLayout,
-  // пока только домики — раскладки появляются по шагам SPEC-002
-  river: () => {}, rooms: () => {}, arena: () => {}
+  river: riverLayout,
+  rooms: () => {}, arena: () => {}   // следующие шаги SPEC-002
 };
 
 function generateLevel(lv, attempt) {
@@ -675,11 +734,11 @@ function generateLevel(lv, attempt) {
   const hWall = (x1, x2, y, kind, gaps = []) => hWallTo(items, x1, x2, y, kind, gaps);
   const vWall = (x, y1, y2, kind, gaps = []) => vWallTo(items, x, y1, y2, kind, gaps);
   // n штук make(x, y) в свободных местах w×h с отступом m клеток от занятого
-  const place = (n, make, w = 1, h = 1, m = 2) => {
+  const place = (n, make, w = 1, h = 1, m = 2, ok = null) => {
     let placed = 0;
     for (let k = 0; k < 500 && placed < n; k++) {
       const x = ri(0, COLS - w), y = ri(0, ROWS - h);
-      if (isFree(x, y, w, h, m)) { items.push(make(x, y)); reserve(x, y, w, h); placed++; }
+      if (isFree(x, y, w, h, m) && (!ok || ok(x, y))) { items.push(make(x, y)); reserve(x, y, w, h); placed++; }
     }
     return placed;
   };
@@ -712,6 +771,7 @@ function applyWorld(gen) {
     const px = it.x * CELL, py = it.y * CELL;
     if (it.t === "wall") obstacles.push({ shape: "rect", x: px, y: py, w: it.w * CELL, h: it.h * CELL, move: true, sight: true, kind: it.kind });
     else if (it.t === "cottage") obstacles.push({ shape: "rect", x: px, y: py, w: it.w * CELL, h: it.h * CELL, move: true, sight: true, kind: "cottage" });
+    else if (it.t === "water") obstacles.push({ shape: "rect", x: px, y: py, w: it.w * CELL, h: it.h * CELL, move: true, sight: false, kind: "water" });
     else if (it.t === "pond") obstacles.push({ shape: "rect", x: px, y: py, w: it.w * CELL, h: it.h * CELL, move: true, sight: false, kind: "pond" });
     else if (it.t === "tree") { const t = { shape: "circle", x: px + 16, y: py + 16, r: 12, sr: 15, move: true, sight: true, kind: "tree", v: it.v, s: it.s }; obstacles.push(t); trees.push(t); }
     else if (it.t === "rock") obstacles.push({ shape: "circle", x: px + 16, y: py + 16, r: 16, sr: 16, move: true, sight: true, kind: "rock", s: it.s });
@@ -2770,8 +2830,9 @@ function paintGround(place) {
       ctx.fillStyle = place === "school" ? "#dbc59c" : "#e4d9c6";
       for (let y = 0; y < f.h / CELL; y++) for (let x = 0; x < f.w / CELL; x++) if ((x + y) % 2) ctx.fillRect(f.x + x * CELL, f.y + y * CELL, CELL, CELL);
     } else {
-      ctx.fillStyle = f.kind === "wood" ? "#f3d9a4" : "#d8a7a2"; ctx.fillRect(f.x, f.y, f.w, f.h);
-      ctx.strokeStyle = f.kind === "wood" ? "#e0bf82" : "#c48f8a"; ctx.lineWidth = 2;
+      const wood = f.kind === "wood" || f.kind === "bridge";
+      ctx.fillStyle = wood ? "#f3d9a4" : "#d8a7a2"; ctx.fillRect(f.x, f.y, f.w, f.h);
+      ctx.strokeStyle = wood ? "#e0bf82" : "#c48f8a"; ctx.lineWidth = 2;
       for (let y = f.y + 16; y < f.y + f.h; y += 16) { ctx.beginPath(); ctx.moveTo(f.x, y); ctx.lineTo(f.x + f.w, y); ctx.stroke(); }
     }
   }
@@ -2826,7 +2887,7 @@ function buildMap3D() {
   }
 
   for (const o of obstacles) {
-    if (o.shape === "rect" && o.kind !== "pond") {
+    if (o.shape === "rect" && o.kind !== "pond" && o.kind !== "water") {
       const w = P(o.w), d = P(o.h), [c0, c1] = o.kind === "hedge" ? HEDGE_COLORS : th.walls[o.kind] || th.walls.build;
       let wm = null;
       if (o.kind === "bighome") { wm = ownMat(c0); wm.emissive = new THREE.Color("#000000"); bigHomeMats.push(wm); }
@@ -2846,7 +2907,7 @@ function buildMap3D() {
           }
         }
       }
-    } else if (o.kind === "pond") makePondFor(place, o);
+    } else if (o.kind === "pond" || o.kind === "water") makePondFor(place, o);
     else if (o.kind === "rock") { const r = makeRockFor(place, o); r.position.set(P(o.x), 0, P(o.y)); mapGroup.add(r); }
     else if (o.kind === "tree") {
       const t = makeTreeFor(place, o, true);

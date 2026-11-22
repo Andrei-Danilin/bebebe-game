@@ -200,3 +200,72 @@ test("village has cottages, streets and a square", async ({ page }) => {
   });
   expect(o).toEqual({ move: true, sight: true, see: true });
 });
+
+// Flood fill over cells that are not solid; returns the reached grid. solid[y][x] === true blocks.
+function flood(solid, start) {
+  const seen = Array.from({ length: 20 }, () => Array(30).fill(false)), q = [start];
+  if (solid[start[1]][start[0]]) return seen;
+  seen[start[1]][start[0]] = true;
+  while (q.length) {
+    const [x, y] = q.pop();
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = x + dx, ny = y + dy;
+      if (nx < 0 || ny < 0 || nx >= 30 || ny >= 20 || seen[ny][nx] || solid[ny][nx]) continue;
+      seen[ny][nx] = true; q.push([nx, ny]);
+    }
+  }
+  return seen;
+}
+const front = d => [d.x + d.dx, d.y + d.dy];   // first cell in front of a house door (gen.doors)
+const SOLID = ["wall", "cottage", "pond", "water", "tree", "rock"];
+
+test("river has bridges and the houses on opposite banks", async ({ page }) => {
+  const levels = await levelsOf(page, "river");
+  expect(levels.map(x => x.lv)).toEqual([5, 11, 17, 23, 29, 35, 41, 47, 53, 59]);
+  let verticals = 0;
+  for (const { lv, tier, r, gen } of levels) {
+    const at = `level ${lv}`;
+    expect(r.fallback, at).toBe(false);
+    const water = cellsOf(gen, it => it.t === "water"), bridge = cellsOf(gen, it => it.t === "floor" && it.kind === "bridge");
+    const river = (x, y) => water[y][x] || bridge[y][x];
+    const vertical = !water.some(row => row[0]) && !water.some(row => row[29]);
+    if (vertical) verticals++;
+    // from one map edge to the opposite one: every line across the river has one run of 2–3 river cells
+    const along = vertical ? 20 : 30, tops = [];
+    for (let p = 0; p < along; p++) {
+      const across = [];
+      for (let q = 0; q < (vertical ? 30 : 20); q++) if (vertical ? river(q, p) : river(p, q)) across.push(q);
+      expect(across.length >= 2 && across.length <= 3 && across[across.length - 1] - across[0] === across.length - 1, `${at}: river at ${p}: ${across}`).toBe(true);
+      tops.push(across[0]);
+    }
+    for (let p = 1; p < along; p++) expect(Math.abs(tops[p] - tops[p - 1]), `${at}: meander at ${p}`).toBeLessThanOrEqual(1);
+    // 2–3 bridges, 2–3 cells wide, no water under them
+    const bridges = gen.items.filter(it => it.t === "floor" && it.kind === "bridge");
+    expect(inRange(bridges.length, [2, 3]), `${at}: ${bridges.length} bridges`).toBe(true);
+    for (const b of bridges) {
+      expect(inRange(vertical ? b.h : b.w, [2, 3]), `${at}: bridge ${JSON.stringify(b)}`).toBe(true);
+      for (let y = b.y; y < b.y + b.h; y++) for (let x = b.x; x < b.x + b.w; x++) expect(water[y][x], `${at}: water under bridge`).toBe(false);
+    }
+    // the houses on opposite banks: without bridges the Little Ones' door can't reach the Big One's door; with them it can
+    const solid = cellsOf(gen, it => SOLID.includes(it.t));
+    const noBridge = solid.map((row, y) => row.map((v, x) => v || bridge[y][x]));
+    const s = front(gen.doors.small[0]), bd = front(gen.doors.big[0]);
+    expect(flood(noBridge, s)[bd[1]][bd[0]], `${at}: banks joined without a bridge`).toBe(false);
+    expect(flood(solid, s)[bd[1]][bd[0]], `${at}: bridges don't join the banks`).toBe(true);
+    // bushes on both banks
+    const bush = gen.items.filter(it => it.t === "bush"), reachS = flood(noBridge, s);
+    expect(inRange(bush.length, bushRange(4, [6, 8], tier)), `${at}: ${bush.length} bushes`).toBe(true);
+    expect(bush.some(q => reachS[q.y][q.x]) && bush.some(q => !reachS[q.y][q.x]), `${at}: bushes on both banks`).toBe(true);
+    expect(inRange(count(gen, it => it.t === "tree"), [5, 8]) && inRange(count(gen, it => it.t === "rock"), [1, 3]), at).toBe(true);
+  }
+  expect(verticals, "some rivers run top to bottom").toBeGreaterThan(0);
+  expect(verticals, "some rivers run left to right").toBeLessThan(levels.length);
+  // in the game: water blocks walking but not sight (the Big One sees across, kisses fly over)
+  const o = await page.evaluate(() => {
+    const b = window.__bb; b.level = 5; b.startGame(1);
+    const w = b.world, o = w.obstacles.find(q => q.kind === "water");
+    const cx = o.x + o.w / 2, cy = o.y + o.h / 2;
+    return { move: o.move, sight: o.sight, see: w.seeSolid(cx, cy), blocked: w.blocked[Math.floor(cy / w.CELL) * w.COLS + Math.floor(cx / w.CELL)] };
+  });
+  expect(o).toEqual({ move: true, sight: false, see: false, blocked: 1 });
+});
