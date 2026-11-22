@@ -506,3 +506,124 @@ test("the menu shows the selected level's type and it fits", async ({ page }) =>
     }
   }
 });
+
+// ---------- AC 10: every type plays for 60 s and nobody gets stuck ----------
+// One player (standing still in the house) + 4 bots; two levels per type (tier 0 and tier 1).
+// At 10 s a bot far from the house is knocked down: it must be rescued, or walk home and lie down to rest.
+// Also checks SPEC-003 (stars only in fair cells, no bot thrown out of the Big One's house, exits are free) on every map.
+function playLevel(lv) {
+  const b = window.__bb, w = b.world, C = w.CELL, COLS = w.COLS, ROWS = w.ROWS;
+  b.level = lv; b.startGame(1);
+  const L = b.littles, big = b.big, bl = w.blocked;
+  // cells the Little Ones can reach from their house
+  const s0 = Math.floor(L[0].y / C) * COLS + Math.floor(L[0].x / C), reach = new Uint8Array(COLS * ROWS), q = [s0]; reach[s0] = 1;
+  while (q.length) { const i = q.pop(), cx = i % COLS, cy = (i / COLS) | 0; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = cx + dx, ny = cy + dy; if (nx < 0 || ny < 0 || nx >= COLS || ny >= ROWS) continue; const j = ny * COLS + nx; if (!bl[j] && !reach[j]) { reach[j] = 1; q.push(j); } } }
+  const cellOf = p => Math.floor(p.y / C) * COLS + Math.floor(p.x / C);
+  const out = { lv, type: b.levelType(lv), badStars: [], badExits: [] };
+  // SPEC-003: the thrown-out spots are free and reachable
+  for (const e of b.dangerZone.exits) if (bl[cellOf(e)] || !reach[cellOf(e)]) out.badExits.push(e);
+  // SPEC-003: bonus stars only in fair cells
+  for (let k = 0; k < 15; k++) {
+    b.stars.length = 0; b.spawnStar();
+    for (const st of b.stars) if (bl[cellOf(st)] || !reach[cellOf(st)] || b.inSafe(st) || b.inDanger(st)) out.badStars.push([st.x, st.y]);
+  }
+  b.stars.length = 0;
+  // the downed bot: a reachable free cell far from the house
+  const home = b.safeZone, hx = home.x + home.w / 2, hy = home.y + home.h / 2;
+  let far = null;
+  for (let i = 0; i < COLS * ROWS; i++) {
+    if (bl[i] || !reach[i]) continue;
+    const p = { x: (i % COLS + 0.5) * C, y: (((i / COLS) | 0) + 0.5) * C };
+    if (b.inDanger(p) || b.inSafe(p)) continue;
+    if (!far || Math.hypot(p.x - hx, p.y - hy) > Math.hypot(far.x - hx, far.y - hy)) far = p;
+  }
+  const bots = L.filter(l => l.kind === "bot"), moved = bots.map(() => 0), last = bots.map(l => ({ x: l.x, y: l.y }));
+  let bigMoved = 0, bigLast = { x: big.x, y: big.y }, bigInSafe = 0, thrown = 0, downed = null;
+  const seq = [];
+  for (let f = 0; f < 60 * 60; f++) {
+    if (f === 600) { downed = bots[0]; Object.assign(downed, { x: far.x, y: far.y, state: "down", downTimer: 18, botWait: 0, rescue: 0, invuln: 0, path: [] }); seq.push("down"); }
+    b.update(1 / 60);
+    bigMoved += Math.hypot(big.x - bigLast.x, big.y - bigLast.y); bigLast = { x: big.x, y: big.y };
+    if (b.inSafe(big)) bigInSafe++;
+    bots.forEach((l, i) => { moved[i] += Math.hypot(l.x - last[i].x, l.y - last[i].y); last[i] = { x: l.x, y: l.y }; if (l.dizzy > 0) thrown++; });
+    if (downed && seq[seq.length - 1] !== downed.state) seq.push(downed.state);
+    if (b.mode !== "play") { b.mode = "play"; b.level = lv; }   // a win would end the level: keep playing
+  }
+  return { ...out, bigMoved: Math.round(bigMoved), bigInSafe, botMoved: moved.map(Math.round), thrown, seq: seq.join(">"), far };
+}
+
+for (const [type, levels] of [["meadow", [2, 8]], ["maze", [3, 9]], ["village", [4, 10]], ["river", [5, 11]], ["rooms", [6, 12]], ["arena", [7, 13]]]) {
+  test(`${type}: 60 s of play, nobody stuck`, async ({ page }) => {
+    test.setTimeout(180_000);
+    await page.evaluate(`window.__playLevel = ${playLevel.toString()}`);
+    for (const lv of levels) {
+      const r = await page.evaluate(n => window.__playLevel(n), lv);
+      const at = `${type} level ${lv}`;
+      console.log(`${at}: Big One ${r.bigMoved} px, bots ${r.botMoved.join("/")} px, downed bot ${r.seq}`);
+      expect(r.type, at).toBe(type);
+      expect(r.bigMoved, `${at}: the Big One moved`).toBeGreaterThan(300);
+      expect(r.bigInSafe, `${at}: the Big One in the safe house`).toBe(0);
+      for (const [i, d] of r.botMoved.entries()) expect(d, `${at}: bot ${i + 1} moved`).toBeGreaterThan(200);
+      // rescued (down > ok) or walked home and lay down to rest (down > home > rest)
+      expect(/^down>ok/.test(r.seq) || /^down>home>rest/.test(r.seq), `${at}: downed bot went ${r.seq}`).toBe(true);
+      expect(r.thrown, `${at}: a bot was thrown out of the Big One's house`).toBe(0);
+      expect(r.badStars, `${at}: stars in unfair cells`).toEqual([]);
+      expect(r.badExits, `${at}: blocked exits`).toEqual([]);
+    }
+  });
+}
+
+test("kisses stop at maze walls and cottages and fly over the river", async ({ page }) => {
+  const r = await page.evaluate(() => {
+    const b = window.__bb, w = b.world, C = w.CELL, out = {};
+    const prep = lv => {
+      b.level = lv; b.startGame(1);
+      const L = b.littles;
+      L.forEach((l, i) => { if (i) Object.assign(l, { kind: "player", controls: { up: [], down: [], left: [], right: [] }, state: "rest", restTimer: 999, x: 40 + i * 40, y: 40 }); });
+      b.progress.inv.kisses = 9;
+      return L[0];
+    };
+    const free = (x, y) => !w.blocked[Math.floor(y / C) * w.COLS + Math.floor(x / C)];
+    // flies a kiss from (x, y) along dir until it is gone; returns the farthest point along dir
+    const fly = (p, x, y, dir) => {
+      Object.assign(b.big, { x: 15 * C, y: 10 * C, state: "look", timer: 999, stun: 0, slip: 0, noPush: 999, pushCd: 0 });
+      Object.assign(p, { x, y, dir, state: "ok", kissCd: 0, dizzy: 0, hugAnim: 0, invuln: 0 });
+      if (!b.throwKiss(0)) return null;
+      const k = b.kisses[b.kisses.length - 1];
+      let far = 0, n = 0;
+      for (; n < 60 && b.kisses.includes(k); n++) { far = Math.max(far, (k.x - x) * Math.cos(dir) + (k.y - y) * Math.sin(dir)); b.update(1 / 60); }
+      return { far, frames: n };
+    };
+    // a wall piece of a kind with a free cell right below it (kiss flies up into it)
+    const wallTest = (lv, kind) => {
+      const p = prep(lv);
+      for (const o of w.obstacles.filter(q => q.kind === kind && q.shape === "rect")) {
+        const x = o.x + Math.min(o.w, C) / 2, y = o.y + o.h + 20;
+        if (!free(x, y) || !free(x, y + 30) || b.inSafe({ x, y }) || b.inDanger({ x, y })) continue;
+        const r = fly(p, x, y, -Math.PI / 2);
+        if (r) return { ...r, gap: 20 };
+      }
+      return null;
+    };
+    out.maze = wallTest(3, "maze");
+    out.cottage = wallTest(4, "cottage");
+    out.arena = wallTest(7, "arena");
+    // the river: across the longest water piece, from 20 px before it
+    {
+      const p = prep(5), vertical = b.generateLevel(5, b.levelInfo.attempt).meta.vertical;
+      const s = w.obstacles.filter(q => q.kind === "water").sort((a, c) => (vertical ? c.h - a.h : c.w - a.w))[0];
+      const x = vertical ? s.x - 20 : s.x + s.w / 2, y = vertical ? s.y + s.h / 2 : s.y - 20;
+      const r = fly(p, x, y, vertical ? 0 : Math.PI / 2);
+      out.river = r && { ...r, width: vertical ? s.w : s.h, startFree: free(x, y) };
+    }
+    return out;
+  });
+  for (const k of ["maze", "cottage", "arena"]) {
+    expect(r[k], k).not.toBeNull();
+    expect(r[k].far, `${k}: the kiss went through the wall`).toBeLessThan(r[k].gap + 4);
+    expect(r[k].frames, k).toBeLessThan(10);
+  }
+  expect(r.river).not.toBeNull();
+  expect(r.river.startFree).toBe(true);
+  expect(r.river.far, "the kiss flew over the whole river").toBeGreaterThan(20 + r.river.width);
+});

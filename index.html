@@ -1926,9 +1926,9 @@ function fleePoint(b) {
   for (const k of [0, 0.6, -0.6, 1.2, -1.2, 1.8, -1.8]) {
     const a = away + k;
     const x = clamp(b.x + Math.cos(a) * 140, 20, W - 20), y = clamp(b.y + Math.sin(a) * 140, 20, H - 20);
-    if (!moveSolidAt(x, y) && !inCone(x, y) && !inDangerXY(x, y)) return { x, y };
+    if (!moveSolidAt(x, y) && reachable[cellIdx(x, y)] && !inCone(x, y) && !inDangerXY(x, y)) return { x, y };   // не за водой и не в «кармане»
   }
-  return { x: clamp(b.x + Math.cos(away) * 140, 20, W - 20), y: clamp(b.y + Math.sin(away) * 140, 20, H - 20) };
+  return freePointNear({ x: clamp(b.x + Math.cos(away) * 140, 20, W - 20), y: clamp(b.y + Math.sin(away) * 140, 20, H - 20) });
 }
 
 // Боты: 1) спасают упавших (сначала игроков), 2) убегают, если их видят,
@@ -1999,13 +1999,19 @@ function updateBots(dt) {
   prevToken = attackToken;
 }
 
-// Где ждать боту: в 170 px за Большим, но не в его доме
+// Где ждать боту: в 170 px за Большим, но не в его доме; точка в стене или за водой — ближайшая свободная клетка
 function lurkPoint(a0) {
   for (const k of [0, 0.5, -0.5, 1, -1, 1.5, -1.5, 2, -2, 2.5, -2.5, Math.PI]) {
     const a = a0 + k, p = { x: clamp(big.x + Math.cos(a) * 170, 24, W - 24), y: clamp(big.y + Math.sin(a) * 170, 24, H - 24) };
-    if (!inDanger(p)) return p;
+    if (!inDanger(p)) return freePointNear(p);
   }
   return nearestExit(big);
+}
+function freePointNear(p) {
+  const i = cellIdx(p.x, p.y);
+  if (!blocked[i] && reachable[i] && !moveSolidAt(p.x, p.y)) return p;
+  const c = freeCellNear(i);
+  return { x: (c % COLS + 0.5) * CELL, y: (((c / COLS) | 0) + 0.5) * CELL };
 }
 // Ближайшая точка за дверью дома Большого
 function nearestExit(p) {
