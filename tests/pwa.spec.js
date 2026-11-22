@@ -5,7 +5,8 @@
 const { test, expect } = require("@playwright/test");
 const fs = require("fs");
 const path = require("path");
-const { openGame, openGameHttp, frames, step, HTTP_BASE, ROOT } = require("./helpers");
+const { openGame, openGameHttp, routeThree, frames, step, HTTP_BASE, ROOT } = require("./helpers");
+const { makeServer } = require("../scripts/serve");
 
 const IPHONE_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1";
 const SW_FILE = path.join(ROOT, "sw.js");
@@ -115,18 +116,28 @@ test("service worker registers and controls the page over http", async ({ page }
   expect(errors).toEqual([]);
 });
 
-test("old caches are removed on a new SW_VERSION", async ({ page, context }) => {
-  await openGameHttp(page);
-  await waitForSW(page);
-  await page.evaluate(() => caches.open("bebebe-v0"));             // a cache of an older version
-  // the next sw.js the browser fetches carries a new version
-  await context.route("**/sw.js", route => route.fulfill({
-    body: SW_SRC.replace(/const SW_VERSION\s*=\s*"[^"]+"/, 'const SW_VERSION = "bebebe-test-v2"'),
-    contentType: "text/javascript"
-  }));
-  await page.evaluate(async () => (await navigator.serviceWorker.getRegistration()).update());
-  await page.waitForFunction(async () => (await caches.keys()).join(",") === "bebebe-test-v2", null, { timeout: 30_000, polling: 250 });
-  expect(await page.evaluate(() => caches.keys())).toEqual(["bebebe-test-v2"]);
+test("old caches are removed on a new SW_VERSION", async ({ page }) => {
+  // The browser's own fetch of sw.js (update check) is not routable, so this test runs its own
+  // server instance that can switch sw.js to a new version.
+  let nextVersion = null;
+  const server = makeServer({
+    override: p => (p === "/sw.js" && nextVersion ? SW_SRC.replace(/const SW_VERSION\s*=\s*"[^"]+"/, `const SW_VERSION = "${nextVersion}"`) : null)
+  });
+  await new Promise(r => server.listen(0, r));
+  try {
+    const base = `http://localhost:${server.address().port}/`;
+    await routeThree(page.context());
+    await page.goto(base);
+    await page.waitForFunction(() => window.__bbReady === true, null, { timeout: 30_000 });
+    await waitForSW(page);
+    expect(await page.evaluate(() => caches.keys())).toEqual([SW_VERSION]);
+    await page.evaluate(() => caches.open("bebebe-v0"));             // a cache of an older version
+    nextVersion = "bebebe-test-v2";
+    await page.evaluate(async () => (await navigator.serviceWorker.getRegistration()).update());
+    await expect.poll(() => page.evaluate(() => caches.keys()), { timeout: 30_000 }).toEqual(["bebebe-test-v2"]);
+  } finally {
+    server.close();
+  }
 });
 
 test("no service worker and no errors on file://", async ({ page }) => {
