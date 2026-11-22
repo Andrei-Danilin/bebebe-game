@@ -10,7 +10,7 @@ test("loads to the menu without errors", async ({ page }) => {
 
 test("every screen draws without errors", async ({ page }) => {
   const errors = await openGame(page);
-  for (const m of ["skins", "shop", "menu"]) {
+  for (const m of ["skins", "names", "shop", "menu"]) {
     await page.evaluate(v => { window.__bb.mode = v; }, m);
     await page.waitForTimeout(150);
   }
@@ -35,9 +35,9 @@ for (const place of ["park", "beach", "winter", "school"]) {
 }
 
 for (const lang of ["en", "es", "ru"]) {
-  test(`language ${lang}: menu, skins and shop draw`, async ({ page }) => {
+  test(`language ${lang}: menu, skins, friends and shop draw`, async ({ page }) => {
     const errors = await openGame(page, { lang });
-    for (const m of ["menu", "skins", "shop"]) {
+    for (const m of ["menu", "skins", "names", "shop"]) {
       await page.evaluate(v => { window.__bb.mode = v; }, m);
       await page.waitForTimeout(120);
     }

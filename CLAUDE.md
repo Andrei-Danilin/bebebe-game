@@ -24,7 +24,7 @@ A top-down 3D arcade game that Andrei makes with his kids from their scenario an
 4. **JS style:** ES2022, `let`/`const` only (never `var`), short comments in Russian or English, code identifiers in English.
 5. **Kid-friendly:** nothing scary or violent in visuals or texts (the Big One "pushes", nobody "dies"); big readable UI; works with touch, keyboard and gamepad.
 6. **Keep `window.__bb` working.** Tests drive the game through it; a spec that adds state the tests need exposes it there.
-7. **Progress is player data.** `localStorage` keys `bebebe-progress`, `bebebe-outfits`, `bebebe-place`, `bebebe-lang`: a change to their shape keeps old saves loading (merge with defaults, never throw).
+7. **Progress is player data.** `localStorage` keys `bebebe-progress`, `bebebe-outfits`, `bebebe-place`, `bebebe-lang`, `bebebe-names`: a change to their shape keeps old saves loading (merge with defaults, never throw).
 8. **`sw.js` `SW_VERSION` is bumped** when the precache list or a cache strategy changes (a change to `index.html` alone needs no bump: it is network-first). A new three.js version (the URL in `index.html` and `THREE_BASE` in `sw.js` must match — a test checks it) or a redrawn icon → bump.
 
 ## Workflow (spec-driven) and Git
