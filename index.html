@@ -945,19 +945,11 @@ function connectivity() {
   return { ok, seen };
 }
 
+// Уровень для игры строится тем же циклом попыток, что проверяет levelReport (validateLevel, запасной вариант)
+let levelInfo = null;   // { lv, type, attempt, fallback, ms } — какой уровень сейчас построен
 function loadLevel(lv) {
-  let res = null;
-  for (let attempt = 0; attempt < 40; attempt++) {
-    applyWorld(generateLevel(lv, attempt));
-    res = connectivity();
-    if (res.ok) { reachable = res.seen; return; }
-  }
-  // запасной вариант: закрываем недоступные «карманы» живой изгородью
-  for (let i = 0; i < COLS * ROWS; i++) if (!blocked[i] && !res.seen[i]) {
-    obstacles.push({ shape: "rect", x: (i % COLS) * CELL, y: ((i / COLS) | 0) * CELL, w: CELL, h: CELL, move: true, sight: true, kind: "hedge" });
-  }
-  buildGrids();
-  reachable = res.seen;
+  const r = buildLevel(lv);
+  levelInfo = { lv, type: r.type, attempt: r.attempts - 1, fallback: r.fallback, ms: r.ms };
 }
 
 // ---------- Честность уровня (SPEC-002) ----------
@@ -3750,7 +3742,7 @@ window.__bb = {
   world: { COLS, ROWS, CELL, get blocked() { return Array.from(blocked); }, seeSolid: seeSolidAt, get bushes() { return bushes.map(q => ({ ...q })); },
     get obstacles() { return obstacles.map(o => ({ kind: o.kind, shape: o.shape, x: o.x, y: o.y, w: o.w, h: o.h, r: o.r, move: o.move, sight: o.sight })); } },
   get kisses() { return kisses; }, throwKiss, buyKisses, resetProgress, heartFill, bigBoost, fmtHearts,
-  levelType, levelReport
+  levelType, levelReport, get levelInfo() { return levelInfo; }, CFG
 };
 </script>
 </body>

@@ -360,3 +360,55 @@ test("arena has a ring with gaps", async ({ page }) => {
   expect(withHalf, "some arenas have a half-ring").toBeGreaterThan(0);
   expect(withHalf, "some arenas have none").toBeLessThan(levels.length);
 });
+
+test("the game starts exactly the level that levelReport checks", async ({ page }) => {
+  const r = await page.evaluate(() => {
+    const b = window.__bb, w = b.world, C = w.CELL, out = [];
+    // obstacles the game should build from a generated map
+    const expected = gen => gen.items.flatMap(it => {
+      if (["wall", "cottage", "water", "pond"].includes(it.t)) return [{ kind: it.t === "wall" ? it.kind : it.t, x: it.x * C, y: it.y * C, w: it.w * C, h: it.h * C }];
+      if (it.t === "tree" || it.t === "rock") return [{ kind: it.t, x: it.x * C + 16, y: it.y * C + 16 }];
+      return [];
+    });
+    const key = list => list.map(o => JSON.stringify([o.kind, o.x, o.y, o.w || 0, o.h || 0])).sort().join("|");
+    for (const lv of [1, 2, 3, 4, 5, 6, 7, 27, 34]) {
+      b.level = lv; b.startGame(1);
+      const info = { ...b.levelInfo }, rep = b.levelReport(lv), gen = b.generateLevel(lv, rep.attempts - 1);
+      const same = key(w.obstacles) === key(expected(gen));
+      const spawns = b.littles.map(l => [l.x / C, l.y / C]);
+      out.push({ lv, info, attempts: rep.attempts, type: rep.type, same, spawnsOk: JSON.stringify(spawns) === JSON.stringify(gen.small), bigOk: b.big.x / C === gen.big[0] && b.big.y / C === gen.big[1] });
+    }
+    return out;
+  });
+  for (const x of r) {
+    const at = `level ${x.lv}`;
+    expect(x.info.lv, at).toBe(x.lv);
+    expect(x.info.type, at).toBe(x.type);
+    expect(x.info.fallback, at).toBe(false);
+    expect(x.info.attempt, at).toBe(x.attempts - 1);
+    expect(x.same, `${at}: obstacles differ from generateLevel(lv, attempt)`).toBe(true);
+    expect(x.spawnsOk && x.bigOk, `${at}: spawns`).toBe(true);
+    expect(x.info.ms, `${at}: level build ms`).toBeLessThan(200);
+  }
+  expect(r.find(x => x.lv === 27).info.attempt, "level 27 needs a retry, the game takes the same one").toBeGreaterThan(0);
+  expect(r.find(x => x.lv === 1).info.attempt, "level 1 is attempt 0").toBe(0);
+});
+
+test("a level with no fair layout falls back and warns", async ({ page }) => {
+  const warns = [];
+  page.on("console", m => { if (m.type() === "warning") warns.push(m.text()); });
+  const r = await page.evaluate(() => {
+    const b = window.__bb, keep = b.CFG.HOUSE_PATH;
+    b.CFG.HOUSE_PATH = [999, 1000];   // no generated level can pass rule 3
+    try {
+      b.level = 2; b.startGame(1);
+      for (let i = 0; i < 120; i++) b.update(1 / 60);   // the fallback level still plays
+      return { info: { ...b.levelInfo }, mode: b.mode, littles: b.littles.length };
+    } finally { b.CFG.HOUSE_PATH = keep; }
+  });
+  expect(r.info.fallback).toBe(true);
+  expect(r.info.attempt).toBe(39);
+  expect(r.mode).toBe("play");
+  expect(r.littles).toBe(5);
+  expect(warns.some(t => t.includes("level 2") && t.includes("housePath"))).toBe(true);
+});
