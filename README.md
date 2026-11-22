@@ -122,9 +122,25 @@ typed names are kept. Saved in the browser (`localStorage`, key `bebebe-names`).
 
 ## Levels
 
-Maps are generated from the level number (same number → same map). Level 1 follows the kids' drawing:
-the Little Ones' house top-left, the Big One's house bottom-left, a building with rooms on the right,
-pine trees, bushes, a pond and rocks. Each next level adds a heart and some speed to the Big One.
+Maps are generated from the level number: the same number always gives the same map. Level 1 is
+**Our drawing**, the kids' own map: the Little Ones' house top-left, the Big One's house bottom-left, a
+building with rooms on the right, pine trees, bushes, a pond and rocks. From level 2 on, six level types take
+turns:
+
+| Type | What it is like |
+|---|---|
+| Meadow | open grass: the Big One sees far, only bushes hide you |
+| Maze | hedge corridors to sneak around corners, with one or two open plazas |
+| Village | little cottages with roofs, streets between them and a square with a fountain |
+| River with bridges | the houses are on opposite banks; you can see across the water but cross only on the bridges |
+| House with rooms | a big building with rooms and doors, careful in the doorways; some rooms have two doors |
+| Ring arena | a ring of walls with gaps around a block in the middle, made for chases |
+
+When a level starts, a banner shows "Level N: type"; the menu shows the type of the selected level. Every place
+(park, beach, winter, schoolyard) has its own look for each type: hedges, fences, snow walls or lockers in the
+maze, a blue, turquoise, icy or canal river, and so on. Every level is checked to be fair: nobody gets stuck,
+the Big One can go everywhere except your house, and both houses' doors are clear. Every 6 levels there is one
+bush fewer. Each next level adds a heart and some speed to the Big One.
 
 ## How v2 is built
 
@@ -141,7 +157,7 @@ One HTML file, one ES module:
 
 ## Tuning
 
-`CFG` — gameplay numbers (`HUG_STUN`, `PUSH_RECOVER`, `BOT_ATTACK_PAUSE`, `ITEM_*`, `SLIP_STUN`, `COINS_*`, `FAST_TIME`, `RESCUE_*`, `STAR_*`, `DANGER_*`, `NAME_MAX`, `KISS_*`, `PAD_KISS`, …),
+`CFG` — gameplay numbers (`HUG_STUN`, `PUSH_RECOVER`, `BOT_ATTACK_PAUSE`, `ITEM_*`, `SLIP_STUN`, `COINS_*`, `FAST_TIME`, `RESCUE_*`, `STAR_*`, `DANGER_*`, `NAME_MAX`, `KISS_*`, `PAD_KISS`, `TYPE_ORDER`, `LAYOUT` (level type sizes), `BANNER_*`, fairness limits, …),
 `GLOVES` — gloves (power, price, pack size), `KISSES` — air kiss price and pack, `I18N` — texts,
 `HAIRS` / `HATS` / `JACKETS` / `PANTS` / `BIG_SKINS` — outfits, `THEMES` — places, `LITTLE_SCALE` / `BIG_SCALE` — character size in 3D.
 
