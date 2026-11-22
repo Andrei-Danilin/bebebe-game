@@ -101,13 +101,27 @@ const CFG = {
   BOT_DANGER_LEAVE: 2,       // сек — бот в доме Большого дольше этого идёт к двери
   BOT_DANGER_COST: 30,       // «цена» клетки дома Большого в поиске пути ботов
   // имена
-  NAME_MAX: 12               // символов в имени (эмодзи можно)
+  NAME_MAX: 12,              // символов в имени (эмодзи можно)
+  // воздушные поцелуи
+  KISS_COOLDOWN: 1,          // сек между поцелуями одного игрока
+  KISS_SPEED: 420,           // px/сек — скорость полёта
+  KISS_RANGE: 224,           // px — дальность (7 клеток)
+  KISS_HIT_PAD: 8,           // попал, если ближе big.r + это
+  KISS_DAMAGE: 0.5,          // сердечка за попадание
+  KISS_BLUSH: 1.5,           // сек — Большой краснеет: стоит, не толкает, обнимать можно
+  KISS_STEP: 4,              // px — шаг проверки полёта (меньше клетки сетки FINE)
+  KISS_BTN: 70               // px — кнопка 💋 на сенсорном экране
 };
 // Рукавицы из магазина: сколько сердечек забирает одна обнимашка, цена и сколько сильных обнимашек в наборе
 const GLOVES = {
   mittens: { power: 2, price: 30, charges: 3, color: "#ef4444", cuff: "#ffffff" },
   mega:    { power: 3, price: 60, charges: 3, color: "#f472b6", cuff: "#facc15" }
 };
+
+// Воздушные поцелуи из магазина: цена и сколько в наборе (один запас на обоих игроков)
+const KISSES = { price: 20, pack: 5 };
+// Русское множественное число: ruPlural(n, ["поцелуй", "поцелуя", "поцелуев"])
+const ruPlural = (n, f) => f[n % 10 === 1 && n % 100 !== 11 ? 0 : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 1 : 2];
 
 // =====================================================================
 //  ЯЗЫКИ: English (по умолчанию), Español (Argentina), Русский
@@ -142,7 +156,9 @@ const I18N = {
     victory: "Victory", nobodyOut: "Nobody had to rest", fast: t => `Fast: under ${t}`, forHugs: n => `+${n} for hugs`,
     megaHug: p => `Power hug! -${p}`, coinsWord: "coins",
     starCoins: n => `Bonus stars: +${n}`, thrownOut: "Get out of my house!", friends: "Friends", tapToRename: "Tap a name to change it",
-    defaultBig: "Big One", defaultBots: ["Bo", "Mia", "Tom", "Lulu"]
+    defaultBig: "Big One", defaultBots: ["Bo", "Mia", "Tom", "Lulu"],
+    kisses: "Air kisses", kissDesc: "Send from afar: ½ heart and he blushes", kissPack: n => `Pack: ${n} air kisses`,
+    kissHave: n => `You have: ${n} ${n === 1 ? "kiss" : "kisses"}`, kissHit: "Mwah!", noKissHome: "Not from the house!", blush: "So shy!"
   },
   es: {
     name: "Español", subtitle: "Los Chiquitos contra el Grandote",
@@ -173,7 +189,9 @@ const I18N = {
     victory: "Victoria", nobodyOut: "Nadie tuvo que descansar", fast: t => `Rápido: menos de ${t}`, forHugs: n => `+${n} por los abrazos`,
     megaHug: p => `¡Abrazo potente! -${p}`, coinsWord: "monedas",
     starCoins: n => `Estrellitas: +${n}`, thrownOut: "¡Fuera de mi casa!", friends: "Amigos", tapToRename: "Tocá un nombre para cambiarlo",
-    defaultBig: "Grandote", defaultBots: ["Tito", "Mora", "Lupe", "Facu"]
+    defaultBig: "Grandote", defaultBots: ["Tito", "Mora", "Lupe", "Facu"],
+    kisses: "Besitos voladores", kissDesc: "Mandalo de lejos: ½ corazón y se pone colorado", kissPack: n => `Paquete: ${n} besitos voladores`,
+    kissHave: n => `Tenés: ${n} ${n === 1 ? "besito" : "besitos"}`, kissHit: "¡Muak!", noKissHome: "¡Desde la casita no!", blush: "¡Qué vergüenza!"
   },
   ru: {
     name: "Русский", subtitle: "Маленькие против Большого",
@@ -204,7 +222,9 @@ const I18N = {
     victory: "Победа", nobodyOut: "Никто не ушёл отдыхать", fast: t => `Быстро: меньше ${t}`, forHugs: n => `+${n} за обнимашки`,
     megaHug: p => `Сильная обнимашка! -${p}`, coinsWord: "монетки",
     starCoins: n => `Звёздочки: +${n}`, thrownOut: "Вон из моего дома!", friends: "Друзья", tapToRename: "Нажми на имя, чтобы поменять",
-    defaultBig: "Большой", defaultBots: ["Тёма", "Маша", "Вася", "Соня"]
+    defaultBig: "Большой", defaultBots: ["Тёма", "Маша", "Вася", "Соня"],
+    kisses: "Воздушные поцелуи", kissDesc: "Издалека: ½ сердечка, и он краснеет", kissPack: n => `В наборе: ${n} ${ruPlural(n, ["поцелуй", "поцелуя", "поцелуев"])}`,
+    kissHave: n => `У вас: ${n} ${ruPlural(n, ["поцелуй", "поцелуя", "поцелуев"])}`, kissHit: "Чмок!", noKissHome: "Из домика нельзя!", blush: "Ой, смущён!"
   }
 };
 const LANGS = ["en", "es", "ru"];
@@ -784,15 +804,20 @@ let buttons = [];
 let installHintShown = false;   // подсказка «на экран Домой» нарисована в этом кадре (для тестов)
 let items = [], itemCd = 5, itemSeq = 0, pendingWin = 0, lastReward = null, resetArmed = false;
 let bonusStars = [], starCd = 10, starSeq = 0;   // бонусные звёздочки (отдельно от предметов)
+let kisses = [], kissSeq = 0;                      // летящие воздушные поцелуи
 // ---------- Прогресс: открытые уровни, звёзды, монетки, рукавицы (хранится в этом браузере) ----------
-let progress = { unlocked: 1, stars: {}, coins: 0, inv: { mittens: 0, mega: 0 }, equip: ["none", "none"] };
+const freshProgress = () => ({ unlocked: 1, stars: {}, coins: 0, inv: { mittens: 0, mega: 0, kisses: 0 }, equip: ["none", "none"] });
+let progress = freshProgress();
 try {
   const pv = JSON.parse(localStorage.getItem("bebebe-progress") || "null");
   if (pv) progress = { ...progress, ...pv, inv: { ...progress.inv, ...(pv.inv || {}) }, stars: pv.stars || {}, equip: pv.equip || ["none", "none"] };
+  const k = Number(progress.inv.kisses);                   // старые сохранения без поцелуев (или испорченные) → 0
+  progress.inv.kisses = Number.isFinite(k) && k > 0 ? Math.floor(k) : 0;
 } catch (e) { /* ok */ }
 const saveProgress = () => { try { localStorage.setItem("bebebe-progress", JSON.stringify(progress)); } catch (e) { /* ok */ } };
 level = clamp(progress.unlocked, 1, 99);
 const totalStars = () => Object.values(progress.stars).reduce((a, b) => a + b, 0);
+const fmtHearts = n => (Math.floor(n) || (n % 1 ? "" : "0")) + (n % 1 ? "½" : "");   // 2.5 → «2½», 0.5 → «½»
 const fmtTime = sec => `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, "0")}`;
 const gloveOf = pi => { const g = progress.equip[pi]; return g && g !== "none" && progress.inv[g] > 0 ? g : null; };
 function buyGloves(kind) {
@@ -802,11 +827,16 @@ function buyGloves(kind) {
   if (progress.equip[0] === "none") progress.equip[0] = kind;
   saveProgress(); SFX.item();
 }
+function buyKisses() {
+  if (progress.coins < KISSES.price) { SFX.out(); return; }
+  progress.coins -= KISSES.price; progress.inv.kisses += KISSES.pack;
+  saveProgress(); SFX.item();
+}
 function setEquip(pi, kind) { progress.equip[pi] = kind; saveProgress(); resetWorld(numPlayers); }
 function resetProgress() {
   if (!resetArmed) { resetArmed = true; return; }
   resetArmed = false;
-  progress = { unlocked: 1, stars: {}, coins: 0, inv: { mittens: 0, mega: 0 }, equip: ["none", "none"] };
+  progress = freshProgress();
   saveProgress(); level = 1; resetWorld(numPlayers);
 }
 function giveReward(win) {
@@ -833,7 +863,7 @@ function makeLittle(i, kind, botIndex, controls, look) {
     state: "ok", downTimer: 0, rescue: 0, botWait: 0, invuln: 0, kx: 0, ky: 0, dangerT: 0, dizzy: 0,
     path: [], repath: 0, dir: Math.PI / 2, moveDir: 0, walk: 0, moving: false, hugCd: 0,
     task: "idle", fleeT: 0, fleeGoal: null, fleeRe: 0, lurkT: rand(0, 2), offset: rand(-0.5, 0.5), tokenT: 0,
-    hugAnim: 0, fx: { boots: 0, cloak: 0, shield: 0 }
+    hugAnim: 0, kissCd: 0, fx: { boots: 0, cloak: 0, shield: 0 }
   };
 }
 function resetWorld(n) {
@@ -852,10 +882,12 @@ function resetWorld(n) {
     isBig: true, x: spawns.big.x, y: spawns.big.y, r: 22, dir: -Math.PI / 2, hp: maxHp, maxHp,
     state: "look", timer: 4, lookSign: 1, lastSeen: null, goal: null, patrolT: 0,
     path: [], repath: 0, moveDir: 0, walk: 0, moving: false, stun: 0, stunFace: 0, stunTurn: 0, pushCd: 0, noPush: 0, hugCd: 0, flash: 0, slip: 0,
+    blush: 0, blushBy: 0,   // покраснел после поцелуя: сколько ещё сек и кто бросил (индекс игрока)
     skin: BIG_SKINS[skinSel.big]
   };
   items = []; itemCd = rand(4, 7); pendingWin = 0;
   bonusStars = []; starCd = rand(CFG.STAR_EVERY[0], CFG.STAR_EVERY[1]);
+  kisses = [];
   texts = []; particles = []; attackToken = null; prevToken = null; botAttackCd = rand(3, 5); shake = 0; sticks.clear();
   stats = { hugs: 0, time: 0, playerHugs: 0, rests: 0, starCoins: 0 };
   lastReward = null; resetArmed = false;
@@ -892,6 +924,8 @@ const SFX = {
   item: () => [660, 880, 1175].forEach((f, i) => beep(f, 0.09, "square", 0.05, i * 0.06)),
   shield: () => { beep(1200, 0.12, "triangle", 0.08); beep(1500, 0.18, "triangle", 0.06, 0.08); },
   star: () => [880, 1175, 1568, 2093].forEach((f, i) => beep(f, 0.08, "triangle", 0.06, i * 0.05)),
+  kiss: () => { beep(1046, 0.06, "sine", 0.06); beep(1568, 0.1, "sine", 0.05, 0.05); },
+  mwah: () => [784, 988, 1318].forEach((f, i) => beep(f, 0.1, "triangle", 0.07, i * 0.07)),
   thrown: () => { beep(520, 0.1, "triangle", 0.07); beep(260, 0.25, "triangle", 0.07, 0.08); },
   slip: () => { const t0 = actx && actx.currentTime; if (!actx || muted) return; const o = actx.createOscillator(), g = actx.createGain(); o.type = "triangle"; o.frequency.setValueAtTime(900, t0); o.frequency.exponentialRampToValueAtTime(180, t0 + 0.45); g.gain.setValueAtTime(0.09, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.5); o.connect(g); g.connect(actx.destination); o.start(t0); o.stop(t0 + 0.52); },
   win: () => [523, 659, 784, 1047].forEach((f, i) => beep(f, 0.22, "triangle", 0.08, i * 0.15)),
@@ -930,6 +964,8 @@ function onKey(code) {
     if (code === "Enter" || code === "Escape" || code === "Space") mode = "skins";
   } else if (mode === "play") {
     if (code === "KeyP" || code === "Escape") mode = "pause";
+    const kp = kissKeyPlayer(code);
+    if (kp >= 0) throwKiss(kp);
   } else if (mode === "pause") {
     if (code === "KeyP" || code === "Escape") mode = "play";
     if (code === "KeyQ") toMenu();
@@ -940,6 +976,13 @@ function onKey(code) {
     if (code === "Enter" || code === "Space") startGame(numPlayers);
     if (code === "Escape" || code === "KeyQ") toMenu();
   }
+}
+
+// Воздушный поцелуй: один игрок — E или пробел; двое — игрок 1 E, игрок 2 Enter
+function kissKeyPlayer(code) {
+  if (code === "KeyE") return 0;
+  if (numPlayers === 1) return code === "Space" ? 0 : -1;
+  return code === "Enter" || code === "NumpadEnter" ? 1 : -1;
 }
 
 // Касания: левая половина — игрок 1, правая — игрок 2 (в игре на одного — весь экран)
@@ -1017,6 +1060,7 @@ function closeNameInput(save) {
 }
 
 // Геймпады
+const PAD_KISS = 2;     // кнопка поцелуя: X (Xbox) / □ (PlayStation)
 let pads = [];
 const padPrev = [];
 function pollPads() {
@@ -1024,7 +1068,7 @@ function pollPads() {
   pads = list.map((p, i) => {
     const btn = p.buttons.map(b => b.pressed);
     const prev = padPrev[i] || [];
-    for (const b of [0, 1, 2, 3, 9, 14, 15]) if (btn[b] && !prev[b]) onPadButton(b);
+    for (const b of [0, 1, 2, 3, 9, 14, 15]) if (btn[b] && !prev[b]) onPadButton(b, i);
     padPrev[i] = btn;
     let x = p.axes[0] || 0, y = p.axes[1] || 0;
     if (Math.hypot(x, y) < 0.25) { x = 0; y = 0; }
@@ -1032,7 +1076,7 @@ function pollPads() {
     return { x, y };
   });
 }
-function onPadButton(b) {
+function onPadButton(b, pad = 0) {
   if (nameInput) return;
   initAudio();
   if (mode === "menu") {
@@ -1049,7 +1093,10 @@ function onPadButton(b) {
     if (b === 0 || b === 1 || b === 9) mode = "menu";
   } else if (mode === "names") {
     if (b === 0 || b === 1 || b === 9) mode = "skins";
-  } else if (mode === "play") { if (b === 9) mode = "pause"; }
+  } else if (mode === "play") {
+    if (b === 9) mode = "pause";
+    if (b === PAD_KISS && (numPlayers === 1 || pad < numPlayers)) throwKiss(numPlayers === 1 ? 0 : pad);
+  }
   else if (mode === "pause") { if (b === 9 || b === 0) mode = "play"; if (b === 1) toMenu(); }
   else if (mode === "win") { if (b === 0 || b === 9) nextLevel(); if (b === 1) toMenu(); }
   else if (mode === "lose") { if (b === 0 || b === 9) startGame(numPlayers); if (b === 1) toMenu(); }
@@ -1117,6 +1164,7 @@ function push(t) {
 }
 function hug(l, a) {
   let power = 1;
+  big.blush = 0;                                         // обнимашка заканчивает смущение, дальше обычный шок
   const gl = l.kind === "player" ? gloveOf(l.id) : null;
   if (gl) { power = GLOVES[gl].power; progress.inv[gl]--; saveProgress(); }   // рукавицы: сразу 2–3 сердечка
   big.hp = Math.max(0, big.hp - power); big.hugCd = CFG.HUG_STUN + 0.3; big.stun = CFG.HUG_STUN; big.stunFace = a; big.flash = 0.3;
@@ -1135,8 +1183,50 @@ function hug(l, a) {
     if (attackToken === l) attackToken = null;
     l.lurkT = rand(3, 6); l.fleeT = 1.3; l.fleeGoal = null;
   }
-  if (big.hp <= 0) { pendingWin = CFG.HUG_ANIM; big.stun = 99; }   // победа — после последней обнимашки
+  if (big.hp <= 0) winSoon();   // победа — после последней обнимашки
 }
+function winSoon() { pendingWin = CFG.HUG_ANIM; big.stun = 99; }
+// ---------- Воздушные поцелуи: летят прямо, полсердечка, Большой краснеет ----------
+function throwKiss(pi) {
+  const l = littles[pi];
+  if (mode !== "play" || !l || l.kind !== "player" || !canAct(l) || progress.inv.kisses <= 0) return false;
+  if (inSafe(l)) { popText(l.x, l.y - 40, L().noKissHome, "#fca5a5"); return false; }   // из домика нельзя
+  if (l.kissCd > 0) return false;
+  progress.inv.kisses--; saveProgress();
+  l.kissCd = CFG.KISS_COOLDOWN;
+  const dx = Math.cos(l.dir), dy = Math.sin(l.dir);
+  kisses.push({ id: ++kissSeq, owner: pi, x: l.x + dx * l.r, y: l.y + dy * l.r, dx, dy, travel: 0 });
+  SFX.kiss();
+  return true;
+}
+function kissHit(k) {
+  burst(big.x, big.y - 30, "heart", "#ff4d8d", 10);
+  if (big.stun > 0 || big.blush > 0) return;            // в шоке или уже красный — только сердечки
+  big.hp = Math.max(0, big.hp - CFG.KISS_DAMAGE);
+  big.blush = CFG.KISS_BLUSH; big.blushBy = k.owner;
+  big.pushCd = 0; big.path = []; big.moving = false; big.flash = 0.2;
+  popText(big.x, big.y - 40, L().kissHit, "#ff6fa8");
+  popText(big.x, big.y - 112, L().blush, "#fda4af");   // выше имени Большого
+  SFX.mwah();
+  if (big.hp <= 0) winSoon();                            // последнее полсердечка — победа, как после обнимашки
+}
+function updateKisses(dt) {
+  for (const k of kisses) {
+    let left = CFG.KISS_SPEED * dt;
+    while (left > 0 && !k.done) {
+      const s = Math.min(CFG.KISS_STEP, left, CFG.KISS_RANGE - k.travel);
+      k.x += k.dx * s; k.y += k.dy * s; k.travel += s; left -= s;
+      if (dist(k, big) < big.r + CFG.KISS_HIT_PAD) { k.done = true; kissHit(k); }
+      else if (seeSolidAt(k.x, k.y)) { k.done = true; burst(k.x - k.dx * CFG.KISS_STEP, k.y - k.dy * CFG.KISS_STEP, "star", "#ff9ecb", 8); }   // стена, дерево, камень, край карты
+      else if (k.travel >= CFG.KISS_RANGE) { k.done = true; burst(k.x, k.y, "star", "#ffd1e3", 5); }
+    }
+  }
+  kisses = kisses.filter(k => !k.done);
+}
+// Сердечко i в полоске: 1 — целое, 0.5 — половинка, 0 — пустое
+const heartFill = (i, hp) => clamp(hp - i, 0, 1);
+// Насколько Большой быстрее: уровень + каждое ЦЕЛОЕ потерянное сердечко
+const bigBoost = () => (level - 1) * CFG.CHASE_PER_LEVEL + Math.floor(big.maxHp - big.hp) * CFG.BIG_SPEED_PER_HIT;
 function updateHugAnim(dt) {
   for (const l of littles) {
     if (l.hugAnim <= 0) continue;
@@ -1292,7 +1382,7 @@ function updateBots(dt) {
     b.fleeT = Math.max(0, b.fleeT - dt);
     b.lurkT = Math.max(0, b.lurkT - dt);
     b.fleeRe -= dt;
-    const seen = big.stun <= 0 && big.slip <= 0 && big.noPush <= 0 && canSee(b);
+    const seen = big.stun <= 0 && big.slip <= 0 && big.noPush <= 0 && big.blush <= 0 && canSee(b);
     const speed = CFG.BOT_SPEED * (b.fx.boots > 0 ? CFG.BOOTS_MULT : 1);
     let moved = false;
 
@@ -1362,15 +1452,24 @@ function updateBig(dt) {
   big.hugCd = Math.max(0, big.hugCd - dt);
   big.moving = false;
   big.noPush = Math.max(0, big.noPush - dt);
+  if (big.blush > 0) {                                   // покраснел: время идёт и пока лежит после банана
+    big.blush = Math.max(0, big.blush - dt);
+    if (big.blush <= 0 && big.slip <= 0 && big.stun <= 0) {   // прошло — идёт к тому, кто бросил (поиск повернёт его туда)
+      const th = littles[big.blushBy] || littles[0];
+      big.state = "chase"; big.lastSeen = { x: th.x, y: th.y };
+      return;
+    }
+  }
   if (big.slip > 0) { big.slip -= dt; big.moving = false; if (big.slip <= 0) { big.state = "look"; big.timer = 0.8; } return; }
   if (big.stun > 0) { big.stun -= dt; big.dir = turnToward(big.dir, big.stunFace, big.stunTurn * dt); return; }
+  if (big.blush > 0) return;                             // стоит красный и никого не толкает
   if (big.pushCd > 0) {
     big.pushCd -= dt;
     if (big.pushCd <= 0) { big.state = "look"; big.timer = Math.max(0.5, big.noPush); big.lookSign = Math.random() < 0.5 ? -1 : 1; }
     return;
   }
 
-  const boost = (level - 1) * CFG.CHASE_PER_LEVEL + (big.maxHp - big.hp) * CFG.BIG_SPEED_PER_HIT;
+  const boost = bigBoost();
   let target = null, td = Infinity;
   for (const l of littles) {
     if (big.noPush > 0) break;               // отдыхает — никого не ловит
@@ -1439,7 +1538,7 @@ function checkContacts() {
       const wants = l.kind === "player" || l.task === "attack";   // боты обнимают только когда сами решили
       if (wants && big.hugCd <= 0 && l.hugCd <= 0 && big.stun <= 0) hug(l, a);
     }
-    else if (diff < 1.9 && big.stun <= 0 && big.slip <= 0 && big.pushCd <= 0 && big.noPush <= 0 && l.invuln <= 0 && l.fx.cloak <= 0 && !inSafe(l)) push(l);
+    else if (diff < 1.9 && big.stun <= 0 && big.slip <= 0 && big.blush <= 0 && big.pushCd <= 0 && big.noPush <= 0 && l.invuln <= 0 && l.fx.cloak <= 0 && !inSafe(l)) push(l);
   }
 }
 function updateDowned(dt) {
@@ -1530,6 +1629,7 @@ function update(dt) {
     l.invuln = Math.max(0, l.invuln - dt);
     l.hugCd = Math.max(0, l.hugCd - dt);
     l.dizzy = Math.max(0, l.dizzy - dt);
+    l.kissCd = Math.max(0, l.kissCd - dt);
     if (l.hugAnim <= 0 && Math.abs(l.kx) + Math.abs(l.ky) > 5) {
       moveEntity(l, l.kx, l.ky, dt);
       const f = Math.exp(-7 * dt); l.kx *= f; l.ky *= f;
@@ -1539,6 +1639,7 @@ function update(dt) {
   updateBots(dt);
   updateBig(dt);
   updateHugAnim(dt);
+  updateKisses(dt);
   separate();
   checkContacts();
   updateDowned(dt);
@@ -1579,6 +1680,25 @@ function fitText(text, x, y, size, maxW, align, color, weight) {
   ctx.textAlign = align; ctx.textBaseline = "middle"; ctx.fillStyle = color;
   ctx.fillText(text, x, y);
 }
+// Текст в несколько строк (по словам), не больше lines строк; не влезает — мельче
+function wrapText(text, x, y, size, maxW, lines, color, weight) {
+  let sz = size, rows = [];
+  for (;;) {
+    ctx.font = `${weight} ${sz}px system-ui, "Segoe UI", sans-serif`;
+    rows = [];
+    let cur = "";
+    for (const wd of text.split(" ")) {
+      const t = cur ? cur + " " + wd : wd;
+      if (ctx.measureText(t).width > maxW && cur) { rows.push(cur); cur = wd; } else cur = t;
+    }
+    rows.push(cur);
+    if ((rows.length <= lines && rows.every(r => ctx.measureText(r).width <= maxW)) || sz <= 9) break;
+    sz -= 0.5;
+  }
+  ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = color;
+  const lh = sz * 1.25, y0 = y - (rows.length - 1) * lh / 2 + (lines - 1) * lh / 2;
+  rows.forEach((r, i) => ctx.fillText(r, x, y0 + i * lh));
+}
 // Подпись с контуром, которая сжимается под ширину (не мельче 11px), а если не влезает — обрезается «…»
 function labelFit(text, x, y, size, maxW, color, align = "center") {
   const font = sz => `900 ${sz}px system-ui, "Segoe UI", "Arial Rounded MT Bold", Arial, sans-serif`;
@@ -1618,6 +1738,28 @@ function drawMitten(x, y, s, kind) {
   ctx.restore();
 }
 function drawHeart(x, y, s, fill, outline = true) { heartPath(x, y, s); ctx.fillStyle = fill; ctx.fill(); if (outline) { ctx.lineWidth = 2; ctx.strokeStyle = OUT; ctx.stroke(); } }
+// Сердечко в полоске Большого: f = 1 целое, 0.5 половинка, 0 пустое
+function drawHpHeart(x, y, s, f) {
+  if (f <= 0 || f >= 1) { drawHeart(x, y, s, f >= 1 ? "#ff3b5c" : "#e5e7eb"); return; }
+  heartPath(x, y, s); ctx.fillStyle = "#e5e7eb"; ctx.fill();
+  ctx.save(); ctx.beginPath(); ctx.rect(x - s, y - 2, s, s + 4); ctx.clip();
+  heartPath(x, y, s); ctx.fillStyle = "#ff3b5c"; ctx.fill();
+  ctx.restore();
+  heartPath(x, y, s); ctx.lineWidth = 2; ctx.strokeStyle = OUT; ctx.stroke();
+}
+// Воздушный поцелуй: розовые губки и сердечко (картинка в магазине и на кнопке)
+function drawKiss(x, y, s) {
+  ctx.save(); ctx.translate(x, y); ctx.scale(s / 40, s / 40);
+  ctx.beginPath();                                                        // губки
+  ctx.moveTo(-17, 4);
+  ctx.bezierCurveTo(-11, -9, -4, -9, 0, -4); ctx.bezierCurveTo(4, -9, 11, -9, 17, 4);
+  ctx.bezierCurveTo(10, 15, -10, 15, -17, 4); ctx.closePath();
+  fillStroke("#ff4d8d", 3);
+  ctx.beginPath(); ctx.moveTo(-15, 4); ctx.quadraticCurveTo(0, 8, 15, 4); ctx.lineWidth = 2.5; ctx.strokeStyle = "#b8104f"; ctx.stroke();
+  ctx.fillStyle = "rgba(255,255,255,.7)"; ellipse(-6, -3, 3.5, 1.8); ctx.fill();
+  heartPath(14, -20, 13); fillStroke("#ff8fb8", 2.5);                    // летящее сердечко
+  ctx.restore();
+}
 
 // Подписи над 3D-героями (имена, таймеры, SOS, значки Большого)
 function drawMarkers(t) {
@@ -1674,6 +1816,7 @@ function drawMarkers(t) {
   }
   if (big.slip > 0) label("🍌💫", bh.x + 10, bh.y + 30, 20, "#fff");
   else if (big.stun > 0) label("?!", bh.x + 22, bh.y, 22, "#fff");
+  else if (big.blush > 0) label("💗", bh.x + 22, bh.y + 2, 20 + Math.sin(t * 10) * 2, "#fff");
   else if (big.noPush > 0) label("💦", bh.x + 22, bh.y + 6, 16, "#fff");
   else if (big.state === "chase") label("!", bh.x, bh.y - 4, 28, "#ff3b30");
 }
@@ -1698,7 +1841,9 @@ function addButton(x, y, w, h, text, color, act, size = 24) {
   rr(x, y, w, h, 18); fillStroke(color, 4);
   ctx.fillStyle = "rgba(255,255,255,.25)"; rr(x + 8, y + 6, w - 16, h * 0.35, 10); ctx.fill();
   label(text, x + w / 2, y + h / 2 + 1, size, "#fff");
-  buttons.push({ x, y, w, h, act });
+  const b = { x, y, w, h, act };
+  buttons.push(b);
+  return b;
 }
 function toggleFullscreen() {
   const d = document;
@@ -1717,7 +1862,7 @@ function drawHUD(t) {
   const hx = 18 + nameW + 18, hpW = hx + hearts - 10 - (hStep - hSize / 2) + 9;
   rr(10, 8, hpW, 34, 14); fillStroke("rgba(255,255,255,.8)", 3);
   labelFit(bigName, 18, 25, 15, nameW, "#9b2c3a", "left");
-  for (let i = 0; i < big.maxHp; i++) drawHeart(hx + i * hStep, 25 - hSize / 2 - 1, hSize, i < big.hp ? "#ff3b5c" : "#e5e7eb");
+  for (let i = 0; i < big.maxHp; i++) drawHpHeart(hx + i * hStep, 25 - hSize / 2 - 1, hSize, heartFill(i, big.hp));
 
   const chipW = 32, totalW = littles.length * chipW + 14, x0 = W - totalW - 10;
   rr(x0, 8, totalW, 34, 14); fillStroke("rgba(255,255,255,.8)", 3);
@@ -1732,11 +1877,14 @@ function drawHUD(t) {
   });
 
   const gls = [0, 1].filter(pi => pi < numPlayers).map(pi => gloveOf(pi)).filter(Boolean);
-  if (gls.length) {                                        // сколько сильных обнимашек осталось
-    const kinds = [...new Set(gls)];
-    rr(10, 48, 20 + kinds.length * 70, 34, 14); fillStroke("rgba(255,255,255,.8)", 3);
+  const kinds = [...new Set(gls)], showKiss = !isTouch && progress.inv.kisses > 0;
+  if (kinds.length || showKiss) {                          // сколько сильных обнимашек и поцелуев осталось
+    const n = kinds.length + (showKiss ? 1 : 0);
+    rr(10, 48, 20 + n * 70, 34, 14); fillStroke("rgba(255,255,255,.8)", 3);
     kinds.forEach((k, i) => { drawMitten(30 + i * 70, 65, 26, k); label("×" + progress.inv[k], 58 + i * 70, 65, 16, OUT); });
+    if (showKiss) { const i = kinds.length; drawKiss(30 + i * 70, 67, 26); label("×" + progress.inv.kisses, 58 + i * 70, 65, 16, OUT); }
   }
+  if (isTouch && mode === "play" && progress.inv.kisses > 0) for (let pi = 0; pi < numPlayers; pi++) kissButton(pi);
   const s = Math.floor(stats.time);
   rr(W / 2 - 95, 8, 110, 34, 14); fillStroke("rgba(255,255,255,.8)", 3);
   label(`${L().lvShort} ${level}  ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`, W / 2 - 40, 25, 14, OUT);
@@ -1759,6 +1907,30 @@ function drawHUD(t) {
     rr(W / 2 - 230, H - 58 - i * 44, 460, 38, 14); fillStroke("rgba(30,41,59,.75)", 3);
     fitText("💤 " + txt, W / 2, H - 39 - i * 44, 17, 440, "center", "#e0e7ff", 800);
   });
+}
+
+// Круглая кнопка 💋 игрока pi: внизу справа (один игрок) или на своей стороне (двое); касание здесь — не джойстик
+function kissBtnRect(pi) {
+  const d = CFG.KISS_BTN, m = 14, left = numPlayers === 2 && pi === 0;
+  return { x: left ? m : W - m - d, y: H - m - d, w: d, h: d };
+}
+function kissButton(pi) {
+  const l = littles[pi];
+  if (!l) return;
+  const rc = kissBtnRect(pi), r = rc.w / 2, cx = rc.x + r, cy = rc.y + r;
+  const ready = canAct(l) && !inSafe(l) && l.kissCd <= 0;   // серая: перезарядка, в домике или не может действовать
+  ctx.save(); ctx.globalAlpha = ready ? 0.95 : 0.55;
+  ctx.fillStyle = "rgba(0,0,0,.3)"; circle(cx + 2, cy + 4, r); ctx.fill();
+  circle(cx, cy, r); fillStroke(ready ? "#ffd1e3" : "#cbd5e1", 4, numPlayers === 2 ? P_COLORS[pi] : OUT);
+  drawKiss(cx, cy + 4, r * 1.15);
+  if (l.kissCd > 0) {                                      // перезарядка — дуга
+    ctx.lineWidth = 5; ctx.strokeStyle = "#ff4d8d"; ctx.lineCap = "round";
+    ctx.beginPath(); ctx.arc(cx, cy, r - 6, -Math.PI / 2, -Math.PI / 2 + TAU * (1 - l.kissCd / CFG.KISS_COOLDOWN)); ctx.stroke(); ctx.lineCap = "butt";
+  }
+  ctx.restore();
+  circle(cx + r * 0.72, cy - r * 0.72, 13); fillStroke("#ff4d8d", 2.5);
+  label(String(progress.inv.kisses), cx + r * 0.72, cy - r * 0.72 + 1, 13, "#fff");
+  buttons.push({ ...rc, act: () => throwKiss(pi), id: "kiss:" + pi });
 }
 
 function drawOverlay() {
@@ -1841,22 +2013,29 @@ function drawOverlay() {
     label("🛒 " + L().shop, W / 2, 64, 34, "#f59e0b");
     rr(W / 2 + 230, 46, 150, 38, 14); fillStroke("#fff", 3);
     drawCoin(W / 2 + 254, 65, 12); label(String(progress.coins), W / 2 + 274, 65, 20, OUT, "left");
-    ["mittens", "mega"].forEach((k, i) => {
-      const g = GLOVES[k], x0 = W / 2 - 370 + i * 380, w = 360;
-      rr(x0, 96, w, 270, 22); fillStroke("#fff", 3.5);
-      drawMitten(x0 + 70, 170, 84, k);
-      fitText(L().gloves[k], x0 + 228, 130, 20, 220, "center", OUT, 900);
-      fitText(L().gloveDesc(g.power), x0 + 228, 162, 15, 216, "center", "#475569", 700);
-      fitText(L().pack(g.charges), x0 + 228, 186, 14, 216, "center", "#64748b", 600);
-      fitText(L().have(progress.inv[k]), x0 + 228, 216, 15, 216, "center", progress.inv[k] > 0 ? "#15803d" : "#94a3b8", 800);
-      const ok = progress.coins >= g.price;
-      addButton(x0 + 70, 250, 220, 56, `${L().buy}  ${g.price}      `, ok ? "#22c55e" : "#cbd5e1", () => buyGloves(k), 20);
-      drawCoin(x0 + 262, 278, 11);
-      if (!ok) fitText(L().notEnough, x0 + w / 2, 330, 13, 300, "center", "#ef4444", 700);
+    // три карточки: рукавицы, мега-рукавицы, воздушные поцелуи
+    const cards = [
+      ...["mittens", "mega"].map(k => ({ k, name: L().gloves[k], desc: L().gloveDesc(GLOVES[k].power), pack: L().pack(GLOVES[k].charges), have: L().have(progress.inv[k]), n: progress.inv[k], price: GLOVES[k].price, buy: () => buyGloves(k) })),
+      { k: "kisses", name: L().kisses, desc: L().kissDesc, pack: L().kissPack(KISSES.pack), have: L().kissHave(progress.inv.kisses), n: progress.inv.kisses, price: KISSES.price, buy: buyKisses }
+    ];
+    cards.forEach((c, i) => {
+      const w = 250, x0 = W / 2 - 385 + i * (w + 10), cx = x0 + w / 2, y0 = 92;
+      rr(x0, y0, w, 292, 22); fillStroke("#fff", 3.5);
+      if (c.k === "kisses") drawKiss(cx, y0 + 52, 78); else drawMitten(cx, y0 + 48, 66, c.k);
+      fitText(c.name, cx, y0 + 102, 19, w - 20, "center", OUT, 900);
+      wrapText(c.desc, cx, y0 + 128, 14, w - 24, 2, "#475569", 700);
+      fitText(c.pack, cx, y0 + 170, 13, w - 24, "center", "#64748b", 600);
+      fitText(c.have, cx, y0 + 192, 14, w - 24, "center", c.n > 0 ? "#15803d" : "#94a3b8", 800);
+      const ok = progress.coins >= c.price;
+      addButton(cx - 95, y0 + 210, 190, 50, `${L().buy}  ${c.price}      `, ok ? "#22c55e" : "#cbd5e1", c.buy, 19).id = "buy:" + c.k;
+      ctx.font = `900 19px system-ui, "Segoe UI", "Arial Rounded MT Bold", Arial, sans-serif`;
+      const vis = ctx.measureText(`${L().buy}  ${c.price}`).width, full = ctx.measureText(`${L().buy}  ${c.price}      `).width;
+      drawCoin(cx - full / 2 + vis + 16, y0 + 236, 10);                       // монетка после цены
+      if (!ok) fitText(L().notEnough, cx, y0 + 274, 12, w - 24, "center", "#ef4444", 700);
     });
     // кто что надевает
     [0, 1].forEach(pi => {
-      const y = 392 + pi * 62;
+      const y = 398 + pi * 60;
       label(`${pi === 0 ? L().player1 : L().player2} ${L().wears}:`, W / 2 - 360, y + 24, 17, P_COLORS[pi], "left");
       ["none", "mittens", "mega"].forEach((k, j) => {
         const on = progress.equip[pi] === k, bx = W / 2 - 110 + j * 165;
@@ -1887,7 +2066,7 @@ function drawOverlay() {
     addButton(W / 2 + 130, 440, 200, 66, L().menu, "#64748b", toMenu, 22);
   } else if (mode === "lose") {
     label(L().lose, W / 2, H / 2 - 100, 58, "#fca5a5");
-    label(L().loseSub(big.maxHp - big.hp, big.maxHp), W / 2, H / 2 - 35, 24, "#fff");
+    label(L().loseSub(fmtHearts(big.maxHp - big.hp), big.maxHp), W / 2, H / 2 - 35, 24, "#fff");
     const sc = lastReward ? lastReward.starCoins || 0 : 0, hugCoins = lastReward ? lastReward.coins - sc : 0;
     if (hugCoins > 0) { drawCoin(W / 2 - 70, H / 2 - 2, 13); label(L().forHugs(hugCoins), W / 2 - 50, H / 2 - 2, 20, "#fde047", "left"); }
     if (sc > 0) label("✨ " + L().starCoins(sc), W / 2, H / 2 + (hugCoins > 0 ? 22 : 0), 16, "#fde047");
@@ -2372,7 +2551,7 @@ function updateCone() {
     pos[(i + 1) * 3] = P(big.x + cx * r); pos[(i + 1) * 3 + 1] = 0.05; pos[(i + 1) * 3 + 2] = P(big.y + sy * r);
   }
   coneGeo.attributes.position.needsUpdate = true;
-  const calm = big.stun > 0 || big.noPush > 0;
+  const calm = big.stun > 0 || big.noPush > 0 || big.blush > 0;
   coneMat.color.set(calm ? "#d4dcff" : (big.state === "chase" ? "#ff4632" : "#fff05a"));
   coneMat.opacity = calm ? 0.22 : (big.state === "chase" ? 0.34 : 0.4);
 }
@@ -2579,9 +2758,12 @@ function buildBigModel(sk) {
   }
   const head = new THREE.Group(); head.position.y = 1.98; rig.add(head);
   const r = 0.5;
-  if (sk.top === "robot") head.add(part(new THREE.BoxGeometry(0.92, 0.84, 0.84), sk.skin, 0.035));
-  else head.add(part(sphere(r, 20, 16), sk.skin, 0.04));
+  const headMat = ownMat(sk.skin); headMat.emissive = new THREE.Color("#000000");   // краснеет после поцелуя
+  if (sk.top === "robot") head.add(part(new THREE.BoxGeometry(0.92, 0.84, 0.84), "", 0.035, headMat));
+  else head.add(part(sphere(r, 20, 16), "", 0.04, headMat));
   const face = addFace(head, sk.top === "robot" ? 0.46 : r, { big: true, ex: 0.18, ey: 0.06 });
+  const cheeks = new THREE.Group(); cheeks.visible = false; head.add(cheeks);   // румянец: красные щёки
+  for (const k of [-1, 1]) { const c = new THREE.Mesh(sphere(0.12, 10, 8), toon("#ff1f4b")); c.scale.set(1.35, 0.8, 0.5); c.position.set(k * 0.29, -0.12, sk.top === "robot" ? 0.43 : 0.4); cheeks.add(c); }
   let blink = null;
   if (sk.top === "spiky") {
     const capM = part(new THREE.SphereGeometry(r + 0.03, 20, 10, 0, TAU, 0, Math.PI * 0.5), sk.hair, 0.025); capM.rotation.x = -0.45; head.add(capM);
@@ -2612,7 +2794,7 @@ function buildBigModel(sk) {
   const stars = new THREE.Group(); stars.position.y = 2.75; stars.visible = false; rig.add(stars);
   for (let i = 0; i < 3; i++) { const s = part(new THREE.OctahedronGeometry(0.12), "#fde047", 0.02); s.position.set(Math.cos(i * TAU / 3) * 0.55, 0, Math.sin(i * TAU / 3) * 0.55); stars.add(s); }
   root.traverse(o => { if (o.isMesh) o.castShadow = true; });
-  return { root, rig, legs, arms, head, body, bodyMat, face, sweat, stars, blink };
+  return { root, rig, legs, arms, head, body, bodyMat, headMat, cheeks, face, sweat, stars, blink };
 }
 
 let charGroup = new THREE.Group(); scene.add(charGroup);
@@ -2633,6 +2815,7 @@ function rebuild3D() {
   buildCharacters();
   clearItemMeshes();
   clearStarMeshes();
+  clearKissMeshes();
 }
 
 // ---------- Предметы в 3D ----------
@@ -2717,6 +2900,50 @@ function syncStars(t) {
     g.userData.ring.rotation.z = -t * 1.5;
     g.userData.ring.material.opacity = 0.4 + Math.sin(t * 5) * 0.2;
     g.visible = !(s.life - s.t < CFG.STAR_BLINK && Math.floor(t * 8) % 2);   // мигает перед исчезновением
+  }
+}
+
+// ---------- Воздушные поцелуи в 3D: розовое сердечко на высоте груди и искристый хвостик ----------
+const KISS_Y = 0.8;                       // высота полёта (грудь маленького)
+let kissGroup = new THREE.Group(); scene.add(kissGroup);
+const kissMeshes = new Map();
+function clearKissMeshes() { scene.remove(kissGroup); disposeTree(kissGroup); kissGroup = new THREE.Group(); scene.add(kissGroup); kissMeshes.clear(); }
+function makeKissMesh() {
+  const g = new THREE.Group();
+  const sh = new THREE.Shape();                          // сердечко
+  sh.moveTo(0, -0.2);
+  sh.bezierCurveTo(-0.05, -0.12, -0.24, -0.02, -0.24, 0.1);
+  sh.bezierCurveTo(-0.24, 0.24, -0.06, 0.26, 0, 0.14);
+  sh.bezierCurveTo(0.06, 0.26, 0.24, 0.24, 0.24, 0.1);
+  sh.bezierCurveTo(0.24, -0.02, 0.05, -0.12, 0, -0.2);
+  const geo = new THREE.ExtrudeGeometry(sh, { depth: 0.08, bevelEnabled: true, bevelThickness: 0.025, bevelSize: 0.025, bevelSegments: 1 });
+  geo.center();
+  const hm = ownMat("#ff4d8d"); hm.emissive = new THREE.Color("#ff2d75"); hm.emissiveIntensity = 0.45;
+  const tilt = new THREE.Group(); tilt.rotation.x = -0.95; g.add(tilt);   // смотрит в камеру
+  const heart = part(geo, "", 0.025, hm); tilt.add(heart);
+  const trail = [];
+  for (let i = 0; i < 5; i++) {                          // хвостик из искорок
+    const sm = new THREE.MeshBasicMaterial({ color: i % 2 ? "#ffffff" : "#ff8fb8", transparent: true, opacity: 0.95 - i * 0.15, depthWrite: false }); sm.userData.own = true;
+    const s = new THREE.Mesh(new THREE.OctahedronGeometry(0.12 - i * 0.017), sm); g.add(s); trail.push(s);
+  }
+  g.userData.heart = heart; g.userData.trail = trail;
+  heart.castShadow = true;
+  return g;
+}
+function syncKisses(t) {
+  const alive = new Set(kisses.map(k => k.id));
+  for (const [id, g] of kissMeshes) if (!alive.has(id)) { kissGroup.remove(g); disposeTree(g); kissMeshes.delete(id); }
+  for (const k of kisses) {
+    let g = kissMeshes.get(k.id);
+    if (!g) { g = makeKissMesh(); kissGroup.add(g); kissMeshes.set(k.id, g); }
+    g.position.set(P(k.x), KISS_Y + Math.sin(t * 14 + k.id) * 0.04, P(k.y));
+    g.userData.heart.rotation.z = Math.sin(t * 10 + k.id) * 0.25;
+    g.userData.heart.scale.setScalar(1.25 + Math.sin(t * 16) * 0.1);
+    g.userData.trail.forEach((s, i) => {
+      const back = Math.min(k.travel, (i + 1) * 8);       // искорки позади, в пределах пройденного пути
+      s.position.set(P(-k.dx * back) + Math.sin(t * 20 + i) * 0.04, Math.cos(t * 18 + i * 2) * 0.05, P(-k.dy * back));
+      s.rotation.y = t * 6 + i;
+    });
   }
 }
 
@@ -2814,6 +3041,12 @@ function syncBig(b, t) {
   m.face.mouth.rotation.z = (angry && !shocked) || resting ? 0 : Math.PI;
   m.head.rotation.z = shocked ? Math.sin(t * 6) * 0.15 : 0;
   m.bodyMat.emissive.set(b.flash > 0 ? "#ff8fb0" : "#000000");
+  const blushing = b.blush > 0;                           // покраснел после воздушного поцелуя
+  m.cheeks.visible = blushing;
+  m.headMat.emissive.setRGB(blushing ? 0.55 + Math.sin(t * 8) * 0.12 : 0, 0, blushing ? 0.1 : 0);
+  // смущается: голову чуть вверх (красное лицо видно сверху), руки вместе, улыбается
+  if (blushing && !shocked) { m.head.rotation.x = -0.2; m.arms[0].rotation.x = -0.5; m.arms[1].rotation.x = -0.5; m.face.mouth.rotation.z = Math.PI; }
+  else m.head.rotation.x = 0;
   if (m.blink) m.blink.material.emissiveIntensity = Math.floor(t * 3) % 2 ? 1 : 0.2;
 }
 let lastSyncT = 0;
@@ -2823,6 +3056,7 @@ function syncScene(t) {
   syncBig(big, t);
   syncItems(t);
   syncStars(t);
+  syncKisses(t);
   updateCone();
   // обратный отсчёт у игрока в доме Большого — стены мигают красным
   const warn = mode === "play" && littles.some(l => l.kind === "player" && l.state === "ok" && l.dangerT > CFG.DANGER_TIME - CFG.DANGER_WARN);
@@ -2952,7 +3186,9 @@ window.__bb = {
   get buttonRects() { return buttons.map(b => ({ id: b.id || b.act.name, x: b.x, y: b.y, w: b.w, h: b.h })); },
   get names() { return allNames(); }, setName, nameOf, inDanger, get stars() { return bonusStars; }, spawnStar, giveReward,
   get dangerZone() { return dangerZone; }, get safeZone() { return safeZone; }, get texts() { return texts; }, generateLevel,
-  world: { COLS, ROWS, CELL, get blocked() { return Array.from(blocked); } }
+  world: { COLS, ROWS, CELL, get blocked() { return Array.from(blocked); },
+    get obstacles() { return obstacles.map(o => ({ kind: o.kind, shape: o.shape, x: o.x, y: o.y, w: o.w, h: o.h, r: o.r, move: o.move, sight: o.sight })); } },
+  get kisses() { return kisses; }, throwKiss, buyKisses, resetProgress, heartFill, bigBoost
 };
 </script>
 </body>

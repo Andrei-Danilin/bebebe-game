@@ -1,6 +1,6 @@
 // Gameplay rules decided by the kids (see docs/game-design.md). Each test pins one rule.
 const { test, expect } = require("@playwright/test");
-const { openGame, step, setupHug } = require("./helpers");
+const { openGame, step, setupHug, frames } = require("./helpers");
 
 test.beforeEach(async ({ page }) => {
   page.errors = await openGame(page);
@@ -439,4 +439,339 @@ test("a danger zone without exits throws out to the nearest free cell", async ({
   expect(r.in).toBe(false);
   expect(r.dz).toBeGreaterThan(1.5);
   expect(r.d).toBeLessThan(3 * 32);                 // right next to the house, not the map centre
+});
+
+// ---------- Air kisses (SPEC-004) ----------
+// The thrower stands outside the Little Ones' house, next to its right wall (level 1: wall x 192..224, row 1 is y 32..64).
+const KISS_SPOT = { x: 270, y: 48 };
+
+test("buying air kisses", async ({ page }) => {
+  const r = await page.evaluate(() => {
+    const b = window.__bb, out = [];
+    b.progress.coins = 45;
+    for (let i = 0; i < 3; i++) { b.buyKisses(); out.push([b.progress.coins, b.progress.inv.kisses]); }
+    return out;
+  });
+  expect(r).toEqual([[25, 5], [5, 10], [5, 10]]);    // 20 coins for 5; the third time there are not enough coins
+  await page.reload();
+  await page.waitForFunction(() => window.__bbReady === true);
+  expect(await page.evaluate(() => window.__bb.progress.inv.kisses)).toBe(10);
+  const after = await page.evaluate(() => { const b = window.__bb; b.resetProgress(); b.resetProgress(); return b.progress.inv; });
+  expect(after.kisses).toBe(0);
+});
+
+test("old saves get 0 kisses", async ({ page }) => {
+  const load = async inv => {
+    await page.evaluate(v => localStorage.setItem("bebebe-progress", JSON.stringify({ unlocked: 3, stars: { 1: 2 }, coins: 12, inv: v, equip: ["mittens", "none"] })), inv);
+    await page.reload();
+    await page.waitForFunction(() => window.__bbReady === true);
+    return page.evaluate(() => window.__bb.progress);
+  };
+  const p = await load({ mittens: 1, mega: 0 });
+  expect(p.inv).toEqual({ mittens: 1, mega: 0, kisses: 0 });
+  expect(p.coins).toBe(12);
+  expect(p.unlocked).toBe(3);
+  expect((await load({ mittens: 1, mega: 0, kisses: "lots" })).inv.kisses).toBe(0);   // broken data never throws
+  expect((await load({ mittens: 1, mega: 0, kisses: -3 })).inv.kisses).toBe(0);
+  expect((await load({ mittens: 1, mega: 0, kisses: 7 })).inv.kisses).toBe(7);
+});
+
+test("throwing spends a kiss and has a cooldown", async ({ page }) => {
+  await installTestHelpers(page);
+  const r = await page.evaluate(spot => {
+    const b = window.__bb, t = window.__t, l = b.littles[0], out = {};
+    b.progress.inv.kisses = 3;
+    out.bot = b.throwKiss(1);                         // bots never throw
+    t.calm(); b.big.noPush = 999; t.pin([0]);
+    Object.assign(l, { ...spot, dir: 0, state: "ok", hugAnim: 0, dizzy: 0, kissCd: 0 });
+    out.first = b.throwKiss(0); out.n1 = b.progress.inv.kisses; out.cd = l.kissCd; out.flying = b.kisses.length;
+    out.second = b.throwKiss(0); out.n2 = b.progress.inv.kisses;
+    t.step(1.05);
+    out.third = b.throwKiss(0); out.n3 = b.progress.inv.kisses;
+    t.step(1.05); out.flyingEnd = b.kisses.length; out.n4 = b.progress.inv.kisses;   // a miss is still spent
+    l.kissCd = 0;
+    l.dizzy = 1; out.dizzy = b.throwKiss(0); l.dizzy = 0;
+    l.hugAnim = 0.5; out.hugging = b.throwKiss(0); l.hugAnim = 0;
+    l.state = "down"; out.down = b.throwKiss(0); l.state = "ok";
+    out.n5 = b.progress.inv.kisses;
+    b.progress.inv.kisses = 0; out.none = b.throwKiss(0);
+    return out;
+  }, KISS_SPOT);
+  expect(r.bot).toBe(false);
+  expect(r.first).toBe(true);
+  expect(r.n1).toBe(2);
+  expect(r.cd).toBeCloseTo(1, 5);
+  expect(r.flying).toBe(1);
+  expect(r.second).toBe(false);
+  expect(r.n2).toBe(2);
+  expect(r.third).toBe(true);
+  expect(r.n3).toBe(1);
+  expect(r.flyingEnd).toBe(0);
+  expect(r.n4).toBe(1);
+  expect([r.dizzy, r.hugging, r.down]).toEqual([false, false, false]);
+  expect(r.n5).toBe(1);
+  expect(r.none).toBe(false);
+});
+
+test("kiss keys for one and two players", async ({ page }) => {
+  await installTestHelpers(page);
+  const r = await page.evaluate(spot => {
+    const b = window.__bb, t = window.__t, out = {};
+    const press = code => { t.key(code, true); t.key(code, false); };
+    const ready = () => { t.calm(); b.big.noPush = 999; b.littles.forEach((l, i) => { if (l.kind === "player") Object.assign(l, { x: spot.x, y: spot.y + i * 60, dir: 0, kissCd: 0 }); }); };
+    b.progress.inv.kisses = 20;
+    ready();
+    press("KeyE"); out.e1 = b.kisses.map(k => k.owner);
+    ready(); press("Space"); out.space1 = b.kisses.map(k => k.owner);
+    b.startGame(2); b.kisses.length = 0; ready();
+    press("KeyE"); out.e2 = b.kisses.map(k => k.owner);
+    ready(); press("Enter"); out.enter2 = b.kisses.map(k => k.owner);
+    ready(); press("NumpadEnter"); out.numEnter2 = b.kisses.map(k => k.owner);
+    ready(); press("Space"); out.space2 = b.kisses.length;      // Space is a one-player key
+    out.left = b.progress.inv.kisses;
+    return out;
+  }, KISS_SPOT);
+  expect(r.e1).toEqual([0]);
+  expect(r.space1).toEqual([0, 0]);
+  expect(r.e2).toEqual([0]);
+  expect(r.enter2).toEqual([0, 1]);
+  expect(r.numEnter2).toEqual([0, 1, 1]);
+  expect(r.space2).toBe(3);
+  expect(r.left).toBe(15);
+  // gamepad: button 2 (X on Xbox, □ on PlayStation); the second pad is player 2 in a two-player game
+  await page.evaluate(() => {
+    const b = window.__bb; b.big.noPush = 999;
+    b.littles.forEach(l => { l.kissCd = 0; });
+    const pad = (i, on) => ({ index: i, axes: [0, 0], buttons: Array.from({ length: 17 }, (_, k) => ({ pressed: on && k === 2, value: 0 })) });
+    window.__pads = [pad(0, false), pad(1, true)];
+    Object.defineProperty(navigator, "getGamepads", { configurable: true, value: () => window.__pads });
+  });
+  await page.waitForFunction(() => window.__bb.progress.inv.kisses === 14);
+  expect(await page.evaluate(() => window.__bb.littles[1].kissCd > 0 && window.__bb.littles[0].kissCd === 0)).toBe(true);
+});
+
+test.describe("on a touch screen", () => {
+  test.use({ hasTouch: true });
+
+  test("touch kiss button does not move the player", async ({ page }) => {
+    await installTestHelpers(page);
+    await page.evaluate(spot => {
+      const b = window.__bb, t = window.__t;
+      b.progress.inv.kisses = 5; t.calm(); b.big.noPush = 999; t.pin([0]);
+      Object.assign(b.littles[0], { ...spot, dir: 0, kissCd: 0 });
+    }, KISS_SPOT);
+    await frames(page);
+    const rect = await page.evaluate(() => window.__bb.buttonRects.find(q => q.id === "kiss:0"));
+    expect(rect).toBeTruthy();
+    expect(rect.x).toBeGreaterThan(960 / 2);          // one player: bottom right
+    expect(rect.y).toBeGreaterThan(640 / 2);
+    expect(rect.w).toBeGreaterThanOrEqual(60);
+    const r = await page.evaluate(rc => {
+      const b = window.__bb, c = document.getElementById("game"), bb = c.getBoundingClientRect(), l = b.littles[0];
+      const ev = (type, x, y) => c.dispatchEvent(new PointerEvent(type, { clientX: bb.left + x * bb.width / 960, clientY: bb.top + y * bb.height / 640, pointerId: 7, pointerType: "touch", isPrimary: true, bubbles: true, cancelable: true }));
+      const cx = rc.x + rc.w / 2, cy = rc.y + rc.h / 2, x0 = l.x, y0 = l.y;
+      ev("pointerdown", cx, cy);
+      ev("pointermove", cx - 140, cy - 80);           // the finger slides off the button: still no joystick
+      window.__t.step(0.5);
+      const out = { moved: Math.hypot(l.x - x0, l.y - y0), left: b.progress.inv.kisses };
+      ev("pointerup", cx - 140, cy - 80);
+      return out;
+    }, rect);
+    expect(r.moved).toBeLessThan(0.5);
+    expect(r.left).toBe(4);
+    // no kisses: no button
+    await page.evaluate(() => { window.__bb.progress.inv.kisses = 0; });
+    await frames(page);
+    expect(await page.evaluate(() => window.__bb.buttonRects.some(q => q.id.startsWith("kiss:")))).toBe(false);
+    // two players: player 1 bottom left, player 2 bottom right
+    await page.evaluate(() => { const b = window.__bb; b.startGame(2); b.progress.inv.kisses = 5; });
+    await frames(page);
+    const two = await page.evaluate(() => window.__bb.buttonRects.filter(q => q.id.startsWith("kiss:")));
+    const p1 = two.find(q => q.id === "kiss:0"), p2 = two.find(q => q.id === "kiss:1");
+    expect(p1.x + p1.w).toBeLessThan(960 / 2);
+    expect(p2.x).toBeGreaterThan(960 / 2);
+    expect(Math.min(p1.y, p2.y)).toBeGreaterThan(640 / 2);
+  });
+});
+
+test("no kisses from the safe house", async ({ page }) => {
+  await installTestHelpers(page);
+  const r = await page.evaluate(() => {
+    const b = window.__bb, t = window.__t, l = b.littles[0], z = b.safeZone;
+    t.calm(); t.pin([0]);
+    b.progress.inv.kisses = 3;
+    Object.assign(l, { x: z.x + z.w / 2, y: z.y + z.h / 2, dir: 0, kissCd: 0 });
+    const ok = b.throwKiss(0);
+    return { ok, n: b.progress.inv.kisses, flying: b.kisses.length, cd: l.kissCd, texts: b.texts.map(q => q.text), want: b.I18N.en.noKissHome };
+  });
+  expect(r.ok).toBe(false);
+  expect(r.n).toBe(3);
+  expect(r.flying).toBe(0);
+  expect(r.cd).toBe(0);
+  expect(r.texts).toContain(r.want);
+});
+
+test("kisses stop at walls and fly over ponds", async ({ page }) => {
+  await installTestHelpers(page);
+  const wall = await page.evaluate(spot => {
+    const b = window.__bb, t = window.__t, l = b.littles[0];
+    t.calm(); b.big.noPush = 999; t.pin([0]);
+    b.progress.inv.kisses = 5;
+    Object.assign(l, { ...spot, dir: Math.PI, kissCd: 0 });   // facing the house wall (x 192..224)
+    b.throwKiss(0);
+    let minX = Infinity, life = 0;
+    for (let i = 0; i < 60 && b.kisses.length; i++) { minX = Math.min(minX, b.kisses[0].x); b.update(1 / 60); life = (i + 1) / 60; }
+    return { minX, life, left: b.kisses.length };
+  }, KISS_SPOT);
+  expect(wall.left).toBe(0);
+  expect(wall.life).toBeLessThan(0.3);               // the full range (224 px) would take 0.53 s
+  expect(wall.minX).toBeGreaterThan(210);
+  const pond = await page.evaluate(() => {
+    const b = window.__bb, t = window.__t;
+    b.level = 3; b.startGame(1);                      // level 3 always has a pond
+    const p = b.world.obstacles.find(o => o.kind === "pond");
+    if (!p) return null;
+    const l = b.littles[0], y = p.y + p.h / 2;
+    t.calm(p.x + 64, p.y > 320 ? 60 : 580); b.big.noPush = 999; t.pin([0]);
+    b.progress.inv.kisses = 5;
+    Object.assign(l, { x: p.x - 18, y, dir: 0, kissCd: 0, state: "ok" });
+    b.throwKiss(0);
+    let maxX = -Infinity;
+    for (let i = 0; i < 60 && b.kisses.length; i++) { maxX = Math.max(maxX, b.kisses[0].x); b.update(1 / 60); }
+    return { maxX, end: p.x + p.w };
+  });
+  expect(pond).not.toBeNull();
+  expect(pond.maxX).toBeGreaterThan(pond.end);       // flew over the whole pond
+});
+
+// Thrower 50 px behind the Big One (he faces away), so the kiss reaches him in a frame or two.
+async function kissScene(page) {
+  await installTestHelpers(page);
+  await page.evaluate(() => {
+    const t = window.__t;
+    t.kissHim = () => {
+      const b = window.__bb, big = b.big, l = b.littles[0];
+      Object.assign(l, { x: big.x - 50, y: big.y, dir: 0, state: "ok", invuln: 0, hugAnim: 0, kissCd: 0 });
+      b.throwKiss(0);
+      for (let i = 0; i < 30 && b.kisses.length; i++) b.update(1 / 60);
+    };
+    t.pin([0]);
+    Object.assign(window.__bb.big, { x: 500, y: 320, dir: 0, state: "look", timer: 9999, stun: 0, stunFace: 0, stunTurn: 0, slip: 0, noPush: 0, pushCd: 0, hugCd: 0 });
+    window.__bb.progress.inv.kisses = 10;
+  });
+}
+
+test("a kiss takes half a heart and makes him blush", async ({ page }) => {
+  await kissScene(page);
+  const r = await page.evaluate(() => {
+    const b = window.__bb, t = window.__t, big = b.big, l = b.littles[0], out = {};
+    const hp0 = big.hp;
+    t.kissHim();
+    out.lost = hp0 - big.hp; out.blush = big.blush; out.texts = b.texts.map(q => q.text);
+    const x0 = big.x, y0 = big.y;
+    Object.assign(b.littles[1], { x: big.x + 35, y: big.y, state: "ok", invuln: 0, hugCd: 99 });   // right in front of him
+    t.step(1.0);
+    out.moved = Math.hypot(big.x - x0, big.y - y0); out.front = b.littles[1].state;
+    Object.assign(b.littles[1], { x: 860, y: 600 });
+    for (let i = 0; i < 60 && big.blush > 0; i++) b.update(1 / 60);
+    out.state = big.state; out.lastSeen = big.lastSeen; out.thrower = { x: l.x, y: l.y };
+    return out;
+  });
+  expect(r.lost).toBe(0.5);
+  expect(r.blush).toBeGreaterThan(1.4);
+  expect(r.texts).toContain("Mwah!");
+  expect(r.texts).toContain("So shy!");
+  expect(r.moved).toBe(0);                           // stands still
+  expect(r.front).toBe("ok");                        // and pushes nobody
+  expect(r.state).toBe("chase");                     // then goes after the thrower
+  expect(Math.hypot(r.lastSeen.x - r.thrower.x, r.lastSeen.y - r.thrower.y)).toBeLessThan(1);
+});
+
+test("kisses during shock or blush do no damage", async ({ page }) => {
+  await kissScene(page);
+  const r = await page.evaluate(() => {
+    const b = window.__bb, t = window.__t, big = b.big, out = {};
+    const hp0 = big.hp;
+    big.stun = 2; t.kissHim();
+    out.shock = { lost: hp0 - big.hp, blush: big.blush, flying: b.kisses.length };
+    big.stun = 0; t.kissHim();
+    out.first = hp0 - big.hp;
+    const bl = big.blush;
+    t.kissHim();
+    out.second = { lost: hp0 - big.hp, refreshed: big.blush > bl };
+    return out;
+  });
+  expect(r.shock).toEqual({ lost: 0, blush: 0, flying: 0 });
+  expect(r.first).toBe(0.5);
+  expect(r.second).toEqual({ lost: 0.5, refreshed: false });
+});
+
+test("a blushing Big One can be hugged", async ({ page }) => {
+  await kissScene(page);
+  const r = await page.evaluate(() => {
+    const b = window.__bb, t = window.__t, big = b.big, l = b.littles[0];
+    const hp0 = big.hp;
+    t.kissHim();
+    const blush = big.blush;
+    Object.assign(l, { x: big.x - 34, y: big.y, hugCd: 0, kx: 0, ky: 0 });   // right behind him
+    b.update(1 / 60);
+    return { blush, lost: hp0 - big.hp, after: big.blush, stun: big.stun, anim: l.hugAnim };
+  });
+  expect(r.blush).toBeGreaterThan(1);
+  expect(r.lost).toBe(1.5);
+  expect(r.after).toBe(0);
+  expect(r.stun).toBeGreaterThan(2);
+  expect(r.anim).toBeGreaterThan(0);
+});
+
+test("the last half heart by a kiss wins the level", async ({ page }) => {
+  await kissScene(page);
+  const r = await page.evaluate(() => {
+    const b = window.__bb, t = window.__t;
+    b.big.hp = 0.5;
+    t.kissHim();
+    const hp = b.big.hp;
+    t.step(1.5);
+    return { hp, mode: b.mode, reward: b.lastReward };
+  });
+  expect(r.hp).toBe(0);
+  expect(r.mode).toBe("win");
+  expect(r.reward.win).toBe(true);
+  expect(r.reward.stars).toBeGreaterThanOrEqual(1);
+});
+
+test("hearts bar shows half hearts", async ({ page }) => {
+  const r = await page.evaluate(() => {
+    const b = window.__bb, f = b.heartFill, big = b.big, out = {};
+    out.fill = [f(0, 2.5), f(1, 2.5), f(2, 2.5), f(3, 2.5), f(5, 6), f(0, 0), f(0, 0.5)];
+    big.hp = big.maxHp - 0.5; out.boostHalf = b.bigBoost();
+    big.hp = big.maxHp - 1.5; out.boostOneHalf = b.bigBoost();
+    big.hp = big.maxHp; out.boost0 = b.bigBoost();
+    return out;
+  });
+  expect(r.fill).toEqual([1, 1, 0.5, 0, 1, 0, 0.5]);
+  expect(r.boost0).toBe(0);                          // level 1
+  expect(r.boostHalf).toBe(0);                       // half a heart is not a whole heart lost
+  expect(r.boostOneHalf).toBe(4);                    // one whole heart: BIG_SPEED_PER_HIT
+});
+
+test("the shop shows three cards in one row", async ({ page }) => {
+  for (const lang of ["en", "es", "ru"]) {
+    await page.evaluate(l => { window.__bb.setLang(l); window.__bb.mode = "shop"; }, lang);
+    await frames(page);
+    const rects = await page.evaluate(() => window.__bb.buttonRects.filter(q => q.id.startsWith("buy:")));
+    expect(rects.map(q => q.id)).toEqual(["buy:mittens", "buy:mega", "buy:kisses"]);
+    expect(new Set(rects.map(q => q.y)).size).toBe(1);
+    for (let i = 1; i < 3; i++) expect(rects[i].x).toBeGreaterThan(rects[i - 1].x + rects[i - 1].w);
+    expect(rects[0].x).toBeGreaterThan(80);
+    expect(rects[2].x + rects[2].w).toBeLessThan(880);
+  }
+  await page.evaluate(() => { window.__bb.progress.coins = 20; });
+  await frames(page);
+  const buy = await page.evaluate(() => {
+    const q = window.__bb.buttonRects.find(r => r.id === "buy:kisses"), c = document.getElementById("game").getBoundingClientRect();
+    return { x: c.left + (q.x + q.w / 2) * c.width / 960, y: c.top + (q.y + q.h / 2) * c.height / 640 };
+  });
+  await page.mouse.click(buy.x, buy.y);
+  expect(await page.evaluate(() => window.__bb.progress.inv.kisses)).toBe(5);
 });
