@@ -1,6 +1,6 @@
 # SPEC-006 — Four worlds of 20 levels: Park, School, Beach, Winter
 
-Status: ready
+Status: done (25e2c47; phone banner fix e13d65c)
 Complexity: L
 Branch: SPEC-006-four-worlds
 Decided by: Andrei and the kids (2026-11-22): four worlds — Park, School, Beach, Winter — of 20 levels each; inside a world the level types go from easy to the maze (mazes are the hardest, at the end); all four worlds are open from the start, levels open one by one inside each world; difficulty grows inside a world mostly through the Big One moving faster, and each next world starts a little harder than the previous one started. Everything else (formulas, caps, save migration, menu layout, coins): Claude (spec author).
