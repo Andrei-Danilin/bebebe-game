@@ -704,7 +704,7 @@ function riverLayout(ctx) {
     items.push({ t: "water", ...r }); reserve(r.x, r.y, r.w, r.h);
     p = e + 1;
   }
-  for (const b of bridges) { items.push({ t: "floor", kind: "bridge", ...b }); reserve(b.x, b.y, b.w, b.h); }
+  for (const b of bridges) { items.push({ t: "floor", kind: "bridge", ...b, across: vertical ? "x" : "y" }); reserve(b.x, b.y, b.w, b.h); }
   // берег клетки: 0 — сторона домика маленьких, 1 — другая
   const bank = (x, y) => vertical ? (x < top[y] ? 0 : 1) : (y < top[x] ? 0 : 1);
   const nBush = bushCount(ctx, L.bushes), half = Math.ceil(nBush / 2);
@@ -913,13 +913,13 @@ function applyWorld(gen) {
     if (it.t === "wall") obstacles.push({ shape: "rect", x: px, y: py, w: it.w * CELL, h: it.h * CELL, move: true, sight: true, kind: it.kind });
     else if (it.t === "cottage") obstacles.push({ shape: "rect", x: px, y: py, w: it.w * CELL, h: it.h * CELL, move: true, sight: true, kind: "cottage" });
     else if (it.t === "water") obstacles.push({ shape: "rect", x: px, y: py, w: it.w * CELL, h: it.h * CELL, move: true, sight: false, kind: "water" });
-    else if (it.t === "pond") obstacles.push({ shape: "rect", x: px, y: py, w: it.w * CELL, h: it.h * CELL, move: true, sight: false, kind: "pond" });
+    else if (it.t === "pond") obstacles.push({ shape: "rect", x: px, y: py, w: it.w * CELL, h: it.h * CELL, move: true, sight: false, kind: "pond", fountain: !!it.fountain });
     else if (it.t === "tree") { const t = { shape: "circle", x: px + 16, y: py + 16, r: 12, sr: 15, move: true, sight: true, kind: "tree", v: it.v, s: it.s }; obstacles.push(t); trees.push(t); }
     else if (it.t === "rock") obstacles.push({ shape: "circle", x: px + 16, y: py + 16, r: 16, sr: 16, move: true, sight: true, kind: "rock", s: it.s });
     else if (it.t === "bush") bushes.push({ x: px + CELL, y: py + CELL, r: 30 });
     else if (it.t === "safe") safeZone = { shape: "rect", x: px, y: py, w: it.w * CELL, h: it.h * CELL };
     else if (it.t === "danger") dangerZone = { x: px, y: py, w: it.w * CELL, h: it.h * CELL, exits: (it.exits || []).map(e => ({ x: (e.x + e.w / 2) * CELL, y: (e.y + e.h / 2) * CELL })) };
-    else if (it.t === "floor") floors.push({ x: px, y: py, w: it.w * CELL, h: it.h * CELL, kind: it.kind });
+    else if (it.t === "floor") floors.push({ x: px, y: py, w: it.w * CELL, h: it.h * CELL, kind: it.kind, across: it.across });
     else if (it.t === "decor") decor.push({ x: px, y: py, w: it.w * CELL, h: it.h * CELL, kind: it.kind, c: it.c });
   }
   spawns = { small: gen.small.map(([x, y]) => ({ x: x * CELL, y: y * CELL })), big: { x: gen.big[0] * CELL, y: gen.big[1] * CELL } };
@@ -2747,14 +2747,29 @@ groundTex.colorSpace = THREE.SRGBColorSpace;
 groundTex.anisotropy = 8;
 // ---------- Места: оформление поверх одного и того же генератора ----------
 const THEMES = {
+  // walls: [стена, верх]; maze — стены лабиринта (deco: кочки живой изгороди / столбики забора / снежки / дверцы шкафчиков);
+  // cottage — домики деревни; water — река (edge — берег, stone — каменный бортик канала); bridge — [доски, щели];
+  // square — площадь [мостовая, камни]; fountain — чаша фонтана
   park:   { bg: "#6fb24f", outer: "#7cc35a", g1: "#9be06f", g2: "#90d566", dots: ["#fff27a", "#ff9ecb", "#ffffff", "#b5e3ff"], fence: "#f5e6c8",
-            walls: { home: ["#7cc6fe", "#c4e6ff"], bighome: ["#e5534b", "#f6a8a2"], build: ["#f4b860", "#fde0ad"] } },
+            walls: { home: ["#7cc6fe", "#c4e6ff"], bighome: ["#e5534b", "#f6a8a2"], build: ["#f4b860", "#fde0ad"], arena: ["#9ca3af", "#d1d5db"] },
+            maze: { wall: "#3f9a4a", cap: "#5cb85c", deco: "bumps", decoC: "#6cc46a" },
+            cottage: { wall: "#fde68a", roof: "#ef4444", door: "#92400e", window: "#bae6fd" },
+            water: { c: "#5ab8f0", edge: "#4a9a3f" }, bridge: ["#c8925a", "#8b5a2b"], square: ["#e7e0d0", "#cfc6b0"], fountain: "#cbd5e1" },
   beach:  { bg: "#7dd3fc", outer: "#f3dca4", g1: "#f7e6b8", g2: "#f1dca6", dots: ["#fda4af", "#fdba74", "#ffffff", "#fcd34d"], fence: "#e7c58f",
-            walls: { home: ["#38bdf8", "#bae6fd"], bighome: ["#fb7185", "#fecdd3"], build: ["#fde68a", "#fffbeb"] } },
+            walls: { home: ["#38bdf8", "#bae6fd"], bighome: ["#fb7185", "#fecdd3"], build: ["#fde68a", "#fffbeb"], arena: ["#d6c29a", "#efe3c4"] },
+            maze: { wall: "#ecd3a4", cap: "#fbefd5", deco: "posts", decoC: "#a87b45" },
+            cottage: { wall: "#ffffff", roof: "#38bdf8", door: "#0e7490", window: "#bae6fd" },
+            water: { c: "#2dd4bf", edge: "#fff7d6" }, bridge: ["#e8c48f", "#b88a4e"], square: ["#fde7c0", "#f0cf98"], fountain: "#fef3c7" },
   winter: { bg: "#cfe2f7", outer: "#eef5fd", g1: "#f6faff", g2: "#e7f0fa", dots: ["#bfdbfe", "#ffffff", "#93c5fd", "#dbeafe"], fence: "#a16207", snow: true,
-            walls: { home: ["#7cc6fe", "#ffffff"], bighome: ["#e5534b", "#ffffff"], build: ["#c08457", "#ffffff"] } },
+            walls: { home: ["#7cc6fe", "#ffffff"], bighome: ["#e5534b", "#ffffff"], build: ["#c08457", "#ffffff"], arena: ["#94a3b8", "#ffffff"] },
+            maze: { wall: "#dbe8f6", cap: "#ffffff", deco: "snow", decoC: "#ffffff" },
+            cottage: { wall: "#c08457", roof: "#7f1d1d", snow: "#ffffff", door: "#5b3716", window: "#fef3c7" },
+            water: { c: "#cfe9ff", edge: "#ffffff" }, bridge: ["#a16207", "#713f12"], square: ["#e2e8f0", "#cbd5e1"], fountain: "#e2e8f0" },
   school: { bg: "#8fbf6a", outer: "#86b85f", g1: "#cfd6df", g2: "#c6ced8", dots: [], fence: "#94a3b8",
-            walls: { home: ["#60a5fa", "#bfdbfe"], bighome: ["#e5534b", "#f6a8a2"], build: ["#c2410c", "#fdba74"] } }
+            walls: { home: ["#60a5fa", "#bfdbfe"], bighome: ["#e5534b", "#f6a8a2"], build: ["#c2410c", "#fdba74"], arena: ["#a8a29e", "#d6d3d1"] },
+            maze: { wall: "#3b82f6", cap: "#93c5fd", deco: "seams", decoC: "#1e3a8a" },
+            cottage: { wall: "#fca5a5", roof: "#64748b", door: "#7c2d12", window: "#e0f2fe" },
+            water: { c: "#3b82f6", edge: "#78716c", stone: true }, bridge: ["#b45309", "#78350f"], square: ["#d6d3d1", "#a8a29e"], fountain: "#d6d3d1" }
 };
 const HEDGE_COLORS = ["#3f9a4a", "#7bd07e"];
 let mapGroup = null, builtKey = "";
@@ -2924,6 +2939,90 @@ function makePondFor(place, o) {
   }
 }
 
+// Деталь карты с меткой для тестов (__bb.mapPieces)
+const tag = (m, piece) => { m.userData.piece = piece; return m; };
+// Домик деревни: стены, двускатная крыша вдоль длинной стороны (зимой — снег на крыше), дверь и окошки
+function makeCottage(place, o) {
+  const c = THEMES[place].cottage, w = P(o.w), d = P(o.h), cx = P(o.x) + w / 2, cz = P(o.y) + d / 2, wh = 0.75;
+  const g = new THREE.Group();
+  const body = tag(part(new THREE.BoxGeometry(w, wh, d), c.wall, 0.025), "cottage"); body.position.set(cx, wh / 2, cz); body.receiveShadow = true; g.add(body);
+  const alongX = w >= d, span = (alongX ? d : w) + 0.24, len = (alongX ? w : d) + 0.2, rh = 0.55;
+  const roofShape = new THREE.Shape(); roofShape.moveTo(-span / 2, 0); roofShape.lineTo(span / 2, 0); roofShape.lineTo(0, rh); roofShape.closePath();
+  const roofGeo = new THREE.ExtrudeGeometry(roofShape, { depth: len, bevelEnabled: false }); roofGeo.translate(0, 0, -len / 2);
+  const roof = tag(part(roofGeo, c.roof, 0.025), "roof"); roof.position.set(cx, wh, cz); if (alongX) roof.rotation.y = Math.PI / 2; g.add(roof);
+  if (c.snow) {
+    const snowGeo = new THREE.ExtrudeGeometry(roofShape, { depth: len, bevelEnabled: false }); snowGeo.translate(0, 0, -len / 2);
+    const sn = tag(new THREE.Mesh(snowGeo, toon(c.snow)), "snow"); sn.scale.set(0.9, 0.55, 1.02); sn.position.set(cx, wh + rh * 0.5, cz); if (alongX) sn.rotation.y = Math.PI / 2; g.add(sn);
+  }
+  // дверь и окошки на «южной» стороне (к камере)
+  const door = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.45, 0.03), toon(c.door)); door.position.set(cx, 0.225, cz + d / 2 + 0.015); g.add(door);
+  for (const k of [-1, 1]) if (w > 1.6) { const win = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.22, 0.03), toon(c.window)); win.position.set(cx + k * w / 3.2, 0.48, cz + d / 2 + 0.015); g.add(win); }
+  g.traverse(q => { if (q.isMesh) q.castShadow = true; });
+  return g;
+}
+// Кусок реки: плоская вода без бортика — куски стыкуются в одну реку; берег рисуется потом по клеткам
+function makeWaterFor(place, o) {
+  const t = THEMES[place].water, w = P(o.w), d = P(o.h), cx = P(o.x) + w / 2, cz = P(o.y) + d / 2;
+  const m = tag(new THREE.Mesh(new THREE.BoxGeometry(w, 0.03, d), toon(t.c)), "water"); m.position.set(cx, 0.015, cz); m.receiveShadow = true; mapGroup.add(m);
+  if (place === "winter") return;
+  for (let k = 0; k < Math.max(1, Math.round((w + d) / 3)); k++) {
+    const wv = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.025, 4, 12, Math.PI * 0.8), toon("#e0f4ff"));
+    wv.rotation.x = -Math.PI / 2; wv.position.set(cx + (w > d ? -w / 2 + (k + 0.5) * w / Math.round((w + d) / 3 || 1) : 0), 0.04, cz + (w > d ? 0 : -d / 2 + (k + 0.5) * d / Math.round((w + d) / 3 || 1)));
+    mapGroup.add(wv); waves.push(wv);
+  }
+}
+// Берег реки: полоска на каждой стороне клетки воды, где рядом не вода и не мостик (у края карты — нет)
+function riverBanks(place) {
+  const t = THEMES[place].water, wet = new Uint8Array(COLS * ROWS), deck = new Uint8Array(COLS * ROWS);
+  const mark = (g, r) => { for (let y = r.y / CELL; y < (r.y + r.h) / CELL; y++) for (let x = r.x / CELL; x < (r.x + r.w) / CELL; x++) g[y * COLS + x] = 1; };
+  for (const o of obstacles) if (o.kind === "water") mark(wet, o);
+  for (const f of floors) if (f.kind === "bridge") mark(deck, f);
+  const strips = [];
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+    if (!wet[y * COLS + x]) continue;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = x + dx, ny = y + dy;
+      if (nx < 0 || ny < 0 || nx >= COLS || ny >= ROWS || wet[ny * COLS + nx] || deck[ny * COLS + nx]) continue;
+      strips.push([x + 0.5 + dx * 0.5, y + 0.5 + dy * 0.5, dx !== 0]);
+    }
+  }
+  if (!strips.length) return;
+  const hgt = t.stone ? 0.14 : 0.035, th = t.stone ? 0.16 : 0.1;
+  const inst = tag(new THREE.InstancedMesh(new THREE.BoxGeometry(1, hgt, th), toon(t.edge), strips.length), "bank");
+  const mtx = new THREE.Matrix4(), rot = new THREE.Matrix4().makeRotationY(Math.PI / 2);
+  strips.forEach(([x, z, vert], i) => { mtx.makeTranslation(x, hgt / 2, z); if (vert) mtx.multiply(rot); inst.setMatrixAt(i, mtx); });
+  inst.receiveShadow = true; mapGroup.add(inst);
+}
+// Фонтан на площади деревни: каменная чаша, вода и столбик посередине
+function makeFountain(place, o) {
+  const th = THEMES[place], w = P(o.w), d = P(o.h), cx = P(o.x) + w / 2, cz = P(o.y) + d / 2, r = Math.min(w, d) / 2;
+  const bowl = tag(part(new THREE.CylinderGeometry(r, r * 1.04, 0.3, 24), th.fountain, 0.025), "fountain"); bowl.position.set(cx, 0.15, cz); mapGroup.add(bowl);
+  const wat = tag(new THREE.Mesh(new THREE.CylinderGeometry(r * 0.85, r * 0.85, 0.02, 24), toon(th.water.c)), "water"); wat.position.set(cx, 0.31, cz); mapGroup.add(wat);
+  const col = part(new THREE.CylinderGeometry(0.1, 0.14, 0.6, 12), th.fountain, 0.02); col.position.set(cx, 0.45, cz); mapGroup.add(col);
+  const top = new THREE.Mesh(sphere(0.14), toon(th.water.c)); top.position.set(cx, 0.8, cz); mapGroup.add(top); waves.push(top);
+}
+// Украшения стен лабиринта по клеткам — одним InstancedMesh: кочки изгороди, столбики забора, снежки, дверцы шкафчиков
+function mazeDeco(place, walls) {
+  const m = THEMES[place].maze, pts = [];
+  for (const o of walls) {
+    const n = Math.max(o.w, o.h) / CELL, alongX = o.w >= o.h;
+    for (let k = 0; k <= n; k++) {
+      if (m.deco === "seams" && (k === 0 || k === n)) continue;
+      if ((m.deco === "bumps" || m.deco === "snow") && k === n) continue;
+      const off = m.deco === "bumps" || m.deco === "snow" ? k + 0.5 : k;
+      pts.push([P(o.x) + (alongX ? off : 0.5), P(o.y) + (alongX ? 0.5 : off), alongX]);
+    }
+  }
+  if (!pts.length) return;
+  const geo = m.deco === "bumps" ? sphere(0.36, 10, 8) : m.deco === "snow" ? sphere(0.3, 10, 8)
+    : m.deco === "posts" ? new THREE.BoxGeometry(0.16, WALL_H + 0.14, 1.08) : new THREE.BoxGeometry(0.035, WALL_H * 0.8, 1.04);
+  const inst = tag(new THREE.InstancedMesh(geo, toon(m.decoC), pts.length), "mazeDeco");
+  const mtx = new THREE.Matrix4(), rot = new THREE.Matrix4().makeRotationY(Math.PI / 2);
+  const y = m.deco === "bumps" ? WALL_H + 0.02 : m.deco === "snow" ? WALL_H + 0.04 : m.deco === "posts" ? (WALL_H + 0.14) / 2 : WALL_H * 0.45;
+  pts.forEach(([x, z, alongX], i) => { mtx.makeTranslation(x, y, z); if ((m.deco === "seams" || m.deco === "posts") && !alongX) mtx.multiply(rot); inst.setMatrixAt(i, mtx); });
+  inst.castShadow = true; mapGroup.add(inst);
+}
+
 function paintGround(place) {
   const th = THEMES[place], saved = ctx;
   ctx = groundCanvas.getContext("2d");
@@ -2958,7 +3057,23 @@ function paintGround(place) {
     });
   }
   for (const f of floors) {
-    if (f.kind === "tile" || f.kind === "square") {
+    if (f.kind === "bridge") {                           // доски поперёк пути через реку
+      const [plank, gap] = th.bridge;
+      ctx.fillStyle = plank; ctx.fillRect(f.x, f.y, f.w, f.h);
+      ctx.strokeStyle = gap; ctx.lineWidth = 2.5;
+      if (f.across === "x") for (let x = f.x + 10; x < f.x + f.w; x += 10) { ctx.beginPath(); ctx.moveTo(x, f.y); ctx.lineTo(x, f.y + f.h); ctx.stroke(); }
+      else for (let y = f.y + 10; y < f.y + f.h; y += 10) { ctx.beginPath(); ctx.moveTo(f.x, y); ctx.lineTo(f.x + f.w, y); ctx.stroke(); }
+      ctx.lineWidth = 4; ctx.strokeRect(f.x + 2, f.y + 2, f.w - 4, f.h - 4);
+      continue;
+    }
+    if (f.kind === "square") {                           // мостовая площади
+      const [base, stone] = th.square;
+      ctx.fillStyle = base; ctx.fillRect(f.x, f.y, f.w, f.h);
+      ctx.fillStyle = stone;
+      for (let y = f.y + 6; y < f.y + f.h; y += 12) for (let x = f.x + 6 + ((y - f.y) / 12 % 2) * 6; x < f.x + f.w; x += 12) { circle(x, y, 4); ctx.fill(); }
+      continue;
+    }
+    if (f.kind === "tile") {
       ctx.fillStyle = place === "school" ? "#e7d7b8" : "#f2ebdf"; ctx.fillRect(f.x, f.y, f.w, f.h);
       ctx.fillStyle = place === "school" ? "#dbc59c" : "#e4d9c6";
       for (let y = 0; y < f.h / CELL; y++) for (let x = 0; x < f.w / CELL; x++) if ((x + y) % 2) ctx.fillRect(f.x + x * CELL, f.y + y * CELL, CELL, CELL);
@@ -3019,12 +3134,17 @@ function buildMap3D() {
     for (const y of [0.16, 0.32]) { const rail = new THREE.Mesh(new THREE.BoxGeometry(w, 0.05, d), toon(th.fence)); rail.position.set(x, y, z); rail.castShadow = true; mapGroup.add(rail); }
   }
 
+  const mazeWalls = [];
   for (const o of obstacles) {
-    if (o.shape === "rect" && o.kind !== "pond" && o.kind !== "water") {
-      const w = P(o.w), d = P(o.h), [c0, c1] = o.kind === "hedge" ? HEDGE_COLORS : th.walls[o.kind] || th.walls.build;
+    if (o.kind === "cottage") mapGroup.add(makeCottage(place, o));
+    else if (o.kind === "water") makeWaterFor(place, o);
+    else if (o.kind === "pond" && o.fountain) makeFountain(place, o);
+    else if (o.shape === "rect" && o.kind !== "pond") {
+      const w = P(o.w), d = P(o.h), [c0, c1] = o.kind === "hedge" ? HEDGE_COLORS : o.kind === "maze" ? [th.maze.wall, th.maze.cap] : th.walls[o.kind];
+      if (o.kind === "maze") mazeWalls.push(o);
       let wm = null;
       if (o.kind === "bighome") { wm = ownMat(c0); wm.emissive = new THREE.Color("#000000"); bigHomeMats.push(wm); }
-      const wall = part(new THREE.BoxGeometry(w, WALL_H, d), c0, 0.025, wm);
+      const wall = tag(part(new THREE.BoxGeometry(w, WALL_H, d), c0, 0.025, wm), o.kind);
       wall.position.set(P(o.x) + w / 2, WALL_H / 2, P(o.y) + d / 2); wall.receiveShadow = true;
       mapGroup.add(wall);
       const cap = new THREE.Mesh(new THREE.BoxGeometry(w - (place === "winter" ? 0 : 0.1), place === "winter" ? 0.12 : 0.05, d - (place === "winter" ? 0 : 0.1)), toon(c1));
@@ -3040,7 +3160,7 @@ function buildMap3D() {
           }
         }
       }
-    } else if (o.kind === "pond" || o.kind === "water") makePondFor(place, o);
+    } else if (o.kind === "pond") makePondFor(place, o);
     else if (o.kind === "rock") { const r = makeRockFor(place, o); r.position.set(P(o.x), 0, P(o.y)); mapGroup.add(r); }
     else if (o.kind === "tree") {
       const t = makeTreeFor(place, o, true);
@@ -3048,6 +3168,8 @@ function buildMap3D() {
       fadeTrees.push({ o, mats: t.mats, a: 1 });
     }
   }
+  mazeDeco(place, mazeWalls);
+  riverBanks(place);
   for (const b of bushes) {
     const k = makeBushFor(place); k.g.position.set(P(b.x), 0, P(b.y)); mapGroup.add(k.g);
     fadeBushes.push({ b, mats: k.mats, a: 1 });
@@ -3742,7 +3864,10 @@ window.__bb = {
   world: { COLS, ROWS, CELL, get blocked() { return Array.from(blocked); }, seeSolid: seeSolidAt, get bushes() { return bushes.map(q => ({ ...q })); },
     get obstacles() { return obstacles.map(o => ({ kind: o.kind, shape: o.shape, x: o.x, y: o.y, w: o.w, h: o.h, r: o.r, move: o.move, sight: o.sight })); } },
   get kisses() { return kisses; }, throwKiss, buyKisses, resetProgress, heartFill, bigBoost, fmtHearts,
-  levelType, levelReport, get levelInfo() { return levelInfo; }, CFG
+  levelType, levelReport, get levelInfo() { return levelInfo; }, CFG, THEMES,
+  // детали 3D-карты с метками: [{ piece, color }] (для тестов оформления) и цвет текстуры земли в точке
+  mapPieces() { const r = []; if (mapGroup) mapGroup.traverse(q => { if (q.userData.piece && q.material && q.material.color) r.push({ piece: q.userData.piece, color: "#" + q.material.color.getHexString() }); }); return r; },
+  groundColorAt(x, y) { const d = groundCanvas.getContext("2d").getImageData(Math.round(x * 2), Math.round(y * 2), 1, 1).data; return "#" + [d[0], d[1], d[2]].map(v => v.toString(16).padStart(2, "0")).join(""); }
 };
 </script>
 </body>

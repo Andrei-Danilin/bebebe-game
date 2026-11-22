@@ -412,3 +412,41 @@ test("a level with no fair layout falls back and warns", async ({ page }) => {
   expect(r.littles).toBe(5);
   expect(warns.some(t => t.includes("level 2") && t.includes("housePath"))).toBe(true);
 });
+
+test("every place dresses every level type", async ({ page }) => {
+  test.setTimeout(120_000);
+  const r = await page.evaluate(() => {
+    const b = window.__bb, C = b.world.CELL, out = [];
+    for (const place of ["park", "beach", "winter", "school"]) for (let lv = 1; lv <= 7; lv++) {
+      b.placeSel = place; b.level = lv; b.startGame(1);
+      for (let i = 0; i < 5; i++) b.update(1 / 60);
+      const th = b.THEMES[place], type = b.levelType(lv), gen = b.generateLevel(lv, b.levelInfo.attempt);
+      const pieces = b.mapPieces(), colorOf = name => [...new Set(pieces.filter(q => q.piece === name).map(q => q.color))];
+      const want = {}, got = {};
+      if (type === "maze") { want.maze = [th.maze.wall]; want.mazeDeco = [th.maze.decoC]; }
+      if (type === "village") {
+        want.cottage = [th.cottage.wall]; want.roof = [th.cottage.roof]; want.fountain = [th.fountain];
+        if (th.cottage.snow) want.snow = [th.cottage.snow];
+        const sq = gen.items.find(it => it.t === "floor" && it.kind === "square");
+        got.square = [b.groundColorAt(sq.x * C + 1, sq.y * C + 1)]; want.square = [th.square[0]];
+      }
+      if (type === "river") {
+        want.water = [th.water.c]; want.bank = [th.water.edge];
+        const br = gen.items.find(it => it.t === "floor" && it.kind === "bridge");
+        got.bridge = [b.groundColorAt(br.x * C + 6, br.y * C + 6)]; want.bridge = [th.bridge[0]];
+      }
+      if (type === "rooms") want.build = [th.walls.build[0]];
+      if (type === "arena") want.arena = [th.walls.arena[0]];
+      for (const k of Object.keys(want)) if (!got[k]) got[k] = colorOf(k);
+      out.push({ place, lv, type, want, got, built: pieces.length });
+    }
+    return out;
+  });
+  expect(r.length).toBe(28);
+  for (const x of r) expect(x.got, `${x.place} ${x.type} (level ${x.lv})`).toEqual(x.want);
+  // the new pieces really have their own look in every place (not one shared colour)
+  const mazeColors = new Set(r.filter(x => x.type === "maze").map(x => x.got.maze[0]));
+  const waterColors = new Set(r.filter(x => x.type === "river").map(x => x.got.water[0]));
+  expect(mazeColors.size).toBe(4);
+  expect(waterColors.size).toBe(4);
+});
