@@ -35,13 +35,14 @@ async function snapshot(page) {
 }
 
 function expectDesktop(snap) {
+  const all = JSON.stringify(snap);   // the whole snapshot in every failure message
   snap.screen.forEach((p, i) => {
-    expect(close(p.x, DESKTOP_SCREEN[i].x, 0.01), `toScreen x of point ${i}: ${p.x}`).toBe(true);
-    expect(close(p.y, DESKTOP_SCREEN[i].y, 0.01), `toScreen y of point ${i}: ${p.y}`).toBe(true);
+    expect(close(p.x, DESKTOP_SCREEN[i].x, 0.01), `toScreen x of point ${i}: ${p.x} — ${all}`).toBe(true);
+    expect(close(p.y, DESKTOP_SCREEN[i].y, 0.01), `toScreen y of point ${i}: ${p.y} — ${all}`).toBe(true);
   });
   for (const k of ["x", "y", "z"]) {
-    expect(close(snap.camera.pos3[k], DESKTOP_CAMERA.pos3[k], 0.001), `camera pos3.${k}: ${snap.camera.pos3[k]}`).toBe(true);
-    expect(close(snap.camera.look3[k], DESKTOP_CAMERA.look3[k], 0.001), `camera look3.${k}: ${snap.camera.look3[k]}`).toBe(true);
+    expect(close(snap.camera.pos3[k], DESKTOP_CAMERA.pos3[k], 0.001), `camera pos3.${k} — ${all}`).toBe(true);
+    expect(close(snap.camera.look3[k], DESKTOP_CAMERA.look3[k], 0.001), `camera look3.${k} — ${all}`).toBe(true);
   }
   expect(close(snap.camera.target.x, DESKTOP_CAMERA.target.x, 0.01)).toBe(true);
   expect(close(snap.camera.target.y, DESKTOP_CAMERA.target.y, 0.01)).toBe(true);
@@ -56,11 +57,16 @@ test.describe("desktop", () => {
     await page.evaluate(() => {
       const b = window.__bb;
       b.startGame(1);
-      Object.assign(b.big, { state: "look", timer: 999 });   // спокойный Большой — без тряски камеры
+      // nothing may shake the camera: a calm Big One who pushes nobody, no items (a banana slip shakes it too)
+      Object.assign(b.big, { state: "look", timer: 999, stun: 999, noPush: 999 });
+      b.items.length = 0; b.CFG.ITEM_EVERY = [999, 999];
     });
     await step(page, 2);
+    await page.waitForFunction(() => window.__bb.shake === 0);
     await frames(page);
-    expectDesktop(await snapshot(page));        // play
+    const snapPlay = await snapshot(page);
+    await page.evaluate(() => { window.__bb.CFG.ITEM_EVERY = [7, 11]; });
+    expectDesktop(snapPlay);                    // play
     expect(errors).toEqual([]);
   });
 
@@ -165,7 +171,7 @@ test.describe("phone resize", () => {
     await frames(page);
     const ui = await page.evaluate(() => window.__bb.uiSize);
     expect(ui.h).toBe(420);
-    expect(ui.w).toBe(Math.round(420 * 667 / 375));
+    expect(Math.abs(ui.w - 420 * 667 / 375)).toBeLessThan(0.01);
     expect(Math.abs(ui.cssW - 667)).toBeLessThanOrEqual(1);
     expect(errors).toEqual([]);
   });
@@ -190,6 +196,10 @@ async function phonePlay(page) {
 async function placeHero(page, x, y) {
   await page.evaluate(([x, y]) => { const l = window.__bb.littles[0]; Object.assign(l, { x, y, kx: 0, ky: 0, moving: false }); window.__bb.camSnap(); }, [x, y]);
 }
+// logic steps + the camera (it runs in the main loop, not in update)
+async function stepCam(page, seconds) {
+  await page.evaluate(sec => { for (let i = 0; i < Math.round(sec * 60); i++) { window.__bb.update(1 / 60); window.__bb.updateCamera(1 / 60); } }, seconds);
+}
 const heroScreen = page => page.evaluate(() => { const l = window.__bb.littles[0]; return window.__bb.toScreen(l.x, l.y); });
 const EPS = 0.5;
 
@@ -205,17 +215,19 @@ test.describe("phone camera", () => {
     expect(Math.abs(cam.rect.h / 32 - 10)).toBeLessThan(0.5);
     expect(cam.rect.w / cam.rect.h).toBeGreaterThan(ui.cssW / ui.cssH * 0.9);
     expect(cam.rect.w / cam.rect.h).toBeLessThan(ui.cssW / ui.cssH * 1.2);
-    // at the start the hero is in his house in the top-left corner: the view clamps there
-    expect(cam.rect.x).toBeGreaterThanOrEqual(-32 - EPS);
-    expect(cam.rect.y).toBeGreaterThanOrEqual(-32 - EPS);
+    // at the start the hero is in his house in the top-left corner: the view stops at the edge — 1 cell beyond it, more only
+    // as far as needed to keep him clear of the screen side and the top bar (at most CAM_EDGE_MAX cells more)
+    const lim = await page.evaluate(() => (window.__bb.CFG.CAM_EDGE + window.__bb.CFG.CAM_EDGE_MAX) * 32);
+    expect(cam.rect.x).toBeGreaterThanOrEqual(-lim - EPS); expect(cam.rect.x).toBeLessThanOrEqual(-32 + EPS);
+    expect(cam.rect.y).toBeGreaterThanOrEqual(-lim - EPS); expect(cam.rect.y).toBeLessThanOrEqual(-32 + EPS);
     let s = await heroScreen(page);
-    expect(s.x).toBeLessThan(ui.w / 3);
+    expect(s.x).toBeLessThan(ui.w / 3); expect(s.x).toBeGreaterThan(36 / ui.scale - EPS);
     expect(s.y).toBeLessThan(ui.h / 2);
     // walking down the clear column x = 560 in the middle: the hero stays in the centre third
     await placeHero(page, 560, 180);
     await page.keyboard.down("KeyS");
     for (let i = 0; i < 6; i++) {
-      await step(page, 0.25);
+      await stepCam(page, 0.25);
       s = await heroScreen(page);
       expect(s.x, `x at ${i}`).toBeGreaterThan(ui.w / 3); expect(s.x).toBeLessThan(ui.w * 2 / 3);
       expect(s.y, `y at ${i}`).toBeGreaterThan(ui.h / 3); expect(s.y).toBeLessThan(ui.h * 2 / 3);
@@ -227,13 +239,13 @@ test.describe("phone camera", () => {
     await page.keyboard.up("KeyS");
     // bottom-right corner (inside the building): the view clamps at the map edge, hero off-centre towards the corner
     await placeHero(page, 880, 560);
-    await step(page, 2);
+    await stepCam(page, 2);
     cam = await page.evaluate(() => window.__bb.camera);
-    expect(cam.rect.x + cam.rect.w).toBeLessThanOrEqual(960 + 32 + EPS);
+    expect(cam.rect.x + cam.rect.w).toBeLessThanOrEqual(960 + lim + EPS);
     expect(cam.rect.y + cam.rect.h).toBeLessThanOrEqual(640 + 32 + EPS);
-    expect(cam.rect.x + cam.rect.w).toBeGreaterThan(960 + 32 - 2);   // clamped, not short of the edge
+    expect(cam.rect.x + cam.rect.w).toBeGreaterThan(960 + 32 - 2);   // at the edge, not short of it
     s = await heroScreen(page);
-    expect(s.x).toBeGreaterThan(ui.w * 2 / 3);
+    expect(s.x).toBeGreaterThan(ui.w * 2 / 3); expect(s.x).toBeLessThan(ui.w - 36 / ui.scale + EPS);   // off-centre, but fully on screen
     expect(s.y).toBeGreaterThan(ui.h / 2);
     expect(errors).toEqual([]);
   });
@@ -253,14 +265,53 @@ test.describe("phone camera", () => {
     expect(a.x).toBeGreaterThan(500 + 50);    // and it really moved most of the way (1 - e^-3 ≈ 95 %)
   });
 
-  test("the camera stays on a downed hero", async ({ page }) => {
+  test("the camera stays on a downed or resting hero (no look-ahead)", async ({ page }) => {
     const errors = await phonePlay(page);
-    await placeHero(page, 560, 300);
-    await page.evaluate(() => Object.assign(window.__bb.littles[0], { state: "down", downTimer: 18, rescue: 0 }));
-    await step(page, 2);
-    const cam = await page.evaluate(() => window.__bb.camera), l = await page.evaluate(() => ({ x: window.__bb.littles[0].x, y: window.__bb.littles[0].y }));
+    await placeHero(page, 480, 260);
+    // walking right: the camera runs ahead of him
+    await page.keyboard.down("KeyD");
+    await stepCam(page, 1);
+    let cam = await page.evaluate(() => window.__bb.camera);
+    expect(cam.ahead.x).toBeGreaterThan(20);
+    // pushed down while the key is still held: look-ahead drops, the camera settles on him
+    // (one evaluate: the state change and the steps, so no real frame runs in between)
+    const st = await page.evaluate(() => {
+      const b = window.__bb, h = b.littles[0];
+      Object.assign(h, { state: "down", downTimer: 18, rescue: 0 });
+      for (let i = 0; i < 120; i++) { b.update(1 / 60); b.updateCamera(1 / 60); }
+      return h.state;
+    });
+    expect(st).toBe("down");
+    cam = await page.evaluate(() => window.__bb.camera);
+    let l = await heroPos(page);
+    expect(Math.hypot(cam.ahead.x, cam.ahead.y)).toBeLessThan(1);
     expect(Math.abs(cam.target.x - l.x)).toBeLessThan(3);
     expect(Math.abs(cam.target.y - l.y)).toBeLessThan(3);
+    // resting in the house (top-left corner): no look-ahead, the view clamps there and he is on screen, not under the HUD
+    await page.evaluate(() => { const b = window.__bb, z = b.safeZone; Object.assign(b.littles[0], { state: "rest", restTimer: 100, x: z.x + z.w / 2, y: z.y + z.h / 2 }); });
+    await stepCam(page, 3);
+    await page.keyboard.up("KeyD");
+    cam = await page.evaluate(() => window.__bb.camera);
+    expect(Math.hypot(cam.ahead.x, cam.ahead.y)).toBeLessThan(1);
+    const s = await heroScreen(page), ui = await page.evaluate(() => window.__bb.uiSize);
+    expect(s.x).toBeGreaterThan(0); expect(s.x).toBeLessThan(ui.w); expect(s.y).toBeGreaterThan(0); expect(s.y).toBeLessThan(ui.h);
+    expect(errors).toEqual([]);
+  });
+
+  test("a hero in a top-right house is not hidden under the mini-map, team chips or top bar", async ({ page }) => {
+    const errors = await openGame(page, { query: "?phone=1" });
+    await page.evaluate(() => { const b = window.__bb; b.progress.unlocked = 20; b.level = 12; b.startGame(1); Object.assign(b.big, { stun: 999 }); });
+    await frames(page);
+    const d = await page.evaluate(() => {
+      const b = window.__bb, l = b.littles[0];
+      return { z: b.safeZone, feet: b.toScreen(l.x, l.y), head: b.toScreen(l.x, l.y, 72), mm: b.minimap, hud: b.hudRects, ui: b.uiSize };
+    });
+    expect(d.z.x).toBeGreaterThan(600); expect(d.z.y).toBeLessThan(100);        // the house really is top-right
+    const team = d.hud.find(h => h.id === "team"), bar = d.hud.find(h => h.id === "hearts");
+    const blocked = [{ x: d.mm.x, y: 0, w: d.ui.w - d.mm.x, h: team.y + team.h }, { x: 0, y: 0, w: d.ui.w, h: bar.y + bar.h }];
+    for (const p of [d.feet, d.head]) for (const r of blocked) {
+      expect(p.x > r.x && p.x < r.x + r.w && p.y > r.y && p.y < r.y + r.h, `hero point ${JSON.stringify(p)} under ${JSON.stringify(r)}`).toBe(false);
+    }
     expect(errors).toEqual([]);
   });
 
@@ -499,6 +550,22 @@ test.describe("phone mini-map", () => {
     const down = r.arrows.filter(a => a.kind === "downed");
     expect(down.length).toBe(1);
     expect(Math.abs(down[0].angle - Math.atan2(r.ts.y - r.hs.y, r.ts.x - r.hs.x))).toBeLessThan(0.01);
+    // a downed friend on screen but under the mini-map also gets an arrow
+    await page.evaluate(() => {
+      const b = window.__bb, mm = b.minimap, cam = b.camera;
+      // world point under the mini-map centre: walk the grid and take the cell whose screen point is inside the mini-map
+      let best = null;
+      for (let y = 16; y < 640; y += 16) for (let x = 16; x < 960; x += 16) {
+        const s = b.toScreen(x, y);
+        if (s.x > mm.x + 10 && s.x < mm.x + mm.w - 10 && s.y > mm.y + 10 && s.y < mm.y + mm.h - 10) { best = { x, y }; break; }
+      }
+      Object.assign(b.littles[1], { x: 900, y: 40, state: "ok" });
+      Object.assign(b.littles[2], { ...best, state: "down", downTimer: 18, rescue: 0 });
+      void cam;
+    });
+    await frames(page);
+    r = await page.evaluate(() => ({ arrows: window.__bb.edgeArrows, mm: window.__bb.minimap, buttons: window.__bb.buttonRects }));
+    expect(r.arrows.filter(a => a.kind === "downed").length, "an arrow for the friend under the mini-map").toBe(1);
     for (const a of r.arrows) {
       const box = { x: a.x - a.r, y: a.y - a.r, w: 2 * a.r, h: 2 * a.r };
       expect(overlaps(box, r.mm), "arrow on the mini-map").toBe(false);
@@ -524,12 +591,21 @@ const PHONE_SIZES = [[667, 375], [844, 390], [932, 430]];
 const PHONE_SCENES = {
   // play with everything on: banner, touch hint, kiss button, mittens, a downed bot (arrow), a pop text
   play: async page => {
-    await page.waitForTimeout(1100);   // a restart within BANNER_REPEAT (1 s) shows no banner
     await page.evaluate(() => {
+      window.__bb.resetBannerTimer();       // a restart within BANNER_REPEAT (1 s) would show no banner
       const b = window.__bb;
       b.progress.inv.kisses = 5; b.progress.inv.mittens = 3; b.progress.equip[0] = "mittens";
       b.startGame(1);
       Object.assign(b.big, { state: "look", timer: 999, stun: 999 });
+    });
+  },
+  // level 12, a long Big One name and 12 hearts (one and a half lost)
+  long: async page => {
+    await page.evaluate(() => {
+      const b = window.__bb; b.resetBannerTimer();
+      b.progress.unlocked = 20; b.level = 12; b.setName("big", "Великолепный"); b.progress.inv.kisses = 5;
+      b.startGame(1); Object.assign(b.big, { state: "look", timer: 999, stun: 999 });
+      b.big.hp = b.big.maxHp - 1.5;
     });
   },
   // the hero is resting in the house: the resting bar
@@ -572,6 +648,7 @@ function checkPhoneScreen(name, d, minText) {
     expect(b.w * s, `${id} width`).toBeGreaterThanOrEqual(44 - 0.01);
     expect(b.h * s, `${id} height`).toBeGreaterThanOrEqual(44 - 0.01);
     expect(inside(b), `${id} inside the screen`).toBe(true);
+    if (b.textW !== undefined) expect(b.textW, `${id} text wider than the button`).toBeLessThanOrEqual(b.w + 0.5);
     if (d.mm) expect(overlaps(b, d.mm), `${id} on the mini-map`).toBe(false);
     for (const h of d.hud) expect(overlaps(b, h), `${id} on ${h.id}`).toBe(false);
   }
@@ -582,7 +659,8 @@ function checkPhoneScreen(name, d, minText) {
     if (d.mm) expect(overlaps(a, d.mm), `${name}: ${a.id} on the mini-map`).toBe(false);
     d.hud.slice(i + 1).forEach(b => expect(overlaps(a, b), `${name}: ${a.id} on ${b.id}`).toBe(false));
   });
-  for (const [cat, px] of Object.entries(d.texts)) expect(px * s, `${name}: smallest ${cat} text`).toBeGreaterThanOrEqual(minText[cat] - 0.01);
+  for (const [cat, px] of Object.entries(d.texts)) expect(px * s, `${name}: smallest ${cat} text`).toBeGreaterThanOrEqual((cat === "drawn" ? minText.hint : minText[cat]) - 0.01);
+  if (d.texts.main || d.texts.title) expect(d.texts.drawn, `${name}: drawn text sizes recorded`).toBeTruthy();
 }
 
 for (const [vw, vh] of PHONE_SIZES) {
@@ -602,7 +680,7 @@ for (const [vw, vh] of PHONE_SIZES) {
           return { ui: b.uiSize, buttons: b.buttonRects, hud: b.hudRects, mm: b.minimap, texts: b.textSizes, banner: b.bannerRect,
             hero: b.toScreen(l.x, l.y), head: b.toScreen(l.x, l.y, 72), mode: b.mode, typeLabel: b.typeLabel };
         });
-        expect(d.mode, label).toBe(name === "rest" ? "play" : name);
+        expect(d.mode, label).toBe(name === "rest" || name === "long" ? "play" : name);
         checkPhoneScreen(label, d, minText);
         expect(d.texts.main || d.texts.title, `${label}: texts recorded`).toBeTruthy();
         if (name === "menu") {
