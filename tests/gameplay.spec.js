@@ -109,7 +109,9 @@ test("bots wait before they go to rescue", async ({ page }) => {
   expect(r.stillDown).toBe("down");
 });
 
-test("not rescued in time: limps home, rests 2 minutes, comes back", async ({ page }) => {
+// SPEC-007 AC 1: the rest is 30 s (kids' decision); the rules text speaks in seconds, computed from REST_TIME
+test("an unrescued Little One rests 30 seconds", async ({ page }) => {
+  expect(await page.evaluate(() => window.__bb.CFG.REST_TIME)).toBe(30);
   await page.evaluate(() => {
     const L = window.__bb.littles; Object.assign(window.__bb.big, { x: 900, y: 600, state: "look", timer: 9999 });
     Object.assign(L[0], { state: "down", downTimer: 0.05, x: 500, y: 300 });
@@ -117,11 +119,32 @@ test("not rescued in time: limps home, rests 2 minutes, comes back", async ({ pa
   await step(page, 0.2);
   expect(await page.evaluate(() => window.__bb.littles[0].state)).toBe("home");
   await step(page, 25);
-  expect(await page.evaluate(() => window.__bb.littles[0].state)).toBe("rest");
+  const r = await page.evaluate(() => ({ st: window.__bb.littles[0].state, t: window.__bb.littles[0].restTimer }));
+  expect(r.st).toBe("rest");
+  expect(r.t).toBeLessThanOrEqual(30);
+  expect(r.t).toBeGreaterThan(5);
   expect(await page.evaluate(() => window.__bb.mode)).toBe("play");          // no game over
-  await step(page, 121);
+  await step(page, r.t - 0.5);
+  expect(await page.evaluate(() => window.__bb.littles[0].state)).toBe("rest");
+  await step(page, 1);
   expect(await page.evaluate(() => window.__bb.littles[0].state)).toBe("ok");
   expect(await page.evaluate(() => window.__bb.stats.rests)).toBeGreaterThanOrEqual(1);
+  // the help line says the seconds in every language, from CFG.REST_TIME (no minutes, no hard-coded number)
+  const lines = await page.evaluate(() => {
+    const b = window.__bb, I = b.I18N, out = {}, line = l => I[l].rules(15).find(s => s.includes("15"));
+    for (const l of ["en", "es", "ru"]) out[l] = line(l);
+    b.CFG.REST_TIME = 45;
+    for (const l of ["en", "es", "ru"]) out[l + "45"] = line(l);
+    b.CFG.REST_TIME = 30;
+    return out;
+  });
+  expect(lines.en).toContain("rest for 30 s");
+  expect(lines.es).toContain("descansás 30 segundos");
+  expect(lines.ru).toContain("отдыхаешь 30 сек");
+  expect(lines.en45).toContain("rest for 45 s");
+  expect(lines.es45).toContain("descansás 45 segundos");
+  expect(lines.ru45).toContain("отдыхаешь 45 сек");
+  for (const l of ["en", "es", "ru"]) expect(lines[l], l).not.toMatch(/min|мин/);
 });
 
 test("winning gives stars and coins, unlocks the next level and survives a reload", async ({ page }) => {
@@ -569,7 +592,7 @@ test("old saves get 0 kisses", async ({ page }) => {
     return page.evaluate(() => window.__bb.progress);
   };
   const p = await load({ mittens: 1, mega: 0 });
-  expect(p.inv).toEqual({ mittens: 1, mega: 0, kisses: 0 });
+  expect(p.inv).toEqual({ mittens: 1, mega: 0, kisses: 0, rescues: 0 });
   expect(p.coins).toBe(12);
   expect(p.worlds.park.unlocked).toBe(3);
   expect((await load({ mittens: 1, mega: 0, kisses: "lots" })).inv.kisses).toBe(0);   // broken data never throws
@@ -591,7 +614,7 @@ test("old saves move into the Park", async ({ page }) => {
   expect(p.worlds.park).toEqual({ unlocked: 20, stars: { 1: 3, 5: 2 } });   // level 21 is dropped
   for (const w of ["school", "beach", "winter"]) expect(p.worlds[w], w).toEqual({ unlocked: 1, stars: {} });
   expect(p.coins).toBe(140);
-  expect(p.inv).toEqual(inv);
+  expect(p.inv).toEqual({ ...inv, rescues: 0 });      // SPEC-007: saves without rescue kits get 0
   expect(p.equip).toEqual(["mega", "mittens"]);
   expect(await page.evaluate(() => window.__bb.names.p1)).toBe("Mila");
   // the migration happens once: the saved progress now has the worlds and loads the same again
@@ -1022,4 +1045,143 @@ test("the shop shows three cards in one row", async ({ page }) => {
   });
   await page.mouse.click(buy.x, buy.y);
   expect(await page.evaluate(() => window.__bb.progress.inv.kisses)).toBe(5);
+});
+
+// ---------- Rescue kit 🩹 (SPEC-007) ----------
+// The downed player stands in the open, the Big One is calm and far away, everyone else is pinned (no rescuers).
+async function downPlayer(page, state = "down") {
+  await installTestHelpers(page);
+  await page.evaluate(st => {
+    const b = window.__bb, t = window.__t, l = b.littles[0], z = b.safeZone;
+    t.calm(); b.big.noPush = 999; t.pin([0]);
+    const spot = st === "rest" ? { x: z.x + z.w / 2, y: z.y + z.h / 2 } : { x: 500, y: 300 };
+    Object.assign(l, { ...spot, state: st, downTimer: st === "down" ? 10 : 0, rescue: st === "down" ? 1.5 : 0, restTimer: st === "rest" ? 20 : 0,
+      kx: 0, ky: 0, invuln: 0, restSpot: { ...spot }, path: st === "home" ? [{ x: 100, y: 100 }] : [] });
+    if (st !== "down") b.stats.rests = 1;            // home/rest: the rest was already counted when he gave up waiting
+  }, state);
+}
+
+test("buying rescue kits", async ({ page }) => {
+  const r = await page.evaluate(() => {
+    const b = window.__bb, out = [];
+    out.push([b.RESCUE_KIT.price, b.RESCUE_KIT.pack]);
+    b.progress.coins = 35;
+    for (let i = 0; i < 3; i++) { b.buyRescueKit(); out.push([b.progress.coins, b.progress.inv.rescues]); }
+    return out;
+  });
+  expect(r).toEqual([[15, 3], [20, 3], [5, 6], [5, 6]]);   // 15 coins for 3; the third time there are not enough coins
+  await page.reload();
+  await page.waitForFunction(() => window.__bbReady === true);
+  expect(await page.evaluate(() => window.__bb.progress.inv.rescues)).toBe(6);
+  const after = await page.evaluate(() => { const b = window.__bb; b.resetProgress(); b.resetProgress(); return b.progress.inv; });
+  expect(after.rescues).toBe(0);
+});
+
+test("old saves get 0 kits", async ({ page }) => {
+  const load = async save => {
+    await page.evaluate(v => localStorage.setItem("bebebe-progress", JSON.stringify(v)), save);
+    await page.reload();
+    await page.waitForFunction(() => window.__bbReady === true);
+    return page.evaluate(() => JSON.parse(JSON.stringify(window.__bb.progress)));
+  };
+  // a save from before SPEC-007 (worlds, kisses, no kits)
+  const old = { worlds: { park: { unlocked: 4, stars: { 1: 3 } } }, lastWorld: "park", coins: 21, inv: { mittens: 2, mega: 1, kisses: 5 }, equip: ["mittens", "none"] };
+  const p = await load(old);
+  expect(p.inv).toEqual({ mittens: 2, mega: 1, kisses: 5, rescues: 0 });
+  expect(p.coins).toBe(21);
+  expect(p.worlds.park.unlocked).toBe(4);
+  expect((await load({ ...old, inv: { ...old.inv, rescues: "lots" } })).inv.rescues).toBe(0);   // broken data never throws
+  expect((await load({ ...old, inv: { ...old.inv, rescues: -2 } })).inv.rescues).toBe(0);
+  expect((await load({ ...old, inv: { ...old.inv, rescues: 2.7 } })).inv.rescues).toBe(2);
+  expect((await load({ ...old, inv: { ...old.inv, rescues: 4 } })).inv.rescues).toBe(4);
+  expect((await load({ ...old, inv: "junk" })).inv).toEqual({ mittens: 0, mega: 0, kisses: 0, rescues: 0 });
+});
+
+test("a kit gets a downed player up at once", async ({ page }) => {
+  await downPlayer(page);
+  const r = await page.evaluate(() => {
+    const b = window.__bb, l = b.littles[0], out = {};
+    b.progress.inv.rescues = 2;
+    const x0 = l.x, y0 = l.y;
+    out.ok = b.useRescueKit(0);
+    out.l = { state: l.state, invuln: l.invuln, rescue: l.rescue, downTimer: l.downTimer, restTimer: l.restTimer, path: l.path.length, moved: Math.hypot(l.x - x0, l.y - y0) };
+    out.left = b.progress.inv.rescues;
+    out.saved = JSON.parse(localStorage.getItem("bebebe-progress")).inv.rescues;
+    out.texts = b.texts.map(q => q.text); out.want = b.I18N.en.kitUsed;
+    out.kitInvuln = b.CFG.KIT_INVULN;
+    out.again = b.useRescueKit(0);                       // already up: nothing happens, no kit spent
+    out.left2 = b.progress.inv.rescues;
+    return out;
+  });
+  expect(r.ok).toBe(true);
+  expect(r.kitInvuln).toBe(2);
+  expect(r.l).toEqual({ state: "ok", invuln: 2, rescue: 0, downTimer: 0, restTimer: 0, path: 0, moved: 0 });
+  expect(r.left).toBe(1);
+  expect(r.saved).toBe(1);
+  expect(r.texts).toContain(r.want);
+  expect(r.again).toBe(false);
+  expect(r.left2).toBe(1);
+  // bots never use kits; no kits — nothing happens
+  const n = await page.evaluate(() => {
+    const b = window.__bb, out = {};
+    b.startGame(1);
+    const bi = b.littles.findIndex(q => q.kind === "bot");
+    Object.assign(b.littles[bi], { state: "down", downTimer: 10 });
+    b.progress.inv.rescues = 2;
+    out.bot = b.useRescueKit(bi); out.botState = b.littles[bi].state; out.left = b.progress.inv.rescues;
+    Object.assign(b.littles[0], { state: "down", downTimer: 10 });
+    b.progress.inv.rescues = 0;
+    out.none = b.useRescueKit(0); out.noneState = b.littles[0].state; out.noneLeft = b.progress.inv.rescues;
+    out.missing = b.useRescueKit(7);
+    return out;
+  });
+  expect(n).toEqual({ bot: false, botState: "down", left: 2, none: false, noneState: "down", noneLeft: 0, missing: false });
+});
+
+test("a kit ends limping home", async ({ page }) => {
+  await downPlayer(page, "home");
+  const r = await page.evaluate(() => {
+    const b = window.__bb, l = b.littles[0];
+    b.progress.inv.rescues = 1;
+    const x0 = l.x, y0 = l.y, ok = b.useRescueKit(0);
+    const now = { ok, state: l.state, invuln: l.invuln, path: l.path.length, moved: Math.hypot(l.x - x0, l.y - y0), left: b.progress.inv.rescues, rests: b.stats.rests };
+    window.__t.step(1);
+    now.later = l.state; now.rests2 = b.stats.rests;
+    return now;
+  });
+  expect(r).toEqual({ ok: true, state: "ok", invuln: 2, path: 0, moved: 0, left: 0, rests: 1, later: "ok", rests2: 1 });
+});
+
+test("a kit ends the rest", async ({ page }) => {
+  await downPlayer(page, "rest");
+  const r = await page.evaluate(() => {
+    const b = window.__bb, l = b.littles[0];
+    b.progress.inv.rescues = 3;
+    const x0 = l.x, y0 = l.y, ok = b.useRescueKit(0);
+    const now = { ok, state: l.state, invuln: l.invuln, restTimer: l.restTimer, moved: Math.hypot(l.x - x0, l.y - y0), left: b.progress.inv.rescues, rests: b.stats.rests, home: b.inSafe(l) };
+    window.__t.step(0.5);
+    now.later = l.state;
+    return now;
+  });
+  // inside the house he simply walks out: up where he rested; the rest already counted stays counted
+  expect(r).toEqual({ ok: true, state: "ok", invuln: 2, restTimer: 0, moved: 0, left: 2, rests: 1, home: true, later: "ok" });
+});
+
+test("a kit while down keeps the nobody-out star", async ({ page }) => {
+  await downPlayer(page);
+  const r = await page.evaluate(() => {
+    const b = window.__bb, l = b.littles[0];
+    b.progress.inv.rescues = 1;
+    b.useRescueKit(0);
+    window.__t.step(12);                                   // longer than the down timer was: he is not sent home
+    const out = { state: l.state, rests: b.stats.rests };
+    b.giveReward(true);
+    out.nobodyOut = b.lastReward.nobodyOut; out.penalty = b.lastReward.penalty; out.stars = b.lastReward.stars;
+    return out;
+  });
+  expect(r.state).toBe("ok");
+  expect(r.rests).toBe(0);
+  expect(r.nobodyOut).toBe(true);
+  expect(r.penalty).toBe(0);
+  expect(r.stars).toBeGreaterThanOrEqual(2);
 });

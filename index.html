@@ -88,7 +88,8 @@ const CFG = {
   COINS_PER_REST: 3, COINS_MIN_WIN: 5,   // каждый ушедший отдыхать отнимает монетки (но не меньше минимума)
   COINS_PER_WORLD: 10,       // +монетки за победу в каждом следующем мире (SPEC-006)
   STARS_PER_LEVEL: 3,        // звёзд за уровень (победа, никто не отдыхал, быстро)
-  REST_TIME: 120,            // сек — сколько отдыхает в домике тот, кого не спасли
+  REST_TIME: 30,             // сек — сколько отдыхает в домике тот, кого не спасли (SPEC-007: решение детей)
+  KIT_INVULN: 2,             // сек — защита после спасалки 🩹 (SPEC-007)
   HOME_SPEED: 85,            // как быстро он хромает к домику
   FAST_TIME: lv => 60 + lv * 15,  // сек — успеть за это время = третья звезда (lv — номер в мире)
   FAST_PER_WORLD: 10,        // сек — и ещё столько в каждом следующем мире: у Большого больше сердечек (SPEC-006)
@@ -188,6 +189,8 @@ const GLOVES = {
 
 // Воздушные поцелуи из магазина: цена и сколько в наборе (один запас на обоих игроков)
 const KISSES = { price: 20, pack: 5 };
+// Спасалка 🩹 (SPEC-007, решение детей): 3 штуки за 15 монеток, один запас на обоих игроков
+const RESCUE_KIT = { price: 15, pack: 3 };
 // Русское множественное число: ruPlural(n, ["поцелуй", "поцелуя", "поцелуев"])
 const ruPlural = (n, f) => f[n % 10 === 1 && n % 100 !== 11 ? 0 : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 1 : 2];
 
@@ -201,7 +204,7 @@ const I18N = {
       "Sneak up BEHIND the Big One and hug him: he loses a heart",
       "If he SEES you (yellow beam), he pushes you and breaks your leg",
       `Friends run over and stand next to you for ${CFG.RESCUE_TIME} seconds to help you up`,
-      `If nobody helps within ${n} s, you limp home and rest for ${Math.round(CFG.REST_TIME / 60)} min`,
+      `If nobody helps within ${n} s, you limp home and rest for ${CFG.REST_TIME} s`,
       "Bushes hide you. Your house is safe: the Big One can't get in",
       "Grab items: speed boots, invisibility, shield — and a banana he slips on!"
     ],
@@ -227,6 +230,8 @@ const I18N = {
     defaultBig: "Big One", defaultBots: ["Bo", "Mia", "Tom", "Lulu"],
     kisses: "Air kisses", kissDesc: "Send from afar: ½ heart and he blushes", kissPack: n => `Pack: ${n} air kisses`,
     kissHave: n => `You have: ${n} ${n === 1 ? "kiss" : "kisses"}`, kissHit: "Mwah!", noKissHome: "Not from the house!", blush: "So shy!",
+    kit: "Rescue kit", kitDesc: "Get up at once and play on", kitPack: n => `Pack: ${n} rescue kits`, kitHave: n => `You have: ${n} ${n === 1 ? "kit" : "kits"}`,
+    kitUsed: "Back in the game!", kitHint: "Press 🩹 to get up!",
     types: { classic: "Our drawing", meadow: "Meadow", maze: "Maze", village: "Village", river: "River with bridges", rooms: "House with rooms", arena: "Ring arena" },
     levelIntro: (w, n, t) => `${w} · Level ${n}: ${t}`, levelIntroShort: (w, n, t) => `${w} · ${n}: ${t}`, worldStars: (n, max) => `⭐ ${n}/${max}`
   },
@@ -236,7 +241,7 @@ const I18N = {
       "Acercate al Grandote POR DETRÁS y abrazalo: pierde un corazón",
       "Si te VE (rayo amarillo), te empuja y te rompés la pierna",
       `Tus amigos vienen y se quedan ${CFG.RESCUE_TIME} segundos al lado tuyo para ayudarte`,
-      `Si nadie te ayuda en ${n} segundos, vas a casa a descansar ${Math.round(CFG.REST_TIME / 60)} minutos`,
+      `Si nadie te ayuda en ${n} segundos, vas a casa y descansás ${CFG.REST_TIME} segundos`,
       "En los arbustos no te ve. Tu casa es segura: el Grandote no puede entrar",
       "Agarrá cosas: zapatillas veloces, invisibilidad, escudo ¡y una banana para que se resbale!"
     ],
@@ -262,6 +267,8 @@ const I18N = {
     defaultBig: "Grandote", defaultBots: ["Tito", "Mora", "Lupe", "Facu"],
     kisses: "Besitos voladores", kissDesc: "Mandalo de lejos: ½ corazón y se pone colorado", kissPack: n => `Paquete: ${n} besitos voladores`,
     kissHave: n => `Tenés: ${n} ${n === 1 ? "besito" : "besitos"}`, kissHit: "¡Muak!", noKissHome: "¡Desde la casita no!", blush: "¡Qué vergüenza!",
+    kit: "Curita mágica", kitDesc: "Levantate al toque y seguí jugando", kitPack: n => `Paquete: ${n} curitas`, kitHave: n => `Tenés: ${n} ${n === 1 ? "curita" : "curitas"}`,
+    kitUsed: "¡De vuelta al juego!", kitHint: "¡Tocá 🩹 para levantarte!",
     types: { classic: "Nuestro dibujo", meadow: "Pradera", maze: "Laberinto", village: "Pueblito", river: "Río con puentes", rooms: "Casa con cuartos", arena: "Arena" },
     levelIntro: (w, n, t) => `${w} · Nivel ${n}: ${t}`, levelIntroShort: (w, n, t) => `${w} · ${n}: ${t}`, worldStars: (n, max) => `⭐ ${n}/${max}`
   },
@@ -271,7 +278,7 @@ const I18N = {
       "Подкрадись к Большому СЗАДИ и обними — минус сердечко",
       "Увидит тебя (жёлтый луч) — толкнёт, и нога сломается",
       `Друзья подбегают и стоят рядом ${CFG.RESCUE_TIME} сек — ты снова в игре`,
-      `Никто не помог за ${n} сек — идёшь в домик отдыхать ${Math.round(CFG.REST_TIME / 60)} минуты`,
+      `Никто не помог за ${n} сек — идёшь в домик и отдыхаешь ${CFG.REST_TIME} сек`,
       "В кустах Большой не видит. Домик — безопасная зона, Большой туда не зайдёт",
       "Собирай предметы: сапоги-скороходы, невидимку, щит — и банан, на котором он поскользнётся!"
     ],
@@ -298,6 +305,8 @@ const I18N = {
     defaultBig: "Большой", defaultBots: ["Тёма", "Маша", "Вася", "Соня"],
     kisses: "Воздушные поцелуи", kissDesc: "Издалека: ½ сердечка, и он краснеет", kissPack: n => `В наборе: ${n} ${ruPlural(n, ["поцелуй", "поцелуя", "поцелуев"])}`,
     kissHave: n => `У вас: ${n} ${ruPlural(n, ["поцелуй", "поцелуя", "поцелуев"])}`, kissHit: "Чмок!", noKissHome: "Из домика нельзя!", blush: "Ой, смущён!",
+    kit: "Спасалка", kitDesc: "Сразу встать и играть дальше", kitPack: n => `В наборе: ${n} ${ruPlural(n, ["спасалка", "спасалки", "спасалок"])}`,
+    kitHave: n => `У вас: ${n} ${ruPlural(n, ["спасалка", "спасалки", "спасалок"])}`, kitUsed: "Снова в игре!", kitHint: "Нажми 🩹, чтобы встать!",
     types: { classic: "Наш рисунок", meadow: "Поляна", maze: "Лабиринт", village: "Деревня", river: "Река с мостиками", rooms: "Дом с комнатами", arena: "Арена с кольцом" },
     levelIntro: (w, n, t) => `${w} · Уровень ${n}: ${t}`, levelIntroShort: (w, n, t) => `${w} · ${n}: ${t}`, worldStars: (n, max) => `⭐ ${n}/${max}`
   }
@@ -1509,7 +1518,7 @@ let kisses = [], kissSeq = 0;                      // летящие возду�
 // SPEC-006: progress.worlds = { park|school|beach|winter: { unlocked, stars: { [n]: 1..3 } } }, lastWorld — мир в меню
 const freshWorld = () => ({ unlocked: 1, stars: {} });
 const freshProgress = () => ({ worlds: Object.fromEntries(WORLDS.map(w => [w, freshWorld()])), lastWorld: WORLDS[0],
-  coins: 0, inv: { mittens: 0, mega: 0, kisses: 0 }, equip: ["none", "none"] });
+  coins: 0, inv: { mittens: 0, mega: 0, kisses: 0, rescues: 0 }, equip: ["none", "none"] });
 // один мир из сохранения: испорченное → по умолчанию, уровни за пределами мира отбрасываются
 function cleanWorld(v) {
   const max = levelsPerWorld(), out = freshWorld();
@@ -1539,8 +1548,8 @@ function loadProgress(pv) {
     park.unlocked = Math.max(park.unlocked, old.unlocked);
     for (const [n, st] of Object.entries(old.stars)) park.stars[n] = Math.max(park.stars[n] || 0, st);
   }
-  const k = Number(out.inv.kisses);                        // старые сохранения без поцелуев (или испорченные) → 0
-  out.inv.kisses = Number.isFinite(k) && k > 0 ? Math.floor(k) : 0;
+  // старые сохранения без поцелуев и спасалок (или испорченные) → 0
+  for (const key of ["kisses", "rescues"]) { const k = Number(out.inv[key]); out.inv[key] = Number.isFinite(k) && k > 0 ? Math.floor(k) : 0; }
   return out;
 }
 let progress = freshProgress(), migrated = false;
@@ -1568,6 +1577,11 @@ function buyGloves(kind) {
 function buyKisses() {
   if (progress.coins < KISSES.price) { SFX.out(); return; }
   progress.coins -= KISSES.price; progress.inv.kisses += KISSES.pack;
+  saveProgress(); SFX.item();
+}
+function buyRescueKit() {
+  if (progress.coins < RESCUE_KIT.price) { SFX.out(); return; }
+  progress.coins -= RESCUE_KIT.price; progress.inv.rescues += RESCUE_KIT.pack;
   saveProgress(); SFX.item();
 }
 function setEquip(pi, kind) { progress.equip[pi] = kind; saveProgress(); resetWorld(numPlayers); }
@@ -2323,6 +2337,21 @@ function checkContacts() {
     }
     else if (diff < 1.9 && big.stun <= 0 && big.slip <= 0 && big.blush <= 0 && big.pushCd <= 0 && big.noPush <= 0 && l.invuln <= 0 && l.fx.cloak <= 0 && !inSafe(l)) push(l);
   }
+}
+// ---------- Спасалка 🩹 (SPEC-007): игрок сразу встаёт там, где он есть — лёжа, по дороге в домик или отдыхая ----------
+const KIT_STATES = ["down", "home", "rest"];
+const canUseKit = l => !!l && l.kind === "player" && KIT_STATES.includes(l.state) && progress.inv.rescues > 0;
+function useRescueKit(pi) {
+  const l = littles[pi];
+  if (mode !== "play" || pendingWin > 0 || !canUseKit(l)) return false;   // боты, игрок на ногах, нет спасалок — ничего
+  progress.inv.rescues--; saveProgress();
+  // лёжа (таймер ещё не кончился) — это не отдых: stats.rests не растёт; дома — уже засчитанный отдых остаётся
+  l.state = "ok"; l.invuln = CFG.KIT_INVULN; l.rescue = 0; l.downTimer = 0; l.restTimer = 0; l.path = [];
+  l.kx = 0; l.ky = 0; l.moving = false; l.botWait = 0; l.fleeT = 0;
+  popText(l.x, l.y - 40, L().kitUsed, "#7CFC9A");
+  burst(l.x, l.y - 10, "star", "#fde68a", 14);
+  SFX.rescue();
+  return true;
 }
 function updateDowned(dt) {
   for (const l of littles) {
@@ -4884,6 +4913,7 @@ window.__bb = {
   grid: { COLS, ROWS, CELL, get blocked() { return Array.from(blocked); }, get blockedBig() { return Array.from(blockedBig); }, seeSolid: seeSolidAt, get bushes() { return bushes.map(q => ({ ...q })); },
     get obstacles() { return obstacles.map(o => ({ kind: o.kind, shape: o.shape, x: o.x, y: o.y, w: o.w, h: o.h, r: o.r, move: o.move, sight: o.sight })); } },
   get kisses() { return kisses; }, throwKiss, buyKisses, resetProgress, heartFill, bigBoost, fmtHearts,
+  RESCUE_KIT, buyRescueKit, useRescueKit,   // SPEC-007
   levelType, levelReport, get levelInfo() { return levelInfo; }, clearLevelCache, CFG, THEMES,
   get banner() { return banner; }, bannerAlpha, get typeLabel() { return typeLabel; },
   // всё состояние мира, которое levelReport сохраняет и возвращает (для теста «не трогает идущую игру»)
