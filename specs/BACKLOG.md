@@ -56,3 +56,6 @@ One line each: what, where it came from. The spec author turns a line into a spe
 - SPEC-005 decided during the run, check with the kids: arrows — the Big One is a red circle with a white heart, a downed friend a green circle with ❗; when the direct spot on the edge is taken, the arrow moves to the nearest free spot of the edge.
 - SPEC-005 decided during the run, check with the kids: phone HUD — mittens next to the 💋 button bottom right, team chips under the mini-map, the level banner as a plate under the top bar.
 - SPEC-005 decided during the run, check with the kids: the phone menu is in two columns, with the six rules in small (hint) size because they don't fit at the main size; no keyboard line on a phone, only the touch line; the skins screen has no "Skins" heading; no new texts were needed.
+- SPEC-005 decided during the run, check with the kids: in the very top-right corner (both camera limits reached) the hero's name may sit under the team chips — the camera stays smooth instead of jumping.
+- SPEC-005 final review: the top-right diagonal test checks only that the camera moves smoothly — add clearance from the mini-map along the path and the 4-cell bound at the corner.
+- SPEC-005 final review: remove the unused `ways`/`sides` of `phoneOccluders`; place the name input only when its rect changes (now every frame).
