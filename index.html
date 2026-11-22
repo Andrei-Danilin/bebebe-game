@@ -50,8 +50,9 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.m
 //  НАСТРОЙКИ ИГРЫ — их удобно менять вместе с детьми
 // =====================================================================
 const CFG = {
-  BIG_HP: 6,                 // сердечек у Большого на 1-м уровне
-  HP_PER_LEVEL: 1,           // +сердечко с каждым уровнем
+  BIG_HP: 6,                 // сердечек у Большого на 1-м уровне Парка
+  HP_LEVELS_PER_HEART: 4,    // +сердечко каждые 4 уровня мира (SPEC-006)
+  HP_PER_WORLD: 1,           // и +1 в каждом следующем мире
   BIG_HP_MAX: 12,
   DOWN_TIME: 18,             // сек — сколько ждёт маленький со сломанной ногой
   RESCUE_TIME: 3.0,          // сек — сколько стоять рядом, чтобы поднять друга
@@ -61,8 +62,11 @@ const CFG = {
   BOT_SPEED: 135,
   BIG_PATROL_SPEED: 70,
   BIG_CHASE_SPEED: 112,
-  CHASE_PER_LEVEL: 4,        // Большой быстрее на каждом уровне
+  WORLD_SPEED_START: [0, 5, 10, 15],   // px/s — каждый следующий мир начинается чуть быстрее (SPEC-006)
+  SPEED_PER_LEVEL: 1.2,      // px/s — Большой быстрее на каждом уровне мира
   BIG_SPEED_PER_HIT: 4,      // и злится после каждой обнимашки
+  CHASE_MAX_SHARE: 0.95,     // потолок: в погоне Большой не быстрее этой доли скорости игрока (без сапог)
+  get BIG_CHASE_MAX() { return this.CHASE_MAX_SHARE * this.PLAYER_SPEED; },   // 142.5 px/s
   VISION_RANGE: 230,         // как далеко видит Большой
   VISION_HALF: Math.PI / 4,  // половина угла обзора (45° => всего 90°)
   BEHIND_ANGLE: 2.2,         // насколько «сзади» надо быть для обнимашки (~126°)
@@ -1559,7 +1563,7 @@ function resetWorld(n) {
   if (n === 2) littles.push(makeLittle(1, "player", -1, { up: ["ArrowUp"], down: ["ArrowDown"], left: ["ArrowLeft"], right: ["ArrowRight"] }, makeLook(skinSel.p2)));
   let bi = 0;
   while (littles.length < 5) { littles.push(makeLittle(littles.length, "bot", bi, null, makeLook(botOutfit(bi)))); bi++; }
-  const maxHp = Math.min(CFG.BIG_HP_MAX, CFG.BIG_HP + (level - 1) * CFG.HP_PER_LEVEL);
+  const maxHp = difficulty(curWorld, level).hearts;
   big = {
     isBig: true, x: spawns.big.x, y: spawns.big.y, r: 22, dir: -Math.PI / 2, hp: maxHp, maxHp,
     state: "look", timer: 4, lookSign: 1, lastSeen: null, goal: null, patrolT: 0,
@@ -1920,8 +1924,23 @@ function updateKisses(dt) {
 }
 // Сердечко i в полоске: 1 — целое, 0.5 — половинка, 0 — пустое
 const heartFill = (i, hp) => clamp(hp - i, 0, 1);
-// Насколько Большой быстрее: уровень + каждое ЦЕЛОЕ потерянное сердечко
-const bigBoost = () => (level - 1) * CFG.CHASE_PER_LEVEL + Math.floor(big.maxHp - big.hp) * CFG.BIG_SPEED_PER_HIT;
+// Сложность (SPEC-006): мир начинается с WORLD_SPEED_START[w], каждый уровень мира +SPEED_PER_LEVEL;
+// злость — каждое ЦЕЛОЕ потерянное сердечко +BIG_SPEED_PER_HIT. В погоне — не быстрее BIG_CHASE_MAX (вместе со злостью).
+const levelBoost = (world, n) => CFG.WORLD_SPEED_START[worldIndex(world)] + levelPos(n) * CFG.SPEED_PER_LEVEL;
+const bigHearts = (world, n) => Math.min(CFG.BIG_HP_MAX, CFG.BIG_HP + Math.floor(levelPos(n) / CFG.HP_LEVELS_PER_HEART) + worldIndex(world) * CFG.HP_PER_WORLD);
+const chaseCap = v => Math.min(CFG.BIG_CHASE_MAX, v);
+// { chase, patrol, hearts } уровня (мир, n); lost — сколько сердечек уже отняли (злость), по умолчанию 0
+function difficulty(world, n, lost = 0) {
+  const boost = levelBoost(world, n) + Math.floor(lost) * CFG.BIG_SPEED_PER_HIT;
+  return { chase: chaseCap(CFG.BIG_CHASE_SPEED + boost), patrol: CFG.BIG_PATROL_SPEED + boost * 0.5, hearts: bigHearts(world, n) };
+}
+// Насколько Большой быстрее сейчас (без потолка): уровень мира + злость
+const bigBoost = () => levelBoost(curWorld, level) + Math.floor(big.maxHp - big.hp) * CFG.BIG_SPEED_PER_HIT;
+// Скорости Большого сейчас: погоня и поиск — с потолком, патруль — база + половина прибавки (как раньше)
+function bigSpeeds() {
+  const d = difficulty(curWorld, level, big.maxHp - big.hp);
+  return { chase: d.chase, search: chaseCap(CFG.BIG_CHASE_SPEED * 0.85 + bigBoost()), patrol: d.patrol };
+}
 function updateHugAnim(dt) {
   for (const l of littles) {
     if (l.hugAnim <= 0) continue;
@@ -2171,7 +2190,7 @@ function updateBig(dt) {
     return;
   }
 
-  const boost = bigBoost();
+  const speed = bigSpeeds();
   let target = null, td = Infinity;
   for (const l of littles) {
     if (big.noPush > 0) break;               // отдыхает — никого не ловит
@@ -2182,14 +2201,14 @@ function updateBig(dt) {
     if (big.state !== "chase") { popText(big.x, big.y - 75, "!", "#ff3b30"); SFX.alert(); }
     big.state = "chase";
     big.lastSeen = { x: target.x, y: target.y };
-    big.moving = steerTo(big, target.x, target.y, CFG.BIG_CHASE_SPEED + boost, dt, false);
+    big.moving = steerTo(big, target.x, target.y, speed.chase, dt, false);
     big.dir = turnToward(big.dir, Math.atan2(target.y - big.y, target.x - big.x), 7 * dt);
     if (td < big.r + target.r + 8) push(target);
     return;
   }
   if (big.state === "chase" || big.state === "search") {
     big.state = "search";
-    big.moving = steerTo(big, big.lastSeen.x, big.lastSeen.y, CFG.BIG_CHASE_SPEED * 0.85 + boost, dt, false);
+    big.moving = steerTo(big, big.lastSeen.x, big.lastSeen.y, speed.search, dt, false);
     if (big.moving) big.dir = turnToward(big.dir, big.moveDir, 6 * dt);
     if (!big.moving || dist(big, big.lastSeen) < 10) { big.state = "look"; big.timer = rand(1.5, 2.5); big.lookSign = Math.random() < 0.5 ? -1 : 1; }
     return;
@@ -2202,7 +2221,7 @@ function updateBig(dt) {
   }
   if (!big.goal) { big.goal = randomFreePoint(); big.patrolT = 10; }
   big.patrolT -= dt;
-  big.moving = steerTo(big, big.goal.x, big.goal.y, CFG.BIG_PATROL_SPEED + boost * 0.5, dt, false);
+  big.moving = steerTo(big, big.goal.x, big.goal.y, speed.patrol, dt, false);
   if (big.moving) big.dir = turnToward(big.dir, big.moveDir, 5 * dt);
   if (!big.moving || dist(big, big.goal) < 12 || big.patrolT <= 0) {
     big.state = "look"; big.timer = rand(1, 2.2); big.lookSign = Math.random() < 0.5 ? -1 : 1; big.goal = null;
@@ -4669,7 +4688,7 @@ window.__bb = {
   get littles() { return littles; }, get big() { return big; }, get stats() { return stats; },
   get level() { return level; }, set level(v) { level = v; },
   // SPEC-006: world — мир идущего/выбранного уровня (не мир — игнорируется), level — номер в мире
-  get world() { return curWorld; }, set world(v) { if (WORLDS.includes(v)) curWorld = v; }, WORLDS,
+  get world() { return curWorld; }, set world(v) { if (WORLDS.includes(v)) curWorld = v; }, WORLDS, difficulty, bigSpeeds,
   update, inSafe, I18N, startGame, resetWorld, cycleOutfit, randomOutfit, cycleBig, setLang, toScreen,
   get items() { return items; }, get progress() { return progress; }, buyGloves, setEquip, get lastReward() { return lastReward; }, spawnItem,
   // SPEC-005 (телефон): phone; camera — позиция и точка взгляда в единицах 3D (1 = клетка), точка взгляда и видимая земля в px мира,

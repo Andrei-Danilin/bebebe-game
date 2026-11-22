@@ -143,6 +143,101 @@ test("all 80 levels are fair and build fast", async ({ page }) => {
   expect(bad).toEqual([]);
 });
 
+// ---------- SPEC-006 AC 5: difficulty curve with a ceiling ----------
+test("the Big One gets faster inside a world and never outruns a player", async ({ page }) => {
+  const r = await page.evaluate(W => {
+    const b = window.__bb, C = b.CFG, d = {};
+    for (const w of W) { d[w] = []; for (let n = 1; n <= 20; n++) d[w].push(b.difficulty(w, n)); }
+    const cfg = { start: C.WORLD_SPEED_START, per: C.SPEED_PER_LEVEL, max: C.BIG_CHASE_MAX, oldChase: "CHASE_PER_LEVEL" in C, oldHp: "HP_PER_LEVEL" in C };
+    // the game uses it: hearts at the start and the Big One's real speeds
+    const game = {};
+    b.world = "school"; b.level = 5; b.startGame(1);
+    game.school5 = { maxHp: b.big.maxHp, hp: b.big.hp, speeds: b.bigSpeeds() };
+    // the last heart in the hardest level: the anger boost must not push him past the ceiling
+    b.world = "winter"; b.level = 20; b.startGame(1);
+    game.winter20 = { maxHp: b.big.maxHp };
+    b.big.hp = 1; game.winter20.lastHeart = b.bigSpeeds();
+    b.big.hp = 0.5; game.winter20.halfHeart = b.bigSpeeds();
+    b.world = "park"; b.level = 20; b.startGame(1);
+    b.big.hp = 1; game.park20 = { lastHeart: b.bigSpeeds() };
+    return { d, cfg, game };
+  }, WORLDS);
+  const START = [0, 5, 10, 15], PER = 1.2, MAX = 0.95 * 150;
+  expect(r.cfg.start).toEqual(START);
+  expect(r.cfg.per).toBe(PER);
+  expect(r.cfg.max).toBeCloseTo(MAX, 6);                  // 142.5, from PLAYER_SPEED
+  expect([r.cfg.oldChase, r.cfg.oldHp]).toEqual([false, false]);
+  // the formulas
+  WORLDS.forEach((w, wi) => {
+    for (let n = 1; n <= 20; n++) {
+      const x = r.d[w][n - 1], boost = START[wi] + (n - 1) * PER, at = `${w} ${n}`;
+      expect(Object.keys(x).sort(), at).toEqual(["chase", "hearts", "patrol"]);
+      expect(x.chase, at).toBeCloseTo(Math.min(MAX, 112 + boost), 6);
+      expect(x.patrol, at).toBeCloseTo(70 + boost / 2, 6);
+      expect(x.hearts, at).toBe(Math.min(12, 6 + Math.floor((n - 1) / 4) + wi));
+      expect(x.chase, `${at}: faster than a player`).toBeLessThanOrEqual(MAX + 1e-9);
+      if (n > 1) expect(x.chase, `${at}: slower than the level before`).toBeGreaterThanOrEqual(r.d[w][n - 2].chase);
+    }
+  });
+  // the spec's numbers
+  expect(WORLDS.map(w => r.d[w][0].chase)).toEqual([112, 117, 122, 127]);
+  expect(r.d.park[19].chase).toBeCloseTo(134.8, 6);
+  expect(r.d.winter[19].chase).toBeCloseTo(MAX, 6);       // 149.8 before the cap
+  expect(WORLDS.map(w => [r.d[w][0].hearts, r.d[w][19].hearts])).toEqual([[6, 10], [7, 11], [8, 12], [9, 12]]);
+  // level 20 is harder than level 1 in every world; every world starts below the previous world's level 20
+  WORLDS.forEach((w, wi) => {
+    const first = r.d[w][0], last = r.d[w][19];
+    expect(last.chase > first.chase && last.hearts > first.hearts, `${w}: level 20 harder than level 1`).toBe(true);
+    if (wi) {
+      const prev = r.d[WORLDS[wi - 1]][19];
+      expect(first.chase < prev.chase && first.hearts < prev.hearts, `${w} level 1 easier than ${WORLDS[wi - 1]} level 20`).toBe(true);
+    }
+  });
+  // in the game
+  expect(r.game.school5.maxHp).toBe(8);
+  expect(r.game.school5.hp).toBe(8);
+  expect(r.game.school5.speeds.chase).toBeCloseTo(r.d.school[4].chase, 6);
+  expect(r.game.school5.speeds.patrol).toBeCloseTo(r.d.school[4].patrol, 6);
+  expect(r.game.winter20.maxHp).toBe(12);
+  for (const s of [r.game.winter20.lastHeart, r.game.winter20.halfHeart, r.game.park20.lastHeart]) {
+    expect(s.chase).toBeCloseTo(MAX, 6);                  // capped (with 11 hearts of anger: far above before the cap)
+    expect(s.search).toBeLessThanOrEqual(MAX + 1e-9);
+  }
+  expect(r.game.winter20.lastHeart.patrol).toBeCloseTo(70 + (15 + 19 * PER + 11 * 4) / 2, 6);   // patrol + half of the boost, as before
+
+  // the real movement: an angry Big One at the last heart of Winter 20 runs no faster than the ceiling
+  const run = await page.evaluate(() => {
+    const b = window.__bb, g = b.grid, C = g.CELL, COLS = g.COLS, ROWS = g.ROWS;
+    const pt = (x, y) => ({ x: (x + 0.5) * C, y: (y + 0.5) * C });
+    // an open map to measure on: a straight run of 8 cells free for the Big One, outside both houses, no bush at the end
+    let band = null;
+    for (let n = 1; n <= 4 && !band; n++) {
+      b.world = "park"; b.level = n; b.startGame(1);
+      const bl = g.blockedBig, free = (x, y) => !bl[y * COLS + x];
+      for (let y = 0; y < ROWS && !band; y++) for (let x = 0; x + 7 < COLS && !band; x++) {
+        let ok = true;
+        for (let k = 0; k <= 7 && ok; k++) { const p = pt(x + k, y); ok = free(x + k, y) && !b.inSafe(p) && !b.inDanger(p); }
+        const end = pt(x + 7, y);
+        if (ok && !g.bushes.some(q => Math.hypot(q.x - end.x, q.y - end.y) < q.r + 12)) band = { x, y };
+      }
+    }
+    if (!band) return null;
+    b.world = "winter"; b.level = 20;                         // …with the hardest level's speed
+    Object.assign(b.big, { maxHp: 12, hp: 1 });
+    const L = b.littles, from = pt(band.x, band.y), to = pt(band.x + 7, band.y);
+    L.forEach((l, i) => { if (i) Object.assign(l, { state: "rest", restTimer: 999 }); });
+    Object.assign(L[0], { x: to.x, y: to.y, state: "ok", invuln: 0, dizzy: 0 });
+    Object.assign(b.big, { x: from.x, y: from.y, dir: 0, state: "look", timer: 999, stun: 0, slip: 0, blush: 0, noPush: 0, pushCd: 0, path: [], repath: 0 });
+    const T = 0.5, steps = 30;
+    for (let i = 0; i < steps; i++) b.update(T / steps);
+    return { moved: Math.hypot(b.big.x - from.x, b.big.y - from.y), state: b.big.state, T, speeds: b.bigSpeeds() };
+  });
+  expect(run, "found an open band to measure on").not.toBeNull();
+  expect(run.state).toBe("chase");
+  expect(run.moved / run.T, "real speed at most the ceiling").toBeLessThanOrEqual(MAX + 0.5);
+  expect(run.moved / run.T, "real speed close to the ceiling").toBeGreaterThan(MAX * 0.9);
+});
+
 // Every level of one type in all four worlds as the game accepts it: the fairness report and the accepted map (report.attempt).
 async function levelsOf(page, type) {
   return page.evaluate(([t, W]) => {
