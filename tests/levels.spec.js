@@ -320,3 +320,43 @@ test("rooms all have doors and the building has loops", async ({ page }) => {
     expect(count(gen, it => it.t === "tree"), at).toBe(0);
   }
 });
+
+test("arena has a ring with gaps", async ({ page }) => {
+  const levels = await levelsOf(page, "arena");
+  expect(levels.map(x => x.lv)).toEqual([7, 13, 19, 25, 31, 37, 43, 49, 55]);
+  let withHalf = 0;
+  for (const { lv, tier, r, gen } of levels) {
+    const at = `level ${lv}`;
+    expect(r.fallback, at).toBe(false);
+    const { block: [bl], ring: [rg], gaps, halfGaps } = gen.meta.areas;
+    const arena = cellsOf(gen, it => it.t === "wall" && it.kind === "arena");
+    // the central block is one solid arena wall 4–6 × 4
+    expect(gen.items.some(it => it.t === "wall" && it.kind === "arena" && it.x === bl.x && it.y === bl.y && it.w === bl.w && it.h === bl.h), at).toBe(true);
+    expect(inRange(bl.w, [4, 6]) && bl.h === 4, `${at}: block ${JSON.stringify(bl)}`).toBe(true);
+    // the ring is 3 cells away from the block
+    expect([rg.x, rg.y, rg.w, rg.h], at).toEqual([bl.x - 4, bl.y - 4, bl.w + 8, bl.h + 8]);
+    // 3–4 gaps 2–3 wide; every other ring cell is an arena wall
+    expect(inRange(gaps.length, [3, 4]), at).toBe(true);
+    const inGap = (x, y) => gaps.some(g => x >= g.x && x < g.x + g.w && y >= g.y && y < g.y + g.h);
+    for (const g of gaps) expect(inRange(g.w * g.h, [2, 3]) && (g.w === 1 || g.h === 1), `${at}: gap ${JSON.stringify(g)}`).toBe(true);
+    const ringBad = [];
+    for (let x = rg.x; x < rg.x + rg.w; x++) for (const y of [rg.y, rg.y + rg.h - 1]) if (arena[y][x] === inGap(x, y)) ringBad.push(`${x},${y}`);
+    for (let y = rg.y; y < rg.y + rg.h; y++) for (const x of [rg.x, rg.x + rg.w - 1]) if (arena[y][x] === inGap(x, y)) ringBad.push(`${x},${y}`);
+    expect(ringBad, `${at}: ring cells`).toEqual([]);
+    // the ring corridor is reachable from outside through every single gap
+    const solid = cellsOf(gen, it => SOLID.includes(it.t)), s = front(gen.doors.small[0]);
+    for (const g of gaps) {
+      const only = solid.map((row, y) => row.map((v, x) => v || (inGap(x, y) && !(x >= g.x && x < g.x + g.w && y >= g.y && y < g.y + g.h))));
+      expect(flood(only, s)[bl.y - 2][bl.x + 1], `${at}: corridor not reached through gap ${JSON.stringify(g)}`).toBe(true);
+    }
+    // bushes in the ring corridor, trees outside
+    const bush = gen.items.filter(it => it.t === "bush");
+    expect(inRange(bush.length, bushRange(3, [4, 6], tier)), `${at}: ${bush.length} bushes`).toBe(true);
+    for (const q of bush) expect(q.x > rg.x && q.y > rg.y && q.x + 1 < rg.x + rg.w - 1 && q.y + 1 < rg.y + rg.h - 1, `${at}: bush outside the ring`).toBe(true);
+    for (const q of gen.items.filter(it => it.t === "tree")) expect(q.x < rg.x || q.y < rg.y || q.x >= rg.x + rg.w || q.y >= rg.y + rg.h, `${at}: tree inside the ring`).toBe(true);
+    expect(inRange(count(gen, it => it.t === "tree"), [4, 7]) && inRange(count(gen, it => it.t === "rock"), [0, 2]), at).toBe(true);
+    if (halfGaps.length) { withHalf++; expect(halfGaps.length, at).toBe(2); }
+  }
+  expect(withHalf, "some arenas have a half-ring").toBeGreaterThan(0);
+  expect(withHalf, "some arenas have none").toBeLessThan(levels.length);
+});

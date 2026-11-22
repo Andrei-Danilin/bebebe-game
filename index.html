@@ -129,7 +129,8 @@ const CFG = {
     maze: { module: 3, bushes: [3, 4], trees: [0, 2], plazas: [1, 2] },
     village: { cottages: [5, 8], cottageA: [3, 4], cottageB: [3, 5], street: 2, squareW: [5, 6], squareH: [4, 5], bushes: [5, 7], trees: [3, 6], rocks: [0, 2] },
     river: { width: [2, 3], bend: [4, 6], bridges: [2, 3], bridgeW: [2, 3], bushes: [6, 8], trees: [5, 8], rocks: [1, 3] },
-    rooms: { minRoom: 4, stopArea: 80, secondDoor: 1 / 3, outsideDoors: [3, 4], bushes: [3, 5], rocks: [2, 4], bigRoom: 30 }
+    rooms: { minRoom: 4, stopArea: 80, secondDoor: 1 / 3, outsideDoors: [3, 4], bushes: [3, 5], rocks: [2, 4], bigRoom: 30 },
+    arena: { blockW: [4, 6], blockH: 4, ring: 3, gaps: [3, 4], gapW: [2, 3], halfRing: 0.5, bushes: [4, 6], trees: [4, 7], rocks: [0, 2] }
   }
 };
 // Рукавицы из магазина: сколько сердечек забирает одна обнимашка, цена и сколько сильных обнимашек в наборе
@@ -523,6 +524,7 @@ function emitWalls(items, occ, wall, kind) {
   }
   for (let k = 0; k < COLS * ROWS; k++) if (wall[k]) occ[k] = 1;
 }
+const shuffle = (rng, a) => { for (let k = a.length - 1; k > 0; k--) { const r = Math.floor(rng() * (k + 1)); [a[k], a[r]] = [a[r], a[k]]; } return a; };
 const genTree = rng => (x, y) => ({ t: "tree", x, y, v: rng() < 0.6 ? "pine" : "round", s: 0.9 + rng() * 0.25 });
 const genRock = rng => (x, y) => ({ t: "rock", x, y, s: 0.9 + rng() * 0.3 });
 const genBush = (x, y) => ({ t: "bush", x, y });
@@ -803,10 +805,59 @@ function roomsLayout(ctx) {
   ctx.meta.areas = { rooms: rooms.map(r => ({ x: r.x0, y: r.y0, w: r.x1 - r.x0 + 1, h: r.y1 - r.y0 + 1 })), doors: doorList };
 }
 
+// Арена: блок в середине, вокруг кольцо стен через 3 клетки с 3–4 проходами; у половины уровней ещё полукольцо
+// снаружи (в свободном углу) с 2 проходами. Кусты — в коридоре кольца, деревья и камни — снаружи.
+function arenaLayout(ctx) {
+  const { rng, ri, items, occ, reserve, isFree, place } = ctx, L = CFG.LAYOUT.arena, D = L.ring + 1, bh = L.blockH;
+  const half = rng() < L.halfRing, corner = half ? (rng() < 0.5 ? "bl" : "tr") : null;
+  // при полукольце кольцо сдвинуто от того края, где ему нужно место (2 клетки коридор + стена + 2 клетки)
+  const by = corner === "bl" ? Math.floor((ROWS - bh) / 2) - 1 : corner === "tr" ? Math.floor((ROWS - bh) / 2) + 1 : Math.floor((ROWS - bh) / 2) + ri(-1, 1);
+  let bw = ri(L.blockW[0], L.blockW[1]), bx = -1;
+  for (; bw >= L.blockW[0] && bx < 0; bw--) {
+    const opts = [];
+    for (let x = D + 2; x + bw + D + 2 <= COLS; x++) if (isFree(x - D, by - D, bw + 2 * D, bh + 2 * D, 0)) opts.push(x);
+    if (opts.length) { bx = opts[ri(0, opts.length - 1)]; break; }
+  }
+  if (bx < 0) { ctx.meta.bad = "arena"; return; }
+  const x0 = bx - D, y0 = by - D, x1 = bx + bw + D - 1, y1 = by + bh + D - 1;
+  const wall = new Uint8Array(COLS * ROWS), at = (x, y) => y * COLS + x;
+  for (let x = x0; x <= x1; x++) { wall[at(x, y0)] = 1; wall[at(x, y1)] = 1; }
+  for (let y = y0; y <= y1; y++) { wall[at(x0, y)] = 1; wall[at(x1, y)] = 1; }
+  // проходы в кольце: на разных сторонах, не у углов
+  const gaps = [], n = ri(L.gaps[0], L.gaps[1]);
+  for (const sd of shuffle(rng, ["top", "bottom", "left", "right"]).slice(0, n)) {
+    const gw = ri(L.gapW[0], L.gapW[1]), horiz = sd === "top" || sd === "bottom";
+    const st = horiz ? ri(x0 + 2, x1 - 1 - gw) : ri(y0 + 2, y1 - 1 - gw);
+    const g = horiz ? { x: st, y: sd === "top" ? y0 : y1, w: gw, h: 1 } : { x: sd === "left" ? x0 : x1, y: st, w: 1, h: gw };
+    for (let y = g.y; y < g.y + g.h; y++) for (let x = g.x; x < g.x + g.w; x++) wall[at(x, y)] = 0;
+    gaps.push(g);
+  }
+  // полукольцо: две «руки» через 2 клетки от кольца — по левой и нижней стороне (bl) или по верхней и правой (tr)
+  const halfGaps = [];
+  if (half) {
+    const hx = corner === "bl" ? x0 - 3 : x1 + 3, hy = corner === "bl" ? y1 + 3 : y0 - 3;
+    const mx = Math.floor((x0 + x1) / 2), my = Math.floor((y0 + y1) / 2);
+    const vy0 = Math.min(my, hy), vy1 = Math.max(my, hy), hx0 = Math.min(mx, hx), hx1 = Math.max(mx, hx);
+    for (let y = vy0; y <= vy1; y++) wall[at(hx, y)] = 1;
+    for (let x = hx0; x <= hx1; x++) wall[at(x, hy)] = 1;
+    const gv = ri(L.gapW[0], L.gapW[1]), gvy = ri(vy0 + 1, vy1 - 1 - gv), gh = ri(L.gapW[0], L.gapW[1]), ghx = ri(hx0 + 1, hx1 - 1 - gh);
+    for (let y = gvy; y < gvy + gv; y++) wall[at(hx, y)] = 0;
+    for (let x = ghx; x < ghx + gh; x++) wall[at(x, hy)] = 0;
+    halfGaps.push({ x: hx, y: gvy, w: 1, h: gv }, { x: ghx, y: hy, w: gh, h: 1 });
+  }
+  emitWalls(items, occ, wall, "arena");
+  items.push({ t: "wall", x: bx, y: by, w: bw, h: bh, kind: "arena" }); reserve(bx, by, bw, bh);
+  // кусты — в коридоре внутри кольца; потом кольцо целиком занято, деревья и камни — снаружи
+  place(bushCount(ctx, L.bushes), genBush, 2, 2, 0, (x, y) => x > x0 && y > y0 && x + 1 < x1 && y + 1 < y1);
+  reserve(x0, y0, x1 - x0 + 1, y1 - y0 + 1);
+  place(ri(L.trees[0], L.trees[1]), genTree(rng));
+  place(ri(L.rocks[0], L.rocks[1]), genRock(rng));
+  ctx.meta.areas = { block: [{ x: bx, y: by, w: bw, h: bh }], ring: [{ x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 }], gaps, halfGaps };
+}
+
 const LAYOUTS = {
   classic: classicLayout, meadow: meadowLayout, maze: mazeLayout, village: villageLayout,
-  river: riverLayout, rooms: roomsLayout,
-  arena: () => {}   // следующий шаг SPEC-002
+  river: riverLayout, rooms: roomsLayout, arena: arenaLayout
 };
 
 function generateLevel(lv, attempt) {
