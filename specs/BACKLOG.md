@@ -94,3 +94,4 @@ One line each: what, where it came from. The spec author turns a line into a spe
 - The desktop shop has no overlap test for the card texts (es/ru); the sparkle and rescue sound of a kit are not asserted (SPEC-007).
 - The 🩹 emoji looks different on each platform; a canvas-drawn icon (`drawKit`) in the hint would look the same everywhere (SPEC-007).
 - The menu controls line doesn't mention E / Q (kisses / kits) (SPEC-007).
+- Kit review leftovers (SPEC-007): `padEdge()` allocates every frame even without a gamepad (cache it); no test that the hint/phone 🩹 hide while a win is pending; no narrow-phone shop overlap test for the badge fallback below the picture floor; clamp the kiss cooldown arc if `KIT_SLOT_LOCK` ever exceeds `KISS_COOLDOWN`.
