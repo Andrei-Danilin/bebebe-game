@@ -50,16 +50,16 @@ test("the same level number always builds the same map", async ({ page }) => {
 });
 
 // "The same level number always builds the same map" also across releases (the kids' rule: stars stay meaningful).
-// A change here must be deliberate: regenerate tests/fixtures/levels-2-13.json and say why in the commit.
-const LEVELS_2_13 = JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures", "levels-2-13.json"), "utf8"));
-test("levels 2–13 are the same maps as when they were made", async ({ page }) => {
+// A change here must be deliberate: regenerate tests/fixtures/levels-2-61.json and say why in the commit.
+const LEVELS_2_61 = JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures", "levels-2-61.json"), "utf8"));
+test("levels 2–61 are the same maps as when they were made", async ({ page }) => {
   const r = await page.evaluate(() => {
     const b = window.__bb, out = {};
     const fnv = s => { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; } return h.toString(16).padStart(8, "0"); };
-    for (let lv = 2; lv <= 13; lv++) { const q = b.levelReport(lv); out[lv] = { type: q.type, attempt: q.attempt, hash: fnv(JSON.stringify(b.generateLevel(lv, q.attempt))) }; }
+    for (let lv = 2; lv <= 61; lv++) { const q = b.levelReport(lv); out[lv] = { type: q.type, attempt: q.attempt, hash: fnv(JSON.stringify(b.generateLevel(lv, q.attempt))) }; }
     return out;
   });
-  expect(r).toEqual(LEVELS_2_13);
+  expect(r).toEqual(LEVELS_2_61);
 });
 
 test("levels 1–99 are fair and build fast", async ({ page }) => {
@@ -343,7 +343,7 @@ test("arena has a ring with gaps", async ({ page }) => {
     expect(r.fallback, at).toBe(false);
     const { block: [bl], ring: [rg], gaps, halfGaps } = gen.meta.areas;
     const arena = cellsOf(gen, it => it.t === "wall" && it.kind === "arena");
-    // the central block is one solid arena wall 4–6 × 4
+    // the central block is one solid arena wall 4–5 × 4
     expect(gen.items.some(it => it.t === "wall" && it.kind === "arena" && it.x === bl.x && it.y === bl.y && it.w === bl.w && it.h === bl.h), at).toBe(true);
     expect(inRange(bl.w, [4, 5]) && bl.h === 4, `${at}: block ${JSON.stringify(bl)}`).toBe(true);   // 6×4 never fits (BACKLOG)
     // the ring is 3 cells away from the block
@@ -409,21 +409,56 @@ test("the game starts exactly the level that levelReport checks", async ({ page 
   expect(r.find(x => x.lv === 1).info.attempt, "level 1 is attempt 0").toBe(0);
 });
 
+test("restarting a retried level builds it from the cache, the same as a fresh build", async ({ page }) => {
+  const r = await page.evaluate(() => {
+    const b = window.__bb;
+    let lv = 0, rep = null;
+    for (let n = 2; n <= 60 && !lv; n++) { const q = b.levelReport(n); if (q.attempt > 0 && !q.fallback) { lv = n; rep = q; } }
+    b.level = lv; b.startGame(1);
+    const first = { info: { ...b.levelInfo }, world: b.worldState() };
+    b.startGame(1);                                       // restart: from the cache
+    const again = { info: { ...b.levelInfo }, world: b.worldState() };
+    b.clearLevelCache(); b.startGame(1);                  // fresh build again
+    const fresh = { info: { ...b.levelInfo }, world: b.worldState() };
+    return { lv, attempt: rep.attempt, first, again, fresh };
+  });
+  expect(r.attempt).toBeGreaterThan(0);
+  expect([r.first.info.cached, r.again.info.cached, r.fresh.info.cached]).toEqual([false, true, false]);
+  expect([r.first.info.attempt, r.again.info.attempt, r.fresh.info.attempt]).toEqual([r.attempt, r.attempt, r.attempt]);
+  expect(r.again.world === r.first.world && r.fresh.world === r.first.world, `level ${r.lv}: worlds differ`).toBe(true);
+});
+
 test("a level with no fair layout falls back and warns", async ({ page }) => {
   const warns = [];
   page.on("console", m => { if (m.type() === "warning") warns.push(m.text()); });
   const r = await page.evaluate(() => {
-    const b = window.__bb, keep = b.CFG.HOUSE_PATH;
+    const b = window.__bb, w = b.world, C = w.CELL, keep = b.CFG.HOUSE_PATH;
     b.CFG.HOUSE_PATH = [999, 1000];   // no generated level can pass rule 3
+    b.clearLevelCache();
+    const flood = (grid, x, y) => {
+      const seen = new Uint8Array(grid.length), s0 = Math.floor(y / C) * w.COLS + Math.floor(x / C), q = [s0]; seen[s0] = 1;
+      while (q.length) { const i = q.pop(), cx = i % w.COLS, cy = (i / w.COLS) | 0; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = cx + dx, ny = cy + dy; if (nx < 0 || ny < 0 || nx >= w.COLS || ny >= w.ROWS) continue; const j = ny * w.COLS + nx; if (!grid[j] && !seen[j]) { seen[j] = 1; q.push(j); } } }
+      return grid.every((v, i) => v || seen[i]);
+    };
     try {
+      const report = b.levelReport(2);
       b.level = 2; b.startGame(1);
+      const reach = { small: flood(w.blocked, b.littles[0].x, b.littles[0].y), big: flood(w.blockedBig, b.big.x, b.big.y) };
       for (let i = 0; i < 120; i++) b.update(1 / 60);   // the fallback level still plays
-      return { info: { ...b.levelInfo }, mode: b.mode, littles: b.littles.length };
-    } finally { b.CFG.HOUSE_PATH = keep; }
+      return { info: { ...b.levelInfo }, report: { attempt: report.attempt, rejects: report.rejects, fallback: report.fallback }, reach, mode: b.mode, littles: b.littles.length };
+    } finally { b.CFG.HOUSE_PATH = keep; b.clearLevelCache(); }
   });
   expect(r.info.fallback).toBe(true);
-  expect(r.info.attempt).toBeGreaterThanOrEqual(0);   // the attempt with the fewest failed rules
-  expect(r.info.attempt).toBeLessThan(40);
+  expect(r.report.fallback).toBe(true);
+  expect(r.report.rejects.length).toBe(40);
+  // kept attempt: fewest failed rules, attempts that break reachability last, the earliest of equals
+  const score = why => why.split("/").length + (/smallReach|bigReach/.test(why) ? 100 : 0);
+  let want = 0;
+  r.report.rejects.forEach((why, a) => { if (score(why) < score(r.report.rejects[want])) want = a; });
+  expect(r.report.attempt).toBe(want);
+  expect(r.info.attempt).toBe(want);
+  // the hedges leave no pocket: everything free is reachable for the Little Ones and (outside their house) for the Big One
+  expect(r.reach).toEqual({ small: true, big: true });
   expect(r.mode).toBe("play");
   expect(r.littles).toBe(5);
   expect(warns.some(t => t.includes("level 2") && t.includes("housePath"))).toBe(true);
@@ -657,13 +692,23 @@ test("rooms and arena need diagonal houses even if the CFG pairing is removed", 
     const b = window.__bb, L = b.CFG.LAYOUT, keep = [L.rooms.homes, L.arena.homes], out = {};
     L.rooms.homes = undefined; L.arena.homes = undefined;   // the seed may now pick same-side houses
     try {
-      for (const lv of [6, 7, 12, 13, 18, 19]) { const q = b.levelReport(lv); out[lv] = { fallback: q.fallback, rejects: q.rejects }; }
+      // same side = both houses on the left half or both on the right half of the map
+      const sameSide = (lv, a) => { const g = b.generateLevel(lv, a), sz = g.items.find(i => i.t === "safe"), d = g.items.find(i => i.t === "danger"); return (sz.x < 15) === (d.x < 15); };
+      for (const lv of [6, 7, 12, 13, 18, 19]) {
+        const q = b.levelReport(lv);
+        out[lv] = { fallback: q.fallback, rejects: q.rejects, sides: q.rejects.map((_, a) => sameSide(lv, a)), acceptedSameSide: sameSide(lv, q.attempt) };
+      }
     } finally { [L.rooms.homes, L.arena.homes] = keep; }
     return out;
   });
+  let homesRejects = 0;
   for (const [lv, x] of Object.entries(r)) {
     expect(x.fallback, `level ${lv}`).toBe(false);
-    for (const why of x.rejects) expect(why, `level ${lv}`).toContain("layout:homes");   // same-side attempts are refused cleanly
+    expect(x.acceptedSameSide, `level ${lv}: built with same-side houses`).toBe(false);
+    x.rejects.forEach((why, a) => {
+      if (x.sides[a]) expect(why, `level ${lv} attempt ${a}: same-side houses not refused`).toContain("layout:homes");
+      if (why.includes("layout:homes")) homesRejects++;
+    });
   }
-  expect(Object.values(r).some(x => x.rejects.length > 0), "some attempt had same-side houses").toBe(true);
+  expect(homesRejects, "some attempt had same-side houses").toBeGreaterThan(0);
 });

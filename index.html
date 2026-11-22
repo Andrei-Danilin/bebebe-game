@@ -972,12 +972,24 @@ function connectivity() {
 }
 
 // Уровень для игры строится тем же циклом попыток, что проверяет levelReport (validateLevel, запасной вариант)
-let levelInfo = null;   // { lv, type, attempt, fallback, ms } — какой уровень сейчас построен
-const levelCache = new Map();   // уровень → принятая попытка: перезапуск и стрелки в меню не перебирают попытки заново
+let levelInfo = null;   // { lv, type, attempt, fallback, cached, ms } — какой уровень сейчас построен
+// уровень → принятая попытка: перезапуск и стрелки в меню строят её сразу, без перебора попыток.
+// Если она вдруг не проходит проверку (поменяли CFG) — запись удаляется и уровень строится заново с попытки 0,
+// как в levelReport.
+const levelCache = new Map();
+const clearLevelCache = () => levelCache.clear();
 function loadLevel(lv) {
-  const r = buildLevel(lv, levelCache.get(lv) || 0);
+  const t0 = performance.now(), type = levelType(lv), c = levelCache.get(lv);
+  if (c !== undefined && c < CFG.LEVEL_ATTEMPTS) {
+    const gen = generateLevel(lv, c);
+    applyWorld(gen);
+    const rep = validateLevel(gen, type);
+    if (rep.ok) { reachable = rep.seen; levelInfo = { lv, type, attempt: c, fallback: false, cached: true, ms: performance.now() - t0 }; return; }
+  }
+  levelCache.delete(lv);
+  const r = buildLevel(lv);
   if (!r.fallback) levelCache.set(lv, r.attempt);
-  levelInfo = { lv, type: r.type, attempt: r.attempt, fallback: r.fallback, ms: r.ms };
+  levelInfo = { lv, type: r.type, attempt: r.attempt, fallback: r.fallback, cached: false, ms: r.ms };
 }
 
 // ---------- Честность уровня (SPEC-002) ----------
@@ -1074,18 +1086,21 @@ function validateLevel(gen, type) {
   return { ok: fails.length === 0, fails, seen: small.seen, freeRatio, bigReachAll, smallReachAll, housePath, doorClear, deadEnds, bushes };
 }
 // Строит уровень: до LEVEL_ATTEMPTS попыток, пока validateLevel не пройдёт; иначе — запасной вариант (живая изгородь в «карманах»).
-// first — с какой попытки начать (у loadLevel из кэша — сразу с принятой). attempt — какая попытка построена.
-function buildLevel(lv, first = 0) {
-  const type = levelType(lv), t0 = performance.now();
-  let rep = null, attempt = first, tries = 0, best = null;
+// Попытки с 0 до LEVEL_ATTEMPTS-1, первая честная принимается. attempt — какая попытка построена.
+// Для запасного варианта — «лучшая» неудачная: меньше нарушенных правил, а нарушившие достижимость
+// (smallReach / bigReach) — в самом конце (их «карманы» пришлось бы закрывать).
+const failScore = fails => fails.length + (fails.includes("smallReach") || fails.includes("bigReach") ? 100 : 0);
+function buildLevel(lv) {
+  const type = levelType(lv), t0 = performance.now(), N = Math.max(1, CFG.LEVEL_ATTEMPTS);
+  let rep = null, attempt = 0, tries = 0, best = null;
   const rejects = [];   // почему отброшены прежние попытки
-  for (; attempt < CFG.LEVEL_ATTEMPTS; attempt++) {
+  for (; attempt < N; attempt++) {
     const gen = generateLevel(lv, attempt);
     applyWorld(gen); tries++;
     rep = validateLevel(gen, type);
     if (rep.ok) break;
     rejects.push(rep.fails.join("/"));
-    if (!best || rep.fails.length < best.n) best = { n: rep.fails.length, attempt };
+    if (!best || failScore(rep.fails) < best.score) best = { score: failScore(rep.fails), attempt };
   }
   const fallback = !rep.ok;
   if (fallback) {
@@ -1101,7 +1116,7 @@ function buildLevel(lv, first = 0) {
     }
     buildGrids();
     rep.seen = connectivity().seen;
-    console.warn(`level ${lv} (${type}): no fair layout in ${CFG.LEVEL_ATTEMPTS} attempts (kept attempt ${attempt}: ${rep.fails.join(", ")}), pockets filled`);
+    console.warn(`level ${lv} (${type}): no fair layout in ${N} attempts (kept attempt ${attempt}: ${rep.fails.join(", ")}), pockets filled`);
   }
   reachable = rep.seen;
   const { seen, ok, ...report } = rep;
@@ -2281,10 +2296,11 @@ function label(text, x, y, size, color, align = "center") {
   ctx.fillStyle = color; ctx.fillText(text, x, y);
 }
 function fitText(text, x, y, size, maxW, align, color, weight) {
-  let sz = size;
-  do { ctx.font = `${weight} ${sz}px system-ui, "Segoe UI", sans-serif`; sz -= 0.5; } while (ctx.measureText(text).width > maxW && sz > 9);
+  let sz = size + 0.5;
+  do { sz -= 0.5; ctx.font = `${weight} ${sz}px system-ui, "Segoe UI", sans-serif`; } while (ctx.measureText(text).width > maxW && sz > 9);
   ctx.textAlign = align; ctx.textBaseline = "middle"; ctx.fillStyle = color;
   ctx.fillText(text, x, y);
+  return sz;   // размер, которым написано
 }
 // Текст в несколько строк (по словам), не больше lines строк; не влезает — мельче
 function wrapText(text, x, y, size, maxW, lines, color, weight) {
@@ -2546,17 +2562,16 @@ function drawOverlay() {
     rr(W / 2 - 360, 30, 720, 580, 30); fillStroke("rgba(255,250,235,.95)", 5);
     label("BeBeBe Atrapar", W / 2 - 40, 92, 54, "#ffcf33");
     label(L().subtitle, W / 2, 136, 22, "#ff6fa8");
-    const icons = ["❤", "👀", "🤝", "⏱", "🏠", "🍌"], rules = L().rules(CFG.DOWN_TIME);
+    const icons = ["❤", "👀", "🤝", "⏱", "🏠", "🍌"], rules = L().rules(CFG.DOWN_TIME), RULE_Y = 172, RULE_DY = 29, RULE_SIZE = 16;
     rules.forEach((r, i) => {
       ctx.font = "19px system-ui, 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-      ctx.fillText(icons[i], W / 2 - 312, 172 + i * 29);
-      fitText(r, W / 2 - 287, 172 + i * 29, 16, 640, "left", OUT, 700);
+      ctx.fillText(icons[i], W / 2 - 312, RULE_Y + i * RULE_DY);
+      fitText(r, W / 2 - 287, RULE_Y + i * RULE_DY, RULE_SIZE, 640, "left", OUT, 700);
     });
     // тип выбранного уровня — между правилами и переключателем уровня
     const tName = L().types[levelType(level)], tY = 340;
-    fitText(tName, W / 2 - 130, tY, 15, 240, "center", "#7c3aed", 800);
-    const tw = ctx.measureText(tName).width, tSize = parseFloat(ctx.font.split(" ")[1]);
-    typeLabel = { text: tName, x: W / 2 - 130 - tw / 2, y: tY - tSize / 2, w: tw, h: tSize, size: tSize, rulesBottom: 172 + (rules.length - 1) * 29 + 8 };
+    const tSize = fitText(tName, W / 2 - 130, tY, 15, 240, "center", "#7c3aed", 800), tw = ctx.measureText(tName).width;
+    typeLabel = { text: tName, x: W / 2 - 130 - tw / 2, y: tY - tSize / 2, w: tw, h: tSize, size: tSize, rulesBottom: RULE_Y + (rules.length - 1) * RULE_DY + RULE_SIZE / 2 };
     addButton(W / 2 - 250, 350, 52, 50, "◀", "#94a3b8", () => changeLevel(-1));
     rr(W / 2 - 192, 350, 124, 50, 16); fillStroke("#fff", 4);
     fitText(`${L().level} ${level}`, W / 2 - 130, 368, 20, 112, "center", OUT, 900);
@@ -3933,10 +3948,10 @@ window.__bb = {
   get buttonRects() { return buttons.map(b => ({ id: b.id || b.act.name, x: b.x, y: b.y, w: b.w, h: b.h })); },
   get names() { return allNames(); }, setName, nameOf, inDanger, get stars() { return bonusStars; }, spawnStar, giveReward,
   get dangerZone() { return dangerZone; }, get safeZone() { return safeZone; }, get texts() { return texts; }, generateLevel,
-  world: { COLS, ROWS, CELL, get blocked() { return Array.from(blocked); }, seeSolid: seeSolidAt, get bushes() { return bushes.map(q => ({ ...q })); },
+  world: { COLS, ROWS, CELL, get blocked() { return Array.from(blocked); }, get blockedBig() { return Array.from(blockedBig); }, seeSolid: seeSolidAt, get bushes() { return bushes.map(q => ({ ...q })); },
     get obstacles() { return obstacles.map(o => ({ kind: o.kind, shape: o.shape, x: o.x, y: o.y, w: o.w, h: o.h, r: o.r, move: o.move, sight: o.sight })); } },
   get kisses() { return kisses; }, throwKiss, buyKisses, resetProgress, heartFill, bigBoost, fmtHearts,
-  levelType, levelReport, get levelInfo() { return levelInfo; }, CFG, THEMES,
+  levelType, levelReport, get levelInfo() { return levelInfo; }, clearLevelCache, CFG, THEMES,
   get banner() { return banner; }, bannerAlpha, get typeLabel() { return typeLabel; },
   // всё состояние мира, которое levelReport сохраняет и возвращает (для теста «не трогает идущую игру»)
   worldState() { return JSON.stringify({ obstacles, bushes, floors, decor, trees, flowers, safeZone, dangerZone, spawns, reachable: Array.from(reachable).join(""), grids: [blocked, blockedBig, moveGrid, seeGrid, moveGridBig].map(g => g.join("")) }); },

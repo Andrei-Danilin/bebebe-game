@@ -42,3 +42,4 @@ One line each: what, where it came from. The spec author turns a line into a spe
 - Mini-map preview of the selected level in the menu (SPEC-002, out of scope).
 - Kids' level editor: the kids draw their own levels (SPEC-002, out of scope).
 - Split the pure level generator (generateLevel, LAYOUTS, validateLevel) into its own module so it can be tested without the browser — needs a spec: hard rule 1 (one file, opens by double-click) (SPEC-002 architect review).
+- SPEC-002 decided during the run, check with Andrei: when no fair layout is found in 40 attempts, the game keeps the attempt that broke the fewest rules (attempts where somebody can't reach every cell come last) and closes with hedges every free cell the Little Ones, or the Big One outside their house, can't reach.
