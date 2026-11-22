@@ -4,7 +4,7 @@ const { openGame, step, setupHug, frames } = require("./helpers");
 
 test.beforeEach(async ({ page }) => {
   page.errors = await openGame(page);
-  await page.evaluate(() => { window.__bb.placeSel = "park"; window.__bb.level = 1; window.__bb.startGame(1); });
+  await page.evaluate(() => { window.__bb.world = "park"; window.__bb.level = 1; window.__bb.startGame(1); });
 });
 test.afterEach(async ({ page }) => { expect(page.errors).toEqual([]); });
 
@@ -206,7 +206,7 @@ test("the Big One's house is a danger zone", async ({ page }) => {
   for (let lv = 1; lv <= 5; lv++) {
     const r = await page.evaluate(v => {
       const b = window.__bb; b.level = v; b.startGame(1);
-      const z = b.dangerZone, gen = b.generateLevel(v, 0);
+      const z = b.dangerZone, gen = b.generateLevel("park", v, 0);
       const d = gen.items.find(it => it.t === "danger"), dark = gen.items.find(it => it.t === "floor" && it.kind === "dark");
       return { z, d, dark, inside: b.inDanger({ x: z.x + z.w / 2, y: z.y + z.h / 2 }), safe: b.inDanger({ x: b.safeZone.x + b.safeZone.w / 2, y: b.safeZone.y + b.safeZone.h / 2 }) };
     }, lv);
@@ -216,7 +216,7 @@ test("the Big One's house is a danger zone", async ({ page }) => {
     expect(r.safe).toBe(false);
   }
   // level 1's other items stay exactly as before the spec
-  const items = await page.evaluate(() => JSON.stringify(window.__bb.generateLevel(1, 0).items.filter(it => it.t !== "danger")));
+  const items = await page.evaluate(() => JSON.stringify(window.__bb.generateLevel("park", 1, 0).items.filter(it => it.t !== "danger")));
   expect(fnv(items)).toBe("78645e45");
 });
 
@@ -332,7 +332,7 @@ test("stars spawn only in fair places", async ({ page }) => {
     const b = window.__bb, out = [];
     for (let lv = 1; lv <= 5; lv++) {
       b.level = lv; b.startGame(1);
-      const { COLS, ROWS, CELL } = b.world, blocked = b.world.blocked, sz = b.safeZone;
+      const { COLS, ROWS, CELL } = b.grid, blocked = b.grid.blocked, sz = b.safeZone;
       // reachable cells from the Little Ones' spawn
       const seen = new Uint8Array(COLS * ROWS), s0 = Math.floor(b.littles[0].y / CELL) * COLS + Math.floor(b.littles[0].x / CELL), q = [s0]; seen[s0] = 1;
       while (q.length) { const i = q.pop(), cx = i % COLS, cy = (i / COLS) | 0; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = cx + dx, ny = cy + dy; if (nx < 0 || ny < 0 || nx >= COLS || ny >= ROWS) continue; const j = ny * COLS + nx; if (!blocked[j] && !seen[j]) { seen[j] = 1; q.push(j); } } }
@@ -403,7 +403,7 @@ test("star coins are added to the reward", async ({ page }) => {
   await page.waitForFunction(() => window.__bbReady === true);
   expect(await page.evaluate(() => window.__bb.progress.coins)).toBe(3);
   // a win: the rest penalty brings the reward down to the floor, the star coins come on top
-  await page.evaluate(() => { const b = window.__bb; b.placeSel = "park"; b.level = 1; b.startGame(1); });
+  await page.evaluate(() => { const b = window.__bb; b.world = "park"; b.level = 1; b.startGame(1); });
   await installTestHelpers(page);
   expect(await take()).toBe(6);
   await page.evaluate(() => { window.__bb.stats.rests = 10; window.__bb.big.hp = 1; });
@@ -414,7 +414,7 @@ test("star coins are added to the reward", async ({ page }) => {
   expect(r.coins).toBe(5 + 3);                      // COINS_MIN_WIN + star coins
   expect(await page.evaluate(() => window.__bb.progress.coins)).toBe(3 + 8);
   // a lost level: the reward keeps the star coins apart, nothing is counted twice
-  await page.evaluate(() => { const b = window.__bb; b.placeSel = "park"; b.level = 1; b.startGame(1); });
+  await page.evaluate(() => { const b = window.__bb; b.world = "park"; b.level = 1; b.startGame(1); });
   await installTestHelpers(page);
   expect(await take()).toBe(14);
   const lost = await page.evaluate(() => { const b = window.__bb; b.stats.playerHugs = 2; b.giveReward(false); b.mode = "lose"; return { r: b.lastReward, coins: b.progress.coins }; });
@@ -474,6 +474,32 @@ test("old saves get 0 kisses", async ({ page }) => {
   expect((await load({ mittens: 1, mega: 0, kisses: "lots" })).inv.kisses).toBe(0);   // broken data never throws
   expect((await load({ mittens: 1, mega: 0, kisses: -3 })).inv.kisses).toBe(0);
   expect((await load({ mittens: 1, mega: 0, kisses: 7 })).inv.kisses).toBe(7);
+});
+
+// SPEC-006 AC 7 — fixme until step 4 (progress.worlds and the migration)
+test.fixme("old saves move into the Park", async ({ page }) => {
+  const load = async save => {
+    await page.evaluate(v => localStorage.setItem("bebebe-progress", JSON.stringify(v)), save);
+    await page.reload();
+    await page.waitForFunction(() => window.__bbReady === true);
+    return page.evaluate(() => JSON.parse(JSON.stringify(window.__bb.progress)));
+  };
+  const inv = { mittens: 2, mega: 1, kisses: 4 };
+  await page.evaluate(() => window.__bb.setName("p1", "Mila"));
+  const p = await load({ unlocked: 23, stars: { 1: 3, 5: 2, 21: 1 }, coins: 140, inv, equip: ["mega", "mittens"] });
+  expect(p.worlds.park).toEqual({ unlocked: 20, stars: { 1: 3, 5: 2 } });   // level 21 is dropped
+  for (const w of ["school", "beach", "winter"]) expect(p.worlds[w], w).toEqual({ unlocked: 1, stars: {} });
+  expect(p.coins).toBe(140);
+  expect(p.inv).toEqual(inv);
+  expect(p.equip).toEqual(["mega", "mittens"]);
+  expect(await page.evaluate(() => window.__bb.names.p1)).toBe("Mila");
+  // the migration happens once: the saved progress now has the worlds and loads the same again
+  const again = await load(JSON.parse(await page.evaluate(() => localStorage.getItem("bebebe-progress"))));
+  expect(again.worlds).toEqual(p.worlds);
+  // a save with neither worlds nor old levels gets the fresh structure
+  const fresh = await load({ coins: 7 });
+  for (const w of ["park", "school", "beach", "winter"]) expect(fresh.worlds[w], w).toEqual({ unlocked: 1, stars: {} });
+  expect(fresh.coins).toBe(7);
 });
 
 test("throwing spends a kiss and has a cooldown", async ({ page }) => {
@@ -629,7 +655,7 @@ test("kisses stop at walls and fly over ponds", async ({ page }) => {
   const pond = await page.evaluate(() => {
     const b = window.__bb, t = window.__t;
     b.level = 1; b.startGame(1);                      // level 1 (the kids' drawing, fixed by tests/fixtures/level1.json) has a pond
-    const p = b.world.obstacles.find(o => o.kind === "pond");
+    const p = b.grid.obstacles.find(o => o.kind === "pond");
     if (!p) return null;
     const l = b.littles[0], y = p.y + p.h / 2;
     t.calm(p.x + 64, p.y > 320 ? 60 : 580); b.big.noPush = 999; t.pin([0]);
@@ -647,7 +673,7 @@ test("kisses stop at walls and fly over ponds", async ({ page }) => {
 test("trees, rocks and the map edge stop kisses; bushes do not", async ({ page }) => {
   await installTestHelpers(page);
   const r = await page.evaluate(spot => {
-    const b = window.__bb, t = window.__t, l = b.littles[0], w = b.world, out = {};
+    const b = window.__bb, t = window.__t, l = b.littles[0], w = b.grid, out = {};
     t.calm(900, 600); b.big.noPush = 999; t.pin([0]);
     b.progress.inv.kisses = 20;
     // flies from (x, y) along dir; returns how far it got and how long it lived

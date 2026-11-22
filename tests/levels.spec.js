@@ -1,12 +1,19 @@
-// SPEC-002: level types. Level 1 stays the kids' drawing; levels 2+ cycle through six types;
-// every generated level is fair (window.__bb.levelReport) and the same number always builds the same map.
+// SPEC-002 + SPEC-006: level types and worlds. A level is (world, n), n 1–20; inside every world the types go
+// from the kids' drawing (level 1) to the maze (17–20); every generated level is fair (window.__bb.levelReport)
+// and the same world + level always builds the same map.
 const { test, expect } = require("@playwright/test");
 const path = require("path");
 const fs = require("fs");
 const { openGame, frames } = require("./helpers");
 
 const LEVEL1 = JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures", "level1.json"), "utf8"));
-const TYPE_ORDER = ["meadow", "maze", "village", "river", "rooms", "arena"];
+// SPEC-006: worlds and the types inside every world
+const WORLDS = ["park", "school", "beach", "winter"];
+const WORLD_TYPES = ["classic", "meadow", "meadow", "meadow", "village", "village", "village", "river", "river", "river",
+  "rooms", "rooms", "rooms", "arena", "arena", "arena", "maze", "maze", "maze", "maze"];
+// tier = position inside the block of one type (0, 1, 2, 3)
+const tierOf = n => { let t = 0; for (let k = n - 1; k > 0 && WORLD_TYPES[k - 1] === WORLD_TYPES[n - 1]; k--) t++; return t; };
+const levelsOfType = t => WORLDS.flatMap(w => WORLD_TYPES.flatMap((x, i) => x === t ? [`${w}:${i + 1}`] : []));
 // limits from the spec ("Fairness rules" and the type table)
 const FREE_MIN = { classic: 0.5, meadow: 0.5, maze: 0.4, village: 0.5, river: 0.5, rooms: 0.4, arena: 0.5 };
 const BUSH_MIN = { classic: 3, meadow: 7, maze: 2, village: 3, river: 4, rooms: 2, arena: 3 };
@@ -15,70 +22,111 @@ let errors;
 test.beforeEach(async ({ page }) => { errors = await openGame(page); });
 test.afterEach(() => { expect(errors).toEqual([]); });
 
-test("level 1 is still the kids' drawing", async ({ page }) => {
-  const gen = await page.evaluate(() => { const g = window.__bb.generateLevel(1, 0); return JSON.parse(JSON.stringify({ items: g.items, small: g.small, big: g.big })); });
-  expect(gen).toEqual(LEVEL1);
-});
-
-test("levels 2–13 follow the type order", async ({ page }) => {
-  const r = await page.evaluate(() => {
+// ---------- SPEC-006 AC 1: level keys and types ----------
+test("every world goes from the drawing to the maze", async ({ page }) => {
+  const r = await page.evaluate(W => {
     const b = window.__bb, out = [];
-    for (let lv = 1; lv <= 13; lv++) out.push({ lv, type: b.levelType(lv), gen: b.generateLevel(lv, 0).type, report: b.levelReport(lv).type });
-    return out;
-  });
-  expect(r[0]).toEqual({ lv: 1, type: "classic", gen: "classic", report: "classic" });
-  for (const x of r.slice(1)) {
-    const want = TYPE_ORDER[(x.lv - 2) % 6];
-    expect(x, `level ${x.lv}`).toEqual({ lv: x.lv, type: want, gen: want, report: want });
+    for (const w of W) for (let n = 1; n <= 20; n++) out.push({ w, n, type: b.levelType(w, n), gen: b.generateLevel(w, n, 0).type });
+    const start = { world: b.world, level: b.level };
+    b.world = "beach"; b.level = 9; b.startGame(1);
+    const li = b.levelInfo, run = { world: b.world, level: b.level, info: { world: li.world, lv: li.lv, type: li.type } };
+    b.world = "nowhere";                                  // not a world: ignored
+    return { out, cfg: b.CFG.WORLD_TYPES, worlds: b.WORLDS, start, run, after: b.world, placeSel: "placeSel" in b, cyclePlace: "cyclePlace" in b };
+  }, WORLDS);
+  expect(r.cfg).toEqual(WORLD_TYPES);
+  expect(r.worlds).toEqual(WORLDS);
+  for (const x of r.out) {
+    const want = WORLD_TYPES[x.n - 1];
+    expect(x, `${x.w} ${x.n}`).toEqual({ w: x.w, n: x.n, type: want, gen: want });
   }
-  expect(await page.evaluate(() => [61, 62, 99].map(lv => window.__bb.levelType(lv)))).toEqual(["arena", "meadow", "maze"]);
+  expect(r.start).toEqual({ world: "park", level: 1 });
+  expect(r.run).toEqual({ world: "beach", level: 9, info: { world: "beach", lv: 9, type: "river" } });
+  expect(r.after).toBe("beach");
+  // the place of a level is its world: the place picker is gone
+  expect(r.placeSel).toBe(false);
+  expect(r.cyclePlace).toBe(false);
+  // an old saved place is ignored
+  await page.evaluate(() => localStorage.setItem("bebebe-place", "winter"));
+  await page.reload();
+  await page.waitForFunction(() => window.__bbReady === true);
+  expect(await page.evaluate(() => { const b = window.__bb; b.startGame(1); return { world: b.world, built: b.levelInfo.world }; })).toEqual({ world: "park", built: "park" });
 });
 
-test("the same level number always builds the same map", async ({ page }) => {
-  const r = await page.evaluate(() => {
-    const b = window.__bb, same = [];
-    const strip = rep => JSON.stringify({ ...rep, ms: 0 });
-    for (let lv = 1; lv <= 13; lv++) {
-      const a = JSON.stringify(b.generateLevel(lv, 0)), a2 = JSON.stringify(b.generateLevel(lv, 3));
-      const ra = strip(b.levelReport(lv));
-      b.level = lv === 13 ? 1 : lv + 1; b.startGame(1);   // another level running in between
-      same.push({ lv, gen: a === JSON.stringify(b.generateLevel(lv, 0)), gen3: a2 === JSON.stringify(b.generateLevel(lv, 3)), report: ra === strip(b.levelReport(lv)) });
+// ---------- SPEC-006 AC 2: level 1 is the kids' drawing everywhere ----------
+test("level 1 is the kids' drawing in every world", async ({ page }) => {
+  const r = await page.evaluate(W => {
+    const b = window.__bb, out = {};
+    for (const w of W) {
+      const g = b.generateLevel(w, 1, 0), rep = b.levelReport(w, 1);
+      b.world = w; b.level = 1; b.startGame(1);
+      out[w] = { gen: JSON.parse(JSON.stringify({ items: g.items, small: g.small, big: g.big })), attempt: rep.attempt, fallback: rep.fallback, info: { type: b.levelInfo.type, attempt: b.levelInfo.attempt } };
     }
-    return same;
-  });
-  for (const x of r) expect(x, `level ${x.lv}`).toEqual({ lv: x.lv, gen: true, gen3: true, report: true });
+    return out;
+  }, WORLDS);
+  expect(r.park.gen).toEqual(LEVEL1);                     // Park level 1: exactly the fixture
+  for (const w of WORLDS) {
+    expect(r[w].gen, `${w} level 1 has the drawing's layout`).toEqual(LEVEL1);
+    expect([r[w].attempt, r[w].fallback], w).toEqual([0, false]);
+    expect(r[w].info, w).toEqual({ type: "classic", attempt: 0 });
+  }
 });
 
-// "The same level number always builds the same map" also across releases (the kids' rule: stars stay meaningful).
-// A change here must be deliberate: regenerate tests/fixtures/levels-2-61.json and say why in the commit.
-const LEVELS_2_61 = JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures", "levels-2-61.json"), "utf8"));
-test("levels 2–61 are the same maps as when they were made", async ({ page }) => {
-  const r = await page.evaluate(() => {
+// ---------- SPEC-006 AC 3: determinism and variety ----------
+test("maps are fixed and differ between worlds", async ({ page }) => {
+  test.setTimeout(120_000);
+  const r = await page.evaluate(W => {
+    const b = window.__bb, same = [], strip = rep => JSON.stringify({ ...rep, ms: 0 });
+    for (const w of W) for (const n of [1, 2, 7, 12, 17, 20]) {
+      const a = JSON.stringify(b.generateLevel(w, n, 0)), a3 = JSON.stringify(b.generateLevel(w, n, 3)), ra = strip(b.levelReport(w, n));
+      b.world = W[(W.indexOf(w) + 1) % W.length]; b.level = n === 20 ? 1 : n + 1; b.startGame(1);   // another level running in between
+      same.push({ key: `${w}:${n}`, gen: a === JSON.stringify(b.generateLevel(w, n, 0)), gen3: a3 === JSON.stringify(b.generateLevel(w, n, 3)), report: ra === strip(b.levelReport(w, n)) });
+    }
+    // the four worlds' level n (as the game accepts it) are four different maps
+    const differ = [];
+    for (let n = 2; n <= 20; n++) {
+      const maps = W.map(w => JSON.stringify(b.generateLevel(w, n, b.levelReport(w, n).attempt).items));
+      differ.push({ n, distinct: new Set(maps).size });
+    }
+    return { same, differ };
+  }, WORLDS);
+  for (const x of r.same) expect(x, x.key).toEqual({ key: x.key, gen: true, gen3: true, report: true });
+  for (const x of r.differ) expect(x, `level ${x.n} in the four worlds`).toEqual({ n: x.n, distinct: 4 });
+});
+
+// "The same level always builds the same map" also across releases (the kids' rule: stars stay meaningful).
+// A change here must be deliberate: regenerate tests/fixtures/levels-worlds.json and say why in the commit.
+test("the 80 levels are the same maps as when they were made", async ({ page }) => {
+  test.setTimeout(120_000);
+  const want = JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures", "levels-worlds.json"), "utf8"));
+  const r = await page.evaluate(W => {
     const b = window.__bb, out = {};
     const fnv = s => { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; } return h.toString(16).padStart(8, "0"); };
-    for (let lv = 2; lv <= 61; lv++) { const q = b.levelReport(lv); out[lv] = { type: q.type, attempt: q.attempt, hash: fnv(JSON.stringify(b.generateLevel(lv, q.attempt))) }; }
+    for (const w of W) for (let n = 1; n <= 20; n++) { const q = b.levelReport(w, n); out[`${w}:${n}`] = { type: q.type, attempt: q.attempt, hash: fnv(JSON.stringify(b.generateLevel(w, n, q.attempt))) }; }
     return out;
-  });
-  expect(r).toEqual(LEVELS_2_61);
+  }, WORLDS);
+  expect(r).toEqual(want);
 });
 
-test("levels 1–99 are fair and build fast", async ({ page }) => {
+// ---------- SPEC-006 AC 4: fairness for all 80 levels (replaces the 1–60 test) ----------
+test("all 80 levels are fair and build fast", async ({ page }) => {
   test.setTimeout(120_000);
-  const r = await page.evaluate(() => {
-    const b = window.__bb, w = b.world;
-    b.level = 1; b.startGame(1);
+  const r = await page.evaluate(W => {
+    const b = window.__bb;
+    b.world = "park"; b.level = 1; b.startGame(1);
     const before = b.worldState();
     const out = [];
-    for (let lv = 1; lv <= 99; lv++) out.push({ lv, ...b.levelReport(lv) });
+    for (const w of W) for (let n = 1; n <= 20; n++) out.push({ w, n, ...b.levelReport(w, n) });
     const after = b.worldState();   // every field levelReport saves: obstacles, bushes, floors, zones, spawns, reachable, all 5 grids…
     return { out, untouched: before === after };
-  });
+  }, WORLDS);
   expect(r.untouched).toBe(true);   // the running game's world is left as it was
+  expect(r.out.length).toBe(80);
   const bad = [];
   for (const x of r.out) {
     const why = [];
-    const want = x.lv === 1 ? "classic" : TYPE_ORDER[(x.lv - 2) % 6];
+    const want = WORLD_TYPES[x.n - 1];
     if (x.type !== want) why.push(`type ${x.type}`);
+    if (x.tier !== tierOf(x.n)) why.push(`tier ${x.tier}`);
     if (x.fallback !== false) why.push("fallback");
     if (x.smallReachAll !== true) why.push("Little Ones can't reach every free cell");
     if (x.bigReachAll !== true) why.push("the Big One can't reach every free cell");
@@ -90,21 +138,21 @@ test("levels 1–99 are fair and build fast", async ({ page }) => {
     else if (!(x.deadEnds.longest <= 6)) why.push(`dead end ${x.deadEnds.longest} cells`);
     if (!(x.bushes >= BUSH_MIN[x.type])) why.push(`bushes ${x.bushes}`);
     if (!(x.ms < 200)) why.push(`${Math.round(x.ms)} ms`);
-    if (why.length) bad.push(`level ${x.lv} (${x.type}, ${x.attempts} attempts): ${why.join(", ")}`);
+    if (why.length) bad.push(`${x.w} ${x.n} (${x.type}, ${x.attempts} attempts): ${why.join(", ")}`);
   }
   expect(bad).toEqual([]);
 });
 
-// Every level of one type in 2–60 as the game accepts it: the fairness report and the accepted map (report.attempt).
+// Every level of one type in all four worlds as the game accepts it: the fairness report and the accepted map (report.attempt).
 async function levelsOf(page, type) {
-  return page.evaluate(t => {
+  return page.evaluate(([t, W]) => {
     const b = window.__bb, out = [];
-    for (let lv = 2; lv <= 60; lv++) if (b.levelType(lv) === t) {
-      const r = b.levelReport(lv);
-      out.push({ lv, tier: Math.floor((lv - 2) / 6), r, gen: b.generateLevel(lv, r.attempt) });
+    for (const w of W) for (let n = 1; n <= 20; n++) if (b.levelType(w, n) === t) {
+      const r = b.levelReport(w, n);
+      out.push({ lv: `${w}:${n}`, n, r, gen: b.generateLevel(w, n, r.attempt) });
     }
     return out;
-  }, type);
+  }, [type, WORLDS]).then(list => list.map(x => ({ ...x, tier: tierOf(x.n) })));
 }
 const count = (gen, pred) => gen.items.filter(pred).length;
 const inRange = (n, [a, b]) => n >= a && n <= b;
@@ -120,9 +168,10 @@ const houseCorners = gen => {
   return { small: [s.x < 15, s.y < 10], big: [d.x < 15, d.y < 10] };
 };
 
+
 test("meadow is open with bushes", async ({ page }) => {
   const levels = await levelsOf(page, "meadow");
-  expect(levels.map(x => x.lv)).toEqual([2, 8, 14, 20, 26, 32, 38, 44, 50, 56]);
+  expect(levels.map(x => x.lv)).toEqual(levelsOfType("meadow"));
   for (const { lv, tier, r, gen } of levels) {
     const at = `level ${lv}`;
     expect(r.fallback, at).toBe(false);
@@ -140,7 +189,7 @@ test("meadow is open with bushes", async ({ page }) => {
 
 test("maze has 2-wide corridors and few dead ends", async ({ page }) => {
   const levels = await levelsOf(page, "maze");
-  expect(levels.map(x => x.lv)).toEqual([3, 9, 15, 21, 27, 33, 39, 45, 51, 57]);
+  expect(levels.map(x => x.lv)).toEqual(levelsOfType("maze"));
   for (const { lv, tier, r, gen } of levels) {
     const at = `level ${lv}`;
     expect(r.fallback, at).toBe(false);
@@ -179,7 +228,7 @@ test("maze has 2-wide corridors and few dead ends", async ({ page }) => {
 
 test("village has cottages, streets and a square", async ({ page }) => {
   const levels = await levelsOf(page, "village");
-  expect(levels.map(x => x.lv)).toEqual([4, 10, 16, 22, 28, 34, 40, 46, 52, 58]);
+  expect(levels.map(x => x.lv)).toEqual(levelsOfType("village"));
   for (const { lv, tier, r, gen } of levels) {
     const at = `level ${lv}`;
     expect(r.fallback, at).toBe(false);
@@ -207,9 +256,9 @@ test("village has cottages, streets and a square", async ({ page }) => {
   }
   // in the game a cottage blocks walking and sight (so air kisses stop at it too)
   const o = await page.evaluate(() => {
-    const b = window.__bb; b.level = 4; b.startGame(1);
-    const c = b.world.obstacles.find(q => q.kind === "cottage");
-    return c && { move: c.move, sight: c.sight, see: b.world.seeSolid(c.x + c.w / 2, c.y + c.h / 2) };
+    const b = window.__bb; b.world = "park"; b.level = 5; b.startGame(1);   // a village
+    const c = b.grid.obstacles.find(q => q.kind === "cottage");
+    return c && { move: c.move, sight: c.sight, see: b.grid.seeSolid(c.x + c.w / 2, c.y + c.h / 2) };
   });
   expect(o).toEqual({ move: true, sight: true, see: true });
 });
@@ -234,7 +283,7 @@ const SOLID = ["wall", "cottage", "pond", "water", "tree", "rock"];
 
 test("river has bridges and the houses on opposite banks", async ({ page }) => {
   const levels = await levelsOf(page, "river");
-  expect(levels.map(x => x.lv)).toEqual([5, 11, 17, 23, 29, 35, 41, 47, 53, 59]);
+  expect(levels.map(x => x.lv)).toEqual(levelsOfType("river"));
   let verticals = 0;
   for (const { lv, tier, r, gen } of levels) {
     const at = `level ${lv}`;
@@ -275,8 +324,8 @@ test("river has bridges and the houses on opposite banks", async ({ page }) => {
   expect(verticals, "some rivers run left to right").toBeLessThan(levels.length);
   // in the game: water blocks walking but not sight (the Big One sees across, kisses fly over)
   const o = await page.evaluate(() => {
-    const b = window.__bb; b.level = 5; b.startGame(1);
-    const w = b.world, o = w.obstacles.find(q => q.kind === "water");
+    const b = window.__bb; b.world = "park"; b.level = 8; b.startGame(1);   // a river
+    const w = b.grid, o = w.obstacles.find(q => q.kind === "water");
     const cx = o.x + o.w / 2, cy = o.y + o.h / 2;
     return { move: o.move, sight: o.sight, see: w.seeSolid(cx, cy), blocked: w.blocked[Math.floor(cy / w.CELL) * w.COLS + Math.floor(cx / w.CELL)] };
   });
@@ -285,7 +334,7 @@ test("river has bridges and the houses on opposite banks", async ({ page }) => {
 
 test("rooms all have doors and the building has loops", async ({ page }) => {
   const levels = await levelsOf(page, "rooms");
-  expect(levels.map(x => x.lv)).toEqual([6, 12, 18, 24, 30, 36, 42, 48, 54, 60]);
+  expect(levels.map(x => x.lv)).toEqual(levelsOfType("rooms"));
   for (const { lv, tier, r, gen } of levels) {
     const at = `level ${lv}`;
     expect(r.fallback, at).toBe(false);
@@ -336,7 +385,7 @@ test("rooms all have doors and the building has loops", async ({ page }) => {
 
 test("arena has a ring with gaps", async ({ page }) => {
   const levels = await levelsOf(page, "arena");
-  expect(levels.map(x => x.lv)).toEqual([7, 13, 19, 25, 31, 37, 43, 49, 55]);
+  expect(levels.map(x => x.lv)).toEqual(levelsOfType("arena"));
   let withHalf = 0;
   for (const { lv, tier, r, gen } of levels) {
     const at = `level ${lv}`;
@@ -375,8 +424,8 @@ test("arena has a ring with gaps", async ({ page }) => {
 });
 
 test("the game starts exactly the level that levelReport checks", async ({ page }) => {
-  const r = await page.evaluate(() => {
-    const b = window.__bb, w = b.world, C = w.CELL, out = [];
+  const r = await page.evaluate(W => {
+    const b = window.__bb, w = b.grid, C = w.CELL, out = [];
     // obstacles the game should build from a generated map
     const expected = gen => gen.items.flatMap(it => {
       if (["wall", "cottage", "water", "pond"].includes(it.t)) return [{ kind: it.t === "wall" ? it.kind : it.t, x: it.x * C, y: it.y * C, w: it.w * C, h: it.h * C }];
@@ -384,20 +433,21 @@ test("the game starts exactly the level that levelReport checks", async ({ page 
       return [];
     });
     const key = list => list.map(o => JSON.stringify([o.kind, o.x, o.y, o.w || 0, o.h || 0])).sort().join("|");
-    let retried = 0;   // a level whose first attempt is not fair
-    for (let lv = 2; lv <= 60 && !retried; lv++) { const q = b.levelReport(lv); if (q.attempt > 0 && !q.fallback) retried = lv; }
-    for (const lv of [1, 2, 3, 4, 5, 6, 7, retried]) {
-      b.level = lv; b.startGame(1);
-      const info = { ...b.levelInfo }, rep = b.levelReport(lv), gen = b.generateLevel(lv, rep.attempt);
+    let retried = null;   // a level whose first attempt is not fair
+    for (const w of W) for (let n = 2; n <= 20 && !retried; n++) { const q = b.levelReport(w, n); if (q.attempt > 0 && !q.fallback) retried = [w, n]; }
+    // one level of every type (in different worlds) and the retried one
+    for (const [wd, lv] of [["park", 1], ["school", 2], ["beach", 5], ["winter", 8], ["park", 11], ["school", 14], ["beach", 17], retried]) {
+      b.world = wd; b.level = lv; b.startGame(1);
+      const info = { ...b.levelInfo }, rep = b.levelReport(wd, lv), gen = b.generateLevel(wd, lv, rep.attempt);
       const same = key(w.obstacles) === key(expected(gen));
       const spawns = b.littles.map(l => [l.x / C, l.y / C]);
-      out.push({ lv, retried: lv === retried, info, attempt: rep.attempt, type: rep.type, same, spawnsOk: JSON.stringify(spawns) === JSON.stringify(gen.small), bigOk: b.big.x / C === gen.big[0] && b.big.y / C === gen.big[1] });
+      out.push({ wd, lv, retried: wd === retried[0] && lv === retried[1], info, attempt: rep.attempt, type: rep.type, same, spawnsOk: JSON.stringify(spawns) === JSON.stringify(gen.small), bigOk: b.big.x / C === gen.big[0] && b.big.y / C === gen.big[1] });
     }
     return out;
-  });
+  }, WORLDS);
   for (const x of r) {
-    const at = `level ${x.lv}`;
-    expect(x.info.lv, at).toBe(x.lv);
+    const at = `${x.wd} level ${x.lv}`;
+    expect([x.info.world, x.info.lv], at).toEqual([x.wd, x.lv]);
     expect(x.info.type, at).toBe(x.type);
     expect(x.info.fallback, at).toBe(false);
     expect(x.info.attempt, at).toBe(x.attempt);
@@ -407,13 +457,14 @@ test("the game starts exactly the level that levelReport checks", async ({ page 
   }
   expect(r.find(x => x.retried).info.attempt, "a retried level: the game takes the same accepted attempt").toBeGreaterThan(0);
   expect(r.find(x => x.lv === 1).info.attempt, "level 1 is attempt 0").toBe(0);
+  expect(r.map(x => x.type).slice(0, 7)).toEqual(["classic", "meadow", "village", "river", "rooms", "arena", "maze"]);
 });
 
 test("restarting a retried level builds it from the cache, the same as a fresh build", async ({ page }) => {
-  const r = await page.evaluate(() => {
+  const r = await page.evaluate(W => {
     const b = window.__bb;
     let lv = 0, rep = null;
-    for (let n = 2; n <= 60 && !lv; n++) { const q = b.levelReport(n); if (q.attempt > 0 && !q.fallback) { lv = n; rep = q; } }
+    for (const w of W) for (let n = 2; n <= 20 && !lv; n++) { const q = b.levelReport(w, n); if (q.attempt > 0 && !q.fallback) { lv = n; rep = q; b.world = w; } }
     b.level = lv; b.startGame(1);
     const first = { info: { ...b.levelInfo }, world: b.worldState() };
     b.startGame(1);                                       // restart: from the cache
@@ -421,7 +472,7 @@ test("restarting a retried level builds it from the cache, the same as a fresh b
     b.clearLevelCache(); b.startGame(1);                  // fresh build again
     const fresh = { info: { ...b.levelInfo }, world: b.worldState() };
     return { lv, attempt: rep.attempt, first, again, fresh };
-  });
+  }, WORLDS);
   expect(r.attempt).toBeGreaterThan(0);
   expect([r.first.info.cached, r.again.info.cached, r.fresh.info.cached]).toEqual([false, true, false]);
   expect([r.first.info.attempt, r.again.info.attempt, r.fresh.info.attempt]).toEqual([r.attempt, r.attempt, r.attempt]);
@@ -432,7 +483,7 @@ test("a level with no fair layout falls back and warns", async ({ page }) => {
   const warns = [];
   page.on("console", m => { if (m.type() === "warning") warns.push(m.text()); });
   const r = await page.evaluate(() => {
-    const b = window.__bb, w = b.world, C = w.CELL, keep = b.CFG.HOUSE_PATH;
+    const b = window.__bb, w = b.grid, C = w.CELL, keep = b.CFG.HOUSE_PATH;
     b.CFG.HOUSE_PATH = [999, 1000];   // no generated level can pass rule 3
     b.clearLevelCache();
     const flood = (grid, x, y) => {
@@ -441,8 +492,8 @@ test("a level with no fair layout falls back and warns", async ({ page }) => {
       return grid.every((v, i) => v || seen[i]);
     };
     try {
-      const report = b.levelReport(2);
-      b.level = 2; b.startGame(1);
+      const report = b.levelReport("park", 2);
+      b.world = "park"; b.level = 2; b.startGame(1);
       const reach = { small: flood(w.blocked, b.littles[0].x, b.littles[0].y), big: flood(w.blockedBig, b.big.x, b.big.y) };
       for (let i = 0; i < 120; i++) b.update(1 / 60);   // the fallback level still plays
       return { info: { ...b.levelInfo }, report: { attempt: report.attempt, rejects: report.rejects, fallback: report.fallback }, reach, mode: b.mode, littles: b.littles.length };
@@ -461,17 +512,17 @@ test("a level with no fair layout falls back and warns", async ({ page }) => {
   expect(r.reach).toEqual({ small: true, big: true });
   expect(r.mode).toBe("play");
   expect(r.littles).toBe(5);
-  expect(warns.some(t => t.includes("level 2") && t.includes("housePath"))).toBe(true);
+  expect(warns.some(t => t.includes("park:2") && t.includes("housePath"))).toBe(true);
 });
 
-test("every place dresses every level type", async ({ page }) => {
+test("every world dresses every level type", async ({ page }) => {
   test.setTimeout(120_000);
   const r = await page.evaluate(() => {
-    const b = window.__bb, C = b.world.CELL, out = [];
-    for (const place of ["park", "beach", "winter", "school"]) for (let lv = 1; lv <= 7; lv++) {
-      b.placeSel = place; b.level = lv; b.startGame(1);
+    const b = window.__bb, C = b.grid.CELL, out = [];
+    for (const place of ["park", "beach", "winter", "school"]) for (const lv of [1, 2, 5, 8, 11, 14, 17]) {   // one level of every type
+      b.world = place; b.level = lv; b.startGame(1);
       for (let i = 0; i < 5; i++) b.update(1 / 60);
-      const th = b.THEMES[place], type = b.levelType(lv), gen = b.generateLevel(lv, b.levelInfo.attempt);
+      const th = b.THEMES[place], type = b.levelType(place, lv), gen = b.generateLevel(place, lv, b.levelInfo.attempt);
       const pieces = b.mapPieces(), colorOf = name => [...new Set(pieces.filter(q => q.piece === name).map(q => q.color))];
       const want = {}, got = {};
       if (type === "maze") { want.maze = [th.maze.wall]; want.mazeDeco = [th.maze.decoC]; }
@@ -516,7 +567,7 @@ test("start banner shows the level type", async ({ page }) => {
 
   // the banner appears at the start, does not stop the game and is gone after ~2 s
   const r = await page.evaluate(() => {
-    const b = window.__bb; b.level = 3; b.startGame(1);
+    const b = window.__bb; b.world = "park"; b.level = 17; b.startGame(1);
     const start = b.banner && { text: b.banner.text, alpha: b.bannerAlpha() };
     const bot = b.littles[2], from = { x: bot.x, y: bot.y };
     for (let i = 0; i < 60; i++) b.update(1 / 60);
@@ -525,7 +576,7 @@ test("start banner shows the level type", async ({ page }) => {
     for (let i = 0; i < 72; i++) b.update(1 / 60);
     return { start, mid, moved, end: b.banner, mode: b.mode, buttons: b.buttonNames };
   });
-  expect(r.start.text).toBe("Level 3: Maze");
+  expect(r.start.text).toBe("Level 17: Maze");
   expect(r.start.alpha).toBeLessThan(0.5);          // fades in
   expect(r.mid.alpha).toBeGreaterThan(0.9);         // fully visible in the middle
   expect(r.moved).toBeGreaterThan(20);              // the game runs under the banner
@@ -535,16 +586,16 @@ test("start banner shows the level type", async ({ page }) => {
   // a restart within 1 s of the last banner shows no new banner; later it does again
   await page.waitForTimeout(1100);
   const again = await page.evaluate(() => { const b = window.__bb; b.startGame(1); const one = b.banner && b.banner.text; b.startGame(1); return { one, two: b.banner }; });
-  expect(again.one).toBe("Level 3: Maze");          // more than 1 s since the last banner: shown
+  expect(again.one).toBe("Level 17: Maze");          // more than 1 s since the last banner: shown
   expect(again.two).toBeNull();                     // restarted right away: not shown again
   await page.waitForTimeout(1100);
-  const later = await page.evaluate(() => { const b = window.__bb; b.setLang("ru"); b.level = 5; b.startGame(1); return b.banner && b.banner.text; });
-  expect(later).toBe("Уровень 5: Река с мостиками");
+  const later = await page.evaluate(() => { const b = window.__bb; b.setLang("ru"); b.level = 8; b.startGame(1); return b.banner && b.banner.text; });
+  expect(later).toBe("Уровень 8: Река с мостиками");
 });
 
 test("the menu shows the selected level's type and it fits", async ({ page }) => {
-  for (const [lang, lv, want] of [["en", 5, "River with bridges"], ["es", 6, "Casa con cuartos"], ["ru", 5, "Река с мостиками"], ["ru", 7, "Арена с кольцом"], ["en", 1, "Our drawing"]]) {
-    await page.evaluate(([l, n]) => { const b = window.__bb; b.setLang(l); b.progress.unlocked = 10; b.level = n; b.mode = "menu"; }, [lang, lv]);
+  for (const [lang, lv, want] of [["en", 8, "River with bridges"], ["es", 11, "Casa con cuartos"], ["ru", 8, "Река с мостиками"], ["ru", 14, "Арена с кольцом"], ["en", 1, "Our drawing"]]) {
+    await page.evaluate(([l, n]) => { const b = window.__bb; b.setLang(l); b.progress.unlocked = 20; b.level = n; b.mode = "menu"; }, [lang, lv]);
     await frames(page);
     const r = await page.evaluate(() => ({ label: window.__bb.typeLabel, rects: window.__bb.buttonRects }));
     expect(r.label.text, `${lang} level ${lv}`).toBe(want);
@@ -563,15 +614,15 @@ test("the menu shows the selected level's type and it fits", async ({ page }) =>
 // One player (standing still in the house) + 4 bots; two levels per type (tier 0 and tier 1).
 // At 10 s a bot far from the house is knocked down: it must be rescued, or walk home and lie down to rest.
 // Also checks SPEC-003 (stars only in fair cells, no bot thrown out of the Big One's house, exits are free) on every map.
-function playLevel(lv) {
-  const b = window.__bb, w = b.world, C = w.CELL, COLS = w.COLS, ROWS = w.ROWS;
-  b.level = lv; b.startGame(1);
+function playLevel(wd, lv) {
+  const b = window.__bb, w = b.grid, C = w.CELL, COLS = w.COLS, ROWS = w.ROWS;
+  b.world = wd; b.level = lv; b.startGame(1);
   const L = b.littles, big = b.big, bl = w.blocked;
   // cells the Little Ones can reach from their house
   const s0 = Math.floor(L[0].y / C) * COLS + Math.floor(L[0].x / C), reach = new Uint8Array(COLS * ROWS), q = [s0]; reach[s0] = 1;
   while (q.length) { const i = q.pop(), cx = i % COLS, cy = (i / COLS) | 0; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = cx + dx, ny = cy + dy; if (nx < 0 || ny < 0 || nx >= COLS || ny >= ROWS) continue; const j = ny * COLS + nx; if (!bl[j] && !reach[j]) { reach[j] = 1; q.push(j); } } }
   const cellOf = p => Math.floor(p.y / C) * COLS + Math.floor(p.x / C);
-  const out = { lv, type: b.levelType(lv), badStars: [], badExits: [] };
+  const out = { lv, type: b.levelType(wd, lv), badStars: [], badExits: [] };
   // SPEC-003: the thrown-out spots are free and reachable
   for (const e of b.dangerZone.exits) if (bl[cellOf(e)] || !reach[cellOf(e)]) out.badExits.push(e);
   // SPEC-003: bonus stars only in fair cells
@@ -599,18 +650,20 @@ function playLevel(lv) {
     if (b.inSafe(big)) bigInSafe++;
     bots.forEach((l, i) => { moved[i] += Math.hypot(l.x - last[i].x, l.y - last[i].y); last[i] = { x: l.x, y: l.y }; if (l.dizzy > 0) thrown++; });
     if (downed && seq[seq.length - 1] !== downed.state) seq.push(downed.state);
-    if (b.mode !== "play") { b.mode = "play"; b.level = lv; }   // a win would end the level: keep playing
+    if (b.mode !== "play") { b.mode = "play"; b.world = wd; b.level = lv; }   // a win would end the level: keep playing
   }
   return { ...out, bigMoved: Math.round(bigMoved), bigInSafe, botMoved: moved.map(Math.round), thrown, seq: seq.join(">"), far };
 }
 
-for (const [type, levels] of [["meadow", [2, 8]], ["maze", [3, 9]], ["village", [4, 10]], ["river", [5, 11]], ["rooms", [6, 12]], ["arena", [7, 13]]]) {
+// SPEC-006: tier 0 and tier 1 of every type, in different worlds
+for (const [type, levels] of [["meadow", [["park", 2], ["school", 3]]], ["maze", [["park", 17], ["winter", 18]]], ["village", [["park", 5], ["beach", 6]]],
+  ["river", [["park", 8], ["winter", 9]]], ["rooms", [["park", 11], ["school", 12]]], ["arena", [["park", 14], ["beach", 15]]]]) {
   test(`${type}: 60 s of play, nobody stuck`, async ({ page }) => {
     test.setTimeout(180_000);
     await page.evaluate(`window.__playLevel = ${playLevel.toString()}`);
     for (const lv of levels) {
-      const r = await page.evaluate(n => window.__playLevel(n), lv);
-      const at = `${type} level ${lv}`;
+      const r = await page.evaluate(([w, n]) => window.__playLevel(w, n), lv);
+      const at = `${type} level ${lv.join(" ")}`;
       console.log(`${at}: Big One ${r.bigMoved} px, bots ${r.botMoved.join("/")} px, downed bot ${r.seq}`);
       expect(r.type, at).toBe(type);
       expect(r.bigMoved, `${at}: the Big One moved`).toBeGreaterThan(300);
@@ -627,9 +680,9 @@ for (const [type, levels] of [["meadow", [2, 8]], ["maze", [3, 9]], ["village", 
 
 test("kisses stop at maze walls and cottages and fly over the river", async ({ page }) => {
   const r = await page.evaluate(() => {
-    const b = window.__bb, w = b.world, C = w.CELL, out = {};
+    const b = window.__bb, w = b.grid, C = w.CELL, out = {};
     const prep = lv => {
-      b.level = lv; b.startGame(1);
+      b.world = "park"; b.level = lv; b.startGame(1);
       const L = b.littles;
       L.forEach((l, i) => { if (i) Object.assign(l, { kind: "player", controls: { up: [], down: [], left: [], right: [] }, state: "rest", restTimer: 999, x: 40 + i * 40, y: 40 }); });
       b.progress.inv.kisses = 9;
@@ -657,12 +710,12 @@ test("kisses stop at maze walls and cottages and fly over the river", async ({ p
       }
       return null;
     };
-    out.maze = wallTest(3, "maze");
-    out.cottage = wallTest(4, "cottage");
-    out.arena = wallTest(7, "arena");
+    out.maze = wallTest(17, "maze");
+    out.cottage = wallTest(5, "cottage");
+    out.arena = wallTest(14, "arena");
     // the river: across the longest water piece, from 20 px before it
     {
-      const p = prep(5), vertical = b.generateLevel(5, b.levelInfo.attempt).meta.vertical;
+      const p = prep(8), vertical = b.generateLevel("park", 8, b.levelInfo.attempt).meta.vertical;
       const s = w.obstacles.filter(q => q.kind === "water").sort((a, c) => (vertical ? c.h - a.h : c.w - a.w))[0];
       const x = vertical ? s.x - 20 : s.x + s.w / 2, y = vertical ? s.y + s.h / 2 : s.y - 20;
       const r = fly(p, x, y, vertical ? 0 : Math.PI / 2);
@@ -681,7 +734,7 @@ test("kisses stop at maze walls and cottages and fly over the river", async ({ p
 });
 
 test("the fountain drop stays on top of the fountain while the water moves", async ({ page }) => {
-  await page.evaluate(() => { const b = window.__bb; b.placeSel = "park"; b.level = 4; b.startGame(1); });
+  await page.evaluate(() => { const b = window.__bb; b.world = "park"; b.level = 5; b.startGame(1); });
   await frames(page); await frames(page);
   const y = await page.evaluate(() => window.__bb.mapPieces().find(q => q.piece === "fountainDrop").y);
   expect(y).toBeGreaterThan(0.7);
@@ -693,10 +746,10 @@ test("rooms and arena need diagonal houses even if the CFG pairing is removed", 
     L.rooms.homes = undefined; L.arena.homes = undefined;   // the seed may now pick same-side houses
     try {
       // same side = both houses on the left half or both on the right half of the map
-      const sameSide = (lv, a) => { const g = b.generateLevel(lv, a), sz = g.items.find(i => i.t === "safe"), d = g.items.find(i => i.t === "danger"); return (sz.x < 15) === (d.x < 15); };
-      for (const lv of [6, 7, 12, 13, 18, 19]) {
-        const q = b.levelReport(lv);
-        out[lv] = { fallback: q.fallback, rejects: q.rejects, sides: q.rejects.map((_, a) => sameSide(lv, a)), acceptedSameSide: sameSide(lv, q.attempt) };
+      const sameSide = ([w, lv], a) => { const g = b.generateLevel(w, lv, a), sz = g.items.find(i => i.t === "safe"), d = g.items.find(i => i.t === "danger"); return (sz.x < 15) === (d.x < 15); };
+      for (const lv of [["park", 11], ["park", 14], ["school", 12], ["beach", 15], ["winter", 13], ["winter", 16]]) {
+        const q = b.levelReport(...lv);
+        out[lv.join(" ")] = { fallback: q.fallback, rejects: q.rejects, sides: q.rejects.map((_, a) => sameSide(lv, a)), acceptedSameSide: sameSide(lv, q.attempt) };
       }
     } finally { [L.rooms.homes, L.arena.homes] = keep; }
     return out;

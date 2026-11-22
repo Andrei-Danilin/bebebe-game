@@ -316,7 +316,7 @@ test.describe("phone camera", () => {
 
   test("a hero in a top-right house is not hidden under the mini-map, team chips or top bar", async ({ page }) => {
     const errors = await openGame(page, { query: "?phone=1" });
-    await page.evaluate(() => { const b = window.__bb; b.progress.unlocked = 20; b.level = 12; b.startGame(1); Object.assign(b.big, { stun: 999 }); });
+    await page.evaluate(() => { const b = window.__bb; b.progress.unlocked = 20; b.world = "beach"; b.level = 12; b.startGame(1); Object.assign(b.big, { stun: 999 }); });   // rooms, the house top-right
     await frames(page);
     const d = await page.evaluate(() => {
       const b = window.__bb, l = b.littles[0];
@@ -540,7 +540,7 @@ test.describe("phone mini-map", () => {
     await page.evaluate(() => { window.__bb.level = 3; window.__bb.startGame(1); });
     await frames(page);
     expect(await page.evaluate(() => window.__bb.minimap.baseDraws)).toBe(b0 + 1);
-    await page.evaluate(() => { window.__bb.placeSel = "beach"; window.__bb.startGame(1); });
+    await page.evaluate(() => { window.__bb.world = "beach"; window.__bb.startGame(1); });
     await frames(page);
     expect(await page.evaluate(() => window.__bb.minimap.baseDraws)).toBe(b0 + 2);
     expect(errors).toEqual([]);
@@ -641,11 +641,11 @@ const PHONE_SCENES = {
       Object.assign(b.big, { state: "look", timer: 999, stun: 999 });
     });
   },
-  // level 12, a long Big One name and 12 hearts (one and a half lost)
+  // Winter 13 (rooms), a long Big One name and 12 hearts (one and a half lost)
   long: async page => {
     await page.evaluate(() => {
       const b = window.__bb; b.resetBannerTimer();
-      b.progress.unlocked = 20; b.level = 12; b.setName("big", "Великолепный"); b.progress.inv.kisses = 5;
+      b.progress.unlocked = 20; b.world = "winter"; b.level = 13; b.setName("big", "Великолепный"); b.progress.inv.kisses = 5;
       b.startGame(1); Object.assign(b.big, { state: "look", timer: 999, stun: 999 });
       b.big.hp = b.big.maxHp - 1.5;
     });
