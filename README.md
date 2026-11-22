@@ -6,11 +6,18 @@ A top-down arcade game designed by kids: the **Little Ones** team against the **
 
 - Sneak up **behind** the Big One and hug him — he loses a heart.
 - If he **sees** you (yellow vision cone), he pushes you and your leg breaks: you can't move.
-- A friend must stand next to you for 1 second to help you up. If nobody helps within 18 seconds, you limp home
-  and rest there for 2 minutes, then come back. There is no game over — but every rest costs coins (−3).
+- A friend must stand next to you for 3 seconds to help you up. If the friend steps away, the progress slowly
+  drains; if the friend gets pushed, it starts over. Bots set off to help 2–3 seconds after you fall.
+  If nobody helps within 18 seconds, you limp home and rest there for 2 minutes, then come back.
+  There is no game over — but every rest costs coins (−3).
 - After a push the Big One rests for 2.5 s (pale vision cone) and pushes nobody.
 - After a hug he is shocked for 2.5 s: he can't move or push, and he can't be hugged again yet.
 - Your house is a safe zone: the Big One can't get in. Bushes hide you.
+- The Big One's house is not for you: stay inside for 5 seconds (a big "3, 2, 1" warns you) and he throws you
+  out of the door — "Get out of my house!" You are dizzy for 2 seconds (you can't move, but he can't push you
+  either); your leg is fine.
+- Golden **bonus stars** pop up around the map now and then: run over one for +3 coins. Only players can pick
+  them up — bots leave them to you.
 - When you hug him, you jump on his back for a second — hearts everywhere.
 - 1–2 players + bots (5 Little Ones in total). Bots mostly rescue fallen friends.
 
@@ -70,7 +77,8 @@ coins and gloves. Win a level to unlock the next one.
 | ⭐ | winning fast: under `60 + 15 × level` seconds |
 
 Coins for a win: `10 + 5 × level`, +10 if nobody had to rest, +10 if fast, +2 for every hug by a player,
-−3 for every rest (never below 5).
+−3 for every rest (never below 5). Bonus stars add +3 each on top (rests never eat them); they go into the
+coin box the moment you pick them up, so you keep them even without a win.
 
 **Shop** (menu, or after a level): gloves bought with coins as packs of power hugs.
 
@@ -95,6 +103,14 @@ Menu → **Skins**: each player builds an outfit from 4 parts — hair (8), hat 
 superhero cape, ninja) and pants (8, incl. shorts); 🎲 picks a random outfit. The Big One has 5 looks
 (Classic, Ogre, Robot, Captain, Bear). Bots get different outfits every level.
 
+## Names
+
+Player 1, Player 2, the Big One and the four bot friends have names. On the **Skins** screen tap the name under
+a character (✏️) and type a new one — up to 12 characters, emoji welcome; Enter or a tap outside saves, Escape
+cancels. **👥 Friends** opens the bot names. Names float above heads in the game, and the Big One's name starts
+the hearts bar — call him "Papá"! Untouched names follow the language (e.g. bots Bo, Mia, Tom, Lulu in English);
+typed names are kept. Saved in the browser (`localStorage`, key `bebebe-names`).
+
 ## Levels
 
 Maps are generated from the level number (same number → same map). Level 1 follows the kids' drawing:
@@ -116,7 +132,7 @@ One HTML file, one ES module:
 
 ## Tuning
 
-`CFG` — gameplay numbers (`HUG_STUN`, `PUSH_RECOVER`, `BOT_ATTACK_PAUSE`, `ITEM_*`, `SLIP_STUN`, `COINS_*`, `FAST_TIME`, …),
+`CFG` — gameplay numbers (`HUG_STUN`, `PUSH_RECOVER`, `BOT_ATTACK_PAUSE`, `ITEM_*`, `SLIP_STUN`, `COINS_*`, `FAST_TIME`, `RESCUE_*`, `STAR_*`, `DANGER_*`, `NAME_MAX`, …),
 `GLOVES` — gloves (power, price, pack size), `I18N` — texts,
 `HAIRS` / `HATS` / `JACKETS` / `PANTS` / `BIG_SKINS` — outfits, `THEMES` — places, `LITTLE_SCALE` / `BIG_SCALE` — character size in 3D.
 
