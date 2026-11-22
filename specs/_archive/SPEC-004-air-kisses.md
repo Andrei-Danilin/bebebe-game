@@ -1,6 +1,6 @@
 # SPEC-004 — Air kisses
 
-Status: ready
+Status: done (c8a06a2)
 Complexity: M
 Branch: SPEC-004-air-kisses
 Decided by: the kids with Andrei (2026-11-21): air kisses are bought with coins, 5 for 20; a player sends one with a 💋 button, it flies where the player looks; a hit takes half a heart and the Big One blushes and stands still for a moment; only players send kisses, bots don't. Everything else (range, speed, half hearts, blush rules, no kissing from the house, layout): Claude (spec author).
