@@ -1,6 +1,7 @@
 # SPEC-001 — Installable PWA on GitHub Pages (iPhone home screen, offline)
 
-Status: ready
+Status: done (2c40da8)
+Run note: the repo is `Andrei-Danilin/bebebe-game` (Andrei's choice during the run: the GitHub user `Neasit` does not exist), so the site is https://andrei-danilin.github.io/bebebe-game/ — read `Neasit`/`neasit` below as that.
 Complexity: M
 Branch: SPEC-001-pwa-github-pages
 Decided by: Andrei (2026-11-21): public repo `Neasit/bebebe-game`; Claude Code creates it with `gh`; after this spec every merge to `master` is pushed and deployed; the game must work offline after the first open. Everything else below: Claude (spec author).
