@@ -411,35 +411,41 @@ function bigHouse(items, x0, y0, doors) {
 const levelType = lv => lv <= 1 ? "classic" : CFG.TYPE_ORDER[(lv - 2) % CFG.TYPE_ORDER.length];
 const levelTier = lv => lv <= 1 ? 0 : Math.floor((lv - 2) / CFG.TYPE_ORDER.length);
 
-function generateLevel(lv, attempt) {
-  const rng = mulberry32(lv * 7919 + attempt * 104729 + 13);
-  const ri = (a, b) => a + Math.floor(rng() * (b - a + 1));
-  const items = [], occ = new Uint8Array(COLS * ROWS);
-  const inb = (x, y) => x >= 0 && y >= 0 && x < COLS && y < ROWS;
-  const reserve = (x, y, w, h) => { for (let yy = y; yy < y + h; yy++) for (let xx = x; xx < x + w; xx++) if (inb(xx, yy)) occ[yy * COLS + xx] = 1; };
-  const isFree = (x, y, w, h, m) => {
-    for (let yy = y; yy < y + h; yy++) for (let xx = x; xx < x + w; xx++) if (!inb(xx, yy)) return false;
-    for (let yy = y - m; yy < y + h + m; yy++) for (let xx = x - m; xx < x + w + m; xx++) if (inb(xx, yy) && occ[yy * COLS + xx]) return false;
-    return true;
-  };
-  const hWall = (x1, x2, y, kind, gaps = []) => hWallTo(items, x1, x2, y, kind, gaps);
-  const vWall = (x, y1, y2, kind, gaps = []) => vWallTo(items, x, y1, y2, kind, gaps);
-
-  // Домик маленьких (SMALL)
+// Дверь дома (x0, y0, w×h) в виде проёма в клетках + направление наружу (dx, dy)
+function houseDoor(x0, y0, w, h, d) {
+  if (d.side === "top") return { x: x0 + d.at, y: y0, w: 2, h: 1, dx: 0, dy: -1 };
+  if (d.side === "bottom") return { x: x0 + d.at, y: y0 + h - 1, w: 2, h: 1, dx: 0, dy: 1 };
+  if (d.side === "left") return { x: x0, y: y0 + d.at, w: 1, h: 2, dx: -1, dy: 0 };
+  return { x: x0 + w - 1, y: y0 + d.at, w: 1, h: 2, dx: 1, dy: 0 };
+}
+// Домики (до зеркала): маленьких 7×6 слева вверху (двери справа и снизу, безопасная зона, кроватки, места);
+// дом Большого 6×6 через bigHouse() — слева внизу ("side", как на рисунке) или справа внизу ("diagonal").
+// Перед каждой дверью DOOR_APRON клеток заняты (reserve) — туда раскладка ничего не ставит.
+function placeHomes(ctx, variant) {
+  const { items, hWall, vWall, reserve } = ctx, A = CFG.DOOR_APRON;
   hWall(0, 6, 0, "home"); hWall(0, 6, 5, "home", [2]); vWall(0, 1, 4, "home"); vWall(6, 1, 4, "home", [2]);
   items.push({ t: "floor", x: 1, y: 1, w: 5, h: 4, kind: "wood" });
   items.push({ t: "decor", kind: "bed", x: 1, y: 1, w: 1, h: 1, c: "#7cc6fe" });
   items.push({ t: "decor", kind: "bed", x: 3, y: 1, w: 1, h: 1, c: "#ffb86b" });
   items.push({ t: "decor", kind: "bed", x: 5, y: 1, w: 1, h: 1, c: "#c3a6ff" });
-  const small = [[1.5, 3.5], [2.5, 2.5], [3.5, 3.5], [4.5, 2.5], [5.5, 3.5]];
+  ctx.small = [[1.5, 3.5], [2.5, 2.5], [3.5, 3.5], [4.5, 2.5], [5.5, 3.5]];
   items.push({ t: "safe", x: 0, y: 0, w: 7, h: 6 });
-  reserve(0, 0, 9, 8);
+  ctx.doors.small = [{ side: "right", at: 2 }, { side: "bottom", at: 2 }].map(d => houseDoor(0, 0, 7, 6, d));
+  reserve(0, 0, 7 + A, 6 + A);
 
-  // Дом Большого (BIG)
-  bigHouse(items, 0, 14, [{ side: "top", at: 2 }, { side: "right", at: 2 }]);
-  const bigPt = [3, 16];
-  reserve(0, 12, 8, 8);
+  const diag = variant === "diagonal", x0 = diag ? COLS - BIG_HOUSE : 0, y0 = ROWS - BIG_HOUSE;
+  const bigDoors = [{ side: "top", at: 2 }, { side: diag ? "left" : "right", at: 2 }];
+  bigHouse(items, x0, y0, bigDoors);
+  ctx.bigPt = [x0 + 3, y0 + 2];
+  ctx.doors.big = bigDoors.map(d => houseDoor(x0, y0, BIG_HOUSE, BIG_HOUSE, d));
+  reserve(diag ? x0 - A : x0, y0 - A, BIG_HOUSE + A, BIG_HOUSE + A);
+  ctx.homes = { variant, small: { x: 0, y: 0, w: 7, h: 6 }, big: { x: x0, y: y0, w: BIG_HOUSE, h: BIG_HOUSE } };
+}
 
+// Раскладки по типам: получают ctx с уже построенными домиками и раскладывают остальное (до зеркала)
+// 1-й уровень (рисунок детей): здание с комнатами справа, лужа, ёлки, камни, кусты
+function classicLayout(ctx) {
+  const { lv, rng, ri, items, reserve, isFree, place, hWall, vWall } = ctx;
   // Здание с комнатами
   const bw = ri(9, 11), bx = COLS - bw, by = ri(0, 2), bh = ri(13, ROWS - by), bb = by + bh - 1;
   const hy = by + Math.floor(bh / 2) + ri(-1, 1);
@@ -469,16 +475,45 @@ function generateLevel(lv, attempt) {
       if (isFree(x, y, w, h, 2)) { items.push({ t: "pond", x, y, w, h }); reserve(x, y, w, h); break; }
     }
   }
+  place(Math.min(15, 7 + lv), (x, y) => ({ t: "tree", x, y, v: rng() < 0.6 ? "pine" : "round", s: 0.9 + rng() * 0.25 }));
+  place(ri(2, 4), (x, y) => ({ t: "rock", x, y, s: 0.9 + rng() * 0.3 }));
+  place(ri(3, 5), (x, y) => ({ t: "bush", x, y }), 2, 2, 0);
+}
+const LAYOUTS = {
+  classic: classicLayout,
+  // пока только домики — раскладки типов появляются по шагам SPEC-002
+  meadow: () => {}, maze: () => {}, village: () => {}, river: () => {}, rooms: () => {}, arena: () => {}
+};
+
+function generateLevel(lv, attempt) {
+  const type = levelType(lv), tier = levelTier(lv);
+  const rng = mulberry32(lv * 7919 + attempt * 104729 + 13);
+  const ri = (a, b) => a + Math.floor(rng() * (b - a + 1));
+  const items = [], occ = new Uint8Array(COLS * ROWS);
+  const inb = (x, y) => x >= 0 && y >= 0 && x < COLS && y < ROWS;
+  const reserve = (x, y, w, h) => { for (let yy = y; yy < y + h; yy++) for (let xx = x; xx < x + w; xx++) if (inb(xx, yy)) occ[yy * COLS + xx] = 1; };
+  const isFree = (x, y, w, h, m) => {
+    for (let yy = y; yy < y + h; yy++) for (let xx = x; xx < x + w; xx++) if (!inb(xx, yy)) return false;
+    for (let yy = y - m; yy < y + h + m; yy++) for (let xx = x - m; xx < x + w + m; xx++) if (inb(xx, yy) && occ[yy * COLS + xx]) return false;
+    return true;
+  };
+  const hWall = (x1, x2, y, kind, gaps = []) => hWallTo(items, x1, x2, y, kind, gaps);
+  const vWall = (x, y1, y2, kind, gaps = []) => vWallTo(items, x, y1, y2, kind, gaps);
+  // n штук make(x, y) в свободных местах w×h с отступом m клеток от занятого
   const place = (n, make, w = 1, h = 1, m = 2) => {
     let placed = 0;
     for (let k = 0; k < 500 && placed < n; k++) {
       const x = ri(0, COLS - w), y = ri(0, ROWS - h);
       if (isFree(x, y, w, h, m)) { items.push(make(x, y)); reserve(x, y, w, h); placed++; }
     }
+    return placed;
   };
-  place(Math.min(15, 7 + lv), (x, y) => ({ t: "tree", x, y, v: rng() < 0.6 ? "pine" : "round", s: 0.9 + rng() * 0.25 }));
-  place(ri(2, 4), (x, y) => ({ t: "rock", x, y, s: 0.9 + rng() * 0.3 }));
-  place(ri(3, 5), (x, y) => ({ t: "bush", x, y }), 2, 2, 0);
+  const ctx = { lv, attempt, type, tier, rng, ri, items, occ, inb, reserve, isFree, hWall, vWall, place,
+    small: null, bigPt: null, doors: { small: [], big: [] }, homes: null, meta: {} };
+
+  // Домики: на 1-м уровне — как на рисунке (дом Большого слева внизу), иначе угол Большого выбирает сид
+  placeHomes(ctx, type === "classic" || rng() < 0.5 ? "side" : "diagonal");
+  LAYOUTS[type](ctx);
 
   // Зеркалим карту для разнообразия (1-й уровень — как на рисунке)
   const fx = lv > 1 && rng() < 0.5, fy = lv > 1 && rng() < 0.5;
@@ -488,11 +523,10 @@ function generateLevel(lv, attempt) {
   const tp = ([x, y]) => [fx ? COLS - x : x, fy ? ROWS - y : y];
   // двери домиков (проём + направление наружу) — для правил честности
   const md = d => ({ x: tx(d.x, d.w), y: ty(d.y, d.h), w: d.w, h: d.h, dx: fx ? -d.dx : d.dx, dy: fy ? -d.dy : d.dy });
-  const doors = { small: [{ x: 6, y: 2, w: 1, h: 2, dx: 1, dy: 0 }, { x: 2, y: 5, w: 2, h: 1, dx: 0, dy: 1 }].map(md),
-    big: [{ x: 2, y: 14, w: 2, h: 1, dx: 0, dy: -1 }, { x: 5, y: 16, w: 1, h: 2, dx: 1, dy: 0 }].map(md) };
+  const doors = { small: ctx.doors.small.map(md), big: ctx.doors.big.map(md) };
   const fl = [];
   for (let i = 0; i < 60; i++) fl.push({ x: rng() * W, y: rng() * H, c: ["#fff27a", "#ff9ecb", "#ffffff", "#b5e3ff"][ri(0, 3)] });
-  return { items, small: small.map(tp), big: tp(bigPt), flowers: fl, doors };
+  return { type, items, small: ctx.small.map(tp), big: tp(ctx.bigPt), flowers: fl, doors, meta: ctx.meta };
 }
 
 function applyWorld(gen) {

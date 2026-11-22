@@ -31,7 +31,7 @@ test("levels 2–13 follow the type order", async ({ page }) => {
     const want = TYPE_ORDER[(x.lv - 2) % 6];
     expect(x, `level ${x.lv}`).toEqual({ lv: x.lv, type: want, gen: want, report: want });
   }
-  expect(await page.evaluate(() => [61, 62, 99].map(window.__bb.levelType))).toEqual(["rooms", "arena", "village"]);
+  expect(await page.evaluate(() => [61, 62, 99].map(lv => window.__bb.levelType(lv)))).toEqual(["arena", "meadow", "maze"]);
 });
 
 test("the same level number always builds the same map", async ({ page }) => {
