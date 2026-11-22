@@ -117,6 +117,10 @@ const CFG = {
   PHONE_MAX_SHORT_SIDE: 500, // CSS px — короткая сторона экрана сенсорного устройства не больше этого = телефон (iPad ≥ 744)
   PHONE_UI_H: 420,           // UI px — высота слоя интерфейса на телефоне (ширина = 420 × соотношение сторон)
   PHONE_VIEW_ROWS: 10,       // клеток по высоте видно на телефоне (вся карта — 20)
+  CAM_EDGE: 1,               // клеток — камера телефона показывает за краем карты не больше этого
+  CAM_LOOKAHEAD_RATE: 3,     // 1/сек — как плавно камера забегает вперёд и возвращается
+  CAM_ZOOM_TIME: 1.2,        // сек — после победы камера отъезжает на всю карту (и обратно)
+  CAM_SHADOW_PAD: [3, 4],    // клеток — запас рамки тени вокруг видимой земли (по x, по глубине)
   CAM_FOLLOW: 6,             // 1/сек — как быстро камера догоняет героя
   CAM_LOOKAHEAD: 1.5,        // клеток — камера чуть забегает вперёд по ходу героя
   MINIMAP_W: 0.26,           // доля ширины интерфейса — ширина мини-карты (3:2)
@@ -1539,7 +1543,7 @@ function showBanner() {
   banner = { text: L().levelIntro(level, L().types[levelType(level)]), t: 0 };
 }
 const bannerAlpha = () => !banner ? 0 : clamp(Math.min(banner.t, CFG.BANNER_TIME - banner.t) / CFG.BANNER_FADE, 0, 1);
-function startGame(n) { resetWorld(n); mode = "play"; showBanner(); }
+function startGame(n) { resetWorld(n); mode = "play"; showBanner(); camSnap(); }
 function nextLevel() { level++; startGame(numPlayers); }
 function toMenu() { resetWorld(numPlayers); mode = "menu"; }
 function changeLevel(d) { level = clamp(level + d, 1, Math.min(99, progress.unlocked)); resetWorld(numPlayers); }
@@ -2302,6 +2306,7 @@ function update(dt) {
   updateStars(dt);
   updateFx(dt);
   if (pendingWin > 0) { pendingWin -= dt; if (pendingWin <= 0 && mode === "play") { mode = "win"; giveReward(true); SFX.win(); burst(big.x, big.y - 30, "heart", "#ff4d8d", 40); } }
+  updateCamera(dt);
   const players = littles.filter(p => p.kind === "player");
   // проигрыша больше нет: кого не спасли — отдыхает в домике и возвращается (за это меньше монеток)
 }
@@ -2801,8 +2806,9 @@ sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.03;
 scene.add(sun, sun.target);
 
 // Камера: наклон сверху, вся карта помещается в кадр
+const CAM_EL = 63 * Math.PI / 180, camDir = new THREE.Vector3(0, Math.sin(CAM_EL), Math.cos(CAM_EL));   // камера всегда смотрит под этим углом
 function fitCamera() {
-  const el = 63 * Math.PI / 180, dir = new THREE.Vector3(0, Math.sin(el), Math.cos(el));
+  const dir = camDir;
   const corners = [[0, 0, 0], [COLS, 0, 0], [0, 0, ROWS], [COLS, 0, ROWS], [0, WALL_H, 0], [COLS, WALL_H, 0]].map(c => new THREE.Vector3(...c));
   const v = new THREE.Vector3();
   for (let d = 12; d < 90; d += 0.2) {
@@ -2813,8 +2819,93 @@ function fitCamera() {
   camBase.copy(camera.position);
 }
 fitCamera();
+
+// Видимая земля: углы кадра — лучи до земли (y = 0); из-за наклона это трапеция (дальний край шире),
+// берём её габарит. Направление камеры не меняется, поэтому габарит = точка взгляда + расстояние × смещения.
+function groundOffsets() {
+  const D = 10, probe = new THREE.PerspectiveCamera(camera.fov, camera.aspect, 0.1, 500);
+  probe.position.copy(camDir).multiplyScalar(D); probe.lookAt(0, 0, 0); probe.updateMatrixWorld(); probe.updateProjectionMatrix();
+  const xs = [], zs = [], p = new THREE.Vector3(), r = new THREE.Vector3();
+  for (const [nx, ny] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+    p.set(nx, ny, 0.5).unproject(probe); r.copy(p).sub(probe.position);
+    const t = -probe.position.y / r.y;
+    xs.push((probe.position.x + r.x * t) / D); zs.push((probe.position.z + r.z * t) / D);
+  }
+  return { x0: Math.min(...xs), x1: Math.max(...xs), z0: Math.min(...zs), z1: Math.max(...zs) };
+}
+const camLook = camTarget.clone();            // куда камера смотрит сейчас (на компьютере всегда центр карты)
+let camDist = camBase.distanceTo(camTarget);  // расстояние от камеры до точки взгляда
+let camOff = groundOffsets();                 // видимая земля при расстоянии 1 (в клетках от точки взгляда)
+// видимая земля сейчас, в px мира: { x, y, w, h }
+function camRect() {
+  return { x: (camLook.x + camDist * camOff.x0) * CELL, y: (camLook.z + camDist * camOff.z0) * CELL,
+    w: camDist * (camOff.x1 - camOff.x0) * CELL, h: camDist * (camOff.z1 - camOff.z0) * CELL };
+}
+
+// ---------- Камера телефона (SPEC-005): ближе, едет за героем, у краёв карты останавливается ----------
+// cam.x/y — точка взгляда в режиме «за героем» (px мира), lax/lay — забегание вперёд (px),
+// zoom: 0 — за героем, 1 — вся карта (меню, победа); dFollow/dFull — расстояния для этих двух видов.
+const cam = { x: W / 2, y: H / 2, lax: 0, lay: 0, zoom: 1, dFollow: camDist, dFull: camDist, full: camTarget.clone() };
+const sunOff = sun.position.clone().sub(camTarget);
+const SHADOW_FULL = { x: sun.shadow.camera.right, y: sun.shadow.camera.top };   // тень на всю карту (как на компьютере)
+const camHero = () => littles.find(l => l.kind === "player") || null;
+// точку взгляда двигаем так, чтобы видимая земля выходила за край карты не больше CAM_EDGE клеток
+function clampLook(x, y) {
+  const m = CFG.CAM_EDGE * CELL, d = cam.dFollow * CELL;
+  const axis = (v, o0, o1, size) => {
+    const lo = -m - o0 * d, hi = size + m - o1 * d;
+    return lo > hi ? size / 2 - (o0 + o1) * d / 2 : clamp(v, lo, hi);
+  };
+  return { x: axis(x, camOff.x0, camOff.x1, W), y: axis(y, camOff.z0, camOff.z1, H) };
+}
+// поставить камеру по состоянию cam (сразу, чтобы toScreen был верным и без кадра)
+function applyCamera() {
+  const z = cam.zoom, e = z * z * (3 - 2 * z);   // плавное начало и конец
+  camDist = cam.dFollow + (cam.dFull - cam.dFollow) * e;
+  camLook.set(P(cam.x) + (cam.full.x - P(cam.x)) * e, 0, P(cam.y) + (cam.full.z - P(cam.y)) * e);
+  camBase.copy(camLook).addScaledVector(camDir, camDist);
+  camera.position.copy(camBase); camera.updateMatrixWorld();
+  // тень едет с камерой: рамка тени — видимая земля + запас (чётче, чем одна рамка на всю карту)
+  const r = camRect(), pad = CFG.CAM_SHADOW_PAD;
+  sun.target.position.set(P(r.x + r.w / 2), 0, P(r.y + r.h / 2));
+  sun.position.copy(sun.target.position).add(sunOff);
+  const sx = P(r.w / 2) + pad[0], sy = P(r.h / 2) + pad[1];
+  const hx = sx + (SHADOW_FULL.x - sx) * e, hy = sy + (SHADOW_FULL.y - sy) * e;
+  Object.assign(sun.shadow.camera, { left: -hx, right: hx, top: hy, bottom: -hy });
+  sun.shadow.camera.updateProjectionMatrix();
+}
+// новый уровень: камера сразу у героя, без долгого полёта от центра карты
+function camSnap() {
+  if (!PHONE) return;
+  const l = camHero();
+  const g = l ? clampLook(l.x, l.y) : { x: W / 2, y: H / 2 };
+  Object.assign(cam, { x: g.x, y: g.y, lax: 0, lay: 0, zoom: 0 });
+  applyCamera();
+}
+// каждый кадр (в игре — из update, иначе — из главного цикла): плавно за героем, вперёд по ходу; после игры — вся карта
+function updateCamera(dt) {
+  if (!PHONE) return;
+  const l = camHero();
+  const k = 1 - Math.exp(-CFG.CAM_FOLLOW * dt), kl = 1 - Math.exp(-CFG.CAM_LOOKAHEAD_RATE * dt);
+  // вперёд смотрим, только пока герой идёт сам (упал, отдыхает, обнимает — камера на нём)
+  const ahead = !!l && l.moving && l.state === "ok" && !(l.hugAnim > 0), la = CFG.CAM_LOOKAHEAD * CELL;
+  cam.lax += ((ahead ? Math.cos(l.dir) * la : 0) - cam.lax) * kl;
+  cam.lay += ((ahead ? Math.sin(l.dir) * la : 0) - cam.lay) * kl;
+  if (l) { const g = clampLook(l.x + cam.lax, l.y + cam.lay); cam.x += (g.x - cam.x) * k; cam.y += (g.y - cam.y) * k; }
+  const out = mode !== "play" && mode !== "pause";
+  cam.zoom = clamp(cam.zoom + (out ? dt : -dt) / CFG.CAM_ZOOM_TIME, 0, 1);
+  applyCamera();
+}
 // телефон: холст любой формы — камера берёт его соотношение сторон (без растяжения)
-if (PHONE) { onFit = () => { camera.aspect = CSS_W / CSS_H; fitCamera(); }; onFit(); }
+if (PHONE) {
+  onFit = () => {
+    camera.aspect = CSS_W / CSS_H; fitCamera();
+    cam.full.copy(camTarget); cam.dFull = camBase.distanceTo(camTarget);
+    camOff = groundOffsets(); cam.dFollow = CFG.PHONE_VIEW_ROWS / (camOff.z1 - camOff.z0);
+    applyCamera();
+  };
+  onFit();
+}
 
 const _v = new THREE.Vector3();
 function toScreen(x, y, h = 0) {
@@ -3954,7 +4045,7 @@ function frame(now) {
   pollPads();
   const portrait = isTouch && window.innerHeight > window.innerWidth;
   if (mode === "play" && !portrait) update(dt);
-  else { updateFx(dt); if (mode === "menu" || mode === "skins" || mode === "names" || mode === "shop") big.dir += dt * 0.8; }
+  else { updateFx(dt); updateCamera(dt); if (mode === "menu" || mode === "skins" || mode === "names" || mode === "shop") big.dir += dt * 0.8; }
   render3D(T);
   drawUI(T);
   requestAnimationFrame(frame);
@@ -3982,11 +4073,13 @@ window.__bb = {
   // камера: позиция и точка взгляда в единицах 3D (1 = клетка), точка взгляда ещё и в px мира
   get camera() {
     const v = q => ({ x: q.x, y: q.y, z: q.z });
-    return { pos3: v(camera.position), look3: v(camTarget), target: { x: camTarget.x * CELL, y: camTarget.z * CELL }, aspect: camera.aspect };
+    return { pos3: v(camera.position), look3: v(camLook), target: { x: camLook.x * CELL, y: camLook.z * CELL }, aspect: camera.aspect,
+      rect: camRect(), zoom: PHONE ? cam.zoom : 1, dist: camDist };
   },
   isStandalone, get installHintShown() { return installHintShown; }, get buttonNames() { return buttons.map(b => b.act.name); },
   get buttonRects() { return buttons.map(b => ({ id: b.id || b.act.name, x: b.x, y: b.y, w: b.w, h: b.h, text: b.text })); },
   // слой интерфейса: размер в UI px, размер холста в CSS px, scale = CSS px на UI px (SPEC-005)
+  updateCamera, camSnap,
   get uiSize() { return { w: UW, h: UH, cssW: CSS_W, cssH: CSS_H, scale: CSS_W / UW }; }, toGame,
   get names() { return allNames(); }, setName, nameOf, inDanger, get stars() { return bonusStars; }, spawnStar, giveReward,
   get dangerZone() { return dangerZone; }, get safeZone() { return safeZone; }, get texts() { return texts; }, generateLevel,

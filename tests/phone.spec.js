@@ -179,3 +179,105 @@ test.describe("desktop UI size", () => {
     expect(ui.cssW).toBe(960); expect(ui.cssH).toBe(640); expect(ui.scale).toBe(1);
   });
 });
+
+// AC 3: follow camera. Level 1, 844×390. The Big One is stunned so nobody gets pushed.
+async function phonePlay(page) {
+  const errors = await openGame(page, { query: "?phone=1" });
+  await page.evaluate(() => { const b = window.__bb; b.startGame(1); Object.assign(b.big, { state: "look", timer: 999, stun: 999 }); });
+  return errors;
+}
+// puts the hero at (x, y), not moving, and snaps the camera to him
+async function placeHero(page, x, y) {
+  await page.evaluate(([x, y]) => { const l = window.__bb.littles[0]; Object.assign(l, { x, y, kx: 0, ky: 0, moving: false }); window.__bb.camSnap(); }, [x, y]);
+}
+const heroScreen = page => page.evaluate(() => { const l = window.__bb.littles[0]; return window.__bb.toScreen(l.x, l.y); });
+const EPS = 0.5;
+
+test.describe("phone camera", () => {
+  test.use(PHONE_CTX);
+
+  test("the camera follows the hero and stops at the map edges", async ({ page }) => {
+    const errors = await phonePlay(page);
+    const ui = await page.evaluate(() => window.__bb.uiSize);
+    // visible ground ≈ 10 rows tall (the bounding box of the visible trapezoid), width from the aspect
+    let cam = await page.evaluate(() => window.__bb.camera);
+    expect(cam.zoom).toBe(0);
+    expect(Math.abs(cam.rect.h / 32 - 10)).toBeLessThan(0.5);
+    expect(cam.rect.w / cam.rect.h).toBeGreaterThan(ui.cssW / ui.cssH * 0.9);
+    expect(cam.rect.w / cam.rect.h).toBeLessThan(ui.cssW / ui.cssH * 1.2);
+    // at the start the hero is in his house in the top-left corner: the view clamps there
+    expect(cam.rect.x).toBeGreaterThanOrEqual(-32 - EPS);
+    expect(cam.rect.y).toBeGreaterThanOrEqual(-32 - EPS);
+    let s = await heroScreen(page);
+    expect(s.x).toBeLessThan(ui.w / 3);
+    expect(s.y).toBeLessThan(ui.h / 2);
+    // walking down the clear column x = 560 in the middle: the hero stays in the centre third
+    await placeHero(page, 560, 180);
+    await page.keyboard.down("KeyS");
+    for (let i = 0; i < 6; i++) {
+      await step(page, 0.25);
+      s = await heroScreen(page);
+      expect(s.x, `x at ${i}`).toBeGreaterThan(ui.w / 3); expect(s.x).toBeLessThan(ui.w * 2 / 3);
+      expect(s.y, `y at ${i}`).toBeGreaterThan(ui.h / 3); expect(s.y).toBeLessThan(ui.h * 2 / 3);
+    }
+    const walked = await page.evaluate(() => window.__bb.littles[0].y);
+    expect(walked).toBeGreaterThan(330);                         // he really walked
+    cam = await page.evaluate(() => window.__bb.camera);
+    expect(cam.target.y).toBeGreaterThan(walked);                // look-ahead: the camera is ahead of him
+    await page.keyboard.up("KeyS");
+    // bottom-right corner (inside the building): the view clamps at the map edge, hero off-centre towards the corner
+    await placeHero(page, 880, 560);
+    await step(page, 2);
+    cam = await page.evaluate(() => window.__bb.camera);
+    expect(cam.rect.x + cam.rect.w).toBeLessThanOrEqual(960 + 32 + EPS);
+    expect(cam.rect.y + cam.rect.h).toBeLessThanOrEqual(640 + 32 + EPS);
+    expect(cam.rect.x + cam.rect.w).toBeGreaterThan(960 + 32 - 2);   // clamped, not short of the edge
+    s = await heroScreen(page);
+    expect(s.x).toBeGreaterThan(ui.w * 2 / 3);
+    expect(s.y).toBeGreaterThan(ui.h / 2);
+    expect(errors).toEqual([]);
+  });
+
+  test("the camera smoothing does not depend on the frame rate", async ({ page }) => {
+    await phonePlay(page);
+    const run = dt => page.evaluate(dt => {
+      const b = window.__bb, l = b.littles[0];
+      Object.assign(l, { x: 500, y: 250, moving: false }); b.camSnap();
+      Object.assign(l, { x: 600, y: 400 });
+      for (let i = 0; i < Math.round(0.5 / dt); i++) b.updateCamera(dt);
+      return b.camera.target;
+    }, dt);
+    const a = await run(1 / 30), c = await run(1 / 120);
+    expect(Math.abs(a.x - c.x)).toBeLessThan(0.5);
+    expect(Math.abs(a.y - c.y)).toBeLessThan(0.5);
+    expect(a.x).toBeGreaterThan(500 + 50);    // and it really moved most of the way (1 - e^-3 ≈ 95 %)
+  });
+
+  test("the camera stays on a downed hero", async ({ page }) => {
+    const errors = await phonePlay(page);
+    await placeHero(page, 560, 300);
+    await page.evaluate(() => Object.assign(window.__bb.littles[0], { state: "down", downTimer: 18, rescue: 0 }));
+    await step(page, 2);
+    const cam = await page.evaluate(() => window.__bb.camera), l = await page.evaluate(() => ({ x: window.__bb.littles[0].x, y: window.__bb.littles[0].y }));
+    expect(Math.abs(cam.target.x - l.x)).toBeLessThan(3);
+    expect(Math.abs(cam.target.y - l.y)).toBeLessThan(3);
+    expect(errors).toEqual([]);
+  });
+
+  test("after the win the camera zooms out to the whole map, the next level snaps back", async ({ page }) => {
+    const errors = await phonePlay(page);
+    await page.evaluate(() => { window.__bb.mode = "win"; });
+    const mid = await page.evaluate(() => { for (let i = 0; i < 30; i++) window.__bb.updateCamera(1 / 60); return window.__bb.camera; });
+    expect(mid.zoom).toBeGreaterThan(0); expect(mid.zoom).toBeLessThan(1);   // smooth, not a jump
+    const cam = await page.evaluate(() => { for (let i = 0; i < 120; i++) window.__bb.updateCamera(1 / 60); return window.__bb.camera; });
+    expect(cam.zoom).toBe(1);
+    expect(cam.rect.x).toBeLessThanOrEqual(0); expect(cam.rect.y).toBeLessThanOrEqual(0);
+    expect(cam.rect.x + cam.rect.w).toBeGreaterThanOrEqual(960); expect(cam.rect.y + cam.rect.h).toBeGreaterThanOrEqual(640);
+    await page.evaluate(() => window.__bb.startGame(1));
+    const next = await page.evaluate(() => window.__bb.camera);
+    expect(next.zoom).toBe(0);
+    expect(Math.abs(next.rect.h / 32 - 10)).toBeLessThan(0.5);
+    await frames(page);
+    expect(errors).toEqual([]);
+  });
+});
