@@ -751,7 +751,7 @@ function setName(slot, text) {
   saveNames();
 }
 const allNames = () => ({ p1: nameFor("p1"), p2: nameFor("p2"), big: nameFor("big"), bots: [1, 2, 3, 4].map(i => nameFor("bot" + i)) });
-const slotOf = l => l.isBig ? "big" : l.kind === "player" ? "p" + (l.id + 1) : "bot" + (l.botIndex % BOT_SLOTS + 1);
+const slotOf = l => l.isBig ? "big" : l.kind === "player" && l.id < 2 ? "p" + (l.id + 1) : "bot" + (Math.max(0, l.botIndex) % BOT_SLOTS + 1);
 const nameOf = l => nameFor(slotOf(l));
 
 const botOutfit = i => ({ hair: (i * 3 + level) % HAIRS.length, hat: (i * 5 + level * 2 + 1) % HATS.length, jacket: (i * 3 + 2 + level) % JACKETS.length, pants: (i * 2 + level) % PANTS.length });
@@ -1543,10 +1543,14 @@ function fitText(text, x, y, size, maxW, align, color, weight) {
   ctx.textAlign = align; ctx.textBaseline = "middle"; ctx.fillStyle = color;
   ctx.fillText(text, x, y);
 }
+// Подпись с контуром, которая сжимается под ширину (не мельче 11px), а если не влезает — обрезается «…»
 function labelFit(text, x, y, size, maxW, color, align = "center") {
+  const font = sz => `900 ${sz}px system-ui, "Segoe UI", "Arial Rounded MT Bold", Arial, sans-serif`;
   let sz = size;
-  ctx.font = `900 ${sz}px system-ui, "Segoe UI", "Arial Rounded MT Bold", Arial, sans-serif`;
-  while (ctx.measureText(text).width > maxW && sz > 9) { sz -= 0.5; ctx.font = `900 ${sz}px system-ui, "Segoe UI", "Arial Rounded MT Bold", Arial, sans-serif`; }
+  ctx.font = font(sz);
+  while (ctx.measureText(text).width > maxW && sz > 11) { sz -= 0.5; ctx.font = font(sz); }
+  let chars = Array.from(text);
+  while (chars.length > 1 && ctx.measureText(text).width > maxW) { chars = chars.slice(0, -1); text = chars.join("").trimEnd() + "…"; }
   label(text, x, y, sz, color, align);
 }
 function heartPath(x, y, s) {
@@ -1628,7 +1632,7 @@ function drawMarkers(t) {
   }
   const bh = toScreen(big.x, big.y, 134);
   if (big.slip <= 0) {                                    // имя Большого над головой
-    const bn = toScreen(big.x, big.y, 150);
+    const bn = toScreen(big.x, big.y, 190);
     ctx.save(); if (inBush(big)) ctx.globalAlpha = 0.4;
     label(nameFor("big"), bn.x, bn.y - 6, 14, "#ff4d4d");
     ctx.restore();
@@ -1636,7 +1640,7 @@ function drawMarkers(t) {
   if (big.slip > 0) label("🍌💫", bh.x + 10, bh.y + 30, 20, "#fff");
   else if (big.stun > 0) label("?!", bh.x + 22, bh.y, 22, "#fff");
   else if (big.noPush > 0) label("💦", bh.x + 22, bh.y + 6, 16, "#fff");
-  else if (big.state === "chase") label("!", bh.x - 30, bh.y - 10, 28, "#ff3b30");
+  else if (big.state === "chase") label("!", bh.x, bh.y - 4, 28, "#ff3b30");
 }
 
 function drawFx() {
@@ -1671,13 +1675,14 @@ function toggleFullscreen() {
 
 function drawHUD(t) {
   // имя Большого + сердечки; полоска не налезает на таймер в центре
-  const bigName = nameFor("big"), hearts = big.maxHp * 21, timerX = W / 2 - 95;
+  const many = big.maxHp > 8, hStep = many ? 17 : 21, hSize = many ? 15 : 18;   // много сердечек — ставим плотнее, чтобы влезло имя
+  const bigName = nameFor("big"), hearts = big.maxHp * hStep, timerX = W / 2 - 95;
   ctx.font = `900 15px system-ui, "Segoe UI", "Arial Rounded MT Bold", Arial, sans-serif`;
   const nameW = Math.min(ctx.measureText(bigName).width, timerX - 10 - 8 - 8 - 18 - hearts - 6);
-  const hx = 18 + nameW + 18, hpW = hx + hearts - 10 - 4;
+  const hx = 18 + nameW + 18, hpW = hx + hearts - 10 - (hStep - hSize / 2) + 9;
   rr(10, 8, hpW, 34, 14); fillStroke("rgba(255,255,255,.8)", 3);
   labelFit(bigName, 18, 25, 15, nameW, "#9b2c3a", "left");
-  for (let i = 0; i < big.maxHp; i++) drawHeart(hx + i * 21, 15, 18, i < big.hp ? "#ff3b5c" : "#e5e7eb");
+  for (let i = 0; i < big.maxHp; i++) drawHeart(hx + i * hStep, 25 - hSize / 2 - 1, hSize, i < big.hp ? "#ff3b5c" : "#e5e7eb");
 
   const chipW = 32, totalW = littles.length * chipW + 14, x0 = W - totalW - 10;
   rr(x0, 8, totalW, 34, 14); fillStroke("rgba(255,255,255,.8)", 3);
@@ -2647,15 +2652,18 @@ function clearStarMeshes() { scene.remove(starGroup); disposeTree(starGroup); st
 function makeStarMesh() {
   const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
   const sh = new THREE.Shape();
-  for (let k = 0; k < 10; k++) { const a = Math.PI / 2 + k * Math.PI / 5, r = k % 2 ? 0.15 : 0.36; if (k) sh.lineTo(Math.cos(a) * r, Math.sin(a) * r); else sh.moveTo(Math.cos(a) * r, Math.sin(a) * r); }
+  for (let k = 0; k < 10; k++) { const a = Math.PI / 2 + k * Math.PI / 5, r = k % 2 ? 0.19 : 0.44; if (k) sh.lineTo(Math.cos(a) * r, Math.sin(a) * r); else sh.moveTo(Math.cos(a) * r, Math.sin(a) * r); }
   const geo = new THREE.ExtrudeGeometry(sh, { depth: 0.1, bevelEnabled: true, bevelThickness: 0.03, bevelSize: 0.03, bevelSegments: 1 });
   geo.center();
   const sm = ownMat("#facc15"); sm.emissive = new THREE.Color("#a16207"); sm.emissiveIntensity = 0.35;
-  body.add(part(geo, "", 0.025, sm));
-  const hl = new THREE.Mesh(sphere(0.045, 8, 6), toon("#fff7c2")); hl.position.set(-0.08, 0.1, 0.09); body.add(hl);
+  // звезда смотрит в камеру (камера сверху под 63°), крутится в своей плоскости и покачивается
+  const tilt = new THREE.Group(); tilt.rotation.x = -0.95; body.add(tilt);
+  const spin = new THREE.Group(); tilt.add(spin);
+  spin.add(part(geo, "", 0.03, sm));
+  const hl = new THREE.Mesh(sphere(0.05, 8, 6), toon("#fff7c2")); hl.position.set(-0.1, 0.12, 0.1); spin.add(hl);
   const rm = new THREE.MeshBasicMaterial({ color: "#fde047", transparent: true, opacity: 0.6, depthWrite: false }); rm.userData.own = true;
-  const ring = new THREE.Mesh(new THREE.RingGeometry(0.28, 0.42, 5), rm); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.03; g.add(ring);
-  g.userData.body = body; g.userData.ring = ring;
+  const ring = new THREE.Mesh(new THREE.RingGeometry(0.32, 0.48, 5), rm); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.03; g.add(ring);
+  g.userData.body = body; g.userData.spin = spin; g.userData.ring = ring;
   body.traverse(o => { if (o.isMesh) o.castShadow = true; });
   return g;
 }
@@ -2667,7 +2675,8 @@ function syncStars(t) {
     if (!g) { g = makeStarMesh(); starGroup.add(g); starMeshes.set(s.id, g); }
     g.position.set(P(s.x), 0, P(s.y));
     g.userData.body.position.y = 0.62 + Math.sin(t * 3.2 + s.id) * 0.1;
-    g.userData.body.rotation.y = t * 2.6;
+    g.userData.body.rotation.y = Math.sin(t * 2.2 + s.id) * 0.5;
+    g.userData.spin.rotation.z = t * 2.4;
     g.userData.ring.rotation.z = -t * 1.5;
     g.userData.ring.material.opacity = 0.4 + Math.sin(t * 5) * 0.2;
     g.visible = !(s.life - s.t < CFG.STAR_BLINK && Math.floor(t * 8) % 2);   // мигает перед исчезновением
