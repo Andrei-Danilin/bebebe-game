@@ -125,7 +125,8 @@ const CFG = {
   CAM_LOOKAHEAD: 1.5,        // клеток — камера чуть забегает вперёд по ходу героя
   MINIMAP_W: 0.26,           // доля ширины интерфейса — ширина мини-карты (3:2)
   MINIMAP_MARGIN: 8,         // UI px — отступ мини-карты от краёв
-  ARROW_R: 16,               // UI px — радиус кружка стрелки у края экрана
+  ARROW_D: 30,               // CSS px — кружок стрелки у края экрана (диаметр)
+  PHONE_KISS_BTN: 80,        // CSS px — кнопка 💋 на телефоне
   STICK_ZONE: 0.55,          // доля ширины слева, где касание создаёт джойстик
   PHONE_STICK_R: 60,         // CSS px — радиус джойстика на телефоне
   PHONE_BTN_MIN: 44,         // CSS px — кнопка на телефоне не меньше
@@ -2340,9 +2341,9 @@ function label(text, x, y, size, color, align = "center") {
   ctx.strokeText(text, x, y);
   ctx.fillStyle = color; ctx.fillText(text, x, y);
 }
-function fitText(text, x, y, size, maxW, align, color, weight) {
+function fitText(text, x, y, size, maxW, align, color, weight, min = 9) {
   let sz = size + 0.5;
-  do { sz -= 0.5; ctx.font = `${weight} ${sz}px system-ui, "Segoe UI", sans-serif`; } while (ctx.measureText(text).width > maxW && sz > 9);
+  do { sz -= 0.5; ctx.font = `${weight} ${sz}px system-ui, "Segoe UI", sans-serif`; } while (ctx.measureText(text).width > maxW && sz > min);
   ctx.textAlign = align; ctx.textBaseline = "middle"; ctx.fillStyle = color;
   ctx.fillText(text, x, y);
   return sz;   // размер, которым написано
@@ -2367,14 +2368,15 @@ function wrapText(text, x, y, size, maxW, lines, color, weight) {
   rows.forEach((r, i) => ctx.fillText(r, x, y0 + i * lh));
 }
 // Подпись с контуром, которая сжимается под ширину (не мельче 11px), а если не влезает — обрезается «…»
-function labelFit(text, x, y, size, maxW, color, align = "center") {
+function labelFit(text, x, y, size, maxW, color, align = "center", min = 11) {
   const font = sz => `900 ${sz}px system-ui, "Segoe UI", "Arial Rounded MT Bold", Arial, sans-serif`;
   let sz = size;
   ctx.font = font(sz);
-  while (ctx.measureText(text).width > maxW && sz > 11) { sz -= 0.5; ctx.font = font(sz); }
+  while (ctx.measureText(text).width > maxW && sz > min) { sz -= 0.5; ctx.font = font(sz); }
   let chars = Array.from(text);
   while (chars.length > 1 && ctx.measureText(text).width > maxW) { chars = chars.slice(0, -1); text = chars.join("").trimEnd() + "…"; }
   label(text, x, y, sz, color, align);
+  return sz;
 }
 function heartPath(x, y, s) {
   ctx.beginPath();
@@ -2432,7 +2434,7 @@ function drawKiss(x, y, s) {
 function drawMarkers(t) {
   if (safeZone) {
     const s = toScreen(safeZone.x + safeZone.w / 2, safeZone.y + safeZone.h - 22, 0);
-    ctx.save(); ctx.globalAlpha = 0.75; fitText("🛡 " + L().safe, s.x, s.y, 14, 150, "center", "#14532d", 900); ctx.restore();
+    ctx.save(); ctx.globalAlpha = 0.75; fitText("🛡 " + L().safe, s.x, s.y, fz(14, "hint"), PHONE ? cpx(200) : 150, "center", "#14532d", 900, PHONE ? fz(0, "hint") : 9); ctx.restore();
   }
   if (big.stun <= 0) {
     const back = big.dir + Math.PI, p = toScreen(big.x + Math.cos(back) * (big.r + 16), big.y + Math.sin(back) * (big.r + 16), 4);
@@ -2445,17 +2447,17 @@ function drawMarkers(t) {
       if (l.state === "rest") {
         const z = (t * 1.2 + l.id * 0.3) % 1;
         ctx.save(); ctx.globalAlpha = 1 - z; label("z", hd.x + 10 + z * 14, hd.y - 6 - z * 22, 12 + z * 8, "#e0e7ff"); ctx.restore();
-        label(fmtTime(Math.max(0, l.restTimer)), hd.x, hd.y + 6, isPlayer ? 14 : 11, isPlayer ? P_COLORS[l.id] : "#e5e7eb");
-      } else label("🏠 " + name, hd.x, hd.y - 6, isPlayer ? 13 : 10, "#e5e7eb");
+        label(fmtTime(Math.max(0, l.restTimer)), hd.x, hd.y + 6, fz(isPlayer ? 14 : 11, "hint"), isPlayer ? P_COLORS[l.id] : "#e5e7eb");
+      } else label("🏠 " + name, hd.x, hd.y - 6, fz(isPlayer ? 13 : 10, "hint"), "#e5e7eb");
       continue;
     }
     if (l.state === "ok") {
       const hd = toScreen(l.x, l.y, 72);
       ctx.save(); if (inBush(l)) ctx.globalAlpha = 0.4;     // в кустах имя бледное
       if (isPlayer) {
-        label(name, hd.x, hd.y - 10, 15, P_COLORS[l.id]);
+        label(name, hd.x, hd.y - 10, fz(15, "main"), P_COLORS[l.id]);
         ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.moveTo(hd.x - 5, hd.y - 1); ctx.lineTo(hd.x + 5, hd.y - 1); ctx.lineTo(hd.x, hd.y + 5); ctx.fill();
-      } else label(name, hd.x, hd.y - 4, 11, "#ffffff");
+      } else label(name, hd.x, hd.y - 4, fz(11, "hint"), "#ffffff");
       ctx.restore();
       const ic = (l.fx.boots > 0 ? "👟" : "") + (l.fx.cloak > 0 ? "👻" : "") + (l.fx.shield > 0 ? "🛡" : "");
       if (l.dangerT > CFG.DANGER_TIME - CFG.DANGER_WARN) {   // в доме Большого: большой отсчёт 3, 2, 1 (выше значков предметов)
@@ -2471,14 +2473,14 @@ function drawMarkers(t) {
       ctx.beginPath(); ctx.arc(c.x, c.y, 24, -Math.PI / 2, -Math.PI / 2 + TAU * (l.downTimer / CFG.DOWN_TIME)); ctx.stroke();
       if (l.rescue > 0) { ctx.strokeStyle = "#4ade80"; ctx.beginPath(); ctx.arc(c.x, c.y, 29, -Math.PI / 2, -Math.PI / 2 + TAU * (l.rescue / CFG.RESCUE_TIME)); ctx.stroke(); }
       ctx.lineCap = "butt";
-      label(String(Math.ceil(l.downTimer)), c.x + 30, c.y - 22, 15, "#fecaca");
-      label(isPlayer ? L().help(name) : "SOS", c.x, c.y - 40, 12 * (1 + Math.sin(t * 8) * 0.1), "#fde047");
+      label(String(Math.ceil(l.downTimer)), c.x + 30, c.y - 22, fz(15, "main"), "#fecaca");
+      label(isPlayer ? L().help(name) : "SOS", c.x, c.y - 40, fz(12, "main") * (1 + Math.sin(t * 8) * 0.1), "#fde047");
     }
   }
   const bh = toScreen(big.x, big.y, 134);
   if (big.slip <= 0) {                                    // имя Большого над головой — выше значков «!», «?!», «💦» (они на bh.y − 18…+14)
     ctx.save(); if (inBush(big)) ctx.globalAlpha = 0.4;
-    label(nameFor("big"), bh.x, bh.y - 34, 14, "#ff4d4d");
+    label(nameFor("big"), bh.x, bh.y - 34, fz(14, "main"), "#ff4d4d");
     ctx.restore();
   }
   if (big.slip > 0) label("🍌💫", bh.x + 10, bh.y + 30, 20, "#fff");
@@ -2498,7 +2500,7 @@ function drawFx() {
   ctx.globalAlpha = 1;
   for (const tx of texts) {
     const s = toScreen(tx.x, tx.y, 40);
-    ctx.globalAlpha = Math.max(0, 1 - tx.t / 1.2); label(tx.text, s.x, s.y, 21, tx.color);
+    ctx.globalAlpha = Math.max(0, 1 - tx.t / 1.2); label(tx.text, s.x, s.y, fz(21, "main"), tx.color);
   }
   ctx.globalAlpha = 1;
 }
@@ -2508,6 +2510,7 @@ function addButton(x, y, w, h, text, color, act, size = 24) {
   rr(x, y, w, h, 18); fillStroke(color, 4);
   ctx.fillStyle = "rgba(255,255,255,.25)"; rr(x + 8, y + 6, w - 16, h * 0.35, 10); ctx.fill();
   label(text, x + w / 2, y + h / 2 + 1, size, "#fff");
+  if (PHONE) noteText("main", size);
   const b = { x, y, w, h, act, text };
   buttons.push(b);
   return b;
@@ -2520,7 +2523,97 @@ function toggleFullscreen() {
   } catch (e) { /* не везде поддерживается */ }
 }
 
+// джойстики: основание и шарик под пальцем
+function drawSticks() {
+  const SR = stickR();
+  for (const st of sticks.values()) {
+    ctx.globalAlpha = 0.35; circle(st.ox, st.oy, SR); fillStroke("#fff", 3);
+    ctx.globalAlpha = 0.7;
+    const dx = st.x - st.ox, dy = st.y - st.oy, d = Math.hypot(dx, dy), k = d > SR ? SR / d : 1;
+    circle(st.ox + dx * k, st.oy + dy * k, 24); fillStroke(P_COLORS[st.player], 3);
+    ctx.globalAlpha = 1;
+  }
+}
+// ---------- Телефон (SPEC-005): размеры в CSS px, крупный HUD ----------
+// CSS px → UI px: на телефоне кнопки и шрифты задаются в CSS px (под палец), рисуем в UI px
+const cpx = n => n * UW / CSS_W;
+let textSizes = {}, bannerRect = null;    // самый мелкий шрифт каждого вида за кадр (UI px); где была надпись уровня
+const noteText = (cat, s) => { if (!(s >= textSizes[cat])) textSizes[cat] = s; };
+// размер текста: на компьютере как задан; на телефоне не мельче PHONE_TEXT[cat] CSS px
+function fz(size, cat) {
+  if (!PHONE) return size;
+  const s = Math.max(size, cpx(CFG.PHONE_TEXT[cat]));
+  noteText(cat, s);
+  return s;
+}
+const hudFont = sz => `900 ${sz}px system-ui, "Segoe UI", "Arial Rounded MT Bold", Arial, sans-serif`;
+// верхняя полоса телефона: слева имя Большого и сердечки, дальше уровень/время, пауза, «во весь экран»;
+// справа сверху мини-карта, под ней кружки команды; внизу справа 💋 и рядом рукавицы
+function drawHUDPhone(t) {
+  const m = cpx(8), gap = cpx(CFG.PHONE_BTN_GAP), bh = cpx(CFG.PHONE_BTN_MIN), top = cpx(6), pad = cpx(10);
+  const mm = minimapRect(), main = fz(0, "main"), hint = fz(0, "hint");
+  const plate = (id, x, y, w, h) => { rr(x, y, w, h, cpx(14)); fillStroke("rgba(255,255,255,.85)", 3); hudRects.push({ id, x, y, w, h }); };
+  // уровень и время + кнопки
+  const s = Math.floor(stats.time), timeTxt = `${L().lvShort} ${level}  ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+  ctx.font = hudFont(main);
+  const tw = ctx.measureText(timeTxt).width + 2 * pad, nBtn = STANDALONE ? 1 : 2, gw = tw + nBtn * (gap + bh);
+  // имя Большого и сердечки: не влезает — сердечки плотнее, потом имя короче
+  const bigName = nameFor("big"), room = mm.x - gap - m - gw - gap;
+  let hStep = cpx(21), hSize = cpx(18), nameW = Math.min(ctx.measureText(bigName).width, cpx(110));
+  const plateW = () => pad + nameW + pad * 0.6 + big.maxHp * hStep + pad * 0.4;
+  if (plateW() > room) { hStep = Math.max(cpx(12), (room - pad * 2 - nameW) / big.maxHp); hSize = Math.min(hSize, hStep * 0.95); }
+  if (plateW() > room) nameW = Math.max(cpx(36), room - pad * 2 - big.maxHp * hStep);
+  const pw = plateW();
+  plate("hearts", m, top, pw, bh);
+  labelFit(bigName, m + pad, top + bh / 2, main, nameW, "#9b2c3a", "left", main);
+  const hx = m + pad + nameW + pad * 0.6 + hStep / 2;
+  for (let i = 0; i < big.maxHp; i++) drawHpHeart(hx + i * hStep, top + bh / 2 - hSize / 2 - 1, hSize, heartFill(i, big.hp));
+  // группа по центру свободного места
+  const gx = m + pw + Math.max(gap, (mm.x - gap - (m + pw) - gw) / 2);
+  plate("timer", gx, top, tw, bh);
+  label(timeTxt, gx + tw / 2, top + bh / 2, main, OUT);
+  addButton(gx + tw + gap, top, bh, bh, "II", "#64748b", () => { mode = "pause"; }, main);
+  if (!STANDALONE) addButton(gx + tw + gap + bh + gap, top, bh, bh, "⛶", "#64748b", toggleFullscreen, main);
+  // кружки команды под мини-картой
+  const cd = cpx(30), cw = cd + cpx(3), totalW = littles.length * cw + cpx(10);
+  const x0 = mm.x + mm.w - totalW, y0 = mm.y + mm.h + gap, ch = cd + cpx(8);
+  plate("team", x0, y0, totalW, ch);
+  littles.forEach((l, i) => {
+    const cx = x0 + cpx(5) + i * cw + cw / 2, cy = y0 + ch / 2;
+    ctx.globalAlpha = l.state === "home" || l.state === "rest" ? 0.45 : 1;
+    circle(cx, cy, cd / 2); fillStroke(l.state === "ok" ? l.look.shirt : "#9ca3af", 2.5);
+    ctx.globalAlpha = 1;
+    const txt = l.state === "down" ? String(Math.ceil(l.downTimer)) : l.state === "home" || l.state === "rest" ? "z" : l.kind === "player" ? chipName(l) : L().botChip;
+    labelFit(txt, cx, cy, hint, cd - cpx(4), l.state === "down" ? "#fecaca" : "#fff", "center", hint);
+  });
+  // внизу справа: 💋 и рукавицы рядом
+  const kissOn = mode === "play" && progress.inv.kisses > 0;
+  if (kissOn) kissButton(0);
+  const kr = kissBtnRect(0), gl = gloveOf(0), gh = cpx(44), gEach = cpx(80);
+  let rightEdge = kissOn ? kr.x - gap : UW - m;
+  if (gl) {
+    const gwid = gEach, gx0 = rightEdge - gwid, gy0 = UH - m - gh;
+    plate("gloves", gx0, gy0, gwid, gh);
+    drawMitten(gx0 + cpx(22), gy0 + gh / 2, cpx(28), gl); label("×" + progress.inv[gl], gx0 + cpx(54), gy0 + gh / 2, main, OUT);
+    rightEdge = gx0 - gap;
+  }
+  drawSticks();
+  // подсказка (первые секунды) и «отдыхает» — внизу, левее кнопок
+  const bw = rightEdge - m, bcx = m + bw / 2;
+  if (stats.time < 5) {
+    const hy = UH - m - cpx(16), hs = labelFit(L().touch1, bcx, hy, cpx(17), bw, "#fff", "center", hint), tw2 = Math.min(bw, ctx.measureText(L().touch1).width);
+    noteText("hint", hs); hudRects.push({ id: "hint", x: bcx - tw2 / 2, y: hy - hs * 0.7, w: tw2, h: hs * 1.4 });
+  }
+  littles.filter(l => l.kind === "player" && (l.state === "home" || l.state === "rest")).forEach((l, i) => {
+    const tl = l.state === "rest" ? l.restTimer : CFG.REST_TIME, rh = cpx(40), ry = UH - m - rh - i * (rh + gap) - (stats.time < 5 ? cpx(36) : 0);
+    rr(m, ry, bw, rh, cpx(14)); fillStroke("rgba(30,41,59,.8)", 3); hudRects.push({ id: "rest", x: m, y: ry, w: bw, h: rh });
+    noteText("main", fitText("💤 " + L().resting(nameOf(l), fmtTime(Math.max(0, tl))), bcx, ry + rh / 2, cpx(17), bw - 2 * pad, "center", "#e0e7ff", 800, main));
+  });
+  if (showMinimap()) { drawMinimap(t); drawEdgeArrows(); }
+}
+
 function drawHUD(t) {
+  if (PHONE) { drawHUDPhone(t); return; }
   // имя Большого + сердечки; полоска не налезает на таймер в центре
   const many = big.maxHp > 8, hStep = many ? 17 : 21, hSize = many ? 15 : 18;   // много сердечек — ставим плотнее, чтобы влезло имя
   const bigName = nameFor("big"), hearts = big.maxHp * hStep, timerX = UW / 2 - 95;
@@ -2563,14 +2656,7 @@ function drawHUD(t) {
   addButton(UW / 2 + 22, 8, 40, 34, "II", "#64748b", () => { mode = "pause"; }, 16);
   if (!STANDALONE) addButton(UW / 2 + 68, 8, 40, 34, "⛶", "#64748b", toggleFullscreen, 18);   // на iPhone нет Fullscreen API
 
-  const SR = stickR();
-  for (const st of sticks.values()) {
-    ctx.globalAlpha = 0.35; circle(st.ox, st.oy, SR); fillStroke("#fff", 3);
-    ctx.globalAlpha = 0.7;
-    const dx = st.x - st.ox, dy = st.y - st.oy, d = Math.hypot(dx, dy), k = d > SR ? SR / d : 1;
-    circle(st.ox + dx * k, st.oy + dy * k, 24); fillStroke(P_COLORS[st.player], 3);
-    ctx.globalAlpha = 1;
-  }
+  drawSticks();
   if (isTouch && stats.time < 5) {
     label(numPlayers === 2 ? L().touch2 : L().touch1, UW / 2, UH - 26, 18, "#fff");
   }
@@ -2586,6 +2672,7 @@ function drawHUD(t) {
 
 // Круглая кнопка 💋 игрока pi: внизу справа (один игрок) или на своей стороне (двое); касание здесь — не джойстик
 function kissBtnRect(pi) {
+  if (PHONE) { const d = cpx(CFG.PHONE_KISS_BTN), m = cpx(12); return { x: UW - m - d, y: UH - m - d, w: d, h: d }; }   // телефон: один игрок
   const d = CFG.KISS_BTN, m = 14, left = numPlayers === 2 && pi === 0;
   return { x: left ? m : UW - m - d, y: UH - m - d, w: d, h: d };
 }
@@ -2603,8 +2690,9 @@ function kissButton(pi) {
     ctx.beginPath(); ctx.arc(cx, cy, r - 6, -Math.PI / 2, -Math.PI / 2 + TAU * (1 - l.kissCd / CFG.KISS_COOLDOWN)); ctx.stroke(); ctx.lineCap = "butt";
   }
   ctx.restore();
-  circle(cx + r * 0.72, cy - r * 0.72, 13); fillStroke("#ff4d8d", 2.5);
-  label(String(progress.inv.kisses), cx + r * 0.72, cy - r * 0.72 + 1, 13, "#fff");
+  const br = PHONE ? cpx(15) : 13;
+  circle(cx + r * 0.72, cy - r * 0.72, br); fillStroke("#ff4d8d", 2.5);
+  label(String(progress.inv.kisses), cx + r * 0.72, cy - r * 0.72 + 1, fz(13, "hint"), "#fff");
   buttons.push({ ...rc, act: () => throwKiss(pi), id: "kiss:" + pi });
 }
 
@@ -2672,9 +2760,9 @@ function drawMinimap(t) {
   const hero = camHero(), blink = Math.sin(t * 10) > 0;
   for (const l of littles) {
     if (l === hero) continue;
-    if (l.state === "down") { dot(X(l.x), Y(l.y), 4, blink ? "#22c55e" : "#fff", OUT); mark("downed", X(l.x), Y(l.y)); continue; }
+    if (l.state === "down") { dot(X(l.x), Y(l.y), 4.5, blink ? "#22c55e" : "#fff", OUT); mark("downed", X(l.x), Y(l.y)); continue; }
     ctx.globalAlpha = l.state === "home" || l.state === "rest" ? 0.5 : 1;
-    dot(X(l.x), Y(l.y), 2.8, "#fff", OUT, 1); ctx.globalAlpha = 1;
+    dot(X(l.x), Y(l.y), 3.6, "#fff", OUT, 1.2); ctx.globalAlpha = 1;
     mark("bot", X(l.x), Y(l.y));
   }
   dot(X(big.x), Y(big.y), 5, "#ef4444"); mark("big", X(big.x), Y(big.y));
@@ -2692,7 +2780,7 @@ function drawMinimap(t) {
 function drawEdgeArrows() {
   const hero = camHero();
   if (!hero || mode !== "play") return;
-  const R = CFG.ARROW_R, E = R + 9;                                  // E — с кончиком стрелки
+  const R = cpx(CFG.ARROW_D / 2), E = R * 1.55;                      // E — с кончиком стрелки
   const hs = toScreen(hero.x, hero.y);
   const box = { x0: E + 2, x1: UW - E - 2, y0: E + 2, y1: UH - E - 2 };
   const blocks = [minimapRect(), ...buttons, ...hudRects].map(b => ({ x: b.x - E - 2, y: b.y - E - 2, w: b.w + 2 * E + 4, h: b.h + 2 * E + 4 }));
@@ -2704,21 +2792,22 @@ function drawEdgeArrows() {
     let k = Infinity;
     if (dx > 1e-6) k = Math.min(k, (box.x1 - hs.x) / dx); else if (dx < -1e-6) k = Math.min(k, (box.x0 - hs.x) / dx);
     if (dy > 1e-6) k = Math.min(k, (box.y1 - hs.y) / dy); else if (dy < -1e-6) k = Math.min(k, (box.y0 - hs.y) / dy);
-    const p = { x: clamp(hs.x + dx * k, box.x0, box.x1), y: clamp(hs.y + dy * k, box.y0, box.y1) };
-    const side = Math.abs(p.x - box.x0) < 0.5 || Math.abs(p.x - box.x1) < 0.5;   // на левом/правом краю едем вверх-вниз
-    for (let i = 0; i < 8; i++) {
-      const b = blocks.find(q => p.x > q.x && p.x < q.x + q.w && p.y > q.y && p.y < q.y + q.h);
-      if (!b) break;
-      if (side) { const lo = b.y, hi = b.y + b.h; p.y = (lo >= box.y0 && (p.y - lo < hi - p.y || hi > box.y1)) ? lo : hi; }
-      else { const lo = b.x, hi = b.x + b.w; p.x = (lo >= box.x0 && (p.x - lo < hi - p.x || hi > box.x1)) ? lo : hi; }
-      p.x = clamp(p.x, box.x0, box.x1); p.y = clamp(p.y, box.y0, box.y1);
+    const ideal = { x: clamp(hs.x + dx * k, box.x0, box.x1), y: clamp(hs.y + dy * k, box.y0, box.y1) };
+    const free = q => !blocks.some(b => q.x > b.x && q.x < b.x + b.w && q.y > b.y && q.y < b.y + b.h);
+    let p = ideal;
+    if (!free(p)) {   // место занято — ближайшее свободное место на краю экрана
+      let bd = Infinity;
+      const tryP = (x, y) => { const d = Math.hypot(x - ideal.x, y - ideal.y); if (d < bd && free({ x, y })) { p = { x, y }; bd = d; } };
+      for (let x = box.x0; x <= box.x1; x += 4) { tryP(x, box.y0); tryP(x, box.y1); }
+      for (let y = box.y0; y <= box.y1; y += 4) { tryP(box.x0, y); tryP(box.x1, y); }
     }
+    blocks.push({ x: p.x - 2 * E, y: p.y - 2 * E, w: 4 * E, h: 4 * E });   // следующая стрелка не налезает на эту
     const col = kind === "big" ? "#ef4444" : "#22c55e";
     ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(a);
-    ctx.beginPath(); ctx.moveTo(E, 0); ctx.lineTo(R - 4, -9); ctx.lineTo(R - 4, 9); ctx.closePath(); fillStroke(col, 2.5, "#fff");
+    ctx.beginPath(); ctx.moveTo(E, 0); ctx.lineTo(R * 0.75, -R * 0.55); ctx.lineTo(R * 0.75, R * 0.55); ctx.closePath(); fillStroke(col, 2.5, "#fff");
     ctx.restore();
     circle(p.x, p.y, R); fillStroke(col, 3, "#fff");
-    if (kind === "big") drawHeart(p.x, p.y + 1, 15, "#fff", false); else label("❗", p.x, p.y + 1, 17, "#fff");
+    if (kind === "big") drawHeart(p.x, p.y - R * 0.45, R * 0.95, "#fff", false); else label("❗", p.x, p.y + 1, R * 1.1, "#fff");
     edgeArrows.push({ kind, x: p.x, y: p.y, angle: a, r: E });
   }
 }
@@ -2841,6 +2930,13 @@ function drawOverlay() {
     addButton(UW / 2 - 100, 540, 200, 50, L().ok, "#22c55e", () => { mode = "menu"; }, 22);
     addButton(UW / 2 + 200, 548, 180, 36, resetArmed ? L().sure : L().reset, resetArmed ? "#ef4444" : "#94a3b8", resetProgress, 13);
   } else if (mode === "pause") {
+    if (PHONE) {   // телефон: две большие кнопки посередине
+      const bw = cpx(180), bh = cpx(60), g = cpx(16);
+      label(L().pause, UW / 2, UH / 2 - cpx(56), fz(48, "title"), "#fff");
+      addButton(UW / 2 - bw - g / 2, UH / 2, bw, bh, L().play, "#22c55e", () => { mode = "play"; }, fz(24, "main"));
+      addButton(UW / 2 + g / 2, UH / 2, bw, bh, L().menu, "#64748b", toMenu, fz(24, "main"));
+      return;
+    }
     label(L().pause, UW / 2, UH / 2 - 70, 56, "#fff");
     addButton(UW / 2 - 230, UH / 2, 220, 66, L().play, "#22c55e", () => { mode = "play"; });
     addButton(UW / 2 + 10, UH / 2, 220, 66, L().menu, "#64748b", toMenu);
@@ -2885,6 +2981,16 @@ function drawBanner() {
   const a = bannerAlpha();
   if (a <= 0) return;
   ctx.save(); ctx.globalAlpha = a;
+  if (PHONE) {
+    // телефон: невысокая плашка под верхней полосой, левее мини-карты — герой в центре экрана виден
+    const m = cpx(8), gap = cpx(CFG.PHONE_BTN_GAP), size = fz(0, "title"), h = cpx(42), areaW = minimapRect().x - gap - m;
+    ctx.font = `900 ${size}px system-ui, "Segoe UI", sans-serif`;
+    const w = Math.min(areaW, ctx.measureText(banner.text).width + cpx(40)), x = m + (areaW - w) / 2, y = cpx(6) + cpx(CFG.PHONE_BTN_MIN) + gap;
+    rr(x, y, w, h, cpx(18)); fillStroke("rgba(255,250,235,.93)", 3);
+    noteText("title", fitText(banner.text, x + w / 2, y + h / 2 + 1, size, w - cpx(20), "center", "#ff6fa8", 900, size));
+    bannerRect = { x, y, w, h };
+    ctx.restore(); return;
+  }
   ctx.font = `900 34px system-ui, "Segoe UI", sans-serif`;
   const w = Math.min(640, ctx.measureText(banner.text).width) + 60;
   rr(UW / 2 - w / 2, 96, w, 62, 26); fillStroke("rgba(255,250,235,.93)", 4);
@@ -2893,7 +2999,7 @@ function drawBanner() {
 }
 function drawUI(t) {
   if (nameInput && mode !== "skins" && mode !== "names") closeNameInput(false);
-  buttons = []; installHintShown = false; typeLabel = null; mmState = null; edgeArrows = []; hudRects = [];
+  buttons = []; installHintShown = false; typeLabel = null; mmState = null; edgeArrows = []; hudRects = []; textSizes = {}; bannerRect = null;
   ctx.setTransform(VIEW, 0, 0, VIEW, 0, 0);
   ctx.clearRect(0, 0, UW, UH);
   if (mode !== "menu" && mode !== "skins" && mode !== "names" && mode !== "shop") { drawMarkers(t); drawFx(); drawHUD(t); }
@@ -4214,6 +4320,7 @@ window.__bb = {
   get buttonRects() { return buttons.map(b => ({ id: b.id || b.act.name, x: b.x, y: b.y, w: b.w, h: b.h, text: b.text })); },
   // слой интерфейса: размер в UI px, размер холста в CSS px, scale = CSS px на UI px (SPEC-005)
   updateCamera, camSnap, stickR, skinPanels,
+  get textSizes() { return textSizes; }, get bannerRect() { return bannerRect; },
   get minimap() { return mmState; }, get edgeArrows() { return edgeArrows; }, get hudRects() { return hudRects; },
   get sticks() { return [...sticks].map(([id, s]) => ({ id, ...s })); },
   get uiSize() { return { w: UW, h: UH, cssW: CSS_W, cssH: CSS_H, scale: CSS_W / UW }; }, toGame,

@@ -517,3 +517,89 @@ test("desktop has no mini-map and no edge arrows", async ({ page }) => {
   expect(await page.evaluate(() => window.__bb.edgeArrows)).toEqual([]);
   expect(errors).toEqual([]);
 });
+
+// AC 9, 11, 12: phone sizes. Data-driven: each scene sets up a screen; step 6b adds the menus.
+const PHONE_SIZES = [[667, 375], [844, 390], [932, 430]];
+const PHONE_SCENES = {
+  // play with everything on: banner, touch hint, kiss button, mittens, a downed bot (arrow), a pop text
+  play: async page => {
+    await page.evaluate(() => {
+      const b = window.__bb;
+      b.progress.inv.kisses = 5; b.progress.inv.mittens = 3; b.progress.equip[0] = "mittens";
+      b.startGame(1);
+      Object.assign(b.big, { state: "look", timer: 999, stun: 999 });
+    });
+  },
+  // the hero is resting in the house: the resting bar
+  rest: async page => {
+    await page.evaluate(() => {
+      const b = window.__bb;
+      b.progress.inv.kisses = 5; b.startGame(1);
+      Object.assign(b.big, { state: "look", timer: 999, stun: 999 });
+      b.stats.time = 30;
+      Object.assign(b.littles[0], { state: "rest", restTimer: 100 });
+    });
+  },
+  pause: async page => {
+    await page.evaluate(() => { const b = window.__bb; b.startGame(1); b.stats.time = 30; b.mode = "pause"; });
+  }
+};
+
+function checkPhoneScreen(name, d, minText) {
+  const s = d.ui.scale, cssPad = px => px / s - 0.01;
+  const inside = r => r.x >= -0.01 && r.y >= -0.01 && r.x + r.w <= d.ui.w + 0.01 && r.y + r.h <= d.ui.h + 0.01;
+  expect(d.buttons.length, `${name}: some buttons`).toBeGreaterThan(0);
+  for (const b of d.buttons) {
+    const id = `${name}: button ${b.id || ""} ${b.text || ""}`;
+    expect(b.w * s, `${id} width`).toBeGreaterThanOrEqual(44 - 0.01);
+    expect(b.h * s, `${id} height`).toBeGreaterThanOrEqual(44 - 0.01);
+    expect(inside(b), `${id} inside the screen`).toBe(true);
+    if (d.mm) expect(overlaps(b, d.mm), `${id} on the mini-map`).toBe(false);
+    for (const h of d.hud) expect(overlaps(b, h), `${id} on ${h.id}`).toBe(false);
+  }
+  d.buttons.forEach((a, i) => d.buttons.slice(i + 1).forEach(b =>
+    expect(overlaps(a, b, cssPad(8)), `${name}: ${a.id || a.text} and ${b.id || b.text} closer than 8 CSS px`).toBe(false)));
+  d.hud.forEach((a, i) => {
+    expect(inside(a), `${name}: ${a.id} inside the screen`).toBe(true);
+    if (d.mm) expect(overlaps(a, d.mm), `${name}: ${a.id} on the mini-map`).toBe(false);
+    d.hud.slice(i + 1).forEach(b => expect(overlaps(a, b), `${name}: ${a.id} on ${b.id}`).toBe(false));
+  });
+  for (const [cat, px] of Object.entries(d.texts)) expect(px * s, `${name}: smallest ${cat} text`).toBeGreaterThanOrEqual(minText[cat] - 0.01);
+}
+
+for (const [vw, vh] of PHONE_SIZES) {
+  test.describe(`phone sizes ${vw}×${vh}`, () => {
+    test.use({ ...PHONE_CTX, viewport: { width: vw, height: vh } });
+
+    test(`every phone button is big enough at ${vw}×${vh}`, async ({ page }) => {
+      const errors = await openGame(page, { query: "?phone=1" });
+      const minText = await page.evaluate(() => window.__bb.CFG.PHONE_TEXT);
+      for (const [name, setup] of Object.entries(PHONE_SCENES)) {
+        await setup(page);
+        await frames(page);
+        const d = await page.evaluate(() => {
+          const b = window.__bb, l = b.littles[0];
+          return { ui: b.uiSize, buttons: b.buttonRects, hud: b.hudRects, mm: b.minimap, texts: b.textSizes, banner: b.bannerRect,
+            hero: b.toScreen(l.x, l.y), head: b.toScreen(l.x, l.y, 72), mode: b.mode };
+        });
+        checkPhoneScreen(name, d, minText);
+        if (name === "play") {
+          expect(d.texts.main, "play: main texts recorded").toBeTruthy();
+          expect(d.texts.hint, "play: hint text recorded").toBeTruthy();
+          // the kiss button ≈ 80 CSS px, bottom right
+          const kiss = d.buttons.find(b => b.id === "kiss:0");
+          expect(Math.abs(kiss.w * d.ui.scale - 80)).toBeLessThan(1);
+          expect(kiss.x).toBeGreaterThan(d.ui.w / 2); expect(kiss.y).toBeGreaterThan(d.ui.h / 2);
+          expect(d.hud.map(h => h.id)).toEqual(expect.arrayContaining(["hearts", "timer", "team", "gloves"]));
+          // the level banner shows and does not cover the hero (feet or name)
+          expect(d.banner, "banner shown").toBeTruthy();
+          expect(d.texts.title * d.ui.scale).toBeGreaterThanOrEqual(24 - 0.01);
+          for (const p of [d.hero, d.head]) expect(p.x >= d.banner.x && p.x <= d.banner.x + d.banner.w && p.y >= d.banner.y && p.y <= d.banner.y + d.banner.h).toBe(false);
+        }
+        if (name === "rest") expect(d.hud.map(h => h.id)).toContain("rest");
+        if (name === "pause") expect(d.buttons.length).toBeGreaterThanOrEqual(3);
+      }
+      expect(errors).toEqual([]);
+    });
+  });
+}
