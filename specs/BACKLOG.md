@@ -9,3 +9,6 @@ One line each: what, where it came from. The spec author turns a line into a spe
 - Hug visibility when the Big One faces the camera (the Little One on his shoulders is partly hidden).
 - The lose screen code is unreachable since "no game over" — remove it or reuse it for a "Give up" button.
 - `index.html` is ~2,500 lines: consider splitting into modules (needs a decision: it breaks "opens by double-click" from file://).
+- Progress between Safari and the installed iPhone app (separate storage on iOS) — out of scope in SPEC-001.
+- `navigator.storage.persist()` once, so iOS is less likely to clear the home-screen app's progress when the phone is low on space (SPEC-001 architect review).
+- An "update available" hint in the installed app (today a new version shows on the next launch, because `index.html` is network-first) — SPEC-001 run.
