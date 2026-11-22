@@ -163,3 +163,40 @@ test("maze has 2-wide corridors and few dead ends", async ({ page }) => {
     expect(count(gen, it => it.t === "rock" || it.t === "pond"), at).toBe(0);
   }
 });
+
+test("village has cottages, streets and a square", async ({ page }) => {
+  const levels = await levelsOf(page, "village");
+  expect(levels.map(x => x.lv)).toEqual([4, 10, 16, 22, 28, 34, 40, 46, 52, 58]);
+  for (const { lv, tier, r, gen } of levels) {
+    const at = `level ${lv}`;
+    expect(r.fallback, at).toBe(false);
+    const cot = gen.items.filter(it => it.t === "cottage");
+    expect(inRange(cot.length, [5, 8]), `${at}: ${cot.length} cottages`).toBe(true);
+    for (const c of cot) {
+      const [a, b] = [Math.min(c.w, c.h), Math.max(c.w, c.h)];
+      expect(inRange(a, [3, 4]) && inRange(b, [3, 5]), `${at}: cottage ${JSON.stringify(c)}`).toBe(true);
+    }
+    // streets: no two cottages closer than 2 cells
+    for (let i = 0; i < cot.length; i++) for (let j = i + 1; j < cot.length; j++) {
+      const p = cot[i], q = cot[j], gap = Math.max(q.x - (p.x + p.w), p.x - (q.x + q.w), q.y - (p.y + p.h), p.y - (q.y + q.h));
+      expect(gap, `${at}: cottages ${i} and ${j}`).toBeGreaterThanOrEqual(2);
+    }
+    // the square with a 2×2 fountain in it
+    const sq = gen.items.find(it => it.t === "floor" && it.kind === "square");
+    expect(sq, at).toBeTruthy();
+    expect(inRange(sq.w, [5, 6]) && inRange(sq.h, [4, 5]), at).toBe(true);
+    const f = gen.items.find(it => it.t === "pond" && it.w === 2 && it.h === 2 && it.x >= sq.x && it.y >= sq.y && it.x + 2 <= sq.x + sq.w && it.y + 2 <= sq.y + sq.h);
+    expect(f, `${at}: fountain`).toBeTruthy();
+    const bushes = count(gen, it => it.t === "bush");
+    expect(inRange(bushes, bushRange(3, [5, 7], tier)), `${at}: ${bushes} bushes`).toBe(true);
+    expect(inRange(count(gen, it => it.t === "tree"), [3, 6]), at).toBe(true);
+    expect(inRange(count(gen, it => it.t === "rock"), [0, 2]), at).toBe(true);
+  }
+  // in the game a cottage blocks walking and sight (so air kisses stop at it too)
+  const o = await page.evaluate(() => {
+    const b = window.__bb; b.level = 4; b.startGame(1);
+    const c = b.world.obstacles.find(q => q.kind === "cottage");
+    return c && { move: c.move, sight: c.sight, see: b.world.seeSolid(c.x + c.w / 2, c.y + c.h / 2) };
+  });
+  expect(o).toEqual({ move: true, sight: true, see: true });
+});

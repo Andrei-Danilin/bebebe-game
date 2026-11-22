@@ -126,7 +126,8 @@ const CFG = {
   // раскладки типов: [от, до]; кустов на каждом tier на 1 меньше (но не меньше BUSH_MIN)
   LAYOUT: {
     meadow: { bushes: [10, 12], trees: [6, 9], rocks: [2, 4], ponds: [0, 2], pondW: [2, 3] },
-    maze: { module: 3, bushes: [3, 4], trees: [0, 2], plazas: [1, 2] }
+    maze: { module: 3, bushes: [3, 4], trees: [0, 2], plazas: [1, 2] },
+    village: { cottages: [5, 8], cottageA: [3, 4], cottageB: [3, 5], street: 2, squareW: [5, 6], squareH: [4, 5], bushes: [5, 7], trees: [3, 6], rocks: [0, 2] }
   }
 };
 // Рукавицы из магазина: сколько сердечек забирает одна обнимашка, цена и сколько сильных обнимашек в наборе
@@ -624,10 +625,39 @@ function mazeLayout(ctx) {
   ctx.meta.areas = { plazas: plazas.map(q => ({ x: q.x, y: q.y, w: q.w, h: q.h })) };
 }
 
+// Деревня: 5–8 домиков-блоков с улицами ≥ 2 клеток вокруг, площадь с фонтаном в середине
+function villageLayout(ctx) {
+  const { rng, ri, items, reserve, isFree, place } = ctx, L = CFG.LAYOUT.village, S = L.street;
+  const sw = ri(L.squareW[0], L.squareW[1]), sh = ri(L.squareH[0], L.squareH[1]);
+  const sx = Math.floor((COLS - sw) / 2) + ri(-1, 1), sy = Math.floor((ROWS - sh) / 2) + ri(-1, 1);
+  items.push({ t: "floor", x: sx, y: sy, w: sw, h: sh, kind: "square" });
+  items.push({ t: "pond", x: sx + Math.floor((sw - 2) / 2), y: sy + Math.floor((sh - 2) / 2), w: 2, h: 2, fountain: true });
+  reserve(sx, sy, sw, sh);
+  const cottages = [], want = ri(L.cottages[0], L.cottages[1]);
+  for (let k = 0; k < 800 && cottages.length < want; k++) {
+    let w = ri(L.cottageA[0], L.cottageA[1]), h = ri(L.cottageB[0], L.cottageB[1]);
+    if (rng() < 0.5) [w, h] = [h, w];
+    const x = ri(S, COLS - w - S), y = ri(S, ROWS - h - S);
+    if (isFree(x, y, w, h, S)) { const c = { t: "cottage", x, y, w, h }; items.push(c); cottages.push(c); reserve(x, y, w, h); }
+  }
+  if (cottages.length < L.cottages[0]) ctx.meta.bad = "cottages";
+  // кусты во дворах — вплотную к домикам
+  let bushes = bushCount(ctx, L.bushes);
+  for (let k = 0; k < 400 && bushes > 0 && cottages.length; k++) {
+    const c = cottages[ri(0, cottages.length - 1)], side = ri(0, 3);
+    const x = side === 0 ? c.x - 2 : side === 1 ? c.x + c.w : ri(c.x - 1, c.x + c.w - 1);
+    const y = side === 2 ? c.y - 2 : side === 3 ? c.y + c.h : ri(c.y - 1, c.y + c.h - 1);
+    if (isFree(x, y, 2, 2, 0)) { items.push(genBush(x, y)); reserve(x, y, 2, 2); bushes--; }
+  }
+  place(bushes, genBush, 2, 2, 0);
+  place(ri(L.trees[0], L.trees[1]), genTree(rng));
+  place(ri(L.rocks[0], L.rocks[1]), genRock(rng));
+}
+
 const LAYOUTS = {
-  classic: classicLayout, meadow: meadowLayout, maze: mazeLayout,
+  classic: classicLayout, meadow: meadowLayout, maze: mazeLayout, village: villageLayout,
   // пока только домики — раскладки появляются по шагам SPEC-002
-  village: () => {}, river: () => {}, rooms: () => {}, arena: () => {}
+  river: () => {}, rooms: () => {}, arena: () => {}
 };
 
 function generateLevel(lv, attempt) {
@@ -681,6 +711,7 @@ function applyWorld(gen) {
   for (const it of gen.items) {
     const px = it.x * CELL, py = it.y * CELL;
     if (it.t === "wall") obstacles.push({ shape: "rect", x: px, y: py, w: it.w * CELL, h: it.h * CELL, move: true, sight: true, kind: it.kind });
+    else if (it.t === "cottage") obstacles.push({ shape: "rect", x: px, y: py, w: it.w * CELL, h: it.h * CELL, move: true, sight: true, kind: "cottage" });
     else if (it.t === "pond") obstacles.push({ shape: "rect", x: px, y: py, w: it.w * CELL, h: it.h * CELL, move: true, sight: false, kind: "pond" });
     else if (it.t === "tree") { const t = { shape: "circle", x: px + 16, y: py + 16, r: 12, sr: 15, move: true, sight: true, kind: "tree", v: it.v, s: it.s }; obstacles.push(t); trees.push(t); }
     else if (it.t === "rock") obstacles.push({ shape: "circle", x: px + 16, y: py + 16, r: 16, sr: 16, move: true, sight: true, kind: "rock", s: it.s });
@@ -2734,7 +2765,7 @@ function paintGround(place) {
     });
   }
   for (const f of floors) {
-    if (f.kind === "tile") {
+    if (f.kind === "tile" || f.kind === "square") {
       ctx.fillStyle = place === "school" ? "#e7d7b8" : "#f2ebdf"; ctx.fillRect(f.x, f.y, f.w, f.h);
       ctx.fillStyle = place === "school" ? "#dbc59c" : "#e4d9c6";
       for (let y = 0; y < f.h / CELL; y++) for (let x = 0; x < f.w / CELL; x++) if ((x + y) % 2) ctx.fillRect(f.x + x * CELL, f.y + y * CELL, CELL, CELL);
