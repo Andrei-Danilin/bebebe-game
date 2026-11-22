@@ -1,6 +1,6 @@
 # SPEC-003 — Slower rescue, bonus stars, the Big One's house is dangerous, names
 
-Status: ready
+Status: done (0267e7f; CI test fix f241cb7)
 Complexity: M
 Branch: SPEC-003-rescue-stars-names
 Decided by: the kids with Andrei (2026-11-21): rescue takes 3 s and bots set off to rescue a little later; bonus stars give +3 coins and only players can pick them up; staying 5 s in the Big One's house throws you out (dizzy 2 s, leg fine); names for the players, the Big One and the bots. Everything else below (exact timings, spawn rules, dizzy protection, default names, layout): Claude (spec author).
