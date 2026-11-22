@@ -121,7 +121,12 @@ const CFG = {
   FREE_MIN: { classic: 0.5, meadow: 0.5, maze: 0.4, village: 0.5, river: 0.5, rooms: 0.4, arena: 0.5 },   // доля свободных клеток карты вне домиков
   DEAD_END_MAX: 6,           // клеток — самый длинный тупиковый коридор (кроме лабиринта)
   MAZE_DEAD_ENDS: 0.25,      // в лабиринте после «плетения» остаётся не больше этой доли тупиков
-  BUSH_MIN: { classic: 3, meadow: 7, maze: 2, village: 3, river: 4, rooms: 2, arena: 3 }   // кустов не меньше
+  BUSH_MIN: { classic: 3, meadow: 7, maze: 2, village: 3, river: 4, rooms: 2, arena: 3 },  // кустов не меньше
+  HOMES_DIAGONAL: ["meadow", "village", "arena"],   // открытые типы: дом Большого всегда по диагонали от домика маленьких
+  // раскладки типов: [от, до]; кустов на каждом tier на 1 меньше (но не меньше BUSH_MIN)
+  LAYOUT: {
+    meadow: { bushes: [10, 12], trees: [6, 9], rocks: [2, 4], ponds: [0, 2], pondW: [2, 3] }
+  }
 };
 // Рукавицы из магазина: сколько сердечек забирает одна обнимашка, цена и сколько сильных обнимашек в наборе
 const GLOVES = {
@@ -333,22 +338,40 @@ function covers(o, x, y, sight) {
   if (o.shape === "rect") return x >= o.x && x <= o.x + o.w && y >= o.y && y <= o.y + o.h;
   return Math.hypot(x - o.x, y - o.y) < (sight ? o.sr : o.r);
 }
+// Сетки строятся «растеризацией»: каждое препятствие отмечает только клетки своего прямоугольника (быстро — уровень
+// строится до LEVEL_ATTEMPTS раз). Правила те же, что у covers(): мелкая сетка — по центрам клеток FINE, крупная — по пересечению.
 function buildGrids() {
+  moveGrid.fill(0); seeGrid.fill(0); blocked.fill(0);
+  for (const o of obstacles) {
+    if (!o.move && !o.sight) continue;
+    const ext = o.shape === "rect" ? 0 : Math.max(o.r, o.sr || 0);
+    const x0 = o.shape === "rect" ? o.x : o.x - ext, y0 = o.shape === "rect" ? o.y : o.y - ext;
+    const x1 = o.shape === "rect" ? o.x + o.w : o.x + ext, y1 = o.shape === "rect" ? o.y + o.h : o.y + ext;
+    const i0 = clamp(Math.floor(x0 / FINE) - 1, 0, FW - 1), i1 = clamp(Math.ceil(x1 / FINE) + 1, 0, FW - 1);
+    const j0 = clamp(Math.floor(y0 / FINE) - 1, 0, FH - 1), j1 = clamp(Math.ceil(y1 / FINE) + 1, 0, FH - 1);
+    for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+      const x = (i + 0.5) * FINE, y = (j + 0.5) * FINE;
+      if (o.move && covers(o, x, y, false)) moveGrid[j * FW + i] = 1;
+      if (o.sight && covers(o, x, y, true)) seeGrid[j * FW + i] = 1;
+    }
+    if (!o.move) continue;
+    const c0 = clamp(Math.floor(x0 / CELL) - 1, 0, COLS - 1), c1 = clamp(Math.floor(x1 / CELL) + 1, 0, COLS - 1);
+    const r0 = clamp(Math.floor(y0 / CELL) - 1, 0, ROWS - 1), r1 = clamp(Math.floor(y1 / CELL) + 1, 0, ROWS - 1);
+    for (let cy = r0; cy <= r1; cy++) for (let cx = c0; cx <= c1; cx++) {
+      const px = cx * CELL, py = cy * CELL;
+      let hit;
+      if (o.shape === "rect") hit = px < o.x + o.w && px + CELL > o.x && py < o.y + o.h && py + CELL > o.y;
+      else { const nx = clamp(o.x, px, px + CELL), ny = clamp(o.y, py, py + CELL); hit = Math.hypot(o.x - nx, o.y - ny) < o.r - 2; }
+      if (hit) blocked[cy * COLS + cx] = 1;
+    }
+  }
+  const sz = safeZone;
   for (let j = 0; j < FH; j++) for (let i = 0; i < FW; i++) {
-    const x = (i + 0.5) * FINE, y = (j + 0.5) * FINE;
-    moveGrid[j * FW + i] = obstacles.some(o => o.move && covers(o, x, y, false)) ? 1 : 0;
-    seeGrid[j * FW + i] = obstacles.some(o => o.sight && covers(o, x, y, true)) ? 1 : 0;
-    moveGridBig[j * FW + i] = moveGrid[j * FW + i] || (safeZone && covers(safeZone, x, y, false)) ? 1 : 0;
+    const k = j * FW + i;
+    moveGridBig[k] = moveGrid[k] || (sz && covers(sz, (i + 0.5) * FINE, (j + 0.5) * FINE, false)) ? 1 : 0;
   }
   for (let cy = 0; cy < ROWS; cy++) for (let cx = 0; cx < COLS; cx++) {
     const px = cx * CELL, py = cy * CELL;
-    blocked[cy * COLS + cx] = obstacles.some(o => {
-      if (!o.move) return false;
-      if (o.shape === "rect") return px < o.x + o.w && px + CELL > o.x && py < o.y + o.h && py + CELL > o.y;
-      const nx = clamp(o.x, px, px + CELL), ny = clamp(o.y, py, py + CELL);
-      return Math.hypot(o.x - nx, o.y - ny) < o.r - 2;
-    }) ? 1 : 0;
-    const sz = safeZone;
     blockedBig[cy * COLS + cx] = blocked[cy * COLS + cx] || (sz && px < sz.x + sz.w && px + CELL > sz.x && py < sz.y + sz.h && py + CELL > sz.y) ? 1 : 0;
   }
 }
@@ -479,10 +502,28 @@ function classicLayout(ctx) {
   place(ri(2, 4), (x, y) => ({ t: "rock", x, y, s: 0.9 + rng() * 0.3 }));
   place(ri(3, 5), (x, y) => ({ t: "bush", x, y }), 2, 2, 0);
 }
+// общие кусочки раскладок
+const genTree = rng => (x, y) => ({ t: "tree", x, y, v: rng() < 0.6 ? "pine" : "round", s: 0.9 + rng() * 0.25 });
+const genRock = rng => (x, y) => ({ t: "rock", x, y, s: 0.9 + rng() * 0.3 });
+const genBush = (x, y) => ({ t: "bush", x, y });
+const bushCount = (ctx, [a, b]) => Math.max(CFG.BUSH_MIN[ctx.type], ctx.ri(a, b) - ctx.tier);
+
+// Поляна: никаких зданий — кусты, деревья, камни и маленькие лужи
+function meadowLayout(ctx) {
+  const { rng, ri, items, reserve, isFree, place } = ctx, L = CFG.LAYOUT.meadow;
+  for (let n = ri(L.ponds[0], L.ponds[1]); n > 0; n--) for (let k = 0; k < 80; k++) {
+    const w = ri(L.pondW[0], L.pondW[1]), h = 2, x = ri(1, COLS - w - 1), y = ri(1, ROWS - h - 1);
+    if (isFree(x, y, w, h, 2)) { items.push({ t: "pond", x, y, w, h }); reserve(x, y, w, h); break; }
+  }
+  place(ri(L.trees[0], L.trees[1]), genTree(rng));
+  place(ri(L.rocks[0], L.rocks[1]), genRock(rng));
+  place(bushCount(ctx, L.bushes), genBush, 2, 2, 1);
+}
+
 const LAYOUTS = {
-  classic: classicLayout,
-  // пока только домики — раскладки типов появляются по шагам SPEC-002
-  meadow: () => {}, maze: () => {}, village: () => {}, river: () => {}, rooms: () => {}, arena: () => {}
+  classic: classicLayout, meadow: meadowLayout,
+  // пока только домики — раскладки появляются по шагам SPEC-002
+  maze: () => {}, village: () => {}, river: () => {}, rooms: () => {}, arena: () => {}
 };
 
 function generateLevel(lv, attempt) {
@@ -512,7 +553,7 @@ function generateLevel(lv, attempt) {
     small: null, bigPt: null, doors: { small: [], big: [] }, homes: null, meta: {} };
 
   // Домики: на 1-м уровне — как на рисунке (дом Большого слева внизу), иначе угол Большого выбирает сид
-  placeHomes(ctx, type === "classic" || rng() < 0.5 ? "side" : "diagonal");
+  placeHomes(ctx, type === "classic" ? "side" : CFG.HOMES_DIAGONAL.includes(type) || rng() < 0.5 ? "diagonal" : "side");
   LAYOUTS[type](ctx);
 
   // Зеркалим карту для разнообразия (1-й уровень — как на рисунке)
@@ -669,17 +710,20 @@ function validateLevel(gen, type) {
   if (!doorClear) fails.push("doors");
   if (type === "maze" ? !(before != null && de.count <= Math.floor(before * CFG.MAZE_DEAD_ENDS)) : de.longest > CFG.DEAD_END_MAX) fails.push("deadEnds");
   if (bushes < CFG.BUSH_MIN[type]) fails.push("bushes");
+  if (gen.meta && gen.meta.bad) fails.push("layout:" + gen.meta.bad);
   return { ok: fails.length === 0, fails, seen: small.seen, freeRatio, bigReachAll, smallReachAll, housePath, doorClear, deadEnds, bushes };
 }
 // Строит уровень: до LEVEL_ATTEMPTS попыток, пока validateLevel не пройдёт; иначе — запасной вариант (живая изгородь в «карманах»).
 function buildLevel(lv) {
   const type = levelType(lv), t0 = performance.now();
   let rep = null, attempt = 0;
+  const rejects = [];   // почему отброшены прежние попытки
   for (; attempt < CFG.LEVEL_ATTEMPTS; attempt++) {
     const gen = generateLevel(lv, attempt);
     applyWorld(gen);
     rep = validateLevel(gen, type);
     if (rep.ok) break;
+    rejects.push(rep.fails.join("/"));
   }
   const fallback = !rep.ok;
   if (fallback) {
@@ -691,7 +735,7 @@ function buildLevel(lv) {
   }
   reachable = rep.seen;
   const { seen, ok, ...report } = rep;
-  return { type, tier: levelTier(lv), attempts: Math.min(attempt + 1, CFG.LEVEL_ATTEMPTS), fallback, ...report, ms: performance.now() - t0 };
+  return { type, tier: levelTier(lv), attempts: Math.min(attempt + 1, CFG.LEVEL_ATTEMPTS), fallback, ...report, rejects, ms: performance.now() - t0 };
 }
 // Отчёт о честности уровня (для тестов): строит уровень и возвращает мир идущей игры как был
 function levelReport(lv) {
@@ -2644,7 +2688,7 @@ function buildMap3D() {
 
   for (const o of obstacles) {
     if (o.shape === "rect" && o.kind !== "pond") {
-      const w = P(o.w), d = P(o.h), [c0, c1] = o.kind === "hedge" ? HEDGE_COLORS : th.walls[o.kind];
+      const w = P(o.w), d = P(o.h), [c0, c1] = o.kind === "hedge" ? HEDGE_COLORS : th.walls[o.kind] || th.walls.build;
       let wm = null;
       if (o.kind === "bighome") { wm = ownMat(c0); wm.emissive = new THREE.Color("#000000"); bigHomeMats.push(wm); }
       const wall = part(new THREE.BoxGeometry(w, WALL_H, d), c0, 0.025, wm);

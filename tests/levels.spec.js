@@ -81,3 +81,46 @@ test("levels 1–60 are fair and build fast", async ({ page }) => {
   }
   expect(bad).toEqual([]);
 });
+
+// Every level of one type in 2–60 as the game accepts it: the fairness report and the accepted map (attempt = attempts - 1).
+async function levelsOf(page, type) {
+  return page.evaluate(t => {
+    const b = window.__bb, out = [];
+    for (let lv = 2; lv <= 60; lv++) if (b.levelType(lv) === t) {
+      const r = b.levelReport(lv);
+      out.push({ lv, tier: Math.floor((lv - 2) / 6), r, gen: b.generateLevel(lv, r.attempts - 1) });
+    }
+    return out;
+  }, type);
+}
+const count = (gen, pred) => gen.items.filter(pred).length;
+const inRange = (n, [a, b]) => n >= a && n <= b;
+const bushRange = (min, [a, b], tier) => [Math.max(min, a - tier), Math.max(min, b - tier)];
+// cells of the map covered by items that match pred
+function cellsOf(gen, pred) {
+  const g = Array.from({ length: 20 }, () => Array(30).fill(false));
+  for (const it of gen.items) if (pred(it)) for (let y = it.y; y < it.y + (it.h || 1); y++) for (let x = it.x; x < it.x + (it.w || 1); x++) if (y >= 0 && y < 20 && x >= 0 && x < 30) g[y][x] = true;
+  return g;
+}
+const houseCorners = gen => {
+  const s = gen.items.find(it => it.t === "safe"), d = gen.items.find(it => it.t === "danger");
+  return { small: [s.x < 15, s.y < 10], big: [d.x < 15, d.y < 10] };
+};
+
+test("meadow is open with bushes", async ({ page }) => {
+  const levels = await levelsOf(page, "meadow");
+  expect(levels.map(x => x.lv)).toEqual([2, 8, 14, 20, 26, 32, 38, 44, 50, 56]);
+  for (const { lv, tier, r, gen } of levels) {
+    const at = `level ${lv}`;
+    expect(r.fallback, at).toBe(false);
+    expect([...new Set(gen.items.filter(it => it.t === "wall").map(it => it.kind))].sort(), at).toEqual(["bighome", "home"]);
+    expect(count(gen, it => it.t === "cottage" || it.t === "water"), at).toBe(0);
+    const bushes = count(gen, it => it.t === "bush");
+    expect(inRange(bushes, bushRange(7, [10, 12], tier)), `${at}: ${bushes} bushes`).toBe(true);
+    expect(inRange(count(gen, it => it.t === "tree"), [6, 9]), at).toBe(true);
+    expect(inRange(count(gen, it => it.t === "rock"), [2, 4]), at).toBe(true);
+    expect(inRange(count(gen, it => it.t === "pond"), [0, 2]), at).toBe(true);
+    const c = houseCorners(gen);   // open type: the houses are on the diagonal
+    expect(c.small[0] !== c.big[0] && c.small[1] !== c.big[1], at).toBe(true);
+  }
+});
