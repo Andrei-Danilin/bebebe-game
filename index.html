@@ -122,13 +122,14 @@ const CFG = {
   DEAD_END_MAX: 6,           // клеток — самый длинный тупиковый коридор (кроме лабиринта)
   MAZE_DEAD_ENDS: 0.25,      // в лабиринте после «плетения» остаётся не больше этой доли тупиков
   BUSH_MIN: { classic: 3, meadow: 7, maze: 2, village: 3, river: 4, rooms: 2, arena: 3 },  // кустов не меньше
-  HOMES_DIAGONAL: ["meadow", "village", "arena"],   // открытые типы: дом Большого всегда по диагонали от домика маленьких
+  HOMES_DIAGONAL: ["meadow", "village", "arena", "rooms"],   // тут дом Большого всегда по диагонали (рядом путь между домами < 18)
   // раскладки типов: [от, до]; кустов на каждом tier на 1 меньше (но не меньше BUSH_MIN)
   LAYOUT: {
     meadow: { bushes: [10, 12], trees: [6, 9], rocks: [2, 4], ponds: [0, 2], pondW: [2, 3] },
     maze: { module: 3, bushes: [3, 4], trees: [0, 2], plazas: [1, 2] },
     village: { cottages: [5, 8], cottageA: [3, 4], cottageB: [3, 5], street: 2, squareW: [5, 6], squareH: [4, 5], bushes: [5, 7], trees: [3, 6], rocks: [0, 2] },
-    river: { width: [2, 3], bend: [4, 6], bridges: [2, 3], bridgeW: [2, 3], bushes: [6, 8], trees: [5, 8], rocks: [1, 3] }
+    river: { width: [2, 3], bend: [4, 6], bridges: [2, 3], bridgeW: [2, 3], bushes: [6, 8], trees: [5, 8], rocks: [1, 3] },
+    rooms: { minRoom: 4, stopArea: 80, secondDoor: 1 / 3, outsideDoors: [3, 4], bushes: [3, 5], rocks: [2, 4], bigRoom: 30 }
   }
 };
 // Рукавицы из магазина: сколько сердечек забирает одна обнимашка, цена и сколько сильных обнимашек в наборе
@@ -713,10 +714,99 @@ function riverLayout(ctx) {
   ctx.meta.vertical = vertical;
 }
 
+// Дом с комнатами (дом Большого по диагонали): здание из двух крыльев вокруг двор(ов) домиков — A справа сверху,
+// B слева снизу, общая стена между ними. Каждое крыло делится пополам (BSP) на комнаты ≥ 4×4 внутри; в каждой
+// стене деления дверь (2 клетки), примерно в трети — вторая; 3–4 двери наружу, в оба двора.
+function roomsLayout(ctx) {
+  const { rng, ri, items, occ, reserve, isFree, place } = ctx, L = CFG.LAYOUT.rooms, A = CFG.DOOR_APRON, MR = L.minRoom;
+  const sh = ctx.homes.small, bh = ctx.homes.big;
+  const ax0 = sh.x + sh.w + A, ay1 = bh.y - A - 1;            // крыло A: x ax0..COLS-1, y 0..ay1
+  const bx1 = bh.x - A - 1, by0 = ay1;                         // крыло B: x 0..bx1, y by0..ROWS-1 (общая стена y = ay1)
+  const wings = [{ x0: ax0, y0: 0, x1: COLS - 1, y1: ay1 }, { x0: 0, y0: by0, x1: bx1, y1: ROWS - 1 }];
+  const wall = new Uint8Array(COLS * ROWS), door = new Uint8Array(COLS * ROWS), doors = [];
+  const at = (x, y) => y * COLS + x;
+  for (const g of wings) {
+    for (let x = g.x0; x <= g.x1; x++) { wall[at(x, g.y0)] = 1; wall[at(x, g.y1)] = 1; }
+    for (let y = g.y0; y <= g.y1; y++) { wall[at(g.x0, y)] = 1; wall[at(g.x1, y)] = 1; }
+  }
+  // дверь: 2 клетки в стене; vert — стена вертикальная (дверь сверху вниз)
+  const addDoor = (x, y, vert, kind) => {
+    const c = vert ? [[x, y], [x, y + 1]] : [[x, y], [x + 1, y]];
+    for (const [cx, cy] of c) { wall[at(cx, cy)] = 0; door[at(cx, cy)] = 1; }
+    doors.push({ x, y, w: vert ? 1 : 2, h: vert ? 2 : 1, vert, kind });
+  };
+  const free2 = (vert, x, y, list) => list.every(([cx, cy]) => !door[at(cx, cy)]) && !door[at(vert ? x : x - 1, vert ? y - 1 : y)] && !door[at(vert ? x : x + 2, vert ? y + 2 : y)];
+  // двери наружу: стены крыльев, смотрящие во дворы (по 1–2 в каждый двор, всего 3–4)
+  const segs = {
+    small: [{ vert: true, x: ax0, a: 1, b: ay1 - 1 }, { vert: false, y: by0, a: 1, b: ax0 - 1 }],
+    big: [{ vert: false, y: ay1, a: bx1 + 1, b: COLS - 2 }, { vert: true, x: bx1, a: by0 + 1, b: ROWS - 2 }]
+  };
+  const total = ri(L.outsideDoors[0], L.outsideDoors[1]), perYard = { small: 1, big: 1 };
+  perYard[rng() < 0.5 ? "small" : "big"] += total - 2 > 0 ? 1 : 0;
+  if (total - 2 > 1) perYard[perYard.small > 1 ? "big" : "small"]++;
+  // первая дверь во двор маленьких — напротив правой стены их домика: иначе полоса между домиком и зданием —
+  // тупик для Большого (в домик ему нельзя)
+  addDoor(ax0, ri(1, sh.h - 2), true, "out:small"); perYard.small--;
+  for (const yard of ["small", "big"]) {
+    let left = perYard[yard];
+    for (let k = 0; k < 80 && left > 0; k++) {
+      const sg = segs[yard][ri(0, 1)], st = ri(sg.a, sg.b - 1);
+      const x = sg.vert ? sg.x : st, y = sg.vert ? st : sg.y;
+      const cells = sg.vert ? [[x, y], [x, y + 1]] : [[x, y], [x + 1, y]];
+      if (!free2(sg.vert, x, y, cells)) continue;
+      addDoor(x, y, sg.vert, "out:" + yard); left--;
+    }
+  }
+  // общая стена между крыльями: 1 дверь (иногда 2)
+  const sharedDoor = () => { for (let k = 0; k < 40; k++) { const x = ri(ax0 + 1, bx1 - 2); if (free2(false, x, ay1, [[x, ay1], [x + 1, ay1]])) { addDoor(x, ay1, false, "in"); return; } } };
+  sharedDoor(); if (rng() < L.secondDoor) sharedDoor();
+  // BSP: r — внутренность (без стен). Линия деления не упирается в дверь соседней стены.
+  const rooms = [];
+  const split = r => {
+    const w = r.x1 - r.x0 + 1, h = r.y1 - r.y0 + 1;
+    const canV = w >= 2 * MR + 1, canH = h >= 2 * MR + 1;
+    if ((!canV && !canH) || (w * h <= L.stopArea && rng() < 0.5)) { rooms.push(r); return; }
+    const vert = canV && (!canH || (w > h ? rng() < 0.8 : rng() < 0.2));
+    const opts = [];
+    if (vert) { for (let sx = r.x0 + MR; sx <= r.x1 - MR; sx++) if (!door[at(sx, r.y0 - 1)] && !door[at(sx, r.y1 + 1)]) opts.push(sx); }
+    else { for (let sy = r.y0 + MR; sy <= r.y1 - MR; sy++) if (!door[at(r.x0 - 1, sy)] && !door[at(r.x1 + 1, sy)]) opts.push(sy); }
+    if (!opts.length) { rooms.push(r); return; }
+    const sp = opts[ri(0, opts.length - 1)];
+    if (vert) for (let y = r.y0; y <= r.y1; y++) wall[at(sp, y)] = 1;
+    else for (let x = r.x0; x <= r.x1; x++) wall[at(x, sp)] = 1;
+    const a0 = vert ? r.y0 : r.x0, a1 = vert ? r.y1 : r.x1;
+    const d1 = ri(a0, a1 - 1);
+    if (vert) addDoor(sp, d1, true, "in"); else addDoor(d1, sp, false, "in");
+    if (rng() < L.secondDoor) {
+      const o = []; for (let d = a0; d <= a1 - 1; d++) if (d + 1 < d1 - 1 || d > d1 + 2) o.push(d);
+      if (o.length) { const d2 = o[ri(0, o.length - 1)]; if (vert) addDoor(sp, d2, true, "in"); else addDoor(d2, sp, false, "in"); }
+    }
+    if (vert) { split({ x0: r.x0, y0: r.y0, x1: sp - 1, y1: r.y1 }); split({ x0: sp + 1, y0: r.y0, x1: r.x1, y1: r.y1 }); }
+    else { split({ x0: r.x0, y0: r.y0, x1: r.x1, y1: sp - 1 }); split({ x0: r.x0, y0: sp + 1, x1: r.x1, y1: r.y1 }); }
+  };
+  for (const g of wings) {
+    split({ x0: g.x0 + 1, y0: g.y0 + 1, x1: g.x1 - 1, y1: g.y1 - 1 });
+    items.push({ t: "floor", x: g.x0 + 1, y: g.y0 + 1, w: g.x1 - g.x0 - 1, h: g.y1 - g.y0 - 1, kind: "tile" });
+  }
+  emitWalls(items, occ, wall, "build");
+  // кто за дверью: номер комнаты, "small"/"big" — двор
+  const roomAt = (x, y) => rooms.findIndex(r => x >= r.x0 && x <= r.x1 && y >= r.y0 && y <= r.y1);
+  const side = (x, y, d) => { const k = roomAt(x, y); return k >= 0 ? k : d.kind.startsWith("out:") ? d.kind.slice(4) : -1; };
+  const doorList = doors.map(d => ({ x: d.x, y: d.y, w: d.w, h: d.h,
+    a: d.vert ? side(d.x - 1, d.y, d) : side(d.x, d.y - 1, d), b: d.vert ? side(d.x + 1, d.y, d) : side(d.x, d.y + 1, d) }));
+  if (doors.filter(d => d.kind.startsWith("out:")).length < L.outsideDoors[0] || !doors.some(d => d.kind === "out:small") || !doors.some(d => d.kind === "out:big")) ctx.meta.bad = "outsideDoors";
+  // растения в комнатах, камни-мебель в больших комнатах (не у стен и дверей)
+  const inRoom = (x, y, w, h) => rooms.some(r => x >= r.x0 && y >= r.y0 && x + w - 1 <= r.x1 && y + h - 1 <= r.y1);
+  const big = rooms.filter(r => (r.x1 - r.x0 + 1) * (r.y1 - r.y0 + 1) >= L.bigRoom);
+  place(bushCount(ctx, L.bushes), genBush, 2, 2, 0, (x, y) => inRoom(x, y, 2, 2));
+  place(ri(L.rocks[0], L.rocks[1]), genRock(rng), 1, 1, 2, (x, y) => big.some(r => x >= r.x0 && x <= r.x1 && y >= r.y0 && y <= r.y1));
+  ctx.meta.areas = { rooms: rooms.map(r => ({ x: r.x0, y: r.y0, w: r.x1 - r.x0 + 1, h: r.y1 - r.y0 + 1 })), doors: doorList };
+}
+
 const LAYOUTS = {
   classic: classicLayout, meadow: meadowLayout, maze: mazeLayout, village: villageLayout,
-  river: riverLayout,
-  rooms: () => {}, arena: () => {}   // следующие шаги SPEC-002
+  river: riverLayout, rooms: roomsLayout,
+  arena: () => {}   // следующий шаг SPEC-002
 };
 
 function generateLevel(lv, attempt) {

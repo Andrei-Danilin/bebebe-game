@@ -269,3 +269,54 @@ test("river has bridges and the houses on opposite banks", async ({ page }) => {
   });
   expect(o).toEqual({ move: true, sight: false, see: false, blocked: 1 });
 });
+
+test("rooms all have doors and the building has loops", async ({ page }) => {
+  const levels = await levelsOf(page, "rooms");
+  expect(levels.map(x => x.lv)).toEqual([6, 12, 18, 24, 30, 36, 42, 48, 54, 60]);
+  for (const { lv, tier, r, gen } of levels) {
+    const at = `level ${lv}`;
+    expect(r.fallback, at).toBe(false);
+    expect([...new Set(gen.items.filter(it => it.t === "wall").map(it => it.kind))].sort(), at).toEqual(["bighome", "build", "home"]);
+    const wall = cellsOf(gen, it => it.t === "wall"), { rooms, doors } = gen.meta.areas;
+    const roomAt = (x, y) => rooms.findIndex(q => x >= q.x && x < q.x + q.w && y >= q.y && y < q.y + q.h);
+    expect(rooms.length, at).toBeGreaterThanOrEqual(3);
+    for (const q of rooms) {
+      expect(q.w >= 4 && q.h >= 4, `${at}: room ${JSON.stringify(q)}`).toBe(true);
+      const inside = [];
+      for (let y = q.y; y < q.y + q.h; y++) for (let x = q.x; x < q.x + q.w; x++) if (wall[y][x]) inside.push(`${x},${y}`);
+      expect(inside, `${at}: walls inside room ${JSON.stringify(q)}`).toEqual([]);
+    }
+    // doors are 2-cell gaps in the walls; each side is a room (index) or a yard ("small" / "big")
+    for (const d of doors) {
+      expect(d.w * d.h, at).toBe(2);
+      const vert = d.w === 1;
+      for (let k = 0; k < 2; k++) {
+        const x = d.x + (vert ? 0 : k), y = d.y + (vert ? k : 0);
+        expect(wall[y][x], `${at}: door ${JSON.stringify(d)} is walled`).toBe(false);
+        const sides = vert ? [[x - 1, y], [x + 1, y]] : [[x, y - 1], [x, y + 1]];
+        for (const [sx, sy] of sides) expect(wall[sy][sx], `${at}: door ${JSON.stringify(d)} opens on a wall`).toBe(false);
+        const rs = sides.map(([sx, sy]) => roomAt(sx, sy));
+        const ab = [d.a, d.b].map(v => typeof v === "number" ? v : -1);
+        expect(rs.slice().sort(), `${at}: door ${JSON.stringify(d)} sides`).toEqual(ab.slice().sort());
+      }
+    }
+    // every room has a door, ≥ 3 outside doors, everything connected, and some door can be removed (a loop)
+    for (let k = 0; k < rooms.length; k++) expect(doors.some(d => d.a === k || d.b === k), `${at}: room ${k} without a door`).toBe(true);
+    expect(doors.filter(d => typeof d.a !== "number" || typeof d.b !== "number").length, at).toBeGreaterThanOrEqual(3);
+    const nodes = [...rooms.map((_, k) => k), "small", "big"];
+    const connected = list => {
+      const seen = new Set(["small"]), q = ["small"];
+      while (q.length) { const n = q.pop(); for (const d of list) for (const [u, v] of [[d.a, d.b], [d.b, d.a]]) if (u === n && !seen.has(v)) { seen.add(v); q.push(v); } }
+      return nodes.every(n => seen.has(n));
+    };
+    expect(connected(doors), `${at}: building not connected`).toBe(true);
+    expect(doors.some((d, k) => connected(doors.filter((_, j) => j !== k))), `${at}: no loop`).toBe(true);
+    // plants inside rooms, rocks only in big rooms, no trees
+    const bush = gen.items.filter(it => it.t === "bush");
+    expect(inRange(bush.length, bushRange(2, [3, 5], tier)), `${at}: ${bush.length} bushes`).toBe(true);
+    for (const q of bush) expect(roomAt(q.x, q.y) >= 0 && roomAt(q.x, q.y) === roomAt(q.x + 1, q.y + 1), `${at}: bush outside rooms`).toBe(true);
+    for (const q of gen.items.filter(it => it.t === "rock")) { const k = roomAt(q.x, q.y); expect(k >= 0 && rooms[k].w * rooms[k].h >= 30, `${at}: rock outside a big room`).toBe(true); }
+    expect(inRange(count(gen, it => it.t === "rock"), [2, 4]), at).toBe(true);
+    expect(count(gen, it => it.t === "tree"), at).toBe(0);
+  }
+});
