@@ -116,13 +116,10 @@ test("service worker registers and controls the page over http", async ({ page }
   expect(errors).toEqual([]);
 });
 
-test("old caches are removed on a new SW_VERSION", async ({ page }) => {
-  // The browser's own fetch of sw.js (update check) is not routable, so this test runs its own
-  // server instance that can switch sw.js to a new version.
-  let nextVersion = null;
-  const server = makeServer({
-    override: p => (p === "/sw.js" && nextVersion ? SW_SRC.replace(/const SW_VERSION\s*=\s*"[^"]+"/, `const SW_VERSION = "${nextVersion}"`) : null)
-  });
+// The browser's own fetches of sw.js and of a controlled page are not routable the way we need, so
+// these tests run their own server instance; override(path) can swap a file's content or status.
+async function withOwnServer(page, override, fn) {
+  const server = makeServer({ override: p => override.fn(p) });
   await new Promise(r => server.listen(0, r));
   try {
     const base = `http://localhost:${server.address().port}/`;
@@ -130,14 +127,56 @@ test("old caches are removed on a new SW_VERSION", async ({ page }) => {
     await page.goto(base);
     await page.waitForFunction(() => window.__bbReady === true, null, { timeout: 30_000 });
     await waitForSW(page);
-    expect(await page.evaluate(() => caches.keys())).toEqual([SW_VERSION]);
-    await page.evaluate(() => caches.open("bebebe-v0"));             // a cache of an older version
-    nextVersion = "bebebe-test-v2";
-    await page.evaluate(async () => (await navigator.serviceWorker.getRegistration()).update());
-    await expect.poll(() => page.evaluate(() => caches.keys()), { timeout: 30_000 }).toEqual(["bebebe-test-v2"]);
+    await fn(base);
   } finally {
     server.close();
   }
+}
+const INDEX_SRC = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
+
+test("sw.js precaches the same three.js version index.html imports", async () => {
+  const imported = (INDEX_SRC.match(/cdn\.jsdelivr\.net\/npm\/three@([\d.]+)\/build\/three\.module\.js/) || [])[1];
+  const cached = (SW_SRC.match(/cdn\.jsdelivr\.net\/npm\/three@([\d.]+)\/build\//) || [])[1];
+  expect(imported).toBeTruthy();
+  expect(cached).toBe(imported);
+});
+
+test("old caches are removed on a new SW_VERSION", async ({ page }) => {
+  const ov = { fn: () => null };
+  await withOwnServer(page, ov, async () => {
+    expect(await page.evaluate(() => caches.keys())).toEqual([SW_VERSION]);
+    await page.evaluate(() => Promise.all([caches.open("bebebe-v0"), caches.open("other-pages-app")]));   // an older version + another app on the same origin
+    const next = SW_SRC.replace(/const SW_VERSION\s*=\s*"[^"]+"/, 'const SW_VERSION = "bebebe-test-v2"');
+    ov.fn = p => (p === "/sw.js" ? next : null);
+    await page.evaluate(async () => (await navigator.serviceWorker.getRegistration()).update());
+    await expect.poll(() => page.evaluate(async () => (await caches.keys()).sort()), { timeout: 30_000 }).toEqual(["bebebe-test-v2", "other-pages-app"]);
+  });
+});
+
+test("index.html is network-first: a new version shows up online and stays offline", async ({ page, context }) => {
+  const ov = { fn: () => null };
+  await withOwnServer(page, ov, async () => {
+    const updated = INDEX_SRC.replace("<title>BeBeBe Atrapar 3D</title>", "<title>BeBeBe updated</title>");
+    ov.fn = p => (p === "/index.html" ? updated : null);
+    await page.reload();
+    await page.waitForFunction(() => window.__bbReady === true, null, { timeout: 30_000 });
+    expect(await page.title()).toBe("BeBeBe updated");
+    await context.route("https://cdn.jsdelivr.net/**", route => route.abort("internetdisconnected"));
+    await context.setOffline(true);
+    await page.reload();
+    await page.waitForFunction(() => window.__bbReady === true, null, { timeout: 30_000 });
+    expect(await page.title()).toBe("BeBeBe updated");
+  });
+});
+
+test("a server error (404/503) still opens the cached game", async ({ page }) => {
+  const ov = { fn: () => null };
+  await withOwnServer(page, ov, async () => {
+    ov.fn = p => (p === "/index.html" ? { status: 503, body: "down" } : null);
+    await page.reload();
+    await page.waitForFunction(() => window.__bbReady === true, null, { timeout: 30_000 });
+    expect(await page.title()).toBe("BeBeBe Atrapar 3D");
+  });
 });
 
 test("no service worker and no errors on file://", async ({ page }) => {

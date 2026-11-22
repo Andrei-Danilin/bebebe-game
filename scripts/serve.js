@@ -2,7 +2,7 @@
 // Serves the repo root on http://localhost:$PORT (default 8123) with the MIME types the PWA needs.
 //   node scripts/serve.js        → then open http://localhost:8123/
 // Tests may also require() it: makeServer({ override }) where override(urlPath) returns a body
-// (string) to serve instead of the file, or null.
+// (string) or { status, body } to serve instead of the file, or null.
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
@@ -27,9 +27,10 @@ function makeServer({ override = null } = {}) {
     // never leave the repo root
     if (file !== ROOT && !file.startsWith(ROOT + path.sep)) { res.writeHead(403); res.end("forbidden"); return; }
     const type = TYPES[path.extname(file).toLowerCase()] || "application/octet-stream";
-    const body = override ? override(rel) : null;
-    if (body != null) {
-      res.writeHead(200, { "Content-Type": type, "Cache-Control": "no-cache" });
+    const o = override ? override(rel) : null;
+    if (o != null) {
+      const { status = 200, body = "" } = typeof o === "string" ? { body: o } : o;
+      res.writeHead(status, { "Content-Type": type, "Cache-Control": "no-cache" });
       res.end(req.method === "HEAD" ? undefined : body);
       return;
     }

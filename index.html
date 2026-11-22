@@ -213,7 +213,8 @@ function isStandalone() {
 }
 // iPhone/iPad (iPadOS притворяется Маком, но с тачем)
 const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-const showInstallHint = () => isIOS && !isStandalone();
+const STANDALONE = isStandalone();                 // режим отображения не меняется за сессию
+const showInstallHint = () => isIOS && !STANDALONE;
 
 // Место для игры: body без отступов safe-area (вырез и полоска «домой» на iPhone).
 function playArea() {
@@ -235,6 +236,7 @@ function fit() {
   if (renderer) { renderer.setPixelRatio(DPR); renderer.setSize(CSS_W, CSS_H, true); }
 }
 window.addEventListener("resize", () => fit());
+window.addEventListener("orientationchange", () => requestAnimationFrame(() => fit()));   // iOS обновляет safe-area чуть позже
 
 // =====================================================================
 //  ПОМОЩНИКИ
@@ -1458,7 +1460,7 @@ function drawHUD(t) {
   rr(W / 2 - 95, 8, 110, 34, 14); fillStroke("rgba(255,255,255,.8)", 3);
   label(`${L().lvShort} ${level}  ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`, W / 2 - 40, 25, 14, OUT);
   addButton(W / 2 + 22, 8, 40, 34, "II", "#64748b", () => { mode = "pause"; }, 16);
-  if (!isStandalone()) addButton(W / 2 + 68, 8, 40, 34, "⛶", "#64748b", toggleFullscreen, 18);   // на iPhone нет Fullscreen API
+  if (!STANDALONE) addButton(W / 2 + 68, 8, 40, 34, "⛶", "#64748b", toggleFullscreen, 18);   // на iPhone нет Fullscreen API
 
   for (const st of sticks.values()) {
     ctx.globalAlpha = 0.35; circle(st.ox, st.oy, STICK_R); fillStroke("#fff", 3);
