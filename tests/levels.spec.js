@@ -910,10 +910,10 @@ test("a level with no fair layout falls back and warns", async ({ levelPage: pag
 });
 
 test("every world dresses every level type", async ({ levelPage: page }) => {
-  test.setTimeout(120_000);
-  const r = await page.evaluate(() => {
+  test.setTimeout(180_000);
+  const r = await page.evaluate(W => {
     const b = window.__bb, C = b.grid.CELL, out = [];
-    for (const place of ["park", "beach", "winter", "school"]) for (const lv of [1, 2, 5, 8, 11, 14, 17]) {   // one level of every type
+    for (const place of W) for (const lv of [1, 2, 5, 8, 11, 14, 17]) {   // one level of every type in every world (SPEC-016: six)
       b.world = place; b.level = lv; b.startGame(1);
       for (let i = 0; i < 5; i++) b.update(1 / 60);
       const th = b.THEMES[place], type = b.levelType(place, lv), gen = b.generateLevel(place, lv, b.levelInfo.attempt);
@@ -937,14 +937,14 @@ test("every world dresses every level type", async ({ levelPage: page }) => {
       out.push({ place, lv, type, want, got, built: pieces.length });
     }
     return out;
-  });
-  expect(r.length).toBe(28);
+  }, WORLDS);
+  expect(r.length).toBe(42);
   for (const x of r) expect(x.got, `${x.place} ${x.type} (level ${x.lv})`).toEqual(x.want);
   // the new pieces really have their own look in every place (not one shared colour)
   const mazeColors = new Set(r.filter(x => x.type === "maze").map(x => x.got.maze[0]));
   const waterColors = new Set(r.filter(x => x.type === "river").map(x => x.got.water[0]));
-  expect(mazeColors.size).toBe(4);
-  expect(waterColors.size).toBe(4);
+  expect(mazeColors.size).toBe(WORLDS.length);
+  expect(waterColors.size).toBe(WORLDS.length);
 });
 
 // ---------- AC 10: every type plays for 60 s and nobody gets stuck ----------
