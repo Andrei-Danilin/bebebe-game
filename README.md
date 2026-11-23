@@ -10,6 +10,10 @@ A top-down arcade game designed by kids: the **Little Ones** team against the **
   drains; if the friend gets pushed, it starts over. Bots set off to help 2–3 seconds after you fall.
   If nobody helps within 18 seconds, you limp home and rest there for 30 seconds, then come back.
   There is no game over — but every rest costs coins (−3 from the win line).
+- **Near Dad — tiptoe!** If you run close to the Big One where he can't see you, he hears you: an 👂 pops up
+  over his head, then a ❓ and he turns round to look. Tiptoe (hold `Shift`, or push the stick just a little)
+  and he hears nothing — tiptoeing is only a bit slower. Little "tap-tap" lines at your feet mean he can hear you.
+  After turning round he can't hear for a few seconds; he never hears while you are invisible or in your house.
 - After a push the Big One rests for 2.5 s (pale vision cone) and pushes nobody.
 - After a hug he is shocked for 2.5 s: he can't move or push, and he can't be hugged again yet.
 - Your house is a safe zone: the Big One can't get in. Bushes hide you.
@@ -76,6 +80,7 @@ On a phone (held sideways) the game switches to **phone mode**; iPads and comput
   (red with a heart = the Big One, green with ❗ = a friend who needs help).
 - Put a finger anywhere on the **left part** of the screen: the joystick appears right there. The right part is
   for buttons; the 💋 button is bottom right (while you are down, limping or resting, the 🩹 button takes its place).
+  Push the joystick just a little — inside its dashed inner ring — to tiptoe near the Big One.
 - Big buttons and texts; menus laid out for a wide, short screen. On the level map swipe left/right to change
   the world.
 - **One player** only (bots fill the team).
@@ -105,6 +110,9 @@ Open the file in any modern browser — no build step. Works on desktop, tablet 
 | Rescue kit 🩹 — keyboard | `Q` | `Right Shift` |
 | Rescue kit 🩹 — touch | 🩹 button in the 💋 button's place (shows only while you are down, limping home or resting, and have kits) | 🩹 button in the 💋 button's place |
 | Rescue kit 🩹 — gamepad | Y (Xbox) / △ (PlayStation) | Y / △ on pad 2 |
+| Tiptoe 👣 — keyboard | hold `Shift` (one player: either Shift) / `Left Shift` (two players) | hold `/` (the key left of Right Shift) |
+| Tiptoe 👣 — touch | push the joystick only a little (inside the dashed inner ring) | the same |
+| Tiptoe 👣 — gamepad | tilt the stick only part of the way | the same on pad 2 |
 
 `P` — pause, `M` — sound, `L` — language (English / Español (AR) / Русский).
 
@@ -272,7 +280,7 @@ One HTML file, one ES module:
 
 ## Tuning
 
-`CFG` — gameplay numbers (`HUG_STUN`, `PUSH_RECOVER`, `BOT_ATTACK_PAUSE`, `ITEM_*`, `SLIP_STUN`, `COINS_PER_REST`, `FAST_TIME`, `RESCUE_*`, `STAR_*`, `DANGER_*`, `NAME_MAX`, `KISS_*`, `PAD_KISS`, `REST_TIME`, `KIT_*`, `PAD_KIT`, `PAD_PREV_WORLD` / `PAD_NEXT_WORLD` (map shoulder buttons), `MENU_LOOK` (menu colours and sizes), `WORLD_TYPES` (level types in a world), difficulty `WORLD_DIFFICULTY` (index per world) / `WORLD_SPEED_START` / `SPEED_PER_LEVEL` / `CHASE_MAX_SHARE` / `HP_*`, `LAYOUT` (level type sizes), `BANNER_*`, fairness limits, phone mode `PHONE_*` / `CAM_*` / `MINIMAP_*` / `STICK_ZONE`, …),
+`CFG` — gameplay numbers (`HUG_STUN`, `PUSH_RECOVER`, `BOT_ATTACK_PAUSE`, `ITEM_*`, `SLIP_STUN`, `COINS_PER_REST`, `FAST_TIME`, `RESCUE_*`, `STAR_*`, `DANGER_*`, `NAME_MAX`, `KISS_*`, `PAD_KISS`, `REST_TIME`, `KIT_*`, `PAD_KIT`, `PAD_PREV_WORLD` / `PAD_NEXT_WORLD` (map shoulder buttons), tiptoe and hearing `TIPTOE_*` / `HEAR_*` / `NOISE_*`, `MENU_LOOK` (menu colours and sizes), `WORLD_TYPES` (level types in a world), difficulty `WORLD_DIFFICULTY` (index per world) / `WORLD_SPEED_START` / `SPEED_PER_LEVEL` / `CHASE_MAX_SHARE` / `HP_*`, `LAYOUT` (level type sizes), `BANNER_*`, fairness limits, phone mode `PHONE_*` / `CAM_*` / `MINIMAP_*` / `STICK_ZONE`, …),
 `GLOVES` — gloves (power, price, pack size), `KISSES` — air kiss price and pack, `RESCUE_KIT` — rescue kit price and pack, `REWARD` — coins for a level, `WARDROBE_TIERS` — clothes prices,
 `UPGRADES` — upgrade steps and prices, `I18N` — texts, `STORY` — the story chapters,
 `HAIRS` / `HATS` / `JACKETS` / `PANTS` / `BIG_SKINS` — outfits (with `price`), `THEMES` — worlds (places), `LITTLE_SCALE` / `BIG_SCALE` — character size in 3D.
