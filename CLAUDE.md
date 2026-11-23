@@ -34,7 +34,7 @@ A top-down 3D arcade game that Andrei makes with his kids from their scenario an
 1. One feature = one spec (format: `specs/README.md`). Work strictly within one spec; anything new that comes up goes to `specs/BACKLOG.md`, not into the running spec.
 2. **Branch** `SPEC-NNN-short-description` off `master` (`git branch --show-current` first; never edit on `master`).
 3. **TDD**: for each acceptance criterion write the failing Playwright test first, then the code.
-4. **Verify** (agent `tester`): while working `npm run test:fast` + the touched spec files; the **whole suite once before the merge** (`npx playwright test`, about 10 minutes); no second local run.
+4. **Verify** (agent `tester`): while working `npm run test:fast` + the touched spec files; the **whole suite once before the merge** (`npx playwright test`, about 10 minutes); no second local run. **Balance:** a spec that changes gameplay numbers or rules runs `npm run balance` (~30 s) before the merge, commits the updated `reports/balance.md` + `reports/balance.json`, and lists the red targets in its final report (red is not a stop by itself unless the spec's ACs say so); a changed number also needs `npm run docs:numbers`.
 5. **Review** (agent `code-reviewer`, + `architect-reviewer` for tier L): on `git diff master...<branch>` and the spec only. CRITICAL/HIGH are fixed; at most two fix rounds.
 6. **Commit** in small steps, explicit paths only, message `SPEC-NNN: <what>`, ending with the attribution lines from your system reminder. Use the machine's git identity; never change git config.
 7. **Merge** `git checkout master && git merge --no-ff SPEC-NNN-...` (message `Merge SPEC-NNN: <title>`), then `git branch -d SPEC-NNN-...`; no local suite rerun on `master` (the Pages workflow checks it) unless `master` got code or test commits since the branch was made. **Push and deploy:** remote `origin` = `github.com/Andrei-Danilin/bebebe-game`; after the merge, `git push origin master` (only `master`, never `--force`, never spec branches), then `gh run watch` until the Pages deploy is green; a red deploy is reported, not retried blindly.
@@ -46,6 +46,8 @@ Never: `git push --force`, pushing anything but `master`, `git reset --hard`, `g
 
 - First time on a machine: `npm run setup` (installs Playwright + three.js for tests, downloads Chromium, syncs `claude-setup/` into `.claude/`).
 - Agents/skills changed in `claude-setup/`: `npm run claude:sync`.
+- Balance report: `npm run balance` (~30 s; every level × 3 seeds with the autopilot in sim mode → `reports/balance.md`, `reports/balance.json`; targets in `CFG.BALANCE`). Not part of `npm test`; the CI sample is in `tests/balance.spec.js`.
+- Numbers section of `docs/game-design.md` (generated from `CFG`, `GLOVES`, `KISSES`, `RESCUE_KIT`): `npm run docs:numbers` (`--check` to only compare).
 - Fast set while working (`@fast`, ~1.5 min): `npm run test:fast` · all tests: `npx playwright test` (~10 min, `workers: 1`) · one file: `npx playwright test tests/gameplay.spec.js` · one test: `npx playwright test -g "banana"` · watch it: `npx playwright test --headed`.
 - Play locally: open `index.html` in a browser (Chrome/Edge/Safari/Firefox). Over http (service worker, manifest): `npm run serve` → http://localhost:8123/ (`PORT` to change it; Playwright starts it itself as `webServer`).
 - Icons changed in `icons/icon.svg`: `npm run icons` (renders the PNGs with Playwright's Chromium).
