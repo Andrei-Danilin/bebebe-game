@@ -1,12 +1,25 @@
 // Gameplay rules decided by the kids (see docs/game-design.md). Each test pins one rule.
-const { test, expect } = require("@playwright/test");
-const { openGame, step, setupHug, frames } = require("./helpers");
+const base = require("@playwright/test");
+const { expect } = base;
+const { openGame, step, setupHug, frames, sharedPage, resetGame } = require("./helpers");
+
+// SPEC-018: the tests share one game page (one per context kind: the touch tests get their own) instead of a fresh page
+// each. Before every test resetGame() puts it back to a freshly opened game (storage, language, progress, names,
+// gamepad stubs, level cache), then Park 1 starts as before; page errors fail the test that caused them.
+const shared = sharedPage();
+const test = base.test.extend({
+  page: async ({ browser, hasTouch }, use) => {
+    const s = await shared.get(browser, hasTouch ? "touch" : "desktop", { viewport: { width: 960, height: 640 }, hasTouch }, p => openGame(p));
+    await resetGame(s.page);
+    await use(s.page);
+    expect(s.errors.splice(0)).toEqual([]);
+  }
+});
+test.afterAll(async () => { await shared.close(); });
 
 test.beforeEach(async ({ page }) => {
-  page.errors = await openGame(page);
   await page.evaluate(() => { window.__bb.world = "park"; window.__bb.level = 1; window.__bb.startGame(1); });
 });
-test.afterEach(async ({ page }) => { expect(page.errors).toEqual([]); });
 
 test("a hug from behind takes one heart and shocks the Big One", { tag: "@fast" }, async ({ page }) => {
   const hp0 = await page.evaluate(() => window.__bb.big.hp);

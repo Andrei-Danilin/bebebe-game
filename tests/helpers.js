@@ -117,6 +117,40 @@ function softly() {
   return soft;
 }
 
+// SPEC-018: one game page shared by the tests of a file (a fresh page costs ~2 s of load per test). At most ONE shared
+// page is open: a second open game page keeps rendering 3D in software and makes every other test 3–5× slower, so
+// get() with another key closes the old page first, and a spec closes it before any fresh-page test and in afterAll.
+// get(browser, key, contextOptions, open) → { page, errors }; open(page) loads the game and returns its error list.
+function sharedPage() {
+  let cur = null;
+  const close = async () => { if (cur) { const c = cur; cur = null; await c.ctx.close(); } };
+  const get = async (browser, key, contextOptions, open) => {
+    if (cur && cur.key !== key) await close();
+    if (!cur) {
+      const ctx = await browser.newContext(contextOptions), page = await ctx.newPage();
+      cur = { key, ctx, page, errors: await open(page) };
+    }
+    return cur;
+  };
+  return { get, close };
+}
+
+// SPEC-018: puts a shared game page back to the state of a freshly opened one: localStorage as openGame leaves it
+// (only the language), English, fresh progress and names, no gamepad stubs, an empty level cache, Park 1 in the menu.
+// Tests still restore any CFG value they change.
+async function resetGame(page) {
+  await page.evaluate(() => {
+    const b = window.__bb;
+    delete navigator.getGamepads; window.__pads = [];          // gamepad stubs some tests leave behind
+    b.setLang("en"); b.clearLevelCache(); b.mode = "menu";
+    for (const s of ["p1", "p2", "big", "bot1", "bot2", "bot3", "bot4"]) b.setName(s, "");
+    b.world = "park"; b.resetProgress(); b.resetProgress();   // two calls, like the button: fresh progress, level 1
+    b.world = "park"; b.level = 1; b.resetWorld(1); b.mode = "menu";
+    for (let i = 0; i < 60; i++) b.updateMinimapFade(1 / 60);    // phone: the mini-map fully back (no-op on desktop)
+    try { localStorage.clear(); localStorage.setItem("bebebe-lang", "en"); localStorage.setItem("bb-test-init", "1"); } catch (e) { /* ok */ }
+  });
+}
+
 // Puts player 1 right behind a calm Big One so the next update() makes a hug.
 async function setupHug(page) {
   await page.evaluate(() => {
@@ -126,4 +160,4 @@ async function setupHug(page) {
   });
 }
 
-module.exports = { openGame, openGameHttp, routeThree, frames, step, setupHug, softly, GAME_URL, HTTP_BASE, ROOT };
+module.exports = { openGame, openGameHttp, routeThree, frames, step, setupHug, softly, sharedPage, resetGame, GAME_URL, HTTP_BASE, ROOT };
