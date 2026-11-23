@@ -322,7 +322,7 @@ const I18N = {
     kit: "Rescue kit", kitDesc: "Get up at once and play on", kitPack: n => `Pack: ${n} rescue kits`, kitHave: n => `You have: ${n} ${n === 1 ? "kit" : "kits"}`,
     kitUsed: "Back in the game!", kitHint: "Press 🩹 to get up!", kitKey1: "Q", kitKey2: "Shift ⇨", packShort: n => `📦 ×${n}`,
     types: { classic: "Our drawing", meadow: "Meadow", maze: "Maze", village: "Village", river: "River with bridges", rooms: "House with rooms", arena: "Ring arena" },
-    levelIntro: (w, n, t) => `${w} · Level ${n}: ${t}`, levelIntroShort: (w, n, t) => `${w} · ${n}: ${t}`, worldStars: (n, max) => `⭐ ${n}/${max}`
+    levelIntro: (w, n, t) => `${w} · Level ${n}: ${t}`, levelIntroShort: (w, n, t) => `${w} · ${n}: ${t}`, levelIntroTiny: (w, n, t) => `${n}: ${t}`, worldStars: (n, max) => `⭐ ${n}/${max}`
   },
   es: {
     name: "Español", subtitle: "Los Chiquitos contra el Grandote",
@@ -365,7 +365,7 @@ const I18N = {
     kit: "Curita mágica", kitDesc: "Levantate al toque y seguí jugando", kitPack: n => `Paquete: ${n} curitas`, kitHave: n => `Tenés: ${n} ${n === 1 ? "curita" : "curitas"}`,
     kitUsed: "¡De vuelta al juego!", kitHint: "¡Tocá 🩹 para levantarte!", kitKey1: "Q", kitKey2: "Shift ⇨", packShort: n => `📦 ×${n}`,
     types: { classic: "Nuestro dibujo", meadow: "Pradera", maze: "Laberinto", village: "Pueblito", river: "Río con puentes", rooms: "Casa con cuartos", arena: "Arena" },
-    levelIntro: (w, n, t) => `${w} · Nivel ${n}: ${t}`, levelIntroShort: (w, n, t) => `${w} · ${n}: ${t}`, worldStars: (n, max) => `⭐ ${n}/${max}`
+    levelIntro: (w, n, t) => `${w} · Nivel ${n}: ${t}`, levelIntroShort: (w, n, t) => `${w} · ${n}: ${t}`, levelIntroTiny: (w, n, t) => `${n}: ${t}`, worldStars: (n, max) => `⭐ ${n}/${max}`
   },
   ru: {
     name: "Русский", subtitle: "Маленькие против Большого",
@@ -411,7 +411,7 @@ const I18N = {
     kitHave: n => `У вас: ${n} ${ruPlural(n, ["спасалка", "спасалки", "спасалок"])}`, kitUsed: "Снова в игре!", kitHint: "Нажми 🩹, чтобы встать!",
     kitKey1: "Q", kitKey2: "Shift ⇨", packShort: n => `📦 ×${n}`,
     types: { classic: "Наш рисунок", meadow: "Поляна", maze: "Лабиринт", village: "Деревня", river: "Река с мостиками", rooms: "Дом с комнатами", arena: "Арена с кольцом" },
-    levelIntro: (w, n, t) => `${w} · Уровень ${n}: ${t}`, levelIntroShort: (w, n, t) => `${w} · ${n}: ${t}`, worldStars: (n, max) => `⭐ ${n}/${max}`
+    levelIntro: (w, n, t) => `${w} · Уровень ${n}: ${t}`, levelIntroShort: (w, n, t) => `${w} · ${n}: ${t}`, levelIntroTiny: (w, n, t) => `${n}: ${t}`, worldStars: (n, max) => `⭐ ${n}/${max}`
   }
 };
 const LANGS = ["en", "es", "ru"];
@@ -1984,8 +1984,9 @@ function showBanner() {
   if (now - bannerShownAt < CFG.BANNER_REPEAT) { banner = null; return; }
   bannerShownAt = now;
   const wn = L().worlds[curWorld], tn = L().types[levelType(curWorld, level)];
-  // short — короткий вариант для телефона, если полный не влез (SPEC-006 AC 13); place — место на телефоне, выбирается при первом показе
-  banner = { text: L().levelIntro(wn, level, tn), short: L().levelIntroShort(wn, level, tn), t: 0, place: null };
+  // short — короткий вариант для телефона, если полный не влез (SPEC-006 AC 13); tiny — самый короткий, без мира (SPEC-016: с длинным
+  // именем мира — «Футбольное поле» — и широким шрифтом не влезал и короткий); place — место на телефоне, выбирается при первом показе
+  banner = { text: L().levelIntro(wn, level, tn), short: L().levelIntroShort(wn, level, tn), tiny: L().levelIntroTiny(wn, level, tn), t: 0, place: null };
 }
 const bannerAlpha = () => !banner ? 0 : clamp(Math.min(banner.t, CFG.BANNER_TIME - banner.t) / CFG.BANNER_FADE, 0, 1);
 // camSnap: начало уровня — камера телефона сразу у героя (в resetWorld нельзя: он же открывает меню, где камера показывает всю карту)
@@ -3729,13 +3730,16 @@ function phoneWorldRow(ws, total, gap) {
 // SPEC-016: «Открылись бонусные миры!» на экране победы — только после победы, открывшей их (lastReward.bonusUnlocked);
 // плашка в hudRects (bonus-note), для тестов — bonusNote { text, x, y, w, h, size, textW }
 let bonusNote = null;
+// Ширина текста меряется с CFG.TEXT_TEST_SCALE (тесты изображают более широкие шрифты CI и iPhone): плашка всегда шире текста
 function drawBonusNote(cx, cy, maxW, h, css) {
   if (!lastReward || !lastReward.bonusUnlocked) return;
-  const text = "🎁 " + L().bonusUnlocked;
-  const size = PHONE ? pText(text, -9999, -9999, "main", css, maxW - cpx(20), "center", OUT, 900) : fitText(text, -9999, -9999, css, maxW - 24, "center", OUT, 900, 14);
-  const textW = ctx.measureText(text).width, w = Math.min(maxW, textW + (PHONE ? cpx(24) : 28)), x = cx - w / 2, y = cy - h / 2;
+  const text = "🎁 " + L().bonusUnlocked, padX = PHONE ? cpx(24) : 28;
+  const min = PHONE ? cpx(CFG.PHONE_TEXT.main) : 14, start = PHONE ? Math.max(cpx(css), min) : css;
+  const size = fitText(text, -9999, -9999, start, (maxW - padX) / CFG.TEXT_TEST_SCALE, "center", OUT, 900, min);
+  const textW = ctx.measureText(text).width * CFG.TEXT_TEST_SCALE, w = Math.min(maxW, textW + padX), x = cx - w / 2, y = cy - h / 2;
   rr(x, y, w, h, h / 2); fillStroke("#fde047", PHONE ? cpx(3) : 4, "#db2777");
-  if (PHONE) pText(text, cx, cy + 1, "main", css, w - cpx(16), "center", "#831843", 900); else fitText(text, cx, cy + 1, css, w - 20, "center", "#831843", 900, 14);
+  fitText(text, cx, cy + 1, size, Infinity, "center", "#831843", 900, size);
+  if (PHONE) noteText("main", size);
   bonusNote = { text, x, y, w, h, size, textW };
   hudRects.push({ id: "bonus-note", x, y, w, h });
 }
@@ -4207,7 +4211,8 @@ function drawOverlayPhone() {
       });
       drawRewardLines(rw, rx - colW / 2, Y0 + c(14), colW, c(28), c(17), cpx(CFG.PHONE_TEXT.main), c(26), cpx(CFG.PHONE_TEXT.title));
       acts = endActions("win").map((a, i) => [...a, c([200, 150, 150][i])]);
-      drawBonusNote(lx, Math.min(Y0 + c(262), Y1 - bh - g - c(15)), colW, c(28), 15);   // SPEC-016: под строками звёзд, над кнопками
+      // SPEC-016: под строками звёзд и наградой, над кнопками, по центру экрана — во всю ширину (испанский текст в левую колонку не влезал)
+      drawBonusNote(UW / 2, Math.min(Y0 + c(262), Y1 - bh - g - c(15)), X1 - X0 - 2 * g, c(28), 15);
     } else {
       pLabel(L().lose, lx, Y0 + c(40), "title", 36, "#fca5a5", "center", colW);
       pWrap(L().loseSub(fmtHearts(big.maxHp - big.hp), big.maxHp), lx, Y0 + c(70), "main", 17, colW, 3, "#fff", 900);
@@ -4410,15 +4415,16 @@ function heroScreenRect(l) {
 }
 // место надписи уровня на телефоне (SPEC-006 AC 13): в той половине экрана, где нет героя — сверху под верхней полосой
 // или снизу над подсказкой; по центру самого широкого свободного места, в стороне (PHONE_BTN_GAP) от мини-карты,
-// табличек HUD, кнопок и героя. Ищем от края к середине экрана; на каждой высоте сначала полный текст, потом короткий.
-// Нигде не влезло — null: надпись не показываем (она только для сведения).
+// табличек HUD, кнопок и героя. Ищем от края к середине экрана; на каждой высоте сначала полный текст, потом короткий;
+// нигде не влезли — ещё раз с самым коротким (SPEC-016, без имени мира). Нигде не влезло — null: надпись не показываем.
 function placePhoneBanner() {
   const P = CFG.PHONE_BANNER, m = cpx(8), gap = cpx(CFG.PHONE_BTN_GAP), h = cpx(P.h), step = cpx(P.scan), mid = UH / 2;
   const hero = camHero(), hr = hero && heroScreenRect(hero);
   const blocks = [minimapRect(), ...buttons, ...hudRects];
   if (hr) blocks.push(hr);
   ctx.font = `900 ${minPx("title")}px system-ui, "Segoe UI", sans-serif`;
-  const texts = [banner.text, banner.short].map(text => ({ text, w: ctx.measureText(text).width * CFG.TEXT_TEST_SCALE + 2 * cpx(P.pad) }));
+  const measure = (text, variant) => ({ text, variant, w: ctx.measureText(text).width * CFG.TEXT_TEST_SCALE + 2 * cpx(P.pad) });
+  const tiers = [[measure(banner.text, "full"), measure(banner.short, "short")], [measure(banner.tiny, "tiny")]];
   // самый широкий свободный отрезок по x для плашки на высоте y
   const span = y => {
     let segs = [[m, UW - m]];
@@ -4433,10 +4439,10 @@ function placePhoneBanner() {
   const low = hudRects.filter(r => r.id === "hint" || r.id === "rest" || r.id === "kitHint").reduce((v, r) => Math.min(v, r.y - gap), UH - m);
   const bands = [{ from: phoneTopBar() + gap, to: mid - h, dir: 1 }, { from: low - h, to: mid, dir: -1 }];
   if (hr && hr.y + hr.h / 2 < mid) bands.reverse();          // герой в верхней половине — сначала низ
-  for (const bd of bands) {
+  for (const texts of tiers) for (const bd of bands) {
     for (let y = bd.from; (y - bd.to) * bd.dir <= 0; y += step * bd.dir) {
       const [s0, e0] = span(y);
-      for (const t of texts) if (t.w <= e0 - s0) return { x: (s0 + e0 - t.w) / 2, y, w: t.w, h, text: t.text };
+      for (const t of texts) if (t.w <= e0 - s0) return { x: (s0 + e0 - t.w) / 2, y, w: t.w, h, text: t.text, variant: t.variant };
     }
   }
   return null;
@@ -4451,11 +4457,11 @@ function drawBanner() {
     const P = CFG.PHONE_BANNER, key = `${UW}x${UH}x${CSS_W}`;
     if (!banner.place || banner.place.key !== key) banner.place = { key, spot: placePhoneBanner() };
     if (!banner.place.spot) { ctx.restore(); return; }       // нигде не влезло — не показываем
-    const { x, y, w, h, text } = banner.place.spot, size = minPx("title");
+    const { x, y, w, h, text, variant } = banner.place.spot, size = minPx("title");
     rr(x, y, w, h, cpx(P.radius)); fillStroke("rgba(255,250,235,.93)", 3);
     const sz = fitText(text, x + w / 2, y + h / 2 + 1, size, (w - 2 * cpx(P.edge)) / CFG.TEXT_TEST_SCALE, "center", "#ff6fa8", 900, size);
     noteText("title", sz);
-    bannerRect = { x, y, w, h, text, size: sz, short: text !== banner.text };
+    bannerRect = { x, y, w, h, text, size: sz, short: text !== banner.text, variant };   // variant: full | short | tiny
     ctx.restore(); return;
   }
   ctx.font = `900 34px system-ui, "Segoe UI", sans-serif`;
