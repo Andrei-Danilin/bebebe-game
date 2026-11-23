@@ -161,7 +161,7 @@ async function resetGame(page) {
   await page.evaluate(() => {
     const b = window.__bb;
     delete navigator.getGamepads; window.__pads = [];          // gamepad stubs some tests leave behind
-    b.setLang("en"); b.clearLevelCache(); b.resetBannerTimer(); b.mode = "menu"; b.seedRandom(); b.autopilot(false);   // SPEC-008: unseeded, no autopilot
+    b.setLang("en"); b.clearLevelCache(); b.resetBannerTimer(); b.mode = "menu"; b.seedRandom(); b.autopilot(false, "careful");   // SPEC-008: unseeded, no autopilot, default style
     for (const s of ["p1", "p2", "big", "bot1", "bot2", "bot3", "bot4"]) b.setName(s, "");
     b.world = "park"; b.resetProgress(); b.resetProgress();   // two calls, like the button: fresh progress, level 1
     b.world = "park"; b.level = 1; b.resetWorld(1); b.mode = "menu";

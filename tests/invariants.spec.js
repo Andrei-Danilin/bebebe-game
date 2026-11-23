@@ -190,7 +190,11 @@ test("every known save shape loads into the current one and round-trips", async 
       return { p: JSON.parse(JSON.stringify(p)), again: JSON.parse(JSON.stringify(again)) };
     }, asStored(f.keys)["bebebe-progress"]);
     if (n === "current") soft(r.p, `${n}: loads unchanged`).toEqual(f.expect.progress);
-    else soft(r.p, `${n}: loads into the current shape`).toMatchObject(f.expect.progress);
+    else {
+      soft(r.p, `${n}: loads into the current shape`).toMatchObject(f.expect.progress);
+      soft(Object.keys(r.p).sort(), `${n}: no old or extra top-level fields`).toEqual(Object.keys(save("current").expect.progress).sort());
+      soft(r.p.worlds, `${n}: worlds exactly`).toEqual(f.expect.progress.worlds);
+    }
     soft(r.again, `${n}: loading it again changes nothing`).toEqual(r.p);
     for (const [k, v] of Object.entries(r.p.inv)) soft(Number.isInteger(v) && v >= 0, `${n}: inv.${k} = ${v}`).toBe(true);
     soft(Object.keys(f.keys).every(k => k.startsWith("bebebe-")), `${n}: only bebebe-* keys`).toBe(true);

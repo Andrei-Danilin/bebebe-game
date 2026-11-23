@@ -347,5 +347,6 @@ test("a balance run can start from a progress preset", async ({ page }) => {
   const stocked = await page.evaluate(runLevel, { world: "park", n: 5, style: "careful", seed: 2026, progress: { coins: 50, inv: { kisses: 5, rescues: 3 } } });
   expect(fresh.kisses, "nothing bought: no kisses").toBe(0);
   expect(stocked.kisses, "with kisses in stock the autopilot throws them").toBeGreaterThan(0);
-  expect(stocked.coins, "coins counted are the ones earned, not the preset").toBeLessThan(50 + fresh.coins + 100);
+  // the run counts only the coins it earned; the preset's 50 stay in progress on top of them
+  expect(await page.evaluate(() => window.__bb.progress.coins), "preset coins + the coins this run earned").toBe(50 + stocked.coins);
 });
