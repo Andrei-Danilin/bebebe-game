@@ -1,7 +1,29 @@
 // SPEC-005: phone mode (camera follows the hero, mini-map, big controls).
 // Phone tests run at 844×390 with touch + isMobile and ?phone=1; the desktop test checks that nothing changed.
-const { test, expect } = require("@playwright/test");
-const { openGame, step, frames } = require("./helpers");
+const base = require("@playwright/test");
+const { expect } = base;
+const { openGame, step, frames, sharedPage, resetGame } = require("./helpers");
+
+// SPEC-018: the ?phone=1 tests share one game page per screen setup (fixture `phonePage`: viewport, touch, mobile)
+// instead of a fresh page each. Before every test the page gets its viewport back, a name input left open is closed
+// and resetGame() puts the game back to a freshly opened one (menu, Park 1, fresh progress, English). page.sharedErrors
+// is its error list (each test checks it; the fixture checks and clears it too). A test that asks for `page` (a fresh
+// page) first closes the shared one: a second open game page would make it 3–5× slower.
+const shared = sharedPage();
+const test = base.test.extend({
+  page: async ({ page }, use) => { await shared.close(); await use(page); },
+  phonePage: async ({ browser, viewport, hasTouch, isMobile }, use) => {
+    const s = await shared.get(browser, JSON.stringify([viewport, hasTouch, isMobile]), { viewport, hasTouch, isMobile }, p => openGame(p, { query: "?phone=1" }));
+    const size = s.page.viewportSize();
+    if (size.width !== viewport.width || size.height !== viewport.height) await s.page.setViewportSize(viewport);
+    if (await s.page.locator("input.name-input").count()) await s.page.keyboard.press("Escape");
+    await resetGame(s.page);
+    s.page.sharedErrors = s.errors;
+    await use(s.page);
+    expect(s.errors.splice(0)).toEqual([]);
+  }
+});
+test.afterAll(async () => { await shared.close(); });
 
 const PHONE_CTX = { viewport: { width: 844, height: 390 }, hasTouch: true, isMobile: true };
 
@@ -131,8 +153,8 @@ for (const [vw, vh] of [[667, 375], [844, 390], [932, 430]]) {
   test.describe(`phone ${vw}×${vh}`, () => {
     test.use({ ...PHONE_CTX, viewport: { width: vw, height: vh } });
 
-    test(`phone mode fills the screen at ${vw}×${vh}`, async ({ page }) => {
-      const errors = await openGame(page, { query: "?phone=1" });
+    test(`phone mode fills the screen at ${vw}×${vh}`, async ({ phonePage: page }) => {
+      const errors = page.sharedErrors;
       await frames(page);
       // playArea() = body minus safe-area padding (no insets in the test browser → the viewport)
       const area = await page.evaluate(() => {
@@ -203,8 +225,9 @@ test.describe("desktop UI size", () => {
 });
 
 // AC 3: follow camera. Level 1, 844×390. The Big One is stunned so nobody gets pushed.
+// (on the shared phone page: `phonePage`)
 async function phonePlay(page) {
-  const errors = await openGame(page, { query: "?phone=1" });
+  const errors = page.sharedErrors;
   await page.evaluate(() => { const b = window.__bb; b.startGame(1); Object.assign(b.big, { state: "look", timer: 999, stun: 999 }); });
   return errors;
 }
@@ -231,7 +254,7 @@ const EPS = 0.5;
 test.describe("phone camera", () => {
   test.use(PHONE_CTX);
 
-  test("the camera follows the hero and stops at the map edges", async ({ page }) => {
+  test("the camera follows the hero and stops at the map edges", async ({ phonePage: page }) => {
     const errors = await phonePlay(page);
     const ui = await page.evaluate(() => window.__bb.uiSize);
     // visible ground ≈ 10 rows tall (the bounding box of the visible trapezoid), width from the aspect
@@ -284,7 +307,7 @@ test.describe("phone camera", () => {
     expect(errors).toEqual([]);
   });
 
-  test("the camera smoothing does not depend on the frame rate", async ({ page }) => {
+  test("the camera smoothing does not depend on the frame rate", async ({ phonePage: page }) => {
     await phonePlay(page);
     const run = dt => page.evaluate(dt => {
       const b = window.__bb, l = b.littles[0];
@@ -299,7 +322,7 @@ test.describe("phone camera", () => {
     expect(a.x).toBeGreaterThan(500 + 50);    // and it really moved most of the way (1 - e^-3 ≈ 95 %)
   });
 
-  test("the camera stays on a downed or resting hero (no look-ahead)", async ({ page }) => {
+  test("the camera stays on a downed or resting hero (no look-ahead)", async ({ phonePage: page }) => {
     const errors = await phonePlay(page);
     await placeHero(page, 480, 260);
     // walking right: the camera runs ahead of him
@@ -332,8 +355,8 @@ test.describe("phone camera", () => {
     expect(errors).toEqual([]);
   });
 
-  test("a hero in a top-right house is not hidden under the mini-map, team chips or top bar", async ({ page }) => {
-    const errors = await openGame(page, { query: "?phone=1" });
+  test("a hero in a top-right house is not hidden under the mini-map, team chips or top bar", async ({ phonePage: page }) => {
+    const errors = page.sharedErrors;
     await page.evaluate(() => { const b = window.__bb; b.progress.worlds.beach.unlocked = 20; b.world = "beach"; b.level = 12; b.startGame(1); Object.assign(b.big, { stun: 999 }); });   // rooms, the house top-right
     await frames(page);
     const d = await page.evaluate(() => {
@@ -350,7 +373,7 @@ test.describe("phone camera", () => {
     expect(errors).toEqual([]);
   });
 
-  test("the follow goal changes smoothly when the hero walks the top-right diagonal", async ({ page }) => {
+  test("the follow goal changes smoothly when the hero walks the top-right diagonal", async ({ phonePage: page }) => {
     const errors = await phonePlay(page);
     await frames(page);
     const r = await page.evaluate(() => {
@@ -368,7 +391,7 @@ test.describe("phone camera", () => {
     expect(errors).toEqual([]);
   });
 
-  test("after the win the camera zooms out to the whole map, the next level snaps back", async ({ page }) => {
+  test("after the win the camera zooms out to the whole map, the next level snaps back", async ({ phonePage: page }) => {
     const errors = await phonePlay(page);
     await page.evaluate(() => { window.__bb.mode = "win"; });
     const mid = await page.evaluate(() => { for (let i = 0; i < 30; i++) window.__bb.updateCamera(1 / 60); return window.__bb.camera; });
@@ -398,7 +421,7 @@ const heroPos = page => page.evaluate(() => ({ x: window.__bb.littles[0].x, y: w
 test.describe("phone controls", () => {
   test.use(PHONE_CTX);
 
-  test("joystick appears under the finger on the left only", async ({ page }) => {
+  test("joystick appears under the finger on the left only", async ({ phonePage: page }) => {
     const errors = await phonePlay(page);
     await placeHero(page, 560, 300);
     await frames(page);
@@ -463,8 +486,8 @@ test.describe("phone controls", () => {
     expect(errors).toEqual([]);
   });
 
-  test("phones play with one player", async ({ page }) => {
-    const errors = await openGame(page, { query: "?phone=1" });
+  test("phones play with one player", async ({ phonePage: page }) => {
+    const errors = page.sharedErrors;
     const en = await page.evaluate(() => window.__bb.I18N.en);
     await frames(page);
     let texts = (await page.evaluate(() => window.__bb.buttonRects)).map(r => r.text);
@@ -558,7 +581,7 @@ async function pinMarkers(page) {
 test.describe("phone mini-map", () => {
   test.use(PHONE_CTX);
 
-  test("mini-map shows the level and everyone on it", async ({ page }) => {
+  test("mini-map shows the level and everyone on it", async ({ phonePage: page }) => {
     const errors = await phonePlay(page);
     await placeHero(page, 560, 300);
     await frames(page);
@@ -601,7 +624,7 @@ test.describe("phone mini-map", () => {
   });
 
   // SPEC-010 AC 1: smaller (18 % of the UI width, was 26 %), 3:2, the same margin; the HUD and buttons keep clear of it
-  test("the mini-map is smaller", async ({ page }) => {
+  test("the mini-map is smaller", async ({ phonePage: page }) => {
     const errors = await phonePlay(page);
     await placeHero(page, 560, 300);
     for (const [vw, vh] of [[844, 390], [667, 375], [932, 430]]) {
@@ -622,7 +645,7 @@ test.describe("phone mini-map", () => {
   });
 
   // SPEC-010 AC 3: the markers stay the same (count and kind), every dot at least 3 UI px in radius
-  test("the mini-map markers stay the same and readable", async ({ page }) => {
+  test("the mini-map markers stay the same and readable", async ({ phonePage: page }) => {
     const errors = await phonePlay(page);
     await placeHero(page, 560, 300);
     await pinMarkers(page);
@@ -640,7 +663,7 @@ test.describe("phone mini-map", () => {
   // SPEC-010 AC 4: the hero's or the Big One's screen point inside the mini-map (+ 12 UI px) fades the whole
   // mini-map to MINIMAP_UNDER_ALPHA within ~0.2 s; it comes back when they leave. One evaluate per phase:
   // the frame loop does not run in between, so the camera stays put and the fade is stepped by hand.
-  test("the mini-map fades when someone is under it", async ({ page }) => {
+  test("the mini-map fades when someone is under it", async ({ phonePage: page }) => {
     const errors = await phonePlay(page);
     await placeHero(page, 560, 300);
     await page.evaluate(() => { Object.assign(window.__bb.big, { x: 300, y: 400 }); });
@@ -688,7 +711,7 @@ test.describe("phone mini-map", () => {
     expect(errors).toEqual([]);
   });
 
-  test("edge arrows point to the off-screen Big One and downed friends", async ({ page }) => {
+  test("edge arrows point to the off-screen Big One and downed friends", async ({ phonePage: page }) => {
     // SPEC-018: the "~15 s GPU stall after each teleport" this test used to have was Playwright serializing the Big One /
     // the Little One that an Object.assign evaluate without braces returned; the teleports now return nothing.
     // SPEC-010: deterministic — the bots used to hug the stunned Big One over the minutes this test runs (and could win
@@ -769,7 +792,7 @@ test.describe("phone mini-map", () => {
 test.describe("phone mini-map 667×375", () => {
   test.use({ ...PHONE_CTX, viewport: { width: 667, height: 375 } });
 
-  test("a downed friend under the team chips left of the mini-map gets an edge arrow", async ({ page }) => {
+  test("a downed friend under the team chips left of the mini-map gets an edge arrow", async ({ phonePage: page }) => {
     const errors = await phonePlay(page);
     await calmAll(page);
     await placeHero(page, 200, 500);
@@ -908,9 +931,9 @@ for (const [vw, vh] of PHONE_SIZES) {
   test.describe(`phone sizes ${vw}×${vh}`, () => {
     test.use({ ...PHONE_CTX, viewport: { width: vw, height: vh } });
 
-    test(`every phone button is big enough at ${vw}×${vh}`, { tag: vw === 844 ? "@fast" : [] }, async ({ page }) => {
+    test(`every phone button is big enough at ${vw}×${vh}`, { tag: vw === 844 ? "@fast" : [] }, async ({ phonePage: page }) => {
       test.slow();
-      const errors = await openGame(page, { query: "?phone=1" });
+      const errors = page.sharedErrors;
       const minText = await page.evaluate(() => window.__bb.CFG.PHONE_TEXT);
       const fails = [];
       for (const [name0, setup] of (vw === 667 ? ["en", "es", "ru"] : ["en"]).flatMap(lg => Object.entries(PHONE_SCENES).map(([n, f]) => [lg + " " + n, async pg => { await pg.evaluate(l => window.__bb.setLang(l), lg); await f(pg); }]))) {
@@ -1069,9 +1092,9 @@ for (const [vw, vh] of PHONE_SIZES) {
   test.describe(`phone banner ${vw}×${vh}`, () => {
     test.use({ ...PHONE_CTX, viewport: { width: vw, height: vh } });
 
-    test(`the phone banner never covers the hero (${vw}×${vh})`, async ({ page }) => {
+    test(`the phone banner never covers the hero (${vw}×${vh})`, async ({ phonePage: page }) => {
       test.slow();
-      const errors = await openGame(page, { query: "?phone=1" });
+      const errors = page.sharedErrors;
       const fails = [];
       let cases = 0;
       const plan = await bannerPlan(page);
@@ -1107,9 +1130,9 @@ for (const [vw, vh] of PHONE_SIZES) {
 test.describe("phone banner too wide", () => {
   test.use({ ...PHONE_CTX, viewport: { width: 667, height: 375 } });
 
-  test("the phone banner switches to the short text, and is skipped when nothing fits", async ({ page }) => {
+  test("the phone banner switches to the short text, and is skipped when nothing fits", async ({ phonePage: page }) => {
     test.slow();
-    const errors = await openGame(page, { query: "?phone=1" });
+    const errors = page.sharedErrors;
     const fails = [];
     try {
       await startBannerLevel(page, "park", 11);
@@ -1140,8 +1163,8 @@ test.describe("phone banner too wide", () => {
 test.describe("phone menus", () => {
   test.use(PHONE_CTX);
 
-  test("tapping a world card selects that world", async ({ page }) => {
-    const errors = await openGame(page, { query: "?phone=1" });
+  test("tapping a world card selects that world", async ({ phonePage: page }) => {
+    const errors = page.sharedErrors;
     await page.evaluate(() => { const b = window.__bb; b.progress.worlds.winter.unlocked = 5; b.progress.worlds.winter.stars = { 1: 2, 4: 3 }; b.mode = "menu"; });
     await frames(page);
     const at = await page.evaluate(() => {
@@ -1155,8 +1178,8 @@ test.describe("phone menus", () => {
     expect(errors).toEqual([]);
   });
 
-  test("tapping the real menu Play button starts a one-player game", async ({ page }) => {
-    const errors = await openGame(page, { query: "?phone=1" });
+  test("tapping the real menu Play button starts a one-player game", async ({ phonePage: page }) => {
+    const errors = page.sharedErrors;
     await frames(page);
     const r = await page.evaluate(() => ({ ui: window.__bb.uiSize, play: window.__bb.buttonRects.find(q => q.text === "▶ " + window.__bb.I18N.en.play) }));
     expect(r.play).toBeTruthy();
@@ -1166,8 +1189,8 @@ test.describe("phone menus", () => {
     expect(errors).toEqual([]);
   });
 
-  test("tapping a name on the skins screen opens a big enough input right over it", async ({ page }) => {
-    const errors = await openGame(page, { query: "?phone=1" });
+  test("tapping a name on the skins screen opens a big enough input right over it", async ({ phonePage: page }) => {
+    const errors = page.sharedErrors;
     await page.evaluate(() => { window.__bb.mode = "skins"; });
     await frames(page);
     const r = await page.evaluate(() => ({ ui: window.__bb.uiSize, rect: window.__bb.buttonRects.find(q => q.id === "name:p1") }));
@@ -1185,8 +1208,8 @@ test.describe("phone menus", () => {
     expect(errors).toEqual([]);
   });
 
-  test("the name input stays open and over its label when the keyboard shrinks the page", async ({ page }) => {
-    const errors = await openGame(page, { query: "?phone=1" });
+  test("the name input stays open and over its label when the keyboard shrinks the page", async ({ phonePage: page }) => {
+    const errors = page.sharedErrors;
     await page.evaluate(() => { window.__bb.mode = "skins"; });
     await frames(page);
     let r = await page.evaluate(() => ({ ui: window.__bb.uiSize, rect: window.__bb.buttonRects.find(q => q.id === "name:p1") }));
@@ -1206,6 +1229,7 @@ test.describe("phone menus", () => {
   });
 
   test("the install hint fits the phone menu on iPhone Safari", async ({ browser }) => {
+    await shared.close();   // its own context: no second game page open next to it
     const IPHONE_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1";
     const ctx = await browser.newContext({ ...PHONE_CTX, viewport: { width: 667, height: 375 }, userAgent: IPHONE_UA });
     const page = await ctx.newPage();
@@ -1227,8 +1251,8 @@ test.describe("phone menus", () => {
 test.describe("phone portrait", () => {
   test.use({ ...PHONE_CTX, viewport: { width: 390, height: 844 } });
 
-  test("the rotate overlay is big and nothing behind it can be tapped", async ({ page }) => {
-    const errors = await openGame(page, { query: "?phone=1" });
+  test("the rotate overlay is big and nothing behind it can be tapped", async ({ phonePage: page }) => {
+    const errors = page.sharedErrors;
     await frames(page);
     const d = await page.evaluate(() => ({ ui: window.__bb.uiSize, shown: window.__bb.rotateShown, texts: window.__bb.textSizes, buttons: window.__bb.buttonRects }));
     expect(d.shown).toBe(true);
@@ -1279,9 +1303,9 @@ for (const [vw, vh] of PHONE_SIZES) {
   test.describe(`phone shop ${vw}×${vh}`, () => {
     test.use({ ...PHONE_CTX, viewport: { width: vw, height: vh } });
 
-    test(`the phone shop fits with wider fonts (${vw}×${vh})`, async ({ page }) => {
+    test(`the phone shop fits with wider fonts (${vw}×${vh})`, async ({ phonePage: page }) => {
       test.slow();
-      const errors = await openGame(page, { query: "?phone=1" });
+      const errors = page.sharedErrors;
       const fails = [];
       let cases = 0;
       try {
