@@ -175,7 +175,8 @@ test("rewards add up, coins never go negative, inventory stays whole", async ({ 
 
 // ---------- AC 9: saves ----------
 // A fixture is a snapshot of all bebebe-* keys (`keys`: a string is stored as is, an object as JSON) and what it loads
-// into (`expect`: progress in the current shape, the outfits and the typed names). SPEC-009 reuses them.
+// into (`expect`: progress in the current shape, the outfits and the typed names). SPEC-009 reuses them. An old save is
+// checked with toMatchObject (a later spec may add fields with defaults without rewriting history); current.json exactly.
 const SAVES = ["pre-spec-003", "pre-spec-004", "pre-spec-006", "pre-spec-007", "stale-tab", "current"];
 const save = n => JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures", "saves", n + ".json"), "utf8"));
 const asStored = keys => Object.fromEntries(Object.entries(keys).map(([k, v]) => [k, typeof v === "string" ? v : JSON.stringify(v)]));
@@ -188,7 +189,8 @@ test("every known save shape loads into the current one and round-trips", async 
       const b = window.__bb, p = b.loadProgress(JSON.parse(raw)), again = b.loadProgress(JSON.parse(JSON.stringify(p)));
       return { p: JSON.parse(JSON.stringify(p)), again: JSON.parse(JSON.stringify(again)) };
     }, asStored(f.keys)["bebebe-progress"]);
-    soft(r.p, `${n}: loads into the current shape`).toEqual(f.expect.progress);
+    if (n === "current") soft(r.p, `${n}: loads unchanged`).toEqual(f.expect.progress);
+    else soft(r.p, `${n}: loads into the current shape`).toMatchObject(f.expect.progress);
     soft(r.again, `${n}: loading it again changes nothing`).toEqual(r.p);
     for (const [k, v] of Object.entries(r.p.inv)) soft(Number.isInteger(v) && v >= 0, `${n}: inv.${k} = ${v}`).toBe(true);
     soft(Object.keys(f.keys).every(k => k.startsWith("bebebe-")), `${n}: only bebebe-* keys`).toBe(true);
@@ -211,12 +213,12 @@ test("a whole old save starts the game: progress moves, outfits and names load, 
     out.outfits = ls("bebebe-outfits"); out.names = ls("bebebe-names"); out.saved = ls("bebebe-progress");
     return out;
   });
-  expect(r.progress).toEqual(f.expect.progress);
-  expect(r.written, "the migration wrote the new shape back").toEqual(f.expect.progress);
+  expect(r.progress).toMatchObject(f.expect.progress);
+  expect(r.written, "the migration wrote the new shape back").toMatchObject(f.expect.progress);
   expect([r.shown.p1, r.shown.p2, r.shown.big]).toEqual([f.expect.names.p1, f.expect.names.p2, f.expect.names.big]);
   expect(r.outfits).toEqual(f.expect.outfits);
   expect(r.names).toEqual(f.expect.names);
-  expect(r.saved).toEqual(f.expect.progress);
+  expect(r.saved).toEqual(r.progress);
 });
 
 // ---------- AC 10: shop and texts ----------
@@ -275,4 +277,11 @@ test("the numbers in game-design.md are generated from the code and up to date",
   expect(row("KISSES", "price")).toContain("| 20 |");
   expect(row("RESCUE_KIT", "pack")).toContain("| 3 |");
   for (const [o, k] of docsNumbers.sectionKeys(doc)) expect(row(o, k), `${o}.${k}: one row`).toBeTruthy();
+  // later specs add arrays and may write `export const` (SPEC-009: WARDROBE_TIERS, REWARD): one row per element / key
+  const later = [
+    "// tiers", "export const WARDROBE_TIERS = [", "  { price: 10, n: 2 },   // basic", "  { price: 25, n: 3 }   // fancy", "];",
+    "// reward parts", "export const REWARD = { win: 10, perHug: 2 };", ""].join("\n");
+  expect(docsNumbers.rows(later, ["WARDROBE_TIERS", "REWARD"])).toEqual([
+    "| WARDROBE_TIERS | `0` | { price: 10, n: 2 } | basic |", "| WARDROBE_TIERS | `1` | { price: 25, n: 3 } | fancy |",
+    "| REWARD | `win` | 10 | reward parts |", "| REWARD | `perHug` | 2 | reward parts |"]);
 });

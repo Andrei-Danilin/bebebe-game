@@ -3,14 +3,14 @@ const base = require("@playwright/test");
 const { expect } = base;
 const path = require("path");
 const fs = require("fs");
-const { openGame, frames, sharedPage, resetGame, ROOT } = require("./helpers");
+const { openSim, frames, sharedPage, resetGame, ROOT } = require("./helpers");
 
 // SPEC-018: one game page for the file, opened in sim mode (?sim=1: nothing drawn, the frame loop does not play);
 // resetGame() before each test, page errors and a changed CFG fail the test. A test that turns sim off turns it back on.
 const shared = sharedPage();
 const test = base.test.extend({
   page: async ({ browser }, use) => {
-    const s = await shared.get(browser, "sim", { viewport: { width: 960, height: 640 } }, p => openGame(p, { query: "?sim=1" }));
+    const s = await shared.get(browser, "sim", { viewport: { width: 960, height: 640 } }, p => openSim(p));
     await resetGame(s.page);
     const cfg = await s.page.evaluate(() => JSON.stringify(window.__bb.CFG));
     await use(s.page);
@@ -118,6 +118,7 @@ test("sim mode draws nothing, plays no sound, the frame loop does not play; simR
 test("the event log records gameplay and every coin change", async ({ page }) => {
   const r = await page.evaluate(() => {
     const b = window.__bb, C = b.CFG, out = {};
+    b.seedRandom(808);
     let seen = 0;
     const news = () => { const e = b.events; const n = e.slice(seen); seen = e.length; return n.map(({ t, ...rest }) => rest); };
     const calm = (x = 900, y = 600) => Object.assign(b.big, { x, y, state: "look", timer: 9999, stun: 0, slip: 0, noPush: 999, pushCd: 0, hugCd: 0, blush: 0, hp: 9 });
@@ -254,12 +255,13 @@ test("the event log records gameplay and every coin change", async ({ page }) =>
 // ---------- AC 3: the autopilot ----------
 // The autopilot decides from what a player sees and acts only through the player's own paths: the movement that
 // inputFor(l) returns, and the kiss and kit buttons. Each step, its decision (__bb.autoThink) must leave the world as it
-// was: the Big One, the bots, the players, items, stars, CFG, progress, stats and the event log.
+// was: the Big One, the bots, the players, items, stars, CFG, progress, stats, the event log — and it draws no gameplay
+// randomness (__bb.rngDraws), so the seeded sequence of a level is the game's own.
 test("the autopilot plays only through the players' inputs", async ({ page }) => {
   const r = await page.evaluate(() => {
     const b = window.__bb, out = { changed: [], styles: {} };
     const snap = () => JSON.stringify({ big: b.big, littles: b.littles, items: b.items, stars: b.stars, kisses: b.kisses, CFG: b.CFG,
-      progress: b.progress, stats: b.stats, events: b.events.length, mode: b.mode });
+      progress: b.progress, stats: b.stats, events: b.events.length, mode: b.mode, rngDraws: b.rngDraws });   // it draws no gameplay randomness either
     for (const style of ["careful", "reckless"]) {
       b.seedRandom(4242);
       out.styles[style] = b.autopilot(true, style);
@@ -292,36 +294,6 @@ test("the autopilot plays only through the players' inputs", async ({ page }) =>
     expect(r[s].hugs, `${s}: the player hugs the Big One`).toBeGreaterThan(0);
   }
   expect(r.offMoved).toBe(0);
-});
-
-// Sneaking must pay (AC 13 is checked in the balance report; this is the quick version): on 9 levels × 4 seeds
-// "careful" wins every level and needs less game time in total than "reckless", with fewer falls. One run is noisy
-// (the Big One's look timers, bots, items), so the check is on totals; a sim run takes ~0.05 s.
-test("careful autopilot beats reckless", async ({ page }) => {
-  const r = await page.evaluate(() => {
-    const b = window.__bb, out = [], runs = [];
-    for (const [w, n] of [["park", 2], ["park", 9], ["school", 5], ["school", 8], ["beach", 12], ["beach", 14], ["winter", 16], ["winter", 18], ["winter", 20]]) {
-      for (const seed of [11, 22, 33, 44]) runs.push([w, n, seed]);
-    }
-    for (const [w, n, seed] of runs) {
-      for (const style of ["careful", "reckless"]) {
-        b.autopilot(true, style); b.seedRandom(seed);
-        b.world = w; b.level = n; b.startGame(1);
-        const res = b.simRun(480);
-        const ev = b.events;
-        out.push({ w, n, style, win: res.win, time: Math.round(res.time), downs: ev.filter(e => e.type === "down" && e.kind === "player").length,
-          hugs: ev.filter(e => e.type === "hug" && e.kind === "player").length });
-      }
-    }
-    b.autopilot(false); b.seedRandom(); b.mode = "menu";
-    return out;
-  });
-  const careful = r.filter(x => x.style === "careful"), reckless = r.filter(x => x.style === "reckless");
-  const total = list => list.reduce((s, x) => s + (x.win ? x.time : 480), 0), falls = list => list.reduce((s, x) => s + x.downs, 0);
-  for (const [s, l] of [["careful", careful], ["reckless", reckless]]) console.log(`${s}: wins ${l.filter(x => x.win).length}/${l.length}, ${total(l)} s, falls ${falls(l)}`);
-  expect(careful.every(x => x.win), "careful wins every level").toBe(true);
-  expect(total(careful), "careful needs less time").toBeLessThan(total(reckless));
-  expect(falls(careful), "careful falls less").toBeLessThan(falls(reckless));
 });
 
 // The autopilot presses the player's buttons when it has stock: 🩹 when lying long with nobody helping, 💋 when it
@@ -368,3 +340,12 @@ for (const [world, n] of BAL.CI_LEVELS) {
     expect(r.coins, "coins were earned").toBeGreaterThan(0);
   });
 }
+
+// runLevel can start from a save (SPEC-009 plays a pass with bought things): the preset is loaded, and the autopilot uses it
+test("a balance run can start from a progress preset", async ({ page }) => {
+  const fresh = await page.evaluate(runLevel, { world: "park", n: 5, style: "careful", seed: 2026 });
+  const stocked = await page.evaluate(runLevel, { world: "park", n: 5, style: "careful", seed: 2026, progress: { coins: 50, inv: { kisses: 5, rescues: 3 } } });
+  expect(fresh.kisses, "nothing bought: no kisses").toBe(0);
+  expect(stocked.kisses, "with kisses in stock the autopilot throws them").toBeGreaterThan(0);
+  expect(stocked.coins, "coins counted are the ones earned, not the preset").toBeLessThan(50 + fresh.coins + 100);
+});

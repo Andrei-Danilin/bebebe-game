@@ -212,13 +212,13 @@
 | CFG | `CLOAK_TIME` | 6 | невидимость |
 | CFG | `SHIELD_TIME` | 25 | щит держится, пока не сработает (или до конца времени) |
 | CFG | `SLIP_STUN` | 2.5 | сек — Большой лежит после банана (обнимать можно с любой стороны!) |
-| CFG | `COINS_WIN` | 10 | монетки за уровень |
-| CFG | `COINS_PER_LEVEL` | 5 | монетки за уровень |
-| CFG | `COINS_NOBODY_OUT` | 10 | монетки за уровень |
-| CFG | `COINS_FAST` | 10 | монетки за уровень |
-| CFG | `COINS_PER_HUG` | 2 | монетки за уровень |
-| CFG | `COINS_PER_REST` | 3 | каждый ушедший отдыхать отнимает монетки (но не меньше минимума) |
-| CFG | `COINS_MIN_WIN` | 5 | каждый ушедший отдыхать отнимает монетки (но не меньше минимума) |
+| CFG | `COINS_WIN` | 10 | монеток за победу |
+| CFG | `COINS_PER_LEVEL` | 5 | + столько × номер уровня в мире |
+| CFG | `COINS_NOBODY_OUT` | 10 | + если никто не ушёл отдыхать (вторая звезда) |
+| CFG | `COINS_FAST` | 10 | + если быстро (третья звезда) |
+| CFG | `COINS_PER_HUG` | 2 | + за каждую обнимашку игрока |
+| CFG | `COINS_PER_REST` | 3 | − за каждого ушедшего отдыхать (но не меньше COINS_MIN_WIN) |
+| CFG | `COINS_MIN_WIN` | 5 | монеток за победу не меньше этого (звёздочки — сверху) |
 | CFG | `COINS_PER_WORLD` | 10 | +монетки за победу в каждом следующем мире (SPEC-006) |
 | CFG | `STARS_PER_LEVEL` | 3 | звёзд за уровень (победа, никто не отдыхал, быстро) |
 | CFG | `REST_TIME` | 30 | сек — сколько отдыхает в домике тот, кого не спасли (SPEC-007: решение детей) |
@@ -294,7 +294,7 @@
 | CFG | `LEVEL_ATTEMPTS` | 40 | столько раз пробуем построить честный уровень, потом — запасной вариант |
 | CFG | `EVENT_LOG_MAX` | 5000 | SPEC-008: событий в __bb.events не больше (старые выпадают); очищается в начале уровня |
 | CFG | `BALANCE` | { SIM_DT: 0.0333333, SEEDS: 3, TIME_LIMIT: 480, WIN_SEEDS: 2, TREND_RHO: 0.5, LATE_VS_EARLY: 1.5, RESCUE_RATE: [0.5, 0.9], RESTS_MAX: 2, RECKLESS_EVERY: 5, EARLY: [1, 5], MAZE: [17, 20], CI_LEVELS: [["park", 3], ["park", 18], ["school", 2], ["school", 19], ["beach", 4], ["beach", 17], ["winter", 5], ["winter", 20]] } | SPEC-008: проверка баланса (npm run balance, тест-выборка в CI). Прогон: SEEDS сидов careful-автопилота на уровень, 1 игрок + 4 бота, не дольше TIME_LIMIT сек игры с шагом SIM_DT; reckless — 1 сид, к… |
-| CFG | `AUTOPILOT` | { repath: 0.35, itemReach: 120, pickSafe: 160, rescueSafe: 110, sneakNear: 200, orbit: 180, orbitStep: 0.9, orbitR: 60, arrive: 6, kitWait: 6, kissAim: 0.15 } | SPEC-008: автопилот игроков (только для проверки баланса), px и сек. repath — пересчёт пути; звёздочки и предметы берёт не дальше itemReach и если они дальше pickSafe от Большого и не под его взглядо… |
+| CFG | `AUTOPILOT` | { repath: 0.35, itemReach: 120, pickSafe: 160, rescueSafe: 110, sneakNear: 200, orbit: 180, orbitStep: 0.9, orbitR: 60, arrive: 6, backNear: 95, backDist: 75, hugIn: 3, minStep: 1, kitWait: 6, kissAim: 0.15, kissReach: 0.9 } | SPEC-008: автопилот игроков (только для проверки баланса), px и сек. repath — пересчёт пути; звёздочки и предметы берёт не дальше itemReach и если они дальше pickSafe от Большого и не под его взглядо… |
 | CFG | `DOOR_APRON` | 2 | клеток свободно перед каждой дверью домиков |
 | CFG | `HOUSE_PATH` | [18, 70] | клеток — путь Большого от его двери до клетки перед дверью маленьких (A*) |
 | CFG | `FREE_MIN` | { classic: 0.5, meadow: 0.5, maze: 0.4, village: 0.5, river: 0.5, rooms: 0.4, arena: 0.5 } | доля свободных клеток карты вне домиков |

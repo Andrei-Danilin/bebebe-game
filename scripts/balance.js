@@ -2,21 +2,21 @@
 // stepped in batches) and plays every level of every world with the autopilot, then writes
 //   reports/balance.json — every run (with its coins events), the settings and the targets;
 //   reports/balance.md   — per level, per world, the targets red/green.
-// Settings and targets live in CFG.BALANCE (index.html). Not part of `npm test`: `npm run balance` (~1–3 min).
-// tests/balance.spec.js requires runLevel() for the CI sample, so the report and the test play a level the same way.
+// Settings and targets live in CFG.BALANCE (index.html). Not part of `npm test`: `npm run balance` (~30 s).
+// tests/balance.spec.js requires runLevel() for the CI sample, and the page is opened with the tests' openSim(), so the
+// report and the tests play a level the same way.
 const path = require("path");
 const fs = require("fs");
 
 const ROOT = path.resolve(__dirname, "..");
-const GAME_URL = "file://" + path.join(ROOT, "index.html").replace(/\\/g, "/");
-const THREE_DIR = path.join(ROOT, "node_modules", "three", "build");
 const OUT_DIR = path.join(ROOT, "reports");
 
-// Runs IN THE PAGE (page.evaluate): one level from fresh progress (empty inventory: nothing bought), 1 player + 4 bots,
-// the autopilot in `style`, seeded. Returns plain data only.
-function runLevel({ world, n, style, seed }) {
+// Runs IN THE PAGE (page.evaluate): one level, 1 player + 4 bots, the autopilot in `style`, seeded. `progress` is a save
+// to start from (SPEC-009: e.g. maxed upgrades); without it — fresh progress (empty inventory: nothing bought).
+// Returns plain data only.
+function runLevel({ world, n, style, seed, progress = null }) {
   const b = window.__bb, B = b.CFG.BALANCE;
-  b.resetProgress(); b.resetProgress();                 // two calls, like the button: fresh progress
+  b.setProgress(progress);
   b.autopilot(true, style); b.seedRandom(seed);
   b.world = world; b.level = n; b.startGame(1);
   const res = b.simRun(B.TIME_LIMIT, B.SIM_DT);
@@ -37,23 +37,6 @@ function runLevel({ world, n, style, seed }) {
   };
   b.autopilot(false); b.seedRandom(); b.mode = "menu";
   return out;
-}
-
-// Opens the game like openGame() in tests/helpers.js: from disk, three.js from node_modules, ?sim=1, strict rng guard.
-async function openSimPage(browser) {
-  const page = await browser.newPage();
-  const errors = [];
-  page.on("pageerror", e => errors.push(String(e)));
-  page.on("console", m => { if (m.type() === "error") errors.push("console: " + m.text()); });
-  await page.route("https://cdn.jsdelivr.net/**", async route => {
-    const file = path.join(THREE_DIR, route.request().url().split("/").pop());
-    if (!fs.existsSync(file)) return route.abort();
-    await route.fulfill({ path: file, contentType: "application/javascript", headers: { "Access-Control-Allow-Origin": "*" } });
-  });
-  await page.addInitScript(() => { window.__bbStrictRng = true; try { localStorage.clear(); localStorage.setItem("bebebe-lang", "en"); } catch (e) { /* ok */ } });
-  await page.goto(GAME_URL + "?sim=1");
-  await page.waitForFunction(() => window.__bbReady === true, null, { timeout: 30_000 });
-  return { page, errors };
 }
 
 // A fixed seed per (world, level, k): the same report on every machine
@@ -82,10 +65,10 @@ function spearman(x, y) {
 const runTime = (r, limit) => (r.win ? r.time : limit);
 
 // Per-level and per-world numbers and the AC 13 targets (each { name, value, want, ok, detail })
-function analyse(runs, B, worlds) {
+function analyse(runs, B, worlds, perWorld) {
   const limit = B.TIME_LIMIT, careful = runs.filter(r => r.style === "careful"), reckless = runs.filter(r => r.style === "reckless");
   const levels = [];
-  for (const w of worlds) for (let n = 1; n <= 20; n++) {
+  for (const w of worlds) for (let n = 1; n <= perWorld; n++) {
     const rs = careful.filter(r => r.world === w && r.n === n);
     if (!rs.length) continue;
     const parts = {};
@@ -109,12 +92,12 @@ function analyse(runs, B, worlds) {
     `${levels.length}/${levels.length}`, lost.length === 0, lost.map(l => `${l.world} ${l.n} (${l.wins}/${l.runs})`).join(", "));
   // 2. per world: the trend of the median time goes up, and the maze block is the slowest block
   for (const w of worlds) {
-    const ls = of(w, 1, 20), rho = spearman(ls.map(l => l.n), ls.map(l => l.time));
+    const ls = of(w, 1, perWorld), rho = spearman(ls.map(l => l.n), ls.map(l => l.time));
     add(`${w}: median time grows with the level (Spearman ρ)`, rho.toFixed(2), `≥ ${B.TREND_RHO}`, rho >= B.TREND_RHO);
   }
   for (const w of worlds) {
     const blocks = {};
-    for (const l of of(w, 1, 20)) (blocks[l.type] = blocks[l.type] || []).push(...careful.filter(r => r.world === w && r.n === l.n).map(r => runTime(r, limit)));
+    for (const l of of(w, 1, perWorld)) (blocks[l.type] = blocks[l.type] || []).push(...careful.filter(r => r.world === w && r.n === l.n).map(r => runTime(r, limit)));
     const med = Object.fromEntries(Object.entries(blocks).map(([k, v]) => [k, median(v)]));
     const maze = blockTime(w, B.MAZE[0], B.MAZE[1]), slowest = Object.entries(med).sort((a, b) => b[1] - a[1])[0];
     add(`${w}: the maze block (${B.MAZE[0]}–${B.MAZE[1]}) is the slowest block`, `maze ${fmt(maze)} s`, `slowest (now: ${slowest[0]} ${fmt(slowest[1])} s)`,
@@ -143,6 +126,10 @@ function analyse(runs, B, worlds) {
     `reckless ${pct(rw)} wins, median ${fmt(rt)} s; careful ${pct(cw)}, ${fmt(ct)} s`, "reckless fewer wins or slower", rw < cw || rt > ct,
     `player falls per run: reckless ${fmt(mean(reckless.map(r => r.playerFalls)), 1)}, careful ${fmt(mean(same.map(r => r.playerFalls)), 1)}; ` +
     `all falls: reckless ${fmt(mean(reckless.map(r => r.falls)), 1)}, careful ${fmt(mean(same.map(r => r.falls)), 1)}`);
+  // 7. the measurements are whole: no run filled its event log (its counts would be short)
+  const full = runs.filter(r => r.logFull);
+  add("no run's event log is full (CFG.EVENT_LOG_MAX)", `${full.length} of ${runs.length} runs`, "0", full.length === 0,
+    full.map(r => `${r.world} ${r.n} ${r.style}`).join(", "));
   return { levels, targets };
 }
 const fmt = (v, d = 0) => (v === null || v === undefined ? "—" : Number(v).toFixed(d));
@@ -161,8 +148,8 @@ function markdown(rep) {
     `Targets and settings: \`CFG.BALANCE\` in \`index.html\`; raw runs: \`reports/balance.json\`.`, "",
     `## Targets — ${greens} green, ${targets.length - greens} red`, "", "| Target | Value | Want | Result | Detail |", "|---|---|---|---|---|");
   for (const t of targets) L.push(`| ${t.name} | ${t.value} | ${t.want} | ${t.ok ? "🟢 green" : "🔴 red"} | ${t.detail} |`);
-  L.push("", "## Worlds", "", `Trend: median time per level 1→20, \`${TREND}\` from fast to ${fmt(maxT)} s.`, "",
-    "| World | Wins | Median time | Hugs (player) | Pushes | Falls | Rescue rate | Rests | Stars | Coins | Bonus stars | Trend 1→20 |", "|---|---|---|---|---|---|---|---|---|---|---|---|");
+  L.push("", "## Worlds", "", `Trend: median time per level 1→${rep.perWorld}, \`${TREND}\` from fast to ${fmt(maxT)} s.`, "",
+    `| World | Wins | Median time | Hugs (player) | Pushes | Falls | Rescue rate | Rests | Stars | Coins | Bonus stars | Trend 1→${rep.perWorld} |`, "|---|---|---|---|---|---|---|---|---|---|---|---|");
   for (const w of worlds) {
     const ls = levels.filter(l => l.world === w), rs = runs.filter(r => r.world === w && r.style === "careful");
     const f = rs.reduce((s, r) => s + r.falls, 0), rr = f ? rs.reduce((s, r) => s + r.rescues, 0) / f : 0;
@@ -192,16 +179,19 @@ function markdown(rep) {
 async function main() {
   const t0 = Date.now();
   const { chromium } = require("@playwright/test");
+  const { openSim } = require("../tests/helpers.js");
   const browser = await chromium.launch({
     args: ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"],
     ...(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {})
   });
   try {
-    const { page, errors } = await openSimPage(browser);
-    const { B, worlds } = await page.evaluate(() => ({ B: JSON.parse(JSON.stringify(window.__bb.CFG.BALANCE)), worlds: window.__bb.WORLDS }));
+    const page = await browser.newPage();
+    const errors = await openSim(page);                  // like the tests: from disk, three.js from node_modules, strict rng guard
+    const { B, worlds, perWorld } = await page.evaluate(() => ({ B: JSON.parse(JSON.stringify(window.__bb.CFG.BALANCE)), worlds: window.__bb.WORLDS,
+      perWorld: window.__bb.levelsPerWorld() }));
     const plan = [];
     worlds.forEach((w, wi) => {
-      for (let n = 1; n <= 20; n++) {
+      for (let n = 1; n <= perWorld; n++) {
         for (let k = 0; k < B.SEEDS; k++) plan.push({ world: w, n, style: "careful", seed: seedOf(wi, n, k) });
         if (n % B.RECKLESS_EVERY === 0) plan.push({ world: w, n, style: "reckless", seed: seedOf(wi, n, 0) });
       }
@@ -212,9 +202,9 @@ async function main() {
       if ((i + 1) % 40 === 0) process.stdout.write(`  ${i + 1}/${plan.length} runs, ${Math.round((Date.now() - t0) / 1000)} s\n`);
     }
     if (errors.length) throw new Error("page errors:\n" + errors.join("\n"));
-    const { levels, targets } = analyse(runs, B, worlds);
+    const { levels, targets } = analyse(runs, B, worlds, perWorld);
     const rep = { generated: new Date().toISOString().slice(0, 16).replace("T", " ") + " UTC", durationSec: Math.round((Date.now() - t0) / 1000),
-      settings: B, worlds, targets, levels, runs };
+      settings: B, worlds, perWorld, targets, levels, runs };
     fs.mkdirSync(OUT_DIR, { recursive: true });
     // one run per line: small diffs when a spec changes a number
     const { runs: all, ...head } = rep;

@@ -18,11 +18,11 @@ const ROOT = path.resolve(__dirname, "..");
 const INDEX = path.join(ROOT, "index.html");
 const DOC = path.join(ROOT, "docs", "game-design.md");
 
-// Scans JS source from `from` (an opening brace) and returns { end, keys }: the index after the matching brace and the
-// top-level keys as { name, at } (offsets). Strings, template literals and comments are skipped; nested braces,
-// brackets and parens only change the depth.
+// Scans JS source from `from` (an opening { or [) and returns { end, keys }: the index after the matching bracket and the
+// top-level keys as { name, at } (offsets) — for an array, its elements, named by index. Strings, template literals and
+// comments are skipped; nested braces, brackets and parens only change the depth.
 function scanObject(src, from) {
-  const keys = [];
+  const keys = [], isArray = src[from] === "[";
   let depth = 0, i = from, lastSig = "";
   while (i < src.length) {
     const c = src[i], d = src[i + 1];
@@ -33,7 +33,8 @@ function scanObject(src, from) {
       i++; lastSig = c; continue;
     }
     if (/\s/.test(c)) { i++; continue; }
-    if (depth === 1 && (lastSig === "{" || lastSig === ",")) {
+    if (depth === 1 && isArray && (lastSig === "[" || lastSig === ",") && c !== "]") keys.push({ name: String(keys.length), at: i });
+    else if (depth === 1 && !isArray && (lastSig === "{" || lastSig === ",")) {
       const m = /^(get\s+)?([A-Za-z_$][\w$]*)\s*(\(\s*\)\s*\{|:)/.exec(src.slice(i, i + 80));
       if (m) keys.push({ name: m[2], at: i });
     }
@@ -44,11 +45,11 @@ function scanObject(src, from) {
   throw new Error("unbalanced object");
 }
 
-// The text of `const NAME = { … }` and its top-level keys.
+// The text of `[export] const NAME = { … }` (or `= [ … ]`) and its top-level keys (array: element indexes).
 function readObject(src, name) {
-  const head = `const ${name} = {`, at = src.indexOf(head);
-  if (at < 0) throw new Error(`${name} not found in index.html`);
-  const open = at + head.length - 1, { end, keys } = scanObject(src, open);
+  const m = new RegExp(String.raw`(?:^|\n)[ \t]*(?:export\s+)?const ${name}\s*=\s*([{[])`).exec(src);
+  if (!m) throw new Error(`${name} not found in the source`);
+  const open = m.index + m[0].length - 1, { end, keys } = scanObject(src, open);
   return { text: src.slice(open, end), offset: open, keys };
 }
 
@@ -97,10 +98,10 @@ function sourceValue(objText, key) {
 const cell = s => String(s).replace(/\|/g, "\\|");
 
 const lf = s => s.replace(/\r\n/g, "\n");
-function rows(src) {
+function rows(src, objects = OBJECTS) {
   src = lf(src);
   const out = [];
-  for (const name of OBJECTS) {
+  for (const name of objects) {
     const o = readObject(src, name), obj = new Function(`return (${o.text});`)();
     for (const { name: k, at } of o.keys) {
       const desc = Object.getOwnPropertyDescriptor(obj, k);
@@ -163,4 +164,4 @@ if (require.main === module) {
 // The value of one object of the source (e.g. CFG) — for Node scripts and tests that need the numbers without a browser
 const readValue = (src, name) => new Function(`return (${readObject(lf(src), name).text});`)();
 
-module.exports = { render, section, sectionKeys, readValue, OBJECTS };
+module.exports = { render, rows, section, sectionKeys, readValue, OBJECTS };
