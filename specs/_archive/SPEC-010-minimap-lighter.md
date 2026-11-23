@@ -1,6 +1,6 @@
 # SPEC-010 — Smaller, see-through mini-map
 
-Status: ready
+Status: done (c72bcdf)
 Complexity: S
 Branch: SPEC-010-minimap-lighter
 Decided by: the kids (2026-11-22): the mini-map is in the way — make it a bit smaller and as transparent as possible. Exact sizes, what stays visible, the fade-under rule: Claude (spec author).
