@@ -1,6 +1,6 @@
 # SPEC-008 — Consistency and balance checks: invariants, autopilot simulation, balance report
 
-Status: ready
+Status: done (3555d64)
 Complexity: L
 Branch: SPEC-008-balance-checks
 Decided by: Andrei (2026-11-22): the game needs tests and checks for consistency and balance, so that rules, numbers, docs and difficulty stay coherent as features pile up. Everything below (what is checked, the simulator, thresholds, report format): Claude (spec author).
