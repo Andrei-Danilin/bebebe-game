@@ -1,26 +1,26 @@
 // SPEC-008: invariants — rules that must always hold, whatever numbers later specs set: speeds, rescue timings,
 // rewards that add up, saves that load, a complete shop, docs numbers generated from the code.
-const base = require("@playwright/test");
+const base = require("./pw");   // SPEC-023: @playwright/test + failure screenshots
 const { expect } = base;
 const path = require("path");
 const fs = require("fs");
 const { openGame, frames, softly, sharedPage, resetGame, ROOT } = require("./helpers");
 const docsNumbers = require("../scripts/docs-numbers.js");
 
-// SPEC-018: one game page for the file (normal mode: the shop test needs drawn buttons); resetGame() before each test,
-// page errors and a changed CFG fail the test.
-const shared = sharedPage();
-const test = base.test.extend({
-  page: async ({ browser }, use) => {
-    const s = await shared.get(browser, "invariants", { viewport: { width: 960, height: 640 } }, p => openGame(p));
+// SPEC-018: one game page for the file; resetGame() before each test, page errors and a changed CFG fail the test.
+// SPEC-023: the invariants check logic and numbers — `simPage` (sim mode: nothing drawn); the shop test needs drawn
+// buttons — `page` (rendered).
+const shared = sharedPage(), sharedSim = sharedPage();
+const fixture = sim => async ({ browser }, use) => {
+    const s = await (sim ? sharedSim : shared).get(browser, sim ? "invariants-sim" : "invariants", { viewport: { width: 960, height: 640 } }, p => openGame(p, { sim }));
     await resetGame(s.page);
     const cfg = await s.page.evaluate(() => JSON.stringify(window.__bb.CFG));
     await use(s.page);
     expect(s.errors.splice(0)).toEqual([]);
     expect(await s.page.evaluate(() => JSON.stringify(window.__bb.CFG)), "the test restores every CFG value it changed").toBe(cfg);
-  }
-});
-test.afterAll(async () => { await shared.close(); });
+};
+const test = base.test.extend({ page: fixture(false), simPage: fixture(true) });
+test.afterAll(async () => { await shared.close(); await sharedSim.close(); });
 
 // SPEC-016: six worlds in the story order; coins and speeds follow the difficulty index, not the place in the list
 const WORLDS = ["park", "field", "city", "school", "beach", "winter"];
@@ -29,7 +29,7 @@ const DOC = path.join(ROOT, "docs", "game-design.md");
 const INDEX = path.join(ROOT, "index.html");
 
 // ---------- AC 5: speeds ----------
-test("the Big One never outruns a player, patrols slower than he chases, bots outrun his search", async ({ page }) => {
+test("the Big One never outruns a player, patrols slower than he chases, bots outrun his search", async ({ simPage: page }) => {
   const r = await page.evaluate(W => {
     const b = window.__bb, C = b.CFG, rows = [];
     for (const w of W) for (let n = 1; n <= 20; n++) {
@@ -51,7 +51,7 @@ test("the Big One never outruns a player, patrols slower than he chases, bots ou
 });
 
 // SPEC-019 AC 8: tiptoeing is never painfully slow (≥ half of the player speed) and always below the running line
-test("tiptoe speed is at least half the player speed and below the running line", async ({ page }) => {
+test("tiptoe speed is at least half the player speed and below the running line", async ({ simPage: page }) => {
   const r = await page.evaluate(() => { const C = window.__bb.CFG; return { mult: C.TIPTOE_MULT, max: C.TIPTOE_MAX, player: C.PLAYER_SPEED }; });
   expect(r.mult * r.player).toBeGreaterThanOrEqual(0.5 * r.player);
   expect(r.mult).toBeLessThan(r.max);
@@ -59,7 +59,7 @@ test("tiptoe speed is at least half the player speed and below the running line"
 });
 
 // ---------- AC 6: rescue is possible ----------
-test("a friend can always arrive in time, and a Little One just stood up is not pushed at once", async ({ page }) => {
+test("a friend can always arrive in time, and a Little One just stood up is not pushed at once", async ({ simPage: page }) => {
   const r = await page.evaluate(() => {
     const b = window.__bb, C = b.CFG, g = b.grid;
     const out = { down: C.DOWN_TIME, delay: Math.max(...C.BOT_RESCUE_DELAY), rescue: C.RESCUE_TIME, bot: C.BOT_SPEED,
@@ -92,7 +92,7 @@ test("a friend can always arrive in time, and a Little One just stood up is not 
 });
 
 // ---------- AC 8: rewards add up ----------
-test("rewards add up, coins never go negative, inventory stays whole", async ({ page }) => {
+test("rewards add up, coins never go negative, inventory stays whole", async ({ simPage: page }) => {
   const r = await page.evaluate(() => {
     const b = window.__bb, C = b.CFG, out = { runs: [], buys: [], inv: [] };
     const fresh = () => { b.resetProgress(); b.resetProgress(); };
@@ -202,7 +202,7 @@ const SAVES = ["pre-spec-003", "pre-spec-004", "pre-spec-006", "pre-spec-007", "
 const save = n => JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures", "saves", n + ".json"), "utf8"));
 const asStored = keys => Object.fromEntries(Object.entries(keys).map(([k, v]) => [k, typeof v === "string" ? v : JSON.stringify(v)]));
 
-test("every known save shape loads into the current one and round-trips", async ({ page }) => {
+test("every known save shape loads into the current one and round-trips", async ({ simPage: page }) => {
   const soft = softly();
   for (const n of SAVES) {
     const f = save(n);
@@ -224,7 +224,7 @@ test("every known save shape loads into the current one and round-trips", async 
 });
 
 // ---------- SPEC-016 AC 7: old saves get the Football field and the City ----------
-test("old saves get the new worlds", async ({ page }) => {
+test("old saves get the new worlds", async ({ simPage: page }) => {
   const won = n => Object.fromEntries(Array.from({ length: n }, (_, i) => [i + 1, true]));
   const stars = n => Object.fromEntries(Array.from({ length: n }, (_, i) => [i + 1, 1 + (i % 3)]));
   const fresh = { unlocked: 1, stars: {}, won: {} };
@@ -260,7 +260,7 @@ test("old saves get the new worlds", async ({ page }) => {
   expect(r.partial).toEqual([false, false, false, true]);
 });
 
-test("a whole old save starts the game: progress moves, outfits and names load, the game writes them back the same", async ({ page }) => {
+test("a whole old save starts the game: progress moves, outfits and names load, the game writes them back the same", async ({ simPage: page }) => {
   const f = save("pre-spec-006");
   await page.evaluate(keys => { localStorage.clear(); localStorage.setItem("bb-test-init", "1"); for (const [k, v] of Object.entries(keys)) localStorage.setItem(k, v); }, asStored(f.keys));
   await page.reload();

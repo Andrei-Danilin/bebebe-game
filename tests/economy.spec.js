@@ -1,6 +1,6 @@
 // SPEC-009: the coins economy — the ledger (every coin change goes through addCoins / spendCoins and is logged),
 // the earning rules, the wardrobe and the upgrades.
-const base = require("@playwright/test");
+const base = require("./pw");   // SPEC-023: @playwright/test + failure screenshots
 const { expect } = base;
 const path = require("path");
 const fs = require("fs");
@@ -8,9 +8,11 @@ const { openGame, sharedPage, resetGame, frames, softly, ROOT } = require("./hel
 
 // SPEC-018: one game page for the file; resetGame() before each test, page errors and a changed CFG fail the test.
 // A test that does not ask for `page` (the source scan) opens no browser at all.
-const shared = sharedPage();
-const fixture = (key, ctx, query = "") => async ({ browser }, use) => {
-  const s = await shared.get(browser, key, ctx, p => openGame(p, { query }));
+// SPEC-023: `simPage` = the same in sim mode (logic and numbers only; it draws nothing, so it may stay open next to a
+// rendered page).
+const shared = sharedPage(), sharedSim = sharedPage();
+const fixture = (key, ctx, query = "", sim = false) => async ({ browser }, use) => {
+  const s = await (sim ? sharedSim : shared).get(browser, key, ctx, p => openGame(p, { query, sim }));
   await resetGame(s.page);
   const numbers = () => s.page.evaluate(() => { const b = window.__bb; return JSON.stringify([b.CFG, b.REWARD, b.UPGRADES, b.WARDROBE_TIERS]); });
   const cfg = await numbers();
@@ -20,12 +22,13 @@ const fixture = (key, ctx, query = "") => async ({ browser }, use) => {
 };
 const test = base.test.extend({
   page: fixture("economy", { viewport: { width: 960, height: 640 } }),
+  simPage: fixture("economy-sim", { viewport: { width: 960, height: 640 } }, "", true),
   // the phone at its smallest size (SPEC-005 sizes), touch + mobile
   phonePage: fixture("phone", { viewport: { width: 667, height: 375 }, hasTouch: true, isMobile: true }, "?phone=1"),
   phone844: fixture("phone844", { viewport: { width: 844, height: 390 }, hasTouch: true, isMobile: true }, "?phone=1"),
   phone932: fixture("phone932", { viewport: { width: 932, height: 430 }, hasTouch: true, isMobile: true }, "?phone=1")
 });
-test.afterAll(async () => { await shared.close(); });
+test.afterAll(async () => { await shared.close(); await sharedSim.close(); });
 
 const INDEX = path.join(ROOT, "index.html");
 
@@ -92,7 +95,7 @@ test("only the ledger writes coins", { tag: "@fast" }, () => {
   }
 });
 
-test("every coin change is in the ledger", async ({ page }) => {
+test("every coin change is in the ledger", async ({ simPage: page }) => {
   const r = await page.evaluate(() => {
     const b = window.__bb, C = b.CFG, out = {};
     const strip = list => list.map(({ t, ...rest }) => rest);
@@ -163,7 +166,7 @@ const WORLDS = ["park", "field", "city", "school", "beach", "winter"];
 const DIFFICULTY = { park: 0, field: 1, city: 2, school: 3, beach: 3, winter: 4 };
 const sum = parts => parts.reduce((s, p) => s + p.amount, 0);
 
-test("the reward rules: first win, replay, new stars, rests with floors, difficulty 0 and 4", { tag: "@fast" }, async ({ page }) => {
+test("the reward rules: first win, replay, new stars, rests with floors, difficulty 0 and 4", { tag: "@fast" }, async ({ simPage: page }) => {
   const r = await page.evaluate(() => {
     const b = window.__bb, C = b.CFG;
     const out = { R: { ...b.REWARD }, rest: C.COINS_PER_REST, star: C.STAR_COINS, runs: {},
@@ -226,7 +229,7 @@ test("the reward rules: first win, replay, new stars, rests with floors, difficu
   soft.done();
 });
 
-test("leaving a level early pays only the hugs", async ({ page }) => {
+test("leaving a level early pays only the hugs", async ({ simPage: page }) => {
   const r = await page.evaluate(() => {
     const b = window.__bb, out = {};
     const key = code => window.dispatchEvent(new KeyboardEvent("keydown", { code }));
@@ -372,7 +375,7 @@ test("the win screen lists each reward line and fits (phone 667×375)", async ({
   expect(fails, fails.slice(0, 12).join("\n")).toEqual([]);
 });
 
-test("every win-screen text is in three languages", async ({ page }) => {
+test("every win-screen text is in three languages", async ({ simPage: page }) => {
   const I = await page.evaluate(() => { const I = window.__bb.I18N; return ["en", "es", "ru"].map(l => I[l].rw); });
   expect(I[0]).toEqual({ firstWin: "First win", replay: "Replay", newStars: "New stars", star: "Bonus stars", hugs: "Hugs", rests: "Rests", total: "Total" });
   expect(I[1]).toEqual({ firstWin: "Primera vez", replay: "Repetición", newStars: "Estrellas nuevas", star: "Estrellitas", hugs: "Abrazos", rests: "Descansos", total: "Total" });
@@ -385,7 +388,7 @@ test("every win-screen text is in three languages", async ({ page }) => {
 // on that column's Buy button. resetGame() puts the skin picker back to the defaults.
 const outfitsSaved = page => page.evaluate(() => JSON.parse(localStorage.getItem("bebebe-outfits") || "null"));
 
-test("every wardrobe item has an id and a price; the basic ones and every default look are free", { tag: "@fast" }, async ({ page }) => {
+test("every wardrobe item has an id and a price; the basic ones and every default look are free", { tag: "@fast" }, async ({ simPage: page }) => {
   const r = await page.evaluate(() => ({ w: window.__bb.wardrobe(), tiers: window.__bb.WARDROBE_TIERS, def: window.__bb.outfits.shown }));
   const free = list => list.filter(q => q.price === 0).map(q => q.id), soft = softly();
   expect(r.tiers).toEqual([40, 80, 150]);
@@ -484,7 +487,7 @@ test("locked clothes can be tried on and bought", async ({ page }) => {
   expect(g).toEqual({ shown: crown, acc: "crown" });
 });
 
-test("random outfit uses only owned items; bots may wear anything", async ({ page }) => {
+test("random outfit uses only owned items; bots may wear anything", async ({ simPage: page }) => {
   const r = await page.evaluate(() => {
     const b = window.__bb, W = b.wardrobe(), seen = { hat: new Set(), jacket: new Set(), pants: new Set() }, bad = [];
     b.mode = "shop"; b.shopTab = "wardrobe";
@@ -597,7 +600,7 @@ test("the wardrobe tab with locked items fits (phone 667×375)", async ({ phoneP
   expect(fails, fails.slice(0, 12).join("\n")).toEqual([]);
 });
 
-test("every wardrobe text is in three languages", async ({ page }) => {
+test("every wardrobe text is in three languages", async ({ simPage: page }) => {
   const I = await page.evaluate(() => { const I = window.__bb.I18N; return ["en", "es", "ru"].map(l => [I[l].buyFor(150), I[l].tapAgain]); });
   expect(I).toEqual([["Buy for 150", "Tap again to buy"], ["Comprar por 150", "Tocá otra vez para comprar"], ["Купить за 150", "Нажми ещё раз, чтобы купить"]]);
 });
@@ -696,7 +699,7 @@ test("upgrades apply to players only and stop at level 3", { tag: "@fast" }, asy
   expect(r.botNeed, "a bot needs the full RESCUE_TIME").toBe(3);
 });
 
-test("upgrades are saved, merged with defaults and cleaned", async ({ page }) => {
+test("upgrades are saved, merged with defaults and cleaned", async ({ simPage: page }) => {
   const c = await page.evaluate(() => {
     const L = s => JSON.parse(JSON.stringify(window.__bb.loadProgress(s).upgrades));
     return [L({ upgrades: { fastFeet: 2, longItems: 9, quickHelp: "x", jump: 3 } }), L({ upgrades: { fastFeet: 1.7, longItems: -2 } }), L({ upgrades: "junk" }), L({ upgrades: null }), L({ coins: 4 })];
@@ -813,7 +816,7 @@ test("the Upgrades tab fits (phone 932×430)", async ({ phone932: page }) => {
   expect(fails, fails.slice(0, 12).join("\n")).toEqual([]);
 });
 
-test("every upgrade text is in three languages", async ({ page }) => {
+test("every upgrade text is in three languages", async ({ simPage: page }) => {
   const I = await page.evaluate(() => { const I = window.__bb.I18N; return ["en", "es", "ru"].map(l => [I[l].itemsTab, I[l].upgradesTab, I[l].upgMax, ...["fastFeet", "longItems", "quickHelp"].map(k => [I[l].upg[k].name, I[l].upg[k].desc(3)])]); });
   expect(I[0]).toEqual(["Items", "Upgrades", "Max", ["Fast feet", "+3% speed"], ["Long items", "Items last longer"], ["Quick help", "Lift friends faster"]]);
   expect(I[1]).toEqual(["Cosas", "Mejoras", "Máximo", ["Pies rápidos", "+3% velocidad"], ["Cosas duraderas", "Duran más"], ["Ayuda rápida", "Levantás más rápido"]]);
@@ -871,7 +874,7 @@ test("the Friends screen keeps a try-on; a save that knows owned clothes does no
   expect(after).toEqual({ owned: [], hat: 1, stored: 1 });   // back to the free default cap
 });
 
-test("a pause during the final hug and Map still counts the win; coins load as a whole number ≥ 0", async ({ page }) => {
+test("a pause during the final hug and Map still counts the win; coins load as a whole number ≥ 0", async ({ simPage: page }) => {
   const r = await page.evaluate(() => {
     const b = window.__bb, key = code => window.dispatchEvent(new KeyboardEvent("keydown", { code }));
     b.world = "park"; b.level = 3; b.startGame(1);

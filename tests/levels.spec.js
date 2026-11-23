@@ -1,7 +1,7 @@
 // SPEC-002 + SPEC-006: level types and worlds. A level is (world, n), n 1–20; inside every world the types go
 // from the kids' drawing (level 1) to the maze (17–20); every generated level is fair (window.__bb.levelReport)
 // and the same world + level always builds the same map.
-const base = require("@playwright/test");
+const base = require("./pw");   // SPEC-023: @playwright/test + failure screenshots
 const { expect } = base;
 const path = require("path");
 const fs = require("fs");
@@ -28,15 +28,15 @@ const BUSH_MIN = { classic: 3, meadow: 7, maze: 2, village: 3, river: 4, rooms: 
 // SPEC-018: the generator tests share one page (fixture `levelPage`): they build levels through levelReport,
 // generateLevel and startGame and restore what they change in CFG. Before each of them the page is put back on Park 1
 // in English with the level cache cleared; page errors fail the test that caused them (then are cleared).
-// The menu, banner and reload tests ask for `page`: a fresh page each, as before. They come first in this file: a second
-// game page left open keeps drawing 3D frames in software and made the fresh-page tests 3–5× slower (measured), so the
-// shared page is opened by the first generator test and closed by afterAll when the file is done.
+// SPEC-023: that shared page is in sim mode (logic only: no 3D, nothing drawn), so it may stay open while fresh pages
+// run. The menu, banner and reload tests and the two tests that look at the 3D map pieces ask for `page`: a fresh
+// rendered page each. The fresh-page tests come first in this file (SPEC-018 order, kept).
 let shared = null;
 const test = base.test.extend({
   levelPage: async ({ browser }, use) => {
     if (!shared) {
       const page = await browser.newPage({ viewport: { width: 960, height: 640 } });
-      shared = { page, errors: await openGame(page) };
+      shared = { page, errors: await openGame(page, { sim: true }) };
     }
     const { page, errors } = shared;
     // Park 1 is running (mode "play") when the test starts, as after openGame + startGame(1)
@@ -918,7 +918,7 @@ test("a level with no fair layout falls back and warns", async ({ levelPage: pag
   expect(warns.some(t => t.includes("park:2") && t.includes("housePath"))).toBe(true);
 });
 
-test("every world dresses every level type", async ({ levelPage: page }) => {
+test("every world dresses every level type", async ({ page }) => {
   test.setTimeout(180_000);
   const r = await page.evaluate(W => {
     const b = window.__bb, C = b.grid.CELL, out = [];
@@ -1079,7 +1079,7 @@ test("kisses stop at maze walls and cottages and fly over the river", async ({ l
   expect(r.river.far, "the kiss flew over the whole river").toBeGreaterThan(20 + r.river.width);
 });
 
-test("the fountain drop stays on top of the fountain while the water moves", async ({ levelPage: page }) => {
+test("the fountain drop stays on top of the fountain while the water moves", async ({ page }) => {
   await page.evaluate(() => { const b = window.__bb; b.world = "park"; b.level = 5; b.startGame(1); });
   await frames(page); await frames(page);
   const y = await page.evaluate(() => window.__bb.mapPieces().find(q => q.piece === "fountainDrop").y);
