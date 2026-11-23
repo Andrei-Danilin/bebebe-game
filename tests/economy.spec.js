@@ -799,3 +799,27 @@ test("every upgrade text is in three languages", async ({ page }) => {
   expect(I[1]).toEqual(["Cosas", "Mejoras", "Máximo", ["Pies rápidos", "+3% velocidad"], ["Cosas duraderas", "Duran más"], ["Ayuda rápida", "Levantás más rápido"]]);
   expect(I[2]).toEqual(["Вещи", "Улучшения", "Максимум", ["Быстрые ноги", "+3% скорости"], ["Долгие вещи", "Действуют дольше"], ["Быстрая помощь", "Поднимаешь быстрее"]]);
 });
+
+// ---------- AC 7–8: the economy section of the balance report (pure, no browser) ----------
+test("the balance report's economy targets are computed from the runs' coins", { tag: "@fast" }, () => {
+  const { analyseEconomy } = require("../scripts/balance.js");
+  const { readValue } = require("../scripts/docs-numbers.js");
+  const B = readValue(fs.readFileSync(INDEX, "utf8"), "CFG").BALANCE, E = B.ECONOMY;
+  const worlds = ["park", "school", "beach", "winter"], perWorld = 6, prices = { cheapest: 15, mega: 60, top: 150, upgrades: 1800 };
+  // careful runs: 3 seeds per level; Park pays 40 / 50 / 60 → median 50; the other worlds 100 each; one lost run of 3 coins
+  const runs = [];
+  worlds.forEach(w => { for (let n = 1; n <= perWorld; n++) [40, 50, 60].forEach((v, k) => runs.push({ world: w, n, style: "careful", seed: k, win: true, time: 60, coins: w === "park" ? v : 100 })); });
+  runs.push({ world: "park", n: 1, style: "reckless", seed: 0, win: false, time: 480, coins: 3 });
+  const replayRuns = [{ world: "park", n: 1, seed: 0, win: true, time: 60, coins: 10, parts: [] }, { world: "park", n: 2, seed: 0, win: true, time: 60, coins: 50, parts: [] }];
+  const upgradeRuns = [17, 18, 19, 20].map(n => ({ world: E.UPG_EXTRA[0], n, seed: 0, win: true, time: 40, coins: 0 }));
+  const ec = analyseEconomy(runs, replayRuns, upgradeRuns, B, worlds, perWorld, prices), ok = ec.targets.map(t => t.ok);
+  expect(ec.worlds.map(r => [r.world, r.median, r.total, r.streak])).toEqual([["park", 50, 300, 200], ["school", 100, 600, 400], ["beach", 100, 600, 400], ["winter", 100, 600, 400]]);
+  expect(ok[0], "Park median 50 is within 30–60").toBe(true);
+  expect(ok[3], "1800 > 60 % of 1500").toBe(false);
+  // replay: (10 + 50) / 2 min vs (40 + 40) / 2 min (the seed-0 first runs) = 75 % → red; park 2 pays 50 ≥ its first win 40 → red
+  expect(ec.replay.map(r => [r.n, r.firstCoins, r.replayCoins])).toEqual([[1, 40, 10], [2, 40, 50]]);
+  expect([ok[4], ok[5]]).toEqual([false, false]);
+  // the upgrades pass needs the same levels in the first pass: here there are none past level 6, so it has no pairs
+  expect(ec.upgrades).toEqual([]);
+  expect(ok[6], "no upgrade runs to compare: not green").toBe(false);
+});

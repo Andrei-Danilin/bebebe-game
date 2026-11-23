@@ -286,7 +286,7 @@
 | CFG | `TEXT_TEST_SCALE` | 1 | только для тестов: ширина текста надписи уровня и карточек магазина на телефоне × это (шрифты CI и iPhone шире) |
 | CFG | `LEVEL_ATTEMPTS` | 40 | столько раз пробуем построить честный уровень, потом — запасной вариант |
 | CFG | `EVENT_LOG_MAX` | 5000 | SPEC-008: событий в __bb.events не больше (старые выпадают); очищается в начале уровня |
-| CFG | `BALANCE` | { SIM_DT: 0.0333333, SEEDS: 3, TIME_LIMIT: 480, WIN_SEEDS: 2, TREND_RHO: 0.5, LATE_VS_EARLY: 1.5, RESCUE_RATE: [0.5, 0.9], RESTS_MAX: 2, RECKLESS_EVERY: 5, EARLY: [1, 5], MAZE: [17, 20], CI_LEVELS: [["park", 3], ["park", 18], ["school", 2], ["school", 19], ["beach", 4], ["beach", 17], ["winter", 5], ["winter", 20]] } | SPEC-008: проверка баланса (npm run balance, тест-выборка в CI). Прогон: SEEDS сидов careful-автопилота на уровень, 1 игрок + 4 бота, не дольше TIME_LIMIT сек игры с шагом SIM_DT; reckless — 1 сид, к… |
+| CFG | `BALANCE` | { SIM_DT: 0.0333333, SEEDS: 3, TIME_LIMIT: 480, WIN_SEEDS: 2, TREND_RHO: 0.5, LATE_VS_EARLY: 1.5, RESCUE_RATE: [0.5, 0.9], RESTS_MAX: 2, RECKLESS_EVERY: 5, EARLY: [1, 5], MAZE: [17, 20], CI_LEVELS: [["park", 3], ["park", 18], ["school", 2], ["school", 19], ["beach", 4], ["beach", 17], ["winter", 5], ["winter", 20]], ECONOMY: { PARK_PACKS: [2, 4], STREAK: 4, STREAK_PACKS: 2, WORLD_PACKS: 10, UPGRADE_WORLDS: 3, UPGRADE_SHARE: 0.6, REPLAY: [["park", 1, 5], ["beach", 1, 5]], REPLAY_SHARE: 0.6, UPG_EVERY: 5, UPG_EXTRA: ["winter", 17, 20], UPG_TIME: 0.7 } } | SPEC-008: проверка баланса (npm run balance, тест-выборка в CI). Прогон: SEEDS сидов careful-автопилота на уровень, 1 игрок + 4 бота, не дольше TIME_LIMIT сек игры с шагом SIM_DT; reckless — 1 сид, к… |
 | CFG | `AUTOPILOT` | { repath: 0.35, itemReach: 120, pickSafe: 160, rescueSafe: 110, sneakNear: 200, orbit: 180, orbitStep: 0.9, orbitR: 60, arrive: 6, backNear: 95, backDist: 75, hugIn: 3, minStep: 1, kitWait: 6, kissAim: 0.15, kissReach: 0.9 } | SPEC-008: автопилот игроков (только для проверки баланса), px и сек. repath — пересчёт пути; звёздочки и предметы берёт не дальше itemReach и если они дальше pickSafe от Большого и не под его взглядо… |
 | CFG | `DOOR_APRON` | 2 | клеток свободно перед каждой дверью домиков |
 | CFG | `HOUSE_PATH` | [18, 70] | клеток — путь Большого от его двери до клетки перед дверью маленьких (A*) |
@@ -302,9 +302,9 @@
 | RESCUE_KIT | `price` | 15 | Спасалка 🩹 (SPEC-007, решение детей): 3 штуки за 15 монеток, один запас на обоих игроков |
 | RESCUE_KIT | `pack` | 3 | Спасалка 🩹 (SPEC-007, решение детей): 3 штуки за 15 монеток, один запас на обоих игроков |
 | REWARD | `BASE` | 15 | основа награды за уровень |
-| REWARD | `PER_LEVEL` | 2 | + столько × номер уровня в мире |
+| REWARD | `PER_LEVEL` | 1 | + столько × номер уровня в мире (было 2: доход Парка выходил выше 4 наборов за уровень) |
 | REWARD | `PER_WORLD` | 10 | + столько × номер мира (0–3) |
-| REWARD | `NEW_STAR` | 8 | за каждую новую звезду уровня (выше прошлого рекорда; каждая звезда — один раз навсегда) |
+| REWARD | `NEW_STAR` | 6 | за каждую новую звезду уровня (выше прошлого рекорда; каждая звезда — один раз навсегда; было 8) |
 | REWARD | `PER_HUG` | 1 | за каждую обнимашку игрока — каждый раз, и при выходе из уровня до победы |
 | REWARD | `FIRST_MIN` | 5 | первая победа минус отдых — не меньше этого |
 | REWARD | `REPLAY_MIN` | 3 | повтор минус отдых — не меньше этого |

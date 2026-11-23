@@ -2,6 +2,8 @@
 // stepped in batches) and plays every level of every world with the autopilot, then writes
 //   reports/balance.json — every run (with its coins events), the settings and the targets;
 //   reports/balance.md   — per level, per world, the targets red/green.
+// SPEC-009 adds the economy: two more passes (replays of a few levels; every 5th level with all upgrades maxed) and the
+// pace targets of CFG.BALANCE.ECONOMY, in an "Economy" section (balance.json: economy, replayRuns, upgradeRuns).
 // Settings and targets live in CFG.BALANCE (index.html). Not part of `npm test`: `npm run balance` (~30 s).
 // tests/balance.spec.js requires runLevel() for the CI sample, and the page is opened with the tests' openSim(), so the
 // report and the tests play a level the same way.
@@ -132,6 +134,72 @@ function analyse(runs, B, worlds, perWorld) {
     full.map(r => `${r.world} ${r.n} ${r.style}`).join(", "));
   return { levels, targets };
 }
+// ---------- SPEC-009 AC 7–8: the economy ----------
+// The extra passes, built from the first pass: a replay of each E.REPLAY level (seed 0) with that level already won at the
+// stars its seed-0 run got; every E.UPG_EVERY-th level and the E.UPG_EXTRA levels (seed 0) with every upgrade maxed.
+function economyPlan(runs, B, worlds, perWorld, upgradeKeys) {
+  const E = B.ECONOMY, replay = [], upgrades = [];
+  for (const [w, a, z] of E.REPLAY) for (let n = a; n <= z; n++) {
+    const seed = seedOf(worlds.indexOf(w), n, 0), first = runs.find(r => r.style === "careful" && r.world === w && r.n === n && r.seed === seed);
+    const stars = first && first.win ? first.stars : 0;
+    replay.push({ world: w, n, style: "careful", seed, progress: { worlds: { [w]: { unlocked: Math.min(perWorld, n + 1), stars: stars ? { [n]: stars } : {}, won: { [n]: true } } } } });
+  }
+  const maxed = Object.fromEntries(upgradeKeys), [xw, xa, xz] = E.UPG_EXTRA;
+  for (const w of worlds) for (let n = 1; n <= perWorld; n++) {
+    if (n % E.UPG_EVERY !== 0 && !(w === xw && n >= xa && n <= xz)) continue;
+    upgrades.push({ world: w, n, style: "careful", seed: seedOf(worlds.indexOf(w), n, 0), progress: { upgrades: maxed } });
+  }
+  return { replay, upgrades };
+}
+// Income per level (the median of its careful runs' coins) and the pace targets; prices = { cheapest, mega, top, upgrades }
+function analyseEconomy(runs, replayRuns, upgradeRuns, B, worlds, perWorld, prices) {
+  const E = B.ECONOMY, limit = B.TIME_LIMIT, careful = runs.filter(r => r.style === "careful"), c = prices.cheapest;
+  const sum = a => a.reduce((x, y) => x + y, 0);
+  const income = (w, n) => median(careful.filter(r => r.world === w && r.n === n).map(r => r.coins));
+  const perLevel = Object.fromEntries(worlds.map(w => [w, Array.from({ length: perWorld }, (_, i) => income(w, i + 1))]));
+  const streak = w => { let m = Infinity; for (let i = 0; i + E.STREAK <= perWorld; i++) m = Math.min(m, sum(perLevel[w].slice(i, i + E.STREAK))); return m; };
+  const worldRows = worlds.map(w => ({ world: w, total: sum(perLevel[w]), median: median(perLevel[w]), streak: streak(w), perLevel: perLevel[w] }));
+  const targets = [], add = (name, value, want, ok, detail = "") => targets.push({ name, value, want, ok, detail });
+  // 1. Park: a cheap pack almost every level and savings for the rest
+  const park = worldRows[0], lo = E.PARK_PACKS[0] * c, hi = E.PARK_PACKS[1] * c;
+  add(`${worlds[0]}: median first-win income per level (${E.PARK_PACKS[0]}–${E.PARK_PACKS[1]} × the cheapest pack, ${c})`, fmt(park.median, 1), `${lo}–${hi}`,
+    park.median >= lo && park.median <= hi, park.perLevel.map((v, i) => `${i + 1}: ${fmt(v)}`).join(", "));
+  // 2. any STREAK first wins in a row buy mega mittens + STREAK_PACKS cheap packs, in every world
+  const sMin = prices.mega + E.STREAK_PACKS * c;
+  add(`any ${E.STREAK} first wins in a row ≥ mega mittens + ${E.STREAK_PACKS} cheapest packs, every world`,
+    worldRows.map(r => `${r.world} ${fmt(r.streak)}`).join(", "), `≥ ${sMin}`, worldRows.every(r => r.streak >= sMin));
+  // 3. a world's first wins buy the most special outfit item + WORLD_PACKS cheap packs
+  const wMin = prices.top + E.WORLD_PACKS * c;
+  add(`each world's first-win income ≥ a ${prices.top}-coin item + ${E.WORLD_PACKS} cheapest packs`,
+    worldRows.map(r => `${r.world} ${fmt(r.total)}`).join(", "), `≥ ${wMin}`, worldRows.every(r => r.total >= wMin));
+  // 4. all upgrades take at most UPGRADE_SHARE of the first UPGRADE_WORLDS worlds' income
+  const early = sum(worldRows.slice(0, E.UPGRADE_WORLDS).map(r => r.total));
+  add(`all upgrades (${prices.upgrades}) ≤ ${pct(E.UPGRADE_SHARE)} of the first ${E.UPGRADE_WORLDS * perWorld} levels' income`,
+    `${prices.upgrades} vs ${fmt(early)} (${pct(prices.upgrades / early)})`, `≤ ${pct(E.UPGRADE_SHARE)}`, prices.upgrades <= E.UPGRADE_SHARE * early);
+  // 5. replaying pays less per game-minute than playing on (the same levels and seeds)
+  const pairs = replayRuns.map(r => ({ replay: r, first: careful.find(q => q.world === r.world && q.n === r.n && q.seed === r.seed) })).filter(x => x.first);
+  const perMin = rs => { const t = sum(rs.map(r => runTime(r, limit))); return t ? sum(rs.map(r => r.coins)) / (t / 60) : 0; };
+  const rMin = perMin(pairs.map(x => x.replay)), fMin = perMin(pairs.map(x => x.first));
+  add(`replay income per game-minute ≤ ${pct(E.REPLAY_SHARE)} of first-win income (${E.REPLAY.map(([w, a, z]) => `${w} ${a}–${z}`).join(", ")}, 1 seed)`,
+    `${fmt(rMin, 1)} vs ${fmt(fMin, 1)} coins/min (${pct(fMin ? rMin / fMin : 0)})`, `≤ ${pct(E.REPLAY_SHARE)}`, rMin <= E.REPLAY_SHARE * fMin);
+  const notLess = pairs.filter(x => x.replay.win && x.first.win && x.replay.coins >= x.first.coins);
+  add("a replay pays less than the first win (kids' rule), every replay level", `${pairs.length - notLess.length}/${pairs.length}`, `${pairs.length}/${pairs.length}`,
+    notLess.length === 0, notLess.map(x => `${x.replay.world} ${x.replay.n}: ${x.replay.coins} ≥ ${x.first.coins}`).join(", "));
+  // 6. AC 8: with every upgrade maxed the last levels stay a challenge
+  const [xw, xa, xz] = E.UPG_EXTRA;
+  const upPairs = upgradeRuns.map(r => ({ up: r, base: careful.find(q => q.world === r.world && q.n === r.n && q.seed === r.seed) })).filter(x => x.base);
+  const extra = upPairs.filter(x => x.up.world === xw && x.up.n >= xa && x.up.n <= xz);
+  const upT = median(extra.map(x => runTime(x.up, limit))), baseT = median(extra.map(x => runTime(x.base, limit)));
+  add(`${xw} ${xa}–${xz} with every upgrade maxed: median time ≥ ${pct(E.UPG_TIME)} of the time without (1 seed)`,
+    `${fmt(upT)} s vs ${fmt(baseT)} s (${pct(baseT ? upT / baseT : 0)})`, `≥ ${pct(E.UPG_TIME)}`, extra.length > 0 && upT >= E.UPG_TIME * baseT,
+    `wins with upgrades ${upgradeRuns.filter(r => r.win).length}/${upgradeRuns.length}`);
+  return {
+    prices, targets, worlds: worldRows,
+    replay: pairs.map(x => ({ world: x.replay.world, n: x.replay.n, firstCoins: x.first.coins, replayCoins: x.replay.coins,
+      firstTime: runTime(x.first, limit), replayTime: runTime(x.replay, limit), parts: x.replay.parts })),
+    upgrades: upPairs.map(x => ({ world: x.up.world, n: x.up.n, win: x.up.win, time: runTime(x.up, limit), baseWin: x.base.win, baseTime: runTime(x.base, limit) }))
+  };
+}
 const fmt = (v, d = 0) => (v === null || v === undefined ? "—" : Number(v).toFixed(d));
 const pct = v => `${Math.round(v * 100)} %`;
 const TREND = " .:-=+*#%@";
@@ -167,6 +235,22 @@ function markdown(rep) {
         `${l.rescueRate === null ? "—" : pct(l.rescueRate)} | ${fmt(l.rests, 1)} | ${fmt(l.stars, 1)} | ${fmt(l.coins, 1)} | ${parts} | ${fmt(l.bonusStars, 1)} |`);
     }
   }
+  const ec = rep.economy;
+  if (ec) {
+    const eg = ec.targets.filter(t => t.ok).length;
+    L.push("", `## Economy — ${eg} green, ${ec.targets.length - eg} red`, "",
+      "SPEC-009 pace targets (`CFG.BALANCE.ECONOMY`). First playthrough = the careful runs above (fresh progress: every win is a first win). " +
+      "A run's income = the sum of its coins events (reward lines + bonus stars); a level's income = the median over its seeds. " +
+      `Prices: cheapest pack ${ec.prices.cheapest}, mega mittens ${ec.prices.mega}, top wardrobe tier ${ec.prices.top}, all upgrades ${ec.prices.upgrades}.`, "",
+      "| Target | Value | Want | Result | Detail |", "|---|---|---|---|---|");
+    for (const t of ec.targets) L.push(`| ${t.name} | ${t.value} | ${t.want} | ${t.ok ? "🟢 green" : "🔴 red"} | ${t.detail} |`);
+    L.push("", "### First-win income per world", "", `| World | Total | Median per level | Lowest ${B.ECONOMY.STREAK} in a row | Per level 1→${rep.perWorld} |`, "|---|---|---|---|---|");
+    for (const r of ec.worlds) L.push(`| ${r.world} | ${fmt(r.total)} | ${fmt(r.median, 1)} | ${fmt(r.streak)} | ${r.perLevel.map(v => fmt(v)).join(" ")} |`);
+    L.push("", "### Replays (1 seed, the level already won at the first run's stars)", "", "| Level | First win: coins, time | Replay: coins, time | Replay parts |", "|---|---|---|---|");
+    for (const r of ec.replay) L.push(`| ${r.world} ${r.n} | ${r.firstCoins}, ${fmt(r.firstTime)} s | ${r.replayCoins}, ${fmt(r.replayTime)} s | ${r.parts.map(q => `${q.reason} ${q.amount}`).join(" · ")} |`);
+    L.push("", "### Every upgrade maxed (1 seed)", "", "| Level | Without upgrades: win, time | With all upgrades: win, time |", "|---|---|---|");
+    for (const r of ec.upgrades) L.push(`| ${r.world} ${r.n} | ${r.baseWin ? "won" : "—"}, ${fmt(r.baseTime)} s | ${r.win ? "won" : "—"}, ${fmt(r.time)} s |`);
+  }
   L.push("", "## Reckless vs careful", "", "| Level | Reckless: win, time, falls (player) | Careful (same seed): win, time, falls (player) |", "|---|---|---|");
   for (const r of runs.filter(q => q.style === "reckless")) {
     const c = runs.find(q => q.style === "careful" && q.world === r.world && q.n === r.n && q.seed === r.seed);
@@ -187,8 +271,14 @@ async function main() {
   try {
     const page = await browser.newPage();
     const errors = await openSim(page);                  // like the tests: from disk, three.js from node_modules, strict rng guard
-    const { B, worlds, perWorld } = await page.evaluate(() => ({ B: JSON.parse(JSON.stringify(window.__bb.CFG.BALANCE)), worlds: window.__bb.WORLDS,
-      perWorld: window.__bb.levelsPerWorld() }));
+    const { B, worlds, perWorld, prices, upgradeKeys } = await page.evaluate(() => {
+      const b = window.__bb, U = b.UPGRADES;
+      return { B: JSON.parse(JSON.stringify(b.CFG.BALANCE)), worlds: b.WORLDS, perWorld: b.levelsPerWorld(),
+        // SPEC-009: the prices the pace targets are measured in, and the top level of each upgrade
+        prices: { cheapest: Math.min(...b.shopCards().map(c => c.price)), mega: b.GLOVES.mega.price, top: Math.max(...b.WARDROBE_TIERS),
+          upgrades: Object.values(U).reduce((s, u) => s + u.prices.reduce((x, y) => x + y, 0), 0) },
+        upgradeKeys: Object.entries(U).map(([k, u]) => [k, u.prices.length]) };
+    });
     const plan = [];
     worlds.forEach((w, wi) => {
       for (let n = 1; n <= perWorld; n++) {
@@ -201,22 +291,30 @@ async function main() {
       runs.push(await page.evaluate(runLevel, job));
       if ((i + 1) % 40 === 0) process.stdout.write(`  ${i + 1}/${plan.length} runs, ${Math.round((Date.now() - t0) / 1000)} s\n`);
     }
+    // SPEC-009: the replay pass and the maxed-upgrades pass
+    const extra = economyPlan(runs, B, worlds, perWorld, upgradeKeys), replayRuns = [], upgradeRuns = [];
+    for (const job of extra.replay) replayRuns.push({ ...(await page.evaluate(runLevel, job)), pass: "replay" });
+    for (const job of extra.upgrades) upgradeRuns.push({ ...(await page.evaluate(runLevel, job)), pass: "upgrades" });
     if (errors.length) throw new Error("page errors:\n" + errors.join("\n"));
     const { levels, targets } = analyse(runs, B, worlds, perWorld);
+    const economy = analyseEconomy(runs, replayRuns, upgradeRuns, B, worlds, perWorld, prices);
     const rep = { generated: new Date().toISOString().slice(0, 16).replace("T", " ") + " UTC", durationSec: Math.round((Date.now() - t0) / 1000),
-      settings: B, worlds, perWorld, targets, levels, runs };
+      settings: B, worlds, perWorld, targets, economy, levels, runs, replayRuns, upgradeRuns };
     fs.mkdirSync(OUT_DIR, { recursive: true });
     // one run per line: small diffs when a spec changes a number
-    const { runs: all, ...head } = rep;
-    const json = JSON.stringify(head, null, 1).replace(/\n}$/, ',\n "runs": [\n') + all.map(r => JSON.stringify(r)).join(",\n") + "\n ]\n}\n";
+    const { runs: all, replayRuns: rr, upgradeRuns: ur, ...head } = rep;
+    const lines = (name, list) => ` "${name}": [\n` + list.map(r => JSON.stringify(r)).join(",\n") + "\n ]";
+    const json = JSON.stringify(head, null, 1).replace(/\n}$/, ",\n") + [lines("runs", all), lines("replayRuns", rr), lines("upgradeRuns", ur)].join(",\n") + "\n}\n";
     fs.writeFileSync(path.join(OUT_DIR, "balance.json"), json);
     fs.writeFileSync(path.join(OUT_DIR, "balance.md"), markdown(rep));
     const red = targets.filter(t => !t.ok);
     console.log(`balance: ${runs.length} runs in ${rep.durationSec} s → reports/balance.md, reports/balance.json`);
     console.log(`targets: ${targets.length - red.length} green, ${red.length} red${red.length ? ":\n  - " + red.map(t => `${t.name}: ${t.value}`).join("\n  - ") : ""}`);
+    const ered = economy.targets.filter(q => !q.ok);
+    console.log(`economy: ${economy.targets.length - ered.length} green, ${ered.length} red${ered.length ? ":\n  - " + ered.map(q => `${q.name}: ${q.value}`).join("\n  - ") : ""}`);
   } finally { await browser.close(); }
 }
 
 if (require.main === module) main().catch(e => { console.error(e); process.exit(1); });
 
-module.exports = { runLevel, analyse, spearman, median };
+module.exports = { runLevel, analyse, analyseEconomy, economyPlan, spearman, median };
