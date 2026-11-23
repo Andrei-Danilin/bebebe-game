@@ -1790,12 +1790,12 @@ test("no hearing while stunned or blushing", async ({ page }) => {
       h.run(0.5, 0, behind);
       out[k] = [big.noise, big.hearCd];
     }
-    // searching for the kid he just lost: busy, he does not listen (the escaping kid may run)
-    h.calm(p, 0); big.noise = 0.2;
+    // searching for the kid he just lost: he still hears (run decision, SPEC-019 AC 5 balance)
+    h.calm(p, 0);
     Object.assign(big, { state: "search", lastSeen: { x: p.x + 150, y: p.y } });
     let searched = 0;
     h.run(0.5, 0, () => ({ x: big.x - Math.cos(big.dir) * 100, y: big.y - Math.sin(big.dir) * 100 }), ["KeyS"], () => big.state === "search" && ++searched > 0);
-    out.search = [big.noise, big.hearCd];
+    out.search = big.hearCd > 0;                                  // he turned on the noise
     out.searched = searched;
     // the final hug: player 1 hugs the last heart, player 2 runs behind him while the win is coming
     b.startGame(2); window.__t.pin([0, 1]); big = b.big;
@@ -1809,9 +1809,10 @@ test("no hearing while stunned or blushing", async ({ page }) => {
     return out;
   });
   const soft = softly();
-  for (const k of ["stun", "blush", "slip", "pushCd", "search"]) soft(r[k], k).toEqual([0, 0]);
+  for (const k of ["stun", "blush", "slip", "pushCd"]) soft(r[k], k).toEqual([0, 0]);
   soft.done();
-  expect(r.searched).toBeGreaterThan(20);                          // he searched (and kept quiet) for a good part of the run
+  expect(r.search, "he hears while searching").toBe(true);
+  expect(r.searched).toBeGreaterThan(10);                          // he was searching while the kid ran
   expect(r.winComing).toBe(true);
   expect(r.final).toEqual([0, 0]);
 });
