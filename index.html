@@ -190,6 +190,13 @@ const CFG = {
   LEVEL_ATTEMPTS: 40,        // столько раз пробуем построить честный уровень, потом — запасной вариант
   EVENT_LOG_MAX: 5000,       // SPEC-008: событий в __bb.events не больше (старые выпадают); очищается в начале уровня
   BALANCE: { SIM_DT: 1 / 30 },   // SPEC-008: проверка баланса — шаг simRun по умолчанию (сек игры)
+  // SPEC-008: автопилот игроков (только для проверки баланса), px и сек. repath — пересчёт пути; звёздочки и предметы
+  // берёт не дальше itemReach и если они дальше pickSafe от Большого и не под его взглядом; спасает друга, которого никакой
+  // бот не поднимет быстрее и до которого Большой дальше rescueSafe; издалека (дальше sneakNear) идёт к спине в обход
+  // взгляда; ближе orbit и перед ним — обходит сбоку (шаг orbitStep рад по кругу не меньше orbitR); arrive — запас «дошёл»;
+  // 🩹 — если лежит дольше kitWait и никто не поднимает; 💋 — если смотрит на Большого точнее kissAim рад
+  AUTOPILOT: { repath: 0.35, itemReach: 120, pickSafe: 160, rescueSafe: 110, sneakNear: 200, orbit: 180, orbitStep: 0.9, orbitR: 60,
+    arrive: 6, kitWait: 6, kissAim: 0.15 },
   // правила честности уровня
   DOOR_APRON: 2,             // клеток свободно перед каждой дверью домиков
   HOUSE_PATH: [18, 70],      // клеток — путь Большого от его двери до клетки перед дверью маленьких (A*)
@@ -1386,7 +1393,9 @@ function clearTo(e, x, y, avoidCone) {
   if (avoidCone && big.stun <= 0 && big.blush <= 0) for (let t = 0.2; t <= 1.001; t += 0.2) if (inCone(e.x + (x - e.x) * t, e.y + (y - e.y) * t)) return false;
   return true;
 }
-function steerTo(e, gx, gy, speed, dt, avoidCone) {
+// Куда идти к цели (gx, gy): сама цель, если путь прямой, иначе следующая точка пути A*. e.path/e.repath — память пути;
+// repathIn — через сколько пересчитать (боты и Большой — случайно; автопилот — своё число, игровой rng() не трогает)
+function steerPoint(e, gx, gy, dt, avoidCone, repathIn = () => rand(0.3, 0.45)) {
   e.repath -= dt;
   let tx = gx, ty = gy;
   if (!clearTo(e, gx, gy, avoidCone)) {
@@ -1394,12 +1403,16 @@ function steerTo(e, gx, gy, speed, dt, avoidCone) {
       const cost = e.isBig ? (avoidCone ? ((x, y) => (inCone(x, y) ? 20 : 0)) : null)
         : (x, y) => (avoidCone && inCone(x, y) ? 20 : 0) + (inDangerXY(x, y) ? CFG.BOT_DANGER_COST : 0);   // дом Большого — «дорогой»
       e.path = findPath(e.x, e.y, gx, gy, cost, e.isBig ? blockedBig : blocked);
-      e.repath = rand(0.3, 0.45);
+      e.repath = repathIn();
     }
     while (e.path.length && Math.hypot(e.path[0].x - e.x, e.path[0].y - e.y) < 8) e.path.shift();
     while (e.path.length > 1 && clearTo(e, e.path[1].x, e.path[1].y, avoidCone)) e.path.shift();
     if (e.path.length) { tx = e.path[0].x; ty = e.path[0].y; }
   } else e.path = [];
+  return { tx, ty };
+}
+function steerTo(e, gx, gy, speed, dt, avoidCone) {
+  const { tx, ty } = steerPoint(e, gx, gy, dt, avoidCone);
   const dx = tx - e.x, dy = ty - e.y, d = Math.hypot(dx, dy);
   if (d < 1.5) return false;
   const sp = Math.min(speed, d / dt);
@@ -1720,6 +1733,7 @@ function resetWorld(n) {
   kitHintT = 0; kitHintDone = false;
   texts = []; particles = []; attackToken = null; prevToken = null; botAttackCd = rand(3, 5); shake = 0; sticks.clear();
   stats = { hugs: 0, time: 0, playerHugs: 0, rests: 0, starCoins: 0 };
+  autoNavs = new Map(); autoMove = [];
   lastReward = null; resetArmed = false;
   rebuild3D();
 }
@@ -1979,6 +1993,8 @@ function inputFor(l) {
     const R = stickR(), dx = (s.x - s.ox) / R, dy = (s.y - s.oy) / R;
     if (Math.hypot(dx, dy) > 0.15) { x += dx; y += dy; }
   }
+  const ap = autoMove[pi];                     // SPEC-008: автопилот — как ещё один джойстик этого игрока
+  if (ap) { x += ap.x; y += ap.y; }
   const d = Math.hypot(x, y);
   if (d > 1) { x /= d; y /= d; }
   return { x, y };
@@ -2342,6 +2358,82 @@ function nearestExit(p) {
   return { x: (c % COLS + 0.5) * CELL, y: (((c / COLS) | 0) + 0.5) * CELL };
 }
 
+// =====================================================================
+//  АВТОПИЛОТ (SPEC-008): ведёт маленьких игроков для проверки баланса. Видит то же, что игрок, а действует только как
+//  игрок: «джойстик» autoMove, который читает inputFor(l), и кнопки 💋 throwKiss / 🩹 useRescueKit. Состояние Большого,
+//  ботов, самих маленьких, CFG и progress не трогает (тест «the autopilot plays only through the players' inputs»);
+//  своя память — autoNavs (путь к цели), путь ищет тем же steerPoint, что и боты.
+//  careful — к спине в обход взгляда (за стенами и кустами), вблизи перед ним обходит сбоку, обнимает сзади и сразу
+//            заходит за спину снова; спасает друзей; берёт звёздочки и предметы рядом, когда он туда не смотрит.
+//  reckless — бежит прямо обниматься, ни от кого не прячется и никого не спасает.
+// =====================================================================
+let autoOn = false, autoStyle = "careful", autoNavs = new Map(), autoMove = [];
+function autopilot(on, style) {
+  if (typeof on === "boolean") autoOn = on;
+  if (style === "careful" || style === "reckless") autoStyle = style;
+  if (!autoOn) autoMove = [];
+  return { on: autoOn, style: autoStyle };
+}
+const autoNav = l => {
+  if (!autoNavs.has(l.id)) autoNavs.set(l.id, { x: l.x, y: l.y, r: l.r, path: [], repath: 0 });
+  return autoNavs.get(l.id);
+};
+// Большой сейчас может толкнуть (не в шоке, не лежит, не краснеет, не отдыхает после толчка)
+const bigDangerous = () => big.stun <= 0 && big.slip <= 0 && big.blush <= 0 && big.pushCd <= 0 && big.noPush <= 0;
+// Точка у спины Большого: издалека — в 75 px за ним, вблизи — вплотную (обнимашка)
+const backPoint = (l, d) => { const a = big.dir + Math.PI, rr = d > 95 ? 75 : big.r + l.r - 3; return { x: big.x + Math.cos(a) * rr, y: big.y + Math.sin(a) * rr }; };
+// Цель careful-игрока: { x, y, avoid (обходить взгляд), stop (px — ближе не подходить) }
+function autoGoalCareful(l) {
+  const A = CFG.AUTOPILOT, danger = bigDangerous();
+  if (big.slip > 0) return { x: big.x, y: big.y, avoid: false, stop: 0 };   // лежит после банана — обнимать с любой стороны!
+  let down = null;                                       // упавший друг, которого ни один бот не поднимет быстрее
+  for (const d of littles) {
+    if (d.state !== "down" || d === l || (danger && dist(d, big) <= A.rescueSafe)) continue;
+    if (littles.some(o => o.kind === "bot" && o.state === "ok" && dist(o, d) < dist(l, d))) continue;
+    if (!down || dist(l, d) < dist(l, down)) down = d;
+  }
+  if (down) return { x: down.x, y: down.y, avoid: true, stop: l.r + down.r + A.arrive };
+  let pick = null;                                       // звёздочка или предмет рядом, пока он туда не смотрит
+  for (const s of [...bonusStars, ...items.filter(it => it.kind !== "banana")]) {
+    if (dist(l, s) < A.itemReach && (!danger || (dist(s, big) > A.pickSafe && !inCone(s.x, s.y))) && (!pick || dist(l, s) < dist(l, pick))) pick = s;
+  }
+  if (pick) return { x: pick.x, y: pick.y, avoid: true, stop: 0 };
+  // обнимашка: близко и перед ним, а он может толкнуть, — обходим сбоку к спине; иначе к спине, издалека — в обход взгляда
+  const d = dist(l, big), a = Math.atan2(l.y - big.y, l.x - big.x), side = normAng(a - big.dir);
+  if (danger && d < A.orbit && Math.abs(side) < CFG.BEHIND_ANGLE) {
+    const t = a + Math.sign(side || 1) * A.orbitStep, r = Math.max(A.orbitR, d);
+    return { x: big.x + Math.cos(t) * r, y: big.y + Math.sin(t) * r, avoid: false, stop: 0 };
+  }
+  return { ...backPoint(l, d), avoid: danger && d > A.sneakNear, stop: 0 };
+}
+// Цель reckless-игрока: прямо к спине Большого (или к нему, если лежит), не прячась и никого не спасая
+const autoGoalReckless = l => big.slip > 0 ? { x: big.x, y: big.y, avoid: false, stop: 0 } : { ...backPoint(l, dist(l, big)), avoid: false, stop: 0 };
+// Решение автопилота на этот шаг: autoMove[pi] = { x, y } (как стик, длина ≤ 1) и нажатия 💋 / 🩹
+function autoThink(dt) {
+  autoMove = [];
+  if (!autoOn || mode !== "play") return;
+  const A = CFG.AUTOPILOT;
+  for (const l of littles) {
+    if (l.kind !== "player") continue;
+    const n = autoNav(l);
+    n.x = l.x; n.y = l.y;
+    // 🩹: лежит долго и никто не поднимает (или уже хромает в домик, отдыхает)
+    if (autoStyle === "careful" && canUseKit(l) && (l.state !== "down" || (l.rescue <= 0 && l.downTimer < CFG.DOWN_TIME - A.kitWait))) { useRescueKit(l.id); continue; }
+    if (!canAct(l)) continue;
+    const goal = autoStyle === "reckless" ? autoGoalReckless(l) : autoGoalCareful(l);
+    if (Math.hypot(goal.x - l.x, goal.y - l.y) <= goal.stop) continue;
+    const { tx, ty } = steerPoint(n, goal.x, goal.y, dt, goal.avoid, () => A.repath);
+    const dx = tx - l.x, dy = ty - l.y, d = Math.hypot(dx, dy);
+    if (d < 1) continue;
+    const sp = CFG.PLAYER_SPEED * (l.fx.boots > 0 ? CFG.BOOTS_MULT : 1), m = Math.min(1, d / (sp * dt));   // не проскочить точку
+    autoMove[l.id] = { x: dx / d * m, y: dy / d * m };
+    // 💋: смотрит на Большого, он близко, видно, и поцелуй сработает
+    if (autoStyle === "careful" && progress.inv.kisses > 0 && l.kissCd <= 0 && !inSafe(l) && big.stun <= 0 && big.blush <= 0 && big.hugCd <= 0 &&
+      dist(l, big) < CFG.KISS_RANGE * 0.9 && angDiff(l.dir, Math.atan2(big.y - l.y, big.x - l.x)) < A.kissAim &&
+      los(l.x, l.y, big.x, big.y, seeSolidAt)) throwKiss(l.id);
+  }
+}
+
 function updateBig(dt) {
   big.flash = Math.max(0, big.flash - dt);
   big.hugCd = Math.max(0, big.hugCd - dt);
@@ -2556,6 +2648,7 @@ function update(dt) {
     } else { l.kx = 0; l.ky = 0; }
   }
   kitHintT = Math.max(0, kitHintT - dt);
+  autoThink(dt);
   updatePlayers(dt);
   updateBots(dt);
   updateBig(dt);
@@ -5201,6 +5294,7 @@ window.__bb = {
   get items() { return items; }, get progress() { return progress; }, buyGloves, setEquip, get lastReward() { return lastReward; }, spawnItem,
   seedRandom,     // SPEC-008: seedRandom(n) — игровая случайность rng() с зерна n; seedRandom() — снова случайно
   sim, simRun, get events() { return events.map(e => ({ ...e })); },   // SPEC-008: режим симуляции, журнал событий (копии)
+  autopilot, autoThink,   // SPEC-008: autopilot(on, "careful"|"reckless") → { on, style }; autoThink(dt) — только решение (для теста)
   get strictRng() { return strictRng; }, set strictRng(v) { strictRng = !!v; },   // SPEC-008: тесты — генератор/3D с игровым rng() падает
   // SPEC-008 AC 10: карточки магазина простыми данными (без функций); picture — у карточки есть картинка
   shopCards: () => shopCards().map(({ k, price, packN, name, desc }) => ({ k, price, packN, name, desc, picture: k in SHOP_PICTURES })),

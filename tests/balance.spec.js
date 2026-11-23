@@ -250,3 +250,76 @@ test("the event log records gameplay and every coin change", async ({ page }) =>
   expect(r.leaveReward).toEqual({ coins: 7, parts: [{ reason: "hugs", amount: 4 }, { reason: "star", amount: 3 }], gained: 4 });
   expect(r.tNumber).toBe(true);
 });
+
+// ---------- AC 3: the autopilot ----------
+// The autopilot decides from what a player sees and acts only through the player's own paths: the movement that
+// inputFor(l) returns, and the kiss and kit buttons. Each step, its decision (__bb.autoThink) must leave the world as it
+// was: the Big One, the bots, the players, items, stars, CFG, progress, stats and the event log.
+test("the autopilot plays only through the players' inputs", async ({ page }) => {
+  const r = await page.evaluate(() => {
+    const b = window.__bb, out = { changed: [], styles: {} };
+    const snap = () => JSON.stringify({ big: b.big, littles: b.littles, items: b.items, stars: b.stars, kisses: b.kisses, CFG: b.CFG,
+      progress: b.progress, stats: b.stats, events: b.events.length, mode: b.mode });
+    for (const style of ["careful", "reckless"]) {
+      b.seedRandom(4242);
+      out.styles[style] = b.autopilot(true, style);
+      b.world = "park"; b.level = 3; b.startGame(1);
+      const p = b.littles[0], x0 = p.x, y0 = p.y;
+      let walked = 0, px = p.x, py = p.y;
+      for (let i = 0; i < 90 * 30 && b.mode === "play"; i++) {
+        const before = snap();
+        b.autoThink(1 / 30);
+        if (snap() !== before && out.changed.length < 3) out.changed.push(`${style} step ${i}`);
+        b.update(1 / 30);
+        walked += Math.hypot(p.x - px, p.y - py); px = p.x; py = p.y;
+      }
+      out[style] = { walked, moved: Math.hypot(p.x - x0, p.y - y0), hugs: b.events.filter(e => e.type === "hug" && e.kind === "player").length };
+    }
+    // off: the player stands still
+    out.off = b.autopilot(false);
+    b.seedRandom(4242); b.startGame(1);
+    const p = b.littles[0], x0 = p.x, y0 = p.y;
+    b.simRun(5);
+    out.offMoved = Math.hypot(p.x - x0, p.y - y0);
+    b.seedRandom(); b.mode = "menu";
+    return out;
+  });
+  expect(r.changed, "autoThink changed the world").toEqual([]);
+  expect(r.styles).toEqual({ careful: { on: true, style: "careful" }, reckless: { on: true, style: "reckless" } });
+  expect(r.off, "off keeps the last style").toEqual({ on: false, style: "reckless" });
+  for (const s of ["careful", "reckless"]) {
+    expect(r[s].walked, `${s}: the player walks`).toBeGreaterThan(300);
+    expect(r[s].hugs, `${s}: the player hugs the Big One`).toBeGreaterThan(0);
+  }
+  expect(r.offMoved).toBe(0);
+});
+
+// Sneaking must pay (AC 13 is checked in the balance report; this is the quick version): on 9 levels × 4 seeds
+// "careful" wins every level and needs less game time in total than "reckless", with fewer falls. One run is noisy
+// (the Big One's look timers, bots, items), so the check is on totals; a sim run takes ~0.05 s.
+test("careful autopilot beats reckless", async ({ page }) => {
+  const r = await page.evaluate(() => {
+    const b = window.__bb, out = [], runs = [];
+    for (const [w, n] of [["park", 2], ["park", 9], ["school", 5], ["school", 8], ["beach", 12], ["beach", 14], ["winter", 16], ["winter", 18], ["winter", 20]]) {
+      for (const seed of [11, 22, 33, 44]) runs.push([w, n, seed]);
+    }
+    for (const [w, n, seed] of runs) {
+      for (const style of ["careful", "reckless"]) {
+        b.autopilot(true, style); b.seedRandom(seed);
+        b.world = w; b.level = n; b.startGame(1);
+        const res = b.simRun(480);
+        const ev = b.events;
+        out.push({ w, n, style, win: res.win, time: Math.round(res.time), downs: ev.filter(e => e.type === "down" && e.kind === "player").length,
+          hugs: ev.filter(e => e.type === "hug" && e.kind === "player").length });
+      }
+    }
+    b.autopilot(false); b.seedRandom(); b.mode = "menu";
+    return out;
+  });
+  const careful = r.filter(x => x.style === "careful"), reckless = r.filter(x => x.style === "reckless");
+  const total = list => list.reduce((s, x) => s + (x.win ? x.time : 480), 0), falls = list => list.reduce((s, x) => s + x.downs, 0);
+  for (const [s, l] of [["careful", careful], ["reckless", reckless]]) console.log(`${s}: wins ${l.filter(x => x.win).length}/${l.length}, ${total(l)} s, falls ${falls(l)}`);
+  expect(careful.every(x => x.win), "careful wins every level").toBe(true);
+  expect(total(careful), "careful needs less time").toBeLessThan(total(reckless));
+  expect(falls(careful), "careful falls less").toBeLessThan(falls(reckless));
+});
