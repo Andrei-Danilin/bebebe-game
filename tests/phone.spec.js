@@ -418,12 +418,18 @@ test.describe("phone controls", () => {
     p1 = await heroPos(page);
     expect(Math.hypot(p1.x - p0.x, p1.y - p0.y)).toBeLessThan(3);    // a stick would move him ≥ 20 px (3: a bot may bump him)
     await touch(page, "pointerup", ui.w * 0.8 - 60, 200, 8);
-    // buttons win over the stick: the kiss button (right) and the pause button (left part of the screen)
+    // buttons win over the stick: the kiss button (right) and the pause button inside the stick zone.
+    // SPEC-010: the smaller mini-map lets the top bar's timer + pause group sit a bit further right (centred in the
+    // free space), just past STICK_ZONE at 844 px, so the zone is widened here to cover the pause button (restored below)
     await page.evaluate(() => { window.__bb.progress.inv.kisses = 5; });
     await frames(page);
     const rects = await page.evaluate(() => window.__bb.buttonRects);
     const kiss = rects.find(r => r.id === "kiss:0"), pause = rects.find(r => r.text === "II");
-    expect(pause.x + pause.w / 2).toBeLessThan(ui.w * 0.55);
+    const zone0 = await page.evaluate(() => window.__bb.CFG.STICK_ZONE);
+    const zone = Math.max(zone0, (pause.x + pause.w) / ui.w + 0.02);
+    await page.evaluate(z => { window.__bb.CFG.STICK_ZONE = z; }, zone);
+    expect(pause.x + pause.w / 2).toBeLessThan(ui.w * zone);
+    expect(kiss.x).toBeGreaterThan(ui.w * zone);
     await touch(page, "pointerdown", kiss.x + kiss.w / 2, kiss.y + kiss.h / 2, 9);
     expect(await page.evaluate(() => window.__bb.sticks.length)).toBe(0);
     await touch(page, "pointerup", kiss.x + kiss.w / 2, kiss.y + kiss.h / 2, 9);
@@ -431,6 +437,7 @@ test.describe("phone controls", () => {
     expect(await page.evaluate(() => window.__bb.sticks.length)).toBe(0);
     expect(await page.evaluate(() => window.__bb.mode)).toBe("pause");
     await touch(page, "pointerup", pause.x + pause.w / 2, pause.y + pause.h / 2, 10);
+    await page.evaluate(z => { window.__bb.CFG.STICK_ZONE = z; }, zone0);
     expect(errors).toEqual([]);
   });
 
@@ -500,6 +507,31 @@ test.describe("desktop touch", () => {
 // AC 6–7: mini-map and edge arrows.
 const overlaps = (a, b, pad = 0) => a.x < b.x + b.w + pad && a.x + a.w + pad > b.x && a.y < b.y + b.h + pad && a.y + a.h + pad > b.y;
 const kindsOf = mm => new Set(mm.markers.map(m => m.kind));
+// puts one bonus star, one item (a shield) and a downed bot (littles[1]) on fixed free cells far from everyone, and
+// checks they are there. The random star/item spawns could land next to the hero and be picked up, or find no spot
+// (CI flake "Error: star"); a downed bot left next to the others was helped up (RESCUE_TIME) when the machine was slow.
+// botWait keeps the bots from walking over to rescue him.
+async function pinMarkers(page) {
+  const r = await page.evaluate(() => {
+    const b = window.__bb, g = b.grid, C = g.CELL, who = [...b.littles, b.big], spots = [];
+    for (let cy = 1; cy < g.ROWS - 1 && spots.length < 3; cy++) for (let cx = 1; cx < g.COLS - 1 && spots.length < 3; cx++) {
+      const p = { x: (cx + 0.5) * C, y: (cy + 0.5) * C };
+      if (g.blocked[cy * g.COLS + cx] || b.inSafe(p) || who.some(o => Math.hypot(o.x - p.x, o.y - p.y) < 160)) continue;
+      if (spots.some(q => Math.hypot(q.x - p.x, q.y - p.y) < 5 * C)) continue;
+      spots.push(p);
+    }
+    if (spots.length < 3) return null;
+    const [st, it, dn] = spots;
+    b.spawnStar(st.x, st.y);
+    b.items.push({ id: 9999, kind: "shield", x: it.x, y: it.y, t: 0, life: 999 });
+    Object.assign(b.littles[1], { x: dn.x, y: dn.y, state: "down", downTimer: 18, rescue: 0, botWait: 999, moving: false });
+    return { stars: b.stars.length, items: b.items.filter(q => q.id === 9999).length, down: b.littles[1].state };
+  });
+  expect(r, "three free cells for the star, the item and the downed bot").not.toBeNull();
+  expect(r.stars, "the star is on the map").toBeGreaterThanOrEqual(1);
+  expect(r.items, "the item is on the map").toBe(1);
+  expect(r.down).toBe("down");
+}
 
 test.describe("phone mini-map", () => {
   test.use(PHONE_CTX);
@@ -511,18 +543,18 @@ test.describe("phone mini-map", () => {
     const ui = await page.evaluate(() => window.__bb.uiSize);
     let mm = await page.evaluate(() => window.__bb.minimap);
     expect(mm).toBeTruthy();
-    // top-right, inside the UI (which is inside the safe area), 26 % of the width, 3:2
+    // top-right, inside the UI (which is inside the safe area), CFG.MINIMAP_W of the width (SPEC-010: 18 %), 3:2
     expect(mm.x + mm.w).toBeLessThanOrEqual(ui.w); expect(mm.x + mm.w).toBeGreaterThan(ui.w - 20);
     expect(mm.y).toBeGreaterThanOrEqual(0); expect(mm.y).toBeLessThan(20);
-    expect(Math.abs(mm.w - 0.26 * ui.w)).toBeLessThan(1);
+    expect(Math.abs(mm.w - (await page.evaluate(() => window.__bb.CFG.MINIMAP_W)) * ui.w)).toBeLessThan(1);
     expect(Math.abs(mm.w / mm.h - 1.5)).toBeLessThan(0.01);
     for (const k of ["hero", "bot", "big", "cone", "view"]) expect(kindsOf(mm).has(k), k).toBe(true);
     const hero = mm.markers.find(m => m.kind === "hero");
     expect(Math.abs(hero.x - (mm.x + 560 * mm.w / 960))).toBeLessThan(1);
     expect(Math.abs(hero.y - (mm.y + 300 * mm.h / 640))).toBeLessThan(1);
     expect(mm.markers.filter(m => m.kind === "bot").length).toBe(4);
-    // a star, an item and a downed bot appear
-    await page.evaluate(() => { const b = window.__bb; b.spawnStar(); b.spawnItem(); Object.assign(b.littles[1], { state: "down", downTimer: 18, rescue: 0 }); });
+    // a star, an item and a downed bot appear (pinned: random spawns made this flaky on CI)
+    await pinMarkers(page);
     await frames(page);
     mm = await page.evaluate(() => window.__bb.minimap);
     for (const k of ["star", "item", "downed"]) expect(kindsOf(mm).has(k), k).toBe(true);
@@ -543,6 +575,95 @@ test.describe("phone mini-map", () => {
     await page.evaluate(() => { window.__bb.world = "beach"; window.__bb.startGame(1); });
     await frames(page);
     expect(await page.evaluate(() => window.__bb.minimap.baseDraws)).toBe(b0 + 2);
+    expect(errors).toEqual([]);
+  });
+
+  // SPEC-010 AC 1: smaller (18 % of the UI width, was 26 %), 3:2, the same margin; the HUD and buttons keep clear of it
+  test("the mini-map is smaller", async ({ page }) => {
+    const errors = await phonePlay(page);
+    await placeHero(page, 560, 300);
+    for (const [vw, vh] of [[844, 390], [667, 375], [932, 430]]) {
+      await page.setViewportSize({ width: vw, height: vh });
+      await frames(page); await frames(page);
+      const d = await page.evaluate(() => { const b = window.__bb; return { ui: b.uiSize, mm: b.minimap, cfg: b.CFG, buttons: b.buttonRects, hud: b.hudRects }; });
+      const at = `${vw}×${vh}`;
+      expect(d.cfg.MINIMAP_W, at).toBe(0.18);
+      expect(d.cfg.MINIMAP_MARGIN, at).toBe(8);
+      expect(Math.abs(d.mm.w - 0.18 * d.ui.w), `${at}: width 18 %`).toBeLessThan(1);
+      expect(Math.abs(d.mm.w / d.mm.h - 1.5), `${at}: 3:2`).toBeLessThan(0.01);
+      expect(d.mm.y, `${at}: top margin`).toBe(8);
+      expect(Math.abs(d.ui.w - (d.mm.x + d.mm.w) - 8), `${at}: right margin`).toBeLessThan(0.01);
+      for (const r of d.buttons) expect(overlaps(r, d.mm), `${at}: button ${r.id}`).toBe(false);
+      for (const r of d.hud) expect(overlaps(r, d.mm), `${at}: hud ${r.id}`).toBe(false);
+    }
+    expect(errors).toEqual([]);
+  });
+
+  // SPEC-010 AC 3: the markers stay the same (count and kind), every dot at least 3 UI px in radius
+  test("the mini-map markers stay the same and readable", async ({ page }) => {
+    const errors = await phonePlay(page);
+    await placeHero(page, 560, 300);
+    await pinMarkers(page);
+    await frames(page);
+    const mm = await page.evaluate(() => window.__bb.minimap);
+    const count = k => mm.markers.filter(m => m.kind === k).length;
+    expect([...kindsOf(mm)].sort()).toEqual(["big", "bot", "cone", "downed", "hero", "item", "star", "view"]);
+    expect({ cone: count("cone"), view: count("view"), big: count("big"), hero: count("hero"), bot: count("bot"), downed: count("downed") })
+      .toEqual({ cone: 1, view: 1, big: 1, hero: 1, bot: 3, downed: 1 });
+    expect(count("star")).toBeGreaterThanOrEqual(1); expect(count("item")).toBeGreaterThanOrEqual(1);
+    for (const m of mm.markers.filter(m => m.kind !== "cone" && m.kind !== "view")) expect(m.r, `${m.kind} dot radius`).toBeGreaterThanOrEqual(3);
+    expect(errors).toEqual([]);
+  });
+
+  // SPEC-010 AC 4: the hero's or the Big One's screen point inside the mini-map (+ 12 UI px) fades the whole
+  // mini-map to MINIMAP_UNDER_ALPHA within ~0.2 s; it comes back when they leave. One evaluate per phase:
+  // the frame loop does not run in between, so the camera stays put and the fade is stepped by hand.
+  test("the mini-map fades when someone is under it", async ({ page }) => {
+    test.slow();   // moving the Big One costs a long GPU stall in SwiftShader on the next frame (see the edge arrows test)
+    const errors = await phonePlay(page);
+    await placeHero(page, 560, 300);
+    await page.evaluate(() => Object.assign(window.__bb.big, { x: 300, y: 400 }));
+    await frames(page);
+    const cfg = await page.evaluate(() => window.__bb.CFG);
+    expect(cfg.MINIMAP_UNDER_ALPHA).toBe(0.2);
+    expect(cfg.MINIMAP_UNDER_PAD).toBe(12);
+    expect((await page.evaluate(() => window.__bb.minimap)).alpha).toBe(1);
+    // moves `who` to a world point whose screen point is inside the mini-map rect grown by `pad`, steps the fade
+    const phase = (who, mode, secs) => page.evaluate(([who, mode, secs]) => {
+      const b = window.__bb, mm = b.minimap, pad = b.CFG.MINIMAP_UNDER_PAD, o = who === "big" ? b.big : b.littles[0];
+      const inside = (s, g) => s.x > mm.x - g && s.x < mm.x + mm.w + g && s.y > mm.y - g && s.y < mm.y + mm.h + g;
+      let spot = null;
+      if (mode === "away") spot = who === "big" ? { x: 300, y: 400 } : { x: 560, y: 300 };
+      else {
+        search: for (let y = 4; y < 640; y += 4) for (let x = 4; x < 960; x += 4) {
+          const s = b.toScreen(x, y);
+          // "in": well inside the rect; "pad": outside the rect, inside its 12 px margin
+          if (mode === "in" ? inside(s, -4) : inside(s, pad - 3) && !inside(s, 1)) { spot = { x, y }; break search; }
+        }
+      }
+      if (!spot) return null;
+      Object.assign(o, spot);
+      const a = [];
+      for (let i = 0; i < Math.round(secs * 60); i++) { b.updateMinimapFade(1 / 60); a.push(b.minimapAlpha); }
+      return { a, s: b.toScreen(o.x, o.y) };
+    }, [who, mode, secs]);
+    for (const who of ["big", "hero"]) {
+      let r = await phase(who, "in", 0.25);
+      expect(r, `${who}: a spot under the mini-map`).not.toBeNull();
+      expect(r.a[2], `${who}: starts fading at once`).toBeLessThan(1);
+      expect(r.a[Math.round(0.22 * 60)], `${who}: faded within ~0.2 s`).toBeLessThanOrEqual(0.2 + 1e-6);
+      expect(r.a[r.a.length - 1]).toBeCloseTo(0.2, 5);
+      r = await phase(who, "away", 0.25);
+      expect(r.a[Math.round(0.22 * 60)], `${who}: back within ~0.2 s`).toBeGreaterThanOrEqual(1 - 1e-6);
+      r = await phase(who, "pad", 0.25);
+      expect(r, `${who}: a spot in the 12 px margin`).not.toBeNull();
+      expect(r.a[r.a.length - 1], `${who}: the margin counts as under`).toBeCloseTo(0.2, 5);
+      await phase(who, "away", 0.25);
+    }
+    // the drawn mini-map reports the alpha it used
+    await page.evaluate(() => { const b = window.__bb; Object.assign(b.big, { x: 300, y: 400 }); for (let i = 0; i < 30; i++) b.updateMinimapFade(1 / 60); });
+    await frames(page);
+    expect((await page.evaluate(() => window.__bb.minimap)).alpha).toBe(1);
     expect(errors).toEqual([]);
   });
 
@@ -574,7 +695,7 @@ test.describe("phone mini-map", () => {
     await frames(page);
     expect(await page.evaluate(() => window.__bb.edgeArrows.filter(a => a.kind === "big").length)).toBe(0);
     // a downed bot off screen in the top-right (where the mini-map is): a green arrow, clear of the mini-map and buttons
-    await page.evaluate(() => Object.assign(window.__bb.littles[1], { x: 900, y: 40, state: "down", downTimer: 18, rescue: 0 }));
+    await page.evaluate(() => Object.assign(window.__bb.littles[1], { x: 900, y: 40, state: "down", downTimer: 18, rescue: 0, botWait: 999 }));
     await frames(page);
     r = await page.evaluate(() => {
       const b = window.__bb, l = b.littles[0];
@@ -592,7 +713,7 @@ test.describe("phone mini-map", () => {
         const s = b.toScreen(x, y);
         if (s.x > mm.x + 10 && s.x < mm.x + mm.w - 10 && s.y > mm.y + 10 && s.y < mm.y + mm.h - 10) {
           Object.assign(b.littles[1], { x: 900, y: 40, state: "ok" });
-          Object.assign(b.littles[2], { x, y, state: "down", downTimer: 18, rescue: 0 });
+          Object.assign(b.littles[2], { x, y, state: "down", downTimer: 18, rescue: 0, botWait: 999 });
           return { x, y };
         }
       }
