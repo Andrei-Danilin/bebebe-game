@@ -12,7 +12,7 @@ node -e "const s=require('fs').readFileSync('index.html','utf8');const a=s.index
 
 ## 2. Tests
 - While working: `npm run test:fast` (~1.5 min) + the touched area: `npx playwright test tests/<file>` or `-g "<name>"`.
-- Before review and before merge: `npx playwright test` (all, once, ~12 min). Report counts + failing names + first assertion line.
+- Before review and before merge: `npx playwright test` (all, once, ~10 min). Report counts + failing names + first assertion line.
 - Any page error (`errors` array not empty) is a failure.
 
 ## 3. Screenshots of changed screens (not committed)

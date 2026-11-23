@@ -17,7 +17,7 @@ model: opus
 
 ## What to do
 1. First time on the machine: `npm run setup`.
-2. While working: `npm run test:fast` (the `@fast` set, ~1.5 min) + touched files: `npx playwright test tests/<file>` (or `-g "<test name>"`). Before the merge: `npx playwright test` (whole suite once, ~12 min).
+2. While working: `npm run test:fast` (the `@fast` set, ~1.5 min) + touched files: `npx playwright test tests/<file>` (or `-g "<test name>"`). Before the merge: `npx playwright test` (whole suite once, ~10 min).
 3. Report: total / passed / failed; for each failure the test name and the first assertion line (no full logs).
 4. TDD check: for every AC of the spec, name the test that covers it and say whether it would fail without the change (look at what it asserts). An AC without such a test is a finding.
 5. Page errors: any non-empty `errors` array is a failure, even if the asserts passed.
