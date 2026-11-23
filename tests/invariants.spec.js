@@ -1,0 +1,278 @@
+// SPEC-008: invariants — rules that must always hold, whatever numbers later specs set: speeds, rescue timings,
+// rewards that add up, saves that load, a complete shop, docs numbers generated from the code.
+const base = require("@playwright/test");
+const { expect } = base;
+const path = require("path");
+const fs = require("fs");
+const { openGame, frames, softly, sharedPage, resetGame, ROOT } = require("./helpers");
+const docsNumbers = require("../scripts/docs-numbers.js");
+
+// SPEC-018: one game page for the file (normal mode: the shop test needs drawn buttons); resetGame() before each test,
+// page errors and a changed CFG fail the test.
+const shared = sharedPage();
+const test = base.test.extend({
+  page: async ({ browser }, use) => {
+    const s = await shared.get(browser, "invariants", { viewport: { width: 960, height: 640 } }, p => openGame(p));
+    await resetGame(s.page);
+    const cfg = await s.page.evaluate(() => JSON.stringify(window.__bb.CFG));
+    await use(s.page);
+    expect(s.errors.splice(0)).toEqual([]);
+    expect(await s.page.evaluate(() => JSON.stringify(window.__bb.CFG)), "the test restores every CFG value it changed").toBe(cfg);
+  }
+});
+test.afterAll(async () => { await shared.close(); });
+
+const WORLDS = ["park", "school", "beach", "winter"];
+const DOC = path.join(ROOT, "docs", "game-design.md");
+const INDEX = path.join(ROOT, "index.html");
+
+// ---------- AC 5: speeds ----------
+test("the Big One never outruns a player, patrols slower than he chases, bots outrun his search", async ({ page }) => {
+  const r = await page.evaluate(W => {
+    const b = window.__bb, C = b.CFG, rows = [];
+    for (const w of W) for (let n = 1; n <= 20; n++) {
+      const hearts = b.difficulty(w, n).hearts;
+      for (let lost = 0; lost < hearts; lost++) rows.push({ at: `${w} ${n} lost ${lost}`, ...b.difficulty(w, n, lost) });
+    }
+    return { rows, cap: C.BIG_CHASE_MAX, player: C.PLAYER_SPEED, bot: C.BOT_SPEED, park1: b.difficulty("park", 1).search };
+  }, WORLDS);
+  expect(r.rows.length).toBeGreaterThan(80 * 6);
+  expect(r.cap).toBeLessThan(r.player);
+  expect(r.bot, "a bot outruns the Big One searching on Park 1").toBeGreaterThan(r.park1);
+  const soft = softly();
+  for (const x of r.rows) {
+    soft(x.chase, `${x.at}: chase`).toBeLessThanOrEqual(r.cap + 1e-9);
+    soft(x.search, `${x.at}: search`).toBeLessThanOrEqual(r.cap + 1e-9);
+    soft(x.patrol, `${x.at}: patrol slower than chase`).toBeLessThan(x.chase);
+  }
+  soft.done();
+});
+
+// ---------- AC 6: rescue is possible ----------
+test("a friend can always arrive in time, and a Little One just stood up is not pushed at once", async ({ page }) => {
+  const r = await page.evaluate(() => {
+    const b = window.__bb, C = b.CFG, g = b.grid;
+    const out = { down: C.DOWN_TIME, delay: Math.max(...C.BOT_RESCUE_DELAY), rescue: C.RESCUE_TIME, bot: C.BOT_SPEED,
+      quarter: Math.hypot(g.COLS * g.CELL, g.ROWS * g.CELL) / 4, kit: C.KIT_INVULN, afterRescue: C.INVULN_AFTER_RESCUE, stand: C.PUSH_STAND };
+    // the stand after a push is CFG.PUSH_STAND (with and without a shield)
+    const keep = C.PUSH_STAND;
+    try {
+      C.PUSH_STAND = 0.7;
+      const pushAt = shield => {
+        b.world = "park"; b.level = 1; b.startGame(1);
+        const big = b.big, l = b.littles[0];
+        Object.assign(big, { state: "look", timer: 999, stun: 0, noPush: 0, pushCd: 0, slip: 0, x: 500, y: 320, dir: 0 });
+        Object.assign(l, { state: "ok", invuln: 0, x: 535, y: 320 }); l.fx.shield = shield;
+        b.update(1 / 60);
+        return { st: l.state, pushCd: big.pushCd };
+      };
+      out.pushed = pushAt(0); out.shielded = pushAt(5);
+    } finally { C.PUSH_STAND = keep; b.mode = "menu"; }
+    return out;
+  });
+  expect(r.stand).toBe(0.9);
+  expect(r.down, "DOWN_TIME > bot delay + rescue + a quarter of the map at bot speed")
+    .toBeGreaterThan(r.delay + r.rescue + r.quarter / r.bot);
+  expect(r.kit).toBeGreaterThanOrEqual(r.stand);
+  expect(r.afterRescue).toBeGreaterThanOrEqual(r.stand);
+  expect(r.pushed.st).toBe("down");
+  expect(r.pushed.pushCd).toBeCloseTo(0.7, 6);            // the push comes after the Big One's own update
+  expect(r.shielded.st).toBe("ok");
+  expect(r.shielded.pushCd).toBeCloseTo(0.7, 6);
+});
+
+// ---------- AC 8: rewards add up ----------
+test("rewards add up, coins never go negative, inventory stays whole", async ({ page }) => {
+  const r = await page.evaluate(() => {
+    const b = window.__bb, C = b.CFG, out = { runs: [], buys: [], inv: [] };
+    const fresh = () => { b.resetProgress(); b.resetProgress(); };
+    const run = (name, world, n, st, win = true) => {
+      fresh(); b.world = world; b.level = n; b.startGame(1);
+      Object.assign(b.stats, { playerHugs: 0, rests: 0, time: 30, starCoins: 0 }, st);
+      const c0 = b.progress.coins;
+      b.giveReward(win);
+      const lr = b.lastReward;
+      out.runs.push({ name, world, n, st: { ...b.stats }, win, coins: lr.coins, starCoins: lr.starCoins, parts: lr.parts, fast: lr.fast,
+        target: lr.target, gained: b.progress.coins - c0, after: b.progress.coins });
+    };
+    for (const [w, n] of [["park", 5], ["winter", 17]]) {
+      run("no rests", w, n, { playerHugs: 3 });
+      run("2 rests", w, n, { playerHugs: 1, rests: 2 });
+      run("fast", w, n, { time: 10 });
+      run("slow", w, n, { time: 9999 });
+      run("star coins", w, n, { playerHugs: 2, starCoins: 6 });
+      run("leaving early", w, n, { playerHugs: 2, starCoins: 3 }, false);
+      run("floor", w, n, { rests: 100, time: 9999, starCoins: 3 });
+    }
+    // too few coins: nothing changes; exactly enough: coins reach 0, never below
+    const shop = [["mittens", () => b.buyGloves("mittens"), b.GLOVES.mittens.price, b.GLOVES.mittens.charges],
+      ["mega", () => b.buyGloves("mega"), b.GLOVES.mega.price, b.GLOVES.mega.charges],
+      ["kisses", () => b.buyKisses(), b.KISSES.price, b.KISSES.pack], ["rescues", () => b.buyRescueKit(), b.RESCUE_KIT.price, b.RESCUE_KIT.pack]];
+    for (const [k, buy, price, pack] of shop) {
+      fresh(); b.progress.coins = price - 1;
+      const before = JSON.stringify(b.progress); buy();
+      const poor = JSON.stringify(b.progress) === before;
+      b.progress.coins = price; const have = b.progress.inv[k]; buy();
+      out.buys.push({ k, poor, coins: b.progress.coins, got: b.progress.inv[k] - have, pack });
+    }
+    // spending: kisses, kits and glove charges stop at 0
+    const invNow = at => out.inv.push({ at, ...b.progress.inv });
+    fresh(); b.world = "park"; b.level = 1; b.startGame(1);
+    Object.assign(b.progress.inv, { kisses: 1, rescues: 1, mittens: 1 }); b.progress.equip[0] = "mittens";
+    const l = b.littles[0];
+    Object.assign(b.big, { x: 900, y: 600, state: "look", timer: 9999, stun: 0, noPush: 999 });
+    Object.assign(l, { x: 270, y: 48, dir: 0, state: "ok", hugAnim: 0, dizzy: 0, kissCd: 0 });
+    out.kiss = [b.throwKiss(0)]; l.kissCd = 0; out.kiss.push(b.throwKiss(0)); invNow("kisses");
+    Object.assign(l, { state: "down", downTimer: 10 }); out.kit = [b.useRescueKit(0)];
+    Object.assign(l, { state: "down", downTimer: 10 }); out.kit.push(b.useRescueKit(0)); invNow("kits");
+    out.hearts = [];
+    for (let i = 0; i < 2; i++) {
+      Object.assign(b.big, { state: "look", timer: 999, stun: 0, hugCd: 0, noPush: 0, slip: 0, pushCd: 0, blush: 0, x: 500, y: 320, dir: 0, hp: 9 });
+      Object.assign(l, { state: "ok", hugCd: 0, hugAnim: 0, invuln: 0, kx: 0, ky: 0, x: 466, y: 320 });
+      b.update(1 / 60); out.hearts.push(9 - b.big.hp);
+    }
+    invNow("gloves");
+    b.mode = "menu";
+    return { out, C: { WIN: C.COINS_WIN, LEVEL: C.COINS_PER_LEVEL, WORLD: C.COINS_PER_WORLD, NOBODY: C.COINS_NOBODY_OUT, FAST: C.COINS_FAST,
+      HUG: C.COINS_PER_HUG, REST: C.COINS_PER_REST, MIN: C.COINS_MIN_WIN } };
+  });
+  const { out, C } = r, soft = softly(), sum = p => p.reduce((s, x) => s + x.amount, 0);
+  expect(out.runs.length).toBe(14);
+  for (const x of out.runs) {
+    const at = `${x.world} ${x.n} ${x.name}`, wi = WORLDS.indexOf(x.world);
+    const expected = x.win
+      ? Math.max(C.MIN, C.WIN + x.n * C.LEVEL + wi * C.WORLD + (x.st.rests ? 0 : C.NOBODY) + (x.fast ? C.FAST : 0) + x.st.playerHugs * C.HUG - x.st.rests * C.REST) + x.st.starCoins
+      : x.st.playerHugs * C.HUG + x.st.starCoins;
+    soft(x.coins, `${at}: the total`).toBe(expected);
+    soft(sum(x.parts), `${at}: lastReward.coins = the sum of its parts`).toBe(x.coins);
+    soft(x.coins, `${at}: never negative`).toBeGreaterThanOrEqual(0);
+    soft(x.gained, `${at}: progress.coins grows by coins − star coins (paid at pickup)`).toBe(x.coins - x.starCoins);
+    soft(x.after, `${at}: progress.coins never negative`).toBeGreaterThanOrEqual(0);
+    soft(x.parts.find(p => p.reason === "star")?.amount ?? 0, `${at}: the star part`).toBe(x.st.starCoins);
+    if (x.win) soft(x.fast, `${at}: fast = within the target`).toBe(x.st.time <= x.target);
+  }
+  const floor = out.runs.filter(x => x.name === "floor");
+  for (const x of floor) {
+    soft(x.coins, `${x.world}: the floor, star coins on top`).toBe(C.MIN + x.st.starCoins);
+    soft(x.parts.find(p => p.reason === "floor")?.amount ?? 0, `${x.world}: a floor part`).toBeGreaterThan(0);
+  }
+  soft(out.runs.filter(x => x.name === "fast").every(x => x.fast), "the fast runs are fast").toBe(true);
+  soft(out.runs.filter(x => x.name === "slow").every(x => !x.fast), "the slow runs are slow").toBe(true);
+  for (const x of out.buys) {
+    soft(x.poor, `${x.k}: too few coins change nothing`).toBe(true);
+    soft(x.coins, `${x.k}: exactly enough → 0 coins`).toBe(0);
+    soft(x.got, `${x.k}: one pack`).toBe(x.pack);
+  }
+  soft(out.kiss, "one kiss, then none").toEqual([true, false]);
+  soft(out.kit, "one kit, then none").toEqual([true, false]);
+  soft(out.hearts, "one mitten charge (2 hearts), then a normal hug").toEqual([2, 1]);
+  for (const s of out.inv) for (const k of ["mittens", "mega", "kisses", "rescues"]) {
+    soft(Number.isInteger(s[k]) && s[k] >= 0, `after ${s.at}: inv.${k} = ${s[k]} is a whole number ≥ 0`).toBe(true);
+  }
+  soft(out.inv.at(-1), "everything spent").toEqual({ at: "gloves", mittens: 0, mega: 0, kisses: 0, rescues: 0 });
+  soft.done();
+});
+
+// ---------- AC 9: saves ----------
+// A fixture is a snapshot of all bebebe-* keys (`keys`: a string is stored as is, an object as JSON) and what it loads
+// into (`expect`: progress in the current shape, the outfits and the typed names). SPEC-009 reuses them.
+const SAVES = ["pre-spec-003", "pre-spec-004", "pre-spec-006", "pre-spec-007", "stale-tab", "current"];
+const save = n => JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures", "saves", n + ".json"), "utf8"));
+const asStored = keys => Object.fromEntries(Object.entries(keys).map(([k, v]) => [k, typeof v === "string" ? v : JSON.stringify(v)]));
+
+test("every known save shape loads into the current one and round-trips", async ({ page }) => {
+  const soft = softly();
+  for (const n of SAVES) {
+    const f = save(n);
+    const r = await page.evaluate(raw => {
+      const b = window.__bb, p = b.loadProgress(JSON.parse(raw)), again = b.loadProgress(JSON.parse(JSON.stringify(p)));
+      return { p: JSON.parse(JSON.stringify(p)), again: JSON.parse(JSON.stringify(again)) };
+    }, asStored(f.keys)["bebebe-progress"]);
+    soft(r.p, `${n}: loads into the current shape`).toEqual(f.expect.progress);
+    soft(r.again, `${n}: loading it again changes nothing`).toEqual(r.p);
+    for (const [k, v] of Object.entries(r.p.inv)) soft(Number.isInteger(v) && v >= 0, `${n}: inv.${k} = ${v}`).toBe(true);
+    soft(Object.keys(f.keys).every(k => k.startsWith("bebebe-")), `${n}: only bebebe-* keys`).toBe(true);
+  }
+  soft.done();
+});
+
+test("a whole old save starts the game: progress moves, outfits and names load, the game writes them back the same", async ({ page }) => {
+  const f = save("pre-spec-006");
+  await page.evaluate(keys => { localStorage.clear(); localStorage.setItem("bb-test-init", "1"); for (const [k, v] of Object.entries(keys)) localStorage.setItem(k, v); }, asStored(f.keys));
+  await page.reload();
+  await page.waitForFunction(() => window.__bbReady === true);
+  const r = await page.evaluate(() => {
+    const b = window.__bb, ls = k => JSON.parse(localStorage.getItem(k) || "null");
+    const out = { progress: JSON.parse(JSON.stringify(b.progress)), written: ls("bebebe-progress"), shown: b.names };
+    // the game saves what it loaded: an outfit there and back, a name set to itself, a progress save
+    b.cycleOutfit("p1", "hair", 1); b.cycleOutfit("p1", "hair", -1);
+    b.setName("p1", b.names.p1);
+    b.selectWorld("school"); b.selectWorld("park");
+    out.outfits = ls("bebebe-outfits"); out.names = ls("bebebe-names"); out.saved = ls("bebebe-progress");
+    return out;
+  });
+  expect(r.progress).toEqual(f.expect.progress);
+  expect(r.written, "the migration wrote the new shape back").toEqual(f.expect.progress);
+  expect([r.shown.p1, r.shown.p2, r.shown.big]).toEqual([f.expect.names.p1, f.expect.names.p2, f.expect.names.big]);
+  expect(r.outfits).toEqual(f.expect.outfits);
+  expect(r.names).toEqual(f.expect.names);
+  expect(r.saved).toEqual(f.expect.progress);
+});
+
+// ---------- AC 10: shop and texts ----------
+test("every shop item has a price, a pack, a picture, texts in three languages, a buy button and a buy test", async ({ page }) => {
+  const r = await page.evaluate(() => {
+    const b = window.__bb, out = {};
+    for (const l of ["en", "es", "ru"]) { b.setLang(l); out[l] = b.shopCards(); }
+    b.setLang("en"); b.mode = "shop";
+    return out;
+  });
+  await frames(page);
+  const ids = await page.evaluate(() => { const v = window.__bb.buttonRects.map(q => q.id); window.__bb.mode = "menu"; return v; });
+  // buy tests: a test in gameplay.spec.js titled "buying …" or "… bought in the shop …" that buys the card (or clicks its button)
+  const gp = fs.readFileSync(path.join(__dirname, "gameplay.spec.js"), "utf8");
+  const tests = gp.split(/\ntest\(/).slice(1).map(s => ({ title: (s.match(/^\s*(["'`])(.*?)\1/) || [])[2] || "", body: s }));
+  const buyTests = tests.filter(t => /\bbuying\b|\bbought in the shop\b/i.test(t.title));
+  const soft = softly();
+  expect(r.en.map(c => c.k)).toEqual(["mittens", "mega", "kisses", "rescues"]);
+  for (const c of r.en) {
+    soft(Object.values(c).every(v => typeof v !== "function" && typeof v !== "object"), `${c.k}: plain data`).toBe(true);
+    soft(c.price, `${c.k}: price`).toBeGreaterThan(0);
+    soft(c.packN, `${c.k}: pack`).toBeGreaterThan(0);
+    soft(c.picture, `${c.k}: a picture`).toBe(true);
+    for (const l of ["en", "es", "ru"]) {
+      const cl = r[l].find(q => q.k === c.k);
+      soft(typeof cl.name === "string" && cl.name.trim().length > 0, `${c.k} ${l}: name`).toBe(true);
+      soft(typeof cl.desc === "string" && cl.desc.trim().length > 0, `${c.k} ${l}: description`).toBe(true);
+    }
+    soft(ids, `${c.k}: buy button`).toContain(`buy:${c.k}`);
+    const call = c.k === "mittens" || c.k === "mega" ? `buyGloves("${c.k}")` : c.k === "kisses" ? "buyKisses(" : c.k === "rescues" ? "buyRescueKit(" : `buy:${c.k}`;
+    soft(buyTests.some(t => t.body.includes(call) || t.body.includes(`"buy:${c.k}"`)), `${c.k}: a buy test in gameplay.spec.js`).toBe(true);
+  }
+  for (const l of ["es", "ru"]) soft(r[l].map(c => c.name), `${l}: translated`).not.toEqual(r.en.map(c => c.name));
+  // every key in the generated numbers section exists in the code
+  const keys = docsNumbers.sectionKeys(fs.readFileSync(DOC, "utf8"));
+  expect(keys.length).toBeGreaterThan(50);
+  const missing = await page.evaluate(ks => ks.filter(([o, k]) => !window.__bb[o] || !(k in window.__bb[o])).map(x => x.join(".")), keys);
+  soft(missing, "docs keys missing in the code").toEqual([]);
+  soft.done();
+});
+
+// ---------- AC 11: the numbers section of game-design.md is generated ----------
+test("the numbers in game-design.md are generated from the code and up to date", { tag: "@fast" }, () => {
+  const src = fs.readFileSync(INDEX, "utf8"), doc = fs.readFileSync(DOC, "utf8");
+  const section = docsNumbers.section(doc);
+  expect(section, "markers <!-- numbers:start --> / <!-- numbers:end --> in docs/game-design.md").not.toBeNull();
+  expect(section, "out of date: run npm run docs:numbers").toBe(docsNumbers.render(src));
+  const row = (o, k) => section.split("\n").find(s => s.startsWith(`| ${o} | \`${k}\` |`));
+  expect(row("CFG", "BIG_CHASE_MAX")).toContain("142.5 (derived)");
+  expect(row("CFG", "FAST_TIME")).toContain("lv => 60 + lv * 15");
+  expect(row("CFG", "LAYOUT")).toContain("meadow:");
+  expect(row("CFG", "DOWN_TIME")).toContain("| 18 |");
+  expect(row("CFG", "PUSH_STAND")).toContain("| 0.9 |");
+  expect(row("CFG", "VISION_HALF")).toContain("Math.PI / 4");
+  expect(row("GLOVES", "mittens")).toContain("price: 30");
+  expect(row("KISSES", "price")).toContain("| 20 |");
+  expect(row("RESCUE_KIT", "pack")).toContain("| 3 |");
+  for (const [o, k] of docsNumbers.sectionKeys(doc)) expect(row(o, k), `${o}.${k}: one row`).toBeTruthy();
+});

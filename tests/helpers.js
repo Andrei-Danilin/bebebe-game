@@ -27,6 +27,10 @@ function clearOnce(l) {
   } catch (e) { /* ok */ }
 }
 
+// SPEC-008 (init script): the level generator and the 3D build must not touch the gameplay rng(). In the tests that
+// throws (the game reads window.__bbStrictRng at start); in normal play the game falls back to visual randomness.
+function strictRng() { window.__bbStrictRng = true; }
+
 // `query` is appended to the URL (e.g. "?phone=1").
 async function openGame(page, { lang = "en", clearStorage = true, query = "" } = {}) {
   const errors = [];
@@ -37,6 +41,7 @@ async function openGame(page, { lang = "en", clearStorage = true, query = "" } =
     if (!fs.existsSync(file)) return route.abort();
     await route.fulfill({ path: file, contentType: "application/javascript", headers: { "Access-Control-Allow-Origin": "*" } });
   });
+  await page.addInitScript(strictRng);
   if (clearStorage) {
     await page.addInitScript(clearOnce, lang);
   }
@@ -64,6 +69,7 @@ async function openGameHttp(page, { lang = "en", query = "", clearStorage = true
   page.on("pageerror", e => errors.push(String(e)));
   page.on("console", m => { if (m.type() === "error") errors.push("console: " + m.text()); });
   await routeThree(page.context());
+  await page.addInitScript(strictRng);
   if (clearStorage) {
     await page.addInitScript(clearOnce, lang);
   }

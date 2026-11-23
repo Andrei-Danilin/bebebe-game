@@ -29,6 +29,9 @@ test("same seed, same game", { tag: "@fast" }, async ({ page }) => {
   const bad = uses.filter(([, s]) => !/^\s*(let rngNext = mulberry32\(|const vrand = )/.test(s)).map(([n, s]) => `index.html:${n}: ${s.trim()}`);
   expect(bad, "Math.random outside rng()/vrand():\n" + bad.join("\n")).toEqual([]);
   expect(uses.length).toBe(2);
+  // the tests run with the strict guard (openGame): level/3D code that used the gameplay rng() throws here;
+  // in normal play it falls back to vrand(), so a missed call never breaks a player's level start
+  expect(await page.evaluate(() => window.__bb.strictRng)).toBe(true);
 
   // Each run: seedRandom + startGame (Park 5, one player + 4 bots) + simRun(60 s) in one evaluate (no frames in between);
   // the event log and where everybody ends up are compared. `noise` replaces Math.random during a run: particles, hearts

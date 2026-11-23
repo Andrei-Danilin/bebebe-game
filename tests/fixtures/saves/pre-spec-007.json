@@ -1,0 +1,138 @@
+{
+  "about": "Before SPEC-007 (rescue kits): worlds + lastWorld, inv without rescues; the old bebebe-place is still there, unread.",
+  "keys": {
+    "bebebe-progress": {
+      "worlds": {
+        "park": {
+          "unlocked": 20,
+          "stars": {
+            "1": 3,
+            "2": 3,
+            "20": 2
+          }
+        },
+        "school": {
+          "unlocked": 6,
+          "stars": {
+            "1": 2,
+            "5": 1
+          }
+        },
+        "beach": {
+          "unlocked": 1,
+          "stars": {}
+        },
+        "winter": {
+          "unlocked": 1,
+          "stars": {}
+        }
+      },
+      "lastWorld": "school",
+      "coins": 33,
+      "inv": {
+        "mittens": 1,
+        "mega": 0,
+        "kisses": 7
+      },
+      "equip": [
+        "mittens",
+        "none"
+      ]
+    },
+    "bebebe-outfits": {
+      "p1": {
+        "hair": 3,
+        "hat": 0,
+        "jacket": 2,
+        "pants": 1
+      },
+      "p2": {
+        "hair": 0,
+        "hat": 2,
+        "jacket": 3,
+        "pants": 0
+      },
+      "big": 4
+    },
+    "bebebe-place": "park",
+    "bebebe-names": {
+      "p1": "",
+      "p2": "",
+      "big": "",
+      "bots": [
+        "",
+        "",
+        "",
+        ""
+      ]
+    },
+    "bebebe-lang": "es"
+  },
+  "expect": {
+    "progress": {
+      "worlds": {
+        "park": {
+          "unlocked": 20,
+          "stars": {
+            "1": 3,
+            "2": 3,
+            "20": 2
+          }
+        },
+        "school": {
+          "unlocked": 6,
+          "stars": {
+            "1": 2,
+            "5": 1
+          }
+        },
+        "beach": {
+          "unlocked": 1,
+          "stars": {}
+        },
+        "winter": {
+          "unlocked": 1,
+          "stars": {}
+        }
+      },
+      "lastWorld": "school",
+      "coins": 33,
+      "inv": {
+        "mittens": 1,
+        "mega": 0,
+        "kisses": 7,
+        "rescues": 0
+      },
+      "equip": [
+        "mittens",
+        "none"
+      ]
+    },
+    "outfits": {
+      "p1": {
+        "hair": 3,
+        "hat": 0,
+        "jacket": 2,
+        "pants": 1
+      },
+      "p2": {
+        "hair": 0,
+        "hat": 2,
+        "jacket": 3,
+        "pants": 0
+      },
+      "big": 4
+    },
+    "names": {
+      "p1": "",
+      "p2": "",
+      "big": "",
+      "bots": [
+        "",
+        "",
+        "",
+        ""
+      ]
+    }
+  }
+}

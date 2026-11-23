@@ -347,6 +347,7 @@ test("the Big One gets faster inside a world and never outruns a player", async 
       soft(x.hearts, at).toBe(Math.min(12, 6 + Math.floor((n - 1) / 4) + wi));
       soft(x.chase, `${at}: faster than a player`).toBeLessThanOrEqual(MAX + 1e-9);
       if (n > 1) soft(x.chase, `${at}: slower than the level before`).toBeGreaterThanOrEqual(r.d[w][n - 2].chase);
+      if (n > 1) soft(x.hearts, `${at}: fewer hearts than the level before`).toBeGreaterThanOrEqual(r.d[w][n - 2].hearts);   // SPEC-008 AC 7
     }
   });
   // the spec's numbers

@@ -303,6 +303,17 @@ test("warm mittens: bought in the shop, a hug takes 2 hearts and uses a charge",
   expect(await page.evaluate(() => window.__bb.progress.inv.mittens)).toBe(2);
 });
 
+// SPEC-008 AC 10: every shop card has a buy test
+test("buying mega mittens: 3 charges, a hug takes 3 hearts", async ({ page }) => {
+  await page.evaluate(() => { const b = window.__bb; b.progress.coins = 65; b.buyGloves("mega"); b.setEquip(0, "mega"); b.startGame(1); });
+  expect(await page.evaluate(() => [window.__bb.progress.coins, window.__bb.progress.inv.mega])).toEqual([5, 3]);
+  const hp0 = await page.evaluate(() => window.__bb.big.hp);
+  await setupHug(page);
+  await step(page, 0.1);
+  expect(await page.evaluate(() => window.__bb.big.hp)).toBe(hp0 - 3);
+  expect(await page.evaluate(() => window.__bb.progress.inv.mega)).toBe(2);
+});
+
 test("not enough coins: nothing is bought", async ({ page }) => {
   await page.evaluate(() => { window.__bb.progress.coins = 10; window.__bb.buyGloves("mega"); });
   const p = await page.evaluate(() => window.__bb.progress);

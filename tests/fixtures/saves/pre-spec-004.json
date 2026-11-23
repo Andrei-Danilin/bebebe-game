@@ -1,0 +1,114 @@
+{
+  "about": "Before SPEC-004 (air kisses): as pre-spec-003 plus bebebe-names.",
+  "keys": {
+    "bebebe-progress": {
+      "unlocked": 9,
+      "stars": {
+        "1": 3,
+        "4": 2,
+        "8": 3
+      },
+      "coins": 120,
+      "inv": {
+        "mittens": 0,
+        "mega": 3
+      },
+      "equip": [
+        "mega",
+        "mittens"
+      ]
+    },
+    "bebebe-outfits": {
+      "p1": {
+        "hair": 3,
+        "hat": 0,
+        "jacket": 2,
+        "pants": 1
+      },
+      "p2": {
+        "hair": 0,
+        "hat": 2,
+        "jacket": 3,
+        "pants": 0
+      },
+      "big": 4
+    },
+    "bebebe-place": "auto",
+    "bebebe-names": {
+      "p1": "Mila",
+      "p2": "Tomás",
+      "big": "Papá",
+      "bots": [
+        "Тёма",
+        "",
+        "Sol",
+        ""
+      ]
+    },
+    "bebebe-lang": "ru"
+  },
+  "expect": {
+    "progress": {
+      "worlds": {
+        "park": {
+          "unlocked": 9,
+          "stars": {
+            "1": 3,
+            "4": 2,
+            "8": 3
+          }
+        },
+        "school": {
+          "unlocked": 1,
+          "stars": {}
+        },
+        "beach": {
+          "unlocked": 1,
+          "stars": {}
+        },
+        "winter": {
+          "unlocked": 1,
+          "stars": {}
+        }
+      },
+      "lastWorld": "park",
+      "coins": 120,
+      "inv": {
+        "mittens": 0,
+        "mega": 3,
+        "kisses": 0,
+        "rescues": 0
+      },
+      "equip": [
+        "mega",
+        "mittens"
+      ]
+    },
+    "outfits": {
+      "p1": {
+        "hair": 3,
+        "hat": 0,
+        "jacket": 2,
+        "pants": 1
+      },
+      "p2": {
+        "hair": 0,
+        "hat": 2,
+        "jacket": 3,
+        "pants": 0
+      },
+      "big": 4
+    },
+    "names": {
+      "p1": "Mila",
+      "p2": "Tomás",
+      "big": "Papá",
+      "bots": [
+        "Тёма",
+        "",
+        "Sol",
+        ""
+      ]
+    }
+  }
+}

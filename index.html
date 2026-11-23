@@ -53,15 +53,15 @@ const CFG = {
   BIG_HP: 6,                 // сердечек у Большого на 1-м уровне Парка
   HP_LEVELS_PER_HEART: 4,    // +сердечко каждые 4 уровня мира (SPEC-006)
   HP_PER_WORLD: 1,           // и +1 в каждом следующем мире
-  BIG_HP_MAX: 12,
+  BIG_HP_MAX: 12,            // сердечек не больше ни на каком уровне
   DOWN_TIME: 18,             // сек — сколько ждёт маленький со сломанной ногой
   RESCUE_TIME: 3.0,          // сек — сколько стоять рядом, чтобы поднять друга
   RESCUE_DRAIN: 1.5,         // в сек — так быстро тает прогресс спасения, если помощник отошёл
   BOT_RESCUE_DELAY: [2, 3],  // сек — боты идут спасать не сразу после падения (игроки — сразу)
-  PLAYER_SPEED: 150,
-  BOT_SPEED: 135,
-  BIG_PATROL_SPEED: 70,
-  BIG_CHASE_SPEED: 112,
+  PLAYER_SPEED: 150,         // px/s — скорость игрока
+  BOT_SPEED: 135,            // px/s — скорость бота
+  BIG_PATROL_SPEED: 70,      // px/s — Большой гуляет (Парк, уровень 1)
+  BIG_CHASE_SPEED: 112,      // px/s — Большой догоняет (Парк, уровень 1)
   WORLD_SPEED_START: [0, 5, 10, 15],   // px/s — каждый следующий мир начинается чуть быстрее (SPEC-006)
   SPEED_PER_LEVEL: 1.2,      // px/s — Большой быстрее на каждом уровне мира
   BIG_SPEED_PER_HIT: 4,      // и злится после каждой обнимашки
@@ -70,9 +70,10 @@ const CFG = {
   VISION_RANGE: 230,         // как далеко видит Большой
   VISION_HALF: Math.PI / 4,  // половина угла обзора (45° => всего 90°)
   BEHIND_ANGLE: 2.2,         // насколько «сзади» надо быть для обнимашки (~126°)
-  INVULN_AFTER_RESCUE: 1.5,
+  INVULN_AFTER_RESCUE: 1.5,  // сек — защита после спасения другом
   HUG_STUN: 2.5,             // сек — Большой в шоке после обнимашки: стоит, не толкает, обнимать нельзя
   PUSH_RECOVER: 2.5,         // сек — после толчка Большой отдыхает и никого не толкает
+  PUSH_STAND: 0.9,           // сек — сразу после толчка (и щита) Большой стоит на месте (big.pushCd)
   BUSH_HIDES: true,          // в кустах Большой не видит (если не вплотную)
   BOT_ATTACK_PAUSE: [20, 30], // сек — как часто боты сами идут обнимать (главное для них — спасать)
   HUG_ANIM: 1.0,             // сек — маленький висит на спине у Большого (анимация обнимашки)
@@ -432,9 +433,13 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 // тряска камеры, снег, randomOutfit; она не трогает rng(), поэтому sim (без частиц) тянет тот же ряд, что и игра.
 let rngNext = mulberry32((Math.random() * 4294967296) >>> 0);
 // rngOff — имя кода, которому игровая случайность запрещена (генератор уровней, 3D): у него свой сид (lc.rng, mulberry32).
-// Забыл взять свой rng → громкая ошибка, а не тихая порча посева игры.
-let rngOff = "";
-function rng() { if (rngOff) throw new Error(`${rngOff}: gameplay rng() used; take its own seeded rng`); return rngNext(); }
+// Забыл взять свой rng: в тестах (strictRng, его включает openGame) — громкая ошибка; в игре — визуальная vrand(),
+// чтобы начало уровня у игрока не сломалось, а посев игры остался цел.
+let rngOff = "", strictRng = window.__bbStrictRng === true;
+function rng() {
+  if (rngOff) { if (strictRng) throw new Error(`${rngOff}: gameplay rng() used; take its own seeded rng`); return vrand(); }
+  return rngNext();
+}
 function noGameRng(name, fn) { const prev = rngOff; rngOff = name; try { return fn(); } finally { rngOff = prev; } }
 function seedRandom(n) { rngNext = mulberry32(Number.isFinite(n) ? n >>> 0 : (vrand() * 4294967296) >>> 0); }
 const rand = (a, b) => a + rng() * (b - a);
@@ -2007,7 +2012,7 @@ function push(t) {
     t.fx.shield = 0;
     logEvent("push", { who: t.id, blocked: true });
     t.kx = Math.cos(a) * 280; t.ky = Math.sin(a) * 280;
-    big.pushCd = 0.9; big.noPush = CFG.PUSH_RECOVER;
+    big.pushCd = CFG.PUSH_STAND; big.noPush = CFG.PUSH_RECOVER;
     popText(t.x, t.y - 40, L().blocked, "#7dd3fc");
     burst(t.x, t.y, "star", "#7dd3fc", 14);
     SFX.shield();
@@ -2020,7 +2025,7 @@ function push(t) {
   if (attackToken === t) attackToken = null;
   // первый раз за уровень упал игрок со спасалками — короткая подсказка «Нажми 🩹» (SPEC-007)
   if (t.kind === "player" && !kitHintDone && progress.inv.rescues > 0) { kitHintDone = true; kitHintT = CFG.KIT_HINT_TIME; kitHintPi = t.id; }
-  big.pushCd = 0.9;
+  big.pushCd = CFG.PUSH_STAND;
   big.noPush = CFG.PUSH_RECOVER;          // передышка: какое-то время никого не толкает
   shake = 0.25;
   popText(t.x, t.y - 40, L().bang, "#ffcc00");
@@ -3285,12 +3290,14 @@ const shopCards = () => [
   { k: "kisses", name: L().kisses, desc: L().kissDesc, pack: L().kissPack(KISSES.pack), packN: KISSES.pack, have: L().kissHave(progress.inv.kisses), n: progress.inv.kisses, price: KISSES.price, buy: buyKisses },
   { k: "rescues", name: L().kit, desc: L().kitDesc, pack: L().kitPack(RESCUE_KIT.pack), packN: RESCUE_KIT.pack, have: L().kitHave(progress.inv.rescues), n: progress.inv.rescues, price: RESCUE_KIT.price, buy: buyRescueKit }
 ];
-// картинка карточки: s — размер (как у drawMitten)
-function shopPicture(k, x, y, s) {
-  if (k === "kisses") drawKiss(x, y + s * 0.05, s * 1.18);
-  else if (k === "rescues") drawKit(x, y, s * 1.15);
-  else drawMitten(x, y, s, k);
-}
+// картинка карточки: s — размер (как у drawMitten); новая карточка магазина добавляет сюда свою (тест SPEC-008 AC 10)
+const SHOP_PICTURES = {
+  mittens: (x, y, s) => drawMitten(x, y, s, "mittens"),
+  mega: (x, y, s) => drawMitten(x, y, s, "mega"),
+  kisses: (x, y, s) => drawKiss(x, y + s * 0.05, s * 1.18),
+  rescues: (x, y, s) => drawKit(x, y, s * 1.15)
+};
+function shopPicture(k, x, y, s) { if (SHOP_PICTURES[k]) SHOP_PICTURES[k](x, y, s); }
 // ---------- Карточки миров в меню (SPEC-006): название, картинка из цветов THEMES, звёзды мира ----------
 let worldCards = [];   // карточки этого кадра: { world, x, y, w, h, name, stars, selected } (для тестов)
 const worldStarsOf = w => Object.values(progress.worlds[w].stars).reduce((a, b) => a + b, 0);
@@ -5194,6 +5201,9 @@ window.__bb = {
   get items() { return items; }, get progress() { return progress; }, buyGloves, setEquip, get lastReward() { return lastReward; }, spawnItem,
   seedRandom,     // SPEC-008: seedRandom(n) — игровая случайность rng() с зерна n; seedRandom() — снова случайно
   sim, simRun, get events() { return events.map(e => ({ ...e })); },   // SPEC-008: режим симуляции, журнал событий (копии)
+  get strictRng() { return strictRng; }, set strictRng(v) { strictRng = !!v; },   // SPEC-008: тесты — генератор/3D с игровым rng() падает
+  // SPEC-008 AC 10: карточки магазина простыми данными (без функций); picture — у карточки есть картинка
+  shopCards: () => shopCards().map(({ k, price, packN, name, desc }) => ({ k, price, packN, name, desc, picture: k in SHOP_PICTURES })),
   loadProgress,   // SPEC-018 (тесты): чистая функция «сохранение → прогресс», та же, что при запуске; игру не трогает
   // SPEC-005 (телефон): phone; camera — позиция и точка взгляда в единицах 3D (1 = клетка), точка взгляда и видимая земля в px мира,
   // ahead — забегание вперёд (px); shake — тряска сейчас
