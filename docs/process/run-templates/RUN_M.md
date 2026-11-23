@@ -11,7 +11,7 @@ You orchestrate `<SPEC>` (`specs/<SPEC file>`) under `docs/process/orchestration
 - `tester`: whole suite once (~10 min), on the branch before the merge; failures go back to the implementer. The Pages workflow checks `master`.
 - Balance (if the spec changes gameplay numbers or rules): the implementer runs `npm run docs:numbers` and `npm run balance` (~30 s) before the merge and commits `reports/balance.*` (`<SPEC>: balance report`); red targets go into the final report (red is not a stop unless the spec's ACs say so).
 - Visual check: for each new screen/place/model one screenshot (throwaway script), looked at before the review.
-- Review: reviewer(s) get the spec path and `git diff master...<branch>` only. Fix loop at most two rounds; a CRITICAL/HIGH left stops the run before the merge.
+- Review: reviewer(s) get the spec path and `git diff master...<branch>` only. Fix loop at most two rounds; a CRITICAL/HIGH left stops the run before the merge. After a fix round that changes gameplay numbers or rules: `npm run docs:numbers` and `npm run balance` again, commit the updated `reports/balance.*`.
 - `doc-keeper`: docs as in `orchestration-rules.md` §6; commit `<SPEC>: docs`.
 - Merge: `git checkout master && git merge --no-ff <branch> -m "Merge <SPEC>: <title>"`; `git branch -d <branch>` (no local suite rerun on `master` unless it got code commits since the branch; the Pages workflow checks it); then `git push origin master` (only `master`, never `--force`, never spec branches) and `gh run watch` until the Pages deploy is green (a red deploy is reported, not retried blindly).
 - Close: spec `Status: done (<merge hash>)`, move to `specs/_archive/`, commit `<SPEC>: close`, `git push origin master`, `gh run watch` (must stay green).
