@@ -1,4 +1,5 @@
-// Names for the players, the Big One and the bot friends (SPEC-003): saved in `bebebe-names`, cleaned, typed on the skins screen.
+// Names for the players, the Big One and the bot friends (SPEC-003): saved in `bebebe-names`, cleaned, typed in the shop's
+// Wardrobe tab (SPEC-017; the bot friends on its Friends page).
 const { test, expect } = require("@playwright/test");
 const { openGame, frames } = require("./helpers");
 
@@ -63,8 +64,8 @@ test("names are saved, cleaned and survive a reload", async ({ page }) => {
   expect(n.bots).toEqual(["Тёма", "Маша", "Вася", "Соня"]);
 });
 
-test("names can be typed on the skins screen", async ({ page }) => {
-  await page.evaluate(() => { window.__bb.mode = "skins"; });
+test("names can be typed in the wardrobe tab", async ({ page }) => {
+  await page.evaluate(() => { window.__bb.mode = "shop"; window.__bb.shopTab = "wardrobe"; });
   const c = await buttonCenter(page, "name:big");
   await page.mouse.click(c.x, c.y);
   const input = page.locator("#wrap input");
@@ -87,7 +88,7 @@ test("names can be typed on the skins screen", async ({ page }) => {
   await page.keyboard.press("Enter");
   await expect(input).toHaveCount(0);
   expect(await page.evaluate(() => window.__bb.names.big)).toBe("Papa Lolo");
-  expect(await page.evaluate(() => window.__bb.mode)).toBe("skins");
+  expect(await page.evaluate(() => [window.__bb.mode, window.__bb.shopTab])).toEqual(["shop", "wardrobe"]);
   // Escape cancels
   const c1 = await buttonCenter(page, "name:p1");
   await page.mouse.click(c1.x, c1.y);
@@ -96,7 +97,7 @@ test("names can be typed on the skins screen", async ({ page }) => {
   await page.keyboard.press("Escape");
   await expect(input).toHaveCount(0);
   expect(await page.evaluate(() => window.__bb.names.p1)).toBe("Player 1");
-  expect(await page.evaluate(() => window.__bb.mode)).toBe("skins");
+  expect(await page.evaluate(() => [window.__bb.mode, window.__bb.shopTab])).toEqual(["shop", "wardrobe"]);
   // tapping outside saves
   await page.mouse.click(c1.x, c1.y);
   await input.fill("Ana");
@@ -116,11 +117,11 @@ test("names can be typed on the skins screen", async ({ page }) => {
   await page.keyboard.press("Escape");
 });
 
-test("bot names screen", async ({ page }) => {
-  await page.evaluate(() => { window.__bb.mode = "skins"; });
+test("bot names page", async ({ page }) => {
+  await page.evaluate(() => { window.__bb.mode = "shop"; window.__bb.shopTab = "wardrobe"; });
   const f = await buttonCenter(page, "openFriends");
   await page.mouse.click(f.x, f.y);
-  expect(await page.evaluate(() => window.__bb.mode)).toBe("names");
+  expect(await page.evaluate(() => [window.__bb.mode, window.__bb.wardrobePage])).toEqual(["shop", "friends"]);
   for (const id of ["name:bot1", "name:bot2", "name:bot3", "name:bot4"]) await buttonCenter(page, id);
   const c = await buttonCenter(page, "name:bot3");
   await page.mouse.click(c.x, c.y);
@@ -133,8 +134,8 @@ test("bot names screen", async ({ page }) => {
   // in play the bots get the names in slot order
   await page.evaluate(() => window.__bb.startGame(1));
   expect(await page.evaluate(() => window.__bb.littles.filter(l => l.kind === "bot").map(l => window.__bb.nameOf(l)))).toEqual(["Bo", "Mia", "Rex", "Lulu"]);
-  await page.evaluate(() => { window.__bb.mode = "names"; });
-  const back = await buttonCenter(page, "backToSkins");
+  await page.evaluate(() => { const b = window.__bb; b.mode = "shop"; b.shopTab = "wardrobe"; b.wardrobePage = "friends"; });
+  const back = await buttonCenter(page, "backToWardrobe");
   await page.mouse.click(back.x, back.y);
-  expect(await page.evaluate(() => window.__bb.mode)).toBe("skins");
+  expect(await page.evaluate(() => [window.__bb.mode, window.__bb.wardrobePage])).toEqual(["shop", "looks"]);
 });

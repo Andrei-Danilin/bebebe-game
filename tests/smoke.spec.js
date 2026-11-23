@@ -4,20 +4,26 @@ const { openGame, step, ROOT } = require("./helpers");
 const fs = require("fs");
 const path = require("path");
 
-test("loads to the menu without errors", { tag: "@fast" }, async ({ page }) => {
+test("loads to the home screen without errors", { tag: "@fast" }, async ({ page }) => {
   const errors = await openGame(page);
-  expect(await page.evaluate(() => window.__bb.mode)).toBe("menu");
+  expect(await page.evaluate(() => window.__bb.mode)).toBe("home");
   expect(errors).toEqual([]);
 });
 
 test("every screen draws without errors", async ({ page }) => {
   const errors = await openGame(page);
-  for (const m of ["skins", "names", "shop", "menu"]) {
-    await page.evaluate(v => { window.__bb.mode = v; }, m);
+  // SPEC-017: home, map, story, the shop's three tabs and the friends page
+  for (const [m, tab, pg] of [["home"], ["map"], ["story"], ["shop", "items"], ["shop", "wardrobe"], ["shop", "wardrobe", "friends"], ["shop", "upgrades"], ["home"]]) {
+    await page.evaluate(([v, t, f]) => { const b = window.__bb; b.mode = v; if (t) b.shopTab = t; if (f) b.wardrobePage = f; }, [m, tab, pg]);
     await page.waitForTimeout(150);
   }
   await page.evaluate(() => window.__bb.startGame(2));
   await page.waitForTimeout(200);
+  await page.evaluate(() => { const b = window.__bb; b.mode = "map"; });
+  await page.waitForTimeout(150);
+  await page.evaluate(() => window.__bb.tapButton("stop:1"));             // SPEC-017: the level card over the map
+  await page.waitForTimeout(150);
+  await page.evaluate(() => window.__bb.startGame(2));
   for (const m of ["pause", "win", "lose", "play"]) {
     await page.evaluate(v => { window.__bb.mode = v; }, m);
     await page.waitForTimeout(150);
@@ -37,10 +43,10 @@ for (const place of ["park", "beach", "winter", "school"]) {
 }
 
 for (const lang of ["en", "es", "ru"]) {
-  test(`language ${lang}: menu, skins, friends and shop draw`, async ({ page }) => {
+  test(`language ${lang}: home, map, story, the shop tabs and friends draw`, async ({ page }) => {
     const errors = await openGame(page, { lang });
-    for (const m of ["menu", "skins", "names", "shop"]) {
-      await page.evaluate(v => { window.__bb.mode = v; }, m);
+    for (const [m, tab, pg] of [["home"], ["map"], ["story"], ["shop", "items"], ["shop", "wardrobe"], ["shop", "wardrobe", "friends"], ["shop", "upgrades"]]) {
+      await page.evaluate(([v, t, f]) => { const b = window.__bb; b.mode = v; if (t) b.shopTab = t; if (f) b.wardrobePage = f; }, [m, tab, pg]);
       await page.waitForTimeout(120);
     }
     expect(errors).toEqual([]);

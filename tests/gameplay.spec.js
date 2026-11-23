@@ -192,7 +192,7 @@ test("worlds unlock their own levels", async ({ page }) => {
   await page.evaluate(() => { for (const k of ["bebebe-progress", "bebebe-outfits", "bebebe-place"]) localStorage.removeItem(k); });
   await page.reload();
   await page.waitForFunction(() => window.__bbReady === true);
-  expect(await page.evaluate(() => [window.__bb.mode, window.__bb.world, window.__bb.level])).toEqual(["menu", "park", 1]);
+  expect(await page.evaluate(() => [window.__bb.mode, window.__bb.world, window.__bb.level])).toEqual(["home", "park", 1]);
   const start = await page.evaluate(() => JSON.parse(JSON.stringify(window.__bb.progress)));
   expect(Object.keys(start.worlds)).toEqual(["park", "field", "city", "school", "beach", "winter"]);   // SPEC-016: the story order
   for (const w of Object.keys(start.worlds)) expect(start.worlds[w], w).toEqual({ unlocked: 1, stars: {}, won: {} });   // every world open from the start
@@ -210,16 +210,14 @@ test("worlds unlock their own levels", async ({ page }) => {
   expect(p.progress.worlds.school.stars["1"]).toBeGreaterThanOrEqual(1);
   for (const w of ["park", "field", "city", "beach", "winter"]) expect(p.progress.worlds[w], w).toEqual({ unlocked: 1, stars: {}, won: {} });
   expect(p.progress.lastWorld).toBe("school");
-  expect([p.world, p.level]).toEqual(["school", 2]);   // the menu opens on the last world, at its newest level
-  // the menu's level arrows move inside the current world's open levels
-  const arrows = await page.evaluate(() => {
-    const b = window.__bb; b.world = "beach"; b.level = 1; b.mode = "menu";
-    b.progress.worlds.beach.unlocked = 3;
-    const out = [];
-    for (let i = 0; i < 4; i++) { b.changeLevel(1); out.push(b.level); }
-    return out;
-  });
-  expect(arrows).toEqual([2, 3, 3, 3]);
+  expect([p.world, p.level]).toEqual(["school", 2]);   // the map opens on the last world, at its newest level
+  // SPEC-017: the map starts only the world's open levels — a later stop is locked and opens no card
+  await page.evaluate(() => { const b = window.__bb; b.progress.worlds.beach.unlocked = 3; b.world = "beach"; b.level = 1; b.mode = "map"; });
+  await frames(page);
+  expect((await page.evaluate(() => window.__bb.mapInfo.stops.filter(q => !q.locked).map(q => q.n)))).toEqual([1, 2, 3]);
+  const tapStop = async n => { await page.evaluate(k => window.__bb.tapButton("stop:" + k), n); await frames(page); return page.evaluate(() => [window.__bb.mode, window.__bb.levelCard && window.__bb.levelCard.n]); };
+  expect(await tapStop(4)).toEqual(["map", null]);
+  expect(await tapStop(3)).toEqual(["levelCard", 3]);
 });
 
 test("the reward grows with the world", async ({ page }) => {
@@ -261,7 +259,7 @@ test("winning level 20 finishes the world", async ({ page }) => {
   expect(mid.done).toBe(false);
   await page.keyboard.press("Enter");
   expect(await page.evaluate(() => [window.__bb.mode, window.__bb.world, window.__bb.level])).toEqual(["play", "school", 4]);
-  // level 20: the world is done, the win screen offers the menu instead of a next level
+  // level 20: the world is done, the win screen offers the map instead of a next level (SPEC-017)
   await page.evaluate(() => { const b = window.__bb; b.progress.worlds.school.unlocked = 20; b.level = 20; b.startGame(1); });
   await winLevel(page);
   await frames(page);
@@ -270,7 +268,7 @@ test("winning level 20 finishes the world", async ({ page }) => {
   expect(end.reward.worldDone).toBe(true);
   expect(end.line).toBe("You finished the School!");
   expect(end.buttons).not.toContain("nextLevel");
-  expect(end.buttons).toContain("toMenu");
+  expect(end.buttons).toContain("toMap");
   expect(end.unlocked).toBe(20);
   // the texts in every language
   const I = await page.evaluate(() => { const I = window.__bb.I18N; return ["en", "es", "ru"].map(l => [I[l].worlds, ...["school", "park", "winter", "beach", "field", "city"].map(w => I[l].worldDone(I[l].worlds[w], w))]); });
@@ -285,9 +283,9 @@ test("winning level 20 finishes the world", async ({ page }) => {
     await frames(page);
     expect(await page.evaluate(() => window.__bb.winLine)).toBe(I[lang === "es" ? 1 : 2][1]);
   }
-  // Enter (like the button) goes to the menu, still in this world
+  // Enter (like the button) goes to the map, still in this world
   await page.keyboard.press("Enter");
-  expect(await page.evaluate(() => [window.__bb.mode, window.__bb.world])).toEqual(["menu", "school"]);
+  expect(await page.evaluate(() => [window.__bb.mode, window.__bb.world])).toEqual(["map", "school"]);
 });
 
 test("each rest takes coins from the level reward", async ({ page }) => {
@@ -646,10 +644,10 @@ test("old saves get 0 kisses", async ({ page }) => {
 
 // ---------- SPEC-016 AC 5: the bonus worlds (Beach, Winter) open after every level of the main worlds is won ----------
 test("bonus worlds open after all main levels", async ({ page }) => {
-  // fresh progress: Beach and Winter are locked; the menu refuses them (selectWorld, ↑/↓, a tap on the card)
+  // fresh progress: Beach and Winter are locked; the map refuses them (selectWorld, ←/→, a tap on the tab)
   const fresh = await page.evaluate(() => {
     const b = window.__bb;
-    b.world = "school"; b.level = 1; b.mode = "menu";
+    b.world = "school"; b.level = 1; b.mode = "map";
     const out = { unlocked: b.bonusUnlocked(), open: b.WORLDS.map(w => b.bonusOpen(w)) };
     b.selectWorld("beach"); out.select = b.world;
     return out;
@@ -657,16 +655,16 @@ test("bonus worlds open after all main levels", async ({ page }) => {
   expect(fresh).toEqual({ unlocked: false, open: [true, true, true, true, false, false], select: "school" });
   await frames(page);
   const keys = [];
-  for (const k of ["ArrowDown", "ArrowUp"]) { await page.keyboard.press(k); keys.push(await page.evaluate(() => window.__bb.world)); }
-  expect(keys, "↓ from the School wraps to the Park, ↑ goes back: the locked bonus worlds are skipped").toEqual(["park", "school"]);
+  for (const k of ["ArrowRight", "ArrowLeft"]) { await page.keyboard.press(k); keys.push(await page.evaluate(() => window.__bb.world)); }
+  expect(keys, "→ from the School wraps to the Park, ← goes back: the locked bonus worlds are skipped").toEqual(["park", "school"]);
   await frames(page);
   const tap = await page.evaluate(() => {
-    const q = window.__bb.buttonRects.find(r => r.id === "world:winter"), c = document.getElementById("game").getBoundingClientRect();
+    const q = window.__bb.buttonRects.find(r => r.id === "maptab:winter"), c = document.getElementById("game").getBoundingClientRect();
     return q && { x: c.left + (q.x + q.w / 2) * c.width / 960, y: c.top + (q.y + q.h / 2) * c.height / 640 };
   });
-  expect(tap, "the locked Winter card is still drawn").toBeTruthy();
+  expect(tap, "the locked Winter tab is still drawn").toBeTruthy();
   await page.mouse.click(tap.x, tap.y);
-  expect(await page.evaluate(() => window.__bb.world), "a tap on a locked card changes nothing").toBe("school");
+  expect(await page.evaluate(() => window.__bb.world), "a tap on a locked tab changes nothing").toBe("school");
 
   // every main level won except City 20: still locked; the win of City 20 opens them and says so — once
   const before = await page.evaluate(() => {
@@ -690,17 +688,17 @@ test("bonus worlds open after all main levels", async ({ page }) => {
   expect(first.note && first.note.text, "the win screen says so").toBe("🎁 Bonus worlds unlocked!");
   const again = await win("city", 20), later = await win("park", 7);
   expect([again.flag, again.note, later.flag, later.note], "only the win that completes the 80th main level shows it").toEqual([false, null, false, null]);
-  // the menu lets you in now: ↓ from the School goes to the Beach, a card tap picks the Winter
-  await page.evaluate(() => { const b = window.__bb; b.mode = "menu"; b.world = "school"; b.level = 1; });
+  // the map lets you in now: → from the School goes to the Beach, a tab tap picks the Winter
+  await page.evaluate(() => { const b = window.__bb; b.mode = "map"; b.world = "school"; b.level = 1; });
   await frames(page);
-  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("ArrowRight");
   expect(await page.evaluate(() => window.__bb.world)).toBe("beach");
-  await page.evaluate(() => window.__bb.selectWorld("winter"));
+  await page.evaluate(() => window.__bb.tapButton("maptab:winter"));
   expect(await page.evaluate(() => window.__bb.world)).toBe("winter");
 
   // review fix: Beach open through its own progress, then the progress is reset — the Beach is locked again: back to the Park
   const reset = await page.evaluate(() => {
-    const b = window.__bb; b.setProgress({ worlds: { beach: { unlocked: 3 } } }); b.mode = "menu"; b.world = "park";
+    const b = window.__bb; b.setProgress({ worlds: { beach: { unlocked: 3 } } }); b.mode = "map"; b.world = "park";
     b.selectWorld("beach"); const before = b.world;
     b.resetProgress(); b.resetProgress();                  // two calls, like the button
     return { before, after: b.world, last: b.progress.lastWorld };
@@ -841,25 +839,30 @@ test("kiss keys for one and two players", async ({ page }) => {
   expect(await page.evaluate(() => window.__bb.littles[1].kissCd > 0 && window.__bb.littles[0].kissCd === 0)).toBe(true);
 });
 
-test("the gamepad d-pad up/down switches worlds in the menu", async ({ page }) => {
+test("the gamepad d-pad left/right and the shoulder buttons switch worlds on the map", async ({ page }) => {
   await page.evaluate(() => {
-    const b = window.__bb; b.mode = "menu";
+    const b = window.__bb; b.mode = "map";
     window.__press = k => { window.__pads = [{ index: 0, axes: [0, 0], buttons: Array.from({ length: 17 }, (_, i) => ({ pressed: i === k, value: 0 })) }]; };
     window.__press(-1);
     Object.defineProperty(navigator, "getGamepads", { configurable: true, value: () => window.__pads });
   });
   const press = async k => { await page.evaluate(n => window.__press(n), k); await frames(page); await page.evaluate(() => window.__press(-1)); await frames(page); };
   // SPEC-016: worlds in the story order (park, field, city, school, then the bonus beach, winter), the locked bonus ones skipped
-  await press(13);                                                  // d-pad down: next world
+  // SPEC-017: d-pad ←/→ and the shoulder buttons (CFG.PAD_PREV_WORLD / PAD_NEXT_WORLD) switch worlds; ↑/↓ pick a level stop
+  await press(15);                                                  // d-pad right: next world
   expect(await page.evaluate(() => window.__bb.world)).toBe("field");
-  await press(12);                                                  // d-pad up: previous world
+  await press(14);                                                  // d-pad left: previous world
   expect(await page.evaluate(() => window.__bb.world)).toBe("park");
-  await press(12);                                                  // wraps around, past the locked Winter and Beach
+  await press(14);                                                  // wraps around, past the locked Winter and Beach
   expect(await page.evaluate(() => window.__bb.world)).toBe("school");
-  // on the pause and win screens the d-pad up/down changes nothing
+  await press(await page.evaluate(() => window.__bb.CFG.PAD_NEXT_WORLD));
+  expect(await page.evaluate(() => window.__bb.world)).toBe("park");
+  await press(await page.evaluate(() => window.__bb.CFG.PAD_PREV_WORLD));
+  expect(await page.evaluate(() => window.__bb.world)).toBe("school");
+  // on the pause and win screens the d-pad changes nothing
   for (const m of ["pause", "win"]) {
     await page.evaluate(v => { window.__bb.mode = v; }, m);
-    await press(13); await press(12);
+    await press(15); await press(14); await press(13); await press(12);
     expect(await page.evaluate(() => [window.__bb.mode, window.__bb.world]), m).toEqual([m, "school"]);
   }
 });

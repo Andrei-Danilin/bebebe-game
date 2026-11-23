@@ -97,7 +97,7 @@ test("every coin change is in the ledger", async ({ page }) => {
     const b = window.__bb, C = b.CFG, out = {};
     const strip = list => list.map(({ t, ...rest }) => rest);
     // money to spend (a test setup, not a game change: the ledger starts counting after it)
-    b.mode = "menu"; b.progress.coins = 100;
+    b.mode = "home"; b.progress.coins = 100;
     const coins0 = b.progress.coins, n0 = b.ledger().length;
     // shop: three buys; mega needs 60 and only 35 are left → no entry
     b.buyKisses(); b.buyGloves("mittens"); b.buyRescueKit(); b.buyGloves("mega");
@@ -135,7 +135,7 @@ test("every coin change is in the ledger", async ({ page }) => {
     const copy = b.ledger(); copy[copy.length - 1].amount = 999; copy.length = 0;
     out.untouched = b.ledger().length - n0 === all.length && b.ledger().at(-1).amount === all.at(-1).amount;
     out.star = C.STAR_COINS;
-    b.mode = "menu";
+    b.mode = "home";
     return out;
   });
   const G = { mittens: 30, kisses: 20, rescues: 15 };
@@ -173,7 +173,7 @@ test("the reward rules: first win, replay, new stars, rests with floors, difficu
       b.world = w; b.level = n; b.startGame(1);
       Object.assign(b.stats, { playerHugs: 0, rests: 0, time: 9999, starCoins: 0 }, st);
       const n0 = b.ledger().length, c0 = b.progress.coins;
-      b.giveReward(true); b.mode = "menu";
+      b.giveReward(true); b.mode = "home";
       const lr = b.lastReward;
       out.runs[name] = { w, n, starCoins: b.stats.starCoins, coins: lr.coins, stars: lr.stars, first: lr.first, parts: lr.parts.map(p => ({ ...p })),
         ledger: b.ledger().slice(n0).map(({ reason, amount }) => ({ reason, amount })), gained: b.progress.coins - c0, won: b.progress.worlds[w].won[n] === true };
@@ -231,7 +231,7 @@ test("leaving a level early pays only the hugs", async ({ page }) => {
     const b = window.__bb, out = {};
     const key = code => window.dispatchEvent(new KeyboardEvent("keydown", { code }));
     const lines = n0 => b.ledger().slice(n0).map(({ reason, amount }) => ({ reason, amount }));
-    // Park 9: a bonus star (paid at pickup), 3 hugs, then pause → Menu (Q)
+    // Park 9: a bonus star (paid at pickup), 3 hugs, then pause → Map (Q)
     b.world = "park"; b.level = 9; b.startGame(1);
     let n0 = b.ledger().length;
     const L = b.littles;
@@ -251,7 +251,7 @@ test("leaving a level early pays only the hugs", async ({ page }) => {
     n0 = b.ledger().length;
     b.mode = "pause"; key("KeyQ");
     out.none = lines(n0);
-    // after a win the reward is paid once: going to the menu pays nothing more
+    // after a win the reward is paid once: going to the map pays nothing more
     b.startGame(1); b.stats.playerHugs = 2; b.giveReward(true); b.mode = "win";
     n0 = b.ledger().length;
     key("Escape");
@@ -259,10 +259,10 @@ test("leaving a level early pays only the hugs", async ({ page }) => {
     out.PH = b.REWARD.PER_HUG;
     return out;
   });
-  expect(r.menu).toEqual({ mode: "menu", lines: [{ reason: "star", amount: 3 }, { reason: "hugs", amount: 3 * r.PH }], won: false, stars: 0 });
+  expect(r.menu).toEqual({ mode: "map", lines: [{ reason: "star", amount: 3 }, { reason: "hugs", amount: 3 * r.PH }], won: false, stars: 0 });
   expect(r.restart).toEqual([{ reason: "hugs", amount: 2 * r.PH }]);
   expect(r.none).toEqual([]);
-  expect(r.afterWin).toEqual({ mode: "menu", lines: [] });
+  expect(r.afterWin).toEqual({ mode: "map", lines: [] });
 });
 
 // ---------- AC 4: migration of the won flags ----------
@@ -286,7 +286,7 @@ test("old saves: levels with stars count as won", async ({ page }) => {
     b.setProgress({ worlds: { park: { unlocked: 4, stars: { 1: 2 } } } });
     b.world = "park"; b.level = 1; b.startGame(1);
     Object.assign(b.stats, { playerHugs: 0, rests: 0, time: 9999, starCoins: 0 });
-    b.giveReward(true); b.mode = "menu";
+    b.giveReward(true); b.mode = "home";
     out.replay = b.lastReward.parts.map(p => p.reason);
     return out;
   });
@@ -345,7 +345,7 @@ async function winScreenProblems(page) {
     d.hud.forEach((a, i) => d.hud.slice(i + 1).forEach(b => { if (overlaps(a, b)) fails.push(`${at}: ${a.id} "${a.text}" on ${b.id} "${b.text}"`); }));
     if (name === "replay20" && !d.done) fails.push(`${at}: level 20 is not worldDone`);
   }
-  await page.evaluate(() => { window.__bb.CFG.TEXT_TEST_SCALE = 1; window.__bb.setLang("en"); window.__bb.mode = "menu"; });
+  await page.evaluate(() => { window.__bb.CFG.TEXT_TEST_SCALE = 1; window.__bb.setLang("en"); window.__bb.mode = "home"; });
   return fails;
 }
 
@@ -364,7 +364,7 @@ test("the win screen lists each reward line and fits (desktop 960×640)", async 
   await page.evaluate(() => { const b = window.__bb; b.world = "school"; b.level = 20; b.startGame(1); b.giveReward(true); b.mode = "win"; });
   await frames(page);
   expect(await page.evaluate(() => window.__bb.winLine)).toBe("You finished the School!");
-  await page.evaluate(() => { window.__bb.mode = "menu"; });
+  await page.evaluate(() => { window.__bb.mode = "home"; });
 });
 
 test("the win screen lists each reward line and fits (phone 667×375)", async ({ phonePage: page }) => {
@@ -381,7 +381,7 @@ test("every win-screen text is in three languages", async ({ page }) => {
 
 // ---------- AC 3: the wardrobe ----------
 // __bb.wardrobe() = { hat|jacket|pants|big: [{ id, price }], hairs } (plain data); __bb.outfits = { shown, saved } (indexes;
-// shown = what the skins screen shows, saved = the last owned look, the one bebebe-outfits stores); __bb.buyLook(key) = a tap
+// shown = what the wardrobe tab shows, saved = the last owned look, the one bebebe-outfits stores); __bb.buyLook(key) = a tap
 // on that column's Buy button. resetGame() puts the skin picker back to the defaults.
 const outfitsSaved = page => page.evaluate(() => JSON.parse(localStorage.getItem("bebebe-outfits") || "null"));
 
@@ -409,7 +409,7 @@ test("locked clothes can be tried on and bought", async ({ page }) => {
   const idx = (k, id) => W[k].findIndex(q => q.id === id);
   const crown = idx("hat", "crown"), cap = idx("hat", "cap"), robot = idx("big", "robot");
   // try on: the preview shows the crown, the save keeps the cap
-  await page.evaluate(n => { const b = window.__bb; b.mode = "skins"; b.progress.coins = 0; b.cycleOutfit("p1", "hat", n); }, crown - cap);
+  await page.evaluate(n => { const b = window.__bb; b.mode = "shop"; b.shopTab = "wardrobe"; b.progress.coins = 0; b.cycleOutfit("p1", "hat", n); }, crown - cap);
   await frames(page);
   let d = await page.evaluate(() => ({ o: window.__bb.outfits, ids: window.__bb.buttonRects.map(q => q.id), hud: window.__bb.hudRects.map(h => h.id), snd: window.__bb.sim().sounds }));
   expect(d.o.shown.p1.hat).toBe(crown);
@@ -472,14 +472,14 @@ test("locked clothes can be tried on and bought", async ({ page }) => {
   await page.evaluate(n => { const b = window.__bb; b.progress.coins = 0; b.cycleBig(n - b.outfits.shown.big); }, robot);
   expect(await page.evaluate(() => window.__bb.outfits.shown.big)).toBe(robot);
   expect((await outfitsSaved(page)).big).toBe(0);
-  await page.keyboard.press("Escape");                                       // the skins screen → menu
+  await page.keyboard.press("Escape");                                       // the shop's Wardrobe tab → home (SPEC-017)
   await frames(page);
-  expect(await page.evaluate(() => [window.__bb.mode, window.__bb.outfits.shown.big, window.__bb.outfits.saved.big])).toEqual(["menu", 0, 0]);
+  expect(await page.evaluate(() => [window.__bb.mode, window.__bb.outfits.shown.big, window.__bb.outfits.saved.big])).toEqual(["home", 0, 0]);
   // a game never starts in a locked look (even without a drawn frame in between)
   const tophat = idx("hat", "tophat");
   const g = await page.evaluate(n => {
-    const b = window.__bb; b.mode = "skins"; b.cycleOutfit("p1", "hat", n - b.outfits.shown.p1.hat); b.startGame(1);
-    const out = { shown: b.outfits.shown.p1.hat, acc: b.littles[0].look.acc }; b.mode = "menu"; return out;
+    const b = window.__bb; b.mode = "shop"; b.shopTab = "wardrobe"; b.cycleOutfit("p1", "hat", n - b.outfits.shown.p1.hat); b.startGame(1);
+    const out = { shown: b.outfits.shown.p1.hat, acc: b.littles[0].look.acc }; b.mode = "home"; return out;
   }, tophat);
   expect(g).toEqual({ shown: crown, acc: "crown" });
 });
@@ -487,7 +487,7 @@ test("locked clothes can be tried on and bought", async ({ page }) => {
 test("random outfit uses only owned items; bots may wear anything", async ({ page }) => {
   const r = await page.evaluate(() => {
     const b = window.__bb, W = b.wardrobe(), seen = { hat: new Set(), jacket: new Set(), pants: new Set() }, bad = [];
-    b.mode = "skins";
+    b.mode = "shop"; b.shopTab = "wardrobe";
     b.progress.owned.hats.push("crown"); b.progress.owned.jackets.push("ninja");
     for (let i = 0; i < 60; i++) {
       b.randomOutfit("p1");
@@ -501,7 +501,7 @@ test("random outfit uses only owned items; bots may wear anything", async ({ pag
     // bots' looks come from their level and slot, whatever the player owns
     const botAcc = new Set();
     for (let n = 1; n <= 20; n++) { b.level = n; b.resetWorld(1); b.littles.filter(l => l.kind === "bot").forEach(l => botAcc.add(l.look.acc)); }
-    b.level = 1; b.mode = "menu";
+    b.level = 1; b.mode = "home";
     return { bad, hats: [...seen.hat].sort(), jackets: [...seen.jacket].sort(), botPaid: [...botAcc].filter(a => W.hat.find(q => q.id === a).price > 0).length };
   });
   expect(r.bad).toEqual([]);
@@ -545,7 +545,7 @@ test("old saves keep their outfits", async ({ page }) => {
   expect(reset.W.big[reset.o.big].price).toBe(0);
 });
 
-// ---------- AC 3: the skins screen fits, with locked items ----------
+// ---------- AC 3: the wardrobe (SPEC-017: the shop's Wardrobe tab) fits, with locked items ----------
 // p1: a locked hat and jacket; the Big One locked; (desktop) p2 locked pants. Two states: too few coins ("not enough" on
 // the preview) and armed (enough coins, one column tapped once: "tap again" on its preview; tapping another column disarms
 // the first). Three languages, fonts ×1 and ×1.15.
@@ -556,7 +556,7 @@ async function skinsProblems(page, phone) {
     const at = `${lang} ×${scale} ${state}`;
     await page.evaluate(([l, s, st]) => {
       const b = window.__bb, W = b.wardrobe(), to = (pk, slot, k, id) => b.cycleOutfit(pk, slot, W[k].findIndex(q => q.id === id) - b.outfits.shown[pk][slot]);
-      b.setLang(l); b.CFG.TEXT_TEST_SCALE = s; b.resetOutfits(); b.mode = "skins";
+      b.setLang(l); b.CFG.TEXT_TEST_SCALE = s; b.resetOutfits(); b.mode = "shop"; b.shopTab = "wardrobe";
       to("p1", "hat", "hat", "viking"); to("p1", "jacket", "jacket", "cape"); to("p2", "pants", "pants", "pinkshorts");
       b.cycleBig(W.big.findIndex(q => q.id === "captain") - b.outfits.shown.big);
       b.progress.coins = st === "poor" ? 10 : 9999;
@@ -583,16 +583,16 @@ async function skinsProblems(page, phone) {
     d.buttons.forEach((a, i) => d.buttons.slice(i + 1).forEach(b => { if (overlaps(a, b)) fails.push(`${at}: ${a.id || a.text} on ${b.id || b.text}`); }));
     d.hud.forEach((a, i) => { if (!inside(a)) fails.push(`${at}: ${a.id} outside`); d.hud.slice(i + 1).forEach(b => { if (overlaps(a, b)) fails.push(`${at}: ${a.id} on ${b.id}`); }); });
   }
-  await page.evaluate(() => { const b = window.__bb; b.CFG.TEXT_TEST_SCALE = 1; b.setLang("en"); b.resetOutfits(); b.mode = "menu"; });
+  await page.evaluate(() => { const b = window.__bb; b.CFG.TEXT_TEST_SCALE = 1; b.setLang("en"); b.resetOutfits(); b.mode = "home"; });
   return fails;
 }
 
-test("the skins screen with locked items fits (desktop 960×640)", async ({ page }) => {
+test("the wardrobe tab with locked items fits (desktop 960×640)", async ({ page }) => {
   const fails = await skinsProblems(page, false);
   expect(fails, fails.slice(0, 12).join("\n")).toEqual([]);
 });
 
-test("the skins screen with locked items fits (phone 667×375)", async ({ phonePage: page }) => {
+test("the wardrobe tab with locked items fits (phone 667×375)", async ({ phonePage: page }) => {
   const fails = await skinsProblems(page, true);
   expect(fails, fails.slice(0, 12).join("\n")).toEqual([]);
 });
@@ -611,7 +611,7 @@ test("upgrades apply to players only and stop at level 3", { tag: "@fast" }, asy
     out.U = JSON.parse(JSON.stringify(U));
     const cfg0 = JSON.stringify(C), diff0 = JSON.stringify(["park", "winter"].map(w => [1, 10, 20].map(n => b.difficulty(w, n))));
     // too few coins: nothing
-    b.mode = "menu"; b.progress.coins = 0;
+    b.mode = "home"; b.progress.coins = 0;
     const s0 = b.sim().sounds, n0 = b.ledger().length;
     b.buyUpgrade("fastFeet");
     out.poor = { lv: b.upgrades.fastFeet, sound: b.sim().sounds > s0, ledger: b.ledger().length - n0 };
@@ -643,7 +643,7 @@ test("upgrades apply to players only and stop at level 3", { tag: "@fast" }, asy
       }
       Object.assign(L[0], { ...spot, state: "ok", invuln: 0, kx: 0, ky: 0, hugAnim: 0, dizzy: 0 }); L[0].fx.boots = 0;
       keyEv("KeyD", true); for (let i = 0; i < 30; i++) b.update(1 / 60); keyEv("KeyD", false);
-      const d = L[0].x - spot.x; b.mode = "menu"; return d;
+      const d = L[0].x - spot.x; b.mode = "home"; return d;
     };
     out.fast = walk();
     b.progress.upgrades.fastFeet = 0; out.slow = walk(); b.progress.upgrades.fastFeet = 3;
@@ -677,7 +677,7 @@ test("upgrades apply to players only and stop at level 3", { tag: "@fast" }, asy
     Object.assign(helperBot, { x: 420, y: 300, state: "ok" });
     b.update(1 / 60);
     out.botNeed = L2[0].rescueNeed;
-    b.mode = "menu";
+    b.mode = "home";
     return out;
   });
   expect(r.U).toEqual({ fastFeet: { step: 0.03, prices: [100, 200, 300] }, longItems: { step: 0.15, prices: [100, 200, 300] }, quickHelp: { step: 0.1, prices: [100, 200, 300] } });
@@ -735,17 +735,19 @@ test("the shop has an Items tab and an Upgrades tab", async ({ page }) => {
   expect(d.hud.find(h => h.id === "upg-dots:fastFeet").text).toBe("○○○");
   expect(d.btn.find(q => q.id === "upg:longItems").text).toContain("300");
   expect(d.btn.find(q => q.id === "upg:quickHelp").text).toContain(d.I.upgMax);
-  await page.keyboard.press("ArrowLeft");
+  await page.keyboard.press("ArrowLeft");                                     // SPEC-017: three tabs — Items · Wardrobe · Upgrades
   await frames(page);
+  expect(await page.evaluate(() => window.__bb.shopTab)).toBe("wardrobe");
+  await page.keyboard.press("ArrowLeft");
   expect(await page.evaluate(() => window.__bb.shopTab)).toBe("items");
   await page.keyboard.press("ArrowRight");
   // leaving the shop: next time it opens on Items
-  await page.evaluate(() => { window.__bb.mode = "menu"; });
+  await page.evaluate(() => { window.__bb.mode = "home"; });
   await frames(page);
   await page.evaluate(() => { window.__bb.mode = "shop"; });
   await frames(page);
   expect(await page.evaluate(() => window.__bb.shopTab)).toBe("items");
-  await page.evaluate(() => { window.__bb.mode = "menu"; });
+  await page.evaluate(() => { window.__bb.mode = "home"; });
 });
 
 // the Upgrades tab fits: three languages, fonts ×1 / ×1.15, too few coins and plenty (one upgrade at max)
@@ -789,7 +791,7 @@ async function upgradeTabProblems(page, phone) {
     d.hud.forEach((a, i) => { if (!inside(a)) fails.push(`${at}: ${a.id} outside`); d.hud.slice(i + 1).forEach(b => { if (overlaps(a, b)) fails.push(`${at}: ${a.id} on ${b.id}`); }); });
     if (phone) for (const cat of ["main", "hint"]) if (!(d.texts[cat] * s >= d.min[cat] - 0.01)) fails.push(`${at}: smallest ${cat} text ${d.texts[cat] * s}`);
   }
-  await page.evaluate(() => { const b = window.__bb; b.CFG.TEXT_TEST_SCALE = 1; b.setLang("en"); b.mode = "menu"; });
+  await page.evaluate(() => { const b = window.__bb; b.CFG.TEXT_TEST_SCALE = 1; b.setLang("en"); b.mode = "home"; });
   return fails;
 }
 
@@ -846,18 +848,18 @@ test("the balance report's economy targets are computed from the runs' coins", {
 test("the Friends screen keeps a try-on; a save that knows owned clothes does not get worn ones for free", async ({ page }) => {
   const r = await page.evaluate(() => {
     const b = window.__bb, W = b.wardrobe(), crown = W.hat.findIndex(q => q.id === "crown");
-    b.mode = "skins"; b.cycleOutfit("p1", "hat", crown - b.outfits.shown.p1.hat);
+    b.mode = "shop"; b.shopTab = "wardrobe"; b.cycleOutfit("p1", "hat", crown - b.outfits.shown.p1.hat);
     return crown;
   });
-  await page.evaluate(() => { window.__bb.mode = "names"; });
+  await page.evaluate(() => { window.__bb.wardrobePage = "friends"; });      // SPEC-017: Friends is a page of the Wardrobe tab
   await frames(page);
   expect(await page.evaluate(() => window.__bb.outfits.shown.p1.hat), "still trying on with Friends open").toBe(r);
-  await page.evaluate(() => { window.__bb.mode = "skins"; });
+  await page.evaluate(() => { window.__bb.wardrobePage = "looks"; });
   await frames(page);
   expect(await page.evaluate(() => window.__bb.outfits.shown.p1.hat)).toBe(r);
-  await page.evaluate(() => { window.__bb.mode = "menu"; });
+  await page.evaluate(() => { window.__bb.mode = "home"; });
   await frames(page);
-  expect(await page.evaluate(() => window.__bb.outfits.shown.p1.hat), "the menu ends it").not.toBe(r);
+  expect(await page.evaluate(() => window.__bb.outfits.shown.p1.hat), "the home screen ends it").not.toBe(r);
   // a SPEC-009 save (it has owned) wearing a crown it never bought: the crown is taken off, not given
   await page.evaluate(c => {
     localStorage.setItem("bebebe-progress", JSON.stringify({ coins: 5, owned: { hats: [], jackets: [], pants: [], big: [] } }));
@@ -869,7 +871,7 @@ test("the Friends screen keeps a try-on; a save that knows owned clothes does no
   expect(after).toEqual({ owned: [], hat: 1, stored: 1 });   // back to the free default cap
 });
 
-test("a pause during the final hug and Menu still counts the win; coins load as a whole number ≥ 0", async ({ page }) => {
+test("a pause during the final hug and Map still counts the win; coins load as a whole number ≥ 0", async ({ page }) => {
   const r = await page.evaluate(() => {
     const b = window.__bb, key = code => window.dispatchEvent(new KeyboardEvent("keydown", { code }));
     b.world = "park"; b.level = 3; b.startGame(1);
@@ -877,17 +879,17 @@ test("a pause during the final hug and Menu still counts the win; coins load as 
     Object.assign(b.littles[0], { state: "ok", hugCd: 0, hugAnim: 0, invuln: 0, kx: 0, ky: 0, x: 466, y: 320 });
     b.update(1 / 60);                                     // the last heart: the win is coming
     const n0 = b.ledger().length;
-    b.mode = "pause"; key("KeyQ");                        // pause → Menu before the win screen
+    b.mode = "pause"; key("KeyQ");                        // pause → Map before the win screen
     const n1 = b.ledger().length;
     for (let i = 0; i < 180; i++) b.update(1 / 60);       // the win timer must not pay it a second time
     const n2 = b.ledger().length;
     return { n1, n2, mode: b.mode, won: b.progress.worlds.park.won[3] === true, unlocked: b.progress.worlds.park.unlocked, reasons: b.ledger().slice(n0).map(e => e.reason),
       coins: [{ coins: -5 }, { coins: "lots" }, { coins: 7.9 }, { coins: 12 }, {}].map(s => b.loadProgress(s).coins) };
   });
-  expect(r.mode).toBe("menu");
+  expect(r.mode).toBe("map");
   expect(r.won, "the win is kept").toBe(true);
   expect(r.unlocked).toBe(4);
   expect(r.reasons.filter(x => x === "firstWin"), "the win is paid exactly once").toEqual(["firstWin"]);
-  expect(r.n2, "nothing more is paid after the menu").toBe(r.n1);
+  expect(r.n2, "nothing more is paid after the map").toBe(r.n1);
   expect(r.coins).toEqual([0, 0, 7, 12, 0]);
 });

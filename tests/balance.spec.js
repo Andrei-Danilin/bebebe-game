@@ -52,7 +52,7 @@ test("same seed, same game", { tag: "@fast" }, async ({ page }) => {
     };
     let k = 0;
     const out = { a: play(12345), b: play(12345, () => (k = (k + 0.37) % 1), false), c: play(777) };
-    b.seedRandom(); b.mode = "menu";
+    b.seedRandom(); b.mode = "home";
     return out;
   });
   expect(runs.a.res.time, "simRun played the 60 s (or the level ended)").toBeGreaterThan(runs.a.res.ended ? 0 : 59.9);
@@ -102,7 +102,7 @@ test("sim mode draws nothing, plays no sound, the frame loop does not play; simR
     Object.assign(l, { state: "ok", hugCd: 0, hugAnim: 0, invuln: 0, kx: 0, ky: 0, x: 500 - 34, y: 320 });
     out.win = b.simRun(30);
     out.mode = b.mode; out.reward = !!b.lastReward && b.lastReward.win;
-    b.mode = "menu";
+    b.mode = "home";
     return out;
   });
   expect(r.short.ended).toBe(false);
@@ -124,7 +124,7 @@ test("the event log records gameplay and every coin change", async ({ page }) =>
     const calm = (x = 900, y = 600) => Object.assign(b.big, { x, y, state: "look", timer: 9999, stun: 0, slip: 0, noPush: 999, pushCd: 0, hugCd: 0, blush: 0, hp: 9 });
     const steps = (sec, dt = 1 / 60) => { for (let i = 0; i < Math.round(sec / dt); i++) b.update(dt); };
     // shop (the log still holds the last level until the next one starts): three buys, one with too few coins (no event)
-    b.mode = "menu"; b.progress.coins = 100; seen = b.events.length;
+    b.mode = "home"; b.progress.coins = 100; seen = b.events.length;
     b.buyKisses(); b.buyGloves("mittens"); b.buyRescueKit(); b.buyGloves("mega");
     out.buys = news(); out.coinsAfterBuys = b.progress.coins;
     // a level start clears the log
@@ -213,7 +213,7 @@ test("the event log records gameplay and every coin change", async ({ page }) =>
     out.leave = news();
     out.leaveReward = { coins: b.lastReward.coins, parts: b.lastReward.parts, gained: b.progress.coins - coins1 };
     out.tNumber = b.events.every(e => typeof e.t === "number");
-    b.mode = "menu";
+    b.mode = "home";
     return out;
   });
   const sum = parts => parts.reduce((s, p) => s + p.amount, 0);
@@ -283,7 +283,7 @@ test("the autopilot plays only through the players' inputs", async ({ page }) =>
     const p = b.littles[0], x0 = p.x, y0 = p.y;
     b.simRun(5);
     out.offMoved = Math.hypot(p.x - x0, p.y - y0);
-    b.seedRandom(); b.mode = "menu";
+    b.seedRandom(); b.mode = "home";
     return out;
   });
   expect(r.changed, "autoThink changed the world").toEqual([]);
@@ -315,7 +315,7 @@ test("the careful autopilot uses rescue kits and air kisses when it has them", a
     Object.assign(b.big, { x: 200, y: 228, dir: 0 });
     Object.assign(p, { state: "ok", x: 120, y: 228, dir: 0, invuln: 0, hugAnim: 0, dizzy: 0, kissCd: 0 });
     b.autoThink(1 / 60); out.kiss = [b.progress.inv.kisses, b.kisses.length];
-    b.autopilot(false); b.mode = "menu";
+    b.autopilot(false); b.mode = "home";
     return out;
   });
   expect(r.early).toEqual(["down", 3]);

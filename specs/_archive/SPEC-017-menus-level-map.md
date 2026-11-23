@@ -1,6 +1,6 @@
 # SPEC-017 — Minimal home screen, level map, level card, story screen, one shop
 
-Status: ready
+Status: done (merged by "Merge SPEC-017", see git log)
 Complexity: L
 Branch: SPEC-017-menus-level-map
 Decided by: Andrei (2026-11-22): the home screen is minimal — progress, available bonuses (bonus worlds and owned items) and buttons; **Play** opens a level map, one page per world, with navigation between the 4 main and 2 bonus worlds at the top, like level maps in Angry Birds or Red Ball; tapping a level opens a small level card; **Story** shows the comic and a short description for the whole story and for each world; **Shop** holds both the outfit setup and the purchases. Layout details, texts, sizes, what the placeholders look like: Claude (spec author).

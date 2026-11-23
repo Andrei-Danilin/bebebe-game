@@ -153,19 +153,20 @@ function sharedPage() {
 }
 
 // SPEC-018: puts a shared game page back to the state of a freshly opened one: localStorage as openGame leaves it
-// (only the language), English, fresh progress and names, no gamepad stubs, an empty level cache, Park 1 in the menu,
-// unseeded gameplay randomness and the autopilot off (SPEC-008), the skin picker back to the default looks (SPEC-009).
+// (only the language), English, fresh progress and names, no gamepad stubs, an empty level cache, Park 1 on the home screen,
+// unseeded gameplay randomness and the autopilot off (SPEC-008), the skin picker back to the default looks (SPEC-009),
+// the menu screens' own state as at start (SPEC-017 resetMenus: shop tab, wardrobe page, where the shop goes back to).
 // Tests still restore any CFG value they change (the fixtures check CFG is unchanged after each test). Not reset: held
 // gamepad buttons (a gamepad test releases its buttons at the end), mute and the phone camera zoom.
 async function resetGame(page) {
   await page.evaluate(() => {
     const b = window.__bb;
     delete navigator.getGamepads; window.__pads = [];          // gamepad stubs some tests leave behind
-    b.setLang("en"); b.clearLevelCache(); b.resetBannerTimer(); b.mode = "menu"; b.seedRandom(); b.autopilot(false, "careful");   // SPEC-008: unseeded, no autopilot, default style
+    b.setLang("en"); b.clearLevelCache(); b.resetBannerTimer(); b.mode = "home"; b.seedRandom(); b.autopilot(false, "careful");   // SPEC-008: unseeded, no autopilot, default style
     for (const s of ["p1", "p2", "big", "bot1", "bot2", "bot3", "bot4"]) b.setName(s, "");
     b.world = "park"; b.resetProgress(); b.resetProgress();   // two calls, like the button: fresh progress, level 1
     b.resetOutfits();                                          // SPEC-009: default looks, nothing tried on
-    b.world = "park"; b.level = 1; b.resetWorld(1); b.mode = "menu";
+    b.world = "park"; b.level = 1; b.resetWorld(1); b.mode = "home"; b.resetMenus();   // SPEC-017: home, the menus' state as at start
     for (let i = 0; i < 60; i++) b.updateMinimapFade(1 / 60);    // phone: the mini-map fully back (no-op on desktop)
     try { localStorage.clear(); localStorage.setItem("bebebe-lang", "en"); localStorage.setItem("bb-test-init", "1"); } catch (e) { /* ok */ }
   });

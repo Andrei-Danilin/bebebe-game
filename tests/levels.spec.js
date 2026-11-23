@@ -40,7 +40,7 @@ const test = base.test.extend({
     }
     const { page, errors } = shared;
     // Park 1 is running (mode "play") when the test starts, as after openGame + startGame(1)
-    await page.evaluate(() => { const b = window.__bb; b.setLang("en"); b.clearLevelCache(); b.mode = "menu"; b.world = "park"; b.level = 1; b.startGame(1); });
+    await page.evaluate(() => { const b = window.__bb; b.setLang("en"); b.clearLevelCache(); b.mode = "home"; b.world = "park"; b.level = 1; b.startGame(1); });
     await use(page);
     const seen = errors.splice(0);
     expect(seen).toEqual([]);
@@ -139,107 +139,72 @@ test("the banner names the world", async ({ page }) => {
     "Football field · Level 2: Meadow", "Футбольное поле · Уровень 5: Деревня", "Ciudad · Nivel 11: Casa con cuartos"]);   // SPEC-016: the new worlds
 });
 
-// ---------- SPEC-006 AC 8 (SPEC-016 AC 8: six worlds in the story order, the bonus ones locked) ----------
-// Every text line of a world card (name, stars, the bonus label) inside the card's own box, at its normal size or close
-function cardTextProblems(cards, label) {
-  const out = [];
-  for (const c of cards) for (const t of c.lines) {
-    if (!(t.x >= c.x - 0.5 && t.x + t.w <= c.x + c.w + 0.5 && t.y >= c.y - 0.5 && t.y + t.h <= c.y + c.h + 0.5)) out.push(`${label} ${c.world}: "${t.text}" ${JSON.stringify(t)} outside its card ${JSON.stringify({ x: c.x, y: c.y, w: c.w, h: c.h })}`);
-    if (/…/.test(t.text)) out.push(`${label} ${c.world}: "${t.text}" cut`);
-  }
-  return out;
-}
-test("the menu shows six worlds and switches between them", async ({ page }) => {
+// ---------- SPEC-006 AC 8 (SPEC-016 AC 8: six worlds in the story order, the bonus ones locked; SPEC-017: the level map's tabs) ----------
+// __bb.mapInfo — the map drawn this frame: tabs { world, locked, selected }, stops; the page title (hudRects map:title) names the world
+test("the map shows six worlds and switches between them", async ({ page }) => {
   await page.evaluate(() => {
     const b = window.__bb, p = b.progress.worlds;
     p.park.stars = { 1: 3, 2: 2 }; p.park.unlocked = 3; p.school.stars = { 1: 1 }; p.school.unlocked = 4; p.winter.unlocked = 2;   // Winter has progress: open
-    b.world = "park"; b.level = 3; b.mode = "menu";
+    b.world = "park"; b.level = 3; b.mode = "map";
   });
   await frames(page);
-  const d = await page.evaluate(() => ({ cards: window.__bb.worldCards, rects: window.__bb.buttonRects, names: window.__bb.buttonNames, type: window.__bb.typeLabel }));
-  expect(d.cards.map(c => c.world)).toEqual(WORLDS);
-  expect(d.cards.map(c => c.name)).toEqual(["Park", "Football field", "City", "School", "Beach", "Winter"]);
-  expect(d.cards.map(c => c.stars)).toEqual(["⭐ 5/60", "⭐ 0/60", "⭐ 0/60", "⭐ 1/60", "⭐ 0/60", "⭐ 0/60"]);   // stars of each world
-  expect(d.cards.map(c => c.selected)).toEqual([true, false, false, false, false, false]);
-  // SPEC-016: Beach locked (🔒 + "Bonus" instead of the stars), Winter open with progress (stars + a Bonus mark)
-  expect(d.cards.map(c => [c.bonus, c.locked])).toEqual([[false, false], [false, false], [false, false], [false, false], [true, true], [true, false]]);
-  expect(d.cards.find(c => c.world === "beach").lines.map(t => t.text)).toEqual(["Beach", "🔒 Bonus"]);
-  expect(d.cards.find(c => c.world === "winter").lines.map(t => t.text)).toEqual(["Winter", "⭐ 0/60", "Bonus"]);
-  expect(d.cards.find(c => c.world === "field").lines.map(t => t.text)).toEqual(["Football field", "⭐ 0/60"]);
+  const title = () => page.evaluate(() => window.__bb.hudRects.find(h => h.id === "map:title").text);
+  const d = await page.evaluate(() => ({ m: window.__bb.mapInfo, rects: window.__bb.buttonRects, names: window.__bb.buttonNames }));
+  expect(d.m.tabs.map(t => t.world)).toEqual(WORLDS);
+  expect(d.m.tabs.map(t => t.selected)).toEqual([true, false, false, false, false, false]);
+  // SPEC-016: Beach locked (🔒 on its tab), Winter open with progress
+  expect(d.m.tabs.map(t => t.locked)).toEqual([false, false, false, false, true, false]);
+  expect(d.rects.find(q => q.id === "maptab:beach").text).toBe("🔒");
   expect(d.names).not.toContain("cyclePlace");                                      // the old place button is gone
-  // the cards are buttons in two rows of three (story order), inside the menu card, not on each other, above the level selector
-  const cr = WORLDS.map(w => d.rects.find(q => q.id === "world:" + w));
-  expect(cr.every(Boolean), "a card button for every world").toBe(true);
-  expect([new Set(cr.slice(0, 3).map(q => q.y)).size, new Set(cr.slice(3).map(q => q.y)).size]).toEqual([1, 1]);
-  expect(cr[3].y).toBeGreaterThanOrEqual(cr[0].y + cr[0].h + 6);
-  const layout = [];
-  for (const row of [cr.slice(0, 3), cr.slice(3)]) for (let i = 1; i < 3; i++) if (row[i].x < row[i - 1].x + row[i - 1].w + 6) layout.push(`${row[i].id} too close to ${row[i - 1].id}`);
-  for (const q of cr) if (q.x < 120 || q.x + q.w > 840) layout.push(`${q.id} outside the menu card: ${q.x}…${q.x + q.w}`);
+  expect(await title()).toBe("🌳 Park  ⭐ 5/60");                                    // the world's stars in its title
+  // the tabs: one row, left to right, not on each other, inside the screen card
+  const tr = WORLDS.map(w => d.rects.find(q => q.id === "maptab:" + w)), layout = [];
+  if (new Set(tr.map(q => q.y)).size !== 1) layout.push("tabs not in one row");
+  for (let i = 1; i < tr.length; i++) if (tr[i].x < tr[i - 1].x + tr[i - 1].w + 6) layout.push(`${tr[i].id} too close to ${tr[i - 1].id}`);
+  for (const q of tr) if (q.x < 80 || q.x + q.w > 880) layout.push(`${q.id} outside the card: ${q.x}…${q.x + q.w}`);
   expect(layout).toEqual([]);
-  const bottom = Math.max(...cr.map(q => q.y + q.h));
-  const arrow = d.rects.find(q => q.text === "◀");
-  expect(arrow.y).toBeGreaterThanOrEqual(bottom);
-  expect(d.type.y).toBeGreaterThanOrEqual(bottom);
-  // the names at the normal size: every text inside its card, nothing cut, in every language, locked and open
-  const problems = cardTextProblems(d.cards, "en locked");
-  for (const lang of ["en", "es", "ru"]) for (const open of [false, true]) {
-    const cards = await page.evaluate(([l, o]) => {
-      const b = window.__bb, keep = JSON.parse(JSON.stringify(b.progress));
-      if (o) for (const w of b.MAIN_WORLDS) Object.assign(b.progress.worlds[w], { unlocked: 20, won: Object.fromEntries(Array.from({ length: 20 }, (_, i) => [i + 1, true])) });
-      b.setLang(l); b.mode = "menu"; window.__keep = keep;
-      return null;
-    }, [lang, open]).then(() => frames(page)).then(() => page.evaluate(() => {
-      const b = window.__bb, c = b.worldCards; b.setProgress(window.__keep); b.setLang("en"); return c;
-    }));
-    problems.push(...cardTextProblems(cards, `${lang} ${open ? "open" : "locked"}`));
-    for (const c of cards) for (const t of c.lines) if (t.kind === "name" && t.size < 16) problems.push(`${lang} ${c.world}: name at ${t.size} px`);
-  }
-  expect(problems).toEqual([]);
-  await frames(page);
-  // a click on School selects it, remembers it and shows its newest open level
+  // a click on the School tab selects it, remembers it and builds its newest open level behind the map
   const at = await page.evaluate(() => {
-    const q = window.__bb.buttonRects.find(r => r.id === "world:school"), c = document.getElementById("game").getBoundingClientRect();
+    const q = window.__bb.buttonRects.find(r => r.id === "maptab:school"), c = document.getElementById("game").getBoundingClientRect();
     return { x: c.left + (q.x + q.w / 2) * c.width / 960, y: c.top + (q.y + q.h / 2) * c.height / 640 };
   });
   await page.mouse.click(at.x, at.y);
   await frames(page);
   const after = await page.evaluate(() => ({ world: window.__bb.world, level: window.__bb.level, mode: window.__bb.mode, last: JSON.parse(localStorage.getItem("bebebe-progress")).lastWorld,
-    selected: window.__bb.worldCards.map(c => c.selected), type: window.__bb.typeLabel.text, built: window.__bb.levelInfo.world }));
-  expect(after).toEqual({ world: "school", level: 4, mode: "menu", last: "school", selected: [false, false, false, true, false, false], type: "Meadow", built: "school" });
-  // a click on the world that is already selected keeps the level the player picked
-  await page.keyboard.press("ArrowLeft");
-  await frames(page);
-  await page.mouse.click(at.x, at.y);
-  expect(await page.evaluate(() => [window.__bb.world, window.__bb.level])).toEqual(["school", 3]);
-  // the keyboard: ↓ next world, ↑ previous world in the story order (wraps around), the locked Beach skipped; ← → still change the level
+    selected: window.__bb.mapInfo.tabs.map(c => c.selected), built: window.__bb.levelInfo.world }));
+  expect(after).toEqual({ world: "school", level: 4, mode: "map", last: "school", selected: [false, false, false, true, false, false], built: "school" });
+  expect(await title()).toBe("🏫 School  ⭐ 1/60");
+  // the keyboard: → next world, ← previous world in the story order (wraps around), the locked Beach skipped
   const seq = [];
-  for (const k of ["ArrowDown", "ArrowUp", "ArrowUp", "ArrowUp", "ArrowUp", "ArrowUp", "ArrowLeft"]) { await page.keyboard.press(k); seq.push(await page.evaluate(() => [window.__bb.world, window.__bb.level])); }
-  expect(seq).toEqual([["winter", 2], ["school", 4], ["city", 1], ["field", 1], ["park", 3], ["winter", 2], ["winter", 1]]);
+  for (const k of ["ArrowRight", "ArrowLeft", "ArrowLeft", "ArrowLeft", "ArrowLeft", "ArrowLeft"]) { await page.keyboard.press(k); seq.push(await page.evaluate(() => window.__bb.world)); }
+  expect(seq).toEqual(["winter", "school", "city", "field", "park", "winter"]);
   // the names and the star line in every language
   const I = await page.evaluate(() => ["en", "es", "ru"].map(l => window.__bb.I18N[l].worldStars(7, 60)));
   expect(I).toEqual(["⭐ 7/60", "⭐ 7/60", "⭐ 7/60"]);
-  for (const lang of ["es", "ru"]) {
+  await page.evaluate(() => window.__bb.selectWorld("field"));
+  for (const [lang, want] of [["es", "⚽ Cancha  ⭐ 0/60"], ["ru", "⚽ Футбольное поле  ⭐ 0/60"]]) {
     await page.evaluate(l => window.__bb.setLang(l), lang);
     await frames(page);
-    const names = await page.evaluate(() => window.__bb.worldCards.map(c => c.name));
-    expect(names).toEqual(lang === "es" ? ["Parque", "Cancha", "Ciudad", "Escuela", "Playa", "Invierno"] : ["Парк", "Футбольное поле", "Город", "Школа", "Пляж", "Зима"]);
+    expect(await title()).toBe(want);
   }
 });
 
-test("the menu shows the selected level's type and it fits", async ({ page }) => {
+// SPEC-017: the level type is on the level card (a tap on an open stop)
+test("the level card shows the level's type and it fits", async ({ page }) => {
   for (const [lang, lv, want] of [["en", 8, "River with bridges"], ["es", 11, "Casa con cuartos"], ["ru", 8, "Река с мостиками"], ["ru", 14, "Арена с кольцом"], ["en", 1, "Our drawing"]]) {
-    await page.evaluate(([l, n]) => { const b = window.__bb; b.setLang(l); b.progress.worlds.park.unlocked = 20; b.level = n; b.mode = "menu"; }, [lang, lv]);
+    await page.evaluate(([l, n]) => { const b = window.__bb; b.setLang(l); b.progress.worlds.park.unlocked = 20; b.world = "park"; b.mode = "map"; }, [lang, lv]);
     await frames(page);
-    const r = await page.evaluate(() => ({ label: window.__bb.typeLabel, rects: window.__bb.buttonRects }));
-    expect(r.label.text, `${lang} level ${lv}`).toBe(want);
-    // inside the menu card, not over any button, and narrower than the space it has
-    const L = r.label;
-    expect(L.y, `${lang}: "${want}" touches the rules above`).toBeGreaterThanOrEqual(L.rulesBottom + 2);
-    expect(L.size, `${lang}: "${want}" shrunk too much`).toBeGreaterThanOrEqual(13);
-    for (const q of r.rects) {
+    await page.evaluate(n => window.__bb.tapButton("stop:" + n), lv);
+    await frames(page);
+    const r = await page.evaluate(() => ({ card: window.__bb.levelCard, hud: window.__bb.hudRects, rects: window.__bb.buttonRects }));
+    expect(r.card.type, `${lang} level ${lv}`).toBe(want);
+    const L = r.hud.find(h => h.id === "card:type");
+    expect(L.text).toBe(want);
+    for (const q of [...r.rects, ...r.hud.filter(h => h.id !== "card:type")]) {
       const overlap = L.x < q.x + q.w && L.x + L.w > q.x && L.y < q.y + q.h && L.y + L.h > q.y;
-      expect(overlap, `${lang}: "${want}" overlaps button ${q.id}`).toBe(false);
+      expect(overlap, `${lang}: "${want}" overlaps ${q.id}`).toBe(false);
     }
+    await page.keyboard.press("Escape");
   }
 });
 
@@ -529,7 +494,7 @@ test("difficulty follows the story order", async ({ levelPage: page }) => {
       for (const w of W) {
         b.setProgress(null); b.world = w; b.level = 5; b.startGame(1);
         Object.assign(b.stats, { playerHugs: 0, rests: 0, time: 9999, starCoins: 0 });
-        b.giveReward(true); b.mode = "menu";
+        b.giveReward(true); b.mode = "home";
         reward[w] = { base: b.lastReward.base, target: b.lastReward.target };
       }
     } finally { b.setProgress(keep); b.world = "park"; b.level = 1; }
