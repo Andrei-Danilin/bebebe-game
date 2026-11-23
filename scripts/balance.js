@@ -141,8 +141,8 @@ function economyPlan(runs, B, worlds, perWorld, upgradeKeys) {
   const E = B.ECONOMY, replay = [], upgrades = [];
   for (const [w, a, z] of E.REPLAY) for (let n = a; n <= z; n++) {
     const seed = seedOf(worlds.indexOf(w), n, 0), first = runs.find(r => r.style === "careful" && r.world === w && r.n === n && r.seed === seed);
-    const stars = first && first.win ? first.stars : 0;
-    replay.push({ world: w, n, style: "careful", seed, progress: { worlds: { [w]: { unlocked: Math.min(perWorld, n + 1), stars: stars ? { [n]: stars } : {}, won: { [n]: true } } } } });
+    if (!first || !first.win) continue;                // a level its first run did not win has nothing to replay
+    replay.push({ world: w, n, style: "careful", seed, progress: { worlds: { [w]: { unlocked: Math.min(perWorld, n + 1), stars: { [n]: first.stars }, won: { [n]: true } } } } });
   }
   const maxed = Object.fromEntries(upgradeKeys), [xw, xa, xz] = E.UPG_EXTRA;
   for (const w of worlds) for (let n = 1; n <= perWorld; n++) {
@@ -241,6 +241,8 @@ function markdown(rep) {
     L.push("", `## Economy — ${eg} green, ${ec.targets.length - eg} red`, "",
       "SPEC-009 pace targets (`CFG.BALANCE.ECONOMY`). First playthrough = the careful runs above (fresh progress: every win is a first win). " +
       "A run's income = the sum of its coins events (reward lines + bonus stars); a level's income = the median over its seeds. " +
+      "A run that did not win earns only its bonus-star coins (the sim never leaves a level, so no hugs line is paid) and counts the time limit; " +
+      "replays are played only for levels whose seed-0 run won. " +
       `Prices: cheapest pack ${ec.prices.cheapest}, mega mittens ${ec.prices.mega}, top wardrobe tier ${ec.prices.top}, all upgrades ${ec.prices.upgrades}.`, "",
       "| Target | Value | Want | Result | Detail |", "|---|---|---|---|---|");
     for (const t of ec.targets) L.push(`| ${t.name} | ${t.value} | ${t.want} | ${t.ok ? "🟢 green" : "🔴 red"} | ${t.detail} |`);

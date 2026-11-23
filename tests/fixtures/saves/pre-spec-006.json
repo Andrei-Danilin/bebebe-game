@@ -119,6 +119,16 @@
         "Sol",
         ""
       ]
+    },
+    "owned": {
+      "hats": [
+        "crown"
+      ],
+      "jackets": [],
+      "pants": [],
+      "big": [
+        "robot"
+      ]
     }
   }
 }

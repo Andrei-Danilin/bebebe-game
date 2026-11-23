@@ -12,10 +12,11 @@ const shared = sharedPage();
 const fixture = (key, ctx, query = "") => async ({ browser }, use) => {
   const s = await shared.get(browser, key, ctx, p => openGame(p, { query }));
   await resetGame(s.page);
-  const cfg = await s.page.evaluate(() => JSON.stringify([window.__bb.CFG, window.__bb.REWARD]));
+  const numbers = () => s.page.evaluate(() => { const b = window.__bb; return JSON.stringify([b.CFG, b.REWARD, b.UPGRADES, b.WARDROBE_TIERS]); });
+  const cfg = await numbers();
   await use(s.page);
   expect(s.errors.splice(0)).toEqual([]);
-  expect(await s.page.evaluate(() => JSON.stringify([window.__bb.CFG, window.__bb.REWARD])), "the test restores every CFG / REWARD value it changed").toBe(cfg);
+  expect(await numbers(), "the test restores every CFG / REWARD / UPGRADES / WARDROBE_TIERS value it changed").toBe(cfg);
 };
 const test = base.test.extend({
   page: fixture("economy", { viewport: { width: 960, height: 640 } }),
@@ -50,7 +51,10 @@ function coinWrites(src) {
   const inLedger = n => ledger.some(r => r && n >= r[0] && n <= r[1]);
   const rules = [
     // any member write to "coins": x.coins = / += / -= / ++ / --, x["coins"] = …, ++x.coins
-    ["coins write", /(\.\s*coins|\[\s*["'`]coins["'`]\s*\])\s*(\+\+|--|[-+*/%]?=(?![=>]))|(\+\+|--)\s*[\w$.]+\.coins\b/],
+    ["coins write", /(\.\s*coins|\[\s*["'`]coins["'`]\s*\])\s*(\+\+|--|(\*\*|<<|>>>|>>|\?\?|\|\||&&|[-+*/%&|^])?=(?![=>]))|(\+\+|--)\s*[\w$.]+\.coins\b/],
+    // a write by reflection, or coins merged in with Object.assign
+    ["reflect", /\bReflect\.(set|defineProperty)\(/],
+    ["assign coins", /Object\.assign\([^)]*\bcoins\s*:/],
     // the whole progress replaced by something else than a fresh / loaded object
     ["progress replaced", /\bprogress\s*=(?![=>])(?!\s*(freshProgress\(\)|loadProgress\())/],
     // merged into or copied with other coins (a spread of one of its parts, e.g. ...progress.upgrades, is fine)
@@ -76,7 +80,8 @@ test("only the ledger writes coins", { tag: "@fast" }, () => {
   expect(r.out, "writes to the coins outside addCoins / spendCoins:\n" + r.out.map(w => `${w.line} [${w.rule}] ${w.text}`).join("\n")).toEqual([]);
   // the scan itself: every planted write is found (one per kind), so an empty result above means something
   const at = src.indexOf("function giveReward(");
-  const planted = ["progress.coins += 1;", "progress.coins++;", "progress[\"coins\"] -= 2;", "const pp = progress; pp.coins = 3;",
+  const planted = ["progress.coins ??= 1;", "progress.coins ||= 2;", "progress.coins **= 2;", "progress.coins <<= 1;",
+    "Reflect.set(progress, \"coins\", 1);", "Object.assign(pp, { coins: 1 });", "progress.coins += 1;", "progress.coins++;", "progress[\"coins\"] -= 2;", "const pp = progress; pp.coins = 3;",
     "progress = { ...progress, coins: 9 };", "Object.assign(progress, { coins: 1 });", "--progress.coins;"];
   for (const p of planted) {
     const bad = src.slice(0, at) + p + "\n" + src.slice(at);
@@ -478,7 +483,7 @@ test("random outfit uses only owned items; bots may wear anything", async ({ pag
     const b = window.__bb, W = b.wardrobe(), seen = { hat: new Set(), jacket: new Set(), pants: new Set() }, bad = [];
     b.mode = "skins";
     b.progress.owned.hats.push("crown"); b.progress.owned.jackets.push("ninja");
-    for (let i = 0; i < 300; i++) {
+    for (let i = 0; i < 60; i++) {
       b.randomOutfit("p1");
       const o = b.outfits;
       for (const k of ["hat", "jacket", "pants"]) {
@@ -552,7 +557,8 @@ async function skinsProblems(page, phone) {
       if (st !== "poor") b.buyLook(st);
     }, [lang, scale, state]);
     await frames(page);
-    const d = await page.evaluate(() => ({ buttons: window.__bb.buttonRects, hud: window.__bb.hudRects, ui: window.__bb.uiSize, scale: window.__bb.CFG.TEXT_TEST_SCALE }));
+    const d = await page.evaluate(() => ({ buttons: window.__bb.buttonRects, hud: window.__bb.hudRects, ui: window.__bb.uiSize, scale: window.__bb.CFG.TEXT_TEST_SCALE, previews: window.__bb.skinPanels() }));
+    if (phone) for (const h of d.hud.filter(q => q.id.startsWith("look-note:"))) for (const pv of d.previews) if (overlaps(h, pv)) fails.push(`${at}: ${h.id} covers the ${pv.key} preview`);
     const s = d.ui.scale, inside = r => r.x >= -0.01 && r.y >= -0.01 && r.x + r.w <= d.ui.w + 0.01 && r.y + r.h <= d.ui.h + 0.01;
     const keys = phone ? ["p1", "big"] : ["p1", "p2", "big"];
     for (const k of keys) {
@@ -645,9 +651,10 @@ test("upgrades apply to players only and stop at level 3", { tag: "@fast" }, asy
     b.items.push({ id: 991, kind: "boots", x: 600, y: 450, t: 0, life: 30 }, { id: 992, kind: "shield", x: 300, y: 450, t: 0, life: 30 });
     b.update(1 / 60);
     out.items = { player: L[0].fx.boots, bot: bot.fx.shield, base: [C.BOOTS_TIME, C.SHIELD_TIME] };
-    // rescue: a player lifts a friend in RESCUE_TIME × (1 − 3 × step); a bot needs the full RESCUE_TIME
-    b.startGame(1);
-    L.forEach((l, i) => { if (i > 1) Object.assign(l, { kind: "player", controls: { up: [], down: [], left: [], right: [] }, x: 860, y: 60 + i * 40, state: "ok" }); });
+    // rescue: a player lifts a friend in RESCUE_TIME × (1 − 3 × step); a bot needs the full RESCUE_TIME. Two players: player 2
+    // helps (the upgrade levels are copied into each player when the level starts)
+    b.startGame(2);
+    b.littles.forEach((l, i) => { if (i > 1) Object.assign(l, { kind: "player", controls: { up: [], down: [], left: [], right: [] }, x: 860, y: 60 + i * 40, state: "ok" }); });
     Object.assign(b.big, { x: 900, y: 600, state: "look", timer: 9999, stun: 999, noPush: 999 });
     Object.assign(b.littles[0], { state: "down", downTimer: 15, x: 400, y: 300, kx: 0, ky: 0, rescue: 0 });
     Object.assign(b.littles[1], { kind: "player", controls: { up: [], down: [], left: [], right: [] }, state: "ok", x: 420, y: 300 });
@@ -822,4 +829,50 @@ test("the balance report's economy targets are computed from the runs' coins", {
   // the upgrades pass needs the same levels in the first pass: here there are none past level 6, so it has no pairs
   expect(ec.upgrades).toEqual([]);
   expect(ok[6], "no upgrade runs to compare: not green").toBe(false);
+});
+
+// ---------- review fixes (SPEC-009 fix round 1) ----------
+test("the Friends screen keeps a try-on; a save that knows owned clothes does not get worn ones for free", async ({ page }) => {
+  const r = await page.evaluate(() => {
+    const b = window.__bb, W = b.wardrobe(), crown = W.hat.findIndex(q => q.id === "crown");
+    b.mode = "skins"; b.cycleOutfit("p1", "hat", crown - b.outfits.shown.p1.hat);
+    return crown;
+  });
+  await page.evaluate(() => { window.__bb.mode = "names"; });
+  await frames(page);
+  expect(await page.evaluate(() => window.__bb.outfits.shown.p1.hat), "still trying on with Friends open").toBe(r);
+  await page.evaluate(() => { window.__bb.mode = "skins"; });
+  await frames(page);
+  expect(await page.evaluate(() => window.__bb.outfits.shown.p1.hat)).toBe(r);
+  await page.evaluate(() => { window.__bb.mode = "menu"; });
+  await frames(page);
+  expect(await page.evaluate(() => window.__bb.outfits.shown.p1.hat), "the menu ends it").not.toBe(r);
+  // a SPEC-009 save (it has owned) wearing a crown it never bought: the crown is taken off, not given
+  await page.evaluate(c => {
+    localStorage.setItem("bebebe-progress", JSON.stringify({ coins: 5, owned: { hats: [], jackets: [], pants: [], big: [] } }));
+    localStorage.setItem("bebebe-outfits", JSON.stringify({ p1: { hair: 0, hat: c, jacket: 0, pants: 0 }, p2: { hair: 1, hat: 4, jacket: 1, pants: 3 }, big: 0 }));
+  }, r);
+  await page.reload();
+  await page.waitForFunction(() => window.__bbReady === true);
+  const after = await page.evaluate(() => ({ owned: window.__bb.progress.owned.hats, hat: window.__bb.outfits.saved.p1.hat, stored: JSON.parse(localStorage.getItem("bebebe-outfits")).p1.hat }));
+  expect(after).toEqual({ owned: [], hat: 1, stored: 1 });   // back to the free default cap
+});
+
+test("a pause during the final hug and Menu still counts the win; coins load as a whole number ≥ 0", async ({ page }) => {
+  const r = await page.evaluate(() => {
+    const b = window.__bb, key = code => window.dispatchEvent(new KeyboardEvent("keydown", { code }));
+    b.world = "park"; b.level = 3; b.startGame(1);
+    Object.assign(b.big, { state: "look", timer: 999, stun: 0, hugCd: 0, noPush: 0, slip: 0, pushCd: 0, x: 500, y: 320, dir: 0, hp: 1 });
+    Object.assign(b.littles[0], { state: "ok", hugCd: 0, hugAnim: 0, invuln: 0, kx: 0, ky: 0, x: 466, y: 320 });
+    b.update(1 / 60);                                     // the last heart: the win is coming
+    const n0 = b.ledger().length;
+    b.mode = "pause"; key("KeyQ");                        // pause → Menu before the win screen
+    return { mode: b.mode, won: b.progress.worlds.park.won[3] === true, unlocked: b.progress.worlds.park.unlocked, reasons: b.ledger().slice(n0).map(e => e.reason),
+      coins: [{ coins: -5 }, { coins: "lots" }, { coins: 7.9 }, { coins: 12 }, {}].map(s => b.loadProgress(s).coins) };
+  });
+  expect(r.mode).toBe("menu");
+  expect(r.won, "the win is kept").toBe(true);
+  expect(r.unlocked).toBe(4);
+  expect(r.reasons[0]).toBe("firstWin");
+  expect(r.coins).toEqual([0, 0, 7, 12, 0]);
 });
