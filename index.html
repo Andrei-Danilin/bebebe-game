@@ -54,7 +54,7 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.m
 const CFG = {
   BIG_HP: 6,                 // сердечек у Большого на 1-м уровне Парка
   HP_LEVELS_PER_HEART: 4,    // +сердечко каждые 4 уровня мира (SPEC-006)
-  HP_PER_WORLD: 1,           // и +1 в каждом следующем мире
+  HP_PER_WORLD: 1,           // и +1 за каждую ступень индекса сложности мира (WORLD_DIFFICULTY)
   BIG_HP_MAX: 12,            // сердечек не больше ни на каком уровне
   DOWN_TIME: 18,             // сек — сколько ждёт маленький со сломанной ногой
   RESCUE_TIME: 3.0,          // сек — сколько стоять рядом, чтобы поднять друга
@@ -64,7 +64,9 @@ const CFG = {
   BOT_SPEED: 135,            // px/s — скорость бота
   BIG_PATROL_SPEED: 70,      // px/s — Большой гуляет (Парк, уровень 1)
   BIG_CHASE_SPEED: 112,      // px/s — Большой догоняет (Парк, уровень 1)
-  WORLD_SPEED_START: [0, 5, 10, 15],   // px/s — каждый следующий мир начинается чуть быстрее (SPEC-006)
+  // индекс сложности мира (SPEC-016): по нему скорость, сердечки, монетки и третья звезда; бонусный Пляж как Школа, Зима труднее
+  WORLD_DIFFICULTY: { park: 0, field: 1, city: 2, school: 3, beach: 3, winter: 4 },
+  WORLD_SPEED_START: [0, 5, 10, 15, 18],   // px/s — начало мира по индексу сложности (SPEC-006, SPEC-016)
   SPEED_PER_LEVEL: 1.2,      // px/s — Большой быстрее на каждом уровне мира
   BIG_SPEED_PER_HIT: 4,      // и злится после каждой обнимашки
   CHASE_MAX_SHARE: 0.95,     // потолок: в погоне Большой не быстрее этой доли скорости игрока (без сапог)
@@ -94,7 +96,7 @@ const CFG = {
   KIT_SLOT_LOCK: 0.6,        // сек — после спасалки 💋 на том же месте не срабатывает (двойной тап)
   HOME_SPEED: 85,            // как быстро он хромает к домику
   FAST_TIME: lv => 60 + lv * 15,  // сек — успеть за это время = третья звезда (lv — номер в мире)
-  FAST_PER_WORLD: 10,        // сек — и ещё столько в каждом следующем мире: у Большого больше сердечек (SPEC-006)
+  FAST_PER_WORLD: 10,        // сек — и ещё столько × индекс сложности мира: у Большого там больше сердечек (SPEC-006, SPEC-016)
   // бонусные звёздочки: подбирают только игроки
   STAR_EVERY: [10, 15],      // сек — как часто появляется звёздочка
   STAR_MAX: 2,               // сколько может лежать одновременно (отдельно от предметов)
@@ -194,10 +196,11 @@ const CFG = {
   // 1 игрок + 4 бота, не дольше TIME_LIMIT сек игры с шагом SIM_DT; reckless — 1 сид, каждый RECKLESS_EVERY-й уровень.
   // Цели отчёта: careful выигрывает уровень хотя бы в WIN_SEEDS сидах; время побед растёт внутри мира (Спирмен ≥ TREND_RHO),
   // лабиринт (MAZE) — самый долгий блок; Парк EARLY — не дольше времени третьей звезды; Зима MAZE ≥ LATE_VS_EARLY × Парк EARLY;
-  // спасают RESCUE_RATE падений; отдыхов на уровень (медиана) ≤ RESTS_MAX. CI_LEVELS — 8 уровней выборки (ранний и лабиринт в мире)
+  // спасают RESCUE_RATE падений; отдыхов на уровень (медиана) ≤ RESTS_MAX. CI_LEVELS — 12 уровней выборки (ранний и лабиринт в каждом мире)
   BALANCE: { SIM_DT: 1 / 30, SEEDS: 3, TIME_LIMIT: 480, WIN_SEEDS: 2, TREND_RHO: 0.5, LATE_VS_EARLY: 1.5, RESCUE_RATE: [0.5, 0.9],
     RESTS_MAX: 2, RECKLESS_EVERY: 5, EARLY: [1, 5], MAZE: [17, 20],
-    CI_LEVELS: [["park", 3], ["park", 18], ["school", 2], ["school", 19], ["beach", 4], ["beach", 17], ["winter", 5], ["winter", 20]],
+    CI_LEVELS: [["park", 3], ["park", 18], ["field", 4], ["field", 19], ["city", 2], ["city", 18], ["school", 2], ["school", 19], ["beach", 4], ["beach", 17],
+      ["winter", 5], ["winter", 20]],
     // SPEC-009: темп монеток (первое прохождение = careful-забеги с нового прогресса; доход забега = сумма его событий coins,
     // медиана по сидам). «Набор» — самый дешёвый в магазине (спасалка, 15). PARK_PACKS — медиана дохода уровня Парка в наборах
     // [от, до]; STREAK уровней подряд ≥ мега-рукавицы + STREAK_PACKS наборов; мир ≥ вещь высшей ступени + WORLD_PACKS наборов;
@@ -243,12 +246,12 @@ const GLOVES = {
 const KISSES = { price: 20, pack: 5 };
 // Спасалка 🩹 (SPEC-007, решение детей): 3 штуки за 15 монеток, один запас на обоих игроков
 const RESCUE_KIT = { price: 15, pack: 3 };
-// Монетки за уровень (SPEC-009; числа придумал Claude, подбираются по отчёту баланса). Основа уровня n мира w (0–3):
-// BASE + PER_LEVEL × n + PER_WORLD × w. Первая победа уровня — вся основа, повтор — половина (решение детей: повтор дешевле).
+// Монетки за уровень (SPEC-009; числа придумал Claude, подбираются по отчёту баланса). Основа уровня n мира с индексом
+// сложности d (0–4, SPEC-016): BASE + PER_LEVEL × n + PER_WORLD × d. Первая победа уровня — вся основа, повтор — половина (решение детей: повтор дешевле).
 const REWARD = {
   BASE: 15,                  // основа награды за уровень
   PER_LEVEL: 1,              // + столько × номер уровня в мире (было 2: доход Парка выходил выше 4 наборов за уровень)
-  PER_WORLD: 10,             // + столько × номер мира (0–3)
+  PER_WORLD: 10,             // + столько × индекс сложности мира (0–4, CFG.WORLD_DIFFICULTY)
   NEW_STAR: 6,               // за каждую новую звезду уровня (выше прошлого рекорда; каждая звезда — один раз навсегда; было 8)
   PER_HUG: 1,                // за каждую обнимашку игрока — каждый раз, и при выходе из уровня до победы
   FIRST_MIN: 5,              // первая победа минус отдых — не меньше этого
@@ -298,7 +301,8 @@ const I18N = {
     rotate: "Turn your device sideways ↻", installHint: "Install on iPhone: Share ⬆️ → Add to Home Screen", me: "Me", botChip: "B", safe: "SAFE",
     skins: "Skins", player1: "Player 1", player2: "Player 2", ok: "OK",
     slots: { hair: "Hair", hat: "Hat", jacket: "Jacket", pants: "Pants", look: "Look" },
-    worlds: { park: "Park", school: "School", beach: "Beach", winter: "Winter" }, worldDone: (w, key) => `You finished the ${w}!`,
+    worlds: { park: "Park", field: "Football field", city: "City", school: "School", beach: "Beach", winter: "Winter" }, worldDone: (w, key) => `You finished the ${w}!`,
+    bonus: "Bonus", bonusUnlocked: "Bonus worlds unlocked!",
     items: { boots: "Speed boots!", cloak: "Invisible!", shield: "Shield!" }, blocked: "Blocked!", slip: "Whoops!",
     shop: "Shop", buy: "Buy", have: n => `You have: ${n} power ${n === 1 ? "hug" : "hugs"}`, wears: "wears", none: "None",
     gloves: { mittens: "Warm mittens", mega: "Mega hug mittens" }, gloveDesc: p => `Each hug takes ${p} hearts`,
@@ -341,7 +345,8 @@ const I18N = {
     rotate: "Girá el dispositivo ↻", installHint: "Instalala en el iPhone: Compartir ⬆️ → Agregar a pantalla de inicio", me: "Yo", botChip: "B", safe: "ZONA SEGURA",
     skins: "Personajes", player1: "Jugador 1", player2: "Jugador 2", ok: "Listo",
     slots: { hair: "Pelo", hat: "Gorro", jacket: "Campera", pants: "Pantalón", look: "Aspecto" },
-    worlds: { park: "Parque", school: "Escuela", beach: "Playa", winter: "Invierno" }, worldDone: (w, key) => `¡Terminaste ${w}!`,
+    worlds: { park: "Parque", field: "Cancha", city: "Ciudad", school: "Escuela", beach: "Playa", winter: "Invierno" }, worldDone: (w, key) => `¡Terminaste ${w}!`,
+    bonus: "Bonus", bonusUnlocked: "¡Se abrieron los mundos bonus!",
     items: { boots: "¡Zapatillas veloces!", cloak: "¡Invisible!", shield: "¡Escudo!" }, blocked: "¡Bloqueado!", slip: "¡Upa!",
     shop: "Tienda", buy: "Comprar", have: n => `Tenés: ${n} ${n === 1 ? "abrazo potente" : "abrazos potentes"}`, wears: "usa", none: "Nada",
     gloves: { mittens: "Mitones abrigados", mega: "Mitones del abrazo gigante" }, gloveDesc: p => `Cada abrazo saca ${p} corazones`,
@@ -383,8 +388,10 @@ const I18N = {
     rotate: "Поверни устройство боком ↻", installHint: "Установить на iPhone: Поделиться ⬆️ → На экран «Домой»", me: "Я", botChip: "Б", safe: "БЕЗОПАСНО",
     skins: "Скины", player1: "Игрок 1", player2: "Игрок 2", ok: "Готово",
     slots: { hair: "Причёска", hat: "Головной убор", jacket: "Куртка", pants: "Штаны", look: "Вид" },
-    worlds: { park: "Парк", school: "Школа", beach: "Пляж", winter: "Зима" },
-    worldDone: (w, key) => `${w} ${key === "school" || key === "winter" ? "пройдена" : "пройден"}!`,   // род по миру: Школа/Зима пройдена, Парк/Пляж пройден
+    worlds: { park: "Парк", field: "Футбольное поле", city: "Город", school: "Школа", beach: "Пляж", winter: "Зима" },
+    // род по миру: Футбольное поле пройдено, Школа/Зима пройдена, Парк/Город/Пляж пройден
+    worldDone: (w, key) => `${w} ${key === "field" ? "пройдено" : key === "school" || key === "winter" ? "пройдена" : "пройден"}!`,
+    bonus: "Бонус", bonusUnlocked: "Открылись бонусные миры!",
     items: { boots: "Сапоги-скороходы!", cloak: "Невидимка!", shield: "Щит!" }, blocked: "Щит спас!", slip: "Поскользнулся!",
     shop: "Магазин", buy: "Купить", have: n => `У вас: ${n} ${["сильная обнимашка", "сильные обнимашки", "сильных обнимашек"][n % 10 === 1 && n % 100 !== 11 ? 0 : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 1 : 2]}`, wears: "носит", none: "Ничего",
     gloves: { mittens: "Тёплые рукавицы", mega: "Мега-рукавицы" }, gloveDesc: p => `Каждая обнимашка забирает ${p} сердечка`,
@@ -639,9 +646,19 @@ function bigHouse(items, x0, y0, doors) {
 
 // ---------- Тип уровня и домики ----------
 // lc — контекст раскладки (уровень, сид, занятые клетки, домики…), не путать с ctx (2D-холст)
-// Уровень — (мир, n) (SPEC-006): четыре мира по CFG.WORLD_TYPES.length уровней; место (тема) уровня — его мир
-const WORLDS = ["park", "school", "beach", "winter"];
+// Уровень — (мир, n) (SPEC-006): миры по CFG.WORLD_TYPES.length уровней; место (тема) уровня — его мир.
+// SPEC-016 (решение Кости и папы): миры идут по сюжету — главные Парк → Футбольное поле → Город → Школа, потом бонусные
+// Пляж и Зима (открываются, когда выиграны все уровни главных). Порядок WORLDS — порядок в меню.
+const MAIN_WORLDS = Object.freeze(["park", "field", "city", "school"]);
+const BONUS_WORLDS = Object.freeze(["beach", "winter"]);
+const WORLDS = Object.freeze([...MAIN_WORLDS, ...BONUS_WORLDS]);
+// сид мира — по имени, а не по месту в списке: у Парка, Школы, Пляжа и Зимы те же карты, что до SPEC-016.
+// Не число для настройки (другое число — другие карты), поэтому не в CFG
+const WORLD_SEED = Object.freeze({ park: 1, school: 2, beach: 3, winter: 4, field: 5, city: 6 });
+// место мира в сюжете (только меню: ↑/↓, карточки); для чисел сложности — worldDifficulty, для карт — WORLD_SEED
 const worldIndex = world => Math.max(0, WORLDS.indexOf(world));
+// индекс сложности мира (CFG.WORLD_DIFFICULTY): скорость и сердечки Большого, монетки, время третьей звезды; неизвестный мир → 0
+const worldDifficulty = world => CFG.WORLD_DIFFICULTY[world] ?? 0;
 const levelsPerWorld = () => CFG.WORLD_TYPES.length;
 const levelPos = n => clamp(Math.floor(n) || 1, 1, levelsPerWorld()) - 1;
 const levelKey = (world, n) => world + ":" + n;
@@ -655,8 +672,8 @@ function levelTier(world, n) {
   return t;
 }
 // Сид: 1-й уровень — рисунок детей, во всех мирах одна и та же раскладка (сид 1, как раньше у уровня 1);
-// дальше сид от (номер мира, n) — у каждого мира свои карты
-const levelSeed = (world, n) => n <= 1 ? 1 : (worldIndex(world) + 1) * 100 + n;
+// дальше сид от (WORLD_SEED мира, n) — у каждого мира свои карты (неизвестный мир — как Парк)
+const levelSeed = (world, n) => n <= 1 ? 1 : (WORLD_SEED[world] ?? WORLD_SEED.park) * 100 + n;
 
 // Дверь дома (x0, y0, w×h) в виде проёма в клетках + направление наружу (dx, dy)
 function houseDoor(x0, y0, w, h, d) {
@@ -1636,15 +1653,20 @@ function fitOutfitsToOwned() {
 function resetOutfits() { skinSel = cloneSkins(DEFAULT_SKINS); skinKeep = cloneSkins(DEFAULT_SKINS); buyArmed = null; tryingOn = false; saveSkins(); resetWorld(numPlayers); }
 // ---------- Миры (SPEC-006): место уровня — его мир ----------
 let curWorld = WORLDS[0];
-// выбор мира в меню (карточка, ↑/↓, крестовина геймпада): запоминается, показывается новый открытый уровень мира
+// выбор мира в меню (карточка, ↑/↓, крестовина геймпада): запоминается, показывается новый открытый уровень мира.
+// SPEC-016: закрытый бонусный мир выбрать нельзя (__bb.world — без проверки, для тестов и отчёта баланса)
 function selectWorld(w) {
-  if (!WORLDS.includes(w) || w === curWorld) return;
+  if (!WORLDS.includes(w) || w === curWorld || !bonusOpen(w)) return;
   curWorld = w;
   progress.lastWorld = curWorld; saveProgress();
   level = worldProgress().unlocked;
   resetWorld(numPlayers);
 }
-const cycleWorld = d => selectWorld(WORLDS[(worldIndex(curWorld) + d + WORLDS.length) % WORLDS.length]);
+// ↑/↓: следующий открытый мир по сюжету (по кругу), закрытые бонусные пропускаются
+function cycleWorld(d) {
+  const n = WORLDS.length;
+  for (let k = 1; k < n; k++) { const w = WORLDS[(worldIndex(curWorld) + d * k + n * n) % n]; if (bonusOpen(w)) { selectWorld(w); return; } }
+}
 // ---------- Имена: игроки, Большой, боты (localStorage bebebe-names; "" = имя по умолчанию на текущем языке) ----------
 const NAME_SLOTS = ["p1", "p2", "big", "bot1", "bot2", "bot3", "bot4"];
 const BOT_SLOTS = 4;
@@ -1710,7 +1732,8 @@ let bonusStars = [], starCd = 10, starSeq = 0;   // бонусные звёзд�
 let kisses = [], kissSeq = 0;                      // летящие воздушные поцелуи
 let kitHintT = 0, kitHintDone = false, kitHintPi = 0, kitHintRect = null;   // подсказка «Нажми 🩹» (SPEC-007): раз за уровень
 // ---------- Прогресс: миры (открытые уровни, звёзды), монетки, рукавицы (хранится в этом браузере) ----------
-// SPEC-006: progress.worlds = { park|school|beach|winter: { unlocked, stars: { [n]: 1..3 } } }, lastWorld — мир в меню
+// SPEC-006: progress.worlds = { [мир из WORLDS]: { unlocked, stars: { [n]: 1..3 } } }, lastWorld — мир в меню
+// (SPEC-016: шесть миров; в старом сохранении нет field/city — они приходят новыми)
 // SPEC-009: won = { [n]: true } — уровни, уже выигранные хоть раз (первая победа платит всю основу, повтор — половину)
 const freshWorld = () => ({ unlocked: 1, stars: {}, won: {} });
 const freshProgress = () => ({ worlds: Object.fromEntries(WORLDS.map(w => [w, freshWorld()])), lastWorld: WORLDS[0],
@@ -1775,8 +1798,16 @@ function loadProgress(pv) {
   }
   // старые сохранения без поцелуев и спасалок (или испорченные) → 0
   for (const key of ["kisses", "rescues"]) { const k = Number(out.inv[key]); out.inv[key] = Number.isFinite(k) && k > 0 ? Math.floor(k) : 0; }
+  if (!bonusOpen(out.lastWorld, out)) out.lastWorld = WORLDS[0];   // SPEC-016: закрытый бонусный мир → меню открывается на Парке
   return out;
 }
+// SPEC-016: бонусные миры открываются, когда выиграны все уровни всех главных миров (p — прогресс, по умолчанию текущий)
+// (сохранение может быть неполным — нет мира или полей: значит, не выиграно и прогресса нет)
+const bonusUnlocked = (p = progress) => MAIN_WORLDS.every(w => { const won = p?.worlds?.[w]?.won ?? {}; for (let n = 1; n <= levelsPerWorld(); n++) if (won[n] !== true) return false; return true; });
+// в мире есть прогресс: открыт дальше 1-го уровня или есть победа/звёзды
+const worldHasProgress = (w, p = progress) => { const v = p?.worlds?.[w]; return !!v && (v.unlocked > 1 || Object.keys(v.won ?? {}).length > 0 || Object.keys(v.stars ?? {}).length > 0); };
+// мир открыт в меню: главный — всегда; бонусный — после всех главных или если в нём уже есть прогресс (никто не теряет своё)
+const bonusOpen = (world, p = progress) => !BONUS_WORLDS.includes(world) || bonusUnlocked(p) || worldHasProgress(world, p);
 let progress = freshProgress(), migrated = false, hadOwned = false;
 try {
   const pv = JSON.parse(localStorage.getItem("bebebe-progress") || "null");
@@ -1856,12 +1887,15 @@ function resetProgress() {
   resetArmed = false;
   rewardDue = false;                         // прогресс заменён целиком: за брошенный уровень не платим
   progress = freshProgress();
+  if (!bonusOpen(curWorld)) curWorld = WORLDS[0];   // SPEC-016: бонусный мир после сброса снова закрыт
   progress.lastWorld = curWorld;
   fitOutfitsToOwned();                       // SPEC-009: купленные наряды ушли вместе с прогрессом
   saveProgress(); level = 1; resetWorld(numPlayers);
 }
-// SPEC-009: основа награды уровня n мира с номером wi (0–3)
-const rewardBase = (wi, n) => REWARD.BASE + REWARD.PER_LEVEL * n + REWARD.PER_WORLD * wi;
+// SPEC-009: основа награды уровня n мира (SPEC-016: по индексу сложности мира, 0–4)
+const rewardBase = (world, n) => REWARD.BASE + REWARD.PER_LEVEL * n + REWARD.PER_WORLD * worldDifficulty(world);
+// время третьей звезды уровня n мира (сек); его же берёт отчёт баланса (scripts/balance.js)
+const fastTarget = (world, n) => CFG.FAST_TIME(n) + worldDifficulty(world) * CFG.FAST_PER_WORLD;
 // уровень начат и ещё не оплачен (startGame → true; награда, сброс или замена прогресса → false)
 let rewardDue = false;
 // выход из идущего уровня до победы (пауза → Меню, перезапуск или другой уровень): платим только обнимашки.
@@ -1883,14 +1917,14 @@ function giveReward(win) {
     lastReward = { win: false, coins: c + starCoins, starCoins, parts: partsOf([["hugs", c], ["star", starCoins]]) };
     return;
   }
-  const wi = worldIndex(curWorld), wp = worldProgress(), n = clamp(level, 1, levelsPerWorld());
-  const rests = stats.rests, nobodyOut = rests === 0, target = CFG.FAST_TIME(n) + wi * CFG.FAST_PER_WORLD, fast = stats.time <= target;
+  const wp = worldProgress(), n = clamp(level, 1, levelsPerWorld());
+  const rests = stats.rests, nobodyOut = rests === 0, target = fastTarget(curWorld, n), fast = stats.time <= target;
   const stars = 1 + (nobodyOut ? 1 : 0) + (fast ? 1 : 0);
-  const first = !wp.won[n], base = rewardBase(wi, n);
+  const first = !wp.won[n], base = rewardBase(curWorld, n);
   const min = first ? REWARD.FIRST_MIN : REWARD.REPLAY_MIN;
   const line = Math.max(first ? base : Math.floor(base / 2), min);   // повтор — половина основы
   const restCut = Math.min(rests * CFG.COINS_PER_REST, line - min);   // отдых срезается до пола: строки всегда сходятся с итогом
-  const prevStars = wp.stars[n] || 0, newStars = Math.max(0, stars - prevStars);
+  const prevStars = wp.stars[n] || 0, newStars = Math.max(0, stars - prevStars), bonusBefore = bonusUnlocked();
   const parts = partsOf([[first ? "firstWin" : "replay", line], ["newStars", newStars * REWARD.NEW_STAR], ["star", starCoins], ["hugs", hugs], ["rests", -restCut]]);
   wp.stars[n] = Math.max(prevStars, stars);
   wp.won[n] = true;
@@ -1898,7 +1932,8 @@ function giveReward(win) {
   progress.lastWorld = curWorld;
   for (const p of parts) if (p.reason !== "star") addCoins(p.reason, p.amount);   // по строке (каждая сохраняет): в книге те же строки, что в parts
   lastReward = { win: true, coins: parts.reduce((a, p) => a + p.amount, 0), starCoins, stars, nobodyOut, fast, target, first, base, newStars,
-    newBest: stars > prevStars, world: curWorld, level: n, worldDone: n >= levelsPerWorld(), parts };
+    newBest: stars > prevStars, world: curWorld, level: n, worldDone: n >= levelsPerWorld(), parts,
+    bonusUnlocked: !bonusBefore && bonusUnlocked() };   // SPEC-016: эта победа открыла бонусные миры — сказать один раз
 }
 
 function makeLittle(i, kind, botIndex, controls, look) {
@@ -2321,10 +2356,10 @@ function updateKisses(dt) {
 }
 // Сердечко i в полоске: 1 — целое, 0.5 — половинка, 0 — пустое
 const heartFill = (i, hp) => clamp(hp - i, 0, 1);
-// Сложность (SPEC-006): мир начинается с WORLD_SPEED_START[w], каждый уровень мира +SPEED_PER_LEVEL;
-// злость — каждое ЦЕЛОЕ потерянное сердечко +BIG_SPEED_PER_HIT. Ни одна скорость не больше BIG_CHASE_MAX (вместе со злостью).
-const levelBoost = (world, n) => (CFG.WORLD_SPEED_START[worldIndex(world)] ?? CFG.WORLD_SPEED_START.at(-1)) + levelPos(n) * CFG.SPEED_PER_LEVEL;
-const bigHearts = (world, n) => Math.min(CFG.BIG_HP_MAX, CFG.BIG_HP + Math.floor(levelPos(n) / CFG.HP_LEVELS_PER_HEART) + worldIndex(world) * CFG.HP_PER_WORLD);
+// Сложность (SPEC-006): мир начинается с WORLD_SPEED_START[d] (d — индекс сложности мира, SPEC-016), каждый уровень мира
+// +SPEED_PER_LEVEL; злость — каждое ЦЕЛОЕ потерянное сердечко +BIG_SPEED_PER_HIT. Ни одна скорость не больше BIG_CHASE_MAX (вместе со злостью).
+const levelBoost = (world, n) => (CFG.WORLD_SPEED_START[worldDifficulty(world)] ?? CFG.WORLD_SPEED_START.at(-1)) + levelPos(n) * CFG.SPEED_PER_LEVEL;
+const bigHearts = (world, n) => Math.min(CFG.BIG_HP_MAX, CFG.BIG_HP + Math.floor(levelPos(n) / CFG.HP_LEVELS_PER_HEART) + worldDifficulty(world) * CFG.HP_PER_WORLD);
 const chaseCap = v => Math.min(CFG.BIG_CHASE_MAX, v);
 // Единственный источник чисел Большого: { chase, search, patrol, hearts, boost } уровня (мир, n);
 // lost — сколько сердечек уже отняли (злость), по умолчанию 0; boost — прибавка без потолка
@@ -3383,7 +3418,8 @@ function minimapBase(r) {
   };
   zone(safeZone, th.walls.home[0]); zone(dangerZone, th.walls.bighome[0]);
   for (const o of obstacles) {
-    if (o.kind === "water" || o.kind === "pond") { g.fillStyle = MM_WATER; g.fillRect(o.x, o.y, o.w, o.h); continue; }
+    // SPEC-016: у места с воротами (deco.goal — Поле) пруд — это ворота: рисуются цветом рамки, не водой
+    if (o.kind === "water" || o.kind === "pond") { g.fillStyle = o.kind === "pond" && !o.fountain && th.deco?.goal ? th.deco.goal : MM_WATER; g.fillRect(o.x, o.y, o.w, o.h); continue; }
     if (o.kind === "tree" || o.kind === "rock") {
       g.fillStyle = dark(o.kind === "tree" ? MM_BUSH : "#94a3b8");
       g.beginPath(); g.arc(o.x, o.y, o.r * L.tree, 0, TAU); g.fill(); continue;
@@ -3628,25 +3664,81 @@ function worldPicture(w, x, y, sz) {
   ctx.restore();
   rr(x, y, sz, sz, r); ctx.lineWidth = 2; ctx.strokeStyle = OUT; ctx.stroke();
 }
-// карточка-кнопка мира; выбранная — жёлтая с розовой рамкой
-function worldCard(w, x, y, cw, ch) {
-  const sel = w === curWorld, k = PHONE ? cpx(1) : 1, pad = 6 * k, pic = ch - 2 * pad;
-  rr(x, y, cw, ch, 14 * k); fillStroke(sel ? "#fff1a8" : "#ffffff", (sel ? 5 : 3) * k, sel ? "#ff6fa8" : OUT);
-  worldPicture(w, x + pad, y + pad, pic);
-  const tx = x + pad + pic + 7 * k, tw = x + cw - pad - tx, name = L().worlds[w];
+// SPEC-016: строки карточки мира — имя, звёзды (у закрытого бонусного «🔒 Бонус»), метка «Бонус» у открытого бонусного
+function worldCardTexts(w) {
+  const locked = !bonusOpen(w), bonus = BONUS_WORLDS.includes(w);
   const stars = L().worldStars(worldStarsOf(w), CFG.STARS_PER_LEVEL * levelsPerWorld());
-  let w1, w2;
+  return { name: L().worlds[w], stars, second: locked ? "🔒 " + L().bonus : stars, mark: bonus && !locked ? L().bonus : null, locked, bonus };
+}
+// Карточка-кнопка мира; выбранная — жёлтая с розовой рамкой, закрытая бонусная — серая с замком.
+// Компьютер: картинка слева, справа имя и звёзды (метка «Бонус» — плашка справа от звёзд).
+// Телефон: без картинки, имя в одну-две строки (по словам), под ним звёзды и метка; ширину карточек ряда задаёт phoneWorldRow.
+// Каждая строка текста — в worldCards[].lines { text, kind, x, y, w, h, size } (тесты: внутри своей карточки)
+function worldCard(w, x, y, cw, ch) {
+  const sel = w === curWorld, k = PHONE ? cpx(1) : 1, pad = 6 * k, t = worldCardTexts(w), lines = [];
+  rr(x, y, cw, ch, 14 * k); fillStroke(t.locked ? "#e5e7eb" : sel ? "#fff1a8" : "#ffffff", (sel ? 5 : 3) * k, sel ? "#ff6fa8" : OUT);
+  const line = (text, kind, lx, cy, size, align) => {
+    const tw = ctx.measureText(text).width * (PHONE ? CFG.TEXT_TEST_SCALE : 1);
+    lines.push({ text, kind, x: align === "center" ? lx - tw / 2 : lx, y: cy - size / 2, w: tw, h: size, size });
+  };
   if (PHONE) {
-    pText(name, tx, y + ch * 0.32, "main", 15, tw, "left", OUT, 900); w1 = ctx.measureText(name).width;
-    pText(stars, tx, y + ch * 0.72, "hint", 13, tw, "left", "#a16207", 800); w2 = ctx.measureText(stars).width;
+    const maxW = cw - 2 * pad, cx = x + cw / 2;
+    const nameB = clipRows(pRows(t.name, "main", 15, maxW, 2, 900), 2), lh = nameB.sz * 1.12;
+    const small = cpx(CFG.PHONE_TEXT.hint), slh = small * 1.15, rowsN = nameB.rows.length;
+    const total = rowsN * lh + slh + (t.mark ? slh : 0);
+    let cy = y + (ch - total) / 2 + lh / 2;
+    ctx.font = `900 ${nameB.sz}px system-ui, "Segoe UI", sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillStyle = t.locked ? "#64748b" : OUT;
+    for (const r of nameB.rows) { ctx.fillText(r, cx, cy); line(r, "name", cx, cy, nameB.sz, "center"); cy += lh; }
+    noteText("main", nameB.sz);
+    cy += (slh - lh) / 2;
+    const sz2 = pText(t.second, cx, cy, "hint", 13, maxW, "center", t.locked ? "#64748b" : "#a16207", 800); line(t.second, "stars", cx, cy, sz2, "center");
+    if (t.mark) { cy += slh; const sz3 = pText(t.mark, cx, cy, "hint", 13, maxW, "center", "#db2777", 900); line(t.mark, "bonus", cx, cy, sz3, "center"); }
   } else {
-    fitText(name, tx, y + ch * 0.34, 18, tw, "left", OUT, 900); w1 = ctx.measureText(name).width;
-    fitText(stars, tx, y + ch * 0.72, 14, tw, "left", "#a16207", 800); w2 = ctx.measureText(stars).width;
+    const pic = ch - 2 * pad;
+    worldPicture(w, x + pad, y + pad, pic);
+    if (t.locked) { ctx.save(); rr(x + pad, y + pad, pic, pic, pic * 0.2); ctx.fillStyle = "rgba(226,232,240,.7)"; ctx.fill(); ctx.restore(); }
+    const tx = x + pad + pic + 8, tw = x + cw - pad - tx;
+    const s1 = fitText(t.name, tx, y + ch * 0.32, 18, tw, "left", t.locked ? "#64748b" : OUT, 900, 12); line(t.name, "name", tx, y + ch * 0.32, s1, "left");
+    ctx.font = "900 12px system-ui, \"Segoe UI\", sans-serif";
+    const markW = t.mark ? ctx.measureText(t.mark).width + 14 : 0;
+    const s2 = fitText(t.second, tx, y + ch * 0.72, 14, tw - markW - (markW ? 6 : 0), "left", t.locked ? "#64748b" : "#a16207", 800, 10); line(t.second, "stars", tx, y + ch * 0.72, s2, "left");
+    if (t.mark) {                                         // плашка «Бонус» справа во второй строке
+      const mx = x + cw - pad - markW, my = y + ch * 0.72;
+      rr(mx, my - 9, markW, 18, 9); fillStroke("#f9a8d4", 2, "#db2777");
+      const s3 = fitText(t.mark, mx + markW / 2, my, 12, markW - 8, "center", "#831843", 900, 10); line(t.mark, "bonus", mx + markW / 2, my, s3, "center");
+    }
   }
-  buttons.push({ x, y, w: cw, h: ch, act: () => selectWorld(w), id: "world:" + w, text: name, textW: Math.max(w1, w2) });
-  worldCards.push({ world: w, x, y, w: cw, h: ch, name, stars, selected: sel });
+  const textW = Math.max(...lines.map(q => q.w));
+  buttons.push({ x, y, w: cw, h: ch, act: () => selectWorld(w), id: "world:" + w, text: t.name, textW });
+  worldCards.push({ world: w, x, y, w: cw, h: ch, name: t.name, stars: t.stars, selected: sel, bonus: t.bonus, locked: t.locked, lines });
+}
+// SPEC-016: ширины трёх карточек ряда на телефоне — по самому длинному слову имени и строке звёзд/метки, остаток поровну
+function phoneWorldRow(ws, total, gap) {
+  const pad = 2 * cpx(6), need = ws.map(w => {
+    const t = worldCardTexts(w);
+    ctx.font = `900 ${cpx(CFG.PHONE_TEXT.main)}px system-ui, "Segoe UI", sans-serif`;
+    const word = Math.max(...t.name.split(" ").map(scaledW));
+    ctx.font = `800 ${cpx(CFG.PHONE_TEXT.hint)}px system-ui, "Segoe UI", sans-serif`;
+    return Math.max(word, scaledW(t.second), t.mark ? scaledW(t.mark) : 0) + pad + 2;
+  });
+  const free = total - gap * (ws.length - 1), sum = need.reduce((a, b) => a + b, 0);
+  return sum <= free ? need.map(n => n + (free - sum) / ws.length) : need.map(n => n * free / sum);
 }
 
+// SPEC-016: «Открылись бонусные миры!» на экране победы — только после победы, открывшей их (lastReward.bonusUnlocked);
+// плашка в hudRects (bonus-note), для тестов — bonusNote { text, x, y, w, h, size, textW }
+let bonusNote = null;
+function drawBonusNote(cx, cy, maxW, h, css) {
+  if (!lastReward || !lastReward.bonusUnlocked) return;
+  const text = "🎁 " + L().bonusUnlocked;
+  const size = PHONE ? pText(text, -9999, -9999, "main", css, maxW - cpx(20), "center", OUT, 900) : fitText(text, -9999, -9999, css, maxW - 24, "center", OUT, 900, 14);
+  const textW = ctx.measureText(text).width, w = Math.min(maxW, textW + (PHONE ? cpx(24) : 28)), x = cx - w / 2, y = cy - h / 2;
+  rr(x, y, w, h, h / 2); fillStroke("#fde047", PHONE ? cpx(3) : 4, "#db2777");
+  if (PHONE) pText(text, cx, cy + 1, "main", css, w - cpx(16), "center", "#831843", 900); else fitText(text, cx, cy + 1, css, w - 20, "center", "#831843", 900, 14);
+  bonusNote = { text, x, y, w, h, size, textW };
+  hudRects.push({ id: "bonus-note", x, y, w, h });
+}
 // строка под «Победа!»: после последнего уровня мира — «мир пройден» (SPEC-006); winLine — для тестов
 let winLine = "";
 function winText() {
@@ -3883,8 +3975,10 @@ function drawOverlayPhone() {
     y += c(4);
     y += pWrap(L().touch1, lcx, y, "hint", 14, lw, 2, "#475569", 700);
     if (showInstallHint()) { pWrap(L().installHint, lcx, y + c(2), "hint", 13, lw, 2, "#2563eb", 800); installHintShown = true; }
-    // справа: языки и монетки, миры (2×2), тип уровня, выбор уровня, «Играть», наряды и магазин
-    const PLAY_H = c(50), fixed = B + (2 * B + g) + c(22) + B + PLAY_H + B, gy = Math.max(g, (Y1 - Y0 - fixed - c(4)) / 4);
+    // справа: языки и монетки, миры (два ряда по три), выбор уровня с его типом, «Играть», наряды и магазин.
+    // SPEC-016: карточки миров выше кнопки (имя в две строки + звёзды): высота — всё, что осталось, но не больше c(64)
+    const PLAY_H = c(50), rest = B + B + PLAY_H + B + 4 * g + c(4), CH = Math.max(B, Math.min(c(64), (Y1 - Y0 - rest - g) / 2));
+    const fixed = B + (2 * CH + g) + B + PLAY_H + B, gy = Math.max(g, (Y1 - Y0 - fixed - c(4)) / 4);
     let ry = Y0;
     LANGS.forEach((code, i) => {
       const active = code === lang;
@@ -3897,24 +3991,31 @@ function drawOverlayPhone() {
     drawStar(cx0 + cw / 2 + c(10), ry + B / 2, c(9), true); pText(String(totalStars()), cx0 + cw / 2 + c(22), ry + B / 2 + 1, "main", 15, cw / 2 - c(26), "left", OUT, 900);
     ry += B + gy;
     worldCards = [];
-    const cw2 = (R - g) / 2;
-    WORLDS.forEach((w, i) => worldCard(w, rx + (i % 2) * (cw2 + g), ry + Math.floor(i / 2) * (B + g), cw2, B));
-    ry += 2 * B + g;
+    const PER_ROW = Math.ceil(WORLDS.length / 2);
+    for (let r0 = 0; r0 < WORLDS.length; r0 += PER_ROW) {
+      const ws = WORLDS.slice(r0, r0 + PER_ROW), widths = phoneWorldRow(ws, R, g);
+      let cx1 = rx;
+      ws.forEach((w, i) => { worldCard(w, cx1, ry + (r0 / PER_ROW) * (CH + g), widths[i], CH); cx1 += widths[i] + g; });
+    }
+    ry += 2 * CH + g;
     const above = ry;
     ry += gy;
-    const tName = L().types[levelType(curWorld, level)], tY = ry + c(9);
-    const tSize = pText(tName, rx + R / 2, tY, "main", 15, R, "center", "#7c3aed", 800), tw = ctx.measureText(tName).width;
-    // на телефоне правила в левой колонке; rulesBottom — низ того, что над надписью в её колонке (карточки миров)
-    typeLabel = { text: tName, x: rx + R / 2 - tw / 2, y: tY - tSize / 2, w: tw, h: tSize, size: tSize, rulesBottom: above };
-    ry += c(18) + c(4);
     addButton(rx, ry, B, B, "◀", "#94a3b8", () => changeLevel(-1), fz(20, "main"));
     const canNext = level < worldProgress().unlocked;
     addButton(rx + R - B, ry, B, B, canNext ? "▶" : "🔒", canNext ? "#94a3b8" : "#cbd5e1", () => changeLevel(1), fz(canNext ? 20 : 16, "main"));
     const bx = rx + B + g, bw = R - 2 * (B + g);
     rr(bx, ry, bw, B, c(12)); fillStroke("#fff", 3);
     hudRects.push({ id: "level", x: bx, y: ry, w: bw, h: B });
-    pText(`${L().level} ${level}`, bx + bw / 2, ry + c(15), "main", 16, bw - c(8), "center", OUT, 900);
-    for (let k = 0; k < CFG.STARS_PER_LEVEL; k++) drawStar(bx + bw / 2 - c(14) + k * c(14), ry + c(33), c(5.5), k < (worldProgress().stars[level] || 0));
+    // SPEC-016: в рамке две строки — «Уровень n» со звёздами справа, под ней тип уровня (раньше — отдельной строкой над рамкой)
+    const starsW = CFG.STARS_PER_LEVEL * c(13), lvText = `${L().level} ${level}`;
+    const lvSize = pText(lvText, -9999, -9999, "main", 15, bw - starsW - c(14), "left", OUT, 900), lvW = ctx.measureText(lvText).width;
+    const lx0 = bx + (bw - lvW - c(6) - starsW) / 2;
+    pText(lvText, lx0, ry + B * 0.3, "main", lvSize / cpx(1), bw - starsW - c(14), "left", OUT, 900);
+    for (let k = 0; k < CFG.STARS_PER_LEVEL; k++) drawStar(lx0 + lvW + c(6) + c(6.5) + k * c(13), ry + B * 0.3, c(5.5), k < (worldProgress().stars[level] || 0));
+    const tName = L().types[levelType(curWorld, level)], tY = ry + B * 0.72;
+    const tSize = pText(tName, bx + bw / 2, tY, "main", 15, bw - c(10), "center", "#7c3aed", 800), tw = ctx.measureText(tName).width;
+    // на телефоне правила в левой колонке; rulesBottom — низ того, что над надписью в её колонке (карточки миров)
+    typeLabel = { text: tName, x: bx + bw / 2 - tw / 2, y: tY - tSize / 2, w: tw, h: tSize, size: tSize, rulesBottom: above };
     ry += B + gy;
     pButton(rx, ry, R, PLAY_H, "▶ " + L().play, "#3b82f6", () => startGame(1), 26);
     ry += PLAY_H + gy;
@@ -4106,6 +4207,7 @@ function drawOverlayPhone() {
       });
       drawRewardLines(rw, rx - colW / 2, Y0 + c(14), colW, c(28), c(17), cpx(CFG.PHONE_TEXT.main), c(26), cpx(CFG.PHONE_TEXT.title));
       acts = endActions("win").map((a, i) => [...a, c([200, 150, 150][i])]);
+      drawBonusNote(lx, Math.min(Y0 + c(262), Y1 - bh - g - c(15)), colW, c(28), 15);   // SPEC-016: под строками звёзд, над кнопками
     } else {
       pLabel(L().lose, lx, Y0 + c(40), "title", 36, "#fca5a5", "center", colW);
       pWrap(L().loseSub(fmtHearts(big.maxHp - big.hp), big.maxHp), lx, Y0 + c(70), "main", 17, colW, 3, "#fff", 900);
@@ -4128,39 +4230,42 @@ function drawOverlay() {
     rr(UW / 2 - 360, 30, 720, 580, 30); fillStroke("rgba(255,250,235,.95)", 5);
     label("BeBeBe Atrapar", UW / 2 - 40, 92, 54, "#ffcf33");
     label(L().subtitle, UW / 2, 136, 22, "#ff6fa8");
-    const icons = ["❤", "👀", "🤝", "⏱", "🏠", "🍌"], rules = L().rules(CFG.DOWN_TIME), RULE_Y = 168, RULE_DY = 23, RULE_SIZE = 16;
+    const icons = ["❤", "👀", "🤝", "⏱", "🏠", "🍌"], rules = L().rules(CFG.DOWN_TIME), RULE_Y = 160, RULE_DY = 21, RULE_SIZE = 16;
     rules.forEach((r, i) => {
       ctx.font = "19px system-ui, 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
       ctx.fillText(icons[i], UW / 2 - 312, RULE_Y + i * RULE_DY);
       fitText(r, UW / 2 - 287, RULE_Y + i * RULE_DY, RULE_SIZE, 640, "left", OUT, 700);
     });
-    // миры: четыре карточки в ряд под правилами
-    const CARD_Y = 298, CARD_H = 56, CARD_W = 160, CARD_GAP = 12, cx0 = UW / 2 - (4 * CARD_W + 3 * CARD_GAP) / 2;
+    // миры (SPEC-016): шесть карточек — два ряда по три под правилами, в порядке сюжета
+    const PER_ROW = 3, CARD_Y = 280, CARD_H = 46, CARD_GAP = 12, ROW_GAP = 8, ROW_W = 688;
+    const CARD_W = (ROW_W - (PER_ROW - 1) * CARD_GAP) / PER_ROW, cx0 = UW / 2 - ROW_W / 2;
+    const CARDS_B = CARD_Y + Math.ceil(WORLDS.length / PER_ROW) * (CARD_H + ROW_GAP) - ROW_GAP;
     worldCards = [];
-    WORLDS.forEach((w, i) => worldCard(w, cx0 + i * (CARD_W + CARD_GAP), CARD_Y, CARD_W, CARD_H));
+    WORLDS.forEach((w, i) => worldCard(w, cx0 + (i % PER_ROW) * (CARD_W + CARD_GAP), CARD_Y + Math.floor(i / PER_ROW) * (CARD_H + ROW_GAP), CARD_W, CARD_H));
     // под ними — выбор уровня этого мира, справа от него — тип уровня
-    const LV_Y = 364;
-    addButton(UW / 2 - 250, LV_Y, 52, 50, "◀", "#94a3b8", () => changeLevel(-1));
-    rr(UW / 2 - 192, LV_Y, 124, 50, 16); fillStroke("#fff", 4);
-    fitText(`${L().level} ${level}`, UW / 2 - 130, LV_Y + 18, 20, 112, "center", OUT, 900);
-    for (let k = 0; k < CFG.STARS_PER_LEVEL; k++) drawStar(UW / 2 - 146 + k * 16, LV_Y + 39, 7, k < (worldProgress().stars[level] || 0));
+    const LV_Y = CARDS_B + 10, LV_H = 48;
+    addButton(UW / 2 - 250, LV_Y, 52, LV_H, "◀", "#94a3b8", () => changeLevel(-1));
+    rr(UW / 2 - 192, LV_Y, 124, LV_H, 16); fillStroke("#fff", 4);
+    fitText(`${L().level} ${level}`, UW / 2 - 130, LV_Y + 17, 20, 112, "center", OUT, 900);
+    for (let k = 0; k < CFG.STARS_PER_LEVEL; k++) drawStar(UW / 2 - 146 + k * 16, LV_Y + 37, 7, k < (worldProgress().stars[level] || 0));
     const canNext = level < worldProgress().unlocked;
-    addButton(UW / 2 - 62, LV_Y, 52, 50, canNext ? "▶" : "🔒", canNext ? "#94a3b8" : "#cbd5e1", () => changeLevel(1), canNext ? 24 : 18);
-    const tName = L().types[levelType(curWorld, level)], tY = LV_Y + 25;
+    addButton(UW / 2 - 62, LV_Y, 52, LV_H, canNext ? "▶" : "🔒", canNext ? "#94a3b8" : "#cbd5e1", () => changeLevel(1), canNext ? 24 : 18);
+    const tName = L().types[levelType(curWorld, level)], tY = LV_Y + LV_H / 2;
     const tSize = fitText(tName, UW / 2 + 135, tY, 22, 230, "center", "#7c3aed", 800), tw = ctx.measureText(tName).width;
-    typeLabel = { text: tName, x: UW / 2 + 135 - tw / 2, y: tY - tSize / 2, w: tw, h: tSize, size: tSize, rulesBottom: CARD_Y + CARD_H };
+    typeLabel = { text: tName, x: UW / 2 + 135 - tw / 2, y: tY - tSize / 2, w: tw, h: tSize, size: tSize, rulesBottom: CARDS_B };
     // монетки и звёзды
     rr(UW / 2 - 345, 118, 170, 34, 14); fillStroke("#fff", 3);
     drawCoin(UW / 2 - 322, 135, 11); plainText(String(progress.coins), UW / 2 - 304, 135, 18);
     drawStar(UW / 2 - 235, 135, 11, true); plainText(String(totalStars()), UW / 2 - 220, 135, 18);
-    addButton(UW / 2 - 250, 428, 230, 58, L().onePlayer, "#3b82f6", () => startGame(1), 28);
-    addButton(UW / 2 + 20, 428, 230, 58, L().twoPlayers, "#22c55e", () => startGame(2), 28);
-    addButton(UW / 2 - 250, 496, 230, 44, "🎨 " + L().skins, "#ff8fab", () => { mode = "skins"; }, 20);
-    addButton(UW / 2 + 20, 496, 230, 44, "🛒 " + L().shop, "#f59e0b", () => { mode = "shop"; }, 20);
-    const hint = showInstallHint(), cy = hint ? 554 : 562;    // с подсказкой строки управления чуть выше
+    const PL_Y = LV_Y + LV_H + 10, SK_Y = PL_Y + 60;      // SPEC-016: всё под карточками миров чуть ниже и плотнее
+    addButton(UW / 2 - 250, PL_Y, 230, 52, L().onePlayer, "#3b82f6", () => startGame(1), 28);
+    addButton(UW / 2 + 20, PL_Y, 230, 52, L().twoPlayers, "#22c55e", () => startGame(2), 28);
+    addButton(UW / 2 - 250, SK_Y, 230, 40, "🎨 " + L().skins, "#ff8fab", () => { mode = "skins"; }, 20);
+    addButton(UW / 2 + 20, SK_Y, 230, 40, "🛒 " + L().shop, "#f59e0b", () => { mode = "shop"; }, 20);
+    const hint = showInstallHint(), cy = SK_Y + 40 + (hint ? 13 : 20), CDY = hint ? 18 : 20;   // с подсказкой строки управления плотнее
     fitText(L().controls1, UW / 2, cy, 15, 690, "center", "#475569", 600);
-    fitText(L().controls2, UW / 2, cy + 22, 15, 690, "center", "#475569", 600);
-    if (hint) { fitText(L().installHint, UW / 2, cy + 46, 15, 690, "center", "#2563eb", 800); installHintShown = true; }
+    fitText(L().controls2, UW / 2, cy + CDY, 15, 690, "center", "#475569", 600);
+    if (hint) { fitText(L().installHint, UW / 2, cy + 2 * CDY, 15, 690, "center", "#2563eb", 800); installHintShown = true; }
     // переключатель языка
     LANGS.forEach((code, i) => {
       const bx = UW / 2 + 196 + i * 54, by = 46, active = code === lang;
@@ -4263,6 +4368,7 @@ function drawOverlay() {
       labelFit((okk ? "✔ " : "✘ ") + txt, lx, 274 + i * 30, 18, 340, okk ? "#bbf7d0" : "#cbd5e1");
     });
     drawRewardLines(rw, UW / 2 + 20, 186, 340, 30, 19, 12, 26, 16);
+    drawBonusNote(lx, 384, 360, 40, 20);   // SPEC-016: под строками звёзд, над кнопками
     const acts = endActions("win");
     const geo = acts.length === 3 ? [[UW / 2 - 360, 440, 260, 66, 24], [UW / 2 - 85, 440, 200, 66, 22], [UW / 2 + 130, 440, 200, 66, 22]]
       : [[UW / 2 - 240, 440, 260, 66, 24], [UW / 2 + 40, 440, 200, 66, 22]];
@@ -4361,7 +4467,7 @@ function drawBanner() {
 function drawUI(t) {
   draws++;
   if (nameInput && mode !== "skins" && mode !== "names") closeNameInput(false);
-  buttons = []; installHintShown = false; typeLabel = null; worldCards = []; winLine = ""; mmShown = false; edgeArrows = []; hudRects = []; textSizes = {}; bannerRect = null; kitHintRect = null; shopLayout = null; winPanel = null;
+  buttons = []; installHintShown = false; typeLabel = null; worldCards = []; bonusNote = null; winLine = ""; mmShown = false; edgeArrows = []; hudRects = []; textSizes = {}; bannerRect = null; kitHintRect = null; shopLayout = null; winPanel = null;
   if (mode !== "shop") shopTab = "items";
   ctx.setTransform(VIEW, 0, 0, VIEW, 0, 0);
   ctx.clearRect(0, 0, UW, UH);
@@ -4617,7 +4723,13 @@ groundTex.anisotropy = 8;
 const THEMES = {
   // walls: [стена, верх]; maze — стены лабиринта (deco: кочки живой изгороди / столбики забора / снежки / дверцы шкафчиков);
   // cottage — домики деревни; water — река (edge — берег, stone — каменный бортик канала, waves/wave — волны и их цвет); bridge — [доски, щели];
-  // square — площадь [мостовая, камни]; fountain — чаша фонтана
+  // square — площадь [мостовая, камни]; fountain — чаша фонтана.
+  // deco (SPEC-016, необязательно; одно имя — один смысл в любом месте) — цвета деталей места:
+  //   земля: chalk (разметка), asphalt, roadLine, zebra, kerb (бордюр и бортик бассейна); забор: boards [щиты по очереди];
+  //   ворота: goal (рама), goalNet, goalArea (площадка под воротами и ворота на мини-карте); flag, flagPole;
+  //   «камни»: cone, coneStripe, bag, bagStrap, cars [кузова по очереди], carGlass, carTyre, carLight;
+  //   «кусты»: hedge, hedgeLight, planter, soil, leaves, flowers [по очереди];
+  //   за оградой: lampPole, lampLight, mastPole, mastLight, benchSeat, benchLeg, hydrant, bin, ballSkin, ballPatch
   park:   { bg: "#6fb24f", outer: "#7cc35a", g1: "#9be06f", g2: "#90d566", dots: ["#fff27a", "#ff9ecb", "#ffffff", "#b5e3ff"], fence: "#f5e6c8",
             walls: { home: ["#7cc6fe", "#c4e6ff"], bighome: ["#e5534b", "#f6a8a2"], build: ["#f4b860", "#fde0ad"], arena: ["#9ca3af", "#d1d5db"] },
             maze: { wall: "#3f9a4a", cap: "#5cb85c", deco: "bumps", decoC: "#6cc46a" },
@@ -4637,7 +4749,30 @@ const THEMES = {
             walls: { home: ["#60a5fa", "#bfdbfe"], bighome: ["#e5534b", "#f6a8a2"], build: ["#c2410c", "#fdba74"], arena: ["#a8a29e", "#d6d3d1"] },
             maze: { wall: "#3b82f6", cap: "#93c5fd", deco: "seams", decoC: "#1e3a8a" },
             cottage: { wall: "#fca5a5", roof: "#64748b", door: "#7c2d12", window: "#e0f2fe" },
-            water: { c: "#3b82f6", edge: "#78716c", stone: true, waves: true, wave: "#dbeafe" }, bridge: ["#b45309", "#78350f"], square: ["#d6d3d1", "#a8a29e"], fountain: "#d6d3d1" }
+            water: { c: "#3b82f6", edge: "#78716c", stone: true, waves: true, wave: "#dbeafe" }, bridge: ["#b45309", "#78350f"], square: ["#d6d3d1", "#a8a29e"], fountain: "#d6d3d1" },
+  // SPEC-016: Футбольное поле — полосы скошенной травы и меловая разметка, рекламные щиты вместо забора, ворота вместо пруда,
+  // конусы и сумка вместо камня, круглые кусты; деревня — киоски и раздевалки, река — дренажная канава, дом — клуб, арена — трибуны,
+  // лабиринт — живая изгородь с рекламными щитами. deco — цвета деталей места (щиты, ворота, флажки, скамейки, мяч, конусы, мачты)
+  field:  { bg: "#5aa845", outer: "#4f9a3c", g1: "#6cc04a", g2: "#5cae3c", dots: [], fence: "#ffffff",
+            walls: { home: ["#38bdf8", "#e0f2fe"], bighome: ["#e5534b", "#fecaca"], build: ["#f59e0b", "#fef3c7"], arena: ["#475569", "#c4b5fd"] },
+            maze: { wall: "#1f7a3a", cap: "#34a853", deco: "boards", decoC: "#ffffff" },
+            cottage: { wall: "#f8fafc", roof: "#16a34a", door: "#1e3a8a", window: "#bae6fd" },
+            water: { c: "#4fb3d9", edge: "#a8a29e", stone: true, waves: true, wave: "#e0f2fe" }, bridge: ["#d6a463", "#8b5a2b"], square: ["#e7e5e4", "#d6d3d1"], fountain: "#cbd5e1",
+            deco: { chalk: "#ffffff", boards: ["#ef4444", "#2563eb", "#facc15", "#f8fafc", "#16a34a", "#f97316"], goal: "#ffffff", goalNet: "#ffffff", goalArea: "#86d860",
+              flag: "#facc15", flagPole: "#f8fafc", benchSeat: "#2563eb", benchLeg: "#475569", ballSkin: "#ffffff", ballPatch: "#1f2937",
+              cone: "#f97316", coneStripe: "#ffffff", bag: "#1d4ed8", bagStrap: "#ffffff", mastPole: "#94a3b8", mastLight: "#fef9c3",
+              hedge: "#2f9e44", hedgeLight: "#69db7c" } },
+  // SPEC-016: Город — тротуарная плитка, две улицы с разметкой и зебрами, низкая ограда; машины вместо камней, клумбы-кадки вместо
+  // кустов, пруд — бассейн с каменным бортиком; деревня — городские домики, река — канал с каменными мостами, дом — торговый центр,
+  // арена — кольцо-клумба, лабиринт — дворовые заборы. За оградой — фонари, гидранты, скамейки, урны и деревья
+  city:   { bg: "#9ca3af", outer: "#b8bcc4", g1: "#dad6d2", g2: "#cfcac5", dots: [], fence: "#475569",
+            walls: { home: ["#60a5fa", "#dbeafe"], bighome: ["#e5534b", "#fecaca"], build: ["#a78bfa", "#ede9fe"], arena: ["#9ca3af", "#65a30d"] },
+            maze: { wall: "#a0703f", cap: "#c9935f", deco: "posts", decoC: "#6b4423" },
+            cottage: { wall: "#fdba74", roof: "#0d9488", door: "#7c2d12", window: "#fef9c3" },
+            water: { c: "#2b8fd0", edge: "#9ca3af", stone: true, waves: true, wave: "#dbeafe" }, bridge: ["#d6d3d1", "#78716c"], square: ["#f1e9da", "#e2d5bd"], fountain: "#e5e7eb",
+            deco: { asphalt: "#6b7280", roadLine: "#f8fafc", zebra: "#f8fafc", kerb: "#9ca3af", cars: ["#ef4444", "#3b82f6", "#facc15", "#22c55e", "#f97316", "#a855f7"],
+              carGlass: "#bae6fd", carTyre: "#1f2937", carLight: "#fef9c3", planter: "#a8a29e", soil: "#7c4a1e", leaves: "#22c55e", flowers: ["#f472b6", "#facc15", "#f87171", "#c084fc"],
+              lampPole: "#475569", lampLight: "#fef9c3", hydrant: "#ef4444", benchSeat: "#92400e", benchLeg: "#475569", bin: "#16a34a" } }
 };
 const HEDGE_COLORS = ["#3f9a4a", "#7bd07e"];
 let mapGroup = null, builtKey = "";
@@ -4693,9 +4828,10 @@ function makePalm(s, fade) {
 function makeTreeFor(place, o, fade) {
   if (place === "beach") return makePalm(o.s, fade);
   if (place === "winter") return makeTree("snowpine", o.s, fade);
-  if (place === "school") return makeTree("round", o.s, fade);
+  if (place === "school" || place === "field" || place === "city") return makeTree("round", o.s, fade);   // SPEC-016: деревья у поля, на улицах
   return makeTree(o.v, o.s, fade);
 }
+const CAR_LEN = 1.0;   // SPEC-016: длина машины в клетках = диаметр круга камня (r 16 px), им она и мешает идти и смотреть
 function makeRockFor(place, o) {
   const g = new THREE.Group(), s = o.s;
   if (place === "beach") {                               // песочный замок
@@ -4723,6 +4859,25 @@ function makeRockFor(place, o) {
       const rr2 = Math.sqrt(Math.max(0, 0.48 * 0.48 - yy * yy));
       spot.position.set(Math.cos(a) * rr2 * 0.95, 0.48 + yy, Math.sin(a) * rr2 * 0.95); spot.scale.setScalar(0.85); g.add(spot);
     }
+  } else if (place === "field") {                        // SPEC-016: конусы и спортивная сумка
+    const D = THEMES[place].deco;
+    const bag = part(new THREE.BoxGeometry(0.72, 0.34, 0.38), D.bag, 0.03); bag.position.set(0, 0.17, 0.12); bag.rotation.y = o.x * 0.37; g.add(bag);
+    const strap = new THREE.Mesh(new THREE.BoxGeometry(0.74, 0.05, 0.08), toon(D.bagStrap)); strap.position.set(0, 0.36, 0.12); strap.rotation.y = o.x * 0.37; g.add(strap);
+    for (const [x, z] of [[-0.3, -0.28], [0.08, -0.36], [0.36, -0.12]]) {
+      const c = part(new THREE.ConeGeometry(0.16, 0.42, 10), D.cone, 0.02); c.position.set(x, 0.21, z); g.add(c);
+      const st = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.1, 0.07, 10), toon(D.coneStripe)); st.position.set(x, 0.24, z); g.add(st);
+    }
+  } else if (place === "city") {                         // SPEC-016: машина у тротуара (как камень: не пройти и не видно)
+    const D = THEMES[place].deco, k = Math.floor(o.x / CELL) * 7 + Math.floor(o.y / CELL) * 3, col = D.cars[k % D.cars.length];
+    const car = new THREE.Group();
+    const body = part(new THREE.BoxGeometry(1.15, 0.36, 0.62), col, 0.03); body.position.y = 0.3; car.add(body);
+    const glass = part(new THREE.BoxGeometry(0.62, 0.24, 0.56), D.carGlass, 0.02); glass.position.set(-0.05, 0.6, 0); car.add(glass);
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(0.66, 0.06, 0.6), toon(col)); roof.position.set(-0.05, 0.74, 0); car.add(roof);
+    const wheel = new THREE.CylinderGeometry(0.15, 0.15, 0.1, 12);
+    for (const [x, z] of [[-0.36, 0.31], [0.36, 0.31], [-0.36, -0.31], [0.36, -0.31]]) { const w = new THREE.Mesh(wheel, toon(D.carTyre)); w.rotation.x = Math.PI / 2; w.position.set(x, 0.15, z); car.add(w); }
+    for (const z of [-0.2, 0.2]) { const l = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.08, 0.12), toon(D.carLight)); l.position.set(0.58, 0.34, z); car.add(l); }
+    car.scale.setScalar(CAR_LEN / (1.15 * s)); if (k % 2) car.rotation.y = Math.PI / 2;   // длина ≈ круг камня (1 клетка): что видно — то и мешает
+    g.add(car);
   } else {                                               // камень
     const r = part(new THREE.DodecahedronGeometry(0.58, 0), "#8e98a3", 0.04);
     r.scale.y = 0.72; r.position.y = 0.3; r.rotation.y = o.x * 0.37; g.add(r);
@@ -4742,6 +4897,21 @@ function makeBushFor(place) {
       seg.material.side = THREE.DoubleSide; seg.position.y = 1.45; seg.castShadow = true; g.add(seg);
     }
     const towel = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.02, 1.0), toon("#38bdf8")); towel.position.set(0.25, 0.015, 0.2); towel.rotation.y = 0.4; g.add(towel);
+    return { g, mats };
+  }
+  if (place === "field") {                               // SPEC-016: круглый подстриженный куст
+    const D = THEMES[place].deco;
+    const b = part(sphere(0.68, 16, 12), "", 0.035, fm(D.hedge)); b.scale.y = 0.85; b.position.y = 0.58; g.add(b);
+    const hl = new THREE.Mesh(sphere(0.24, 10, 8), fm(D.hedgeLight)); hl.position.set(-0.2, 1.0, -0.15); g.add(hl);
+    return { g, mats };
+  }
+  if (place === "city") {                                // SPEC-016: кадка с цветами
+    const D = THEMES[place].deco;
+    const box = part(new THREE.BoxGeometry(1.4, 0.5, 1.2), D.planter, 0.035, fm(D.planter)); box.position.y = 0.25; g.add(box);
+    const soil = new THREE.Mesh(new THREE.BoxGeometry(1.24, 0.04, 1.04), fm(D.soil)); soil.position.y = 0.51; g.add(soil);
+    const lm = fm(D.leaves);
+    for (const [x, z, r] of [[-0.3, -0.2, 0.36], [0.3, -0.15, 0.34], [0, 0.22, 0.38]]) { const l = part(sphere(r, 12, 8), "", 0.03, lm); l.position.set(x, 0.62, z); g.add(l); }
+    D.flowers.forEach((c, i) => { const f = part(sphere(0.11, 8, 6), "", 0.015, fm(c)); f.position.set(-0.38 + i * 0.25, 0.92 - (i % 2) * 0.08, 0.1 + (i % 2 ? 0.25 : -0.1)); g.add(f); });
     return { g, mats };
   }
   const c0 = place === "winter" ? "#ffffff" : "#51cf66", c1 = place === "winter" ? "#e0f2fe" : "#8ce99a";
@@ -4786,8 +4956,9 @@ function makePondFor(place, o) {
     const spade = part(new THREE.BoxGeometry(0.14, 0.03, 0.4), "#3b82f6", 0.015); spade.position.set(cx + w / 4, 0.14, cz + 0.1); spade.rotation.y = 0.6; mapGroup.add(spade);
     return;
   }
-  const rimC = place === "beach" ? "#ffffff" : place === "winter" ? "#ffffff" : OUT;
-  const waterC = place === "beach" ? "#2dd4bf" : place === "winter" ? "#cfe9ff" : "#5ab8f0";
+  if (place === "field") { makeGoal(place, o); return; }   // SPEC-016: ворота
+  const rimC = place === "beach" ? "#ffffff" : place === "winter" ? "#ffffff" : place === "city" ? THEMES[place].deco.kerb : OUT;
+  const waterC = place === "beach" ? "#2dd4bf" : place === "winter" ? "#cfe9ff" : place === "city" ? THEMES[place].water.c : "#5ab8f0";
   mapGroup.add(flat(new THREE.ShapeGeometry(roundedRectShape(w + (place === "beach" ? 0.6 : 0.42), d + (place === "beach" ? 0.5 : 0.3), 0.7)), rimC, 0.012, cx, cz));
   if (place === "beach") mapGroup.add(flat(new THREE.ShapeGeometry(roundedRectShape(w + 0.62, d + 0.52, 0.72)), OUT, 0.008, cx, cz));
   const water = flat(new THREE.ShapeGeometry(roundedRectShape(w + 0.3, d + 0.18, 0.65)), waterC, 0.025, cx, cz);
@@ -4805,6 +4976,109 @@ function makePondFor(place, o) {
     for (const k of [-1, 1]) { const bar = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.025, 6, 12, Math.PI), toon("#cbd5e1")); bar.position.set(cx + w / 2 - 0.2 + k * 0.12, 0.1, cz - d / 2 - 0.05); mapGroup.add(bar); }
   } else {
     const pad = part(new THREE.CylinderGeometry(0.22, 0.22, 0.03, 12), "#4caf50", 0.02); pad.position.set(cx + w / 2 - 0.4, 0.045, cz - d / 2 + 0.35); mapGroup.add(pad);
+  }
+}
+
+// SPEC-016: сетка ворот — прозрачная текстура-клетка, одна на цвет за всю игру (материал общий, не удаляется с картой)
+const netMats = new Map();
+function goalNetMat(color) {
+  if (netMats.has(color)) return netMats.get(color);
+  const c = document.createElement("canvas"); c.width = c.height = 32;
+  const g = c.getContext("2d"); g.strokeStyle = color; g.lineWidth = 3; g.strokeRect(0, 0, 32, 32);
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(5, 3);
+  const m = new THREE.MeshBasicMaterial({ map: t, transparent: true, side: THREE.DoubleSide, depthWrite: false });
+  netMats.set(color, m);
+  return m;
+}
+// SPEC-016: ворота на месте пруда (стоять нельзя, сквозь сетку видно): штанги и перекладина со стороны центра поля, сетка — коробка
+function makeGoal(place, o) {
+  const D = THEMES[place].deco, w = P(o.w), d = P(o.h), cx = P(o.x) + w / 2, cz = P(o.y) + d / 2, H = 0.9;
+  mapGroup.add(flat(new THREE.PlaneGeometry(w + 0.3, d + 0.3), D.goalArea, 0.01, cx, cz));
+  const net = new THREE.Mesh(new THREE.BoxGeometry(w, H * 0.85, d), goalNetMat(D.goalNet)); net.position.set(cx, H * 0.425, cz); mapGroup.add(net);
+  const along = w >= d, len = along ? w : d, dep = along ? d : w;
+  // рот ворот смотрит к центру карты
+  const toC = along ? (cz < ROWS / 2 ? 1 : -1) : (cx < COLS / 2 ? 1 : -1);
+  const post = new THREE.CylinderGeometry(0.07, 0.07, H, 8);
+  for (const k of [-1, 1]) {
+    const p = part(post, D.goal, 0.02);
+    p.position.set(along ? cx + k * len / 2 : cx + toC * dep / 2, H / 2, along ? cz + toC * dep / 2 : cz + k * len / 2); mapGroup.add(p);
+    const back = part(new THREE.CylinderGeometry(0.04, 0.04, H * 0.85, 6), D.goal, 0.015);
+    back.position.set(along ? cx + k * len / 2 : cx - toC * dep / 2, H * 0.425, along ? cz - toC * dep / 2 : cz + k * len / 2); mapGroup.add(back);
+  }
+  const bar = part(new THREE.CylinderGeometry(0.07, 0.07, len + 0.14, 8), D.goal, 0.02);
+  bar.rotation.set(along ? 0 : Math.PI / 2, 0, along ? Math.PI / 2 : 0);
+  bar.position.set(along ? cx : cx + toC * dep / 2, H, along ? cz + toC * dep / 2 : cz); mapGroup.add(bar);
+}
+// SPEC-016: украшения за оградой Поля и Города (только вид, не препятствия): фонарь, мачта света, скамейка, гидрант, урна, флажок, мяч
+function makeStreetThing(kind, D) {
+  const g = new THREE.Group();
+  if (kind === "lamp" || kind === "mast") {
+    const mast = kind === "mast", tall = mast ? 3.6 : 2.0, poleC = mast ? D.mastPole : D.lampPole, lightC = mast ? D.mastLight : D.lampLight;
+    const pole = part(new THREE.CylinderGeometry(0.06, 0.09, tall, 8), poleC, 0.02); pole.position.y = tall / 2; g.add(pole);
+    const head = part(mast ? new THREE.BoxGeometry(0.9, 0.4, 0.2) : sphere(0.18, 10, 8), poleC, 0.02); head.position.y = tall + 0.1; g.add(head);
+    const glow = new THREE.Mesh(mast ? new THREE.BoxGeometry(0.8, 0.3, 0.05) : sphere(0.13, 10, 8), toon(lightC));
+    glow.position.set(0, tall + (mast ? 0.1 : 0.02), mast ? 0.12 : 0); g.add(glow);
+  } else if (kind === "bench") {
+    const seat = part(new THREE.BoxGeometry(1.2, 0.08, 0.36), D.benchSeat, 0.02); seat.position.y = 0.36; g.add(seat);
+    const back = part(new THREE.BoxGeometry(1.2, 0.3, 0.07), D.benchSeat, 0.02); back.position.set(0, 0.6, -0.16); g.add(back);
+    for (const x of [-0.5, 0.5]) { const l = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.36, 0.3), toon(D.benchLeg)); l.position.set(x, 0.18, 0); g.add(l); }
+  } else if (kind === "hydrant") {
+    const b = part(new THREE.CylinderGeometry(0.13, 0.15, 0.5, 10), D.hydrant, 0.02); b.position.y = 0.25; g.add(b);
+    const t = part(sphere(0.14, 10, 8), D.hydrant, 0.02); t.position.y = 0.52; g.add(t);
+    const s = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.4, 6), toon(D.hydrant)); s.rotation.z = Math.PI / 2; s.position.y = 0.32; g.add(s);
+  } else if (kind === "bin") {
+    const b = part(new THREE.CylinderGeometry(0.2, 0.17, 0.55, 10), D.bin, 0.02); b.position.y = 0.28; g.add(b);
+  } else if (kind === "flag") {
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 1.0, 6), toon(D.flagPole)); pole.position.y = 0.5; g.add(pole);
+    const f = part(new THREE.BoxGeometry(0.3, 0.2, 0.02), D.flag, 0.01); f.position.set(0.15, 0.88, 0); g.add(f);
+  } else if (kind === "ball") {
+    const b = part(sphere(0.2, 12, 10), D.ballSkin, 0.02); b.position.y = 0.2; g.add(b);
+    for (const [x, y, z] of [[0, 0.38, 0], [0.17, 0.24, 0.06], [-0.12, 0.22, 0.13]]) { const sp = new THREE.Mesh(sphere(0.06, 6, 5), toon(D.ballPatch)); sp.position.set(x, y, z); g.add(sp); }
+  }
+  g.traverse(q => { if (q.isMesh) q.castShadow = true; });
+  return g;
+}
+// SPEC-016: рекламные щиты вместо забора (у места с deco.boards — Поле) — одним InstancedMesh, цвет каждого щита по очереди из boards
+function adBoards(D) {
+  const segs = [];
+  for (let x = 0; x < COLS; x += 2) segs.push([x + 1, -0.15, false], [x + 1, ROWS + 0.15, false]);
+  for (let z = 0; z < ROWS; z += 2) segs.push([-0.15, z + 1, true], [COLS + 0.15, z + 1, true]);
+  const inst = new THREE.InstancedMesh(new THREE.BoxGeometry(1.92, 0.42, 0.12), toon("#ffffff"), segs.length);
+  const mtx = new THREE.Matrix4(), rot = new THREE.Matrix4().makeRotationY(Math.PI / 2), col = new THREE.Color();
+  segs.forEach(([x, z, vert], i) => { mtx.makeTranslation(x, 0.21, z); if (vert) mtx.multiply(rot); inst.setMatrixAt(i, mtx); inst.setColorAt(i, col.set(D.boards[i % D.boards.length])); });
+  inst.castShadow = true; mapGroup.add(inst);
+}
+// SPEC-016: меловая разметка футбольного поля поверх полос травы (центральный круг, штрафные и вратарские площади, угловые дуги)
+function paintPitch(th) {
+  ctx.fillStyle = th.g2;
+  for (let x = 0; x < COLS; x += 4) ctx.fillRect(x * CELL, 0, 2 * CELL, H);
+  const m = CELL * 0.6;
+  ctx.strokeStyle = th.deco.chalk; ctx.fillStyle = th.deco.chalk; ctx.lineWidth = 4;
+  ctx.strokeRect(m, m, W - 2 * m, H - 2 * m);
+  ctx.beginPath(); ctx.moveTo(W / 2, m); ctx.lineTo(W / 2, H - m); ctx.stroke();
+  circle(W / 2, H / 2, 3 * CELL); ctx.stroke(); circle(W / 2, H / 2, 6); ctx.fill();
+  for (const sd of [-1, 1]) {
+    const edge = sd < 0 ? m : W - m;
+    ctx.strokeRect(sd < 0 ? edge : edge - 4.5 * CELL, H / 2 - 5.5 * CELL, 4.5 * CELL, 11 * CELL);
+    ctx.strokeRect(sd < 0 ? edge : edge - 1.8 * CELL, H / 2 - 2.6 * CELL, 1.8 * CELL, 5.2 * CELL);
+    circle(edge - sd * 3.2 * CELL, H / 2, 5); ctx.fill();
+    ctx.beginPath(); ctx.arc(edge - sd * 3.2 * CELL, H / 2, 2.2 * CELL, sd < 0 ? -0.93 : Math.PI - 0.93, sd < 0 ? 0.93 : Math.PI + 0.93); ctx.stroke();
+  }
+  for (const [x, y, a] of [[m, m, 0], [W - m, m, Math.PI / 2], [W - m, H - m, Math.PI], [m, H - m, -Math.PI / 2]]) { ctx.beginPath(); ctx.arc(x, y, 0.6 * CELL, a, a + Math.PI / 2); ctx.stroke(); }
+}
+// SPEC-016: две улицы Города (поперёк и вдоль) с бордюром, пунктиром посередине и зебрами у перекрёстка — поверх тротуарной плитки
+function paintStreets(th) {
+  const D = th.deco, sy = 9 * CELL, sx = 14 * CELL, sw = 2 * CELL;
+  ctx.fillStyle = D.kerb; ctx.fillRect(0, sy - 4, W, sw + 8); ctx.fillRect(sx - 4, 0, sw + 8, H);
+  ctx.fillStyle = D.asphalt; ctx.fillRect(0, sy, W, sw); ctx.fillRect(sx, 0, sw, H);
+  ctx.strokeStyle = D.roadLine; ctx.lineWidth = 3; ctx.setLineDash([16, 14]);
+  ctx.beginPath(); ctx.moveTo(0, sy + sw / 2); ctx.lineTo(sx - 2.6 * CELL, sy + sw / 2); ctx.moveTo(sx + sw + 2.6 * CELL, sy + sw / 2); ctx.lineTo(W, sy + sw / 2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(sx + sw / 2, 0); ctx.lineTo(sx + sw / 2, sy - 2.6 * CELL); ctx.moveTo(sx + sw / 2, sy + sw + 2.6 * CELL); ctx.lineTo(sx + sw / 2, H); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = D.zebra;
+  for (const sd of [-1, 1]) for (let k = 0; k < 5; k++) {
+    ctx.fillRect(sd < 0 ? sx - 2.3 * CELL + k * 13 : sx + sw + 0.5 * CELL + k * 13, sy + 4, 7, sw - 8);   // через улицу поперёк
+    ctx.fillRect(sx + 4, sd < 0 ? sy - 2.3 * CELL + k * 13 : sy + sw + 0.5 * CELL + k * 13, sw - 8, 7);   // через улицу вдоль
   }
 }
 
@@ -4877,18 +5151,24 @@ function mazeDeco(place, walls) {
     const n = Math.max(o.w, o.h) / CELL, alongX = o.w >= o.h;
     for (let k = 0; k <= n; k++) {
       if (m.deco === "seams" && (k === 0 || k === n)) continue;
-      if ((m.deco === "bumps" || m.deco === "snow") && k === n) continue;
-      const off = m.deco === "bumps" || m.deco === "snow" ? k + 0.5 : k;
+      if ((m.deco === "bumps" || m.deco === "snow" || m.deco === "boards") && k === n) continue;
+      const off = m.deco === "bumps" || m.deco === "snow" || m.deco === "boards" ? k + 0.5 : k;
       pts.push([P(o.x) + (alongX ? off : 0.5), P(o.y) + (alongX ? 0.5 : off), alongX]);
     }
   }
   if (!pts.length) return;
   const geo = m.deco === "bumps" ? sphere(0.36, 10, 8) : m.deco === "snow" ? sphere(0.3, 10, 8)
-    : m.deco === "posts" ? new THREE.BoxGeometry(0.16, WALL_H + 0.14, 1.08) : new THREE.BoxGeometry(0.035, WALL_H * 0.8, 1.04);
+    : m.deco === "posts" ? new THREE.BoxGeometry(0.16, WALL_H + 0.14, 1.08)
+    : m.deco === "boards" ? new THREE.BoxGeometry(0.86, WALL_H * 0.5, 1.06) : new THREE.BoxGeometry(0.035, WALL_H * 0.8, 1.04);
   const inst = tag(new THREE.InstancedMesh(geo, toon(m.decoC), pts.length), "mazeDeco");
-  const mtx = new THREE.Matrix4(), rot = new THREE.Matrix4().makeRotationY(Math.PI / 2);
-  const y = m.deco === "bumps" ? WALL_H + 0.02 : m.deco === "snow" ? WALL_H + 0.04 : m.deco === "posts" ? (WALL_H + 0.14) / 2 : WALL_H * 0.45;
-  pts.forEach(([x, z, alongX], i) => { mtx.makeTranslation(x, y, z); if ((m.deco === "seams" || m.deco === "posts") && !alongX) mtx.multiply(rot); inst.setMatrixAt(i, mtx); });
+  const mtx = new THREE.Matrix4(), rot = new THREE.Matrix4().makeRotationY(Math.PI / 2), col = new THREE.Color();
+  const y = m.deco === "bumps" ? WALL_H + 0.02 : m.deco === "snow" ? WALL_H + 0.04 : m.deco === "posts" ? (WALL_H + 0.14) / 2 : m.deco === "boards" ? WALL_H * 0.42 : WALL_H * 0.45;
+  // SPEC-016: рекламные щиты на изгороди — цвет щита по очереди из deco.boards (умножается на decoC = белый)
+  const boards = m.deco === "boards" ? THEMES[place].deco.boards : null;
+  pts.forEach(([x, z, alongX], i) => {
+    mtx.makeTranslation(x, y, z); if ((m.deco === "seams" || m.deco === "posts" || boards) && !alongX) mtx.multiply(rot);
+    inst.setMatrixAt(i, mtx); if (boards) inst.setColorAt(i, col.set(boards[i % boards.length]));
+  });
   inst.castShadow = true; mapGroup.add(inst);
 }
 
@@ -4898,8 +5178,11 @@ function paintGround(place) {
   ctx.setTransform(2, 0, 0, 2, 0, 0);
   ctx.fillStyle = th.g1; ctx.fillRect(0, 0, W, H);
   ctx.fillStyle = th.g2;
-  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) if ((x + y) % 2 === 0) ctx.fillRect(x * CELL, y * CELL, CELL, CELL);
-  if (place === "school") {                              // разметка на асфальте и классики
+  if (place === "field") paintPitch(th);                 // SPEC-016: полосы травы и разметка
+  else for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) if ((x + y) % 2 === 0) ctx.fillRect(x * CELL, y * CELL, CELL, CELL);
+  if (place === "field") { /* без цветочков: газон */ }
+  else if (place === "city") paintStreets(th);           // SPEC-016: улицы, разметка, зебры
+  else if (place === "school") {                              // разметка на асфальте и классики
     ctx.strokeStyle = "rgba(255,255,255,.85)"; ctx.lineWidth = 4;
     ctx.strokeRect(9 * CELL, 6 * CELL, 9 * CELL, 8 * CELL);
     ctx.beginPath(); ctx.moveTo(13.5 * CELL, 6 * CELL); ctx.lineTo(13.5 * CELL, 14 * CELL); ctx.stroke();
@@ -4990,7 +5273,9 @@ function buildMap3D() {
   ground.rotation.x = -Math.PI / 2; ground.position.set(COLS / 2, 0, ROWS / 2); ground.receiveShadow = true;
   mapGroup.add(ground);
 
-  // забор
+  // забор (SPEC-016: у Поля — рекламные щиты)
+  if (th.deco && th.deco.boards) adBoards(th.deco);
+  else {
   const postGeo = new THREE.BoxGeometry(0.12, 0.42, 0.12), posts = [];
   for (let x = 0; x <= COLS; x += 1) posts.push([x, -0.12], [x, ROWS + 0.12]);
   for (let z = 1; z < ROWS; z += 1) posts.push([-0.12, z], [COLS + 0.12, z]);
@@ -5000,6 +5285,7 @@ function buildMap3D() {
   inst.castShadow = true; mapGroup.add(inst);
   for (const [x, z, w, d] of [[COLS / 2, -0.12, COLS + 0.3, 0.06], [COLS / 2, ROWS + 0.12, COLS + 0.3, 0.06], [-0.12, ROWS / 2, 0.06, ROWS + 0.3], [COLS + 0.12, ROWS / 2, 0.06, ROWS + 0.3]]) {
     for (const y of [0.16, 0.32]) { const rail = new THREE.Mesh(new THREE.BoxGeometry(w, 0.05, d), toon(th.fence)); rail.position.set(x, y, z); rail.castShadow = true; mapGroup.add(rail); }
+  }
   }
 
   const mazeWalls = [];
@@ -5017,7 +5303,7 @@ function buildMap3D() {
       mapGroup.add(wall);
       const cap = new THREE.Mesh(new THREE.BoxGeometry(w - (place === "winter" ? 0 : 0.1), place === "winter" ? 0.12 : 0.05, d - (place === "winter" ? 0 : 0.1)), toon(c1));
       cap.position.set(P(o.x) + w / 2, WALL_H + (place === "winter" ? 0.05 : 0.02), P(o.y) + d / 2); mapGroup.add(cap);
-      if (place === "school" && o.kind === "build" && (o.w > CELL * 2 || o.h > CELL * 2)) {   // окна на школе
+      if ((place === "school" || place === "city") && o.kind === "build" && (o.w > CELL * 2 || o.h > CELL * 2)) {   // окна на школе и витрины торгового центра
         const along = o.w > o.h, len = along ? w : d, n = Math.floor(len / 1.6);
         for (let k = 0; k < n; k++) {
           const off = -len / 2 + (k + 0.5) * len / n;
@@ -5049,9 +5335,20 @@ function buildMap3D() {
     if (x > -1.2 && x < COLS + 1.2 && z > -1.2 && z < ROWS + 1.2) continue;
     if (place === "beach" && z > ROWS + 3.5) continue;   // там море
     const fake = { s: 0.9 + rng() * 0.5, v: rng() < 0.6 ? "pine" : "round" };
+    if (place === "city" && made % 2) {                  // SPEC-016: на улицах за оградой — фонари, гидранты, скамейки, урны
+      const thing = makeStreetThing(["lamp", "hydrant", "lamp", "bench", "lamp", "bin"][(made >> 1) % 6], th.deco);
+      thing.position.set(x, 0, z); thing.rotation.y = Math.round(rng() * 3) * Math.PI / 2; mapGroup.add(thing); made++; continue;
+    }
     const t = makeTreeFor(place, fake, false);
     t.g.traverse(q => { if (q.isMesh) q.castShadow = true; });
     t.g.position.set(x, 0, z); mapGroup.add(t.g); made++;
+  }
+  if (place === "field") {                               // SPEC-016: мачты света по углам, угловые флажки, скамейки запасных с мячами
+    const D = th.deco, add = (kind, x, z, ry = 0) => { const q = makeStreetThing(kind, D); q.position.set(x, 0, z); q.rotation.y = ry; mapGroup.add(q); };
+    for (const [x, z] of [[-2.2, -2.2], [COLS + 2.2, -2.2], [-2.2, ROWS + 2.2], [COLS + 2.2, ROWS + 2.2]]) add("mast", x, z, Math.atan2(COLS / 2 - x, ROWS / 2 - z));
+    for (const [x, z] of [[-0.55, -0.55], [COLS + 0.55, -0.55], [-0.55, ROWS + 0.55], [COLS + 0.55, ROWS + 0.55]]) add("flag", x, z);
+    for (const x of [COLS / 2 - 4, COLS / 2 + 4]) { add("bench", x, ROWS + 1.1); add("bench", x, -1.1, Math.PI); }
+    for (const [x, z] of [[COLS / 2 - 2.4, ROWS + 1.0], [COLS / 2 + 5.7, ROWS + 1.2], [COLS / 2 + 1.5, -1.0]]) add("ball", x, z);
   }
   safeGlow = null;
   if (safeZone) {
@@ -5732,6 +6029,9 @@ window.__bb = {
   get level() { return level; }, set level(v) { level = clamp(Math.floor(v) || 1, 1, levelsPerWorld()); },
   // SPEC-006: world — мир идущего/выбранного уровня (не мир — игнорируется), level — номер в мире
   get world() { return curWorld; }, set world(v) { if (WORLDS.includes(v)) curWorld = v; }, WORLDS, difficulty, bigSpeeds,
+  // SPEC-016: списки миров, сиды по имени, индекс сложности, время третьей звезды, бонусные миры (p — прогресс, по умолчанию текущий)
+  MAIN_WORLDS, BONUS_WORLDS, WORLD_SEED, worldDifficulty, fastTarget, bonusUnlocked, bonusOpen,
+  get bonusNote() { return bonusNote && { ...bonusNote }; },   // SPEC-016: плашка «Открылись бонусные миры!» этого кадра (или null)
   changeLevel, get winLine() { return winLine; }, selectWorld, get worldCards() { return worldCards.map(q => ({ ...q })); },
   update, inSafe, I18N, startGame, resetWorld, cycleOutfit, randomOutfit, cycleBig, setLang, toScreen,
   get items() { return items; }, get progress() { return progress; }, buyGloves, setEquip, get lastReward() { return lastReward; }, spawnItem,

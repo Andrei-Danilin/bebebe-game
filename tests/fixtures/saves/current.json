@@ -1,5 +1,5 @@
 {
-  "about": "The current shape (SPEC-009 and later): worlds with won flags, lastWorld, coins, inv with rescues, equip, owned clothes (ids; the worn Bear is owned), upgrade levels; outfits; names.",
+  "about": "The current shape (SPEC-016 and later): six worlds in the story order (park, field, city, school + bonus beach, winter) with won flags, lastWorld, coins, inv with rescues, equip, owned clothes (ids; the worn Bear is owned), upgrade levels; outfits; names.",
   "keys": {
     "bebebe-progress": {
       "worlds": {
@@ -14,6 +14,28 @@
             "1": true,
             "2": true,
             "19": true
+          }
+        },
+        "field": {
+          "unlocked": 4,
+          "stars": {
+            "1": 3,
+            "2": 1,
+            "3": 2
+          },
+          "won": {
+            "1": true,
+            "2": true,
+            "3": true
+          }
+        },
+        "city": {
+          "unlocked": 2,
+          "stars": {
+            "1": 1
+          },
+          "won": {
+            "1": true
           }
         },
         "school": {
@@ -42,7 +64,7 @@
           "won": {}
         }
       },
-      "lastWorld": "beach",
+      "lastWorld": "field",
       "coins": 88,
       "inv": {
         "mittens": 1,
@@ -112,6 +134,28 @@
             "19": true
           }
         },
+        "field": {
+          "unlocked": 4,
+          "stars": {
+            "1": 3,
+            "2": 1,
+            "3": 2
+          },
+          "won": {
+            "1": true,
+            "2": true,
+            "3": true
+          }
+        },
+        "city": {
+          "unlocked": 2,
+          "stars": {
+            "1": 1
+          },
+          "won": {
+            "1": true
+          }
+        },
         "school": {
           "unlocked": 3,
           "stars": {
@@ -138,7 +182,7 @@
           "won": {}
         }
       },
-      "lastWorld": "beach",
+      "lastWorld": "field",
       "coins": 88,
       "inv": {
         "mittens": 1,

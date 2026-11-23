@@ -324,12 +324,20 @@ test("the careful autopilot uses rescue kits and air kisses when it has them", a
 });
 
 // ---------- AC 14: the CI sample of the balance report ----------
-// The 8 levels of CFG.BALANCE.CI_LEVELS (an early level and a maze level per world), 1 seed, careful autopilot, played
+// The 12 levels of CFG.BALANCE.CI_LEVELS (an early level and a maze level per world; SPEC-016: six worlds), 1 seed, careful autopilot, played
 // exactly like `npm run balance` (runLevel from scripts/balance.js), with wide bounds: won within the time limit,
 // no 2-minute stretch without any event (stuck), the event log not overflowing, no page errors (the fixture).
 const { runLevel } = require("../scripts/balance.js");
 const { readValue } = require("../scripts/docs-numbers.js");
-const BAL = readValue(fs.readFileSync(path.join(ROOT, "index.html"), "utf8"), "CFG").BALANCE;
+const CFG_SRC = readValue(fs.readFileSync(path.join(ROOT, "index.html"), "utf8"), "CFG"), BAL = CFG_SRC.BALANCE;
+// SPEC-008 AC 14 (SPEC-016: six worlds): every world has at least an early and a maze level in the sample. Read from the source,
+// no page; the worlds are the keys of CFG.WORLD_DIFFICULTY (levels.spec.js checks they are exactly WORLDS)
+test("the CI sample has two levels in every world", { tag: "@fast" }, () => {
+  const per = Object.fromEntries(Object.keys(CFG_SRC.WORLD_DIFFICULTY).map(w => [w, BAL.CI_LEVELS.filter(([cw]) => cw === w).map(([, n]) => n)]));
+  const bad = Object.entries(per).filter(([, ns]) => !(ns.length >= 2 && ns.some(n => n >= BAL.EARLY[0] && n <= BAL.EARLY[1]) && ns.some(n => n >= BAL.MAZE[0] && n <= BAL.MAZE[1])));
+  expect(bad, "worlds without an early and a maze level").toEqual([]);
+  expect(BAL.CI_LEVELS.every(([w]) => w in per), "every CI level is in a known world").toBe(true);
+});
 for (const [world, n] of BAL.CI_LEVELS) {
   test(`balance sample: ${world} ${n} is won in time and nothing gets stuck`, async ({ page }) => {
     const r = await page.evaluate(runLevel, { world, n, style: "careful", seed: 2026 });

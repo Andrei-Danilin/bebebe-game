@@ -22,7 +22,9 @@ const test = base.test.extend({
 });
 test.afterAll(async () => { await shared.close(); });
 
-const WORLDS = ["park", "school", "beach", "winter"];
+// SPEC-016: six worlds in the story order; coins and speeds follow the difficulty index, not the place in the list
+const WORLDS = ["park", "field", "city", "school", "beach", "winter"];
+const DIFFICULTY = { park: 0, field: 1, city: 2, school: 3, beach: 3, winter: 4 };
 const DOC = path.join(ROOT, "docs", "game-design.md");
 const INDEX = path.join(ROOT, "index.html");
 
@@ -36,7 +38,7 @@ test("the Big One never outruns a player, patrols slower than he chases, bots ou
     }
     return { rows, cap: C.BIG_CHASE_MAX, player: C.PLAYER_SPEED, bot: C.BOT_SPEED, park1: b.difficulty("park", 1).search };
   }, WORLDS);
-  expect(r.rows.length).toBeGreaterThan(80 * 6);
+  expect(r.rows.length).toBeGreaterThan(120 * 6);
   expect(r.cap).toBeLessThan(r.player);
   expect(r.bot, "a bot outruns the Big One searching on Park 1").toBeGreaterThan(r.park1);
   const soft = softly();
@@ -144,7 +146,7 @@ test("rewards add up, coins never go negative, inventory stays whole", async ({ 
   expect(out.runs.length).toBe(18);
   // SPEC-009: first win = base, replay = half the base, minus the rests down to the floor; + new stars, hugs, star coins
   const winCoins = x => {
-    const wi = WORLDS.indexOf(x.world), base = R.BASE + R.PER_LEVEL * x.n + R.PER_WORLD * wi, first = !x.prev;
+    const wi = DIFFICULTY[x.world], base = R.BASE + R.PER_LEVEL * x.n + R.PER_WORLD * wi, first = !x.prev;
     const min = first ? R.FIRST_MIN : R.REPLAY_MIN, line = Math.max(first ? base : Math.floor(base / 2), min);
     const stars = 1 + (x.st.rests ? 0 : 1) + (x.fast ? 1 : 0);
     return line - Math.min(x.st.rests * C.REST, line - min) + Math.max(0, stars - x.prev) * R.NEW_STAR + x.st.playerHugs * R.PER_HUG + x.st.starCoins;
@@ -188,7 +190,7 @@ test("rewards add up, coins never go negative, inventory stays whole", async ({ 
 // A fixture is a snapshot of all bebebe-* keys (`keys`: a string is stored as is, an object as JSON) and what it loads
 // into (`expect`: progress in the current shape, the outfits and the typed names). SPEC-009 reuses them. An old save is
 // checked with toMatchObject (a later spec may add fields with defaults without rewriting history); current.json exactly.
-const SAVES = ["pre-spec-003", "pre-spec-004", "pre-spec-006", "pre-spec-007", "stale-tab", "pre-spec-009", "current"];
+const SAVES = ["pre-spec-003", "pre-spec-004", "pre-spec-006", "pre-spec-007", "stale-tab", "pre-spec-009", "pre-spec-016", "current"];
 const save = n => JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures", "saves", n + ".json"), "utf8"));
 const asStored = keys => Object.fromEntries(Object.entries(keys).map(([k, v]) => [k, typeof v === "string" ? v : JSON.stringify(v)]));
 
@@ -211,6 +213,43 @@ test("every known save shape loads into the current one and round-trips", async 
     soft(Object.keys(f.keys).every(k => k.startsWith("bebebe-")), `${n}: only bebebe-* keys`).toBe(true);
   }
   soft.done();
+});
+
+// ---------- SPEC-016 AC 7: old saves get the Football field and the City ----------
+test("old saves get the new worlds", async ({ page }) => {
+  const won = n => Object.fromEntries(Array.from({ length: n }, (_, i) => [i + 1, true]));
+  const stars = n => Object.fromEntries(Array.from({ length: n }, (_, i) => [i + 1, 1 + (i % 3)]));
+  const fresh = { unlocked: 1, stars: {}, won: {} };
+  // the spec's save: Park 20 won, School 5, Beach 3 (four worlds, as before SPEC-016)
+  const old = { worlds: { park: { unlocked: 20, stars: stars(20), won: won(20) }, school: { unlocked: 6, stars: stars(5), won: won(5) },
+    beach: { unlocked: 4, stars: stars(3), won: won(3) }, winter: { unlocked: 1, stars: {}, won: {} } }, lastWorld: "beach", coins: 120 };
+  const r = await page.evaluate(([s, more]) => {
+    const b = window.__bb, plain = v => JSON.parse(JSON.stringify(v)), p = b.loadProgress(s);
+    const has = typeof b.bonusOpen === "function" && typeof b.bonusUnlocked === "function";
+    const out = { p: plain(p), keys: Object.keys(p.worlds), again: plain(b.loadProgress(plain(p))), has };
+    if (has) {
+      out.unlocked = b.bonusUnlocked(p);
+      out.open = Object.fromEntries(b.WORLDS.map(w => [w, b.bonusOpen(w, p)]));
+      // "has progress" = unlocked > 1, or any won or stars entry in that world
+      out.more = more.map(m => b.bonusOpen("winter", b.loadProgress({ worlds: { winter: m } })));
+      // a partial progress object (no worlds, a world without fields) never throws: nothing won, no progress
+      out.partial = [b.bonusUnlocked({}), b.bonusOpen("beach", {}), b.bonusOpen("beach", { worlds: { beach: {} } }), b.bonusOpen("winter", { worlds: { winter: { unlocked: 3 } } })];
+    }
+    return out;
+  }, [old, [{ unlocked: 2 }, { stars: { 4: 1 } }, { won: { 7: true } }, { unlocked: 1, stars: {}, won: {} }, "junk"]]);
+  expect(r.keys).toEqual(WORLDS);
+  const soft = softly();
+  for (const w of ["park", "school", "beach", "winter"]) soft(r.p.worlds[w], `${w} unchanged`).toEqual(old.worlds[w]);
+  for (const w of ["field", "city"]) soft(r.p.worlds[w], `${w} fresh`).toEqual(fresh);
+  soft.done();
+  expect([r.p.lastWorld, r.p.coins]).toEqual(["beach", 120]);
+  expect(r.again, "loading it again changes nothing").toEqual(r.p);
+  expect(r.has, "__bb.bonusOpen and __bb.bonusUnlocked").toBe(true);
+  expect(r.unlocked, "Field and City are new: not every main level is won").toBe(false);
+  // main worlds are always open; Beach has progress and stays open; Winter has none and is locked
+  expect(r.open).toEqual({ park: true, field: true, city: true, school: true, beach: true, winter: false });
+  expect(r.more).toEqual([true, true, true, false, false]);
+  expect(r.partial).toEqual([false, false, false, true]);
 });
 
 test("a whole old save starts the game: progress moves, outfits and names load, the game writes them back the same", async ({ page }) => {

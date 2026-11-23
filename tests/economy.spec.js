@@ -158,10 +158,12 @@ test("every coin change is in the ledger", async ({ page }) => {
 });
 
 // ---------- AC 1: the earning rules ----------
-const WORLDS = ["park", "school", "beach", "winter"];
+// SPEC-016: six worlds in the story order; the coins use the difficulty index (park 0 … winter 4), not the place in WORLDS
+const WORLDS = ["park", "field", "city", "school", "beach", "winter"];
+const DIFFICULTY = { park: 0, field: 1, city: 2, school: 3, beach: 3, winter: 4 };
 const sum = parts => parts.reduce((s, p) => s + p.amount, 0);
 
-test("the reward rules: first win, replay, new stars, rests with floors, worlds 0 and 3", { tag: "@fast" }, async ({ page }) => {
+test("the reward rules: first win, replay, new stars, rests with floors, difficulty 0 and 4", { tag: "@fast" }, async ({ page }) => {
   const r = await page.evaluate(() => {
     const b = window.__bb, C = b.CFG;
     const out = { R: { ...b.REWARD }, rest: C.COINS_PER_REST, star: C.STAR_COINS, runs: {},
@@ -190,7 +192,8 @@ test("the reward rules: first win, replay, new stars, rests with floors, worlds 
     return out;
   });
   const { R, runs } = r, soft = softly();
-  const base = (w, n) => R.BASE + R.PER_LEVEL * n + R.PER_WORLD * WORLDS.indexOf(w);
+  expect(Object.keys(DIFFICULTY)).toEqual(expect.arrayContaining(WORLDS));
+  const base = (w, n) => R.BASE + R.PER_LEVEL * n + R.PER_WORLD * DIFFICULTY[w];
   const half = (w, n) => Math.floor(base(w, n) / 2);
   expect(r.removed, "the old COINS_* keys are gone").toEqual([]);
   expect(r.rest).toBe(3);
@@ -218,7 +221,7 @@ test("the reward rules: first win, replay, new stars, rests with floors, worlds 
   soft(runs.firstFloor.coins - R.NEW_STAR, "first win + rests never below FIRST_MIN").toBe(R.FIRST_MIN);
   soft(runs.replayFloor.coins, "replay + rests never below REPLAY_MIN").toBe(R.REPLAY_MIN);
   soft(runs.replaySlow.coins < runs.firstSlow.coins, "a replay pays less than the first win (kids' rule)").toBe(true);
-  soft(runs.winterFirst.coins - runs.firstSlow.coins, "world 3 pays 3 × PER_WORLD more than world 0").toBe(3 * R.PER_WORLD);
+  soft(runs.winterFirst.coins - runs.firstSlow.coins, "Winter (difficulty 4) pays 4 × PER_WORLD more than the Park (0)").toBe(4 * R.PER_WORLD);
   soft(r.notWon, "a level never won is not marked").toBe(false);
   soft.done();
 });
@@ -287,14 +290,14 @@ test("old saves: levels with stars count as won", async ({ page }) => {
     out.replay = b.lastReward.parts.map(p => p.reason);
     return out;
   });
-  expect(r.old).toEqual({ park: { 1: true, 2: true }, school: {}, beach: { 1: true }, winter: {} });
+  expect(r.old).toEqual({ park: { 1: true, 2: true }, field: {}, city: {}, school: {}, beach: { 1: true }, winter: {} });
   expect(r.oldCoins.coins, "coins untouched").toBe(40);
   expect(r.oldCoins.inv, "inventory untouched").toEqual({ mittens: 1, mega: 0, kisses: 2, rescues: 1 });
   expect(r.mixed).toEqual({ 1: true, 3: true });
   expect(r.junk).toEqual([{ 2: true }, { 2: true }, { 2: true }]);
   expect(r.flat).toEqual({ 1: true, 3: true });
   expect(r.stale).toEqual({ 2: true, 5: true });
-  expect(r.fresh).toEqual({ park: {}, school: {}, beach: {}, winter: {} });
+  expect(r.fresh).toEqual({ park: {}, field: {}, city: {}, school: {}, beach: {}, winter: {} });
   expect(r.roundTrip).toBe(true);
   expect(r.replay).toEqual(["replay"]);
 });
