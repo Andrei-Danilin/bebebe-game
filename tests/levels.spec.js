@@ -8,8 +8,14 @@ const fs = require("fs");
 const { openGame, frames, softly } = require("./helpers");
 
 const LEVEL1 = JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures", "level1.json"), "utf8"));
-// SPEC-006: worlds and the types inside every world
-const WORLDS = ["park", "school", "beach", "winter"];
+// SPEC-006: worlds and the types inside every world; SPEC-016: the story order — main worlds, then the bonus ones
+const MAIN_WORLDS = ["park", "field", "city", "school"];
+const BONUS_WORLDS = ["beach", "winter"];
+const WORLDS = [...MAIN_WORLDS, ...BONUS_WORLDS];
+const OLD_WORLDS = ["park", "school", "beach", "winter"];      // SPEC-006 worlds: their maps never change (levels-worlds.json)
+const NEW_WORLDS = ["field", "city"];                          // SPEC-016: levels-field-city.json
+// SPEC-016: difficulty index per world (speeds, hearts, coins, fast star)
+const DIFFICULTY = { park: 0, field: 1, city: 2, school: 3, beach: 3, winter: 4 };
 const WORLD_TYPES = ["classic", "meadow", "meadow", "meadow", "village", "village", "village", "river", "river", "river",
   "rooms", "rooms", "rooms", "arena", "arena", "arena", "maze", "maze", "maze", "maze"];
 // tier = position inside the block of one type (0, 1, 2, 3)
@@ -132,8 +138,8 @@ test("the banner names the world", async ({ page }) => {
   expect(r).toEqual(["Winter · Level 17: Maze", "Escuela · Nivel 8: Río con puentes", "Пляж · Уровень 1: Наш рисунок", "Park · Level 14: Ring arena"]);
 });
 
-// ---------- SPEC-006 AC 8: the menu shows the four worlds ----------
-test("the menu shows four worlds and switches between them", async ({ page }) => {
+// ---------- SPEC-006 AC 8 (SPEC-016: six worlds in the story order) ----------
+test("the menu shows six worlds and switches between them", async ({ page }) => {
   await page.evaluate(() => {
     const b = window.__bb, p = b.progress.worlds;
     p.park.stars = { 1: 3, 2: 2 }; p.park.unlocked = 3; p.school.stars = { 1: 1 }; p.school.unlocked = 4; p.winter.unlocked = 2;
@@ -142,16 +148,16 @@ test("the menu shows four worlds and switches between them", async ({ page }) =>
   await frames(page);
   const d = await page.evaluate(() => ({ cards: window.__bb.worldCards, rects: window.__bb.buttonRects, names: window.__bb.buttonNames, type: window.__bb.typeLabel }));
   expect(d.cards.map(c => c.world)).toEqual(WORLDS);
-  expect(d.cards.map(c => c.name)).toEqual(["Park", "School", "Beach", "Winter"]);
-  expect(d.cards.map(c => c.stars)).toEqual(["⭐ 5/60", "⭐ 1/60", "⭐ 0/60", "⭐ 0/60"]);   // stars of each world
-  expect(d.cards.map(c => c.selected)).toEqual([true, false, false, false]);
+  expect(d.cards.map(c => c.name)).toEqual(["Park", "Football field", "City", "School", "Beach", "Winter"]);
+  expect(d.cards.map(c => c.stars)).toEqual(["⭐ 5/60", "⭐ 0/60", "⭐ 0/60", "⭐ 1/60", "⭐ 0/60", "⭐ 0/60"]);   // stars of each world
+  expect(d.cards.map(c => c.selected)).toEqual([true, false, false, false, false, false]);
   expect(d.names).not.toContain("cyclePlace");                                      // the old place button is gone
   // the cards are buttons in one row, inside the menu card, not on each other, above the level selector
   const cr = WORLDS.map(w => d.rects.find(q => q.id === "world:" + w));
   for (const q of cr) expect(q, "card button").toBeTruthy();
   expect(new Set(cr.map(q => q.y)).size).toBe(1);
-  for (let i = 1; i < 4; i++) expect(cr[i].x).toBeGreaterThan(cr[i - 1].x + cr[i - 1].w);
-  expect(cr[0].x).toBeGreaterThanOrEqual(120); expect(cr[3].x + cr[3].w).toBeLessThanOrEqual(840);
+  for (let i = 1; i < cr.length; i++) expect(cr[i].x).toBeGreaterThan(cr[i - 1].x + cr[i - 1].w);
+  expect(cr[0].x).toBeGreaterThanOrEqual(120); expect(cr.at(-1).x + cr.at(-1).w).toBeLessThanOrEqual(840);
   const arrow = d.rects.find(q => q.text === "◀");
   expect(arrow.y).toBeGreaterThanOrEqual(cr[0].y + cr[0].h);
   expect(d.type.y).toBeGreaterThanOrEqual(cr[0].y + cr[0].h);
@@ -164,16 +170,16 @@ test("the menu shows four worlds and switches between them", async ({ page }) =>
   await frames(page);
   const after = await page.evaluate(() => ({ world: window.__bb.world, level: window.__bb.level, mode: window.__bb.mode, last: JSON.parse(localStorage.getItem("bebebe-progress")).lastWorld,
     selected: window.__bb.worldCards.map(c => c.selected), type: window.__bb.typeLabel.text, built: window.__bb.levelInfo.world }));
-  expect(after).toEqual({ world: "school", level: 4, mode: "menu", last: "school", selected: [false, true, false, false], type: "Meadow", built: "school" });
+  expect(after).toEqual({ world: "school", level: 4, mode: "menu", last: "school", selected: [false, false, false, true, false, false], type: "Meadow", built: "school" });
   // a click on the world that is already selected keeps the level the player picked
   await page.keyboard.press("ArrowLeft");
   await frames(page);
   await page.mouse.click(at.x, at.y);
   expect(await page.evaluate(() => [window.__bb.world, window.__bb.level])).toEqual(["school", 3]);
-  // the keyboard: ↓ next world, ↑ previous world (wraps around); ← → still change the level
+  // the keyboard: ↓ next world, ↑ previous world in the story order (wraps around); ← → still change the level
   const seq = [];
-  for (const k of ["ArrowDown", "ArrowUp", "ArrowUp", "ArrowUp", "ArrowLeft"]) { await page.keyboard.press(k); seq.push(await page.evaluate(() => [window.__bb.world, window.__bb.level])); }
-  expect(seq).toEqual([["beach", 1], ["school", 4], ["park", 3], ["winter", 2], ["winter", 1]]);
+  for (const k of ["ArrowDown", "ArrowUp", "ArrowUp", "ArrowUp", "ArrowUp", "ArrowUp", "ArrowLeft"]) { await page.keyboard.press(k); seq.push(await page.evaluate(() => [window.__bb.world, window.__bb.level])); }
+  expect(seq).toEqual([["beach", 1], ["school", 4], ["city", 1], ["field", 1], ["park", 3], ["winter", 2], ["winter", 1]]);
   // the names and the star line in every language
   const I = await page.evaluate(() => ["en", "es", "ru"].map(l => window.__bb.I18N[l].worldStars(7, 60)));
   expect(I).toEqual(["⭐ 7/60", "⭐ 7/60", "⭐ 7/60"]);
@@ -181,7 +187,7 @@ test("the menu shows four worlds and switches between them", async ({ page }) =>
     await page.evaluate(l => window.__bb.setLang(l), lang);
     await frames(page);
     const names = await page.evaluate(() => window.__bb.worldCards.map(c => c.name));
-    expect(names).toEqual(lang === "es" ? ["Parque", "Escuela", "Playa", "Invierno"] : ["Парк", "Школа", "Пляж", "Зима"]);
+    expect(names).toEqual(lang === "es" ? ["Parque", "Cancha", "Ciudad", "Escuela", "Playa", "Invierno"] : ["Парк", "Футбольное поле", "Город", "Школа", "Пляж", "Зима"]);
   }
 });
 
@@ -200,6 +206,45 @@ test("the menu shows the selected level's type and it fits", async ({ page }) =>
       expect(overlap, `${lang}: "${want}" overlaps button ${q.id}`).toBe(false);
     }
   }
+});
+
+// ---------- SPEC-016 AC 1: the worlds follow Kostya's story ----------
+test("worlds follow the story order", { tag: "@fast" }, async ({ levelPage: page }) => {
+  const r = await page.evaluate(() => {
+    const b = window.__bb;
+    const out = { worlds: b.WORLDS, main: b.MAIN_WORLDS, bonus: b.BONUS_WORLDS, seed: b.WORLD_SEED, diff: b.CFG.WORLD_DIFFICULTY,
+      names: ["en", "es", "ru"].map(l => b.I18N[l].worlds), progressWorlds: Object.keys(b.progress.worlds) };
+    if (typeof b.bonusUnlocked !== "function") return out;
+    // bonusUnlocked(): every level of every main world won (the progress is put back after)
+    const keep = JSON.parse(JSON.stringify(b.progress));
+    const won = (a, z) => ({ unlocked: 20, stars: {}, won: Object.fromEntries(Array.from({ length: z - a + 1 }, (_, i) => [a + i, true])) });
+    const allMain = Object.fromEntries(b.MAIN_WORLDS.map(w => [w, won(1, 20)]));
+    try {
+      b.setProgress(null); out.fresh = b.bonusUnlocked();
+      b.setProgress({ worlds: allMain }); out.allMain = b.bonusUnlocked();
+      b.setProgress({ worlds: { ...allMain, city: won(1, 19) } }); out.cityShort = b.bonusUnlocked();
+      b.setProgress({ worlds: { ...allMain, field: won(2, 20) } }); out.fieldShort = b.bonusUnlocked();
+      // stars count as won (old saves), so all stars everywhere opens them too
+      b.setProgress({ worlds: Object.fromEntries(b.MAIN_WORLDS.map(w => [w, { unlocked: 20, stars: Object.fromEntries(Array.from({ length: 20 }, (_, i) => [i + 1, 1])) }])) });
+      out.allStars = b.bonusUnlocked();
+      // the four SPEC-006 worlds all won: Field and City are new, so the bonus worlds stay locked
+      b.setProgress({ worlds: { park: won(1, 20), school: won(1, 20), beach: won(1, 20), winter: won(1, 20) } }); out.oldFour = b.bonusUnlocked();
+    } finally { b.setProgress(keep); }
+    return out;
+  });
+  expect(r.main).toEqual(MAIN_WORLDS);
+  expect(r.bonus).toEqual(BONUS_WORLDS);
+  expect(r.worlds).toEqual(["park", "field", "city", "school", "beach", "winter"]);
+  expect(r.progressWorlds).toEqual(WORLDS);
+  // seeds keyed by the name: the four old worlds keep 1–4 (their maps), the new ones get 5 and 6
+  expect(r.seed).toEqual({ park: 1, school: 2, beach: 3, winter: 4, field: 5, city: 6 });
+  expect(r.diff).toEqual(DIFFICULTY);
+  expect(r.names).toEqual([
+    { park: "Park", field: "Football field", city: "City", school: "School", beach: "Beach", winter: "Winter" },
+    { park: "Parque", field: "Cancha", city: "Ciudad", school: "Escuela", beach: "Playa", winter: "Invierno" },
+    { park: "Парк", field: "Футбольное поле", city: "Город", school: "Школа", beach: "Пляж", winter: "Зима" }]);
+  expect({ fresh: r.fresh, allMain: r.allMain, cityShort: r.cityShort, fieldShort: r.fieldShort, allStars: r.allStars, oldFour: r.oldFour })
+    .toEqual({ fresh: false, allMain: true, cityShort: false, fieldShort: false, allStars: true, oldFour: false });
 });
 
 // ---------- SPEC-006 AC 2: level 1 is the kids' drawing everywhere ----------
@@ -231,7 +276,7 @@ test("maps are fixed and differ between worlds", async ({ levelPage: page }) => 
       b.world = W[(W.indexOf(w) + 1) % W.length]; b.level = n === 20 ? 1 : n + 1; b.startGame(1);   // another level running in between
       same.push({ key: `${w}:${n}`, gen: a === JSON.stringify(b.generateLevel(w, n, 0)), gen3: a3 === JSON.stringify(b.generateLevel(w, n, 3)), report: ra === strip(b.levelReport(w, n)) });
     }
-    // the four worlds' level n (as the game accepts it) are four different maps
+    // the six worlds' level n (as the game accepts it) are six different maps
     const differ = [];
     for (let n = 2; n <= 20; n++) {
       const maps = W.map(w => JSON.stringify(b.generateLevel(w, n, b.levelReport(w, n).attempt).items));
@@ -240,26 +285,36 @@ test("maps are fixed and differ between worlds", async ({ levelPage: page }) => 
     return { same, differ };
   }, WORLDS);
   for (const x of r.same) expect(x, x.key).toEqual({ key: x.key, gen: true, gen3: true, report: true });
-  for (const x of r.differ) expect(x, `level ${x.n} in the four worlds`).toEqual({ n: x.n, distinct: 4 });
+  for (const x of r.differ) expect(x, `level ${x.n} in the six worlds`).toEqual({ n: x.n, distinct: 6 });
 });
 
 // "The same level always builds the same map" also across releases (the kids' rule: stars stay meaningful).
-// A change here must be deliberate: regenerate tests/fixtures/levels-worlds.json and say why in the commit.
-test("the 80 levels are the same maps as when they were made", { tag: "@fast" }, async ({ levelPage: page }) => {
+// A change here must be deliberate: regenerate the fixture and say why in the commit.
+// SPEC-016: tests/fixtures/levels-worlds.json (made at SPEC-006) still pins the 80 levels of Park, School, Beach and Winter —
+// the story order must not change a map a child already played; tests/fixtures/levels-field-city.json pins the 40 levels of
+// the Football field and the City (made once at SPEC-016 by this same evaluate).
+test("old worlds keep their maps", { tag: "@fast" }, async ({ levelPage: page }) => {
   test.setTimeout(120_000);
-  const want = JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures", "levels-worlds.json"), "utf8"));
+  const fixture = name => { const f = path.join(__dirname, "fixtures", name); return fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, "utf8")) : null; };
+  const old = fixture("levels-worlds.json"), fresh = fixture("levels-field-city.json");
   const r = await page.evaluate(W => {
     const b = window.__bb, out = {};
     const fnv = s => { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; } return h.toString(16).padStart(8, "0"); };
     for (const w of W) for (let n = 1; n <= 20; n++) { const q = b.levelReport(w, n); out[`${w}:${n}`] = { type: q.type, attempt: q.attempt, hash: fnv(JSON.stringify(b.generateLevel(w, n, q.attempt))) }; }
     return out;
   }, WORLDS);
-  expect(r).toEqual(want);
+  const of = ws => Object.fromEntries(Object.entries(r).filter(([k]) => ws.includes(k.split(":")[0])));
+  expect(Object.keys(r).length).toBe(120);
+  expect(Object.keys(old).length, "levels-worlds.json: the 80 SPEC-006 levels").toBe(80);
+  expect(of(OLD_WORLDS)).toEqual(old);
+  expect(fresh, "tests/fixtures/levels-field-city.json exists").not.toBeNull();
+  expect(Object.keys(fresh).length, "levels-field-city.json: 40 levels").toBe(40);
+  expect(of(NEW_WORLDS)).toEqual(fresh);
 });
 
-// ---------- SPEC-006 AC 4: fairness for all 80 levels (replaces the 1–60 test) ----------
-test("all 80 levels are fair and build fast", async ({ levelPage: page }) => {
-  test.setTimeout(120_000);
+// ---------- SPEC-006 AC 4: fairness for every level (SPEC-016 AC 3: 6 worlds × 20 = 120) ----------
+test("all 120 levels are fair", async ({ levelPage: page }) => {
+  test.setTimeout(180_000);
   const r = await page.evaluate(W => {
     const b = window.__bb;
     b.world = "park"; b.level = 1; b.startGame(1);
@@ -279,7 +334,7 @@ test("all 80 levels are fair and build fast", async ({ levelPage: page }) => {
   }, WORLDS);
   for (const d of r.retried) test.info().annotations.push({ type: "timing retry", description: d });
   expect(r.untouched).toBe(true);   // the running game's world is left as it was
-  expect(r.out.length).toBe(80);
+  expect(r.out.length).toBe(120);
   const bad = [];
   for (const x of r.out) {
     const why = [];
@@ -327,7 +382,7 @@ test("the Big One gets faster inside a world and never outruns a player", async 
     b.big.hp = 1; game.park20 = { lastHeart: b.bigSpeeds() };
     return { d, cfg, game };
   }, WORLDS);
-  const START = [0, 5, 10, 15], PER = 1.2, MAX = 0.95 * 150;
+  const START = [0, 5, 10, 15, 18], PER = 1.2, MAX = 0.95 * 150;   // SPEC-016: start by the difficulty index
   expect(r.cfg.start).toEqual(START);
   expect(r.cfg.per).toBe(PER);
   expect(r.cfg.max).toBeCloseTo(MAX, 6);                  // 142.5, from PLAYER_SPEED
@@ -336,7 +391,8 @@ test("the Big One gets faster inside a world and never outruns a player", async 
   expect(r.cfg.shortStart).toBe(5);
   // the formulas
   const soft = softly();   // SPEC-018: checks in the loop are collected, asserted once below
-  WORLDS.forEach((w, wi) => {
+  WORLDS.forEach(w => {
+    const wi = DIFFICULTY[w];
     for (let n = 1; n <= 20; n++) {
       const x = r.d[w][n - 1], boost = START[wi] + (n - 1) * PER, at = `${w} ${n}`;
       soft(Object.keys(x).sort(), at).toEqual(["boost", "chase", "hearts", "patrol", "search"]);
@@ -350,11 +406,11 @@ test("the Big One gets faster inside a world and never outruns a player", async 
       if (n > 1) soft(x.hearts, `${at}: fewer hearts than the level before`).toBeGreaterThanOrEqual(r.d[w][n - 2].hearts);   // SPEC-008 AC 7
     }
   });
-  // the spec's numbers
-  expect(WORLDS.map(w => r.d[w][0].chase)).toEqual([112, 117, 122, 127]);
+  // the spec's numbers (SPEC-016: park, field, city, school, beach, winter)
+  expect(WORLDS.map(w => r.d[w][0].chase)).toEqual([112, 117, 122, 127, 127, 130]);
   expect(r.d.park[19].chase).toBeCloseTo(134.8, 6);
-  expect(r.d.winter[19].chase).toBeCloseTo(MAX, 6);       // 149.8 before the cap
-  expect(WORLDS.map(w => [r.d[w][0].hearts, r.d[w][19].hearts])).toEqual([[6, 10], [7, 11], [8, 12], [9, 12]]);
+  expect(r.d.winter[19].chase).toBeCloseTo(MAX, 6);       // 152.8 before the cap
+  expect(WORLDS.map(w => [r.d[w][0].hearts, r.d[w][19].hearts])).toEqual([[6, 10], [7, 11], [8, 12], [9, 12], [9, 12], [10, 12]]);
   // level 20 is harder than level 1 in every world; every world starts below the previous world's level 20
   WORLDS.forEach((w, wi) => {
     const first = r.d[w][0], last = r.d[w][19];
@@ -366,8 +422,8 @@ test("the Big One gets faster inside a world and never outruns a player", async 
   });
   soft.done();
   // in the game
-  expect(r.game.school5.maxHp).toBe(8);
-  expect(r.game.school5.hp).toBe(8);
+  expect(r.game.school5.maxHp).toBe(10);                  // SPEC-016: School is difficulty 3 (6 + 1 + 3)
+  expect(r.game.school5.hp).toBe(10);
   expect(r.game.school5.speeds.chase).toBeCloseTo(r.d.school[4].chase, 6);
   expect(r.game.school5.speeds.patrol).toBeCloseTo(r.d.school[4].patrol, 6);
   expect(r.game.winter20.maxHp).toBe(12);
@@ -377,7 +433,7 @@ test("the Big One gets faster inside a world and never outruns a player", async 
     expect(s.chase).toBeCloseTo(MAX, 6);                  // capped (with 11 hearts of anger: far above before the cap)
     expect(s.search).toBeLessThanOrEqual(MAX + 1e-9);
   }
-  expect(r.game.winter20.lastHeart.patrol).toBeCloseTo(70 + (15 + 19 * PER + 11 * 4) / 2, 6);   // patrol + half of the boost, as before (under the cap)
+  expect(r.game.winter20.lastHeart.patrol).toBeCloseTo(70 + (18 + 19 * PER + 11 * 4) / 2, 6);   // patrol + half of the boost, as before (under the cap)
 
   // the real movement: an angry Big One at the last heart of Winter 20 runs no faster than the ceiling
   const run = await page.evaluate(() => {
@@ -410,6 +466,61 @@ test("the Big One gets faster inside a world and never outruns a player", async 
   expect(run.state).toBe("chase");
   expect(run.moved / run.T, "real speed at most the ceiling").toBeLessThanOrEqual(MAX + 0.5);
   expect(run.moved / run.T, "real speed close to the ceiling").toBeGreaterThan(MAX * 0.9);
+});
+
+// ---------- SPEC-016 AC 4: the difficulty index follows the story ----------
+// Speeds, hearts, coins and the fast-star time use CFG.WORLD_DIFFICULTY (park 0, field 1, city 2, school 3, beach 3, winter 4),
+// not the world's place in WORLDS; the balance script's fast-star target and autopilot seeds follow too.
+test("difficulty follows the story order", async ({ levelPage: page }) => {
+  const r = await page.evaluate(W => {
+    const b = window.__bb, C = b.CFG, d = {}, reward = {};
+    for (const w of W) { d[w] = []; for (let n = 1; n <= 20; n++) d[w].push(b.difficulty(w, n)); }
+    const out = { d, start: C.WORLD_SPEED_START, diff: C.WORLD_DIFFICULTY, hasHelper: typeof b.worldDifficulty === "function", hasTarget: typeof b.fastTarget === "function",
+      R: { ...b.REWARD }, fastPer: C.FAST_PER_WORLD, fast5: C.FAST_TIME(5) };
+    if (out.hasHelper) out.index = Object.fromEntries(W.map(w => [w, b.worldDifficulty(w)]));
+    if (out.hasTarget) out.target = Object.fromEntries(W.map(w => [w, b.fastTarget(w, 5)]));
+    // the reward of a first win of level 5 in every world: its base and the fast-star time (the progress is put back after)
+    const keep = JSON.parse(JSON.stringify(b.progress));
+    try {
+      for (const w of W) {
+        b.setProgress(null); b.world = w; b.level = 5; b.startGame(1);
+        Object.assign(b.stats, { playerHugs: 0, rests: 0, time: 9999, starCoins: 0 });
+        b.giveReward(true); b.mode = "menu";
+        reward[w] = { base: b.lastReward.base, target: b.lastReward.target };
+      }
+    } finally { b.setProgress(keep); b.world = "park"; b.level = 1; }
+    out.reward = reward;
+    return out;
+  }, WORLDS);
+  expect(r.diff).toEqual(DIFFICULTY);
+  expect(r.start).toEqual([0, 5, 10, 15, 18]);
+  expect(r.hasHelper, "__bb.worldDifficulty").toBe(true);
+  expect(r.index).toEqual(DIFFICULTY);
+  // coins and the fast star by the index: Beach pays like the School, Winter one step more
+  const base = w => r.R.BASE + r.R.PER_LEVEL * 5 + r.R.PER_WORLD * DIFFICULTY[w], target = w => r.fast5 + DIFFICULTY[w] * r.fastPer;
+  expect(r.reward).toEqual(Object.fromEntries(WORLDS.map(w => [w, { base: base(w), target: target(w) }])));
+  expect(r.hasTarget, "__bb.fastTarget").toBe(true);
+  expect(r.target).toEqual(Object.fromEntries(WORLDS.map(w => [w, target(w)])));
+  expect(WORLDS.map(w => r.reward[w].target)).toEqual([135, 145, 155, 165, 165, 175]);
+  const soft = softly(), harder = (a, z) => a.chase <= z.chase && a.hearts <= z.hearts && a.boost <= z.boost;
+  // every main world's level 1 is easier than the previous main world's level 20
+  for (const [prev, w] of [["park", "field"], ["field", "city"], ["city", "school"]]) {
+    const first = r.d[w][0], last = r.d[prev][19];
+    soft(first.chase < last.chase && first.hearts < last.hearts, `${w} 1 easier than ${prev} 20`).toBe(true);
+  }
+  // the bonus worlds: Beach as hard as the School or harder, Winter at least as hard as the Beach, level by level
+  for (let n = 1; n <= 20; n++) {
+    soft(harder(r.d.school[n - 1], r.d.beach[n - 1]), `beach ${n} ≥ school ${n}`).toBe(true);
+    soft(harder(r.d.beach[n - 1], r.d.winter[n - 1]), `winter ${n} ≥ beach ${n}`).toBe(true);
+  }
+  soft(r.d.winter[0].chase > r.d.beach[0].chase, "winter 1 faster than beach 1").toBe(true);
+  soft.done();
+  // scripts/balance.js: the autopilot seeds are keyed by WORLD_SEED (the old worlds keep their seeds: 100003 × (old place + 1) + …)
+  const { economyPlan } = require("../scripts/balance.js");
+  const B = { ECONOMY: { REPLAY: [], UPG_EVERY: 20, UPG_EXTRA: ["none", 0, 0] } };
+  const seeds = { park: 1, school: 2, beach: 3, winter: 4, field: 5, city: 6 };
+  const plan = economyPlan([], B, WORLDS, 20, [["fastFeet", 3]], seeds);
+  expect(plan.upgrades.map(j => [j.world, j.seed])).toEqual(WORLDS.map(w => [w, 100003 * seeds[w] + 1009 * 20 + 1]));
 });
 
 // Every level of one type in all four worlds as the game accepts it: the fairness report and the accepted map (report.attempt).

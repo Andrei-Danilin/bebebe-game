@@ -960,9 +960,10 @@ for (const [vw, vh] of PHONE_SIZES) {
           expect(L.size * d.ui.scale).toBeGreaterThanOrEqual(15 - 0.01);
           for (const q of d.buttons) if (overlaps(L, q)) fails.push(`${label}: type label on ${q.id || q.text}`);
           expect(d.buttons.map(q => q.text)).toEqual(expect.arrayContaining(["◀"]));
-          // SPEC-006: four world cards, each a button of at least 44×44 CSS px (checked above), the type label under them
+          // SPEC-006: the world cards (SPEC-016: six, in the story order), each a button of at least 44×44 CSS px (checked above),
+          // the type label under them
           const cards = d.buttons.filter(q => String(q.id).startsWith("world:"));
-          expect(cards.map(q => q.id), label).toEqual(["world:park", "world:school", "world:beach", "world:winter"]);
+          expect(cards.map(q => q.id), label).toEqual(["world:park", "world:field", "world:city", "world:school", "world:beach", "world:winter"]);
           expect(L.y, `${label}: type label under the world cards`).toBeGreaterThanOrEqual(Math.max(...cards.map(q => q.y + q.h)));
         }
         if (name === "shop") expect(d.buttons.map(q => q.id)).toEqual(expect.arrayContaining(["buy:mittens", "buy:mega", "buy:kisses", "buy:rescues"]));

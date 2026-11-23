@@ -65,6 +65,16 @@
             "12": true
           }
         },
+        "field": {
+          "unlocked": 1,
+          "stars": {},
+          "won": {}
+        },
+        "city": {
+          "unlocked": 1,
+          "stars": {},
+          "won": {}
+        },
         "school": {
           "unlocked": 1,
           "stars": {},

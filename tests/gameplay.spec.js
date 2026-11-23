@@ -194,7 +194,7 @@ test("worlds unlock their own levels", async ({ page }) => {
   await page.waitForFunction(() => window.__bbReady === true);
   expect(await page.evaluate(() => [window.__bb.mode, window.__bb.world, window.__bb.level])).toEqual(["menu", "park", 1]);
   const start = await page.evaluate(() => JSON.parse(JSON.stringify(window.__bb.progress)));
-  expect(Object.keys(start.worlds)).toEqual(["park", "school", "beach", "winter"]);
+  expect(Object.keys(start.worlds)).toEqual(["park", "field", "city", "school", "beach", "winter"]);   // SPEC-016: the story order
   for (const w of Object.keys(start.worlds)) expect(start.worlds[w], w).toEqual({ unlocked: 1, stars: {}, won: {} });   // every world open from the start
   expect(start.lastWorld).toBe("park");
   expect("unlocked" in start || "stars" in start).toBe(false);
@@ -208,7 +208,7 @@ test("worlds unlock their own levels", async ({ page }) => {
   const p = await page.evaluate(() => ({ progress: window.__bb.progress, world: window.__bb.world, level: window.__bb.level }));
   expect(p.progress.worlds.school.unlocked).toBe(2);
   expect(p.progress.worlds.school.stars["1"]).toBeGreaterThanOrEqual(1);
-  for (const w of ["park", "beach", "winter"]) expect(p.progress.worlds[w], w).toEqual({ unlocked: 1, stars: {}, won: {} });
+  for (const w of ["park", "field", "city", "beach", "winter"]) expect(p.progress.worlds[w], w).toEqual({ unlocked: 1, stars: {}, won: {} });
   expect(p.progress.lastWorld).toBe("school");
   expect([p.world, p.level]).toEqual(["school", 2]);   // the menu opens on the last world, at its newest level
   // the menu's level arrows move inside the current world's open levels
@@ -228,7 +228,7 @@ test("the reward grows with the world", async ({ page }) => {
     const win = (w, n, st) => { b.world = w; b.level = n; b.startGame(1); Object.assign(b.stats, st); b.giveReward(true); return { ...b.lastReward }; };
     const quick = { time: 10, rests: 0, playerHugs: 2, starCoins: 3 };
     out.park = win("park", 5, quick); out.winter = win("winter", 5, quick);
-    // 150 s: too slow for Park 5 (135 s), still fast in Winter 5 (165 s)
+    // 150 s: too slow for Park 5 (135 s), still fast in Winter 5 (175 s: difficulty 4, SPEC-016)
     out.parkSlow = win("park", 5, { ...quick, time: 150 }); out.winterSlow = win("winter", 5, { ...quick, time: 150 });
     // many rests: the first-win floor, then the new stars, star coins and hugs on top
     out.floor = win("school", 5, { ...quick, rests: 30 });
@@ -236,17 +236,17 @@ test("the reward grows with the world", async ({ page }) => {
     out.R = { ...b.REWARD };
     return out;
   });
-  const R = r.R, base = w => R.BASE + R.PER_LEVEL * 5 + R.PER_WORLD * w;
+  const R = r.R, base = w => R.BASE + R.PER_LEVEL * 5 + R.PER_WORLD * w;   // w — the difficulty index (SPEC-016: Winter 4)
   expect(r.cfg.fastPerWorld).toBe(10);
   // SPEC-009: each run is a first win (its own world): base + 3 new stars + 2 hugs, then + 3 star coins
   expect(r.park.coins).toBe(base(0) + 3 * R.NEW_STAR + 2 * R.PER_HUG + 3);
-  expect(r.winter.coins).toBe(base(3) + 3 * R.NEW_STAR + 2 * R.PER_HUG + 3);
-  expect(r.winter.coins - r.park.coins).toBe(3 * r.cfg.perWorld);
-  expect([r.park.target, r.winter.target]).toEqual([135, 165]);   // FAST_TIME(n) + w × 10 s
+  expect(r.winter.coins).toBe(base(4) + 3 * R.NEW_STAR + 2 * R.PER_HUG + 3);
+  expect(r.winter.coins - r.park.coins).toBe(4 * r.cfg.perWorld);
+  expect([r.park.target, r.winter.target]).toEqual([135, 175]);   // FAST_TIME(n) + difficulty × 10 s
   expect([r.parkSlow.fast, r.winterSlow.fast]).toEqual([false, true]);
   // the slow runs are replays of those levels: half the base, no new star (all 3 were earned the first time)
   expect(r.parkSlow.parts[0]).toEqual({ reason: "replay", amount: Math.floor(base(0) / 2) });
-  expect(r.winterSlow.coins - r.parkSlow.coins).toBe(Math.floor(base(3) / 2) - Math.floor(base(0) / 2));
+  expect(r.winterSlow.coins - r.parkSlow.coins).toBe(Math.floor(base(4) / 2) - Math.floor(base(0) / 2));
   expect(r.floor.coins).toBe(R.FIRST_MIN + 2 * R.NEW_STAR + 2 * R.PER_HUG + 3);   // floor + 2 new stars (fast, no nobody-out) + hugs + star coins
 });
 
@@ -273,12 +273,13 @@ test("winning level 20 finishes the world", async ({ page }) => {
   expect(end.buttons).toContain("toMenu");
   expect(end.unlocked).toBe(20);
   // the texts in every language
-  const I = await page.evaluate(() => { const I = window.__bb.I18N; return ["en", "es", "ru"].map(l => [I[l].worlds, I[l].worldDone(I[l].worlds.school, "school"), I[l].worldDone(I[l].worlds.park, "park"), I[l].worldDone(I[l].worlds.winter, "winter"), I[l].worldDone(I[l].worlds.beach, "beach")]); });
-  expect(I[0][0]).toEqual({ park: "Park", school: "School", beach: "Beach", winter: "Winter" });
-  expect(I[1][0]).toEqual({ park: "Parque", school: "Escuela", beach: "Playa", winter: "Invierno" });
-  expect(I[2][0]).toEqual({ park: "Парк", school: "Школа", beach: "Пляж", winter: "Зима" });
+  const I = await page.evaluate(() => { const I = window.__bb.I18N; return ["en", "es", "ru"].map(l => [I[l].worlds, ...["school", "park", "winter", "beach", "field", "city"].map(w => I[l].worldDone(I[l].worlds[w], w))]); });
+  expect(I[0][0]).toEqual({ park: "Park", field: "Football field", city: "City", school: "School", beach: "Beach", winter: "Winter" });
+  expect(I[1][0]).toEqual({ park: "Parque", field: "Cancha", city: "Ciudad", school: "Escuela", beach: "Playa", winter: "Invierno" });
+  expect(I[2][0]).toEqual({ park: "Парк", field: "Футбольное поле", city: "Город", school: "Школа", beach: "Пляж", winter: "Зима" });
   expect(I.map(x => x[2])).toEqual(["You finished the Park!", "¡Terminaste Parque!", "Парк пройден!"]);
-  expect(I[2].slice(1)).toEqual(["Школа пройдена!", "Парк пройден!", "Зима пройдена!", "Пляж пройден!"]);   // the gender comes from the world key
+  // the gender comes from the world key (SPEC-016: the field is neuter)
+  expect(I[2].slice(1)).toEqual(["Школа пройдена!", "Парк пройден!", "Зима пройдена!", "Пляж пройден!", "Футбольное поле пройдено!", "Город пройден!"]);
   for (const lang of ["es", "ru"]) {
     await page.evaluate(l => window.__bb.setLang(l), lang);
     await frames(page);
@@ -655,7 +656,7 @@ test("old saves move into the Park", { tag: "@fast" }, async ({ page }) => {
   await page.evaluate(() => window.__bb.setName("p1", "Mila"));
   const p = await load({ unlocked: 23, stars: { 1: 3, 5: 2, 21: 1 }, coins: 140, inv, equip: ["mega", "mittens"] });
   expect(p.worlds.park).toEqual({ unlocked: 20, stars: { 1: 3, 5: 2 }, won: { 1: true, 5: true } });   // level 21 is dropped
-  for (const w of ["school", "beach", "winter"]) expect(p.worlds[w], w).toEqual({ unlocked: 1, stars: {}, won: {} });
+  for (const w of ["field", "city", "school", "beach", "winter"]) expect(p.worlds[w], w).toEqual({ unlocked: 1, stars: {}, won: {} });
   expect(p.coins).toBe(140);
   expect(p.inv).toEqual({ ...inv, rescues: 0 });      // SPEC-007: saves without rescue kits get 0
   expect(p.equip).toEqual(["mega", "mittens"]);
@@ -669,12 +670,13 @@ test("old saves move into the Park", { tag: "@fast" }, async ({ page }) => {
   expect(again.coins).toBe(140);
   // a save with neither worlds nor old levels gets the fresh structure
   const fresh = await loadSave(page, { coins: 7 });
-  for (const w of ["park", "school", "beach", "winter"]) expect(fresh.worlds[w], w).toEqual({ unlocked: 1, stars: {}, won: {} });
+  for (const w of ["park", "field", "city", "school", "beach", "winter"]) expect(fresh.worlds[w], w).toEqual({ unlocked: 1, stars: {}, won: {} });
   expect(fresh.coins).toBe(7);
   expect(fresh.lastWorld).toBe("park");
   // a save with worlds merges with the defaults; broken values never throw
   const part = await loadSave(page, { coins: 3, lastWorld: "moon", worlds: { beach: { unlocked: 7, stars: { 2: 3, 30: 2 } }, winter: "junk", school: { unlocked: 99 } } });
-  expect(part.worlds).toEqual({ park: { unlocked: 1, stars: {}, won: {} }, school: { unlocked: 20, stars: {}, won: {} }, beach: { unlocked: 7, stars: { 2: 3 }, won: { 2: true } }, winter: { unlocked: 1, stars: {}, won: {} } });
+  expect(part.worlds).toEqual({ park: { unlocked: 1, stars: {}, won: {} }, field: { unlocked: 1, stars: {}, won: {} }, city: { unlocked: 1, stars: {}, won: {} },
+    school: { unlocked: 20, stars: {}, won: {} }, beach: { unlocked: 7, stars: { 2: 3 }, won: { 2: true } }, winter: { unlocked: 1, stars: {}, won: {} } });
   expect(part.lastWorld).toBe("park");
   expect((await loadSave(page, { coins: 1, lastWorld: "winter" })).lastWorld).toBe("winter");
   // a stale page wrote both worlds and the old flat fields: the flat ones merge into the Park (higher unlocked, best stars), then go away

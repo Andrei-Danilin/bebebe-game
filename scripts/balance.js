@@ -22,7 +22,7 @@ function runLevel({ world, n, style, seed, progress = null }) {
   b.autopilot(true, style); b.seedRandom(seed);
   b.world = world; b.level = n; b.startGame(1);
   const res = b.simRun(B.TIME_LIMIT, B.SIM_DT);
-  const ev = b.events, lr = b.lastReward, wi = b.WORLDS.indexOf(world);
+  const ev = b.events, lr = b.lastReward;
   const count = (type, f = () => true) => ev.filter(e => e.type === type && f(e)).length;
   const coins = ev.filter(e => e.type === "coins").map(({ t, reason, amount }) => ({ t, reason, amount }));
   let maxGap = 0, last = 0;                             // the longest stretch of game time without any event (stuck?)
@@ -30,7 +30,7 @@ function runLevel({ world, n, style, seed, progress = null }) {
   maxGap = Math.max(maxGap, res.time - last);
   const out = {
     world, n, type: b.levelType(world, n), style, seed, win: res.win, ended: res.ended, time: res.time,
-    target: b.CFG.FAST_TIME(n) + wi * b.CFG.FAST_PER_WORLD,
+    target: b.fastTarget(world, n),                     // SPEC-016: by the world's difficulty index, as the game's third star
     hugs: count("hug"), playerHugs: count("hug", e => e.kind === "player"), pushes: count("push"), falls: count("down"), playerFalls: count("down", e => e.kind === "player"),
     rescues: count("rescued"), rests: count("rest"), kits: count("kit"), kisses: count("kiss"), bonusStars: count("star"),
     items: count("item"), slips: count("slip"), thrownOut: count("thrownOut"),
@@ -41,8 +41,9 @@ function runLevel({ world, n, style, seed, progress = null }) {
   return out;
 }
 
-// A fixed seed per (world, level, k): the same report on every machine
-const seedOf = (wi, n, k) => 100003 * (wi + 1) + 1009 * n + 7 * k + 1;
+// A fixed seed per (world, level, k): the same report on every machine. ws = the world's WORLD_SEED (SPEC-016: keyed by
+// the name, so Park/School/Beach/Winter keep the seeds they had as places 0–3 in the list)
+const seedOf = (ws, n, k) => 100003 * ws + 1009 * n + 7 * k + 1;
 
 // ---------- statistics ----------
 const median = a => { if (!a.length) return null; const s = a.slice().sort((x, y) => x - y), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
@@ -137,17 +138,17 @@ function analyse(runs, B, worlds, perWorld) {
 // ---------- SPEC-009 AC 7–8: the economy ----------
 // The extra passes, built from the first pass: a replay of each E.REPLAY level (seed 0) with that level already won at the
 // stars its seed-0 run got; every E.UPG_EVERY-th level and the E.UPG_EXTRA levels (seed 0) with every upgrade maxed.
-function economyPlan(runs, B, worlds, perWorld, upgradeKeys) {
+function economyPlan(runs, B, worlds, perWorld, upgradeKeys, seeds) {
   const E = B.ECONOMY, replay = [], upgrades = [];
   for (const [w, a, z] of E.REPLAY) for (let n = a; n <= z; n++) {
-    const seed = seedOf(worlds.indexOf(w), n, 0), first = runs.find(r => r.style === "careful" && r.world === w && r.n === n && r.seed === seed);
+    const seed = seedOf(seeds[w], n, 0), first = runs.find(r => r.style === "careful" && r.world === w && r.n === n && r.seed === seed);
     if (!first || !first.win) continue;                // a level its first run did not win has nothing to replay
     replay.push({ world: w, n, style: "careful", seed, progress: { worlds: { [w]: { unlocked: Math.min(perWorld, n + 1), stars: { [n]: first.stars }, won: { [n]: true } } } } });
   }
   const maxed = Object.fromEntries(upgradeKeys), [xw, xa, xz] = E.UPG_EXTRA;
   for (const w of worlds) for (let n = 1; n <= perWorld; n++) {
     if (n % E.UPG_EVERY !== 0 && !(w === xw && n >= xa && n <= xz)) continue;
-    upgrades.push({ world: w, n, style: "careful", seed: seedOf(worlds.indexOf(w), n, 0), progress: { upgrades: maxed } });
+    upgrades.push({ world: w, n, style: "careful", seed: seedOf(seeds[w], n, 0), progress: { upgrades: maxed } });
   }
   return { replay, upgrades };
 }
@@ -273,19 +274,19 @@ async function main() {
   try {
     const page = await browser.newPage();
     const errors = await openSim(page);                  // like the tests: from disk, three.js from node_modules, strict rng guard
-    const { B, worlds, perWorld, prices, upgradeKeys } = await page.evaluate(() => {
+    const { B, worlds, seeds, perWorld, prices, upgradeKeys } = await page.evaluate(() => {
       const b = window.__bb, U = b.UPGRADES;
-      return { B: JSON.parse(JSON.stringify(b.CFG.BALANCE)), worlds: b.WORLDS, perWorld: b.levelsPerWorld(),
+      return { B: JSON.parse(JSON.stringify(b.CFG.BALANCE)), worlds: b.WORLDS, seeds: { ...b.WORLD_SEED }, perWorld: b.levelsPerWorld(),
         // SPEC-009: the prices the pace targets are measured in, and the top level of each upgrade
         prices: { cheapest: Math.min(...b.shopCards().map(c => c.price)), mega: b.GLOVES.mega.price, top: Math.max(...b.WARDROBE_TIERS),
           upgrades: Object.values(U).reduce((s, u) => s + u.prices.reduce((x, y) => x + y, 0), 0) },
         upgradeKeys: Object.entries(U).map(([k, u]) => [k, u.prices.length]) };
     });
     const plan = [];
-    worlds.forEach((w, wi) => {
+    worlds.forEach(w => {
       for (let n = 1; n <= perWorld; n++) {
-        for (let k = 0; k < B.SEEDS; k++) plan.push({ world: w, n, style: "careful", seed: seedOf(wi, n, k) });
-        if (n % B.RECKLESS_EVERY === 0) plan.push({ world: w, n, style: "reckless", seed: seedOf(wi, n, 0) });
+        for (let k = 0; k < B.SEEDS; k++) plan.push({ world: w, n, style: "careful", seed: seedOf(seeds[w], n, k) });
+        if (n % B.RECKLESS_EVERY === 0) plan.push({ world: w, n, style: "reckless", seed: seedOf(seeds[w], n, 0) });
       }
     });
     const runs = [];
@@ -294,7 +295,7 @@ async function main() {
       if ((i + 1) % 40 === 0) process.stdout.write(`  ${i + 1}/${plan.length} runs, ${Math.round((Date.now() - t0) / 1000)} s\n`);
     }
     // SPEC-009: the replay pass and the maxed-upgrades pass
-    const extra = economyPlan(runs, B, worlds, perWorld, upgradeKeys), replayRuns = [], upgradeRuns = [];
+    const extra = economyPlan(runs, B, worlds, perWorld, upgradeKeys, seeds), replayRuns = [], upgradeRuns = [];
     for (const job of extra.replay) replayRuns.push({ ...(await page.evaluate(runLevel, job)), pass: "replay" });
     for (const job of extra.upgrades) upgradeRuns.push({ ...(await page.evaluate(runLevel, job)), pass: "upgrades" });
     if (errors.length) throw new Error("page errors:\n" + errors.join("\n"));
