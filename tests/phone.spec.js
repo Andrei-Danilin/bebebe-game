@@ -968,28 +968,36 @@ for (const [vw, vh] of PHONE_SIZES) {
         if (open) { if (!lines[4].includes("Bonus") && !lines[4].includes("Бонус")) fails.push(`${label}: no Bonus mark on the open Beach`); }
         else if (!/🔒/.test(lines[4].join(" ")) || !/🔒/.test(lines[5].join(" "))) fails.push(`${label}: locked bonus cards without 🔒`);
       }
-      // the one-time "Bonus worlds unlocked!" note on the win screen: inside the screen, off the buttons, readable
-      for (const lang of ["en", "es", "ru"]) {
-        await page.evaluate(l => {
+      // the one-time "Bonus worlds unlocked!" note on the win screen: inside the screen, off the buttons, readable — measured with
+      // the real font width and with a 15 % wider one (CFG.TEXT_TEST_SCALE, like CI's Linux fonts: the Spanish note was cut there)
+      for (const lang of ["en", "es", "ru"]) for (const fs of [1, 1.15]) {
+        await page.evaluate(([l, f]) => {
           const b = window.__bb, all = () => Object.fromEntries(Array.from({ length: 20 }, (_, i) => [i + 1, true]));
           b.setProgress(null); b.setLang(l);
           for (const w of b.MAIN_WORLDS) Object.assign(b.progress.worlds[w], { unlocked: 20, won: all() });
           delete b.progress.worlds.city.won[20];
           b.world = "city"; b.level = 20; b.startGame(1);
           Object.assign(b.stats, { playerHugs: 2, rests: 1, time: 9999, starCoins: 3 }); b.giveReward(true); b.mode = "win";
-        }, lang);
+          b.CFG.TEXT_TEST_SCALE = f;
+        }, [lang, fs]);
         await frames(page);
-        const w = await page.evaluate(() => ({ note: window.__bb.bonusNote, buttons: window.__bb.buttonRects, hud: window.__bb.hudRects, ui: window.__bb.uiSize }));
-        const label = `${vw}×${vh} ${lang} win`;
+        const w = await page.evaluate(() => {
+          const b = window.__bb, n = b.bonusNote, c = document.createElement("canvas").getContext("2d");
+          let textW = 0;
+          if (n) { c.font = `900 ${n.size}px system-ui, "Segoe UI", sans-serif`; textW = c.measureText(n.text).width * b.CFG.TEXT_TEST_SCALE; }
+          return { note: n, textW, buttons: b.buttonRects, hud: b.hudRects, ui: b.uiSize, panel: b.winPanel };
+        });
+        const label = `${vw}×${vh} ${lang} win font ×${fs}`;
         if (!w.note) { fails.push(`${label}: no bonus note`); continue; }
         const n = w.note;
         if (!(n.x >= 0 && n.y >= 0 && n.x + n.w <= w.ui.w && n.y + n.h <= w.ui.h)) fails.push(`${label}: note outside the screen ${JSON.stringify(n)}`);
-        if (n.textW > n.w + 0.5) fails.push(`${label}: note text ${n.textW} wider than its box ${n.w}`);
+        if (w.textW > n.w + 0.5) fails.push(`${label}: note text ${w.textW.toFixed(1)} wider than its box ${n.w.toFixed(1)}`);
+        if (w.panel && overlaps(n, w.panel)) fails.push(`${label}: note on the reward lines`);
         if (n.size * w.ui.scale < minText.main - 0.01) fails.push(`${label}: note text ${n.size * w.ui.scale} CSS px`);
         for (const q of w.buttons) if (overlaps(n, q)) fails.push(`${label}: note on button ${q.id || q.text}`);
         for (const q of w.hud) if (q.id !== "bonus-note" && overlaps(n, q)) fails.push(`${label}: note on ${q.id}`);
       }
-      await page.evaluate(() => { const b = window.__bb; b.mode = "menu"; b.setProgress(null); b.setLang("en"); b.world = "park"; b.level = 1; });
+      await page.evaluate(() => { const b = window.__bb; b.CFG.TEXT_TEST_SCALE = 1; b.mode = "menu"; b.setProgress(null); b.setLang("en"); b.world = "park"; b.level = 1; });
       expect(fails).toEqual([]);
     });
 
@@ -1137,7 +1145,7 @@ function measureBanner(page, lang, pos, fontScale) {
     let textW = 0;
     if (r) { ctx.font = `900 ${r.size}px system-ui, "Segoe UI", sans-serif`; textW = ctx.measureText(r.text).width * b.CFG.TEXT_TEST_SCALE; }
     return { ui: b.uiSize, banner: r, textW, hero: { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }, feet,
-      mm: b.minimap, hud: b.hudRects, buttons: b.buttonRects, mode: b.mode, fullText: b.banner && b.banner.text, shortText: b.banner && b.banner.short,
+      mm: b.minimap, hud: b.hudRects, buttons: b.buttonRects, mode: b.mode, fullText: b.banner && b.banner.text, shortText: b.banner && b.banner.short, tinyText: b.banner && b.banner.tiny,
       state: { t: b.banner && b.banner.t, alpha: b.bannerAlpha(), time: b.stats.time } };
   }, [lang, pos, fontScale]);
 }
@@ -1150,7 +1158,8 @@ function bannerProblems(d, pos) {
   check(B.x >= -0.01 && B.y >= -0.01 && B.x + B.w <= d.ui.w + 0.01 && B.y + B.h <= d.ui.h + 0.01, "inside the screen");
   check(B.size * s >= 24 - 0.01, `text ${B.size * s} CSS px, under 24`);
   check(d.textW <= B.w + 0.5, `text ${d.textW.toFixed(1)} wider than the banner ${B.w.toFixed(1)}`);
-  check(B.text === (B.short ? d.shortText : d.fullText), `text "${B.text}" is not the ${B.short ? "short" : "full"} one`);
+  check(B.text === { full: d.fullText, short: d.shortText, tiny: d.tinyText }[B.variant], `text "${B.text}" is not the ${B.variant} one`);
+  check(B.short === (B.variant !== "full"), `short flag ${B.short} for the ${B.variant} text`);
   if (pos === "centre") check(Math.abs(d.feet.x - d.ui.w / 2) < d.ui.w * 0.2 && Math.abs(d.feet.y - d.ui.h / 2) < d.ui.h * 0.25, `hero not near the centre ${JSON.stringify(d.feet)}`);
   check(!overlaps(B, d.hero, pad), `closer than 8 CSS px to the hero ${JSON.stringify(d.hero)}`);
   check(!d.mm || !overlaps(B, d.mm, pad), "closer than 8 CSS px to the mini-map");
@@ -1203,7 +1212,8 @@ for (const [vw, vh] of PHONE_SIZES) {
 }
 
 // The short text and the skip: the font is made wider step by step until the full text fits nowhere and the short
-// one is used (levelIntroShort), then so wide that nothing fits: no banner at all, never a text spilling off its plate.
+// one is used (levelIntroShort), then (SPEC-016) the shortest one without the world (levelIntroTiny), then so wide that nothing
+// fits: no banner at all, never a text spilling off its plate. Also with the longest world name (Football field, Russian).
 test.describe("phone banner too wide", () => {
   test.use({ ...PHONE_CTX, viewport: { width: 667, height: 375 } });
 
@@ -1212,9 +1222,10 @@ test.describe("phone banner too wide", () => {
     const errors = page.sharedErrors;
     const fails = [];
     try {
-      await startBannerLevel(page, "park", 11);
-      for (const lang of ["en", "es", "ru"]) for (const pos of ["start", "centre"]) {
-        const label = `${lang} hero at ${pos}`;
+      for (const [world, n, langs] of [["park", 11, ["en", "es", "ru"]], ["field", 10, ["ru"]]]) {
+      await startBannerLevel(page, world, n);
+      for (const lang of langs) for (const pos of ["start", "centre"]) {
+        const label = `${world} ${n} ${lang} hero at ${pos}`;
         let short = null;
         for (let k = 1; k <= 2.5 && !short; k = Math.round((k + 0.05) * 100) / 100) {
           const d = await measureBanner(page, lang, pos, k);
@@ -1225,9 +1236,19 @@ test.describe("phone banner too wide", () => {
         expect(short.d.banner.text, label).toBe(short.d.shortText);
         expect(short.d.shortText, label).not.toBe(short.d.fullText);
         for (const p of bannerProblems(short.d, pos)) fails.push(`${label} font ×${short.k} (short): ${p} — banner ${JSON.stringify(short.d.banner)}`);
+        // SPEC-016: wider still — the shortest text (no world name) comes before the skip
+        let tiny = null;
+        for (let k = short.k; k <= 2.5 && !tiny; k = Math.round((k + 0.05) * 100) / 100) {
+          const d = await measureBanner(page, lang, pos, k);
+          if (!d.banner) { fails.push(`${label} font ×${k}: no banner before the shortest text was used`); break; }
+          if (d.banner.variant === "tiny") tiny = { k, d };
+        }
+        if (!tiny) fails.push(`${label}: the shortest text was never used`);
+        else for (const p of bannerProblems(tiny.d, pos)) fails.push(`${label} font ×${tiny.k} (tiny): ${p} — banner ${JSON.stringify(tiny.d.banner)}`);
         const d = await measureBanner(page, lang, pos, 3);
         expect(d.mode, label).toBe("play");
         if (d.banner) fails.push(`${label} font ×3: a banner is shown though nothing fits — ${JSON.stringify(d.banner)}`);
+      }
       }
     } finally {
       await page.evaluate(() => { window.__bb.CFG.TEXT_TEST_SCALE = 1; });
