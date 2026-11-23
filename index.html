@@ -1595,10 +1595,18 @@ let items = [], itemCd = 5, itemSeq = 0, pendingWin = 0, lastReward = null, rese
 // Только простые данные; не длиннее CFG.EVENT_LOG_MAX (старые выпадают); очищается в начале уровня (startGame).
 let events = [];
 function logEvent(type, data) {
-  events.push({ t: stats.time, type, ...data });
+  const e = { t: stats.time, type, ...data };
+  events.push(e);
   if (events.length > CFG.EVENT_LOG_MAX) events.splice(0, events.length - CFG.EVENT_LOG_MAX);
+  return e;
 }
-const logCoins = (reason, amount) => logEvent("coins", { reason, amount });   // при каждом изменении progress.coins
+// SPEC-009: книга монеток — события coins с загрузки страницы (startGame её не чистит), тоже не длиннее EVENT_LOG_MAX.
+// logCoins зовут только addCoins / spendCoins (у прогресса, ниже).
+const ledger = [];
+function logCoins(reason, amount) {
+  ledger.push({ ...logEvent("coins", { reason, amount }) });
+  if (ledger.length > CFG.EVENT_LOG_MAX) ledger.splice(0, ledger.length - CFG.EVENT_LOG_MAX);
+}
 let bonusStars = [], starCd = 10, starSeq = 0;   // бонусные звёздочки (отдельно от предметов)
 let kisses = [], kissSeq = 0;                      // летящие воздушные поцелуи
 let kitHintT = 0, kitHintDone = false, kitHintPi = 0, kitHintRect = null;   // подсказка «Нажми 🩹» (SPEC-007): раз за уровень
@@ -1648,6 +1656,21 @@ try {
 } catch (e) { progress = freshProgress(); }
 const saveProgress = () => { try { localStorage.setItem("bebebe-progress", JSON.stringify(progress)); } catch (e) { /* ok */ } };
 if (migrated) saveProgress();                              // переезд старого сохранения — один раз
+// SPEC-009: единственный код, который меняет progress.coins (тест «only the ledger writes coins» это проверяет).
+// Каждое изменение — событие coins (журнал и книга), потом сохранение. Ноль не пишем.
+function addCoins(reason, amount) {
+  if (!amount) return 0;
+  progress.coins += amount;
+  logCoins(reason, amount); saveProgress();
+  return amount;
+}
+// покупка: хватает монеток → списать (событие buy:<item> с минусом) и true; не хватает → ничего не меняет, false
+function spendCoins(item, amount) {
+  if (progress.coins < amount) return false;
+  progress.coins -= amount;
+  logCoins("buy:" + item, -amount); saveProgress();
+  return true;
+}
 const worldProgress = (w = curWorld) => progress.worlds[w];
 curWorld = progress.lastWorld;
 level = worldProgress().unlocked;                          // меню открывается на последнем мире, на его новом уровне
@@ -1657,19 +1680,19 @@ const fmtTime = sec => `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).p
 const gloveOf = pi => { const g = progress.equip[pi]; return g && g !== "none" && progress.inv[g] > 0 ? g : null; };
 function buyGloves(kind) {
   const g = GLOVES[kind];
-  if (progress.coins < g.price) { SFX.out(); return; }
-  progress.coins -= g.price; progress.inv[kind] += g.charges; logCoins("buy:" + kind, -g.price);
+  if (!spendCoins(kind, g.price)) { SFX.out(); return; }
+  progress.inv[kind] += g.charges;
   if (progress.equip[0] === "none") progress.equip[0] = kind;
   saveProgress(); SFX.item();
 }
 function buyKisses() {
-  if (progress.coins < KISSES.price) { SFX.out(); return; }
-  progress.coins -= KISSES.price; progress.inv.kisses += KISSES.pack; logCoins("buy:kisses", -KISSES.price);
+  if (!spendCoins("kisses", KISSES.price)) { SFX.out(); return; }
+  progress.inv.kisses += KISSES.pack;
   saveProgress(); SFX.item();
 }
 function buyRescueKit() {
-  if (progress.coins < RESCUE_KIT.price) { SFX.out(); return; }
-  progress.coins -= RESCUE_KIT.price; progress.inv.rescues += RESCUE_KIT.pack; logCoins("buy:rescues", -RESCUE_KIT.price);
+  if (!spendCoins("rescues", RESCUE_KIT.price)) { SFX.out(); return; }
+  progress.inv.rescues += RESCUE_KIT.pack;
   saveProgress(); SFX.item();
 }
 function setEquip(pi, kind) { progress.equip[pi] = kind; saveProgress(); resetWorld(numPlayers); }
@@ -1686,8 +1709,7 @@ function giveReward(win) {
   // parts — из чего сложилась награда (SPEC-008): только объясняют сумму, сами суммы не меняют; нулевые не пишем
   const partsOf = list => list.filter(([, a]) => a !== 0).map(([reason, amount]) => ({ reason, amount }));
   if (!win) {
-    const c = ph * CFG.COINS_PER_HUG; progress.coins += c; saveProgress();
-    if (c) logCoins("hugs", c);
+    const c = addCoins("hugs", ph * CFG.COINS_PER_HUG);
     lastReward = { win: false, coins: c + starCoins, starCoins, parts: partsOf([["hugs", c], ["star", starCoins]]) };
     return;
   }
@@ -1704,10 +1726,9 @@ function giveReward(win) {
   wp.stars[n] = Math.max(prevStars, stars);
   wp.unlocked = Math.max(wp.unlocked, Math.min(levelsPerWorld(), n + 1));   // только в этом мире
   progress.lastWorld = curWorld;
-  progress.coins += coins;
   saveProgress();
   const parts = partsOf(earned);
-  for (const p of parts) logCoins(p.reason, p.amount);
+  for (const p of parts) addCoins(p.reason, p.amount);   // по строке: в книге те же строки, что в parts
   if (starCoins) parts.push({ reason: "star", amount: starCoins });   // звёздочки уже в копилке (событие — при подборе)
   // звёздочки — сверх награды, после минимума: штраф за отдых их не съедает
   lastReward = { win: true, coins: coins + starCoins, starCoins, stars, nobodyOut, fast, target, penalty, newBest: stars > prevStars,
@@ -2214,8 +2235,8 @@ function updateStars(dt) {
     if (!l) continue;
     s.t = s.life;
     stats.starCoins += CFG.STAR_COINS;
-    progress.coins += CFG.STAR_COINS; saveProgress();   // сразу в копилку: остаются, даже если уровень не выигран
-    logEvent("star", { who: l.id }); logCoins("star", CFG.STAR_COINS);
+    logEvent("star", { who: l.id });
+    addCoins("star", CFG.STAR_COINS);   // сразу в копилку: остаются, даже если уровень не выигран
     popText(s.x, s.y - 30, "+" + CFG.STAR_COINS, "#fde047");
     burst(s.x, s.y, "star", "#fde047", 16);
     SFX.star();
@@ -5316,6 +5337,7 @@ window.__bb = {
   get items() { return items; }, get progress() { return progress; }, buyGloves, setEquip, get lastReward() { return lastReward; }, spawnItem,
   seedRandom,     // SPEC-008: seedRandom(n) — игровая случайность rng() с зерна n; seedRandom() — снова случайно
   sim, simRun, get events() { return events.map(e => ({ ...e })); },   // SPEC-008: режим симуляции, журнал событий (копии)
+  ledger: () => ledger.map(e => ({ ...e })),   // SPEC-009: события coins за сессию (с загрузки страницы), копии
   get rngDraws() { return rngDraws; },   // SPEC-008: сколько раз тянули игровую случайность
   setProgress(save) { progress = loadProgress(save); },   // SPEC-008 (баланс): прогресс из сохранения (null — новый), не записывает
   levelsPerWorld,
