@@ -6,6 +6,7 @@
 // The game exposes a debug object window.__bb (mode, littles, big, items, progress, update, startGame, ...).
 const path = require("path");
 const fs = require("fs");
+const { expect } = require("@playwright/test");
 
 const ROOT = path.resolve(__dirname, "..");
 const GAME_URL = "file://" + path.join(ROOT, "index.html").replace(/\\/g, "/");
@@ -80,6 +81,42 @@ async function step(page, seconds) {
   await page.evaluate(sec => { for (let i = 0; i < Math.round(sec * 60); i++) window.__bb.update(1 / 60); }, seconds);
 }
 
+// SPEC-018: a cheap expect for checks inside loops. Every Playwright expect() records a test step (with a stack), a few ms
+// each; the level-type tests made thousands of them (rooms: 37 s). soft(value, message).toBe(…) etc. only collects the
+// failures; soft.done() asserts once with every failure in the message. Same matchers and the same meaning as expect
+// (toBe = Object.is, toEqual = deep equality that ignores key order and undefined properties).
+function softly() {
+  const fails = [];
+  const same = (a, b) => {
+    if (Object.is(a, b)) return true;
+    if (!a || !b || typeof a !== "object" || typeof b !== "object" || Array.isArray(a) !== Array.isArray(b)) return false;
+    const ka = Object.keys(a).filter(k => a[k] !== undefined), kb = Object.keys(b).filter(k => b[k] !== undefined);
+    return ka.length === kb.length && ka.every(k => Object.prototype.hasOwnProperty.call(b, k) && same(a[k], b[k]));
+  };
+  const show = v => { try { return JSON.stringify(v); } catch (e) { return String(v); } };
+  const soft = (got, msg = "") => {
+    const matchers = neg => {
+      const m = (ok, want) => { if (ok === neg) fails.push(`${msg}: got ${show(got)}, want ${neg ? "not " : ""}${want}`); };
+      return {
+        toBe: v => m(Object.is(got, v), show(v)),
+        toEqual: v => m(same(got, v), show(v)),
+        toBeTruthy: () => m(!!got, "truthy"),
+        toBeNull: () => m(got === null, "null"),
+        toContain: v => m(got != null && got.includes(v), `to contain ${show(v)}`),
+        toBeGreaterThan: v => m(got > v, `> ${v}`),
+        toBeGreaterThanOrEqual: v => m(got >= v, `>= ${v}`),
+        toBeLessThan: v => m(got < v, `< ${v}`),
+        toBeLessThanOrEqual: v => m(got <= v, `<= ${v}`),
+        toBeCloseTo: (v, digits = 2) => m(Math.abs(got - v) < Math.pow(10, -digits) / 2, `≈ ${v}`)
+      };
+    };
+    return { ...matchers(false), not: matchers(true) };
+  };
+  soft.fails = fails;
+  soft.done = () => expect(fails, fails.slice(0, 20).join("\n")).toEqual([]);
+  return soft;
+}
+
 // Puts player 1 right behind a calm Big One so the next update() makes a hug.
 async function setupHug(page) {
   await page.evaluate(() => {
@@ -89,4 +126,4 @@ async function setupHug(page) {
   });
 }
 
-module.exports = { openGame, openGameHttp, routeThree, frames, step, setupHug, GAME_URL, HTTP_BASE, ROOT };
+module.exports = { openGame, openGameHttp, routeThree, frames, step, setupHug, softly, GAME_URL, HTTP_BASE, ROOT };
