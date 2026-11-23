@@ -50,6 +50,14 @@ test("the Big One never outruns a player, patrols slower than he chases, bots ou
   soft.done();
 });
 
+// SPEC-019 AC 8: tiptoeing is never painfully slow (≥ half of the player speed) and always below the running line
+test("tiptoe speed is at least half the player speed and below the running line", async ({ page }) => {
+  const r = await page.evaluate(() => { const C = window.__bb.CFG; return { mult: C.TIPTOE_MULT, max: C.TIPTOE_MAX, player: C.PLAYER_SPEED }; });
+  expect(r.mult * r.player).toBeGreaterThanOrEqual(0.5 * r.player);
+  expect(r.mult).toBeLessThan(r.max);
+  expect(r.max).toBeLessThan(1);
+});
+
 // ---------- AC 6: rescue is possible ----------
 test("a friend can always arrive in time, and a Little One just stood up is not pushed at once", async ({ page }) => {
   const r = await page.evaluate(() => {

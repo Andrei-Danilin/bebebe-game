@@ -1040,7 +1040,7 @@ for (const [vw, vh] of PHONE_SIZES) {
         }
         if (name === "card") expect(d.buttons.map(q => q.id)).toEqual(expect.arrayContaining(["card:play", "card:story", "card:close"]));
         if (name === "story") expect(d.hud.map(h => h.id)).toEqual(expect.arrayContaining(["story:title", "story:text", "story:soon"]));
-        if (name === "rules") expect(d.hud.filter(h => h.id.startsWith("rules:")).length).toBe(6);
+        if (name === "rules") expect(d.hud.filter(h => h.id.startsWith("rules:")).length).toBe(7);
         if (name === "shop") expect(d.buttons.map(q => q.id)).toEqual(expect.arrayContaining(["buy:mittens", "buy:mega", "buy:kisses", "buy:rescues"]));
         if (name === "wardrobe") expect(d.buttons.map(q => q.id)).toEqual(expect.arrayContaining(["tab:wardrobe", "buy-look:p1", "name:big", "random:p1", "openFriends"]));
         if (name === "friends") expect(d.buttons.filter(q => String(q.id).startsWith("name:bot")).length).toBe(4);
@@ -1470,3 +1470,64 @@ for (const [vw, vh] of PHONE_SIZES) {
     });
   });
 }
+
+// SPEC-019 AC 6: the first-time "Dad heard you running!" hint on a phone (the touch text, no keyboard key): two rows at most,
+// inside the screen, off the buttons, the mini-map and the other plates (here with the kit hint and the touch hint too),
+// nothing cut — en/es/ru with the real font width and a 15 % wider one (CFG.TEXT_TEST_SCALE).
+test.describe("phone heard hint 667×375", () => {
+  test.use({ ...PHONE_CTX, viewport: { width: 667, height: 375 } });
+
+  test("the heard hint fits a phone in every language", async ({ phonePage: page }) => {
+    const minText = await page.evaluate(() => window.__bb.CFG.PHONE_TEXT);
+    const fails = [];
+    for (const lang of ["en", "es", "ru"]) for (const fs of [1, 1.15]) {
+      const d = await page.evaluate(async ([lg, f]) => {
+        const b = window.__bb, g = b.grid;
+        b.setLang(lg); b.CFG.TEXT_TEST_SCALE = f;
+        Object.assign(b.progress.inv, { kisses: 5, mittens: 3, rescues: 3 }); b.progress.equip[0] = "mittens";
+        b.startGame(1);
+        const big = b.big;
+        const l = b.littles[0], key = (c, down) => window.dispatchEvent(new KeyboardEvent(down ? "keydown" : "keyup", { code: c }));
+        b.littles.forEach((q, i) => { if (i) Object.assign(q, { kind: "player", controls: { up: [], down: [], left: [], right: [] }, x: 860, y: 60 + i * 40 }); });
+        // the hero runs right behind the Big One (open ground, no wall in between) until he turns: the heard hint
+        const free = (x, y) => !g.seeSolid(x, y) && !b.inSafe({ x, y }) && !b.inDanger({ x, y });
+        let p = null;
+        for (let cy = 4; cy < g.ROWS - 4 && !p; cy++) for (let cx = 6; cx < g.COLS - 2 && !p; cx++) {
+          const q = { x: (cx + 0.5) * g.CELL, y: (cy + 0.5) * g.CELL };
+          let ok = true;
+          for (let s = 0; s <= 25 && ok; s++) ok = free(q.x - s * 4, q.y);
+          if (ok) p = q;
+        }
+        Object.assign(big, { x: p.x, y: p.y, dir: 0, state: "look", timer: 999, lookSign: 0, stun: 0, slip: 0, blush: 0, pushCd: 0, noPush: 999, hugCd: 0, noise: 0, hearCd: 0 });
+        key("KeyS", true);
+        for (let i = 0; i < 90 && big.hearCd <= 0; i++) { Object.assign(l, { x: p.x - 100, y: p.y, kx: 0, ky: 0 }); b.update(1 / 60); }
+        key("KeyS", false);
+        const heard = big.hearCd > 0;
+        // then he is pushed (the kit hint and the 🩹 button) in the first seconds (the touch hint)
+        Object.assign(big, { state: "look", timer: 999, stun: 0, noPush: 0, pushCd: 0, x: 465, y: 320, dir: 0 });
+        Object.assign(l, { state: "ok", invuln: 0, dizzy: 0, x: 500, y: 320, kx: 0, ky: 0 });
+        for (let i = 0; i < 12 && l.state === "ok"; i++) b.update(1 / 60);
+        Object.assign(big, { x: 900, y: 600, stun: 999 });
+        b.stats.time = 1; b.camSnap();
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+        const hint = b.heardHint, c = document.createElement("canvas").getContext("2d");
+        let rowsW = [];
+        if (hint && hint.rect) { c.font = `800 ${hint.rect.size}px system-ui, "Segoe UI", sans-serif`; rowsW = hint.rect.rows.map(q => c.measureText(q).width * f); }
+        return { heard, down: l.state, hint, rowsW, want: b.I18N[lg].heardHintTouch, ui: b.uiSize, buttons: b.buttonRects, hud: b.hudRects, mm: b.minimap, texts: b.textSizes };
+      }, [lang, fs]);
+      const label = `${lang} ×${fs}`;
+      if (!d.heard || d.down !== "down") { fails.push(`${label}: setup heard ${d.heard}, hero ${d.down}`); continue; }
+      if (!d.hint || !d.hint.rect) { fails.push(`${label}: no heard hint drawn`); continue; }
+      const R = d.hint.rect;
+      if (d.hint.text !== d.want) fails.push(`${label}: text "${d.hint.text}" is not the touch one`);
+      if (R.rows.length > 2) fails.push(`${label}: ${R.rows.length} rows`);
+      if (R.rows.join(" ") !== d.want) fails.push(`${label}: rows cut "${R.rows.join(" ")}"`);
+      for (const w of d.rowsW) if (w > R.w + 0.5) fails.push(`${label}: row ${w.toFixed(1)} wider than the plate ${R.w.toFixed(1)}`);
+      if (R.size * d.ui.scale < minText.main - 0.01) fails.push(`${label}: text ${R.size * d.ui.scale} CSS px`);
+      for (const id of ["heardHint", "kitHint", "hint"]) if (!d.hud.some(h => h.id === id)) fails.push(`${label}: no ${id} plate`);
+      fails.push(...phoneScreenProblems(label, d, minText));
+    }
+    await page.evaluate(() => { const b = window.__bb; b.CFG.TEXT_TEST_SCALE = 1; b.setLang("en"); });
+    expect(fails, fails.slice(0, 12).join("\n")).toEqual([]);
+  });
+});

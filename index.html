@@ -74,6 +74,19 @@ const CFG = {
   VISION_RANGE: 230,         // как далеко видит Большой
   VISION_HALF: Math.PI / 4,  // половина угла обзора (45° => всего 90°)
   BEHIND_ANGLE: 2.2,         // насколько «сзади» надо быть для обнимашки (~126°)
+  // SPEC-019: на цыпочках или бегом; Большой слышит бегущих рядом (решение детей: «иногда оборачивается на топот»; числа — Claude)
+  TIPTOE_MAX: 0.6,           // доля скорости (и наклона стика): до неё — на цыпочках (тихо), больше — бегом
+  TIPTOE_MULT: 0.55,         // на цыпочках (Shift / маленький наклон стика) — эта доля скорости (с сапогами тоже)
+  HEAR_RADIUS: 5,            // клеток — ближе этого Большой слышит бегущих вне своего взгляда
+  NOISE_RATE: 1,             // шума в сек от одного бегущего рядом
+  NOISE_DECAY: 0.8,          // шум тает в сек, пока рядом никто не бежит
+  NOISE_TURN: 0.6,           // шума — и Большой оборачивается на топот (~0.6 с бега)
+  NOISE_WARN: 0.3,           // шума — над Большим 👂 (пора идти тише)
+  HEAR_WALL: 0.5,            // через стену шум считается с этой долей
+  HEAR_TURN_TIME: 0.3,       // сек — поворачивается на топот за это время (❓)
+  HEAR_COOLDOWN: 3,          // сек после поворота на топот (от начала поворота) — снова не слышит
+  HEAR_LOOK: [1, 1.5],       // сек — после поворота стоит и смотрит туда (не крутится)
+  HEAR_HINT_TIME: 4,         // сек — подсказка «Папа услышал топот!» в первый раз за уровень, когда обернулся на игрока
   INVULN_AFTER_RESCUE: 1.5,  // сек — защита после спасения другом
   HUG_STUN: 2.5,             // сек — Большой в шоке после обнимашки: стоит, не толкает, обнимать нельзя
   PUSH_RECOVER: 2.5,         // сек — после толчка Большой отдыхает и никого не толкает
@@ -326,8 +339,13 @@ const I18N = {
       `Friends run over and stand next to you for ${CFG.RESCUE_TIME} seconds to help you up`,
       `If nobody helps within ${n} s, you limp home and rest for ${CFG.REST_TIME} s`,
       "Bushes hide you. Your house is safe: the Big One can't get in",
-      "Grab items: speed boots, invisibility, shield — and a banana he slips on!"
+      "Grab items: speed boots, invisibility, shield — and a banana he slips on!",
+      I18N.en.ruleTiptoe
     ],
+    // SPEC-019: на цыпочках; подсказка, когда Большой впервые обернулся на топот игрока (клавиша — отдельно, как у спасалки)
+    ruleTiptoe: "Run near Dad and he hears you — tiptoe!",
+    heardHint: k => `Dad heard you running! Tiptoe near him: hold ${k}`, heardKey1: "Shift", heardKeyLeft: "⇦ Shift", heardKey2: "Ctrl ⇨",
+    heardHintTouch: "Dad heard you running! Push the stick just a little to tiptoe",
     level: "Level", lvShort: "Lv.", onePlayer: "1 player", twoPlayers: "2 players",
     controls1: "Keyboard: Player 1 — W A S D, Player 2 — arrows  •  P — pause  •  M — sound  •  L — language",
     controls2: "Tablet/phone: drag your finger  •  Gamepad: stick, A — choose, B — back, LB/RB — worlds",
@@ -378,8 +396,12 @@ const I18N = {
       `Tus amigos vienen y se quedan ${CFG.RESCUE_TIME} segundos al lado tuyo para ayudarte`,
       `Si nadie te ayuda en ${n} segundos, vas a casa y descansás ${CFG.REST_TIME} segundos`,
       "En los arbustos no te ve. Tu casa es segura: el Grandote no puede entrar",
-      "Agarrá cosas: zapatillas veloces, invisibilidad, escudo ¡y una banana para que se resbale!"
+      "Agarrá cosas: zapatillas veloces, invisibilidad, escudo ¡y una banana para que se resbale!",
+      I18N.es.ruleTiptoe
     ],
+    ruleTiptoe: "Si corrés cerca de papá, te escucha: ¡andá en puntitas de pie!",
+    heardHint: k => `¡Papá te escuchó correr! Cerca de él andá en puntitas: mantené ${k}`, heardKey1: "Shift", heardKeyLeft: "⇦ Shift", heardKey2: "Ctrl ⇨",
+    heardHintTouch: "¡Papá te escuchó correr! Mové el joystick apenas para ir en puntitas",
     level: "Nivel", lvShort: "Niv.", onePlayer: "1 jugador", twoPlayers: "2 jugadores",
     controls1: "Teclado: Jugador 1 — W A S D, Jugador 2 — flechas  •  P — pausa  •  M — sonido  •  L — idioma",
     controls2: "Tablet/celu: deslizá el dedo  •  Joystick: palanca, A — elegir, B — volver, LB/RB — mundos",
@@ -428,8 +450,12 @@ const I18N = {
       `Друзья подбегают и стоят рядом ${CFG.RESCUE_TIME} сек — ты снова в игре`,
       `Никто не помог за ${n} сек — идёшь в домик и отдыхаешь ${CFG.REST_TIME} сек`,
       "В кустах Большой не видит. Домик — безопасная зона, Большой туда не зайдёт",
-      "Собирай предметы: сапоги-скороходы, невидимку, щит — и банан, на котором он поскользнётся!"
+      "Собирай предметы: сапоги-скороходы, невидимку, щит — и банан, на котором он поскользнётся!",
+      I18N.ru.ruleTiptoe
     ],
+    ruleTiptoe: "Бежишь рядом с папой — он слышит. Иди на цыпочках!",
+    heardHint: k => `Папа услышал топот! Рядом с ним иди на цыпочках: держи ${k}`, heardKey1: "Shift", heardKeyLeft: "⇦ Shift", heardKey2: "Ctrl ⇨",
+    heardHintTouch: "Папа услышал топот! Чуть-чуть наклони джойстик — пойдёшь на цыпочках",
     level: "Уровень", lvShort: "Ур.", onePlayer: "1 игрок", twoPlayers: "2 игрока",
     controls1: "Клавиатура: Игрок 1 — W A S D, Игрок 2 — стрелки  •  P — пауза  •  M — звук  •  L — язык",
     controls2: "Планшет/телефон: водите пальцем  •  Геймпад: стик, A — выбрать, B — назад, LB/RB — миры",
@@ -515,7 +541,7 @@ const STORY = [
     ru: "Самый ворчливый папа засмеялся и обнял всех в ответ. Все папы снова добрые и каждый день играют с Маленькими. Конец — ура!" } }
 ];
 // значки строк правил (I18N.*.rules) — по одному на строку, в том же порядке; тест i18n сверяет число (SPEC-019 добавит строку — и значок)
-const RULE_ICONS = ["❤", "👀", "🤝", "⏱", "🏠", "🍌"];
+const RULE_ICONS = ["❤", "👀", "🤝", "⏱", "🏠", "🍌", "👣"];
 const LANGS = ["en", "es", "ru"];
 let lang = "en";
 try { const saved = localStorage.getItem("bebebe-lang"); if (LANGS.includes(saved)) lang = saved; } catch (e) { /* без хранилища — английский */ }
@@ -1832,6 +1858,7 @@ function logCoins(reason, amount) {
 let bonusStars = [], starCd = 10, starSeq = 0;   // бонусные звёздочки (отдельно от предметов)
 let kisses = [], kissSeq = 0;                      // летящие воздушные поцелуи
 let kitHintT = 0, kitHintDone = false, kitHintPi = 0, kitHintRect = null;   // подсказка «Нажми 🩹» (SPEC-007): раз за уровень
+let heardHintT = 0, heardHintDone = false, heardHintPi = 0, heardHintRect = null;   // SPEC-019: «Папа услышал топот!» — раз за уровень
 // ---------- Прогресс: миры (открытые уровни, звёзды), монетки, рукавицы (хранится в этом браузере) ----------
 // SPEC-006: progress.worlds = { [мир из WORLDS]: { unlocked, stars: { [n]: 1..3 } } }, lastWorld — мир в меню
 // (SPEC-016: шесть миров; в старом сохранении нет field/city — они приходят новыми)
@@ -2041,7 +2068,7 @@ function makeLittle(i, kind, botIndex, controls, look) {
   return {
     id: i, x: sp.x, y: sp.y, r: 11, kind, botIndex, look, controls,
     state: "ok", downTimer: 0, rescue: 0, botWait: 0, invuln: 0, kx: 0, ky: 0, dangerT: 0, dizzy: 0,
-    path: [], repath: 0, dir: Math.PI / 2, moveDir: 0, walk: 0, moving: false, hugCd: 0,
+    path: [], repath: 0, dir: Math.PI / 2, moveDir: 0, walk: 0, moving: false, speedFrac: 0, hugCd: 0,
     task: "idle", fleeT: 0, fleeGoal: null, fleeRe: 0, lurkT: rand(0, 2), offset: rand(-0.5, 0.5), tokenT: 0,
     hugAnim: 0, kissCd: 0, fx: { boots: 0, cloak: 0, shield: 0 },
     upg: kind === "player" ? { ...progress.upgrades } : null   // SPEC-009: уровни улучшений этого игрока (у ботов нет)
@@ -2065,12 +2092,15 @@ function resetWorld(n) {
     state: "look", timer: 4, lookSign: 1, lastSeen: null, goal: null, patrolT: 0,
     path: [], repath: 0, moveDir: 0, walk: 0, moving: false, stun: 0, stunFace: 0, stunTurn: 0, pushCd: 0, noPush: 0, hugCd: 0, flash: 0, slip: 0,
     blush: 0, blushBy: 0,   // покраснел после поцелуя: сколько ещё сек и кто бросил (индекс игрока)
+    // SPEC-019: шум топота, сек до того, как снова слышит; поворот на топот (куда, сколько ещё, скорость) и сколько ещё смотрит туда
+    noise: 0, hearCd: 0, hearFace: 0, hearTurnT: 0, hearRate: 0, hearLook: 0,
     skin: BIG_SKINS[skinSel.big]
   };
   items = []; itemCd = rand(4, 7); pendingWin = 0;
   bonusStars = []; starCd = rand(CFG.STAR_EVERY[0], CFG.STAR_EVERY[1]);
   kisses = [];
   kitHintT = 0; kitHintDone = false;
+  heardHintT = 0; heardHintDone = false;
   texts = []; particles = []; attackToken = null; prevToken = null; botAttackCd = rand(3, 5); shake = 0; sticks.clear();
   stats = { hugs: 0, time: 0, playerHugs: 0, rests: 0, starCoins: 0 };
   autoNavs = new Map(); autoMove = [];
@@ -2285,6 +2315,7 @@ function kitKeyPlayer(code) {
 const sticks = new Map();
 const chipName = l => numPlayers === 1 ? L().me : String(l.id + 1);   // короткая метка игрока в кружке HUD
 const STICK_R = 55;
+let stickMarks = [];   // SPEC-019: нарисованные в этом кадре джойстики { x, y, R, ring } (для тестов)
 // радиус джойстика в UI px: на телефоне — PHONE_STICK_R в CSS px (под палец), иначе как было
 const stickR = () => PHONE ? CFG.PHONE_STICK_R * UW / CSS_W : STICK_R;
 function toGame(e) {
@@ -2443,6 +2474,12 @@ function onPadButton(b, pad = 0) {
   else if (mode === "lose") { if (b === 0 || b === 9) retryLevel(); if (b === 1) toMap(); }
 }
 
+// SPEC-019: на цыпочках с клавиатуры — Shift: один игрок — любой; двое — игрок 1 левый Shift, игрок 2 правый Ctrl
+// (правый Shift остаётся спасалкой игрока 2)
+const TIPTOE_KEYS = [["ShiftLeft", "ShiftRight"], ["ShiftLeft"], ["ControlRight"]];
+const tiptoeKey = pi => (numPlayers === 1 ? TIPTOE_KEYS[0] : TIPTOE_KEYS[pi + 1] || []).some(k => keys.has(k));
+// Длина вектора — доля скорости. Стик/геймпад: наклон t < TIPTOE_MAX — на цыпочках (до TIPTOE_MULT), больше — бегом (t);
+// Shift — не быстрее TIPTOE_MULT. Автопилот — как есть (его длина и есть доля скорости).
 function inputFor(l) {
   const pi = l.id;
   let x = 0, y = 0;
@@ -2454,6 +2491,13 @@ function inputFor(l) {
     if (s.player !== pi) continue;
     const R = stickR(), dx = (s.x - s.ox) / R, dy = (s.y - s.oy) / R;
     if (Math.hypot(dx, dy) > 0.15) { x += dx; y += dy; }
+  }
+  const t = Math.min(1, Math.hypot(x, y));
+  if (t > 0) {
+    let f = t < CFG.TIPTOE_MAX ? CFG.TIPTOE_MULT * t / CFG.TIPTOE_MAX : t;
+    if (tiptoeKey(pi)) f = Math.min(f, CFG.TIPTOE_MULT);
+    const k = f / Math.hypot(x, y);
+    x *= k; y *= k;
   }
   const ap = autoMove[pi];                     // SPEC-008: автопилот — как ещё один джойстик этого игрока
   if (ap) { x += ap.x; y += ap.y; }
@@ -2703,7 +2747,7 @@ function updateItems(dt) {
 function updatePlayers(dt) {
   for (const l of littles) {
     if (l.kind !== "player") continue;
-    l.moving = false;
+    l.moving = false; l.speedFrac = 0;
     if (!canAct(l)) continue;
     const v = inputFor(l), m = Math.hypot(v.x, v.y);
     if (m > 0.05) {
@@ -2712,6 +2756,7 @@ function updatePlayers(dt) {
       l.dir = Math.atan2(v.y, v.x);
       l.walk += dt * 12 * m;
       l.moving = true;
+      l.speedFrac = m;                      // SPEC-019: доля своей скорости (≤ TIPTOE_MULT — на цыпочках, тихо)
     }
   }
 }
@@ -2744,7 +2789,7 @@ function updateBots(dt) {
   }
   if (attackToken && (attackToken.state !== "ok" || !free.has(attackToken))) attackToken = null;
 
-  for (const l of littles) if (l.kind === "bot") l.moving = false;
+  for (const l of littles) if (l.kind === "bot") { l.moving = false; l.speedFrac = 0; }
   botAttackCd -= dt;
   for (const b of bots) {
     b.fleeT = Math.max(0, b.fleeT - dt);
@@ -2791,6 +2836,7 @@ function updateBots(dt) {
       }
     }
     b.moving = moved;
+    b.speedFrac = moved ? (b.task === "lurk" ? 0.8 : 1) : 0;   // SPEC-019: боты пока всегда бегут (lurk — 0.8 скорости)
     if (moved) b.dir = turnToward(b.dir, b.moveDir, 10 * dt);
   }
   // один бот за раз и с паузой между попытками — чтобы главными героями были игроки
@@ -2900,11 +2946,54 @@ function autoThink(dt) {
   }
 }
 
+// ---------- SPEC-019: Большой слышит топот ----------
+// Бежит (не на цыпочках): на ногах, идёт, доля скорости ≥ TIPTOE_MAX (на цыпочках — не больше TIPTOE_MULT)
+const isRunning = l => !!l && l.state === "ok" && l.moving && l.speedFrac >= CFG.TIPTOE_MAX;
+// Не слышит: в шоке (и при последней обнимашке), красный, лежит после банана, стоит после толчка, не идёт игра
+const bigDeaf = () => mode !== "play" || pendingWin > 0 || big.stun > 0 || big.blush > 0 || big.slip > 0 || big.pushCd > 0;
+const stopHearing = () => { big.noise = 0; big.hearTurnT = 0; big.hearLook = 0; };
+// Шум за кадр: каждый бегущий рядом (HEAR_RADIUS клеток) вне взгляда (по углу), не невидимка и не в домике, — NOISE_RATE
+// (через стену × HEAR_WALL); никто не шумит — шум тает. Набралось NOISE_TURN — поворачивается к самому громкому (при равных —
+// к ближнему) за HEAR_TURN_TIME, потом стоит и смотрит туда HEAR_LOOK сек; HEAR_COOLDOWN сек — снова не слышит.
+function hearNoise(dt) {
+  let add = 0, loud = null, best = 0, bestD = Infinity;
+  if (big.hearCd <= 0) for (const l of littles) {
+    if (!isRunning(l) || l.fx.cloak > 0 || inSafe(l)) continue;
+    const dx = l.x - big.x, dy = l.y - big.y, d = Math.hypot(dx, dy);
+    if (d > CFG.HEAR_RADIUS * CELL || angDiff(big.dir, Math.atan2(dy, dx)) < CFG.VISION_HALF) continue;
+    const c = CFG.NOISE_RATE * dt * (los(big.x, big.y, l.x, l.y, seeSolidAt) ? 1 : CFG.HEAR_WALL);
+    add += c;
+    if (c > best || (c === best && d < bestD)) { best = c; bestD = d; loud = l; }
+  }
+  big.noise = add > 0 ? big.noise + add : Math.max(0, big.noise - CFG.NOISE_DECAY * dt);
+  if (big.noise < CFG.NOISE_TURN || !loud) return;
+  const a = Math.atan2(loud.y - big.y, loud.x - big.x);
+  big.noise = 0; big.hearCd = CFG.HEAR_COOLDOWN;
+  big.hearFace = a; big.hearTurnT = CFG.HEAR_TURN_TIME; big.hearRate = Math.abs(normAng(a - big.dir)) / CFG.HEAR_TURN_TIME;
+  big.hearLook = rand(CFG.HEAR_LOOK[0], CFG.HEAR_LOOK[1]);
+  big.state = "look"; big.timer = Math.max(big.timer, CFG.HEAR_TURN_TIME + big.hearLook); big.goal = null; big.path = [];
+  logEvent("heard", { who: loud.id, kind: loud.kind });
+  if (loud.kind === "player" && !heardHintDone) { heardHintDone = true; heardHintT = CFG.HEAR_HINT_TIME; heardHintPi = loud.id; }
+}
+// значок над Большим (тот же порядок, что рисуется): 🍌💫, ?!, 💗, ❓ (обернулся на топот), 👂 (слышит), 💦, !
+function bigMark() {
+  if (big.slip > 0) return "🍌💫";
+  if (big.stun > 0) return "?!";
+  if (big.blush > 0) return "💗";
+  if (big.state === "look" && (big.hearTurnT > 0 || big.hearLook > 0)) return "❓";
+  if (big.noise >= CFG.NOISE_WARN) return "👂";
+  if (big.noPush > 0) return "💦";
+  if (big.state === "chase") return "!";
+  return "";
+}
+
 function updateBig(dt) {
   big.flash = Math.max(0, big.flash - dt);
   big.hugCd = Math.max(0, big.hugCd - dt);
   big.moving = false;
   big.noPush = Math.max(0, big.noPush - dt);
+  big.hearCd = Math.max(0, big.hearCd - dt);
+  if (bigDeaf()) stopHearing();
   if (big.blush > 0) {                                   // покраснел: время идёт и пока лежит после банана
     big.blush = Math.max(0, big.blush - dt);
     if (big.blush <= 0 && big.slip <= 0 && big.stun <= 0) {   // прошло — поворачивается к тому, кто бросил, и в погоню
@@ -2931,6 +3020,8 @@ function updateBig(dt) {
     if (canSee(l)) { const d = dist(big, l); if (d < td) { td = d; target = l; } }
   }
   if (target) {
+    big.hearTurnT = 0; big.hearLook = 0;                 // видит — топот уже не важен; шум тает
+    big.noise = Math.max(0, big.noise - CFG.NOISE_DECAY * dt);
     if (big.state !== "chase") { popText(big.x, big.y - 75, "!", "#ff3b30"); SFX.alert(); }
     big.state = "chase";
     big.lastSeen = { x: target.x, y: target.y };
@@ -2939,6 +3030,7 @@ function updateBig(dt) {
     if (td < big.r + target.r + 8) push(target);
     return;
   }
+  hearNoise(dt);
   if (big.state === "chase" || big.state === "search") {
     big.state = "search";
     big.moving = steerTo(big, big.lastSeen.x, big.lastSeen.y, speed.search, dt, false);
@@ -2947,7 +3039,9 @@ function updateBig(dt) {
     return;
   }
   if (big.state === "look") {
-    big.dir += big.lookSign * 1.7 * dt;
+    if (big.hearTurnT > 0) { big.hearTurnT -= dt; big.dir = turnToward(big.dir, big.hearFace, big.hearRate * dt); }   // на топот
+    else if (big.hearLook > 0) big.hearLook = Math.max(0, big.hearLook - dt);   // смотрит туда, не крутится
+    else big.dir += big.lookSign * 1.7 * dt;
     big.timer -= dt;
     if (big.timer <= 0) { big.state = "patrol"; big.goal = randomFreePoint(); big.path = []; big.repath = 0; big.patrolT = 10; }
     return;
@@ -3116,6 +3210,7 @@ function update(dt) {
     } else { l.kx = 0; l.ky = 0; }
   }
   kitHintT = Math.max(0, kitHintT - dt);
+  heardHintT = Math.max(0, heardHintT - dt);
   autoThink(dt);
   updatePlayers(dt);
   updateBots(dt);
@@ -3338,11 +3433,13 @@ function drawMarkers(t) {
     label(nameFor("big"), bh.x, bh.y - 34, fz(14, "main"), "#ff4d4d");
     ctx.restore();
   }
-  if (big.slip > 0) label("🍌💫", bh.x + 10, bh.y + 30, 20, "#fff");
-  else if (big.stun > 0) label("?!", bh.x + 22, bh.y, 22, "#fff");
-  else if (big.blush > 0) label("💗", bh.x + 22, bh.y + 2, 20 + Math.sin(t * 10) * 2, "#fff");
-  else if (big.noPush > 0) label("💦", bh.x + 22, bh.y + 6, 16, "#fff");
-  else if (big.state === "chase") label("!", bh.x, bh.y - 4, 28, "#ff3b30");
+  const mark = bigMark();
+  if (mark === "🍌💫") label(mark, bh.x + 10, bh.y + 30, 20, "#fff");
+  else if (mark === "?!") label(mark, bh.x + 22, bh.y, 22, "#fff");
+  else if (mark === "💗") label(mark, bh.x + 22, bh.y + 2, 20 + Math.sin(t * 10) * 2, "#fff");
+  else if (mark === "❓" || mark === "👂") label(mark, bh.x + 22, bh.y + 2, fz(mark === "❓" ? 24 : 20, "main"), "#fff");   // SPEC-019: топот
+  else if (mark === "💦") label(mark, bh.x + 22, bh.y + 6, 16, "#fff");
+  else if (mark === "!") label(mark, bh.x, bh.y - 4, 28, "#ff3b30");
 }
 
 function drawFx() {
@@ -3383,6 +3480,10 @@ function drawSticks() {
   const SR = stickR();
   for (const st of sticks.values()) {
     ctx.globalAlpha = 0.35; circle(st.ox, st.oy, SR); fillStroke("#fff", 3);
+    // SPEC-019: внутреннее кольцо — граница «на цыпочках»: внутри него тихо, дальше — бегом
+    const ring = SR * CFG.TIPTOE_MAX;
+    ctx.globalAlpha = 0.6; circle(st.ox, st.oy, ring); ctx.lineWidth = 2; ctx.setLineDash([5, 5]); ctx.strokeStyle = "#fff"; ctx.stroke(); ctx.setLineDash([]);
+    stickMarks.push({ x: st.ox, y: st.oy, R: SR, ring });
     ctx.globalAlpha = 0.7;
     const dx = st.x - st.ox, dy = st.y - st.oy, d = Math.hypot(dx, dy), k = d > SR ? SR / d : 1;
     circle(st.ox + dx * k, st.oy + dy * k, 24); fillStroke(P_COLORS[st.player], 3);
@@ -3493,6 +3594,10 @@ function drawHUDPhone(t) {
     const rh = cpx(40), ry = UH - m - rh - resting.length * (rh + gap) - (stats.time < 5 ? cpx(36) : 0);
     drawKitHint(m, ry, bw, rh, cpx(14), sz => noteText("main", sz), cpx(17), main);
   }
+  if (heardHintOn()) {                                   // SPEC-019: «Папа услышал топот!» — над ними, до двух строк
+    const n = resting.length + (kitHintOn() ? 1 : 0);
+    noteText("main", drawHeardHint(m, UH - m - n * (cpx(40) + gap) - (stats.time < 5 ? cpx(36) : 0), bw, cpx(17), main, cpx(10)));
+  }
   if (showMinimap()) { drawMinimap(t); drawEdgeArrows(); }
 }
 function drawHUD(t) {
@@ -3546,6 +3651,7 @@ function drawHUD(t) {
     fitText(restText(l), UW / 2, UH - 39 - i * 44, 17, 440, "center", "#e0e7ff", 800);
   });
   if (kitHintOn()) drawKitHint(UW / 2 - 230, UH - 58 - resting.length * 44, 460, 38, 14, () => {}, 18, 9);   // над плашками «отдыхает»
+  if (heardHintOn()) drawHeardHint(UW / 2 - 300, UH - 20 - (resting.length + (kitHintOn() ? 1 : 0)) * 44, 600, 18, 12, 12);   // SPEC-019: ещё выше
 }
 
 // Подсказка «Нажми 🩹» (SPEC-007): видна KIT_HINT_TIME сек, пока упавший игрок может встать спасалкой.
@@ -3558,6 +3664,22 @@ function drawKitHint(x, y, w, h, r, note, size, min) {
   hudRects.push({ id: "kitHint", x, y, w, h });
   note(fitText(text, x + w / 2, y + h / 2 + 1, size, w - 2 * r, "center", "#be185d", 900, min));
   kitHintRect = { x, y, w, h, text };
+}
+
+// Подсказка «Папа услышал топот!» (SPEC-019): видна HEAR_HINT_TIME сек после первого за уровень поворота на топот игрока.
+// Без сенсорного экрана — клавиша этого игрока (Shift; вдвоём: игрок 1 — левый Shift, игрок 2 — правый Ctrl), иначе — про джойстик
+const heardHintOn = () => mode === "play" && heardHintT > 0;
+const heardKey = () => numPlayers === 2 ? (heardHintPi === 1 ? L().heardKey2 : L().heardKeyLeft) : L().heardKey1;
+const heardHintText = () => PHONE || isTouch ? L().heardHintTouch : L().heardHint(heardKey());
+// плашка нижним краем на bottom, до двух строк (мерка с CFG.TEXT_TEST_SCALE, не мельче min); → кегль
+function drawHeardHint(x, bottom, w, size, min, pad) {
+  const text = heardHintText(), b = noteRows(text, size, min, w - 2 * pad, 2), lh = b.sz * 1.2, h = b.rows.length * lh + pad, y = bottom - h;
+  rr(x, y, w, h, Math.min(pad * 1.4, h / 2)); fillStroke("rgba(255,250,235,.95)", 3);
+  ctx.font = `800 ${b.sz}px system-ui, "Segoe UI", sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = "#7c3aed";
+  b.rows.forEach((q, i) => ctx.fillText(q, x + w / 2, y + pad / 2 + lh * (i + 0.5)));
+  hudRects.push({ id: "heardHint", x, y, w, h });
+  heardHintRect = { x, y, w, h, text, rows: b.rows, size: b.sz };
+  return b.sz;
 }
 
 // Круглая кнопка 💋 игрока pi: внизу справа (один игрок) или на своей стороне (двое); касание здесь — не джойстик
@@ -4946,7 +5068,7 @@ function placePhoneBanner() {
     return segs.reduce((best, sg) => sg[1] - sg[0] > best[1] - best[0] ? sg : best, [0, 0]);
   };
   // низ: над подсказкой «проведи пальцем» и плашками «отдыхает» (они по всей ширине слева от кнопок)
-  const low = hudRects.filter(r => r.id === "hint" || r.id === "rest" || r.id === "kitHint").reduce((v, r) => Math.min(v, r.y - gap), UH - m);
+  const low = hudRects.filter(r => r.id === "hint" || r.id === "rest" || r.id === "kitHint" || r.id === "heardHint").reduce((v, r) => Math.min(v, r.y - gap), UH - m);
   const bands = [{ from: phoneTopBar() + gap, to: mid - h, dir: 1 }, { from: low - h, to: mid, dir: -1 }];
   if (hr && hr.y + hr.h / 2 < mid) bands.reverse();          // герой в верхней половине — сначала низ
   for (const texts of tiers) for (const bd of bands) {
@@ -4983,7 +5105,7 @@ function drawBanner() {
 function drawUI(t) {
   draws++;
   if (nameInput && !inWardrobe()) closeNameInput(false);
-  buttons = []; installHintShown = false; mapState = null; cardInfo = null; cardRect = null; storyInfo = null; bonusNote = null; winLine = ""; mmShown = false; edgeArrows = []; hudRects = []; textSizes = {}; bannerRect = null; kitHintRect = null; shopLayout = null; winPanel = null;
+  buttons = []; installHintShown = false; mapState = null; cardInfo = null; cardRect = null; storyInfo = null; bonusNote = null; winLine = ""; mmShown = false; edgeArrows = []; hudRects = []; textSizes = {}; bannerRect = null; kitHintRect = null; heardHintRect = null; stickMarks = []; shopLayout = null; winPanel = null;
   if (mode !== "shop") { shopTab = "items"; wardrobePage = "looks"; }
   if (mode !== "map") toast = null;   // SPEC-017: подсказка карты — только пока карта на экране
   if (mode !== "map" && mode !== "levelCard") mapBgCache = null;   // фон страницы мира не держим в памяти вне карты
@@ -6602,6 +6724,11 @@ window.__bb = {
     get obstacles() { return obstacles.map(o => ({ kind: o.kind, shape: o.shape, x: o.x, y: o.y, w: o.w, h: o.h, r: o.r, move: o.move, sight: o.sight })); } },
   get kisses() { return kisses; }, throwKiss, buyKisses, resetProgress, heartFill, bigBoost, fmtHearts,
   RESCUE_KIT, buyRescueKit, useRescueKit, get kitHint() { return kitHintRect; },   // SPEC-007
+  // SPEC-019: бежит ли маленький i (true/false); значок над Большим; подсказка «услышал топот» (текст, чья, плашка этого кадра) или null;
+  // джойстики этого кадра с кольцом «на цыпочках»
+  isRunning: i => isRunning(littles[i]), get bigMark() { return bigMark(); },
+  get heardHint() { return heardHintOn() ? { text: heardHintText(), pi: heardHintPi, rect: heardHintRect && { ...heardHintRect, rows: [...heardHintRect.rows] } } : null; },
+  get stickMarks() { return stickMarks.map(q => ({ ...q })); },
   GLOVES, KISSES, get shopLayout() { return shopLayout; },                         // SPEC-007 AC 10
   levelType, levelReport, get levelInfo() { return levelInfo; }, clearLevelCache, CFG, THEMES,
   get banner() { return banner; }, bannerAlpha,

@@ -1506,3 +1506,370 @@ test.describe("rescue kit while paused or winning", () => {
     expect(await page.evaluate(() => [window.__bb.mode, window.__bb.buttonRects.some(q => q.id === "kit:0")]), "win coming: no button").toEqual(["play", false]);
   });
 });
+
+// ---------- SPEC-019: tiptoe or the Big One hears running kids ----------
+// In-page helpers: h.calm(p, dir) parks the Big One at p looking along dir (no spin: lookSign 0, nothing blocks him);
+// h.open() finds a spot (Park 2, which they start) where every point 60/100/150 px around is free and in plain sight (no wall, safe house or his house);
+// h.run(sec, i, spot, codes, each) holds the keys and puts Little One i back on spot before every frame (running in place;
+// spot may be a function, each(frame) === false stops); h.speed(i, codes, spot) — his speed over 6 frames as a share of
+// PLAYER_SPEED and isRunning; h.up() releases every key the helpers press.
+async function installHearHelpers(page) {
+  await installTestHelpers(page);
+  await page.evaluate(() => {
+    const b = window.__bb, t = window.__t, g = b.grid, C = b.CFG;
+    b.level = 2; b.startGame(1);                                   // Park 2 (meadow): open ground 150 px around a spot
+    const CODES = ["KeyD", "KeyS", "KeyA", "KeyW", "ArrowRight", "ArrowDown", "ShiftLeft", "ShiftRight", "ControlRight", "ControlLeft"];
+    const free = (x, y) => !g.seeSolid(x, y) && !g.blocked[((y / g.CELL) | 0) * g.COLS + ((x / g.CELL) | 0)] && !b.inSafe({ x, y }) && !b.inDanger({ x, y });
+    const clear = (a, q) => { const n = Math.ceil(Math.hypot(q.x - a.x, q.y - a.y) / 4); for (let i = 0; i <= n; i++) if (!free(a.x + (q.x - a.x) * i / n, a.y + (q.y - a.y) * i / n)) return false; return true; };
+    window.__h = {
+      CODES, free, clear,
+      calm(p, dir = 0) { Object.assign(b.big, { x: p.x, y: p.y, dir, state: "look", timer: 9999, lookSign: 0, stun: 0, slip: 0, blush: 0, noPush: 0, pushCd: 0, hugCd: 0, noise: 0, hearCd: 0, path: [] }); },
+      open() {
+        for (let cy = 5; cy < g.ROWS - 5; cy++) for (let cx = 5; cx < g.COLS - 5; cx++) {
+          const p = { x: (cx + 0.5) * g.CELL, y: (cy + 0.5) * g.CELL };
+          let ok = free(p.x, p.y);
+          for (const r of [60, 100, 150]) for (let k = 0; k < 16 && ok; k++) ok = clear(p, { x: p.x + Math.cos(k * Math.PI / 8) * r, y: p.y + Math.sin(k * Math.PI / 8) * r });
+          if (ok) return p;
+        }
+        return null;
+      },
+      key: t.key,
+      up() { for (const c of CODES) t.key(c, false); },
+      run(sec, i, spot, codes = ["KeyS"], each) {
+        const l = b.littles[i];
+        for (const c of codes) t.key(c, true);
+        for (let f = 0; f < Math.round(sec * 60); f++) {
+          if (spot) Object.assign(l, typeof spot === "function" ? spot() : spot, { kx: 0, ky: 0 });
+          b.update(1 / 60);
+          if (each && each(f) === false) break;
+        }
+        for (const c of codes) t.key(c, false);
+      },
+      speed(i, codes, spot, n = 6) {
+        const l = b.littles[i];
+        Object.assign(l, spot, { kx: 0, ky: 0, state: "ok", hugAnim: 0, dizzy: 0 });
+        for (const c of codes) t.key(c, true);
+        const x0 = l.x, y0 = l.y;
+        for (let f = 0; f < n; f++) b.update(1 / 60);
+        const run = b.isRunning(i);
+        for (const c of codes) t.key(c, false);
+        return { share: +(Math.hypot(l.x - x0, l.y - y0) / (C.PLAYER_SPEED * n / 60)).toFixed(3), run };
+      }
+    };
+  });
+}
+
+test("tiptoe with Shift, stick tilt and gamepad", { tag: "@fast" }, async ({ page }) => {
+  await installHearHelpers(page);
+  const r = await page.evaluate(() => {
+    const b = window.__bb, h = window.__h, t = window.__t, C = b.CFG, out = {};
+    const spot = h.open();
+    h.calm({ x: 900, y: 600 }); b.big.noPush = 999; b.big.stun = 999; t.pin([0]);
+    out.max = C.TIPTOE_MAX; out.mult = C.TIPTOE_MULT;
+    out.full1 = h.speed(0, ["KeyD"], spot);
+    out.shiftL1 = h.speed(0, ["KeyD", "ShiftLeft"], spot);
+    out.shiftR1 = h.speed(0, ["KeyD", "ShiftRight"], spot);
+    out.arrowShift1 = h.speed(0, ["ArrowRight", "ShiftRight"], spot);
+    b.littles[0].fx.boots = 5;
+    out.boots = h.speed(0, ["KeyD"], spot);
+    out.bootsTip = h.speed(0, ["KeyD", "ShiftLeft"], spot);
+    b.littles[0].fx.boots = 0;
+    Object.assign(b.littles[0], spot); h.key("ShiftLeft", true); b.update(1 / 60); h.key("ShiftLeft", false);
+    out.still = b.isRunning(0);
+    // two players: P1 left Shift, P2 right Ctrl; right Shift stays P2's kit key (no tiptoe for anyone)
+    b.startGame(2); h.calm({ x: 900, y: 600 }); b.big.noPush = 999; b.big.stun = 999; t.pin([0, 1]);
+    out.p1ShiftL = h.speed(0, ["KeyD", "ShiftLeft"], spot);
+    out.p1ShiftR = h.speed(0, ["KeyD", "ShiftRight"], spot);
+    out.p1CtrlR = h.speed(0, ["KeyD", "ControlRight"], spot);
+    Object.assign(b.littles[0], { x: 860, y: 40 });                 // out of player 2's way
+    out.p2CtrlR = h.speed(1, ["ArrowRight", "ControlRight"], spot);
+    out.p2ShiftR = h.speed(1, ["ArrowRight", "ShiftRight"], spot);
+    out.p2ShiftL = h.speed(1, ["ArrowRight", "ShiftLeft"], spot);
+    b.progress.inv.rescues = 1;
+    Object.assign(b.littles[1], { state: "down", downTimer: 10 });
+    h.key("ShiftRight", true); h.key("ShiftRight", false);
+    out.kit2 = [b.littles[1].state, b.progress.inv.rescues];
+    out.bots = b.littles.map((l, i) => typeof b.isRunning(i));
+    h.up();
+    return out;
+  });
+  expect(r.max).toBe(0.6);
+  expect(r.mult).toBe(0.55);
+  expect(r.full1).toEqual({ share: 1, run: true });
+  for (const k of ["shiftL1", "shiftR1", "arrowShift1", "p1ShiftL", "p2CtrlR"]) expect(r[k], k).toEqual({ share: 0.55, run: false });
+  for (const k of ["p1ShiftR", "p1CtrlR", "p2ShiftR", "p2ShiftL"]) expect(r[k], k).toEqual({ share: 1, run: true });
+  expect(r.boots).toEqual({ share: 1.55, run: true });
+  expect(r.bootsTip.share).toBeCloseTo(0.55 * 1.55, 2);            // tiptoe = 0.55 × boots speed, silent
+  expect(r.bootsTip.run).toBe(false);
+  expect(r.still).toBe(false);
+  expect(r.kit2).toEqual(["ok", 0]);
+  expect(r.bots).toEqual(Array(5).fill("boolean"));
+  // gamepad: a small tilt (0.4 < TIPTOE_MAX) tiptoes at a share of the tiptoe speed, a big one (0.9) runs
+  const pad = async ax => {
+    await page.evaluate(a => {
+      const b = window.__bb; b.startGame(1); window.__h.calm({ x: 900, y: 600 }); b.big.noPush = 999; b.big.stun = 999; window.__t.pin([0]);
+      window.__pads = [{ index: 0, axes: [a, 0], buttons: Array.from({ length: 17 }, () => ({ pressed: false, value: 0 })) }];
+      Object.defineProperty(navigator, "getGamepads", { configurable: true, value: () => window.__pads });
+    }, ax);
+    await frames(page);
+    return page.evaluate(() => window.__h.speed(0, [], window.__h.open()));
+  };
+  expect(await pad(0.4)).toEqual({ share: +(0.55 * 0.4 / 0.6).toFixed(3), run: false });
+  expect(await pad(0.9)).toEqual({ share: 0.9, run: true });
+  await page.evaluate(() => { window.__pads = []; });
+  await frames(page);
+});
+
+test.describe("tiptoe on a touch screen", () => {
+  test.use({ hasTouch: true });
+
+  test("tiptoe with a small push on the touch stick, and the stick shows the tiptoe ring", async ({ page }) => {
+    await installHearHelpers(page);
+    const r = await page.evaluate(() => {
+      const b = window.__bb, h = window.__h, c = document.getElementById("game"), bb = c.getBoundingClientRect();
+      const spot = h.open();
+      h.calm({ x: 900, y: 600 }); b.big.noPush = 999; b.big.stun = 999; window.__t.pin([0]);
+      const ev = (type, x, y) => c.dispatchEvent(new PointerEvent(type, { clientX: bb.left + x * bb.width / 960, clientY: bb.top + y * bb.height / 640, pointerId: 9, pointerType: "touch", isPrimary: true, bubbles: true, cancelable: true }));
+      const R = b.stickR(), out = { R };
+      ev("pointerdown", 300, 400);
+      ev("pointermove", 300 + 0.4 * R, 400); out.small = h.speed(0, [], spot);
+      ev("pointermove", 300 + 0.8 * R, 400); out.big = h.speed(0, [], spot);
+      return out;
+    });
+    expect(r.small).toEqual({ share: +(0.55 * 0.4 / 0.6).toFixed(3), run: false });
+    expect(r.big).toEqual({ share: 0.8, run: true });
+    await frames(page);
+    const marks = await page.evaluate(() => window.__bb.stickMarks);
+    expect(marks.length).toBe(1);
+    expect(marks[0].ring).toBeCloseTo(marks[0].R * 0.6, 5);                // the inner ring at TIPTOE_MAX of the radius
+    await page.evaluate(() => {
+      const c = document.getElementById("game");
+      c.dispatchEvent(new PointerEvent("pointerup", { clientX: 0, clientY: 0, pointerId: 9, pointerType: "touch", isPrimary: true, bubbles: true, cancelable: true }));
+    });
+  });
+});
+
+test("the Big One turns when a kid runs behind him", { tag: "@fast" }, async ({ page }) => {
+  await installHearHelpers(page);
+  const r = await page.evaluate(() => {
+    const b = window.__bb, h = window.__h, C = b.CFG, big = b.big, out = {};
+    const p = h.open(), behind = { x: p.x - 100, y: p.y };
+    out.cfg = [C.HEAR_RADIUS, C.NOISE_RATE, C.NOISE_DECAY, C.NOISE_TURN, C.NOISE_WARN, C.HEAR_WALL, C.HEAR_TURN_TIME, C.HEAR_COOLDOWN, C.HEAR_LOOK];
+    window.__t.pin([0]);
+    // noPush: he does not chase anyone (💦 above him), but he still hears, but he still hears (only the push stand blocks hearing)
+    h.calm(p, 0); big.noPush = 999;
+    h.run(0.25, 0, behind);
+    out.early = { noise: +big.noise.toFixed(3), mark: b.bigMark, cd: big.hearCd };
+    h.run(0.1, 0, behind);
+    out.warn = { noise: +big.noise.toFixed(3), mark: b.bigMark, dir: big.dir };
+    let at = 0;
+    h.run(0.5, 0, behind, ["KeyS"], f => { if (big.hearCd > 0) { at = 0.35 + (f + 1) / 60; return false; } });
+    out.turn = { at: +at.toFixed(3), noise: big.noise, cd: big.hearCd, state: big.state, mark: b.bigMark };
+    const face = Math.atan2(behind.y - p.y, behind.x - p.x), off = () => Math.abs(Math.atan2(Math.sin(big.dir - face), Math.cos(big.dir - face)));
+    for (let i = 0; i < 9; i++) b.update(1 / 60);
+    out.half = off();
+    for (let i = 0; i < 12; i++) b.update(1 / 60);
+    out.done = off();
+    big.lookSign = 1;                                              // holds that way (no spin) for HEAR_LOOK seconds
+    const d0 = big.dir;
+    for (let i = 0; i < 40; i++) b.update(1 / 60);
+    out.hold = { moved: Math.abs(big.dir - d0), state: big.state, mark: b.bigMark };
+    // outside the cone only: running in front of him is never noise
+    h.calm(p, 0); big.noPush = 999;
+    h.run(1, 0, { x: p.x + 100, y: p.y + 40 });
+    out.front = big.noise;
+    // the radius: 5 cells
+    h.calm(p, 0); big.noPush = 999;
+    h.run(0.4, 0, { x: p.x - C.HEAR_RADIUS * b.grid.CELL - 8, y: p.y });
+    out.far = big.noise;
+    h.calm(p, 0); big.noPush = 999;
+    h.run(0.4, 0, { x: p.x - C.HEAR_RADIUS * b.grid.CELL + 8, y: p.y });
+    out.near = +big.noise.toFixed(3);
+    // decay only when nobody makes noise
+    h.calm(p, 0); big.noPush = 999;
+    h.run(0.4, 0, behind);
+    Object.assign(b.littles[0], behind);
+    for (let i = 0; i < 15; i++) b.update(1 / 60);
+    out.decay = +big.noise.toFixed(3);
+    h.up();
+    return out;
+  });
+  expect(r.cfg).toEqual([5, 1, 0.8, 0.6, 0.3, 0.5, 0.3, 3, [1, 1.5]]);
+  expect(r.early.noise).toBeCloseTo(0.25, 2);
+  expect(r.early.mark).toBe("💦");                                  // resting after a push (noPush), no ear yet
+  expect(r.early.cd).toBe(0);
+  expect(r.warn.noise).toBeCloseTo(0.35, 2);
+  expect(r.warn.mark).toBe("👂");                                  // a fair warning at 0.3
+  expect(r.warn.dir).toBe(0);                                       // not turned yet
+  expect(r.turn.at).toBeCloseTo(0.6, 1);                            // ~0.6 s of running
+  expect(r.turn).toMatchObject({ noise: 0, cd: 3, state: "look", mark: "❓" });
+  expect(r.half).toBeGreaterThan(0.5);                              // turning over HEAR_TURN_TIME, not at once
+  expect(r.done).toBeLessThan(0.05);                                // faces the runner (where he was that frame: 2.5 px further down)
+  expect(r.hold.moved).toBeLessThan(1e-9);
+  expect(r.hold.state).toBe("look");
+  expect(r.hold.mark).toBe("❓");
+  expect(r.front).toBe(0);
+  expect(r.far).toBe(0);
+  expect(r.near).toBeCloseTo(0.4, 2);
+  expect(r.decay).toBeCloseTo(0.4 - 0.8 * 0.25, 2);
+});
+
+test("tiptoeing behind him is silent", async ({ page }) => {
+  await installHearHelpers(page);
+  const r = await page.evaluate(() => {
+    const b = window.__bb, h = window.__h, big = b.big, l = b.littles[0], out = {};
+    const p = h.open(), behind = { x: p.x - 100, y: p.y };
+    window.__t.pin([0]);
+    h.calm(p, 0); big.noPush = 999;
+    h.run(2, 0, behind, ["KeyS", "ShiftLeft"]);
+    out.tiptoe = [big.noise, big.hearCd, big.dir];
+    l.fx.cloak = 5;                                                 // invisible: silent too
+    h.calm(p, 0); big.noPush = 999;
+    h.run(1, 0, behind);
+    out.cloak = big.noise;
+    l.fx.cloak = 0;
+    // in the safe house: silent (the Big One right outside it, looking away)
+    const z = b.safeZone, inside = { x: z.x + z.w / 2, y: z.y + z.h / 2 };
+    let outside = null;
+    for (const rr of [70, 100, 130]) for (let k = 0; k < 32 && !outside; k++) {
+      const q = { x: inside.x + Math.cos(k * Math.PI / 16) * rr, y: inside.y + Math.sin(k * Math.PI / 16) * rr };
+      if (h.free(q.x, q.y)) outside = q;
+    }
+    h.calm(outside, Math.atan2(outside.y - inside.y, outside.x - inside.x)); big.noPush = 999;
+    h.run(1, 0, inside);
+    out.safe = big.noise;
+    // through a wall: half the noise
+    let wall = null;
+    const c = b.grid.CELL;
+    for (let cy = 2; cy < b.grid.ROWS - 2 && !wall; cy++) for (let cx = 3; cx < b.grid.COLS - 3 && !wall; cx++) {
+      const a = { x: (cx - 1.5) * c, y: (cy + 0.5) * c }, q = { x: (cx + 2.5) * c, y: (cy + 0.5) * c };
+      if (b.grid.seeSolid((cx + 0.5) * c, (cy + 0.5) * c) && h.free(a.x, a.y) && h.free(q.x, q.y)) wall = { a, q };
+    }
+    h.calm(wall.a, Math.PI); big.noPush = 999;                     // looks away from the wall, the kid runs on the other side
+    h.run(0.4, 0, wall.q);
+    out.wall = +big.noise.toFixed(3);
+    // a hug from behind after tiptoeing works as before
+    h.calm(p, 0);
+    Object.assign(l, { x: p.x - 90, y: p.y, hugCd: 0, invuln: 0 });
+    const hp0 = big.hp;
+    h.run(1.5, 0, null, ["KeyD", "ShiftLeft"], () => big.hp === hp0);
+    out.hug = [hp0 - big.hp, big.hearCd];
+    h.up();
+    return out;
+  });
+  expect(r.tiptoe).toEqual([0, 0, 0]);
+  expect(r.cloak).toBe(0);
+  expect(r.safe).toBe(0);
+  expect(r.wall).toBeCloseTo(0.4 * 0.5, 2);
+  expect(r.hug).toEqual([1, 0]);
+});
+
+test("no hearing while stunned or blushing", async ({ page }) => {
+  await installHearHelpers(page);
+  const r = await page.evaluate(() => {
+    const b = window.__bb, h = window.__h, out = {};
+    let big = b.big;
+    const p = h.open(), behind = { x: p.x - 100, y: p.y };
+    window.__t.pin([0]);
+    for (const [k, v] of [["stun", 2], ["blush", 1.5], ["slip", 2], ["pushCd", 0.9]]) {
+      h.calm(p, 0); big.noise = 0.5; big[k] = v;
+      h.run(0.5, 0, behind);
+      out[k] = [big.noise, big.hearCd];
+    }
+    // the final hug: player 1 hugs the last heart, player 2 runs behind him while the win is coming
+    b.startGame(2); window.__t.pin([0, 1]); big = b.big;
+    h.calm(p, 0); big.hp = 1;
+    Object.assign(b.littles[0], { state: "ok", hugCd: 0, hugAnim: 0, invuln: 0, x: p.x - 34, y: p.y });
+    b.update(1 / 60);
+    out.winComing = big.hp === 0 && b.mode === "play";
+    h.run(0.6, 1, behind, ["ArrowDown"], () => b.mode === "play");
+    out.final = [big.noise, big.hearCd];
+    h.up();
+    return out;
+  });
+  for (const k of ["stun", "blush", "slip", "pushCd"]) expect(r[k], k).toEqual([0, 0]);
+  expect(r.winComing).toBe(true);
+  expect(r.final).toEqual([0, 0]);
+});
+
+test("cooldown after a turn", async ({ page }) => {
+  await installHearHelpers(page);
+  const r = await page.evaluate(() => {
+    const b = window.__bb, h = window.__h, big = b.big, turns = [];
+    const p = h.open();
+    window.__t.pin([0]);
+    h.calm(p, 0); big.noPush = 999;
+    let last = 0;
+    // the kid keeps running behind him (behind his current facing) for 5 s
+    h.run(5, 0, () => ({ x: big.x - Math.cos(big.dir) * 100, y: big.y - Math.sin(big.dir) * 100 }), ["KeyS"], f => {
+      if (big.hearCd > last + 1e-9) turns.push(+((f + 1) / 60).toFixed(3));
+      last = big.hearCd;
+    });
+    h.up();
+    return turns;
+  });
+  expect(r.length).toBe(2);
+  expect(r[0]).toBeCloseTo(0.6, 1);
+  expect(r[1] - r[0]).toBeGreaterThanOrEqual(3 + 0.6 - 0.05);       // 3 s cooldown from the turn, then 0.6 s of noise again
+  expect(r[1] - r[0]).toBeLessThan(3 + 0.6 + 0.1);
+});
+
+test("noise turn leads to a chase", async ({ page }) => {
+  await installHearHelpers(page);
+  const r = await page.evaluate(() => {
+    const b = window.__bb, h = window.__h, big = b.big, l = b.littles[0], out = {};
+    const p = h.open(), behind = { x: p.x - 120, y: p.y };
+    window.__t.pin([0]);
+    h.calm(p, 0);
+    h.run(1, 0, behind, ["KeyS"], () => big.hearCd <= 0);          // runs until he hears
+    out.heard = big.hearCd > 0;
+    Object.assign(l, behind, { kx: 0, ky: 0 });
+    for (let i = 0; i < 40 && big.state !== "chase"; i++) b.update(1 / 60);
+    out.chase = big.state;
+    for (let i = 0; i < 240 && l.state === "ok"; i++) b.update(1 / 60);
+    out.pushed = l.state;
+    h.up();
+    return out;
+  });
+  expect(r).toEqual({ heard: true, chase: "chase", pushed: "down" });
+});
+
+test("the heard hint shows once per level, only for players", async ({ page }) => {
+  await installHearHelpers(page);
+  const r = await page.evaluate(() => {
+    const b = window.__bb, h = window.__h, I = b.I18N.en, out = {};
+    let big = b.big;
+    const p = h.open();
+    // a bot running behind him (to rescue a friend) makes him turn: no hint
+    window.__t.pin([1, 2]);
+    h.calm(p, 0); big.noPush = 999;
+    Object.assign(b.littles[1], { kind: "bot", state: "ok", x: p.x - 100, y: p.y - 70 });
+    Object.assign(b.littles[2], { kind: "bot", state: "down", downTimer: 15, botWait: 0, x: p.x - 100, y: p.y + 90 });
+    for (let i = 0; i < 90 && big.hearCd <= 0; i++) b.update(1 / 60);
+    out.bot = [big.hearCd > 0, b.heardHint];
+    // a player: the hint with his key (one player: Shift)
+    b.startGame(1); window.__t.pin([0]); big = b.big;
+    h.calm(p, 0); big.noPush = 999;
+    h.run(1, 0, { x: p.x - 100, y: p.y }, ["KeyS"], () => big.hearCd <= 0);
+    out.p1 = b.heardHint && b.heardHint.text;
+    // once per level: the next turn shows nothing
+    b.update(b.CFG.HEAR_HINT_TIME + 0.1);
+    out.gone = b.heardHint;
+    h.calm(p, 0); big.noPush = 999;
+    h.run(1, 0, { x: p.x - 100, y: p.y }, ["KeyS"], () => big.hearCd <= 0);
+    out.again = [big.hearCd > 0, b.heardHint];
+    // two players: player 2's key is right Ctrl
+    b.startGame(2); window.__t.pin([0, 1]); big = b.big;
+    h.calm(p, 0); big.noPush = 999;
+    h.run(1, 1, { x: p.x - 100, y: p.y }, ["ArrowDown"], () => big.hearCd <= 0);
+    out.p2 = b.heardHint && b.heardHint.text;
+    out.want = [I.heardHint(I.heardKey1), I.heardHint(I.heardKey2)];
+    h.up();
+    return out;
+  });
+  expect(r.bot).toEqual([true, null]);
+  expect(r.p1).toBe(r.want[0]);
+  expect(r.gone).toBe(null);
+  expect(r.again).toEqual([true, null]);
+  expect(r.p2).toBe(r.want[1]);
+});
