@@ -1,6 +1,6 @@
 # SPEC-016 — Worlds by the story: Park, Football field, City, School + bonus Beach and Winter
 
-Status: ready
+Status: done (a7d76c3 + CI font fix 6084bb3)
 Complexity: L
 Branch: SPEC-016-story-worlds
 Decided by: Kostya and Andrei (2026-11-22): the four main worlds are Park → Football field → City → School (the School ends with the grumpiest dad); Beach and Winter become **bonus worlds** that open after all levels of the main worlds are won; the bonus worlds are as hard as the School or harder. Recorded in `claude/story.md` (project doc). Everything else (themes for the two new places, seeds, migration, numbers): Claude (spec author).
