@@ -849,17 +849,18 @@ test("the gamepad d-pad up/down switches worlds in the menu", async ({ page }) =
     Object.defineProperty(navigator, "getGamepads", { configurable: true, value: () => window.__pads });
   });
   const press = async k => { await page.evaluate(n => window.__press(n), k); await frames(page); await page.evaluate(() => window.__press(-1)); await frames(page); };
+  // SPEC-016: worlds in the story order (park, field, city, school, then the bonus beach, winter), the locked bonus ones skipped
   await press(13);                                                  // d-pad down: next world
-  expect(await page.evaluate(() => window.__bb.world)).toBe("school");
+  expect(await page.evaluate(() => window.__bb.world)).toBe("field");
   await press(12);                                                  // d-pad up: previous world
   expect(await page.evaluate(() => window.__bb.world)).toBe("park");
-  await press(12);                                                  // wraps around
-  expect(await page.evaluate(() => window.__bb.world)).toBe("winter");
+  await press(12);                                                  // wraps around, past the locked Winter and Beach
+  expect(await page.evaluate(() => window.__bb.world)).toBe("school");
   // on the pause and win screens the d-pad up/down changes nothing
   for (const m of ["pause", "win"]) {
     await page.evaluate(v => { window.__bb.mode = v; }, m);
     await press(13); await press(12);
-    expect(await page.evaluate(() => [window.__bb.mode, window.__bb.world]), m).toEqual([m, "winter"]);
+    expect(await page.evaluate(() => [window.__bb.mode, window.__bb.world]), m).toEqual([m, "school"]);
   }
 });
 

@@ -130,12 +130,13 @@ test("start banner shows the level type", async ({ page }) => {
 // ---------- SPEC-006 AC 9: the banner names the world ----------
 test("the banner names the world", async ({ page }) => {
   const r = [];
-  for (const [lang, w, n] of [["en", "winter", 17], ["es", "school", 8], ["ru", "beach", 1], ["en", "park", 14]]) {
+  for (const [lang, w, n] of [["en", "winter", 17], ["es", "school", 8], ["ru", "beach", 1], ["en", "park", 14], ["en", "field", 2], ["ru", "field", 5], ["es", "city", 11]]) {
     // resetBannerTimer: as if BANNER_REPEAT had passed since the last start (SPEC-018: was a real 1.1 s wait each;
     // the repeat rule itself is checked with real waits in "start banner shows the level type")
     r.push(await page.evaluate(([l, wd, lv]) => { const b = window.__bb; b.resetBannerTimer(); b.setLang(l); b.world = wd; b.level = lv; b.startGame(1); return b.banner && b.banner.text; }, [lang, w, n]));
   }
-  expect(r).toEqual(["Winter · Level 17: Maze", "Escuela · Nivel 8: Río con puentes", "Пляж · Уровень 1: Наш рисунок", "Park · Level 14: Ring arena"]);
+  expect(r).toEqual(["Winter · Level 17: Maze", "Escuela · Nivel 8: Río con puentes", "Пляж · Уровень 1: Наш рисунок", "Park · Level 14: Ring arena",
+    "Football field · Level 2: Meadow", "Футбольное поле · Уровень 5: Деревня", "Ciudad · Nivel 11: Casa con cuartos"]);   // SPEC-016: the new worlds
 });
 
 // ---------- SPEC-006 AC 8 (SPEC-016 AC 8: six worlds in the story order, the bonus ones locked) ----------
