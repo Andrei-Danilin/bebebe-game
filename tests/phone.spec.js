@@ -501,8 +501,10 @@ test.describe("phone controls", () => {
     let players = await page.evaluate(() => window.__bb.littles.filter(l => l.kind === "player").length);
     expect(players).toBe(1);
     expect(await page.evaluate(() => window.__bb.littles.length)).toBe(5);
-    // key 2 on the map too (SPEC-017: the old menu's level picker is the map screen until step 2)
-    await page.evaluate(() => { window.__bb.mode = "map"; });
+    // key 2 on the level card too (SPEC-017: the card has one Play button on a phone)
+    await page.evaluate(() => { const b = window.__bb; b.world = "park"; b.mode = "map"; });
+    await frames(page);
+    await page.evaluate(() => window.__bb.tapButton("stop:1"));
     await page.keyboard.press("Digit2");
     expect(await page.evaluate(() => window.__bb.mode)).toBe("play");
     players = await page.evaluate(() => window.__bb.littles.filter(l => l.kind === "player").length);
@@ -535,7 +537,9 @@ test.describe("desktop touch", () => {
   test("off the phone, two players and the right-half stick stay as before", async ({ page }) => {
     const errors = await openGame(page);
     const en = await page.evaluate(() => window.__bb.I18N.en);
-    await page.evaluate(() => { window.__bb.mode = "map"; });   // SPEC-017: the 1/2 players choice is on the map (step 3: the level card)
+    await page.evaluate(() => { window.__bb.mode = "map"; });   // SPEC-017: the 1/2 players choice is on the level card
+    await frames(page);
+    await page.evaluate(() => window.__bb.tapButton("stop:1"));
     await frames(page);
     expect((await page.evaluate(() => window.__bb.buttonRects)).map(r => r.text)).toContain(en.twoPlayers);
     await page.evaluate(() => window.__bb.startGame(2));
@@ -892,9 +896,14 @@ const PHONE_SCENES = {
       for (const w of b.MAIN_WORLDS) Object.assign(b.progress.worlds[w], { unlocked: 20, won: Object.fromEntries(Array.from({ length: 20 }, (_, i) => [i + 1, true])) });
     });
   },
-  // SPEC-017 step 1: the old menu's world cards and level picker are the map screen until the drawn map (step 2)
+  // SPEC-017: the level map (Park 10 open, 4 stars won) and the level card of level 5
   map: async page => {
-    await page.evaluate(() => { const b = window.__bb; b.progress.worlds.park.unlocked = 10; b.level = 5; b.progress.worlds.park.stars[5] = 2; b.resetWorld(1); b.mode = "map"; });
+    await page.evaluate(() => { const b = window.__bb; b.progress.worlds.park.unlocked = 10; b.progress.worlds.park.won = { 1: true, 2: true, 3: true, 4: true }; b.progress.worlds.park.stars[4] = 2; b.world = "park"; b.mode = "map"; });
+  },
+  card: async page => {
+    await page.evaluate(() => { const b = window.__bb; b.progress.worlds.park.unlocked = 10; b.world = "park"; b.mode = "map"; b.resetMenus(); });
+    await frames(page);
+    await page.evaluate(() => window.__bb.tapButton("stop:5"));
   },
   // SPEC-009: a locked hat tried on (Buy button in place of the name label, "not enough coins" on the preview) — SPEC-017: the shop's Wardrobe tab
   wardrobe: async page => {
@@ -943,41 +952,28 @@ function phoneScreenProblems(name, d, minText) {
   return out;
 }
 
-// SPEC-016: every text line of a world card (name, stars, bonus label) inside the card's own box, nothing cut with «…»
-function phoneCardProblems(cards, label) {
-  const out = [];
-  for (const c of cards) for (const t of c.lines) {
-    if (!(t.x >= c.x - 0.5 && t.x + t.w <= c.x + c.w + 0.5 && t.y >= c.y - 0.5 && t.y + t.h <= c.y + c.h + 0.5)) out.push(`${label} ${c.world}: "${t.text}" ${JSON.stringify(t)} outside its card ${JSON.stringify({ x: c.x, y: c.y, w: c.w, h: c.h })}`);
-    if (/…/.test(t.text)) out.push(`${label} ${c.world}: "${t.text}" cut`);
-  }
-  return out;
-}
 
 for (const [vw, vh] of PHONE_SIZES) {
   test.describe(`phone sizes ${vw}×${vh}`, () => {
     test.use({ ...PHONE_CTX, viewport: { width: vw, height: vh } });
 
-    // SPEC-016 AC 8: six world cards, the bonus ones locked and open, every language
-    test(`the world cards keep their texts inside at ${vw}×${vh}`, async ({ phonePage: page }) => {
+    // SPEC-016 AC 8: six worlds, the bonus ones locked and open (SPEC-017: the level map's tabs, ≥ 44 CSS px, 🔒 on a locked one)
+    test(`the world tabs and the bonus note fit at ${vw}×${vh}`, async ({ phonePage: page }) => {
       const minText = await page.evaluate(() => window.__bb.CFG.PHONE_TEXT);
       const fails = [];
-      for (const lang of ["en", "es", "ru"]) for (const open of [false, true]) {
-        await page.evaluate(([l, o]) => {
+      for (const open of [false, true]) {
+        await page.evaluate(o => {
           const b = window.__bb; b.setProgress(null);
           if (o) for (const w of b.MAIN_WORLDS) Object.assign(b.progress.worlds[w], { unlocked: 20, won: Object.fromEntries(Array.from({ length: 20 }, (_, i) => [i + 1, true])) });
-          b.setLang(l); b.mode = "map";
-        }, [lang, open]);
+          b.world = "park"; b.mode = "map";
+        }, open);
         await frames(page);
-        const d = await page.evaluate(() => ({ cards: window.__bb.worldCards, ui: window.__bb.uiSize, buttons: window.__bb.buttonRects }));
-        const label = `${vw}×${vh} ${lang} ${open ? "open" : "locked"}`;
-        fails.push(...phoneCardProblems(d.cards, label));
-        for (const c of d.cards) {
-          if (c.w * d.ui.scale < 44 - 0.01 || c.h * d.ui.scale < 44 - 0.01) fails.push(`${label} ${c.world}: card ${c.w * d.ui.scale}×${c.h * d.ui.scale} CSS px`);
-          for (const t of c.lines) if (t.size * d.ui.scale < (t.kind === "name" ? minText.main : minText.hint) - 0.01) fails.push(`${label} ${c.world}: "${t.text}" at ${t.size * d.ui.scale} CSS px`);
-        }
-        const lines = d.cards.map(c => c.lines.map(t => t.text));
-        if (open) { if (!lines[4].includes("Bonus") && !lines[4].includes("Бонус")) fails.push(`${label}: no Bonus mark on the open Beach`); }
-        else if (!/🔒/.test(lines[4].join(" ")) || !/🔒/.test(lines[5].join(" "))) fails.push(`${label}: locked bonus cards without 🔒`);
+        const d = await page.evaluate(() => ({ tabs: window.__bb.buttonRects.filter(q => String(q.id).startsWith("maptab:")), ui: window.__bb.uiSize }));
+        const label = `${vw}×${vh} ${open ? "open" : "locked"}`;
+        if (d.tabs.map(q => q.id).join() !== ["park", "field", "city", "school", "beach", "winter"].map(w => "maptab:" + w).join()) fails.push(`${label}: tabs ${d.tabs.map(q => q.id)}`);
+        for (const q of d.tabs) if (q.w * d.ui.scale < 44 - 0.01 || q.h * d.ui.scale < 44 - 0.01) fails.push(`${label} ${q.id}: ${q.w * d.ui.scale}×${q.h * d.ui.scale} CSS px`);
+        const locks = d.tabs.slice(4).map(q => q.text === "🔒");
+        if (locks.join() !== [!open, !open].join()) fails.push(`${label}: bonus tabs ${d.tabs.slice(4).map(q => q.text)}`);
       }
       // the one-time "Bonus worlds unlocked!" note on the win screen: inside the screen, off the buttons, readable — measured with
       // the real font width and with a 15 % wider one (CFG.TEXT_TEST_SCALE, like CI's Linux fonts: the Spanish note was cut there)
@@ -1023,26 +1019,20 @@ for (const [vw, vh] of PHONE_SIZES) {
         await frames(page);
         const d = await page.evaluate(() => {
           const b = window.__bb, l = b.littles[0];
-          return { ui: b.uiSize, buttons: b.buttonRects, hud: b.hudRects, mm: b.minimap, texts: b.textSizes, banner: b.bannerRect, cards: b.worldCards,
-            hero: b.toScreen(l.x, l.y), head: b.toScreen(l.x, l.y, 72), mode: b.mode, typeLabel: b.typeLabel };
+          return { ui: b.uiSize, buttons: b.buttonRects, hud: b.hudRects, mm: b.minimap, texts: b.textSizes, banner: b.bannerRect,
+            hero: b.toScreen(l.x, l.y), head: b.toScreen(l.x, l.y, 72), mode: b.mode };
         });
-        expect(d.mode, label).toBe(name === "rest" || name === "long" || name === "down" ? "play" : name === "wardrobe" || name === "friends" ? "shop" : name);
+        expect(d.mode, label).toBe(name === "rest" || name === "long" || name === "down" ? "play" : name === "wardrobe" || name === "friends" ? "shop" : name === "card" ? "levelCard" : name);
         fails.push(...phoneScreenProblems(label, d, minText));
         expect(d.texts.main || d.texts.title, `${label}: texts recorded`).toBeTruthy();
         if (name === "map") {
-          const L = d.typeLabel;
-          expect(L, `${label}: type label`).toBeTruthy();
-          expect(L.y).toBeGreaterThanOrEqual(L.rulesBottom + 2);
-          expect(L.size * d.ui.scale).toBeGreaterThanOrEqual(15 - 0.01);
-          for (const q of d.buttons) if (overlaps(L, q)) fails.push(`${label}: type label on ${q.id || q.text}`);
-          expect(d.buttons.map(q => q.text)).toEqual(expect.arrayContaining(["◀"]));
-          // SPEC-006: the world cards (SPEC-016: six, in the story order), each a button of at least 44×44 CSS px (checked above),
-          // the type label under them
-          const cards = d.buttons.filter(q => String(q.id).startsWith("world:"));
-          expect(cards.map(q => q.id), label).toEqual(["world:park", "world:field", "world:city", "world:school", "world:beach", "world:winter"]);
-          fails.push(...phoneCardProblems(d.cards, label));   // SPEC-016: every text inside its own card
-          expect(L.y, `${label}: type label under the world cards`).toBeGreaterThanOrEqual(Math.max(...cards.map(q => q.y + q.h)));
+          // SPEC-017: back, six world tabs in the story order, 20 level stops of at least 44 CSS px (sizes and gaps checked above)
+          const ids = d.buttons.map(q => String(q.id));
+          expect(ids.filter(id => id.startsWith("maptab:")), label).toEqual(["maptab:park", "maptab:field", "maptab:city", "maptab:school", "maptab:beach", "maptab:winter"]);
+          expect(ids.filter(id => id.startsWith("stop:")).length, label).toBe(20);
+          expect(ids).toContain("back:home");
         }
+        if (name === "card") expect(d.buttons.map(q => q.id)).toEqual(expect.arrayContaining(["card:play", "card:close"]));
         if (name === "shop") expect(d.buttons.map(q => q.id)).toEqual(expect.arrayContaining(["buy:mittens", "buy:mega", "buy:kisses", "buy:rescues"]));
         if (name === "wardrobe") expect(d.buttons.map(q => q.id)).toEqual(expect.arrayContaining(["tab:wardrobe", "buy-look:p1", "name:big", "random:p1", "openFriends"]));
         if (name === "friends") expect(d.buttons.filter(q => String(q.id).startsWith("name:bot")).length).toBe(4);
@@ -1273,34 +1263,38 @@ test.describe("phone banner too wide", () => {
 test.describe("phone menus", () => {
   test.use(PHONE_CTX);
 
-  test("tapping a world card selects that world", async ({ phonePage: page }) => {
+  test("tapping a world tab selects that world", async ({ phonePage: page }) => {
     const errors = page.sharedErrors;
-    await page.evaluate(() => { const b = window.__bb; b.progress.worlds.winter.unlocked = 5; b.progress.worlds.winter.stars = { 1: 2, 4: 3 }; b.mode = "map"; });
+    await page.evaluate(() => { const b = window.__bb; b.progress.worlds.winter.unlocked = 5; b.progress.worlds.winter.stars = { 1: 2, 4: 3 }; b.world = "park"; b.mode = "map"; });
     await frames(page);
     const at = await page.evaluate(() => {
-      const b = window.__bb, q = b.buttonRects.find(r => r.id === "world:winter"), c = document.getElementById("game").getBoundingClientRect(), s = c.width / b.uiSize.w;
-      return { x: c.left + (q.x + q.w / 2) * s, y: c.top + (q.y + q.h / 2) * s, stars: b.worldCards.find(k => k.world === "winter").stars };
+      const b = window.__bb, q = b.buttonRects.find(r => r.id === "maptab:winter"), c = document.getElementById("game").getBoundingClientRect(), s = c.width / b.uiSize.w;
+      return { x: c.left + (q.x + q.w / 2) * s, y: c.top + (q.y + q.h / 2) * s };
     });
-    expect(at.stars).toBe("⭐ 5/60");
     await page.touchscreen.tap(at.x, at.y);
     await frames(page);
-    expect(await page.evaluate(() => [window.__bb.world, window.__bb.level, window.__bb.progress.lastWorld, window.__bb.worldCards.find(k => k.selected).world])).toEqual(["winter", 5, "winter", "winter"]);
+    expect(await page.evaluate(() => [window.__bb.world, window.__bb.level, window.__bb.progress.lastWorld, window.__bb.mapInfo.tabs.find(k => k.selected).world])).toEqual(["winter", 5, "winter", "winter"]);
+    expect(await page.evaluate(() => window.__bb.hudRects.find(h => h.id === "map:title").text)).toBe("❄️ Winter  ⭐ 5/60");
     expect(errors).toEqual([]);
   });
 
-  // SPEC-017: two taps — Play on the home screen, then Play on the map (step 2: the level stop / its card)
+  // SPEC-017: Play on the home screen, the bouncing next level on the map, Play on its card — real taps
   test("tapping the real Play buttons starts a one-player game", async ({ phonePage: page }) => {
     const errors = page.sharedErrors;
-    const tapPlay = async () => {
+    const tap = async find => {
       await frames(page);
-      const r = await page.evaluate(() => ({ ui: window.__bb.uiSize, play: window.__bb.buttonRects.find(q => q.text === "▶ " + window.__bb.I18N.en.play) }));
-      expect(r.play).toBeTruthy();
-      await page.touchscreen.tap((r.play.x + r.play.w / 2) * r.ui.scale, (r.play.y + r.play.h / 2) * r.ui.scale);
+      const r = await page.evaluate(f => ({ ui: window.__bb.uiSize, q: window.__bb.buttonRects.find(q => q.id === f) }), find);
+      expect(r.q, find).toBeTruthy();
+      await page.touchscreen.tap((r.q.x + r.q.w / 2) * r.ui.scale, (r.q.y + r.q.h / 2) * r.ui.scale);
     };
-    await tapPlay();
+    await tap("home:play");
     expect(await page.evaluate(() => window.__bb.mode)).toBe("map");
-    await tapPlay();
-    expect(await page.evaluate(() => window.__bb.mode)).toBe("play");
+    await frames(page);
+    const next = await page.evaluate(() => window.__bb.mapInfo.stops.find(q => q.next).n);
+    await tap("stop:" + next);
+    expect(await page.evaluate(() => window.__bb.mode)).toBe("levelCard");
+    await tap("card:play");
+    expect(await page.evaluate(() => [window.__bb.mode, window.__bb.level])).toEqual(["play", next]);
     expect(await page.evaluate(() => window.__bb.littles.filter(l => l.kind === "player").length)).toBe(1);
     expect(errors).toEqual([]);
   });
