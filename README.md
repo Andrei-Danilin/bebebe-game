@@ -27,9 +27,31 @@ A top-down arcade game designed by kids: the **Little Ones** team against the **
   out, it doesn't count as a rest (no coin penalty, the "nobody rested" star stays). Only players use them.
 - 1–2 players + bots (5 Little Ones in total; one player on a phone). Bots mostly rescue fallen friends.
 
+## Starting a level
+
+The **home screen** shows your stars (out of 240 in the main worlds), how many worlds you finished, the bonus worlds
+(🔒 until open), your coins and the items you own, and three big buttons: **Play**, **Story**, **Shop**. The small
+🌐 and 🔊 icons in the corner switch the language and the sound.
+
+1. **Play** opens the **level map**: one page per world, the six worlds as tabs at the top (🌳 Park, ⚽ Football field,
+   🏙️ City, 🏫 School, then the bonus 🏖️ Beach and ❄️ Winter). Each page has 20 level stops on a winding dotted path:
+   number and stars on each stop, 🔒 on the locked ones, the next level to play bounces, level 20 is the big
+   **Boss** stop. A finished world gets a "✔ Done!" stamp.
+2. Tap a stop: the **level card** shows the world and level, the level type, one line about it and your best stars.
+3. Tap **Play** (on a computer: **1 player** or **2 players**). 📖 on the card opens that world's story chapter.
+
+So from opening the game to playing is three taps: Play → the bouncing stop → Play.
+
+**Story** — the comic of the whole adventure, chapter by chapter: How it began, one chapter per world, How it
+ended (after the School's boss). A world's chapter opens with the world; until the comic pictures are drawn, a
+pencil sketch says "Comic coming soon". **❓ How to play** on the story screen lists the rules and the controls.
+
+After a level: the win screen offers the next level, the **Map** and the **Shop**; the pause menu offers Continue,
+Map and Home.
+
 ## Install on iPhone
 
-1. Open https://andrei-danilin.github.io/bebebe-game/ in **Safari** (the menu shows a hint).
+1. Open https://andrei-danilin.github.io/bebebe-game/ in **Safari** (the home screen shows a hint).
 2. Tap **Share** ⬆️ → **Add to Home Screen** → **Add**.
 3. Start **BeBeBe** from the home screen: full screen, no browser bar. Turn the phone sideways.
 
@@ -54,7 +76,8 @@ On a phone (held sideways) the game switches to **phone mode**; iPads and comput
   (red with a heart = the Big One, green with ❗ = a friend who needs help).
 - Put a finger anywhere on the **left part** of the screen: the joystick appears right there. The right part is
   for buttons; the 💋 button is bottom right (while you are down, limping or resting, the 🩹 button takes its place).
-- Big buttons and texts; menus laid out for a wide, short screen.
+- Big buttons and texts; menus laid out for a wide, short screen. On the level map swipe left/right to change
+  the world.
 - **One player** only (bots fill the team).
 
 A phone is a touch screen whose short side is at most 500 CSS px. To force it: add `?phone=1` to the address
@@ -85,8 +108,15 @@ Open the file in any modern browser — no build step. Works on desktop, tablet 
 
 `P` — pause, `M` — sound, `L` — language (English / Español (AR) / Русский).
 
-In the menu: `↑` / `↓` (or the gamepad D-pad up/down) switch worlds (locked bonus worlds are skipped), `←` / `→` (D-pad left/right) pick the level;
-on a touch screen tap a world card and the ◀ ▶ buttons. In the shop `←` / `→` (D-pad left/right) switch the tabs.
+Menus:
+
+| Screen | Keyboard | Gamepad | Touch |
+|---|---|---|---|
+| Home | `Enter` / `Space` — Play, `S` — Story, `B` — Shop | A — Play, X — Story, Y — Shop | tap the buttons |
+| Level map | `←` / `→` — world (locked bonus worlds are skipped), `↑` / `↓` — pick a stop, `Enter` — its level card, `Esc` — home | D-pad left/right or the shoulder buttons (LB / RB) — world, D-pad up/down — stop, A — card, B — home | tap a tab or a stop; swipe left/right — world |
+| Level card | `Enter` or `1` — one player, `2` — two players, `S` — the world's story chapter, `Esc` — close | A — one player, X — two players, Y — story chapter, B — close | Play (computer: 1 / 2 players), ✕ or a tap outside — close |
+| Story | `←` / `→` — chapter, `Esc` — back | D-pad or shoulders — chapter, Y — How to play, B — back | ◀ ▶ or swipe |
+| Shop | `←` / `→` — tab, `Enter` / `Esc` — done; `R` — random outfit in the Wardrobe | D-pad left/right — tab, X — random outfit (Y — Player 2) | tap the tabs |
 
 ## Items
 
@@ -127,9 +157,10 @@ Coins (the win screen shows one line for each):
 | ✨ Bonus stars | +3 each, every time (rests never eat them; they go into the coin box the moment you pick them up) |
 | 🤗 Hugs | +1 for every hug by a player, every time |
 
-Leaving a level before the win (pause → Menu) pays the hugs only; leaving during the final hug still counts as the win.
+Leaving a level before the win (pause → Map or Home) pays the hugs only; leaving during the final hug still counts as the win.
 
-**Shop** (menu, or after a level) has two tabs. **Items**: gloves, air kisses and rescue kits, bought with coins in packs.
+**Shop** (home screen, or after a level) has three tabs: **Items** · **Wardrobe** (outfits and names, see below) ·
+**Upgrades**. **Items**: gloves, air kisses and rescue kits, bought with coins in packs.
 
 | Item | Price | Pack | Effect |
 |---|---|---|---|
@@ -170,25 +201,23 @@ Six worlds of 20 levels each, in the order of the story the kids made up:
 
 The **bonus worlds** open when you have won all 80 levels of the four main worlds; that win shows
 "🎁 Bonus worlds unlocked!". Beach is as hard as the School, Winter harder. A Beach or Winter you already played
-in an older version stays open. The menu shows the six worlds as cards in two rows of three (name, stars collected
-out of 60; on a computer also a small picture); a locked bonus card is grey with "🔒 Bonus". Under the cards you
-pick a level of the selected world. Levels open one by one inside each world. After level 20 the win screen says
-the world is done and offers the menu and the shop.
+in an older version stays open. On the level map a locked bonus world is a grey 🔒 tab. Levels open one by one
+inside each world. After level 20 the win screen says the world is done and offers the map and the shop.
 
 ## Outfits
 
-Menu → **Skins**: each player builds an outfit from 4 parts — hair (8), hat (12), jacket (10, incl. hoodies,
+Shop → **Wardrobe** tab: each player builds an outfit from 4 parts — hair (8), hat (12), jacket (10, incl. hoodies,
 superhero cape, ninja) and pants (8, incl. shorts); 🎲 picks a random outfit. The Big One has 5 looks
 (Classic, Ogre, Robot, Captain, Bear). Bots get different outfits every level.
 
 The basic clothes are free (all hair, 4 hats, 4 jackets, 4 pants, Classic and Ogre); the rest cost 40, 80 or 150
 coins and are kept forever once bought. A locked item shows 🔒 and its price: flip to it to try it on, then tap
-"Buy for N" twice. Leave the screen without buying and your last own look comes back; 🎲 picks only from your own
+"Buy for N" twice. Leave the Wardrobe tab without buying and your last own look comes back; 🎲 picks only from your own
 clothes. Clothes worn in a save from before the wardrobe stay yours.
 
 ## Names
 
-Player 1, Player 2, the Big One and the four bot friends have names. On the **Skins** screen tap the name under
+Player 1, Player 2, the Big One and the four bot friends have names. In the shop's **Wardrobe** tab tap the name under
 a character (✏️) and type a new one — up to 12 characters, emoji welcome; Enter or a tap outside saves, Escape
 cancels. **👥 Friends** opens the bot names. Names float above heads in the game, and the Big One's name starts
 the hearts bar — call him "Papá"! Untouched names follow the language (e.g. bots Bo, Mia, Tom, Lulu in English);
@@ -210,7 +239,7 @@ world has its own maps. Inside every world the levels go from open maps to the m
 | 17–20 | Maze | hedge corridors to sneak around corners, with one or two open plazas |
 
 Later levels of the same type have one bush fewer each. When a level starts, a banner shows
-"World · Level N: type" (e.g. "Park · Level 17: Maze"); the menu shows the type of the selected level. Every
+"World · Level N: type" (e.g. "Park · Level 17: Maze"); the level card shows the type too. Every
 world has its own look for each type: hedges, hedges with ad boards, yard fences, lockers, fences or snow walls in
 the maze, a blue, canal, turquoise or icy river, and so on. Every level is checked to be fair: nobody gets stuck, the Big One can go
 everywhere except your house, and both houses' doors are clear.
@@ -238,14 +267,14 @@ One HTML file, one ES module:
   pond, rocks, fence, decorative forest; characters are assembled from primitives with `MeshToonMaterial`
   and inverted-hull outlines; the vision cone is a ground mesh rebuilt each frame with ray marching.
 - **2D layer** (`#game` canvas on top): menus, HUD, name tags, rescue timers, the phone mini-map — positions are
-  projected from 3D with `toScreen()`. On a phone the camera follows the hero and the 2D layer has its own size. The Skins screen cuts "windows" in this layer where 3D previews are rendered
+  projected from 3D with `toScreen()`. On a phone the camera follows the hero and the 2D layer has its own size. The shop's Wardrobe tab cuts "windows" in this layer where 3D previews are rendered
   with scissor viewports.
 
 ## Tuning
 
-`CFG` — gameplay numbers (`HUG_STUN`, `PUSH_RECOVER`, `BOT_ATTACK_PAUSE`, `ITEM_*`, `SLIP_STUN`, `COINS_PER_REST`, `FAST_TIME`, `RESCUE_*`, `STAR_*`, `DANGER_*`, `NAME_MAX`, `KISS_*`, `PAD_KISS`, `REST_TIME`, `KIT_*`, `PAD_KIT`, `WORLD_TYPES` (level types in a world), difficulty `WORLD_DIFFICULTY` (index per world) / `WORLD_SPEED_START` / `SPEED_PER_LEVEL` / `CHASE_MAX_SHARE` / `HP_*`, `LAYOUT` (level type sizes), `BANNER_*`, fairness limits, phone mode `PHONE_*` / `CAM_*` / `MINIMAP_*` / `STICK_ZONE`, …),
+`CFG` — gameplay numbers (`HUG_STUN`, `PUSH_RECOVER`, `BOT_ATTACK_PAUSE`, `ITEM_*`, `SLIP_STUN`, `COINS_PER_REST`, `FAST_TIME`, `RESCUE_*`, `STAR_*`, `DANGER_*`, `NAME_MAX`, `KISS_*`, `PAD_KISS`, `REST_TIME`, `KIT_*`, `PAD_KIT`, `PAD_PREV_WORLD` / `PAD_NEXT_WORLD` (map shoulder buttons), `MENU_LOOK` (menu colours and sizes), `WORLD_TYPES` (level types in a world), difficulty `WORLD_DIFFICULTY` (index per world) / `WORLD_SPEED_START` / `SPEED_PER_LEVEL` / `CHASE_MAX_SHARE` / `HP_*`, `LAYOUT` (level type sizes), `BANNER_*`, fairness limits, phone mode `PHONE_*` / `CAM_*` / `MINIMAP_*` / `STICK_ZONE`, …),
 `GLOVES` — gloves (power, price, pack size), `KISSES` — air kiss price and pack, `RESCUE_KIT` — rescue kit price and pack, `REWARD` — coins for a level, `WARDROBE_TIERS` — clothes prices,
-`UPGRADES` — upgrade steps and prices, `I18N` — texts,
+`UPGRADES` — upgrade steps and prices, `I18N` — texts, `STORY` — the story chapters,
 `HAIRS` / `HATS` / `JACKETS` / `PANTS` / `BIG_SKINS` — outfits (with `price`), `THEMES` — worlds (places), `LITTLE_SCALE` / `BIG_SCALE` — character size in 3D.
 
 ## Development
