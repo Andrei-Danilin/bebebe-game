@@ -160,4 +160,7 @@ if (require.main === module) {
   }
 }
 
-module.exports = { render, section, sectionKeys, OBJECTS };
+// The value of one object of the source (e.g. CFG) — for Node scripts and tests that need the numbers without a browser
+const readValue = (src, name) => new Function(`return (${readObject(lf(src), name).text});`)();
+
+module.exports = { render, section, sectionKeys, readValue, OBJECTS };

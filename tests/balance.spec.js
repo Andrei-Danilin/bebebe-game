@@ -323,3 +323,48 @@ test("careful autopilot beats reckless", async ({ page }) => {
   expect(total(careful), "careful needs less time").toBeLessThan(total(reckless));
   expect(falls(careful), "careful falls less").toBeLessThan(falls(reckless));
 });
+
+// The autopilot presses the player's buttons when it has stock: 🩹 when lying long with nobody helping, 💋 when it
+// faces the Big One near enough to hit (balance runs start with an empty inventory, so they never get here)
+test("the careful autopilot uses rescue kits and air kisses when it has them", async ({ page }) => {
+  const r = await page.evaluate(() => {
+    const b = window.__bb, C = b.CFG, out = {};
+    b.autopilot(true, "careful"); b.world = "park"; b.level = 1; b.startGame(1);
+    Object.assign(b.progress.inv, { kisses: 5, rescues: 3 });
+    const L = b.littles, p = L[0];
+    L.forEach((l, i) => { if (i) Object.assign(l, { x: 860, y: 60 + i * 40 }); });   // bots far away: nobody else rescues
+    Object.assign(b.big, { x: 900, y: 600, state: "look", timer: 9999, stun: 0, slip: 0, noPush: 999, pushCd: 0, hugCd: 0, blush: 0 });
+    // lying, but not long yet: waits for friends
+    Object.assign(p, { state: "down", downTimer: C.DOWN_TIME - 1, rescue: 0, x: 600, y: 450 });
+    b.autoThink(1 / 60); out.early = [p.state, b.progress.inv.rescues];
+    Object.assign(p, { downTimer: C.DOWN_TIME - C.AUTOPILOT.kitWait - 0.5 });
+    b.autoThink(1 / 60); out.kit = [p.state, b.progress.inv.rescues, b.events.filter(e => e.type === "kit").length];
+    // behind the Big One, facing him, within reach: a kiss
+    Object.assign(b.big, { x: 200, y: 228, dir: 0 });
+    Object.assign(p, { state: "ok", x: 120, y: 228, dir: 0, invuln: 0, hugAnim: 0, dizzy: 0, kissCd: 0 });
+    b.autoThink(1 / 60); out.kiss = [b.progress.inv.kisses, b.kisses.length];
+    b.autopilot(false); b.mode = "menu";
+    return out;
+  });
+  expect(r.early).toEqual(["down", 3]);
+  expect(r.kit).toEqual(["ok", 2, 1]);
+  expect(r.kiss).toEqual([4, 1]);
+});
+
+// ---------- AC 14: the CI sample of the balance report ----------
+// The 8 levels of CFG.BALANCE.CI_LEVELS (an early level and a maze level per world), 1 seed, careful autopilot, played
+// exactly like `npm run balance` (runLevel from scripts/balance.js), with wide bounds: won within the time limit,
+// no 2-minute stretch without any event (stuck), the event log not overflowing, no page errors (the fixture).
+const { runLevel } = require("../scripts/balance.js");
+const { readValue } = require("../scripts/docs-numbers.js");
+const BAL = readValue(fs.readFileSync(path.join(ROOT, "index.html"), "utf8"), "CFG").BALANCE;
+for (const [world, n] of BAL.CI_LEVELS) {
+  test(`balance sample: ${world} ${n} is won in time and nothing gets stuck`, async ({ page }) => {
+    const r = await page.evaluate(runLevel, { world, n, style: "careful", seed: 2026 });
+    expect(r.win, `${world} ${n}: won (ended ${r.ended}, ${Math.round(r.time)} s)`).toBe(true);
+    expect(r.time).toBeLessThanOrEqual(BAL.TIME_LIMIT);
+    expect(r.maxGap, "the longest stretch without any event").toBeLessThan(120);
+    expect(r.logFull).toBe(false);
+    expect(r.coins, "coins were earned").toBeGreaterThan(0);
+  });
+}
