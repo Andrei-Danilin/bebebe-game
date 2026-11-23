@@ -47,6 +47,29 @@ for (const lang of ["en", "es", "ru"]) {
   });
 }
 
+// SPEC-018: an evaluate whose arrow body is an expression returns its value to the test. Object.assign(littles[i], …)
+// returns the Little One, so Playwright serializes him with his 3D parts: 11–15 s per call. Mutating bodies go in braces.
+test("tests never return game objects from evaluate", () => {
+  const dir = path.join(ROOT, "tests"), bad = [];
+  const arrow = String.raw`evaluate\(\s*(?:\([^()]*\)|\w+)\s*=>\s*`;
+  const patterns = [
+    new RegExp(arrow + String.raw`Object\.assign\(`),                                                   // returns its target
+    new RegExp(arrow + String.raw`window\.__bb\.(?:big|littles|items|stars|kisses)(?:\[[^\]]*\])?\s*[,)]`)   // a game object as is
+  ];
+  for (const f of fs.readdirSync(dir).filter(n => n.endsWith(".js"))) {
+    fs.readFileSync(path.join(dir, f), "utf8").split("\n").forEach((line, i) => {
+      if (patterns.some(re => re.test(line))) bad.push(`${f}:${i + 1}: ${line.trim()}`);
+    });
+  }
+  expect(bad, bad.join("\n")).toEqual([]);
+  // the guard itself catches the old form and leaves the braced one alone ("ev" + "aluate": this file is scanned too)
+  const ev = "await page.ev" + "aluate(() => ";
+  expect(patterns[0].test(ev + "Object.assign(window.__bb.big, { x: 1 }));")).toBe(true);
+  expect(patterns[0].test(ev + "{ Object.assign(window.__bb.big, { x: 1 }); });")).toBe(false);
+  expect(patterns[1].test(ev + "window.__bb.littles[0]);")).toBe(true);
+  expect(patterns[1].test(ev + "window.__bb.littles[0].state);")).toBe(false);
+});
+
 // Safari before iOS 16.4 cannot parse a regex lookbehind: the whole module fails with a SyntaxError and the game does
 // not start at all (older iPads). Keep (?<= and (?<! out of index.html.
 test("index.html has no regex lookbehind (older iPads)", () => {

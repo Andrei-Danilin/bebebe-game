@@ -632,10 +632,9 @@ test.describe("phone mini-map", () => {
   // mini-map to MINIMAP_UNDER_ALPHA within ~0.2 s; it comes back when they leave. One evaluate per phase:
   // the frame loop does not run in between, so the camera stays put and the fade is stepped by hand.
   test("the mini-map fades when someone is under it", async ({ page }) => {
-    test.slow();   // moving the Big One costs a long GPU stall in SwiftShader on the next frame (see the edge arrows test)
     const errors = await phonePlay(page);
     await placeHero(page, 560, 300);
-    await page.evaluate(() => Object.assign(window.__bb.big, { x: 300, y: 400 }));
+    await page.evaluate(() => { Object.assign(window.__bb.big, { x: 300, y: 400 }); });
     await frames(page);
     const cfg = await page.evaluate(() => window.__bb.CFG);
     expect(cfg.MINIMAP_UNDER_ALPHA).toBe(0.2);
@@ -681,17 +680,16 @@ test.describe("phone mini-map", () => {
   });
 
   test("edge arrows point to the off-screen Big One and downed friends", async ({ page }) => {
-    // Each teleport (the Big One, a downed bot) costs a ~15 s GPU stall in SwiftShader on the next frame —
-    // on desktop too, not caused by the phone code — so this test gets the slow timeout.
+    // SPEC-018: the "~15 s GPU stall after each teleport" this test used to have was Playwright serializing the Big One /
+    // the Little One that an Object.assign evaluate without braces returned; the teleports now return nothing.
     // SPEC-010: deterministic — the bots used to hug the stunned Big One over the minutes this test runs (and could win
     // the level: no arrows outside "play") or walk over and help the downed friend up; now they all rest (calmAll)
-    test.slow();
     const errors = await phonePlay(page);
     await calmAll(page);
     await placeHero(page, 560, 300);
     const ui = await page.evaluate(() => window.__bb.uiSize);
     // the Big One far away in the bottom-left: one red arrow at the edge, towards him
-    await page.evaluate(() => Object.assign(window.__bb.big, { x: 60, y: 600 }));
+    await page.evaluate(() => { Object.assign(window.__bb.big, { x: 60, y: 600 }); });
     await frames(page);
     let r = await page.evaluate(() => {
       const b = window.__bb, l = b.littles[0];
@@ -707,11 +705,11 @@ test.describe("phone mini-map", () => {
     const toArrow = Math.atan2(big[0].y - r.hs.y, big[0].x - r.hs.x);
     expect(Math.abs(toArrow - want)).toBeLessThan(0.35);                               // on the side facing him
     // bring him on screen: no arrow
-    await page.evaluate(() => Object.assign(window.__bb.big, { x: 620, y: 330 }));
+    await page.evaluate(() => { Object.assign(window.__bb.big, { x: 620, y: 330 }); });
     await frames(page);
     expect(await page.evaluate(() => window.__bb.edgeArrows.filter(a => a.kind === "big").length)).toBe(0);
     // a downed bot off screen in the top-right (where the mini-map is): a green arrow, clear of the mini-map and buttons
-    await page.evaluate(() => Object.assign(window.__bb.littles[1], { x: 900, y: 40, state: "down", downTimer: 999, rescue: 0, botWait: 999 }));
+    await page.evaluate(() => { Object.assign(window.__bb.littles[1], { x: 900, y: 40, state: "down", downTimer: 999, rescue: 0, botWait: 999 }); });
     await frames(page);
     r = await page.evaluate(() => {
       const b = window.__bb, l = b.littles[0];
@@ -763,7 +761,6 @@ test.describe("phone mini-map 667×375", () => {
   test.use({ ...PHONE_CTX, viewport: { width: 667, height: 375 } });
 
   test("a downed friend under the team chips left of the mini-map gets an edge arrow", async ({ page }) => {
-    test.slow();   // teleporting a bot costs a long GPU stall in SwiftShader on the next frame
     const errors = await phonePlay(page);
     await calmAll(page);
     await placeHero(page, 200, 500);
