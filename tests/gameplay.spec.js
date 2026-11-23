@@ -698,6 +698,14 @@ test("bonus worlds open after all main levels", async ({ page }) => {
   await page.evaluate(() => window.__bb.selectWorld("winter"));
   expect(await page.evaluate(() => window.__bb.world)).toBe("winter");
 
+  // review fix: Beach open through its own progress, then the progress is reset — the Beach is locked again: back to the Park
+  const reset = await page.evaluate(() => {
+    const b = window.__bb; b.setProgress({ worlds: { beach: { unlocked: 3 } } }); b.mode = "menu"; b.world = "park";
+    b.selectWorld("beach"); const before = b.world;
+    b.resetProgress(); b.resetProgress();                  // two calls, like the button
+    return { before, after: b.world, last: b.progress.lastWorld };
+  });
+  expect(reset).toEqual({ before: "beach", after: "park", last: "park" });
   // a saved lastWorld that is a locked bonus world opens on the Park; one with progress there stays
   expect((await loadSave(page, { lastWorld: "winter" })).lastWorld).toBe("park");
   expect((await loadSave(page, { lastWorld: "beach", worlds: { beach: { unlocked: 3 } } })).lastWorld).toBe("beach");

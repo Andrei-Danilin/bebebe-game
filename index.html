@@ -649,13 +649,14 @@ function bigHouse(items, x0, y0, doors) {
 // Уровень — (мир, n) (SPEC-006): миры по CFG.WORLD_TYPES.length уровней; место (тема) уровня — его мир.
 // SPEC-016 (решение Кости и папы): миры идут по сюжету — главные Парк → Футбольное поле → Город → Школа, потом бонусные
 // Пляж и Зима (открываются, когда выиграны все уровни главных). Порядок WORLDS — порядок в меню.
-const MAIN_WORLDS = ["park", "field", "city", "school"];
-const BONUS_WORLDS = ["beach", "winter"];
-const WORLDS = [...MAIN_WORLDS, ...BONUS_WORLDS];
+const MAIN_WORLDS = Object.freeze(["park", "field", "city", "school"]);
+const BONUS_WORLDS = Object.freeze(["beach", "winter"]);
+const WORLDS = Object.freeze([...MAIN_WORLDS, ...BONUS_WORLDS]);
 // сид мира — по имени, а не по месту в списке: у Парка, Школы, Пляжа и Зимы те же карты, что до SPEC-016.
 // Не число для настройки (другое число — другие карты), поэтому не в CFG
-const WORLD_SEED = { park: 1, school: 2, beach: 3, winter: 4, field: 5, city: 6 };
-const worldIndex = world => Math.max(0, WORLDS.indexOf(world));   // место в сюжете (меню: ↑/↓, карточки)
+const WORLD_SEED = Object.freeze({ park: 1, school: 2, beach: 3, winter: 4, field: 5, city: 6 });
+// место мира в сюжете (только меню: ↑/↓, карточки); для чисел сложности — worldDifficulty, для карт — WORLD_SEED
+const worldIndex = world => Math.max(0, WORLDS.indexOf(world));
 // индекс сложности мира (CFG.WORLD_DIFFICULTY): скорость и сердечки Большого, монетки, время третьей звезды; неизвестный мир → 0
 const worldDifficulty = world => CFG.WORLD_DIFFICULTY[world] ?? 0;
 const levelsPerWorld = () => CFG.WORLD_TYPES.length;
@@ -1801,9 +1802,10 @@ function loadProgress(pv) {
   return out;
 }
 // SPEC-016: бонусные миры открываются, когда выиграны все уровни всех главных миров (p — прогресс, по умолчанию текущий)
-const bonusUnlocked = (p = progress) => MAIN_WORLDS.every(w => { const won = p.worlds[w].won; for (let n = 1; n <= levelsPerWorld(); n++) if (won[n] !== true) return false; return true; });
+// (сохранение может быть неполным — нет мира или полей: значит, не выиграно и прогресса нет)
+const bonusUnlocked = (p = progress) => MAIN_WORLDS.every(w => { const won = p?.worlds?.[w]?.won ?? {}; for (let n = 1; n <= levelsPerWorld(); n++) if (won[n] !== true) return false; return true; });
 // в мире есть прогресс: открыт дальше 1-го уровня или есть победа/звёзды
-const worldHasProgress = (w, p = progress) => { const v = p.worlds[w]; return v.unlocked > 1 || Object.keys(v.won).length > 0 || Object.keys(v.stars).length > 0; };
+const worldHasProgress = (w, p = progress) => { const v = p?.worlds?.[w]; return !!v && (v.unlocked > 1 || Object.keys(v.won ?? {}).length > 0 || Object.keys(v.stars ?? {}).length > 0); };
 // мир открыт в меню: главный — всегда; бонусный — после всех главных или если в нём уже есть прогресс (никто не теряет своё)
 const bonusOpen = (world, p = progress) => !BONUS_WORLDS.includes(world) || bonusUnlocked(p) || worldHasProgress(world, p);
 let progress = freshProgress(), migrated = false, hadOwned = false;
@@ -3416,7 +3418,8 @@ function minimapBase(r) {
   };
   zone(safeZone, th.walls.home[0]); zone(dangerZone, th.walls.bighome[0]);
   for (const o of obstacles) {
-    if (o.kind === "water" || o.kind === "pond") { g.fillStyle = MM_WATER; g.fillRect(o.x, o.y, o.w, o.h); continue; }
+    // SPEC-016: у места с воротами (deco.goal — Поле) пруд — это ворота: рисуются цветом рамки, не водой
+    if (o.kind === "water" || o.kind === "pond") { g.fillStyle = o.kind === "pond" && !o.fountain && th.deco?.goal ? th.deco.goal : MM_WATER; g.fillRect(o.x, o.y, o.w, o.h); continue; }
     if (o.kind === "tree" || o.kind === "rock") {
       g.fillStyle = dark(o.kind === "tree" ? MM_BUSH : "#94a3b8");
       g.beginPath(); g.arc(o.x, o.y, o.r * L.tree, 0, TAU); g.fill(); continue;
@@ -4720,7 +4723,13 @@ groundTex.anisotropy = 8;
 const THEMES = {
   // walls: [стена, верх]; maze — стены лабиринта (deco: кочки живой изгороди / столбики забора / снежки / дверцы шкафчиков);
   // cottage — домики деревни; water — река (edge — берег, stone — каменный бортик канала, waves/wave — волны и их цвет); bridge — [доски, щели];
-  // square — площадь [мостовая, камни]; fountain — чаша фонтана
+  // square — площадь [мостовая, камни]; fountain — чаша фонтана.
+  // deco (SPEC-016, необязательно; одно имя — один смысл в любом месте) — цвета деталей места:
+  //   земля: chalk (разметка), asphalt, roadLine, zebra, kerb (бордюр и бортик бассейна); забор: boards [щиты по очереди];
+  //   ворота: goal (рама), goalNet, goalArea (площадка под воротами и ворота на мини-карте); flag, flagPole;
+  //   «камни»: cone, coneStripe, bag, bagStrap, cars [кузова по очереди], carGlass, carTyre, carLight;
+  //   «кусты»: hedge, hedgeLight, planter, soil, leaves, flowers [по очереди];
+  //   за оградой: lampPole, lampLight, mastPole, mastLight, benchSeat, benchLeg, hydrant, bin, ballSkin, ballPatch
   park:   { bg: "#6fb24f", outer: "#7cc35a", g1: "#9be06f", g2: "#90d566", dots: ["#fff27a", "#ff9ecb", "#ffffff", "#b5e3ff"], fence: "#f5e6c8",
             walls: { home: ["#7cc6fe", "#c4e6ff"], bighome: ["#e5534b", "#f6a8a2"], build: ["#f4b860", "#fde0ad"], arena: ["#9ca3af", "#d1d5db"] },
             maze: { wall: "#3f9a4a", cap: "#5cb85c", deco: "bumps", decoC: "#6cc46a" },
@@ -4749,9 +4758,10 @@ const THEMES = {
             maze: { wall: "#1f7a3a", cap: "#34a853", deco: "boards", decoC: "#ffffff" },
             cottage: { wall: "#f8fafc", roof: "#16a34a", door: "#1e3a8a", window: "#bae6fd" },
             water: { c: "#4fb3d9", edge: "#a8a29e", stone: true, waves: true, wave: "#e0f2fe" }, bridge: ["#d6a463", "#8b5a2b"], square: ["#e7e5e4", "#d6d3d1"], fountain: "#cbd5e1",
-            deco: { chalk: "#ffffff", boards: ["#ef4444", "#2563eb", "#facc15", "#f8fafc", "#16a34a", "#f97316"], goal: "#ffffff", net: "#ffffff", goalArea: "#86d860",
-              flag: "#facc15", pole: "#f8fafc", bench: "#2563eb", leg: "#475569", ball: ["#ffffff", "#1f2937"], cone: "#f97316", stripe: "#ffffff", bag: "#1d4ed8",
-              mast: "#94a3b8", lamp: "#fef9c3", hedge: ["#2f9e44", "#69db7c"] } },
+            deco: { chalk: "#ffffff", boards: ["#ef4444", "#2563eb", "#facc15", "#f8fafc", "#16a34a", "#f97316"], goal: "#ffffff", goalNet: "#ffffff", goalArea: "#86d860",
+              flag: "#facc15", flagPole: "#f8fafc", benchSeat: "#2563eb", benchLeg: "#475569", ballSkin: "#ffffff", ballPatch: "#1f2937",
+              cone: "#f97316", coneStripe: "#ffffff", bag: "#1d4ed8", bagStrap: "#ffffff", mastPole: "#94a3b8", mastLight: "#fef9c3",
+              hedge: "#2f9e44", hedgeLight: "#69db7c" } },
   // SPEC-016: Город — тротуарная плитка, две улицы с разметкой и зебрами, низкая ограда; машины вместо камней, клумбы-кадки вместо
   // кустов, пруд — бассейн с каменным бортиком; деревня — городские домики, река — канал с каменными мостами, дом — торговый центр,
   // арена — кольцо-клумба, лабиринт — дворовые заборы. За оградой — фонари, гидранты, скамейки, урны и деревья
@@ -4760,9 +4770,9 @@ const THEMES = {
             maze: { wall: "#a0703f", cap: "#c9935f", deco: "posts", decoC: "#6b4423" },
             cottage: { wall: "#fdba74", roof: "#0d9488", door: "#7c2d12", window: "#fef9c3" },
             water: { c: "#2b8fd0", edge: "#9ca3af", stone: true, waves: true, wave: "#dbeafe" }, bridge: ["#d6d3d1", "#78716c"], square: ["#f1e9da", "#e2d5bd"], fountain: "#e5e7eb",
-            deco: { asphalt: "#6b7280", line: "#f8fafc", zebra: "#f8fafc", kerb: "#9ca3af", cars: ["#ef4444", "#3b82f6", "#facc15", "#22c55e", "#f97316", "#a855f7"],
-              glass: "#bae6fd", tyre: "#1f2937", light: "#fef9c3", planter: "#a8a29e", soil: "#7c4a1e", leaves: "#22c55e", flowers: ["#f472b6", "#facc15", "#f87171", "#c084fc"],
-              lamp: "#475569", hydrant: "#ef4444", bench: "#92400e", bin: "#16a34a" } }
+            deco: { asphalt: "#6b7280", roadLine: "#f8fafc", zebra: "#f8fafc", kerb: "#9ca3af", cars: ["#ef4444", "#3b82f6", "#facc15", "#22c55e", "#f97316", "#a855f7"],
+              carGlass: "#bae6fd", carTyre: "#1f2937", carLight: "#fef9c3", planter: "#a8a29e", soil: "#7c4a1e", leaves: "#22c55e", flowers: ["#f472b6", "#facc15", "#f87171", "#c084fc"],
+              lampPole: "#475569", lampLight: "#fef9c3", hydrant: "#ef4444", benchSeat: "#92400e", benchLeg: "#475569", bin: "#16a34a" } }
 };
 const HEDGE_COLORS = ["#3f9a4a", "#7bd07e"];
 let mapGroup = null, builtKey = "";
@@ -4821,6 +4831,7 @@ function makeTreeFor(place, o, fade) {
   if (place === "school" || place === "field" || place === "city") return makeTree("round", o.s, fade);   // SPEC-016: деревья у поля, на улицах
   return makeTree(o.v, o.s, fade);
 }
+const CAR_LEN = 1.0;   // SPEC-016: длина машины в клетках = диаметр круга камня (r 16 px), им она и мешает идти и смотреть
 function makeRockFor(place, o) {
   const g = new THREE.Group(), s = o.s;
   if (place === "beach") {                               // песочный замок
@@ -4849,23 +4860,23 @@ function makeRockFor(place, o) {
       spot.position.set(Math.cos(a) * rr2 * 0.95, 0.48 + yy, Math.sin(a) * rr2 * 0.95); spot.scale.setScalar(0.85); g.add(spot);
     }
   } else if (place === "field") {                        // SPEC-016: конусы и спортивная сумка
-    const D = THEMES.field.deco;
+    const D = THEMES[place].deco;
     const bag = part(new THREE.BoxGeometry(0.72, 0.34, 0.38), D.bag, 0.03); bag.position.set(0, 0.17, 0.12); bag.rotation.y = o.x * 0.37; g.add(bag);
-    const strap = new THREE.Mesh(new THREE.BoxGeometry(0.74, 0.05, 0.08), toon(D.stripe)); strap.position.set(0, 0.36, 0.12); strap.rotation.y = o.x * 0.37; g.add(strap);
+    const strap = new THREE.Mesh(new THREE.BoxGeometry(0.74, 0.05, 0.08), toon(D.bagStrap)); strap.position.set(0, 0.36, 0.12); strap.rotation.y = o.x * 0.37; g.add(strap);
     for (const [x, z] of [[-0.3, -0.28], [0.08, -0.36], [0.36, -0.12]]) {
       const c = part(new THREE.ConeGeometry(0.16, 0.42, 10), D.cone, 0.02); c.position.set(x, 0.21, z); g.add(c);
-      const st = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.1, 0.07, 10), toon(D.stripe)); st.position.set(x, 0.24, z); g.add(st);
+      const st = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.1, 0.07, 10), toon(D.coneStripe)); st.position.set(x, 0.24, z); g.add(st);
     }
   } else if (place === "city") {                         // SPEC-016: машина у тротуара (как камень: не пройти и не видно)
-    const D = THEMES.city.deco, k = Math.floor(o.x / CELL) * 7 + Math.floor(o.y / CELL) * 3, col = D.cars[k % D.cars.length];
+    const D = THEMES[place].deco, k = Math.floor(o.x / CELL) * 7 + Math.floor(o.y / CELL) * 3, col = D.cars[k % D.cars.length];
     const car = new THREE.Group();
     const body = part(new THREE.BoxGeometry(1.15, 0.36, 0.62), col, 0.03); body.position.y = 0.3; car.add(body);
-    const glass = part(new THREE.BoxGeometry(0.62, 0.24, 0.56), D.glass, 0.02); glass.position.set(-0.05, 0.6, 0); car.add(glass);
+    const glass = part(new THREE.BoxGeometry(0.62, 0.24, 0.56), D.carGlass, 0.02); glass.position.set(-0.05, 0.6, 0); car.add(glass);
     const roof = new THREE.Mesh(new THREE.BoxGeometry(0.66, 0.06, 0.6), toon(col)); roof.position.set(-0.05, 0.74, 0); car.add(roof);
     const wheel = new THREE.CylinderGeometry(0.15, 0.15, 0.1, 12);
-    for (const [x, z] of [[-0.36, 0.31], [0.36, 0.31], [-0.36, -0.31], [0.36, -0.31]]) { const w = new THREE.Mesh(wheel, toon(D.tyre)); w.rotation.x = Math.PI / 2; w.position.set(x, 0.15, z); car.add(w); }
-    for (const z of [-0.2, 0.2]) { const l = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.08, 0.12), toon(D.light)); l.position.set(0.58, 0.34, z); car.add(l); }
-    car.scale.setScalar(1.15); if (k % 2) car.rotation.y = Math.PI / 2;
+    for (const [x, z] of [[-0.36, 0.31], [0.36, 0.31], [-0.36, -0.31], [0.36, -0.31]]) { const w = new THREE.Mesh(wheel, toon(D.carTyre)); w.rotation.x = Math.PI / 2; w.position.set(x, 0.15, z); car.add(w); }
+    for (const z of [-0.2, 0.2]) { const l = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.08, 0.12), toon(D.carLight)); l.position.set(0.58, 0.34, z); car.add(l); }
+    car.scale.setScalar(CAR_LEN / (1.15 * s)); if (k % 2) car.rotation.y = Math.PI / 2;   // длина ≈ круг камня (1 клетка): что видно — то и мешает
     g.add(car);
   } else {                                               // камень
     const r = part(new THREE.DodecahedronGeometry(0.58, 0), "#8e98a3", 0.04);
@@ -4889,13 +4900,13 @@ function makeBushFor(place) {
     return { g, mats };
   }
   if (place === "field") {                               // SPEC-016: круглый подстриженный куст
-    const [h0, h1] = THEMES.field.deco.hedge;
-    const b = part(sphere(0.68, 16, 12), "", 0.035, fm(h0)); b.scale.y = 0.85; b.position.y = 0.58; g.add(b);
-    const hl = new THREE.Mesh(sphere(0.24, 10, 8), fm(h1)); hl.position.set(-0.2, 1.0, -0.15); g.add(hl);
+    const D = THEMES[place].deco;
+    const b = part(sphere(0.68, 16, 12), "", 0.035, fm(D.hedge)); b.scale.y = 0.85; b.position.y = 0.58; g.add(b);
+    const hl = new THREE.Mesh(sphere(0.24, 10, 8), fm(D.hedgeLight)); hl.position.set(-0.2, 1.0, -0.15); g.add(hl);
     return { g, mats };
   }
   if (place === "city") {                                // SPEC-016: кадка с цветами
-    const D = THEMES.city.deco;
+    const D = THEMES[place].deco;
     const box = part(new THREE.BoxGeometry(1.4, 0.5, 1.2), D.planter, 0.035, fm(D.planter)); box.position.y = 0.25; g.add(box);
     const soil = new THREE.Mesh(new THREE.BoxGeometry(1.24, 0.04, 1.04), fm(D.soil)); soil.position.y = 0.51; g.add(soil);
     const lm = fm(D.leaves);
@@ -4945,9 +4956,9 @@ function makePondFor(place, o) {
     const spade = part(new THREE.BoxGeometry(0.14, 0.03, 0.4), "#3b82f6", 0.015); spade.position.set(cx + w / 4, 0.14, cz + 0.1); spade.rotation.y = 0.6; mapGroup.add(spade);
     return;
   }
-  if (place === "field") { makeGoal(o); return; }        // SPEC-016: ворота
-  const rimC = place === "beach" ? "#ffffff" : place === "winter" ? "#ffffff" : place === "city" ? THEMES.city.deco.kerb : OUT;
-  const waterC = place === "beach" ? "#2dd4bf" : place === "winter" ? "#cfe9ff" : place === "city" ? THEMES.city.water.c : "#5ab8f0";
+  if (place === "field") { makeGoal(place, o); return; }   // SPEC-016: ворота
+  const rimC = place === "beach" ? "#ffffff" : place === "winter" ? "#ffffff" : place === "city" ? THEMES[place].deco.kerb : OUT;
+  const waterC = place === "beach" ? "#2dd4bf" : place === "winter" ? "#cfe9ff" : place === "city" ? THEMES[place].water.c : "#5ab8f0";
   mapGroup.add(flat(new THREE.ShapeGeometry(roundedRectShape(w + (place === "beach" ? 0.6 : 0.42), d + (place === "beach" ? 0.5 : 0.3), 0.7)), rimC, 0.012, cx, cz));
   if (place === "beach") mapGroup.add(flat(new THREE.ShapeGeometry(roundedRectShape(w + 0.62, d + 0.52, 0.72)), OUT, 0.008, cx, cz));
   const water = flat(new THREE.ShapeGeometry(roundedRectShape(w + 0.3, d + 0.18, 0.65)), waterC, 0.025, cx, cz);
@@ -4968,21 +4979,22 @@ function makePondFor(place, o) {
   }
 }
 
-// SPEC-016: сетка ворот — одна прозрачная текстура-клетка на всю игру (материал общий, не удаляется с картой)
-let netMat = null;
-function goalNetMat() {
-  if (netMat) return netMat;
+// SPEC-016: сетка ворот — прозрачная текстура-клетка, одна на цвет за всю игру (материал общий, не удаляется с картой)
+const netMats = new Map();
+function goalNetMat(color) {
+  if (netMats.has(color)) return netMats.get(color);
   const c = document.createElement("canvas"); c.width = c.height = 32;
-  const g = c.getContext("2d"); g.strokeStyle = THEMES.field.deco.net; g.lineWidth = 3; g.strokeRect(0, 0, 32, 32);
+  const g = c.getContext("2d"); g.strokeStyle = color; g.lineWidth = 3; g.strokeRect(0, 0, 32, 32);
   const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(5, 3);
-  netMat = new THREE.MeshBasicMaterial({ map: t, transparent: true, side: THREE.DoubleSide, depthWrite: false });
-  return netMat;
+  const m = new THREE.MeshBasicMaterial({ map: t, transparent: true, side: THREE.DoubleSide, depthWrite: false });
+  netMats.set(color, m);
+  return m;
 }
 // SPEC-016: ворота на месте пруда (стоять нельзя, сквозь сетку видно): штанги и перекладина со стороны центра поля, сетка — коробка
-function makeGoal(o) {
-  const D = THEMES.field.deco, w = P(o.w), d = P(o.h), cx = P(o.x) + w / 2, cz = P(o.y) + d / 2, H = 0.9;
+function makeGoal(place, o) {
+  const D = THEMES[place].deco, w = P(o.w), d = P(o.h), cx = P(o.x) + w / 2, cz = P(o.y) + d / 2, H = 0.9;
   mapGroup.add(flat(new THREE.PlaneGeometry(w + 0.3, d + 0.3), D.goalArea, 0.01, cx, cz));
-  const net = new THREE.Mesh(new THREE.BoxGeometry(w, H * 0.85, d), goalNetMat()); net.position.set(cx, H * 0.425, cz); mapGroup.add(net);
+  const net = new THREE.Mesh(new THREE.BoxGeometry(w, H * 0.85, d), goalNetMat(D.goalNet)); net.position.set(cx, H * 0.425, cz); mapGroup.add(net);
   const along = w >= d, len = along ? w : d, dep = along ? d : w;
   // рот ворот смотрит к центру карты
   const toC = along ? (cz < ROWS / 2 ? 1 : -1) : (cx < COLS / 2 ? 1 : -1);
@@ -5001,15 +5013,15 @@ function makeGoal(o) {
 function makeStreetThing(kind, D) {
   const g = new THREE.Group();
   if (kind === "lamp" || kind === "mast") {
-    const tall = kind === "mast" ? 3.6 : 2.0;
-    const pole = part(new THREE.CylinderGeometry(0.06, 0.09, tall, 8), kind === "mast" ? D.mast : D.lamp, 0.02); pole.position.y = tall / 2; g.add(pole);
-    const head = part(kind === "mast" ? new THREE.BoxGeometry(0.9, 0.4, 0.2) : sphere(0.18, 10, 8), D.mast || D.lamp, 0.02); head.position.y = tall + 0.1; g.add(head);
-    const glow = new THREE.Mesh(kind === "mast" ? new THREE.BoxGeometry(0.8, 0.3, 0.05) : sphere(0.13, 10, 8), toon(kind === "mast" ? D.lamp : D.light));
-    glow.position.set(0, tall + (kind === "mast" ? 0.1 : 0.02), kind === "mast" ? 0.12 : 0); g.add(glow);
+    const mast = kind === "mast", tall = mast ? 3.6 : 2.0, poleC = mast ? D.mastPole : D.lampPole, lightC = mast ? D.mastLight : D.lampLight;
+    const pole = part(new THREE.CylinderGeometry(0.06, 0.09, tall, 8), poleC, 0.02); pole.position.y = tall / 2; g.add(pole);
+    const head = part(mast ? new THREE.BoxGeometry(0.9, 0.4, 0.2) : sphere(0.18, 10, 8), poleC, 0.02); head.position.y = tall + 0.1; g.add(head);
+    const glow = new THREE.Mesh(mast ? new THREE.BoxGeometry(0.8, 0.3, 0.05) : sphere(0.13, 10, 8), toon(lightC));
+    glow.position.set(0, tall + (mast ? 0.1 : 0.02), mast ? 0.12 : 0); g.add(glow);
   } else if (kind === "bench") {
-    const seat = part(new THREE.BoxGeometry(1.2, 0.08, 0.36), D.bench, 0.02); seat.position.y = 0.36; g.add(seat);
-    const back = part(new THREE.BoxGeometry(1.2, 0.3, 0.07), D.bench, 0.02); back.position.set(0, 0.6, -0.16); g.add(back);
-    for (const x of [-0.5, 0.5]) { const l = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.36, 0.3), toon(D.leg || D.lamp)); l.position.set(x, 0.18, 0); g.add(l); }
+    const seat = part(new THREE.BoxGeometry(1.2, 0.08, 0.36), D.benchSeat, 0.02); seat.position.y = 0.36; g.add(seat);
+    const back = part(new THREE.BoxGeometry(1.2, 0.3, 0.07), D.benchSeat, 0.02); back.position.set(0, 0.6, -0.16); g.add(back);
+    for (const x of [-0.5, 0.5]) { const l = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.36, 0.3), toon(D.benchLeg)); l.position.set(x, 0.18, 0); g.add(l); }
   } else if (kind === "hydrant") {
     const b = part(new THREE.CylinderGeometry(0.13, 0.15, 0.5, 10), D.hydrant, 0.02); b.position.y = 0.25; g.add(b);
     const t = part(sphere(0.14, 10, 8), D.hydrant, 0.02); t.position.y = 0.52; g.add(t);
@@ -5017,16 +5029,16 @@ function makeStreetThing(kind, D) {
   } else if (kind === "bin") {
     const b = part(new THREE.CylinderGeometry(0.2, 0.17, 0.55, 10), D.bin, 0.02); b.position.y = 0.28; g.add(b);
   } else if (kind === "flag") {
-    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 1.0, 6), toon(D.pole)); pole.position.y = 0.5; g.add(pole);
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 1.0, 6), toon(D.flagPole)); pole.position.y = 0.5; g.add(pole);
     const f = part(new THREE.BoxGeometry(0.3, 0.2, 0.02), D.flag, 0.01); f.position.set(0.15, 0.88, 0); g.add(f);
   } else if (kind === "ball") {
-    const b = part(sphere(0.2, 12, 10), D.ball[0], 0.02); b.position.y = 0.2; g.add(b);
-    for (const [x, y, z] of [[0, 0.38, 0], [0.17, 0.24, 0.06], [-0.12, 0.22, 0.13]]) { const sp = new THREE.Mesh(sphere(0.06, 6, 5), toon(D.ball[1])); sp.position.set(x, y, z); g.add(sp); }
+    const b = part(sphere(0.2, 12, 10), D.ballSkin, 0.02); b.position.y = 0.2; g.add(b);
+    for (const [x, y, z] of [[0, 0.38, 0], [0.17, 0.24, 0.06], [-0.12, 0.22, 0.13]]) { const sp = new THREE.Mesh(sphere(0.06, 6, 5), toon(D.ballPatch)); sp.position.set(x, y, z); g.add(sp); }
   }
   g.traverse(q => { if (q.isMesh) q.castShadow = true; });
   return g;
 }
-// SPEC-016: рекламные щиты по краю Поля вместо забора — одним InstancedMesh, цвет каждого щита из THEMES.field.deco.boards
+// SPEC-016: рекламные щиты вместо забора (у места с deco.boards — Поле) — одним InstancedMesh, цвет каждого щита по очереди из boards
 function adBoards(D) {
   const segs = [];
   for (let x = 0; x < COLS; x += 2) segs.push([x + 1, -0.15, false], [x + 1, ROWS + 0.15, false]);
@@ -5059,7 +5071,7 @@ function paintStreets(th) {
   const D = th.deco, sy = 9 * CELL, sx = 14 * CELL, sw = 2 * CELL;
   ctx.fillStyle = D.kerb; ctx.fillRect(0, sy - 4, W, sw + 8); ctx.fillRect(sx - 4, 0, sw + 8, H);
   ctx.fillStyle = D.asphalt; ctx.fillRect(0, sy, W, sw); ctx.fillRect(sx, 0, sw, H);
-  ctx.strokeStyle = D.line; ctx.lineWidth = 3; ctx.setLineDash([16, 14]);
+  ctx.strokeStyle = D.roadLine; ctx.lineWidth = 3; ctx.setLineDash([16, 14]);
   ctx.beginPath(); ctx.moveTo(0, sy + sw / 2); ctx.lineTo(sx - 2.6 * CELL, sy + sw / 2); ctx.moveTo(sx + sw + 2.6 * CELL, sy + sw / 2); ctx.lineTo(W, sy + sw / 2); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(sx + sw / 2, 0); ctx.lineTo(sx + sw / 2, sy - 2.6 * CELL); ctx.moveTo(sx + sw / 2, sy + sw + 2.6 * CELL); ctx.lineTo(sx + sw / 2, H); ctx.stroke();
   ctx.setLineDash([]);

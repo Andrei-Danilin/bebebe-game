@@ -168,11 +168,13 @@ test("the menu shows six worlds and switches between them", async ({ page }) => 
   expect(d.names).not.toContain("cyclePlace");                                      // the old place button is gone
   // the cards are buttons in two rows of three (story order), inside the menu card, not on each other, above the level selector
   const cr = WORLDS.map(w => d.rects.find(q => q.id === "world:" + w));
-  for (const q of cr) expect(q, "card button").toBeTruthy();
+  expect(cr.every(Boolean), "a card button for every world").toBe(true);
   expect([new Set(cr.slice(0, 3).map(q => q.y)).size, new Set(cr.slice(3).map(q => q.y)).size]).toEqual([1, 1]);
   expect(cr[3].y).toBeGreaterThanOrEqual(cr[0].y + cr[0].h + 6);
-  for (const row of [cr.slice(0, 3), cr.slice(3)]) for (let i = 1; i < 3; i++) expect(row[i].x).toBeGreaterThanOrEqual(row[i - 1].x + row[i - 1].w + 6);
-  for (const q of cr) { expect(q.x).toBeGreaterThanOrEqual(120); expect(q.x + q.w).toBeLessThanOrEqual(840); }
+  const layout = [];
+  for (const row of [cr.slice(0, 3), cr.slice(3)]) for (let i = 1; i < 3; i++) if (row[i].x < row[i - 1].x + row[i - 1].w + 6) layout.push(`${row[i].id} too close to ${row[i - 1].id}`);
+  for (const q of cr) if (q.x < 120 || q.x + q.w > 840) layout.push(`${q.id} outside the menu card: ${q.x}…${q.x + q.w}`);
+  expect(layout).toEqual([]);
   const bottom = Math.max(...cr.map(q => q.y + q.h));
   const arrow = d.rects.find(q => q.text === "◀");
   expect(arrow.y).toBeGreaterThanOrEqual(bottom);
@@ -245,7 +247,10 @@ test("worlds follow the story order", { tag: "@fast" }, async ({ levelPage: page
   const r = await page.evaluate(() => {
     const b = window.__bb;
     const out = { worlds: b.WORLDS, main: b.MAIN_WORLDS, bonus: b.BONUS_WORLDS, seed: b.WORLD_SEED, diff: b.CFG.WORLD_DIFFICULTY,
-      names: ["en", "es", "ru"].map(l => b.I18N[l].worlds), progressWorlds: Object.keys(b.progress.worlds) };
+      names: ["en", "es", "ru"].map(l => b.I18N[l].worlds), progressWorlds: Object.keys(b.progress.worlds),
+      // review fix: every per-world table has exactly the worlds of WORLDS; the lists can't be changed at run time
+      keys: { seed: Object.keys(b.WORLD_SEED), diff: Object.keys(b.CFG.WORLD_DIFFICULTY), themes: Object.keys(b.THEMES), names: ["en", "es", "ru"].map(l => Object.keys(b.I18N[l].worlds)) },
+      speedStarts: b.CFG.WORLD_SPEED_START.length, frozen: [b.WORLDS, b.MAIN_WORLDS, b.BONUS_WORLDS, b.WORLD_SEED].map(Object.isFrozen) };
     if (typeof b.bonusUnlocked !== "function") return out;
     // bonusUnlocked(): every level of every main world won (the progress is put back after)
     const keep = JSON.parse(JSON.stringify(b.progress));
@@ -270,6 +275,12 @@ test("worlds follow the story order", { tag: "@fast" }, async ({ levelPage: page
   expect(r.progressWorlds).toEqual(WORLDS);
   // seeds keyed by the name: the four old worlds keep 1–4 (their maps), the new ones get 5 and 6
   expect(r.seed).toEqual({ park: 1, school: 2, beach: 3, winter: 4, field: 5, city: 6 });
+  const sorted = a => [...a].sort();
+  expect({ seed: sorted(r.keys.seed), diff: sorted(r.keys.diff), themes: sorted(r.keys.themes), names: r.keys.names.map(sorted) })
+    .toEqual({ seed: sorted(WORLDS), diff: sorted(WORLDS), themes: sorted(WORLDS), names: [sorted(WORLDS), sorted(WORLDS), sorted(WORLDS)] });
+  expect(new Set(Object.values(r.seed)).size, "WORLD_SEED values are unique (each world its own maps)").toBe(WORLDS.length);
+  expect(Math.max(...Object.values(r.diff)), "every difficulty index has a WORLD_SPEED_START").toBeLessThan(r.speedStarts);
+  expect(r.frozen).toEqual([true, true, true, true]);
   expect(r.diff).toEqual(DIFFICULTY);
   expect(r.names).toEqual([
     { park: "Park", field: "Football field", city: "City", school: "School", beach: "Beach", winter: "Winter" },

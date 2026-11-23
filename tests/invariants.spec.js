@@ -232,12 +232,16 @@ test("old saves get the new worlds", async ({ page }) => {
       out.open = Object.fromEntries(b.WORLDS.map(w => [w, b.bonusOpen(w, p)]));
       // "has progress" = unlocked > 1, or any won or stars entry in that world
       out.more = more.map(m => b.bonusOpen("winter", b.loadProgress({ worlds: { winter: m } })));
+      // a partial progress object (no worlds, a world without fields) never throws: nothing won, no progress
+      out.partial = [b.bonusUnlocked({}), b.bonusOpen("beach", {}), b.bonusOpen("beach", { worlds: { beach: {} } }), b.bonusOpen("winter", { worlds: { winter: { unlocked: 3 } } })];
     }
     return out;
   }, [old, [{ unlocked: 2 }, { stars: { 4: 1 } }, { won: { 7: true } }, { unlocked: 1, stars: {}, won: {} }, "junk"]]);
   expect(r.keys).toEqual(WORLDS);
-  for (const w of ["park", "school", "beach", "winter"]) expect(r.p.worlds[w], `${w} unchanged`).toEqual(old.worlds[w]);
-  for (const w of ["field", "city"]) expect(r.p.worlds[w], `${w} fresh`).toEqual(fresh);
+  const soft = softly();
+  for (const w of ["park", "school", "beach", "winter"]) soft(r.p.worlds[w], `${w} unchanged`).toEqual(old.worlds[w]);
+  for (const w of ["field", "city"]) soft(r.p.worlds[w], `${w} fresh`).toEqual(fresh);
+  soft.done();
   expect([r.p.lastWorld, r.p.coins]).toEqual(["beach", 120]);
   expect(r.again, "loading it again changes nothing").toEqual(r.p);
   expect(r.has, "__bb.bonusOpen and __bb.bonusUnlocked").toBe(true);
@@ -245,6 +249,7 @@ test("old saves get the new worlds", async ({ page }) => {
   // main worlds are always open; Beach has progress and stays open; Winter has none and is locked
   expect(r.open).toEqual({ park: true, field: true, city: true, school: true, beach: true, winter: false });
   expect(r.more).toEqual([true, true, true, false, false]);
+  expect(r.partial).toEqual([false, false, false, true]);
 });
 
 test("a whole old save starts the game: progress moves, outfits and names load, the game writes them back the same", async ({ page }) => {
