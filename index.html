@@ -5117,6 +5117,7 @@ window.__bb = {
   changeLevel, get winLine() { return winLine; }, selectWorld, get worldCards() { return worldCards.map(q => ({ ...q })); },
   update, inSafe, I18N, startGame, resetWorld, cycleOutfit, randomOutfit, cycleBig, setLang, toScreen,
   get items() { return items; }, get progress() { return progress; }, buyGloves, setEquip, get lastReward() { return lastReward; }, spawnItem,
+  loadProgress,   // SPEC-018 (тесты): чистая функция «сохранение → прогресс», та же, что при запуске; игру не трогает
   // SPEC-005 (телефон): phone; camera — позиция и точка взгляда в единицах 3D (1 = клетка), точка взгляда и видимая земля в px мира,
   // ahead — забегание вперёд (px); shake — тряска сейчас
   phone: PHONE, get shake() { return shake; },

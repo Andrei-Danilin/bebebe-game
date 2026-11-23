@@ -31,6 +31,9 @@ module.exports = defineConfig({
       args: ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"],
       ...(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {})
     },
-    screenshot: "only-on-failure"
+    // SPEC-018: "only-on-failure" takes a screenshot of every page at the end of EVERY test (and drops it when the test
+    // passed): with software WebGL that cost 1.5–2 s per test, ~4 min of the whole suite. Off by default; to get the
+    // failure screenshots back for one run: PW_SCREENSHOT=only-on-failure npx playwright test …
+    screenshot: process.env.PW_SCREENSHOT || "off"
   }
 });

@@ -6,6 +6,7 @@
 // The game exposes a debug object window.__bb (mode, littles, big, items, progress, update, startGame, ...).
 const path = require("path");
 const fs = require("fs");
+const { expect } = require("@playwright/test");
 
 const ROOT = path.resolve(__dirname, "..");
 const GAME_URL = "file://" + path.join(ROOT, "index.html").replace(/\\/g, "/");
@@ -80,6 +81,77 @@ async function step(page, seconds) {
   await page.evaluate(sec => { for (let i = 0; i < Math.round(sec * 60); i++) window.__bb.update(1 / 60); }, seconds);
 }
 
+// SPEC-018: a cheap expect for checks inside loops. Every Playwright expect() records a test step (with a stack), a few ms
+// each; the level-type tests made thousands of them (rooms: 37 s). soft(value, message).toBe(…) etc. only collects the
+// failures; soft.done() asserts once with every failure in the message. Same matchers and the same meaning as expect
+// (toBe = Object.is, toEqual = deep equality that ignores key order and undefined properties).
+function softly() {
+  const fails = [];
+  const same = (a, b) => {
+    if (Object.is(a, b)) return true;
+    if (!a || !b || typeof a !== "object" || typeof b !== "object" || Array.isArray(a) !== Array.isArray(b)) return false;
+    const ka = Object.keys(a).filter(k => a[k] !== undefined), kb = Object.keys(b).filter(k => b[k] !== undefined);
+    return ka.length === kb.length && ka.every(k => Object.prototype.hasOwnProperty.call(b, k) && same(a[k], b[k]));
+  };
+  const show = v => { try { return JSON.stringify(v); } catch (e) { return String(v); } };
+  const soft = (got, msg = "") => {
+    const matchers = neg => {
+      const m = (ok, want) => { if (ok === neg) fails.push(`${msg}: got ${show(got)}, want ${neg ? "not " : ""}${want}`); };
+      return {
+        toBe: v => m(Object.is(got, v), show(v)),
+        toEqual: v => m(same(got, v), show(v)),
+        toBeTruthy: () => m(!!got, "truthy"),
+        toBeNull: () => m(got === null, "null"),
+        toContain: v => m(got != null && got.includes(v), `to contain ${show(v)}`),
+        toBeGreaterThan: v => m(got > v, `> ${v}`),
+        toBeGreaterThanOrEqual: v => m(got >= v, `>= ${v}`),
+        toBeLessThan: v => m(got < v, `< ${v}`),
+        toBeLessThanOrEqual: v => m(got <= v, `<= ${v}`),
+        toBeCloseTo: (v, digits = 2) => m(Math.abs(got - v) < Math.pow(10, -digits) / 2, `≈ ${v}`)
+      };
+    };
+    return { ...matchers(false), not: matchers(true) };
+  };
+  soft.fails = fails;
+  soft.done = () => expect(fails, fails.slice(0, 20).join("\n")).toEqual([]);
+  return soft;
+}
+
+// SPEC-018: one game page shared by the tests of a file (a fresh page costs ~2 s of load per test). At most ONE shared
+// page is open: a second open game page keeps rendering 3D in software and makes every other test 3–5× slower, so
+// get() with another key closes the old page first, and a spec closes it before any fresh-page test and in afterAll.
+// get(browser, key, contextOptions, open) → { page, errors }; open(page) loads the game and returns its error list.
+function sharedPage() {
+  let cur = null;
+  const close = async () => { if (cur) { const c = cur; cur = null; await c.ctx.close(); } };
+  const get = async (browser, key, contextOptions, open) => {
+    if (cur && cur.key !== key) await close();
+    if (!cur) {
+      const ctx = await browser.newContext(contextOptions), page = await ctx.newPage();
+      cur = { key, ctx, page, errors: await open(page) };
+    }
+    return cur;
+  };
+  return { get, close };
+}
+
+// SPEC-018: puts a shared game page back to the state of a freshly opened one: localStorage as openGame leaves it
+// (only the language), English, fresh progress and names, no gamepad stubs, an empty level cache, Park 1 in the menu.
+// Tests still restore any CFG value they change (the fixtures check CFG is unchanged after each test). Not reset: held
+// gamepad buttons (a gamepad test releases its buttons at the end), the skin picker, mute and the phone camera zoom.
+async function resetGame(page) {
+  await page.evaluate(() => {
+    const b = window.__bb;
+    delete navigator.getGamepads; window.__pads = [];          // gamepad stubs some tests leave behind
+    b.setLang("en"); b.clearLevelCache(); b.resetBannerTimer(); b.mode = "menu";
+    for (const s of ["p1", "p2", "big", "bot1", "bot2", "bot3", "bot4"]) b.setName(s, "");
+    b.world = "park"; b.resetProgress(); b.resetProgress();   // two calls, like the button: fresh progress, level 1
+    b.world = "park"; b.level = 1; b.resetWorld(1); b.mode = "menu";
+    for (let i = 0; i < 60; i++) b.updateMinimapFade(1 / 60);    // phone: the mini-map fully back (no-op on desktop)
+    try { localStorage.clear(); localStorage.setItem("bebebe-lang", "en"); localStorage.setItem("bb-test-init", "1"); } catch (e) { /* ok */ }
+  });
+}
+
 // Puts player 1 right behind a calm Big One so the next update() makes a hug.
 async function setupHug(page) {
   await page.evaluate(() => {
@@ -89,4 +161,4 @@ async function setupHug(page) {
   });
 }
 
-module.exports = { openGame, openGameHttp, routeThree, frames, step, setupHug, GAME_URL, HTTP_BASE, ROOT };
+module.exports = { openGame, openGameHttp, routeThree, frames, step, setupHug, softly, sharedPage, resetGame, GAME_URL, HTTP_BASE, ROOT };

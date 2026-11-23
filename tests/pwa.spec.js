@@ -104,7 +104,7 @@ test("game fills the viewport minus the safe-area padding", async ({ page }) => 
   expect(errors).toEqual([]);
 });
 
-test("service worker registers and controls the page over http", async ({ page }) => {
+test("service worker registers and controls the page over http", { tag: "@fast" }, async ({ page }) => {
   const errors = await openGameHttp(page);
   await waitForSW(page);
   expect(SW_VERSION).toBeTruthy();

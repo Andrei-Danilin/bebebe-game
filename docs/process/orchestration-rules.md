@@ -15,11 +15,12 @@ All roles use `model: "opus"`. Start every run with `claude --model opus`; the f
 
 ## 2. Tests
 - TDD: each acceptance criterion gets a Playwright test that fails before the change (the run report names it).
-- While working: only the touched test files (`npx playwright test tests/<file>`), or `-g "<name>"`.
-- **Before the merge: the whole suite once** (`npx playwright test`, ~15–25 min). Rule (Andrei, 2026-11-22): the whole suite runs **once**, on the branch, before the merge; no local rerun on `master` after the merge — the Pages workflow on the push is the check on `master`. Exception: if `master` got code or test commits since the branch was made (not only docs/specs), run the whole suite once on `master` before the push.
+- While working (SPEC-018): **`npm run test:fast`** (the `@fast` set, one test per area, ~1.5 min) **plus the touched test files** (`npx playwright test tests/<file>`, or `-g "<name>"`). A new test that guards a whole area may get `{ tag: "@fast" }`; keep the set under 3 min.
+- **Before the merge: the whole suite once** (`npx playwright test`, ~10 min locally, `workers: 1`). Rule (Andrei, 2026-11-22): the whole suite runs **once**, on the branch, before the merge; no local rerun on `master` after the merge — the Pages workflow on the push is the check on `master`. Exception: if `master` got code or test commits since the branch was made (not only docs/specs), run the whole suite once on `master` before the push.
 - A rule decided by the kids is pinned by a test in `tests/gameplay.spec.js`; changing such a test needs the spec to say the rule changes.
 - Visual work: one screenshot per new screen/place via `page.screenshot` in a throwaway script (not committed), looked at before the review.
 - Never paste full test logs into reports: counts, failing test names, the first assertion line.
+- Keep tests fast (SPEC-018, numbers in `reports/test-times.md`): an `evaluate` never returns a game object (a mutating body goes in braces; a smoke test guards it); checks inside loops go through `softly()` or a problem list with one `expect` at the end; no real waits for game logic; no second game page left open while other tests run.
 
 ## 3. Context and output discipline
 - Brief agents with **paths**, not pasted documents: the spec path, `CLAUDE.md`, `game-design.md`, `architecture.md`, the diff.

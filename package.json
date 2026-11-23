@@ -5,6 +5,7 @@
   "scripts": {
     "test": "playwright test",
     "test:smoke": "playwright test tests/smoke.spec.js",
+    "test:fast": "playwright test --grep @fast",
     "test:headed": "playwright test --headed",
     "claude:sync": "node scripts/claude-sync.js",
     "icons": "node scripts/make-icons.js",

@@ -213,7 +213,8 @@ Rules for Claude Code: [`CLAUDE.md`](CLAUDE.md). Game rules: [`docs/game-design.
 
 ```bash
 npm run setup          # once: Playwright + three.js for the tests, Chromium, Claude Code agents
-npx playwright test    # all tests: smoke, gameplay rules, i18n, PWA (starts scripts/serve.js itself)
+npm run test:fast      # the @fast set while working (~1.5 min)
+npx playwright test    # all tests: smoke, gameplay rules, levels, phone, i18n, PWA (~10 min; starts scripts/serve.js itself)
 npm run serve          # the game over http on http://localhost:8123/ (service worker, manifest)
 npm run icons          # icons/icon.svg → the PNG app icons
 ```
