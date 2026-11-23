@@ -1,6 +1,6 @@
 # SPEC-007 — Shorter rest (30 s) and the rescue kit 🩹
 
-Status: ready
+Status: done (7829676; phone shop fix 011f204)
 Complexity: M
 Branch: SPEC-007-rescue-kit
 Decided by: Andrei and the kids (2026-11-22): a Little One nobody rescued rests 30 s instead of 2 minutes; a new shop item, the rescue kit, 3 for 15 coins, lets a player get up at once and go back into play — usable while lying with a broken leg, while limping home, and while resting in the house; only players use it. Everything else (keys, button place, protection time, coins/stars rules): Claude (spec author).
