@@ -1000,30 +1000,37 @@ for (const [vw, vh] of PHONE_SIZES) {
 // as wide as his body or his name. The whole matrix runs again with a simulated 15 % wider banner font.
 const BANNER_LEVELS = [1, 10];   // "Our drawing" and a two-digit level with the longest type text ("River with bridges" / "Река с мостиками")
 
-// SPEC-018: which (world, level, language) the banner test measures — the text extremes instead of every combination.
-// The banner's place depends on the map (the hero's start) and on how wide its text is; the language only changes the width.
-// - level 10 (a generated map: the hero starts somewhere else in every world): all four worlds, each in its widest and
-//   its narrowest language (the third language is between the two in width);
+// SPEC-018: which (world, level, language) the banner test measures, instead of every combination.
+// The banner's place depends on the map (the hero's start), on its text and on the hero's rect — which includes his
+// default name, also per language ("Player 1" / "Jugador 1" / "Игрок 1"). placePhoneBanner tries the full text and then
+// the short one at every height, so no single width orders the cases; the plan keeps the extremes of both widths:
+// - level 10 (a generated map: the hero starts somewhere else in every world): all four worlds, each in the language
+//   with the widest banner text, the narrowest banner text and the widest hero name;
 // - level 1 (the kids' drawing: the same map and hero start in every world, only the world name changes the text):
-//   the widest and the narrowest (world, language) over all of them, plus Park in English (the case that failed on CI).
-// Widths are measured in the page with the banner's font, so a machine with wider fonts (CI) picks its own extremes.
+//   Park in every language (park 1 en is the case that failed on CI), plus the widest and the narrowest
+//   (world, language) banner text over all twelve.
+// Widths are measured in the page with the game's fonts, so a machine with wider fonts (CI) picks its own extremes.
 // Every case still runs at both hero positions and both font scales.
 async function bannerPlan(page) {
   return page.evaluate(([W, levels]) => {
     const b = window.__bb, ctx = document.createElement("canvas").getContext("2d"), LANGS = ["en", "es", "ru"];
-    ctx.font = `900 30px system-ui, "Segoe UI", sans-serif`;
-    const width = (w, n, lg) => { const I = b.I18N[lg]; return ctx.measureText(I.levelIntro(I.worlds[w], n, I.types[b.levelType(w, n)])).width; };
+    const width = (w, n, lg) => { const I = b.I18N[lg]; ctx.font = `900 30px system-ui, "Segoe UI", sans-serif`; return ctx.measureText(I.levelIntro(I.worlds[w], n, I.types[b.levelType(w, n)])).width; };
+    const nameW = lg => { ctx.font = `900 30px system-ui, "Segoe UI", "Arial Rounded MT Bold", Arial, sans-serif`; return ctx.measureText(b.I18N[lg].player1).width; };
     const plan = [], add = (world, n, lang) => { if (!plan.some(p => p.world === world && p.n === n && p.lang === lang)) plan.push({ world, n, lang }); };
     const extremes = list => { list.sort((a, c) => a.wd - c.wd); return [list[list.length - 1], list[0]]; };
+    const widestName = LANGS.slice().sort((a, c) => nameW(c) - nameW(a))[0];
     for (const n of levels) {
       if (n === 1) {
-        add("park", 1, "en");
+        for (const lg of LANGS) add("park", 1, lg);
         for (const x of extremes(W.flatMap(w => LANGS.map(lg => ({ w, lg, wd: width(w, 1, lg) }))))) add(x.w, 1, x.lg);
       } else {
-        for (const w of W) for (const x of extremes(LANGS.map(lg => ({ w, lg, wd: width(w, n, lg) })))) add(w, n, x.lg);
+        for (const w of W) {
+          for (const x of extremes(LANGS.map(lg => ({ w, lg, wd: width(w, n, lg) })))) add(w, n, x.lg);
+          add(w, n, widestName);
+        }
       }
     }
-    return plan;
+    return { plan, widestName };
   }, [["park", "school", "beach", "winter"], BANNER_LEVELS]);
 }
 
@@ -1097,11 +1104,17 @@ for (const [vw, vh] of PHONE_SIZES) {
       const errors = page.sharedErrors;
       const fails = [];
       let cases = 0;
-      const plan = await bannerPlan(page);
-      // the plan keeps the CI case (park 1 en), every world at level 10 in two languages, and es and ru somewhere
-      expect(plan.some(p => p.world === "park" && p.n === 1 && p.lang === "en"), JSON.stringify(plan)).toBe(true);
-      for (const w of ["park", "school", "beach", "winter"]) expect(plan.filter(p => p.world === w && p.n === 10).length, `${w} 10: ${JSON.stringify(plan)}`).toBe(2);
-      for (const lg of ["en", "es", "ru"]) expect(plan.some(p => p.lang === lg), `${lg}: ${JSON.stringify(plan)}`).toBe(true);
+      const { plan, widestName } = await bannerPlan(page);
+      // the plan keeps the CI case (park 1 en), level 1 in every language, every world at level 10 in at least two
+      // languages including the one with the widest hero name
+      const at = JSON.stringify(plan);
+      expect(plan.some(p => p.world === "park" && p.n === 1 && p.lang === "en"), at).toBe(true);
+      for (const lg of ["en", "es", "ru"]) expect(plan.some(p => p.n === 1 && p.lang === lg), `level 1 in ${lg}: ${at}`).toBe(true);
+      for (const w of ["park", "school", "beach", "winter"]) {
+        const langs = plan.filter(p => p.world === w && p.n === 10).map(p => p.lang);
+        expect(langs.length, `${w} 10: ${at}`).toBeGreaterThanOrEqual(2);
+        expect(langs, `${w} 10 has the widest hero name (${widestName}): ${at}`).toContain(widestName);
+      }
       try {
         for (const world of ["park", "school", "beach", "winter"]) for (const n of BANNER_LEVELS) {
           const langs = plan.filter(p => p.world === world && p.n === n).map(p => p.lang);
@@ -1295,8 +1308,9 @@ function shopProblems(d, label) {
 }
 
 const SHOP_SCALES = [1, 1.15, 1.3];
-// SPEC-018: 10 coins ("not enough coins" under all four cards: the tightest cards) runs at every font scale; 999 coins only
-// at ×1 — it checks that "not enough coins" is gone and, at 932 en, that nothing gives way. A wider font with 999 coins
+// SPEC-018: 10 coins ("not enough coins" under all four cards: the tightest cards) runs at every font scale; 999 coins
+// at ×1 (and ×1.3 at 667, a spot check of the widest font without that row) — it checks that "not enough coins" is gone
+// and, at 932 en, that nothing gives way. A wider font with 999 coins
 // lays out the same card texts with no more in the way than with 10 coins, so those cases found nothing the 10-coin ones miss.
 // Every language at every size stays (the es shop at 667 ×1.15 is the case that once failed).
 for (const [vw, vh] of PHONE_SIZES) {
@@ -1311,7 +1325,7 @@ for (const [vw, vh] of PHONE_SIZES) {
       try {
         for (const lang of ["en", "es", "ru"]) for (const coins of [10, 999]) {
           let lastStep = -1;
-          for (const fontScale of coins === 10 ? SHOP_SCALES : [1]) {
+          for (const fontScale of coins === 10 ? SHOP_SCALES : vw === 667 ? [1, 1.3] : [1]) {
             const d = await page.evaluate(async ([lg, cn, fs]) => {
               const b = window.__bb;
               b.setLang(lg); b.CFG.TEXT_TEST_SCALE = fs;
@@ -1345,7 +1359,7 @@ for (const [vw, vh] of PHONE_SIZES) {
       } finally {
         await page.evaluate(() => { window.__bb.CFG.TEXT_TEST_SCALE = 1; });
       }
-      expect(cases).toBe(3 * (SHOP_SCALES.length + 1));
+      expect(cases).toBe(3 * (SHOP_SCALES.length + (vw === 667 ? 2 : 1)));
       expect(errors).toEqual([]);
       expect(fails, fails.slice(0, 12).join("\n")).toEqual([]);
     });
