@@ -46,7 +46,6 @@ One line each: what, where it came from. The spec author turns a line into a spe
 - Two players on a tablet with split controls (SPEC-005, out of scope).
 - Camera options toggle: full map / follow the hero, chosen in the menu (SPEC-005, out of scope).
 - Split the 2D layer (~935 lines now) into screen modules with shared content helpers and separate desktop/phone geometry; still one file unless a spec says otherwise (SPEC-005 architect review).
-- Tests: software GPU (SwiftShader) stalls 13–20 s on the first frame after teleporting the Big One or downing a bot (the edge-arrow and 667-sizes tests are `test.slow()`) — find what recompiles (SPEC-005 run).
 - At 932×430 the phone layouts leave spare space: they are sized for 667×375 and not stretched (SPEC-005 run).
 - SPEC-005 decided during the run, check with the kids: the phone shows about 10 rows × 22 columns at 844×390.
 - SPEC-005 decided during the run, check with the kids: the camera may go up to 4 cells past the map edge so the hero is never hidden under the mini-map, the team chips or the top bar.
@@ -77,9 +76,6 @@ One line each: what, where it came from. The spec author turns a line into a spe
 - Decided during the run, check with the kids: on a phone the level banner goes to the screen half without the hero and may use the short text "Park · 1: Our drawing" (SPEC-006 AC 13).
 - Phone banner: spots that straddle the screen middle are never tried, so the short text is used more often than needed on small screens (SPEC-006 AC 13).
 - Phone banner: the spot is picked once and not re-checked while the hero runs during its 2 s; the joystick base is not avoided either (SPEC-006 AC 13).
-- Flaky test: phone.spec "edge arrows point to the off-screen Big One and downed friends" failed once in 4 local runs (0 downed arrows, expected 1) — bots and the Big One keep moving next to the hero; pin them (big.state "look", other bots away) (seen during the SPEC-006 banner fix).
-- Make the test suite fast again (Andrei, 2026-11-22): the whole suite grew from ~10 to ~24 min locally (137 tests; phone.spec ~6–8 min, levels.spec 80-level checks, SwiftShader ~15 s GPU stalls after teleports). Profile the slowest tests, share pages/setup where safe, cut redundant matrix cases, check Playwright workers; target ≤ 10 min locally.
-- Test speed lead: `page.evaluate(() => Object.assign(littles[i], …))` returns the Little object, so Playwright serializes it with its 3D parts — about 20 s per call under touch. Wrap the arrow body in braces (no return value) in the older tests (SPEC-007).
 - Rescue kit keys: one player uses only Q (Right Shift does nothing); with two players Q is player 1 and Right Shift player 2; gamepad Y / △ (SPEC-007, decided during the run, check with the kids).
 - The first-time kit hint shows once per level in total, not per player (in 2P, player 2 may never see it), only when the player owns kits, for 4 s (SPEC-007, decided during the run, check with the kids).
 - A kit can't be used outside play or while a win is pending; after a kit the kiss button in the same slot is locked for 0.6 s (`KIT_SLOT_LOCK`) so a double tap doesn't spend a kiss (SPEC-007, decided during the run, check with the kids).
@@ -102,3 +98,4 @@ One line each: what, where it came from. The spec author turns a line into a spe
 - Mini-map: the camera frame is a thin white line with a faint dark shade under it, so it shows on snow; the calm Big One's cone is white at 0.25 (SPEC-010, decided during the run, check with the kids).
 - Phone top bar: the timer/pause group sits further right now that the mini-map is smaller (centred in the gap); at 844 px the pause button's centre is 4 px past the 55 % stick zone. Pause still always works (buttons are hit-tested before the stick zone); the joystick test widens `STICK_ZONE` only to keep testing "a button inside the stick zone wins". Pin the group's place only if the kids want it (SPEC-010).
 - Mini-map: the calm Big One's white cone barely shows on snow (SPEC-010).
+- Test speed, next steps (SPEC-018, numbers in `reports/test-times.md`): try `workers: 2` on CI (4 vCPU; locally 2 workers made each test 2× slower, no gain); a one-frame `frames()` helper (the game's own rAF callback runs before ours); shared pages for the phone describes that start a fresh level anyway (camera, mini-map, menus); every open game page renders 3D in software non-stop (shadow map 2048², MSAA) — a frame costs ~0.3 s, a page load ~2 s.
