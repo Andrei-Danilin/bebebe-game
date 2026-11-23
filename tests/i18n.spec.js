@@ -27,4 +27,7 @@ test("every STORY text is in en, es and ru", async ({ page }) => {
   const bad = await page.evaluate(() => window.__bb.STORY.flatMap(c => ["en", "es", "ru"].filter(l => !(typeof c.text[l] === "string" && c.text[l].trim().length > 10)).map(l => `${c.id}: ${l}`)));
   expect(bad).toEqual([]);
   expect(await page.evaluate(() => window.__bb.STORY.length)).toBe(8);
+  // the rules lines (the "How to play" page) and their icons: one icon per line in every language
+  const n = await page.evaluate(() => [window.__bb.RULE_ICONS.length, ...["en", "es", "ru"].map(l => window.__bb.I18N[l].rules(18).length)]);
+  expect(n.slice(1)).toEqual([n[0], n[0], n[0]]);
 });

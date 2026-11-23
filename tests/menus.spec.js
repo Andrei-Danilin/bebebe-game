@@ -1,8 +1,10 @@
-// SPEC-017: the menus — the minimal home screen, the shop with the Wardrobe tab, the end-screen flows.
-// (The level map, the level card and the story screen come in the next steps of the spec.)
+// SPEC-017: the menus — the minimal home screen, the level map and the level card, the story (and "How to play"),
+// the shop with the Wardrobe tab, the end-screen flows; desktop and phone 667×375 (fonts ×1 and ×1.15).
 const base = require("@playwright/test");
 const { expect } = base;
-const { openGame, frames, sharedPage, resetGame } = require("./helpers");
+const { openGame, frames, sharedPage, resetGame, ROOT } = require("./helpers");
+const fs = require("fs");
+const path = require("path");
 
 // SPEC-018: one game page per screen setup (desktop 960×640, phone 667×375); resetGame() before each test,
 // page errors and a changed CFG fail the test. At most one shared page is open (sharedPage closes the other one).
@@ -61,7 +63,7 @@ function phoneProblems(at, d) {
 }
 
 // ---------- AC 1: the home screen ----------
-test("home is minimal", { tag: "@fast" }, async ({ page }) => {
+test("home is minimal", async ({ page }) => {
   await frames(page);
   let d = await page.evaluate(() => {
     const b = window.__bb, C = b.CFG;
@@ -124,6 +126,9 @@ test("home is minimal", { tag: "@fast" }, async ({ page }) => {
   await page.keyboard.press("Escape");
   expect(await page.evaluate(() => window.__bb.mode)).toBe("home");
   await click(page, "home:story");
+  expect(await page.evaluate(() => window.__bb.mode)).toBe("story");
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("KeyS");                                       // S = Story
   expect(await page.evaluate(() => window.__bb.mode)).toBe("story");
   await page.keyboard.press("Escape");
   await click(page, "home:shop");
@@ -321,6 +326,16 @@ test("win, lose and pause lead to the map, the shop and home", async ({ page }) 
   await end(() => { const b = window.__bb; b.startGame(1); b.mode = "pause"; });
   await click(page, "toHome");
   expect(await page.evaluate(() => window.__bb.mode)).toBe("home");
+  // after a level the ring starts on the bouncing next level again (the stop picked before the level is forgotten)
+  await page.evaluate(() => { const b = window.__bb; b.setProgress(null); b.world = "park"; b.mode = "map"; });
+  await frames(page);
+  await page.evaluate(() => window.__bb.tapButton("stop:1"));
+  await click(page, "card:1");
+  await end(() => { const b = window.__bb; b.giveReward(true); b.mode = "win"; });
+  await click(page, "toMap");
+  await page.keyboard.press("Enter");
+  await frames(page);
+  expect(await page.evaluate(() => [window.__bb.mode, window.__bb.levelCard && window.__bb.levelCard.n]), "win → Map → Enter: the next level's card").toEqual(["levelCard", 2]);
 });
 
 // ---------- AC 3–5: the level map ----------
@@ -388,6 +403,11 @@ test("the map switches worlds", { tag: "@fast" }, async ({ page }) => {
   await page.keyboard.press("Enter");
   await page.keyboard.press("Escape");
   expect(await page.evaluate(() => window.__bb.mode)).toBe("home");
+  // the gamepad walk: A on home → the map, A → the next level's card, Y → its story chapter, B back to the card, the map, home
+  await page.evaluate(() => { const b = window.__bb; b.setProgress(null); b.progress.lastWorld = "park"; b.resetMenus(); b.mode = "home"; });
+  const walk = [];
+  for (const k of [0, 0, 3, 1, 1, 1]) { await pad(page, k); walk.push(await page.evaluate(() => window.__bb.mode)); }
+  expect(walk).toEqual(["map", "levelCard", "story", "levelCard", "map", "home"]);
   expect(await page.evaluate(() => ["en", "es", "ru"].map(l => window.__bb.I18N[l].lockedBonus))).toEqual([
     "Win all levels of the main worlds to open", "Ganá todos los niveles de los mundos principales para abrirlo", "Пройди все уровни основных миров, чтобы открыть"]);
 });
@@ -576,12 +596,17 @@ test("story chapters unlock with progress", async ({ page }) => {
   s = await page.evaluate(() => ({ info: window.__bb.storyInfo, hud: window.__bb.hudRects }));
   expect([s.info.chapter, s.info.art]).toEqual(["began", "placeholder"]);
   expect(s.hud.find(h => h.id === "story:soon").text).toBe("Comic coming soon");
-  await page.evaluate(() => { window.__bb.STORY[0].image = "data:image/webp;base64,AAAA"; });
-  await page.waitForFunction(() => { const s = window.__bb.storyInfo; return s && s.art === "placeholder"; });
+  // storyInfo.load: the picture loader's state ("none" — no picture yet, "loading", "bad", "ok")
   const PNG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
-  await page.evaluate(p => { window.__bb.STORY[0].image = p; }, PNG);
-  await page.waitForFunction(() => { const s = window.__bb.storyInfo; return s && s.art === "image"; });
-  await page.evaluate(() => { window.__bb.STORY[0].image = null; });
+  try {
+    await page.evaluate(() => { window.__bb.STORY[0].image = "data:image/webp;base64,AAAA"; });
+    await page.waitForFunction(() => { const s = window.__bb.storyInfo; return s && s.load === "bad"; });
+    s = await page.evaluate(() => ({ info: window.__bb.storyInfo, hud: window.__bb.hudRects }));
+    expect(s.info.art, "a broken picture: the placeholder").toBe("placeholder");
+    expect(s.hud.some(h => h.id === "story:soon")).toBe(true);
+    await page.evaluate(p => { window.__bb.STORY[0].image = p; }, PNG);
+    await page.waitForFunction(() => { const s = window.__bb.storyInfo; return s && s.load === "ok" && s.art === "image"; });
+  } finally { await page.evaluate(() => { window.__bb.STORY[0].image = null; }); }
   // the rules page: every rules line and the controls; back to the chapters; Escape goes home
   await click(page, "story:rules");
   s = await page.evaluate(() => ({ info: window.__bb.storyInfo, hud: window.__bb.hudRects, rules: window.__bb.I18N.en.rules(window.__bb.CFG.DOWN_TIME), I: window.__bb.I18N.en }));
@@ -612,14 +637,14 @@ test("story, rules and the level card fit a phone, also with wider fonts", async
     if (st === "rules") await page.evaluate(() => window.__bb.tapButton("story:rules"));
     if (st.startsWith("card")) await page.evaluate(n => window.__bb.tapButton("stop:" + n), st.slice(4));
     await frames(page);
-    const d = await page.evaluate(() => { const b = window.__bb; return { mode: b.mode, buttons: b.buttonRects, hud: b.hudRects, ui: b.uiSize, texts: b.textSizes, min: b.CFG.PHONE_TEXT, info: b.storyInfo, card: b.levelCard }; });
+    const d = await page.evaluate(() => { const b = window.__bb; return { mode: b.mode, buttons: b.buttonRects, hud: b.hudRects, ui: b.uiSize, texts: b.textSizes, min: b.CFG.PHONE_TEXT, info: b.storyInfo, card: b.levelCard, rules: b.I18N[document.documentElement.lang].rules(b.CFG.DOWN_TIME).length }; });
     const at = `${lang} ×${scale} ${st}`;
     fails.push(...phoneProblems(at, d));
     if (st.startsWith("card")) {
       if (!d.card || [...d.buttons.map(q => q.id)].sort().join() !== "card:close,card:play,card:story") fails.push(`${at}: card buttons ${d.buttons.map(q => q.id)}`);
       if (!d.hud.some(h => h.id === "card:line")) fails.push(`${at}: no type line`);
     } else if (st === "rules") {
-      if (d.hud.filter(h => h.id.startsWith("rules:")).length !== 6) fails.push(`${at}: not six rules lines`);
+      if (d.hud.filter(h => h.id.startsWith("rules:")).length !== d.rules) fails.push(`${at}: not ${d.rules} rules lines`);
       if (!d.hud.some(h => h.id === "controls:touch")) fails.push(`${at}: no touch hint`);
     } else {
       if (!d.info || d.info.chapter !== st) fails.push(`${at}: chapter ${d.info && d.info.chapter}`);
@@ -642,4 +667,28 @@ test("story, rules and the level card fit a phone, also with wider fonts", async
   };
   expect(await swipe(ui.w * 0.7, ui.w * 0.3)).toBe("park");
   expect(await swipe(ui.w * 0.3, ui.w * 0.7)).toBe("began");
+});
+
+// review fix: an object literal keeps only the last of two equal keys, silently (MENU_LOOK had a colour `story` and the
+// story-screen sizes `story`: the buttons got an object for a colour). No key twice on any level of CFG.MENU_LOOK.
+test("CFG.MENU_LOOK has no key twice", () => {
+  const src = fs.readFileSync(path.join(ROOT, "index.html"), "utf8"), at = src.indexOf("MENU_LOOK: {");
+  expect(at).toBeGreaterThan(0);
+  const dups = [], stack = [new Set()];
+  let i = src.indexOf("{", at) + 1, expectKey = true;
+  for (; i < src.length && stack.length; i++) {
+    const ch = src[i];
+    if (ch === '"' || ch === "'" || ch === "`") { const q = ch; i++; while (i < src.length && src[i] !== q) i += src[i] === "\\" ? 2 : 1; expectKey = false; continue; }
+    if (ch === "/" && src[i + 1] === "/") { i = src.indexOf("\n", i); continue; }
+    if (ch === "{") { stack.push(new Set()); expectKey = true; continue; }
+    if (ch === "}") { stack.pop(); expectKey = false; continue; }
+    if (ch === "[" || ch === "(") { let d = 1; i++; while (i < src.length && d) { if ("[(".includes(src[i])) d++; else if ("])".includes(src[i])) d--; i++; } i--; expectKey = false; continue; }
+    if (ch === ",") { expectKey = true; continue; }
+    if (expectKey && /[A-Za-z_$]/.test(ch)) {
+      const m = /^([A-Za-z_$][\w$]*)\s*:/.exec(src.slice(i, i + 64));
+      if (m) { const top = stack[stack.length - 1]; if (top.has(m[1])) dups.push(m[1]); top.add(m[1]); i += m[0].length - 1; }
+      expectKey = false;
+    }
+  }
+  expect(dups).toEqual([]);
 });

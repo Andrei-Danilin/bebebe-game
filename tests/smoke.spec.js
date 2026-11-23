@@ -19,6 +19,11 @@ test("every screen draws without errors", async ({ page }) => {
   }
   await page.evaluate(() => window.__bb.startGame(2));
   await page.waitForTimeout(200);
+  await page.evaluate(() => { const b = window.__bb; b.mode = "map"; });
+  await page.waitForTimeout(150);
+  await page.evaluate(() => window.__bb.tapButton("stop:1"));             // SPEC-017: the level card over the map
+  await page.waitForTimeout(150);
+  await page.evaluate(() => window.__bb.startGame(2));
   for (const m of ["pause", "win", "lose", "play"]) {
     await page.evaluate(v => { window.__bb.mode = v; }, m);
     await page.waitForTimeout(150);

@@ -37,7 +37,7 @@ function runLevel({ world, n, style, seed, progress = null }) {
     stars: res.win && lr ? lr.stars : 0, coins: coins.reduce((s, c) => s + c.amount, 0), parts: res.win && lr ? lr.parts : [],
     coinsEvents: coins, events: ev.length, logFull: ev.length >= b.CFG.EVENT_LOG_MAX, maxGap
   };
-  b.autopilot(false); b.seedRandom(); b.mode = "menu";
+  b.autopilot(false); b.seedRandom(); b.mode = "home";
   return out;
 }
 
