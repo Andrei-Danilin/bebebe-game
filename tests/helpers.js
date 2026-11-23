@@ -136,14 +136,15 @@ function sharedPage() {
 }
 
 // SPEC-018: puts a shared game page back to the state of a freshly opened one: localStorage as openGame leaves it
-// (only the language), English, fresh progress and names, no gamepad stubs, an empty level cache, Park 1 in the menu.
+// (only the language), English, fresh progress and names, no gamepad stubs, an empty level cache, Park 1 in the menu,
+// unseeded gameplay randomness (SPEC-008).
 // Tests still restore any CFG value they change (the fixtures check CFG is unchanged after each test). Not reset: held
 // gamepad buttons (a gamepad test releases its buttons at the end), the skin picker, mute and the phone camera zoom.
 async function resetGame(page) {
   await page.evaluate(() => {
     const b = window.__bb;
     delete navigator.getGamepads; window.__pads = [];          // gamepad stubs some tests leave behind
-    b.setLang("en"); b.clearLevelCache(); b.resetBannerTimer(); b.mode = "menu";
+    b.setLang("en"); b.clearLevelCache(); b.resetBannerTimer(); b.mode = "menu"; b.seedRandom();   // SPEC-008: unseeded again
     for (const s of ["p1", "p2", "big", "bot1", "bot2", "bot3", "bot4"]) b.setName(s, "");
     b.world = "park"; b.resetProgress(); b.resetProgress();   // two calls, like the button: fresh progress, level 1
     b.world = "park"; b.level = 1; b.resetWorld(1); b.mode = "menu";

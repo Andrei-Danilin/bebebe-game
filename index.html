@@ -421,7 +421,13 @@ window.addEventListener("orientationchange", () => requestAnimationFrame(() => f
 // =====================================================================
 const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-const rand = (a, b) => a + Math.random() * (b - a);
+// SPEC-008: случайность. Игровая — только rng() (mulberry32): __bb.seedRandom(n) задаёт зерно, без зерна — случайное
+// (игра как раньше). rand() — игровой. Визуальная — vrand() на Math.random: частицы burst, сердечки при обнимашках,
+// тряска камеры, снег, randomOutfit; она не трогает rng(), поэтому sim (без частиц) тянет тот же ряд, что и игра.
+let rng = mulberry32((Math.random() * 4294967296) >>> 0);
+function seedRandom(n) { rng = mulberry32(Number.isFinite(n) ? n >>> 0 : (vrand() * 4294967296) >>> 0); }
+const rand = (a, b) => a + rng() * (b - a);
+const vrand = (a = 0, b = 1) => a + Math.random() * (b - a);
 const normAng = a => { a = (a + Math.PI) % TAU; if (a < 0) a += TAU; return a - Math.PI; };
 const angDiff = (a, b) => Math.abs(normAng(b - a));
 const turnToward = (cur, target, step) => { const d = normAng(target - cur); return Math.abs(d) <= step ? target : cur + Math.sign(d) * step; };
@@ -1387,7 +1393,7 @@ function steerTo(e, gx, gy, speed, dt, avoidCone) {
 }
 function randomFreePoint() {
   for (let k = 0; k < 300; k++) {
-    const cx = Math.floor(Math.random() * COLS), cy = Math.floor(Math.random() * ROWS);
+    const cx = Math.floor(rng() * COLS), cy = Math.floor(rng() * ROWS);
     if (blockedBig[cy * COLS + cx]) continue;
     const p = { x: (cx + 0.5) * CELL, y: (cy + 0.5) * CELL };
     if (dist(p, big) > 150) return p;
@@ -1475,7 +1481,7 @@ function cycleOutfit(pk, slot, d) {
   saveSkins(); resetWorld(numPlayers);
 }
 function randomOutfit(pk) {
-  for (const k of Object.keys(SLOTS)) skinSel[pk][k] = Math.floor(Math.random() * SLOTS[k].length);
+  for (const k of Object.keys(SLOTS)) skinSel[pk][k] = Math.floor(vrand() * SLOTS[k].length);
   saveSkins(); resetWorld(numPlayers);
 }
 function cycleBig(d) {
@@ -1942,8 +1948,8 @@ function inputFor(l) {
 function popText(x, y, text, color) { texts.push({ x, y, text, color, t: 0 }); }
 function burst(x, y, kind, color, n) {
   for (let i = 0; i < n; i++) {
-    const a = rand(0, TAU), s = rand(40, 140);
-    particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - (kind === "heart" ? 60 : 0), t: 0, life: rand(0.6, 1.1), kind, color });
+    const a = vrand(0, TAU), s = vrand(40, 140);
+    particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - (kind === "heart" ? 60 : 0), t: 0, life: vrand(0.6, 1.1), kind, color });
   }
 }
 function canSee(l) {
@@ -2067,7 +2073,7 @@ function updateHugAnim(dt) {
     l.x = big.x + Math.cos(back) * (big.r + l.r + 2);
     l.y = big.y + Math.sin(back) * (big.r + l.r + 2);
     l.dir = big.dir; l.moving = false;
-    if (Math.random() < dt * 6) burst(big.x, big.y - 20, "heart", "#ff4d8d", 1);
+    if (vrand() < dt * 6) burst(big.x, big.y - 20, "heart", "#ff4d8d", 1);
     if (l.hugAnim <= 0) {                  // спрыгивает назад
       l.hugAnim = 0;
       l.kx = Math.cos(back) * 230; l.ky = Math.sin(back) * 230;
@@ -2077,10 +2083,10 @@ function updateHugAnim(dt) {
 }
 // ---------- Предметы ----------
 function spawnItem() {
-  const r = Math.random();
+  const r = rng();
   const kind = r < 0.3 ? "boots" : r < 0.55 ? "cloak" : r < 0.75 ? "shield" : "banana";
   for (let k = 0; k < 80; k++) {
-    const cx = 1 + Math.floor(Math.random() * (COLS - 2)), cy = 1 + Math.floor(Math.random() * (ROWS - 2));
+    const cx = 1 + Math.floor(rng() * (COLS - 2)), cy = 1 + Math.floor(rng() * (ROWS - 2));
     if (blocked[cy * COLS + cx]) continue;
     const p = { x: (cx + 0.5) * CELL, y: (cy + 0.5) * CELL };
     if (inSafe(p) || dist(p, big) < 90 || littles.some(l => dist(l, p) < 50) || items.some(it => dist(it, p) < 64)) continue;
@@ -2111,7 +2117,7 @@ function spawnStar(x, y) {
     const spots = [];
     for (let cy = 0; cy < ROWS; cy++) for (let cx = 0; cx < COLS; cx++) if (starSpotOk(cx, cy)) spots.push([cx, cy]);
     if (!spots.length) return null;
-    const [cx, cy] = spots[Math.floor(Math.random() * spots.length)];
+    const [cx, cy] = spots[Math.floor(rng() * spots.length)];
     p = { x: (cx + 0.5) * CELL, y: (cy + 0.5) * CELL };
   }
   const s = { id: ++starSeq, x: p.x, y: p.y, t: 0, life: CFG.STAR_LIFE };
@@ -2304,7 +2310,7 @@ function updateBig(dt) {
   if (big.blush > 0) return;                             // стоит красный и никого не толкает
   if (big.pushCd > 0) {
     big.pushCd -= dt;
-    if (big.pushCd <= 0) { big.state = "look"; big.timer = Math.max(0.5, big.noPush); big.lookSign = Math.random() < 0.5 ? -1 : 1; }
+    if (big.pushCd <= 0) { big.state = "look"; big.timer = Math.max(0.5, big.noPush); big.lookSign = rng() < 0.5 ? -1 : 1; }
     return;
   }
 
@@ -2328,7 +2334,7 @@ function updateBig(dt) {
     big.state = "search";
     big.moving = steerTo(big, big.lastSeen.x, big.lastSeen.y, speed.search, dt, false);
     if (big.moving) big.dir = turnToward(big.dir, big.moveDir, 6 * dt);
-    if (!big.moving || dist(big, big.lastSeen) < 10) { big.state = "look"; big.timer = rand(1.5, 2.5); big.lookSign = Math.random() < 0.5 ? -1 : 1; }
+    if (!big.moving || dist(big, big.lastSeen) < 10) { big.state = "look"; big.timer = rand(1.5, 2.5); big.lookSign = rng() < 0.5 ? -1 : 1; }
     return;
   }
   if (big.state === "look") {
@@ -2342,7 +2348,7 @@ function updateBig(dt) {
   big.moving = steerTo(big, big.goal.x, big.goal.y, speed.patrol, dt, false);
   if (big.moving) big.dir = turnToward(big.dir, big.moveDir, 5 * dt);
   if (!big.moving || dist(big, big.goal) < 12 || big.patrolT <= 0) {
-    big.state = "look"; big.timer = rand(1, 2.2); big.lookSign = Math.random() < 0.5 ? -1 : 1; big.goal = null;
+    big.state = "look"; big.timer = rand(1, 2.2); big.lookSign = rng() < 0.5 ? -1 : 1; big.goal = null;
   }
 }
 
@@ -4456,7 +4462,7 @@ function buildMap3D() {
   }
   if (th.snow) {                                         // снегопад
     const N = 700, pos = new Float32Array(N * 3);
-    for (let i = 0; i < N; i++) { pos[i * 3] = -4 + Math.random() * (COLS + 8); pos[i * 3 + 1] = Math.random() * 14; pos[i * 3 + 2] = -4 + Math.random() * (ROWS + 8); }
+    for (let i = 0; i < N; i++) { pos[i * 3] = vrand(-4, COLS + 4); pos[i * 3 + 1] = vrand(0, 14); pos[i * 3 + 2] = vrand(-4, ROWS + 4); }
     const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
     const pm = new THREE.PointsMaterial({ color: "#ffffff", size: 0.14, transparent: true, opacity: 0.9, depthWrite: false }); pm.userData.own = true;
     snow = new THREE.Points(g, pm); snow.frustumCulled = false; mapGroup.add(snow);
@@ -5014,7 +5020,7 @@ function syncScene(t) {
   }
   if (safeGlow) safeGlow.material.opacity = 0.18 + Math.sin(t * 2) * 0.08;
   camera.position.copy(camBase);
-  if (shake > 0) camera.position.add(new THREE.Vector3(rand(-1, 1), rand(-1, 1), rand(-1, 1)).multiplyScalar(shake * 0.6 * (PHONE ? camDist / cam.dFull : 1)));   // телефон: камера ближе — трясёт слабее
+  if (shake > 0) camera.position.add(new THREE.Vector3(vrand(-1, 1), vrand(-1, 1), vrand(-1, 1)).multiplyScalar(shake * 0.6 * (PHONE ? camDist / cam.dFull : 1)));   // телефон: камера ближе — трясёт слабее
 }
 
 // ---------- Превью нарядов (рисуется в «окошки» UI-слоя) ----------
@@ -5117,6 +5123,7 @@ window.__bb = {
   changeLevel, get winLine() { return winLine; }, selectWorld, get worldCards() { return worldCards.map(q => ({ ...q })); },
   update, inSafe, I18N, startGame, resetWorld, cycleOutfit, randomOutfit, cycleBig, setLang, toScreen,
   get items() { return items; }, get progress() { return progress; }, buyGloves, setEquip, get lastReward() { return lastReward; }, spawnItem,
+  seedRandom,     // SPEC-008: seedRandom(n) — игровая случайность rng() с зерна n; seedRandom() — снова случайно
   loadProgress,   // SPEC-018 (тесты): чистая функция «сохранение → прогресс», та же, что при запуске; игру не трогает
   // SPEC-005 (телефон): phone; camera — позиция и точка взгляда в единицах 3D (1 = клетка), точка взгляда и видимая земля в px мира,
   // ahead — забегание вперёд (px); shake — тряска сейчас
