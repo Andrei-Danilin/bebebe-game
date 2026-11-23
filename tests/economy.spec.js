@@ -20,7 +20,9 @@ const fixture = (key, ctx, query = "") => async ({ browser }, use) => {
 const test = base.test.extend({
   page: fixture("economy", { viewport: { width: 960, height: 640 } }),
   // the phone at its smallest size (SPEC-005 sizes), touch + mobile
-  phonePage: fixture("phone", { viewport: { width: 667, height: 375 }, hasTouch: true, isMobile: true }, "?phone=1")
+  phonePage: fixture("phone", { viewport: { width: 667, height: 375 }, hasTouch: true, isMobile: true }, "?phone=1"),
+  phone844: fixture("phone844", { viewport: { width: 844, height: 390 }, hasTouch: true, isMobile: true }, "?phone=1"),
+  phone932: fixture("phone932", { viewport: { width: 932, height: 430 }, hasTouch: true, isMobile: true }, "?phone=1")
 });
 test.afterAll(async () => { await shared.close(); });
 
@@ -51,8 +53,8 @@ function coinWrites(src) {
     ["coins write", /(\.\s*coins|\[\s*["'`]coins["'`]\s*\])\s*(\+\+|--|[-+*/%]?=(?![=>]))|(\+\+|--)\s*[\w$.]+\.coins\b/],
     // the whole progress replaced by something else than a fresh / loaded object
     ["progress replaced", /\bprogress\s*=(?![=>])(?!\s*(freshProgress\(\)|loadProgress\())/],
-    // merged into or copied with other coins
-    ["progress merged", /Object\.assign\(\s*progress\b|\.\.\.\s*progress\b/]
+    // merged into or copied with other coins (a spread of one of its parts, e.g. ...progress.upgrades, is fine)
+    ["progress merged", /Object\.assign\(\s*progress\b(?!\s*\.)|\.\.\.\s*progress\b(?!\s*\.)/]
   ];
   const out = [];
   let inside = 0;
@@ -586,4 +588,214 @@ test("the skins screen with locked items fits (phone 667×375)", async ({ phoneP
 test("every wardrobe text is in three languages", async ({ page }) => {
   const I = await page.evaluate(() => { const I = window.__bb.I18N; return ["en", "es", "ru"].map(l => [I[l].buyFor(150), I[l].tapAgain]); });
   expect(I).toEqual([["Buy for 150", "Tap again to buy"], ["Comprar por 150", "Tocá otra vez para comprar"], ["Купить за 150", "Нажми ещё раз, чтобы купить"]]);
+});
+
+// ---------- AC 5: upgrades ----------
+// __bb.UPGRADES (live object), __bb.upgrades (get: levels, a copy), __bb.buyUpgrade(key); __bb.shopTab (get/set "items"|"upgrades").
+test("upgrades apply to players only and stop at level 3", { tag: "@fast" }, async ({ page }) => {
+  const r = await page.evaluate(() => {
+    const b = window.__bb, C = b.CFG, U = b.UPGRADES, out = {};
+    const keyEv = (code, down) => window.dispatchEvent(new KeyboardEvent(down ? "keydown" : "keyup", { code }));
+    out.U = JSON.parse(JSON.stringify(U));
+    const cfg0 = JSON.stringify(C), diff0 = JSON.stringify(["park", "winter"].map(w => [1, 10, 20].map(n => b.difficulty(w, n))));
+    // too few coins: nothing
+    b.mode = "menu"; b.progress.coins = 0;
+    const s0 = b.sim().sounds, n0 = b.ledger().length;
+    b.buyUpgrade("fastFeet");
+    out.poor = { lv: b.upgrades.fastFeet, sound: b.sim().sounds > s0, ledger: b.ledger().length - n0 };
+    // levels 1, 2, 3, then no more
+    b.progress.coins = 5000;
+    const n1 = b.ledger().length, lv = [];
+    for (let i = 0; i < 4; i++) { b.buyUpgrade("fastFeet"); lv.push(b.upgrades.fastFeet); }
+    out.levels = lv;
+    out.spent = b.ledger().slice(n1).map(({ reason, amount }) => ({ reason, amount }));
+    out.coinsAfter = b.progress.coins;
+    for (let i = 0; i < 3; i++) { b.buyUpgrade("longItems"); b.buyUpgrade("quickHelp"); }
+    out.all = b.upgrades;
+    out.copy = (() => { const u = b.upgrades; u.fastFeet = 0; return b.upgrades.fastFeet; })();
+    // CFG and the Big One's numbers never change
+    out.cfgSame = JSON.stringify(C) === cfg0;
+    out.diffSame = JSON.stringify(["park", "winter"].map(w => [1, 10, 20].map(n => b.difficulty(w, n)))) === diff0;
+    // speed: player 1 walks right for 0.5 s on a free row, with and without the upgrade
+    const G = b.grid, isFree = (cx, cy) => !G.blocked[cy * G.COLS + cx];
+    const walk = () => {
+      b.world = "park"; b.level = 1; b.startGame(1);
+      const L = b.littles;
+      L.forEach((l, i) => { if (i) Object.assign(l, { kind: "player", controls: { up: [], down: [], left: [], right: [] }, x: 40 + i * 40, y: 610, state: "ok" }); });
+      Object.assign(b.big, { x: 60, y: 600, state: "look", timer: 9999, stun: 999, noPush: 999 });
+      let spot = null;
+      for (let cy = 6; cy < G.ROWS - 2 && !spot; cy++) for (let cx = 9; cx < G.COLS - 8 && !spot; cx++) {
+        let ok = true; for (let k = -1; k < 6; k++) for (const dy of [-1, 0, 1]) if (!isFree(cx + k, cy + dy)) ok = false;
+        const p = { x: (cx + 0.5) * G.CELL, y: (cy + 0.5) * G.CELL };
+        if (ok && !b.inSafe(p) && !b.inDanger(p)) spot = p;
+      }
+      Object.assign(L[0], { ...spot, state: "ok", invuln: 0, kx: 0, ky: 0, hugAnim: 0, dizzy: 0 }); L[0].fx.boots = 0;
+      keyEv("KeyD", true); for (let i = 0; i < 30; i++) b.update(1 / 60); keyEv("KeyD", false);
+      const d = L[0].x - spot.x; b.mode = "menu"; return d;
+    };
+    out.fast = walk();
+    b.progress.upgrades.fastFeet = 0; out.slow = walk(); b.progress.upgrades.fastFeet = 3;
+    // items: a player's boots last longer, a bot's do not; ITEM_LIFE stays (CFG unchanged above)
+    b.world = "park"; b.level = 1; b.startGame(1);
+    const L = b.littles, bot = L.find(l => l.kind === "bot");
+    Object.assign(b.big, { x: 900, y: 600, state: "look", timer: 9999, stun: 999, noPush: 999 });
+    Object.assign(L[0], { x: 600, y: 450, state: "ok", hugAnim: 0 }); L[0].fx.boots = 0;
+    Object.assign(bot, { x: 300, y: 450, state: "ok", hugAnim: 0 }); bot.fx.boots = 0;
+    b.items.length = 0;
+    b.items.push({ id: 991, kind: "boots", x: 600, y: 450, t: 0, life: 30 }, { id: 992, kind: "shield", x: 300, y: 450, t: 0, life: 30 });
+    b.update(1 / 60);
+    out.items = { player: L[0].fx.boots, bot: bot.fx.shield, base: [C.BOOTS_TIME, C.SHIELD_TIME] };
+    // rescue: a player lifts a friend in RESCUE_TIME × (1 − 3 × step); a bot needs the full RESCUE_TIME
+    b.startGame(1);
+    L.forEach((l, i) => { if (i > 1) Object.assign(l, { kind: "player", controls: { up: [], down: [], left: [], right: [] }, x: 860, y: 60 + i * 40, state: "ok" }); });
+    Object.assign(b.big, { x: 900, y: 600, state: "look", timer: 9999, stun: 999, noPush: 999 });
+    Object.assign(b.littles[0], { state: "down", downTimer: 15, x: 400, y: 300, kx: 0, ky: 0, rescue: 0 });
+    Object.assign(b.littles[1], { kind: "player", controls: { up: [], down: [], left: [], right: [] }, state: "ok", x: 420, y: 300 });
+    const need = C.RESCUE_TIME * (1 - 3 * U.quickHelp.step);
+    for (let i = 0; i < Math.round((need - 0.1) * 60); i++) b.update(1 / 60);
+    out.rescueBefore = b.littles[0].state;
+    for (let i = 0; i < 12; i++) b.update(1 / 60);
+    out.rescueAfter = b.littles[0].state;
+    // a bot next to the downed one: the time needed stays RESCUE_TIME
+    b.startGame(1);
+    const L2 = b.littles, helperBot = L2.find(l => l.kind === "bot");
+    Object.assign(b.big, { x: 900, y: 600, state: "look", timer: 9999, stun: 999, noPush: 999 });
+    Object.assign(L2[0], { state: "down", downTimer: 15, x: 400, y: 300, kx: 0, ky: 0, rescue: 0, botWait: 0 });
+    Object.assign(helperBot, { x: 420, y: 300, state: "ok" });
+    b.update(1 / 60);
+    out.botNeed = L2[0].rescueNeed;
+    b.mode = "menu";
+    return out;
+  });
+  expect(r.U).toEqual({ fastFeet: { step: 0.03, prices: [100, 200, 300] }, longItems: { step: 0.15, prices: [100, 200, 300] }, quickHelp: { step: 0.1, prices: [100, 200, 300] } });
+  expect(r.poor).toEqual({ lv: 0, sound: true, ledger: 0 });
+  expect(r.levels).toEqual([1, 2, 3, 3]);
+  expect(r.spent).toEqual([100, 200, 300].map(a => ({ reason: "buy:upgrade:fastFeet", amount: -a })));
+  expect(r.coinsAfter).toBe(5000 - 600);
+  expect(r.all).toEqual({ fastFeet: 3, longItems: 3, quickHelp: 3 });
+  expect(r.copy, "__bb.upgrades is a copy").toBe(3);
+  expect(r.cfgSame, "upgrades change no CFG value").toBe(true);
+  expect(r.diffSame, "the Big One's numbers stay").toBe(true);
+  expect(r.fast / r.slow).toBeCloseTo(1 + 3 * 0.03, 2);                 // +9 %
+  expect(r.items.player).toBeCloseTo(r.items.base[0] * (1 + 3 * 0.15), 5);
+  expect(r.items.bot, "a bot's item lasts the normal time").toBe(r.items.base[1]);
+  expect([r.rescueBefore, r.rescueAfter]).toEqual(["down", "ok"]);      // 2.1 s instead of 3
+  expect(r.botNeed, "a bot needs the full RESCUE_TIME").toBe(3);
+});
+
+test("upgrades are saved, merged with defaults and cleaned", async ({ page }) => {
+  const c = await page.evaluate(() => {
+    const L = s => JSON.parse(JSON.stringify(window.__bb.loadProgress(s).upgrades));
+    return [L({ upgrades: { fastFeet: 2, longItems: 9, quickHelp: "x", jump: 3 } }), L({ upgrades: { fastFeet: 1.7, longItems: -2 } }), L({ upgrades: "junk" }), L({ upgrades: null }), L({ coins: 4 })];
+  });
+  expect(c).toEqual([{ fastFeet: 2, longItems: 3, quickHelp: 0 }, { fastFeet: 1, longItems: 0, quickHelp: 0 }, ...Array(3).fill({ fastFeet: 0, longItems: 0, quickHelp: 0 })]);
+  await page.evaluate(() => { const b = window.__bb; b.progress.coins = 300; b.buyUpgrade("quickHelp"); b.buyUpgrade("quickHelp"); });
+  await page.reload();
+  await page.waitForFunction(() => window.__bbReady === true);
+  expect(await page.evaluate(() => [window.__bb.upgrades, window.__bb.progress.coins])).toEqual([{ fastFeet: 0, longItems: 0, quickHelp: 2 }, 0]);
+  expect(await page.evaluate(() => { const b = window.__bb; b.resetProgress(); b.resetProgress(); return b.upgrades; })).toEqual({ fastFeet: 0, longItems: 0, quickHelp: 0 });
+});
+
+test("the shop has an Items tab and an Upgrades tab", async ({ page }) => {
+  await page.evaluate(() => { window.__bb.mode = "shop"; });
+  await frames(page);
+  const ids = () => page.evaluate(() => window.__bb.buttonRects.map(q => q.id));
+  let b = await ids();
+  expect(b).toEqual(expect.arrayContaining(["tab:items", "tab:upgrades", "buy:mittens", "buy:mega", "buy:kisses", "buy:rescues"]));
+  expect(await page.evaluate(() => window.__bb.shopTab)).toBe("items");
+  // a click on the tab; the keyboard arrows switch too
+  const at = await page.evaluate(() => {
+    const q = window.__bb.buttonRects.find(r => r.id === "tab:upgrades"), c = document.getElementById("game").getBoundingClientRect();
+    return { x: c.left + (q.x + q.w / 2) * c.width / 960, y: c.top + (q.y + q.h / 2) * c.height / 640 };
+  });
+  await page.mouse.click(at.x, at.y);
+  await frames(page);
+  b = await ids();
+  expect(await page.evaluate(() => window.__bb.shopTab)).toBe("upgrades");
+  expect(b).toEqual(expect.arrayContaining(["upg:fastFeet", "upg:longItems", "upg:quickHelp"]));
+  expect(b.some(id => String(id).startsWith("buy:"))).toBe(false);
+  // a level shows as dots; the max level has no price
+  await page.evaluate(() => { const b = window.__bb; b.progress.upgrades.longItems = 2; b.progress.upgrades.quickHelp = 3; });
+  await frames(page);
+  const d = await page.evaluate(() => ({ hud: window.__bb.hudRects, btn: window.__bb.buttonRects.filter(q => String(q.id).startsWith("upg:")), I: window.__bb.I18N.en }));
+  expect(d.hud.find(h => h.id === "upg-dots:longItems").text).toBe("●●○");
+  expect(d.hud.find(h => h.id === "upg-dots:fastFeet").text).toBe("○○○");
+  expect(d.btn.find(q => q.id === "upg:longItems").text).toContain("300");
+  expect(d.btn.find(q => q.id === "upg:quickHelp").text).toContain(d.I.upgMax);
+  await page.keyboard.press("ArrowLeft");
+  await frames(page);
+  expect(await page.evaluate(() => window.__bb.shopTab)).toBe("items");
+  await page.keyboard.press("ArrowRight");
+  // leaving the shop: next time it opens on Items
+  await page.evaluate(() => { window.__bb.mode = "menu"; });
+  await frames(page);
+  await page.evaluate(() => { window.__bb.mode = "shop"; });
+  await frames(page);
+  expect(await page.evaluate(() => window.__bb.shopTab)).toBe("items");
+  await page.evaluate(() => { window.__bb.mode = "menu"; });
+});
+
+// the Upgrades tab fits: three languages, fonts ×1 / ×1.15, too few coins and plenty (one upgrade at max)
+async function upgradeTabProblems(page, phone) {
+  const fails = [];
+  const overlaps = (a, b) => a.x < b.x + b.w - 0.01 && a.x + a.w > b.x + 0.01 && a.y < b.y + b.h - 0.01 && a.y + a.h > b.y + 0.01;
+  const KEYS = ["fastFeet", "longItems", "quickHelp"];
+  for (const lang of ["en", "es", "ru"]) for (const scale of [1, 1.15]) for (const coins of [10, 9999]) {
+    const at = `${lang} ×${scale} ${coins} coins`;
+    await page.evaluate(([l, s, cn]) => {
+      const b = window.__bb; b.setLang(l); b.CFG.TEXT_TEST_SCALE = s; b.progress.coins = cn;
+      Object.assign(b.progress.upgrades, { fastFeet: 0, longItems: 2, quickHelp: 3 }); b.mode = "shop"; b.shopTab = "upgrades";
+    }, [lang, scale, coins]);
+    await frames(page);
+    const d = await page.evaluate(() => ({ buttons: window.__bb.buttonRects, hud: window.__bb.hudRects, ui: window.__bb.uiSize, texts: window.__bb.textSizes, min: window.__bb.CFG.PHONE_TEXT, tab: window.__bb.shopTab }));
+    if (d.tab !== "upgrades") { fails.push(`${at}: tab ${d.tab}`); continue; }
+    const s = d.ui.scale, inside = r => r.x >= -0.01 && r.y >= -0.01 && r.x + r.w <= d.ui.w + 0.01 && r.y + r.h <= d.ui.h + 0.01;
+    const btns = KEYS.map(k => d.buttons.find(q => q.id === "upg:" + k));
+    if (btns.some(q => !q)) { fails.push(`${at}: missing upgrade buttons`); continue; }
+    const cx = btns.map(q => q.x + q.w / 2), cols = cx.map((x, i) => [i ? (cx[i - 1] + x) / 2 : 0, i < 2 ? (x + cx[i + 1]) / 2 : d.ui.w]);
+    const parts = d.hud.filter(h => h.id.startsWith("upg-"));
+    KEYS.forEach((k, i) => {
+      const mine = parts.filter(p => p.id.endsWith(":" + k));
+      for (const id of ["pic", "name", "dots", "desc"]) if (!mine.some(p => p.id === `upg-${id}:${k}`)) fails.push(`${at}: no upg-${id}:${k}`);
+      const poor = coins === 10 && k !== "quickHelp";
+      if (mine.some(p => p.id === "upg-no:" + k) !== poor) fails.push(`${at}: upg-no:${k} ${poor ? "missing" : "shown"}`);
+      for (const p of mine) if (p.x < cols[i][0] - 0.01 || p.x + p.w > cols[i][1] + 0.01) fails.push(`${at}: ${p.id} leaves its card ${JSON.stringify(p)}`);
+    });
+    for (const b of d.buttons) {
+      if (!inside(b)) fails.push(`${at}: button ${b.id || b.text} outside`);
+      if (b.textW !== undefined && b.textW > b.w + 0.5) fails.push(`${at}: button ${b.id || b.text} text ${b.textW} > ${b.w}`);
+      if (phone && (b.w * s < 44 - 0.01 || b.h * s < 44 - 0.01)) fails.push(`${at}: button ${b.id || b.text} ${b.w * s}×${b.h * s} CSS px`);
+      for (const h of d.hud) if (overlaps(b, h)) fails.push(`${at}: button ${b.id || b.text} on ${h.id}`);
+    }
+    d.buttons.forEach((a, i) => d.buttons.slice(i + 1).forEach(b => { if (overlaps(a, b)) fails.push(`${at}: ${a.id || a.text} on ${b.id || b.text}`); }));
+    d.hud.forEach((a, i) => { if (!inside(a)) fails.push(`${at}: ${a.id} outside`); d.hud.slice(i + 1).forEach(b => { if (overlaps(a, b)) fails.push(`${at}: ${a.id} on ${b.id}`); }); });
+    if (phone) for (const cat of ["main", "hint"]) if (!(d.texts[cat] * s >= d.min[cat] - 0.01)) fails.push(`${at}: smallest ${cat} text ${d.texts[cat] * s}`);
+  }
+  await page.evaluate(() => { const b = window.__bb; b.CFG.TEXT_TEST_SCALE = 1; b.setLang("en"); b.mode = "menu"; });
+  return fails;
+}
+
+test("the Upgrades tab fits (desktop 960×640)", async ({ page }) => {
+  const fails = await upgradeTabProblems(page, false);
+  expect(fails, fails.slice(0, 12).join("\n")).toEqual([]);
+});
+// (Playwright reads the fixture names from the test function, so one test per phone size)
+test("the Upgrades tab fits (phone 667×375)", async ({ phonePage: page }) => {
+  const fails = await upgradeTabProblems(page, true);
+  expect(fails, fails.slice(0, 12).join("\n")).toEqual([]);
+});
+test("the Upgrades tab fits (phone 844×390)", async ({ phone844: page }) => {
+  const fails = await upgradeTabProblems(page, true);
+  expect(fails, fails.slice(0, 12).join("\n")).toEqual([]);
+});
+test("the Upgrades tab fits (phone 932×430)", async ({ phone932: page }) => {
+  const fails = await upgradeTabProblems(page, true);
+  expect(fails, fails.slice(0, 12).join("\n")).toEqual([]);
+});
+
+test("every upgrade text is in three languages", async ({ page }) => {
+  const I = await page.evaluate(() => { const I = window.__bb.I18N; return ["en", "es", "ru"].map(l => [I[l].itemsTab, I[l].upgradesTab, I[l].upgMax, ...["fastFeet", "longItems", "quickHelp"].map(k => [I[l].upg[k].name, I[l].upg[k].desc(3)])]); });
+  expect(I[0]).toEqual(["Items", "Upgrades", "Max", ["Fast feet", "+3% speed"], ["Long items", "Items last longer"], ["Quick help", "Lift friends faster"]]);
+  expect(I[1]).toEqual(["Cosas", "Mejoras", "Máximo", ["Pies rápidos", "+3% velocidad"], ["Cosas duraderas", "Duran más"], ["Ayuda rápida", "Levantás más rápido"]]);
+  expect(I[2]).toEqual(["Вещи", "Улучшения", "Максимум", ["Быстрые ноги", "+3% скорости"], ["Долгие вещи", "Действуют дольше"], ["Быстрая помощь", "Поднимаешь быстрее"]]);
 });

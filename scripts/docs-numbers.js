@@ -9,7 +9,7 @@ const fs = require("fs");
 const path = require("path");
 
 // The objects in the table. A later spec adds its own (SPEC-009: REWARD, UPGRADES, WARDROBE_TIERS).
-const OBJECTS = ["CFG", "GLOVES", "KISSES", "RESCUE_KIT", "REWARD", "WARDROBE_TIERS"];
+const OBJECTS = ["CFG", "GLOVES", "KISSES", "RESCUE_KIT", "REWARD", "WARDROBE_TIERS", "UPGRADES"];
 const START = "<!-- numbers:start -->", END = "<!-- numbers:end -->";
 const MEANING_MAX = 200;
 const SMALL_OBJECT = 5;   // keys — an object this small may share one comment above it

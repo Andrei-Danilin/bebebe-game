@@ -1,5 +1,5 @@
 {
-  "about": "The current shape (SPEC-009 and later): worlds with won flags, lastWorld, coins, inv with rescues, equip, owned clothes (ids; the worn Bear is owned); outfits; names.",
+  "about": "The current shape (SPEC-009 and later): worlds with won flags, lastWorld, coins, inv with rescues, equip, owned clothes (ids; the worn Bear is owned), upgrade levels; outfits; names.",
   "keys": {
     "bebebe-progress": {
       "worlds": {
@@ -61,6 +61,11 @@
         "big": [
           "bear"
         ]
+      },
+      "upgrades": {
+        "fastFeet": 1,
+        "longItems": 0,
+        "quickHelp": 2
       }
     },
     "bebebe-outfits": {
@@ -152,6 +157,11 @@
         "big": [
           "bear"
         ]
+      },
+      "upgrades": {
+        "fastFeet": 1,
+        "longItems": 0,
+        "quickHelp": 2
       }
     },
     "outfits": {
