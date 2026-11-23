@@ -1,7 +1,7 @@
 // Gameplay rules decided by the kids (see docs/game-design.md). Each test pins one rule.
 const base = require("@playwright/test");
 const { expect } = base;
-const { openGame, step, setupHug, frames, sharedPage, resetGame } = require("./helpers");
+const { openGame, step, setupHug, frames, sharedPage, resetGame, softly } = require("./helpers");
 
 // SPEC-018: the tests share one game page (one per context kind: the touch tests get their own) instead of a fresh page
 // each. Before every test resetGame() puts it back to a freshly opened game (storage, language, progress, names,
@@ -1576,12 +1576,14 @@ test("tiptoe with Shift, stick tilt and gamepad", { tag: "@fast" }, async ({ pag
     b.littles[0].fx.boots = 0;
     Object.assign(b.littles[0], spot); h.key("ShiftLeft", true); b.update(1 / 60); h.key("ShiftLeft", false);
     out.still = b.isRunning(0);
-    // two players: P1 left Shift, P2 right Ctrl; right Shift stays P2's kit key (no tiptoe for anyone)
+    // two players: P1 left Shift, P2 "/" (Slash); right Shift stays P2's kit key and Ctrl tiptoes nobody (no browser shortcuts)
     b.startGame(2); h.calm({ x: 900, y: 600 }); b.big.noPush = 999; b.big.stun = 999; t.pin([0, 1]);
     out.p1ShiftL = h.speed(0, ["KeyD", "ShiftLeft"], spot);
     out.p1ShiftR = h.speed(0, ["KeyD", "ShiftRight"], spot);
     out.p1CtrlR = h.speed(0, ["KeyD", "ControlRight"], spot);
+    out.p1Slash = h.speed(0, ["KeyD", "Slash"], spot);
     Object.assign(b.littles[0], { x: 860, y: 40 });                 // out of player 2's way
+    out.p2Slash = h.speed(1, ["ArrowRight", "Slash"], spot);
     out.p2CtrlR = h.speed(1, ["ArrowRight", "ControlRight"], spot);
     out.p2ShiftR = h.speed(1, ["ArrowRight", "ShiftRight"], spot);
     out.p2ShiftL = h.speed(1, ["ArrowRight", "ShiftLeft"], spot);
@@ -1596,8 +1598,10 @@ test("tiptoe with Shift, stick tilt and gamepad", { tag: "@fast" }, async ({ pag
   expect(r.mult).toBeGreaterThanOrEqual(0.5);                       // the CFG values themselves: invariants.spec.js
   expect(r.mult).toBeLessThan(r.max);
   expect(r.full1).toEqual({ share: 1, run: true });
-  for (const k of ["shiftL1", "shiftR1", "arrowShift1", "p1ShiftL", "p2CtrlR"]) expect(r[k], k).toEqual({ share: r.mult, run: false });
-  for (const k of ["p1ShiftR", "p1CtrlR", "p2ShiftR", "p2ShiftL"]) expect(r[k], k).toEqual({ share: 1, run: true });
+  const soft = softly();
+  for (const k of ["shiftL1", "shiftR1", "arrowShift1", "p1ShiftL", "p2Slash"]) soft(r[k], k).toEqual({ share: r.mult, run: false });
+  for (const k of ["p1ShiftR", "p1CtrlR", "p1Slash", "p2ShiftR", "p2ShiftL", "p2CtrlR"]) soft(r[k], k).toEqual({ share: 1, run: true });
+  soft.done();
   expect(r.boots).toEqual({ share: 1.55, run: true });
   expect(r.bootsTip.share).toBeCloseTo(r.mult * 1.55, 2);           // tiptoe = TIPTOE_MULT × boots speed, silent
   expect(r.bootsTip.run).toBe(false);
@@ -1656,7 +1660,7 @@ test("the Big One turns when a kid runs behind him", { tag: "@fast" }, async ({ 
     const p = h.open(), behind = { x: p.x - 100, y: p.y };
     out.cfg = [C.HEAR_RADIUS, C.NOISE_RATE, C.NOISE_DECAY, C.NOISE_TURN, C.NOISE_WARN, C.HEAR_WALL, C.HEAR_TURN_TIME, C.HEAR_COOLDOWN, C.HEAR_LOOK];
     window.__t.pin([0]);
-    // noPush: he does not chase anyone (💦 above him), but he still hears, but he still hears (only the push stand blocks hearing)
+    // noPush: he does not chase anyone (💦 above him), but he still hears (only the push stand blocks hearing)
     h.calm(p, 0); big.noPush = 999;
     const fr = C.NOISE_WARN / C.NOISE_RATE * 60, early = Math.floor(fr) - 1, warn = Math.ceil(fr) + 1;   // frames: just under / over 👂
     h.run(early / 60, 0, behind);
@@ -1786,6 +1790,13 @@ test("no hearing while stunned or blushing", async ({ page }) => {
       h.run(0.5, 0, behind);
       out[k] = [big.noise, big.hearCd];
     }
+    // searching for the kid he just lost: busy, he does not listen (the escaping kid may run)
+    h.calm(p, 0); big.noise = 0.2;
+    Object.assign(big, { state: "search", lastSeen: { x: p.x + 150, y: p.y } });
+    let searched = 0;
+    h.run(0.5, 0, () => ({ x: big.x - Math.cos(big.dir) * 100, y: big.y - Math.sin(big.dir) * 100 }), ["KeyS"], () => big.state === "search" && ++searched > 0);
+    out.search = [big.noise, big.hearCd];
+    out.searched = searched;
     // the final hug: player 1 hugs the last heart, player 2 runs behind him while the win is coming
     b.startGame(2); window.__t.pin([0, 1]); big = b.big;
     h.calm(p, 0); big.hp = 1;
@@ -1797,7 +1808,10 @@ test("no hearing while stunned or blushing", async ({ page }) => {
     h.up();
     return out;
   });
-  for (const k of ["stun", "blush", "slip", "pushCd"]) expect(r[k], k).toEqual([0, 0]);
+  const soft = softly();
+  for (const k of ["stun", "blush", "slip", "pushCd", "search"]) soft(r[k], k).toEqual([0, 0]);
+  soft.done();
+  expect(r.searched).toBeGreaterThan(20);                          // he searched (and kept quiet) for a good part of the run
   expect(r.winComing).toBe(true);
   expect(r.final).toEqual([0, 0]);
 });
@@ -1891,7 +1905,7 @@ test("the heard hint shows once per level, only for players", async ({ page }) =
 test("bots tiptoe near the Big One", async ({ page }) => {
   await installHearHelpers(page);
   const r = await page.evaluate(() => {
-    const b = window.__bb, h = window.__h, C = b.CFG, near = (C.HEAR_RADIUS + 1) * b.grid.CELL, out = { bad: [], seen: {} };
+    const b = window.__bb, h = window.__h, C = b.CFG, near = (C.HEAR_RADIUS + C.TIPTOE_NEAR) * b.grid.CELL, hear = C.HEAR_RADIUS * b.grid.CELL, out = { bad: [], seen: {} };
     const p = h.open();
     const watch = (sec, label) => {
       for (let f = 0; f < Math.round(sec * 60); f++) {
@@ -1899,9 +1913,9 @@ test("bots tiptoe near the Big One", async ({ page }) => {
         b.littles.forEach((l, i) => {
           if (l.kind !== "bot" || !l.moving || l.state !== "ok") return;
           const d = Math.hypot(l.x - b.big.x, l.y - b.big.y), close = d <= near, key = `${l.task}:${close ? "near" : "far"}`;
-          if (Math.abs(d - near) < 5) return;                         // it decided before this frame's step (≤ 3.5 px)
+          if (Math.abs(d - near) < 5 || Math.abs(d - hear) < 5) return;   // it decided before this frame's step (≤ 3.5 px)
           out.seen[key] = (out.seen[key] || 0) + 1;
-          const want = { attack: close ? C.TIPTOE_MULT : 1, lurk: close ? C.TIPTOE_MULT : 0.8, flee: 1, rescue: 1 }[l.task];
+          const want = { attack: close ? C.TIPTOE_MULT : 1, lurk: d <= hear ? C.TIPTOE_MULT : C.BOT_LURK_MULT, flee: 1, rescue: 1 }[l.task];
           if (want !== undefined && Math.abs(l.speedFrac - want) > 1e-9 && out.bad.length < 5) out.bad.push(`${label} bot ${i} ${key} frac ${l.speedFrac}`);
           if (want !== undefined && b.isRunning(i) !== (want >= C.TIPTOE_MAX) && out.bad.length < 5) out.bad.push(`${label} bot ${i} ${key} running ${b.isRunning(i)}`);
         });
@@ -1924,7 +1938,9 @@ test("bots tiptoe near the Big One", async ({ page }) => {
     return out;
   });
   expect(r.bad).toEqual([]);
-  for (const k of ["attack:near", "lurk:near", "flee:near", "rescue:near"]) expect(r.seen[k] || 0, `${k} frames ${JSON.stringify(r.seen)}`).toBeGreaterThan(0);
+  const soft = softly();
+  for (const k of ["attack:near", "lurk:near", "flee:near", "rescue:near"]) soft(r.seen[k] || 0, `${k} frames ${JSON.stringify(r.seen)}`).toBeGreaterThan(0);
+  soft.done();
 });
 
 // SPEC-019: the careful autopilot tiptoes behind or beside him within HEAR_RADIUS + 1 cells while he can hear; in front of him,
@@ -1957,7 +1973,9 @@ test("the careful autopilot tiptoes near his back, the reckless one runs", async
   expect(r.behind).toBeGreaterThan(0);
   expect(r.side).toBeLessThanOrEqual(r.mult);
   expect(r.side).toBeGreaterThan(0);
-  for (const k of ["far", "front", "stunned", "reckless"]) expect(r[k], k).toBe(1);
+  const soft = softly();
+  for (const k of ["far", "front", "stunned", "reckless"]) soft(r[k], k).toBe(1);
+  soft.done();
 });
 
 // SPEC-019 AC 7: the "tap-tap" lines at the feet of a kid he can hear (running near him, out of his view); none on tiptoe

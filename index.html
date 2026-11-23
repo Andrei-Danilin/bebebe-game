@@ -62,6 +62,7 @@ const CFG = {
   BOT_RESCUE_DELAY: [2, 3],  // сек — боты идут спасать не сразу после падения (игроки — сразу)
   PLAYER_SPEED: 150,         // px/s — скорость игрока
   BOT_SPEED: 135,            // px/s — скорость бота
+  BOT_LURK_MULT: 0.8,        // доля скорости бота, когда он ждёт своей очереди неподалёку от Большого
   BIG_PATROL_SPEED: 70,      // px/s — Большой гуляет (Парк, уровень 1)
   BIG_CHASE_SPEED: 112,      // px/s — Большой догоняет (Парк, уровень 1)
   // индекс сложности мира (SPEC-016): по нему скорость, сердечки, монетки и третья звезда; бонусный Пляж как Школа, Зима труднее
@@ -86,6 +87,7 @@ const CFG = {
   HEAR_TURN_TIME: 0.15,      // сек — поворачивается на топот за это время (❓; SPEC-019 баланс: 0.3 → 0.15)
   HEAR_COOLDOWN: 4.5,        // сек после поворота на топот (от начала поворота) — снова не слышит (SPEC-019 баланс: 3 → 4.5)
   HEAR_LOOK: [1, 1.5],       // сек — после поворота стоит и смотрит туда (не крутится)
+  TIPTOE_NEAR: 1,            // клеток сверх HEAR_RADIUS — ближе этого подкрадывающиеся боты и осторожный автопилот идут на цыпочках
   HEAR_HINT_TIME: 4,         // сек — подсказка «Папа услышал топот!» в первый раз за уровень, когда обернулся на игрока
   // как выглядит: на цыпочках — ноги и руки машут меньше (swing), меньше подпрыгивает (bob), тело ниже (low) и чуть наклонено (lean);
   // «топ-топ» у ног бегущего рядом с Большим: штрихи длиной tap UI px, по taps с каждой стороны, видны при |sin(шага)| > tapShow
@@ -347,7 +349,7 @@ const I18N = {
     ],
     // SPEC-019: на цыпочках; подсказка, когда Большой впервые обернулся на топот игрока (клавиша — отдельно, как у спасалки)
     ruleTiptoe: "Run near Dad and he hears you — tiptoe!",
-    heardHint: k => `Dad heard you running! Tiptoe near him: hold ${k}`, heardKey1: "Shift", heardKeyLeft: "⇦ Shift", heardKey2: "Ctrl ⇨",
+    heardHint: k => `Dad heard you running! Tiptoe near him: hold ${k}`, heardKey1: "⇦ Shift", heardKey2: "/",
     heardHintTouch: "Dad heard you running! Push the stick just a little to tiptoe",
     level: "Level", lvShort: "Lv.", onePlayer: "1 player", twoPlayers: "2 players",
     controls1: "Keyboard: Player 1 — W A S D, Player 2 — arrows  •  P — pause  •  M — sound  •  L — language",
@@ -403,7 +405,7 @@ const I18N = {
       I18N.es.ruleTiptoe
     ],
     ruleTiptoe: "Si corrés cerca de papá, te escucha: ¡andá en puntitas de pie!",
-    heardHint: k => `¡Papá te escuchó correr! Cerca de él andá en puntitas: mantené ${k}`, heardKey1: "Shift", heardKeyLeft: "⇦ Shift", heardKey2: "Ctrl ⇨",
+    heardHint: k => `¡Papá te escuchó correr! Cerca de él andá en puntitas: mantené ${k}`, heardKey1: "⇦ Shift", heardKey2: "/",
     heardHintTouch: "¡Papá te escuchó correr! Mové el joystick apenas para ir en puntitas",
     level: "Nivel", lvShort: "Niv.", onePlayer: "1 jugador", twoPlayers: "2 jugadores",
     controls1: "Teclado: Jugador 1 — W A S D, Jugador 2 — flechas  •  P — pausa  •  M — sonido  •  L — idioma",
@@ -457,7 +459,7 @@ const I18N = {
       I18N.ru.ruleTiptoe
     ],
     ruleTiptoe: "Бежишь рядом с папой — он слышит. Иди на цыпочках!",
-    heardHint: k => `Папа услышал топот! Рядом с ним иди на цыпочках: держи ${k}`, heardKey1: "Shift", heardKeyLeft: "⇦ Shift", heardKey2: "Ctrl ⇨",
+    heardHint: k => `Папа услышал топот! Рядом с ним иди на цыпочках: держи ${k}`, heardKey1: "⇦ Shift", heardKey2: "/ (.)",
     heardHintTouch: "Папа услышал топот! Чуть-чуть наклони джойстик — пойдёшь на цыпочках",
     level: "Уровень", lvShort: "Ур.", onePlayer: "1 игрок", twoPlayers: "2 игрока",
     controls1: "Клавиатура: Игрок 1 — W A S D, Игрок 2 — стрелки  •  P — пауза  •  M — звук  •  L — язык",
@@ -2245,6 +2247,7 @@ const keys = new Set();
 window.addEventListener("keydown", e => {
   if (nameInput) return;                     // печатают имя: игровые клавиши (WASD, M, L, Esc…) не трогаем
   if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"].includes(e.code)) e.preventDefault();
+  if (e.code === "Slash" && mode === "play") e.preventDefault();   // SPEC-019: «/» — на цыпочках игрока 2 (в Firefox «/» — быстрый поиск)
   initAudio();
   if (!keys.has(e.code)) onKey(e.code);
   keys.add(e.code);
@@ -2477,9 +2480,10 @@ function onPadButton(b, pad = 0) {
   else if (mode === "lose") { if (b === 0 || b === 9) retryLevel(); if (b === 1) toMap(); }
 }
 
-// SPEC-019: на цыпочках с клавиатуры — Shift: один игрок — любой; двое — игрок 1 левый Shift, игрок 2 правый Ctrl
-// (правый Shift остаётся спасалкой игрока 2)
-const TIPTOE_KEYS = [["ShiftLeft", "ShiftRight"], ["ShiftLeft"], ["ControlRight"]];
+// SPEC-019: на цыпочках с клавиатуры: один игрок — любой Shift (в подсказке — левый: правый Shift в Windows — залипание);
+// двое — игрок 1 левый Shift, игрок 2 «/» (клавиша слева от правого Shift; на русской раскладке «.»). Не Ctrl: с ним клавиши
+// игрока 1 — сочетания браузера (Ctrl+W закрывает вкладку). Правый Shift остаётся спасалкой игрока 2.
+const TIPTOE_KEYS = [["ShiftLeft", "ShiftRight"], ["ShiftLeft"], ["Slash"]];
 const tiptoeKey = pi => (numPlayers === 1 ? TIPTOE_KEYS[0] : TIPTOE_KEYS[pi + 1] || []).some(k => keys.has(k));
 // Длина вектора — доля скорости. Стик/геймпад: наклон t < TIPTOE_MAX — на цыпочках (до TIPTOE_MULT), больше — бегом (t);
 // Shift — не быстрее TIPTOE_MULT. Автопилот — как есть (его длина и есть доля скорости).
@@ -2800,9 +2804,9 @@ function updateBots(dt) {
     b.fleeRe -= dt;
     const seen = big.stun <= 0 && big.slip <= 0 && big.noPush <= 0 && big.blush <= 0 && canSee(b);
     const speed = CFG.BOT_SPEED * (b.fx.boots > 0 ? CFG.BOOTS_MULT : 1);
-    // SPEC-019: подкрадываясь (ближе HEAR_RADIUS + 1 клетки) и выжидая там, где он слышит (HEAR_RADIUS), — на цыпочках;
+    // SPEC-019: подкрадываясь (ближе HEAR_RADIUS + TIPTOE_NEAR клеток) и выжидая там, где он слышит (HEAR_RADIUS), — на цыпочках;
     // убегают и спасают — бегом
-    const db = dist(b, big), tiptoe = db <= (CFG.HEAR_RADIUS + 1) * CELL, lurkTip = db <= CFG.HEAR_RADIUS * CELL;
+    const db = dist(b, big), tiptoe = db <= (CFG.HEAR_RADIUS + CFG.TIPTOE_NEAR) * CELL, lurkTip = db <= CFG.HEAR_RADIUS * CELL;
     let moved = false, frac = 1;
 
     if (b.dangerT > CFG.BOT_DANGER_LEAVE && dangerZone) {   // засиделся в доме Большого — к ближайшей двери
@@ -2838,7 +2842,7 @@ function updateBots(dt) {
         } else {
           b.task = "lurk";
           const g = lurkPoint(back + b.offset * 2.2);
-          frac = lurkTip ? CFG.TIPTOE_MULT : 0.8;
+          frac = lurkTip ? CFG.TIPTOE_MULT : CFG.BOT_LURK_MULT;
           if (Math.hypot(g.x - b.x, g.y - b.y) > 20) moved = steerTo(b, g.x, g.y, speed * frac, dt, true);
         }
       }
@@ -2928,8 +2932,8 @@ function autoGoalCareful(l) {
 }
 // Цель reckless-игрока: прямо к спине Большого (или к нему, если лежит), не прячась и никого не спасая
 const autoGoalReckless = l => big.slip > 0 ? { x: big.x, y: big.y, avoid: false, stop: 0 } : { ...backPoint(l, dist(l, big)), avoid: false, stop: 0 };
-// SPEC-019: careful идёт на цыпочках, когда он рядом (HEAR_RADIUS + 1 клетка), сзади или сбоку от Большого (вне взгляда) и тот может услышать
-const autoTiptoe = l => !bigDeaf() && dist(l, big) <= (CFG.HEAR_RADIUS + 1) * CELL &&
+// SPEC-019: careful идёт на цыпочках, когда он рядом (HEAR_RADIUS + TIPTOE_NEAR клеток), сзади или сбоку от Большого (вне взгляда) и тот прислушивается
+const autoTiptoe = l => bigListens() && dist(l, big) <= (CFG.HEAR_RADIUS + CFG.TIPTOE_NEAR) * CELL &&
   angDiff(big.dir, Math.atan2(l.y - big.y, l.x - big.x)) >= CFG.VISION_HALF;
 // Решение автопилота на этот шаг: autoMove[pi] = { x, y } (как стик, длина ≤ 1) и нажатия 💋 / 🩹
 function autoThink(dt) {
@@ -2965,6 +2969,8 @@ const isRunning = l => !!l && l.state === "ok" && l.moving && l.speedFrac >= CFG
 // Не слышит: в шоке (и при последней обнимашке), красный, лежит после банана, стоит после толчка, не идёт игра
 const bigDeaf = () => mode !== "play" || pendingWin > 0 || big.stun > 0 || big.blush > 0 || big.slip > 0 || big.pushCd > 0;
 const stopHearing = () => { big.noise = 0; big.hearTurnT = 0; big.hearLook = 0; };
+// Прислушивается: слышит и не занят погоней — гонится или ищет того, кого только что видел (ему не до топота; шум тает)
+const bigListens = () => !bigDeaf() && big.state !== "chase" && big.state !== "search";
 // Шум за кадр: каждый бегущий рядом (HEAR_RADIUS клеток) вне взгляда (по углу), не невидимка и не в домике, — NOISE_RATE
 // (через стену × HEAR_WALL); никто не шумит — шум тает. Набралось NOISE_TURN — поворачивается к самому громкому (при равных —
 // к ближнему) за HEAR_TURN_TIME, потом стоит и смотрит туда HEAR_LOOK сек; HEAR_COOLDOWN сек — снова не слышит.
@@ -2977,7 +2983,7 @@ function audible(l) {
 }
 function hearNoise(dt) {
   let add = 0, loud = null, best = 0, bestD = Infinity;
-  if (big.hearCd <= 0) for (const l of littles) {
+  if (big.hearCd <= 0 && bigListens()) for (const l of littles) {
     const k = audible(l);
     if (!k) continue;
     const d = dist(l, big), c = CFG.NOISE_RATE * dt * k;
@@ -3402,7 +3408,7 @@ function playerNameTag(l) {
 let tapLines = [];
 function drawTapLines() {
   tapLines = [];
-  if (mode !== "play" || bigDeaf()) return;
+  if (!bigListens()) return;
   const T = CFG.TIPTOE_LOOK, len = PHONE ? cpx(T.tap) : T.tap;
   for (const l of littles) {
     if (!audible(l)) continue;
@@ -3694,7 +3700,8 @@ function drawHUD(t) {
     fitText(restText(l), UW / 2, UH - 39 - i * 44, 17, 440, "center", "#e0e7ff", 800);
   });
   if (kitHintOn()) drawKitHint(UW / 2 - 230, UH - 58 - resting.length * 44, 460, 38, 14, () => {}, 18, 9);   // над плашками «отдыхает»
-  if (heardHintOn()) drawHeardHint(UW / 2 - 300, UH - 20 - (resting.length + (kitHintOn() ? 1 : 0)) * 44, 600, 18, 12, 12);   // SPEC-019: ещё выше
+  // SPEC-019: ещё выше; в первые секунды на сенсорном экране — и над подписью «води пальцем»
+  if (heardHintOn()) drawHeardHint(UW / 2 - 300, UH - 20 - (resting.length + (kitHintOn() ? 1 : 0)) * 44 - (isTouch && stats.time < 5 ? 30 : 0), 600, 18, 12, 12);
 }
 
 // Подсказка «Нажми 🩹» (SPEC-007): видна KIT_HINT_TIME сек, пока упавший игрок может встать спасалкой.
@@ -3710,9 +3717,9 @@ function drawKitHint(x, y, w, h, r, note, size, min) {
 }
 
 // Подсказка «Папа услышал топот!» (SPEC-019): видна HEAR_HINT_TIME сек после первого за уровень поворота на топот игрока.
-// Без сенсорного экрана — клавиша этого игрока (Shift; вдвоём: игрок 1 — левый Shift, игрок 2 — правый Ctrl), иначе — про джойстик
+// Без сенсорного экрана — клавиша этого игрока (левый Shift; вдвоём у игрока 2 — «/»), иначе — про джойстик
 const heardHintOn = () => mode === "play" && heardHintT > 0;
-const heardKey = () => numPlayers === 2 ? (heardHintPi === 1 ? L().heardKey2 : L().heardKeyLeft) : L().heardKey1;
+const heardKey = () => numPlayers === 2 && heardHintPi === 1 ? L().heardKey2 : L().heardKey1;
 const heardHintText = () => PHONE || isTouch ? L().heardHintTouch : L().heardHint(heardKey());
 // плашка нижним краем на bottom, до двух строк (мерка с CFG.TEXT_TEST_SCALE, не мельче min); → кегль
 function drawHeardHint(x, bottom, w, size, min, pad) {

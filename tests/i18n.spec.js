@@ -1,6 +1,6 @@
 // Every text exists in all three languages (English is the reference). A new string must be added to en, es and ru.
 const { test, expect } = require("@playwright/test");
-const { openGame } = require("./helpers");
+const { openGame, softly } = require("./helpers");
 
 test("es and ru have every key that en has, with the same type", { tag: "@fast" }, async ({ page }) => {
   await openGame(page);
@@ -38,10 +38,12 @@ test("the tiptoe rule and the heard hints are in en, es and ru", async ({ page }
   const r = await page.evaluate(() => ["en", "es", "ru"].map(l => {
     const I = window.__bb.I18N[l], rules = I.rules(18);
     return { l, n: rules.length, last: rules[rules.length - 1] === I.ruleTiptoe, icon: window.__bb.RULE_ICONS[6],
-      texts: [I.ruleTiptoe, I.heardHint(I.heardKey1), I.heardHint(I.heardKey2), I.heardHint(I.heardKeyLeft), I.heardHintTouch].every(t => typeof t === "string" && t.length > 10),
-      keys: [I.heardKey1, I.heardKey2, I.heardKeyLeft].every(k => typeof k === "string" && k.length > 0 && I.heardHint(I.heardKey1).includes(I.heardKey1)) };
+      texts: [I.ruleTiptoe, I.heardHint(I.heardKey1), I.heardHint(I.heardKey2), I.heardHintTouch].every(t => typeof t === "string" && t.length > 10),
+      keys: [I.heardKey1, I.heardKey2].every(k => typeof k === "string" && k.length > 0 && I.heardHint(k).includes(k)) };
   }));
-  for (const x of r) expect(x, x.l).toEqual({ l: x.l, n: 7, last: true, icon: "👣", texts: true, keys: true });
+  const soft = softly();
+  for (const x of r) soft(x, x.l).toEqual({ l: x.l, n: 7, last: true, icon: "👣", texts: true, keys: true });
+  soft.done();
   const en = await page.evaluate(() => { const I = window.__bb.I18N.en; return [I.ruleTiptoe, I.heardHint(I.heardKey1), I.heardHintTouch]; });
-  expect(en).toEqual(["Run near Dad and he hears you — tiptoe!", "Dad heard you running! Tiptoe near him: hold Shift", "Dad heard you running! Push the stick just a little to tiptoe"]);
+  expect(en).toEqual(["Run near Dad and he hears you — tiptoe!", "Dad heard you running! Tiptoe near him: hold ⇦ Shift", "Dad heard you running! Push the stick just a little to tiptoe"]);
 });
