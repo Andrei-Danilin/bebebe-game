@@ -1,5 +1,5 @@
 // Smoke tests: the game loads, every screen and place renders, nothing throws.
-const { test, expect } = require("@playwright/test");
+const { test, expect } = require("./pw");   // SPEC-023: @playwright/test + failure screenshots
 const { openGame, step, ROOT } = require("./helpers");
 const fs = require("fs");
 const path = require("path");
