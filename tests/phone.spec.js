@@ -438,12 +438,12 @@ test.describe("phone controls", () => {
     await touch(page, "pointermove", 150 + R * 0.6, 300);           // a bit to the right
     // one evaluate, so the real frame loop does not add steps in between
     const walk = await page.evaluate(() => {
-      const b = window.__bb, l = b.littles[0], x0 = l.x, y0 = l.y;
+      const b = window.__bb, l = b.littles[0], x0 = l.x, y0 = l.y, C = b.CFG;
       for (let i = 0; i < 30; i++) b.update(1 / 60);
-      return { dx: l.x - x0, dy: l.y - y0 };
+      return { dx: l.x - x0, dy: l.y - y0, share: 0.6 < C.TIPTOE_MAX ? C.TIPTOE_MULT * 0.6 / C.TIPTOE_MAX : 0.6 };   // SPEC-019: tilt below the ring tiptoes
     });
-    expect(walk.dx).toBeGreaterThan(150 * 0.5 * 0.6 - 2);             // he walks right at the speed the stick says (as today)
-    expect(walk.dx).toBeLessThan(150 * 0.5 * 0.6 + 2);
+    expect(walk.dx).toBeGreaterThan(150 * 0.5 * walk.share - 2);       // he walks right at the speed the stick says
+    expect(walk.dx).toBeLessThan(150 * 0.5 * walk.share + 2);
     expect(Math.abs(walk.dy)).toBeLessThan(2);
     let p0, p1;
     // a far drag: the base follows the finger

@@ -1593,18 +1593,18 @@ test("tiptoe with Shift, stick tilt and gamepad", { tag: "@fast" }, async ({ pag
     h.up();
     return out;
   });
-  expect(r.max).toBe(0.6);
-  expect(r.mult).toBe(0.55);
+  expect(r.mult).toBeGreaterThanOrEqual(0.5);                       // the CFG values themselves: invariants.spec.js
+  expect(r.mult).toBeLessThan(r.max);
   expect(r.full1).toEqual({ share: 1, run: true });
-  for (const k of ["shiftL1", "shiftR1", "arrowShift1", "p1ShiftL", "p2CtrlR"]) expect(r[k], k).toEqual({ share: 0.55, run: false });
+  for (const k of ["shiftL1", "shiftR1", "arrowShift1", "p1ShiftL", "p2CtrlR"]) expect(r[k], k).toEqual({ share: r.mult, run: false });
   for (const k of ["p1ShiftR", "p1CtrlR", "p2ShiftR", "p2ShiftL"]) expect(r[k], k).toEqual({ share: 1, run: true });
   expect(r.boots).toEqual({ share: 1.55, run: true });
-  expect(r.bootsTip.share).toBeCloseTo(0.55 * 1.55, 2);            // tiptoe = 0.55 × boots speed, silent
+  expect(r.bootsTip.share).toBeCloseTo(r.mult * 1.55, 2);           // tiptoe = TIPTOE_MULT × boots speed, silent
   expect(r.bootsTip.run).toBe(false);
   expect(r.still).toBe(false);
   expect(r.kit2).toEqual(["ok", 0]);
   expect(r.bots).toEqual(Array(5).fill("boolean"));
-  // gamepad: a small tilt (0.4 < TIPTOE_MAX) tiptoes at a share of the tiptoe speed, a big one (0.9) runs
+  // gamepad: a small tilt (0.4 < TIPTOE_MAX) tiptoes at a share of the tiptoe speed, a full one (0.95) runs
   const pad = async ax => {
     await page.evaluate(a => {
       const b = window.__bb; b.startGame(1); window.__h.calm({ x: 900, y: 600 }); b.big.noPush = 999; b.big.stun = 999; window.__t.pin([0]);
@@ -1614,8 +1614,8 @@ test("tiptoe with Shift, stick tilt and gamepad", { tag: "@fast" }, async ({ pag
     await frames(page);
     return page.evaluate(() => window.__h.speed(0, [], window.__h.open()));
   };
-  expect(await pad(0.4)).toEqual({ share: +(0.55 * 0.4 / 0.6).toFixed(3), run: false });
-  expect(await pad(0.9)).toEqual({ share: 0.9, run: true });
+  expect(await pad(0.4)).toEqual({ share: +(r.mult * 0.4 / r.max).toFixed(3), run: false });
+  expect(await pad(0.95)).toEqual({ share: 0.95, run: true });
   await page.evaluate(() => { window.__pads = []; });
   await frames(page);
 });
@@ -1630,18 +1630,18 @@ test.describe("tiptoe on a touch screen", () => {
       const spot = h.open();
       h.calm({ x: 900, y: 600 }); b.big.noPush = 999; b.big.stun = 999; window.__t.pin([0]);
       const ev = (type, x, y) => c.dispatchEvent(new PointerEvent(type, { clientX: bb.left + x * bb.width / 960, clientY: bb.top + y * bb.height / 640, pointerId: 9, pointerType: "touch", isPrimary: true, bubbles: true, cancelable: true }));
-      const R = b.stickR(), out = { R };
+      const R = b.stickR(), out = { R, mult: b.CFG.TIPTOE_MULT, max: b.CFG.TIPTOE_MAX };
       ev("pointerdown", 300, 400);
       ev("pointermove", 300 + 0.4 * R, 400); out.small = h.speed(0, [], spot);
-      ev("pointermove", 300 + 0.8 * R, 400); out.big = h.speed(0, [], spot);
+      ev("pointermove", 300 + 0.95 * R, 400); out.big = h.speed(0, [], spot);
       return out;
     });
-    expect(r.small).toEqual({ share: +(0.55 * 0.4 / 0.6).toFixed(3), run: false });
-    expect(r.big).toEqual({ share: 0.8, run: true });
+    expect(r.small).toEqual({ share: +(r.mult * 0.4 / r.max).toFixed(3), run: false });
+    expect(r.big).toEqual({ share: 0.95, run: true });
     await frames(page);
     const marks = await page.evaluate(() => window.__bb.stickMarks);
     expect(marks.length).toBe(1);
-    expect(marks[0].ring).toBeCloseTo(marks[0].R * 0.6, 5);                // the inner ring at TIPTOE_MAX of the radius
+    expect(marks[0].ring).toBeCloseTo(marks[0].R * r.max, 5);              // the inner ring at TIPTOE_MAX of the radius
     await page.evaluate(() => {
       const c = document.getElementById("game");
       c.dispatchEvent(new PointerEvent("pointerup", { clientX: 0, clientY: 0, pointerId: 9, pointerType: "touch", isPrimary: true, bubbles: true, cancelable: true }));
@@ -1658,17 +1658,19 @@ test("the Big One turns when a kid runs behind him", { tag: "@fast" }, async ({ 
     window.__t.pin([0]);
     // noPush: he does not chase anyone (💦 above him), but he still hears, but he still hears (only the push stand blocks hearing)
     h.calm(p, 0); big.noPush = 999;
-    h.run(0.25, 0, behind);
-    out.early = { noise: +big.noise.toFixed(3), mark: b.bigMark, cd: big.hearCd };
-    h.run(0.1, 0, behind);
-    out.warn = { noise: +big.noise.toFixed(3), mark: b.bigMark, dir: big.dir };
+    const fr = C.NOISE_WARN / C.NOISE_RATE * 60, early = Math.floor(fr) - 1, warn = Math.ceil(fr) + 1;   // frames: just under / over 👂
+    h.run(early / 60, 0, behind);
+    out.early = { noise: +big.noise.toFixed(3), mark: b.bigMark, cd: big.hearCd, want: early / 60 * C.NOISE_RATE };
+    h.run((warn - early) / 60, 0, behind);
+    out.warn = { noise: +big.noise.toFixed(3), mark: b.bigMark, dir: big.dir, want: warn / 60 * C.NOISE_RATE };
     let at = 0;
-    h.run(0.5, 0, behind, ["KeyS"], f => { if (big.hearCd > 0) { at = 0.35 + (f + 1) / 60; return false; } });
-    out.turn = { at: +at.toFixed(3), noise: big.noise, cd: big.hearCd, state: big.state, mark: b.bigMark };
+    h.run(1, 0, behind, ["KeyS"], f => { if (big.hearCd > 0) { at = (warn + f + 1) / 60; return false; } });
+    out.turn = { at: +at.toFixed(3), noise: big.noise, cd: big.hearCd, state: big.state, mark: b.bigMark, want: C.NOISE_TURN / C.NOISE_RATE, cdWant: C.HEAR_COOLDOWN };
     const face = Math.atan2(behind.y - p.y, behind.x - p.x), off = () => Math.abs(Math.atan2(Math.sin(big.dir - face), Math.cos(big.dir - face)));
-    for (let i = 0; i < 9; i++) b.update(1 / 60);
+    const tf = Math.round(C.HEAR_TURN_TIME * 60);                  // frames of the turn
+    for (let i = 0; i < Math.floor(tf / 2) - 1; i++) b.update(1 / 60);
     out.half = off();
-    for (let i = 0; i < 12; i++) b.update(1 / 60);
+    for (let i = 0; i < tf; i++) b.update(1 / 60);
     out.done = off();
     big.lookSign = 1;                                              // holds that way (no spin) for HEAR_LOOK seconds
     const d0 = big.dir;
@@ -1680,29 +1682,35 @@ test("the Big One turns when a kid runs behind him", { tag: "@fast" }, async ({ 
     out.front = big.noise;
     // the radius: 5 cells
     h.calm(p, 0); big.noPush = 999;
-    h.run(0.4, 0, { x: p.x - C.HEAR_RADIUS * b.grid.CELL - 8, y: p.y });
+    const short = Math.floor(C.NOISE_TURN / C.NOISE_RATE * 60 * 0.7) / 60;   // runs that stay under the turn
+    h.run(short, 0, { x: p.x - C.HEAR_RADIUS * b.grid.CELL - 8, y: p.y });
     out.far = big.noise;
     h.calm(p, 0); big.noPush = 999;
-    h.run(0.4, 0, { x: p.x - C.HEAR_RADIUS * b.grid.CELL + 8, y: p.y });
-    out.near = +big.noise.toFixed(3);
+    h.run(short, 0, { x: p.x - C.HEAR_RADIUS * b.grid.CELL + 8, y: p.y });
+    out.near = { noise: +big.noise.toFixed(3), want: short * C.NOISE_RATE };
     // decay only when nobody makes noise
     h.calm(p, 0); big.noPush = 999;
-    h.run(0.4, 0, behind);
+    h.run(short, 0, behind);
     Object.assign(b.littles[0], behind);
-    for (let i = 0; i < 15; i++) b.update(1 / 60);
-    out.decay = +big.noise.toFixed(3);
+    for (let i = 0; i < 6; i++) b.update(1 / 60);
+    out.decay = { noise: +big.noise.toFixed(3), want: short * C.NOISE_RATE - C.NOISE_DECAY * 0.1 };
     h.up();
     return out;
   });
-  expect(r.cfg).toEqual([5, 1, 0.8, 0.6, 0.3, 0.5, 0.3, 3, [1, 1.5]]);
-  expect(r.early.noise).toBeCloseTo(0.25, 2);
+  const [rad, rate, decay, turn, warn, wall, turnTime, cd, look] = r.cfg;
+  expect([rad, rate, wall, look]).toEqual([5, 1, 0.5, [1, 1.5]]);   // as in the spec (the others were tuned by the balance run)
+  expect(cd).toBeGreaterThan(turnTime);
+  expect(warn).toBeLessThan(turn);
+  expect(decay).toBeGreaterThan(0);
+  expect(turnTime).toBeGreaterThan(0);
+  expect(r.early.noise).toBeCloseTo(r.early.want, 2);
   expect(r.early.mark).toBe("💦");                                  // resting after a push (noPush), no ear yet
   expect(r.early.cd).toBe(0);
-  expect(r.warn.noise).toBeCloseTo(0.35, 2);
+  expect(r.warn.noise).toBeCloseTo(r.warn.want, 2);
   expect(r.warn.mark).toBe("👂");                                  // a fair warning at 0.3
   expect(r.warn.dir).toBe(0);                                       // not turned yet
-  expect(r.turn.at).toBeCloseTo(0.6, 1);                            // ~0.6 s of running
-  expect(r.turn).toMatchObject({ noise: 0, cd: 3, state: "look", mark: "❓" });
+  expect(Math.abs(r.turn.at - r.turn.want)).toBeLessThan(0.04);     // NOISE_TURN / NOISE_RATE seconds of running
+  expect(r.turn).toMatchObject({ noise: 0, cd: r.turn.cdWant, state: "look", mark: "❓" });
   expect(r.half).toBeGreaterThan(0.5);                              // turning over HEAR_TURN_TIME, not at once
   expect(r.done).toBeLessThan(0.05);                                // faces the runner (where he was that frame: 2.5 px further down)
   expect(r.hold.moved).toBeLessThan(1e-9);
@@ -1710,8 +1718,8 @@ test("the Big One turns when a kid runs behind him", { tag: "@fast" }, async ({ 
   expect(r.hold.mark).toBe("❓");
   expect(r.front).toBe(0);
   expect(r.far).toBe(0);
-  expect(r.near).toBeCloseTo(0.4, 2);
-  expect(r.decay).toBeCloseTo(0.4 - 0.8 * 0.25, 2);
+  expect(r.near.noise).toBeCloseTo(r.near.want, 2);
+  expect(r.decay.noise).toBeCloseTo(r.decay.want, 2);
 });
 
 test("tiptoeing behind him is silent", async ({ page }) => {
@@ -1746,8 +1754,9 @@ test("tiptoeing behind him is silent", async ({ page }) => {
       if (b.grid.seeSolid((cx + 0.5) * c, (cy + 0.5) * c) && h.free(a.x, a.y) && h.free(q.x, q.y)) wall = { a, q };
     }
     h.calm(wall.a, Math.PI); big.noPush = 999;                     // looks away from the wall, the kid runs on the other side
-    h.run(0.4, 0, wall.q);
-    out.wall = +big.noise.toFixed(3);
+    const wt = Math.floor(b.CFG.NOISE_TURN / b.CFG.NOISE_RATE * 60) / 60;   // at full rate this would turn him; through the wall it is half
+    h.run(wt, 0, wall.q);
+    out.wall = { noise: +big.noise.toFixed(3), want: wt * b.CFG.NOISE_RATE * b.CFG.HEAR_WALL, cd: big.hearCd };
     // a hug from behind after tiptoeing works as before
     h.calm(p, 0);
     Object.assign(l, { x: p.x - 90, y: p.y, hugCd: 0, invuln: 0 });
@@ -1760,7 +1769,8 @@ test("tiptoeing behind him is silent", async ({ page }) => {
   expect(r.tiptoe).toEqual([0, 0, 0]);
   expect(r.cloak).toBe(0);
   expect(r.safe).toBe(0);
-  expect(r.wall).toBeCloseTo(0.4 * 0.5, 2);
+  expect(r.wall.noise).toBeCloseTo(r.wall.want, 2);
+  expect(r.wall.cd).toBe(0);
   expect(r.hug).toEqual([1, 0]);
 });
 
@@ -1800,18 +1810,20 @@ test("cooldown after a turn", async ({ page }) => {
     window.__t.pin([0]);
     h.calm(p, 0); big.noPush = 999;
     let last = 0;
-    // the kid keeps running behind him (behind his current facing) for 5 s
-    h.run(5, 0, () => ({ x: big.x - Math.cos(big.dir) * 100, y: big.y - Math.sin(big.dir) * 100 }), ["KeyS"], f => {
+    // the kid keeps running behind him (behind his current facing) long enough for two turns
+    const C = b.CFG, first = C.NOISE_TURN / C.NOISE_RATE, total = first + C.HEAR_COOLDOWN + first + 0.5;
+    h.run(total, 0, () => ({ x: big.x - Math.cos(big.dir) * 100, y: big.y - Math.sin(big.dir) * 100 }), ["KeyS"], f => {
       if (big.hearCd > last + 1e-9) turns.push(+((f + 1) / 60).toFixed(3));
       last = big.hearCd;
     });
     h.up();
-    return turns;
+    return { turns, first, cd: C.HEAR_COOLDOWN };
   });
-  expect(r.length).toBe(2);
-  expect(r[0]).toBeCloseTo(0.6, 1);
-  expect(r[1] - r[0]).toBeGreaterThanOrEqual(3 + 0.6 - 0.05);       // 3 s cooldown from the turn, then 0.6 s of noise again
-  expect(r[1] - r[0]).toBeLessThan(3 + 0.6 + 0.1);
+  const gap = r.cd + r.first;                                       // the cooldown from the turn, then the noise again
+  expect(r.turns.length).toBe(2);
+  expect(Math.abs(r.turns[0] - r.first)).toBeLessThan(0.04);
+  expect(r.turns[1] - r.turns[0]).toBeGreaterThanOrEqual(gap - 0.05);
+  expect(r.turns[1] - r.turns[0]).toBeLessThan(gap + 0.1);
 });
 
 test("noise turn leads to a chase", async ({ page }) => {
@@ -1872,4 +1884,105 @@ test("the heard hint shows once per level, only for players", async ({ page }) =
   expect(r.gone).toBe(null);
   expect(r.again).toEqual([true, null]);
   expect(r.p2).toBe(r.want[1]);
+});
+
+// SPEC-019 AC 4: bots sneaking up (attack) or waiting near him (lurk) tiptoe within HEAR_RADIUS + 1 cells; fleeing and
+// rescuing bots run (even near him); far away they move as before
+test("bots tiptoe near the Big One", async ({ page }) => {
+  await installHearHelpers(page);
+  const r = await page.evaluate(() => {
+    const b = window.__bb, h = window.__h, C = b.CFG, near = (C.HEAR_RADIUS + 1) * b.grid.CELL, out = { bad: [], seen: {} };
+    const p = h.open();
+    const watch = (sec, label) => {
+      for (let f = 0; f < Math.round(sec * 60); f++) {
+        b.update(1 / 60);
+        b.littles.forEach((l, i) => {
+          if (l.kind !== "bot" || !l.moving || l.state !== "ok") return;
+          const d = Math.hypot(l.x - b.big.x, l.y - b.big.y), close = d <= near, key = `${l.task}:${close ? "near" : "far"}`;
+          if (Math.abs(d - near) < 5) return;                         // it decided before this frame's step (≤ 3.5 px)
+          out.seen[key] = (out.seen[key] || 0) + 1;
+          const want = { attack: close ? C.TIPTOE_MULT : 1, lurk: close ? C.TIPTOE_MULT : 0.8, flee: 1, rescue: 1 }[l.task];
+          if (want !== undefined && Math.abs(l.speedFrac - want) > 1e-9 && out.bad.length < 5) out.bad.push(`${label} bot ${i} ${key} frac ${l.speedFrac}`);
+          if (want !== undefined && b.isRunning(i) !== (want >= C.TIPTOE_MAX) && out.bad.length < 5) out.bad.push(`${label} bot ${i} ${key} running ${b.isRunning(i)}`);
+        });
+      }
+    };
+    // calm (resting after a push: he sees nobody, nobody flees): the bots wait behind him and take turns sneaking up
+    b.seedRandom(19);
+    b.littles[0].x = b.safeZone.x + b.safeZone.w / 2; b.littles[0].y = b.safeZone.y + b.safeZone.h / 2;
+    h.calm(p, 0); b.big.noPush = 999; b.big.hugCd = 999;               // no hugs: they keep trying
+    watch(20, "calm");
+    // he looks at a bot close by: it flees, running
+    h.calm(p, 0);
+    Object.assign(b.littles[1], { state: "ok", x: p.x + 90, y: p.y, fleeT: 0, invuln: 99 });
+    watch(0.5, "flee");
+    // a downed friend right behind him: the rescuer runs
+    h.calm(p, 0); b.big.noPush = 999;
+    Object.assign(b.littles[2], { state: "down", downTimer: 15, botWait: 0, rescue: 0, x: p.x - 60, y: p.y });
+    watch(3, "rescue");
+    b.seedRandom();
+    return out;
+  });
+  expect(r.bad).toEqual([]);
+  for (const k of ["attack:near", "lurk:near", "flee:near", "rescue:near"]) expect(r.seen[k] || 0, `${k} frames ${JSON.stringify(r.seen)}`).toBeGreaterThan(0);
+});
+
+// SPEC-019: the careful autopilot tiptoes behind or beside him within HEAR_RADIUS + 1 cells while he can hear; in front of him,
+// far away or while he is stunned it runs; the reckless one always runs. Only through its stick (autoMove).
+test("the careful autopilot tiptoes near his back, the reckless one runs", async ({ page }) => {
+  await installHearHelpers(page);
+  const r = await page.evaluate(() => {
+    const b = window.__bb, h = window.__h, C = b.CFG, out = {};
+    const p = h.open(), l = b.littles[0];
+    window.__t.pin([0]);
+    const len = (style, spot, setup) => {
+      b.autopilot(true, style);
+      h.calm(p, 0); if (setup) setup();
+      Object.assign(l, spot, { state: "ok", hugCd: 0, hugAnim: 0, invuln: 0, dizzy: 0 });
+      b.autoThink(1 / 60);
+      const st = b.autoStick(0), m = st ? Math.hypot(st.x, st.y) : 0;
+      b.autopilot(false);
+      return +m.toFixed(3);
+    };
+    out.behind = len("careful", { x: p.x - 150, y: p.y });
+    out.side = len("careful", { x: p.x, y: p.y + 150 });
+    out.far = len("careful", { x: p.x - 150, y: p.y }, () => { b.big.x += 60; });   // 210 px > 6 cells
+    out.front = len("careful", { x: p.x + 150, y: p.y });
+    out.stunned = len("careful", { x: p.x - 150, y: p.y }, () => { b.big.stun = 2; });
+    out.reckless = len("reckless", { x: p.x - 150, y: p.y });
+    out.mult = C.TIPTOE_MULT;
+    return out;
+  });
+  expect(r.behind).toBeLessThanOrEqual(r.mult);
+  expect(r.behind).toBeGreaterThan(0);
+  expect(r.side).toBeLessThanOrEqual(r.mult);
+  expect(r.side).toBeGreaterThan(0);
+  for (const k of ["far", "front", "stunned", "reckless"]) expect(r[k], k).toBe(1);
+});
+
+// SPEC-019 AC 7: the "tap-tap" lines at the feet of a kid he can hear (running near him, out of his view); none on tiptoe
+test("tap-tap lines show at the feet of a kid running near him, not on tiptoe", async ({ page }) => {
+  await installHearHelpers(page);
+  const r = await page.evaluate(async () => {
+    const b = window.__bb, h = window.__h, out = {};
+    const p = h.open(), l = b.littles[0];
+    window.__t.pin([0]);
+    const look = async codes => {
+      h.calm(p, 0); b.big.noPush = 999;
+      Object.assign(l, { x: p.x - 100, y: p.y, kx: 0, ky: 0 });
+      for (const c of codes) h.key(c, true);
+      for (let i = 0; i < 5; i++) b.update(1 / 60);
+      await new Promise(res => requestAnimationFrame(() => requestAnimationFrame(res)));
+      const lines = b.tapLines;
+      h.up();
+      return lines;
+    };
+    out.run = await look(["KeyS"]);
+    out.tiptoe = await look(["KeyS", "ShiftLeft"]);
+    out.still = await look([]);
+    return out;
+  });
+  expect(r.run).toEqual([0]);
+  expect(r.tiptoe).toEqual([]);
+  expect(r.still).toEqual([]);
 });
