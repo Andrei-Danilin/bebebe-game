@@ -240,15 +240,15 @@ test("the event log records gameplay and every coin change", async ({ page }) =>
   expect(r.win.map(e => e.type)).toEqual(["hug", "win", ...r.win.filter(e => e.type === "coins").map(() => "coins")]);
   const winCoins = r.win.filter(e => e.type === "coins");
   expect(winCoins.length).toBeGreaterThan(0);
-  expect(r.reward.parts.map(p => p.reason)).toContain("win");
+  expect(r.reward.parts.map(p => p.reason)).toContain("firstWin");   // SPEC-009: the first win of Park 1
   expect(r.reward.parts.every(p => p.amount !== 0)).toBe(true);
   expect(sum(r.reward.parts), "lastReward.coins = the sum of its parts").toBe(r.reward.coins);
   expect(sum(winCoins), "coins events = the change of progress.coins").toBe(r.reward.gained);
   expect(r.reward.gained).toBe(r.reward.coins - r.reward.starCoins);
   expect(winCoins.map(e => ({ reason: e.reason, amount: e.amount })), "coins events = the parts without the stars (paid at pickup)")
     .toEqual(r.reward.parts.filter(p => p.reason !== "star"));
-  expect(r.leave).toEqual([{ type: "coins", reason: "hugs", amount: 4 }]);
-  expect(r.leaveReward).toEqual({ coins: 7, parts: [{ reason: "hugs", amount: 4 }, { reason: "star", amount: 3 }], gained: 4 });
+  expect(r.leave).toEqual([{ type: "coins", reason: "hugs", amount: 2 }]);   // SPEC-009: REWARD.PER_HUG 1
+  expect(r.leaveReward).toEqual({ coins: 5, parts: [{ reason: "hugs", amount: 2 }, { reason: "star", amount: 3 }], gained: 2 });
   expect(r.tNumber).toBe(true);
 });
 

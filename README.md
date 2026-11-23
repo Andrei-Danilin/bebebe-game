@@ -9,7 +9,7 @@ A top-down arcade game designed by kids: the **Little Ones** team against the **
 - A friend must stand next to you for 3 seconds to help you up. If the friend steps away, the progress slowly
   drains; if the friend gets pushed, it starts over. Bots set off to help 2–3 seconds after you fall.
   If nobody helps within 18 seconds, you limp home and rest there for 30 seconds, then come back.
-  There is no game over — but every rest costs coins (−3).
+  There is no game over — but every rest costs coins (−3 from the win line).
 - After a push the Big One rests for 2.5 s (pale vision cone) and pushes nobody.
 - After a hug he is shocked for 2.5 s: he can't move or push, and he can't be hugged again yet.
 - Your house is a safe zone: the Big One can't get in. Bushes hide you.
@@ -86,7 +86,7 @@ Open the file in any modern browser — no build step. Works on desktop, tablet 
 `P` — pause, `M` — sound, `L` — language (English / Español (AR) / Русский).
 
 In the menu: `↑` / `↓` (or the gamepad D-pad up/down) switch worlds, `←` / `→` (D-pad left/right) pick the level;
-on a touch screen tap a world card and the ◀ ▶ buttons.
+on a touch screen tap a world card and the ◀ ▶ buttons. In the shop `←` / `→` (D-pad left/right) switch the tabs.
 
 ## Items
 
@@ -102,8 +102,10 @@ Items pop up on the map every 7–11 s (max 3, they vanish after 20 s):
 ## Progress, coins and the shop
 
 Progress is saved in the browser (`localStorage`, key `bebebe-progress`): unlocked levels and best stars in each
-world, the last world you picked, coins, gloves, air kisses and rescue kits. Win a level to unlock the next one in that world.
+world, which levels you have already won, the last world you picked, coins, gloves, air kisses, rescue kits, bought
+clothes and upgrades. Win a level to unlock the next one in that world.
 Saves from before the worlds move into the Park (levels above 20 are dropped; coins, gloves, kisses and names stay).
+In saves from before the wardrobe, a level with stars counts as already won.
 
 In the table, `n` is the level number in its world (1–20) and `w` the world: Park 0, School 1, Beach 2, Winter 3.
 
@@ -113,11 +115,19 @@ In the table, `n` is the level number in its world (1–20) and `w` the world: P
 | ⭐ | nobody had to rest |
 | ⭐ | winning fast: under `60 + 15 × n + 10 × w` seconds |
 
-Coins for a win: `10 + 5 × n + 10 × w`, +10 if nobody had to rest, +10 if fast, +2 for every hug by a player,
-−3 for every rest (never below 5). Bonus stars add +3 each on top (rests never eat them); they go into the
-coin box the moment you pick them up, so you keep them even without a win.
+Coins (the win screen shows one line for each):
 
-**Shop** (menu, or after a level): gloves, air kisses and rescue kits, bought with coins in packs.
+| Line | Coins |
+|---|---|
+| 🏆 First win of a level | `15 + n + 10 × w`, −3 for every rest (never below 5) |
+| 🔁 Replay of a won level | half of that, −3 for every rest (never below 3) — playing on pays more than replaying |
+| ⭐ New stars | +6 for each star above your best on that level — each star pays only once, ever |
+| ✨ Bonus stars | +3 each, every time (rests never eat them; they go into the coin box the moment you pick them up) |
+| 🤗 Hugs | +1 for every hug by a player, every time |
+
+Leaving a level before the win (pause → Menu) pays the hugs only; leaving during the final hug still counts as the win.
+
+**Shop** (menu, or after a level) has two tabs. **Items**: gloves, air kisses and rescue kits, bought with coins in packs.
 
 | Item | Price | Pack | Effect |
 |---|---|---|---|
@@ -131,7 +141,17 @@ out hugs are normal again. Gloves show on the character's hands; the HUD shows h
 Air kisses are one shared stock for both players (bots don't throw them); each throw uses one, even a miss, and
 a player can throw one per second. Rescue kits are one shared stock too; the first time a player with kits
 falls in a level, a hint says "Press 🩹 to get up!". The Big One's hearts bar shows half hearts.
-"Reset progress" (tap twice) starts over.
+
+**Upgrades** tab (bought once, kept forever; 3 levels each at 100 / 200 / 300 coins; they help players only, never
+bots or the Big One):
+
+| Upgrade | Per level (max 3) |
+|---|---|
+| 👟 Fast feet | +3 % speed |
+| ⏳ Long items | boots, invisibility and shield you pick up last 15 % longer |
+| 🤝 Quick help | you lift a friend 10 % faster (3 → 2.1 s) |
+
+"Reset progress" (tap twice) starts over — coins, stock, clothes and upgrades.
 
 ## Worlds
 
@@ -146,6 +166,11 @@ After level 20 the win screen says the world is done and offers the menu and the
 Menu → **Skins**: each player builds an outfit from 4 parts — hair (8), hat (12), jacket (10, incl. hoodies,
 superhero cape, ninja) and pants (8, incl. shorts); 🎲 picks a random outfit. The Big One has 5 looks
 (Classic, Ogre, Robot, Captain, Bear). Bots get different outfits every level.
+
+The basic clothes are free (all hair, 4 hats, 4 jackets, 4 pants, Classic and Ogre); the rest cost 40, 80 or 150
+coins and are kept forever once bought. A locked item shows 🔒 and its price: flip to it to try it on, then tap
+"Buy for N" twice. Leave the screen without buying and your last own look comes back; 🎲 picks only from your own
+clothes. Clothes worn in a save from before the wardrobe stay yours.
 
 ## Names
 
@@ -201,9 +226,10 @@ One HTML file, one ES module:
 
 ## Tuning
 
-`CFG` — gameplay numbers (`HUG_STUN`, `PUSH_RECOVER`, `BOT_ATTACK_PAUSE`, `ITEM_*`, `SLIP_STUN`, `COINS_*`, `FAST_TIME`, `RESCUE_*`, `STAR_*`, `DANGER_*`, `NAME_MAX`, `KISS_*`, `PAD_KISS`, `REST_TIME`, `KIT_*`, `PAD_KIT`, `WORLD_TYPES` (level types in a world), difficulty `WORLD_SPEED_START` / `SPEED_PER_LEVEL` / `CHASE_MAX_SHARE` / `HP_*`, `LAYOUT` (level type sizes), `BANNER_*`, fairness limits, phone mode `PHONE_*` / `CAM_*` / `MINIMAP_*` / `STICK_ZONE`, …),
-`GLOVES` — gloves (power, price, pack size), `KISSES` — air kiss price and pack, `RESCUE_KIT` — rescue kit price and pack, `I18N` — texts,
-`HAIRS` / `HATS` / `JACKETS` / `PANTS` / `BIG_SKINS` — outfits, `THEMES` — worlds (places), `LITTLE_SCALE` / `BIG_SCALE` — character size in 3D.
+`CFG` — gameplay numbers (`HUG_STUN`, `PUSH_RECOVER`, `BOT_ATTACK_PAUSE`, `ITEM_*`, `SLIP_STUN`, `COINS_PER_REST`, `FAST_TIME`, `RESCUE_*`, `STAR_*`, `DANGER_*`, `NAME_MAX`, `KISS_*`, `PAD_KISS`, `REST_TIME`, `KIT_*`, `PAD_KIT`, `WORLD_TYPES` (level types in a world), difficulty `WORLD_SPEED_START` / `SPEED_PER_LEVEL` / `CHASE_MAX_SHARE` / `HP_*`, `LAYOUT` (level type sizes), `BANNER_*`, fairness limits, phone mode `PHONE_*` / `CAM_*` / `MINIMAP_*` / `STICK_ZONE`, …),
+`GLOVES` — gloves (power, price, pack size), `KISSES` — air kiss price and pack, `RESCUE_KIT` — rescue kit price and pack, `REWARD` — coins for a level, `WARDROBE_TIERS` — clothes prices,
+`UPGRADES` — upgrade steps and prices, `I18N` — texts,
+`HAIRS` / `HATS` / `JACKETS` / `PANTS` / `BIG_SKINS` — outfits (with `price`), `THEMES` — worlds (places), `LITTLE_SCALE` / `BIG_SCALE` — character size in 3D.
 
 ## Development
 

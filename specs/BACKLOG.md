@@ -105,3 +105,11 @@ One line each: what, where it came from. The spec author turns a line into a spe
 - Story (from SPEC-008 "Docs to update"): a short intro card with a picture and a sentence before every level, and a short story between worlds (after level 20) — content and frame to be set by Andrei later (SPEC-017 adds only the on-demand Story screen).
 - For SPEC-012 (SPEC-008 review): the autopilot's kiss and kit presses as one input record per player (`{ mx, my, kiss, kit }`), the same shape a remote player would send, instead of calling `throwKiss`/`useRescueKit` directly.
 - For SPEC-011 (SPEC-008 review): `scripts/docs-numbers.js` (its `INDEX`), `tests/balance.spec.js` (the `Math.random` scan and `CI_LEVELS` read from the CFG source via `readValue`) hard-code `index.html`; `scripts/balance.js` and the helpers open the game by `GAME_URL` (`file://`); they need the module paths after the split. Fx-only events (if any are added to the log later) count against `CFG.EVENT_LOG_MAX`.
+- SPEC-009 review: split `giveReward` into a pure `rewardParts(stats, progress)` and an apply step (fits SPEC-012, the headless core).
+- SPEC-009 review: on-leave hooks (end of a try-on, shop tab back to Items, leaving a level) into one `setMode()` instead of checks in `frame()`/`drawUI()` (SPEC-011).
+- SPEC-009 review: the "only the ledger writes coins" source scan after the module split: per-file allowed ranges, writes rooted at `progress` (SPEC-011).
+- SPEC-009 review: one shared `layoutCardsPhone()` for the phone item cards and upgrade cards (they measure and give way the same way) before SPEC-017.
+- SPEC-009 run: the Upgrades tab looks sparse (desktop: empty area under the cards; phone: room under the effect text) — a "for players only" note or bigger pictures.
+- SPEC-009 review: a `LEDGER_REASONS` list (firstWin, replay, newStars, star, hugs, rests, buy:*) that the ledger checks and the tests read.
+- SPEC-009, check with the kids: with `quickHelp` bought the rescue ring fills faster than 3 s and the menu rule still says "3 seconds"; the ring also jumps when the helper changes from a bot to a player.
+- SPEC-009 review: `adoptWorn` (worn clothes of a pre-SPEC-009 save become owned) moves to the server-side progress with SPEC-013.

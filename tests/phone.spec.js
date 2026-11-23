@@ -886,7 +886,10 @@ const PHONE_SCENES = {
   menu: async page => {
     await page.evaluate(() => { const b = window.__bb; b.progress.worlds.park.unlocked = 10; b.level = 5; b.progress.worlds.park.stars[5] = 2; b.resetWorld(1); b.mode = "menu"; });
   },
-  skins: async page => { await page.evaluate(() => { window.__bb.mode = "skins"; }); },
+  // SPEC-009: a locked hat tried on (Buy button in place of the name label, "not enough coins" on the preview)
+  skins: async page => {
+    await page.evaluate(() => { const b = window.__bb, W = b.wardrobe(); b.mode = "skins"; b.progress.coins = 10; b.cycleOutfit("p1", "hat", W.hat.findIndex(q => q.id === "crown") - b.outfits.shown.p1.hat); });
+  },
   names: async page => { await page.evaluate(() => { window.__bb.mode = "names"; }); },
   // 10 coins: "not enough coins" under all four cards (SPEC-007: the tightest card layout)
   shop: async page => { await page.evaluate(() => { const b = window.__bb; b.progress.coins = 10; b.mode = "shop"; }); },
@@ -963,7 +966,7 @@ for (const [vw, vh] of PHONE_SIZES) {
           expect(L.y, `${label}: type label under the world cards`).toBeGreaterThanOrEqual(Math.max(...cards.map(q => q.y + q.h)));
         }
         if (name === "shop") expect(d.buttons.map(q => q.id)).toEqual(expect.arrayContaining(["buy:mittens", "buy:mega", "buy:kisses", "buy:rescues"]));
-        if (name === "skins") expect(d.buttons.map(q => q.id)).toEqual(expect.arrayContaining(["name:p1", "name:big"]));
+        if (name === "skins") expect(d.buttons.map(q => q.id)).toEqual(expect.arrayContaining(["buy-look:p1", "name:big"]));
         if (name === "names") expect(d.buttons.filter(q => String(q.id).startsWith("name:bot")).length).toBe(4);
         if (name === "play") {
           expect(d.texts.main, "play: main texts recorded").toBeTruthy();

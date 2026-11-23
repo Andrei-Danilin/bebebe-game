@@ -86,15 +86,8 @@ const CFG = {
   CLOAK_TIME: 6,             // невидимость
   SHIELD_TIME: 25,           // щит держится, пока не сработает (или до конца времени)
   SLIP_STUN: 2.5,            // сек — Большой лежит после банана (обнимать можно с любой стороны!)
-  // монетки за уровень
-  COINS_WIN: 10,             // монеток за победу
-  COINS_PER_LEVEL: 5,        // + столько × номер уровня в мире
-  COINS_NOBODY_OUT: 10,      // + если никто не ушёл отдыхать (вторая звезда)
-  COINS_FAST: 10,            // + если быстро (третья звезда)
-  COINS_PER_HUG: 2,          // + за каждую обнимашку игрока
-  COINS_PER_REST: 3,         // − за каждого ушедшего отдыхать (но не меньше COINS_MIN_WIN)
-  COINS_MIN_WIN: 5,          // монеток за победу не меньше этого (звёздочки — сверху)
-  COINS_PER_WORLD: 10,       // +монетки за победу в каждом следующем мире (SPEC-006)
+  // монетки за уровень — в REWARD (SPEC-009); здесь только штраф за отдых
+  COINS_PER_REST: 3,         // − от строки «первая победа»/«повтор» за каждого ушедшего отдыхать (не ниже REWARD.FIRST_MIN / REPLAY_MIN)
   STARS_PER_LEVEL: 3,        // звёзд за уровень (победа, никто не отдыхал, быстро)
   REST_TIME: 30,             // сек — сколько отдыхает в домике тот, кого не спасли (SPEC-007: решение детей)
   KIT_INVULN: 2,             // сек — защита после спасалки 🩹 (SPEC-007)
@@ -203,7 +196,15 @@ const CFG = {
   // спасают RESCUE_RATE падений; отдыхов на уровень (медиана) ≤ RESTS_MAX. CI_LEVELS — 8 уровней выборки (ранний и лабиринт в мире)
   BALANCE: { SIM_DT: 1 / 30, SEEDS: 3, TIME_LIMIT: 480, WIN_SEEDS: 2, TREND_RHO: 0.5, LATE_VS_EARLY: 1.5, RESCUE_RATE: [0.5, 0.9],
     RESTS_MAX: 2, RECKLESS_EVERY: 5, EARLY: [1, 5], MAZE: [17, 20],
-    CI_LEVELS: [["park", 3], ["park", 18], ["school", 2], ["school", 19], ["beach", 4], ["beach", 17], ["winter", 5], ["winter", 20]] },
+    CI_LEVELS: [["park", 3], ["park", 18], ["school", 2], ["school", 19], ["beach", 4], ["beach", 17], ["winter", 5], ["winter", 20]],
+    // SPEC-009: темп монеток (первое прохождение = careful-забеги с нового прогресса; доход забега = сумма его событий coins,
+    // медиана по сидам). «Набор» — самый дешёвый в магазине (спасалка, 15). PARK_PACKS — медиана дохода уровня Парка в наборах
+    // [от, до]; STREAK уровней подряд ≥ мега-рукавицы + STREAK_PACKS наборов; мир ≥ вещь высшей ступени + WORLD_PACKS наборов;
+    // все улучшения ≤ UPGRADE_SHARE дохода первых UPGRADE_WORLDS миров; повтор (REPLAY: [мир, от, до], 1 сид) — доход в минуту
+    // ≤ REPLAY_SHARE первой победы; проход с улучшениями на максимуме: каждый UPG_EVERY-й уровень и UPG_EXTRA [мир, от, до],
+    // медиана времени UPG_EXTRA ≥ UPG_TIME × без улучшений
+    ECONOMY: { PARK_PACKS: [2, 4], STREAK: 4, STREAK_PACKS: 2, WORLD_PACKS: 10, UPGRADE_WORLDS: 3, UPGRADE_SHARE: 0.6,
+      REPLAY: [["park", 1, 5], ["beach", 1, 5]], REPLAY_SHARE: 0.6, UPG_EVERY: 5, UPG_EXTRA: ["winter", 17, 20], UPG_TIME: 0.7 } },
   // SPEC-008: автопилот игроков (только для проверки баланса), px и сек. repath — пересчёт пути; звёздочки и предметы
   // берёт не дальше itemReach и если они дальше pickSafe от Большого и не под его взглядом; спасает друга, которого никакой
   // бот не поднимет быстрее и до которого Большой дальше rescueSafe; издалека (дальше sneakNear) идёт к спине в обход
@@ -241,6 +242,33 @@ const GLOVES = {
 const KISSES = { price: 20, pack: 5 };
 // Спасалка 🩹 (SPEC-007, решение детей): 3 штуки за 15 монеток, один запас на обоих игроков
 const RESCUE_KIT = { price: 15, pack: 3 };
+// Монетки за уровень (SPEC-009; числа придумал Claude, подбираются по отчёту баланса). Основа уровня n мира w (0–3):
+// BASE + PER_LEVEL × n + PER_WORLD × w. Первая победа уровня — вся основа, повтор — половина (решение детей: повтор дешевле).
+const REWARD = {
+  BASE: 15,                  // основа награды за уровень
+  PER_LEVEL: 1,              // + столько × номер уровня в мире (было 2: доход Парка выходил выше 4 наборов за уровень)
+  PER_WORLD: 10,             // + столько × номер мира (0–3)
+  NEW_STAR: 6,               // за каждую новую звезду уровня (выше прошлого рекорда; каждая звезда — один раз навсегда; было 8)
+  PER_HUG: 1,                // за каждую обнимашку игрока — каждый раз, и при выходе из уровня до победы
+  FIRST_MIN: 5,              // первая победа минус отдых — не меньше этого
+  REPLAY_MIN: 3              // повтор минус отдых — не меньше этого
+};
+// Цены нарядов (SPEC-009; придумал Claude, проверить с детьми, какие вещи платные): ступени 1–3, у вещи price = цена ступени,
+// 0 — бесплатно (все причёски, первые шапки/куртки/штаны и Большие — так любой стартовый вид бесплатный)
+const WARDROBE_TIERS = [
+  40,                        // ступень 1: простые вещи (почти каждый уровень)
+  80,                        // ступень 2
+  150                        // ступень 3: самые особенные — корона, викинг, цилиндр, плащ супергероя, Робот, Капитан
+];
+const tierPrice = t => (t ? WARDROBE_TIERS[t - 1] : 0);
+// Улучшения (SPEC-009; придумал Claude): покупаются навсегда, действуют только на игроков (не на ботов и не на Большого) и не меняют
+// CFG — это множители игрока. step — прибавка за уровень, prices — цена следующего уровня (уровней столько, сколько цен)
+const UPGRADES = {
+  fastFeet: { step: 0.03, prices: [100, 200, 300] },    // скорость игрока +3 % за уровень (до +9 %); предел Большого считается от обычной
+  longItems: { step: 0.15, prices: [100, 200, 300] },   // сапоги, плащ и щит, которые взял игрок, действуют дольше: +15 % за уровень
+  quickHelp: { step: 0.1, prices: [100, 200, 300] }     // игрок поднимает друга быстрее: −10 % времени за уровень (3 → 2,1 с)
+};
+const upgTop = k => UPGRADES[k].prices.length;   // последний уровень
 // Русское множественное число: ruPlural(n, ["поцелуй", "поцелуя", "поцелуев"])
 const ruPlural = (n, f) => f[n % 10 === 1 && n % 100 !== 11 ? 0 : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 1 : 2];
 
@@ -264,7 +292,7 @@ const I18N = {
     pause: "Paused", play: "Play", menu: "Menu",
     win: "YOU WIN!", winSub: "The Big One is all hugged out!", next: n => `Level ${n} ▶`,
     lose: "The Big One won...", loseSub: (h, m) => `Hearts taken: ${h} of ${m}. Try again?`, again: "Try again",
-    big: "Big One", hug: "Hug! -1", bang: "BAM!", saved: "Saved!", out: "Going home to rest", back: "Back in the game!", resting: (n, t) => `${n}: resting… back in ${t}`, restPenalty: n => `−${n} for rests`, help: n => `${n}: HELP!`,
+    big: "Big One", hug: "Hug! -1", bang: "BAM!", saved: "Saved!", out: "Going home to rest", back: "Back in the game!", resting: (n, t) => `${n}: resting… back in ${t}`, help: n => `${n}: HELP!`,
     touch1: "Drag your finger on the screen to run", touch2: "Player 1: finger on the left  •  Player 2: on the right",
     rotate: "Turn your device sideways ↻", installHint: "Install on iPhone: Share ⬆️ → Add to Home Screen", me: "Me", botChip: "B", safe: "SAFE",
     skins: "Skins", player1: "Player 1", player2: "Player 2", ok: "OK",
@@ -276,6 +304,12 @@ const I18N = {
     pack: n => `Pack: ${n} power hugs`, notEnough: "Not enough coins", reset: "Reset progress", sure: "Sure? Tap again",
     victory: "Victory", nobodyOut: "Nobody had to rest", fast: t => `Fast: under ${t}`, forHugs: n => `+${n} for hugs`,
     megaHug: p => `Power hug! -${p}`, coinsWord: "coins",
+    // SPEC-009: строки награды на экране победы
+    buyFor: n => `Buy for ${n}`, tapAgain: "Tap again to buy",   // SPEC-009: гардероб
+    itemsTab: "Items", upgradesTab: "Upgrades", upgMax: "Max",          // SPEC-009: вкладки магазина, улучшения
+    upg: { fastFeet: { name: "Fast feet", desc: p => `+${p}% speed` }, longItems: { name: "Long items", desc: () => "Items last longer" },
+      quickHelp: { name: "Quick help", desc: () => "Lift friends faster" } },
+    rw: { firstWin: "First win", replay: "Replay", newStars: "New stars", star: "Bonus stars", hugs: "Hugs", rests: "Rests", total: "Total" },
     starCoins: n => `Bonus stars: +${n}`, thrownOut: "Get out of my house!", friends: "Friends", tapToRename: "Tap a name to change it",
     defaultBig: "Big One", defaultBots: ["Bo", "Mia", "Tom", "Lulu"],
     kisses: "Air kisses", kissDesc: "Send from afar: ½ heart and he blushes", kissPack: n => `Pack: ${n} air kisses`,
@@ -301,7 +335,7 @@ const I18N = {
     pause: "Pausa", play: "Jugar", menu: "Menú",
     win: "¡GANARON!", winSub: "¡Abrazaron al Grandote hasta el final!", next: n => `Nivel ${n} ▶`,
     lose: "Ganó el Grandote...", loseSub: (h, m) => `Corazones: ${h} de ${m}. ¿Otra vez?`, again: "Otra vez",
-    big: "Grandote", hug: "¡Abrazo! -1", bang: "¡PUM!", saved: "¡Salvado!", out: "Me voy a descansar", back: "¡De vuelta!", resting: (n, t) => `${n}: descansando… volvés en ${t}`, restPenalty: n => `−${n} por descansos`, help: n => `${n}: ¡AYUDA!`,
+    big: "Grandote", hug: "¡Abrazo! -1", bang: "¡PUM!", saved: "¡Salvado!", out: "Me voy a descansar", back: "¡De vuelta!", resting: (n, t) => `${n}: descansando… volvés en ${t}`, help: n => `${n}: ¡AYUDA!`,
     touch1: "Deslizá el dedo por la pantalla para correr", touch2: "Jugador 1: dedo a la izquierda  •  Jugador 2: a la derecha",
     rotate: "Girá el dispositivo ↻", installHint: "Instalala en el iPhone: Compartir ⬆️ → Agregar a pantalla de inicio", me: "Yo", botChip: "B", safe: "ZONA SEGURA",
     skins: "Personajes", player1: "Jugador 1", player2: "Jugador 2", ok: "Listo",
@@ -313,6 +347,11 @@ const I18N = {
     pack: n => `Paquete: ${n} abrazos potentes`, notEnough: "No te alcanzan las monedas", reset: "Borrar progreso", sure: "¿Seguro? Tocá otra vez",
     victory: "Victoria", nobodyOut: "Nadie tuvo que descansar", fast: t => `Rápido: menos de ${t}`, forHugs: n => `+${n} por los abrazos`,
     megaHug: p => `¡Abrazo potente! -${p}`, coinsWord: "monedas",
+    buyFor: n => `Comprar por ${n}`, tapAgain: "Tocá otra vez para comprar",
+    itemsTab: "Cosas", upgradesTab: "Mejoras", upgMax: "Máximo",
+    upg: { fastFeet: { name: "Pies rápidos", desc: p => `+${p}% velocidad` }, longItems: { name: "Cosas duraderas", desc: () => "Duran más" },
+      quickHelp: { name: "Ayuda rápida", desc: () => "Levantás más rápido" } },
+    rw: { firstWin: "Primera vez", replay: "Repetición", newStars: "Estrellas nuevas", star: "Estrellitas", hugs: "Abrazos", rests: "Descansos", total: "Total" },
     starCoins: n => `Estrellitas: +${n}`, thrownOut: "¡Fuera de mi casa!", friends: "Amigos", tapToRename: "Tocá un nombre para cambiarlo",
     defaultBig: "Grandote", defaultBots: ["Tito", "Mora", "Lupe", "Facu"],
     kisses: "Besitos voladores", kissDesc: "Mandalo de lejos: ½ corazón y se pone colorado", kissPack: n => `Paquete: ${n} besitos voladores`,
@@ -338,7 +377,7 @@ const I18N = {
     pause: "Пауза", play: "Играть", menu: "Меню",
     win: "ПОБЕДА!", winSub: "Большого обняли со всех сторон!", next: n => `Уровень ${n} ▶`,
     lose: "Большой победил...", loseSub: (h, m) => `Сердечек забрали: ${h} из ${m}. Ещё разок?`, again: "Ещё раз",
-    big: "Большой", hug: "Обнимашки! -1", bang: "БАХ!", saved: "Спасён!", out: "Иду отдыхать", back: "Снова в игре!", resting: (n, t) => `${n}: отдых… вернёшься через ${t}`, restPenalty: n => `−${n} за отдых`, help: n => `${n}: ПОМОГИТЕ!`,
+    big: "Большой", hug: "Обнимашки! -1", bang: "БАХ!", saved: "Спасён!", out: "Иду отдыхать", back: "Снова в игре!", resting: (n, t) => `${n}: отдых… вернёшься через ${t}`, help: n => `${n}: ПОМОГИТЕ!`,
     touch1: "Води пальцем по экрану, чтобы бежать", touch2: "Игрок 1 — палец слева, Игрок 2 — палец справа",
     rotate: "Поверни устройство боком ↻", installHint: "Установить на iPhone: Поделиться ⬆️ → На экран «Домой»", me: "Я", botChip: "Б", safe: "БЕЗОПАСНО",
     skins: "Скины", player1: "Игрок 1", player2: "Игрок 2", ok: "Готово",
@@ -351,6 +390,11 @@ const I18N = {
     pack: n => `В наборе: ${n} сильные обнимашки`, notEnough: "Не хватает монеток", reset: "Сбросить прогресс", sure: "Точно? Нажми ещё раз",
     victory: "Победа", nobodyOut: "Никто не ушёл отдыхать", fast: t => `Быстро: меньше ${t}`, forHugs: n => `+${n} за обнимашки`,
     megaHug: p => `Сильная обнимашка! -${p}`, coinsWord: "монетки",
+    buyFor: n => `Купить за ${n}`, tapAgain: "Нажми ещё раз, чтобы купить",
+    itemsTab: "Вещи", upgradesTab: "Улучшения", upgMax: "Максимум",
+    upg: { fastFeet: { name: "Быстрые ноги", desc: p => `+${p}% скорости` }, longItems: { name: "Долгие вещи", desc: () => "Действуют дольше" },
+      quickHelp: { name: "Быстрая помощь", desc: () => "Поднимаешь быстрее" } },
+    rw: { firstWin: "Первая победа", replay: "Повтор", newStars: "Новые звёзды", star: "Звёздочки", hugs: "Обнимашки", rests: "Отдых", total: "Итого" },
     starCoins: n => `Звёздочки: +${n}`, thrownOut: "Вон из моего дома!", friends: "Друзья", tapToRename: "Нажми на имя, чтобы поменять",
     defaultBig: "Большой", defaultBots: ["Тёма", "Маша", "Вася", "Соня"],
     kisses: "Воздушные поцелуи", kissDesc: "Издалека: ½ сердечка, и он краснеет", kissPack: n => `В наборе: ${n} ${ruPlural(n, ["поцелуй", "поцелуя", "поцелуев"])}`,
@@ -1465,40 +1509,40 @@ const HAIRS = [
   { skin: "#c68642", hair: "#3b82f6", style: "spiky", name: N3("Blue punk", "Punk azul", "Синий ирокез") }
 ];
 const HATS = [
-  { id: "none",     name: N3("None", "Nada", "Ничего") },
-  { id: "cap",      name: N3("Cap", "Gorra", "Кепка") },
-  { id: "beanie",   name: N3("Beanie", "Gorro de lana", "Шапка") },
-  { id: "crown",    name: N3("Crown", "Corona", "Корона") },
-  { id: "bow",      name: N3("Bow", "Moño", "Бантик") },
-  { id: "flower",   name: N3("Flower", "Flor", "Цветок") },
-  { id: "ears",     name: N3("Kitty ears", "Orejas de gato", "Кошачьи ушки") },
-  { id: "headband", name: N3("Ninja band", "Vincha ninja", "Повязка ниндзя") },
-  { id: "tophat",   name: N3("Top hat", "Galera", "Цилиндр") },
-  { id: "viking",   name: N3("Viking", "Vikingo", "Викинг") },
-  { id: "pirate",   name: N3("Pirate", "Pirata", "Пират") },
-  { id: "glasses",  name: N3("Glasses", "Anteojos", "Очки") }
+  { id: "none",     price: tierPrice(0), name: N3("None", "Nada", "Ничего") },
+  { id: "cap",      price: tierPrice(0), name: N3("Cap", "Gorra", "Кепка") },
+  { id: "beanie",   price: tierPrice(0), name: N3("Beanie", "Gorro de lana", "Шапка") },
+  { id: "crown",    price: tierPrice(3), name: N3("Crown", "Corona", "Корона") },
+  { id: "bow",      price: tierPrice(0), name: N3("Bow", "Moño", "Бантик") },
+  { id: "flower",   price: tierPrice(1), name: N3("Flower", "Flor", "Цветок") },
+  { id: "ears",     price: tierPrice(2), name: N3("Kitty ears", "Orejas de gato", "Кошачьи ушки") },
+  { id: "headband", price: tierPrice(2), name: N3("Ninja band", "Vincha ninja", "Повязка ниндзя") },
+  { id: "tophat",   price: tierPrice(3), name: N3("Top hat", "Galera", "Цилиндр") },
+  { id: "viking",   price: tierPrice(3), name: N3("Viking", "Vikingo", "Викинг") },
+  { id: "pirate",   price: tierPrice(2), name: N3("Pirate", "Pirata", "Пират") },
+  { id: "glasses",  price: tierPrice(1), name: N3("Glasses", "Anteojos", "Очки") }
 ];
 const JACKETS = [
-  { color: "#3b82f6", pattern: "plain",   trim: "#ffffff", name: N3("Blue T-shirt", "Remera azul", "Синяя футболка") },
-  { color: "#22c55e", pattern: "hood",    trim: "#15803d", name: N3("Green hoodie", "Buzo verde", "Зелёная толстовка") },
-  { color: "#f59e0b", pattern: "stripes", trim: "#ffffff", name: N3("Striped", "Rayada", "Полосатая") },
-  { color: "#a855f7", pattern: "zip",     trim: "#f5f3ff", name: N3("Purple jacket", "Campera violeta", "Фиолетовая куртка") },
-  { color: "#ec4899", pattern: "hood",    trim: "#be185d", name: N3("Pink hoodie", "Buzo rosa", "Розовая толстовка") },
-  { color: "#dc2626", pattern: "cape",    trim: "#2563eb", name: N3("Superhero", "Superhéroe", "Супергерой") },
-  { color: "#1f2937", pattern: "belt",    trim: "#ef4444", name: N3("Ninja", "Ninja", "Ниндзя") },
-  { color: "#f8fafc", pattern: "stripes", trim: "#1d4ed8", name: N3("Sailor", "Marinero", "Тельняшка") },
-  { color: "#facc15", pattern: "hood",    trim: "#ca8a04", name: N3("Raincoat", "Piloto", "Дождевик") },
-  { color: "#14b8a6", pattern: "zip",     trim: "#ccfbf1", name: N3("Teal jacket", "Campera turquesa", "Бирюзовая куртка") }
+  { id: "tshirt", price: tierPrice(0), color: "#3b82f6", pattern: "plain",   trim: "#ffffff", name: N3("Blue T-shirt", "Remera azul", "Синяя футболка") },
+  { id: "hoodie", price: tierPrice(0), color: "#22c55e", pattern: "hood",    trim: "#15803d", name: N3("Green hoodie", "Buzo verde", "Зелёная толстовка") },
+  { id: "stripes", price: tierPrice(0), color: "#f59e0b", pattern: "stripes", trim: "#ffffff", name: N3("Striped", "Rayada", "Полосатая") },
+  { id: "purple", price: tierPrice(0), color: "#a855f7", pattern: "zip",     trim: "#f5f3ff", name: N3("Purple jacket", "Campera violeta", "Фиолетовая куртка") },
+  { id: "pinkhoodie", price: tierPrice(1), color: "#ec4899", pattern: "hood",    trim: "#be185d", name: N3("Pink hoodie", "Buzo rosa", "Розовая толстовка") },
+  { id: "cape", price: tierPrice(3), color: "#dc2626", pattern: "cape",    trim: "#2563eb", name: N3("Superhero", "Superhéroe", "Супергерой") },
+  { id: "ninja", price: tierPrice(2), color: "#1f2937", pattern: "belt",    trim: "#ef4444", name: N3("Ninja", "Ninja", "Ниндзя") },
+  { id: "sailor", price: tierPrice(2), color: "#f8fafc", pattern: "stripes", trim: "#1d4ed8", name: N3("Sailor", "Marinero", "Тельняшка") },
+  { id: "raincoat", price: tierPrice(2), color: "#facc15", pattern: "hood",    trim: "#ca8a04", name: N3("Raincoat", "Piloto", "Дождевик") },
+  { id: "teal", price: tierPrice(1), color: "#14b8a6", pattern: "zip",     trim: "#ccfbf1", name: N3("Teal jacket", "Campera turquesa", "Бирюзовая куртка") }
 ];
 const PANTS = [
-  { color: "#3b5b92", shorts: false, name: N3("Jeans", "Jean", "Джинсы") },
-  { color: "#2d2d3f", shorts: false, name: N3("Black", "Negro", "Чёрные") },
-  { color: "#dc2626", shorts: false, name: N3("Red", "Rojo", "Красные") },
-  { color: "#c8a96a", shorts: true,  name: N3("Shorts", "Bermuda", "Шорты") },
-  { color: "#15803d", shorts: false, name: N3("Green", "Verde", "Зелёные") },
-  { color: "#f472b6", shorts: true,  name: N3("Pink shorts", "Short rosa", "Розовые шорты") },
-  { color: "#9ca3af", shorts: false, name: N3("Joggers", "Jogging", "Спортивные") },
-  { color: "#7c3aed", shorts: false, name: N3("Purple", "Violeta", "Фиолетовые") }
+  { id: "jeans", price: tierPrice(0), color: "#3b5b92", shorts: false, name: N3("Jeans", "Jean", "Джинсы") },
+  { id: "black", price: tierPrice(0), color: "#2d2d3f", shorts: false, name: N3("Black", "Negro", "Чёрные") },
+  { id: "red", price: tierPrice(0), color: "#dc2626", shorts: false, name: N3("Red", "Rojo", "Красные") },
+  { id: "shorts", price: tierPrice(0), color: "#c8a96a", shorts: true,  name: N3("Shorts", "Bermuda", "Шорты") },
+  { id: "green", price: tierPrice(1), color: "#15803d", shorts: false, name: N3("Green", "Verde", "Зелёные") },
+  { id: "pinkshorts", price: tierPrice(2), color: "#f472b6", shorts: true,  name: N3("Pink shorts", "Short rosa", "Розовые шорты") },
+  { id: "joggers", price: tierPrice(1), color: "#9ca3af", shorts: false, name: N3("Joggers", "Jogging", "Спортивные") },
+  { id: "purple", price: tierPrice(1), color: "#7c3aed", shorts: false, name: N3("Purple", "Violeta", "Фиолетовые") }
 ];
 const SLOTS = { hair: HAIRS, hat: HATS, jacket: JACKETS, pants: PANTS };
 const P_COLORS = ["#3b82f6", "#22c55e"];        // цвет меток игрока 1 и 2
@@ -1508,33 +1552,87 @@ function makeLook(o) {
 }
 // ---------- Скины Большого ----------
 const BIG_SKINS = [
-  { shirt: "#9b2c3a", skin: "#f4b183", hair: "#3a2418", top: "spiky",  name: { en: "Classic", es: "Clásico", ru: "Классика" } },
-  { shirt: "#7c5a2e", skin: "#8fcf6a", hair: "#4d7c2a", top: "horns",  name: { en: "Ogre", es: "Ogro", ru: "Огр" } },
-  { shirt: "#64748b", skin: "#cbd5e1", hair: "#475569", top: "robot",  name: { en: "Robot", es: "Robot", ru: "Робот" } },
-  { shirt: "#1e3a8a", skin: "#f1c27d", hair: "#1f2937", top: "pirate", name: { en: "Captain", es: "Capitán", ru: "Капитан" } },
-  { shirt: "#92400e", skin: "#b7793f", hair: "#78350f", top: "bear",   name: { en: "Bear", es: "Oso", ru: "Медведь" } }
+  { id: "classic", price: tierPrice(0), shirt: "#9b2c3a", skin: "#f4b183", hair: "#3a2418", top: "spiky",  name: { en: "Classic", es: "Clásico", ru: "Классика" } },
+  { id: "ogre", price: tierPrice(0), shirt: "#7c5a2e", skin: "#8fcf6a", hair: "#4d7c2a", top: "horns",  name: { en: "Ogre", es: "Ogro", ru: "Огр" } },
+  { id: "robot", price: tierPrice(3), shirt: "#64748b", skin: "#cbd5e1", hair: "#475569", top: "robot",  name: { en: "Robot", es: "Robot", ru: "Робот" } },
+  { id: "captain", price: tierPrice(3), shirt: "#1e3a8a", skin: "#f1c27d", hair: "#1f2937", top: "pirate", name: { en: "Captain", es: "Capitán", ru: "Капитан" } },
+  { id: "bear", price: tierPrice(2), shirt: "#92400e", skin: "#b7793f", hair: "#78350f", top: "bear",   name: { en: "Bear", es: "Oso", ru: "Медведь" } }
 ];
-let skinSel = { p1: { hair: 0, hat: 1, jacket: 0, pants: 0 }, p2: { hair: 1, hat: 4, jacket: 1, pants: 3 }, big: 0 };
+// SPEC-009: skinSel — что показано (на экране нарядов можно примерить купленное и ещё не купленное), skinKeep — последний
+// свой вид (только купленное или бесплатное): его сохраняет bebebe-outfits (форма — индексы, как раньше) и с ним начинается игра
+const DEFAULT_SKINS = { p1: { hair: 0, hat: 1, jacket: 0, pants: 0 }, p2: { hair: 1, hat: 4, jacket: 1, pants: 3 }, big: 0 };
+const cloneSkins = o => ({ p1: { ...o.p1 }, p2: { ...o.p2 }, big: o.big });
+let skinSel = cloneSkins(DEFAULT_SKINS);
 try {
   const sv = JSON.parse(localStorage.getItem("bebebe-outfits") || "null");
   if (sv && sv.p1 && sv.p2) skinSel = sv;
 } catch (e) { /* ok */ }   // старый ключ bebebe-place больше не читается: место уровня — его мир (SPEC-006)
 for (const pk of ["p1", "p2"]) for (const k of Object.keys(SLOTS)) skinSel[pk][k] = clamp(skinSel[pk][k] | 0, 0, SLOTS[k].length - 1);
 skinSel.big = clamp(skinSel.big | 0, 0, BIG_SKINS.length - 1);
-const saveSkins = () => { try { localStorage.setItem("bebebe-outfits", JSON.stringify(skinSel)); } catch (e) { /* ok */ } };
+let skinKeep = cloneSkins(skinSel);   // после загрузки прогресса надетое становится своим (adoptWorn)
+const saveSkins = () => { try { localStorage.setItem("bebebe-outfits", JSON.stringify(skinKeep)); } catch (e) { /* ok */ } };
+// гардероб (SPEC-009): купленное — в progress.owned по id; ключ списка для слота; бесплатное (price 0, причёски) — всегда своё
+const OWN_KEY = { hat: "hats", jacket: "jackets", pants: "pants", big: "big" };
+const LOOK_SLOTS = ["hat", "jacket", "pants"];   // платные слоты маленьких (причёски бесплатные)
+const ownsItem = (slot, idx) => {
+  const it = slot === "big" ? BIG_SKINS[idx] : SLOTS[slot][idx];
+  return !it.price || progress.owned[OWN_KEY[slot]].includes(it.id);
+};
+let tryingOn = false;  // на экране нарядов примерено некупленное (skinSel ≠ skinKeep)
+const updateTryOn = () => { tryingOn = ["p1", "p2", "big"].some(k => lockedItems(k).length > 0); };
+let buyArmed = null;   // колонка («p1» | «p2» | «big»), где кнопку «Купить» уже нажали раз: второе нажатие покупает
+// примеренные некупленные вещи колонки: [{ slot, idx, id, price }]
+function lockedItems(key) {
+  const pick = (slot, idx) => { const it = slot === "big" ? BIG_SKINS[idx] : SLOTS[slot][idx]; return { slot, idx, id: it.id, price: it.price }; };
+  if (key === "big") return ownsItem("big", skinSel.big) ? [] : [pick("big", skinSel.big)];
+  return LOOK_SLOTS.filter(sl => !ownsItem(sl, skinSel[key][sl])).map(sl => pick(sl, skinSel[key][sl]));
+}
+const lockedPrice = key => lockedItems(key).reduce((a, it) => a + it.price, 0);
 function cycleOutfit(pk, slot, d) {
   const n = SLOTS[slot].length;
   skinSel[pk][slot] = (skinSel[pk][slot] + d + n) % n;
-  saveSkins(); resetWorld(numPlayers);
+  if (ownsItem(slot, skinSel[pk][slot])) skinKeep[pk][slot] = skinSel[pk][slot];   // своё — сразу запоминается; чужое — только примерка
+  buyArmed = null; updateTryOn(); saveSkins(); resetWorld(numPlayers);
 }
+// случайный вид — только из своего
 function randomOutfit(pk) {
-  for (const k of Object.keys(SLOTS)) skinSel[pk][k] = Math.floor(vrand() * SLOTS[k].length);
-  saveSkins(); resetWorld(numPlayers);
+  for (const k of Object.keys(SLOTS)) {
+    const mine = SLOTS[k].map((_, i) => i).filter(i => ownsItem(k, i));
+    skinSel[pk][k] = skinKeep[pk][k] = mine[Math.floor(vrand() * mine.length)];
+  }
+  buyArmed = null; updateTryOn(); saveSkins(); resetWorld(numPlayers);
 }
 function cycleBig(d) {
   skinSel.big = (skinSel.big + d + BIG_SKINS.length) % BIG_SKINS.length;
-  saveSkins(); resetWorld(numPlayers);
+  if (ownsItem("big", skinSel.big)) skinKeep.big = skinSel.big;
+  buyArmed = null; updateTryOn(); saveSkins(); resetWorld(numPlayers);
 }
+// кнопка «Купить N» колонки: не хватает монеток — звук «нет»; первое нажатие только спрашивает, второе покупает всё примеренное
+function buyLook(key) {
+  const items = lockedItems(key), total = lockedPrice(key);
+  if (!items.length) return;
+  if (progress.coins < total) { buyArmed = null; SFX.out(); return; }
+  if (buyArmed !== key) { buyArmed = key; return; }
+  buyArmed = null;
+  for (const it of items) if (spendCoins(it.slot + ":" + it.id, it.price)) progress.owned[OWN_KEY[it.slot]].push(it.id);
+  for (const it of items) if (ownsItem(it.slot, it.idx)) { if (key === "big") skinKeep.big = it.idx; else skinKeep[key][it.slot] = it.idx; }
+  updateTryOn(); saveProgress(); saveSkins(); SFX.item();
+}
+// конец примерки (ушли с экрана нарядов, началась игра): снова последний свой вид. true — что-то поменялось
+function endTryOn() {
+  buyArmed = null;
+  if (!tryingOn) return false;
+  skinSel = cloneSkins(skinKeep); tryingOn = false;
+  return true;
+}
+// некупленное (после сброса прогресса) → стартовый вид этого слота
+function fitOutfitsToOwned() {
+  for (const pk of ["p1", "p2"]) for (const sl of LOOK_SLOTS) if (!ownsItem(sl, skinKeep[pk][sl])) skinKeep[pk][sl] = DEFAULT_SKINS[pk][sl];
+  if (!ownsItem("big", skinKeep.big)) skinKeep.big = DEFAULT_SKINS.big;
+  skinSel = cloneSkins(skinKeep); buyArmed = null; tryingOn = false; saveSkins();
+}
+// для тестов: стартовые виды, ничего не примерено
+function resetOutfits() { skinSel = cloneSkins(DEFAULT_SKINS); skinKeep = cloneSkins(DEFAULT_SKINS); buyArmed = null; tryingOn = false; saveSkins(); resetWorld(numPlayers); }
 // ---------- Миры (SPEC-006): место уровня — его мир ----------
 let curWorld = WORLDS[0];
 // выбор мира в меню (карточка, ↑/↓, крестовина геймпада): запоминается, показывается новый открытый уровень мира
@@ -1595,18 +1693,47 @@ let items = [], itemCd = 5, itemSeq = 0, pendingWin = 0, lastReward = null, rese
 // Только простые данные; не длиннее CFG.EVENT_LOG_MAX (старые выпадают); очищается в начале уровня (startGame).
 let events = [];
 function logEvent(type, data) {
-  events.push({ t: stats.time, type, ...data });
+  const e = { t: stats.time, type, ...data };
+  events.push(e);
   if (events.length > CFG.EVENT_LOG_MAX) events.splice(0, events.length - CFG.EVENT_LOG_MAX);
+  return e;
 }
-const logCoins = (reason, amount) => logEvent("coins", { reason, amount });   // при каждом изменении progress.coins
+// SPEC-009: книга монеток — события coins с загрузки страницы (startGame её не чистит), тоже не длиннее EVENT_LOG_MAX.
+// logCoins зовут только addCoins / spendCoins (у прогресса, ниже).
+const ledger = [];
+function logCoins(reason, amount) {
+  ledger.push({ ...logEvent("coins", { reason, amount }) });
+  if (ledger.length > CFG.EVENT_LOG_MAX) ledger.splice(0, ledger.length - CFG.EVENT_LOG_MAX);
+}
 let bonusStars = [], starCd = 10, starSeq = 0;   // бонусные звёздочки (отдельно от предметов)
 let kisses = [], kissSeq = 0;                      // летящие воздушные поцелуи
 let kitHintT = 0, kitHintDone = false, kitHintPi = 0, kitHintRect = null;   // подсказка «Нажми 🩹» (SPEC-007): раз за уровень
 // ---------- Прогресс: миры (открытые уровни, звёзды), монетки, рукавицы (хранится в этом браузере) ----------
 // SPEC-006: progress.worlds = { park|school|beach|winter: { unlocked, stars: { [n]: 1..3 } } }, lastWorld — мир в меню
-const freshWorld = () => ({ unlocked: 1, stars: {} });
+// SPEC-009: won = { [n]: true } — уровни, уже выигранные хоть раз (первая победа платит всю основу, повтор — половину)
+const freshWorld = () => ({ unlocked: 1, stars: {}, won: {} });
 const freshProgress = () => ({ worlds: Object.fromEntries(WORLDS.map(w => [w, freshWorld()])), lastWorld: WORLDS[0],
-  coins: 0, inv: { mittens: 0, mega: 0, kisses: 0, rescues: 0 }, equip: ["none", "none"] });
+  coins: 0, inv: { mittens: 0, mega: 0, kisses: 0, rescues: 0 }, equip: ["none", "none"], owned: cleanOwned(null),
+  upgrades: cleanUpgrades(null) });
+// SPEC-009: уровни улучшений { fastFeet, longItems, quickHelp } — целые 0…последний; нет или испорчено → 0
+function cleanUpgrades(v) {
+  const out = {};
+  for (const k of Object.keys(UPGRADES)) {
+    const n = Math.floor(Number(v && typeof v === "object" ? v[k] : 0));
+    out[k] = Number.isFinite(n) ? clamp(n, 0, upgTop(k)) : 0;
+  }
+  return out;
+}
+// SPEC-009: купленные наряды { hats, jackets, pants, big: [id] } — только id платных вещей своего списка, без повторов; испорченное → пусто
+function cleanOwned(v) {
+  const lists = { hats: HATS, jackets: JACKETS, pants: PANTS, big: BIG_SKINS }, out = { hats: [], jackets: [], pants: [], big: [] };
+  if (!v || typeof v !== "object") return out;
+  for (const [k, list] of Object.entries(lists)) if (Array.isArray(v[k])) for (const id of v[k]) {
+    const it = list.find(q => q.id === id);
+    if (it && it.price > 0 && !out[k].includes(id)) out[k].push(id);
+  }
+  return out;
+}
 // один мир из сохранения: испорченное → по умолчанию, уровни за пределами мира отбрасываются
 function cleanWorld(v) {
   const max = levelsPerWorld(), out = freshWorld();
@@ -1617,11 +1744,19 @@ function cleanWorld(v) {
     const n = Number(k), st = Math.floor(Number(x));
     if (Number.isInteger(n) && n >= 1 && n <= max && st > 0) out.stars[n] = Math.min(CFG.STARS_PER_LEVEL, st);
   }
+  // won: только true для уровней 1…max; старые сохранения без won — уровень со звёздами считается выигранным
+  if (v.won && typeof v.won === "object" && !Array.isArray(v.won)) for (const [k, x] of Object.entries(v.won)) {
+    const n = Number(k);
+    if (Number.isInteger(n) && n >= 1 && n <= max && x === true) out.won[n] = true;
+  }
+  for (const n of Object.keys(out.stars)) out.won[n] = true;
   return out;
 }
 // Сохранение → прогресс. Старое (до SPEC-006: unlocked и stars без миров) переезжает в Парк; если есть и worlds,
 // и старые поля (старая вкладка дописала их), они сливаются с Парком: больший unlocked, лучшие звёзды уровня.
 // Поля unlocked/stars из объекта убираются. Никогда не бросает.
+// монетки из сохранения: целое ≥ 0 (испорченное → 0, дробное → вниз); правильное число не меняется
+const wholeCoins = v => { const n = Number(v); return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0; };
 const hasFlatProgress = pv => !!pv && typeof pv === "object" && ("unlocked" in pv || "stars" in pv);
 function loadProgress(pv) {
   const p = freshProgress();
@@ -1629,25 +1764,53 @@ function loadProgress(pv) {
   const { unlocked, stars, worlds, lastWorld, ...rest } = pv;
   const src = worlds && typeof worlds === "object" ? worlds : {};
   const out = { ...p, ...rest, worlds: {}, lastWorld: WORLDS.includes(lastWorld) ? lastWorld : WORLDS[0],
-    inv: { ...p.inv, ...(pv.inv && typeof pv.inv === "object" ? pv.inv : {}) }, equip: Array.isArray(pv.equip) ? pv.equip : p.equip };
+    inv: { ...p.inv, ...(pv.inv && typeof pv.inv === "object" ? pv.inv : {}) }, equip: Array.isArray(pv.equip) ? pv.equip : p.equip, owned: cleanOwned(pv.owned), upgrades: cleanUpgrades(pv.upgrades), coins: wholeCoins(pv.coins) };
   for (const w of WORLDS) out.worlds[w] = cleanWorld(src[w]);
   if (hasFlatProgress(pv)) {
     const old = cleanWorld({ unlocked, stars }), park = out.worlds[WORLDS[0]];
     park.unlocked = Math.max(park.unlocked, old.unlocked);
     for (const [n, st] of Object.entries(old.stars)) park.stars[n] = Math.max(park.stars[n] || 0, st);
+    for (const n of Object.keys(old.won)) park.won[n] = true;
   }
   // старые сохранения без поцелуев и спасалок (или испорченные) → 0
   for (const key of ["kisses", "rescues"]) { const k = Number(out.inv[key]); out.inv[key] = Number.isFinite(k) && k > 0 ? Math.floor(k) : 0; }
   return out;
 }
-let progress = freshProgress(), migrated = false;
+let progress = freshProgress(), migrated = false, hadOwned = false;
 try {
   const pv = JSON.parse(localStorage.getItem("bebebe-progress") || "null");
   progress = loadProgress(pv);
   migrated = hasFlatProgress(pv);
+  hadOwned = !!pv && typeof pv === "object" && "owned" in pv;   // SPEC-009: сохранение уже знает про купленные наряды
 } catch (e) { progress = freshProgress(); }
 const saveProgress = () => { try { localStorage.setItem("bebebe-progress", JSON.stringify(progress)); } catch (e) { /* ok */ } };
 if (migrated) saveProgress();                              // переезд старого сохранения — один раз
+// SPEC-009: надетое в bebebe-outfits становится своим — только для сохранений без owned (до SPEC-009 всё было бесплатно), один раз
+function adoptWorn() {
+  let changed = false;
+  const own = (slot, idx) => { if (!ownsItem(slot, idx)) { progress.owned[OWN_KEY[slot]].push((slot === "big" ? BIG_SKINS[idx] : SLOTS[slot][idx]).id); changed = true; } };
+  for (const pk of ["p1", "p2"]) for (const sl of LOOK_SLOTS) own(sl, skinSel[pk][sl]);
+  own("big", skinSel.big);
+  if (changed) saveProgress();
+}
+if (!hadOwned) adoptWorn(); else fitOutfitsToOwned();   // сохранение с owned: некупленное снимается, а не дарится
+// SPEC-009: единственный код, который меняет progress.coins (тест «only the ledger writes coins» это проверяет).
+// Каждое изменение — событие coins (журнал и книга), потом сохранение. Ноль не пишем.
+function addCoins(reason, amount) {
+  amount = Math.max(amount, -progress.coins);              // копилка не уходит в минус (минус бывает только у отдыха, и он урезан);
+  // другой отрицательный amount — ошибка: покупки идут только через spendCoins
+  if (!amount) return 0;
+  progress.coins += amount;
+  logCoins(reason, amount); saveProgress();
+  return amount;
+}
+// покупка: хватает монеток → списать (событие buy:<item> с минусом) и true; не хватает → ничего не меняет, false
+function spendCoins(item, amount) {
+  if (progress.coins < amount) return false;
+  progress.coins -= amount;
+  logCoins("buy:" + item, -amount); saveProgress();
+  return true;
+}
 const worldProgress = (w = curWorld) => progress.worlds[w];
 curWorld = progress.lastWorld;
 level = worldProgress().unlocked;                          // меню открывается на последнем мире, на его новом уровне
@@ -1657,61 +1820,84 @@ const fmtTime = sec => `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).p
 const gloveOf = pi => { const g = progress.equip[pi]; return g && g !== "none" && progress.inv[g] > 0 ? g : null; };
 function buyGloves(kind) {
   const g = GLOVES[kind];
-  if (progress.coins < g.price) { SFX.out(); return; }
-  progress.coins -= g.price; progress.inv[kind] += g.charges; logCoins("buy:" + kind, -g.price);
+  if (!spendCoins(kind, g.price)) { SFX.out(); return; }
+  progress.inv[kind] += g.charges;
   if (progress.equip[0] === "none") progress.equip[0] = kind;
   saveProgress(); SFX.item();
 }
 function buyKisses() {
-  if (progress.coins < KISSES.price) { SFX.out(); return; }
-  progress.coins -= KISSES.price; progress.inv.kisses += KISSES.pack; logCoins("buy:kisses", -KISSES.price);
+  if (!spendCoins("kisses", KISSES.price)) { SFX.out(); return; }
+  progress.inv.kisses += KISSES.pack;
   saveProgress(); SFX.item();
 }
 function buyRescueKit() {
-  if (progress.coins < RESCUE_KIT.price) { SFX.out(); return; }
-  progress.coins -= RESCUE_KIT.price; progress.inv.rescues += RESCUE_KIT.pack; logCoins("buy:rescues", -RESCUE_KIT.price);
+  if (!spendCoins("rescues", RESCUE_KIT.price)) { SFX.out(); return; }
+  progress.inv.rescues += RESCUE_KIT.pack;
   saveProgress(); SFX.item();
 }
+// SPEC-009: улучшение на уровень выше; не хватает монеток — звук «нет»; последний уровень — ничего
+const upgLevel = k => progress.upgrades[k] || 0;
+function buyUpgrade(k) {
+  if (!Object.hasOwn(UPGRADES, k)) return;
+  const u = UPGRADES[k], lv = upgLevel(k);
+  if (lv >= u.prices.length) return;
+  if (!spendCoins("upgrade:" + k, u.prices[lv])) { SFX.out(); return; }
+  progress.upgrades[k] = lv + 1;
+  saveProgress(); SFX.item();
+}
+// прибавка улучшения k для этого маленького: его уровень (взят при создании; у ботов нет) × step
+const playerBonus = (l, k) => (l.upg ? (l.upg[k] || 0) * UPGRADES[k].step : 0);
+// скорость маленького-игрока: обычная × «быстрые ноги» × сапоги (CFG.PLAYER_SPEED не меняется — предел Большого от неё)
+const moveSpeed = l => CFG.PLAYER_SPEED * (1 + playerBonus(l, "fastFeet")) * (l.fx.boots > 0 ? CFG.BOOTS_MULT : 1);
 function setEquip(pi, kind) { progress.equip[pi] = kind; saveProgress(); resetWorld(numPlayers); }
 function resetProgress() {
   if (!resetArmed) { resetArmed = true; return; }
   resetArmed = false;
+  rewardDue = false;                         // прогресс заменён целиком: за брошенный уровень не платим
   progress = freshProgress();
   progress.lastWorld = curWorld;
+  fitOutfitsToOwned();                       // SPEC-009: купленные наряды ушли вместе с прогрессом
   saveProgress(); level = 1; resetWorld(numPlayers);
 }
+// SPEC-009: основа награды уровня n мира с номером wi (0–3)
+const rewardBase = (wi, n) => REWARD.BASE + REWARD.PER_LEVEL * n + REWARD.PER_WORLD * wi;
+// уровень начат и ещё не оплачен (startGame → true; награда, сброс или замена прогресса → false)
+let rewardDue = false;
+// выход из идущего уровня до победы (пауза → Меню, перезапуск или другой уровень): платим только обнимашки.
+// Последнее сердечко уже снято (pendingWin идёт) — это победа: засчитываем её, как если бы досмотрели (правило детей: обнял — победил)
+function leaveLevel() {
+  if (!rewardDue || (mode !== "play" && mode !== "pause")) return;
+  if (pendingWin > 0) { pendingWin = 0; logEvent("win", {}); giveReward(true); } else giveReward(false);
+}
+// Награда (SPEC-009). Строки по порядку экрана победы: первая победа / повтор, новые звёзды, бонусные звёздочки, обнимашки, отдых.
+// Каждая строка (кроме звёздочек — они уже в копилке с подбора) идёт в книгу через addCoins; нулевые не пишем.
 function giveReward(win) {
+  rewardDue = false;
   const ph = stats.playerHugs;
   const starCoins = stats.starCoins;        // монетки за звёздочки уже в копилке (начислены при подборе)
-  // parts — из чего сложилась награда (SPEC-008): только объясняют сумму, сами суммы не меняют; нулевые не пишем
   const partsOf = list => list.filter(([, a]) => a !== 0).map(([reason, amount]) => ({ reason, amount }));
+  const hugs = ph * REWARD.PER_HUG;
   if (!win) {
-    const c = ph * CFG.COINS_PER_HUG; progress.coins += c; saveProgress();
-    if (c) logCoins("hugs", c);
+    const c = addCoins("hugs", hugs);
     lastReward = { win: false, coins: c + starCoins, starCoins, parts: partsOf([["hugs", c], ["star", starCoins]]) };
     return;
   }
   const wi = worldIndex(curWorld), wp = worldProgress(), n = clamp(level, 1, levelsPerWorld());
   const rests = stats.rests, nobodyOut = rests === 0, target = CFG.FAST_TIME(n) + wi * CFG.FAST_PER_WORLD, fast = stats.time <= target;
   const stars = 1 + (nobodyOut ? 1 : 0) + (fast ? 1 : 0);
-  const penalty = rests * CFG.COINS_PER_REST;
-  const earned = [["win", CFG.COINS_WIN], ["level", n * CFG.COINS_PER_LEVEL], ["world", wi * CFG.COINS_PER_WORLD], ["nobodyOut", nobodyOut ? CFG.COINS_NOBODY_OUT : 0],
-    ["fast", fast ? CFG.COINS_FAST : 0], ["hugs", ph * CFG.COINS_PER_HUG], ["rests", -penalty]];
-  const raw = earned.reduce((sum, [, a]) => sum + a, 0);
-  const coins = Math.max(CFG.COINS_MIN_WIN, raw);
-  earned.push(["floor", coins - raw]);                  // сколько добавил минимум COINS_MIN_WIN
-  const prevStars = wp.stars[n] || 0;
+  const first = !wp.won[n], base = rewardBase(wi, n);
+  const min = first ? REWARD.FIRST_MIN : REWARD.REPLAY_MIN;
+  const line = Math.max(first ? base : Math.floor(base / 2), min);   // повтор — половина основы
+  const restCut = Math.min(rests * CFG.COINS_PER_REST, line - min);   // отдых срезается до пола: строки всегда сходятся с итогом
+  const prevStars = wp.stars[n] || 0, newStars = Math.max(0, stars - prevStars);
+  const parts = partsOf([[first ? "firstWin" : "replay", line], ["newStars", newStars * REWARD.NEW_STAR], ["star", starCoins], ["hugs", hugs], ["rests", -restCut]]);
   wp.stars[n] = Math.max(prevStars, stars);
+  wp.won[n] = true;
   wp.unlocked = Math.max(wp.unlocked, Math.min(levelsPerWorld(), n + 1));   // только в этом мире
   progress.lastWorld = curWorld;
-  progress.coins += coins;
-  saveProgress();
-  const parts = partsOf(earned);
-  for (const p of parts) logCoins(p.reason, p.amount);
-  if (starCoins) parts.push({ reason: "star", amount: starCoins });   // звёздочки уже в копилке (событие — при подборе)
-  // звёздочки — сверх награды, после минимума: штраф за отдых их не съедает
-  lastReward = { win: true, coins: coins + starCoins, starCoins, stars, nobodyOut, fast, target, penalty, newBest: stars > prevStars,
-    world: curWorld, level: n, worldDone: n >= levelsPerWorld(), parts };
+  for (const p of parts) if (p.reason !== "star") addCoins(p.reason, p.amount);   // по строке (каждая сохраняет): в книге те же строки, что в parts
+  lastReward = { win: true, coins: parts.reduce((a, p) => a + p.amount, 0), starCoins, stars, nobodyOut, fast, target, first, base, newStars,
+    newBest: stars > prevStars, world: curWorld, level: n, worldDone: n >= levelsPerWorld(), parts };
 }
 
 function makeLittle(i, kind, botIndex, controls, look) {
@@ -1721,7 +1907,8 @@ function makeLittle(i, kind, botIndex, controls, look) {
     state: "ok", downTimer: 0, rescue: 0, botWait: 0, invuln: 0, kx: 0, ky: 0, dangerT: 0, dizzy: 0,
     path: [], repath: 0, dir: Math.PI / 2, moveDir: 0, walk: 0, moving: false, hugCd: 0,
     task: "idle", fleeT: 0, fleeGoal: null, fleeRe: 0, lurkT: rand(0, 2), offset: rand(-0.5, 0.5), tokenT: 0,
-    hugAnim: 0, kissCd: 0, fx: { boots: 0, cloak: 0, shield: 0 }
+    hugAnim: 0, kissCd: 0, fx: { boots: 0, cloak: 0, shield: 0 },
+    upg: kind === "player" ? { ...progress.upgrades } : null   // SPEC-009: уровни улучшений этого игрока (у ботов нет)
   };
 }
 function resetWorld(n) {
@@ -1766,10 +1953,10 @@ function showBanner() {
 }
 const bannerAlpha = () => !banner ? 0 : clamp(Math.min(banner.t, CFG.BANNER_TIME - banner.t) / CFG.BANNER_FADE, 0, 1);
 // camSnap: начало уровня — камера телефона сразу у героя (в resetWorld нельзя: он же открывает меню, где камера показывает всю карту)
-function startGame(n) { events = []; resetWorld(n); mode = "play"; showBanner(); camSnap(); }
+function startGame(n) { leaveLevel(); endTryOn(); events = []; resetWorld(n); mode = "play"; rewardDue = true; showBanner(); camSnap(); }
 // следующий уровень того же мира; после последнего мир пройден — в меню
 function nextLevel() { if (level >= levelsPerWorld()) { toMenu(); return; } level++; startGame(numPlayers); }
-function toMenu() { resetWorld(numPlayers); mode = "menu"; }
+function toMenu() { leaveLevel(); resetWorld(numPlayers); mode = "menu"; }
 function changeLevel(d) { level = clamp(level + d, 1, worldProgress().unlocked); resetWorld(numPlayers); }
 
 // =====================================================================
@@ -1836,6 +2023,7 @@ function onKey(code) {
     if (code === "ArrowDown") cycleWorld(1);
   } else if (mode === "shop") {
     if (code === "Enter" || code === "Escape" || code === "Space") mode = "menu";
+    if (code === "ArrowLeft" || code === "ArrowRight") switchShopTab();
   } else if (mode === "skins") {
     if (code === "KeyR") randomOutfit("p1");
     if (code === "Enter" || code === "Escape" || code === "Space") mode = "menu";
@@ -1982,6 +2170,7 @@ function onPadButton(b, pad = 0) {
     if (b === 1) mode = "skins";
   } else if (mode === "shop") {
     if (b === 0 || b === 1 || b === 9) mode = "menu";
+    if (b === 14 || b === 15) switchShopTab();   // крестовина влево/вправо — вкладки
   } else if (mode === "skins") {
     if (b === 2) randomOutfit("p1");
     if (b === 3 && !PHONE) randomOutfit("p2");   // на телефоне игрока 2 нет
@@ -2214,8 +2403,8 @@ function updateStars(dt) {
     if (!l) continue;
     s.t = s.life;
     stats.starCoins += CFG.STAR_COINS;
-    progress.coins += CFG.STAR_COINS; saveProgress();   // сразу в копилку: остаются, даже если уровень не выигран
-    logEvent("star", { who: l.id }); logCoins("star", CFG.STAR_COINS);
+    logEvent("star", { who: l.id });
+    addCoins("star", CFG.STAR_COINS);   // сразу в копилку: остаются, даже если уровень не выигран
     popText(s.x, s.y - 30, "+" + CFG.STAR_COINS, "#fde047");
     burst(s.x, s.y, "star", "#fde047", 16);
     SFX.star();
@@ -2245,7 +2434,8 @@ function updateItems(dt) {
     if (l) {
       it.t = 999;
       logEvent("item", { kind: it.kind, who: l.id });
-      l.fx[it.kind] = it.kind === "boots" ? CFG.BOOTS_TIME : it.kind === "cloak" ? CFG.CLOAK_TIME : CFG.SHIELD_TIME;
+      const base = it.kind === "boots" ? CFG.BOOTS_TIME : it.kind === "cloak" ? CFG.CLOAK_TIME : CFG.SHIELD_TIME;
+      l.fx[it.kind] = base * (1 + playerBonus(l, "longItems"));   // SPEC-009: игроку дольше («долгие вещи»)
       popText(l.x, l.y - 40, L().items[it.kind], "#c4b5fd");
       burst(l.x, l.y, "star", "#fde047", 10);
       SFX.item();
@@ -2261,7 +2451,7 @@ function updatePlayers(dt) {
     if (!canAct(l)) continue;
     const v = inputFor(l), m = Math.hypot(v.x, v.y);
     if (m > 0.05) {
-      const sp = CFG.PLAYER_SPEED * (l.fx.boots > 0 ? CFG.BOOTS_MULT : 1);
+      const sp = moveSpeed(l);
       moveEntity(l, v.x * sp, v.y * sp, dt);
       l.dir = Math.atan2(v.y, v.x);
       l.walk += dt * 12 * m;
@@ -2445,7 +2635,7 @@ function autoThink(dt) {
     const { tx, ty } = steerPoint(n, goal.x, goal.y, dt, goal.avoid, () => A.repath);
     const dx = tx - l.x, dy = ty - l.y, d = Math.hypot(dx, dy);
     if (d < A.minStep) continue;
-    const sp = CFG.PLAYER_SPEED * (l.fx.boots > 0 ? CFG.BOOTS_MULT : 1), m = Math.min(1, d / (sp * dt));   // не проскочить точку
+    const sp = moveSpeed(l), m = Math.min(1, d / (sp * dt));   // не проскочить точку
     autoMove[l.id] = { x: dx / d * m, y: dy / d * m };
     // 💋: смотрит на Большого, он близко, видно, и поцелуй сработает
     if (autoStyle === "careful" && progress.inv.kisses > 0 && l.kissCd <= 0 && !inSafe(l) && big.stun <= 0 && big.blush <= 0 && big.hugCd <= 0 &&
@@ -2573,9 +2763,11 @@ function updateDowned(dt) {
     if (l.state !== "down") continue;
     l.downTimer -= dt;
     l.botWait = Math.max(0, l.botWait - dt);
-    const helper = littles.find(o => helps(o, l));
+    // SPEC-009: рядом игрок — он и поднимает (с «быстрой помощью» быстрее); бот — всегда за RESCUE_TIME
+    const helper = littles.find(o => o.kind === "player" && helps(o, l)) || littles.find(o => helps(o, l));
+    l.rescueNeed = CFG.RESCUE_TIME * (1 - (helper ? playerBonus(helper, "quickHelp") : 0));
     l.rescue = helper ? l.rescue + dt : Math.max(0, l.rescue - CFG.RESCUE_DRAIN * dt);   // отошёл — прогресс тает
-    if (l.rescue >= CFG.RESCUE_TIME) {
+    if (l.rescue >= l.rescueNeed) {
       l.state = "ok"; l.invuln = CFG.INVULN_AFTER_RESCUE; l.rescue = 0;
       logEvent("rescued", { who: l.id, by: helper.kind });
       popText(l.x, l.y - 40, L().saved, "#7CFC9A");
@@ -2713,6 +2905,12 @@ function circle(x, y, r) { ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); }
 function ellipse(x, y, rx, ry) { ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, TAU); }
 function fillStroke(fill, lw = 3, stroke = OUT) { ctx.fillStyle = fill; ctx.fill(); ctx.lineWidth = lw; ctx.strokeStyle = stroke; ctx.stroke(); }
 const labelStroke = size => Math.max(3, size / 4.5);   // толщина обводки надписи label()
+// число на белой плашке (монетки, звёзды): тёмный текст без обводки — с обводкой цвета OUT цифры сливаются
+function plainText(text, x, y, size, color = OUT, align = "left") {
+  ctx.font = hudFont(size); ctx.textAlign = align; ctx.textBaseline = "middle"; ctx.fillStyle = color;
+  ctx.fillText(text, x, y);
+  if (PHONE) noteText("drawn", size);
+}
 function label(text, x, y, size, color, align = "center") {
   ctx.font = `900 ${size}px system-ui, "Segoe UI", "Arial Rounded MT Bold", Arial, sans-serif`;   // = hudFont(size)
   ctx.textAlign = align; ctx.textBaseline = "middle";
@@ -2871,7 +3069,7 @@ function drawMarkers(t) {
       ctx.strokeStyle = "rgba(0,0,0,.3)"; circle(c.x, c.y, 24); ctx.stroke();
       ctx.strokeStyle = l.downTimer < 5 && Math.floor(t * 6) % 2 ? "#fff" : "#ef4444";
       ctx.beginPath(); ctx.arc(c.x, c.y, 24, -Math.PI / 2, -Math.PI / 2 + TAU * (l.downTimer / CFG.DOWN_TIME)); ctx.stroke();
-      if (l.rescue > 0) { ctx.strokeStyle = "#4ade80"; ctx.beginPath(); ctx.arc(c.x, c.y, 29, -Math.PI / 2, -Math.PI / 2 + TAU * (l.rescue / CFG.RESCUE_TIME)); ctx.stroke(); }
+      if (l.rescue > 0) { ctx.strokeStyle = "#4ade80"; ctx.beginPath(); ctx.arc(c.x, c.y, 29, -Math.PI / 2, -Math.PI / 2 + TAU * (l.rescue / (l.rescueNeed || CFG.RESCUE_TIME))); ctx.stroke(); }
       ctx.lineCap = "butt";
       label(String(Math.ceil(l.downTimer)), c.x + 30, c.y - 22, fz(15, "main"), "#fecaca");
       const pulse = 1 + Math.sin(t * 8) * 0.1;   // телефон: пульсирует вверх от минимального размера
@@ -3454,6 +3652,208 @@ function winText() {
   winLine = lastReward && lastReward.worldDone ? L().worldDone(L().worlds[lastReward.world], lastReward.world) : L().winSub;
   return winLine;
 }
+// SPEC-009: строки награды на экране победы (компьютер и телефон): значок и название слева, сумма справа, итог с монеткой внизу.
+// Каждый текст меряется с CFG.TEXT_TEST_SCALE, сжимается не мельче min, потом режется «…»; части — в hudRects
+// (win-line:<reason> — название, win-num:<reason> — сумма; итог — :total), рамка всех строк — winPanel (для тестов).
+const RW_ICONS = { firstWin: "🏆", replay: "🔁", newStars: "⭐", star: "✨", hugs: "🤗", rests: "😴" };
+let winPanel = null;
+// SPEC-009: вкладка магазина — «items» (вещи) или «upgrades» (улучшения); вне магазина снова «items»
+let shopTab = "items";
+const switchShopTab = () => { shopTab = shopTab === "items" ? "upgrades" : "items"; };
+function fitLine(text, size, min, maxW) {
+  let sz = size;
+  ctx.font = hudFont(sz);
+  while (scaledW(text) > maxW && sz > min) { sz = Math.max(min, sz - 0.5); ctx.font = hudFont(sz); }
+  let chs = Array.from(text);
+  while (chs.length > 1 && scaledW(text) > maxW) { chs = chs.slice(0, -1); text = chs.join("").trimEnd() + "…"; }
+  return { text, sz, w: scaledW(text) };
+}
+// x, y — левый верхний угол, w — ширина; rowH — шаг строк; size/min — кегль строк; big/bigMin — кегль суммы итога (UI px)
+function drawRewardLines(rw, x, y, w, rowH, size, min, big, bigMin) {
+  const parts = rw.parts || [], gap = size * 0.6, totalH = rowH * 1.4, r = size * 0.55;
+  const note = (cat, sz) => { if (PHONE) noteText(cat, sz); };
+  const put = (id, f, xx, yy, h = f.sz * 1.2) => hudRects.push({ id, x: xx, y: yy - h / 2, w: f.w, h, text: f.text });
+  winPanel = { x, y, w, h: rowH * parts.length + gap + totalH };
+  parts.forEach((p, i) => {
+    const yy = y + rowH * (i + 0.5), neg = p.amount < 0, col = neg ? "#fca5a5" : "#fde047";
+    const num = fitLine((neg ? "−" : "+") + Math.abs(p.amount), size, min, w / 3);
+    label(num.text, x + w, yy, num.sz, col, "right"); note("main", num.sz); put("win-num:" + p.reason, num, x + w - num.w, yy);
+    const name = fitLine(`${RW_ICONS[p.reason] || "•"} ${L().rw[p.reason] || p.reason}`, size, min, w - num.w - gap);
+    label(name.text, x, yy, name.sz, neg ? "#fca5a5" : "#fff", "left"); note("main", name.sz); put("win-line:" + p.reason, name, x, yy);
+  });
+  const ly = y + rowH * parts.length + gap / 2, ty = ly + gap / 2 + totalH / 2;
+  ctx.strokeStyle = "rgba(255,255,255,.55)"; ctx.lineWidth = Math.max(1, size / 9);
+  ctx.beginPath(); ctx.moveTo(x, ly); ctx.lineTo(x + w, ly); ctx.stroke();
+  const num = fitLine("+" + rw.coins, big, bigMin, w / 2);
+  label(num.text, x + w, ty, num.sz, "#fde047", "right"); note("title", num.sz); put("win-num:total", num, x + w - num.w, ty);
+  drawCoin(x + r, ty, r);
+  const name = fitLine(L().rw.total, size, min, w - num.w - 2 * gap - 2 * r);
+  label(name.text, x + 2 * r + gap, ty, name.sz, "#fff", "left"); note("main", name.sz);
+  const h = Math.max(name.sz * 1.2, 2 * r);
+  hudRects.push({ id: "win-line:total", x, y: ty - h / 2, w: 2 * r + gap + name.w, h, text: name.text });
+}
+// ---------- SPEC-009: гардероб на экране нарядов (компьютер и телефон) ----------
+// цена замочка в строке слота (0 — вещь своя); sl = слот или «look» (Большой)
+const rowLock = (sl, list, sel) => (list[sel].price && !ownsItem(sl === "look" ? "big" : sl, sel) ? list[sel].price : 0);
+const slotText = (sl, lock) => (lock ? `🔒 ${lock} · ${L().slots[sl]}` : L().slots[sl]);
+// монетки игрока: белая плашка с монеткой (hudRects «coins»)
+function coinPlate(x, y, w, h) {
+  rr(x, y, w, h, h * 0.4); fillStroke("#fff", 3);
+  const r = h * 0.3, min = PHONE ? cpx(CFG.PHONE_TEXT.main) : 12;
+  drawCoin(x + h * 0.2 + r, y + h / 2, r);
+  const f = fitLine(String(progress.coins), Math.max(min, h * 0.5), min, w - 2 * r - h * 0.6);
+  plainText(f.text, x + h * 0.4 + 2 * r, y + h / 2 + 1, f.sz);
+  if (PHONE) noteText("main", f.sz);
+  hudRects.push({ id: "coins", x, y, w, h });
+}
+// строки текста не шире maxW (× TEXT_TEST_SCALE), не больше lines; не влезает — мельче, но не меньше min
+function noteRows(text, size, min, maxW, lines) {
+  let sz = size, rows = [];
+  for (;;) {
+    ctx.font = `800 ${sz}px system-ui, "Segoe UI", sans-serif`;
+    rows = [];
+    let cur = "";
+    for (const wd of text.split(" ")) { const t = cur ? cur + " " + wd : wd; if (scaledW(t) > maxW && cur) { rows.push(cur); cur = wd; } else cur = t; }
+    rows.push(cur);
+    if ((rows.length <= lines && rows.every(q => scaledW(q) <= maxW)) || sz <= min) break;
+    sz = Math.max(min, sz - 0.5);
+  }
+  return { rows: rows.slice(0, lines), sz, w: Math.min(maxW, Math.max(...rows.map(scaledW))) };
+}
+// подпись «не хватает монеток» / «нажми ещё раз» (hudRects «look-note:<колонка>»): box = { x, y, w, lines } — y верх плашки,
+// или низ, если bottom (компьютер: поверх низа превью); телефон — под превью или под строкой «Вид», чтобы не закрывать примерку
+function previewNote(key, box, text, color) {
+  const pad = PHONE ? cpx(2) : 4, min = PHONE ? cpx(CFG.PHONE_TEXT.hint) : 11;
+  const b = noteRows(text, PHONE ? min : 14, min, box.w - 4 * pad, box.lines), lh = b.sz * 1.2, h = b.rows.length * lh + 2 * pad;
+  const x = box.x, y = box.bottom ? box.y - h : box.y, w = box.w;
+  rr(x, y, w, h, Math.min(10, h / 3)); ctx.fillStyle = "rgba(15,23,42,.78)"; ctx.fill();
+  ctx.save(); ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
+  ctx.font = `800 ${b.sz}px system-ui, "Segoe UI", sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = color;
+  b.rows.forEach((q, i) => ctx.fillText(q, x + w / 2, y + pad + lh * (i + 0.5)));
+  ctx.restore();
+  if (PHONE) noteText("hint", b.sz);
+  hudRects.push({ id: "look-note:" + key, x, y, w, h });
+}
+// на месте подписи с именем, пока в колонке примерено некупленное: «🔒 Купить за N» (второе нажатие — «✔ …», красная)
+function lookBuy(key, r, note) {
+  const total = lockedPrice(key), poor = progress.coins < total, armed = buyArmed === key;
+  const min = PHONE ? cpx(CFG.PHONE_TEXT.main) : 10;
+  const f = fitLine((armed ? "✔ " : "🔒 ") + L().buyFor(total), PHONE ? cpx(18) : 18, min, r.w - (PHONE ? cpx(14) : 16));
+  const b = addButton(r.x, r.y, r.w, r.h, f.text, poor ? "#94a3b8" : armed ? "#ef4444" : "#f59e0b", () => buyLook(key), f.sz);
+  b.id = "buy-look:" + key; b.textW = f.w;
+  if (poor) previewNote(key, note, L().notEnough, "#fecaca");
+  else if (armed) previewNote(key, note, L().tapAgain, "#fde047");
+}
+// кнопка, надпись которой меряется с CFG.TEXT_TEST_SCALE и сжимается до min (потом «…»); textW — ширина с этим множителем
+function fitButton(x, y, w, h, text, color, act, size, min) {
+  const f = fitLine(text, size, min, w - (PHONE ? cpx(14) : 14));
+  const b = addButton(x, y, w, h, f.text, color, act, f.sz);
+  b.textW = f.w; b.size = f.sz;
+  return b;
+}
+// строки noteRows от верхнего края y по центру cx (+ прямоугольник в hudRects); возвращает высоту
+function rowsAt(id, b, cx, y, color, weight = 800) {
+  const lh = b.sz * 1.2;
+  ctx.font = `${weight} ${b.sz}px system-ui, "Segoe UI", sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = color;
+  b.rows.forEach((q, i) => ctx.fillText(q, cx, y + lh * (i + 0.5)));
+  hudRects.push({ id, x: cx - b.w / 2, y, w: b.w, h: b.rows.length * lh, text: b.rows.join(" ") });
+  return b.rows.length * lh;
+}
+// ---------- SPEC-009: вкладки и улучшения в магазине ----------
+const UPG_ICONS = { fastFeet: "👟", longItems: "⏳", quickHelp: "🤝" };
+const upgradeCards = () => Object.keys(UPGRADES).map(k => {
+  const lv = upgLevel(k), top = upgTop(k);
+  return { k, lv, top, name: L().upg[k].name, desc: L().upg[k].desc(Math.round(UPGRADES[k].step * 100)), price: lv < top ? UPGRADES[k].prices[lv] : 0,
+    dots: "●".repeat(lv) + "○".repeat(top - lv) };
+});
+function upgPicture(k, x, y, s) {
+  ctx.font = `${s}px system-ui, 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = "#000";
+  ctx.fillText(UPG_ICONS[k], x, y);
+}
+// уровень кружками ●●○ по центру cx (hudRects «upg-dots:<k>», текст — те же кружки)
+function upgDots(cd, cx, cy, r) {
+  const step = r * 2.8, x0 = cx - step * (cd.top - 1) / 2;
+  for (let i = 0; i < cd.top; i++) { circle(x0 + i * step, cy, r); fillStroke(i < cd.lv ? "#f59e0b" : "#fff", Math.max(1.5, r / 3)); }
+  hudRects.push({ id: "upg-dots:" + cd.k, x: x0 - r - 1, y: cy - r - 1, w: step * (cd.top - 1) + 2 * r + 2, h: 2 * r + 2, text: cd.dots });
+}
+// кнопка «Купить N 🪙» (или «✔ Максимум») карточки улучшения
+function upgButton(cd, x, y, w, h, size, min) {
+  const max = cd.lv >= cd.top, ok = !max && progress.coins >= cd.price;
+  const txt = max ? "✔ " + L().upgMax : `${L().buy}  ${cd.price}      `;
+  const b = fitButton(x, y, w, h, txt, max ? "#a3a3a3" : ok ? "#22c55e" : "#cbd5e1", () => buyUpgrade(cd.k), size, min);
+  b.id = "upg:" + cd.k;
+  if (!max) {
+    ctx.font = hudFont(b.size);
+    const vis = ctx.measureText(`${L().buy}  ${cd.price}`).width, full = ctx.measureText(b.text).width;
+    drawCoin(x + w / 2 - full / 2 + vis + b.size * 0.8, y + h / 2, b.size * 0.5);   // монетка после цены
+  }
+  return b;
+}
+// вкладки «Вещи» / «Улучшения»: x, y, высота h; возвращает правый край
+function shopTabs(x, y, h, size, min, gap, icons) {
+  for (const [k, t] of [["items", (icons ? "🛒 " : "") + L().itemsTab], ["upgrades", (icons ? "⭐ " : "") + L().upgradesTab]]) {
+    ctx.font = hudFont(size);
+    const w = Math.max(h, Math.min(scaledW(t), PHONE ? cpx(150) : 200) + (PHONE ? cpx(26) : 30));
+    fitButton(x, y, w, h, t, shopTab === k ? "#f59e0b" : "#cbd5e1", () => { shopTab = k; }, size, min).id = "tab:" + k;
+    x += w + gap;
+  }
+  return x - gap;
+}
+// телефон: три карточки улучшений в полосе y0…Y1. Как карточки вещей: сначала мерка (pRows), потом рисуем; не влезает — картинка
+// меньше (до picMin), потом описание и название теряют строки, в конце картинка меньше минимума; shopLayout = { tab, step, picH }
+function upgradeCardsPhone(X0, X1, y0, Y1) {
+  const c = cpx, S = CFG.PHONE_SHOP, cards = upgradeCards(), cg = c(8), n = cards.length, cw = (X1 - X0 - (n - 1) * cg) / n, tw = cw - 2 * c(S.side);
+  const ch = Y1 - y0, pad = c(S.pad), sp = c(S.sp), B = c(CFG.PHONE_BTN_MIN), bw = Math.min(c(170), cw - c(10)), eps = S.eps, dotR = c(6);
+  const bl = cards.map(cd => ({ name: clipRows(pRows(cd.name, "main", 15, tw, S.nameLines, 900), S.nameLines),
+    desc: clipRows(pRows(cd.desc, "hint", 13, tw, S.descLines, 700), S.descLines),
+    no: cd.lv < cd.top && progress.coins < cd.price ? clipRows(pRows(L().notEnough, "hint", 13, tw, S.noLines, 700), S.noLines) : null }));
+  const noH = Math.max(0, ...bl.map(b => b.no ? b.no.h + sp : 0));
+  const by = y0 + ch - pad - noH - B, avail = by - sp - (y0 + pad);
+  const slackOf = (b, p) => avail - p * S.picBox - sp - b.name.h - sp - 2 * dotR - sp - b.desc.h;
+  const slack = p => Math.min(...bl.map(b => slackOf(b, p)));
+  let picH = c(S.pic), step = 0;
+  if (slack(picH) >= 0) picH += Math.min(c(S.picGrow), slack(picH) / S.picBox);
+  else { while (picH > c(S.picMin) + eps && slack(picH) < -eps) picH -= c(S.scan); picH = Math.max(c(S.picMin), picH); }
+  const cutRows = (b, key, min, over) => {
+    if (over <= eps) return over;
+    const t = b[key], keep = Math.max(min, t.rows.length - Math.ceil(over / t.lh - eps));
+    if (keep < t.rows.length) { b[key] = clipRows(t, keep); step = 3; }
+    return over - (t.h - b[key].h);
+  };
+  bl.forEach(b => { const over = cutRows(b, "desc", 0, -slackOf(b, picH)); cutRows(b, "name", 1, over); });
+  if (slack(picH) < -eps) { step = 4; picH = Math.max(c(S.scan), picH + slack(picH) / S.picBox); }
+  shopLayout = { tab: "upgrades", step, picH: picH / cpx(1) };
+  const box = (id, b, x, y) => { if (b.rows.length) hudRects.push({ id, x: x - b.w / 2, y, w: b.w, h: b.h }); };
+  cards.forEach((cd, i) => {
+    const x0 = X0 + i * (cw + cg), cx = x0 + cw / 2, b = bl[i];
+    rr(x0, y0, cw, ch, c(16)); fillStroke("#fff", 3);
+    const pcy = y0 + pad + picH * S.picBox / 2, pw = picH * S.picW, ph = picH * S.picBox;
+    upgPicture(cd.k, cx, pcy, picH);
+    hudRects.push({ id: "upg-pic:" + cd.k, x: cx - pw / 2, y: pcy - ph / 2, w: pw, h: ph });
+    let y = y0 + pad + ph + sp;
+    box("upg-name:" + cd.k, b.name, cx, y); y += pDraw(b.name, cx, y, OUT) + sp;
+    upgDots(cd, cx, y + dotR, dotR); y += 2 * dotR + sp;
+    box("upg-desc:" + cd.k, b.desc, cx, y); pDraw(b.desc, cx, y, "#475569");
+    upgButton(cd, cx - bw / 2, by, bw, B, c(17), minPx("main"));
+    if (b.no) { const ny = by + B + sp; box("upg-no:" + cd.k, b.no, cx, ny); pDraw(b.no, cx, ny, "#ef4444"); }
+  });
+}
+// компьютер: три карточки улучшений в панели магазина (880 px), на месте карточек вещей
+function upgradeCardsDesktop() {
+  const cards = upgradeCards(), gap = 10, w = (850 - (cards.length - 1) * gap) / cards.length, y0 = 92, tw = w - 28;
+  cards.forEach((cd, i) => {
+    const x0 = UW / 2 - 425 + i * (w + gap), cx = x0 + w / 2, bw = Math.min(210, w - 20);
+    rr(x0, y0, w, 292, 22); fillStroke("#fff", 3.5);
+    upgPicture(cd.k, cx, y0 + 44, 54);
+    hudRects.push({ id: "upg-pic:" + cd.k, x: cx - 36, y: y0 + 12, w: 72, h: 64 });
+    const nm = noteRows(cd.name, 20, 12, tw, 1);
+    rowsAt("upg-name:" + cd.k, nm, cx, y0 + 82, OUT, 900);
+    upgDots(cd, cx, y0 + 124, 8);
+    rowsAt("upg-desc:" + cd.k, noteRows(cd.desc, 16, 11, tw, 3), cx, y0 + 140, "#475569");
+    upgButton(cd, cx - bw / 2, y0 + 216, bw, 50, 19, 12);
+    if (cd.lv < cd.top && progress.coins < cd.price) rowsAt("upg-no:" + cd.k, noteRows(L().notEnough, 13, 10, tw, 1), cx, y0 + 270, "#ef4444", 700);
+  });
+}
 // кнопки экрана итогов (компьютер и телефон): [надпись, цвет, действие]
 function endActions(m) {
   const menu = [L().menu, "#64748b", toMenu];
@@ -3526,27 +3926,34 @@ function drawOverlayPhone() {
     cols.forEach(col => {
       const [title, color] = titles[col.key], pnl = col.panel, isBig = col.key === "big";
       rr(col.x - c(6), Y0 - c(6), col.w + c(12), Y1 - Y0 + c(12), c(16)); fillStroke("#fff", 3);
-      pLabel(title, col.x + c(6), Y0 + B / 2, "main", 20, color, "left", col.w - (isBig ? c(12) : B + c(20)));
+      const pw = c(84);   // монетки — справа в заголовке колонки Большого (SPEC-009)
+      pLabel(title, col.x + c(6), Y0 + B / 2, "main", 20, color, "left", col.w - (isBig ? pw + c(18) : B + c(20)));
       if (!isBig) addButton(col.x + col.w - B, Y0, B, B, "🎲", "#fbbf24", () => randomOutfit("p1"), fz(18, "main"));
+      else coinPlate(col.x + col.w - pw, Y0 + c(4), pw, B - c(8));
       ctx.clearRect(pnl.x, pnl.y, pnl.w, pnl.h);              // окошко: здесь видно 3D-превью
       ctx.lineWidth = 3; ctx.strokeStyle = OUT; ctx.strokeRect(pnl.x, pnl.y, pnl.w, pnl.h);
       const row = (x, y, w, sl, list, sel, act) => {           // ◀ подпись и название ▶
         addButton(x, y, B, B, "◀", "#94a3b8", () => act(-1), fz(16, "main"));
         addButton(x + w - B, y, B, B, "▶", "#94a3b8", () => act(1), fz(16, "main"));
-        pText(L().slots[sl], x + w / 2, y + c(11), "hint", 13, w - 2 * B - c(8), "center", "#94a3b8", 800);
+        const lock = rowLock(sl, list, sel);
+        pText(slotText(sl, lock), x + w / 2, y + c(11), "hint", 13, w - 2 * B - c(8), "center", lock ? "#b45309" : "#94a3b8", 800);
         pText(list[sel].name[lang], x + w / 2, y + c(31), "main", 15, w - 2 * B - c(8), "center", OUT, 900);
       };
       if (isBig) {
         const ny = pnl.y + pnl.h + g;
-        nameLabel({ x: col.x, y: ny, w: col.w, h: B }, "big", color);
+        const nr = { x: col.x, y: ny, w: col.w, h: B };
+        // подпись — одной строкой под строкой «Вид», над кнопками
+        if (lockedItems("big").length) lookBuy("big", nr, { x: col.x, y: ny + 2 * B + g + c(3), w: col.w, lines: 1 }); else nameLabel(nr, "big", color);
         row(col.x, ny + B + g, col.w, "look", BIG_SKINS, skinSel.big, d => cycleBig(d));
         const hw = (col.w - g) / 2;
         pButton(col.x, Y1 - B, hw, B, L().ok, "#22c55e", () => { mode = "menu"; }, 18);
         pButton(col.x + hw + g, Y1 - B, hw, B, "👥 " + L().friends, "#a78bfa", openFriends, 17);
       } else {
-        pWrap(L().tapToRename, pnl.x + pnl.w / 2, pnl.y + pnl.h + c(8), "hint", 13, pnl.w, 4, "#64748b", 700);
+        // подсказка про имя — пока на месте имени не кнопка «Купить» (SPEC-009)
+        if (!lockedItems("p1").length) pWrap(L().tapToRename, pnl.x + pnl.w / 2, pnl.y + pnl.h + c(8), "hint", 13, pnl.w, 4, "#64748b", 700);
         const x = pnl.x + pnl.w + c(12), w = col.x + col.w - x;
-        nameLabel({ x, y: pnl.y, w, h: B }, "p1", color);
+        const nr = { x, y: pnl.y, w, h: B };
+        if (lockedItems("p1").length) lookBuy("p1", nr, { x: pnl.x, y: pnl.y + pnl.h + c(6), w: pnl.w, lines: 3 }); else nameLabel(nr, "p1", color);
         ["hair", "hat", "jacket", "pants"].forEach((sl, r) => row(x, pnl.y + B + g + r * (B + g), w, sl, SLOTS[sl], skinSel.p1[sl], d => cycleOutfit("p1", sl, d)));
       }
     });
@@ -3564,9 +3971,8 @@ function drawOverlayPhone() {
     pButton(UW / 2 - c(110), Y1 - B, c(220), B, "◀ " + L().skins, "#22c55e", backToSkins, 18);
   } else if (mode === "shop") {
     const { X0, X1, Y0, Y1, g, B } = phoneFrame();
-    pLabel("🛒 " + L().shop, X0 + c(4), Y0 + B / 2, "title", 26, "#f59e0b", "left");
-    const titleW = ctx.measureText("🛒 " + L().shop).width;
-    const px = X0 + c(4) + titleW + c(16), pw = c(104);
+    // SPEC-009: вкладки «Вещи» / «Улучшения» на месте заголовка
+    const px = shopTabs(X0, Y0, B, c(17), minPx("main"), g, false) + g, pw = c(96);
     rr(px, Y0 + c(4), pw, B - c(8), c(12)); fillStroke("#fff", 3);
     hudRects.push({ id: "coins", x: px, y: Y0 + c(4), w: pw, h: B - c(8) });
     drawCoin(px + c(16), Y0 + B / 2, c(10)); pText(String(progress.coins), px + c(30), Y0 + B / 2 + 1, "main", 17, pw - c(36), "left", OUT, 900);
@@ -3576,101 +3982,104 @@ function drawOverlayPhone() {
     ctx.font = hudFont(cpx(CFG.PHONE_TEXT.main));
     const rW = Math.min(rx1 - rMin, Math.max(c(110), ctx.measureText(rTxt).width + c(20)));
     pButton(rx1 - rW, Y0, rW, B, rTxt, resetArmed ? "#ef4444" : "#94a3b8", resetProgress, 15);
-    // четыре карточки в ряд: рукавицы, мега-рукавицы, воздушные поцелуи, спасалка (SPEC-007). Сверху картинка, название,
-    // описание; снизу (к кнопке) набор и «у вас»; кнопки «Купить» на одной высоте, под ними «не хватает монеток».
-    // Места мало (узкий телефон, широкий шрифт, длинные тексты) — уступаем по шагам, теряя как можно меньше (AC 10):
-    // 1) картинка меньше; 2) «у вас» → кружок с числом у картинки; 3) набор коротко («📦 ×3»); 4) описание теряет строки («…»).
-    const S = CFG.PHONE_SHOP, cards = shopCards(), cg = c(8), nC = cards.length, cw = (X1 - X0 - (nC - 1) * cg) / nC, tw = cw - 2 * c(S.side);
-    const y0 = Y0 + B + cg, ch = Y1 - B - g - y0, pad = c(S.pad), sp = c(S.sp), bw = Math.min(c(160), cw - c(10)), eps = S.eps;
-    let br = c(S.badge);
-    const bl = cards.map(cd => ({ name: clipRows(pRows(cd.name, "main", 15, tw, S.nameLines, 900), S.nameLines),
-      desc: clipRows(pRows(cd.desc, "hint", 13, tw, S.descLines, 700), S.descLines),
-      pack: clipRows(pRows(cd.pack, "hint", 13, tw, S.packLines, 600), S.packLines),
-      packShort: clipRows(pRows(L().packShort(cd.packN), "hint", 13, tw, S.shortLines, 600), S.shortLines),
-      have: clipRows(pRows(cd.have, "hint", 13, tw, S.haveLines, 800), S.haveLines),
-      no: progress.coins >= cd.price ? null : clipRows(pRows(L().notEnough, "hint", 13, tw, S.noLines, 700), S.noLines) }));
-    const noH = Math.max(0, ...bl.map(b => b.no ? b.no.h + sp : 0));
-    const by = y0 + ch - pad - noH - B;                                      // кнопки «Купить» — одна высота
-    const avail = by - sp - (y0 + pad);                                      // картинка и тексты над кнопкой
-    const rowH = (p, m) => Math.max(p * S.picBox, m.badge ? 2 * br : 0);     // верхний ряд: картинка (и кружок рядом)
-    const packOf = (b, m) => m.short ? b.packShort : b.pack;
-    const lowH = (b, m) => packOf(b, m).h + (m.badge ? 0 : b.have.h);
-    const slackOf = (b, p, m) => avail - rowH(p, m) - sp - b.name.h - b.desc.h - sp - lowH(b, m);
-    const slack = (p, m) => Math.min(...bl.map(b => slackOf(b, p, m)));
-    const steps = [{ badge: false, short: false }, { badge: true, short: false }, { badge: true, short: true }];
-    const pBase = c(S.pic), pMin = c(S.picMin);
-    let m = steps[0], picH = pBase;
-    if (slack(pBase, m) >= 0) picH = pBase + Math.min(c(S.picGrow), slack(pBase, m) / S.picBox);   // место есть — картинка крупнее
+    if (shopTab === "upgrades") upgradeCardsPhone(X0, X1, Y0 + B + c(8), Y1);
     else {
-      let found = null;                                                      // самая крупная картинка, при которой всё влезает
-      for (const st of steps) {
-        m = st;
-        for (let p = pBase; p >= pMin - eps && found === null; p -= c(S.scan)) if (slack(p, m) >= 0) found = p;
-        if (found !== null) break;
+      // четыре карточки в ряд: рукавицы, мега-рукавицы, воздушные поцелуи, спасалка (SPEC-007). Сверху картинка, название,
+      // описание; снизу (к кнопке) набор и «у вас»; кнопки «Купить» на одной высоте, под ними «не хватает монеток».
+      // Места мало (узкий телефон, широкий шрифт, длинные тексты) — уступаем по шагам, теряя как можно меньше (AC 10):
+      // 1) картинка меньше; 2) «у вас» → кружок с числом у картинки; 3) набор коротко («📦 ×3»); 4) описание теряет строки («…»).
+      const S = CFG.PHONE_SHOP, cards = shopCards(), cg = c(8), nC = cards.length, cw = (X1 - X0 - (nC - 1) * cg) / nC, tw = cw - 2 * c(S.side);
+      const y0 = Y0 + B + cg, ch = Y1 - B - g - y0, pad = c(S.pad), sp = c(S.sp), bw = Math.min(c(160), cw - c(10)), eps = S.eps;
+      let br = c(S.badge);
+      const bl = cards.map(cd => ({ name: clipRows(pRows(cd.name, "main", 15, tw, S.nameLines, 900), S.nameLines),
+        desc: clipRows(pRows(cd.desc, "hint", 13, tw, S.descLines, 700), S.descLines),
+        pack: clipRows(pRows(cd.pack, "hint", 13, tw, S.packLines, 600), S.packLines),
+        packShort: clipRows(pRows(L().packShort(cd.packN), "hint", 13, tw, S.shortLines, 600), S.shortLines),
+        have: clipRows(pRows(cd.have, "hint", 13, tw, S.haveLines, 800), S.haveLines),
+        no: progress.coins >= cd.price ? null : clipRows(pRows(L().notEnough, "hint", 13, tw, S.noLines, 700), S.noLines) }));
+      const noH = Math.max(0, ...bl.map(b => b.no ? b.no.h + sp : 0));
+      const by = y0 + ch - pad - noH - B;                                      // кнопки «Купить» — одна высота
+      const avail = by - sp - (y0 + pad);                                      // картинка и тексты над кнопкой
+      const rowH = (p, m) => Math.max(p * S.picBox, m.badge ? 2 * br : 0);     // верхний ряд: картинка (и кружок рядом)
+      const packOf = (b, m) => m.short ? b.packShort : b.pack;
+      const lowH = (b, m) => packOf(b, m).h + (m.badge ? 0 : b.have.h);
+      const slackOf = (b, p, m) => avail - rowH(p, m) - sp - b.name.h - b.desc.h - sp - lowH(b, m);
+      const slack = (p, m) => Math.min(...bl.map(b => slackOf(b, p, m)));
+      const steps = [{ badge: false, short: false }, { badge: true, short: false }, { badge: true, short: true }];
+      const pBase = c(S.pic), pMin = c(S.picMin);
+      let m = steps[0], picH = pBase;
+      if (slack(pBase, m) >= 0) picH = pBase + Math.min(c(S.picGrow), slack(pBase, m) / S.picBox);   // место есть — картинка крупнее
+      else {
+        let found = null;                                                      // самая крупная картинка, при которой всё влезает
+        for (const st of steps) {
+          m = st;
+          for (let p = pBase; p >= pMin - eps && found === null; p -= c(S.scan)) if (slack(p, m) >= 0) found = p;
+          if (found !== null) break;
+        }
+        picH = found ?? pMin;
       }
-      picH = found ?? pMin;
-    }
-    // шаг: 0 — всё полностью, 1 — кружок «у вас», 2 — и набор коротко, 3 — описание/название обрезаны, 4 — последний шаг
-    let stepUsed = steps.indexOf(m);
-    // всё ещё тесно (очень широкий шрифт) — описание теряет строки, потом название — до одной строки
-    const cutRows = (b, key, min, over) => {
-      if (over <= eps) return over;
-      const t = b[key], keep = Math.max(min, t.rows.length - Math.ceil(over / t.lh - eps));
-      if (keep < t.rows.length) { b[key] = clipRows(t, keep); stepUsed = Math.max(stepUsed, 3); }
-      return over - (t.h - b[key].h);
-    };
-    bl.forEach(b => { let over = -slackOf(b, picH, m); over = cutRows(b, "desc", 0, over); cutRows(b, "name", 1, over); });
-    // последний шаг — всегда без наложений: кружок не выше картинки, набор — до одной строки и совсем без него,
-    // и (только если и это не помогло) картинка меньше своего минимума
-    if (slack(picH, m) < -eps) {
-      stepUsed = 4;
-      if (m.badge) br = Math.max(c(S.badgeMin), Math.min(br, picH * S.picBox / 2));
-      const pk = m.short ? "packShort" : "pack";
-      bl.forEach(b => { let over = -slackOf(b, picH, m); over = cutRows(b, pk, 1, over); cutRows(b, pk, 0, over); });
-      if (slack(picH, m) < -eps) { picH = Math.max(c(S.scan), picH + slack(picH, m) / S.picBox); if (m.badge) br = Math.min(br, picH * S.picBox / 2); }
-    }
-    stepUsed = Math.max(stepUsed, 0);
-    shopLayout = { step: stepUsed, badge: m.badge, short: m.short, picH: picH / cpx(1), badgeR: br / cpx(1),
-      packs: bl.map(b => packOf(b, m).rows.join(" ")) };
-    const top = rowH(picH, m);
-    const box = (id, b, x, y) => { if (b.rows.length) hudRects.push({ id, x: x - b.w / 2, y, w: b.w, h: b.h }); };   // части карточек: тест проверяет, что не налезают
-    cards.forEach((cd, i) => {
-      const x0 = X0 + i * (cw + cg), cx = x0 + cw / 2, b = bl[i];
-      rr(x0, y0, cw, ch, c(16)); fillStroke("#fff", 3);
-      const pcy = y0 + pad + top / 2, pw = picH * S.picW, ph = picH * S.picBox;
-      shopPicture(cd.k, cx, pcy, picH);
-      hudRects.push({ id: "card-pic:" + cd.k, x: cx - pw / 2, y: pcy - ph / 2, w: pw, h: ph });
-      if (m.badge) {                                                         // сколько есть — кружок с числом справа от картинки
-        const bx = cx + pw / 2 + c(S.gap) + br;
-        circle(bx, pcy, br); fillStroke(cd.n > 0 ? "#16a34a" : "#94a3b8", 2.5);
-        noteText("hint", fitText(String(cd.n), bx, pcy + 1, minPx("hint"), br * 1.7, "center", "#fff", 900, minPx("hint")));
-        hudRects.push({ id: "card-badge:" + cd.k, x: bx - br, y: pcy - br, w: 2 * br, h: 2 * br });
+      // шаг: 0 — всё полностью, 1 — кружок «у вас», 2 — и набор коротко, 3 — описание/название обрезаны, 4 — последний шаг
+      let stepUsed = steps.indexOf(m);
+      // всё ещё тесно (очень широкий шрифт) — описание теряет строки, потом название — до одной строки
+      const cutRows = (b, key, min, over) => {
+        if (over <= eps) return over;
+        const t = b[key], keep = Math.max(min, t.rows.length - Math.ceil(over / t.lh - eps));
+        if (keep < t.rows.length) { b[key] = clipRows(t, keep); stepUsed = Math.max(stepUsed, 3); }
+        return over - (t.h - b[key].h);
+      };
+      bl.forEach(b => { let over = -slackOf(b, picH, m); over = cutRows(b, "desc", 0, over); cutRows(b, "name", 1, over); });
+      // последний шаг — всегда без наложений: кружок не выше картинки, набор — до одной строки и совсем без него,
+      // и (только если и это не помогло) картинка меньше своего минимума
+      if (slack(picH, m) < -eps) {
+        stepUsed = 4;
+        if (m.badge) br = Math.max(c(S.badgeMin), Math.min(br, picH * S.picBox / 2));
+        const pk = m.short ? "packShort" : "pack";
+        bl.forEach(b => { let over = -slackOf(b, picH, m); over = cutRows(b, pk, 1, over); cutRows(b, pk, 0, over); });
+        if (slack(picH, m) < -eps) { picH = Math.max(c(S.scan), picH + slack(picH, m) / S.picBox); if (m.badge) br = Math.min(br, picH * S.picBox / 2); }
       }
-      let y = y0 + pad + top + sp;
-      box("card-name:" + cd.k, b.name, cx, y); y += pDraw(b.name, cx, y, OUT);
-      box("card-desc:" + cd.k, b.desc, cx, y); pDraw(b.desc, cx, y, "#475569");
-      let yl = by - sp - (m.badge ? 0 : b.have.h);
-      if (!m.badge) { box("card-have:" + cd.k, b.have, cx, yl); pDraw(b.have, cx, yl, cd.n > 0 ? "#15803d" : "#94a3b8"); }
-      const pk = packOf(b, m);
-      yl -= pk.h;
-      box("card-pack:" + cd.k, pk, cx, yl); pDraw(pk, cx, yl, "#64748b");
-      const ok = !b.no, txt = `${L().buy}  ${cd.price}      `;
-      const btn = pButton(cx - bw / 2, by, bw, B, txt, ok ? "#22c55e" : "#cbd5e1", cd.buy, 17);
-      btn.id = "buy:" + cd.k;
-      ctx.font = hudFont(btn.size);
-      const vis = ctx.measureText(`${L().buy}  ${cd.price}`).width, full = ctx.measureText(txt).width;
-      drawCoin(cx - full / 2 + vis + c(14), by + B / 2, c(9));                // монетка после цены
-      if (b.no) { const ny = by + B + sp; box("card-no:" + cd.k, b.no, cx, ny); pDraw(b.no, cx, ny, "#ef4444"); }
-    });
-    // кто что надевает (на телефоне — только игрок 1)
-    const wy = y0 + ch + g, wl = `${L().player1} ${L().wears}:`;
-    pLabel(wl, X0 + c(4), wy + B / 2, "main", 17, P_COLORS[0], "left");
-    const lw = ctx.measureText(wl).width;
-    ["none", "mittens", "mega"].forEach((k, j) => {
-      const on = progress.equip[0] === k, bw = c(118), bx = X0 + c(4) + lw + c(16) + j * (bw + g);
-      addButton(bx, wy, bw, B, k === "none" ? L().none : "", on ? "#ff6fa8" : "#cbd5e1", () => setEquip(0, k), fz(16, "main"));
-      if (k !== "none") { drawMitten(bx + c(28), wy + B / 2, c(26), k); pLabel("×" + progress.inv[k], bx + c(72), wy + B / 2, "main", 16, "#fff"); }
-    });
+      stepUsed = Math.max(stepUsed, 0);
+      shopLayout = { step: stepUsed, badge: m.badge, short: m.short, picH: picH / cpx(1), badgeR: br / cpx(1),
+        packs: bl.map(b => packOf(b, m).rows.join(" ")) };
+      const top = rowH(picH, m);
+      const box = (id, b, x, y) => { if (b.rows.length) hudRects.push({ id, x: x - b.w / 2, y, w: b.w, h: b.h }); };   // части карточек: тест проверяет, что не налезают
+      cards.forEach((cd, i) => {
+        const x0 = X0 + i * (cw + cg), cx = x0 + cw / 2, b = bl[i];
+        rr(x0, y0, cw, ch, c(16)); fillStroke("#fff", 3);
+        const pcy = y0 + pad + top / 2, pw = picH * S.picW, ph = picH * S.picBox;
+        shopPicture(cd.k, cx, pcy, picH);
+        hudRects.push({ id: "card-pic:" + cd.k, x: cx - pw / 2, y: pcy - ph / 2, w: pw, h: ph });
+        if (m.badge) {                                                         // сколько есть — кружок с числом справа от картинки
+          const bx = cx + pw / 2 + c(S.gap) + br;
+          circle(bx, pcy, br); fillStroke(cd.n > 0 ? "#16a34a" : "#94a3b8", 2.5);
+          noteText("hint", fitText(String(cd.n), bx, pcy + 1, minPx("hint"), br * 1.7, "center", "#fff", 900, minPx("hint")));
+          hudRects.push({ id: "card-badge:" + cd.k, x: bx - br, y: pcy - br, w: 2 * br, h: 2 * br });
+        }
+        let y = y0 + pad + top + sp;
+        box("card-name:" + cd.k, b.name, cx, y); y += pDraw(b.name, cx, y, OUT);
+        box("card-desc:" + cd.k, b.desc, cx, y); pDraw(b.desc, cx, y, "#475569");
+        let yl = by - sp - (m.badge ? 0 : b.have.h);
+        if (!m.badge) { box("card-have:" + cd.k, b.have, cx, yl); pDraw(b.have, cx, yl, cd.n > 0 ? "#15803d" : "#94a3b8"); }
+        const pk = packOf(b, m);
+        yl -= pk.h;
+        box("card-pack:" + cd.k, pk, cx, yl); pDraw(pk, cx, yl, "#64748b");
+        const ok = !b.no, txt = `${L().buy}  ${cd.price}      `;
+        const btn = pButton(cx - bw / 2, by, bw, B, txt, ok ? "#22c55e" : "#cbd5e1", cd.buy, 17);
+        btn.id = "buy:" + cd.k;
+        ctx.font = hudFont(btn.size);
+        const vis = ctx.measureText(`${L().buy}  ${cd.price}`).width, full = ctx.measureText(txt).width;
+        drawCoin(cx - full / 2 + vis + c(14), by + B / 2, c(9));                // монетка после цены
+        if (b.no) { const ny = by + B + sp; box("card-no:" + cd.k, b.no, cx, ny); pDraw(b.no, cx, ny, "#ef4444"); }
+      });
+      // кто что надевает (на телефоне — только игрок 1)
+      const wy = y0 + ch + g, wl = `${L().player1} ${L().wears}:`;
+      pLabel(wl, X0 + c(4), wy + B / 2, "main", 17, P_COLORS[0], "left");
+      const lw = ctx.measureText(wl).width;
+      ["none", "mittens", "mega"].forEach((k, j) => {
+        const on = progress.equip[0] === k, bw = c(118), bx = X0 + c(4) + lw + c(16) + j * (bw + g);
+        addButton(bx, wy, bw, B, k === "none" ? L().none : "", on ? "#ff6fa8" : "#cbd5e1", () => setEquip(0, k), fz(16, "main"));
+        if (k !== "none") { drawMitten(bx + c(28), wy + B / 2, c(26), k); pLabel("×" + progress.inv[k], bx + c(72), wy + B / 2, "main", 16, "#fff"); }
+      });
+    }
   } else if (mode === "pause") {
     const bw = c(180), bh = c(60), g = c(16);
     pLabel(L().pause, UW / 2, UH / 2 - c(56), "title", 44, "#fff");
@@ -3678,20 +4087,18 @@ function drawOverlayPhone() {
     pButton(UW / 2 + g / 2, UH / 2, bw, bh, L().menu, "#64748b", toMenu, 24);
   } else if (mode === "win" || mode === "lose") {
     // слева — заголовок и звёзды, справа — итоги и монетки, внизу — кнопки
-    const { X0, X1, Y0, Y1, g } = phoneFrame(false), lx = X0 + (X1 - X0) * 0.27, rx = X0 + (X1 - X0) * 0.72, colW = (X1 - X0) * 0.46;
+    const { X0, X1, Y0, Y1, g } = phoneFrame(false), lx = X0 + (X1 - X0) * 0.27, rx = X0 + (X1 - X0) * 0.72, colW = (X1 - X0) * 0.44;
     const rw = lastReward || { stars: 1, coins: 0, nobodyOut: false, fast: false, target: 0 }, bh = c(56);
     let acts;
     if (mode === "win") {
+      // слева: заголовок, строка под ним, звёзды и за что они; справа — строки награды и итог (SPEC-009)
       pLabel(L().win, lx, Y0 + c(30), "title", 40, "#ffcf33", "center", colW);
       pWrap(winText(), lx, Y0 + c(58), "main", 16, colW, 2, "#fff", 900);
-      for (let k = 0; k < CFG.STARS_PER_LEVEL; k++) drawStar(lx - c(56) + k * c(56), Y0 + c(140), c(22), k < rw.stars);
+      for (let k = 0; k < CFG.STARS_PER_LEVEL; k++) drawStar(lx - c(56) + k * c(56), Y0 + c(138), c(21), k < rw.stars);
       [[true, L().victory], [rw.nobodyOut, L().nobodyOut], [rw.fast, L().fast(fmtTime(rw.target))]].forEach(([okk, txt], i) => {
-        pLabel((okk ? "✔ " : "✘ ") + txt, rx, Y0 + c(26) + i * c(28), "main", 16, okk ? "#bbf7d0" : "#cbd5e1", "center", colW);
+        pLabel((okk ? "✔ " : "✘ ") + txt, lx, Y0 + c(178) + i * c(26), "main", 15, okk ? "#bbf7d0" : "#cbd5e1", "center", colW);
       });
-      drawCoin(rx - c(36), Y0 + c(122), c(15)); pLabel("+" + rw.coins, rx - c(14), Y0 + c(122), "title", 28, "#fde047", "left");
-      let ly = Y0 + c(156);
-      if (rw.starCoins > 0) { pLabel("✨ " + L().starCoins(rw.starCoins), rx, ly, "main", 16, "#fde047", "center", colW); ly += c(26); }
-      if (rw.penalty > 0) pLabel(L().restPenalty(rw.penalty), rx, ly, "main", 15, "#fca5a5", "center", colW);
+      drawRewardLines(rw, rx - colW / 2, Y0 + c(14), colW, c(28), c(17), cpx(CFG.PHONE_TEXT.main), c(26), cpx(CFG.PHONE_TEXT.title));
       acts = endActions("win").map((a, i) => [...a, c([200, 150, 150][i])]);
     } else {
       pLabel(L().lose, lx, Y0 + c(40), "title", 36, "#fca5a5", "center", colW);
@@ -3738,8 +4145,8 @@ function drawOverlay() {
     typeLabel = { text: tName, x: UW / 2 + 135 - tw / 2, y: tY - tSize / 2, w: tw, h: tSize, size: tSize, rulesBottom: CARD_Y + CARD_H };
     // монетки и звёзды
     rr(UW / 2 - 345, 118, 170, 34, 14); fillStroke("#fff", 3);
-    drawCoin(UW / 2 - 322, 135, 11); label(String(progress.coins), UW / 2 - 304, 135, 18, OUT, "left");
-    drawStar(UW / 2 - 235, 135, 11, true); label(String(totalStars()), UW / 2 - 220, 135, 18, OUT, "left");
+    drawCoin(UW / 2 - 322, 135, 11); plainText(String(progress.coins), UW / 2 - 304, 135, 18);
+    drawStar(UW / 2 - 235, 135, 11, true); plainText(String(totalStars()), UW / 2 - 220, 135, 18);
     addButton(UW / 2 - 250, 428, 230, 58, L().onePlayer, "#3b82f6", () => startGame(1), 28);
     addButton(UW / 2 + 20, 428, 230, 58, L().twoPlayers, "#22c55e", () => startGame(2), 28);
     addButton(UW / 2 - 250, 496, 230, 44, "🎨 " + L().skins, "#ff8fab", () => { mode = "skins"; }, 20);
@@ -3756,6 +4163,7 @@ function drawOverlay() {
   } else if (mode === "skins") {
     rr(UW / 2 - 400, 26, 800, 590, 30); fillStroke("rgba(255,250,235,.96)", 5);
     label("🎨 " + L().skins, UW / 2, 62, 34, "#ff6fa8");
+    coinPlate(UW / 2 + 230, 44, 150, 36);   // SPEC-009: на что хватает монеток
     const panels = skinPanels();
     const cols = { p1: [L().player1, P_COLORS[0]], p2: [L().player2, P_COLORS[1]], big: [L().big, "#9b2c3a"] };
     panels.forEach((pnl, i) => {
@@ -3765,12 +4173,15 @@ function drawOverlay() {
       if (key !== "big") addButton(cx + 62, 96, 42, 32, "🎲", "#fbbf24", () => randomOutfit(key), 18);
       ctx.clearRect(pnl.x, pnl.y, pnl.w, pnl.h);              // окошко: здесь видно 3D-превью
       ctx.lineWidth = 3; ctx.strokeStyle = OUT; ctx.strokeRect(pnl.x, pnl.y, pnl.w, pnl.h);
-      nameLabel({ x: pnl.x, y: pnl.y + pnl.h + 8, w: pnl.w, h: 36 }, key, color);   // имя под превью — тап, чтобы поменять
+      // имя под превью — тап, чтобы поменять; пока примерено некупленное — на его месте «Купить N» (SPEC-009)
+      const nr = { x: pnl.x, y: pnl.y + pnl.h + 8, w: pnl.w, h: 36 };
+      if (lockedItems(key).length) lookBuy(key, nr, { x: pnl.x + 4, y: pnl.y + pnl.h - 4, w: pnl.w - 8, lines: 3, bottom: true }); else nameLabel(nr, key, color);
       const rows = key === "big" ? [["look", BIG_SKINS, skinSel.big, d => cycleBig(d)]]
         : ["hair", "hat", "jacket", "pants"].map(sl => [sl, SLOTS[sl], skinSel[key][sl], d => cycleOutfit(key, sl, d)]);
       rows.forEach(([sl, list, sel, act], r) => {
         const y = 336 + r * 54;
-        fitText(L().slots[sl], cx, y, 12, 200, "center", "#94a3b8", 800);
+        const lock = rowLock(sl, list, sel);
+        fitText(slotText(sl, lock), cx, y, 12, 200, "center", lock ? "#b45309" : "#94a3b8", 800);
         addButton(cx - 108, y + 10, 40, 34, "◀", "#94a3b8", () => act(-1), 15);
         addButton(cx + 68, y + 10, 40, 34, "▶", "#94a3b8", () => act(1), 15);
         fitText(list[sel].name[lang], cx, y + 28, 15, 130, "center", OUT, 900);
@@ -3793,39 +4204,42 @@ function drawOverlay() {
     addButton(UW / 2 - 110, 506, 220, 54, "◀ " + L().skins, "#22c55e", backToSkins, 20);
   } else if (mode === "shop") {
     rr(UW / 2 - 440, 26, 880, 590, 30); fillStroke("rgba(255,250,235,.96)", 5);
-    label("🛒 " + L().shop, UW / 2, 64, 34, "#f59e0b");
+    shopTabs(UW / 2 - 205, 41, 46, 20, 12, 10, true);   // SPEC-009: вкладки на месте заголовка
     rr(UW / 2 + 250, 46, 150, 38, 14); fillStroke("#fff", 3);
-    drawCoin(UW / 2 + 274, 65, 12); label(String(progress.coins), UW / 2 + 294, 65, 20, OUT, "left");
-    // четыре карточки: рукавицы, мега-рукавицы, воздушные поцелуи, спасалка (SPEC-007)
-    const cards = shopCards(), gap = 10, w = (850 - (cards.length - 1) * gap) / cards.length;
-    cards.forEach((c, i) => {
-      const x0 = UW / 2 - 425 + i * (w + gap), cx = x0 + w / 2, y0 = 92, bw = Math.min(190, w - 20);
-      rr(x0, y0, w, 292, 22); fillStroke("#fff", 3.5);
-      shopPicture(c.k, cx, y0 + 44, 62);
-      wrapText(c.name, cx, y0 + 93, 18, w - 20, 2, OUT, 900);
-      wrapText(c.desc, cx, y0 + 140, 14, w - 22, 2, "#475569", 700);
-      fitText(c.pack, cx, y0 + 182, 13, w - 22, "center", "#64748b", 600);
-      fitText(c.have, cx, y0 + 202, 14, w - 22, "center", c.n > 0 ? "#15803d" : "#94a3b8", 800);
-      const ok = progress.coins >= c.price, txt = `${L().buy}  ${c.price}      `;
-      ctx.font = `900 19px system-ui, "Segoe UI", "Arial Rounded MT Bold", Arial, sans-serif`;
-      let fs = 19;
-      while (ctx.measureText(txt).width > bw - 12 && fs > 14) { fs -= 0.5; ctx.font = `900 ${fs}px system-ui, "Segoe UI", "Arial Rounded MT Bold", Arial, sans-serif`; }
-      addButton(cx - bw / 2, y0 + 216, bw, 50, txt, ok ? "#22c55e" : "#cbd5e1", c.buy, fs).id = "buy:" + c.k;
-      ctx.font = `900 ${fs}px system-ui, "Segoe UI", "Arial Rounded MT Bold", Arial, sans-serif`;
-      const vis = ctx.measureText(`${L().buy}  ${c.price}`).width, full = ctx.measureText(txt).width;
-      drawCoin(cx - full / 2 + vis + fs * 0.85, y0 + 242, 10);                 // монетка после цены
-      if (!ok) fitText(L().notEnough, cx, y0 + 279, 12, w - 22, "center", "#ef4444", 700);
-    });
-    // кто что надевает
-    [0, 1].forEach(pi => {
-      const y = 398 + pi * 60;
-      label(`${pi === 0 ? L().player1 : L().player2} ${L().wears}:`, UW / 2 - 360, y + 24, 17, P_COLORS[pi], "left");
-      ["none", "mittens", "mega"].forEach((k, j) => {
-        const on = progress.equip[pi] === k, bx = UW / 2 - 110 + j * 165;
-        addButton(bx, y, 155, 48, k === "none" ? L().none : "", on ? "#ff6fa8" : "#cbd5e1", () => setEquip(pi, k), 16);
-        if (k !== "none") { drawMitten(bx + 34, y + 24, 30, k); label("×" + progress.inv[k], bx + 90, y + 24, 16, "#fff"); }
+    drawCoin(UW / 2 + 274, 65, 12); plainText(String(progress.coins), UW / 2 + 294, 65, 20);
+    if (shopTab === "upgrades") upgradeCardsDesktop();
+    else {
+      // четыре карточки: рукавицы, мега-рукавицы, воздушные поцелуи, спасалка (SPEC-007)
+      const cards = shopCards(), gap = 10, w = (850 - (cards.length - 1) * gap) / cards.length;
+      cards.forEach((c, i) => {
+        const x0 = UW / 2 - 425 + i * (w + gap), cx = x0 + w / 2, y0 = 92, bw = Math.min(190, w - 20);
+        rr(x0, y0, w, 292, 22); fillStroke("#fff", 3.5);
+        shopPicture(c.k, cx, y0 + 44, 62);
+        wrapText(c.name, cx, y0 + 93, 18, w - 20, 2, OUT, 900);
+        wrapText(c.desc, cx, y0 + 140, 14, w - 22, 2, "#475569", 700);
+        fitText(c.pack, cx, y0 + 182, 13, w - 22, "center", "#64748b", 600);
+        fitText(c.have, cx, y0 + 202, 14, w - 22, "center", c.n > 0 ? "#15803d" : "#94a3b8", 800);
+        const ok = progress.coins >= c.price, txt = `${L().buy}  ${c.price}      `;
+        ctx.font = `900 19px system-ui, "Segoe UI", "Arial Rounded MT Bold", Arial, sans-serif`;
+        let fs = 19;
+        while (ctx.measureText(txt).width > bw - 12 && fs > 14) { fs -= 0.5; ctx.font = `900 ${fs}px system-ui, "Segoe UI", "Arial Rounded MT Bold", Arial, sans-serif`; }
+        addButton(cx - bw / 2, y0 + 216, bw, 50, txt, ok ? "#22c55e" : "#cbd5e1", c.buy, fs).id = "buy:" + c.k;
+        ctx.font = `900 ${fs}px system-ui, "Segoe UI", "Arial Rounded MT Bold", Arial, sans-serif`;
+        const vis = ctx.measureText(`${L().buy}  ${c.price}`).width, full = ctx.measureText(txt).width;
+        drawCoin(cx - full / 2 + vis + fs * 0.85, y0 + 242, 10);                 // монетка после цены
+        if (!ok) fitText(L().notEnough, cx, y0 + 279, 12, w - 22, "center", "#ef4444", 700);
       });
-    });
+      // кто что надевает
+      [0, 1].forEach(pi => {
+        const y = 398 + pi * 60;
+        label(`${pi === 0 ? L().player1 : L().player2} ${L().wears}:`, UW / 2 - 360, y + 24, 17, P_COLORS[pi], "left");
+        ["none", "mittens", "mega"].forEach((k, j) => {
+          const on = progress.equip[pi] === k, bx = UW / 2 - 110 + j * 165;
+          addButton(bx, y, 155, 48, k === "none" ? L().none : "", on ? "#ff6fa8" : "#cbd5e1", () => setEquip(pi, k), 16);
+          if (k !== "none") { drawMitten(bx + 34, y + 24, 30, k); label("×" + progress.inv[k], bx + 90, y + 24, 16, "#fff"); }
+        });
+      });
+    }
     addButton(UW / 2 - 100, 540, 200, 50, L().ok, "#22c55e", () => { mode = "menu"; }, 22);
     addButton(UW / 2 + 200, 548, 180, 36, resetArmed ? L().sure : L().reset, resetArmed ? "#ef4444" : "#94a3b8", resetProgress, 13);
   } else if (mode === "pause") {
@@ -3835,15 +4249,14 @@ function drawOverlay() {
   } else if (mode === "win") {
     label(L().win, UW / 2, 92, 72, "#ffcf33");
     label(winText(), UW / 2, 146, 22, "#fff");
-    const rw = lastReward || { stars: 1, coins: 0, nobodyOut: false, fast: false, target: 0 };
-    for (let k = 0; k < CFG.STARS_PER_LEVEL; k++) drawStar(UW / 2 - 80 + k * 80, 214, 32, k < rw.stars);
+    const rw = lastReward || { stars: 1, coins: 0, nobodyOut: false, fast: false, target: 0, parts: [] };
+    // слева — звёзды и за что они, справа — строки награды и итог (SPEC-009)
+    const lx = UW / 2 - 190;
+    for (let k = 0; k < CFG.STARS_PER_LEVEL; k++) drawStar(lx - 80 + k * 80, 214, 32, k < rw.stars);
     [[true, L().victory], [rw.nobodyOut, L().nobodyOut], [rw.fast, L().fast(fmtTime(rw.target))]].forEach(([okk, txt], i) => {
-      label((okk ? "✔ " : "✘ ") + txt, UW / 2, 274 + i * 28, 18, okk ? "#bbf7d0" : "#cbd5e1");
+      labelFit((okk ? "✔ " : "✘ ") + txt, lx, 274 + i * 30, 18, 340, okk ? "#bbf7d0" : "#cbd5e1");
     });
-    drawCoin(UW / 2 - 40, 362, 18); label("+" + rw.coins, UW / 2 - 14, 362, 30, "#fde047", "left");
-    let ly = 394;
-    if (rw.starCoins > 0) { label("✨ " + L().starCoins(rw.starCoins), UW / 2, ly, 16, "#fde047"); ly += 22; }
-    if (rw.penalty > 0) label(L().restPenalty(rw.penalty), UW / 2, ly, 15, "#fca5a5");
+    drawRewardLines(rw, UW / 2 + 20, 186, 340, 30, 19, 12, 26, 16);
     const acts = endActions("win");
     const geo = acts.length === 3 ? [[UW / 2 - 360, 440, 260, 66, 24], [UW / 2 - 85, 440, 200, 66, 22], [UW / 2 + 130, 440, 200, 66, 22]]
       : [[UW / 2 - 240, 440, 260, 66, 24], [UW / 2 + 40, 440, 200, 66, 22]];
@@ -3942,7 +4355,8 @@ function drawBanner() {
 function drawUI(t) {
   draws++;
   if (nameInput && mode !== "skins" && mode !== "names") closeNameInput(false);
-  buttons = []; installHintShown = false; typeLabel = null; worldCards = []; winLine = ""; mmShown = false; edgeArrows = []; hudRects = []; textSizes = {}; bannerRect = null; kitHintRect = null; shopLayout = null;
+  buttons = []; installHintShown = false; typeLabel = null; worldCards = []; winLine = ""; mmShown = false; edgeArrows = []; hudRects = []; textSizes = {}; bannerRect = null; kitHintRect = null; shopLayout = null; winPanel = null;
+  if (mode !== "shop") shopTab = "items";
   ctx.setTransform(VIEW, 0, 0, VIEW, 0, 0);
   ctx.clearRect(0, 0, UW, UH);
   if (mode !== "menu" && mode !== "skins" && mode !== "names" && mode !== "shop") { drawMarkers(t); drawFx(); drawHUD(t); }
@@ -5281,6 +5695,7 @@ function frame(now) {
   if (simMode) { requestAnimationFrame(frame); return; }   // sim: ни логики, ни рисования — игру шагает simRun
   T += dt;
   pollPads();
+  if (mode !== "skins" && mode !== "names" && endTryOn()) resetWorld(numPlayers);   // SPEC-009: ушли с экрана нарядов (не к друзьям) — примерка кончилась
   const portrait = isTouch && window.innerHeight > window.innerWidth;
   if (mode === "play" && !portrait) update(dt);
   else { updateFx(dt); if (mode === "menu" || mode === "skins" || mode === "names" || mode === "shop") big.dir += dt * 0.8; }
@@ -5314,10 +5729,16 @@ window.__bb = {
   changeLevel, get winLine() { return winLine; }, selectWorld, get worldCards() { return worldCards.map(q => ({ ...q })); },
   update, inSafe, I18N, startGame, resetWorld, cycleOutfit, randomOutfit, cycleBig, setLang, toScreen,
   get items() { return items; }, get progress() { return progress; }, buyGloves, setEquip, get lastReward() { return lastReward; }, spawnItem,
+  UPGRADES, buyUpgrade, get upgrades() { return { ...progress.upgrades }; }, get shopTab() { return shopTab; }, set shopTab(v) { if (v === "items" || v === "upgrades") shopTab = v; },   // SPEC-009
+  WARDROBE_TIERS, buyLook, resetOutfits, get outfits() { return { shown: cloneSkins(skinSel), saved: cloneSkins(skinKeep) }; },   // SPEC-009: гардероб
+  wardrobe: () => ({ hat: HATS.map(({ id, price }) => ({ id, price })), jacket: JACKETS.map(({ id, price }) => ({ id, price })),
+    pants: PANTS.map(({ id, price }) => ({ id, price })), big: BIG_SKINS.map(({ id, price }) => ({ id, price })), hairs: HAIRS.length }),
+  REWARD, get winPanel() { return winPanel && { ...winPanel }; },   // SPEC-009: числа награды; рамка строк награды на экране победы
   seedRandom,     // SPEC-008: seedRandom(n) — игровая случайность rng() с зерна n; seedRandom() — снова случайно
   sim, simRun, get events() { return events.map(e => ({ ...e })); },   // SPEC-008: режим симуляции, журнал событий (копии)
+  ledger: () => ledger.map(e => ({ ...e })),   // SPEC-009: события coins за сессию (с загрузки страницы), копии
   get rngDraws() { return rngDraws; },   // SPEC-008: сколько раз тянули игровую случайность
-  setProgress(save) { progress = loadProgress(save); },   // SPEC-008 (баланс): прогресс из сохранения (null — новый), не записывает
+  setProgress(save) { rewardDue = false; progress = loadProgress(save); },   // SPEC-008 (баланс): прогресс из сохранения (null — новый), не записывает
   levelsPerWorld,
   autopilot, autoThink,   // SPEC-008: autopilot(on, "careful"|"reckless") → { on, style }; autoThink(dt) — только решение (для теста)
   get strictRng() { return strictRng; }, set strictRng(v) { strictRng = !!v; },   // SPEC-008: тесты — генератор/3D с игровым rng() падает
