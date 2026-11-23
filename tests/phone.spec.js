@@ -193,7 +193,7 @@ for (const [vw, vh] of [[667, 375], [844, 390], [932, 430]]) {
       await page.touchscreen.tap((pause.x + pause.w / 2) * ui.scale, (pause.y + pause.h / 2) * ui.scale);
       expect(await page.evaluate(() => window.__bb.mode)).toBe("pause");
       // every screen draws without errors (layouts come in step 6)
-      for (const m of ["menu", "skins", "names", "shop", "play", "pause", "win", "lose"]) {
+      for (const m of ["home", "map", "story", "shop", "play", "pause", "win", "lose"]) {
         await page.evaluate(v => { window.__bb.mode = v; }, m);
         await frames(page);
       }
@@ -501,8 +501,8 @@ test.describe("phone controls", () => {
     let players = await page.evaluate(() => window.__bb.littles.filter(l => l.kind === "player").length);
     expect(players).toBe(1);
     expect(await page.evaluate(() => window.__bb.littles.length)).toBe(5);
-    // key 2 in the menu too
-    await page.evaluate(() => { window.__bb.mode = "menu"; });
+    // key 2 on the map too (SPEC-017: the old menu's level picker is the map screen until step 2)
+    await page.evaluate(() => { window.__bb.mode = "map"; });
     await page.keyboard.press("Digit2");
     expect(await page.evaluate(() => window.__bb.mode)).toBe("play");
     players = await page.evaluate(() => window.__bb.littles.filter(l => l.kind === "player").length);
@@ -514,14 +514,14 @@ test.describe("phone controls", () => {
     const kisses = (await page.evaluate(() => window.__bb.buttonRects)).filter(r => r.id.startsWith("kiss:"));
     expect(kisses.map(k => k.id)).toEqual(["kiss:0"]);
     expect(kisses[0].x).toBeGreaterThan(ui.w / 2);
-    // skins: Player 1 and the Big One, no Player 2
-    await page.evaluate(() => { window.__bb.mode = "skins"; });
+    // the shop's Wardrobe tab: Player 1 and the Big One, no Player 2
+    await page.evaluate(() => { window.__bb.mode = "shop"; window.__bb.shopTab = "wardrobe"; });
     await frames(page);
     const ids = (await page.evaluate(() => window.__bb.buttonRects)).map(r => r.id);
     expect(ids).toContain("name:p1"); expect(ids).toContain("name:big"); expect(ids).not.toContain("name:p2");
     expect(await page.evaluate(() => window.__bb.skinPanels().map(p => p.key))).toEqual(["p1", "big"]);
-    // shop: "who wears what" only for Player 1
-    await page.evaluate(() => { window.__bb.mode = "shop"; });
+    // shop, Items tab: "who wears what" only for Player 1
+    await page.evaluate(() => { window.__bb.mode = "shop"; window.__bb.shopTab = "items"; });
     await frames(page);
     texts = (await page.evaluate(() => window.__bb.buttonRects)).map(r => r.text);
     expect(texts.filter(t => t === en.none).length).toBe(1);
@@ -535,6 +535,7 @@ test.describe("desktop touch", () => {
   test("off the phone, two players and the right-half stick stay as before", async ({ page }) => {
     const errors = await openGame(page);
     const en = await page.evaluate(() => window.__bb.I18N.en);
+    await page.evaluate(() => { window.__bb.mode = "map"; });   // SPEC-017: the 1/2 players choice is on the map (step 3: the level card)
     await frames(page);
     expect((await page.evaluate(() => window.__bb.buttonRects)).map(r => r.text)).toContain(en.twoPlayers);
     await page.evaluate(() => window.__bb.startGame(2));
@@ -544,7 +545,7 @@ test.describe("desktop touch", () => {
     const st = await page.evaluate(() => window.__bb.sticks);
     expect(st.length).toBe(1); expect(st[0].player).toBe(1);
     await touch(page, "pointerup", 800, 400);
-    await page.evaluate(() => { window.__bb.mode = "skins"; });
+    await page.evaluate(() => { window.__bb.mode = "shop"; window.__bb.shopTab = "wardrobe"; });
     await frames(page);
     expect(await page.evaluate(() => window.__bb.skinPanels().map(p => p.key))).toEqual(["p1", "p2", "big"]);
     expect(errors).toEqual([]);
@@ -883,14 +884,24 @@ const PHONE_SCENES = {
   pause: async page => {
     await page.evaluate(() => { const b = window.__bb; b.startGame(1); b.stats.time = 30; b.mode = "pause"; });
   },
-  menu: async page => {
-    await page.evaluate(() => { const b = window.__bb; b.progress.worlds.park.unlocked = 10; b.level = 5; b.progress.worlds.park.stars[5] = 2; b.resetWorld(1); b.mode = "menu"; });
+  // SPEC-017: the home screen with every badge shown (four item kinds, the bonus worlds open, a long coin number)
+  home: async page => {
+    await page.evaluate(() => {
+      const b = window.__bb; b.mode = "home";
+      Object.assign(b.progress.inv, { mittens: 12, mega: 10, kisses: 15, rescues: 11 }); b.progress.coins = 12345;
+      for (const w of b.MAIN_WORLDS) Object.assign(b.progress.worlds[w], { unlocked: 20, won: Object.fromEntries(Array.from({ length: 20 }, (_, i) => [i + 1, true])) });
+    });
   },
-  // SPEC-009: a locked hat tried on (Buy button in place of the name label, "not enough coins" on the preview)
-  skins: async page => {
-    await page.evaluate(() => { const b = window.__bb, W = b.wardrobe(); b.mode = "skins"; b.progress.coins = 10; b.cycleOutfit("p1", "hat", W.hat.findIndex(q => q.id === "crown") - b.outfits.shown.p1.hat); });
+  // SPEC-017 step 1: the old menu's world cards and level picker are the map screen until the drawn map (step 2)
+  map: async page => {
+    await page.evaluate(() => { const b = window.__bb; b.progress.worlds.park.unlocked = 10; b.level = 5; b.progress.worlds.park.stars[5] = 2; b.resetWorld(1); b.mode = "map"; });
   },
-  names: async page => { await page.evaluate(() => { window.__bb.mode = "names"; }); },
+  // SPEC-009: a locked hat tried on (Buy button in place of the name label, "not enough coins" on the preview) — SPEC-017: the shop's Wardrobe tab
+  wardrobe: async page => {
+    await page.evaluate(() => { const b = window.__bb, W = b.wardrobe(); b.mode = "shop"; b.shopTab = "wardrobe"; b.progress.coins = 10; b.cycleOutfit("p1", "hat", W.hat.findIndex(q => q.id === "crown") - b.outfits.shown.p1.hat); });
+  },
+  friends: async page => { await page.evaluate(() => { const b = window.__bb; b.mode = "shop"; b.shopTab = "wardrobe"; b.wardrobePage = "friends"; }); },
+  story: async page => { await page.evaluate(() => { window.__bb.mode = "story"; }); },
   // 10 coins: "not enough coins" under all four cards (SPEC-007: the tightest card layout)
   shop: async page => { await page.evaluate(() => { const b = window.__bb; b.progress.coins = 10; b.mode = "shop"; }); },
   win: async page => {
@@ -954,7 +965,7 @@ for (const [vw, vh] of PHONE_SIZES) {
         await page.evaluate(([l, o]) => {
           const b = window.__bb; b.setProgress(null);
           if (o) for (const w of b.MAIN_WORLDS) Object.assign(b.progress.worlds[w], { unlocked: 20, won: Object.fromEntries(Array.from({ length: 20 }, (_, i) => [i + 1, true])) });
-          b.setLang(l); b.mode = "menu";
+          b.setLang(l); b.mode = "map";
         }, [lang, open]);
         await frames(page);
         const d = await page.evaluate(() => ({ cards: window.__bb.worldCards, ui: window.__bb.uiSize, buttons: window.__bb.buttonRects }));
@@ -997,7 +1008,7 @@ for (const [vw, vh] of PHONE_SIZES) {
         for (const q of w.buttons) if (overlaps(n, q)) fails.push(`${label}: note on button ${q.id || q.text}`);
         for (const q of w.hud) if (q.id !== "bonus-note" && overlaps(n, q)) fails.push(`${label}: note on ${q.id}`);
       }
-      await page.evaluate(() => { const b = window.__bb; b.CFG.TEXT_TEST_SCALE = 1; b.mode = "menu"; b.setProgress(null); b.setLang("en"); b.world = "park"; b.level = 1; });
+      await page.evaluate(() => { const b = window.__bb; b.CFG.TEXT_TEST_SCALE = 1; b.mode = "home"; b.setProgress(null); b.setLang("en"); b.world = "park"; b.level = 1; });
       expect(fails).toEqual([]);
     });
 
@@ -1015,10 +1026,10 @@ for (const [vw, vh] of PHONE_SIZES) {
           return { ui: b.uiSize, buttons: b.buttonRects, hud: b.hudRects, mm: b.minimap, texts: b.textSizes, banner: b.bannerRect, cards: b.worldCards,
             hero: b.toScreen(l.x, l.y), head: b.toScreen(l.x, l.y, 72), mode: b.mode, typeLabel: b.typeLabel };
         });
-        expect(d.mode, label).toBe(name === "rest" || name === "long" || name === "down" ? "play" : name);
+        expect(d.mode, label).toBe(name === "rest" || name === "long" || name === "down" ? "play" : name === "wardrobe" || name === "friends" ? "shop" : name);
         fails.push(...phoneScreenProblems(label, d, minText));
         expect(d.texts.main || d.texts.title, `${label}: texts recorded`).toBeTruthy();
-        if (name === "menu") {
+        if (name === "map") {
           const L = d.typeLabel;
           expect(L, `${label}: type label`).toBeTruthy();
           expect(L.y).toBeGreaterThanOrEqual(L.rulesBottom + 2);
@@ -1033,8 +1044,9 @@ for (const [vw, vh] of PHONE_SIZES) {
           expect(L.y, `${label}: type label under the world cards`).toBeGreaterThanOrEqual(Math.max(...cards.map(q => q.y + q.h)));
         }
         if (name === "shop") expect(d.buttons.map(q => q.id)).toEqual(expect.arrayContaining(["buy:mittens", "buy:mega", "buy:kisses", "buy:rescues"]));
-        if (name === "skins") expect(d.buttons.map(q => q.id)).toEqual(expect.arrayContaining(["buy-look:p1", "name:big"]));
-        if (name === "names") expect(d.buttons.filter(q => String(q.id).startsWith("name:bot")).length).toBe(4);
+        if (name === "wardrobe") expect(d.buttons.map(q => q.id)).toEqual(expect.arrayContaining(["tab:wardrobe", "buy-look:p1", "name:big", "random:p1", "openFriends"]));
+        if (name === "friends") expect(d.buttons.filter(q => String(q.id).startsWith("name:bot")).length).toBe(4);
+        if (name === "home") expect(d.buttons.map(q => q.id).sort()).toEqual(["home:lang", "home:play", "home:shop", "home:sound", "home:story"]);
         if (name === "play") {
           expect(d.texts.main, "play: main texts recorded").toBeTruthy();
           expect(d.texts.hint, "play: hint text recorded").toBeTruthy();
@@ -1263,7 +1275,7 @@ test.describe("phone menus", () => {
 
   test("tapping a world card selects that world", async ({ phonePage: page }) => {
     const errors = page.sharedErrors;
-    await page.evaluate(() => { const b = window.__bb; b.progress.worlds.winter.unlocked = 5; b.progress.worlds.winter.stars = { 1: 2, 4: 3 }; b.mode = "menu"; });
+    await page.evaluate(() => { const b = window.__bb; b.progress.worlds.winter.unlocked = 5; b.progress.worlds.winter.stars = { 1: 2, 4: 3 }; b.mode = "map"; });
     await frames(page);
     const at = await page.evaluate(() => {
       const b = window.__bb, q = b.buttonRects.find(r => r.id === "world:winter"), c = document.getElementById("game").getBoundingClientRect(), s = c.width / b.uiSize.w;
@@ -1276,20 +1288,26 @@ test.describe("phone menus", () => {
     expect(errors).toEqual([]);
   });
 
-  test("tapping the real menu Play button starts a one-player game", async ({ phonePage: page }) => {
+  // SPEC-017: two taps — Play on the home screen, then Play on the map (step 2: the level stop / its card)
+  test("tapping the real Play buttons starts a one-player game", async ({ phonePage: page }) => {
     const errors = page.sharedErrors;
-    await frames(page);
-    const r = await page.evaluate(() => ({ ui: window.__bb.uiSize, play: window.__bb.buttonRects.find(q => q.text === "▶ " + window.__bb.I18N.en.play) }));
-    expect(r.play).toBeTruthy();
-    await page.touchscreen.tap((r.play.x + r.play.w / 2) * r.ui.scale, (r.play.y + r.play.h / 2) * r.ui.scale);
+    const tapPlay = async () => {
+      await frames(page);
+      const r = await page.evaluate(() => ({ ui: window.__bb.uiSize, play: window.__bb.buttonRects.find(q => q.text === "▶ " + window.__bb.I18N.en.play) }));
+      expect(r.play).toBeTruthy();
+      await page.touchscreen.tap((r.play.x + r.play.w / 2) * r.ui.scale, (r.play.y + r.play.h / 2) * r.ui.scale);
+    };
+    await tapPlay();
+    expect(await page.evaluate(() => window.__bb.mode)).toBe("map");
+    await tapPlay();
     expect(await page.evaluate(() => window.__bb.mode)).toBe("play");
     expect(await page.evaluate(() => window.__bb.littles.filter(l => l.kind === "player").length)).toBe(1);
     expect(errors).toEqual([]);
   });
 
-  test("tapping a name on the skins screen opens a big enough input right over it", async ({ phonePage: page }) => {
+  test("tapping a name in the wardrobe tab opens a big enough input right over it", async ({ phonePage: page }) => {
     const errors = page.sharedErrors;
-    await page.evaluate(() => { window.__bb.mode = "skins"; });
+    await page.evaluate(() => { window.__bb.mode = "shop"; window.__bb.shopTab = "wardrobe"; });
     await frames(page);
     const r = await page.evaluate(() => ({ ui: window.__bb.uiSize, rect: window.__bb.buttonRects.find(q => q.id === "name:p1") }));
     const s = r.ui.scale;
@@ -1308,7 +1326,7 @@ test.describe("phone menus", () => {
 
   test("the name input stays open and over its label when the keyboard shrinks the page", async ({ phonePage: page }) => {
     const errors = page.sharedErrors;
-    await page.evaluate(() => { window.__bb.mode = "skins"; });
+    await page.evaluate(() => { window.__bb.mode = "shop"; window.__bb.shopTab = "wardrobe"; });
     await frames(page);
     let r = await page.evaluate(() => ({ ui: window.__bb.uiSize, rect: window.__bb.buttonRects.find(q => q.id === "name:p1") }));
     await page.touchscreen.tap((r.rect.x + r.rect.w / 2) * r.ui.scale, (r.rect.y + r.rect.h / 2) * r.ui.scale);
@@ -1326,7 +1344,7 @@ test.describe("phone menus", () => {
     expect(errors).toEqual([]);
   });
 
-  test("the install hint fits the phone menu on iPhone Safari", async ({ browser }) => {
+  test("the install hint fits the phone home screen on iPhone Safari", async ({ browser }) => {
     await shared.close();   // its own context: no second game page open next to it
     const IPHONE_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1";
     const ctx = await browser.newContext({ ...PHONE_CTX, viewport: { width: 667, height: 375 }, userAgent: IPHONE_UA });
@@ -1338,7 +1356,7 @@ test.describe("phone menus", () => {
       await frames(page);
       const d = await page.evaluate(() => { const b = window.__bb; return { ui: b.uiSize, buttons: b.buttonRects, hud: b.hudRects, mm: b.minimap, texts: b.textSizes, shown: b.installHintShown }; });
       expect(d.shown, lang).toBe(true);
-      fails.push(...phoneScreenProblems("menu " + lang, d, minText));
+      fails.push(...phoneScreenProblems("home " + lang, d, minText));
     }
     expect(fails, fails.join("\n")).toEqual([]);
     expect(errors).toEqual([]);

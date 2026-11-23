@@ -69,7 +69,7 @@ test("a friend can always arrive in time, and a Little One just stood up is not 
         return { st: l.state, pushCd: big.pushCd };
       };
       out.pushed = pushAt(0); out.shielded = pushAt(5);
-    } finally { C.PUSH_STAND = keep; b.mode = "menu"; }
+    } finally { C.PUSH_STAND = keep; b.mode = "home"; }
     return out;
   });
   expect(r.stand).toBe(0.9);
@@ -139,7 +139,7 @@ test("rewards add up, coins never go negative, inventory stays whole", async ({ 
       b.update(1 / 60); out.hearts.push(9 - b.big.hp);
     }
     invNow("gloves");
-    b.mode = "menu";
+    b.mode = "home";
     return { out, C: { REST: C.COINS_PER_REST }, R: { ...b.REWARD } };
   });
   const { out, C, R } = r, soft = softly(), sum = p => p.reduce((s, x) => s + x.amount, 0);
@@ -285,7 +285,7 @@ test("every shop item has a price, a pack, a picture, texts in three languages, 
     return out;
   });
   await frames(page);
-  const ids = await page.evaluate(() => { const v = window.__bb.buttonRects.map(q => q.id); window.__bb.mode = "menu"; return v; });
+  const ids = await page.evaluate(() => { const v = window.__bb.buttonRects.map(q => q.id); window.__bb.mode = "home"; return v; });
   // buy tests: a test in gameplay.spec.js titled "buying …" or "… bought in the shop …" that buys the card (or clicks its button)
   const gp = fs.readFileSync(path.join(__dirname, "gameplay.spec.js"), "utf8");
   const tests = gp.split(/\ntest\(/).slice(1).map(s => ({ title: (s.match(/^\s*(["'`])(.*?)\1/) || [])[2] || "", body: s }));

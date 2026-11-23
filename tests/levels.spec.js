@@ -40,7 +40,7 @@ const test = base.test.extend({
     }
     const { page, errors } = shared;
     // Park 1 is running (mode "play") when the test starts, as after openGame + startGame(1)
-    await page.evaluate(() => { const b = window.__bb; b.setLang("en"); b.clearLevelCache(); b.mode = "menu"; b.world = "park"; b.level = 1; b.startGame(1); });
+    await page.evaluate(() => { const b = window.__bb; b.setLang("en"); b.clearLevelCache(); b.mode = "home"; b.world = "park"; b.level = 1; b.startGame(1); });
     await use(page);
     const seen = errors.splice(0);
     expect(seen).toEqual([]);
@@ -149,11 +149,12 @@ function cardTextProblems(cards, label) {
   }
   return out;
 }
-test("the menu shows six worlds and switches between them", async ({ page }) => {
+// SPEC-017 step 1: the old menu's world picker and level arrows are the map screen until the drawn level map (step 2)
+test("the map shows six worlds and switches between them", async ({ page }) => {
   await page.evaluate(() => {
     const b = window.__bb, p = b.progress.worlds;
     p.park.stars = { 1: 3, 2: 2 }; p.park.unlocked = 3; p.school.stars = { 1: 1 }; p.school.unlocked = 4; p.winter.unlocked = 2;   // Winter has progress: open
-    b.world = "park"; b.level = 3; b.mode = "menu";
+    b.world = "park"; b.level = 3; b.mode = "map";
   });
   await frames(page);
   const d = await page.evaluate(() => ({ cards: window.__bb.worldCards, rects: window.__bb.buttonRects, names: window.__bb.buttonNames, type: window.__bb.typeLabel }));
@@ -186,7 +187,7 @@ test("the menu shows six worlds and switches between them", async ({ page }) => 
     const cards = await page.evaluate(([l, o]) => {
       const b = window.__bb, keep = JSON.parse(JSON.stringify(b.progress));
       if (o) for (const w of b.MAIN_WORLDS) Object.assign(b.progress.worlds[w], { unlocked: 20, won: Object.fromEntries(Array.from({ length: 20 }, (_, i) => [i + 1, true])) });
-      b.setLang(l); b.mode = "menu"; window.__keep = keep;
+      b.setLang(l); b.mode = "map"; window.__keep = keep;
       return null;
     }, [lang, open]).then(() => frames(page)).then(() => page.evaluate(() => {
       const b = window.__bb, c = b.worldCards; b.setProgress(window.__keep); b.setLang("en"); return c;
@@ -205,7 +206,7 @@ test("the menu shows six worlds and switches between them", async ({ page }) => 
   await frames(page);
   const after = await page.evaluate(() => ({ world: window.__bb.world, level: window.__bb.level, mode: window.__bb.mode, last: JSON.parse(localStorage.getItem("bebebe-progress")).lastWorld,
     selected: window.__bb.worldCards.map(c => c.selected), type: window.__bb.typeLabel.text, built: window.__bb.levelInfo.world }));
-  expect(after).toEqual({ world: "school", level: 4, mode: "menu", last: "school", selected: [false, false, false, true, false, false], type: "Meadow", built: "school" });
+  expect(after).toEqual({ world: "school", level: 4, mode: "map", last: "school", selected: [false, false, false, true, false, false], type: "Meadow", built: "school" });
   // a click on the world that is already selected keeps the level the player picked
   await page.keyboard.press("ArrowLeft");
   await frames(page);
@@ -226,9 +227,9 @@ test("the menu shows six worlds and switches between them", async ({ page }) => 
   }
 });
 
-test("the menu shows the selected level's type and it fits", async ({ page }) => {
+test("the map shows the selected level's type and it fits", async ({ page }) => {
   for (const [lang, lv, want] of [["en", 8, "River with bridges"], ["es", 11, "Casa con cuartos"], ["ru", 8, "Река с мостиками"], ["ru", 14, "Арена с кольцом"], ["en", 1, "Our drawing"]]) {
-    await page.evaluate(([l, n]) => { const b = window.__bb; b.setLang(l); b.progress.worlds.park.unlocked = 20; b.level = n; b.mode = "menu"; }, [lang, lv]);
+    await page.evaluate(([l, n]) => { const b = window.__bb; b.setLang(l); b.progress.worlds.park.unlocked = 20; b.level = n; b.mode = "map"; }, [lang, lv]);
     await frames(page);
     const r = await page.evaluate(() => ({ label: window.__bb.typeLabel, rects: window.__bb.buttonRects }));
     expect(r.label.text, `${lang} level ${lv}`).toBe(want);
@@ -529,7 +530,7 @@ test("difficulty follows the story order", async ({ levelPage: page }) => {
       for (const w of W) {
         b.setProgress(null); b.world = w; b.level = 5; b.startGame(1);
         Object.assign(b.stats, { playerHugs: 0, rests: 0, time: 9999, starCoins: 0 });
-        b.giveReward(true); b.mode = "menu";
+        b.giveReward(true); b.mode = "home";
         reward[w] = { base: b.lastReward.base, target: b.lastReward.target };
       }
     } finally { b.setProgress(keep); b.world = "park"; b.level = 1; }

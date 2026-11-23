@@ -242,7 +242,7 @@ test("install hint texts exist in every language", async ({ page }) => {
 test("install hint is not shown on desktop", async ({ page }) => {
   await openGameHttp(page);
   await frames(page);
-  expect(await page.evaluate(() => window.__bb.mode)).toBe("menu");
+  expect(await page.evaluate(() => window.__bb.mode)).toBe("home");
   expect(await page.evaluate(() => window.__bb.installHintShown)).toBe(false);
 });
 
@@ -256,7 +256,7 @@ test.describe("on iPhone Safari", () => {
       await frames(page);
       expect(await page.evaluate(() => window.__bb.installHintShown), lang).toBe(true);
     }
-    // only in the menu
+    // only on the home screen
     await page.evaluate(() => { window.__bb.mode = "shop"; });
     await frames(page);
     expect(await page.evaluate(() => window.__bb.installHintShown)).toBe(false);
