@@ -908,7 +908,7 @@ for (const [vw, vh] of PHONE_SIZES) {
   test.describe(`phone sizes ${vw}×${vh}`, () => {
     test.use({ ...PHONE_CTX, viewport: { width: vw, height: vh } });
 
-    test(`every phone button is big enough at ${vw}×${vh}`, async ({ page }) => {
+    test(`every phone button is big enough at ${vw}×${vh}`, { tag: vw === 844 ? "@fast" : [] }, async ({ page }) => {
       test.slow();
       const errors = await openGame(page, { query: "?phone=1" });
       const minText = await page.evaluate(() => window.__bb.CFG.PHONE_TEXT);

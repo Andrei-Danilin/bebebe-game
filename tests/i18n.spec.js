@@ -2,7 +2,7 @@
 const { test, expect } = require("@playwright/test");
 const { openGame } = require("./helpers");
 
-test("es and ru have every key that en has, with the same type", async ({ page }) => {
+test("es and ru have every key that en has, with the same type", { tag: "@fast" }, async ({ page }) => {
   await openGame(page);
   const missing = await page.evaluate(() => {
     const out = [], I = window.__bb.I18N;

@@ -4,7 +4,7 @@ const { openGame, step, ROOT } = require("./helpers");
 const fs = require("fs");
 const path = require("path");
 
-test("loads to the menu without errors", async ({ page }) => {
+test("loads to the menu without errors", { tag: "@fast" }, async ({ page }) => {
   const errors = await openGame(page);
   expect(await page.evaluate(() => window.__bb.mode)).toBe("menu");
   expect(errors).toEqual([]);
@@ -49,7 +49,7 @@ for (const lang of ["en", "es", "ru"]) {
 
 // SPEC-018: an evaluate whose arrow body is an expression returns its value to the test. Object.assign(littles[i], …)
 // returns the Little One, so Playwright serializes him with his 3D parts: 11–15 s per call. Mutating bodies go in braces.
-test("tests never return game objects from evaluate", () => {
+test("tests never return game objects from evaluate", { tag: "@fast" }, () => {
   const dir = path.join(ROOT, "tests"), bad = [];
   const arrow = String.raw`evaluate\(\s*(?:\([^()]*\)|\w+)\s*=>\s*`;
   const patterns = [
@@ -72,7 +72,7 @@ test("tests never return game objects from evaluate", () => {
 
 // Safari before iOS 16.4 cannot parse a regex lookbehind: the whole module fails with a SyntaxError and the game does
 // not start at all (older iPads). Keep (?<= and (?<! out of index.html.
-test("index.html has no regex lookbehind (older iPads)", () => {
+test("index.html has no regex lookbehind (older iPads)", { tag: "@fast" }, () => {
   const src = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
   expect(src.includes("(?<="), "(?<= in index.html").toBe(false);
   expect(src.includes("(?<!"), "(?<! in index.html").toBe(false);
