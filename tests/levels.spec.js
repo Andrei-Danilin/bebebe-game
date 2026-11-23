@@ -138,11 +138,20 @@ test("the banner names the world", async ({ page }) => {
   expect(r).toEqual(["Winter · Level 17: Maze", "Escuela · Nivel 8: Río con puentes", "Пляж · Уровень 1: Наш рисунок", "Park · Level 14: Ring arena"]);
 });
 
-// ---------- SPEC-006 AC 8 (SPEC-016: six worlds in the story order) ----------
+// ---------- SPEC-006 AC 8 (SPEC-016 AC 8: six worlds in the story order, the bonus ones locked) ----------
+// Every text line of a world card (name, stars, the bonus label) inside the card's own box, at its normal size or close
+function cardTextProblems(cards, label) {
+  const out = [];
+  for (const c of cards) for (const t of c.lines) {
+    if (!(t.x >= c.x - 0.5 && t.x + t.w <= c.x + c.w + 0.5 && t.y >= c.y - 0.5 && t.y + t.h <= c.y + c.h + 0.5)) out.push(`${label} ${c.world}: "${t.text}" ${JSON.stringify(t)} outside its card ${JSON.stringify({ x: c.x, y: c.y, w: c.w, h: c.h })}`);
+    if (/…/.test(t.text)) out.push(`${label} ${c.world}: "${t.text}" cut`);
+  }
+  return out;
+}
 test("the menu shows six worlds and switches between them", async ({ page }) => {
   await page.evaluate(() => {
     const b = window.__bb, p = b.progress.worlds;
-    p.park.stars = { 1: 3, 2: 2 }; p.park.unlocked = 3; p.school.stars = { 1: 1 }; p.school.unlocked = 4; p.winter.unlocked = 2;
+    p.park.stars = { 1: 3, 2: 2 }; p.park.unlocked = 3; p.school.stars = { 1: 1 }; p.school.unlocked = 4; p.winter.unlocked = 2;   // Winter has progress: open
     b.world = "park"; b.level = 3; b.mode = "menu";
   });
   await frames(page);
@@ -151,16 +160,39 @@ test("the menu shows six worlds and switches between them", async ({ page }) => 
   expect(d.cards.map(c => c.name)).toEqual(["Park", "Football field", "City", "School", "Beach", "Winter"]);
   expect(d.cards.map(c => c.stars)).toEqual(["⭐ 5/60", "⭐ 0/60", "⭐ 0/60", "⭐ 1/60", "⭐ 0/60", "⭐ 0/60"]);   // stars of each world
   expect(d.cards.map(c => c.selected)).toEqual([true, false, false, false, false, false]);
+  // SPEC-016: Beach locked (🔒 + "Bonus" instead of the stars), Winter open with progress (stars + a Bonus mark)
+  expect(d.cards.map(c => [c.bonus, c.locked])).toEqual([[false, false], [false, false], [false, false], [false, false], [true, true], [true, false]]);
+  expect(d.cards.find(c => c.world === "beach").lines.map(t => t.text)).toEqual(["Beach", "🔒 Bonus"]);
+  expect(d.cards.find(c => c.world === "winter").lines.map(t => t.text)).toEqual(["Winter", "⭐ 0/60", "Bonus"]);
+  expect(d.cards.find(c => c.world === "field").lines.map(t => t.text)).toEqual(["Football field", "⭐ 0/60"]);
   expect(d.names).not.toContain("cyclePlace");                                      // the old place button is gone
-  // the cards are buttons in one row, inside the menu card, not on each other, above the level selector
+  // the cards are buttons in two rows of three (story order), inside the menu card, not on each other, above the level selector
   const cr = WORLDS.map(w => d.rects.find(q => q.id === "world:" + w));
   for (const q of cr) expect(q, "card button").toBeTruthy();
-  expect(new Set(cr.map(q => q.y)).size).toBe(1);
-  for (let i = 1; i < cr.length; i++) expect(cr[i].x).toBeGreaterThan(cr[i - 1].x + cr[i - 1].w);
-  expect(cr[0].x).toBeGreaterThanOrEqual(120); expect(cr.at(-1).x + cr.at(-1).w).toBeLessThanOrEqual(840);
+  expect([new Set(cr.slice(0, 3).map(q => q.y)).size, new Set(cr.slice(3).map(q => q.y)).size]).toEqual([1, 1]);
+  expect(cr[3].y).toBeGreaterThanOrEqual(cr[0].y + cr[0].h + 6);
+  for (const row of [cr.slice(0, 3), cr.slice(3)]) for (let i = 1; i < 3; i++) expect(row[i].x).toBeGreaterThanOrEqual(row[i - 1].x + row[i - 1].w + 6);
+  for (const q of cr) { expect(q.x).toBeGreaterThanOrEqual(120); expect(q.x + q.w).toBeLessThanOrEqual(840); }
+  const bottom = Math.max(...cr.map(q => q.y + q.h));
   const arrow = d.rects.find(q => q.text === "◀");
-  expect(arrow.y).toBeGreaterThanOrEqual(cr[0].y + cr[0].h);
-  expect(d.type.y).toBeGreaterThanOrEqual(cr[0].y + cr[0].h);
+  expect(arrow.y).toBeGreaterThanOrEqual(bottom);
+  expect(d.type.y).toBeGreaterThanOrEqual(bottom);
+  // the names at the normal size: every text inside its card, nothing cut, in every language, locked and open
+  const problems = cardTextProblems(d.cards, "en locked");
+  for (const lang of ["en", "es", "ru"]) for (const open of [false, true]) {
+    const cards = await page.evaluate(([l, o]) => {
+      const b = window.__bb, keep = JSON.parse(JSON.stringify(b.progress));
+      if (o) for (const w of b.MAIN_WORLDS) Object.assign(b.progress.worlds[w], { unlocked: 20, won: Object.fromEntries(Array.from({ length: 20 }, (_, i) => [i + 1, true])) });
+      b.setLang(l); b.mode = "menu"; window.__keep = keep;
+      return null;
+    }, [lang, open]).then(() => frames(page)).then(() => page.evaluate(() => {
+      const b = window.__bb, c = b.worldCards; b.setProgress(window.__keep); b.setLang("en"); return c;
+    }));
+    problems.push(...cardTextProblems(cards, `${lang} ${open ? "open" : "locked"}`));
+    for (const c of cards) for (const t of c.lines) if (t.kind === "name" && t.size < 16) problems.push(`${lang} ${c.world}: name at ${t.size} px`);
+  }
+  expect(problems).toEqual([]);
+  await frames(page);
   // a click on School selects it, remembers it and shows its newest open level
   const at = await page.evaluate(() => {
     const q = window.__bb.buttonRects.find(r => r.id === "world:school"), c = document.getElementById("game").getBoundingClientRect();
@@ -176,10 +208,10 @@ test("the menu shows six worlds and switches between them", async ({ page }) => 
   await frames(page);
   await page.mouse.click(at.x, at.y);
   expect(await page.evaluate(() => [window.__bb.world, window.__bb.level])).toEqual(["school", 3]);
-  // the keyboard: ↓ next world, ↑ previous world in the story order (wraps around); ← → still change the level
+  // the keyboard: ↓ next world, ↑ previous world in the story order (wraps around), the locked Beach skipped; ← → still change the level
   const seq = [];
   for (const k of ["ArrowDown", "ArrowUp", "ArrowUp", "ArrowUp", "ArrowUp", "ArrowUp", "ArrowLeft"]) { await page.keyboard.press(k); seq.push(await page.evaluate(() => [window.__bb.world, window.__bb.level])); }
-  expect(seq).toEqual([["beach", 1], ["school", 4], ["city", 1], ["field", 1], ["park", 3], ["winter", 2], ["winter", 1]]);
+  expect(seq).toEqual([["winter", 2], ["school", 4], ["city", 1], ["field", 1], ["park", 3], ["winter", 2], ["winter", 1]]);
   // the names and the star line in every language
   const I = await page.evaluate(() => ["en", "es", "ru"].map(l => window.__bb.I18N[l].worldStars(7, 60)));
   expect(I).toEqual(["⭐ 7/60", "⭐ 7/60", "⭐ 7/60"]);

@@ -196,10 +196,11 @@ const CFG = {
   // 1 игрок + 4 бота, не дольше TIME_LIMIT сек игры с шагом SIM_DT; reckless — 1 сид, каждый RECKLESS_EVERY-й уровень.
   // Цели отчёта: careful выигрывает уровень хотя бы в WIN_SEEDS сидах; время побед растёт внутри мира (Спирмен ≥ TREND_RHO),
   // лабиринт (MAZE) — самый долгий блок; Парк EARLY — не дольше времени третьей звезды; Зима MAZE ≥ LATE_VS_EARLY × Парк EARLY;
-  // спасают RESCUE_RATE падений; отдыхов на уровень (медиана) ≤ RESTS_MAX. CI_LEVELS — 8 уровней выборки (ранний и лабиринт в мире)
+  // спасают RESCUE_RATE падений; отдыхов на уровень (медиана) ≤ RESTS_MAX. CI_LEVELS — 12 уровней выборки (ранний и лабиринт в каждом мире)
   BALANCE: { SIM_DT: 1 / 30, SEEDS: 3, TIME_LIMIT: 480, WIN_SEEDS: 2, TREND_RHO: 0.5, LATE_VS_EARLY: 1.5, RESCUE_RATE: [0.5, 0.9],
     RESTS_MAX: 2, RECKLESS_EVERY: 5, EARLY: [1, 5], MAZE: [17, 20],
-    CI_LEVELS: [["park", 3], ["park", 18], ["school", 2], ["school", 19], ["beach", 4], ["beach", 17], ["winter", 5], ["winter", 20]],
+    CI_LEVELS: [["park", 3], ["park", 18], ["field", 4], ["field", 19], ["city", 2], ["city", 18], ["school", 2], ["school", 19], ["beach", 4], ["beach", 17],
+      ["winter", 5], ["winter", 20]],
     // SPEC-009: темп монеток (первое прохождение = careful-забеги с нового прогресса; доход забега = сумма его событий coins,
     // медиана по сидам). «Набор» — самый дешёвый в магазине (спасалка, 15). PARK_PACKS — медиана дохода уровня Парка в наборах
     // [от, до]; STREAK уровней подряд ≥ мега-рукавицы + STREAK_PACKS наборов; мир ≥ вещь высшей ступени + WORLD_PACKS наборов;
@@ -301,6 +302,7 @@ const I18N = {
     skins: "Skins", player1: "Player 1", player2: "Player 2", ok: "OK",
     slots: { hair: "Hair", hat: "Hat", jacket: "Jacket", pants: "Pants", look: "Look" },
     worlds: { park: "Park", field: "Football field", city: "City", school: "School", beach: "Beach", winter: "Winter" }, worldDone: (w, key) => `You finished the ${w}!`,
+    bonus: "Bonus", bonusUnlocked: "Bonus worlds unlocked!",
     items: { boots: "Speed boots!", cloak: "Invisible!", shield: "Shield!" }, blocked: "Blocked!", slip: "Whoops!",
     shop: "Shop", buy: "Buy", have: n => `You have: ${n} power ${n === 1 ? "hug" : "hugs"}`, wears: "wears", none: "None",
     gloves: { mittens: "Warm mittens", mega: "Mega hug mittens" }, gloveDesc: p => `Each hug takes ${p} hearts`,
@@ -344,6 +346,7 @@ const I18N = {
     skins: "Personajes", player1: "Jugador 1", player2: "Jugador 2", ok: "Listo",
     slots: { hair: "Pelo", hat: "Gorro", jacket: "Campera", pants: "Pantalón", look: "Aspecto" },
     worlds: { park: "Parque", field: "Cancha", city: "Ciudad", school: "Escuela", beach: "Playa", winter: "Invierno" }, worldDone: (w, key) => `¡Terminaste ${w}!`,
+    bonus: "Bonus", bonusUnlocked: "¡Se abrieron los mundos bonus!",
     items: { boots: "¡Zapatillas veloces!", cloak: "¡Invisible!", shield: "¡Escudo!" }, blocked: "¡Bloqueado!", slip: "¡Upa!",
     shop: "Tienda", buy: "Comprar", have: n => `Tenés: ${n} ${n === 1 ? "abrazo potente" : "abrazos potentes"}`, wears: "usa", none: "Nada",
     gloves: { mittens: "Mitones abrigados", mega: "Mitones del abrazo gigante" }, gloveDesc: p => `Cada abrazo saca ${p} corazones`,
@@ -388,6 +391,7 @@ const I18N = {
     worlds: { park: "Парк", field: "Футбольное поле", city: "Город", school: "Школа", beach: "Пляж", winter: "Зима" },
     // род по миру: Футбольное поле пройдено, Школа/Зима пройдена, Парк/Город/Пляж пройден
     worldDone: (w, key) => `${w} ${key === "field" ? "пройдено" : key === "school" || key === "winter" ? "пройдена" : "пройден"}!`,
+    bonus: "Бонус", bonusUnlocked: "Открылись бонусные миры!",
     items: { boots: "Сапоги-скороходы!", cloak: "Невидимка!", shield: "Щит!" }, blocked: "Щит спас!", slip: "Поскользнулся!",
     shop: "Магазин", buy: "Купить", have: n => `У вас: ${n} ${["сильная обнимашка", "сильные обнимашки", "сильных обнимашек"][n % 10 === 1 && n % 100 !== 11 ? 0 : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 1 : 2]}`, wears: "носит", none: "Ничего",
     gloves: { mittens: "Тёплые рукавицы", mega: "Мега-рукавицы" }, gloveDesc: p => `Каждая обнимашка забирает ${p} сердечка`,
@@ -1648,15 +1652,20 @@ function fitOutfitsToOwned() {
 function resetOutfits() { skinSel = cloneSkins(DEFAULT_SKINS); skinKeep = cloneSkins(DEFAULT_SKINS); buyArmed = null; tryingOn = false; saveSkins(); resetWorld(numPlayers); }
 // ---------- Миры (SPEC-006): место уровня — его мир ----------
 let curWorld = WORLDS[0];
-// выбор мира в меню (карточка, ↑/↓, крестовина геймпада): запоминается, показывается новый открытый уровень мира
+// выбор мира в меню (карточка, ↑/↓, крестовина геймпада): запоминается, показывается новый открытый уровень мира.
+// SPEC-016: закрытый бонусный мир выбрать нельзя (__bb.world — без проверки, для тестов и отчёта баланса)
 function selectWorld(w) {
-  if (!WORLDS.includes(w) || w === curWorld) return;
+  if (!WORLDS.includes(w) || w === curWorld || !bonusOpen(w)) return;
   curWorld = w;
   progress.lastWorld = curWorld; saveProgress();
   level = worldProgress().unlocked;
   resetWorld(numPlayers);
 }
-const cycleWorld = d => selectWorld(WORLDS[(worldIndex(curWorld) + d + WORLDS.length) % WORLDS.length]);
+// ↑/↓: следующий открытый мир по сюжету (по кругу), закрытые бонусные пропускаются
+function cycleWorld(d) {
+  const n = WORLDS.length;
+  for (let k = 1; k < n; k++) { const w = WORLDS[(worldIndex(curWorld) + d * k + n * n) % n]; if (bonusOpen(w)) { selectWorld(w); return; } }
+}
 // ---------- Имена: игроки, Большой, боты (localStorage bebebe-names; "" = имя по умолчанию на текущем языке) ----------
 const NAME_SLOTS = ["p1", "p2", "big", "bot1", "bot2", "bot3", "bot4"];
 const BOT_SLOTS = 4;
@@ -1788,6 +1797,7 @@ function loadProgress(pv) {
   }
   // старые сохранения без поцелуев и спасалок (или испорченные) → 0
   for (const key of ["kisses", "rescues"]) { const k = Number(out.inv[key]); out.inv[key] = Number.isFinite(k) && k > 0 ? Math.floor(k) : 0; }
+  if (!bonusOpen(out.lastWorld, out)) out.lastWorld = WORLDS[0];   // SPEC-016: закрытый бонусный мир → меню открывается на Парке
   return out;
 }
 // SPEC-016: бонусные миры открываются, когда выиграны все уровни всех главных миров (p — прогресс, по умолчанию текущий)
@@ -1875,6 +1885,7 @@ function resetProgress() {
   resetArmed = false;
   rewardDue = false;                         // прогресс заменён целиком: за брошенный уровень не платим
   progress = freshProgress();
+  if (!bonusOpen(curWorld)) curWorld = WORLDS[0];   // SPEC-016: бонусный мир после сброса снова закрыт
   progress.lastWorld = curWorld;
   fitOutfitsToOwned();                       // SPEC-009: купленные наряды ушли вместе с прогрессом
   saveProgress(); level = 1; resetWorld(numPlayers);
@@ -1911,7 +1922,7 @@ function giveReward(win) {
   const min = first ? REWARD.FIRST_MIN : REWARD.REPLAY_MIN;
   const line = Math.max(first ? base : Math.floor(base / 2), min);   // повтор — половина основы
   const restCut = Math.min(rests * CFG.COINS_PER_REST, line - min);   // отдых срезается до пола: строки всегда сходятся с итогом
-  const prevStars = wp.stars[n] || 0, newStars = Math.max(0, stars - prevStars);
+  const prevStars = wp.stars[n] || 0, newStars = Math.max(0, stars - prevStars), bonusBefore = bonusUnlocked();
   const parts = partsOf([[first ? "firstWin" : "replay", line], ["newStars", newStars * REWARD.NEW_STAR], ["star", starCoins], ["hugs", hugs], ["rests", -restCut]]);
   wp.stars[n] = Math.max(prevStars, stars);
   wp.won[n] = true;
@@ -1919,7 +1930,8 @@ function giveReward(win) {
   progress.lastWorld = curWorld;
   for (const p of parts) if (p.reason !== "star") addCoins(p.reason, p.amount);   // по строке (каждая сохраняет): в книге те же строки, что в parts
   lastReward = { win: true, coins: parts.reduce((a, p) => a + p.amount, 0), starCoins, stars, nobodyOut, fast, target, first, base, newStars,
-    newBest: stars > prevStars, world: curWorld, level: n, worldDone: n >= levelsPerWorld(), parts };
+    newBest: stars > prevStars, world: curWorld, level: n, worldDone: n >= levelsPerWorld(), parts,
+    bonusUnlocked: !bonusBefore && bonusUnlocked() };   // SPEC-016: эта победа открыла бонусные миры — сказать один раз
 }
 
 function makeLittle(i, kind, botIndex, controls, look) {
@@ -3649,35 +3661,81 @@ function worldPicture(w, x, y, sz) {
   ctx.restore();
   rr(x, y, sz, sz, r); ctx.lineWidth = 2; ctx.strokeStyle = OUT; ctx.stroke();
 }
-// карточка-кнопка мира; выбранная — жёлтая с розовой рамкой
-function worldCard(w, x, y, cw, ch) {
-  const sel = w === curWorld, k = PHONE ? cpx(1) : 1, pad = 6 * k, pic = ch - 2 * pad;
-  rr(x, y, cw, ch, 14 * k); fillStroke(sel ? "#fff1a8" : "#ffffff", (sel ? 5 : 3) * k, sel ? "#ff6fa8" : OUT);
-  const tx = x + pad + pic + 7 * k, tw = x + cw - pad - tx, name = L().worlds[w];
+// SPEC-016: строки карточки мира — имя, звёзды (у закрытого бонусного «🔒 Бонус»), метка «Бонус» у открытого бонусного
+function worldCardTexts(w) {
+  const locked = !bonusOpen(w), bonus = BONUS_WORLDS.includes(w);
   const stars = L().worldStars(worldStarsOf(w), CFG.STARS_PER_LEVEL * levelsPerWorld());
-  let w1, w2;
-  // SPEC-016 шаг 1: на телефоне карточки миров уже (6 штук); длинное название, не влезающее даже самым мелким текстом
-  // во всю карточку, пишется в две строки без картинки и звёзд (меню миров переделывается в шаге 4 SPEC-016)
-  ctx.font = `900 ${cpx(CFG.PHONE_TEXT.main)}px system-ui, "Segoe UI", sans-serif`;
-  if (PHONE && scaledW(name) > cw - 2 * pad) {
-    const b = clipRows(pRows(name, "main", 15, cw - 2 * pad, 2, 900), 2);
-    pDraw(b, x + cw / 2, y + (ch - b.h) / 2, OUT, "center");
-    buttons.push({ x, y, w: cw, h: ch, act: () => selectWorld(w), id: "world:" + w, text: name, textW: b.w });
-    worldCards.push({ world: w, x, y, w: cw, h: ch, name, stars, selected: sel });
-    return;
-  }
-  worldPicture(w, x + pad, y + pad, pic);
+  return { name: L().worlds[w], stars, second: locked ? "🔒 " + L().bonus : stars, mark: bonus && !locked ? L().bonus : null, locked, bonus };
+}
+// Карточка-кнопка мира; выбранная — жёлтая с розовой рамкой, закрытая бонусная — серая с замком.
+// Компьютер: картинка слева, справа имя и звёзды (метка «Бонус» — плашка справа от звёзд).
+// Телефон: без картинки, имя в одну-две строки (по словам), под ним звёзды и метка; ширину карточек ряда задаёт phoneWorldRow.
+// Каждая строка текста — в worldCards[].lines { text, kind, x, y, w, h, size } (тесты: внутри своей карточки)
+function worldCard(w, x, y, cw, ch) {
+  const sel = w === curWorld, k = PHONE ? cpx(1) : 1, pad = 6 * k, t = worldCardTexts(w), lines = [];
+  rr(x, y, cw, ch, 14 * k); fillStroke(t.locked ? "#e5e7eb" : sel ? "#fff1a8" : "#ffffff", (sel ? 5 : 3) * k, sel ? "#ff6fa8" : OUT);
+  const line = (text, kind, lx, cy, size, align) => {
+    const tw = ctx.measureText(text).width * (PHONE ? CFG.TEXT_TEST_SCALE : 1);
+    lines.push({ text, kind, x: align === "center" ? lx - tw / 2 : lx, y: cy - size / 2, w: tw, h: size, size });
+  };
   if (PHONE) {
-    pText(name, tx, y + ch * 0.32, "main", 15, tw, "left", OUT, 900); w1 = ctx.measureText(name).width;
-    pText(stars, tx, y + ch * 0.72, "hint", 13, tw, "left", "#a16207", 800); w2 = ctx.measureText(stars).width;
+    const maxW = cw - 2 * pad, cx = x + cw / 2;
+    const nameB = clipRows(pRows(t.name, "main", 15, maxW, 2, 900), 2), lh = nameB.sz * 1.12;
+    const small = cpx(CFG.PHONE_TEXT.hint), slh = small * 1.15, rowsN = nameB.rows.length;
+    const total = rowsN * lh + slh + (t.mark ? slh : 0);
+    let cy = y + (ch - total) / 2 + lh / 2;
+    ctx.font = `900 ${nameB.sz}px system-ui, "Segoe UI", sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillStyle = t.locked ? "#64748b" : OUT;
+    for (const r of nameB.rows) { ctx.fillText(r, cx, cy); line(r, "name", cx, cy, nameB.sz, "center"); cy += lh; }
+    noteText("main", nameB.sz);
+    cy += (slh - lh) / 2;
+    const sz2 = pText(t.second, cx, cy, "hint", 13, maxW, "center", t.locked ? "#64748b" : "#a16207", 800); line(t.second, "stars", cx, cy, sz2, "center");
+    if (t.mark) { cy += slh; const sz3 = pText(t.mark, cx, cy, "hint", 13, maxW, "center", "#db2777", 900); line(t.mark, "bonus", cx, cy, sz3, "center"); }
   } else {
-    fitText(name, tx, y + ch * 0.34, 18, tw, "left", OUT, 900); w1 = ctx.measureText(name).width;
-    fitText(stars, tx, y + ch * 0.72, 14, tw, "left", "#a16207", 800); w2 = ctx.measureText(stars).width;
+    const pic = ch - 2 * pad;
+    worldPicture(w, x + pad, y + pad, pic);
+    if (t.locked) { ctx.save(); rr(x + pad, y + pad, pic, pic, pic * 0.2); ctx.fillStyle = "rgba(226,232,240,.7)"; ctx.fill(); ctx.restore(); }
+    const tx = x + pad + pic + 8, tw = x + cw - pad - tx;
+    const s1 = fitText(t.name, tx, y + ch * 0.32, 18, tw, "left", t.locked ? "#64748b" : OUT, 900, 12); line(t.name, "name", tx, y + ch * 0.32, s1, "left");
+    ctx.font = "900 12px system-ui, \"Segoe UI\", sans-serif";
+    const markW = t.mark ? ctx.measureText(t.mark).width + 14 : 0;
+    const s2 = fitText(t.second, tx, y + ch * 0.72, 14, tw - markW - (markW ? 6 : 0), "left", t.locked ? "#64748b" : "#a16207", 800, 10); line(t.second, "stars", tx, y + ch * 0.72, s2, "left");
+    if (t.mark) {                                         // плашка «Бонус» справа во второй строке
+      const mx = x + cw - pad - markW, my = y + ch * 0.72;
+      rr(mx, my - 9, markW, 18, 9); fillStroke("#f9a8d4", 2, "#db2777");
+      const s3 = fitText(t.mark, mx + markW / 2, my, 12, markW - 8, "center", "#831843", 900, 10); line(t.mark, "bonus", mx + markW / 2, my, s3, "center");
+    }
   }
-  buttons.push({ x, y, w: cw, h: ch, act: () => selectWorld(w), id: "world:" + w, text: name, textW: Math.max(w1, w2) });
-  worldCards.push({ world: w, x, y, w: cw, h: ch, name, stars, selected: sel });
+  const textW = Math.max(...lines.map(q => q.w));
+  buttons.push({ x, y, w: cw, h: ch, act: () => selectWorld(w), id: "world:" + w, text: t.name, textW });
+  worldCards.push({ world: w, x, y, w: cw, h: ch, name: t.name, stars: t.stars, selected: sel, bonus: t.bonus, locked: t.locked, lines });
+}
+// SPEC-016: ширины трёх карточек ряда на телефоне — по самому длинному слову имени и строке звёзд/метки, остаток поровну
+function phoneWorldRow(ws, total, gap) {
+  const pad = 2 * cpx(6), need = ws.map(w => {
+    const t = worldCardTexts(w);
+    ctx.font = `900 ${cpx(CFG.PHONE_TEXT.main)}px system-ui, "Segoe UI", sans-serif`;
+    const word = Math.max(...t.name.split(" ").map(scaledW));
+    ctx.font = `800 ${cpx(CFG.PHONE_TEXT.hint)}px system-ui, "Segoe UI", sans-serif`;
+    return Math.max(word, scaledW(t.second), t.mark ? scaledW(t.mark) : 0) + pad + 2;
+  });
+  const free = total - gap * (ws.length - 1), sum = need.reduce((a, b) => a + b, 0);
+  return sum <= free ? need.map(n => n + (free - sum) / ws.length) : need.map(n => n * free / sum);
 }
 
+// SPEC-016: «Открылись бонусные миры!» на экране победы — только после победы, открывшей их (lastReward.bonusUnlocked);
+// плашка в hudRects (bonus-note), для тестов — bonusNote { text, x, y, w, h, size, textW }
+let bonusNote = null;
+function drawBonusNote(cx, cy, maxW, h, css) {
+  if (!lastReward || !lastReward.bonusUnlocked) return;
+  const text = "🎁 " + L().bonusUnlocked;
+  const size = PHONE ? pText(text, -9999, -9999, "main", css, maxW - cpx(20), "center", OUT, 900) : fitText(text, -9999, -9999, css, maxW - 24, "center", OUT, 900, 14);
+  const textW = ctx.measureText(text).width, w = Math.min(maxW, textW + (PHONE ? cpx(24) : 28)), x = cx - w / 2, y = cy - h / 2;
+  rr(x, y, w, h, h / 2); fillStroke("#fde047", PHONE ? cpx(3) : 4, "#db2777");
+  if (PHONE) pText(text, cx, cy + 1, "main", css, w - cpx(16), "center", "#831843", 900); else fitText(text, cx, cy + 1, css, w - 20, "center", "#831843", 900, 14);
+  bonusNote = { text, x, y, w, h, size, textW };
+  hudRects.push({ id: "bonus-note", x, y, w, h });
+}
 // строка под «Победа!»: после последнего уровня мира — «мир пройден» (SPEC-006); winLine — для тестов
 let winLine = "";
 function winText() {
@@ -3914,8 +3972,10 @@ function drawOverlayPhone() {
     y += c(4);
     y += pWrap(L().touch1, lcx, y, "hint", 14, lw, 2, "#475569", 700);
     if (showInstallHint()) { pWrap(L().installHint, lcx, y + c(2), "hint", 13, lw, 2, "#2563eb", 800); installHintShown = true; }
-    // справа: языки и монетки, миры (два ряда), тип уровня, выбор уровня, «Играть», наряды и магазин
-    const PLAY_H = c(50), fixed = B + (2 * B + g) + c(22) + B + PLAY_H + B, gy = Math.max(g, (Y1 - Y0 - fixed - c(4)) / 4);
+    // справа: языки и монетки, миры (два ряда по три), выбор уровня с его типом, «Играть», наряды и магазин.
+    // SPEC-016: карточки миров выше кнопки (имя в две строки + звёзды): высота — всё, что осталось, но не больше c(64)
+    const PLAY_H = c(50), rest = B + B + PLAY_H + B + 4 * g + c(4), CH = Math.max(B, Math.min(c(64), (Y1 - Y0 - rest - g) / 2));
+    const fixed = B + (2 * CH + g) + B + PLAY_H + B, gy = Math.max(g, (Y1 - Y0 - fixed - c(4)) / 4);
     let ry = Y0;
     LANGS.forEach((code, i) => {
       const active = code === lang;
@@ -3928,24 +3988,31 @@ function drawOverlayPhone() {
     drawStar(cx0 + cw / 2 + c(10), ry + B / 2, c(9), true); pText(String(totalStars()), cx0 + cw / 2 + c(22), ry + B / 2 + 1, "main", 15, cw / 2 - c(26), "left", OUT, 900);
     ry += B + gy;
     worldCards = [];
-    const COLS_W = Math.ceil(WORLDS.length / 2), cw2 = (R - (COLS_W - 1) * g) / COLS_W;   // SPEC-016: два ряда (6 миров — по 3)
-    WORLDS.forEach((w, i) => worldCard(w, rx + (i % COLS_W) * (cw2 + g), ry + Math.floor(i / COLS_W) * (B + g), cw2, B));
-    ry += 2 * B + g;
+    const PER_ROW = Math.ceil(WORLDS.length / 2);
+    for (let r0 = 0; r0 < WORLDS.length; r0 += PER_ROW) {
+      const ws = WORLDS.slice(r0, r0 + PER_ROW), widths = phoneWorldRow(ws, R, g);
+      let cx1 = rx;
+      ws.forEach((w, i) => { worldCard(w, cx1, ry + (r0 / PER_ROW) * (CH + g), widths[i], CH); cx1 += widths[i] + g; });
+    }
+    ry += 2 * CH + g;
     const above = ry;
     ry += gy;
-    const tName = L().types[levelType(curWorld, level)], tY = ry + c(9);
-    const tSize = pText(tName, rx + R / 2, tY, "main", 15, R, "center", "#7c3aed", 800), tw = ctx.measureText(tName).width;
-    // на телефоне правила в левой колонке; rulesBottom — низ того, что над надписью в её колонке (карточки миров)
-    typeLabel = { text: tName, x: rx + R / 2 - tw / 2, y: tY - tSize / 2, w: tw, h: tSize, size: tSize, rulesBottom: above };
-    ry += c(18) + c(4);
     addButton(rx, ry, B, B, "◀", "#94a3b8", () => changeLevel(-1), fz(20, "main"));
     const canNext = level < worldProgress().unlocked;
     addButton(rx + R - B, ry, B, B, canNext ? "▶" : "🔒", canNext ? "#94a3b8" : "#cbd5e1", () => changeLevel(1), fz(canNext ? 20 : 16, "main"));
     const bx = rx + B + g, bw = R - 2 * (B + g);
     rr(bx, ry, bw, B, c(12)); fillStroke("#fff", 3);
     hudRects.push({ id: "level", x: bx, y: ry, w: bw, h: B });
-    pText(`${L().level} ${level}`, bx + bw / 2, ry + c(15), "main", 16, bw - c(8), "center", OUT, 900);
-    for (let k = 0; k < CFG.STARS_PER_LEVEL; k++) drawStar(bx + bw / 2 - c(14) + k * c(14), ry + c(33), c(5.5), k < (worldProgress().stars[level] || 0));
+    // SPEC-016: в рамке две строки — «Уровень n» со звёздами справа, под ней тип уровня (раньше — отдельной строкой над рамкой)
+    const starsW = CFG.STARS_PER_LEVEL * c(13), lvText = `${L().level} ${level}`;
+    const lvSize = pText(lvText, -9999, -9999, "main", 15, bw - starsW - c(14), "left", OUT, 900), lvW = ctx.measureText(lvText).width;
+    const lx0 = bx + (bw - lvW - c(6) - starsW) / 2;
+    pText(lvText, lx0, ry + B * 0.3, "main", lvSize / cpx(1), bw - starsW - c(14), "left", OUT, 900);
+    for (let k = 0; k < CFG.STARS_PER_LEVEL; k++) drawStar(lx0 + lvW + c(6) + c(6.5) + k * c(13), ry + B * 0.3, c(5.5), k < (worldProgress().stars[level] || 0));
+    const tName = L().types[levelType(curWorld, level)], tY = ry + B * 0.72;
+    const tSize = pText(tName, bx + bw / 2, tY, "main", 15, bw - c(10), "center", "#7c3aed", 800), tw = ctx.measureText(tName).width;
+    // на телефоне правила в левой колонке; rulesBottom — низ того, что над надписью в её колонке (карточки миров)
+    typeLabel = { text: tName, x: bx + bw / 2 - tw / 2, y: tY - tSize / 2, w: tw, h: tSize, size: tSize, rulesBottom: above };
     ry += B + gy;
     pButton(rx, ry, R, PLAY_H, "▶ " + L().play, "#3b82f6", () => startGame(1), 26);
     ry += PLAY_H + gy;
@@ -4137,6 +4204,7 @@ function drawOverlayPhone() {
       });
       drawRewardLines(rw, rx - colW / 2, Y0 + c(14), colW, c(28), c(17), cpx(CFG.PHONE_TEXT.main), c(26), cpx(CFG.PHONE_TEXT.title));
       acts = endActions("win").map((a, i) => [...a, c([200, 150, 150][i])]);
+      drawBonusNote(lx, Math.min(Y0 + c(262), Y1 - bh - g - c(15)), colW, c(28), 15);   // SPEC-016: под строками звёзд, над кнопками
     } else {
       pLabel(L().lose, lx, Y0 + c(40), "title", 36, "#fca5a5", "center", colW);
       pWrap(L().loseSub(fmtHearts(big.maxHp - big.hp), big.maxHp), lx, Y0 + c(70), "main", 17, colW, 3, "#fff", 900);
@@ -4159,40 +4227,42 @@ function drawOverlay() {
     rr(UW / 2 - 360, 30, 720, 580, 30); fillStroke("rgba(255,250,235,.95)", 5);
     label("BeBeBe Atrapar", UW / 2 - 40, 92, 54, "#ffcf33");
     label(L().subtitle, UW / 2, 136, 22, "#ff6fa8");
-    const icons = ["❤", "👀", "🤝", "⏱", "🏠", "🍌"], rules = L().rules(CFG.DOWN_TIME), RULE_Y = 168, RULE_DY = 23, RULE_SIZE = 16;
+    const icons = ["❤", "👀", "🤝", "⏱", "🏠", "🍌"], rules = L().rules(CFG.DOWN_TIME), RULE_Y = 160, RULE_DY = 21, RULE_SIZE = 16;
     rules.forEach((r, i) => {
       ctx.font = "19px system-ui, 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
       ctx.fillText(icons[i], UW / 2 - 312, RULE_Y + i * RULE_DY);
       fitText(r, UW / 2 - 287, RULE_Y + i * RULE_DY, RULE_SIZE, 640, "left", OUT, 700);
     });
-    // миры: карточки в ряд под правилами (SPEC-016: шесть — уже, чтобы ряд влез в карточку меню)
-    const NW = WORLDS.length, CARD_Y = 298, CARD_H = 56, CARD_GAP = 8, ROW_W = 688;
-    const CARD_W = Math.min(160, (ROW_W - (NW - 1) * CARD_GAP) / NW), cx0 = UW / 2 - (NW * CARD_W + (NW - 1) * CARD_GAP) / 2;
+    // миры (SPEC-016): шесть карточек — два ряда по три под правилами, в порядке сюжета
+    const PER_ROW = 3, CARD_Y = 280, CARD_H = 46, CARD_GAP = 12, ROW_GAP = 8, ROW_W = 688;
+    const CARD_W = (ROW_W - (PER_ROW - 1) * CARD_GAP) / PER_ROW, cx0 = UW / 2 - ROW_W / 2;
+    const CARDS_B = CARD_Y + Math.ceil(WORLDS.length / PER_ROW) * (CARD_H + ROW_GAP) - ROW_GAP;
     worldCards = [];
-    WORLDS.forEach((w, i) => worldCard(w, cx0 + i * (CARD_W + CARD_GAP), CARD_Y, CARD_W, CARD_H));
+    WORLDS.forEach((w, i) => worldCard(w, cx0 + (i % PER_ROW) * (CARD_W + CARD_GAP), CARD_Y + Math.floor(i / PER_ROW) * (CARD_H + ROW_GAP), CARD_W, CARD_H));
     // под ними — выбор уровня этого мира, справа от него — тип уровня
-    const LV_Y = 364;
-    addButton(UW / 2 - 250, LV_Y, 52, 50, "◀", "#94a3b8", () => changeLevel(-1));
-    rr(UW / 2 - 192, LV_Y, 124, 50, 16); fillStroke("#fff", 4);
-    fitText(`${L().level} ${level}`, UW / 2 - 130, LV_Y + 18, 20, 112, "center", OUT, 900);
-    for (let k = 0; k < CFG.STARS_PER_LEVEL; k++) drawStar(UW / 2 - 146 + k * 16, LV_Y + 39, 7, k < (worldProgress().stars[level] || 0));
+    const LV_Y = CARDS_B + 10, LV_H = 48;
+    addButton(UW / 2 - 250, LV_Y, 52, LV_H, "◀", "#94a3b8", () => changeLevel(-1));
+    rr(UW / 2 - 192, LV_Y, 124, LV_H, 16); fillStroke("#fff", 4);
+    fitText(`${L().level} ${level}`, UW / 2 - 130, LV_Y + 17, 20, 112, "center", OUT, 900);
+    for (let k = 0; k < CFG.STARS_PER_LEVEL; k++) drawStar(UW / 2 - 146 + k * 16, LV_Y + 37, 7, k < (worldProgress().stars[level] || 0));
     const canNext = level < worldProgress().unlocked;
-    addButton(UW / 2 - 62, LV_Y, 52, 50, canNext ? "▶" : "🔒", canNext ? "#94a3b8" : "#cbd5e1", () => changeLevel(1), canNext ? 24 : 18);
-    const tName = L().types[levelType(curWorld, level)], tY = LV_Y + 25;
+    addButton(UW / 2 - 62, LV_Y, 52, LV_H, canNext ? "▶" : "🔒", canNext ? "#94a3b8" : "#cbd5e1", () => changeLevel(1), canNext ? 24 : 18);
+    const tName = L().types[levelType(curWorld, level)], tY = LV_Y + LV_H / 2;
     const tSize = fitText(tName, UW / 2 + 135, tY, 22, 230, "center", "#7c3aed", 800), tw = ctx.measureText(tName).width;
-    typeLabel = { text: tName, x: UW / 2 + 135 - tw / 2, y: tY - tSize / 2, w: tw, h: tSize, size: tSize, rulesBottom: CARD_Y + CARD_H };
+    typeLabel = { text: tName, x: UW / 2 + 135 - tw / 2, y: tY - tSize / 2, w: tw, h: tSize, size: tSize, rulesBottom: CARDS_B };
     // монетки и звёзды
     rr(UW / 2 - 345, 118, 170, 34, 14); fillStroke("#fff", 3);
     drawCoin(UW / 2 - 322, 135, 11); plainText(String(progress.coins), UW / 2 - 304, 135, 18);
     drawStar(UW / 2 - 235, 135, 11, true); plainText(String(totalStars()), UW / 2 - 220, 135, 18);
-    addButton(UW / 2 - 250, 428, 230, 58, L().onePlayer, "#3b82f6", () => startGame(1), 28);
-    addButton(UW / 2 + 20, 428, 230, 58, L().twoPlayers, "#22c55e", () => startGame(2), 28);
-    addButton(UW / 2 - 250, 496, 230, 44, "🎨 " + L().skins, "#ff8fab", () => { mode = "skins"; }, 20);
-    addButton(UW / 2 + 20, 496, 230, 44, "🛒 " + L().shop, "#f59e0b", () => { mode = "shop"; }, 20);
-    const hint = showInstallHint(), cy = hint ? 554 : 562;    // с подсказкой строки управления чуть выше
+    const PL_Y = LV_Y + LV_H + 10, SK_Y = PL_Y + 60;      // SPEC-016: всё под карточками миров чуть ниже и плотнее
+    addButton(UW / 2 - 250, PL_Y, 230, 52, L().onePlayer, "#3b82f6", () => startGame(1), 28);
+    addButton(UW / 2 + 20, PL_Y, 230, 52, L().twoPlayers, "#22c55e", () => startGame(2), 28);
+    addButton(UW / 2 - 250, SK_Y, 230, 40, "🎨 " + L().skins, "#ff8fab", () => { mode = "skins"; }, 20);
+    addButton(UW / 2 + 20, SK_Y, 230, 40, "🛒 " + L().shop, "#f59e0b", () => { mode = "shop"; }, 20);
+    const hint = showInstallHint(), cy = SK_Y + 40 + (hint ? 13 : 20), CDY = hint ? 18 : 20;   // с подсказкой строки управления плотнее
     fitText(L().controls1, UW / 2, cy, 15, 690, "center", "#475569", 600);
-    fitText(L().controls2, UW / 2, cy + 22, 15, 690, "center", "#475569", 600);
-    if (hint) { fitText(L().installHint, UW / 2, cy + 46, 15, 690, "center", "#2563eb", 800); installHintShown = true; }
+    fitText(L().controls2, UW / 2, cy + CDY, 15, 690, "center", "#475569", 600);
+    if (hint) { fitText(L().installHint, UW / 2, cy + 2 * CDY, 15, 690, "center", "#2563eb", 800); installHintShown = true; }
     // переключатель языка
     LANGS.forEach((code, i) => {
       const bx = UW / 2 + 196 + i * 54, by = 46, active = code === lang;
@@ -4295,6 +4365,7 @@ function drawOverlay() {
       labelFit((okk ? "✔ " : "✘ ") + txt, lx, 274 + i * 30, 18, 340, okk ? "#bbf7d0" : "#cbd5e1");
     });
     drawRewardLines(rw, UW / 2 + 20, 186, 340, 30, 19, 12, 26, 16);
+    drawBonusNote(lx, 384, 360, 40, 20);   // SPEC-016: под строками звёзд, над кнопками
     const acts = endActions("win");
     const geo = acts.length === 3 ? [[UW / 2 - 360, 440, 260, 66, 24], [UW / 2 - 85, 440, 200, 66, 22], [UW / 2 + 130, 440, 200, 66, 22]]
       : [[UW / 2 - 240, 440, 260, 66, 24], [UW / 2 + 40, 440, 200, 66, 22]];
@@ -4393,7 +4464,7 @@ function drawBanner() {
 function drawUI(t) {
   draws++;
   if (nameInput && mode !== "skins" && mode !== "names") closeNameInput(false);
-  buttons = []; installHintShown = false; typeLabel = null; worldCards = []; winLine = ""; mmShown = false; edgeArrows = []; hudRects = []; textSizes = {}; bannerRect = null; kitHintRect = null; shopLayout = null; winPanel = null;
+  buttons = []; installHintShown = false; typeLabel = null; worldCards = []; bonusNote = null; winLine = ""; mmShown = false; edgeArrows = []; hudRects = []; textSizes = {}; bannerRect = null; kitHintRect = null; shopLayout = null; winPanel = null;
   if (mode !== "shop") shopTab = "items";
   ctx.setTransform(VIEW, 0, 0, VIEW, 0, 0);
   ctx.clearRect(0, 0, UW, UH);
@@ -5948,6 +6019,7 @@ window.__bb = {
   get world() { return curWorld; }, set world(v) { if (WORLDS.includes(v)) curWorld = v; }, WORLDS, difficulty, bigSpeeds,
   // SPEC-016: списки миров, сиды по имени, индекс сложности, время третьей звезды, бонусные миры (p — прогресс, по умолчанию текущий)
   MAIN_WORLDS, BONUS_WORLDS, WORLD_SEED, worldDifficulty, fastTarget, bonusUnlocked, bonusOpen,
+  get bonusNote() { return bonusNote && { ...bonusNote }; },   // SPEC-016: плашка «Открылись бонусные миры!» этого кадра (или null)
   changeLevel, get winLine() { return winLine; }, selectWorld, get worldCards() { return worldCards.map(q => ({ ...q })); },
   update, inSafe, I18N, startGame, resetWorld, cycleOutfit, randomOutfit, cycleBig, setLang, toScreen,
   get items() { return items; }, get progress() { return progress; }, buyGloves, setEquip, get lastReward() { return lastReward; }, spawnItem,

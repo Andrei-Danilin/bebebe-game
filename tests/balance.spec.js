@@ -324,7 +324,7 @@ test("the careful autopilot uses rescue kits and air kisses when it has them", a
 });
 
 // ---------- AC 14: the CI sample of the balance report ----------
-// The 8 levels of CFG.BALANCE.CI_LEVELS (an early level and a maze level per world), 1 seed, careful autopilot, played
+// The 12 levels of CFG.BALANCE.CI_LEVELS (an early level and a maze level per world; SPEC-016: six worlds), 1 seed, careful autopilot, played
 // exactly like `npm run balance` (runLevel from scripts/balance.js), with wide bounds: won within the time limit,
 // no 2-minute stretch without any event (stuck), the event log not overflowing, no page errors (the fixture).
 const { runLevel } = require("../scripts/balance.js");

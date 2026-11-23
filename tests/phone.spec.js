@@ -932,9 +932,66 @@ function phoneScreenProblems(name, d, minText) {
   return out;
 }
 
+// SPEC-016: every text line of a world card (name, stars, bonus label) inside the card's own box, nothing cut with «…»
+function phoneCardProblems(cards, label) {
+  const out = [];
+  for (const c of cards) for (const t of c.lines) {
+    if (!(t.x >= c.x - 0.5 && t.x + t.w <= c.x + c.w + 0.5 && t.y >= c.y - 0.5 && t.y + t.h <= c.y + c.h + 0.5)) out.push(`${label} ${c.world}: "${t.text}" ${JSON.stringify(t)} outside its card ${JSON.stringify({ x: c.x, y: c.y, w: c.w, h: c.h })}`);
+    if (/…/.test(t.text)) out.push(`${label} ${c.world}: "${t.text}" cut`);
+  }
+  return out;
+}
+
 for (const [vw, vh] of PHONE_SIZES) {
   test.describe(`phone sizes ${vw}×${vh}`, () => {
     test.use({ ...PHONE_CTX, viewport: { width: vw, height: vh } });
+
+    // SPEC-016 AC 8: six world cards, the bonus ones locked and open, every language
+    test(`the world cards keep their texts inside at ${vw}×${vh}`, async ({ phonePage: page }) => {
+      const minText = await page.evaluate(() => window.__bb.CFG.PHONE_TEXT);
+      const fails = [];
+      for (const lang of ["en", "es", "ru"]) for (const open of [false, true]) {
+        await page.evaluate(([l, o]) => {
+          const b = window.__bb; b.setProgress(null);
+          if (o) for (const w of b.MAIN_WORLDS) Object.assign(b.progress.worlds[w], { unlocked: 20, won: Object.fromEntries(Array.from({ length: 20 }, (_, i) => [i + 1, true])) });
+          b.setLang(l); b.mode = "menu";
+        }, [lang, open]);
+        await frames(page);
+        const d = await page.evaluate(() => ({ cards: window.__bb.worldCards, ui: window.__bb.uiSize, buttons: window.__bb.buttonRects }));
+        const label = `${vw}×${vh} ${lang} ${open ? "open" : "locked"}`;
+        fails.push(...phoneCardProblems(d.cards, label));
+        for (const c of d.cards) {
+          if (c.w * d.ui.scale < 44 - 0.01 || c.h * d.ui.scale < 44 - 0.01) fails.push(`${label} ${c.world}: card ${c.w * d.ui.scale}×${c.h * d.ui.scale} CSS px`);
+          for (const t of c.lines) if (t.size * d.ui.scale < (t.kind === "name" ? minText.main : minText.hint) - 0.01) fails.push(`${label} ${c.world}: "${t.text}" at ${t.size * d.ui.scale} CSS px`);
+        }
+        const lines = d.cards.map(c => c.lines.map(t => t.text));
+        if (open) { if (!lines[4].includes("Bonus") && !lines[4].includes("Бонус")) fails.push(`${label}: no Bonus mark on the open Beach`); }
+        else if (!/🔒/.test(lines[4].join(" ")) || !/🔒/.test(lines[5].join(" "))) fails.push(`${label}: locked bonus cards without 🔒`);
+      }
+      // the one-time "Bonus worlds unlocked!" note on the win screen: inside the screen, off the buttons, readable
+      for (const lang of ["en", "es", "ru"]) {
+        await page.evaluate(l => {
+          const b = window.__bb, all = () => Object.fromEntries(Array.from({ length: 20 }, (_, i) => [i + 1, true]));
+          b.setProgress(null); b.setLang(l);
+          for (const w of b.MAIN_WORLDS) Object.assign(b.progress.worlds[w], { unlocked: 20, won: all() });
+          delete b.progress.worlds.city.won[20];
+          b.world = "city"; b.level = 20; b.startGame(1);
+          Object.assign(b.stats, { playerHugs: 2, rests: 1, time: 9999, starCoins: 3 }); b.giveReward(true); b.mode = "win";
+        }, lang);
+        await frames(page);
+        const w = await page.evaluate(() => ({ note: window.__bb.bonusNote, buttons: window.__bb.buttonRects, hud: window.__bb.hudRects, ui: window.__bb.uiSize }));
+        const label = `${vw}×${vh} ${lang} win`;
+        if (!w.note) { fails.push(`${label}: no bonus note`); continue; }
+        const n = w.note;
+        if (!(n.x >= 0 && n.y >= 0 && n.x + n.w <= w.ui.w && n.y + n.h <= w.ui.h)) fails.push(`${label}: note outside the screen ${JSON.stringify(n)}`);
+        if (n.textW > n.w + 0.5) fails.push(`${label}: note text ${n.textW} wider than its box ${n.w}`);
+        if (n.size * w.ui.scale < minText.main - 0.01) fails.push(`${label}: note text ${n.size * w.ui.scale} CSS px`);
+        for (const q of w.buttons) if (overlaps(n, q)) fails.push(`${label}: note on button ${q.id || q.text}`);
+        for (const q of w.hud) if (q.id !== "bonus-note" && overlaps(n, q)) fails.push(`${label}: note on ${q.id}`);
+      }
+      await page.evaluate(() => { const b = window.__bb; b.mode = "menu"; b.setProgress(null); b.setLang("en"); b.world = "park"; b.level = 1; });
+      expect(fails).toEqual([]);
+    });
 
     test(`every phone button is big enough at ${vw}×${vh}`, { tag: vw === 844 ? "@fast" : [] }, async ({ phonePage: page }) => {
       test.slow();
@@ -947,7 +1004,7 @@ for (const [vw, vh] of PHONE_SIZES) {
         await frames(page);
         const d = await page.evaluate(() => {
           const b = window.__bb, l = b.littles[0];
-          return { ui: b.uiSize, buttons: b.buttonRects, hud: b.hudRects, mm: b.minimap, texts: b.textSizes, banner: b.bannerRect,
+          return { ui: b.uiSize, buttons: b.buttonRects, hud: b.hudRects, mm: b.minimap, texts: b.textSizes, banner: b.bannerRect, cards: b.worldCards,
             hero: b.toScreen(l.x, l.y), head: b.toScreen(l.x, l.y, 72), mode: b.mode, typeLabel: b.typeLabel };
         });
         expect(d.mode, label).toBe(name === "rest" || name === "long" || name === "down" ? "play" : name);
@@ -964,6 +1021,7 @@ for (const [vw, vh] of PHONE_SIZES) {
           // the type label under them
           const cards = d.buttons.filter(q => String(q.id).startsWith("world:"));
           expect(cards.map(q => q.id), label).toEqual(["world:park", "world:field", "world:city", "world:school", "world:beach", "world:winter"]);
+          fails.push(...phoneCardProblems(d.cards, label));   // SPEC-016: every text inside its own card
           expect(L.y, `${label}: type label under the world cards`).toBeGreaterThanOrEqual(Math.max(...cards.map(q => q.y + q.h)));
         }
         if (name === "shop") expect(d.buttons.map(q => q.id)).toEqual(expect.arrayContaining(["buy:mittens", "buy:mega", "buy:kisses", "buy:rescues"]));
@@ -1037,7 +1095,7 @@ async function bannerPlan(page) {
       }
     }
     return { plan, widestName };
-  }, [["park", "school", "beach", "winter"], BANNER_LEVELS]);
+  }, [["park", "field", "city", "school", "beach", "winter"], BANNER_LEVELS]);   // SPEC-016: six worlds
 }
 
 // starts world w, level lv with 💋 and mittens bottom right and a calm Big One; remembers the hero's start
@@ -1116,13 +1174,13 @@ for (const [vw, vh] of PHONE_SIZES) {
       const at = JSON.stringify(plan);
       expect(plan.some(p => p.world === "park" && p.n === 1 && p.lang === "en"), at).toBe(true);
       for (const lg of ["en", "es", "ru"]) expect(plan.some(p => p.n === 1 && p.lang === lg), `level 1 in ${lg}: ${at}`).toBe(true);
-      for (const w of ["park", "school", "beach", "winter"]) {
+      for (const w of ["park", "field", "city", "school", "beach", "winter"]) {
         const langs = plan.filter(p => p.world === w && p.n === 10).map(p => p.lang);
         expect(langs.length, `${w} 10: ${at}`).toBeGreaterThanOrEqual(2);
         expect(langs, `${w} 10 has the widest hero name (${widestName}): ${at}`).toContain(widestName);
       }
       try {
-        for (const world of ["park", "school", "beach", "winter"]) for (const n of BANNER_LEVELS) {
+        for (const world of ["park", "field", "city", "school", "beach", "winter"]) for (const n of BANNER_LEVELS) {
           const langs = plan.filter(p => p.world === world && p.n === n).map(p => p.lang);
           if (!langs.length) continue;
           await startBannerLevel(page, world, n);

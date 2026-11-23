@@ -644,6 +644,72 @@ test("old saves get 0 kisses", async ({ page }) => {
   expect((await loadSave(page, old({ mittens: 1, mega: 0, kisses: 7 }))).inv.kisses).toBe(7);
 });
 
+// ---------- SPEC-016 AC 5: the bonus worlds (Beach, Winter) open after every level of the main worlds is won ----------
+test("bonus worlds open after all main levels", async ({ page }) => {
+  // fresh progress: Beach and Winter are locked; the menu refuses them (selectWorld, ↑/↓, a tap on the card)
+  const fresh = await page.evaluate(() => {
+    const b = window.__bb;
+    b.world = "school"; b.level = 1; b.mode = "menu";
+    const out = { unlocked: b.bonusUnlocked(), open: b.WORLDS.map(w => b.bonusOpen(w)) };
+    b.selectWorld("beach"); out.select = b.world;
+    return out;
+  });
+  expect(fresh).toEqual({ unlocked: false, open: [true, true, true, true, false, false], select: "school" });
+  await frames(page);
+  const keys = [];
+  for (const k of ["ArrowDown", "ArrowUp"]) { await page.keyboard.press(k); keys.push(await page.evaluate(() => window.__bb.world)); }
+  expect(keys, "↓ from the School wraps to the Park, ↑ goes back: the locked bonus worlds are skipped").toEqual(["park", "school"]);
+  await frames(page);
+  const tap = await page.evaluate(() => {
+    const q = window.__bb.buttonRects.find(r => r.id === "world:winter"), c = document.getElementById("game").getBoundingClientRect();
+    return q && { x: c.left + (q.x + q.w / 2) * c.width / 960, y: c.top + (q.y + q.h / 2) * c.height / 640 };
+  });
+  expect(tap, "the locked Winter card is still drawn").toBeTruthy();
+  await page.mouse.click(tap.x, tap.y);
+  expect(await page.evaluate(() => window.__bb.world), "a tap on a locked card changes nothing").toBe("school");
+
+  // every main level won except City 20: still locked; the win of City 20 opens them and says so — once
+  const before = await page.evaluate(() => {
+    const b = window.__bb, all = () => Object.fromEntries(Array.from({ length: 20 }, (_, i) => [i + 1, true]));
+    for (const w of b.MAIN_WORLDS) Object.assign(b.progress.worlds[w], { unlocked: 20, won: all(), stars: Object.fromEntries(Array.from({ length: 20 }, (_, i) => [i + 1, 1])) });
+    delete b.progress.worlds.city.won[20]; delete b.progress.worlds.city.stars[20];
+    return b.bonusUnlocked();
+  });
+  expect(before).toBe(false);
+  const win = async (w, n) => {
+    await page.evaluate(([wd, lv]) => {
+      const b = window.__bb; b.world = wd; b.level = lv; b.startGame(1);
+      Object.assign(b.stats, { playerHugs: 0, rests: 0, time: 9999, starCoins: 0 }); b.giveReward(true); b.mode = "win";
+    }, [w, n]);
+    await frames(page);
+    return page.evaluate(() => ({ flag: window.__bb.lastReward.bonusUnlocked === true, note: window.__bb.bonusNote, unlocked: window.__bb.bonusUnlocked() }));
+  };
+  const first = await win("city", 20);
+  expect(first.flag).toBe(true);
+  expect(first.unlocked).toBe(true);
+  expect(first.note && first.note.text, "the win screen says so").toBe("🎁 Bonus worlds unlocked!");
+  const again = await win("city", 20), later = await win("park", 7);
+  expect([again.flag, again.note, later.flag, later.note], "only the win that completes the 80th main level shows it").toEqual([false, null, false, null]);
+  // the menu lets you in now: ↓ from the School goes to the Beach, a card tap picks the Winter
+  await page.evaluate(() => { const b = window.__bb; b.mode = "menu"; b.world = "school"; b.level = 1; });
+  await frames(page);
+  await page.keyboard.press("ArrowDown");
+  expect(await page.evaluate(() => window.__bb.world)).toBe("beach");
+  await page.evaluate(() => window.__bb.selectWorld("winter"));
+  expect(await page.evaluate(() => window.__bb.world)).toBe("winter");
+
+  // a saved lastWorld that is a locked bonus world opens on the Park; one with progress there stays
+  expect((await loadSave(page, { lastWorld: "winter" })).lastWorld).toBe("park");
+  expect((await loadSave(page, { lastWorld: "beach", worlds: { beach: { unlocked: 3 } } })).lastWorld).toBe("beach");
+  await page.evaluate(() => { localStorage.setItem("bebebe-progress", JSON.stringify({ lastWorld: "winter", coins: 4 })); });
+  await page.reload();
+  await page.waitForFunction(() => window.__bbReady === true);
+  expect(await page.evaluate(() => [window.__bb.world, window.__bb.progress.lastWorld])).toEqual(["park", "park"]);
+  // the texts in every language
+  expect(await page.evaluate(() => ["en", "es", "ru"].map(l => [window.__bb.I18N[l].bonus, window.__bb.I18N[l].bonusUnlocked])))
+    .toEqual([["Bonus", "Bonus worlds unlocked!"], ["Bonus", "¡Se abrieron los mundos bonus!"], ["Бонус", "Открылись бонусные миры!"]]);
+});
+
 // SPEC-006 AC 7
 test("old saves move into the Park", { tag: "@fast" }, async ({ page }) => {
   const load = async save => {
@@ -678,7 +744,9 @@ test("old saves move into the Park", { tag: "@fast" }, async ({ page }) => {
   expect(part.worlds).toEqual({ park: { unlocked: 1, stars: {}, won: {} }, field: { unlocked: 1, stars: {}, won: {} }, city: { unlocked: 1, stars: {}, won: {} },
     school: { unlocked: 20, stars: {}, won: {} }, beach: { unlocked: 7, stars: { 2: 3 }, won: { 2: true } }, winter: { unlocked: 1, stars: {}, won: {} } });
   expect(part.lastWorld).toBe("park");
-  expect((await loadSave(page, { coins: 1, lastWorld: "winter" })).lastWorld).toBe("winter");
+  // SPEC-016: the only change here — "winter" is now a bonus world, locked without Winter progress, so it opens on the Park
+  expect((await loadSave(page, { coins: 1, lastWorld: "winter" })).lastWorld).toBe("park");
+  expect((await loadSave(page, { coins: 1, lastWorld: "school" })).lastWorld).toBe("school");
   // a stale page wrote both worlds and the old flat fields: the flat ones merge into the Park (higher unlocked, best stars), then go away
   const both = await load({ coins: 9, worlds: { park: { unlocked: 4, stars: { 1: 1, 2: 3 } }, school: { unlocked: 2, stars: {} } }, unlocked: 6, stars: { 1: 3, 2: 1, 25: 3 } });
   expect(both.worlds.park).toEqual({ unlocked: 6, stars: { 1: 3, 2: 3 }, won: { 1: true, 2: true } });
