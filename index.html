@@ -140,8 +140,24 @@ const CFG = {
   CAM_SHADOW_H: 2,           // клеток — углы видимой земли поднимаем на эту высоту: рамка тени захватывает стены, деревья и героев у края кадра
   CAM_FOLLOW: 6,             // 1/сек — как быстро камера догоняет героя
   CAM_LOOKAHEAD: 1.5,        // клеток — камера чуть забегает вперёд по ходу героя
-  MINIMAP_W: 0.26,           // доля ширины интерфейса — ширина мини-карты (3:2)
+  MINIMAP_W: 0.18,           // доля ширины интерфейса — ширина мини-карты (3:2); SPEC-010: меньше (было 0.26) — решение детей
   MINIMAP_MARGIN: 8,         // UI px — отступ мини-карты от краёв
+  // SPEC-010: мини-карта почти прозрачная (решение детей): слой уровня без заливки земли, подложка еле видна,
+  // точки героев яркие; герой или Большой под ней (+ MINIMAP_UNDER_PAD) — вся карта бледнеет до MINIMAP_UNDER_ALPHA
+  MINIMAP_BASE_ALPHA: 0.45,  // прозрачность слоя уровня (стены, вода, домики, кусты)
+  MINIMAP_BG_ALPHA: 0.12,    // прозрачность тёмной подложки (было .35) — только чтобы точки читались на снегу и песке
+  MINIMAP_UNDER_ALPHA: 0.2,  // вся мини-карта, когда под ней герой или Большой
+  MINIMAP_UNDER_PAD: 12,     // UI px — запас вокруг мини-карты для «под ней»
+  MINIMAP_FADE_TIME: 0.2,    // сек — от полной до бледной (и обратно)
+  // как рисуется (UI px и доли): стены — их цвет, смешанный с тёмным на dark; домики — заливка zone и контур zoneLine;
+  // кусты, деревья, камни — точки в bush/tree радиуса; точки героев dots (UI px), не меньше dot, контур outline;
+  // отдыхающие боты — rest; конус cone (спокойный — coneCalm);
+  // белое кольцо героя — толщина ringW; рамка камеры — белая frame (толщина frameW) на еле видной тёмной подложке
+  // frameShade толщиной frameShadeW (её видно на снегу);
+  // рамка подложки border (толщина borderW), скругление radius
+  MINIMAP_LOOK: { dark: 0.65, zone: 0.18, zoneLine: 1, bush: 0.3, tree: 0.45, outline: 1, dot: 3, rest: 0.5, cone: 0.35, coneCalm: 0.25,
+    dots: { star: 3.5, item: 3, downed: 4.5, bot: 3.6, big: 5, hero: 4.5 },
+    ringW: 1.5, frame: 0.6, frameW: 1, frameShade: 0.25, frameShadeW: 3, border: 0.35, borderW: 1, radius: 8 },
   ARROW_D: 30,               // CSS px — кружок стрелки у края экрана (диаметр)
   PHONE_KISS_BTN: 80,        // CSS px — кнопка 💋 на телефоне
   STICK_ZONE: 0.55,          // доля ширины слева, где касание создаёт джойстик
@@ -2766,7 +2782,7 @@ function phoneOccluders(pad = 0, sides = 0) {
   const mm = minimapRect(), tr = teamRect(), top = phoneTopBar();
   // ways — куда камере уводить героя из-под этого места, по порядку: сначала первый, второй — когда первый упёрся
   const r = [{ x: -1e4, y: -1e4, w: 2e4, h: 1e4 + top + pad, ways: ["down"] },
-    { x: mm.x - pad, y: -1e4, w: 2e4, h: 1e4 + tr.y + tr.h + pad, ways: ["down", "left"] }];
+    { x: Math.min(mm.x, tr.x) - pad, y: -1e4, w: 2e4, h: 1e4 + tr.y + tr.h + pad, ways: ["down", "left"] }];   // SPEC-010: кружки шире маленькой мини-карты
   if (sides) r.push({ x: -1e4, y: -1e4, w: 1e4 + sides, h: 2e4, ways: ["right"] }, { x: UW - sides, y: -1e4, w: 2e4, h: 2e4, ways: ["left"] });
   return r;
 }
@@ -2947,7 +2963,7 @@ function kitButton(pi, t) {
 // ---------- Мини-карта и стрелки у края (SPEC-005, только телефон) ----------
 // mmState — один объект на все кадры; маркеры — переиспользуемые объекты (mmCount штук нарисовано в этом кадре)
 let mmBase = null, mmKey = "", mmDraws = 0, mmShown = false, edgeArrows = [], hudRects = [];
-const mmState = { x: 0, y: 0, w: 0, h: 0, markers: [] };
+const mmState = { x: 0, y: 0, w: 0, h: 0, alpha: 1, markers: [] };
 let mmCount = 0;
 const showMinimap = () => PHONE && (mode === "play" || mode === "pause");
 // правый верхний угол, ширина MINIMAP_W от ширины интерфейса, 3:2 (как карта 30×20)
@@ -2961,76 +2977,107 @@ function mixHex(a, b, f) {
   const p = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)), x = p(a), y = p(b);
   return `rgb(${x.map((v, i) => Math.round(v + (y[i] - v) * f)).join(",")})`;
 }
-// нижний слой: земля, стены, вода, кусты, домики — рисуется один раз на уровень (номер и попытку из levelInfo), место и размер;
-// перезапуск того же уровня ничего не перерисовывает
+// нижний слой (SPEC-010: без заливки земли и полов): стены, домики соседей, стены арены и лабиринта — тёмные силуэты
+// своего цвета; вода — голубая; домик маленьких и дом Большого — светлая заливка с контуром; кусты, деревья, камни — точки.
+// Рисуется один раз на уровень (номер и попытку из levelInfo), место и размер; перезапуск того же уровня ничего не перерисовывает
+const MM_DARK = "#1e293b", MM_WATER = "#38bdf8", MM_BUSH = "#2e8b3e";
 function minimapBase(r) {
   const li = levelInfo || {}, key = [li.world, li.lv, li.attempt, li.fallback, r.w, VIEW].join(":");
   if (mmBase && key === mmKey) return mmBase;
   mmKey = key; mmDraws++;
-  const th = THEMES[li.world || curWorld], c = mmBase || (mmBase = document.createElement("canvas"));
-  c.width = Math.max(1, Math.round(r.w * VIEW)); c.height = Math.max(1, Math.round(r.h * VIEW));
-  const g = c.getContext("2d");
+  const th = THEMES[li.world || curWorld], L = CFG.MINIMAP_LOOK, c = mmBase || (mmBase = document.createElement("canvas"));
+  c.width = Math.max(1, Math.round(r.w * VIEW)); c.height = Math.max(1, Math.round(r.h * VIEW));   // новый размер — холст чистый
+  const g = c.getContext("2d"), ui = W / r.w;                    // px карты на UI px
   g.setTransform(c.width / W, 0, 0, c.height / H, 0, 0);          // рисуем в px карты
-  g.fillStyle = th.g1; g.fillRect(0, 0, W, H);
-  for (const f of floors) {
-    const col = f.kind === "bridge" ? th.bridge?.[0] : f.kind === "square" ? th.square?.[0] : null;
-    if (col) { g.fillStyle = col; g.fillRect(f.x, f.y, f.w, f.h); }
-  }
-  if (safeZone) { g.fillStyle = "rgba(59,130,246,.45)"; g.fillRect(safeZone.x, safeZone.y, safeZone.w, safeZone.h); }
-  if (dangerZone) { g.fillStyle = "rgba(239,68,68,.4)"; g.fillRect(dangerZone.x, dangerZone.y, dangerZone.w, dangerZone.h); }
+  const dark = col => mixHex(col, MM_DARK, L.dark);
+  const zone = (z, col) => {
+    if (!z) return;
+    const lw = L.zoneLine * ui;
+    g.globalAlpha = L.zone; g.fillStyle = col; g.fillRect(z.x, z.y, z.w, z.h); g.globalAlpha = 1;
+    g.lineWidth = lw; g.strokeStyle = col; g.strokeRect(z.x + lw / 2, z.y + lw / 2, z.w - lw, z.h - lw);
+  };
+  zone(safeZone, th.walls.home[0]); zone(dangerZone, th.walls.bighome[0]);
   for (const o of obstacles) {
-    const col = o.kind === "water" || o.kind === "pond" ? th.water?.c || "#5ab8f0"
-      : o.kind === "tree" ? "#2f7d32" : o.kind === "rock" ? "#94a3b8"
-      : o.kind === "cottage" ? th.cottage?.roof || "#ef4444"
+    if (o.kind === "water" || o.kind === "pond") { g.fillStyle = MM_WATER; g.fillRect(o.x, o.y, o.w, o.h); continue; }
+    if (o.kind === "tree" || o.kind === "rock") {
+      g.fillStyle = dark(o.kind === "tree" ? MM_BUSH : "#94a3b8");
+      g.beginPath(); g.arc(o.x, o.y, o.r * L.tree, 0, TAU); g.fill(); continue;
+    }
+    const col = o.kind === "cottage" ? th.cottage?.roof || "#ef4444"
       : o.kind === "maze" || o.kind === "hedge" ? th.maze?.wall || "#3f9a4a"
       : (th.walls[o.kind] || th.walls.build)[0];
-    g.fillStyle = o.sight && o.shape === "rect" ? mixHex(col, "#1e293b", 0.3) : col;   // стены темнее — видно и на снегу
+    g.fillStyle = dark(col);
     if (o.shape === "circle") { g.beginPath(); g.arc(o.x, o.y, o.r, 0, TAU); g.fill(); }
     else g.fillRect(o.x, o.y, o.w, o.h);
   }
-  g.fillStyle = "#2e8b3e";
-  for (const b of bushes) { g.beginPath(); g.arc(b.x, b.y, b.r * 0.5, 0, TAU); g.fill(); }
+  g.fillStyle = dark(MM_BUSH);
+  for (const b of bushes) { g.beginPath(); g.arc(b.x, b.y, b.r * L.bush, 0, TAU); g.fill(); }
   return c;
 }
-function mark(kind, x, y) {
-  const m = mmState.markers[mmCount] || (mmState.markers[mmCount] = { kind: "", x: 0, y: 0 });
-  m.kind = kind; m.x = x; m.y = y; mmCount++;
+function mark(kind, x, y, r = 0) {
+  const m = mmState.markers[mmCount] || (mmState.markers[mmCount] = { kind: "", x: 0, y: 0, r: 0 });
+  m.kind = kind; m.x = x; m.y = y; m.r = r; mmCount++;
 }
-// верхний слой каждый кадр: герой, боты, упавшие (мигают), Большой с конусом, звёздочки, предметы, рамка камеры
+// SPEC-010: герой или Большой (точка ног на экране) под мини-картой с запасом MINIMAP_UNDER_PAD → вся карта бледнеет
+let mmAlpha = 1;
+function minimapUnder() {
+  const r = minimapRect(), p = CFG.MINIMAP_UNDER_PAD;
+  return [camHero(), big].some(o => {
+    if (!o) return false;
+    const s = toScreen(o.x, o.y);
+    return s.x > r.x - p && s.x < r.x + r.w + p && s.y > r.y - p && s.y < r.y + r.h + p;
+  });
+}
+// каждый кадр из главного цикла (после камеры): прозрачность ровно идёт к цели, весь путь — за MINIMAP_FADE_TIME
+function updateMinimapFade(dt) {
+  if (!showMinimap()) { mmAlpha = 1; return; }
+  const lo = CFG.MINIMAP_UNDER_ALPHA, to = minimapUnder() ? lo : 1, d = dt * (1 - lo) / CFG.MINIMAP_FADE_TIME;
+  mmAlpha = to < mmAlpha ? Math.max(to, mmAlpha - d) : Math.min(to, mmAlpha + d);
+}
+// верхний слой каждый кадр: герой, боты, упавшие (мигают), Большой с конусом, звёздочки, предметы, рамка камеры.
+// Точки — полной яркости (× mmAlpha) с тонким тёмным контуром, не меньше MINIMAP_LOOK.dot
 function drawMinimap(t) {
-  const r = minimapRect(), sx = r.w / W, sy = r.h / H;
+  const r = minimapRect(), sx = r.w / W, sy = r.h / H, L = CFG.MINIMAP_LOOK, A = mmAlpha;
   const X = x => r.x + x * sx, Y = y => r.y + y * sy;
-  const dot = (x, y, rad, fill, ring = "#fff", lw = 1.5) => { circle(x, y, rad); fillStroke(fill, lw, ring); };
+  const dot = (kind, x, y, rad, fill, ring) => {
+    const R = Math.max(rad, L.dot), px = X(x), py = Y(y);
+    circle(px, py, R); ctx.fillStyle = fill; ctx.fill();
+    if (ring) { circle(px, py, R - L.outline); ctx.lineWidth = L.ringW; ctx.strokeStyle = ring; ctx.stroke(); }
+    circle(px, py, R); ctx.lineWidth = L.outline; ctx.strokeStyle = MM_DARK; ctx.stroke();
+    mark(kind, px, py, R);
+  };
   mmCount = 0;
   ctx.save();
-  rr(r.x, r.y, r.w, r.h, 10); ctx.fillStyle = "rgba(15,23,42,.35)"; ctx.fill();
+  rr(r.x, r.y, r.w, r.h, L.radius); ctx.globalAlpha = A * CFG.MINIMAP_BG_ALPHA; ctx.fillStyle = "#0f172a"; ctx.fill();
   ctx.clip();
-  ctx.globalAlpha = 0.85; ctx.drawImage(minimapBase(r), r.x, r.y, r.w, r.h); ctx.globalAlpha = 1;
+  ctx.globalAlpha = A * CFG.MINIMAP_BASE_ALPHA; ctx.drawImage(minimapBase(r), r.x, r.y, r.w, r.h);
   // конус Большого — тот же многоугольник и то же «спокоен», что в 3D
-  const vp = coneBuf;                     // посчитан в этом же кадре для 3D-конуса (updateCone)
+  const vp = coneBuf, calm = bigCalm();   // посчитан в этом же кадре для 3D-конуса (updateCone)
   ctx.beginPath(); ctx.moveTo(X(vp[0]), Y(vp[1]));
   for (let i = 2; i < vp.length; i += 2) ctx.lineTo(X(vp[i]), Y(vp[i + 1]));
-  ctx.closePath(); ctx.fillStyle = bigCalm() ? "rgba(255,255,255,.25)" : "rgba(250,204,21,.55)"; ctx.fill();
+  ctx.closePath(); ctx.globalAlpha = A * (calm ? L.coneCalm : L.cone); ctx.fillStyle = calm ? "#fff" : "#facc15"; ctx.fill();
   mark("cone", X(big.x), Y(big.y));
-  for (const s of bonusStars) { dot(X(s.x), Y(s.y), 3.5, "#facc15", OUT, 1); mark("star", X(s.x), Y(s.y)); }
-  for (const it of items) { dot(X(it.x), Y(it.y), 3, "#fb923c"); mark("item", X(it.x), Y(it.y)); }
+  ctx.globalAlpha = A;
+  for (const s of bonusStars) dot("star", s.x, s.y, L.dots.star, "#facc15");
+  for (const it of items) dot("item", it.x, it.y, L.dots.item, "#fb923c");
   const hero = camHero(), blink = Math.sin(t * 10) > 0;
   for (const l of littles) {
     if (l === hero) continue;
-    if (l.state === "down") { dot(X(l.x), Y(l.y), 4.5, blink ? "#22c55e" : "#fff", OUT); mark("downed", X(l.x), Y(l.y)); continue; }
-    ctx.globalAlpha = l.state === "home" || l.state === "rest" ? 0.5 : 1;
-    dot(X(l.x), Y(l.y), 3.6, "#fff", OUT, 1.2); ctx.globalAlpha = 1;
-    mark("bot", X(l.x), Y(l.y));
+    if (l.state === "down") { dot("downed", l.x, l.y, L.dots.downed, blink ? "#22c55e" : "#fff"); continue; }
+    ctx.globalAlpha = A * (l.state === "home" || l.state === "rest" ? L.rest : 1);
+    dot("bot", l.x, l.y, L.dots.bot, "#fff"); ctx.globalAlpha = A;
   }
-  dot(X(big.x), Y(big.y), 5, "#ef4444"); mark("big", X(big.x), Y(big.y));
-  if (hero) { dot(X(hero.x), Y(hero.y), 4.5, hero.state === "down" && blink ? "#fff" : P_COLORS[0], "#fff", 2); mark("hero", X(hero.x), Y(hero.y)); }
+  dot("big", big.x, big.y, L.dots.big, "#ef4444");
+  if (hero) dot("hero", hero.x, hero.y, L.dots.hero, hero.state === "down" && blink ? "#fff" : P_COLORS[0], "#fff");
   const v = camRect();
-  ctx.lineWidth = 3; ctx.strokeStyle = "rgba(30,41,59,.6)"; ctx.strokeRect(X(v.x), Y(v.y), v.w * sx, v.h * sy);   // тёмная подложка — рамку видно и на снегу
-  ctx.lineWidth = 1.5; ctx.strokeStyle = "#fff"; ctx.strokeRect(X(v.x), Y(v.y), v.w * sx, v.h * sy);
+  ctx.globalAlpha = A * L.frameShade; ctx.lineWidth = L.frameShadeW; ctx.strokeStyle = MM_DARK; ctx.strokeRect(X(v.x), Y(v.y), v.w * sx, v.h * sy);
+  ctx.globalAlpha = A * L.frame; ctx.lineWidth = L.frameW; ctx.strokeStyle = "#fff"; ctx.strokeRect(X(v.x), Y(v.y), v.w * sx, v.h * sy);
   mark("view", X(v.x + v.w / 2), Y(v.y + v.h / 2));
   ctx.restore();
-  rr(r.x, r.y, r.w, r.h, 10); ctx.lineWidth = 2; ctx.strokeStyle = "rgba(255,255,255,.75)"; ctx.stroke();
-  Object.assign(mmState, r); mmShown = true;
+  ctx.save(); ctx.globalAlpha = A * L.border;
+  rr(r.x, r.y, r.w, r.h, L.radius); ctx.lineWidth = L.borderW; ctx.strokeStyle = "#fff"; ctx.stroke();
+  ctx.restore();
+  Object.assign(mmState, r); mmState.alpha = A; mmShown = true;
 }
 // стрелки у края экрана: Большой (красная) и упавшие друзья (зелёная с ❗), если их не видно —
 // за краем экрана или под мини-картой, кружками команды, верхней полосой; на линии герой → цель,
@@ -3832,7 +3879,7 @@ function followGoal(l, x, y) {
   const g = clampLook(x, y);
   if (!showMinimap()) return g;
   const pad = cpx(CFG.CAM_HERO_PAD), side = cpx(CFG.CAM_HERO_SIDE), ramp = cpx(CFG.CAM_HERO_RAMP), extra = CFG.CAM_EDGE_MAX - CFG.CAM_EDGE;
-  const mm = minimapRect(), tr = teamRect(), topY = phoneTopBar() + pad, mmX = mm.x - pad, mmY = tr.y + tr.h + pad;
+  const mm = minimapRect(), tr = teamRect(), topY = phoneTopBar() + pad, mmX = Math.min(mm.x, tr.x) - pad, mmY = tr.y + tr.h + pad;   // левый край угла — мини-карта или кружки, что левее
   const move = (dx, dy) => { const c = clampLook(g.x + dx, g.y + dy, extra), d = Math.hypot(c.x - g.x, c.y - g.y); g.x = c.x; g.y = c.y; return d; };
   for (let pass = 0; pass < 3; pass++) {
     for (const h of [0, CFG.CAM_HERO_H]) {
@@ -5043,6 +5090,7 @@ function frame(now) {
   if (mode === "play" && !portrait) update(dt);
   else { updateFx(dt); if (mode === "menu" || mode === "skins" || mode === "names" || mode === "shop") big.dir += dt * 0.8; }
   updateCamera(dt);                       // телефон: камера за героем (3D-слой, не логика)
+  updateMinimapFade(dt);                  // телефон: мини-карта бледнеет, когда под ней герой или Большой (SPEC-010)
   render3D(T);
   drawUI(T);
   requestAnimationFrame(frame);
@@ -5079,9 +5127,9 @@ window.__bb = {
   },
   isStandalone, get installHintShown() { return installHintShown; }, get buttonNames() { return buttons.map(b => b.act.name); },
   get buttonRects() { return buttons.map(b => ({ id: b.id || b.act.name, x: b.x, y: b.y, w: b.w, h: b.h, text: b.text, textW: b.textW })); },
-  updateCamera, camSnap, stickR, skinPanels, resetBannerTimer() { bannerShownAt = -Infinity; }, showBanner,
+  updateCamera, camSnap, stickR, updateMinimapFade, get minimapAlpha() { return mmAlpha; }, skinPanels, resetBannerTimer() { bannerShownAt = -Infinity; }, showBanner,
   get textSizes() { return { ...textSizes }; }, get rotateShown() { return rotateShown; }, get bannerRect() { return bannerRect && { ...bannerRect }; },
-  get minimap() { return mmShown ? { x: mmState.x, y: mmState.y, w: mmState.w, h: mmState.h, baseDraws: mmDraws, markers: mmState.markers.slice(0, mmCount).map(m => ({ ...m })) } : null; },
+  get minimap() { return mmShown ? { x: mmState.x, y: mmState.y, w: mmState.w, h: mmState.h, alpha: mmState.alpha, baseDraws: mmDraws, markers: mmState.markers.slice(0, mmCount).map(m => ({ ...m })) } : null; },
   get edgeArrows() { return edgeArrows.map(a => ({ ...a })); }, get hudRects() { return hudRects.map(r => ({ ...r })); },
   get sticks() { return [...sticks].map(([id, s]) => ({ id, ...s })); },
   // слой интерфейса: размер в UI px, размер холста в CSS px, scale = CSS px на UI px (SPEC-005)
