@@ -365,3 +365,225 @@ test("every win-screen text is in three languages", async ({ page }) => {
   expect(I[1]).toEqual({ firstWin: "Primera vez", replay: "Repetición", newStars: "Estrellas nuevas", star: "Estrellitas", hugs: "Abrazos", rests: "Descansos", total: "Total" });
   expect(I[2]).toEqual({ firstWin: "Первая победа", replay: "Повтор", newStars: "Новые звёзды", star: "Звёздочки", hugs: "Обнимашки", rests: "Отдых", total: "Итого" });
 });
+
+// ---------- AC 3: the wardrobe ----------
+// __bb.wardrobe() = { hat|jacket|pants|big: [{ id, price }], hairs } (plain data); __bb.outfits = { shown, saved } (indexes;
+// shown = what the skins screen shows, saved = the last owned look, the one bebebe-outfits stores); __bb.buyLook(key) = a tap
+// on that column's Buy button. resetGame() puts the skin picker back to the defaults.
+const outfitsSaved = page => page.evaluate(() => JSON.parse(localStorage.getItem("bebebe-outfits") || "null"));
+
+test("every wardrobe item has an id and a price; the basic ones and every default look are free", { tag: "@fast" }, async ({ page }) => {
+  const r = await page.evaluate(() => ({ w: window.__bb.wardrobe(), tiers: window.__bb.WARDROBE_TIERS, def: window.__bb.outfits.shown }));
+  const free = list => list.filter(q => q.price === 0).map(q => q.id), soft = softly();
+  expect(r.tiers).toEqual([40, 80, 150]);
+  soft(free(r.w.hat), "free hats (the crown is in the 150 tier)").toEqual(["none", "cap", "beanie", "bow"]);
+  soft(free(r.w.jacket), "the first 4 jackets are free").toEqual(r.w.jacket.slice(0, 4).map(q => q.id));
+  soft(free(r.w.pants), "the first 4 pants are free").toEqual(r.w.pants.slice(0, 4).map(q => q.id));
+  soft(free(r.w.big), "Classic and Ogre are free").toEqual(["classic", "ogre"]);
+  for (const k of ["hat", "jacket", "pants", "big"]) {
+    soft(new Set(r.w[k].map(q => q.id)).size, `${k}: ids are unique`).toBe(r.w[k].length);
+    for (const q of r.w[k]) soft(q.price === 0 || r.tiers.includes(q.price), `${k} ${q.id}: price ${q.price} is free or a tier`).toBe(true);
+  }
+  const top = ["hat:crown", "hat:viking", "hat:tophat", "jacket:cape", "big:robot", "big:captain"];
+  for (const t of top) { const [k, id] = t.split(":"); soft(r.w[k].find(q => q.id === id)?.price, `${t} in the 150 tier`).toBe(150); }
+  for (const pk of ["p1", "p2"]) for (const [slot, k] of [["hat", "hat"], ["jacket", "jacket"], ["pants", "pants"]]) soft(r.w[k][r.def[pk][slot]].price, `${pk} default ${slot} is free`).toBe(0);
+  soft(r.w.big[r.def.big].price, "the default Big One is free").toBe(0);
+  soft.done();
+});
+
+test("locked clothes can be tried on and bought", async ({ page }) => {
+  const W = await page.evaluate(() => window.__bb.wardrobe());
+  const idx = (k, id) => W[k].findIndex(q => q.id === id);
+  const crown = idx("hat", "crown"), cap = idx("hat", "cap"), robot = idx("big", "robot");
+  // try on: the preview shows the crown, the save keeps the cap
+  await page.evaluate(n => { const b = window.__bb; b.mode = "skins"; b.progress.coins = 0; b.cycleOutfit("p1", "hat", n); }, crown - cap);
+  await frames(page);
+  let d = await page.evaluate(() => ({ o: window.__bb.outfits, ids: window.__bb.buttonRects.map(q => q.id), hud: window.__bb.hudRects.map(h => h.id), snd: window.__bb.sim().sounds }));
+  expect(d.o.shown.p1.hat).toBe(crown);
+  expect(d.o.saved.p1.hat).toBe(cap);
+  expect((await outfitsSaved(page)).p1.hat, "bebebe-outfits never stores a locked item").toBe(cap);
+  expect(d.ids).toContain("buy-look:p1");
+  expect(d.ids, "the name label makes room for the Buy button").not.toContain("name:p1");
+  expect(d.hud).toEqual(expect.arrayContaining(["coins", "look-note:p1"]));   // "not enough coins" on the preview
+  // too few coins: nothing bought, the "out" sound
+  const n0 = await page.evaluate(() => window.__bb.ledger().length);
+  await page.evaluate(() => window.__bb.buyLook("p1"));
+  expect(await page.evaluate(s0 => [window.__bb.progress.owned.hats, window.__bb.ledger().length, window.__bb.sim().sounds > s0], d.snd)).toEqual([[], n0, true]);
+  // enough coins: the first tap only asks (the button and the note change), the second one buys — a real click on the button
+  await page.evaluate(() => { window.__bb.progress.coins = 200; });
+  await frames(page);
+  const before = await page.evaluate(() => window.__bb.buttonRects.find(q => q.id === "buy-look:p1").text);
+  const click = async id => {
+    const at = await page.evaluate(k => {
+      const q = window.__bb.buttonRects.find(r => r.id === k), c = document.getElementById("game").getBoundingClientRect();
+      return { x: c.left + (q.x + q.w / 2) * c.width / 960, y: c.top + (q.y + q.h / 2) * c.height / 640 };
+    }, id);
+    await page.mouse.click(at.x, at.y);
+    await frames(page);
+  };
+  await click("buy-look:p1");
+  d = await page.evaluate(() => ({ owned: window.__bb.progress.owned.hats, coins: window.__bb.progress.coins, text: window.__bb.buttonRects.find(q => q.id === "buy-look:p1").text, hud: window.__bb.hudRects.map(h => h.id), tap: window.__bb.I18N.en.tapAgain }));
+  expect([d.owned, d.coins]).toEqual([[], 200]);
+  expect(d.text).not.toBe(before);
+  expect(d.hud).toContain("look-note:p1");                                   // "Tap again to buy" on the preview
+  await click("buy-look:p1");
+  d = await page.evaluate(() => ({ owned: window.__bb.progress.owned.hats, coins: window.__bb.progress.coins, o: window.__bb.outfits, ids: window.__bb.buttonRects.map(q => q.id), last: window.__bb.ledger().at(-1) }));
+  expect(d.owned).toEqual(["crown"]);
+  expect(d.coins).toBe(200 - W.hat[crown].price);
+  expect([d.last.reason, d.last.amount]).toEqual(["buy:hat:crown", -W.hat[crown].price]);
+  expect(d.o.saved.p1.hat).toBe(crown);
+  expect((await outfitsSaved(page)).p1.hat).toBe(crown);
+  expect(d.ids).toContain("name:p1");                                        // bought: the name label is back
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("bebebe-progress")).owned.hats)).toEqual(["crown"]);
+  // two locked pieces at once: one button buys both; a tap in between and another change disarm it
+  const cape = idx("jacket", "cape"), green = idx("pants", "green");
+  const r = await page.evaluate(([cp, gr]) => {
+    const b = window.__bb, out = {};
+    b.progress.coins = 160;                                                  // the cape (150) + green pants (40) = 190: too few
+    b.cycleOutfit("p1", "jacket", cp - b.outfits.shown.p1.jacket); b.cycleOutfit("p1", "pants", gr - b.outfits.shown.p1.pants);
+    b.buyLook("p1"); b.buyLook("p1");
+    out.poor = [[...b.progress.owned.jackets], [...b.progress.owned.pants], b.progress.coins];   // copies: the arrays change later
+    b.progress.coins = 300;
+    b.buyLook("p1");                                                         // armed…
+    b.cycleOutfit("p1", "hair", 1);                                          // …another change disarms
+    b.buyLook("p1");
+    out.disarmed = [b.progress.owned.jackets.length, b.progress.coins];
+    b.buyLook("p1");
+    out.bought = [b.progress.owned.jackets, b.progress.owned.pants, b.progress.coins];
+    return out;
+  }, [cape, green]);
+  expect(r.poor).toEqual([[], [], 160]);
+  expect(r.disarmed).toEqual([0, 300]);
+  expect(r.bought).toEqual([["cape"], ["green"], 300 - W.jacket[cape].price - W.pants[green].price]);
+  // leaving with a locked Big One on: back to the last owned one, never saved
+  await page.evaluate(n => { const b = window.__bb; b.progress.coins = 0; b.cycleBig(n - b.outfits.shown.big); }, robot);
+  expect(await page.evaluate(() => window.__bb.outfits.shown.big)).toBe(robot);
+  expect((await outfitsSaved(page)).big).toBe(0);
+  await page.keyboard.press("Escape");                                       // the skins screen → menu
+  await frames(page);
+  expect(await page.evaluate(() => [window.__bb.mode, window.__bb.outfits.shown.big, window.__bb.outfits.saved.big])).toEqual(["menu", 0, 0]);
+  // a game never starts in a locked look (even without a drawn frame in between)
+  const tophat = idx("hat", "tophat");
+  const g = await page.evaluate(n => {
+    const b = window.__bb; b.mode = "skins"; b.cycleOutfit("p1", "hat", n - b.outfits.shown.p1.hat); b.startGame(1);
+    const out = { shown: b.outfits.shown.p1.hat, acc: b.littles[0].look.acc }; b.mode = "menu"; return out;
+  }, tophat);
+  expect(g).toEqual({ shown: crown, acc: "crown" });
+});
+
+test("random outfit uses only owned items; bots may wear anything", async ({ page }) => {
+  const r = await page.evaluate(() => {
+    const b = window.__bb, W = b.wardrobe(), seen = { hat: new Set(), jacket: new Set(), pants: new Set() }, bad = [];
+    b.mode = "skins";
+    b.progress.owned.hats.push("crown"); b.progress.owned.jackets.push("ninja");
+    for (let i = 0; i < 300; i++) {
+      b.randomOutfit("p1");
+      const o = b.outfits;
+      for (const k of ["hat", "jacket", "pants"]) {
+        const it = W[k][o.shown.p1[k]]; seen[k].add(it.id);
+        if (it.price && !b.progress.owned[k === "hat" ? "hats" : k === "jacket" ? "jackets" : "pants"].includes(it.id)) bad.push(`${k} ${it.id}`);
+      }
+      if (JSON.stringify(o.shown) !== JSON.stringify(o.saved)) bad.push("shown ≠ saved after a random outfit");
+    }
+    // bots' looks come from their level and slot, whatever the player owns
+    const botAcc = new Set();
+    for (let n = 1; n <= 20; n++) { b.level = n; b.resetWorld(1); b.littles.filter(l => l.kind === "bot").forEach(l => botAcc.add(l.look.acc)); }
+    b.level = 1; b.mode = "menu";
+    return { bad, hats: [...seen.hat].sort(), jackets: [...seen.jacket].sort(), botPaid: [...botAcc].filter(a => W.hat.find(q => q.id === a).price > 0).length };
+  });
+  expect(r.bad).toEqual([]);
+  expect(r.hats).toEqual(["beanie", "bow", "cap", "crown", "none"]);        // the free four + the bought crown
+  expect(r.jackets).toContain("ninja");
+  expect(r.botPaid, "bots wear paid hats too").toBeGreaterThan(0);
+});
+
+// ---------- AC 4: worn clothes become owned ----------
+test("old saves keep their outfits", async ({ page }) => {
+  // the save from before SPEC-009 wears paid things: the Bear (fixture), plus a crown and the cape set here; a real reload
+  const f = JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures", "saves", "pre-spec-009.json"), "utf8"));
+  const W = await page.evaluate(() => window.__bb.wardrobe());
+  const outfits = JSON.parse(JSON.stringify(f.keys["bebebe-outfits"]));
+  outfits.p1.hat = W.hat.findIndex(q => q.id === "crown"); outfits.p2.jacket = W.jacket.findIndex(q => q.id === "cape");
+  await page.evaluate(([pv, o]) => {
+    localStorage.clear(); localStorage.setItem("bb-test-init", "1"); localStorage.setItem("bebebe-lang", "en");
+    localStorage.setItem("bebebe-progress", JSON.stringify(pv)); localStorage.setItem("bebebe-outfits", JSON.stringify(o));
+  }, [f.keys["bebebe-progress"], outfits]);
+  await page.reload();
+  await page.waitForFunction(() => window.__bbReady === true);
+  const r = await page.evaluate(() => ({ owned: window.__bb.progress.owned, o: window.__bb.outfits, coins: window.__bb.progress.coins, inv: window.__bb.progress.inv,
+    stored: JSON.parse(localStorage.getItem("bebebe-progress")), storedOutfits: JSON.parse(localStorage.getItem("bebebe-outfits")) }));
+  expect(r.owned).toEqual({ hats: ["crown"], jackets: ["cape"], pants: [], big: ["bear"] });
+  expect(r.stored.owned, "written back once").toEqual(r.owned);
+  expect(r.o.shown).toEqual(outfits);
+  expect(r.o.saved).toEqual(outfits);
+  expect(r.storedOutfits).toEqual(outfits);
+  expect(r.coins).toBe(f.expect.progress.coins);
+  expect(r.inv).toEqual(f.expect.progress.inv);
+  // owned is cleaned on load: only paid ids of the right list, no duplicates; broken → empty, never throws
+  const c = await page.evaluate(() => {
+    const L = s => JSON.parse(JSON.stringify(window.__bb.loadProgress(s).owned));
+    return [L({ owned: { hats: ["crown", "crown", "cap", "moon", 7], jackets: "junk", pants: ["green"], big: ["robot", "classic"] } }), L({ owned: "junk" }), L({ owned: null }), L({})];
+  });
+  expect(c[0]).toEqual({ hats: ["crown"], jackets: [], pants: ["green"], big: ["robot"] });
+  for (const e of c.slice(1)) expect(e).toEqual({ hats: [], jackets: [], pants: [], big: [] });
+  // a progress reset takes the bought clothes away and puts free ones on (so a reload does not give them back)
+  const reset = await page.evaluate(() => { const b = window.__bb; b.resetProgress(); b.resetProgress(); return { o: b.outfits.saved, W: b.wardrobe() }; });
+  for (const pk of ["p1", "p2"]) for (const k of ["hat", "jacket", "pants"]) expect(reset.W[k][reset.o[pk][k]].price, `${pk} ${k} free after a reset`).toBe(0);
+  expect(reset.W.big[reset.o.big].price).toBe(0);
+});
+
+// ---------- AC 3: the skins screen fits, with locked items ----------
+// p1: a locked hat and jacket; the Big One locked; (desktop) p2 locked pants. Two states: too few coins ("not enough" on
+// the preview) and armed (enough coins, one column tapped once: "tap again" on its preview; tapping another column disarms
+// the first). Three languages, fonts ×1 and ×1.15.
+async function skinsProblems(page, phone) {
+  const fails = [];
+  const overlaps = (a, b) => a.x < b.x + b.w - 0.01 && a.x + a.w > b.x + 0.01 && a.y < b.y + b.h - 0.01 && a.y + a.h > b.y + 0.01;
+  for (const lang of ["en", "es", "ru"]) for (const scale of [1, 1.15]) for (const state of ["poor", "p1", "big"]) {
+    const at = `${lang} ×${scale} ${state}`;
+    await page.evaluate(([l, s, st]) => {
+      const b = window.__bb, W = b.wardrobe(), to = (pk, slot, k, id) => b.cycleOutfit(pk, slot, W[k].findIndex(q => q.id === id) - b.outfits.shown[pk][slot]);
+      b.setLang(l); b.CFG.TEXT_TEST_SCALE = s; b.resetOutfits(); b.mode = "skins";
+      to("p1", "hat", "hat", "viking"); to("p1", "jacket", "jacket", "cape"); to("p2", "pants", "pants", "pinkshorts");
+      b.cycleBig(W.big.findIndex(q => q.id === "captain") - b.outfits.shown.big);
+      b.progress.coins = st === "poor" ? 10 : 9999;
+      if (st !== "poor") b.buyLook(st);
+    }, [lang, scale, state]);
+    await frames(page);
+    const d = await page.evaluate(() => ({ buttons: window.__bb.buttonRects, hud: window.__bb.hudRects, ui: window.__bb.uiSize, scale: window.__bb.CFG.TEXT_TEST_SCALE }));
+    const s = d.ui.scale, inside = r => r.x >= -0.01 && r.y >= -0.01 && r.x + r.w <= d.ui.w + 0.01 && r.y + r.h <= d.ui.h + 0.01;
+    const keys = phone ? ["p1", "big"] : ["p1", "p2", "big"];
+    for (const k of keys) {
+      const btn = d.buttons.find(q => q.id === "buy-look:" + k);
+      if (!btn) { fails.push(`${at}: no buy-look:${k}`); continue; }
+      if (btn.textW > btn.w - 4) fails.push(`${at}: buy-look:${k} text ${btn.textW} wider than the button ${btn.w}`);
+      const note = d.hud.some(h => h.id === "look-note:" + k);
+      if (note !== (state === "poor" || state === k)) fails.push(`${at}: look-note:${k} ${note ? "shown" : "missing"}`);
+    }
+    if (!d.hud.some(h => h.id === "coins")) fails.push(`${at}: no coins plate`);
+    for (const b of d.buttons) {
+      if (!inside(b)) fails.push(`${at}: button ${b.id || b.text} outside the screen`);
+      if (phone && (b.w * s < 44 - 0.01 || b.h * s < 44 - 0.01)) fails.push(`${at}: button ${b.id || b.text} ${b.w * s}×${b.h * s} CSS px`);
+      for (const h of d.hud) if (overlaps(b, h)) fails.push(`${at}: button ${b.id || b.text} on ${h.id}`);
+    }
+    d.buttons.forEach((a, i) => d.buttons.slice(i + 1).forEach(b => { if (overlaps(a, b)) fails.push(`${at}: ${a.id || a.text} on ${b.id || b.text}`); }));
+    d.hud.forEach((a, i) => { if (!inside(a)) fails.push(`${at}: ${a.id} outside`); d.hud.slice(i + 1).forEach(b => { if (overlaps(a, b)) fails.push(`${at}: ${a.id} on ${b.id}`); }); });
+  }
+  await page.evaluate(() => { const b = window.__bb; b.CFG.TEXT_TEST_SCALE = 1; b.setLang("en"); b.resetOutfits(); b.mode = "menu"; });
+  return fails;
+}
+
+test("the skins screen with locked items fits (desktop 960×640)", async ({ page }) => {
+  const fails = await skinsProblems(page, false);
+  expect(fails, fails.slice(0, 12).join("\n")).toEqual([]);
+});
+
+test("the skins screen with locked items fits (phone 667×375)", async ({ phonePage: page }) => {
+  const fails = await skinsProblems(page, true);
+  expect(fails, fails.slice(0, 12).join("\n")).toEqual([]);
+});
+
+test("every wardrobe text is in three languages", async ({ page }) => {
+  const I = await page.evaluate(() => { const I = window.__bb.I18N; return ["en", "es", "ru"].map(l => [I[l].buyFor(150), I[l].tapAgain]); });
+  expect(I).toEqual([["Buy for 150", "Tap again to buy"], ["Comprar por 150", "Tocá otra vez para comprar"], ["Купить за 150", "Нажми ещё раз, чтобы купить"]]);
+});
