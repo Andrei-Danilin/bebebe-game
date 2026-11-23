@@ -480,8 +480,11 @@ test("level stops show number, stars and locks", async ({ page }) => {
 });
 
 test("the map fits a phone and swipes between worlds", async ({ phonePage: page }) => {
+  test.setTimeout(180_000);   // 27 map screens in software WebGL (~70 s locally)
   const fails = [];
-  for (const lang of ["en", "es", "ru"]) for (const scale of [1, 1.15]) for (const st of ["fresh", "done", "toast", "card"]) {
+  // ×1.3 for the toast: CI's Linux fonts are wider than ×1.15 of the local ones (the long lockedBonus line wraps, never cut)
+  const runs = ["en", "es", "ru"].flatMap(l => [1, 1.15].flatMap(s => ["fresh", "done", "toast", "card"].map(st => [l, s, st])).concat([[l, 1.3, "toast"]]));
+  for (const [lang, scale, st] of runs) {
     await page.evaluate(([l, s, state]) => {
       const b = window.__bb; b.setProgress(null); b.setLang(l); b.CFG.TEXT_TEST_SCALE = s; b.resetMenus();
       const all = () => Object.fromEntries(Array.from({ length: 20 }, (_, i) => [i + 1, true]));
@@ -502,7 +505,9 @@ test("the map fits a phone and swipes between worlds", async ({ phonePage: page 
       if (q.w * d.ui.scale < 44 - 0.01 || q.h * d.ui.scale < 44 - 0.01) fails.push(`${at}: stop ${q.n} ${q.w * d.ui.scale} CSS px`);
       if (q.badge && (q.badge.textW > q.badge.w + 0.5 || q.badge.size * d.ui.scale < d.min.hint - 0.01)) fails.push(`${at}: boss badge ${JSON.stringify(q.badge)}`);
     }
-    if (st === "toast" && !(d.toast && d.hud.some(h => h.id === "toast"))) fails.push(`${at}: no toast`);
+    const th = d.hud.find(h => h.id === "toast");
+    if (st === "toast" && !(d.toast && th)) fails.push(`${at}: no toast`);
+    else if (st === "toast" && (th.text !== d.toast.text || (th.rows || [th.text]).length > 2)) fails.push(`${at}: toast ${JSON.stringify(th)}: the whole text in one or two rows`);
     if (st === "done" && !d.hud.some(h => h.id === "map:done")) fails.push(`${at}: no done stamp`);
   }
   await page.evaluate(() => { const b = window.__bb; b.CFG.TEXT_TEST_SCALE = 1; b.setProgress(null); b.setLang("en"); b.resetMenus(); b.mode = "map"; b.world = "park"; });
