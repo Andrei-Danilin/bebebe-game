@@ -65,9 +65,9 @@ Local, the same machine, `workers: 1`, branch `SPEC-018-fast-tests`, after the s
 | tests | 156 (155 passed, 1 timing flake) | **157 passed**, 0 failed, 0 flaky (+1: the evaluate guard) |
 | per file | phone 501 · gameplay 330 · levels 280 · pwa 101 · smoke 52 · names 31 · i18n 5 s | phone 264 · gameplay 109 · pwa 71 · levels 67 · smoke 34 · names 27 · i18n 3 s |
 | fast set `npm run test:fast` | — | **15 tests, 1.4 min** (87 s wall, measured after round 1) |
-| CI (Pages test job) | 22 m 59 s | to be measured on the first push of `master` after the merge |
+| CI (Pages test job) | 22 m 59 s | **11 m 14 s** (run 45115173852, `master` at `32faffb`; `npx playwright test` step 10 m 43 s) |
 
-Targets: ≤ 10 min locally — **met (9.8 min, −55 %)**; fast set ≤ 3 min — met. The 80-level test needed no timing
+Targets: ≤ 10 min locally — **met (9.8 min, −55 %)**; ≤ 12 min on CI — **met (11 m 14 s, −51 %)**; fast set ≤ 3 min — met. The 80-level test needed no timing
 retry in this run (no "timing retry" annotation).
 What is left: the phone layout matrices (banner, sizes, shop: real frames per case) and the tests that need a fresh
 page (other query strings, viewports, the PWA service worker). Next steps are in `specs/BACKLOG.md`.

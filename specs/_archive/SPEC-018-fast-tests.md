@@ -1,6 +1,6 @@
 # SPEC-018 — Faster tests and a faster implementer loop
 
-Status: ready
+Status: done (32faffb)
 Complexity: M
 Branch: SPEC-018-fast-tests
 Decided by: Andrei (2026-11-23, in the Claude Code chat): the runs take too long; after SPEC-010, before SPEC-008/009, do a round that makes the tests and the implementer loop faster. Outline agreed in that chat; details (targets, which cases to trim, worker count, tags): Claude (spec author).
