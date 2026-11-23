@@ -205,7 +205,7 @@ const CFG = {
   // map — карта уровней: столбцов остановок (ряды змейкой), размер остановки (компьютер UI px / телефон CSS px), во сколько раз
   // больше остановка босса (уровень 20), доля высоты остановки под звёзды, высота вкладок (компьютер), ширина «◀ Главная» и монеток,
   // высота строки заголовка; подпрыгивание следующего уровня (CSS px, скорость), сдвиг пальца для смены мира (CSS px), сколько сек
-  // видна подсказка; точки дорожки (толщина, штрих, промежуток, цвет), цвета остановок (открыта, следующая, закрыта, кольцо выбора,
+  // видна подсказка, строк в ней не больше (длинная не влезла в строку заголовка), шаг строк и поля сверху+снизу в кеглях; точки дорожки (толщина, штрих, промежуток, цвет), цвета остановок (открыта, следующая, закрыта, кольцо выбора,
   // плашка «Босс», штамп «Пройдено»), рисунки фона (сколько, прозрачность); ширина карточки уровня (компьютер UI px / телефон CSS px;
   // высота — по тексту; поля, скругление, радиус звёзд, высота кнопок); скругление страницы, кольцо выбора (отступ, толщина), самый мелкий
   // текст плашки «Босс», размер рисунков фона (от, + до) и их цвета (doodle). story — экран истории: доля ширины под картинку, кегль
@@ -221,7 +221,7 @@ const CFG = {
     phoneHome: { col: 0.42, colMax: 300, titleSize: 30, rowH: 38, rowGap: 8, gap: 8, pad: 12, text: 16, playH: 78, subH: 54, langW: 76 },
     wardrobe: { preview: 110, colBottom: 548, rowY: 558, rowH: 46 },
     map: { cols: 5, stop: 62, phoneStop: 46, boss: 1.22, starRow: 0.3, tabH: 52, backW: 140, coinsW: 150, phoneCoins: 88, titleH: 38, phoneTitleH: 30,
-      bounce: 4, bounceSpeed: 5, swipe: 50, toastTime: 2.5, dotW: 4, dash: 2, dashGap: 9, path: "rgba(255,255,255,.9)", pageR: 18, ringPad: 5, ringW: 4, badgeMin: 11,
+      bounce: 4, bounceSpeed: 5, swipe: 50, toastTime: 2.5, toastRows: 2, toastLine: 1.1, toastPadY: 0.3, dotW: 4, dash: 2, dashGap: 9, path: "rgba(255,255,255,.9)", pageR: 18, ringPad: 5, ringW: 4, badgeMin: 11,
       open: "#ffffff", next: "#fde047", closed: "#cbd5e1", ring: "#ff6fa8", badge: "#ef4444", badgeInk: "#ffffff", done: "#15803d", doneBg: "#dcfce7", toastBg: "#334155", toastInk: "#ffffff",
       doodles: 9, doodleAlpha: 0.55, doodleSize: 44, doodleGrow: 22, cardW: 480, phoneCardW: 420, cardPad: 14, cardR: 22, cardStar: 10, cardBtn: 56,
       doodle: { trunk: "#8b5a2b", ball: "#ffffff", window: "#bae6fd", flag: "#ef4444", palm: "#a0703f", leaf: "#16a34a", snow: "#ffffff", road: "#6b7280" } },
@@ -4151,6 +4151,40 @@ function mapPill(id, text, x, y, h, maxW, bg, ink, size, min) {
   drawPill(p, x, y, maxW);
   return Math.min(p.w, maxW);
 }
+// подсказка карты (hudRects «toast», text — весь текст, rows — строки): влезает одной строкой — плашка в строке заголовка;
+// нет (длинный текст, шрифты CI шире) — до A.toastRows строк, плашка выше: от промежутка под вкладками до верха остановок.
+// Ширина меряется с CFG.TEXT_TEST_SCALE; текст сжимается не мельче min и никогда не режется «…»
+function toastRows(text, size, maxW) {
+  ctx.font = hudFont(size);
+  const words = text.split(" ");
+  if (words.length < 2 || scaledW(text) <= maxW) return [text];
+  let best = null;                                                         // две строки, самая длинная — как можно короче
+  for (let i = 1; i < words.length; i++) {
+    const r = [words.slice(0, i).join(" "), words.slice(i).join(" ")], w = Math.max(...r.map(scaledW));
+    if (!best || w < best.w) best = { r, w };
+  }
+  if (best.w <= maxW) return best.r;
+  const rows = [];                                                         // и в две не влезло — по словам, сколько нужно
+  let cur = "";
+  for (const wd of words) { const t2 = cur ? cur + " " + wd : wd; if (scaledW(t2) > maxW && cur) { rows.push(cur); cur = wd; } else cur = t2; }
+  return rows.concat(cur);
+}
+function drawToast(text, G, rects, th, ty, size, min) {
+  const A = CFG.MENU_LOOK.map, M = CFG.MENU_LOOK, k = PHONE ? cpx(1) : 1, P = G.page, pad = 8 * k, maxW = P.w - 2 * pad;
+  const one = fitLine(text, size, min, maxW - 2 * homePill("toast", text, th, size, min).pad);
+  if (one.text === text) { mapPill("toast", text, P.x + pad, ty, th, maxW, A.toastBg, A.toastInk, size, min); return; }
+  const padX = PHONE ? cpx(M.phoneHome.pad) : M.home.pad, top = P.y - G.g / 2;
+  const avail = Math.min(...rects.map(q => q.y)) - G.g / 2 - top;
+  const fit = sz => { const r = toastRows(text, sz, maxW - 2 * padX); return { r, sz, h: (r.length * A.toastLine + A.toastPadY) * sz }; };
+  let f = fit(size);
+  while (f.sz > min && (f.r.length > A.toastRows || f.h > avail)) f = fit(Math.max(min, f.sz - 0.5));
+  ctx.font = hudFont(f.sz);
+  const textW = Math.max(...f.r.map(scaledW)), w = Math.min(maxW, textW + 2 * padX), x = P.x + pad, y = top + Math.max(0, (avail - f.h) / 2);
+  rr(x, y, w, f.h, Math.min(f.h, th) * 0.4); fillStroke(A.toastBg, k * M.pillLine, M.ink);
+  f.r.forEach((q, i) => plainText(q, x + w / 2, y + f.h / 2 + (i - (f.r.length - 1) / 2) * f.sz * A.toastLine + 1, f.sz, A.toastInk, "center"));
+  if (PHONE) noteText("main", f.sz);
+  hudRects.push({ id: "toast", x, y, w, h: f.h, text: f.r.join(" "), textW: textW + 2 * padX, rows: f.r });
+}
 function drawMap(t) {
   const M = CFG.MENU_LOOK, A = M.map, G = mapGeom(), k = PHONE ? cpx(1) : 1, w = curWorld, wp = worldProgress();
   menuFrame();
@@ -4169,8 +4203,7 @@ function drawMap(t) {
   const rects = stopRects(G), next = nextStop(w), done = worldComplete(w), sel = mapSelN();
   drawMapPage(w, G, rects);
   const P = G.page, th = G.titleH * 0.86, ty = P.y + (G.titleH - th) / 2 + 4 * k, size = PHONE ? cpx(16) : 18, pad = 8 * k;
-  if (toast) mapPill("toast", toast.text, P.x + pad, ty, th, P.w - 2 * pad, A.toastBg, A.toastInk, size, minMain);
-  else {
+  if (!toast) {
     const title = `${WORLD_ICONS[w]} ${L().worlds[w]}  ${L().worldStars(worldStarsOf(w), CFG.STARS_PER_LEVEL * levelsPerWorld())}`;
     const used = mapPill("map:title", title, P.x + pad, ty, th, P.w * 0.62, M.pill, M.ink, size, minMain);
     if (done) mapPill("map:done", L().done, P.x + pad + used + 10 * k, ty, th, P.w - used - 2 * pad - 10 * k, A.doneBg, A.done, size, minMain);
@@ -4180,6 +4213,7 @@ function drawMap(t) {
     drawStop(q, info, t);
     return { ...info, x: q.x, y: q.y, w: q.w, h: q.h };
   });
+  if (toast) drawToast(toast.text, G, rects, th, ty, size, minMain);   // поверх остановок: двухстрочная заходит на верх страницы
   mapState = { world: w, sel, done, tabs, stops };
 }
 // SPEC-017: карточка уровня — «Мир · Уровень n», тип, строка про тип (у 20-го — про босса), звёзды; внизу 📖 (глава мира) и
