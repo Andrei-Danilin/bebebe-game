@@ -86,13 +86,16 @@ test("rewards add up, coins never go negative, inventory stays whole", async ({ 
   const r = await page.evaluate(() => {
     const b = window.__bb, C = b.CFG, out = { runs: [], buys: [], inv: [] };
     const fresh = () => { b.resetProgress(); b.resetProgress(); };
-    const run = (name, world, n, st, win = true) => {
-      fresh(); b.world = world; b.level = n; b.startGame(1);
+    // prev = the level's stars before (SPEC-009: > 0 → won before, a replay)
+    const run = (name, world, n, st, win = true, prev = 0) => {
+      fresh(); b.world = world; b.level = n;
+      if (prev) { b.progress.worlds[world].won[n] = true; b.progress.worlds[world].stars[n] = prev; }
+      b.startGame(1);
       Object.assign(b.stats, { playerHugs: 0, rests: 0, time: 30, starCoins: 0 }, st);
       const c0 = b.progress.coins;
       b.giveReward(win);
       const lr = b.lastReward;
-      out.runs.push({ name, world, n, st: { ...b.stats }, win, coins: lr.coins, starCoins: lr.starCoins, parts: lr.parts, fast: lr.fast,
+      out.runs.push({ name, world, n, prev, st: { ...b.stats }, win, coins: lr.coins, starCoins: lr.starCoins, parts: lr.parts, fast: lr.fast,
         target: lr.target, gained: b.progress.coins - c0, after: b.progress.coins });
     };
     for (const [w, n] of [["park", 5], ["winter", 17]]) {
@@ -103,6 +106,8 @@ test("rewards add up, coins never go negative, inventory stays whole", async ({ 
       run("star coins", w, n, { playerHugs: 2, starCoins: 6 });
       run("leaving early", w, n, { playerHugs: 2, starCoins: 3 }, false);
       run("floor", w, n, { rests: 100, time: 9999, starCoins: 3 });
+      run("replay", w, n, { playerHugs: 2, time: 10 }, true, 1);
+      run("replay floor", w, n, { rests: 100, time: 9999, starCoins: 3 }, true, 3);
     }
     // too few coins: nothing changes; exactly enough: coins reach 0, never below
     const shop = [["mittens", () => b.buyGloves("mittens"), b.GLOVES.mittens.price, b.GLOVES.mittens.charges],
@@ -133,16 +138,20 @@ test("rewards add up, coins never go negative, inventory stays whole", async ({ 
     }
     invNow("gloves");
     b.mode = "menu";
-    return { out, C: { WIN: C.COINS_WIN, LEVEL: C.COINS_PER_LEVEL, WORLD: C.COINS_PER_WORLD, NOBODY: C.COINS_NOBODY_OUT, FAST: C.COINS_FAST,
-      HUG: C.COINS_PER_HUG, REST: C.COINS_PER_REST, MIN: C.COINS_MIN_WIN } };
+    return { out, C: { REST: C.COINS_PER_REST }, R: { ...b.REWARD } };
   });
-  const { out, C } = r, soft = softly(), sum = p => p.reduce((s, x) => s + x.amount, 0);
-  expect(out.runs.length).toBe(14);
+  const { out, C, R } = r, soft = softly(), sum = p => p.reduce((s, x) => s + x.amount, 0);
+  expect(out.runs.length).toBe(18);
+  // SPEC-009: first win = base, replay = half the base, minus the rests down to the floor; + new stars, hugs, star coins
+  const winCoins = x => {
+    const wi = WORLDS.indexOf(x.world), base = R.BASE + R.PER_LEVEL * x.n + R.PER_WORLD * wi, first = !x.prev;
+    const min = first ? R.FIRST_MIN : R.REPLAY_MIN, line = Math.max(first ? base : Math.floor(base / 2), min);
+    const stars = 1 + (x.st.rests ? 0 : 1) + (x.fast ? 1 : 0);
+    return line - Math.min(x.st.rests * C.REST, line - min) + Math.max(0, stars - x.prev) * R.NEW_STAR + x.st.playerHugs * R.PER_HUG + x.st.starCoins;
+  };
   for (const x of out.runs) {
-    const at = `${x.world} ${x.n} ${x.name}`, wi = WORLDS.indexOf(x.world);
-    const expected = x.win
-      ? Math.max(C.MIN, C.WIN + x.n * C.LEVEL + wi * C.WORLD + (x.st.rests ? 0 : C.NOBODY) + (x.fast ? C.FAST : 0) + x.st.playerHugs * C.HUG - x.st.rests * C.REST) + x.st.starCoins
-      : x.st.playerHugs * C.HUG + x.st.starCoins;
+    const at = `${x.world} ${x.n} ${x.name}`;
+    const expected = x.win ? winCoins(x) : x.st.playerHugs * R.PER_HUG + x.st.starCoins;
     soft(x.coins, `${at}: the total`).toBe(expected);
     soft(sum(x.parts), `${at}: lastReward.coins = the sum of its parts`).toBe(x.coins);
     soft(x.coins, `${at}: never negative`).toBeGreaterThanOrEqual(0);
@@ -151,11 +160,13 @@ test("rewards add up, coins never go negative, inventory stays whole", async ({ 
     soft(x.parts.find(p => p.reason === "star")?.amount ?? 0, `${at}: the star part`).toBe(x.st.starCoins);
     if (x.win) soft(x.fast, `${at}: fast = within the target`).toBe(x.st.time <= x.target);
   }
-  const floor = out.runs.filter(x => x.name === "floor");
-  for (const x of floor) {
-    soft(x.coins, `${x.world}: the floor, star coins on top`).toBe(C.MIN + x.st.starCoins);
-    soft(x.parts.find(p => p.reason === "floor")?.amount ?? 0, `${x.world}: a floor part`).toBeGreaterThan(0);
+  const part = (x, k) => x.parts.find(p => p.reason === k)?.amount ?? 0;
+  for (const x of out.runs.filter(x => x.name.endsWith("floor"))) {
+    const first = x.name === "floor", min = first ? R.FIRST_MIN : R.REPLAY_MIN;
+    soft(part(x, first ? "firstWin" : "replay") + part(x, "rests"), `${x.world} ${x.name}: the rests line stops at the floor`).toBe(min);
+    soft(part(x, "rests"), `${x.world} ${x.name}: a rests line`).toBeLessThan(0);
   }
+  for (const x of out.runs.filter(x => x.win)) soft(part(x, x.prev ? "replay" : "firstWin"), `${x.world} ${x.n} ${x.name}: first win or replay line`).toBeGreaterThan(0);
   soft(out.runs.filter(x => x.name === "fast").every(x => x.fast), "the fast runs are fast").toBe(true);
   soft(out.runs.filter(x => x.name === "slow").every(x => !x.fast), "the slow runs are slow").toBe(true);
   for (const x of out.buys) {
@@ -177,7 +188,7 @@ test("rewards add up, coins never go negative, inventory stays whole", async ({ 
 // A fixture is a snapshot of all bebebe-* keys (`keys`: a string is stored as is, an object as JSON) and what it loads
 // into (`expect`: progress in the current shape, the outfits and the typed names). SPEC-009 reuses them. An old save is
 // checked with toMatchObject (a later spec may add fields with defaults without rewriting history); current.json exactly.
-const SAVES = ["pre-spec-003", "pre-spec-004", "pre-spec-006", "pre-spec-007", "stale-tab", "current"];
+const SAVES = ["pre-spec-003", "pre-spec-004", "pre-spec-006", "pre-spec-007", "stale-tab", "pre-spec-009", "current"];
 const save = n => JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures", "saves", n + ".json"), "utf8"));
 const asStored = keys => Object.fromEntries(Object.entries(keys).map(([k, v]) => [k, typeof v === "string" ? v : JSON.stringify(v)]));
 
