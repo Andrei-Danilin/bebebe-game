@@ -56,67 +56,69 @@ CI: Pages workflow run 45098590841 (`master` at `bd26989`, the same tests), `ubu
 
 ## After
 
-Local, the same machine, `workers: 1`, branch `SPEC-018-fast-tests` (the one whole-suite run of the spec):
+Local, the same machine, `workers: 1`, branch `SPEC-018-fast-tests`, after the second round (shared pages in
+`gameplay.spec.js` and `phone.spec.js`, review fixes). The first round's run was 11.6 min (700 s, 157 passed).
 
 | | before | after |
 |---|---|---|
-| whole suite (wall) | 22.0 min (1323 s) | **11.6 min (700 s)** |
+| whole suite (wall) | 22.0 min (1323 s) | **9.8 min (594 s)** |
 | tests | 156 (155 passed, 1 timing flake) | **157 passed**, 0 failed, 0 flaky (+1: the evaluate guard) |
-| per file | phone 501 · gameplay 330 · levels 280 · pwa 101 · smoke 52 · names 31 · i18n 5 s | phone 257 · gameplay 229 · levels 68 · pwa 67 · smoke 36 · names 25 · i18n 2 s |
-| fast set `npm run test:fast` | — | **15 tests, 1.4 min** (87 s wall) |
+| per file | phone 501 · gameplay 330 · levels 280 · pwa 101 · smoke 52 · names 31 · i18n 5 s | phone 264 · gameplay 109 · pwa 71 · levels 67 · smoke 34 · names 27 · i18n 3 s |
+| fast set `npm run test:fast` | — | **15 tests, 1.4 min** (87 s wall, measured after round 1) |
 | CI (Pages test job) | 22 m 59 s | to be measured on the first push of `master` after the merge |
 
-Targets: ≤ 10 min locally — **missed by 1.6 min**; "at least halved" (≤ 11.0 min) — **missed by 0.6 min** (−47 %).
-Why: what is left is the per-test floor. Each of the 157 tests opens a fresh page (~2 s: three.js, the scene, shader
-compile in software) and every real frame costs ~0.3 s; the tests that wait for real frames (layout, touch, gamepad)
-and the phone matrices are what remains. Next steps are in `specs/BACKLOG.md`.
+Targets: ≤ 10 min locally — **met (9.8 min, −55 %)**; fast set ≤ 3 min — met. The 80-level test needed no timing
+retry in this run (no "timing retry" annotation).
+What is left: the phone layout matrices (banner, sizes, shop: real frames per case) and the tests that need a fresh
+page (other query strings, viewports, the PWA service worker). Next steps are in `specs/BACKLOG.md`.
 
 20 slowest tests after (seconds):
 
 | # | s | test |
 |---|---|---|
-| 1 | 21.9 | `phone.spec.js:1072 phone banner 932×430 › the phone banner never covers the hero (932×430)` |
-| 2 | 19.8 | `phone.spec.js:1072 phone banner 844×390 › the phone banner never covers the hero (844×390)` |
-| 3 | 18.4 | `phone.spec.js:911 phone sizes 667×375 › every phone button is big enough at 667×375` |
-| 4 | 18.3 | `phone.spec.js:1072 phone banner 667×375 › the phone banner never covers the hero (667×375)` |
-| 5 | 14.6 | `gameplay.spec.js:725 the gamepad d-pad up/down switches worlds in the menu` |
-| 6 | 11.5 | `names.spec.js:22 names are saved, cleaned and survive a reload` |
-| 7 | 10.8 | `levels.spec.js:135 the menu shows four worlds and switches between them` |
-| 8 | 9.8 | `pwa.spec.js:252 on iPhone Safari › install hint shows on iPhone Safari only` |
-| 9 | 9.5 | `phone.spec.js:1110 phone banner too wide › the phone banner switches to the short text, and is skipped when nothing fits` |
-| 10 | 9.4 | `phone.spec.js:911 phone sizes 932×430 › every phone button is big enough at 932×430` |
-| 11 | 9.2 | `gameplay.spec.js:228 winning level 20 finishes the world` |
-| 12 | 8.6 | `phone.spec.js:1282 phone shop 844×390 › the phone shop fits with wider fonts (844×390)` |
-| 13 | 8.5 | `phone.spec.js:911 phone sizes 844×390 › every phone button is big enough at 844×390` |
-| 14 | 8.4 | `pwa.spec.js:157 index.html is network-first: a new version shows up online and stays offline` |
-| 15 | 8.3 | `gameplay.spec.js:174 worlds unlock their own levels` |
-| 16 | 8.2 | `names.spec.js:119 bot names screen` |
-| 17 | 8.2 | `phone.spec.js:1282 phone shop 932×430 › the phone shop fits with wider fonts (932×430)` |
-| 18 | 7.9 | `gameplay.spec.js:606 old saves move into the Park` |
-| 19 | 7.9 | `gameplay.spec.js:1285 rescue kit on a touch screen › the kit button shows only when it can be used` |
-| 20 | 7.4 | `phone.spec.js:134 phone 844×390 › phone mode fills the screen at 844×390` |
+| 1 | 26.2 | `phone.spec.js:1102 phone banner 932×430 › the phone banner never covers the hero (932×430)` |
+| 2 | 25.1 | `phone.spec.js:1102 phone banner 844×390 › the phone banner never covers the hero (844×390)` |
+| 3 | 23.0 | `phone.spec.js:934 phone sizes 667×375 › every phone button is big enough at 667×375` |
+| 4 | 22.9 | `phone.spec.js:1102 phone banner 667×375 › the phone banner never covers the hero (667×375)` |
+| 5 | 12.3 | `names.spec.js:22 names are saved, cleaned and survive a reload` |
+| 6 | 12.1 | `gameplay.spec.js:738 the gamepad d-pad up/down switches worlds in the menu` |
+| 7 | 10.8 | `phone.spec.js:934 phone sizes 844×390 › every phone button is big enough at 844×390` |
+| 8 | 10.5 | `phone.spec.js:934 phone sizes 932×430 › every phone button is big enough at 932×430` |
+| 9 | 10.3 | `phone.spec.js:1146 phone banner too wide › the phone banner switches to the short text, and is skipped when nothing fits` |
+| 10 | 9.6 | `levels.spec.js:136 the menu shows four worlds and switches between them` |
+| 11 | 9.5 | `pwa.spec.js:252 on iPhone Safari › install hint shows on iPhone Safari only` |
+| 12 | 9.1 | `phone.spec.js:1320 phone shop 932×430 › the phone shop fits with wider fonts (932×430)` |
+| 13 | 9.0 | `phone.spec.js:156 phone 844×390 › phone mode fills the screen at 844×390` |
+| 14 | 9.0 | `pwa.spec.js:218 fullscreen button is hidden in standalone mode` |
+| 15 | 8.8 | `phone.spec.js:1320 phone shop 667×375 › the phone shop fits with wider fonts (667×375)` |
+| 16 | 8.7 | `pwa.spec.js:157 index.html is network-first: a new version shows up online and stays offline` |
+| 17 | 8.4 | `phone.spec.js:1320 phone shop 844×390 › the phone shop fits with wider fonts (844×390)` |
+| 18 | 8.3 | `phone.spec.js:156 phone 932×430 › phone mode fills the screen at 932×430` |
+| 19 | 8.2 | `gameplay.spec.js:619 old saves move into the Park` |
+| 20 | 8.1 | `gameplay.spec.js:1298 rescue kit on a touch screen › the kit button shows only when it can be used` |
 
-Old top-20 tests now: edge arrows 50.0 → 3.7 s, mini-map fades 20.3 → 3.3 s, rooms 37.1 → 0.2 s, arena 19.7 → 0.6 s,
-maze 14.5 → 0.3 s, river 14.8 → 1.6 s, old saves 0 kits 24.1 → 5.8 s, old saves into the Park 21.2 → 7.9 s,
-old saves 0 kisses 14.0 → 6.0 s.
+Old top-20 tests now: edge arrows 50.0 → 1.4 s, mini-map fades 20.3 → 1.3 s, rooms 37.1 → 0.2 s, arena 19.7 → 0.5 s,
+maze 14.5 → 0.2 s, river 14.8 → 1.4 s, old saves 0 kits 24.1 → 3.3 s, old saves into the Park 21.2 → 8.2 s,
+old saves 0 kisses 14.0 → 2.8 s. The banner tests grew a little (40 → 52 cases per size, review fix).
 
 ## What changed (coverage kept)
 
 | change | where | why it catches the same bugs |
 |---|---|---|
-| evaluates that returned the Big One / a Little One return nothing (braces); guard test | `phone.spec.js`; `smoke.spec.js` "tests never return game objects from evaluate" | same calls and assertions; the return value was never used |
+| evaluates that returned the Big One / a Little One return nothing (braces); guard test (scans whole files, so multi-line and `async` arrows, `littles[i]` and `littles.find(…)` are caught too) | `phone.spec.js`; `smoke.spec.js` "tests never return game objects from evaluate" | same calls and assertions; the return value was never used |
 | loop checks collected, one `expect` per test (`softly()` in `helpers.js`, `phoneScreenProblems()`) | level-type tests, the Big One curve, "every world goes…", phone sizes, install hint | every check and its message is still there; a failure lists all of them (first 20/12) instead of the first one |
 | one shared page for the generator tests (`levelPage` fixture); fresh-page tests first; `afterAll` closes it | `levels.spec.js` | each test starts on Park 1, English, empty level cache; errors are checked per test; menu/banner/reload tests keep a fresh page |
+| one shared game page per spec for `gameplay.spec.js` and the `?phone=1` tests of `phone.spec.js` (`sharedPage()` + `resetGame()` in `helpers.js`; fixtures `page` / `phonePage`) | `gameplay.spec.js`, `phone.spec.js` | before each test the page is put back to a freshly opened game: localStorage as `openGame` leaves it, English, fresh progress and names, no gamepad stubs, empty level cache, Park 1 (phone: viewport restored, a name input closed, the mini-map fade settled); errors are checked per test. At most one shared page is open (another key or a fresh-page test closes it first: a second open game page slows the other tests 3–5×). Every assertion is unchanged. |
 | real 1.1 s banner waits → `resetBannerTimer()` | "the banner names the world", the second wait in "start banner shows the level type" | the repeat rule keeps its real wait in "start banner shows the level type" |
 | save shapes through `__bb.loadProgress` (test-only: the pure function the start code runs); one real reload per save test, plus the migration write-back reload | "old saves get 0 kisses", "old saves move into the Park", "old saves get 0 kits" | the same function on the same parsed object; the start path (localStorage → loadProgress → write-back) keeps real reloads |
-| `screenshot: "off"` by default (`PW_SCREENSHOT=only-on-failure` to opt in) | `playwright.config.js` | diagnostics only; failures keep their message and `error-context.md` |
+| `screenshot: "off"` by default (`PW_SCREENSHOT=only-on-failure` to opt in) | `playwright.config.js` | diagnostics only; failures keep their message and `error-context.md`. For a failure seen only on CI: rerun it locally with `PW_SCREENSHOT=only-on-failure npx playwright test -g "<name>"`, and for layout failures imitate CI's wider fonts with `CFG.TEXT_TEST_SCALE` (BACKLOG line). `pages.yml` is unchanged. |
 
 ### Matrix trims
 
 | matrix | before | after | what is kept and why it is safe |
 |---|---|---|---|
-| phone banner (per size) | 4 worlds × levels 1, 10 × 3 languages × 2 hero positions × 2 font scales = 96 | 10 (world, level, language) × 2 positions × 2 scales = 40 | The banner's place depends on the map (the hero's start) and on the text width; the language only changes the width. Level 10 (generated: the hero starts elsewhere in every world): all four worlds, each in its **widest and narrowest** language (the third is between them). Level 1 (the kids' drawing: the same map in every world, only the world name changes): the widest and the narrowest (world, language) of all twelve, plus **park 1 en** (the CI failure). Widths are measured in the page with the banner font, so a machine with wider fonts (CI) picks its own extremes. Both positions, both font scales (×1.15 too) and all three sizes stay. Locally: park 1 en, school 1 ru, park 10 ru/en, school 10 ru/es, beach 10 ru/es, winter 10 ru/es. |
-| phone shop (per size) | 3 languages × 2 coin amounts × 3 font scales = 18 | 3 languages × (10 coins × 3 scales + 999 coins × ×1) = 12 | 10 coins is the tighter layout (the "not enough coins" row is reserved under the cards, `noH` in `index.html`), so a wider font with 999 coins has nothing more in the way. 999 at ×1 keeps the "no 'not enough coins' when rich" check and the 932 en "nothing gives way" check. Every language at every size stays, incl. **es at 667 ×1.15**. |
+| phone banner (per size) | 4 worlds × levels 1, 10 × 3 languages × 2 hero positions × 2 font scales = 96 | 13 (world, level, language) × 2 positions × 2 scales = 52 | The banner's place depends on the map (the hero's start), on its text and on the hero's rect, which includes the default name per language ("Player 1" / "Jugador 1" / "Игрок 1"); `placePhoneBanner` tries the full and then the short text at every height, so no single width orders the cases (review fix: the first plan used the text width only and never tested es at level 1 or park 10). Level 10 (generated: the hero starts elsewhere in every world): all four worlds, each in the language with the **widest text, the narrowest text and the widest hero name**. Level 1 (the kids' drawing: the same map in every world, only the world name changes): **Park in every language** (incl. park 1 en, the CI failure) plus the widest and narrowest (world, language) text. Widths are measured in the page with the game's fonts, so CI picks its own extremes; asserts check level 1 has every language and every world at level 10 has the widest-name language. Both positions, both font scales (×1.15 too) and all three sizes stay. Locally: park 1 en/es/ru, school 1 ru, park 10 ru/en/es, school 10 ru/es, beach 10 ru/es, winter 10 ru/es. |
+| phone shop (per size) | 3 languages × 2 coin amounts × 3 font scales = 18 | 3 languages × (10 coins × 3 scales + 999 coins × ×1) = 12 (667: + 999 coins ×1.3 = 15) | 10 coins is the tighter layout (the "not enough coins" row is reserved under the cards, `noH` in `index.html`), so a wider font with 999 coins has nothing more in the way. 999 at ×1 keeps the "no 'not enough coins' when rich" check and the 932 en "nothing gives way" check. At 667, 999 coins also runs at ×1.3 (a spot check of the widest font without that row). Every language at every size stays, incl. **es at 667 ×1.15**. |
 | every phone button is big enough | 667 in en/es/ru, 844 and 932 in en | unchanged | already minimal: the longest texts (es/ru) at the narrowest size and all three sizes; one assert instead of thousands (43.7 → 18.4 s) |
 | 80-level fairness and fixture checks | one test each | unchanged, complete, on one page | — |
 
@@ -126,7 +128,7 @@ One whole-suite run with `--workers=2` (local, after the test changes, before th
 passed, no "Target crashed"**, wall **15.6 min**, but the tests' own durations added up to 29.4 min: every test ran
 about twice as slow. The suite is CPU-bound (SwiftShader renders every open game page non-stop on all cores), so 2
 workers gave no gain over 1 and doubled each test's exposure to its timeout. A second 2-worker run was not made: with
-no gain there was nothing to keep. **`workers` stays 1** (local and CI); trying 2 on CI (4 vCPU) is in the BACKLOG.
+no gain there was nothing to keep. **`workers` stays 1** (local and CI). The CI part of AC 5 is deferred: only `master` may be pushed, so a 2-worker CI run cannot be tried on the branch; trying 2 on CI (4 vCPU) is in the BACKLOG.
 No shared state blocks parallel runs (localStorage is per context, the PWA tests use their own servers or the
 stateless `webServer`).
 
