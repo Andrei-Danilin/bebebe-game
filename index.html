@@ -189,7 +189,9 @@ const CFG = {
   // больше остановка босса (уровень 20), доля высоты остановки под звёзды, высота вкладок (компьютер), ширина «◀ Главная» и монеток,
   // высота строки заголовка; подпрыгивание следующего уровня (CSS px, скорость), сдвиг пальца для смены мира (CSS px), сколько сек
   // видна подсказка; точки дорожки (толщина, штрих, промежуток, цвет), цвета остановок (открыта, следующая, закрыта, кольцо выбора,
-  // плашка «Босс», штамп «Пройдено»), рисунки фона (сколько, прозрачность); карточка уровня (ширина, высота: компьютер UI px / телефон CSS px)
+  // плашка «Босс», штамп «Пройдено»), рисунки фона (сколько, прозрачность); ширина карточки уровня (компьютер UI px / телефон CSS px;
+  // высота — по тексту). story — экран истории: доля ширины под картинку, кегль текста главы и строк правил (компьютер / телефон),
+  // точка-глава внизу (радиус), цвета бумаги и карандаша заглушки картинки
 
   MENU_LOOK: { card: "rgba(255,250,235,.96)", cardLine: 5, title: "#ffcf33", pill: "#ffffff", pillLine: 3, ink: "#3d2b1f",
     locked: "#e5e7eb", lockedInk: "#64748b", play: "#3b82f6", story: "#a78bfa", shop: "#f59e0b", icon: "#cbd5e1", back: "#64748b", hint: "#2563eb",
@@ -200,7 +202,8 @@ const CFG = {
     map: { cols: 5, stop: 62, phoneStop: 46, boss: 1.22, starRow: 0.3, tabH: 52, backW: 140, coinsW: 150, phoneCoins: 88, titleH: 38, phoneTitleH: 30,
       bounce: 4, bounceSpeed: 5, swipe: 50, toastTime: 2.5, dotW: 4, dash: 2, dashGap: 9, path: "rgba(255,255,255,.9)",
       open: "#ffffff", next: "#fde047", closed: "#cbd5e1", ring: "#ff6fa8", badge: "#ef4444", done: "#15803d", doneBg: "#dcfce7", toastBg: "#334155",
-      doodles: 9, doodleAlpha: 0.55, cardW: 460, cardH: 300, phoneCardW: 380, phoneCardH: 214 } },
+      doodles: 9, doodleAlpha: 0.55, cardW: 480, phoneCardW: 420 },
+    story: { pic: 0.47, text: 22, phoneText: 18, rule: 17, phoneRule: 15, dot: 6, paper: "#fffdf5", pencil: "#94a3b8" } },
   // типы уровней внутри каждого мира (SPEC-006): 1 — рисунок детей, 2–4 поляна, 5–7 деревня, 8–10 река,
   // 11–13 дом с комнатами, 14–16 арена, 17–20 лабиринт; число записей = уровней в мире
   WORLD_TYPES: ["classic", "meadow", "meadow", "meadow", "village", "village", "village", "river", "river", "river",
@@ -307,7 +310,7 @@ const ruPlural = (n, f) => f[n % 10 === 1 && n % 100 !== 11 ? 0 : n % 10 >= 2 &&
 // =====================================================================
 const I18N = {
   en: {
-    name: "English", subtitle: "Little Ones vs. the Big One",
+    name: "English",
     rules: n => [
       "Sneak up BEHIND the Big One and hug him: he loses a heart",
       "If he SEES you (yellow beam), he pushes you and breaks your leg",
@@ -339,7 +342,13 @@ const I18N = {
     buyFor: n => `Buy for ${n}`, tapAgain: "Tap again to buy",   // SPEC-009: гардероб
     itemsTab: "Items", wardrobeTab: "Wardrobe", upgradesTab: "Upgrades", upgMax: "Max",   // SPEC-017: + гардероб
     worldsDone: (n, max) => `Worlds finished: ${n} / ${max}`, comicSoon: "Comic coming soon",
-    lockedLevel: n => `Win level ${n} first`, lockedBonus: "Win all levels of the main worlds to open", boss: "Boss", done: "✔ Done!",   // SPEC-017: карта          // SPEC-009: вкладки магазина, улучшения
+    lockedLevel: n => `Win level ${n} first`, lockedBonus: "Win all levels of the main worlds to open", boss: "Boss", done: "✔ Done!",   // SPEC-017: карта
+    // SPEC-017: карточка уровня — строка про тип уровня и про босса (уровень 20); история — главы, «Как играть»
+    typeLines: { classic: "Our own drawing — the very first map!", meadow: "Open grass — hide in the bushes!", village: "Little houses — sneak around the corners!",
+      river: "A river with bridges — choose your way across!", rooms: "A big house — peek through the doors!", arena: "A ring to run around — get behind him!",
+      maze: "A maze — find the way between the walls!" },
+    bossLine: "The boss: the grumpiest dad of this world. Lots of hugs needed!",
+    chapters: { began: "How it began", ended: "How it ended" }, endedLocked: "Win level 20 at the School to read the ending", howToPlay: "How to play",          // SPEC-009: вкладки магазина, улучшения
     upg: { fastFeet: { name: "Fast feet", desc: p => `+${p}% speed` }, longItems: { name: "Long items", desc: () => "Items last longer" },
       quickHelp: { name: "Quick help", desc: () => "Lift friends faster" } },
     rw: { firstWin: "First win", replay: "Replay", newStars: "New stars", star: "Bonus stars", hugs: "Hugs", rests: "Rests", total: "Total" },
@@ -353,7 +362,7 @@ const I18N = {
     levelIntro: (w, n, t) => `${w} · Level ${n}: ${t}`, levelIntroShort: (w, n, t) => `${w} · ${n}: ${t}`, levelIntroTiny: (w, n, t) => `${n}: ${t}`, worldStars: (n, max) => `⭐ ${n}/${max}`
   },
   es: {
-    name: "Español", subtitle: "Los Chiquitos contra el Grandote",
+    name: "Español",
     rules: n => [
       "Acercate al Grandote POR DETRÁS y abrazalo: pierde un corazón",
       "Si te VE (rayo amarillo), te empuja y te rompés la pierna",
@@ -385,6 +394,11 @@ const I18N = {
     itemsTab: "Cosas", wardrobeTab: "Ropa", upgradesTab: "Mejoras", upgMax: "Máximo",
     worldsDone: (n, max) => `Mundos terminados: ${n} / ${max}`, comicSoon: "El cómic llega pronto",
     lockedLevel: n => `Primero ganá el nivel ${n}`, lockedBonus: "Ganá todos los niveles de los mundos principales para abrirlo", boss: "Jefe", done: "✔ ¡Listo!",
+    typeLines: { classic: "¡Nuestro dibujo, el primer mapa de todos!", meadow: "Pasto abierto: ¡escondete en los arbustos!", village: "Casitas: ¡andá a escondidas por las esquinas!",
+      river: "Un río con puentes: ¡elegí por dónde cruzar!", rooms: "Una casa grande: ¡espiá por las puertas!", arena: "Una pista en ronda: ¡ponete detrás de él!",
+      maze: "Un laberinto: ¡buscá el camino entre las paredes!" },
+    bossLine: "El jefe: el papá más gruñón de este mundo. ¡Hacen falta muchos abrazos!",
+    chapters: { began: "Cómo empezó", ended: "Cómo terminó" }, endedLocked: "Ganá el nivel 20 de la Escuela para leer el final", howToPlay: "Cómo se juega",
     upg: { fastFeet: { name: "Pies rápidos", desc: p => `+${p}% velocidad` }, longItems: { name: "Cosas duraderas", desc: () => "Duran más" },
       quickHelp: { name: "Ayuda rápida", desc: () => "Levantás más rápido" } },
     rw: { firstWin: "Primera vez", replay: "Repetición", newStars: "Estrellas nuevas", star: "Estrellitas", hugs: "Abrazos", rests: "Descansos", total: "Total" },
@@ -398,7 +412,7 @@ const I18N = {
     levelIntro: (w, n, t) => `${w} · Nivel ${n}: ${t}`, levelIntroShort: (w, n, t) => `${w} · ${n}: ${t}`, levelIntroTiny: (w, n, t) => `${n}: ${t}`, worldStars: (n, max) => `⭐ ${n}/${max}`
   },
   ru: {
-    name: "Русский", subtitle: "Маленькие против Большого",
+    name: "Русский",
     rules: n => [
       "Подкрадись к Большому СЗАДИ и обними — минус сердечко",
       "Увидит тебя (жёлтый луч) — толкнёт, и нога сломается",
@@ -432,6 +446,11 @@ const I18N = {
     itemsTab: "Вещи", wardrobeTab: "Гардероб", upgradesTab: "Улучшения", upgMax: "Максимум",
     worldsDone: (n, max) => `Пройдено миров: ${n} / ${max}`, comicSoon: "Комикс скоро будет",
     lockedLevel: n => `Сначала пройди уровень ${n}`, lockedBonus: "Пройди все уровни основных миров, чтобы открыть", boss: "Босс", done: "✔ Пройдено!",
+    typeLines: { classic: "Наш рисунок — самая первая карта!", meadow: "Открытая поляна — прячься в кустах!", village: "Домики — подкрадывайся из-за углов!",
+      river: "Река с мостиками — выбирай, где перейти!", rooms: "Большой дом — заглядывай в двери!", arena: "Кольцо — обеги и зайди ему за спину!",
+      maze: "Лабиринт — найди дорогу между стенами!" },
+    bossLine: "Босс — самый ворчливый папа этого мира. Нужно много обнимашек!",
+    chapters: { began: "Как всё началось", ended: "Как всё закончилось" }, endedLocked: "Пройди 20-й уровень в Школе, чтобы прочитать конец", howToPlay: "Как играть",
     upg: { fastFeet: { name: "Быстрые ноги", desc: p => `+${p}% скорости` }, longItems: { name: "Долгие вещи", desc: () => "Действуют дольше" },
       quickHelp: { name: "Быстрая помощь", desc: () => "Поднимаешь быстрее" } },
     rw: { firstWin: "Первая победа", replay: "Повтор", newStars: "Новые звёзды", star: "Звёздочки", hugs: "Обнимашки", rests: "Отдых", total: "Итого" },
@@ -446,6 +465,46 @@ const I18N = {
     levelIntro: (w, n, t) => `${w} · Уровень ${n}: ${t}`, levelIntroShort: (w, n, t) => `${w} · ${n}: ${t}`, levelIntroTiny: (w, n, t) => `${n}: ${t}`, worldStars: (n, max) => `⭐ ${n}/${max}`
   }
 };
+// =====================================================================
+//  ИСТОРИЯ (SPEC-017): главы по порядку — начало, миры по сюжету, бонусные миры, конец.
+//  Тексты написаны по сюжету из спеков (решено в ходе работы, проверить с детьми: см. specs/BACKLOG.md).
+//  image — картинка главы (art/story/<id>.webp, когда появятся рисунки; null — заглушка «Комикс скоро будет»).
+//  Пока картинок нет, пути не заданы: страница с диска (file://) не запрашивает файлы, которых нет.
+// =====================================================================
+const STORY = [
+  { id: "began", image: null, text: {
+    en: "One sunny day the dads in our neighbourhood got grumpy. They stopped playing and only grumbled! The Little Ones made a plan: sneak up from behind and give each dad a big hug, until he is kind again.",
+    es: "Un día de sol, los papás del barrio se pusieron gruñones. ¡Dejaron de jugar y solo refunfuñaban! Los Chiquitos hicieron un plan: acercarse por detrás y darle a cada papá un abrazo grande, hasta que vuelva a ser bueno.",
+    ru: "Однажды солнечным днём папы в нашем районе стали ворчливыми. Они перестали играть и только ворчали! Маленькие придумали план: подкрасться сзади и крепко обнять каждого папу, пока он снова не станет добрым." } },
+  { id: "park", image: null, text: {
+    en: "The grumpy dads moved into the park. Hug them from behind until they are kind again!",
+    es: "Los papás gruñones se mudaron al parque. ¡Abrazalos por detrás hasta que vuelvan a ser buenos!",
+    ru: "Ворчливые папы поселились в парке. Обнимай их сзади, пока они снова не станут добрыми!" } },
+  { id: "field", image: null, text: {
+    en: "Now a grumpy dad guards the football field. Sneak past the goals and hug him!",
+    es: "Ahora un papá gruñón cuida la cancha. ¡Pasá entre los arcos y abrazalo!",
+    ru: "Теперь футбольное поле сторожит ворчливый папа. Проберись мимо ворот и обними его!" } },
+  { id: "city", image: null, text: {
+    en: "The city streets are full of grumpy dads. Hide behind the cars and hug them all!",
+    es: "Las calles de la ciudad están llenas de papás gruñones. ¡Escondete detrás de los autos y abrazalos a todos!",
+    ru: "На улицах города полно ворчливых пап. Прячься за машинами и обними всех!" } },
+  { id: "school", image: null, text: {
+    en: "The grumpiest dad of all is waiting at the School. Can you make him smile?",
+    es: "El papá más gruñón de todos te espera en la Escuela. ¿Podés hacerlo sonreír?",
+    ru: "В Школе ждёт самый ворчливый папа. Сможешь его развеселить?" } },
+  { id: "beach", image: null, text: {
+    en: "Bonus! The dads went to the beach to grumble in the sun. Hug them between the palm trees!",
+    es: "¡Bonus! Los papás se fueron a la playa a refunfuñar al sol. ¡Abrazalos entre las palmeras!",
+    ru: "Бонус! Папы ушли ворчать на пляж. Обними их среди пальм!" } },
+  { id: "winter", image: null, text: {
+    en: "Bonus! Even in the snow a dad is grumpy. A warm hug will melt his frown!",
+    es: "¡Bonus! Hasta en la nieve hay un papá gruñón. ¡Un abrazo calentito le derrite el enojo!",
+    ru: "Бонус! Даже в снегу папа ворчит. Тёплые обнимашки растопят его хмурость!" } },
+  { id: "ended", image: null, text: {
+    en: "The grumpiest dad laughed and hugged everyone back. All the dads are kind again and play with the Little Ones every day. The end — hooray!",
+    es: "El papá más gruñón se rió y abrazó a todos. Todos los papás volvieron a ser buenos y juegan con los Chiquitos todos los días. ¡Fin, hurra!",
+    ru: "Самый ворчливый папа засмеялся и обнял всех в ответ. Все папы снова добрые и каждый день играют с Маленькими. Конец — ура!" } }
+];
 const LANGS = ["en", "es", "ru"];
 let lang = "en";
 try { const saved = localStorage.getItem("bebebe-lang"); if (LANGS.includes(saved)) lang = saved; } catch (e) { /* без хранилища — английский */ }
@@ -2072,11 +2131,25 @@ function tapWorldTab(w) { if (bonusOpen(w)) selectWorld(w); else showToast(L().l
 const closeCard = () => { mode = "map"; };
 // «Играть» на карточке: тот же startGame, что и раньше (resetWorld → loadLevel, надпись уровня, камера телефона)
 function playCard(players) { level = cardLevel; startGame(players); }
+// ---------- SPEC-017: история — главы по порядку и страница «Как играть» ----------
+// storyCh — глава на экране; storyBack — куда ведёт «назад» (главный экран или карточка уровня); storyPage — «chapters» или «rules»
+let storyCh = 0, storyBack = "home", storyPage = "chapters";
+function openStory(id = STORY[0].id, back = "home") { storyCh = Math.max(0, STORY.findIndex(c => c.id === id)); storyBack = back; storyPage = "chapters"; mode = "story"; }
+const closeStory = () => { mode = storyBack === "levelCard" ? "levelCard" : "home"; };
+const storyStep = d => { storyCh = clamp(storyCh + d, 0, STORY.length - 1); };
+const storyBackKey = () => { if (storyPage === "rules") storyPage = "chapters"; else closeStory(); };
+// глава видна: начало — всегда; мир — когда в нём есть открытый уровень (бонусный — когда открыт); конец — после 20-го уровня Школы
+function chapterOpen(c) {
+  if (WORLDS.includes(c.id)) return MAIN_WORLDS.includes(c.id) ? progress.worlds[c.id].unlocked >= 1 : bonusOpen(c.id);
+  return c.id === "ended" ? progress.worlds.school.won[levelsPerWorld()] === true : true;
+}
 // всё состояние экранов меню — как при запуске (тесты: resetGame)
-function resetMenus() { closeNameInput(false); shopTab = "items"; wardrobePage = "looks"; shopBack = "home"; mapSel = null; toast = null; cardLevel = 1; mapSwipe = null; }
+function resetMenus() {
+  closeNameInput(false); shopTab = "items"; wardrobePage = "looks"; shopBack = "home"; mapSel = null; toast = null; cardLevel = 1; mapSwipe = null;
+  storyCh = 0; storyBack = "home"; storyPage = "chapters";
+}
 function toMap() { leaveLevel(); resetWorld(numPlayers); mode = "map"; }
 function toHome() { leaveLevel(); resetWorld(numPlayers); mode = "home"; }
-const openStory = () => { mode = "story"; };
 const resumeGame = () => { mode = "play"; };
 const retryLevel = () => startGame(numPlayers);
 // экран итогов → магазин; «Готово» в магазине ведёт на карту. После победы — уже следующий уровень (как «Дальше»)
@@ -2156,7 +2229,9 @@ function onKey(code) {
     if (code === "Enter" || code === "NumpadEnter" || code === "Space" || code === "Digit1" || code === "Numpad1") playCard(1);
     if (code === "Digit2" || code === "Numpad2") playCard(2);
   } else if (mode === "story") {
-    if (back || code === "Enter" || code === "Space") mode = "home";
+    if (back) storyBackKey();
+    if (storyPage === "chapters" && code === "ArrowLeft") storyStep(-1);
+    if (storyPage === "chapters" && (code === "ArrowRight" || code === "Enter" || code === "Space")) storyStep(1);
   } else if (mode === "shop") {
     if (back && inWardrobe() && wardrobePage === "friends") backToWardrobe();   // имена друзей → наряды
     else if (back || code === "Enter" || code === "Space") closeShop();
@@ -2212,8 +2287,8 @@ canvas.addEventListener("pointerdown", e => {
   if (nameInput) { closeNameInput(true); return; }   // тап мимо поля — имя сохраняется
   const p = toGame(e);
   const hit = hitButton(p);
-  // SPEC-017: на карте кнопки срабатывают на отпускании — палец, сдвинутый вбок, листает миры
-  if (mode === "map") { mapSwipe = { id: e.pointerId, x: p.x, y: p.y, hit: hit ? hit.id : null }; return; }
+  // SPEC-017: на карте и в главах истории кнопки срабатывают на отпускании — палец, сдвинутый вбок, листает миры / главы
+  if (mode === "map" || mode === "story" && storyPage === "chapters") { mapSwipe = { id: e.pointerId, x: p.x, y: p.y, hit: hit ? hit.id : null, mode }; return; }
   if (mode === "levelCard" && !hit && cardRect && !(p.x >= cardRect.x && p.x <= cardRect.x + cardRect.w && p.y >= cardRect.y && p.y <= cardRect.y + cardRect.h)) { closeCard(); return; }
   if (hit && hit.onUp) { pendingUp = { id: hit.id, pointerId: e.pointerId }; return; }
   if (hit) { hit.act(); return; }
@@ -2240,9 +2315,12 @@ canvas.addEventListener("pointerup", e => {
   const sw = mapSwipe;
   if (sw && sw.id === e.pointerId) {
     mapSwipe = null;
-    if (mode !== "map") return;
+    if (mode !== sw.mode) return;
     const p = toGame(e), dx = p.x - sw.x, dy = p.y - sw.y;
-    if (Math.abs(dx) >= cpx(CFG.MENU_LOOK.map.swipe) && Math.abs(dx) > Math.abs(dy)) { cycleWorld(dx < 0 ? 1 : -1); return; }   // влево — следующий мир
+    if (Math.abs(dx) >= cpx(CFG.MENU_LOOK.map.swipe) && Math.abs(dx) > Math.abs(dy)) {   // влево — следующий мир / глава
+      if (mode === "map") cycleWorld(dx < 0 ? 1 : -1); else storyStep(dx < 0 ? 1 : -1);
+      return;
+    }
     const h = hitButton(p);
     if (h && sw.hit && h.id === sw.hit) h.act();
     return;
@@ -2309,7 +2387,7 @@ function onPadButton(b, pad = 0) {
   initAudio();
   if (mode === "home") {
     if (b === 0 || b === 9) openMap();             // SPEC-017: A — «Играть», X — история, Y — магазин
-    if (b === 2) openStory();
+    if (b === 2) openStory();   // начало истории
     if (b === 3) openShop();
   } else if (mode === "map") {
     if (b === 14 || b === CFG.PAD_PREV_WORLD) cycleWorld(-1);   // крестовина ←/→ и бамперы — миры
@@ -2323,7 +2401,12 @@ function onPadButton(b, pad = 0) {
     if (b === 2 || b === 3) playCard(2);           // на телефоне startGame сам оставит одного игрока
     if (b === 1) closeCard();
   } else if (mode === "story") {
-    if (b === 0 || b === 1 || b === 9) mode = "home";
+    if (b === 1) storyBackKey();
+    if (b === 3) storyPage = storyPage === "rules" ? "chapters" : "rules";   // Y — «Как играть»
+    if (storyPage === "chapters") {
+      if (b === 14 || b === CFG.PAD_PREV_WORLD) storyStep(-1);
+      if (b === 15 || b === CFG.PAD_NEXT_WORLD || b === 0) storyStep(1);
+    }
   } else if (mode === "shop") {
     const friends = inWardrobe() && wardrobePage === "friends";
     if (b === 1 && friends) backToWardrobe();
@@ -3953,34 +4036,157 @@ function drawMap(t) {
   });
   mapState = { world: w, sel, done, tabs, stops };
 }
-// SPEC-017 шаг 2: простая карточка уровня (шаг 3 — полная): «Мир · Уровень n», тип, звёзды; Играть (компьютер — 1 или 2 игрока), ✕
+// SPEC-017: карточка уровня — «Мир · Уровень n», тип, строка про тип (у 20-го — про босса), звёзды; внизу 📖 (глава мира) и
+// Играть (компьютер — 1 или 2 игрока), ✕ в углу. Высота — по тексту; вся по центру экрана
 function drawLevelCard() {
   const M = CFG.MENU_LOOK, A = M.map, k = PHONE ? cpx(1) : 1, B = PHONE ? cpx(CFG.PHONE_BTN_MIN) : 44, g = PHONE ? cpx(CFG.PHONE_BTN_GAP) : 10;
-  const cw = Math.min(UW - 40 * k, (PHONE ? A.phoneCardW : A.cardW) * k), ch = (PHONE ? A.phoneCardH : A.cardH) * k, x = UW / 2 - cw / 2, y = UH / 2 - ch / 2, pad = 14 * k;
+  const n = cardLevel, minMain = PHONE ? minPx("main") : 13, minHint = PHONE ? minPx("hint") : 12, pad = 14 * k;
+  const cw = Math.min(UW - 40 * k, (PHONE ? A.phoneCardW : A.cardW) * k), BH = PHONE ? B + 6 * k : 56, sr = 10 * k;
+  const title = `${L().worlds[curWorld]} · ${L().level} ${n}`, type = L().types[levelType(curWorld, n)];
+  const line = n >= levelsPerWorld() ? L().bossLine : L().typeLines[levelType(curWorld, n)], stars = worldProgress().stars[n] || 0;
+  const f1 = fitLine(title, PHONE ? cpx(22) : 26, minMain, cw - 3 * pad - B), f2 = fitLine(type, PHONE ? cpx(17) : 20, minMain, cw - 2 * pad);
+  const lb = noteRows(line, PHONE ? cpx(16) : 18, minHint, cw - 2 * pad, 3), lineH = lb.rows.length * lb.sz * 1.2;
+  const ch = pad + B + g + f2.sz * 1.2 + g + lineH + g + 2 * sr + g + BH + pad, x = UW / 2 - cw / 2, y = Math.max(4 * k, UH / 2 - ch / 2);
   ctx.fillStyle = "rgba(20,30,25,.45)"; ctx.fillRect(0, 0, UW, UH);
   rr(x, y, cw, ch, 22 * k); fillStroke(M.card, M.cardLine);
   cardRect = { x, y, w: cw, h: ch };
-  const n = cardLevel, minMain = PHONE ? minPx("main") : 13;
   fitButton(x + cw - pad - B, y + pad, B, B, "✕", M.back, closeCard, PHONE ? cpx(18) : 20, minMain).id = "card:close";
-  const title = `${L().worlds[curWorld]} · ${L().level} ${n}`, type = L().types[levelType(curWorld, n)];
-  const tw = cw - 3 * pad - B, f1 = fitLine(title, PHONE ? cpx(22) : 26, minMain, tw);
   label(f1.text, x + pad, y + pad + B / 2, f1.sz, M.title, "left");
   if (PHONE) noteText("main", f1.sz);
   hudRects.push({ id: "card:title", x: x + pad, y: y + pad + B / 2 - f1.sz * 0.6, w: f1.w, h: f1.sz * 1.2, text: f1.text });
-  const ty = y + pad + B + g + 12 * k, f2 = fitLine(type, PHONE ? cpx(17) : 20, minMain, cw - 2 * pad);
-  plainText(f2.text, UW / 2, ty, f2.sz, "#7c3aed", "center");
+  let yy = y + pad + B + g + f2.sz * 0.6;
+  plainText(f2.text, UW / 2, yy, f2.sz, "#7c3aed", "center");
   if (PHONE) noteText("main", f2.sz);
-  hudRects.push({ id: "card:type", x: UW / 2 - f2.w / 2, y: ty - f2.sz * 0.6, w: f2.w, h: f2.sz * 1.2, text: f2.text });
-  const sr = 10 * k, stars = worldProgress().stars[n] || 0;
-  for (let i = 0; i < CFG.STARS_PER_LEVEL; i++) drawStar(UW / 2 + (i - 1) * sr * 2.6, ty + f2.sz * 0.6 + g + sr, sr, i < stars);
-  const by = y + ch - pad - (PHONE ? B + 6 * k : 56);
-  if (PHONE) fitButton(x + pad, by, cw - 2 * pad, B + 6 * k, "▶ " + L().play, M.play, () => playCard(1), cpx(22), minMain).id = "card:play";
+  hudRects.push({ id: "card:type", x: UW / 2 - f2.w / 2, y: yy - f2.sz * 0.6, w: f2.w, h: f2.sz * 1.2, text: f2.text });
+  yy += f2.sz * 0.6 + g;
+  ctx.font = `800 ${lb.sz}px system-ui, "Segoe UI", sans-serif`;
+  yy += rowsAt("card:line", lb, UW / 2, yy, M.lockedInk) + g;
+  hudRects[hudRects.length - 1].text = line;
+  if (PHONE) noteText("hint", lb.sz);
+  for (let i = 0; i < CFG.STARS_PER_LEVEL; i++) drawStar(UW / 2 + (i - 1) * sr * 2.6, yy + sr, sr, i < stars);
+  const by = y + ch - pad - BH;
+  fitButton(x + pad, by, BH, BH, "📖", M.story, () => openStory(curWorld, "levelCard"), PHONE ? cpx(20) : 24, minMain).id = "card:story";
+  const px = x + pad + BH + g, pw = cw - 2 * pad - BH - g;
+  if (PHONE) fitButton(px, by, pw, BH, "▶ " + L().play, M.play, () => playCard(1), cpx(22), minMain).id = "card:play";
   else {
-    const bw = (cw - 2 * pad - g) / 2;
-    fitButton(x + pad, by, bw, 56, L().onePlayer, M.play, () => playCard(1), 24, 14).id = "card:1";
-    fitButton(x + pad + bw + g, by, bw, 56, L().twoPlayers, "#22c55e", () => playCard(2), 24, 14).id = "card:2";
+    const bw = (pw - g) / 2;
+    fitButton(px, by, bw, BH, L().onePlayer, M.play, () => playCard(1), 24, 14).id = "card:1";
+    fitButton(px + bw + g, by, bw, BH, L().twoPlayers, "#22c55e", () => playCard(2), 24, 14).id = "card:2";
   }
-  cardInfo = { world: curWorld, n, title, type };
+  cardInfo = { world: curWorld, n, title, type, line, stars };
+}
+
+// ---------- SPEC-017: история — глава (картинка и текст) или «Как играть» (правила и управление) ----------
+let storyInfo = null;                         // экран истории этого кадра (для тестов)
+const storyArt = new Map();                   // путь картинки → { img, state: "loading" | "ok" | "bad" }
+// картинка главы: есть путь и файл загрузился — «image»; нет пути, грузится или ошибка — заглушка (никаких исключений)
+function storyPicture(c) {
+  if (!c.image) return null;
+  let a = storyArt.get(c.image);
+  if (!a) {
+    a = { img: null, state: "loading" };
+    storyArt.set(c.image, a);
+    try { a.img = new Image(); a.img.onload = () => { a.state = "ok"; }; a.img.onerror = () => { a.state = "bad"; }; a.img.src = c.image; } catch (e) { a.state = "bad"; }
+  }
+  return a.state === "ok" ? a.img : null;
+}
+const chapterTitle = c => c.id === "began" ? "📖 " + L().chapters.began : c.id === "ended" ? "🎉 " + L().chapters.ended
+  : `${WORLD_ICONS[c.id]} ${L().worlds[c.id]}${BONUS_WORLDS.includes(c.id) ? " · " + L().bonus : ""}`;
+// заглушка картинки: лист бумаги, карандашный рисунок (Большой и двое Маленьких обнимают его сзади), «Комикс скоро будет»
+function storyPlaceholder(r, locked) {
+  const S = CFG.MENU_LOOK.story, k = PHONE ? cpx(1) : 1;
+  rr(r.x, r.y, r.w, r.h, 10 * k); fillStroke(S.paper, 3 * k);
+  if (locked) {
+    ctx.font = `${Math.min(r.w, r.h) * 0.35}px system-ui, 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText("🔒", r.x + r.w / 2, r.y + r.h / 2);
+    return;
+  }
+  const u = Math.min(r.w, r.h * 1.2) / 10, cx = r.x + r.w / 2, base = r.y + r.h * 0.68;
+  ctx.save(); ctx.strokeStyle = S.pencil; ctx.lineWidth = Math.max(1.5, u * 0.18); ctx.lineCap = "round"; ctx.lineJoin = "round";
+  const line = (pts) => { ctx.beginPath(); ctx.moveTo(pts[0], pts[1]); for (let i = 2; i < pts.length; i += 2) ctx.lineTo(pts[i], pts[i + 1]); ctx.stroke(); };
+  circle(cx, base - u * 4.6, u * 0.9); ctx.stroke();                                   // Большой
+  rr(cx - u * 1.1, base - u * 3.6, u * 2.2, u * 2.6, u * 0.6); ctx.stroke();
+  line([cx - u * 0.6, base - u * 1, cx - u * 0.7, base]); line([cx + u * 0.6, base - u * 1, cx + u * 0.7, base]);
+  for (const sx of [-1, 1]) {                                                          // двое Маленьких обнимают сзади
+    const kx = cx + sx * u * 2.4;
+    circle(kx, base - u * 2.2, u * 0.55); ctx.stroke();
+    line([kx, base - u * 1.65, kx, base - u * 0.6]); line([kx, base - u * 0.6, kx - u * 0.4, base]); line([kx, base - u * 0.6, kx + u * 0.4, base]);
+    line([kx, base - u * 1.4, cx + sx * u * 1.1, base - u * 2.4]);
+  }
+  ctx.fillStyle = "#f9a8d4"; heartPath(cx, base - u * 6.6, u * 0.9); ctx.fill();
+  ctx.restore();
+  const min = PHONE ? minPx("main") : 13, f = fitLine(L().comicSoon, PHONE ? cpx(16) : 18, min, r.w - 16 * k), ty = r.y + r.h - f.sz;
+  plainText(f.text, cx, ty, f.sz, CFG.MENU_LOOK.lockedInk, "center");
+  if (PHONE) noteText("main", f.sz);
+  hudRects.push({ id: "story:soon", x: cx - f.w / 2, y: ty - f.sz * 0.6, w: f.w, h: f.sz * 1.2, text: f.text });
+}
+function drawStory() {
+  const M = CFG.MENU_LOOK, S = M.story, k = PHONE ? cpx(1) : 1, minMain = PHONE ? minPx("main") : 13, minHint = PHONE ? minPx("hint") : 12;
+  let X0, X1, Y0, Y1, g, B;
+  if (PHONE) ({ X0, X1, Y0, Y1, g, B } = phoneFrame());
+  else { rr(UW / 2 - 440, 26, 880, 590, 30); fillStroke(M.card, M.cardLine); X0 = UW / 2 - 425; X1 = UW / 2 + 425; Y0 = 40; Y1 = 602; g = 10; B = 50; }
+  const c = STORY[storyCh], open = chapterOpen(c), rules = storyPage === "rules";
+  // верхний ряд: ◀ назад, заголовок, «❓ Как играть» / «📖 История»
+  const backText = PHONE ? "◀" : "◀ " + (storyBack === "levelCard" ? L().level + " " + cardLevel : L().home);
+  const bw = PHONE ? B : 170;
+  fitButton(X0, Y0, bw, B, backText, M.back, storyBackKey, PHONE ? cpx(18) : 20, minMain).id = "back:story";
+  const tText = rules ? "❓ " + L().howToPlay : "📖 " + L().story;
+  ctx.font = hudFont(PHONE ? cpx(16) : 19);
+  const tw = Math.max(B, Math.min((X1 - X0) * 0.36, scaledW(rules ? tText : "❓ " + L().howToPlay) + 26 * k));
+  fitButton(X1 - tw, Y0, tw, B, rules ? "📖 " + L().story : "❓ " + L().howToPlay, M.story, () => { storyPage = rules ? "chapters" : "rules"; }, PHONE ? cpx(16) : 19, minMain).id = rules ? "story:chapters" : "story:rules";
+  const title = rules ? "❓ " + L().howToPlay : (open ? "" : "🔒 ") + chapterTitle(c);
+  const tx0 = X0 + bw + g, tmax = X1 - tw - g - tx0, tf = fitLine(title, PHONE ? cpx(20) : 26, minMain, tmax);
+  label(tf.text, tx0 + tmax / 2, Y0 + B / 2, tf.sz, rules ? M.story : M.title, "center");
+  if (PHONE) noteText("main", tf.sz);
+  hudRects.push({ id: "story:title", x: tx0 + tmax / 2 - tf.w / 2, y: Y0 + B / 2 - tf.sz * 0.6, w: tf.w, h: tf.sz * 1.2, text: tf.text });
+  const top = Y0 + B + g;
+  if (rules) {
+    // правила (как было в меню) — значок слева, строка до двух-трёх рядов; ниже управление (телефон — только про палец)
+    const icons = ["❤", "👀", "🤝", "⏱", "🏠", "🍌"], size = (PHONE ? cpx(S.phoneRule) : S.rule), iw = 30 * k, maxW = X1 - X0 - iw;
+    let y = top + 4 * k;
+    L().rules(CFG.DOWN_TIME).forEach((r, i) => {
+      const b = noteRows(r, size, minHint, maxW, 3), lh = b.sz * 1.2;
+      ctx.font = `${size}px system-ui, 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(icons[i], X0 + iw / 2, y + lh / 2);
+      ctx.font = `800 ${b.sz}px system-ui, "Segoe UI", sans-serif`; ctx.textAlign = "left"; ctx.fillStyle = M.ink;
+      b.rows.forEach((q, j) => ctx.fillText(q, X0 + iw, y + lh * (j + 0.5)));
+      if (PHONE) noteText("hint", b.sz);
+      hudRects.push({ id: "rules:" + i, x: X0 + iw, y, w: b.w, h: b.rows.length * lh, text: r });
+      y += b.rows.length * lh + 5 * k;
+    });
+    y += 6 * k;
+    const ctl = PHONE ? [["controls:touch", L().touch1]] : [["controls:0", L().controls1], ["controls:1", L().controls2]];
+    for (const [id, t] of ctl) {
+      const b = noteRows(t, PHONE ? cpx(S.phoneRule) : 15, minHint, X1 - X0, 2);
+      y += rowsAt(id, b, (X0 + X1) / 2, y, "#475569") + 2 * k;
+      hudRects[hudRects.length - 1].text = t;
+      if (PHONE) noteText("hint", b.sz);
+    }
+    storyInfo = { chapter: c.id, index: storyCh, locked: !open, page: "rules", title, text: "", art: null };
+    return;
+  }
+  // нижний ряд: ◀ ▶ между главами, посередине точки глав (текущая — крупнее, закрытые — серые)
+  const by = Y1 - B;
+  fitButton(X0, by, B * (PHONE ? 1 : 1.4), B, "◀", "#94a3b8", () => storyStep(-1), PHONE ? cpx(20) : 24, minMain).id = "story:prev";
+  fitButton(X1 - B * (PHONE ? 1 : 1.4), by, B * (PHONE ? 1 : 1.4), B, "▶", "#94a3b8", () => storyStep(1), PHONE ? cpx(20) : 24, minMain).id = "story:next";
+  const dr = S.dot * k, step = dr * 3.4, dx0 = (X0 + X1) / 2 - step * (STORY.length - 1) / 2;
+  STORY.forEach((q, i) => { circle(dx0 + i * step, by + B / 2, i === storyCh ? dr * 1.5 : dr); fillStroke(i === storyCh ? M.title : chapterOpen(q) ? "#fff" : M.locked, 2 * k); });
+  hudRects.push({ id: "story:dots", x: dx0 - dr * 1.5, y: by + B / 2 - dr * 1.5, w: step * (STORY.length - 1) + dr * 3, h: dr * 3 });
+  // посередине: картинка слева, текст справа (закрытая глава — 🔒 и что для неё надо пройти)
+  const mh = by - g - top, pw = Math.min((X1 - X0) * S.pic, mh * 1.4), pic = { x: X0, y: top, w: pw, h: mh };
+  const img = open ? storyPicture(c) : null;
+  if (img) {
+    const sc = Math.min(pic.w / img.width, pic.h / img.height), iw = img.width * sc, ih = img.height * sc;
+    ctx.drawImage(img, pic.x + (pic.w - iw) / 2, pic.y + (pic.h - ih) / 2, iw, ih);
+  } else storyPlaceholder(pic, !open);
+  const text = open ? c.text[lang] : BONUS_WORLDS.includes(c.id) ? L().lockedBonus : L().endedLocked;
+  const tx = X0 + pw + 2 * g, tW = X1 - tx, size = PHONE ? cpx(S.phoneText) : S.text, min = PHONE ? minMain : 14;
+  const b = noteRows(text, size, min, tW, Math.max(1, Math.floor(mh / (min * 1.2))));
+  const th = b.rows.length * b.sz * 1.2;
+  rowsAt(open ? "story:text" : "story:locked", b, tx + tW / 2, top + Math.max(0, (mh - th) / 2), open ? M.ink : M.lockedInk);
+  hudRects[hudRects.length - 1].text = text;
+  if (PHONE) noteText("main", b.sz);
+  storyInfo = { chapter: c.id, index: storyCh, locked: !open, page: "chapters", title, text, art: !open ? "locked" : img ? "image" : "placeholder", pic };
 }
 // SPEC-016: «Открылись бонусные миры!» на экране победы — только после победы, открывшей их (lastReward.bonusUnlocked);
 // плашка в hudRects (bonus-note), для тестов — bonusNote { text, x, y, w, h, size, textW }
@@ -4307,7 +4513,7 @@ function drawHomeDesktop() {
   y += H.playGap - H.rowGap;
   fitButton(UW / 2 - H.playW / 2, y, H.playW, H.playH, "▶ " + L().play, M.play, openMap, H.playSize, 18).id = "home:play";
   y += H.playH + H.gap;
-  fitButton(UW / 2 - H.subW - H.gap / 2, y, H.subW, H.subH, "📖 " + L().story, M.story, openStory, H.subSize, 14).id = "home:story";
+  fitButton(UW / 2 - H.subW - H.gap / 2, y, H.subW, H.subH, "📖 " + L().story, M.story, () => openStory(), H.subSize, 14).id = "home:story";
   fitButton(UW / 2 + H.gap / 2, y, H.subW, H.subH, "🛒 " + L().shop, M.shop, () => openShop(), H.subSize, 14).id = "home:shop";
   if (showInstallHint()) { fitText(L().installHint, UW / 2, y + H.subH + H.rowGap * 1.5, 15, H.w - 4 * H.pad, "center", M.hint, 800); installHintShown = true; }
 }
@@ -4320,7 +4526,7 @@ function drawHomePhone() {
   let by = top + Math.max(g, (Y1 - top - need) / 2);
   fitButton(rx, by, R, c(P.playH), "▶ " + L().play, M.play, openMap, c(28), minPx("main")).id = "home:play";
   by += c(P.playH) + g;
-  fitButton(rx, by, R, c(P.subH), "📖 " + L().story, M.story, openStory, c(20), minPx("main")).id = "home:story";
+  fitButton(rx, by, R, c(P.subH), "📖 " + L().story, M.story, () => openStory(), c(20), minPx("main")).id = "home:story";
   by += c(P.subH) + g;
   fitButton(rx, by, R, c(P.subH), "🛒 " + L().shop, M.shop, () => openShop(), c(20), minPx("main")).id = "home:shop";
   // слева: название, плашки (переносятся по рядам), подсказка «установить»
@@ -4331,22 +4537,6 @@ function drawHomePhone() {
   let y = ty + tsz * 0.6 + c(P.rowGap) * 1.5;
   for (const grp of homeGroups(c(P.rowH), c(P.text), minPx("main"))) y = pillRows(grp, X0, lw, y, c(P.gap), c(P.rowGap), false) + c(P.rowGap);
   if (showInstallHint()) { pWrap(L().installHint, lcx, y, "hint", 13, lw, 2, M.hint, 800); installHintShown = true; }
-}
-// SPEC-017 шаг 1: экран истории пока — заголовок, «Комикс скоро будет» и «◀ Главная» (главы — шаг 4)
-function drawStoryStub() {
-  const M = CFG.MENU_LOOK;
-  if (PHONE) {
-    const c = cpx, { X0, X1, Y0, Y1, B } = phoneFrame();
-    pLabel("📖 " + L().story, UW / 2, Y0 + c(30), "title", 30, M.story, "center", X1 - X0);
-    pText(L().comicSoon, UW / 2, (Y0 + Y1) / 2, "main", 18, X1 - X0, "center", M.lockedInk, 800);
-    fitButton(UW / 2 - c(110), Y1 - B, c(220), B, "◀ " + L().home, M.back, () => { mode = "home"; }, c(18), minPx("main")).id = "back:home";
-    return;
-  }
-  const H = M.home, x0 = UW / 2 - H.w / 2;
-  rr(x0, H.y, H.w, H.h, H.r); fillStroke(M.card, M.cardLine);
-  label("📖 " + L().story, UW / 2, H.titleY, H.titleSize * 0.8, M.story);
-  fitText(L().comicSoon, UW / 2, H.y + H.h / 2, 24, H.w - 4 * H.pad, "center", M.lockedInk, 800);
-  fitButton(UW / 2 - 110, H.y + H.h - H.subH - 2 * H.pad, 220, H.subH, "◀ " + L().home, M.back, () => { mode = "home"; }, 22, 14).id = "back:home";
 }
 
 // ---------- SPEC-017: вкладка «Гардероб» магазина — бывший экран нарядов (SPEC-003/009) и имена друзей ----------
@@ -4448,7 +4638,7 @@ const pauseActions = () => [[L().resume, "#22c55e", resumeGame], ["🗺 " + L().
 function drawOverlayPhone() {
   const c = cpx;
   if (mode === "home") drawHomePhone();
-  else if (mode === "story") drawStoryStub();
+  else if (mode === "story") drawStory();
   else if (mode === "map" || mode === "levelCard") {
     drawMap(T);
     if (mode === "levelCard") { buttons = []; hudRects = []; drawLevelCard(); }   // под карточкой карта не нажимается
@@ -4595,7 +4785,7 @@ function drawOverlay() {
   ctx.fillStyle = "rgba(20,30,25,.55)"; ctx.fillRect(0, 0, UW, UH);
   if (PHONE) { drawOverlayPhone(); return; }
   if (mode === "home") drawHomeDesktop();
-  else if (mode === "story") drawStoryStub();
+  else if (mode === "story") drawStory();
   else if (mode === "map" || mode === "levelCard") {
     drawMap(T);
     if (mode === "levelCard") { buttons = []; hudRects = []; drawLevelCard(); }   // под карточкой карта не нажимается
@@ -4759,7 +4949,7 @@ function drawBanner() {
 function drawUI(t) {
   draws++;
   if (nameInput && !inWardrobe()) closeNameInput(false);
-  buttons = []; installHintShown = false; mapState = null; cardInfo = null; cardRect = null; bonusNote = null; winLine = ""; mmShown = false; edgeArrows = []; hudRects = []; textSizes = {}; bannerRect = null; kitHintRect = null; shopLayout = null; winPanel = null;
+  buttons = []; installHintShown = false; mapState = null; cardInfo = null; cardRect = null; storyInfo = null; bonusNote = null; winLine = ""; mmShown = false; edgeArrows = []; hudRects = []; textSizes = {}; bannerRect = null; kitHintRect = null; shopLayout = null; winPanel = null;
   if (mode !== "shop") { shopTab = "items"; wardrobePage = "looks"; }
   if (mode !== "map") toast = null;   // SPEC-017: подсказка карты — только пока карта на экране
   ctx.setTransform(VIEW, 0, 0, VIEW, 0, 0);
@@ -6333,6 +6523,7 @@ window.__bb = {
   // SPEC-017: карта этого кадра, подсказка, карточка уровня; tapButton(id) — нажать кнопку этого кадра (как пальцем)
   get mapInfo() { return mapState && JSON.parse(JSON.stringify(mapState)); }, get toast() { return toast && { ...toast }; },
   get levelCard() { return cardInfo && { ...cardInfo }; }, openMap,
+  STORY, openStory, get storyInfo() { return storyInfo && { ...storyInfo }; },   // SPEC-017: главы истории (живой список), экран истории этого кадра
   tapButton(id) { const q = buttons.find(r => (r.id || r.act.name) === id); if (q) q.act(); return !!q; },
   update, inSafe, I18N, startGame, resetWorld, cycleOutfit, randomOutfit, cycleBig, setLang, toScreen,
   get items() { return items; }, get progress() { return progress; }, buyGloves, setEquip, get lastReward() { return lastReward; }, spawnItem,

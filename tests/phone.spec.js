@@ -910,7 +910,13 @@ const PHONE_SCENES = {
     await page.evaluate(() => { const b = window.__bb, W = b.wardrobe(); b.mode = "shop"; b.shopTab = "wardrobe"; b.progress.coins = 10; b.cycleOutfit("p1", "hat", W.hat.findIndex(q => q.id === "crown") - b.outfits.shown.p1.hat); });
   },
   friends: async page => { await page.evaluate(() => { const b = window.__bb; b.mode = "shop"; b.shopTab = "wardrobe"; b.wardrobePage = "friends"; }); },
-  story: async page => { await page.evaluate(() => { window.__bb.mode = "story"; }); },
+  // SPEC-017: a story chapter (picture placeholder and text) and the "How to play" page (the rules lines and the touch hint)
+  story: async page => { await page.evaluate(() => { window.__bb.openStory("began", "home"); }); },
+  rules: async page => {
+    await page.evaluate(() => { window.__bb.openStory("park", "home"); });
+    await frames(page);
+    await page.evaluate(() => window.__bb.tapButton("story:rules"));
+  },
   // 10 coins: "not enough coins" under all four cards (SPEC-007: the tightest card layout)
   shop: async page => { await page.evaluate(() => { const b = window.__bb; b.progress.coins = 10; b.mode = "shop"; }); },
   win: async page => {
@@ -1022,7 +1028,7 @@ for (const [vw, vh] of PHONE_SIZES) {
           return { ui: b.uiSize, buttons: b.buttonRects, hud: b.hudRects, mm: b.minimap, texts: b.textSizes, banner: b.bannerRect,
             hero: b.toScreen(l.x, l.y), head: b.toScreen(l.x, l.y, 72), mode: b.mode };
         });
-        expect(d.mode, label).toBe(name === "rest" || name === "long" || name === "down" ? "play" : name === "wardrobe" || name === "friends" ? "shop" : name === "card" ? "levelCard" : name);
+        expect(d.mode, label).toBe(name === "rest" || name === "long" || name === "down" ? "play" : name === "wardrobe" || name === "friends" ? "shop" : name === "card" ? "levelCard" : name === "rules" ? "story" : name);
         fails.push(...phoneScreenProblems(label, d, minText));
         expect(d.texts.main || d.texts.title, `${label}: texts recorded`).toBeTruthy();
         if (name === "map") {
@@ -1032,7 +1038,9 @@ for (const [vw, vh] of PHONE_SIZES) {
           expect(ids.filter(id => id.startsWith("stop:")).length, label).toBe(20);
           expect(ids).toContain("back:home");
         }
-        if (name === "card") expect(d.buttons.map(q => q.id)).toEqual(expect.arrayContaining(["card:play", "card:close"]));
+        if (name === "card") expect(d.buttons.map(q => q.id)).toEqual(expect.arrayContaining(["card:play", "card:story", "card:close"]));
+        if (name === "story") expect(d.hud.map(h => h.id)).toEqual(expect.arrayContaining(["story:title", "story:text", "story:soon"]));
+        if (name === "rules") expect(d.hud.filter(h => h.id.startsWith("rules:")).length).toBe(6);
         if (name === "shop") expect(d.buttons.map(q => q.id)).toEqual(expect.arrayContaining(["buy:mittens", "buy:mega", "buy:kisses", "buy:rescues"]));
         if (name === "wardrobe") expect(d.buttons.map(q => q.id)).toEqual(expect.arrayContaining(["tab:wardrobe", "buy-look:p1", "name:big", "random:p1", "openFriends"]));
         if (name === "friends") expect(d.buttons.filter(q => String(q.id).startsWith("name:bot")).length).toBe(4);

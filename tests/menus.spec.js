@@ -503,3 +503,143 @@ test("the map fits a phone and swipes between worlds", async ({ phonePage: page 
   expect(await swipe(ui.w * 0.3, ui.w * 0.7, ui.h * 0.6), "round, past the locked bonus worlds").toBe("school");
   expect(await swipe(ui.w * 0.5, ui.w * 0.5 + 3, ui.h * 0.6)).toBe("school");
 });
+
+// ---------- AC 6, 7, 2: the level card ----------
+// __bb.levelCard = { world, n, title, type, line } (the card drawn this frame); hudRects card:title, card:type, card:line
+test("the level card starts the level", async ({ page }) => {
+  await page.evaluate(() => { const b = window.__bb; b.progress.worlds.park.unlocked = 20; b.progress.worlds.park.stars = { 8: 2 }; b.world = "park"; b.mode = "map"; });
+  await frames(page);
+  await page.evaluate(() => window.__bb.tapButton("stop:8"));
+  await frames(page);
+  let d = await page.evaluate(() => ({ card: window.__bb.levelCard, ids: window.__bb.buttonRects.map(q => q.id), hud: window.__bb.hudRects, lines: window.__bb.I18N.en.typeLines, boss: window.__bb.I18N.en.bossLine }));
+  expect(d.card).toEqual({ world: "park", n: 8, title: "Park · Level 8", type: "River with bridges", line: d.lines.river, stars: 2 });
+  expect(d.hud.find(h => h.id === "card:line").text).toBe(d.lines.river);
+  expect([...d.ids].sort(), "desktop: 1 or 2 players, the story, close").toEqual(["card:1", "card:2", "card:close", "card:story"]);
+  // level 20: the boss line
+  await page.keyboard.press("Escape");
+  await frames(page);
+  await page.evaluate(() => window.__bb.tapButton("stop:20"));
+  await frames(page);
+  d = await page.evaluate(() => ({ card: window.__bb.levelCard }));
+  expect(d.card).toMatchObject({ n: 20, type: "Maze", line: await page.evaluate(() => window.__bb.I18N.en.bossLine) });
+  // 📖 opens the world's story chapter; back from the story returns to the card
+  await click(page, "card:story");
+  expect(await page.evaluate(() => [window.__bb.mode, window.__bb.storyInfo.chapter])).toEqual(["story", "park"]);
+  await page.keyboard.press("Escape");
+  await frames(page);
+  expect(await page.evaluate(() => [window.__bb.mode, window.__bb.levelCard.n])).toEqual(["levelCard", 20]);
+  // Play = startGame: that world and level, the level banner, one or two players
+  await click(page, "card:1");
+  expect(await page.evaluate(() => [window.__bb.mode, window.__bb.world, window.__bb.level, window.__bb.littles.filter(l => l.kind === "player").length, window.__bb.banner.text]))
+    .toEqual(["play", "park", 20, 1, "Park · Level 20: Maze"]);
+  // the texts: a line for every level type and the boss line, in every language
+  const T = await page.evaluate(() => ["en", "es", "ru"].map(l => { const I = window.__bb.I18N[l]; return { keys: Object.keys(I.typeLines).sort(), types: Object.keys(I.types).sort(), ok: Object.values(I.typeLines).every(s => typeof s === "string" && s.length > 8), boss: I.bossLine }; }));
+  for (const t of T) { expect(t.keys).toEqual(t.types); expect(t.ok).toBe(true); expect(t.boss.length).toBeGreaterThan(8); }
+});
+
+// ---------- AC 8, 9: the story ----------
+// __bb.STORY — the chapters { id, image, text: { en, es, ru } }; __bb.storyInfo = { chapter, index, locked, page, title, text, art }
+test("story chapters unlock with progress", async ({ page }) => {
+  const S = await page.evaluate(() => window.__bb.STORY.map(c => ({ id: c.id, image: c.image, langs: Object.keys(c.text).sort() })));
+  expect(S.map(c => c.id)).toEqual(["began", "park", "field", "city", "school", "beach", "winter", "ended"]);
+  for (const c of S) expect(c.langs, c.id).toEqual(["en", "es", "ru"]);
+  await click(page, "home:story");
+  const walk = async () => {
+    const out = [];
+    for (let i = 0; i < 8; i++) {
+      await frames(page);
+      const s = await page.evaluate(() => window.__bb.storyInfo);
+      out.push([s.chapter, s.locked]);
+      await page.keyboard.press("ArrowRight");
+    }
+    return out;
+  };
+  // fresh: the beginning and the four main worlds; the bonus worlds and the ending show 🔒
+  expect(await walk()).toEqual([["began", false], ["park", false], ["field", false], ["city", false], ["school", false], ["beach", true], ["winter", true], ["ended", true]]);
+  await frames(page);
+  let s = await page.evaluate(() => window.__bb.storyInfo);
+  expect(s.chapter, "→ on the last chapter stays there").toBe("ended");
+  expect(s.text, "a hidden chapter does not tell its text").not.toBe(await page.evaluate(() => window.__bb.STORY[7].text.en));
+  expect(s.title).toContain("🔒");
+  // School 20 won: the ending opens (the bonus worlds still locked)
+  await page.evaluate(() => { window.__bb.progress.worlds.school.won[20] = true; });
+  await frames(page);
+  s = await page.evaluate(() => window.__bb.storyInfo);
+  expect([s.chapter, s.locked, s.text]).toEqual(["ended", false, await page.evaluate(() => window.__bb.STORY[7].text.en)]);
+  // every main level won: the bonus chapters open
+  await page.evaluate(() => { const b = window.__bb; for (const w of b.MAIN_WORLDS) Object.assign(b.progress.worlds[w], { unlocked: 20, won: Object.fromEntries(Array.from({ length: 20 }, (_, i) => [i + 1, true])) }); });
+  for (let i = 0; i < 7; i++) await page.keyboard.press("ArrowLeft");
+  expect((await walk()).map(x => x[1])).toEqual(Array(8).fill(false));
+  // the picture: the placeholder while there is no picture (a paper frame and "Comic coming soon"); a broken picture → the placeholder, no error
+  for (let i = 0; i < 7; i++) await page.keyboard.press("ArrowLeft");
+  await frames(page);
+  s = await page.evaluate(() => ({ info: window.__bb.storyInfo, hud: window.__bb.hudRects }));
+  expect([s.info.chapter, s.info.art]).toEqual(["began", "placeholder"]);
+  expect(s.hud.find(h => h.id === "story:soon").text).toBe("Comic coming soon");
+  await page.evaluate(() => { window.__bb.STORY[0].image = "data:image/webp;base64,AAAA"; });
+  await page.waitForFunction(() => { const s = window.__bb.storyInfo; return s && s.art === "placeholder"; });
+  const PNG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+  await page.evaluate(p => { window.__bb.STORY[0].image = p; }, PNG);
+  await page.waitForFunction(() => { const s = window.__bb.storyInfo; return s && s.art === "image"; });
+  await page.evaluate(() => { window.__bb.STORY[0].image = null; });
+  // the rules page: every rules line and the controls; back to the chapters; Escape goes home
+  await click(page, "story:rules");
+  s = await page.evaluate(() => ({ info: window.__bb.storyInfo, hud: window.__bb.hudRects, rules: window.__bb.I18N.en.rules(window.__bb.CFG.DOWN_TIME), I: window.__bb.I18N.en }));
+  expect(s.info.page).toBe("rules");
+  expect(s.hud.filter(h => h.id.startsWith("rules:")).map(h => h.text)).toEqual(s.rules);
+  expect(s.hud.filter(h => h.id.startsWith("controls:")).map(h => h.text)).toEqual([s.I.controls1, s.I.controls2]);
+  expect(s.hud.find(h => h.id === "story:title").text).toContain(s.I.howToPlay);
+  await page.keyboard.press("Escape");
+  await frames(page);
+  expect(await page.evaluate(() => [window.__bb.mode, window.__bb.storyInfo.page]), "Escape on the rules page: back to the chapters").toEqual(["story", "chapters"]);
+  await page.keyboard.press("Escape");
+  expect(await page.evaluate(() => window.__bb.mode)).toBe("home");
+  // the titles in every language
+  expect(await page.evaluate(() => ["en", "es", "ru"].map(l => { const I = window.__bb.I18N[l]; return [I.chapters.began, I.chapters.ended, I.howToPlay]; }))).toEqual([
+    ["How it began", "How it ended", "How to play"], ["Cómo empezó", "Cómo terminó", "Cómo se juega"], ["Как всё началось", "Как всё закончилось", "Как играть"]]);
+});
+
+test("story, rules and the level card fit a phone, also with wider fonts", async ({ phonePage: page }) => {
+  const fails = [];
+  for (const lang of ["en", "es", "ru"]) for (const scale of [1, 1.15]) for (const st of ["began", "park", "ended", "rules", "card8", "card20"]) {
+    await page.evaluate(([l, s, state]) => {
+      const b = window.__bb; b.setProgress(null); b.setLang(l); b.CFG.TEXT_TEST_SCALE = s; b.resetMenus();
+      b.progress.worlds.park.unlocked = 20; b.world = "park";
+      if (state.startsWith("card")) b.mode = "map";
+      else b.openStory(state === "rules" ? "began" : state, "home");
+    }, [lang, scale, st]);
+    await frames(page);
+    if (st === "rules") await page.evaluate(() => window.__bb.tapButton("story:rules"));
+    if (st.startsWith("card")) await page.evaluate(n => window.__bb.tapButton("stop:" + n), st.slice(4));
+    await frames(page);
+    const d = await page.evaluate(() => { const b = window.__bb; return { mode: b.mode, buttons: b.buttonRects, hud: b.hudRects, ui: b.uiSize, texts: b.textSizes, min: b.CFG.PHONE_TEXT, info: b.storyInfo, card: b.levelCard }; });
+    const at = `${lang} ×${scale} ${st}`;
+    fails.push(...phoneProblems(at, d));
+    if (st.startsWith("card")) {
+      if (!d.card || [...d.buttons.map(q => q.id)].sort().join() !== "card:close,card:play,card:story") fails.push(`${at}: card buttons ${d.buttons.map(q => q.id)}`);
+      if (!d.hud.some(h => h.id === "card:line")) fails.push(`${at}: no type line`);
+    } else if (st === "rules") {
+      if (d.hud.filter(h => h.id.startsWith("rules:")).length !== 6) fails.push(`${at}: not six rules lines`);
+      if (!d.hud.some(h => h.id === "controls:touch")) fails.push(`${at}: no touch hint`);
+    } else {
+      if (!d.info || d.info.chapter !== st) fails.push(`${at}: chapter ${d.info && d.info.chapter}`);
+      if (st !== "ended" && !d.hud.some(h => h.id === "story:text")) fails.push(`${at}: no text`);
+    }
+  }
+  await page.evaluate(() => { const b = window.__bb; b.CFG.TEXT_TEST_SCALE = 1; b.setProgress(null); b.setLang("en"); b.resetMenus(); b.openStory("began", "home"); });
+  expect(fails, fails.slice(0, 15).join("\n")).toEqual([]);
+  // a swipe left: the next chapter; right: back
+  await frames(page);
+  const ui = await page.evaluate(() => window.__bb.uiSize);
+  const swipe = async (x0, x1) => {
+    await page.evaluate(([a, b, yy]) => {
+      const c = document.getElementById("game"), bb = c.getBoundingClientRect(), s = window.__bb.uiSize.scale;
+      const ev = (type, x) => c.dispatchEvent(new PointerEvent(type, { clientX: bb.left + x * s, clientY: bb.top + yy * s, pointerId: 9, pointerType: "touch", isPrimary: true, bubbles: true, cancelable: true }));
+      ev("pointerdown", a); ev("pointermove", b); ev("pointerup", b);
+    }, [x0, x1, ui.h * 0.5]);
+    await frames(page);
+    return page.evaluate(() => window.__bb.storyInfo.chapter);
+  };
+  expect(await swipe(ui.w * 0.7, ui.w * 0.3)).toBe("park");
+  expect(await swipe(ui.w * 0.3, ui.w * 0.7)).toBe("began");
+});

@@ -20,3 +20,11 @@ test("es and ru have every key that en has, with the same type", { tag: "@fast" 
   });
   expect(missing).toEqual([]);
 });
+
+// SPEC-017: every story chapter has its text in all three languages
+test("every STORY text is in en, es and ru", async ({ page }) => {
+  await openGame(page);
+  const bad = await page.evaluate(() => window.__bb.STORY.flatMap(c => ["en", "es", "ru"].filter(l => !(typeof c.text[l] === "string" && c.text[l].trim().length > 10)).map(l => `${c.id}: ${l}`)));
+  expect(bad).toEqual([]);
+  expect(await page.evaluate(() => window.__bb.STORY.length)).toBe(8);
+});
