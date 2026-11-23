@@ -14,7 +14,7 @@ Every Playwright test renders the 3D game with SwiftShader — on the CPU — so
 
 ## Goal
 - Local whole suite ≤ 12 min wall (from ~25) on Andrei's machine with GPU; the fast set ≤ 2 min.
-- CI whole suite ≤ 8 min wall per spec branch push (4 shards).
+- CI whole suite ≤ 8 min wall per spec branch push (4 shards); today a CI run takes 15–22 min.
 - During a run the computer stays usable (below-normal priority; no 100 % CPU for long stretches from the browser).
 - No loss of coverage: the same tests, the same assertions.
 
@@ -45,16 +45,17 @@ Every Playwright test renders the 3D game with SwiftShader — on the CPU — so
 8. Timings: CI whole suite wall time per push ≤ 8 min (report the measured number); balance workflow time reported.
 
 ### Process
-9. `CLAUDE.md` and `docs/process/orchestration-rules.md`: pushing **spec branches** is allowed (never `--force`, never other people's branches) so CI can test them; the remote spec branch is deleted after the merge (`git push origin --delete <branch>`). Locally only the fast set and the tests of touched files; **the whole suite runs on CI** for the branch, and the merge happens only when that CI run is green; the balance report comes from the balance workflow when a spec changes gameplay numbers. `RUN_S/M/L.md` updated accordingly (the "whole suite locally before merge" step becomes "push the branch, `gh run watch` the tests workflow; if red — investigate from its artifacts, fix, push again").
-10. `README.md` Development: how to start Claude Code at low priority on Windows (`start /belownormal claude --model opus`), `PW_GPU`/`PW_NICE`, where CI reports are, how to run balance on GitHub; a short section "running the queue on another machine" (any machine with Node, Chrome, `gh`, `claude`; clone, `npm run setup`, start the queue there).
-11. Whole suite green on CI (all shards) and locally once with GPU and once with `PW_GPU=0` (to prove both backends pass) — this spec's own merge follows the new process.
+9. **Andrei's speed rules become the written process** (he set them during the SPEC-016…019 queue, 2026-11-23; today they live only in the orchestrator's notes): no local whole suite — CI gates the merge and the deploy; locally the fast set plus the tests of changed files; phone layouts checked locally at 667×375 only (CI covers all sizes); one review pass (`code-reviewer` + `architect-reviewer` in parallel) plus one check of the fix commits; close the spec on its branch before the merge so close and merge go out in one push; the next spec of a queue may start while the previous deploy is still running (it must be green before that spec's own merge). Write them into `CLAUDE.md`, `docs/process/orchestration-rules.md` and every run template.
+10. `CLAUDE.md` and `docs/process/orchestration-rules.md`: pushing **spec branches** is allowed (never `--force`, never other people's branches) so CI can test them; the remote spec branch is deleted after the merge (`git push origin --delete <branch>`). Locally only the fast set and the tests of touched files; **the whole suite runs on CI** for the branch, and the merge happens only when that CI run is green; the balance report comes from the balance workflow when a spec changes gameplay numbers. `RUN_S/M/L.md` updated accordingly (the "whole suite locally before merge" step becomes "push the branch, `gh run watch` the tests workflow; if red — investigate from its artifacts, fix, push again").
+11. `README.md` Development: how to start Claude Code at low priority on Windows (`start /belownormal claude --model opus`), `PW_GPU`/`PW_NICE`, where CI reports are, how to run balance on GitHub; a short section "running the queue on another machine" (any machine with Node, Chrome, `gh`, `claude`; clone, `npm run setup`, start the queue there).
+12. Whole suite green on CI (all shards) and locally once with GPU and once with `PW_GPU=0` (to prove both backends pass) — this spec's own merge follows the new process.
 
 ## Implementation steps
 1. Pre-flight; measure "before" locally (whole, fast, balance).
 2. GPU selection + renderer test + priority (AC 1–2).
 3. Sim-mode helper and moving logic tests + guard (AC 4–5).
 4. `tests.yml` (shards, merge, artifacts), `pages.yml` reuse, `balance.yml` (AC 6–7); push the branch and tune until CI is green and fast.
-5. Process docs and templates (AC 9–10); measure "after" (AC 3, 8); reviews, docs, merge, push, delete the remote branch, close — following the new rules (`RUN_M.md`).
+5. Process docs and templates (AC 9–11); measure "after" (AC 3, 8); reviews, docs, merge, push, delete the remote branch, close — following the new rules (`RUN_M.md`).
 
 ## Numbers and texts
 | Key | Value |

@@ -44,15 +44,19 @@ The game finally tells Kostya's story while you play:
 11. **Ending:** after the first win of School level 20: `art/10_end` (placeholder paper frame with "The end — coming soon" until the picture exists), the text of "How it ended" from the story, then a "Thank you for playing!" card (creators line: "Made by Kostya and Dad" — **check with Andrei before any public release**, the child's name stays only if the family wants it); shown once (`progress.seen.ending`), always available in Story.
 12. All scenes skippable by tap/Enter/Escape/gamepad A, work on desktop and phone, three languages; story texts live in the story content file.
 
+### Kostya's words
+13. Kostya's story is now in the repo as `docs/story.md` (a copy of the project doc `claude/story.md`; Kostya owns it). Every story text in the game — the Story screen chapters written by Claude in SPEC-017, the start comic captions, the boss and bonus lines, the ending — is rewritten from `docs/story.md`: Russian in Kostya's own words (shortened only where a line doesn't fit), English and Spanish as faithful, simple translations (Argentine "vos"). Where the story says nothing (a world chapter's sentence, the bonus worlds), keep it to one plain sentence in the same voice and list those lines in the report as "written by Claude — check with Kostya".
+
 ### General
-13. All numbers in `CFG`, strings en/es/ru, whole suite green, balance run committed; screenshots (throwaway): anger meter at full/half/low, the dad in each mood, the walk home, each boss, the wide push, each scene on desktop and phone.
+14. All numbers in `CFG`, strings en/es/ru, whole suite green, balance run committed; screenshots (throwaway): anger meter at full/half/low, the dad in each mood, the walk home, each boss, the wide push, each scene on desktop and phone.
 
 ## Implementation steps
 1. Pre-flight; tests first (AC 1, 4, 5, 6).
-2. Anger meter, default name, mood visuals, becoming kind + win title.
-3. Boss levels and looks; the grumpiest dad and the wide push; bots near bosses.
-4. Story scenes (intro, before boss, bonus, ending) with `progress.seen`.
-5. Balance run, screenshots, whole suite, reviews, docs, merge, push, close — as `RUN_L.md`.
+2. Story texts from `docs/story.md` (AC 13).
+3. Anger meter, default name, mood visuals, becoming kind + win title.
+4. Boss levels and looks; the grumpiest dad and the wide push; bots near bosses.
+5. Story scenes (intro, before boss, bonus, ending) with `progress.seen`.
+6. Balance run, screenshots, whole suite, reviews, docs, merge, push, close — as `RUN_L.md`.
 
 ## Numbers and texts
 | Key | Value | en | es | ru |
@@ -70,4 +74,4 @@ The game finally tells Kostya's story while you play:
 | story captions | from `claude/story.md` | | | |
 
 ## Docs to update
-`docs/game-design.md` (anger, becoming kind, bosses, wide push, scenes — Kostya's and Andrei's decisions vs Claude's numbers), `docs/architecture.md` (mood visuals, boss looks, wide push, `progress.seen`, scenes), `README.md` (story and bosses).
+`docs/story.md` stays Kostya's (only a note at the end of which parts are in the game); `docs/game-design.md` (anger, becoming kind, bosses, wide push, scenes — Kostya's and Andrei's decisions vs Claude's numbers), `docs/architecture.md` (mood visuals, boss looks, wide push, `progress.seen`, scenes), `README.md` (story and bosses).
