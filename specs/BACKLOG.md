@@ -155,6 +155,21 @@ One line each: what, where it came from. The spec author turns a line into a spe
 - SPEC-017 review: cache the map page background per world (today one `mapBgCache`, repainted on every world switch) (from SPEC-017).
 - SPEC-017 review: a general `artImage(path)` loader (the `storyPicture` one, with the same fallback) for map backgrounds and icons when the notebook art comes (from SPEC-017).
 - SPEC-013 pre-flight note (from SPEC-017): the Online button is one more entry in `homeActions()`; the lobby is a new MODE (add it to `MODES`, `MENU_MODES`, `resetMenus()` and the Esc/back handling of `onKey`/`onPadButton`); the level picker is the map (`drawMap` with an injectable stop handler and back target).
-- SPEC-019 pre-flight note (from SPEC-017): a new rule line goes to the "How to play" page — add it to `I18N.*.rules` and its icon to `RULE_ICONS` (the i18n test checks one icon per line).
 - Ask Andrei (from SPEC-017): the spec's goal says "two taps to play", but AC 6 puts a level card in between, so it is three taps (Play → stop → Play on the card).
 - Split the 2D menu screens (home, map, card, story, wardrobe tab) into their own module when SPEC-011 lands (from SPEC-017 review).
+- SPEC-019 decided during the run, check with the kids/Andrei:
+  - the noise decays only on frames when nobody is heard; read literally (add 1/s and decay 0.8/s on the same frame) a lone runner would almost never be heard (from SPEC-019).
+  - "outside his view cone" is checked by angle only (more than 45° from where he looks); walls and bushes do not count for it (from SPEC-019).
+  - the hearing cooldown counts from the start of the turn, so it includes the 0.15 s turn and the 1–1.5 s look (from SPEC-019).
+  - he does not hear while he chases someone he can see (from SPEC-019).
+  - the rest after a push (`noPush`, 💦) does not block hearing; only the stand after a push (`PUSH_STAND`) does (from SPEC-019).
+  - lurking bots tiptoe only within the hearing radius (5 cells), attacking bots within radius + 1 (6 cells); with `TIPTOE_MAX` 0.85 the lurk walk (`BOT_LURK_MULT` 0.8) is silent anyway (from SPEC-019).
+  - the heard hint shows only when a player made the noise (not a bot), once per level, with that player's key: "⇦ Shift" (one player and P1), "/" for P2 (ru "/ (.)"); touch and phone get the stick text (from SPEC-019).
+  - P2's tiptoe key is "/" (the key left of Right Shift; "." on a Russian layout) — the spec said Right Ctrl, but with Ctrl held P1's keys become browser shortcuts (Ctrl+W closes the tab); Right Ctrl does nothing; the hints show the left Shift ("⇦ Shift") because Right Shift can trigger Windows Sticky/Filter Keys; both Shifts still work with one player (from SPEC-019).
+  - he still hears while he searches for someone he lost: a kid escaping in the open within 5 cells is caught again quickly; gating it turned two balance targets red (school Spearman, winter maze slowest) (from SPEC-019).
+  - tuning side effects: the 👂 warning now shows only ~0.15 s before the turn, and the stick's inner ring at 85 % is hard to feel (from SPEC-019).
+  - the hint text is picked by device (keyboard or touch), so a gamepad player sees the Shift text (from SPEC-019).
+  - tuning within ±50 % (from SPEC-019): `TIPTOE_MAX` 0.6 → 0.85, `TIPTOE_MULT` 0.55 → 0.8 (tiptoe is now only a bit slower than running — check it still feels like tiptoeing; the touch hint "push the stick just a little" is less accurate at 85 %), `NOISE_TURN` 0.6 → 0.3, `HEAR_TURN_TIME` 0.3 → 0.15, `HEAR_COOLDOWN` 3 → 4.5 (at 3 the CI sample school 19 seed 2026 is lost: bots running to rescue near him cause 20 turns), `NOISE_WARN` 0.3 → 0.15.
+- SPEC-019 open, not met: AC 5's goal "sneaking must pay" — the balance row is green only through the win rate (reckless 96 % / 62 s vs careful 100 % / 84 s; reckless' only loss is school 20, stuck at 480 s as before). The only tuning with reckless slower (cooldown 3: reckless 108 s vs careful 89 s) breaks the CI sample school 19. Options to discuss with Andrei: rescue walks tiptoe near him (the spec says they run), a stronger target, or another CI seed.
+- SPEC-019 balance report (final, 686558b): 18 targets green, 1 red (rests ≤ 2 holds on 74 of 120 levels, was 98); economy 7/7 green; every level is slower (world medians 61 / 50 / 82 / 96 / 72 / 79 s); Spearman closer to 0.5 (city 0.58, school 0.54).
+- SPEC-019 balance report: "school 20 reckless — stuck 480 s, 0 falls" looks like the autopilot getting stuck — investigate.

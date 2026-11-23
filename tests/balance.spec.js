@@ -268,7 +268,9 @@ test("the autopilot plays only through the players' inputs", async ({ page }) =>
       b.world = "park"; b.level = 3; b.startGame(1);
       const p = b.littles[0], x0 = p.x, y0 = p.y;
       let walked = 0, px = p.x, py = p.y;
-      for (let i = 0; i < 90 * 30 && b.mode === "play"; i++) {
+      // SPEC-019: the reckless player is heard and pushed more often now — it gets up to 180 s for its first hugs
+      const steps = (style === "reckless" ? 180 : 90) * 30;
+      for (let i = 0; i < steps && b.mode === "play"; i++) {
         const before = snap();
         b.autoThink(1 / 30);
         if (snap() !== before && out.changed.length < 3) out.changed.push(`${style} step ${i}`);

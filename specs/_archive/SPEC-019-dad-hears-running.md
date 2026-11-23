@@ -1,6 +1,6 @@
 # SPEC-019 — Dad hears running kids: tiptoe or he turns around
 
-Status: ready
+Status: done (merged by "Merge SPEC-019", see git log)
 Complexity: M
 Branch: SPEC-019-dad-hears
 Decided by: Andrei and the kids (2026-11-23): the dad (the Big One) sometimes turns around when he hears kids running near him — so sneaking pays. Everything else (how to tiptoe on each device, radius, timings, bots, hints, numbers): Claude (spec author).
