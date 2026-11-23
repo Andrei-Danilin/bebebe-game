@@ -877,28 +877,31 @@ const PHONE_SCENES = {
   }
 };
 
-function checkPhoneScreen(name, d, minText) {
-  const s = d.ui.scale, cssPad = px => px / s - 0.01;
+// what is wrong with a phone screen (SPEC-018: a list of problems and one expect per test, not thousands of expects —
+// each Playwright expect records a step, which made the 667 test take 44 s)
+function phoneScreenProblems(name, d, minText) {
+  const s = d.ui.scale, cssPad = px => px / s - 0.01, out = [], check = (ok, what) => { if (!ok) out.push(`${name}: ${what}`); };
   const inside = r => r.x >= -0.01 && r.y >= -0.01 && r.x + r.w <= d.ui.w + 0.01 && r.y + r.h <= d.ui.h + 0.01;
-  expect(d.buttons.length, `${name}: some buttons`).toBeGreaterThan(0);
+  check(d.buttons.length > 0, "some buttons");
   for (const b of d.buttons) {
-    const id = `${name}: button ${b.id || ""} ${b.text || ""}`;
-    expect(b.w * s, `${id} width`).toBeGreaterThanOrEqual(44 - 0.01);
-    expect(b.h * s, `${id} height`).toBeGreaterThanOrEqual(44 - 0.01);
-    expect(inside(b), `${id} inside the screen`).toBe(true);
-    if (b.textW !== undefined) expect(b.textW, `${id} text wider than the button`).toBeLessThanOrEqual(b.w + 0.5);
-    if (d.mm) expect(overlaps(b, d.mm), `${id} on the mini-map`).toBe(false);
-    for (const h of d.hud) expect(overlaps(b, h), `${id} on ${h.id}`).toBe(false);
+    const id = `button ${b.id || ""} ${b.text || ""}`;
+    check(b.w * s >= 44 - 0.01, `${id} width ${b.w * s} CSS px`);
+    check(b.h * s >= 44 - 0.01, `${id} height ${b.h * s} CSS px`);
+    check(inside(b), `${id} inside the screen ${JSON.stringify(b)}`);
+    if (b.textW !== undefined) check(b.textW <= b.w + 0.5, `${id} text ${b.textW} wider than the button ${b.w}`);
+    if (d.mm) check(!overlaps(b, d.mm), `${id} on the mini-map`);
+    for (const h of d.hud) check(!overlaps(b, h), `${id} on ${h.id}`);
   }
   d.buttons.forEach((a, i) => d.buttons.slice(i + 1).forEach(b =>
-    expect(overlaps(a, b, cssPad(8)), `${name}: ${a.id || a.text} and ${b.id || b.text} closer than 8 CSS px`).toBe(false)));
+    check(!overlaps(a, b, cssPad(8)), `${a.id || a.text} and ${b.id || b.text} closer than 8 CSS px`)));
   d.hud.forEach((a, i) => {
-    expect(inside(a), `${name}: ${a.id} inside the screen`).toBe(true);
-    if (d.mm) expect(overlaps(a, d.mm), `${name}: ${a.id} on the mini-map`).toBe(false);
-    d.hud.slice(i + 1).forEach(b => expect(overlaps(a, b), `${name}: ${a.id} on ${b.id}`).toBe(false));
+    check(inside(a), `${a.id} inside the screen ${JSON.stringify(a)}`);
+    if (d.mm) check(!overlaps(a, d.mm), `${a.id} on the mini-map`);
+    d.hud.slice(i + 1).forEach(b => check(!overlaps(a, b), `${a.id} on ${b.id}`));
   });
-  for (const [cat, px] of Object.entries(d.texts)) expect(px * s, `${name}: smallest ${cat} text`).toBeGreaterThanOrEqual((cat === "drawn" ? minText.hint : minText[cat]) - 0.01);
-  if (d.texts.main || d.texts.title) expect(d.texts.drawn, `${name}: drawn text sizes recorded`).toBeTruthy();
+  for (const [cat, px] of Object.entries(d.texts)) check(px * s >= (cat === "drawn" ? minText.hint : minText[cat]) - 0.01, `smallest ${cat} text ${px * s} CSS px`);
+  if (d.texts.main || d.texts.title) check(!!d.texts.drawn, "drawn text sizes recorded");
+  return out;
 }
 
 for (const [vw, vh] of PHONE_SIZES) {
@@ -909,6 +912,7 @@ for (const [vw, vh] of PHONE_SIZES) {
       test.slow();
       const errors = await openGame(page, { query: "?phone=1" });
       const minText = await page.evaluate(() => window.__bb.CFG.PHONE_TEXT);
+      const fails = [];
       for (const [name0, setup] of (vw === 667 ? ["en", "es", "ru"] : ["en"]).flatMap(lg => Object.entries(PHONE_SCENES).map(([n, f]) => [lg + " " + n, async pg => { await pg.evaluate(l => window.__bb.setLang(l), lg); await f(pg); }]))) {
         const name = name0.split(" ")[1], label = name0;
         await setup(page);
@@ -919,14 +923,14 @@ for (const [vw, vh] of PHONE_SIZES) {
             hero: b.toScreen(l.x, l.y), head: b.toScreen(l.x, l.y, 72), mode: b.mode, typeLabel: b.typeLabel };
         });
         expect(d.mode, label).toBe(name === "rest" || name === "long" || name === "down" ? "play" : name);
-        checkPhoneScreen(label, d, minText);
+        fails.push(...phoneScreenProblems(label, d, minText));
         expect(d.texts.main || d.texts.title, `${label}: texts recorded`).toBeTruthy();
         if (name === "menu") {
           const L = d.typeLabel;
           expect(L, `${label}: type label`).toBeTruthy();
           expect(L.y).toBeGreaterThanOrEqual(L.rulesBottom + 2);
           expect(L.size * d.ui.scale).toBeGreaterThanOrEqual(15 - 0.01);
-          for (const q of d.buttons) expect(overlaps(L, q), `${label}: type label on ${q.id || q.text}`).toBe(false);
+          for (const q of d.buttons) if (overlaps(L, q)) fails.push(`${label}: type label on ${q.id || q.text}`);
           expect(d.buttons.map(q => q.text)).toEqual(expect.arrayContaining(["◀"]));
           // SPEC-006: four world cards, each a button of at least 44×44 CSS px (checked above), the type label under them
           const cards = d.buttons.filter(q => String(q.id).startsWith("world:"));
@@ -947,7 +951,7 @@ for (const [vw, vh] of PHONE_SIZES) {
           // the level banner shows and does not cover the hero (feet or name)
           expect(d.banner, "banner shown").toBeTruthy();
           expect(d.texts.title * d.ui.scale).toBeGreaterThanOrEqual(24 - 0.01);
-          for (const p of [d.hero, d.head]) expect(p.x >= d.banner.x && p.x <= d.banner.x + d.banner.w && p.y >= d.banner.y && p.y <= d.banner.y + d.banner.h).toBe(false);
+          for (const p of [d.hero, d.head]) expect(p.x >= d.banner.x && p.x <= d.banner.x + d.banner.w && p.y >= d.banner.y && p.y <= d.banner.y + d.banner.h, `${label}: banner on the hero`).toBe(false);
         }
         if (name === "rest") expect(d.hud.map(h => h.id)).toContain("rest");
         if (name === "down") {
@@ -961,6 +965,7 @@ for (const [vw, vh] of PHONE_SIZES) {
         }
         if (name === "pause") expect(d.buttons.length).toBeGreaterThanOrEqual(3);
       }
+      expect(fails, fails.slice(0, 12).join("\n")).toEqual([]);
       expect(errors).toEqual([]);
     });
   });
@@ -971,6 +976,33 @@ for (const [vw, vh] of PHONE_SIZES) {
 // The hero's screen rect: feet to the name above the head (CFG.NAME_TAG, as drawMarkers draws it),
 // as wide as his body or his name. The whole matrix runs again with a simulated 15 % wider banner font.
 const BANNER_LEVELS = [1, 10];   // "Our drawing" and a two-digit level with the longest type text ("River with bridges" / "Река с мостиками")
+
+// SPEC-018: which (world, level, language) the banner test measures — the text extremes instead of every combination.
+// The banner's place depends on the map (the hero's start) and on how wide its text is; the language only changes the width.
+// - level 10 (a generated map: the hero starts somewhere else in every world): all four worlds, each in its widest and
+//   its narrowest language (the third language is between the two in width);
+// - level 1 (the kids' drawing: the same map and hero start in every world, only the world name changes the text):
+//   the widest and the narrowest (world, language) over all of them, plus Park in English (the case that failed on CI).
+// Widths are measured in the page with the banner's font, so a machine with wider fonts (CI) picks its own extremes.
+// Every case still runs at both hero positions and both font scales.
+async function bannerPlan(page) {
+  return page.evaluate(([W, levels]) => {
+    const b = window.__bb, ctx = document.createElement("canvas").getContext("2d"), LANGS = ["en", "es", "ru"];
+    ctx.font = `900 30px system-ui, "Segoe UI", sans-serif`;
+    const width = (w, n, lg) => { const I = b.I18N[lg]; return ctx.measureText(I.levelIntro(I.worlds[w], n, I.types[b.levelType(w, n)])).width; };
+    const plan = [], add = (world, n, lang) => { if (!plan.some(p => p.world === world && p.n === n && p.lang === lang)) plan.push({ world, n, lang }); };
+    const extremes = list => { list.sort((a, c) => a.wd - c.wd); return [list[list.length - 1], list[0]]; };
+    for (const n of levels) {
+      if (n === 1) {
+        add("park", 1, "en");
+        for (const x of extremes(W.flatMap(w => LANGS.map(lg => ({ w, lg, wd: width(w, 1, lg) }))))) add(x.w, 1, x.lg);
+      } else {
+        for (const w of W) for (const x of extremes(LANGS.map(lg => ({ w, lg, wd: width(w, n, lg) })))) add(w, n, x.lg);
+      }
+    }
+    return plan;
+  }, [["park", "school", "beach", "winter"], BANNER_LEVELS]);
+}
 
 // starts world w, level lv with 💋 and mittens bottom right and a calm Big One; remembers the hero's start
 async function startBannerLevel(page, w, lv) {
@@ -1042,10 +1074,17 @@ for (const [vw, vh] of PHONE_SIZES) {
       const errors = await openGame(page, { query: "?phone=1" });
       const fails = [];
       let cases = 0;
+      const plan = await bannerPlan(page);
+      // the plan keeps the CI case (park 1 en), every world at level 10 in two languages, and es and ru somewhere
+      expect(plan.some(p => p.world === "park" && p.n === 1 && p.lang === "en"), JSON.stringify(plan)).toBe(true);
+      for (const w of ["park", "school", "beach", "winter"]) expect(plan.filter(p => p.world === w && p.n === 10).length, `${w} 10: ${JSON.stringify(plan)}`).toBe(2);
+      for (const lg of ["en", "es", "ru"]) expect(plan.some(p => p.lang === lg), `${lg}: ${JSON.stringify(plan)}`).toBe(true);
       try {
         for (const world of ["park", "school", "beach", "winter"]) for (const n of BANNER_LEVELS) {
+          const langs = plan.filter(p => p.world === world && p.n === n).map(p => p.lang);
+          if (!langs.length) continue;
           await startBannerLevel(page, world, n);
-          for (const lang of ["en", "es", "ru"]) for (const pos of ["start", "centre"]) for (const fontScale of [1, 1.15]) {
+          for (const lang of langs) for (const pos of ["start", "centre"]) for (const fontScale of [1, 1.15]) {
             const label = `${vw}×${vh} ${world} ${n} ${lang} hero at ${pos} font ×${fontScale}`;
             const d = await measureBanner(page, lang, pos, fontScale);
             cases++;
@@ -1056,7 +1095,7 @@ for (const [vw, vh] of PHONE_SIZES) {
       } finally {
         await page.evaluate(() => { window.__bb.CFG.TEXT_TEST_SCALE = 1; });
       }
-      expect(cases).toBe(4 * BANNER_LEVELS.length * 3 * 2 * 2);
+      expect(cases).toBe(plan.length * 2 * 2);
       expect(errors).toEqual([]);
       expect(fails, fails.slice(0, 12).join("\n")).toEqual([]);
     });
@@ -1171,14 +1210,15 @@ test.describe("phone menus", () => {
     const ctx = await browser.newContext({ ...PHONE_CTX, viewport: { width: 667, height: 375 }, userAgent: IPHONE_UA });
     const page = await ctx.newPage();
     const errors = await openGame(page, { query: "?phone=1" });
-    const minText = await page.evaluate(() => window.__bb.CFG.PHONE_TEXT);
+    const minText = await page.evaluate(() => window.__bb.CFG.PHONE_TEXT), fails = [];
     for (const lang of ["en", "es", "ru"]) {
       await page.evaluate(l => window.__bb.setLang(l), lang);
       await frames(page);
       const d = await page.evaluate(() => { const b = window.__bb; return { ui: b.uiSize, buttons: b.buttonRects, hud: b.hudRects, mm: b.minimap, texts: b.textSizes, shown: b.installHintShown }; });
       expect(d.shown, lang).toBe(true);
-      checkPhoneScreen("menu " + lang, d, minText);
+      fails.push(...phoneScreenProblems("menu " + lang, d, minText));
     }
+    expect(fails, fails.join("\n")).toEqual([]);
     expect(errors).toEqual([]);
     await ctx.close();
   });
@@ -1231,6 +1271,10 @@ function shopProblems(d, label) {
 }
 
 const SHOP_SCALES = [1, 1.15, 1.3];
+// SPEC-018: 10 coins ("not enough coins" under all four cards: the tightest cards) runs at every font scale; 999 coins only
+// at ×1 — it checks that "not enough coins" is gone and, at 932 en, that nothing gives way. A wider font with 999 coins
+// lays out the same card texts with no more in the way than with 10 coins, so those cases found nothing the 10-coin ones miss.
+// Every language at every size stays (the es shop at 667 ×1.15 is the case that once failed).
 for (const [vw, vh] of PHONE_SIZES) {
   test.describe(`phone shop ${vw}×${vh}`, () => {
     test.use({ ...PHONE_CTX, viewport: { width: vw, height: vh } });
@@ -1243,7 +1287,7 @@ for (const [vw, vh] of PHONE_SIZES) {
       try {
         for (const lang of ["en", "es", "ru"]) for (const coins of [10, 999]) {
           let lastStep = -1;
-          for (const fontScale of SHOP_SCALES) {
+          for (const fontScale of coins === 10 ? SHOP_SCALES : [1]) {
             const d = await page.evaluate(async ([lg, cn, fs]) => {
               const b = window.__bb;
               b.setLang(lg); b.CFG.TEXT_TEST_SCALE = fs;
@@ -1277,7 +1321,7 @@ for (const [vw, vh] of PHONE_SIZES) {
       } finally {
         await page.evaluate(() => { window.__bb.CFG.TEXT_TEST_SCALE = 1; });
       }
-      expect(cases).toBe(3 * 2 * SHOP_SCALES.length);
+      expect(cases).toBe(3 * (SHOP_SCALES.length + 1));
       expect(errors).toEqual([]);
       expect(fails, fails.slice(0, 12).join("\n")).toEqual([]);
     });
