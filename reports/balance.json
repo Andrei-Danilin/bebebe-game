@@ -1,6 +1,6 @@
 {
- "generated": "2026-11-23 06:28 UTC",
- "durationSec": 22,
+ "generated": "2026-11-23 06:50 UTC",
+ "durationSec": 21,
  "settings": {
   "SIM_DT": 0.03333333333333333,
   "SEEDS": 3,
@@ -63,6 +63,7 @@
   "beach",
   "winter"
  ],
+ "perWorld": 20,
  "targets": [
   {
    "name": "careful wins every level in ≥ 2 of 3 seeds within 480 s",
@@ -161,6 +162,13 @@
    "want": "reckless fewer wins or slower",
    "ok": false,
    "detail": "player falls per run: reckless 1.2, careful 2.1; all falls: reckless 4.8, careful 8.8"
+  },
+  {
+   "name": "no run's event log is full (CFG.EVENT_LOG_MAX)",
+   "value": "0 of 256 runs",
+   "want": "0",
+   "ok": true,
+   "detail": ""
   }
  ],
  "levels": [
