@@ -8,7 +8,7 @@ test.beforeEach(async ({ page }) => {
 });
 test.afterEach(async ({ page }) => { expect(page.errors).toEqual([]); });
 
-test("a hug from behind takes one heart and shocks the Big One", async ({ page }) => {
+test("a hug from behind takes one heart and shocks the Big One", { tag: "@fast" }, async ({ page }) => {
   const hp0 = await page.evaluate(() => window.__bb.big.hp);
   await setupHug(page);
   await step(page, 0.1);
@@ -18,7 +18,7 @@ test("a hug from behind takes one heart and shocks the Big One", async ({ page }
   expect(s.anim).toBeGreaterThan(0);       // jumps on the back
 });
 
-test("seen from the front, a Little One is pushed and breaks a leg", async ({ page }) => {
+test("seen from the front, a Little One is pushed and breaks a leg", { tag: "@fast" }, async ({ page }) => {
   await page.evaluate(() => {
     const b = window.__bb, big = b.big, l = b.littles[0];
     Object.assign(big, { state: "look", timer: 999, stun: 0, noPush: 0, pushCd: 0, slip: 0, x: 500, y: 320, dir: 0 });
@@ -44,7 +44,7 @@ async function installTestHelpers(page) {
   });
 }
 
-test("rescue takes 3 seconds and drains when the helper leaves", async ({ page }) => {
+test("rescue takes 3 seconds and drains when the helper leaves", { tag: "@fast" }, async ({ page }) => {
   await installTestHelpers(page);
   const r = await page.evaluate(() => {
     const b = window.__bb, t = window.__t, L = b.littles, out = {};
@@ -110,7 +110,7 @@ test("bots wait before they go to rescue", async ({ page }) => {
 });
 
 // SPEC-007 AC 1: the rest is 30 s (kids' decision); the rules text speaks in seconds, computed from REST_TIME
-test("an unrescued Little One rests 30 seconds", async ({ page }) => {
+test("an unrescued Little One rests 30 seconds", { tag: "@fast" }, async ({ page }) => {
   expect(await page.evaluate(() => window.__bb.CFG.REST_TIME)).toBe(30);
   await page.evaluate(() => {
     const L = window.__bb.littles; Object.assign(window.__bb.big, { x: 900, y: 600, state: "look", timer: 9999 });
@@ -147,7 +147,7 @@ test("an unrescued Little One rests 30 seconds", async ({ page }) => {
   for (const l of ["en", "es", "ru"]) expect(lines[l], l).not.toMatch(/min|мин/);
 });
 
-test("winning gives stars and coins, unlocks the next level and survives a reload", async ({ page }) => {
+test("winning gives stars and coins, unlocks the next level and survives a reload", { tag: "@fast" }, async ({ page }) => {
   await page.evaluate(() => { window.__bb.big.hp = 1; });
   await setupHug(page);
   await step(page, 1.5);
@@ -584,24 +584,26 @@ test("buying air kisses", async ({ page }) => {
   expect(after.kisses).toBe(0);
 });
 
+// SPEC-018: one real reload per save test (localStorage → the start code → progress); the other saves go through
+// __bb.loadProgress, the same pure merge the start code runs on the parsed save (a reload is ~3 s each)
+const loadSave = (page, save) => page.evaluate(v => window.__bb.loadProgress(JSON.parse(v)), JSON.stringify(save));
+
 test("old saves get 0 kisses", async ({ page }) => {
-  const load = async inv => {
-    await page.evaluate(v => localStorage.setItem("bebebe-progress", JSON.stringify({ unlocked: 3, stars: { 1: 2 }, coins: 12, inv: v, equip: ["mittens", "none"] })), inv);
-    await page.reload();
-    await page.waitForFunction(() => window.__bbReady === true);
-    return page.evaluate(() => window.__bb.progress);
-  };
-  const p = await load({ mittens: 1, mega: 0 });
+  const old = inv => ({ unlocked: 3, stars: { 1: 2 }, coins: 12, inv, equip: ["mittens", "none"] });
+  await page.evaluate(v => localStorage.setItem("bebebe-progress", JSON.stringify(v)), old({ mittens: 1, mega: 0 }));
+  await page.reload();
+  await page.waitForFunction(() => window.__bbReady === true);
+  const p = await page.evaluate(() => window.__bb.progress);
   expect(p.inv).toEqual({ mittens: 1, mega: 0, kisses: 0, rescues: 0 });
   expect(p.coins).toBe(12);
   expect(p.worlds.park.unlocked).toBe(3);
-  expect((await load({ mittens: 1, mega: 0, kisses: "lots" })).inv.kisses).toBe(0);   // broken data never throws
-  expect((await load({ mittens: 1, mega: 0, kisses: -3 })).inv.kisses).toBe(0);
-  expect((await load({ mittens: 1, mega: 0, kisses: 7 })).inv.kisses).toBe(7);
+  expect((await loadSave(page, old({ mittens: 1, mega: 0, kisses: "lots" }))).inv.kisses).toBe(0);   // broken data never throws
+  expect((await loadSave(page, old({ mittens: 1, mega: 0, kisses: -3 }))).inv.kisses).toBe(0);
+  expect((await loadSave(page, old({ mittens: 1, mega: 0, kisses: 7 }))).inv.kisses).toBe(7);
 });
 
 // SPEC-006 AC 7
-test("old saves move into the Park", async ({ page }) => {
+test("old saves move into the Park", { tag: "@fast" }, async ({ page }) => {
   const load = async save => {
     await page.evaluate(v => localStorage.setItem("bebebe-progress", JSON.stringify(v)), save);
     await page.reload();
@@ -621,19 +623,19 @@ test("old saves move into the Park", async ({ page }) => {
   const saved = JSON.parse(await page.evaluate(() => localStorage.getItem("bebebe-progress")));
   expect("unlocked" in saved || "stars" in saved, "the old flat fields are gone from the save").toBe(false);
   expect(saved.worlds).toEqual(p.worlds);
-  const again = await load(saved);
+  const again = await loadSave(page, saved);
   expect(again.worlds).toEqual(p.worlds);
   expect(again.coins).toBe(140);
   // a save with neither worlds nor old levels gets the fresh structure
-  const fresh = await load({ coins: 7 });
+  const fresh = await loadSave(page, { coins: 7 });
   for (const w of ["park", "school", "beach", "winter"]) expect(fresh.worlds[w], w).toEqual({ unlocked: 1, stars: {} });
   expect(fresh.coins).toBe(7);
   expect(fresh.lastWorld).toBe("park");
   // a save with worlds merges with the defaults; broken values never throw
-  const part = await load({ coins: 3, lastWorld: "moon", worlds: { beach: { unlocked: 7, stars: { 2: 3, 30: 2 } }, winter: "junk", school: { unlocked: 99 } } });
+  const part = await loadSave(page, { coins: 3, lastWorld: "moon", worlds: { beach: { unlocked: 7, stars: { 2: 3, 30: 2 } }, winter: "junk", school: { unlocked: 99 } } });
   expect(part.worlds).toEqual({ park: { unlocked: 1, stars: {} }, school: { unlocked: 20, stars: {} }, beach: { unlocked: 7, stars: { 2: 3 } }, winter: { unlocked: 1, stars: {} } });
   expect(part.lastWorld).toBe("park");
-  expect((await load({ coins: 1, lastWorld: "winter" })).lastWorld).toBe("winter");
+  expect((await loadSave(page, { coins: 1, lastWorld: "winter" })).lastWorld).toBe("winter");
   // a stale page wrote both worlds and the old flat fields: the flat ones merge into the Park (higher unlocked, best stars), then go away
   const both = await load({ coins: 9, worlds: { park: { unlocked: 4, stars: { 1: 1, 2: 3 } }, school: { unlocked: 2, stars: {} } }, unlocked: 6, stars: { 1: 3, 2: 1, 25: 3 } });
   expect(both.worlds.park).toEqual({ unlocked: 6, stars: { 1: 3, 2: 3 } });
@@ -642,7 +644,7 @@ test("old saves move into the Park", async ({ page }) => {
   const bothSaved = JSON.parse(await page.evaluate(() => localStorage.getItem("bebebe-progress")));
   expect("unlocked" in bothSaved || "stars" in bothSaved).toBe(false);
   expect(bothSaved.worlds.park).toEqual({ unlocked: 6, stars: { 1: 3, 2: 3 } });
-  const lower = await load({ worlds: { park: { unlocked: 9, stars: { 3: 3 } } }, unlocked: 2, stars: { 3: 1 } });
+  const lower = await loadSave(page, { worlds: { park: { unlocked: 9, stars: { 3: 3 } } }, unlocked: 2, stars: { 3: 1 } });
   expect(lower.worlds.park).toEqual({ unlocked: 9, stars: { 3: 3 } });   // the newer world data is never lowered
 });
 
@@ -1027,7 +1029,7 @@ test("hearts bar shows half hearts", async ({ page }) => {
 });
 
 // SPEC-007 AC 3: a fourth card, the rescue kit
-test("the shop shows four cards in one row", async ({ page }) => {
+test("the shop shows four cards in one row", { tag: "@fast" }, async ({ page }) => {
   for (const lang of ["en", "es", "ru"]) {
     await page.evaluate(l => { window.__bb.setLang(l); window.__bb.mode = "shop"; }, lang);
     await frames(page);
@@ -1098,11 +1100,11 @@ test("old saves get 0 kits", async ({ page }) => {
   expect(p.inv).toEqual({ mittens: 2, mega: 1, kisses: 5, rescues: 0 });
   expect(p.coins).toBe(21);
   expect(p.worlds.park.unlocked).toBe(4);
-  expect((await load({ ...old, inv: { ...old.inv, rescues: "lots" } })).inv.rescues).toBe(0);   // broken data never throws
-  expect((await load({ ...old, inv: { ...old.inv, rescues: -2 } })).inv.rescues).toBe(0);
-  expect((await load({ ...old, inv: { ...old.inv, rescues: 2.7 } })).inv.rescues).toBe(2);
-  expect((await load({ ...old, inv: { ...old.inv, rescues: 4 } })).inv.rescues).toBe(4);
-  expect((await load({ ...old, inv: "junk" })).inv).toEqual({ mittens: 0, mega: 0, kisses: 0, rescues: 0 });
+  expect((await loadSave(page, { ...old, inv: { ...old.inv, rescues: "lots" } })).inv.rescues).toBe(0);   // broken data never throws
+  expect((await loadSave(page, { ...old, inv: { ...old.inv, rescues: -2 } })).inv.rescues).toBe(0);
+  expect((await loadSave(page, { ...old, inv: { ...old.inv, rescues: 2.7 } })).inv.rescues).toBe(2);
+  expect((await loadSave(page, { ...old, inv: { ...old.inv, rescues: 4 } })).inv.rescues).toBe(4);
+  expect((await loadSave(page, { ...old, inv: "junk" })).inv).toEqual({ mittens: 0, mega: 0, kisses: 0, rescues: 0 });
 });
 
 test("a kit gets a downed player up at once", async ({ page }) => {
