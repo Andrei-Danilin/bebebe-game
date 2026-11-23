@@ -33,6 +33,7 @@ const test = base.test.extend({
       shared = { page, errors: await openGame(page) };
     }
     const { page, errors } = shared;
+    // Park 1 is running (mode "play") when the test starts, as after openGame + startGame(1)
     await page.evaluate(() => { const b = window.__bb; b.setLang("en"); b.clearLevelCache(); b.mode = "menu"; b.world = "park"; b.level = 1; b.startGame(1); });
     await use(page);
     const seen = errors.splice(0);
@@ -263,17 +264,20 @@ test("all 80 levels are fair and build fast", async ({ levelPage: page }) => {
     const b = window.__bb;
     b.world = "park"; b.level = 1; b.startGame(1);
     const before = b.worldState();
-    const out = [];
+    const out = [], retried = [];
     // SPEC-018: a build that took ≥ 200 ms is timed again (up to 2 more full builds, the fastest counts): a busy machine
-    // once made park 12 take 450 ms; a level that is really slow to build stays slow every time
+    // once made park 12 take 450 ms; a level that is really slow to build stays slow every time. The retried levels
+    // and their first time go into the test's annotations (visible in the report).
     for (const w of W) for (let n = 1; n <= 20; n++) {
-      const rep = b.levelReport(w, n);
+      const rep = b.levelReport(w, n), first = rep.ms;
       for (let k = 0; k < 2 && rep.ms >= 200; k++) rep.ms = Math.min(rep.ms, b.levelReport(w, n).ms);
+      if (first >= 200) retried.push(`${w} ${n}: first ${Math.round(first)} ms, fastest ${Math.round(rep.ms)} ms`);
       out.push({ w, n, ...rep });
     }
     const after = b.worldState();   // every field levelReport saves: obstacles, bushes, floors, zones, spawns, reachable, all 5 grids…
-    return { out, untouched: before === after };
+    return { out, retried, untouched: before === after };
   }, WORLDS);
+  for (const d of r.retried) test.info().annotations.push({ type: "timing retry", description: d });
   expect(r.untouched).toBe(true);   // the running game's world is left as it was
   expect(r.out.length).toBe(80);
   const bad = [];
@@ -758,7 +762,8 @@ test("restarting a retried level builds it from the cache, the same as a fresh b
 
 test("a level with no fair layout falls back and warns", async ({ levelPage: page }) => {
   const warns = [];
-  page.on("console", m => { if (m.type() === "warning") warns.push(m.text()); });
+  const onConsole = m => { if (m.type() === "warning") warns.push(m.text()); };
+  page.on("console", onConsole);   // the page is shared: the listener goes away right after the evaluate (finally)
   const r = await page.evaluate(() => {
     const b = window.__bb, w = b.grid, C = w.CELL, keep = b.CFG.HOUSE_PATH;
     b.CFG.HOUSE_PATH = [999, 1000];   // no generated level can pass rule 3
@@ -775,7 +780,7 @@ test("a level with no fair layout falls back and warns", async ({ levelPage: pag
       for (let i = 0; i < 120; i++) b.update(1 / 60);   // the fallback level still plays
       return { info: { ...b.levelInfo }, report: { attempt: report.attempt, rejects: report.rejects, fallback: report.fallback }, reach, mode: b.mode, littles: b.littles.length };
     } finally { b.CFG.HOUSE_PATH = keep; b.clearLevelCache(); }
-  });
+  }).finally(() => page.off("console", onConsole));
   expect(r.info.fallback).toBe(true);
   expect(r.report.fallback).toBe(true);
   expect(r.report.rejects.length).toBe(40);
