@@ -1797,7 +1797,8 @@ if (!hadOwned) adoptWorn(); else fitOutfitsToOwned();   // сохранение 
 // SPEC-009: единственный код, который меняет progress.coins (тест «only the ledger writes coins» это проверяет).
 // Каждое изменение — событие coins (журнал и книга), потом сохранение. Ноль не пишем.
 function addCoins(reason, amount) {
-  amount = Math.max(amount, -progress.coins);              // копилка не уходит в минус (минус бывает только у отдыха, и он урезан)
+  amount = Math.max(amount, -progress.coins);              // копилка не уходит в минус (минус бывает только у отдыха, и он урезан);
+  // другой отрицательный amount — ошибка: покупки идут только через spendCoins
   if (!amount) return 0;
   progress.coins += amount;
   logCoins(reason, amount); saveProgress();

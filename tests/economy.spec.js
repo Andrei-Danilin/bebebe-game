@@ -53,7 +53,9 @@ function coinWrites(src) {
     // any member write to "coins": x.coins = / += / -= / ++ / --, x["coins"] = …, ++x.coins
     ["coins write", /(\.\s*coins|\[\s*["'`]coins["'`]\s*\])\s*(\+\+|--|(\*\*|<<|>>>|>>|\?\?|\|\||&&|[-+*/%&|^])?=(?![=>]))|(\+\+|--)\s*[\w$.]+\.coins\b/],
     // a write by reflection, or coins merged in with Object.assign
-    ["reflect", /\bReflect\.(set|defineProperty)\(/],
+    ["reflect", /\b(Reflect\.(set|defineProperty)|Object\.defineProperty)\(/],
+    // coins on the left of a destructuring assignment: [progress.coins] = …, ({ c: progress.coins } = …)
+    ["destructure coins", /\[[^\]=]*\.coins\b[^\]=]*\]\s*=(?![=>])|\{[^}=]*:\s*[\w$.]+\.coins\b[^}=]*\}\s*=(?![=>])/],
     ["assign coins", /Object\.assign\([^)]*\bcoins\s*:/],
     // the whole progress replaced by something else than a fresh / loaded object
     ["progress replaced", /\bprogress\s*=(?![=>])(?!\s*(freshProgress\(\)|loadProgress\())/],
@@ -82,7 +84,8 @@ test("only the ledger writes coins", { tag: "@fast" }, () => {
   const at = src.indexOf("function giveReward(");
   const planted = ["progress.coins ??= 1;", "progress.coins ||= 2;", "progress.coins **= 2;", "progress.coins <<= 1;",
     "Reflect.set(progress, \"coins\", 1);", "Object.assign(pp, { coins: 1 });", "progress.coins += 1;", "progress.coins++;", "progress[\"coins\"] -= 2;", "const pp = progress; pp.coins = 3;",
-    "progress = { ...progress, coins: 9 };", "Object.assign(progress, { coins: 1 });", "--progress.coins;"];
+    "progress = { ...progress, coins: 9 };", "Object.assign(progress, { coins: 1 });", "--progress.coins;",
+    "Object.defineProperty(progress, \"coins\", { value: 1 });", "[progress.coins] = [1];", "({ c: progress.coins } = { c: 1 });"];
   for (const p of planted) {
     const bad = src.slice(0, at) + p + "\n" + src.slice(at);
     expect(coinWrites(bad).out.length, `the scan finds: ${p}`).toBeGreaterThan(0);
@@ -867,12 +870,16 @@ test("a pause during the final hug and Menu still counts the win; coins load as 
     b.update(1 / 60);                                     // the last heart: the win is coming
     const n0 = b.ledger().length;
     b.mode = "pause"; key("KeyQ");                        // pause → Menu before the win screen
-    return { mode: b.mode, won: b.progress.worlds.park.won[3] === true, unlocked: b.progress.worlds.park.unlocked, reasons: b.ledger().slice(n0).map(e => e.reason),
+    const n1 = b.ledger().length;
+    for (let i = 0; i < 180; i++) b.update(1 / 60);       // the win timer must not pay it a second time
+    const n2 = b.ledger().length;
+    return { n1, n2, mode: b.mode, won: b.progress.worlds.park.won[3] === true, unlocked: b.progress.worlds.park.unlocked, reasons: b.ledger().slice(n0).map(e => e.reason),
       coins: [{ coins: -5 }, { coins: "lots" }, { coins: 7.9 }, { coins: 12 }, {}].map(s => b.loadProgress(s).coins) };
   });
   expect(r.mode).toBe("menu");
   expect(r.won, "the win is kept").toBe(true);
   expect(r.unlocked).toBe(4);
-  expect(r.reasons[0]).toBe("firstWin");
+  expect(r.reasons.filter(x => x === "firstWin"), "the win is paid exactly once").toEqual(["firstWin"]);
+  expect(r.n2, "nothing more is paid after the menu").toBe(r.n1);
   expect(r.coins).toEqual([0, 0, 7, 12, 0]);
 });
