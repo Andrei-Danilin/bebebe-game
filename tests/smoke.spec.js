@@ -51,23 +51,32 @@ for (const lang of ["en", "es", "ru"]) {
 // returns the Little One, so Playwright serializes him with his 3D parts: 11–15 s per call. Mutating bodies go in braces.
 test("tests never return game objects from evaluate", { tag: "@fast" }, () => {
   const dir = path.join(ROOT, "tests"), bad = [];
-  const arrow = String.raw`evaluate\(\s*(?:\([^()]*\)|\w+)\s*=>\s*`;
+  // the whole file text is scanned, so \s also crosses line breaks; `async` arrows count too
+  const arrow = String.raw`evaluate\(\s*(?:async\s+)?(?:\([^()]*\)|\w+)\s*=>\s*`;
+  const pick = String.raw`(?:\[[^\]]*\]|\.find\((?:[^()]|\([^()]*\))*\))?`;   // littles[0], littles.find(l => …)
   const patterns = [
-    new RegExp(arrow + String.raw`Object\.assign\(`),                                                   // returns its target
-    new RegExp(arrow + String.raw`window\.__bb\.(?:big|littles|items|stars|kisses)(?:\[[^\]]*\])?\s*[,)]`)   // a game object as is
+    new RegExp(arrow + String.raw`Object\.assign\(`, "g"),                                                   // returns its target
+    new RegExp(arrow + String.raw`window\.__bb\.(?:big|littles|items|stars|kisses)` + pick + String.raw`\s*[,)]`, "g")   // a game object as is
   ];
   for (const f of fs.readdirSync(dir).filter(n => n.endsWith(".js"))) {
-    fs.readFileSync(path.join(dir, f), "utf8").split("\n").forEach((line, i) => {
-      if (patterns.some(re => re.test(line))) bad.push(`${f}:${i + 1}: ${line.trim()}`);
-    });
+    const src = fs.readFileSync(path.join(dir, f), "utf8");
+    for (const re of patterns) for (const m of src.matchAll(re)) {
+      bad.push(`${f}:${src.slice(0, m.index).split("\n").length}: ${m[0].replace(/\s+/g, " ")}`);
+    }
   }
   expect(bad, bad.join("\n")).toEqual([]);
-  // the guard itself catches the old form and leaves the braced one alone ("ev" + "aluate": this file is scanned too)
-  const ev = "await page.ev" + "aluate(() => ";
-  expect(patterns[0].test(ev + "Object.assign(window.__bb.big, { x: 1 }));")).toBe(true);
-  expect(patterns[0].test(ev + "{ Object.assign(window.__bb.big, { x: 1 }); });")).toBe(false);
-  expect(patterns[1].test(ev + "window.__bb.littles[0]);")).toBe(true);
-  expect(patterns[1].test(ev + "window.__bb.littles[0].state);")).toBe(false);
+  // the guard itself catches the old forms and leaves the braced one alone ("ev" + "aluate": this file is scanned too)
+  const ev = "await page.ev" + "aluate(", hit = (k, s) => { patterns[k].lastIndex = 0; return patterns[k].test(s); };
+  expect(hit(0, ev + "() => Object.assign(window.__bb.big, { x: 1 }));")).toBe(true);
+  expect(hit(0, ev + "() =>\n    Object.assign(window.__bb.big, { x: 1 }));")).toBe(true);                // over two lines
+  expect(hit(0, ev + "async () => Object.assign(window.__bb.big, { x: 1 }));")).toBe(true);
+  expect(hit(0, ev + "v => Object.assign(window.__bb.littles[v], { x: 1 }), 2);")).toBe(true);
+  expect(hit(0, ev + "() => { Object.assign(window.__bb.big, { x: 1 }); });")).toBe(false);
+  expect(hit(1, ev + "() => window.__bb.littles[0]);")).toBe(true);
+  expect(hit(1, ev + "() => window.__bb.littles.find(l => l.kind === \"bot\"));")).toBe(true);
+  expect(hit(1, ev + "async () => window.__bb.big);")).toBe(true);
+  expect(hit(1, ev + "() => window.__bb.littles[0].state);")).toBe(false);
+  expect(hit(1, ev + "() => window.__bb.littles.find(l => l.kind === \"bot\").x);")).toBe(false);
 });
 
 // Safari before iOS 16.4 cannot parse a regex lookbehind: the whole module fails with a SyntaxError and the game does
