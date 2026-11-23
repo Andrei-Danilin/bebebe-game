@@ -1,0 +1,128 @@
+{
+  "about": "A stale tab wrote both: worlds and the old flat fields. The flat ones merge into the Park (higher unlocked, best stars, levels past 20 dropped).",
+  "keys": {
+    "bebebe-progress": {
+      "coins": 9,
+      "worlds": {
+        "park": {
+          "unlocked": 4,
+          "stars": {
+            "1": 1,
+            "2": 3
+          }
+        },
+        "school": {
+          "unlocked": 2,
+          "stars": {}
+        }
+      },
+      "lastWorld": "park",
+      "unlocked": 6,
+      "stars": {
+        "1": 3,
+        "2": 1,
+        "25": 3
+      },
+      "inv": {
+        "mittens": 0,
+        "mega": 0,
+        "kisses": 2,
+        "rescues": 1
+      },
+      "equip": [
+        "none",
+        "none"
+      ]
+    },
+    "bebebe-outfits": {
+      "p1": {
+        "hair": 2,
+        "hat": 3,
+        "jacket": 1,
+        "pants": 2
+      },
+      "p2": {
+        "hair": 1,
+        "hat": 4,
+        "jacket": 1,
+        "pants": 3
+      },
+      "big": 2
+    },
+    "bebebe-names": {
+      "p1": "Mila",
+      "p2": "Tomás",
+      "big": "Papá",
+      "bots": [
+        "Тёма",
+        "",
+        "Sol",
+        ""
+      ]
+    },
+    "bebebe-lang": "en"
+  },
+  "expect": {
+    "progress": {
+      "worlds": {
+        "park": {
+          "unlocked": 6,
+          "stars": {
+            "1": 3,
+            "2": 3
+          }
+        },
+        "school": {
+          "unlocked": 2,
+          "stars": {}
+        },
+        "beach": {
+          "unlocked": 1,
+          "stars": {}
+        },
+        "winter": {
+          "unlocked": 1,
+          "stars": {}
+        }
+      },
+      "lastWorld": "park",
+      "coins": 9,
+      "inv": {
+        "mittens": 0,
+        "mega": 0,
+        "kisses": 2,
+        "rescues": 1
+      },
+      "equip": [
+        "none",
+        "none"
+      ]
+    },
+    "outfits": {
+      "p1": {
+        "hair": 2,
+        "hat": 3,
+        "jacket": 1,
+        "pants": 2
+      },
+      "p2": {
+        "hair": 1,
+        "hat": 4,
+        "jacket": 1,
+        "pants": 3
+      },
+      "big": 2
+    },
+    "names": {
+      "p1": "Mila",
+      "p2": "Tomás",
+      "big": "Papá",
+      "bots": [
+        "Тёма",
+        "",
+        "Sol",
+        ""
+      ]
+    }
+  }
+}

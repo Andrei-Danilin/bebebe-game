@@ -22,4 +22,6 @@ You run a queue of specs one after another, unattended, under `CLAUDE.md` and `d
 
 **Context:** keep each spec's work in its own run-state file and subagents; after a spec is closed, keep only its queue-state row in mind and re-read the template and the next spec from disk.
 
-**After the last spec:** a final report in the chat: per spec — merge hash, deploy status, AC → test summary, findings fixed/left, decisions made during the run; then the BACKLOG additions and anything Andrei should check on the iPhone or with the kids.
+**Balance:** the templates' balance step applies to every spec that changes gameplay numbers or rules (`npm run balance` before the merge, `reports/balance.*` committed); red targets do not stop the queue unless the spec's ACs say so.
+
+**After the last spec:** a final report in the chat: per spec — merge hash, deploy status, AC → test summary, findings fixed/left, red balance targets, decisions made during the run; then the BACKLOG additions and anything Andrei should check on the iPhone or with the kids.

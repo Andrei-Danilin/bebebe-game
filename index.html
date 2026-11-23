@@ -49,19 +49,21 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.m
 // =====================================================================
 //  НАСТРОЙКИ ИГРЫ — их удобно менять вместе с детьми
 // =====================================================================
+// SPEC-008: scripts/docs-numbers.js и tests/balance.spec.js (через readValue) читают этот объект в Node (без браузера): значения — только
+// литералы и выражения из них (и Math); геттер может ссылаться на this, функция — только на свои аргументы.
 const CFG = {
   BIG_HP: 6,                 // сердечек у Большого на 1-м уровне Парка
   HP_LEVELS_PER_HEART: 4,    // +сердечко каждые 4 уровня мира (SPEC-006)
   HP_PER_WORLD: 1,           // и +1 в каждом следующем мире
-  BIG_HP_MAX: 12,
+  BIG_HP_MAX: 12,            // сердечек не больше ни на каком уровне
   DOWN_TIME: 18,             // сек — сколько ждёт маленький со сломанной ногой
   RESCUE_TIME: 3.0,          // сек — сколько стоять рядом, чтобы поднять друга
   RESCUE_DRAIN: 1.5,         // в сек — так быстро тает прогресс спасения, если помощник отошёл
   BOT_RESCUE_DELAY: [2, 3],  // сек — боты идут спасать не сразу после падения (игроки — сразу)
-  PLAYER_SPEED: 150,
-  BOT_SPEED: 135,
-  BIG_PATROL_SPEED: 70,
-  BIG_CHASE_SPEED: 112,
+  PLAYER_SPEED: 150,         // px/s — скорость игрока
+  BOT_SPEED: 135,            // px/s — скорость бота
+  BIG_PATROL_SPEED: 70,      // px/s — Большой гуляет (Парк, уровень 1)
+  BIG_CHASE_SPEED: 112,      // px/s — Большой догоняет (Парк, уровень 1)
   WORLD_SPEED_START: [0, 5, 10, 15],   // px/s — каждый следующий мир начинается чуть быстрее (SPEC-006)
   SPEED_PER_LEVEL: 1.2,      // px/s — Большой быстрее на каждом уровне мира
   BIG_SPEED_PER_HIT: 4,      // и злится после каждой обнимашки
@@ -70,9 +72,10 @@ const CFG = {
   VISION_RANGE: 230,         // как далеко видит Большой
   VISION_HALF: Math.PI / 4,  // половина угла обзора (45° => всего 90°)
   BEHIND_ANGLE: 2.2,         // насколько «сзади» надо быть для обнимашки (~126°)
-  INVULN_AFTER_RESCUE: 1.5,
+  INVULN_AFTER_RESCUE: 1.5,  // сек — защита после спасения другом
   HUG_STUN: 2.5,             // сек — Большой в шоке после обнимашки: стоит, не толкает, обнимать нельзя
   PUSH_RECOVER: 2.5,         // сек — после толчка Большой отдыхает и никого не толкает
+  PUSH_STAND: 0.9,           // сек — сразу после толчка (и щита) Большой стоит на месте (big.pushCd)
   BUSH_HIDES: true,          // в кустах Большой не видит (если не вплотную)
   BOT_ATTACK_PAUSE: [20, 30], // сек — как часто боты сами идут обнимать (главное для них — спасать)
   HUG_ANIM: 1.0,             // сек — маленький висит на спине у Большого (анимация обнимашки)
@@ -84,8 +87,13 @@ const CFG = {
   SHIELD_TIME: 25,           // щит держится, пока не сработает (или до конца времени)
   SLIP_STUN: 2.5,            // сек — Большой лежит после банана (обнимать можно с любой стороны!)
   // монетки за уровень
-  COINS_WIN: 10, COINS_PER_LEVEL: 5, COINS_NOBODY_OUT: 10, COINS_FAST: 10, COINS_PER_HUG: 2,
-  COINS_PER_REST: 3, COINS_MIN_WIN: 5,   // каждый ушедший отдыхать отнимает монетки (но не меньше минимума)
+  COINS_WIN: 10,             // монеток за победу
+  COINS_PER_LEVEL: 5,        // + столько × номер уровня в мире
+  COINS_NOBODY_OUT: 10,      // + если никто не ушёл отдыхать (вторая звезда)
+  COINS_FAST: 10,            // + если быстро (третья звезда)
+  COINS_PER_HUG: 2,          // + за каждую обнимашку игрока
+  COINS_PER_REST: 3,         // − за каждого ушедшего отдыхать (но не меньше COINS_MIN_WIN)
+  COINS_MIN_WIN: 5,          // монеток за победу не меньше этого (звёздочки — сверху)
   COINS_PER_WORLD: 10,       // +монетки за победу в каждом следующем мире (SPEC-006)
   STARS_PER_LEVEL: 3,        // звёзд за уровень (победа, никто не отдыхал, быстро)
   REST_TIME: 30,             // сек — сколько отдыхает в домике тот, кого не спасли (SPEC-007: решение детей)
@@ -187,6 +195,23 @@ const CFG = {
   NAME_TAG: { h: 72, up: 10, size: 15 },
   TEXT_TEST_SCALE: 1,        // только для тестов: ширина текста надписи уровня и карточек магазина на телефоне × это (шрифты CI и iPhone шире)
   LEVEL_ATTEMPTS: 40,        // столько раз пробуем построить честный уровень, потом — запасной вариант
+  EVENT_LOG_MAX: 5000,       // SPEC-008: событий в __bb.events не больше (старые выпадают); очищается в начале уровня
+  // SPEC-008: проверка баланса (npm run balance, тест-выборка в CI). Прогон: SEEDS сидов careful-автопилота на уровень,
+  // 1 игрок + 4 бота, не дольше TIME_LIMIT сек игры с шагом SIM_DT; reckless — 1 сид, каждый RECKLESS_EVERY-й уровень.
+  // Цели отчёта: careful выигрывает уровень хотя бы в WIN_SEEDS сидах; время побед растёт внутри мира (Спирмен ≥ TREND_RHO),
+  // лабиринт (MAZE) — самый долгий блок; Парк EARLY — не дольше времени третьей звезды; Зима MAZE ≥ LATE_VS_EARLY × Парк EARLY;
+  // спасают RESCUE_RATE падений; отдыхов на уровень (медиана) ≤ RESTS_MAX. CI_LEVELS — 8 уровней выборки (ранний и лабиринт в мире)
+  BALANCE: { SIM_DT: 1 / 30, SEEDS: 3, TIME_LIMIT: 480, WIN_SEEDS: 2, TREND_RHO: 0.5, LATE_VS_EARLY: 1.5, RESCUE_RATE: [0.5, 0.9],
+    RESTS_MAX: 2, RECKLESS_EVERY: 5, EARLY: [1, 5], MAZE: [17, 20],
+    CI_LEVELS: [["park", 3], ["park", 18], ["school", 2], ["school", 19], ["beach", 4], ["beach", 17], ["winter", 5], ["winter", 20]] },
+  // SPEC-008: автопилот игроков (только для проверки баланса), px и сек. repath — пересчёт пути; звёздочки и предметы
+  // берёт не дальше itemReach и если они дальше pickSafe от Большого и не под его взглядом; спасает друга, которого никакой
+  // бот не поднимет быстрее и до которого Большой дальше rescueSafe; издалека (дальше sneakNear) идёт к спине в обход
+  // взгляда; ближе orbit и перед ним — обходит сбоку (шаг orbitStep рад по кругу не меньше orbitR); arrive — запас «дошёл»;
+  // к спине: дальше backNear — в точку backDist за ним, ближе — вплотную (минус hugIn); minStep — px, меньше не шагает;
+  // 🩹 — если лежит дольше kitWait и никто не поднимает; 💋 — если смотрит на Большого точнее kissAim рад и он ближе kissReach × дальности
+  AUTOPILOT: { repath: 0.35, itemReach: 120, pickSafe: 160, rescueSafe: 110, sneakNear: 200, orbit: 180, orbitStep: 0.9, orbitR: 60,
+    arrive: 6, backNear: 95, backDist: 75, hugIn: 3, minStep: 1, kitWait: 6, kissAim: 0.15, kissReach: 0.9 },
   // правила честности уровня
   DOOR_APRON: 2,             // клеток свободно перед каждой дверью домиков
   HOUSE_PATH: [18, 70],      // клеток — путь Большого от его двери до клетки перед дверью маленьких (A*)
@@ -381,6 +406,10 @@ function isPhone() {
   } catch (e) { return false; }
 }
 const PHONE = isPhone();                           // решается один раз при запуске, как STANDALONE
+// SPEC-008: режим симуляции (?sim=1 или __bb.sim(true)): без 3D, без 2D, без звука, цикл кадров игру не двигает —
+// её шагает __bb.simRun. Счётчики — для теста: сколько раз рисовали 3D, 2D и сколько звуков просили (не в sim).
+let simMode = false, renders = 0, draws = 0, sounds = 0;
+try { simMode = new URLSearchParams(location.search).get("sim") === "1"; } catch (e) { /* без адреса — обычная игра */ }
 if (PHONE) document.body.classList.add("phone");
 
 // Место для игры: body без отступов safe-area (вырез и полоска «домой» на iPhone).
@@ -421,7 +450,24 @@ window.addEventListener("orientationchange", () => requestAnimationFrame(() => f
 // =====================================================================
 const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-const rand = (a, b) => a + Math.random() * (b - a);
+// SPEC-008: случайность. Игровая — только rng() (mulberry32): __bb.seedRandom(n) задаёт зерно, без зерна — случайное
+// (игра как раньше). rand() — игровой. Визуальная — vrand() на Math.random: частицы burst, сердечки при обнимашках,
+// тряска камеры, снег, randomOutfit; она не трогает rng(), поэтому sim (без частиц) тянет тот же ряд, что и игра.
+let rngNext = mulberry32((Math.random() * 4294967296) >>> 0);
+// rngOff — имя кода, которому игровая случайность запрещена (генератор уровней, 3D, рисование): у него свой сид (lc.rng, mulberry32).
+// Забыл взять свой rng: в тестах (strictRng, его включает openGame) — громкая ошибка; в игре — визуальная vrand(),
+// чтобы начало уровня у игрока не сломалось, а посев игры остался цел.
+let rngOff = "", strictRng = window.__bbStrictRng === true;
+let rngDraws = 0;   // сколько раз тянули игровую случайность (тест: автопилот её не тянет)
+function rng() {
+  if (rngOff) { if (strictRng) throw new Error(`${rngOff}: gameplay rng() used; take its own seeded rng`); return vrand(); }
+  rngDraws++;
+  return rngNext();
+}
+function noGameRng(name, fn) { const prev = rngOff; rngOff = name; try { return fn(); } finally { rngOff = prev; } }
+function seedRandom(n) { rngNext = mulberry32(Number.isFinite(n) ? n >>> 0 : (vrand() * 4294967296) >>> 0); }
+const rand = (a, b) => a + rng() * (b - a);
+const vrand = (a = 0, b = 1) => a + Math.random() * (b - a);
 const normAng = a => { a = (a + Math.PI) % TAU; if (a < 0) a += TAU; return a - Math.PI; };
 const angDiff = (a, b) => Math.abs(normAng(b - a));
 const turnToward = (cur, target, step) => { const d = normAng(target - cur); return Math.abs(d) <= step ? target : cur + Math.sign(d) * step; };
@@ -1001,7 +1047,8 @@ const LAYOUTS = {
 };
 
 // ---------- Сборка уровня ----------
-function generateLevel(world, lv, attempt) {
+function generateLevel(world, lv, attempt) { return noGameRng("generateLevel", () => layoutLevel(world, lv, attempt)); }
+function layoutLevel(world, lv, attempt) {
   const type = levelType(world, lv), tier = levelTier(world, lv);
   const rng = mulberry32(levelSeed(world, lv) * 7919 + attempt * 104729 + 13);
   const ri = (a, b) => a + Math.floor(rng() * (b - a + 1));
@@ -1363,7 +1410,9 @@ function clearTo(e, x, y, avoidCone) {
   if (avoidCone && big.stun <= 0 && big.blush <= 0) for (let t = 0.2; t <= 1.001; t += 0.2) if (inCone(e.x + (x - e.x) * t, e.y + (y - e.y) * t)) return false;
   return true;
 }
-function steerTo(e, gx, gy, speed, dt, avoidCone) {
+// Куда идти к цели (gx, gy): сама цель, если путь прямой, иначе следующая точка пути A*. e.path/e.repath — память пути;
+// repathIn — через сколько пересчитать (боты и Большой — случайно; автопилот — своё число, игровой rng() не трогает)
+function steerPoint(e, gx, gy, dt, avoidCone, repathIn = () => rand(0.3, 0.45)) {
   e.repath -= dt;
   let tx = gx, ty = gy;
   if (!clearTo(e, gx, gy, avoidCone)) {
@@ -1371,12 +1420,16 @@ function steerTo(e, gx, gy, speed, dt, avoidCone) {
       const cost = e.isBig ? (avoidCone ? ((x, y) => (inCone(x, y) ? 20 : 0)) : null)
         : (x, y) => (avoidCone && inCone(x, y) ? 20 : 0) + (inDangerXY(x, y) ? CFG.BOT_DANGER_COST : 0);   // дом Большого — «дорогой»
       e.path = findPath(e.x, e.y, gx, gy, cost, e.isBig ? blockedBig : blocked);
-      e.repath = rand(0.3, 0.45);
+      e.repath = repathIn();
     }
     while (e.path.length && Math.hypot(e.path[0].x - e.x, e.path[0].y - e.y) < 8) e.path.shift();
     while (e.path.length > 1 && clearTo(e, e.path[1].x, e.path[1].y, avoidCone)) e.path.shift();
     if (e.path.length) { tx = e.path[0].x; ty = e.path[0].y; }
   } else e.path = [];
+  return { tx, ty };
+}
+function steerTo(e, gx, gy, speed, dt, avoidCone) {
+  const { tx, ty } = steerPoint(e, gx, gy, dt, avoidCone);
   const dx = tx - e.x, dy = ty - e.y, d = Math.hypot(dx, dy);
   if (d < 1.5) return false;
   const sp = Math.min(speed, d / dt);
@@ -1387,7 +1440,7 @@ function steerTo(e, gx, gy, speed, dt, avoidCone) {
 }
 function randomFreePoint() {
   for (let k = 0; k < 300; k++) {
-    const cx = Math.floor(Math.random() * COLS), cy = Math.floor(Math.random() * ROWS);
+    const cx = Math.floor(rng() * COLS), cy = Math.floor(rng() * ROWS);
     if (blockedBig[cy * COLS + cx]) continue;
     const p = { x: (cx + 0.5) * CELL, y: (cy + 0.5) * CELL };
     if (dist(p, big) > 150) return p;
@@ -1475,7 +1528,7 @@ function cycleOutfit(pk, slot, d) {
   saveSkins(); resetWorld(numPlayers);
 }
 function randomOutfit(pk) {
-  for (const k of Object.keys(SLOTS)) skinSel[pk][k] = Math.floor(Math.random() * SLOTS[k].length);
+  for (const k of Object.keys(SLOTS)) skinSel[pk][k] = Math.floor(vrand() * SLOTS[k].length);
   saveSkins(); resetWorld(numPlayers);
 }
 function cycleBig(d) {
@@ -1538,6 +1591,14 @@ let buttons = [];
 let installHintShown = false;   // подсказка «на экран Домой» нарисована в этом кадре (для тестов)
 let typeLabel = null;           // тип выбранного уровня в меню: { text, x, y, w, h, size, rulesBottom } (для тестов)
 let items = [], itemCd = 5, itemSeq = 0, pendingWin = 0, lastReward = null, resetArmed = false;
+// SPEC-008: журнал событий игры { t (сек игры), type, …данные } — для тестов, отчёта баланса и счёта монеток (SPEC-009).
+// Только простые данные; не длиннее CFG.EVENT_LOG_MAX (старые выпадают); очищается в начале уровня (startGame).
+let events = [];
+function logEvent(type, data) {
+  events.push({ t: stats.time, type, ...data });
+  if (events.length > CFG.EVENT_LOG_MAX) events.splice(0, events.length - CFG.EVENT_LOG_MAX);
+}
+const logCoins = (reason, amount) => logEvent("coins", { reason, amount });   // при каждом изменении progress.coins
 let bonusStars = [], starCd = 10, starSeq = 0;   // бонусные звёздочки (отдельно от предметов)
 let kisses = [], kissSeq = 0;                      // летящие воздушные поцелуи
 let kitHintT = 0, kitHintDone = false, kitHintPi = 0, kitHintRect = null;   // подсказка «Нажми 🩹» (SPEC-007): раз за уровень
@@ -1597,18 +1658,18 @@ const gloveOf = pi => { const g = progress.equip[pi]; return g && g !== "none" &
 function buyGloves(kind) {
   const g = GLOVES[kind];
   if (progress.coins < g.price) { SFX.out(); return; }
-  progress.coins -= g.price; progress.inv[kind] += g.charges;
+  progress.coins -= g.price; progress.inv[kind] += g.charges; logCoins("buy:" + kind, -g.price);
   if (progress.equip[0] === "none") progress.equip[0] = kind;
   saveProgress(); SFX.item();
 }
 function buyKisses() {
   if (progress.coins < KISSES.price) { SFX.out(); return; }
-  progress.coins -= KISSES.price; progress.inv.kisses += KISSES.pack;
+  progress.coins -= KISSES.price; progress.inv.kisses += KISSES.pack; logCoins("buy:kisses", -KISSES.price);
   saveProgress(); SFX.item();
 }
 function buyRescueKit() {
   if (progress.coins < RESCUE_KIT.price) { SFX.out(); return; }
-  progress.coins -= RESCUE_KIT.price; progress.inv.rescues += RESCUE_KIT.pack;
+  progress.coins -= RESCUE_KIT.price; progress.inv.rescues += RESCUE_KIT.pack; logCoins("buy:rescues", -RESCUE_KIT.price);
   saveProgress(); SFX.item();
 }
 function setEquip(pi, kind) { progress.equip[pi] = kind; saveProgress(); resetWorld(numPlayers); }
@@ -1622,21 +1683,35 @@ function resetProgress() {
 function giveReward(win) {
   const ph = stats.playerHugs;
   const starCoins = stats.starCoins;        // монетки за звёздочки уже в копилке (начислены при подборе)
-  if (!win) { const c = ph * CFG.COINS_PER_HUG; progress.coins += c; saveProgress(); lastReward = { win: false, coins: c + starCoins, starCoins }; return; }
+  // parts — из чего сложилась награда (SPEC-008): только объясняют сумму, сами суммы не меняют; нулевые не пишем
+  const partsOf = list => list.filter(([, a]) => a !== 0).map(([reason, amount]) => ({ reason, amount }));
+  if (!win) {
+    const c = ph * CFG.COINS_PER_HUG; progress.coins += c; saveProgress();
+    if (c) logCoins("hugs", c);
+    lastReward = { win: false, coins: c + starCoins, starCoins, parts: partsOf([["hugs", c], ["star", starCoins]]) };
+    return;
+  }
   const wi = worldIndex(curWorld), wp = worldProgress(), n = clamp(level, 1, levelsPerWorld());
   const rests = stats.rests, nobodyOut = rests === 0, target = CFG.FAST_TIME(n) + wi * CFG.FAST_PER_WORLD, fast = stats.time <= target;
   const stars = 1 + (nobodyOut ? 1 : 0) + (fast ? 1 : 0);
   const penalty = rests * CFG.COINS_PER_REST;
-  const coins = Math.max(CFG.COINS_MIN_WIN, CFG.COINS_WIN + n * CFG.COINS_PER_LEVEL + wi * CFG.COINS_PER_WORLD + (nobodyOut ? CFG.COINS_NOBODY_OUT : 0) + (fast ? CFG.COINS_FAST : 0) + ph * CFG.COINS_PER_HUG - penalty);
+  const earned = [["win", CFG.COINS_WIN], ["level", n * CFG.COINS_PER_LEVEL], ["world", wi * CFG.COINS_PER_WORLD], ["nobodyOut", nobodyOut ? CFG.COINS_NOBODY_OUT : 0],
+    ["fast", fast ? CFG.COINS_FAST : 0], ["hugs", ph * CFG.COINS_PER_HUG], ["rests", -penalty]];
+  const raw = earned.reduce((sum, [, a]) => sum + a, 0);
+  const coins = Math.max(CFG.COINS_MIN_WIN, raw);
+  earned.push(["floor", coins - raw]);                  // сколько добавил минимум COINS_MIN_WIN
   const prevStars = wp.stars[n] || 0;
   wp.stars[n] = Math.max(prevStars, stars);
   wp.unlocked = Math.max(wp.unlocked, Math.min(levelsPerWorld(), n + 1));   // только в этом мире
   progress.lastWorld = curWorld;
   progress.coins += coins;
   saveProgress();
+  const parts = partsOf(earned);
+  for (const p of parts) logCoins(p.reason, p.amount);
+  if (starCoins) parts.push({ reason: "star", amount: starCoins });   // звёздочки уже в копилке (событие — при подборе)
   // звёздочки — сверх награды, после минимума: штраф за отдых их не съедает
   lastReward = { win: true, coins: coins + starCoins, starCoins, stars, nobodyOut, fast, target, penalty, newBest: stars > prevStars,
-    world: curWorld, level: n, worldDone: n >= levelsPerWorld() };
+    world: curWorld, level: n, worldDone: n >= levelsPerWorld(), parts };
 }
 
 function makeLittle(i, kind, botIndex, controls, look) {
@@ -1675,6 +1750,7 @@ function resetWorld(n) {
   kitHintT = 0; kitHintDone = false;
   texts = []; particles = []; attackToken = null; prevToken = null; botAttackCd = rand(3, 5); shake = 0; sticks.clear();
   stats = { hugs: 0, time: 0, playerHugs: 0, rests: 0, starCoins: 0 };
+  autoNavs = new Map(); autoMove = [];
   lastReward = null; resetArmed = false;
   rebuild3D();
 }
@@ -1690,7 +1766,7 @@ function showBanner() {
 }
 const bannerAlpha = () => !banner ? 0 : clamp(Math.min(banner.t, CFG.BANNER_TIME - banner.t) / CFG.BANNER_FADE, 0, 1);
 // camSnap: начало уровня — камера телефона сразу у героя (в resetWorld нельзя: он же открывает меню, где камера показывает всю карту)
-function startGame(n) { resetWorld(n); mode = "play"; showBanner(); camSnap(); }
+function startGame(n) { events = []; resetWorld(n); mode = "play"; showBanner(); camSnap(); }
 // следующий уровень того же мира; после последнего мир пройден — в меню
 function nextLevel() { if (level >= levelsPerWorld()) { toMenu(); return; } level++; startGame(numPlayers); }
 function toMenu() { resetWorld(numPlayers); mode = "menu"; }
@@ -1701,11 +1777,14 @@ function changeLevel(d) { level = clamp(level + d, 1, worldProgress().unlocked);
 // =====================================================================
 let actx = null;
 function initAudio() {
+  if (simMode) return;
   if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { actx = null; } }
   else if (actx.state === "suspended") actx.resume();
 }
+// звук можно играть? В sim — нет (и не считается); иначе считаем просьбу (тест sim) и смотрим, есть ли звук
+function soundOn() { if (simMode) return false; sounds++; return !!actx && !muted; }
 function beep(f, dur, type = "square", vol = 0.06, delay = 0) {
-  if (!actx || muted) return;
+  if (!soundOn()) return;
   const t0 = actx.currentTime + delay;
   const o = actx.createOscillator(), g = actx.createGain();
   o.type = type; o.frequency.setValueAtTime(f, t0);
@@ -1725,7 +1804,7 @@ const SFX = {
   kiss: () => { beep(1046, 0.06, "sine", 0.06); beep(1568, 0.1, "sine", 0.05, 0.05); },
   mwah: () => [784, 988, 1318].forEach((f, i) => beep(f, 0.1, "triangle", 0.07, i * 0.07)),
   thrown: () => { beep(520, 0.1, "triangle", 0.07); beep(260, 0.25, "triangle", 0.07, 0.08); },
-  slip: () => { const t0 = actx && actx.currentTime; if (!actx || muted) return; const o = actx.createOscillator(), g = actx.createGain(); o.type = "triangle"; o.frequency.setValueAtTime(900, t0); o.frequency.exponentialRampToValueAtTime(180, t0 + 0.45); g.gain.setValueAtTime(0.09, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.5); o.connect(g); g.connect(actx.destination); o.start(t0); o.stop(t0 + 0.52); },
+  slip: () => { if (!soundOn()) return; const t0 = actx.currentTime; const o = actx.createOscillator(), g = actx.createGain(); o.type = "triangle"; o.frequency.setValueAtTime(900, t0); o.frequency.exponentialRampToValueAtTime(180, t0 + 0.45); g.gain.setValueAtTime(0.09, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.5); o.connect(g); g.connect(actx.destination); o.start(t0); o.stop(t0 + 0.52); },
   win: () => [523, 659, 784, 1047].forEach((f, i) => beep(f, 0.22, "triangle", 0.08, i * 0.15)),
   lose: () => [392, 330, 262].forEach((f, i) => beep(f, 0.3, "triangle", 0.08, i * 0.25))
 };
@@ -1931,6 +2010,8 @@ function inputFor(l) {
     const R = stickR(), dx = (s.x - s.ox) / R, dy = (s.y - s.oy) / R;
     if (Math.hypot(dx, dy) > 0.15) { x += dx; y += dy; }
   }
+  const ap = autoMove[pi];                     // SPEC-008: автопилот — как ещё один джойстик этого игрока
+  if (ap) { x += ap.x; y += ap.y; }
   const d = Math.hypot(x, y);
   if (d > 1) { x /= d; y /= d; }
   return { x, y };
@@ -1941,9 +2022,10 @@ function inputFor(l) {
 // =====================================================================
 function popText(x, y, text, color) { texts.push({ x, y, text, color, t: 0 }); }
 function burst(x, y, kind, color, n) {
+  if (simMode) return;                   // в sim частиц нет (vrand, игровой rng() не трогают)
   for (let i = 0; i < n; i++) {
-    const a = rand(0, TAU), s = rand(40, 140);
-    particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - (kind === "heart" ? 60 : 0), t: 0, life: rand(0.6, 1.1), kind, color });
+    const a = vrand(0, TAU), s = vrand(40, 140);
+    particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - (kind === "heart" ? 60 : 0), t: 0, life: vrand(0.6, 1.1), kind, color });
   }
 }
 function canSee(l) {
@@ -1961,20 +2043,22 @@ function push(t) {
   for (const l of littles) if (l.state === "down" && helps(t, l)) l.rescue = 0;   // помощника толкнули — спасение сначала
   if (t.fx.shield > 0) {                   // щит спасает от одного толчка
     t.fx.shield = 0;
+    logEvent("push", { who: t.id, blocked: true });
     t.kx = Math.cos(a) * 280; t.ky = Math.sin(a) * 280;
-    big.pushCd = 0.9; big.noPush = CFG.PUSH_RECOVER;
+    big.pushCd = CFG.PUSH_STAND; big.noPush = CFG.PUSH_RECOVER;
     popText(t.x, t.y - 40, L().blocked, "#7dd3fc");
     burst(t.x, t.y, "star", "#7dd3fc", 14);
     SFX.shield();
     return;
   }
   t.state = "down"; t.downTimer = CFG.DOWN_TIME; t.rescue = 0; t.path = []; t.dangerT = 0;
+  logEvent("push", { who: t.id, blocked: false }); logEvent("down", { who: t.id, kind: t.kind });
   t.botWait = rand(CFG.BOT_RESCUE_DELAY[0], CFG.BOT_RESCUE_DELAY[1]);   // боты пойдут спасать чуть позже
   t.kx = Math.cos(a) * 360; t.ky = Math.sin(a) * 360;
   if (attackToken === t) attackToken = null;
   // первый раз за уровень упал игрок со спасалками — короткая подсказка «Нажми 🩹» (SPEC-007)
   if (t.kind === "player" && !kitHintDone && progress.inv.rescues > 0) { kitHintDone = true; kitHintT = CFG.KIT_HINT_TIME; kitHintPi = t.id; }
-  big.pushCd = 0.9;
+  big.pushCd = CFG.PUSH_STAND;
   big.noPush = CFG.PUSH_RECOVER;          // передышка: какое-то время никого не толкает
   shake = 0.25;
   popText(t.x, t.y - 40, L().bang, "#ffcc00");
@@ -1994,6 +2078,7 @@ function hug(l, a) {
   l.path = [];
   stats.hugs++;
   if (l.kind === "player") stats.playerHugs++;
+  logEvent("hug", { power, who: l.id, kind: l.kind });
   popText(big.x, big.y - 70, power > 1 ? L().megaHug(power) : L().hug, power > 1 ? "#facc15" : "#ff6fa8");
   burst(big.x, big.y - 30, "heart", "#ff4d8d", 12 * power);
   if (power > 1) shake = 0.3;
@@ -2020,7 +2105,9 @@ function throwKiss(pi) {
 }
 function kissHit(k) {
   burst(big.x, big.y - 30, "heart", "#ff4d8d", 10);
-  if (big.stun > 0 || big.hugCd > 0 || big.blush > 0) return;   // в шоке (и 0.3 с после него) или уже красный — только сердечки
+  const blush = !(big.stun > 0 || big.hugCd > 0 || big.blush > 0);
+  logEvent("kiss", { who: k.owner, result: "hit", blush });
+  if (!blush) return;   // в шоке (и 0.3 с после него) или уже красный — только сердечки
   big.hp = Math.max(0, big.hp - CFG.KISS_DAMAGE);
   big.blush = CFG.KISS_BLUSH; big.blushBy = k.owner;
   big.pushCd = 0; big.path = []; big.moving = false; big.flash = 0.2;
@@ -2035,9 +2122,9 @@ function updateKisses(dt) {
     while (left > 0 && !k.done) {
       const s = Math.min(CFG.KISS_STEP, left, CFG.KISS_RANGE - k.travel);
       k.x += k.dx * s; k.y += k.dy * s; k.travel += s; left -= s;
-      if (seeSolidAt(k.x, k.y)) { k.done = true; burst(k.x - k.dx * CFG.KISS_STEP, k.y - k.dy * CFG.KISS_STEP, "star", "#ff9ecb", 8); }   // стена, дерево, камень, край карты
+      if (seeSolidAt(k.x, k.y)) { k.done = true; logEvent("kiss", { who: k.owner, result: "miss" }); burst(k.x - k.dx * CFG.KISS_STEP, k.y - k.dy * CFG.KISS_STEP, "star", "#ff9ecb", 8); }   // стена, дерево, камень, край карты
       else if (dist(k, big) < big.r + CFG.KISS_HIT_PAD && los(k.x, k.y, big.x, big.y, seeSolidAt)) { k.done = true; kissHit(k); }   // сквозь стену не попадает
-      else if (k.travel >= CFG.KISS_RANGE) { k.done = true; burst(k.x, k.y, "star", "#ffd1e3", 5); }
+      else if (k.travel >= CFG.KISS_RANGE) { k.done = true; logEvent("kiss", { who: k.owner, result: "miss" }); burst(k.x, k.y, "star", "#ffd1e3", 5); }
     }
   }
   kisses = kisses.filter(k => !k.done);
@@ -2067,7 +2154,7 @@ function updateHugAnim(dt) {
     l.x = big.x + Math.cos(back) * (big.r + l.r + 2);
     l.y = big.y + Math.sin(back) * (big.r + l.r + 2);
     l.dir = big.dir; l.moving = false;
-    if (Math.random() < dt * 6) burst(big.x, big.y - 20, "heart", "#ff4d8d", 1);
+    if (vrand() < dt * 6) burst(big.x, big.y - 20, "heart", "#ff4d8d", 1);
     if (l.hugAnim <= 0) {                  // спрыгивает назад
       l.hugAnim = 0;
       l.kx = Math.cos(back) * 230; l.ky = Math.sin(back) * 230;
@@ -2077,10 +2164,10 @@ function updateHugAnim(dt) {
 }
 // ---------- Предметы ----------
 function spawnItem() {
-  const r = Math.random();
+  const r = rng();
   const kind = r < 0.3 ? "boots" : r < 0.55 ? "cloak" : r < 0.75 ? "shield" : "banana";
   for (let k = 0; k < 80; k++) {
-    const cx = 1 + Math.floor(Math.random() * (COLS - 2)), cy = 1 + Math.floor(Math.random() * (ROWS - 2));
+    const cx = 1 + Math.floor(rng() * (COLS - 2)), cy = 1 + Math.floor(rng() * (ROWS - 2));
     if (blocked[cy * COLS + cx]) continue;
     const p = { x: (cx + 0.5) * CELL, y: (cy + 0.5) * CELL };
     if (inSafe(p) || dist(p, big) < 90 || littles.some(l => dist(l, p) < 50) || items.some(it => dist(it, p) < 64)) continue;
@@ -2111,7 +2198,7 @@ function spawnStar(x, y) {
     const spots = [];
     for (let cy = 0; cy < ROWS; cy++) for (let cx = 0; cx < COLS; cx++) if (starSpotOk(cx, cy)) spots.push([cx, cy]);
     if (!spots.length) return null;
-    const [cx, cy] = spots[Math.floor(Math.random() * spots.length)];
+    const [cx, cy] = spots[Math.floor(rng() * spots.length)];
     p = { x: (cx + 0.5) * CELL, y: (cy + 0.5) * CELL };
   }
   const s = { id: ++starSeq, x: p.x, y: p.y, t: 0, life: CFG.STAR_LIFE };
@@ -2128,6 +2215,7 @@ function updateStars(dt) {
     s.t = s.life;
     stats.starCoins += CFG.STAR_COINS;
     progress.coins += CFG.STAR_COINS; saveProgress();   // сразу в копилку: остаются, даже если уровень не выигран
+    logEvent("star", { who: l.id }); logCoins("star", CFG.STAR_COINS);
     popText(s.x, s.y - 30, "+" + CFG.STAR_COINS, "#fde047");
     burst(s.x, s.y, "star", "#fde047", 16);
     SFX.star();
@@ -2145,6 +2233,7 @@ function updateItems(dt) {
       if (big.slip <= 0 && big.stun <= 0 && dist(big, it) < big.r + 8) {
         it.t = 999;
         big.slip = CFG.SLIP_STUN; big.path = []; big.flash = 0.2;
+        logEvent("slip", {});
         popText(big.x, big.y - 70, L().slip, "#fde047");
         burst(big.x, big.y, "star", "#fde047", 12);
         shake = 0.2;
@@ -2155,6 +2244,7 @@ function updateItems(dt) {
     const l = littles.find(q => q.state === "ok" && q.hugAnim <= 0 && dist(q, it) < q.r + 16);
     if (l) {
       it.t = 999;
+      logEvent("item", { kind: it.kind, who: l.id });
       l.fx[it.kind] = it.kind === "boots" ? CFG.BOOTS_TIME : it.kind === "cloak" ? CFG.CLOAK_TIME : CFG.SHIELD_TIME;
       popText(l.x, l.y - 40, L().items[it.kind], "#c4b5fd");
       burst(l.x, l.y, "star", "#fde047", 10);
@@ -2285,6 +2375,85 @@ function nearestExit(p) {
   return { x: (c % COLS + 0.5) * CELL, y: (((c / COLS) | 0) + 0.5) * CELL };
 }
 
+// =====================================================================
+//  АВТОПИЛОТ (SPEC-008): ведёт маленьких игроков для проверки баланса. Видит то же, что игрок, а действует только как
+//  игрок: «джойстик» autoMove, который читает inputFor(l), и кнопки 💋 throwKiss / 🩹 useRescueKit. Состояние Большого,
+//  ботов, самих маленьких, CFG и progress не трогает (тест «the autopilot plays only through the players' inputs»);
+//  своя память — autoNavs (путь к цели), путь ищет тем же steerPoint, что и боты.
+//  careful — к спине в обход взгляда (за стенами и кустами), вблизи перед ним обходит сбоку, обнимает сзади и сразу
+//            заходит за спину снова; спасает друзей; берёт звёздочки и предметы рядом, когда он туда не смотрит.
+//  reckless — бежит прямо обниматься, ни от кого не прячется и никого не спасает.
+// =====================================================================
+let autoOn = false, autoStyle = "careful", autoNavs = new Map(), autoMove = [];
+function autopilot(on, style) {
+  if (typeof on === "boolean") autoOn = on;
+  if (style === "careful" || style === "reckless") autoStyle = style;
+  if (!autoOn) autoMove = [];
+  return { on: autoOn, style: autoStyle };
+}
+const autoNav = l => {
+  if (!autoNavs.has(l.id)) autoNavs.set(l.id, { x: l.x, y: l.y, r: l.r, path: [], repath: 0 });
+  return autoNavs.get(l.id);
+};
+// Большой сейчас может толкнуть (не в шоке, не лежит, не краснеет, не отдыхает после толчка)
+const bigDangerous = () => big.stun <= 0 && big.slip <= 0 && big.blush <= 0 && big.pushCd <= 0 && big.noPush <= 0;
+// Точка у спины Большого: издалека — в backDist px за ним, вблизи — вплотную (обнимашка)
+const backPoint = (l, d) => {
+  const A = CFG.AUTOPILOT, a = big.dir + Math.PI, rr = d > A.backNear ? A.backDist : big.r + l.r - A.hugIn;
+  return { x: big.x + Math.cos(a) * rr, y: big.y + Math.sin(a) * rr };
+};
+// Цель careful-игрока: { x, y, avoid (обходить взгляд), stop (px — ближе не подходить) }
+function autoGoalCareful(l) {
+  const A = CFG.AUTOPILOT, danger = bigDangerous();
+  if (big.slip > 0) return { x: big.x, y: big.y, avoid: false, stop: 0 };   // лежит после банана — обнимать с любой стороны!
+  let down = null;                                       // упавший друг, которого ни один бот не поднимет быстрее
+  for (const d of littles) {
+    if (d.state !== "down" || d === l || (danger && dist(d, big) <= A.rescueSafe)) continue;
+    if (littles.some(o => o.kind === "bot" && o.state === "ok" && dist(o, d) < dist(l, d))) continue;
+    if (!down || dist(l, d) < dist(l, down)) down = d;
+  }
+  if (down) return { x: down.x, y: down.y, avoid: true, stop: l.r + down.r + A.arrive };
+  let pick = null;                                       // звёздочка или предмет рядом, пока он туда не смотрит
+  for (const s of [...bonusStars, ...items.filter(it => it.kind !== "banana")]) {
+    if (dist(l, s) < A.itemReach && (!danger || (dist(s, big) > A.pickSafe && !inCone(s.x, s.y))) && (!pick || dist(l, s) < dist(l, pick))) pick = s;
+  }
+  if (pick) return { x: pick.x, y: pick.y, avoid: true, stop: 0 };
+  // обнимашка: близко и перед ним, а он может толкнуть, — обходим сбоку к спине; иначе к спине, издалека — в обход взгляда
+  const d = dist(l, big), a = Math.atan2(l.y - big.y, l.x - big.x), side = normAng(a - big.dir);
+  if (danger && d < A.orbit && Math.abs(side) < CFG.BEHIND_ANGLE) {
+    const t = a + Math.sign(side || 1) * A.orbitStep, r = Math.max(A.orbitR, d);
+    return { x: big.x + Math.cos(t) * r, y: big.y + Math.sin(t) * r, avoid: false, stop: 0 };
+  }
+  return { ...backPoint(l, d), avoid: danger && d > A.sneakNear, stop: 0 };
+}
+// Цель reckless-игрока: прямо к спине Большого (или к нему, если лежит), не прячась и никого не спасая
+const autoGoalReckless = l => big.slip > 0 ? { x: big.x, y: big.y, avoid: false, stop: 0 } : { ...backPoint(l, dist(l, big)), avoid: false, stop: 0 };
+// Решение автопилота на этот шаг: autoMove[pi] = { x, y } (как стик, длина ≤ 1) и нажатия 💋 / 🩹
+function autoThink(dt) {
+  autoMove = [];
+  if (!autoOn || mode !== "play") return;
+  const A = CFG.AUTOPILOT;
+  for (const l of littles) {
+    if (l.kind !== "player") continue;
+    const n = autoNav(l);
+    n.x = l.x; n.y = l.y;
+    // 🩹: лежит долго и никто не поднимает (или уже хромает в домик, отдыхает)
+    if (autoStyle === "careful" && canUseKit(l) && (l.state !== "down" || (l.rescue <= 0 && l.downTimer < CFG.DOWN_TIME - A.kitWait))) { useRescueKit(l.id); continue; }
+    if (!canAct(l)) continue;
+    const goal = autoStyle === "reckless" ? autoGoalReckless(l) : autoGoalCareful(l);
+    if (Math.hypot(goal.x - l.x, goal.y - l.y) <= goal.stop) continue;
+    const { tx, ty } = steerPoint(n, goal.x, goal.y, dt, goal.avoid, () => A.repath);
+    const dx = tx - l.x, dy = ty - l.y, d = Math.hypot(dx, dy);
+    if (d < A.minStep) continue;
+    const sp = CFG.PLAYER_SPEED * (l.fx.boots > 0 ? CFG.BOOTS_MULT : 1), m = Math.min(1, d / (sp * dt));   // не проскочить точку
+    autoMove[l.id] = { x: dx / d * m, y: dy / d * m };
+    // 💋: смотрит на Большого, он близко, видно, и поцелуй сработает
+    if (autoStyle === "careful" && progress.inv.kisses > 0 && l.kissCd <= 0 && !inSafe(l) && big.stun <= 0 && big.blush <= 0 && big.hugCd <= 0 &&
+      dist(l, big) < CFG.KISS_RANGE * A.kissReach && angDiff(l.dir, Math.atan2(big.y - l.y, big.x - l.x)) < A.kissAim &&
+      los(l.x, l.y, big.x, big.y, seeSolidAt)) throwKiss(l.id);
+  }
+}
+
 function updateBig(dt) {
   big.flash = Math.max(0, big.flash - dt);
   big.hugCd = Math.max(0, big.hugCd - dt);
@@ -2304,7 +2473,7 @@ function updateBig(dt) {
   if (big.blush > 0) return;                             // стоит красный и никого не толкает
   if (big.pushCd > 0) {
     big.pushCd -= dt;
-    if (big.pushCd <= 0) { big.state = "look"; big.timer = Math.max(0.5, big.noPush); big.lookSign = Math.random() < 0.5 ? -1 : 1; }
+    if (big.pushCd <= 0) { big.state = "look"; big.timer = Math.max(0.5, big.noPush); big.lookSign = rng() < 0.5 ? -1 : 1; }
     return;
   }
 
@@ -2328,7 +2497,7 @@ function updateBig(dt) {
     big.state = "search";
     big.moving = steerTo(big, big.lastSeen.x, big.lastSeen.y, speed.search, dt, false);
     if (big.moving) big.dir = turnToward(big.dir, big.moveDir, 6 * dt);
-    if (!big.moving || dist(big, big.lastSeen) < 10) { big.state = "look"; big.timer = rand(1.5, 2.5); big.lookSign = Math.random() < 0.5 ? -1 : 1; }
+    if (!big.moving || dist(big, big.lastSeen) < 10) { big.state = "look"; big.timer = rand(1.5, 2.5); big.lookSign = rng() < 0.5 ? -1 : 1; }
     return;
   }
   if (big.state === "look") {
@@ -2342,7 +2511,7 @@ function updateBig(dt) {
   big.moving = steerTo(big, big.goal.x, big.goal.y, speed.patrol, dt, false);
   if (big.moving) big.dir = turnToward(big.dir, big.moveDir, 5 * dt);
   if (!big.moving || dist(big, big.goal) < 12 || big.patrolT <= 0) {
-    big.state = "look"; big.timer = rand(1, 2.2); big.lookSign = Math.random() < 0.5 ? -1 : 1; big.goal = null;
+    big.state = "look"; big.timer = rand(1, 2.2); big.lookSign = rng() < 0.5 ? -1 : 1; big.goal = null;
   }
 }
 
@@ -2388,6 +2557,7 @@ function useRescueKit(pi) {
   const l = littles[pi];
   if (!canUseKit(l)) return false;                       // боты, игрок на ногах, нет спасалок, пауза — ничего
   progress.inv.rescues--; saveProgress();
+  logEvent("kit", { who: l.id });
   if (kitHintPi === pi) kitHintT = 0;                   // встал — подсказка больше не нужна
   // лёжа (таймер ещё не кончился) — это не отдых: stats.rests не растёт; дома — уже засчитанный отдых остаётся
   l.state = "ok"; l.invuln = CFG.KIT_INVULN; l.rescue = 0; l.downTimer = 0; l.restTimer = 0; l.path = [];
@@ -2403,10 +2573,11 @@ function updateDowned(dt) {
     if (l.state !== "down") continue;
     l.downTimer -= dt;
     l.botWait = Math.max(0, l.botWait - dt);
-    const helper = littles.some(o => helps(o, l));
+    const helper = littles.find(o => helps(o, l));
     l.rescue = helper ? l.rescue + dt : Math.max(0, l.rescue - CFG.RESCUE_DRAIN * dt);   // отошёл — прогресс тает
     if (l.rescue >= CFG.RESCUE_TIME) {
       l.state = "ok"; l.invuln = CFG.INVULN_AFTER_RESCUE; l.rescue = 0;
+      logEvent("rescued", { who: l.id, by: helper.kind });
       popText(l.x, l.y - 40, L().saved, "#7CFC9A");
       burst(l.x, l.y - 10, "star", "#7CFC9A", 10);
       SFX.rescue();
@@ -2414,6 +2585,7 @@ function updateDowned(dt) {
       l.state = "home"; l.path = []; l.rescue = 0;
       l.restSpot = { ...spawns.small[l.id] };
       stats.rests++;
+      logEvent("rest", { who: l.id });
       if (attackToken === l) attackToken = null;
       popText(l.x, l.y - 40, L().out, "#e5e7eb");
       SFX.out();
@@ -2434,6 +2606,7 @@ function throwOut(l) {
   const p = c === cellIdx(ex.x, ex.y) && !moveSolidAt(ex.x, ex.y) ? ex : { x: (c % COLS + 0.5) * CELL, y: (((c / COLS) | 0) + 0.5) * CELL };
   l.x = p.x; l.y = p.y; l.kx = 0; l.ky = 0; l.path = []; l.fleeGoal = null;
   l.dangerT = 0; l.dizzy = CFG.DIZZY_TIME; l.moving = false;
+  logEvent("thrownOut", { who: l.id });
   if (attackToken === l) attackToken = null;
   shake = 0.2;
   popText(l.x, l.y - 40, L().thrownOut, "#fca5a5");
@@ -2466,6 +2639,7 @@ function updateResting(dt) {
       l.restTimer -= dt; l.moving = false;
       if (l.restTimer <= 0) {
         l.state = "ok"; l.invuln = 2; l.fleeT = 0;
+        logEvent("back", { who: l.id });
         popText(l.x, l.y - 40, L().back, "#7CFC9A");
         burst(l.x, l.y - 10, "star", "#7CFC9A", 10);
         SFX.rescue();
@@ -2494,6 +2668,7 @@ function update(dt) {
     } else { l.kx = 0; l.ky = 0; }
   }
   kitHintT = Math.max(0, kitHintT - dt);
+  autoThink(dt);
   updatePlayers(dt);
   updateBots(dt);
   updateBig(dt);
@@ -2507,9 +2682,20 @@ function update(dt) {
   updateItems(dt);
   updateStars(dt);
   updateFx(dt);
-  if (pendingWin > 0) { pendingWin -= dt; if (pendingWin <= 0 && mode === "play") { mode = "win"; giveReward(true); SFX.win(); burst(big.x, big.y - 30, "heart", "#ff4d8d", 40); } }
+  if (pendingWin > 0) { pendingWin -= dt; if (pendingWin <= 0 && mode === "play") { mode = "win"; logEvent("win", {}); giveReward(true); SFX.win(); burst(big.x, big.y - 30, "heart", "#ff4d8d", 40); } }
   const players = littles.filter(p => p.kind === "player");
   // проигрыша больше нет: кого не спасли — отдыхает в домике и возвращается (за это меньше монеток)
+}
+// SPEC-008: шагает игру пачкой (dt — сек игры за шаг), пока уровень идёт и не вышло seconds; → простые данные
+function simRun(seconds, dt = CFG.BALANCE.SIM_DT) {
+  const n = Math.round(seconds / dt);
+  for (let i = 0; i < n && mode === "play"; i++) update(dt);
+  return { ended: mode !== "play", win: mode === "win", time: stats.time };
+}
+// sim(on): включить/выключить режим симуляции; без аргумента — только узнать. Выключили — 3D строится заново.
+function sim(on) {
+  if (typeof on === "boolean" && on !== simMode) { simMode = on; if (!on) rebuild3D(); }
+  return { on: simMode, renders, draws, sounds };
 }
 
 // =====================================================================
@@ -3217,12 +3403,14 @@ const shopCards = () => [
   { k: "kisses", name: L().kisses, desc: L().kissDesc, pack: L().kissPack(KISSES.pack), packN: KISSES.pack, have: L().kissHave(progress.inv.kisses), n: progress.inv.kisses, price: KISSES.price, buy: buyKisses },
   { k: "rescues", name: L().kit, desc: L().kitDesc, pack: L().kitPack(RESCUE_KIT.pack), packN: RESCUE_KIT.pack, have: L().kitHave(progress.inv.rescues), n: progress.inv.rescues, price: RESCUE_KIT.price, buy: buyRescueKit }
 ];
-// картинка карточки: s — размер (как у drawMitten)
-function shopPicture(k, x, y, s) {
-  if (k === "kisses") drawKiss(x, y + s * 0.05, s * 1.18);
-  else if (k === "rescues") drawKit(x, y, s * 1.15);
-  else drawMitten(x, y, s, k);
-}
+// картинка карточки: s — размер (как у drawMitten); новая карточка магазина добавляет сюда свою (тест SPEC-008 AC 10)
+const SHOP_PICTURES = {
+  mittens: (x, y, s) => drawMitten(x, y, s, "mittens"),
+  mega: (x, y, s) => drawMitten(x, y, s, "mega"),
+  kisses: (x, y, s) => drawKiss(x, y + s * 0.05, s * 1.18),
+  rescues: (x, y, s) => drawKit(x, y, s * 1.15)
+};
+function shopPicture(k, x, y, s) { if (SHOP_PICTURES[k]) SHOP_PICTURES[k](x, y, s); }
 // ---------- Карточки миров в меню (SPEC-006): название, картинка из цветов THEMES, звёзды мира ----------
 let worldCards = [];   // карточки этого кадра: { world, x, y, w, h, name, stars, selected } (для тестов)
 const worldStarsOf = w => Object.values(progress.worlds[w].stars).reduce((a, b) => a + b, 0);
@@ -3752,6 +3940,7 @@ function drawBanner() {
   ctx.restore();
 }
 function drawUI(t) {
+  draws++;
   if (nameInput && mode !== "skins" && mode !== "names") closeNameInput(false);
   buttons = []; installHintShown = false; typeLabel = null; worldCards = []; winLine = ""; mmShown = false; edgeArrows = []; hudRects = []; textSizes = {}; bannerRect = null; kitHintRect = null; shopLayout = null;
   ctx.setTransform(VIEW, 0, 0, VIEW, 0, 0);
@@ -4456,7 +4645,7 @@ function buildMap3D() {
   }
   if (th.snow) {                                         // снегопад
     const N = 700, pos = new Float32Array(N * 3);
-    for (let i = 0; i < N; i++) { pos[i * 3] = -4 + Math.random() * (COLS + 8); pos[i * 3 + 1] = Math.random() * 14; pos[i * 3 + 2] = -4 + Math.random() * (ROWS + 8); }
+    for (let i = 0; i < N; i++) { pos[i * 3] = vrand(-4, COLS + 4); pos[i * 3 + 1] = vrand(0, 14); pos[i * 3 + 2] = vrand(-4, ROWS + 4); }
     const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
     const pm = new THREE.PointsMaterial({ color: "#ffffff", size: 0.14, transparent: true, opacity: 0.9, depthWrite: false }); pm.userData.own = true;
     snow = new THREE.Points(g, pm); snow.frustumCulled = false; mapGroup.add(snow);
@@ -4736,11 +4925,14 @@ function buildCharacters() {
   charGroup.add(big.model.root);
 }
 function rebuild3D() {
-  if (builtKey !== mapKey() || !mapGroup) buildMap3D();
-  buildCharacters();
-  clearItemMeshes();
-  clearStarMeshes();
-  clearKissMeshes();
+  if (simMode) return;                   // sim: 3D не нужен; sim(false) построит заново
+  noGameRng("rebuild3D", () => {
+    if (builtKey !== mapKey() || !mapGroup) buildMap3D();
+    buildCharacters();
+    clearItemMeshes();
+    clearStarMeshes();
+    clearKissMeshes();
+  });
 }
 
 // ---------- Предметы в 3D ----------
@@ -5014,7 +5206,7 @@ function syncScene(t) {
   }
   if (safeGlow) safeGlow.material.opacity = 0.18 + Math.sin(t * 2) * 0.08;
   camera.position.copy(camBase);
-  if (shake > 0) camera.position.add(new THREE.Vector3(rand(-1, 1), rand(-1, 1), rand(-1, 1)).multiplyScalar(shake * 0.6 * (PHONE ? camDist / cam.dFull : 1)));   // телефон: камера ближе — трясёт слабее
+  if (shake > 0) camera.position.add(new THREE.Vector3(vrand(-1, 1), vrand(-1, 1), vrand(-1, 1)).multiplyScalar(shake * 0.6 * (PHONE ? camDist / cam.dFull : 1)));   // телефон: камера ближе — трясёт слабее
 }
 
 // ---------- Превью нарядов (рисуется в «окошки» UI-слоя) ----------
@@ -5067,6 +5259,7 @@ function renderPreviews(t) {
 }
 
 function render3D(t) {
+  renders++;
   syncScene(t);
   renderer.setViewport(0, 0, CSS_W, CSS_H);
   renderer.render(scene, camera);
@@ -5084,15 +5277,19 @@ let last = performance.now(), T = 0;
 function frame(now) {
   // первая метка rAF бывает раньше performance.now() при запуске: dt < 0 раскачивал тряску камеры (shake − dt) — не меньше 0
   const dt = Math.max(0, Math.min(0.05, (now - last) / 1000));
-  last = now; T += dt;
+  last = now;
+  if (simMode) { requestAnimationFrame(frame); return; }   // sim: ни логики, ни рисования — игру шагает simRun
+  T += dt;
   pollPads();
   const portrait = isTouch && window.innerHeight > window.innerWidth;
   if (mode === "play" && !portrait) update(dt);
   else { updateFx(dt); if (mode === "menu" || mode === "skins" || mode === "names" || mode === "shop") big.dir += dt * 0.8; }
-  updateCamera(dt);                       // телефон: камера за героем (3D-слой, не логика)
-  updateMinimapFade(dt);                  // телефон: мини-карта бледнеет, когда под ней герой или Большой (SPEC-010)
-  render3D(T);
-  drawUI(T);
+  noGameRng("render", () => {              // рисование не тянет игровую случайность (SPEC-008: тесты — ошибка, игра — vrand)
+    updateCamera(dt);                       // телефон: камера за героем (3D-слой, не логика)
+    updateMinimapFade(dt);                  // телефон: мини-карта бледнеет, когда под ней герой или Большой (SPEC-010)
+    render3D(T);
+    drawUI(T);
+  });
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
@@ -5117,6 +5314,15 @@ window.__bb = {
   changeLevel, get winLine() { return winLine; }, selectWorld, get worldCards() { return worldCards.map(q => ({ ...q })); },
   update, inSafe, I18N, startGame, resetWorld, cycleOutfit, randomOutfit, cycleBig, setLang, toScreen,
   get items() { return items; }, get progress() { return progress; }, buyGloves, setEquip, get lastReward() { return lastReward; }, spawnItem,
+  seedRandom,     // SPEC-008: seedRandom(n) — игровая случайность rng() с зерна n; seedRandom() — снова случайно
+  sim, simRun, get events() { return events.map(e => ({ ...e })); },   // SPEC-008: режим симуляции, журнал событий (копии)
+  get rngDraws() { return rngDraws; },   // SPEC-008: сколько раз тянули игровую случайность
+  setProgress(save) { progress = loadProgress(save); },   // SPEC-008 (баланс): прогресс из сохранения (null — новый), не записывает
+  levelsPerWorld,
+  autopilot, autoThink,   // SPEC-008: autopilot(on, "careful"|"reckless") → { on, style }; autoThink(dt) — только решение (для теста)
+  get strictRng() { return strictRng; }, set strictRng(v) { strictRng = !!v; },   // SPEC-008: тесты — генератор/3D с игровым rng() падает
+  // SPEC-008 AC 10: карточки магазина простыми данными (без функций); picture — у карточки есть картинка
+  shopCards: () => shopCards().map(({ k, price, packN, name, desc }) => ({ k, price, packN, name, desc, picture: k in SHOP_PICTURES })),
   loadProgress,   // SPEC-018 (тесты): чистая функция «сохранение → прогресс», та же, что при запуске; игру не трогает
   // SPEC-005 (телефон): phone; camera — позиция и точка взгляда в единицах 3D (1 = клетка), точка взгляда и видимая земля в px мира,
   // ahead — забегание вперёд (px); shake — тряска сейчас

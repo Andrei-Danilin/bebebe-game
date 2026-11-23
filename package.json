@@ -9,6 +9,8 @@
     "test:headed": "playwright test --headed",
     "claude:sync": "node scripts/claude-sync.js",
     "icons": "node scripts/make-icons.js",
+    "docs:numbers": "node scripts/docs-numbers.js",
+    "balance": "node scripts/balance.js",
     "serve": "node scripts/serve.js",
     "setup": "npm install && npx playwright install chromium && node scripts/claude-sync.js"
   },

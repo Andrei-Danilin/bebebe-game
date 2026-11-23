@@ -217,10 +217,15 @@ npm run test:fast      # the @fast set while working (~1.5 min)
 npx playwright test    # all tests: smoke, gameplay rules, levels, phone, i18n, PWA (~10 min; starts scripts/serve.js itself)
 npm run serve          # the game over http on http://localhost:8123/ (service worker, manifest)
 npm run icons          # icons/icon.svg → the PNG app icons
+npm run docs:numbers   # rewrite the generated numbers table in docs/game-design.md from index.html (-- --check: only check)
+npm run balance        # play every level with the autopilot in sim mode → reports/balance.md + reports/balance.json
 ```
 
 Every push to `master` runs the tests on GitHub Actions and publishes the site (`index.html`, `manifest.webmanifest`,
 `sw.js`, `icons/`, `v1-2d/`) to GitHub Pages (`.github/workflows/pages.yml`).
+
+A spec that changes gameplay numbers or rules runs `npm run balance` before the merge and commits the updated
+`reports/balance.*`; the numbers table in `docs/game-design.md` is generated (`npm run docs:numbers`), never edited by hand.
 
 Run a spec: `claude --model opus` at the repo root, paste `docs/process/run-templates/RUN_S.md`
 (or `RUN_M` / `RUN_L`, as the spec's `Complexity:` says) with the spec name filled in.

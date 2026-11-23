@@ -27,6 +27,10 @@ function clearOnce(l) {
   } catch (e) { /* ok */ }
 }
 
+// SPEC-008 (init script): the level generator and the 3D build must not touch the gameplay rng(). In the tests that
+// throws (the game reads window.__bbStrictRng at start); in normal play the game falls back to visual randomness.
+function strictRng() { window.__bbStrictRng = true; }
+
 // `query` is appended to the URL (e.g. "?phone=1").
 async function openGame(page, { lang = "en", clearStorage = true, query = "" } = {}) {
   const errors = [];
@@ -37,6 +41,7 @@ async function openGame(page, { lang = "en", clearStorage = true, query = "" } =
     if (!fs.existsSync(file)) return route.abort();
     await route.fulfill({ path: file, contentType: "application/javascript", headers: { "Access-Control-Allow-Origin": "*" } });
   });
+  await page.addInitScript(strictRng);
   if (clearStorage) {
     await page.addInitScript(clearOnce, lang);
   }
@@ -44,6 +49,9 @@ async function openGame(page, { lang = "en", clearStorage = true, query = "" } =
   await page.waitForFunction(() => window.__bbReady === true, null, { timeout: 30_000 });
   return errors;
 }
+
+// SPEC-008: the game in sim mode (?sim=1) — the balance tests and scripts/balance.js open it the same way
+const openSim = (page, opts = {}) => openGame(page, { ...opts, query: "?sim=1" });
 
 const HTTP_BASE = `http://localhost:${Number(process.env.PORT) || 8123}/`;
 
@@ -64,6 +72,7 @@ async function openGameHttp(page, { lang = "en", query = "", clearStorage = true
   page.on("pageerror", e => errors.push(String(e)));
   page.on("console", m => { if (m.type() === "error") errors.push("console: " + m.text()); });
   await routeThree(page.context());
+  await page.addInitScript(strictRng);
   if (clearStorage) {
     await page.addInitScript(clearOnce, lang);
   }
@@ -93,6 +102,13 @@ function softly() {
     const ka = Object.keys(a).filter(k => a[k] !== undefined), kb = Object.keys(b).filter(k => b[k] !== undefined);
     return ka.length === kb.length && ka.every(k => Object.prototype.hasOwnProperty.call(b, k) && same(a[k], b[k]));
   };
+  // like expect().toMatchObject: every key of `want` matches (objects recursively, arrays element by element), extra keys allowed
+  const sub = (got, want) => {
+    if (!want || typeof want !== "object") return Object.is(got, want);
+    if (!got || typeof got !== "object" || Array.isArray(got) !== Array.isArray(want)) return false;
+    if (Array.isArray(want) && got.length !== want.length) return false;
+    return Object.keys(want).every(k => sub(got[k], want[k]));
+  };
   const show = v => { try { return JSON.stringify(v); } catch (e) { return String(v); } };
   const soft = (got, msg = "") => {
     const matchers = neg => {
@@ -100,6 +116,7 @@ function softly() {
       return {
         toBe: v => m(Object.is(got, v), show(v)),
         toEqual: v => m(same(got, v), show(v)),
+        toMatchObject: v => m(sub(got, v), `to match ${show(v)}`),
         toBeTruthy: () => m(!!got, "truthy"),
         toBeNull: () => m(got === null, "null"),
         toContain: v => m(got != null && got.includes(v), `to contain ${show(v)}`),
@@ -136,14 +153,15 @@ function sharedPage() {
 }
 
 // SPEC-018: puts a shared game page back to the state of a freshly opened one: localStorage as openGame leaves it
-// (only the language), English, fresh progress and names, no gamepad stubs, an empty level cache, Park 1 in the menu.
+// (only the language), English, fresh progress and names, no gamepad stubs, an empty level cache, Park 1 in the menu,
+// unseeded gameplay randomness and the autopilot off (SPEC-008).
 // Tests still restore any CFG value they change (the fixtures check CFG is unchanged after each test). Not reset: held
 // gamepad buttons (a gamepad test releases its buttons at the end), the skin picker, mute and the phone camera zoom.
 async function resetGame(page) {
   await page.evaluate(() => {
     const b = window.__bb;
     delete navigator.getGamepads; window.__pads = [];          // gamepad stubs some tests leave behind
-    b.setLang("en"); b.clearLevelCache(); b.resetBannerTimer(); b.mode = "menu";
+    b.setLang("en"); b.clearLevelCache(); b.resetBannerTimer(); b.mode = "menu"; b.seedRandom(); b.autopilot(false, "careful");   // SPEC-008: unseeded, no autopilot, default style
     for (const s of ["p1", "p2", "big", "bot1", "bot2", "bot3", "bot4"]) b.setName(s, "");
     b.world = "park"; b.resetProgress(); b.resetProgress();   // two calls, like the button: fresh progress, level 1
     b.world = "park"; b.level = 1; b.resetWorld(1); b.mode = "menu";
@@ -161,4 +179,4 @@ async function setupHug(page) {
   });
 }
 
-module.exports = { openGame, openGameHttp, routeThree, frames, step, setupHug, softly, sharedPage, resetGame, GAME_URL, HTTP_BASE, ROOT };
+module.exports = { openGame, openSim, openGameHttp, routeThree, frames, step, setupHug, softly, sharedPage, resetGame, GAME_URL, HTTP_BASE, ROOT };
