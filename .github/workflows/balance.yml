@@ -1,0 +1,58 @@
+# SPEC-023: the balance report on GitHub (npm run balance: every level with the autopilot in sim mode).
+# Start: gh workflow run balance.yml -f ref=<branch>   → gh run list --workflow balance.yml --limit 1
+#        gh run watch <id> --exit-status               → gh run download <id> -n balance -D reports
+# and commit reports/balance.md + reports/balance.json on the branch.
+# workflow_dispatch works only once this file is on the default branch (master); a push that changes this file on a
+# spec branch also runs it (that is how SPEC-023 tried it before the merge).
+name: Balance
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch, tag or commit to make the report for"
+        required: true
+        default: master
+  push:
+    branches: ["SPEC-*"]
+    paths: [".github/workflows/balance.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  balance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+          cache: npm
+      - run: npm ci
+      - name: Playwright version
+        id: pw
+        run: echo "version=$(node -p 'require("@playwright/test/package.json").version')" >> "$GITHUB_OUTPUT"
+      - name: Cache the Playwright browsers
+        id: pw-cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
+      - name: Install Chromium and its system libraries
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+      - name: Install the system libraries (browsers from the cache)
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+      - run: npm run balance
+      - uses: actions/upload-artifact@v7
+        with:
+          name: balance
+          path: |
+            reports/balance.md
+            reports/balance.json
+          retention-days: 14

@@ -1,4 +1,6 @@
-# Tests, then publishes the game on GitHub Pages (SPEC-001).
+# Tests (the sharded jobs of tests.yml, SPEC-023), then publishes the game on GitHub Pages (SPEC-001).
+# A red deploy with green tests: start a fresh run (gh workflow run pages.yml --ref master), never gh run rerun --failed
+# (it uploads a second github-pages artifact).
 # Only the site files go to Pages: index.html, manifest.webmanifest, sw.js, icons/, v1-2d/.
 name: Pages
 
@@ -15,23 +17,9 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # SPEC-023: the same 4 sharded test jobs as on spec branches (tests.yml), then the deploy
   test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: lts/*
-          cache: npm
-      - run: npm ci
-      - run: npx playwright install --with-deps chromium
-      - run: npx playwright test
-      - uses: actions/upload-artifact@v7
-        if: failure()
-        with:
-          name: test-results
-          path: test-results/
-          retention-days: 7
+    uses: ./.github/workflows/tests.yml
 
   deploy:
     needs: test

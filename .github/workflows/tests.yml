@@ -1,0 +1,93 @@
+# SPEC-023: the whole Playwright suite in 4 parallel shards.
+# - on every push of a spec branch (SPEC-*): the orchestrator merges only when this run is green;
+# - by hand (workflow_dispatch);
+# - from pages.yml (workflow_call) before every deploy of master.
+# Each shard writes a blob report; the `report` job merges them into one HTML report (artifact `html-report`) and fails
+# when a shard failed. A failing shard also uploads its test-results/ (error context, failure screenshots) as
+# `test-results-<shard>`. On CI the browser draws with SwiftShader (tests/test-env.js: process.env.CI).
+name: Tests
+
+on:
+  push:
+    branches: ["SPEC-*"]
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: shard ${{ matrix.shard }}/4
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+          cache: npm
+      - run: npm ci
+      - name: Playwright version
+        id: pw
+        run: echo "version=$(node -p 'require("@playwright/test/package.json").version')" >> "$GITHUB_OUTPUT"
+      - name: Cache the Playwright browsers
+        id: pw-cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
+      - name: Install Chromium and its system libraries
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+      - name: Install the system libraries (browsers from the cache)
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+      - name: Run shard ${{ matrix.shard }}/4
+        run: npx playwright test --shard ${{ matrix.shard }}/4 --reporter=blob,dot
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with:
+          name: blob-report-${{ matrix.shard }}
+          path: blob-report/
+          retention-days: 3
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: test-results-${{ matrix.shard }}
+          path: test-results/
+          retention-days: 7
+
+  report:
+    name: merge reports
+    if: ${{ !cancelled() }}
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v8
+        with:
+          path: all-blob-reports
+          pattern: blob-report-*
+          merge-multiple: true
+      - name: Merge into one HTML report
+        run: npx playwright merge-reports --reporter=html,github ./all-blob-reports
+      - uses: actions/upload-artifact@v7
+        with:
+          name: html-report
+          path: playwright-report/
+          retention-days: 14
+      - name: Fail when a shard failed
+        if: ${{ needs.test.result != 'success' }}
+        run: |
+          echo "a test shard failed: ${{ needs.test.result }}"
+          exit 1
