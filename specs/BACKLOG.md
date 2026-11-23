@@ -113,3 +113,12 @@ One line each: what, where it came from. The spec author turns a line into a spe
 - SPEC-009 review: a `LEDGER_REASONS` list (firstWin, replay, newStars, star, hugs, rests, buy:*) that the ledger checks and the tests read.
 - SPEC-009, check with the kids: with `quickHelp` bought the rescue ring fills faster than 3 s and the menu rule still says "3 seconds"; the ring also jumps when the helper changes from a bot to a player.
 - SPEC-009 review: `adoptWorn` (worn clothes of a pre-SPEC-009 save become owned) moves to the server-side progress with SPEC-013.
+- Decided during the run (SPEC-008/009 queue, 2026-11-23), check with the kids:
+  - Crown is a 150-coin hat (the spec said "first 4 hats free" and also "crown in the 150 tier"); free hats: none, cap, beanie, bow. Paid list by tier is Claude's: 40 — flower, glasses, pink hoodie, teal jacket, green, joggers, purple pants; 80 — kitty ears, ninja band, pirate, ninja, sailor, raincoat, pink shorts, Bear; 150 — crown, viking, top hat, Superhero cape, robot, captain.
+  - `longItems` makes only player-picked items last longer (bots pick items too; `ITEM_LIFE` unchanged).
+  - `quickHelp` lowers a player's rescue to 2.1 s (kids' rule: rescue takes 3 s; bots stay at 3 s).
+  - Replay floor 3 coins (first win floor 5); a rest line never takes a reward below its floor.
+  - Leaving a level early pays only the hugs; pause → Menu during the final hug counts as the win.
+  - Reset progress also takes back bought clothes and upgrades.
+  - Reward tuning: `REWARD.PER_LEVEL` 2 → 1, `NEW_STAR` 8 → 6 (Park first-win income was above the 30–60 target).
+  - SPEC-008: the Big One's 0.9 s stand after a push is named `CFG.PUSH_STAND` (same value); the seeded-rng guard throws only in tests.

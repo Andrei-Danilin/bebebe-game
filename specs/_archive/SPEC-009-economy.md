@@ -1,6 +1,6 @@
 # SPEC-009 — Coins economy: clear earning rules, wardrobe for coins, permanent upgrades
 
-Status: ready
+Status: done (019ab3f; phone reset fix 572713c)
 Complexity: L
 Branch: SPEC-009-economy
 Decided by: Andrei and the kids (2026-11-22): replaying a level pays less than the first win, with a separate bonus for every new star; coins can also buy clothes/hats/Big One looks (basic ones stay free) and permanent upgrades; the pace — a purchase every 1–2 levels (cheap items almost every level, mega mittens every 3–4 levels, an expensive outfit about once per world). Kept from earlier kids' decisions: bonus star pickup +3, kisses 5 for 20, rescue kits 3 for 15, existing glove prices. Everything else (formulas, starting numbers, which items are paid, upgrade list and caps, UI): Claude (spec author).
