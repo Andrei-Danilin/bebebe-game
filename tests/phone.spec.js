@@ -15,12 +15,14 @@ const test = base.test.extend({
   phonePage: async ({ browser, viewport, hasTouch, isMobile }, use) => {
     const s = await shared.get(browser, JSON.stringify([viewport, hasTouch, isMobile]), { viewport, hasTouch, isMobile }, p => openGame(p, { query: "?phone=1" }));
     const size = s.page.viewportSize();
-    if (size.width !== viewport.width || size.height !== viewport.height) await s.page.setViewportSize(viewport);
+    if (size.width !== viewport.width || size.height !== viewport.height) { await s.page.setViewportSize(viewport); await frames(s.page); }
     if (await s.page.locator("input.name-input").count()) await s.page.keyboard.press("Escape");
     await resetGame(s.page);
     s.page.sharedErrors = s.errors;
+    const cfg = await s.page.evaluate(() => JSON.stringify(window.__bb.CFG));
     await use(s.page);
     expect(s.errors.splice(0)).toEqual([]);
+    expect(await s.page.evaluate(() => JSON.stringify(window.__bb.CFG)), "the test restores every CFG value it changed").toBe(cfg);
   }
 });
 test.afterAll(async () => { await shared.close(); });

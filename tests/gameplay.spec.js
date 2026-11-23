@@ -11,8 +11,10 @@ const test = base.test.extend({
   page: async ({ browser, hasTouch }, use) => {
     const s = await shared.get(browser, hasTouch ? "touch" : "desktop", { viewport: { width: 960, height: 640 }, hasTouch }, p => openGame(p));
     await resetGame(s.page);
+    const cfg = await s.page.evaluate(() => JSON.stringify(window.__bb.CFG));
     await use(s.page);
     expect(s.errors.splice(0)).toEqual([]);
+    expect(await s.page.evaluate(() => JSON.stringify(window.__bb.CFG)), "the test restores every CFG value it changed").toBe(cfg);
   }
 });
 test.afterAll(async () => { await shared.close(); });
@@ -185,6 +187,11 @@ async function winLevel(page) {
 }
 
 test("worlds unlock their own levels", async ({ page }) => {
+  // a real first load with no save (the shared page would only show resetProgress())
+  await page.evaluate(() => { for (const k of ["bebebe-progress", "bebebe-outfits", "bebebe-place"]) localStorage.removeItem(k); });
+  await page.reload();
+  await page.waitForFunction(() => window.__bbReady === true);
+  expect(await page.evaluate(() => [window.__bb.mode, window.__bb.world, window.__bb.level])).toEqual(["menu", "park", 1]);
   const start = await page.evaluate(() => JSON.parse(JSON.stringify(window.__bb.progress)));
   expect(Object.keys(start.worlds)).toEqual(["park", "school", "beach", "winter"]);
   for (const w of Object.keys(start.worlds)) expect(start.worlds[w], w).toEqual({ unlocked: 1, stars: {} });   // every world open from the start
@@ -1255,6 +1262,8 @@ test("kit keys for one and two players", async ({ page }) => {
   await page.evaluate(() => { window.__pads = [{ index: 0, axes: [0, 0], buttons: Array.from({ length: 17 }, (_, k) => ({ pressed: k === 3, value: 0 })) }]; });
   await page.waitForFunction(() => window.__bb.progress.inv.rescues === 15);
   expect(await page.evaluate(() => window.__bb.littles[0].state)).toBe("ok");
+  await page.evaluate(() => { window.__pads[0].buttons.forEach(btn => { btn.pressed = false; }); });   // shared page: release the pad
+  await frames(page);
 });
 
 // pushes player 1 for real: the Big One right in front of him, looking at him
