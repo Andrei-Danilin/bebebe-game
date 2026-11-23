@@ -152,11 +152,12 @@ const CFG = {
   // как рисуется (UI px и доли): стены — их цвет, смешанный с тёмным на dark; домики — заливка zone и контур zoneLine;
   // кусты, деревья, камни — точки в bush/tree радиуса; точки героев dots (UI px), не меньше dot, контур outline;
   // отдыхающие боты — rest; конус cone (спокойный — coneCalm);
-  // рамка камеры — белая frame (толщина frameW) на еле видной тёмной подложке frameShade (её видно на снегу);
+  // белое кольцо героя — толщина ringW; рамка камеры — белая frame (толщина frameW) на еле видной тёмной подложке
+  // frameShade толщиной frameShadeW (её видно на снегу);
   // рамка подложки border (толщина borderW), скругление radius
   MINIMAP_LOOK: { dark: 0.65, zone: 0.18, zoneLine: 1, bush: 0.3, tree: 0.45, outline: 1, dot: 3, rest: 0.5, cone: 0.35, coneCalm: 0.25,
     dots: { star: 3.5, item: 3, downed: 4.5, bot: 3.6, big: 5, hero: 4.5 },
-    frame: 0.6, frameW: 1, frameShade: 0.25, border: 0.35, borderW: 1, radius: 8 },
+    ringW: 1.5, frame: 0.6, frameW: 1, frameShade: 0.25, frameShadeW: 3, border: 0.35, borderW: 1, radius: 8 },
   ARROW_D: 30,               // CSS px — кружок стрелки у края экрана (диаметр)
   PHONE_KISS_BTN: 80,        // CSS px — кнопка 💋 на телефоне
   STICK_ZONE: 0.55,          // доля ширины слева, где касание создаёт джойстик
@@ -2781,7 +2782,7 @@ function phoneOccluders(pad = 0, sides = 0) {
   const mm = minimapRect(), tr = teamRect(), top = phoneTopBar();
   // ways — куда камере уводить героя из-под этого места, по порядку: сначала первый, второй — когда первый упёрся
   const r = [{ x: -1e4, y: -1e4, w: 2e4, h: 1e4 + top + pad, ways: ["down"] },
-    { x: mm.x - pad, y: -1e4, w: 2e4, h: 1e4 + tr.y + tr.h + pad, ways: ["down", "left"] }];
+    { x: Math.min(mm.x, tr.x) - pad, y: -1e4, w: 2e4, h: 1e4 + tr.y + tr.h + pad, ways: ["down", "left"] }];   // SPEC-010: кружки шире маленькой мини-карты
   if (sides) r.push({ x: -1e4, y: -1e4, w: 1e4 + sides, h: 2e4, ways: ["right"] }, { x: UW - sides, y: -1e4, w: 2e4, h: 2e4, ways: ["left"] });
   return r;
 }
@@ -3041,7 +3042,7 @@ function drawMinimap(t) {
   const dot = (kind, x, y, rad, fill, ring) => {
     const R = Math.max(rad, L.dot), px = X(x), py = Y(y);
     circle(px, py, R); ctx.fillStyle = fill; ctx.fill();
-    if (ring) { circle(px, py, R - L.outline); ctx.lineWidth = L.outline * 1.5; ctx.strokeStyle = ring; ctx.stroke(); }
+    if (ring) { circle(px, py, R - L.outline); ctx.lineWidth = L.ringW; ctx.strokeStyle = ring; ctx.stroke(); }
     circle(px, py, R); ctx.lineWidth = L.outline; ctx.strokeStyle = MM_DARK; ctx.stroke();
     mark(kind, px, py, R);
   };
@@ -3069,7 +3070,7 @@ function drawMinimap(t) {
   dot("big", big.x, big.y, L.dots.big, "#ef4444");
   if (hero) dot("hero", hero.x, hero.y, L.dots.hero, hero.state === "down" && blink ? "#fff" : P_COLORS[0], "#fff");
   const v = camRect();
-  ctx.globalAlpha = A * L.frameShade; ctx.lineWidth = L.frameW + 2 * L.outline; ctx.strokeStyle = MM_DARK; ctx.strokeRect(X(v.x), Y(v.y), v.w * sx, v.h * sy);
+  ctx.globalAlpha = A * L.frameShade; ctx.lineWidth = L.frameShadeW; ctx.strokeStyle = MM_DARK; ctx.strokeRect(X(v.x), Y(v.y), v.w * sx, v.h * sy);
   ctx.globalAlpha = A * L.frame; ctx.lineWidth = L.frameW; ctx.strokeStyle = "#fff"; ctx.strokeRect(X(v.x), Y(v.y), v.w * sx, v.h * sy);
   mark("view", X(v.x + v.w / 2), Y(v.y + v.h / 2));
   ctx.restore();
@@ -3878,7 +3879,7 @@ function followGoal(l, x, y) {
   const g = clampLook(x, y);
   if (!showMinimap()) return g;
   const pad = cpx(CFG.CAM_HERO_PAD), side = cpx(CFG.CAM_HERO_SIDE), ramp = cpx(CFG.CAM_HERO_RAMP), extra = CFG.CAM_EDGE_MAX - CFG.CAM_EDGE;
-  const mm = minimapRect(), tr = teamRect(), topY = phoneTopBar() + pad, mmX = mm.x - pad, mmY = tr.y + tr.h + pad;
+  const mm = minimapRect(), tr = teamRect(), topY = phoneTopBar() + pad, mmX = Math.min(mm.x, tr.x) - pad, mmY = tr.y + tr.h + pad;   // левый край угла — мини-карта или кружки, что левее
   const move = (dx, dy) => { const c = clampLook(g.x + dx, g.y + dy, extra), d = Math.hypot(c.x - g.x, c.y - g.y); g.x = c.x; g.y = c.y; return d; };
   for (let pass = 0; pass < 3; pass++) {
     for (const h of [0, CFG.CAM_HERO_H]) {

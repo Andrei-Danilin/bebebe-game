@@ -208,6 +208,15 @@ async function phonePlay(page) {
   await page.evaluate(() => { const b = window.__bb; b.startGame(1); Object.assign(b.big, { state: "look", timer: 999, stun: 999 }); });
   return errors;
 }
+// pins everything that moves for the edge-arrow tests: the Big One calm and looking (no walking, no push), every bot
+// resting in the house with a long rest (not "ok": no hugs that could win the level, nobody helps a downed friend up)
+async function calmAll(page) {
+  await page.evaluate(() => {
+    const b = window.__bb;
+    Object.assign(b.big, { state: "look", timer: 999, stun: 999 });
+    for (const l of b.littles) if (l.kind !== "player") Object.assign(l, { state: "rest", restTimer: 999, moving: false, kx: 0, ky: 0 });
+  });
+}
 // puts the hero at (x, y), not moving, and snaps the camera to him
 async function placeHero(page, x, y) {
   await page.evaluate(([x, y]) => { const l = window.__bb.littles[0]; Object.assign(l, { x, y, kx: 0, ky: 0, moving: false }); window.__bb.camSnap(); }, [x, y]);
@@ -324,7 +333,8 @@ test.describe("phone camera", () => {
     });
     expect(d.z.x).toBeGreaterThan(600); expect(d.z.y).toBeLessThan(100);        // the house really is top-right
     const team = d.hud.find(h => h.id === "team"), bar = d.hud.find(h => h.id === "hearts");
-    const blocked = [{ x: d.mm.x, y: 0, w: d.ui.w - d.mm.x, h: team.y + team.h }, { x: 0, y: 0, w: d.ui.w, h: bar.y + bar.h }];
+    const cx = Math.min(d.mm.x, team.x);   // SPEC-010: the chips plate is wider than the small mini-map
+    const blocked = [{ x: cx, y: 0, w: d.ui.w - cx, h: team.y + team.h }, { x: 0, y: 0, w: d.ui.w, h: bar.y + bar.h }];
     for (const p of [d.feet, d.head]) for (const r of blocked) {
       expect(p.x > r.x && p.x < r.x + r.w && p.y > r.y && p.y < r.y + r.h, `hero point ${JSON.stringify(p)} under ${JSON.stringify(r)}`).toBe(false);
     }
@@ -428,16 +438,19 @@ test.describe("phone controls", () => {
     const zone0 = await page.evaluate(() => window.__bb.CFG.STICK_ZONE);
     const zone = Math.max(zone0, (pause.x + pause.w) / ui.w + 0.02);
     await page.evaluate(z => { window.__bb.CFG.STICK_ZONE = z; }, zone);
-    expect(pause.x + pause.w / 2).toBeLessThan(ui.w * zone);
-    expect(kiss.x).toBeGreaterThan(ui.w * zone);
-    await touch(page, "pointerdown", kiss.x + kiss.w / 2, kiss.y + kiss.h / 2, 9);
-    expect(await page.evaluate(() => window.__bb.sticks.length)).toBe(0);
-    await touch(page, "pointerup", kiss.x + kiss.w / 2, kiss.y + kiss.h / 2, 9);
-    await touch(page, "pointerdown", pause.x + pause.w / 2, pause.y + pause.h / 2, 10);
-    expect(await page.evaluate(() => window.__bb.sticks.length)).toBe(0);
-    expect(await page.evaluate(() => window.__bb.mode)).toBe("pause");
-    await touch(page, "pointerup", pause.x + pause.w / 2, pause.y + pause.h / 2, 10);
-    await page.evaluate(z => { window.__bb.CFG.STICK_ZONE = z; }, zone0);
+    try {
+      expect(pause.x + pause.w / 2).toBeLessThan(ui.w * zone);
+      expect(kiss.x).toBeGreaterThan(ui.w * zone);
+      await touch(page, "pointerdown", kiss.x + kiss.w / 2, kiss.y + kiss.h / 2, 9);
+      expect(await page.evaluate(() => window.__bb.sticks.length)).toBe(0);
+      await touch(page, "pointerup", kiss.x + kiss.w / 2, kiss.y + kiss.h / 2, 9);
+      await touch(page, "pointerdown", pause.x + pause.w / 2, pause.y + pause.h / 2, 10);
+      expect(await page.evaluate(() => window.__bb.sticks.length)).toBe(0);
+      expect(await page.evaluate(() => window.__bb.mode)).toBe("pause");
+      await touch(page, "pointerup", pause.x + pause.w / 2, pause.y + pause.h / 2, 10);
+    } finally {
+      await page.evaluate(z => { window.__bb.CFG.STICK_ZONE = z; }, zone0);
+    }
     expect(errors).toEqual([]);
   });
 
@@ -670,8 +683,11 @@ test.describe("phone mini-map", () => {
   test("edge arrows point to the off-screen Big One and downed friends", async ({ page }) => {
     // Each teleport (the Big One, a downed bot) costs a ~15 s GPU stall in SwiftShader on the next frame —
     // on desktop too, not caused by the phone code — so this test gets the slow timeout.
+    // SPEC-010: deterministic — the bots used to hug the stunned Big One over the minutes this test runs (and could win
+    // the level: no arrows outside "play") or walk over and help the downed friend up; now they all rest (calmAll)
     test.slow();
     const errors = await phonePlay(page);
+    await calmAll(page);
     await placeHero(page, 560, 300);
     const ui = await page.evaluate(() => window.__bb.uiSize);
     // the Big One far away in the bottom-left: one red arrow at the edge, towards him
@@ -695,15 +711,16 @@ test.describe("phone mini-map", () => {
     await frames(page);
     expect(await page.evaluate(() => window.__bb.edgeArrows.filter(a => a.kind === "big").length)).toBe(0);
     // a downed bot off screen in the top-right (where the mini-map is): a green arrow, clear of the mini-map and buttons
-    await page.evaluate(() => Object.assign(window.__bb.littles[1], { x: 900, y: 40, state: "down", downTimer: 18, rescue: 0, botWait: 999 }));
+    await page.evaluate(() => Object.assign(window.__bb.littles[1], { x: 900, y: 40, state: "down", downTimer: 999, rescue: 0, botWait: 999 }));
     await frames(page);
     r = await page.evaluate(() => {
       const b = window.__bb, l = b.littles[0];
-      return { arrows: b.edgeArrows, hs: b.toScreen(l.x, l.y), ts: b.toScreen(b.littles[1].x, b.littles[1].y), mm: b.minimap, buttons: b.buttonRects };
+      return { arrows: b.edgeArrows, hs: b.toScreen(l.x, l.y), ts: b.toScreen(b.littles[1].x, b.littles[1].y), mm: b.minimap, buttons: b.buttonRects,
+        why: { mode: b.mode, hp: b.big.hp, hero: l.state, friend: b.littles[1].state } };
     });
     expect(r.ts.y).toBeLessThan(0);
     const down = r.arrows.filter(a => a.kind === "downed");
-    expect(down.length).toBe(1);
+    expect(down.length, JSON.stringify(r.why)).toBe(1);
     expect(Math.abs(down[0].angle - Math.atan2(r.ts.y - r.hs.y, r.ts.x - r.hs.x))).toBeLessThan(0.01);
     // a downed friend on screen but under the mini-map also gets an arrow
     const best = await page.evaluate(() => {
@@ -712,8 +729,8 @@ test.describe("phone mini-map", () => {
       grid: for (let y = 16; y < 640; y += 16) for (let x = 16; x < 960; x += 16) {
         const s = b.toScreen(x, y);
         if (s.x > mm.x + 10 && s.x < mm.x + mm.w - 10 && s.y > mm.y + 10 && s.y < mm.y + mm.h - 10) {
-          Object.assign(b.littles[1], { x: 900, y: 40, state: "ok" });
-          Object.assign(b.littles[2], { x, y, state: "down", downTimer: 18, rescue: 0, botWait: 999 });
+          Object.assign(b.littles[1], { x: 900, y: 40, state: "rest", restTimer: 999 });
+          Object.assign(b.littles[2], { x, y, state: "down", downTimer: 999, rescue: 0, botWait: 999 });
           return { x, y };
         }
       }
@@ -736,6 +753,43 @@ test.describe("phone mini-map", () => {
       expect(box.x).toBeGreaterThanOrEqual(0); expect(box.x + box.w).toBeLessThanOrEqual(ui.w);
       expect(box.y).toBeGreaterThanOrEqual(0); expect(box.y + box.h).toBeLessThanOrEqual(ui.h);
     }
+    expect(errors).toEqual([]);
+  });
+});
+
+// SPEC-010 review: the team chips plate (5 chips) is wider than the small mini-map and sticks out to its left
+// (≈ 62 UI px at 667×375); a downed friend under that part of the plate is hidden too and gets an edge arrow
+test.describe("phone mini-map 667×375", () => {
+  test.use({ ...PHONE_CTX, viewport: { width: 667, height: 375 } });
+
+  test("a downed friend under the team chips left of the mini-map gets an edge arrow", async ({ page }) => {
+    test.slow();   // teleporting a bot costs a long GPU stall in SwiftShader on the next frame
+    const errors = await phonePlay(page);
+    await calmAll(page);
+    await placeHero(page, 200, 500);
+    await frames(page);
+    const spot = await page.evaluate(() => {
+      const b = window.__bb, mm = b.minimap, tr = b.hudRects.find(h => h.id === "team");
+      if (!(tr.x < mm.x - 8)) return { wide: false, tr, mm };
+      for (let y = 4; y < 640; y += 4) for (let x = 4; x < 960; x += 4) {
+        const s = b.toScreen(x, y);
+        if (s.x > tr.x + 4 && s.x < mm.x - 4 && s.y > tr.y + 4 && s.y < tr.y + tr.h - 4) {
+          Object.assign(b.littles[2], { x, y, state: "down", downTimer: 999, rescue: 0, botWait: 999, moving: false });
+          return { wide: true, x, y };
+        }
+      }
+      return { wide: true, x: null };
+    });
+    expect(spot.wide, `the chips plate sticks out left of the mini-map: ${JSON.stringify(spot)}`).toBe(true);
+    expect(spot.x, "a world point under that part of the plate").not.toBeNull();
+    await frames(page);
+    const r = await page.evaluate(() => {
+      const b = window.__bb, f = b.littles[2];
+      return { arrows: b.edgeArrows, fs: b.toScreen(f.x, f.y), mm: b.minimap, tr: b.hudRects.find(h => h.id === "team"), st: f.state, mode: b.mode };
+    });
+    expect(r.mode).toBe("play"); expect(r.st).toBe("down");
+    expect(r.fs.x > r.tr.x && r.fs.x < r.mm.x && r.fs.y > r.tr.y && r.fs.y < r.tr.y + r.tr.h, "under the plate, left of the mini-map").toBe(true);
+    expect(r.arrows.filter(a => a.kind === "downed").length, "an arrow for the friend under the chips").toBe(1);
     expect(errors).toEqual([]);
   });
 });
