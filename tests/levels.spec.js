@@ -118,7 +118,13 @@ test("all 80 levels are fair and build fast", async ({ page }) => {
     b.world = "park"; b.level = 1; b.startGame(1);
     const before = b.worldState();
     const out = [];
-    for (const w of W) for (let n = 1; n <= 20; n++) out.push({ w, n, ...b.levelReport(w, n) });
+    // SPEC-018: a build that took ≥ 200 ms is timed again (up to 2 more full builds, the fastest counts): a busy machine
+    // once made park 12 take 450 ms; a level that is really slow to build stays slow every time
+    for (const w of W) for (let n = 1; n <= 20; n++) {
+      const rep = b.levelReport(w, n);
+      for (let k = 0; k < 2 && rep.ms >= 200; k++) rep.ms = Math.min(rep.ms, b.levelReport(w, n).ms);
+      out.push({ w, n, ...rep });
+    }
     const after = b.worldState();   // every field levelReport saves: obstacles, bushes, floors, zones, spawns, reachable, all 5 grids…
     return { out, untouched: before === after };
   }, WORLDS);

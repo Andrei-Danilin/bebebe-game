@@ -248,20 +248,29 @@ test.describe("phone camera", () => {
     let s = await heroScreen(page);
     expect(s.x).toBeLessThan(ui.w / 3); expect(s.x).toBeGreaterThan(36 / ui.scale - EPS);
     expect(s.y).toBeLessThan(ui.h / 2);
-    // walking down the clear column x = 560 in the middle: the hero stays in the centre third
+    // walking down the clear column x = 560 in the middle: the hero stays in the centre third.
+    // SPEC-018: deterministic — the bots rest (no bumps) and the walk is one evaluate (key down, logic + camera steps,
+    // key up), so the real frame loop cannot add steps under load (it used to: flaky "under load")
+    await calmAll(page);
     await placeHero(page, 560, 180);
-    await page.keyboard.down("KeyS");
-    for (let i = 0; i < 6; i++) {
-      await stepCam(page, 0.25);
-      s = await heroScreen(page);
-      expect(s.x, `x at ${i}`).toBeGreaterThan(ui.w / 3); expect(s.x).toBeLessThan(ui.w * 2 / 3);
-      expect(s.y, `y at ${i}`).toBeGreaterThan(ui.h / 3); expect(s.y).toBeLessThan(ui.h * 2 / 3);
-    }
-    const walked = await page.evaluate(() => window.__bb.littles[0].y);
-    expect(walked).toBeGreaterThan(330);                         // he really walked
-    cam = await page.evaluate(() => window.__bb.camera);
-    expect(cam.target.y).toBeGreaterThan(walked);                // look-ahead: the camera is ahead of him
-    await page.keyboard.up("KeyS");
+    const walk = await page.evaluate(() => {
+      const b = window.__bb, l = b.littles[0], key = down => window.dispatchEvent(new KeyboardEvent(down ? "keydown" : "keyup", { code: "KeyS" }));
+      const at = [];
+      key(true);
+      try {
+        for (let i = 0; i < 6; i++) {
+          for (let k = 0; k < 15; k++) { b.update(1 / 60); b.updateCamera(1 / 60); }   // 0.25 s
+          at.push(b.toScreen(l.x, l.y));
+        }
+        return { at, y: l.y, target: b.camera.target };
+      } finally { key(false); }
+    });
+    walk.at.forEach((p, i) => {
+      expect(p.x, `x at ${i}`).toBeGreaterThan(ui.w / 3); expect(p.x).toBeLessThan(ui.w * 2 / 3);
+      expect(p.y, `y at ${i}`).toBeGreaterThan(ui.h / 3); expect(p.y).toBeLessThan(ui.h * 2 / 3);
+    });
+    expect(walk.y).toBeGreaterThan(330);                         // he really walked
+    expect(walk.target.y).toBeGreaterThan(walk.y);               // look-ahead: the camera is ahead of him
     // bottom-right corner (inside the building): the view clamps at the map edge, hero off-centre towards the corner
     await placeHero(page, 880, 560);
     await stepCam(page, 2);
