@@ -59,7 +59,7 @@ One line each: what, where it came from. The spec author turns a line into a spe
 - SPEC-005 final review: the top-right diagonal test checks only that the camera moves smoothly — add clearance from the mini-map along the path and the 4-cell bound at the corner.
 - SPEC-005 final review: remove the unused `ways`/`sides` of `phoneOccluders`; place the name input only when its rect changes (now every frame).
 - `__bb.world` now means the world name; the old map grid moved to `__bb.grid` (SPEC-006, decided during the run, check with the kids).
-- Seeds: level 1 is seed 1 in every world, levels 2–20 use (worldIndex + 1) × 100 + n (SPEC-006, decided during the run, check with the kids).
+- Seeds: level 1 is seed 1 in every world, levels 2–20 use (worldIndex + 1) × 100 + n (SPEC-006, decided during the run, check with the kids; since SPEC-016 `WORLD_SEED[world]` × 100 + n — the same numbers for Park, School, Beach, Winter).
 - ↑/↓ and the D-pad up/down switch worlds in the menu; the total ⭐ counter is kept next to the per-world ⭐ s/60 (SPEC-006, decided during the run, check with the kids).
 - Russian "пройдена" for Школа/Зима and "пройден" for Парк/Пляж (the spec text had one form) (SPEC-006, decided during the run, check with the kids).
 - After level 20 the win screen offers Menu + Shop, and Enter goes to the menu (SPEC-006, decided during the run, check with the kids).
@@ -122,3 +122,19 @@ One line each: what, where it came from. The spec author turns a line into a spe
   - Reset progress also takes back bought clothes and upgrades.
   - Reward tuning: `REWARD.PER_LEVEL` 2 → 1, `NEW_STAR` 8 → 6 (Park first-win income was above the 30–60 target).
   - SPEC-008: the Big One's 0.9 s stand after a push is named `CFG.PUSH_STAND` (same value); the seeded-rng guard throws only in tests.
+- SPEC-016 architect review (MEDIUM): per-place 3D dressing is still `if (place === …)` branches in `makeTreeFor`, `makeRockFor`, `makeBushFor`, `makePondFor`, `paintGround` and `buildMap3D`; a `PLACE_DRESS` table (place → its makers) would make the next place one entry instead of six edits.
+- SPEC-016: the City streets are painted at fixed places on the ground texture (across from row 9, along from column 14), under whatever houses, squares or walls the level puts there; streets that follow the layout would need the generator's free cells.
+- SPEC-016 review (MEDIUM): a tap on a locked bonus world card gives no feedback (no sound, no text); SPEC-017 adds the locked-bonus message.
+- SPEC-016: `paintPitch` / `paintStreets` draw on the ground canvas in its own size (`W`, `H`, `CELL`); SPEC-017 map doodles may need them as `(g, w, h)`.
+- SPEC-016: `CAR_LEN` (1 cell) restates the rock circle's diameter (r 16 px) by hand; derive it from the rock radius if that ever changes.
+- SPEC-016: a tab still on the old version during the deploy writes a four-world save and can drop Field/City progress made in a new tab (the known stale-tab class, as `tests/fixtures/saves/stale-tab.json`).
+- SPEC-016 balance report, red target: median rests per level > 2 on 22 of 120 levels (was 12 of 80): park 19; field 18, 20; city 12, 17, 18, 19; school 6, 14, 15, 17, 18, 19; beach 17, 19, 20; winter 9, 12, 17, 18, 19, 20.
+- SPEC-016 balance report, red economy target: Winter 17–20 with every upgrade maxed takes 60 % of the time without (99 s vs 166 s; want ≥ 70 %) — Winter is harder now (difficulty index 4), so the upgrades save more time.
+- SPEC-016 balance report: "reckless wins less often or slower than careful" is green only through reckless' 96 % wins; reckless is still faster (median 41 s vs 60 s) — SPEC-019 addresses sneaking.
+- SPEC-016 decided during the run, check with the kids:
+  - the fast-star time follows the difficulty index: School +20 s, Beach and Winter +10 s compared with before (coins per level likewise: School +20, Beach and Winter +10);
+  - a saved `lastWorld` that is a locked bonus world opens the menu on the Park (also after Reset progress on a bonus world);
+  - the phone world cards have no picture (six cards with pictures do not fit); the level type moved into the level frame;
+  - Football field 1 and City 1 use the kids' drawing layout (level 1 is seed 1 in every world), in their own dressing;
+  - the mini-map draws the Football field's goals white, not water blue.
+- SPEC-016: the whole suite now takes ~25 min locally (`phone.spec.js` ~9.5 min) — compare with the SPEC-018 times in `reports/test-times.md`.

@@ -85,7 +85,7 @@ Open the file in any modern browser — no build step. Works on desktop, tablet 
 
 `P` — pause, `M` — sound, `L` — language (English / Español (AR) / Русский).
 
-In the menu: `↑` / `↓` (or the gamepad D-pad up/down) switch worlds, `←` / `→` (D-pad left/right) pick the level;
+In the menu: `↑` / `↓` (or the gamepad D-pad up/down) switch worlds (locked bonus worlds are skipped), `←` / `→` (D-pad left/right) pick the level;
 on a touch screen tap a world card and the ◀ ▶ buttons. In the shop `←` / `→` (D-pad left/right) switch the tabs.
 
 ## Items
@@ -105,9 +105,11 @@ Progress is saved in the browser (`localStorage`, key `bebebe-progress`): unlock
 world, which levels you have already won, the last world you picked, coins, gloves, air kisses, rescue kits, bought
 clothes and upgrades. Win a level to unlock the next one in that world.
 Saves from before the worlds move into the Park (levels above 20 are dropped; coins, gloves, kisses and names stay).
+Older saves get the Football field and the City fresh; a Beach or Winter you already played stays open.
 In saves from before the wardrobe, a level with stars counts as already won.
 
-In the table, `n` is the level number in its world (1–20) and `w` the world: Park 0, School 1, Beach 2, Winter 3.
+In the table, `n` is the level number in its world (1–20) and `w` the world's difficulty: Park 0, Football field 1, City 2,
+School 3, Beach 3, Winter 4.
 
 | Stars | For |
 |---|---|
@@ -155,11 +157,23 @@ bots or the Big One):
 
 ## Worlds
 
-Four worlds of 20 levels each, all open from the start: **Park**, **School** (court lines, hopscotch, footballs,
-hedges, sandbox, school windows), **Beach** (palms, sandcastles, umbrellas, pool, sea) and **Winter** (snowy pines,
-snowmen, snowdrifts, frozen pond, snowfall). The menu shows the four worlds as cards (name, a small picture, stars
-collected out of 60); under them you pick a level of the selected world. Levels open one by one inside each world.
-After level 20 the win screen says the world is done and offers the menu and the shop.
+Six worlds of 20 levels each, in the order of the story the kids made up:
+
+| World | Kind | What it looks like |
+|---|---|---|
+| Park | main, open from the start | grass, trees, ponds, hedges |
+| Football field | main, open from the start | striped grass with chalk lines, goals with nets, cones and kit bags, ad boards round the pitch, light masts |
+| City | main, open from the start | streets with crosswalks, parked cars, flower planters, a pool, lamp posts and hydrants |
+| School | main, open from the start | court lines, hopscotch, footballs, hedges, sandbox, school windows — it ends with the grumpiest dad |
+| Beach | **bonus** | palms, sandcastles, umbrellas, pool, sea |
+| Winter | **bonus** | snowy pines, snowmen, snowdrifts, frozen pond, snowfall |
+
+The **bonus worlds** open when you have won all 80 levels of the four main worlds; that win shows
+"🎁 Bonus worlds unlocked!". Beach is as hard as the School, Winter harder. A Beach or Winter you already played
+in an older version stays open. The menu shows the six worlds as cards in two rows of three (name, stars collected
+out of 60; on a computer also a small picture); a locked bonus card is grey with "🔒 Bonus". Under the cards you
+pick a level of the selected world. Levels open one by one inside each world. After level 20 the win screen says
+the world is done and offers the menu and the shop.
 
 ## Outfits
 
@@ -197,19 +211,22 @@ world has its own maps. Inside every world the levels go from open maps to the m
 
 Later levels of the same type have one bush fewer each. When a level starts, a banner shows
 "World · Level N: type" (e.g. "Park · Level 17: Maze"); the menu shows the type of the selected level. Every
-world has its own look for each type: hedges, lockers, fences or snow walls in the maze, a blue, canal,
-turquoise or icy river, and so on. Every level is checked to be fair: nobody gets stuck, the Big One can go
+world has its own look for each type: hedges, hedges with ad boards, yard fences, lockers, fences or snow walls in
+the maze, a blue, canal, turquoise or icy river, and so on. Every level is checked to be fair: nobody gets stuck, the Big One can go
 everywhere except your house, and both houses' doors are clear.
 
-The Big One gets a little faster with each level of a world, and each next world starts a little faster than
-the one before. He never runs faster than 95 % of a player without boots, even when angry. His hearts:
+The Big One gets a little faster with each level of a world. Each main world starts a little harder than the one
+before; the bonus Beach starts as hard as the School and Winter harder. He never runs faster than 95 % of a player
+without boots, even when angry. His hearts:
 
 | World | Level 1 | Level 20 |
 |---|---|---|
 | Park | 6 | 10 |
-| School | 7 | 11 |
-| Beach | 8 | 12 |
-| Winter | 9 | 12 |
+| Football field | 7 | 11 |
+| City | 8 | 12 |
+| School | 9 | 12 |
+| Beach (bonus) | 9 | 12 |
+| Winter (bonus) | 10 | 12 |
 
 ## How v2 is built
 
@@ -226,7 +243,7 @@ One HTML file, one ES module:
 
 ## Tuning
 
-`CFG` — gameplay numbers (`HUG_STUN`, `PUSH_RECOVER`, `BOT_ATTACK_PAUSE`, `ITEM_*`, `SLIP_STUN`, `COINS_PER_REST`, `FAST_TIME`, `RESCUE_*`, `STAR_*`, `DANGER_*`, `NAME_MAX`, `KISS_*`, `PAD_KISS`, `REST_TIME`, `KIT_*`, `PAD_KIT`, `WORLD_TYPES` (level types in a world), difficulty `WORLD_SPEED_START` / `SPEED_PER_LEVEL` / `CHASE_MAX_SHARE` / `HP_*`, `LAYOUT` (level type sizes), `BANNER_*`, fairness limits, phone mode `PHONE_*` / `CAM_*` / `MINIMAP_*` / `STICK_ZONE`, …),
+`CFG` — gameplay numbers (`HUG_STUN`, `PUSH_RECOVER`, `BOT_ATTACK_PAUSE`, `ITEM_*`, `SLIP_STUN`, `COINS_PER_REST`, `FAST_TIME`, `RESCUE_*`, `STAR_*`, `DANGER_*`, `NAME_MAX`, `KISS_*`, `PAD_KISS`, `REST_TIME`, `KIT_*`, `PAD_KIT`, `WORLD_TYPES` (level types in a world), difficulty `WORLD_DIFFICULTY` (index per world) / `WORLD_SPEED_START` / `SPEED_PER_LEVEL` / `CHASE_MAX_SHARE` / `HP_*`, `LAYOUT` (level type sizes), `BANNER_*`, fairness limits, phone mode `PHONE_*` / `CAM_*` / `MINIMAP_*` / `STICK_ZONE`, …),
 `GLOVES` — gloves (power, price, pack size), `KISSES` — air kiss price and pack, `RESCUE_KIT` — rescue kit price and pack, `REWARD` — coins for a level, `WARDROBE_TIERS` — clothes prices,
 `UPGRADES` — upgrade steps and prices, `I18N` — texts,
 `HAIRS` / `HATS` / `JACKETS` / `PANTS` / `BIG_SKINS` — outfits (with `price`), `THEMES` — worlds (places), `LITTLE_SCALE` / `BIG_SCALE` — character size in 3D.
