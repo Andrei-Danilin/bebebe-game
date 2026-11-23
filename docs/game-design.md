@@ -312,7 +312,7 @@
 | CFG | `PHONE_BTN_MIN` | 44 | CSS px — кнопка на телефоне не меньше |
 | CFG | `PHONE_BTN_GAP` | 8 | CSS px — между соседними кнопками |
 | CFG | `PHONE_TEXT` | { title: 24, main: 15, hint: 13, input: 16 } | CSS px — самый мелкий текст на телефоне |
-| CFG | `PHONE_SHOP` | { pic: 30, picMin: 18, picGrow: 16, picW: 1.3, picBox: 1.1, badge: 11, badgeMin: 9, pad: 6, sp: 3, gap: 2, side: 5, nameLines: 2, descLines: 4, packLines: 2, shortLines: 1, haveLines: 2, noLines: 2, scan: 1, eps: 0.01 } | карточки магазина на телефоне (SPEC-007 AC 10), CSS px: картинка (обычная, самая маленькая, насколько может вырасти), ширина картинки в её высотах, радиус кружка «у вас», поля, промежуток, отступ кру… |
+| CFG | `PHONE_SHOP` | { pic: 30, picMin: 18, picGrow: 16, picW: 1.3, picBox: 1.1, badge: 11, badgeMin: 9, pad: 6, sp: 3, gap: 2, side: 5, nameLines: 2, descLines: 4, packLines: 2, shortLines: 1, haveLines: 2, noLines: 2, scan: 1, eps: 0.01, RESET_FIT: 1.15 } | карточки магазина на телефоне (SPEC-007 AC 10), CSS px: картинка (обычная, самая маленькая, насколько может вырасти), ширина картинки в её высотах, радиус кружка «у вас», поля, промежуток, отступ кру… |
 | CFG | `WORLD_TYPES` | ["classic", "meadow", "meadow", "meadow", "village", "village", "village", "river", "river", "river", "rooms", "rooms", "rooms", "arena", "arena", "arena", "maze", "maze", "maze", "maze"] | типы уровней внутри каждого мира (SPEC-006): 1 — рисунок детей, 2–4 поляна, 5–7 деревня, 8–10 река, 11–13 дом с комнатами, 14–16 арена, 17–20 лабиринт; число записей = уровней в мире |
 | CFG | `BANNER_TIME` | 2 | сек — надпись «Уровень N: тип» в начале уровня появляется и исчезает |
 | CFG | `BANNER_FADE` | 0.4 | сек — появление и исчезание |

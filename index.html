@@ -171,7 +171,8 @@ const CFG = {
   // picBox — высота рамки картинки в её размерах (пластырь наискосок выше картинки), badgeMin — самый маленький кружок,
   // scan — шаг подбора размера картинки, eps — допуск сравнения (UI px)
   PHONE_SHOP: { pic: 30, picMin: 18, picGrow: 16, picW: 1.3, picBox: 1.1, badge: 11, badgeMin: 9, pad: 6, sp: 3, gap: 2, side: 5,
-    nameLines: 2, descLines: 4, packLines: 2, shortLines: 1, haveLines: 2, noLines: 2, scan: 1, eps: 0.01 },
+    nameLines: 2, descLines: 4, packLines: 2, shortLines: 1, haveLines: 2, noLines: 2, scan: 1, eps: 0.01,
+    RESET_FIT: 1.15 },        // запас для надписи «Сбросить прогресс»: не влезает с ним — короткая «Сброс» (SPEC-009, шрифты CI шире)
   // типы уровней внутри каждого мира (SPEC-006): 1 — рисунок детей, 2–4 поляна, 5–7 деревня, 8–10 река,
   // 11–13 дом с комнатами, 14–16 арена, 17–20 лабиринт; число записей = уровней в мире
   WORLD_TYPES: ["classic", "meadow", "meadow", "meadow", "village", "village", "village", "river", "river", "river",
@@ -301,7 +302,7 @@ const I18N = {
     items: { boots: "Speed boots!", cloak: "Invisible!", shield: "Shield!" }, blocked: "Blocked!", slip: "Whoops!",
     shop: "Shop", buy: "Buy", have: n => `You have: ${n} power ${n === 1 ? "hug" : "hugs"}`, wears: "wears", none: "None",
     gloves: { mittens: "Warm mittens", mega: "Mega hug mittens" }, gloveDesc: p => `Each hug takes ${p} hearts`,
-    pack: n => `Pack: ${n} power hugs`, notEnough: "Not enough coins", reset: "Reset progress", sure: "Sure? Tap again",
+    pack: n => `Pack: ${n} power hugs`, notEnough: "Not enough coins", reset: "Reset progress", sure: "Sure? Tap again", resetShort: "Reset", sureShort: "Sure?",
     victory: "Victory", nobodyOut: "Nobody had to rest", fast: t => `Fast: under ${t}`, forHugs: n => `+${n} for hugs`,
     megaHug: p => `Power hug! -${p}`, coinsWord: "coins",
     // SPEC-009: строки награды на экране победы
@@ -344,7 +345,7 @@ const I18N = {
     items: { boots: "¡Zapatillas veloces!", cloak: "¡Invisible!", shield: "¡Escudo!" }, blocked: "¡Bloqueado!", slip: "¡Upa!",
     shop: "Tienda", buy: "Comprar", have: n => `Tenés: ${n} ${n === 1 ? "abrazo potente" : "abrazos potentes"}`, wears: "usa", none: "Nada",
     gloves: { mittens: "Mitones abrigados", mega: "Mitones del abrazo gigante" }, gloveDesc: p => `Cada abrazo saca ${p} corazones`,
-    pack: n => `Paquete: ${n} abrazos potentes`, notEnough: "No te alcanzan las monedas", reset: "Borrar progreso", sure: "¿Seguro? Tocá otra vez",
+    pack: n => `Paquete: ${n} abrazos potentes`, notEnough: "No te alcanzan las monedas", reset: "Borrar progreso", sure: "¿Seguro? Tocá otra vez", resetShort: "Borrar", sureShort: "¿Seguro?",
     victory: "Victoria", nobodyOut: "Nadie tuvo que descansar", fast: t => `Rápido: menos de ${t}`, forHugs: n => `+${n} por los abrazos`,
     megaHug: p => `¡Abrazo potente! -${p}`, coinsWord: "monedas",
     buyFor: n => `Comprar por ${n}`, tapAgain: "Tocá otra vez para comprar",
@@ -387,7 +388,7 @@ const I18N = {
     items: { boots: "Сапоги-скороходы!", cloak: "Невидимка!", shield: "Щит!" }, blocked: "Щит спас!", slip: "Поскользнулся!",
     shop: "Магазин", buy: "Купить", have: n => `У вас: ${n} ${["сильная обнимашка", "сильные обнимашки", "сильных обнимашек"][n % 10 === 1 && n % 100 !== 11 ? 0 : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 1 : 2]}`, wears: "носит", none: "Ничего",
     gloves: { mittens: "Тёплые рукавицы", mega: "Мега-рукавицы" }, gloveDesc: p => `Каждая обнимашка забирает ${p} сердечка`,
-    pack: n => `В наборе: ${n} сильные обнимашки`, notEnough: "Не хватает монеток", reset: "Сбросить прогресс", sure: "Точно? Нажми ещё раз",
+    pack: n => `В наборе: ${n} сильные обнимашки`, notEnough: "Не хватает монеток", reset: "Сбросить прогресс", sure: "Точно? Нажми ещё раз", resetShort: "Сброс", sureShort: "Точно?",
     victory: "Победа", nobodyOut: "Никто не ушёл отдыхать", fast: t => `Быстро: меньше ${t}`, forHugs: n => `+${n} за обнимашки`,
     megaHug: p => `Сильная обнимашка! -${p}`, coinsWord: "монетки",
     buyFor: n => `Купить за ${n}`, tapAgain: "Нажми ещё раз, чтобы купить",
@@ -3978,9 +3979,14 @@ function drawOverlayPhone() {
     drawCoin(px + c(16), Y0 + B / 2, c(10)); pText(String(progress.coins), px + c(30), Y0 + B / 2 + 1, "main", 17, pw - c(36), "left", OUT, 900);
     const okW = c(100);
     pButton(X1 - okW, Y0, okW, B, L().ok, "#22c55e", () => { mode = "menu"; }, 18);
-    const rTxt = resetArmed ? L().sure : L().reset, rx1 = X1 - okW - g, rMin = px + pw + g;
+    const rx1 = X1 - okW - g, rMin = px + pw + g;
     ctx.font = hudFont(cpx(CFG.PHONE_TEXT.main));
-    const rW = Math.min(rx1 - rMin, Math.max(c(110), ctx.measureText(rTxt).width + c(20)));
+    // длинная надпись («Сбросить прогресс») не влезает на узком телефоне при широком шрифте — короткая («Сброс»);
+    // мерка с CFG.TEXT_TEST_SCALE и запасом RESET_FIT (шрифты CI и iPhone шире наших)
+    const fitW = t => scaledW(t) * CFG.PHONE_SHOP.RESET_FIT + c(20);
+    const full = resetArmed ? L().sure : L().reset, short = resetArmed ? L().sureShort : L().resetShort;
+    const rTxt = fitW(full) <= rx1 - rMin ? full : short;
+    const rW = Math.min(rx1 - rMin, Math.max(c(110), fitW(rTxt)));
     pButton(rx1 - rW, Y0, rW, B, rTxt, resetArmed ? "#ef4444" : "#94a3b8", resetProgress, 15);
     if (shopTab === "upgrades") upgradeCardsPhone(X0, X1, Y0 + B + c(8), Y1);
     else {
