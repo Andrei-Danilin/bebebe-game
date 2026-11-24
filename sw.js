@@ -13,7 +13,7 @@ const PRECACHE_LOCAL = [
 ];
 // SPEC-020: written by npm run assets (scripts/assets.js) — do not edit by hand
 // assets:start
-const ASSETS_HASH = "3a8e491494d1";
+const ASSETS_HASH = "dee4fc2a74dc";
 const PRECACHE_ASSETS = [
   "./assets/main_tile.webp", "./assets/menu_bg.webp", "./assets/map_bg_park.webp", "./assets/map_bg_field.webp",
   "./assets/map_bg_city.webp", "./assets/map_bg_school.webp", "./assets/map_bg_beach.webp",
@@ -46,7 +46,15 @@ const PRECACHE_ASSETS = [
   "./assets/fx_hearts.webp", "./assets/fx_speed.webp", "./assets/fx_dust.webp", "./assets/fx_sparkle.webp",
   "./assets/fx_bandaid.webp", "./assets/fx_confetti.webp", "./assets/phone_kiss.webp", "./assets/phone_kit.webp",
   "./assets/phone_stick_base.webp", "./assets/phone_pause.webp", "./assets/phone_stick_knob.webp",
-  "./assets/item_boots.webp", "./assets/item_cape.webp", "./assets/item_banana.webp", "./assets/item_mittens.webp",
+  "./assets/menu_play.webp", "./assets/menu_story.webp", "./assets/menu_character.webp", "./assets/tab_progress.webp",
+  "./assets/jacket_tshirt.webp", "./assets/jacket_orange_stripes.webp", "./assets/jacket_purple_zip.webp",
+  "./assets/jacket_pink_hoodie.webp", "./assets/jacket_teal_zip.webp", "./assets/jacket_hero_cape.webp",
+  "./assets/jacket_ninja.webp", "./assets/jacket_sailor.webp", "./assets/jacket_raincoat.webp",
+  "./assets/hat_ninja.webp", "./assets/pants_black.webp", "./assets/pants_red.webp", "./assets/pants_green.webp",
+  "./assets/pants_pink_shorts.webp", "./assets/pants_purple.webp", "./assets/ui_friends.webp", "./assets/ui_dice.webp",
+  "./assets/ui_question.webp", "./assets/ui_pencil.webp", "./assets/ui_pack.webp", "./assets/ui_ear.webp",
+  "./assets/ui_map.webp", "./assets/ui_check.webp", "./assets/ui_cross.webp", "./assets/item_boots.webp",
+  "./assets/item_cape.webp", "./assets/item_banana.webp", "./assets/item_mittens.webp",
   "./assets/item_mega_mittens.webp", "./assets/item_kiss.webp", "./assets/item_star.webp", "./assets/item_coin.webp",
   "./assets/heart_full.webp", "./assets/heart_half.webp", "./assets/heart_empty.webp"
 ];

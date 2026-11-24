@@ -326,3 +326,60 @@ test("the paper grain is off on a phone by default", async ({ page }) => {
   expect(await page.evaluate(() => [window.__bb.phone, window.__bb.CFG.PAPER_GRAIN, window.__bb.look3D("paper").paper.shown])).toEqual([true, true, false]);
   expect(errors).toEqual([]);
 });
+
+// SPEC-027 AC 5: the new clothes in 3D — the rainbow jacket (six coloured bands), the detective coat (a longer hem), the overalls
+// (bib + two straps over the jacket) and the striped pants (vertical stripes on both legs), in the game model and in the wardrobe
+// preview. __bb.outfit3D(who) — the tagged clothes parts of a model: who = a Little One's index or "p1" / "p2" (the preview)
+test("the new clothes are built in 3D: rainbow bands, a coat hem, overalls, striped pants — in play and in the wardrobe preview", async ({ page }) => {
+  const errors = await openGame(page);
+  const wear = (jacket, pants) => page.evaluate(([j, p]) => {
+    const b = window.__bb, W = b.wardrobe(), o = b.progress.owned;
+    o.jackets.push(j); o.pants.push(p);
+    b.cycleOutfit("p1", "jacket", W.jacket.findIndex(q => q.id === j) - b.outfits.shown.p1.jacket);
+    b.cycleOutfit("p1", "pants", W.pants.findIndex(q => q.id === p) - b.outfits.shown.p1.pants);
+  }, [jacket, pants]);
+  const count = (parts, piece) => parts.filter(q => q.piece === piece);
+  // rainbow + overalls, in play
+  await wear("rainbow", "overalls");
+  await play(page, "park", 1);
+  await frames(page);
+  let r = await page.evaluate(() => ({ parts: window.__bb.outfit3D(0), look: window.__bb.littles[0].look }));
+  expect(r.look.pattern).toBe("rainbow");
+  expect(count(r.parts, "band").map(q => q.color)).toEqual(r.look.bands);
+  expect(r.look.bands).toEqual(["#a855f7", "#3b82f6", "#22c55e", "#facc15", "#f97316", "#ef4444"]);
+  expect(count(r.parts, "bib").map(q => q.color)).toEqual([r.look.pants]);
+  expect(count(r.parts, "strap").map(q => q.color)).toEqual([r.look.pants, r.look.pants]);
+  expect(count(r.parts, "pantStripe"), "plain overalls have no stripes").toEqual([]);
+  // the same in the wardrobe preview
+  await page.evaluate(() => { const b = window.__bb; b.mode = "shop"; b.shopTab = "wardrobe"; });
+  await frames(page);
+  const pv = await page.evaluate(() => window.__bb.outfit3D("p1"));
+  expect(pv.map(q => q.piece).sort()).toEqual(r.parts.map(q => q.piece).sort());
+  // review: the bib lies OVER every jacket — its front is ahead of the zip, the stripe / belt / rainbow rings and the cape's star
+  const over = [];
+  for (const j of ["rainbow", "tshirt", "stripes", "purple", "pinkhoodie", "cape", "ninja", "sailor", "bluezip", "redzip", "magiccape", "trench"]) {
+    await wear(j, "overalls");
+    await frames(page);
+    const c = await page.evaluate(() => window.__bb.bibClear("p1"));
+    if (!c || c.bibFront < c.jacketFront + 0.01) over.push(`${j}: bib front ${c && c.bibFront} vs jacket ${c && c.jacketFront}`);
+  }
+  expect(over).toEqual([]);
+  // detective coat + striped pants
+  await wear("trench", "striped");
+  await frames(page);
+  const pv2 = await page.evaluate(() => window.__bb.outfit3D("p1"));
+  await play(page, "park", 1);
+  await frames(page);
+  r = await page.evaluate(() => ({ parts: window.__bb.outfit3D(0), look: window.__bb.littles[0].look }));
+  expect([r.look.pattern, r.look.long]).toEqual(["belt", true]);
+  expect(count(r.parts, "hem").map(q => q.color)).toEqual([r.look.shirt]);
+  const stripes = count(r.parts, "pantStripe");
+  expect(stripes.length, "stripes on both legs").toBeGreaterThanOrEqual(6);
+  expect(new Set(stripes.map(q => q.color))).toEqual(new Set(["#facc15"]));
+  expect(count(r.parts, "band").length + count(r.parts, "bib").length).toBe(0);
+  expect(pv2.map(q => q.piece).sort()).toEqual(r.parts.map(q => q.piece).sort());
+  // an old look builds none of the new parts
+  const old = await page.evaluate(() => { const b = window.__bb; return b.littles.slice(1).filter(l => !l.look.bands && !l.look.long && !l.look.overalls && !l.look.pantStripes).map((l, i) => b.outfit3D(b.littles.indexOf(l)).length); });
+  expect(old.every(n => n === 0)).toBe(true);
+  expect(errors).toEqual([]);
+});

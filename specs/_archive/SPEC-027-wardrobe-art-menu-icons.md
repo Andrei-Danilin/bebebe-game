@@ -1,6 +1,6 @@
 # SPEC-027 — Every piece of clothing has a picture, seven new clothes, comic icons for Play / Story / Character
 
-Status: ready (`art/28_menu_icons.webp`, `art/29_wardrobe_2.webp`, `art/34_small_icons.webp` are on master since e3f99e8, checked by Claude 2026-11-24: every sheet has its items in the asked order)
+Status: done (merged by "Merge SPEC-027", see git log)
 Complexity: M
 Branch: SPEC-027-wardrobe-icons
 Decided by: Andrei (2026-11-24):

@@ -1,6 +1,6 @@
 {
- "generated": "2026-11-24 17:22 UTC",
- "durationSec": 23,
+ "generated": "2026-11-24 18:29 UTC",
+ "durationSec": 39,
  "settings": {
   "SIM_DT": 0.03333333333333333,
   "SEEDS": 3,
@@ -276,7 +276,12 @@
     150,
     300,
     450
-   ]
+   ],
+   "wardrobe": {
+    "items": 43,
+    "paid": 28,
+    "total": 2330
+   }
   },
   "targets": [
    {

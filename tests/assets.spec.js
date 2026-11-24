@@ -28,6 +28,20 @@ test("every sprite named in the manifest exists in assets/ @fast", async () => {
   expect(manifest.sources.filter(s => !fs.existsSync(path.join(ROOT, "art", s.src))).map(s => s.src)).toEqual([]);
 });
 
+// SPEC-027 AC 1 / 2a: the menu icons (28), the 15 missing clothes (29) and the small icons (34) are cut into assets/
+test("the SPEC-027 sheets give their sprites: menu icons, the missing clothes, the small icons @fast", async () => {
+  const want = ["menu_play", "menu_story", "menu_character", "tab_progress",
+    "jacket_tshirt", "jacket_orange_stripes", "jacket_purple_zip", "jacket_pink_hoodie", "jacket_teal_zip",
+    "jacket_hero_cape", "jacket_ninja", "jacket_sailor", "jacket_raincoat", "hat_ninja",
+    "pants_black", "pants_red", "pants_green", "pants_pink_shorts", "pants_purple",
+    "ui_friends", "ui_dice", "ui_question", "ui_pencil", "ui_pack", "ui_ear", "ui_map", "ui_check", "ui_cross"];
+  expect(want.filter(n => !names.includes(n)), "named in scripts/assets.json").toEqual([]);
+  expect(want.filter(n => !fs.existsSync(path.join(ASSETS, n + ".webp"))), "written to assets/").toEqual([]);
+  const src = n => manifest.sources.find(s => (s.names || []).includes(n));
+  expect([src("menu_play")?.src, src("menu_play")?.size, src("jacket_tshirt")?.src, src("jacket_tshirt")?.size, src("ui_dice")?.src])
+    .toEqual(["28_menu_icons.webp", "button", "29_wardrobe_2.webp", "icon", "34_small_icons.webp"]);
+});
+
 test("no green left at sprite edges @fast", async () => {
   const bad = [];
   for (const n of keyed) {

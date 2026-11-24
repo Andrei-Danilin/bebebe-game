@@ -49,7 +49,7 @@ Every scene can be skipped and watched again in **Story** (▶ on the chapter pi
 
 ## Starting a level
 
-The **home screen** shows the logo and three big buttons in a column: **Play**, **Story**, **Character**. The small
+The **home screen** shows the logo and three big buttons in a column, each with a drawn icon: **Play**, **Story**, **Character**. The small
 🌐 and 🔊 icons in the corner switch the language and the sound. Your stars, worlds, coins and things are on the
 Character's **Progress** page.
 
@@ -235,8 +235,9 @@ inside each world. After level 20 the win screen says the world is done and offe
 
 ## Outfits
 
-Shop → **Wardrobe** tab: each player builds an outfit from 4 parts — hair (8), hat (12), jacket (10, incl. hoodies,
-superhero cape, ninja) and pants (8, incl. shorts); 🎲 picks a random outfit. The Big One has 6 looks
+Shop → **Wardrobe** tab: each player builds an outfit from 4 parts — hair (8), hat (12), jacket (15, incl. hoodies,
+superhero cape, ninja, rainbow, magic cape, detective coat) and pants (10, incl. shorts, overalls, striped pants); every
+piece has its own drawing next to the 3D preview; 🎲 picks a random outfit. The Big One has 6 looks
 (Classic, Ogre, Robot, Captain, Bear and the **Dad** from the story — bald, stubble, red t-shirt, jeans — the look of a
 new game; an older save that never changed the Big One gets the Dad too, and Classic stays in the wardrobe).
 Bots get different outfits every level.
