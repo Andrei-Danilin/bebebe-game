@@ -390,7 +390,7 @@ test("the loading screen shows within 1 s on a cold cache @fast", async ({ page 
 });
 
 // SPEC-030 AC 8–9 (done in SPEC-027): each home button — the icon at the left, CFG.MENU_LOOK.home.btnIconGap × the button height
-// from its left edge, vertically centred; the label centred in the whole button, or (a long label, after shrinking) shifted right
+// (one height for all three: Story's / Character's, so the icons line up) from its left edge, vertically centred; the label centred in the whole button, or (a long label, after shrinking) shifted right
 // just enough to clear the icon plus the gap. Every language of I18N, phone 667×375 and desktop 1280×720
 for (const [name, ctx] of [["667×375 phone", { viewport: { width: 667, height: 375 }, hasTouch: true, isMobile: true, query: "?phone=1" }],
   ["1280×720 desktop", { viewport: { width: 1280, height: 720 }, query: "" }]]) {
@@ -409,7 +409,7 @@ for (const [name, ctx] of [["667×375 phone", { viewport: { width: 667, height: 
         const btns = r.info.buttons;
         if (btns.map(b => b.id).join() !== "home:play,home:story,home:shop") bad.push(`${lang}: buttons ${btns.map(b => b.id)}`);
         for (const b of btns) {
-          const at = `${lang} ${b.id}`, gap = b.h * r.k, near = (p, q) => Math.abs(p - q) < 0.5;
+          const at = `${lang} ${b.id}`, gap = btns[1].h * r.k, near = (p, q) => Math.abs(p - q) < 0.5;   // review: one height — Story's
           if (!near(b.gap, gap) || !near(b.icon.x, b.x + gap)) bad.push(`${at}: icon left ${b.icon.x} ≠ ${b.x} + ${gap}`);
           if (!near(b.icon.y + b.icon.h / 2, b.y + b.h / 2)) bad.push(`${at}: icon not vertically centred`);
           if (!b.label.shifted && !near(b.label.cx, b.x + b.w / 2)) bad.push(`${at}: label centre ${b.label.cx} ≠ ${b.x + b.w / 2}`);
@@ -417,7 +417,8 @@ for (const [name, ctx] of [["667×375 phone", { viewport: { width: 667, height: 
           if (b.label.shifted && !near(b.label.x, b.icon.x + b.icon.w + gap)) bad.push(`${at}: shifted further than needed`);
           if (b.label.x + b.label.w > b.x + b.w + 0.5) bad.push(`${at}: label out of the button`);
         }
-        // (the Play button is taller, so its 12 % gap is wider: the icons start within a few px of each other, not exactly in one column)
+        const xs = btns.map(b => b.icon.x), ws = btns.map(b => b.icon.w);
+        if (Math.max(...xs) - Math.min(...xs) > 0.5 || Math.max(...ws) - Math.min(...ws) > 0.5) bad.push(`${lang}: icons not one column of one size`);
       }
       expect(bad).toEqual([]);
       expect(errors).toEqual([]);

@@ -355,6 +355,15 @@ test("the new clothes are built in 3D: rainbow bands, a coat hem, overalls, stri
   await frames(page);
   const pv = await page.evaluate(() => window.__bb.outfit3D("p1"));
   expect(pv.map(q => q.piece).sort()).toEqual(r.parts.map(q => q.piece).sort());
+  // review: the bib lies OVER every jacket — its front is ahead of the zip, the stripe / belt / rainbow rings and the cape's star
+  const over = [];
+  for (const j of ["rainbow", "tshirt", "stripes", "purple", "pinkhoodie", "cape", "ninja", "sailor", "bluezip", "redzip", "magiccape", "trench"]) {
+    await wear(j, "overalls");
+    await frames(page);
+    const c = await page.evaluate(() => window.__bb.bibClear("p1"));
+    if (!c || c.bibFront < c.jacketFront + 0.01) over.push(`${j}: bib front ${c && c.bibFront} vs jacket ${c && c.jacketFront}`);
+  }
+  expect(over).toEqual([]);
   // detective coat + striped pants
   await wear("trench", "striped");
   await frames(page);

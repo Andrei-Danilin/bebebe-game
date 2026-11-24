@@ -29,3 +29,21 @@ page (median 3.2 s vs 2.6 s). Since the loading starts at `artGate()`, the end o
 **First paint:** the loading screen (plain HTML with its own paper background) paints at ~70 ms on a cold cache
 (`first-paint`); test "the loading screen shows within 1 s on a cold cache" in `tests/art.spec.js`. `first-contentful-paint`
 is ~2 s here on master too (software rendering), so the test uses `first-paint`.
+
+## SPEC-027 — new clothes in 3D, emoji pictures (AC 5), measured 2026-11-24
+
+**Method:** `node scripts/perf.js --base master --rounds 6 --level 16 --wear trench,striped` (paired A/B, local GPU, below-normal
+priority, phone 844×390 `?phone=1` and desktop 960×640). Park 16: the bots wear Rainbow, the teal and purple zip jackets and
+the Overalls; player 1 wears the Detective coat and the Striped pants (in master the same level, its own clothes). Since
+SPEC-027 `perf.js` copies `assets/` next to the base build too, so both builds draw with art (before, the base build had no
+sprites and fell back to code drawing). JS = the game's rAF callback; GPU = the same + a 1-pixel readPixels.
+
+| Viewport | JS A → B (median of rounds) | ratio (median of pairs) | GPU A → B | ratio |
+|---|---|---|---|---|
+| phone 844×390 | 7.2 → 6.8 ms | ×1.10 | 10.9 → 10.3 ms | ×1.01 |
+| desktop 960×640 | 9.3 → 9.5 ms | ×1.00 | 13.9 → 14.9 ms | ×1.11 |
+
+The small new parts (rainbow bands, trouser stripes, overall buttons) cast no shadow. Within the SPEC-021 budget (+10 %) on
+the medians; the paired ratios sit at the edge. The machine was busy (other runs that hour: the same scene gave ×0.97–×1.4 on
+phone JS and ×0.96–×1.16 on GPU between runs; park 2 default scene ×1.29 / ×1.07 phone, ×1.04 / ×1.11 desktop): the spread
+between runs is larger than the difference between the builds.

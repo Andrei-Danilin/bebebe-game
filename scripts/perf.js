@@ -4,7 +4,8 @@
 //   JS — the game's rAF callback time (logic + three.js command submission);
 //   GPU — the same plus a 1-pixel readPixels after the frame (waits for the GPU to finish it).
 // Prints the median of the round medians for A and B and the median of the paired B/A ratios. Not part of any test run.
-//   node scripts/perf.js [--base <git ref>] [--rounds N] [--grain]   (--grain: paper grain on where the build has it)
+//   node scripts/perf.js [--base <git ref>] [--rounds N] [--grain] [--level N] [--wear id,id]   (--grain: paper grain on where the build
+// has it; --level: park level, default 2; --wear: player 1 owns and wears these jacket / pants ids where the build has them — SPEC-027)
 const path = require("path");
 const fs = require("fs");
 const os = require("os");
@@ -16,6 +17,7 @@ const ROOT = path.resolve(__dirname, "..");
 const THREE_DIR = path.join(ROOT, "node_modules", "three", "build");
 const arg = (name, def) => { const i = process.argv.indexOf(name); return i < 0 ? def : process.argv[i + 1]; };
 const baseRef = arg("--base", "master"), rounds = Number(arg("--rounds", 4)), grain = process.argv.includes("--grain");
+const level = Number(arg("--level", 2)), wear = (arg("--wear", "") || "").split(",").filter(Boolean);
 const FRAMES = 240;
 const fileUrl = p => "file:///" + p.replace(/\\/g, "/");
 
@@ -42,12 +44,16 @@ async function measure(browser, url, vw, vh, query) {
   await page.goto(url + query);
   await page.waitForFunction(() => window.__bbReady === true, null, { timeout: 60_000 });
   await page.waitForTimeout(1000);
-  await page.evaluate(g => {
-    const b = window.__bb;
+  await page.evaluate(([g, n, ids]) => {
+    const b = window.__bb, W = b.wardrobe(), own = { jacket: "jackets", pants: "pants" };
     if ("PAPER_GRAIN" in b.CFG) { b.CFG.PAPER_GRAIN = g; b.CFG.PAPER_GRAIN_PHONE = g; }
-    b.seedRandom(7); b.clearLevelCache(); b.world = "park"; b.level = 2; b.startGame(1);
+    for (const id of ids) for (const sl of ["jacket", "pants"]) {
+      const i = W[sl].findIndex(q => q.id === id);
+      if (i >= 0) { b.progress.owned[own[sl]].push(id); b.cycleOutfit("p1", sl, i - b.outfits.shown.p1[sl]); }
+    }
+    b.seedRandom(7); b.clearLevelCache(); b.world = "park"; b.level = n; b.startGame(1);
     b.big.state = "look"; b.big.timer = 999;
-  }, grain);
+  }, [grain, level, wear]);
   await page.waitForTimeout(2600);                       // the level banner is gone
   const out = {};
   for (const sync of [false, true]) {
@@ -63,9 +69,12 @@ async function measure(browser, url, vw, vh, query) {
 (async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bebebe-perf-"));
   fs.writeFileSync(path.join(dir, "index.html"), execFileSync("git", ["show", `${baseRef}:index.html`], { cwd: ROOT, maxBuffer: 64 * 1024 * 1024 }));
+  // SPEC-027: the sprites too, so both builds draw with art (without assets/ the base build fell back to code drawing); the base
+  // build asks only for its own ART_NAMES, all of which are still in assets/ (sprites are never renamed)
+  fs.cpSync(path.join(ROOT, "assets"), path.join(dir, "assets"), { recursive: true });
   const A = fileUrl(path.join(dir, "index.html")), B = fileUrl(path.join(ROOT, "index.html"));
   const browser = await chromium.launch({ args: browserArgs() });
-  console.log(`A = ${baseRef}, B = working copy, ${rounds} rounds, paper grain ${grain ? "on" : "off"}`);
+  console.log(`A = ${baseRef}, B = working copy, ${rounds} rounds, paper grain ${grain ? "on" : "off"}, park ${level}${wear.length ? ", player 1 wears " + wear : ""}`);
   for (const [name, vw, vh, q] of [["phone 844x390", 844, 390, "?phone=1"], ["desktop 960x640", 960, 640, ""]]) {
     const ra = [], rb = [];
     for (let k = 0; k < rounds; k++) { ra.push(await measure(browser, A, vw, vh, q)); rb.push(await measure(browser, B, vw, vh, q)); }
