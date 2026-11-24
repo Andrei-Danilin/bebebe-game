@@ -66,6 +66,77 @@ test("the story texts come from Kostya's story (docs/story.md)", { tag: "@fast" 
   expect(errors).toEqual([]);
 });
 
+// ---------- SPEC-026 AC 12–15: Dad's lines in the comic's empty speech bubbles ----------
+// Andrei's Russian lines; English and Spanish by Claude (spec table)
+const BUBBLES = {
+  ru: ["Ох, какой бардак!", "Ой, дети!", "Где мой кекс?!", "Это просто невозможно!!"],
+  en: ["Oh, what a mess!", "Oh, kids!", "Where's my cupcake?!", "This is just impossible!!"],
+  es: ["¡Uy, qué desorden!", "¡Ay, los chicos!", "¿¡Dónde está mi cupcake!?", "¡¡Esto es imposible!!"]
+};
+// the white regions of art/8_start.webp (1024×765) without the tails, measured for the spec and checked with sharp (SPEC-026)
+const BUBBLE_PX = [[255, 28, 432, 115], [785, 43, 940, 130], [132, 412, 245, 490], [633, 396, 809, 480]];
+test("SPEC-026: Dad's bubble lines (4 per language, Andrei's Russian in docs/story.md) and the bubble boxes in CFG", { tag: "@fast" }, async ({ page }) => {
+  const errors = await openGame(page, { sim: true });   // texts and numbers only
+  const d = await page.evaluate(() => { const b = window.__bb, S = b.CFG.MENU_LOOK.scene; return { bubbles: b.STORY[0].bubbles, boxes: S.bubbles, panels: S.panels }; });
+  expect(d.bubbles, "STORY[0].bubbles[lang][i], panel order").toEqual(BUBBLES);
+  for (const line of BUBBLES.ru) expect(STORY_MD, `"${line}" is written in docs/story.md`).toContain(line);
+  expect(d.boxes.length, "one box per panel").toBe(4);
+  d.boxes.forEach(([x, y, w, h, tx, ty], i) => {
+    const [px, py, pw, ph] = d.panels[i], [x0, y0, x1, y1] = BUBBLE_PX[i];
+    expect([x, y, x + w, y + h].map((v, j) => Math.round(v * (j % 2 ? 765 : 1024))), `bubble ${i + 1} in image pixels`).toEqual([x0, y0, x1, y1]);
+    expect(x >= px && y >= py && x + w <= px + pw && y + h <= py + ph, `bubble ${i + 1} inside panel ${i + 1}`).toBe(true);
+    expect(tx >= px && tx <= px + pw && ty >= py && ty <= py + ph, `bubble ${i + 1}'s tail tip inside its panel`).toBe(true);
+  });
+  expect(errors).toEqual([]);
+});
+
+// every intro page writes its line into its bubble, the text box inside the panel, never smaller than the captions' smallest size;
+// the Story's "How it began" (the whole page) writes all four
+async function bubbleProblems(page, phone) {
+  const fails = [];
+  for (const lang of LANGS) for (const scale of [1, 1.15]) {
+    await page.evaluate(([l, s]) => { const b = window.__bb; b.setLang(l); b.CFG.TEXT_TEST_SCALE = s; }, [lang, scale]);
+    for (let i = 0; i < 4; i++) {
+      await page.evaluate(k => { const b = window.__bb; b.openScene("intro"); for (let j = 0; j < k; j++) b.sceneNext(); }, i);
+      await frames(page);
+      const d = await page.evaluate(() => ({ info: window.__bb.sceneInfo, min: window.__bb.CFG.PHONE_TEXT.main, ui: window.__bb.uiSize, hud: window.__bb.hudRects }));
+      const at = `${lang} ×${scale} intro page ${i + 1}`, q = d.info && d.info.bubble;
+      if (!q) { fails.push(`${at}: no bubble`); continue; }
+      if (q.text !== BUBBLES[lang][i]) fails.push(`${at}: bubble "${q.text}"`);
+      const P = d.info.panel;
+      if (!(q.x >= P.x - 0.5 && q.y >= P.y - 0.5 && q.x + q.w <= P.x + P.w + 0.5 && q.y + q.h <= P.y + P.h + 0.5)) fails.push(`${at}: text box ${JSON.stringify(q)} leaves the panel ${JSON.stringify(P)}`);
+      if (q.rows > 2) fails.push(`${at}: ${q.rows} lines`);
+      if (phone ? q.size * d.ui.scale < d.min - 0.01 : q.size < 14 - 0.01) fails.push(`${at}: text ${q.size} below the captions' smallest size`);
+      if (q.own && !(q.bubble.x >= P.x - 0.5 && q.bubble.y >= P.y - 0.5 && q.bubble.x + q.bubble.w <= P.x + P.w + 0.5 && q.bubble.y + q.bubble.h <= P.y + P.h + 0.5))
+        fails.push(`${at}: its own bubble leaves the panel`);
+      const cap = d.hud.find(h => h.id === "scene:caption");
+      if (cap && q.x < cap.x + cap.w && q.x + q.w > cap.x && q.y < cap.y + cap.h && q.y + q.h > cap.y) fails.push(`${at}: bubble on the caption`);
+    }
+    await page.evaluate(() => { const b = window.__bb; b.sceneSkip(); b.openStory("began", "home"); });
+    await frames(page);
+    const st = await page.evaluate(() => ({ info: window.__bb.storyInfo, buttons: window.__bb.buttonRects }));
+    const bs = (st.info && st.info.bubbles) || [], at = `${lang} ×${scale} Story "How it began"`;
+    if (bs.map(q => q.text).join("|") !== BUBBLES[lang].join("|")) fails.push(`${at}: bubbles ${JSON.stringify(bs.map(q => q.text))}`);
+    for (const q of bs) {
+      const P = q.panel, pic = st.info.pic;
+      if (!(q.x >= P.x - 0.5 && q.y >= P.y - 0.5 && q.x + q.w <= P.x + P.w + 0.5 && q.y + q.h <= P.y + P.h + 0.5)) fails.push(`${at}: "${q.text}" leaves its panel`);
+      if (q.rows > 2) fails.push(`${at}: "${q.text}" in ${q.rows} lines`);
+      if (!(P.x >= pic.x - 0.5 && P.y >= pic.y - 0.5 && P.x + P.w <= pic.x + pic.w + 0.5 && P.y + P.h <= pic.y + pic.h + 0.5)) fails.push(`${at}: panel outside the picture`);
+      for (const b of st.buttons) { const r = q.own ? q.bubble : q; if (r.x < b.x + b.w && r.x + r.w > b.x && r.y < b.y + b.h && r.y + r.h > b.y) fails.push(`${at}: "${q.text}" under button ${b.id}`); }
+    }
+  }
+  await page.evaluate(() => { const b = window.__bb; b.CFG.TEXT_TEST_SCALE = 1; b.setLang("en"); b.mode = "home"; });
+  return fails;
+}
+test("SPEC-026: Dad's lines sit in the comic's bubbles (desktop)", async ({ desk: page }) => {
+  const fails = await bubbleProblems(page, false);
+  expect(fails, fails.slice(0, 15).join("\n")).toEqual([]);
+});
+test("SPEC-026: Dad's lines sit in the comic's bubbles (phone 667×375)", async ({ phonePage: page }) => {
+  const fails = await bubbleProblems(page, true);
+  expect(fails, fails.slice(0, 15).join("\n")).toEqual([]);
+});
+
 // ---------- AC 9, 12: the start comic on the very first launch ----------
 // __bb.scene = { id, page, pages } or null (logic); __bb.sceneInfo = what the scene screen drew this frame (drawn):
 // { id, page, pages, art: "image" | "placeholder" | "thanks", caption, crop }

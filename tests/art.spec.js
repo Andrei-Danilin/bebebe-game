@@ -56,6 +56,11 @@ test("the game works without art: assets/ missing → every screen draws as befo
   const seen = await everyScreen(page);
   expect(seen.map(s => s[1])).toEqual(["home", "map", "levelCard", "story", "shop", "shop", "shop", "shop", "play", "pause", "win", "lose", "home"]);
   expect(await page.evaluate(() => window.__bb.artUse), "no sprite drawn: every screen used its code drawing").toEqual({});
+  // SPEC-026: the start comic without its picture (placeholder) writes no bubbles
+  await page.evaluate(() => window.__bb.openScene("intro"));
+  await frames(page);
+  expect(await page.evaluate(() => { const i = window.__bb.sceneInfo; return [i.art, i.bubble]; })).toEqual(["placeholder", null]);
+  await page.evaluate(() => window.__bb.sceneSkip());
   expect(errors.filter(e => !failedLoads(e))).toEqual([]);
 });
 

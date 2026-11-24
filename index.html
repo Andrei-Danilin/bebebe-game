@@ -334,9 +334,19 @@ const CFG = {
       doodle: { trunk: "#8b5a2b", ball: "#ffffff", window: "#bae6fd", flag: "#ef4444", palm: "#a0703f", leaf: "#16a34a", snow: "#ffffff", road: "#6b7280" } },
     // SPEC-022: заставки истории — клетки комикса 8_start (доли картинки [x, y, w, h], по порядку подписей), кегль подписи
     // (компьютер / телефон, UI px до cpx), строк подписи на компьютере (картинка над подписью), доля ширины под картинку на
-    // телефоне (картинка слева, подпись справа), ширина кнопок на компьютере, кегль «Спасибо!»
+    // телефоне (картинка слева, подпись справа), ширина кнопок на компьютере, кегль «Спасибо!».
+    // SPEC-026: облачка комикса для слов папы (STORY[0].bubbles) — [x, y, w, h, кончик хвостика x, y], доли всей картинки 8_start
+    // (1024×765; белое внутри облачка без хвостика, промерено по картинке), по клетке; какая часть облачка под текстом (ширина, высота:
+    // облачко круглое), строк не больше, самый мелкий текст на компьютере (как у подписи; телефон — PHONE_TEXT.main), цвет букв;
+    // своё облачко, когда слова не влезли: какая его часть под текстом (ширина, высота), во сколько раз больше нарисованного
+    // облачка самое меньшее (закрывает его), не шире доли клетки, отступ от края клетки (UI px компьютера), длина хвостика (доля
+    // высоты облачка), неровность контура (доля радиуса), «квадратность» (степень суперэллипса: 2 — эллипс, больше — ближе к
+    // прямоугольнику со скруглёнными углами, слова влезают лучше) и толщина контура (UI px компьютера)
     scene: { panels: [[0, 0, 0.5, 0.5], [0.5, 0, 0.5, 0.5], [0, 0.5, 0.5, 0.5], [0.5, 0.5, 0.5, 0.5]], text: 22, phoneText: 17, lines: 3,
-      phonePic: 0.6, btnW: 220, thanks: 46, phoneThanks: 30, madeBy: 24, phoneMadeBy: 18, cupcake: 0.42 },
+      phonePic: 0.6, btnW: 220, thanks: 46, phoneThanks: 30, madeBy: 24, phoneMadeBy: 18, cupcake: 0.42,
+      bubbles: [[255 / 1024, 28 / 765, 177 / 1024, 87 / 765, 270 / 1024, 136 / 765], [785 / 1024, 43 / 765, 155 / 1024, 87 / 765, 867 / 1024, 150 / 765],
+        [132 / 1024, 412 / 765, 113 / 1024, 78 / 765, 241 / 1024, 502 / 765], [633 / 1024, 396 / 765, 176 / 1024, 84 / 765, 664 / 1024, 516 / 765]],
+      bubbleIn: [0.84, 0.72], bubbleLines: 2, bubbleMin: 14, bubbleInk: "#1b1b1b", ownIn: [0.86, 0.7], ownCover: 1.08, ownMax: 1, ownEdge: 4, ownTail: 0.42, ownWobble: 0.03, ownRound: 3, ownLine: 3 },
     story: { pic: 0.47, text: 22, phoneText: 18, rule: 17, phoneRule: 15, dot: 6, paper: "#fffdf5", pencil: "#94a3b8", heart: "#f9a8d4", backW: 170, icon: 30 } },
   // типы уровней внутри каждого мира (SPEC-006): 1 — рисунок детей, 2–4 поляна, 5–7 деревня, 8–10 река,
   // 11–13 дом с комнатами, 14–16 арена, 17–20 лабиринт; число записей = уровней в мире
@@ -757,6 +767,7 @@ const I18N = {
 //  Где история молчит (бонусные миры), одна простая фраза тем же голосом — написал Claude, проверить с Костей (specs/BACKLOG.md).
 //  captions — подписи комикса «Как всё началось» (по одной на клетку 8_start); text главы «начало» — они же короче (влезает в телефон);
 //  boss — фраза заставки перед боссом мира (SPEC-022, только основные миры: у бонусных боссов нет).
+//  bubbles — SPEC-026: слова папы в облачках комикса 8_start, по клетке (русские — Андрея, английские и испанские — Claude; docs/story.md).
 //  image — своя картинка главы (null — комикс из art/, STORY_ART; нет и его — заглушка «Комикс скоро будет»).
 // =====================================================================
 const STORY = [
@@ -776,7 +787,11 @@ const STORY = [
     text: {
       en: "Dad came home from work to an untidy house. Kids knocked him over, and somebody ate his favourite cupcake. He became the grumpiest dad and went to the café, and the other dads got angry too.",
       es: "Papá volvió del trabajo y la casa estaba desordenada. Unos chicos lo tiraron al piso y alguien se comió su cupcake favorito. Se volvió el papá más enojado, fue al café, y los otros papás también se enojaron.",
-      ru: "Папа пришёл с работы, а дома не убрано. Дети сбили его с ног, а любимое пирожное съели. Он стал самым злым папой и ушёл в кафе к другим папам — и они тоже стали злыми." } },
+      ru: "Папа пришёл с работы, а дома не убрано. Дети сбили его с ног, а любимое пирожное съели. Он стал самым злым папой и ушёл в кафе к другим папам — и они тоже стали злыми." },
+    bubbles: {
+      en: ["Oh, what a mess!", "Oh, kids!", "Where's my cupcake?!", "This is just impossible!!"],
+      es: ["¡Uy, qué desorden!", "¡Ay, los chicos!", "¿¡Dónde está mi cupcake!?", "¡¡Esto es imposible!!"],
+      ru: ["Ох, какой бардак!", "Ой, дети!", "Где мой кекс?!", "Это просто невозможно!!"] } },
   { id: "park", image: null, text: {
     en: "The angry dads moved to four worlds. The first one is the Park. The kids want to make the dads kind again: you have to hug them, lots of times!",
     es: "Los papás enojados se fueron a vivir a cuatro mundos. El primero es el Parque. Los chicos quieren que los papás vuelvan a ser buenos: ¡hay que abrazarlos, muchas veces!",
@@ -2518,9 +2533,10 @@ function chapterOpen(c) {
 // второй раз сама не откроется; пересмотр из «Истории» не отмечается
 let storyScene = null;
 const storyOf = id => STORY.find(c => c.id === id);
-// страницы: { art, crop ([x, y, w, h] — доли картинки или null — вся), text } или { thanks: true } (карточка «Спасибо» после финала)
+// страницы: { art, crop ([x, y, w, h] — доли картинки или null — вся), text, bubbles? } или { thanks: true } (карточка «Спасибо» после финала)
 function scenePages(id) {
-  if (id === "intro") return CFG.MENU_LOOK.scene.panels.map((crop, i) => ({ art: STORY_ART.began, crop, text: storyOf("began").captions[lang][i] }));
+  if (id === "intro") return CFG.MENU_LOOK.scene.panels.map((crop, i) => ({ art: STORY_ART.began, crop, text: storyOf("began").captions[lang][i],
+    bubbles: [{ i, text: storyOf("began").bubbles[lang][i] }] }));   // SPEC-026: слова папы в облачке этой клетки
   if (id === "ending") return [{ art: STORY_ART.ended, crop: null, text: storyOf("ended").text[lang] }, { thanks: true }];
   const [kind, w] = id.split("_");
   return [{ art: STORY_ART[w], crop: null, text: kind === "boss" ? storyOf(w).boss[lang] : storyOf(w).text[lang] }];
@@ -5091,16 +5107,21 @@ function drawStory() {
   const mh = by - g - top, pw = Math.min((X1 - X0) * S.pic, mh * 1.4), pic = { x: X0, y: top, w: pw, h: mh };
   // SPEC-020: картинка главы — свой путь (c.image) или комикс из art/ (STORY_ART); нет — заглушка
   const own = open && c.image ? storyPicture(c) : null, artName = open && !c.image ? STORY_ART[c.id] : null, img = own || (artName && art(artName));
+  let imgRect = null;
   if (img) {
     const fr = 5 * k, sc = Math.min((pic.w - 2 * fr) / img.width, (pic.h - 2 * fr) / img.height), iw = img.width * sc, ih = img.height * sc;
     const ix = pic.x + (pic.w - iw) / 2, iy = pic.y + (pic.h - ih) / 2;
+    imgRect = [ix, iy, iw, ih];
     rr(ix - fr, iy - fr, iw + 2 * fr, ih + 2 * fr, 6 * k); fillStroke(S.paper, 3 * k);   // бумажная рамка
     ctx.drawImage(img, ix, iy, iw, ih);
     if (artName) noteArt(artName);
     tape(ix + 6 * k, iy + 2 * k, -0.7, k * 0.8); tape(ix + iw - 6 * k, iy + 2 * k, 0.7, k * 0.8);
   } else storyPlaceholder(pic, !open);
+  // SPEC-026: «Как всё началось» — комикс целиком: слова папы во всех четырёх облачках
+  const bubbles = img && artName && c.bubbles ? drawBubbles(c.bubbles[lang].map((text, i) => ({ i, text })), [0, 0, 1, 1], ...imgRect) : [];
   if (open) {                                                // SPEC-022: ▶ в углу картинки — посмотреть заставку главы ещё раз
-    const r = B, bx = pic.x + pic.w - r - 4 * k, byy = pic.y + 4 * k;
+    // SPEC-026: в правом нижнем углу картинки (в правом верхнем — облачко второй клетки комикса)
+    const fr = imgRect || [pic.x, pic.y, pic.w, pic.h], r = B, bx = fr[0] + fr[2] - r - 4 * k, byy = fr[1] + fr[3] - r - 4 * k;
     if (!drawArtFit("round_play", bx + r / 2, byy + r / 2, r * 1.15)) { circle(bx + r / 2, byy + r / 2, r / 2); fillStroke(M.play, 3 * k); label("▶", bx + r / 2 + 2 * k, byy + r / 2, r * 0.45, "#fff"); }
     regButton(bx, byy, r, r, "▶", watchChapter, "story:scene", r);
   }
@@ -5111,11 +5132,83 @@ function drawStory() {
   rowsAt(open ? "story:text" : "story:locked", b, tx + tW / 2, top + Math.max(0, (mh - th) / 2), open ? M.ink : M.lockedInk);
   hudRects[hudRects.length - 1].text = text;
   if (PHONE) noteText("main", b.sz);
-  storyInfo = { chapter: c.id, index: storyCh, locked: !open, page: "chapters", title, text, art: !open ? "locked" : img ? "image" : "placeholder", load: storyLoad(c), pic };
+  storyInfo = { chapter: c.id, index: storyCh, locked: !open, page: "chapters", title, text, art: !open ? "locked" : img ? "image" : "placeholder", load: storyLoad(c), pic, bubbles };
+}
+// ---------- SPEC-026: слова папы в пустых облачках комикса 8_start (заставка «Как всё началось» и глава в «Истории») ----------
+// строки текста облачка: кегль от size до min (шаг 0,5), не больше lines строк, не шире maxW и не выше maxH (× TEXT_TEST_SCALE);
+// → { rows, sz, w, h, fit } (fit = false: не влезло и самым мелким — тогда строки самым мелким, их может быть больше lines)
+function bubbleRows(text, maxW, maxH, size, min, lines) {
+  const lh = 1.15;
+  for (let sz = size; ; sz = Math.max(min, sz - 0.5)) {
+    ctx.font = `800 ${sz}px system-ui, "Segoe UI", sans-serif`;
+    const rows = [];
+    let cur = "";
+    for (const wd of text.split(" ")) { const t = cur ? cur + " " + wd : wd; if (scaledW(t) > maxW && cur) { rows.push(cur); cur = wd; } else cur = t; }
+    rows.push(cur);
+    const w = Math.max(...rows.map(scaledW)), h = rows.length * sz * lh;
+    const fit = rows.length <= lines && w <= maxW && h <= maxH;
+    if (fit || sz <= min) return { rows, sz, w, h, fit, lh };
+  }
+}
+// неровный контур облачка (как фломастером): суперэллипс степени n с центром cx, cy, полуосями rx, ry; неровность — синусы, без случайности
+function wobblyBubble(cx, cy, rx, ry, wob, n) {
+  const sp = (v, e) => Math.sign(v) * Math.abs(v) ** e;
+  ctx.beginPath();
+  for (let j = 0; j <= 48; j++) {
+    const a = j / 48 * Math.PI * 2, f = 1 + wob * (Math.sin(a * 5 + 0.7) + 0.6 * Math.sin(a * 9 + 2.1)) / 1.6;
+    const x = cx + sp(Math.cos(a), 2 / n) * rx * f, y = cy + sp(Math.sin(a), 2 / n) * ry * f;
+    if (j) ctx.lineTo(x, y); else ctx.moveTo(x, y);
+  }
+  ctx.closePath();
+}
+// list — [{ i, text }] (облачко i = клетка i), cr — какая часть картинки нарисована (доли [x, y, w, h]), ix…ih — где она на экране.
+// Слова — по центру облачка, тёмные, жирные,
+// до двух строк, мельче — до самого мелкого текста подписи; не влезли и так — своё облачко поверх нарисованного (белое, неровный
+// чёрный контур, хвостик в ту же сторону), внутри клетки, по размеру слов.
+// → [{ i, text, x, y, w, h (рамка строк), size, rows, own, bubble (своё облачко или null), panel (клетка на экране) }]
+function drawBubbles(list, cr, ix, iy, iw, ih) {
+  const S = CFG.MENU_LOOK.scene, k = PHONE ? cpx(1) : 1, min = PHONE ? minPx("main") : S.bubbleMin, max = Math.max(min, PHONE ? cpx(S.phoneText) : S.text);
+  const X = f => ix + (f - cr[0]) / cr[2] * iw, Y = f => iy + (f - cr[1]) / cr[3] * ih, [inW, inH] = S.bubbleIn;
+  const out = [];
+  for (const { i, text } of list) {
+    const [bx, by, bw, bh, tx, ty] = S.bubbles[i], [px, py, pw, ph] = S.panels[i];
+    const box = { x: X(bx), y: Y(by), w: X(bx + bw) - X(bx), h: Y(by + bh) - Y(by) };
+    const panel = { x: Math.max(ix, X(px)), y: Math.max(iy, Y(py)) };
+    panel.w = Math.min(ix + iw, X(px + pw)) - panel.x; panel.h = Math.min(iy + ih, Y(py + ph)) - panel.y;
+    let b = bubbleRows(text, box.w * inW, box.h * inH, max, min, S.bubbleLines), cx = box.x + box.w / 2, cy = box.y + box.h / 2, bubble = null;
+    if (!b.fit) {
+      // своё облачко: слова самым мелким, ширина строки растёт, пока строк не больше lines (но облачко не шире ownMax клетки)
+      const m = S.ownEdge * k, [oW, oH] = S.ownIn, wMax = (panel.w * S.ownMax - 2 * m) * oW;
+      let w = box.w * inW;
+      do { b = bubbleRows(text, w, Infinity, min, min, S.bubbleLines); w *= 1.12; } while (b.rows.length > S.bubbleLines && w < wMax * 1.12);
+      // не меньше нарисованного облачка: пустого облачка не видно (SPEC-026: ни одной клетки с пустым облачком)
+      const ow = Math.min(panel.w - 2 * m, Math.max(box.w * S.ownCover, b.w / oW)), oh = Math.min(panel.h - 2 * m, Math.max(box.h * S.ownCover, b.h / oH));
+      cx = clamp(cx, panel.x + m + ow / 2, panel.x + panel.w - m - ow / 2); cy = clamp(cy, panel.y + m + oh / 2, panel.y + panel.h - m - oh / 2);
+      bubble = { x: cx - ow / 2, y: cy - oh / 2, w: ow, h: oh };
+      // хвостик — туда же, куда у нарисованного облачка (к его кончику), не дальше края клетки
+      const a = Math.atan2(Y(ty) - (box.y + box.h / 2), X(tx) - (box.x + box.w / 2)), len = oh * S.ownTail;
+      const tipX = clamp(cx + Math.cos(a) * (ow / 2 + len), panel.x + m, panel.x + panel.w - m), tipY = clamp(cy + Math.sin(a) * (oh / 2 + len), panel.y + m, panel.y + panel.h - m);
+      ctx.save();
+      ctx.lineWidth = S.ownLine * k; ctx.strokeStyle = S.bubbleInk; ctx.fillStyle = "#ffffff"; ctx.lineJoin = "round";
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(a - 0.3) * ow * 0.42, cy + Math.sin(a - 0.3) * oh * 0.42); ctx.lineTo(tipX, tipY);
+      ctx.lineTo(cx + Math.cos(a + 0.3) * ow * 0.42, cy + Math.sin(a + 0.3) * oh * 0.42); ctx.closePath();
+      ctx.fill(); ctx.stroke();
+      wobblyBubble(cx, cy, ow / 2, oh / 2, S.ownWobble, S.ownRound); ctx.fill(); ctx.stroke();
+      ctx.restore();
+    }
+    // строки по центру облачка
+    const lh = b.sz * b.lh, top = cy - b.h / 2;
+    ctx.font = `800 ${b.sz}px system-ui, "Segoe UI", sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = S.bubbleInk;
+    b.rows.forEach((r, j) => ctx.fillText(r, cx, top + lh * (j + 0.5)));
+    if (PHONE) noteText("main", b.sz);
+    out.push({ i, text, x: cx - b.w / 2, y: top, w: b.w, h: b.h, size: b.sz, rows: b.rows.length, own: !!bubble, bubble, panel });
+  }
+  return out;
 }
 // ---------- SPEC-022: заставка истории — картинка (комикс 8_start — по клетке), подпись, «Пропустить» и «Дальше» / «Играть» ----------
 // Компьютер: картинка над подписью; телефон: картинка слева, подпись справа. Нет картинки — заглушка истории (бумажный лист).
-// sceneInfo (для тестов) — { id, page, pages, art: "image" | "placeholder" | "thanks", caption, crop }
+// sceneInfo (для тестов) — { id, page, pages, art: "image" | "placeholder" | "thanks", caption, crop, bubble, panel } (SPEC-026: bubble, panel)
 let sceneInfo = null;
 function drawScene() {
   if (!storyScene) return;
@@ -5148,7 +5241,7 @@ function drawScene() {
   const img = art(pg.art), cr = pg.crop || [0, 0, 1, 1];
   const aspect = img ? (img.width * cr[2]) / (img.height * cr[3]) : 16 / 9;
   const size = PHONE ? cpx(S.phoneText) : S.text, min = minMain;
-  let pic, tx, tW, ty, b;
+  let pic, tx, tW, ty, b, bubbles = [], panel = null;
   if (PHONE) {                                                // картинка слева, подпись справа (по высоте — посередине)
     const pw = Math.min(area.w * S.phonePic, area.h * aspect);
     pic = { x: area.x, y: area.y, w: pw, h: area.h };
@@ -5169,11 +5262,14 @@ function drawScene() {
     ctx.drawImage(img, img.width * cr[0], img.height * cr[1], sw, sh, ix, iy, iw, ih);
     noteArt(pg.art);
     tape(ix + 6 * k, iy + 2 * k, -0.7, k * 0.8); tape(ix + iw - 6 * k, iy + 2 * k, 0.7, k * 0.8);
+    if (pg.bubbles) bubbles = drawBubbles(pg.bubbles, cr, ix, iy, iw, ih);   // SPEC-026: слова папы в облачке клетки
+    panel = { x: ix, y: iy, w: iw, h: ih };
   } else storyPlaceholder(pic, false);
   rowsAt("scene:caption", b, tx + tW / 2, ty, M.ink);
   hudRects[hudRects.length - 1].text = pg.text;
   if (PHONE) noteText("main", b.sz);
-  sceneInfo = { id: storyScene.id, page: storyScene.page, pages: n, art: img ? "image" : "placeholder", caption: pg.text, crop: pg.crop };
+  sceneInfo = { id: storyScene.id, page: storyScene.page, pages: n, art: img ? "image" : "placeholder", caption: pg.text, crop: pg.crop,
+    bubble: bubbles[0] || null, panel };   // SPEC-026: облачко клетки (рамка строк, кегль, своё ли облачко) и где нарисована клетка
 }
 // SPEC-016: «Открылись бонусные миры!» на экране победы — только после победы, открывшей их (lastReward.bonusUnlocked);
 // плашка в hudRects (bonus-note), для тестов — bonusNote { text, x, y, w, h, size, textW }
