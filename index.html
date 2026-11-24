@@ -521,7 +521,9 @@ const I18N = {
     typeLines: { classic: "Our own drawing — the very first map!", meadow: "Open grass — hide in the bushes!", village: "Little houses — sneak around the corners!",
       river: "A river with bridges — choose your way across!", rooms: "A big house — peek through the doors!", arena: "A ring to run around — get behind him!",
       maze: "A maze — find the way between the walls!" },
-    bossLine: "The boss: the grumpiest dad of this world. Lots of hugs needed!",
+    // SPEC-022: строка карточки 20-го уровня — по истории Кости: в Школе самый злой папа, в других мирах — главный папа мира (босс)
+    bossLine: { park: "Boss: the main dad of the Park. He is stronger than ordinary dads!", field: "Boss: the main dad of the Football field. He is stronger than ordinary dads!",
+      city: "Boss: the main dad of the City. He is stronger than ordinary dads!", school: "The grumpiest dad! He can push several kids at once!" },
     chapters: { began: "How it began", ended: "How it ended" }, endedLocked: "Win level 20 at the School to read the ending", howToPlay: "How to play",
     upg: { fastFeet: { name: "Fast feet", desc: p => `+${p}% speed` }, longItems: { name: "Long items", desc: () => "Items last longer" },
       quickHelp: { name: "Quick help", desc: () => "Lift friends faster" } },
@@ -575,7 +577,8 @@ const I18N = {
     typeLines: { classic: "¡Nuestro dibujo, el primer mapa de todos!", meadow: "Pasto abierto: ¡escondete en los arbustos!", village: "Casitas: ¡andá a escondidas por las esquinas!",
       river: "Un río con puentes: ¡elegí por dónde cruzar!", rooms: "Una casa grande: ¡espiá por las puertas!", arena: "Una pista en ronda: ¡ponete detrás de él!",
       maze: "Un laberinto: ¡buscá el camino entre las paredes!" },
-    bossLine: "El jefe: el papá más gruñón de este mundo. ¡Hacen falta muchos abrazos!",
+    bossLine: { park: "Jefe: el papá principal del Parque. ¡Es más fuerte que los papás comunes!", field: "Jefe: el papá principal de la Cancha. ¡Es más fuerte que los papás comunes!",
+      city: "Jefe: el papá principal de la Ciudad. ¡Es más fuerte que los papás comunes!", school: "¡El papá más enojado! ¡Puede empujar a varios chicos a la vez!" },
     chapters: { began: "Cómo empezó", ended: "Cómo terminó" }, endedLocked: "Ganá el nivel 20 de la Escuela para leer el final", howToPlay: "Cómo se juega",
     upg: { fastFeet: { name: "Pies rápidos", desc: p => `+${p}% velocidad` }, longItems: { name: "Cosas duraderas", desc: () => "Duran más" },
       quickHelp: { name: "Ayuda rápida", desc: () => "Levantás más rápido" } },
@@ -631,7 +634,8 @@ const I18N = {
     typeLines: { classic: "Наш рисунок — самая первая карта!", meadow: "Открытая поляна — прячься в кустах!", village: "Домики — подкрадывайся из-за углов!",
       river: "Река с мостиками — выбирай, где перейти!", rooms: "Большой дом — заглядывай в двери!", arena: "Кольцо — обеги и зайди ему за спину!",
       maze: "Лабиринт — найди дорогу между стенами!" },
-    bossLine: "Босс — самый ворчливый папа этого мира. Нужно много обнимашек!",
+    bossLine: { park: "Босс — главный папа Парка. Он сильнее обычных пап!", field: "Босс — главный папа Футбольного поля. Он сильнее обычных пап!",
+      city: "Босс — главный папа Города. Он сильнее обычных пап!", school: "Самый злой папа! Может толкнуть сразу нескольких детей!" },
     chapters: { began: "Как всё началось", ended: "Как всё закончилось" }, endedLocked: "Пройди 20-й уровень в Школе, чтобы прочитать конец", howToPlay: "Как играть",
     upg: { fastFeet: { name: "Быстрые ноги", desc: p => `+${p}% скорости` }, longItems: { name: "Долгие вещи", desc: () => "Действуют дольше" },
       quickHelp: { name: "Быстрая помощь", desc: () => "Поднимаешь быстрее" } },
@@ -648,45 +652,74 @@ const I18N = {
   }
 };
 // =====================================================================
-//  ИСТОРИЯ (SPEC-017): главы по порядку — начало, миры по сюжету, бонусные миры, конец.
-//  Тексты написаны по сюжету из спеков (решено в ходе работы, проверить с детьми: см. specs/BACKLOG.md).
-//  image — картинка главы (art/story/<id>.webp, когда появятся рисунки; null — заглушка «Комикс скоро будет»).
-//  Пока картинок нет, пути не заданы: страница с диска (file://) не запрашивает файлы, которых нет.
+//  ИСТОРИЯ (SPEC-017; SPEC-022: тексты — из истории Кости, docs/story.md): главы по порядку — начало, миры, бонусные миры, конец.
+//  Русский — словами Кости (сокращено, только где не влезало), английский и испанский (voseo) — простой перевод.
+//  Где история молчит (бонусные миры), одна простая фраза тем же голосом — написал Claude, проверить с Костей (specs/BACKLOG.md).
+//  captions — подписи комикса «Как всё началось» (по одной на клетку 8_start; text главы — они же подряд);
+//  boss — фраза заставки перед боссом мира (SPEC-022, только основные миры: у бонусных боссов нет).
+//  image — своя картинка главы (null — комикс из art/, STORY_ART; нет и его — заглушка «Комикс скоро будет»).
 // =====================================================================
 const STORY = [
-  { id: "began", image: null, text: {
-    en: "One sunny day the dads in our neighbourhood got grumpy. They stopped playing and only grumbled! The Little Ones made a plan: sneak up from behind and give each dad a big hug, until he is kind again.",
-    es: "Un día de sol, los papás del barrio se pusieron gruñones. ¡Dejaron de jugar y solo refunfuñaban! Los Chiquitos hicieron un plan: acercarse por detrás y darle a cada papá un abrazo grande, hasta que vuelva a ser bueno.",
-    ru: "Однажды солнечным днём папы в нашем районе стали ворчливыми. Они перестали играть и только ворчали! Маленькие придумали план: подкрасться сзади и крепко обнять каждого папу, пока он снова не станет добрым." } },
+  { id: "began", image: null, captions: {
+    en: ["Dad had an ordinary day. He came home from work, and the house was untidy: everything thrown around and dirty. He didn't like it.",
+      "Then some kids ran past, playing, and knocked him off his feet. He started to get cross.",
+      "Then he opened the fridge: no food, and somebody had eaten his very favourite cupcake. Now he became the grumpiest dad!",
+      "Dad went to a café where lots of other dads were sitting, and told them what made him angry. All the dads understood him and got angry too."],
+    es: ["Papá tuvo un día común. Volvió del trabajo y la casa estaba desordenada: todo tirado y sucio. No le gustó nada.",
+      "Después pasaron corriendo unos chicos que jugaban y lo tiraron al piso. Empezó a enojarse.",
+      "Después abrió la heladera: no había comida, ¡y alguien se había comido su cupcake favorito! Ahí se volvió el papá más enojado.",
+      "Papá se fue a un café donde había muchos otros papás y les contó lo que lo había enojado. Todos lo entendieron y también se enojaron."],
+    ru: ["У папы был обычный день. Он пришёл с работы, а дома не убрано, всё разбросано и грязно. Ему это не нравится.",
+      "Потом мимо пробегают играющие дети и сбивают его с ног. Он начинает сердиться.",
+      "Потом он открывает холодильник, а еды нет, и его самое любимое пирожное съели. Тут он становится самым злым папой!",
+      "Папа уходит в кафе, где сидят много других пап, и рассказывает им, что его разозлило. Все папы его понимают и тоже становятся злыми."] } },
   { id: "park", image: null, text: {
-    en: "The grumpy dads moved into the park. Hug them from behind until they are kind again!",
-    es: "Los papás gruñones se mudaron al parque. ¡Abrazalos por detrás hasta que vuelvan a ser buenos!",
-    ru: "Ворчливые папы поселились в парке. Обнимай их сзади, пока они снова не станут добрыми!" } },
+    en: "The angry dads moved to four worlds. The first one is the Park. The kids want to make the dads kind again: you have to hug them, lots of times!",
+    es: "Los papás enojados se fueron a vivir a cuatro mundos. El primero es el Parque. Los chicos quieren que los papás vuelvan a ser buenos: ¡hay que abrazarlos, muchas veces!",
+    ru: "Злые папы поселились в четырёх мирах. Первый — Парк. Дети хотят сделать пап снова добрыми: для этого их надо обнимать, много раз!" },
+    boss: {
+      en: "This is the boss, the main dad of the Park. He is stronger than ordinary dads. Hug him lots of times until he is kind!",
+      es: "Este es el jefe, el papá principal del Parque. Es más fuerte que los papás comunes. ¡Abrazalo muchas veces hasta que vuelva a ser bueno!",
+      ru: "Это босс — главный папа Парка. Он сильнее обычных пап. Обнимай его много раз, пока он не станет добрым!" } },
   { id: "field", image: null, text: {
-    en: "Now a grumpy dad guards the football field. Sneak past the goals and hug him!",
-    es: "Ahora un papá gruñón cuida la cancha. ¡Pasá entre los arcos y abrazalo!",
-    ru: "Теперь футбольное поле сторожит ворчливый папа. Проберись мимо ворот и обними его!" } },
+    en: "The second world is the Football field. It's hard: a dad can push you, you can bump yourself and all that.",
+    es: "El segundo mundo es la Cancha. Es difícil: el papá te puede empujar, te podés golpear y todo eso.",
+    ru: "Второй мир — Футбольное поле. Это сложно: папа может толкнуть, можно удариться и всё такое." },
+    boss: {
+      en: "This is the boss, the main dad of the Football field. He is stronger than ordinary dads. Hug him lots of times until he is kind!",
+      es: "Este es el jefe, el papá principal de la Cancha. Es más fuerte que los papás comunes. ¡Abrazalo muchas veces hasta que vuelva a ser bueno!",
+      ru: "Это босс — главный папа Футбольного поля. Он сильнее обычных пап. Обнимай его много раз, пока он не станет добрым!" } },
   { id: "city", image: null, text: {
-    en: "The city streets are full of grumpy dads. Hide behind the cars and hug them all!",
-    es: "Las calles de la ciudad están llenas de papás gruñones. ¡Escondete detrás de los autos y abrazalos a todos!",
-    ru: "На улицах города полно ворчливых пап. Прячься за машинами и обними всех!" } },
+    en: "The third world is the City. When a dad is hugged lots of times, he becomes kind and goes home, and the kids get coins.",
+    es: "El tercer mundo es la Ciudad. Cuando a un papá lo abrazan muchas veces, se vuelve bueno y se va a su casa, y los chicos ganan monedas.",
+    ru: "Третий мир — Город. Когда папу обняли много раз, он становится добрым и уходит домой, а дети получают монетки." },
+    boss: {
+      en: "This is the boss, the main dad of the City. He is stronger than ordinary dads. Hug him lots of times until he is kind!",
+      es: "Este es el jefe, el papá principal de la Ciudad. Es más fuerte que los papás comunes. ¡Abrazalo muchas veces hasta que vuelva a ser bueno!",
+      ru: "Это босс — главный папа Города. Он сильнее обычных пап. Обнимай его много раз, пока он не станет добрым!" } },
   { id: "school", image: null, text: {
-    en: "The grumpiest dad of all is waiting at the School. Can you make him smile?",
-    es: "El papá más gruñón de todos te espera en la Escuela. ¿Podés hacerlo sonreír?",
-    ru: "В Школе ждёт самый ворчливый папа. Сможешь его развеселить?" } },
-  { id: "beach", image: null, text: {
-    en: "Bonus! The dads went to the beach to grumble in the sun. Hug them between the palm trees!",
-    es: "¡Bonus! Los papás se fueron a la playa a refunfuñar al sol. ¡Abrazalos entre las palmeras!",
-    ru: "Бонус! Папы ушли ворчать на пляж. Обними их среди пальм!" } },
-  { id: "winter", image: null, text: {
-    en: "Bonus! Even in the snow a dad is grumpy. A warm hug will melt his frown!",
-    es: "¡Bonus! Hasta en la nieve hay un papá gruñón. ¡Un abrazo calentito le derrite el enojo!",
-    ru: "Бонус! Даже в снегу папа ворчит. Тёплые обнимашки растопят его хмурость!" } },
+    en: "The last world is the School. The grumpiest dad lives here, the very dad from the start of the story. He put his own main dad, a boss, in every world.",
+    es: "El último mundo es la Escuela. Acá vive el papá más enojado, el mismo papá del principio de la historia. Él puso en cada mundo a su papá principal: un jefe.",
+    ru: "Последний мир — Школа. Тут живёт самый злой папа, тот самый папа из начала истории. Он поставил в каждый мир своего главного папу — босса." },
+    boss: {
+      en: "This is the grumpiest dad, the angriest of them all. His special power: he can push several kids at once!",
+      es: "Este es el papá más enojado, el más enojado de todos. Su poder especial: ¡puede empujar a varios chicos a la vez!",
+      ru: "Это самый злой папа — самый злой из всех. Его особая сила: он может толкнуть сразу нескольких детей!" } },
+  { id: "beach", image: null, text: {   // написал Claude (в истории про Пляж только «бонусный мир») — проверить с Костей
+    en: "Bonus world: the Beach. The angry dads grumble and sunbathe. Hug them until they are kind!",
+    es: "Mundo bonus: la Playa. Los papás enojados refunfuñan y toman sol. ¡Abrazalos hasta que vuelvan a ser buenos!",
+    ru: "Бонусный мир — Пляж. Злые папы ворчат и загорают на солнце. Обнимай их, пока они не станут добрыми!" } },
+  { id: "winter", image: null, text: {   // написал Claude (в истории про Зиму только «бонусный мир») — проверить с Костей
+    en: "Bonus world: Winter. An angry dad is building a wall of ice. Warm hugs will make him kind!",
+    es: "Mundo bonus: el Invierno. Un papá enojado construye una pared de hielo. ¡Unos abrazos calentitos lo van a volver bueno!",
+    ru: "Бонусный мир — Зима. Злой папа строит ледяную стену. Тёплые обнимашки сделают его добрым!" } },
   { id: "ended", image: null, text: {
-    en: "The grumpiest dad laughed and hugged everyone back. All the dads are kind again and play with the Little Ones every day. The end — hooray!",
-    es: "El papá más gruñón se rió y abrazó a todos. Todos los papás volvieron a ser buenos y juegan con los Chiquitos todos los días. ¡Fin, hurra!",
-    ru: "Самый ворчливый папа засмеялся и обнял всех в ответ. Все папы снова добрые и каждый день играют с Маленькими. Конец — ура!" } }
+    en: "When all the dads were kind, the kids won against the grumpiest dad. He became kind too, and now he sits at the table with the kids and they eat cupcakes together.",
+    es: "Cuando todos los papás se volvieron buenos, los chicos le ganaron al papá más enojado. Él también se volvió bueno, y ahora se sienta a la mesa con los chicos y comen cupcakes juntos.",
+    ru: "Когда все папы стали добрыми, дети побеждают самого злого папу. Он тоже становится добрым, и они вместе с детьми сидят за столом и кушают пирожные." } }
 ];
+// текст главы с подписями комикса — подписи подряд (страница главы в «Истории»)
+for (const c of STORY) if (c.captions) c.text = Object.fromEntries(Object.entries(c.captions).map(([l, a]) => [l, a.join(" ")]));
 // значки строк правил (I18N.*.rules) — по одному на строку, в том же порядке; тест i18n сверяет число (SPEC-019 добавит строку — и значок)
 const RULE_ICONS = ["❤", "👀", "🤝", "⏱", "🏠", "🍌", "👣"];
 const LANGS = ["en", "es", "ru"];
@@ -4577,7 +4610,8 @@ function drawLevelCard() {
   const n = cardLevel, minMain = PHONE ? minPx("main") : 13, minHint = PHONE ? minPx("hint") : 12, pad = A.cardPad * k;
   const cw = Math.min(UW - 40 * k, (PHONE ? A.phoneCardW : A.cardW) * k), BH = PHONE ? B + 6 * k : A.cardBtn, sr = A.cardStar * k;
   const title = `${L().worlds[curWorld]} · ${L().level} ${n}`, type = L().types[levelType(curWorld, n)];
-  const line = n >= levelsPerWorld() ? L().bossLine : L().typeLines[levelType(curWorld, n)], stars = worldProgress().stars[n] || 0;
+  // SPEC-022: строка босса — только у мира с боссом (у бонусных миров босса нет — обычная строка типа)
+  const line = n >= levelsPerWorld() && L().bossLine[curWorld] ? L().bossLine[curWorld] : L().typeLines[levelType(curWorld, n)], stars = worldProgress().stars[n] || 0;
   const f1 = fitLine(title, PHONE ? cpx(22) : 26, minMain, cw - 3 * pad - B), f2 = fitLine(type, PHONE ? cpx(17) : 20, minMain, cw - 2 * pad);
   const lb = noteRows(line, PHONE ? cpx(16) : 18, minHint, cw - 2 * pad, 3), lineH = lb.rows.length * lb.sz * 1.2;
   const ch = pad + B + g + f2.sz * 1.2 + g + lineH + g + 2 * sr + g + BH + pad, x = UW / 2 - cw / 2, y = Math.max(4 * k, UH / 2 - ch / 2);

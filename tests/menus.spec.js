@@ -546,7 +546,7 @@ test("the level card starts the level", async ({ page }) => {
   await page.evaluate(() => window.__bb.tapButton("stop:20"));
   await frames(page);
   d = await page.evaluate(() => ({ card: window.__bb.levelCard }));
-  expect(d.card).toMatchObject({ n: 20, type: "Maze", line: await page.evaluate(() => window.__bb.I18N.en.bossLine) });
+  expect(d.card).toMatchObject({ n: 20, type: "Maze", line: await page.evaluate(() => window.__bb.I18N.en.bossLine.park) });   // SPEC-022: the world's boss
   // 📖 opens the world's story chapter; back from the story returns to the card
   await click(page, "card:story");
   expect(await page.evaluate(() => [window.__bb.mode, window.__bb.storyInfo.chapter])).toEqual(["story", "park"]);
@@ -559,7 +559,7 @@ test("the level card starts the level", async ({ page }) => {
     .toEqual(["play", "park", 20, 1, "Park · Level 20: Maze"]);
   // the texts: a line for every level type and the boss line, in every language
   const T = await page.evaluate(() => ["en", "es", "ru"].map(l => { const I = window.__bb.I18N[l]; return { keys: Object.keys(I.typeLines).sort(), types: Object.keys(I.types).sort(), ok: Object.values(I.typeLines).every(s => typeof s === "string" && s.length > 8), boss: I.bossLine }; }));
-  for (const t of T) { expect(t.keys).toEqual(t.types); expect(t.ok).toBe(true); expect(t.boss.length).toBeGreaterThan(8); }
+  for (const t of T) { expect(t.keys).toEqual(t.types); expect(t.ok).toBe(true); expect(Object.values(t.boss).every(s => s.length > 8)).toBe(true); }
 });
 
 // ---------- AC 8, 9: the story ----------
