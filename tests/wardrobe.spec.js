@@ -20,11 +20,11 @@ test.afterAll(async () => { await sharedSim.close(); });
 
 // the seven new clothes (AC 4): list, id, picture, tier price, names
 const NEW = [
-  ["jacket", "bluezip", "jacket_blue_zip", 40, "Blue zip jacket", "Campera azul con cierre", "Blusão azul", "Синяя куртка на молнии"],
-  ["jacket", "redzip", "jacket_red_zip", 40, "Red zip jacket", "Campera roja con cierre", "Blusão vermelho", "Красная куртка на молнии"],
+  ["jacket", "bluezip", "jacket_blue_zip", 40, "Blue zip jacket", "Campera azul con cierre", "Blusa azul", "Синяя куртка на молнии"],
+  ["jacket", "redzip", "jacket_red_zip", 40, "Red zip jacket", "Campera roja con cierre", "Blusa vermelha", "Красная куртка на молнии"],
   ["jacket", "rainbow", "jacket_stripes", 80, "Rainbow", "Arcoíris", "Arco-íris", "Радуга"],
   ["jacket", "magiccape", "jacket_cape", 150, "Magic cape", "Capa mágica", "Capa mágica", "Волшебный плащ"],
-  ["jacket", "trench", "jacket_trench", 80, "Detective coat", "Gabardina de detective", "Capa de detetive", "Плащ сыщика"],
+  ["jacket", "trench", "jacket_trench", 80, "Detective coat", "Gabardina de detective", "Sobretudo", "Плащ сыщика"],
   ["pants", "overalls", "pants_overalls", 80, "Overalls", "Jardinero", "Macacão", "Комбинезон"],
   ["pants", "striped", "pants_striped", 40, "Striped pants", "Pantalón rayado", "Calça listrada", "Полосатые штаны"]
 ];

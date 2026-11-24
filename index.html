@@ -743,14 +743,14 @@ const I18N = {
     // SPEC-028: на бразильской клавиатуре (ABNT2) на клавише «/» американской раскладки написано «;»
     heardHint: k => `O Papai ouviu você correr! Perto dele, ande na ponta dos pés: segure ${k}`, heardKey1: "⇦ Shift", heardKey2: "/ (;)",
     heardHintTouch: "O Papai ouviu você correr! Mexa o joystick só um pouquinho para andar na ponta dos pés",
-    level: "Fase", lvShort: "Fase", onePlayer: "1 jogador", twoPlayers: "2 jogadores",
+    level: "Fase", lvShort: "F.", onePlayer: "1 jogador", twoPlayers: "2 jogadores",
     controls1: "Teclado: Jogador 1 — W A S D, Jogador 2 — setas  •  P — pausa  •  M — som  •  L — idioma",
     controls2: "Tablet/celular: arraste o dedo  •  Controle: analógico, A — escolher, B — voltar, LB/RB — mundos",
     pause: "Pausa", play: "Jogar", resume: "Continuar", story: "História", map: "Mapa", home: "Início",
     win: "VOCÊS GANHARAM!", winSub: "Vocês deram muitos abraços nele, e ele foi para casa!", next: n => `Fase ${n} ▶`,
     kindAgain: n => `${n} ficou bonzinho de novo!`, cheer: "Eba!", whoosh: "VUUUSH!",
     bossNames: { park: "O chefe do parque", field: "O treinador", city: "O construtor", school: "O papai mais bravo" },
-    lose: "Grandão venceu…", loseSub: (h, m) => `Corações: ${h} de ${m}. Mais uma vez?`, again: "De novo",
+    lose: "Perdemos…", loseSub: (h, m) => `Corações: ${h} de ${m}. Mais uma vez?`, again: "De novo",
     big: "Grandão", hug: "Abraço! -1", bang: "BUM!", saved: "Salvo!", out: "Vou descansar", back: "De volta ao jogo!", resting: (n, t) => `${n}: descansando… volta em ${t}`, help: n => `${n}: SOCORRO!`,
     touch1: "Arraste o dedo na tela para correr", touch2: "Jogador 1: dedo à esquerda  •  Jogador 2: à direita",
     rotate: "Vire o aparelho de lado ↻", me: "Eu", botChip: "B", safe: "SEGURO",
@@ -764,7 +764,7 @@ const I18N = {
     shop: "Loja", character: "Personagem", progressTab: "Progresso", bag: "Mochila", clothes: (n, m) => `Roupas: ${n} / ${m}`, buy: "Comprar", have: n => `Você tem: ${n} ${ptPlural(n, "superabraço", "superabraços")}`, wears: "usa", none: "Nada",
     gloves: { mittens: "Luvas quentinhas", mega: "Luvas gigantes" }, gloveDesc: p => `Cada abraço tira ${p} corações`,
     pack: n => `Pacote: ${n} ${ptPlural(n, "superabraço", "superabraços")}`, notEnough: "Faltam moedas", reset: "Apagar progresso", sure: "Certeza? Toque de novo", resetShort: "Apagar", sureShort: "Certeza?",
-    victory: "Vitória", nobodyOut: "Ninguém precisou descansar", fast: t => `Rápido: menos de ${t}`, forHugs: n => `+${n} pelos abraços`,
+    victory: "Vitória", nobodyOut: "Ninguém descansou", fast: t => `Rápido: menos de ${t}`, forHugs: n => `+${n} pelos abraços`,
     megaHug: p => `Superabraço! -${p}`, coinsWord: "moedas",
     buyFor: n => `Comprar por ${n}`, tapAgain: "Toque de novo para comprar",
     itemsTab: "Itens", wardrobeTab: "Guarda-roupa", upgradesTab: "Melhorias", upgMax: "Máximo",
@@ -2113,15 +2113,15 @@ const JACKETS = [
   { id: "ninja", price: tierPrice(2), color: "#1f2937", pattern: "belt",    trim: "#ef4444", name: Nm("Ninja", "Ninja", "Ninja", "Ниндзя") },
   { id: "sailor", price: tierPrice(2), color: "#f8fafc", pattern: "stripes", trim: "#1d4ed8", name: Nm("Sailor", "Marinero", "Marinheiro", "Тельняшка") },
   { id: "raincoat", price: tierPrice(2), color: "#facc15", pattern: "hood",    trim: "#ca8a04", name: Nm("Raincoat", "Piloto", "Capa de chuva", "Дождевик") },
-  { id: "teal", price: tierPrice(1), color: "#14b8a6", pattern: "zip",     trim: "#ccfbf1", name: Nm("Teal jacket", "Campera turquesa", "Jaqueta turquesa", "Бирюзовая куртка") },
+  { id: "teal", price: tierPrice(1), color: "#14b8a6", pattern: "zip",     trim: "#ccfbf1", name: Nm("Teal jacket", "Campera turquesa", "Blusa turquesa", "Бирюзовая куртка") },
   // SPEC-027 (решение Андрея: нарисованные в art/23_wardrobe вещи — в игру; имена, ступени и цвета придумал Claude, проверить с детьми).
   // Только в конец списка: сохранённые наряды — номера. bands — полосы радуги снизу вверх; long — длинные полы плаща
-  { id: "bluezip", price: tierPrice(1), color: "#3a86c8", pattern: "zip",     trim: "#f8fafc", name: Nm("Blue zip jacket", "Campera azul con cierre", "Blusão azul", "Синяя куртка на молнии") },
-  { id: "redzip", price: tierPrice(1), color: "#d83838", pattern: "zip",     trim: "#f8fafc", name: Nm("Red zip jacket", "Campera roja con cierre", "Blusão vermelho", "Красная куртка на молнии") },
+  { id: "bluezip", price: tierPrice(1), color: "#3a86c8", pattern: "zip",     trim: "#f8fafc", name: Nm("Blue zip jacket", "Campera azul con cierre", "Blusa azul", "Синяя куртка на молнии") },
+  { id: "redzip", price: tierPrice(1), color: "#d83838", pattern: "zip",     trim: "#f8fafc", name: Nm("Red zip jacket", "Campera roja con cierre", "Blusa vermelha", "Красная куртка на молнии") },
   { id: "rainbow", price: tierPrice(2), color: "#2bb5a5", pattern: "rainbow", trim: "#2bb5a5", name: Nm("Rainbow", "Arcoíris", "Arco-íris", "Радуга"),
     bands: ["#a855f7", "#3b82f6", "#22c55e", "#facc15", "#f97316", "#ef4444"] },
   { id: "magiccape", price: tierPrice(3), color: "#4b3a75", pattern: "cape",    trim: "#ec4899", name: Nm("Magic cape", "Capa mágica", "Capa mágica", "Волшебный плащ") },
-  { id: "trench", price: tierPrice(2), color: "#7a5634", pattern: "belt",    trim: "#3b2a1a", long: true, name: Nm("Detective coat", "Gabardina de detective", "Capa de detetive", "Плащ сыщика") }
+  { id: "trench", price: tierPrice(2), color: "#7a5634", pattern: "belt",    trim: "#3b2a1a", long: true, name: Nm("Detective coat", "Gabardina de detective", "Sobretudo", "Плащ сыщика") }
 ];
 const PANTS = [
   { id: "jeans", price: tierPrice(0), color: "#3b5b92", shorts: false, name: Nm("Jeans", "Jean", "Jeans", "Джинсы") },
