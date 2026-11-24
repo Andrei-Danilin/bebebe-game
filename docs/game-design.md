@@ -340,6 +340,8 @@
 | CFG | `WIDE_PUSH_STAND` | 1.5 | сек — после широкого толчка стоит дольше обычного (PUSH_STAND): можно обнять |
 | CFG | `BOT_WIDE_KEEP` | 1 | клеток — боты не подходят спереди к самому злому папе ближе WIDE_PUSH_R + столько, пока он может толкнуть |
 | CFG | `WAVE_TIME` | 0.6 | сек — кольцо широкого толчка расходится |
+| CFG | `TUTORIAL_LOOK` | { skipW: 130 } | SPEC-029: ширина маленькой «Пропустить» в тренировке на компьютере (UI px) |
+| CFG | `TUTORIAL` | { hearts1: 3, hearts2: 5, speedMult: 0.6, pushCooldownMult: 2, itemEvery: 3, itemMax: 6, bananaShare: 0.4, kisses: 5, kits: 1, bothDownStand: 3, hintTimeout: 12, mapArea: 0.5 } | SPEC-029: обучение — тренировки 1 и 2 (только они; придумал Claude в спеке, проверить с детьми) |
 | CFG | `MOOD_ANGRY` | 0.666667 (2 / 3) | доля злости (hp / maxHp): не меньше — злой (красное лицо, пар); не меньше MOOD_MID — средний; меньше — добреет |
 | CFG | `MOOD_MID` | 0.333333 (1 / 3) |  |
 | CFG | `ITEM_EVERY` | [7, 11] | сек — как часто появляются предметы |

@@ -43,7 +43,9 @@ const withSim = (query, sim) => (sim ? query + (query.includes("?") ? "&" : "?")
 // SPEC-022: the very first launch opens the start comic (mode "scene"); the tests start on the home screen instead — the init
 // script sets window.__bbNoIntro, which the game reads at start. `intro: true` = a real first launch (the first-launch test).
 function noIntro() { window.__bbNoIntro = true; }
-async function openGame(page, { lang = "en", clearStorage = true, query = "", sim = false, intro = false } = {}) {
+// SPEC-029: the tutorial after the intro on the first launch — skipped the same way (window.__bbNoTutorial); `tutorial: true` = its own tests
+function noTutorial() { window.__bbNoTutorial = true; }
+async function openGame(page, { lang = "en", clearStorage = true, query = "", sim = false, intro = false, tutorial = false } = {}) {
   const errors = [];
   page.on("pageerror", e => errors.push(String(e)));
   page.on("console", m => { if (m.type() === "error") errors.push("console: " + m.text()); });
@@ -54,6 +56,7 @@ async function openGame(page, { lang = "en", clearStorage = true, query = "", si
   });
   await page.addInitScript(strictRng);
   if (!intro) await page.addInitScript(noIntro);
+  if (!tutorial) await page.addInitScript(noTutorial);
   if (clearStorage) {
     await page.addInitScript(clearOnce, lang);
   }
@@ -86,13 +89,14 @@ async function routeThree(context) {
 
 // Like openGame(), but over http from scripts/serve.js (the webServer in playwright.config.js),
 // so the service worker and the manifest work. `query` is appended to the URL (e.g. "?standalone=1").
-async function openGameHttp(page, { lang = "en", query = "", clearStorage = true, intro = false } = {}) {
+async function openGameHttp(page, { lang = "en", query = "", clearStorage = true, intro = false, tutorial = false } = {}) {
   const errors = [];
   page.on("pageerror", e => errors.push(String(e)));
   page.on("console", m => { if (m.type() === "error") errors.push("console: " + m.text()); });
   await routeThree(page.context());
   await page.addInitScript(strictRng);
   if (!intro) await page.addInitScript(noIntro);
+  if (!tutorial) await page.addInitScript(noTutorial);
   if (clearStorage) {
     await page.addInitScript(clearOnce, lang);
   }
@@ -187,6 +191,7 @@ function sharedPage() {
 async function resetGame(page) {
   await page.evaluate(() => {
     const b = window.__bb;
+    b.resetMenus();                                            // SPEC-029: no tutorial left running (resetWorld below builds a normal level)
     delete navigator.getGamepads; window.__pads = [];          // gamepad stubs some tests leave behind
     b.setLang("en"); b.clearLevelCache(); b.resetBannerTimer(); b.mode = "home"; b.seedRandom(); b.autopilot(false, "careful");   // SPEC-008: unseeded, no autopilot, default style
     for (const s of ["p1", "p2", "big", "bot1", "bot2", "bot3", "bot4"]) b.setName(s, "");

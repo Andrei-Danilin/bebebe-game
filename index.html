@@ -120,6 +120,20 @@ const CFG = {
   WIDE_PUSH_STAND: 1.5,      // сек — после широкого толчка стоит дольше обычного (PUSH_STAND): можно обнять
   BOT_WIDE_KEEP: 1,          // клеток — боты не подходят спереди к самому злому папе ближе WIDE_PUSH_R + столько, пока он может толкнуть
   WAVE_TIME: 0.6,            // сек — кольцо широкого толчка расходится
+  // SPEC-029: обучение — только для него, настоящие уровни эти числа не трогают (решение Андрея: обучение и его порядок;
+  // числа придумал Claude в спеке, проверить с детьми)
+  TUTORIAL_LOOK: { skipW: 130 },   // SPEC-029: ширина маленькой «Пропустить» в тренировке на компьютере (UI px)
+  TUTORIAL: {                // SPEC-029: обучение — тренировки 1 и 2 (только они; придумал Claude в спеке, проверить с детьми)
+    hearts1: 3, hearts2: 5,    // сердечек у папы в тренировке 1 и в тренировке 2
+    speedMult: 0.6,            // скорости папы (прогулка, погоня) — × от Парка 1
+    pushCooldownMult: 2,       // тренировка 2: пауза папы между толчками × столько
+    itemEvery: 3, itemMax: 6,  // тренировка 2: новый предмет каждые 3 сек, пока их на карте меньше 6
+    bananaShare: 0.4,          // тренировка 2: доля бананов (остальное поровну: сапоги, плащ, щит)
+    kisses: 5, kits: 1,        // тренировка 2: свои поцелуи и спасалка на эту игру (настоящий запас не тратится)
+    bothDownStand: 3,          // сек — лежат оба: встают у домика маленьких
+    hintTimeout: 12,           // сек — подсказка тренировки 2 переходит к следующей, даже если её не сделали
+    mapArea: 0.5               // карта тренировок — примерно такая доля площади Парка 1
+  },
   MOOD_ANGRY: 2 / 3,         // доля злости (hp / maxHp): не меньше — злой (красное лицо, пар); не меньше MOOD_MID — средний; меньше — добреет
   MOOD_MID: 1 / 3,
   ITEM_EVERY: [7, 11],       // сек — как часто появляются предметы
@@ -654,6 +668,17 @@ const I18N = {
       city: "Boss: the main dad of the City. He is stronger than ordinary dads!", school: "The grumpiest dad! He can push several kids at once!" },
     // SPEC-022: заставки истории — кнопки («next» занято: кнопка следующего уровня), карточка «Спасибо» после финала
     sceneNext: "Next", sceneSkip: "Skip", thanks: "Thank you for playing!", madeBy: "Made by Kostya and Dad",
+    // SPEC-029: обучение — подписи страниц A, B, C (по клетке; A4 — клавиша или джойстик), последняя страница, кнопка «Тренировка»
+    tut: {
+      a: k => ["Sneak up behind Dad and hug him! Every hug takes away one angry heart.", "If Dad sees you, he pushes — and you fall down!",
+        "A friend fell? Stand next to them to help them up. Friends help you too!", `Dad hears running behind him. Close to him, tiptoe! (${k})`],
+      tiptoeKey: "hold Shift", tiptoeTouch: "push the stick just a little",
+      b: ["Speed boots: you run faster!", "Invisibility cloak: Dad can't see you!", "Shield: Dad can't push you!",
+        "Banana! Lead Dad onto it — he slips, and you can hug him from any side!"],
+      c: ["Air kisses 💋: send one from far away. Dad loses half a heart and blushes!", "Rescue kit 🩹: fell down? Get up at once!",
+        "Warm mittens: each hug takes 2 hearts. Mega mittens: 3!", "Win levels, get coins, and buy all this in Character!"],
+      ready: "You're ready! Let's make the dads kind again!", practice: "Practice"
+    },
     chapters: { began: "How it began", ended: "How it ended" }, endedLocked: "Win level 20 at the School to read the ending", howToPlay: "How to play",
     upg: { fastFeet: { name: "Fast feet", desc: p => `+${p}% speed` }, longItems: { name: "Long items", desc: () => "Items last longer" },
       quickHelp: { name: "Quick help", desc: () => "Lift friends faster" } },
@@ -713,6 +738,16 @@ const I18N = {
     bossLine: { park: "Jefe: el papá principal del Parque. ¡Es más fuerte que los papás comunes!", field: "Jefe: el papá principal de la Cancha. ¡Es más fuerte que los papás comunes!",
       city: "Jefe: el papá principal de la Ciudad. ¡Es más fuerte que los papás comunes!", school: "¡El papá más enojado! ¡Puede empujar a varios chicos a la vez!" },
     sceneNext: "Siguiente", sceneSkip: "Saltar", thanks: "¡Gracias por jugar!", madeBy: "Hecho por Kostya y papá",
+    tut: {
+      a: k => ["¡Acercate a Papá por detrás y abrazalo! Cada abrazo le saca un corazón enojado.", "Si Papá te ve, te empuja… ¡y te caés!",
+        "¿Se cayó un amigo? Parate al lado para ayudarlo a levantarse. ¡Tus amigos también te ayudan!", `Papá escucha si corrés detrás de él. Cerca de él, ¡andá en puntitas! (${k})`],
+      tiptoeKey: "mantené Shift", tiptoeTouch: "mové el joystick apenas",
+      b: ["Zapatillas veloces: ¡corrés más rápido!", "Capa de invisibilidad: ¡Papá no te ve!", "Escudo: ¡Papá no te puede empujar!",
+        "¡Banana! Llevá a Papá hasta ella: se resbala, ¡y lo podés abrazar de cualquier lado!"],
+      c: ["Besitos voladores 💋: mandá uno de lejos. ¡Papá pierde medio corazón y se pone colorado!", "Curita mágica 🩹: ¿te caíste? ¡Levantate al toque!",
+        "Mitones abrigados: cada abrazo saca 2 corazones. ¡Los mitones gigantes, 3!", "¡Ganá niveles, juntá monedas y comprá todo esto en Personaje!"],
+      ready: "¡Ya estás listo! ¡Vamos a hacer que los papás vuelvan a ser buenos!", practice: "Practicar"
+    },
     chapters: { began: "Cómo empezó", ended: "Cómo terminó" }, endedLocked: "Ganá el nivel 20 de la Escuela para leer el final", howToPlay: "Cómo se juega",
     upg: { fastFeet: { name: "Pies rápidos", desc: p => `+${p}% velocidad` }, longItems: { name: "Cosas duraderas", desc: () => "Duran más" },
       quickHelp: { name: "Ayuda rápida", desc: () => "Levantás más rápido" } },
@@ -776,6 +811,16 @@ const I18N = {
     bossLine: { park: "Chefe: o papai principal do Parque. Ele é mais forte que os papais comuns!", field: "Chefe: o papai principal do Campo de futebol. Ele é mais forte que os papais comuns!",
       city: "Chefe: o papai principal da Cidade. Ele é mais forte que os papais comuns!", school: "O papai mais bravo! Ele pode empurrar várias crianças de uma vez!" },
     sceneNext: "Próximo", sceneSkip: "Pular", thanks: "Obrigado por jogar!", madeBy: "Feito por Kostya e Papai",
+    tut: {
+      a: k => ["Chegue por trás do Papai e dê um abraço! Cada abraço tira um coração bravo.", "Se o Papai te vê, ele empurra — e você cai!",
+        "Um amigo caiu? Fique pertinho dele para ajudar a levantar. Os amigos também te ajudam!", `O Papai ouve quem corre atrás dele. Perto dele, ande na ponta dos pés! (${k})`],
+      tiptoeKey: "segure Shift", tiptoeTouch: "mexa o joystick só um pouquinho",
+      b: ["Botas rápidas: você corre mais rápido!", "Capa de invisibilidade: o Papai não te vê!", "Escudo: o Papai não consegue te empurrar!",
+        "Banana! Leve o Papai até ela — ele escorrega, e você pode abraçar de qualquer lado!"],
+      c: ["Beijinhos 💋: mande um de longe. O Papai perde meio coração e fica vermelho!", "Kit de resgate 🩹: caiu? Levante na hora!",
+        "Luvas quentinhas: cada abraço tira 2 corações. Luvas gigantes: 3!", "Vença fases, ganhe moedas e compre tudo isso em Personagem!"],
+      ready: "Você está pronto! Vamos deixar os papais bonzinhos de novo!", practice: "Praticar"
+    },
     chapters: { began: "Como tudo começou", ended: "Como tudo terminou" }, endedLocked: "Vença a fase 20 da Escola para ler o final", howToPlay: "Como jogar",
     upg: { fastFeet: { name: "Pés rápidos", desc: p => `+${p}% de velocidade` }, longItems: { name: "Itens duradouros", desc: () => "Duram mais" },
       quickHelp: { name: "Ajuda rápida", desc: () => "Levante os amigos mais rápido" } },
@@ -836,6 +881,16 @@ const I18N = {
     bossLine: { park: "Босс — главный папа Парка. Он сильнее обычных пап!", field: "Босс — главный папа Футбольного поля. Он сильнее обычных пап!",
       city: "Босс — главный папа Города. Он сильнее обычных пап!", school: "Самый злой папа! Может толкнуть сразу нескольких детей!" },
     sceneNext: "Дальше", sceneSkip: "Пропустить", thanks: "Спасибо, что играли!", madeBy: "Сделали Костя и папа",
+    tut: {
+      a: k => ["Подкрадись к папе сзади и обними! Каждая обнимашка забирает одно злое сердечко.", "Если папа тебя увидит — толкнёт, и ты упадёшь!",
+        "Друг упал? Встань рядом — поможешь ему подняться. Друзья помогут и тебе!", `Папа слышит топот за спиной. Рядом с ним иди на цыпочках! (${k})`],
+      tiptoeKey: "держи Shift", tiptoeTouch: "чуть-чуть наклони джойстик",
+      b: ["Сапоги-скороходы: бегаешь быстрее!", "Плащ-невидимка: папа тебя не видит!", "Щит: папа не может тебя толкнуть!",
+        "Банан! Заведи папу на него — он поскользнётся, и его можно обнять с любой стороны!"],
+      c: ["Воздушный поцелуй 💋: пошли издалека. Папа теряет полсердечка и краснеет!", "Спасалка 🩹: упал? Сразу вставай!",
+        "Тёплые рукавицы: обнимашка забирает 2 сердечка. Мега-рукавицы — 3!", "Выигрывай уровни, собирай монетки и покупай всё это в «Персонаже»!"],
+      ready: "Ты готов! Давай сделаем пап снова добрыми!", practice: "Тренировка"
+    },
     chapters: { began: "Как всё началось", ended: "Как всё закончилось" }, endedLocked: "Пройди 20-й уровень в Школе, чтобы прочитать конец", howToPlay: "Как играть",
     upg: { fastFeet: { name: "Быстрые ноги", desc: p => `+${p}% скорости` }, longItems: { name: "Долгие вещи", desc: () => "Действуют дольше" },
       quickHelp: { name: "Быстрая помощь", desc: () => "Поднимаешь быстрее" } },
@@ -1228,6 +1283,10 @@ const bossFor = (world, n) => (Object.hasOwn(BOSSES, world) && Math.floor(n) ===
 const bossPower = boss => (boss && BOSSES[boss] ? BOSSES[boss].power : null);
 // SPEC-022: заставки истории: комикс в начале, босс каждого мира из BOSSES, первый уровень бонусного мира, конец
 const SCENE_IDS = Object.freeze(["intro", ...Object.keys(BOSSES).map(w => "boss_" + w), ...BONUS_WORLDS.map(w => "bonus_" + w), "ending"]);
+// SPEC-029: страницы обучения — тоже заставки (тот же экран), но не глава истории и не отмечаются в progress.seen по отдельности;
+// в seen — одно «tutorial»: обучение закончили или пропустили
+const TUTORIAL_SCENES = Object.freeze(["tutorial_a", "tutorial_b", "tutorial_c", "tutorial_ready"]);
+const SEEN_IDS = Object.freeze([...SCENE_IDS, "tutorial"]);
 const levelKey = (world, n) => world + ":" + n;
 // Тип уровня — по списку CFG.WORLD_TYPES (одинаковый во всех мирах)
 const levelType = (world, n) => CFG.WORLD_TYPES[levelPos(n)];
@@ -2338,14 +2397,14 @@ let heardHintT = 0, heardHintDone = false, heardHintPi = 0, heardHintRect = null
 // (SPEC-016: шесть миров; в старом сохранении нет field/city — они приходят новыми)
 // SPEC-009: won = { [n]: true } — уровни, уже выигранные хоть раз (первая победа платит всю основу, повтор — половину)
 const freshWorld = () => ({ unlocked: 1, stars: {}, won: {} });
-// SPEC-022: seen = { [заставка из SCENE_IDS]: true, если уже показана } — все ключи всегда есть
+// SPEC-022: seen = { [заставка из SCENE_IDS]: true, если уже показана } — все ключи всегда есть (SPEC-029: + tutorial)
 const freshProgress = () => ({ worlds: Object.fromEntries(WORLDS.map(w => [w, freshWorld()])), lastWorld: WORLDS[0],
   coins: 0, inv: { mittens: 0, mega: 0, kisses: 0, rescues: 0 }, equip: ["none", "none"], owned: cleanOwned(null),
   upgrades: cleanUpgrades(null), seen: cleanSeen(null) });
 // SPEC-022: показанные заставки из сохранения: только true у известных заставок; нет, испорчено или чужой ключ → не показана
 function cleanSeen(v) {
   const ok = !!v && typeof v === "object" && !Array.isArray(v);
-  return Object.fromEntries(SCENE_IDS.map(id => [id, ok && v[id] === true]));
+  return Object.fromEntries(SEEN_IDS.map(id => [id, ok && v[id] === true]));
 }
 // SPEC-009: уровни улучшений { fastFeet, longItems, quickHelp } — целые 0…последний; нет или испорчено → 0
 function cleanUpgrades(v) {
@@ -2568,14 +2627,14 @@ function resetWorld(n) {
   if (n === 2) littles.push(makeLittle(1, "player", -1, { up: ["ArrowUp"], down: ["ArrowDown"], left: ["ArrowLeft"], right: ["ArrowRight"] }, makeLook(skinSel.p2)));
   let bi = 0;
   while (littles.length < 5) { littles.push(makeLittle(littles.length, "bot", bi, null, makeLook(botOutfit(bi)))); bi++; }
-  const maxHp = difficulty(curWorld, level).hearts;
+  const maxHp = tutorialGame ? CFG.TUTORIAL["hearts" + tutorialGame] : difficulty(curWorld, level).hearts;   // SPEC-029: тренировка — свои сердечки
   big = {
     isBig: true, x: spawns.big.x, y: spawns.big.y, r: 22, dir: -Math.PI / 2, hp: maxHp, maxHp,
     state: "look", timer: 4, lookSign: 1, lastSeen: null, goal: null, patrolT: 0,
     path: [], repath: 0, moveDir: 0, walk: 0, moving: false, stun: 0, stunFace: 0, stunTurn: 0, pushCd: 0, noPush: 0, hugCd: 0, flash: 0, slip: 0,
     blush: 0, blushBy: 0,   // покраснел после поцелуя: сколько ещё сек и кто бросил (индекс игрока)
     kind: false,            // SPEC-022: злость кончилась — подобрел и идёт домой (pendingWin — сколько ещё идёт)
-    boss: bossFor(curWorld, level),   // SPEC-022: босс уровня (мир из BOSSES) или null
+    boss: tutorialGame ? null : bossFor(curWorld, level),   // SPEC-022: босс уровня (мир из BOSSES) или null; в тренировке — нет
     // SPEC-019: шум топота, сек до того, как снова слышит; поворот на топот (куда, сколько ещё, скорость) и сколько ещё смотрит туда
     noise: 0, hearCd: 0, hearFace: 0, hearTurnT: 0, hearRate: 0, hearLook: 0,
     skin: BIG_SKINS[skinSel.big]
@@ -2677,6 +2736,7 @@ let storyScene = null;
 const storyOf = id => STORY.find(c => c.id === id);
 // страницы: { art, crop ([x, y, w, h] — доли картинки или null — вся), text, bubbles? } или { thanks: true } (карточка «Спасибо» после финала)
 function scenePages(id) {
+  if (TUTORIAL_SCENES.includes(id)) return tutorialPages(id.slice("tutorial_".length));   // SPEC-029
   if (id === "intro") return CFG.MENU_LOOK.scene.panels.map((crop, i) => ({ art: STORY_ART.began, crop, text: storyOf("began").captions[lang][i],
     bubbles: [{ i, text: storyOf("began").bubbles[lang][i] }] }));   // SPEC-026: слова папы в облачке этой клетки
   if (id === "ending") return [{ art: STORY_ART.ended, crop: null, text: storyOf("ended").text[lang] }, { thanks: true }];
@@ -2685,23 +2745,29 @@ function scenePages(id) {
 }
 // opts.mark — отметить показанной, когда с неё уходят (сама открылась: запуск, уровень, финал; пересмотр из «Истории» — нет);
 // opts.play — перед уровнем: на последней странице «▶ Играть»
+// SPEC-029: opts.skip — своё «Пропустить» (обучение: сразу в конец; кнопка на каждой странице), а «Дальше» после последней — then
 function openScene(id, then = null, opts = {}) {
-  if (!SCENE_IDS.includes(id)) return false;
-  storyScene = { id, page: 0, then, mark: opts.mark !== false, play: !!opts.play };
+  if (!SCENE_IDS.includes(id) && !TUTORIAL_SCENES.includes(id)) return false;
+  storyScene = { id, page: 0, then, mark: opts.mark !== false && SCENE_IDS.includes(id), play: !!opts.play, skip: opts.skip || null };
   mode = "scene";
   return true;
 }
 const scenePageCount = () => (storyScene ? scenePages(storyScene.id).length : 0);
-// пропустить (Escape, B, «Пропустить») — сразу к тому, что дальше
-function sceneSkip() {
+// заставка досмотрена (или пропущена): отметить показанной и — к тому, что дальше
+function sceneDone() {
   const sc = storyScene;
   storyScene = null; mode = "home";                       // без заставки — просто на главный экран
   if (!sc) return;
   if (sc.mark && !progress.seen[sc.id]) { progress.seen[sc.id] = true; saveProgress(); }   // показана — отмечаем, когда с неё ушли
   if (sc.then) sc.then();
 }
-// дальше (Enter, пробел, A, тап, «Дальше» / «Играть» / «Готово»): следующая страница, после последней — как «Пропустить»
-function sceneNext() { if (storyScene && storyScene.page < scenePageCount() - 1) storyScene.page++; else sceneSkip(); }
+// пропустить (Escape, B, «Пропустить») — сразу к тому, что дальше (SPEC-029: или своё skip — обучение пропускается целиком)
+function sceneSkip() {
+  const sc = storyScene;
+  if (sc && sc.skip) { storyScene = null; sc.skip(); } else sceneDone();
+}
+// дальше (Enter, пробел, A, тап, «Дальше» / «Играть» / «Готово»): следующая страница, после последней — к тому, что дальше
+function sceneNext() { if (storyScene && storyScene.page < scenePageCount() - 1) storyScene.page++; else sceneDone(); }
 function scenePrev() { if (storyScene && storyScene.page > 0) storyScene.page--; }
 // заставка перед уровнем (мир, n), если её ещё не показывали: босс — перед 20-м уровнем основного мира, бонусный мир — перед
 // любым своим уровнем (первый раз это его первый уровень)
@@ -2720,10 +2786,63 @@ function watchChapter() {
   if (!chapterOpen(c)) return;
   openScene(chapterScene(c), () => { mode = "story"; storyCh = ch; storyPage = "chapters"; }, { mark: false });
 }
-// всё состояние экранов меню — как при запуске (тесты: resetGame)
+// ---------- SPEC-029: обучение — страницы A → тренировка 1 → страницы B, C → тренировка 2 → «Ты готов!» → конец ----------
+// Решение Андрея: после комикса при самом первом запуске, с «Пропустить»; пересмотр — «Тренировка» на странице «Как играть».
+// tutorial — идёт обучение { i — шаг из TUTORIAL_STEPS, back — куда в конце («map» — карта уровней, «story» — «Как играть»),
+// keep — мир, уровень и число игроков меню (тренировки играют свою карту одним игроком; в конце всё как было) } или null.
+// tutorialGame — номер идущей тренировки (1, 2; resetWorld строит её: свои сердечки, без босса) или 0 — обычный уровень.
+// Тренировка без награды: rewardDue = false (ни монеток, ни звёзд, ни уровней); победа — дальше по обучению, а не экран победы.
+const TUTORIAL_STEPS = Object.freeze(["a", "game1", "b", "c", "game2", "ready"]);
+let tutorial = null, tutorialGame = 0;
+const tutorialStep = () => (tutorial ? TUTORIAL_STEPS[tutorial.i] : null);
+// само открывается только при настоящем первом запуске: комикс ещё не видели, обучение тоже, и ни одного выигранного уровня
+// (старое сохранение, где уже играют, — нет; его предлагает «Как играть»)
+const firstTutorial = p => !p.seen.intro && !p.seen.tutorial && !WORLDS.some(w => Object.keys(p.worlds[w].won).length > 0);
+// страницы листа sh («a», «b», «c»: четыре клетки картинки tutorial_<sh>, подпись под каждой) или «ready» (одна страница)
+function tutorialPages(sh) {
+  const T = L().tut;
+  if (sh === "ready") return [{ art: null, crop: null, text: T.ready }];
+  const texts = sh === "a" ? T.a(PHONE || isTouch ? T.tiptoeTouch : T.tiptoeKey) : T[sh];
+  return CFG.MENU_LOOK.scene.panels.map((crop, i) => ({ art: "tutorial_" + sh, crop, text: texts[i] }));
+}
+function openTutorial(back = "map", from = TUTORIAL_STEPS[0]) {
+  if (!tutorial) tutorial = { i: 0, back: back === "story" ? "story" : "map", keep: { world: curWorld, level, players: numPlayers } };
+  tutorial.i = Math.max(0, TUTORIAL_STEPS.indexOf(from));
+  tutorialShow();
+}
+function tutorialShow() {
+  const s = tutorialStep();
+  if (s.startsWith("game")) startTutorialGame(Number(s.slice(4)));
+  else { tutorialGame = 0; openScene("tutorial_" + s, tutorialNext, { mark: false, skip: tutorialSkip }); }
+}
+// следующий шаг (страницы досмотрены, тренировка выиграна); после последнего — конец
+function tutorialNext() {
+  if (!tutorial) return;
+  if (tutorial.i >= TUTORIAL_STEPS.length - 1) tutorialEnd();
+  else { tutorial.i++; tutorialShow(); }
+}
+// тренировка g: Парк 1 одним игроком (шаг 3 спека даёт свою карту), без надписи уровня и без награды
+function startTutorialGame(g) {
+  tutorialGame = g; curWorld = WORLDS[0]; level = 1;
+  startGame(1);
+  rewardDue = false; banner = null;
+}
+function restartTutorialGame() { startTutorialGame(tutorialGame); }   // пауза → «Ещё раз»
+function tutorialSkip() { tutorialEnd(); }                            // «Пропустить» на странице, в паузе, в углу тренировки
+// конец (досмотрели или пропустили): seen.tutorial, мир меню как был; первый запуск — карта уровней (Парк, уровень 1 ждёт), пересмотр — «Как играть»
+function tutorialEnd() {
+  const t = tutorial;
+  if (!t) return;
+  tutorial = null; tutorialGame = 0; storyScene = null; rewardDue = false; pendingWin = 0;
+  if (!progress.seen.tutorial) { progress.seen.tutorial = true; saveProgress(); }
+  curWorld = t.keep.world; level = t.keep.level; resetWorld(t.keep.players);
+  if (t.back === "story") { mode = "story"; storyPage = "rules"; }
+  else openMap();
+}
+// всё состояние экранов меню — как при запуске (тесты: resetGame); SPEC-029: и обучения нет
 function resetMenus() {
   closeNameInput(false); shopTab = "items"; wardrobePage = "looks"; shopBack = "home"; mapSel = null; toast = null; cardLevel = 1; mapSwipe = null;
-  storyCh = 0; storyBack = "home"; storyPage = "chapters"; storyScene = null;
+  storyCh = 0; storyBack = "home"; storyPage = "chapters"; storyScene = null; tutorial = null; tutorialGame = 0;
 }
 function toMap() {
   leaveLevel();
@@ -2824,6 +2943,7 @@ function onKey(code) {
     if (storyPage === "chapters" && code === "ArrowLeft") storyStep(-1);
     if (storyPage === "chapters" && code === "KeyV") watchChapter();   // SPEC-022: V — посмотреть заставку главы
     if (storyPage === "chapters" && (code === "ArrowRight" || code === "Enter" || code === "Space")) storyStep(1);
+    else if (storyPage === "rules" && (code === "Enter" || code === "NumpadEnter" || code === "Space")) openTutorial("story");   // SPEC-029: «Тренировка»
   } else if (mode === "scene") {
     // SPEC-022: заставка — Enter / пробел / → дальше, ← назад, Escape пропустить
     if (back) sceneSkip();
@@ -2843,7 +2963,7 @@ function onKey(code) {
     if (rp >= 0) useRescueKit(rp);
   } else if (mode === "pause") {
     if (code === "KeyP" || back) resumeGame();
-    if (code === "KeyQ") toMap();
+    if (code === "KeyQ") (tutorialGame ? tutorialSkip : toMap)();   // SPEC-029: в тренировке Q — пропустить обучение
   } else if (mode === "win") {
     if (code === "Enter" || code === "Space") nextLevel();
     if (back || code === "KeyQ") toMap();
@@ -3010,7 +3130,7 @@ function onPadButton(b, pad = 0) {
     if (storyPage === "chapters") {
       if (b === 14 || b === CFG.PAD_PREV_WORLD) storyStep(-1);
       if (b === 15 || b === CFG.PAD_NEXT_WORLD || b === 0) storyStep(1);
-    }
+    } else if (b === 0) openTutorial("story");     // SPEC-029: A на «Как играть» — «Тренировка»
   } else if (mode === "scene") {
     if (b === 0 || b === 9 || b === 15) sceneNext();   // SPEC-022: A / Start / крестовина → — дальше, ← — назад, B — пропустить
     if (b === 14) scenePrev();
@@ -3030,7 +3150,7 @@ function onPadButton(b, pad = 0) {
     if (b === CFG.PAD_KISS && (numPlayers === 1 || pad < numPlayers)) throwKiss(numPlayers === 1 ? 0 : pad);
     if (b === CFG.PAD_KIT && (numPlayers === 1 || pad < numPlayers)) useRescueKit(numPlayers === 1 ? 0 : pad);
   }
-  else if (mode === "pause") { if (b === 9 || b === 0) resumeGame(); if (b === 1) toMap(); }
+  else if (mode === "pause") { if (b === 9 || b === 0) resumeGame(); if (b === 1) (tutorialGame ? tutorialSkip : toMap)(); }
   else if (mode === "win") { if (b === 0 || b === 9) nextLevel(); if (b === 1) toMap(); }
   else if (mode === "lose") { if (b === 0 || b === 9) retryLevel(); if (b === 1) toMap(); }
 }
@@ -3186,6 +3306,7 @@ function updateKindWalk(dt) {
 function winNow() {
   pendingWin = 0;
   if (mode !== "play") return;
+  if (tutorialGame) { tutorialNext(); return; }            // SPEC-029: тренировка — без экрана победы и награды, дальше по обучению
   mode = "win"; logEvent("win", {}); giveReward(true); SFX.win(); burst(big.x, big.y - 30, "heart", "#ff4d8d", 40);
 }
 // SPEC-022: заголовок экрана победы: «<имя> снова добрый!» — босс уровня по имени босса, иначе набранное имя или «Папа»
@@ -3308,6 +3429,7 @@ function spawnStar(x, y) {
   return s;
 }
 function updateStars(dt) {
+  if (tutorialGame) return;                                // SPEC-029: в тренировках звёздочек нет
   starCd -= dt;
   if (starCd <= 0) { if (bonusStars.length < CFG.STAR_MAX) spawnStar(); starCd = rand(CFG.STAR_EVERY[0], CFG.STAR_EVERY[1]); }
   for (const s of bonusStars) {
@@ -3326,7 +3448,7 @@ function updateStars(dt) {
 }
 
 function updateItems(dt) {
-  if (!big.kind) {                                         // SPEC-022: пока подобревший папа идёт домой, новых вещей нет
+  if (!big.kind && !tutorialGame) {                        // SPEC-029: в тренировке 1 вещей нет (тренировку 2 даёт шаг 4 спека)                                         // SPEC-022: пока подобревший папа идёт домой, новых вещей нет
     itemCd -= dt;
     if (itemCd <= 0) { if (items.length < CFG.ITEM_MAX) spawnItem(); itemCd = rand(CFG.ITEM_EVERY[0], CFG.ITEM_EVERY[1]); }
   }
@@ -4462,6 +4584,8 @@ function drawHUDPhone(t) {
   noteText("main", fitText(timeTxt, gx + tw / 2, top + bh / 2 + 1, main, tw, "center", OUT, 900, main));
   iconButton("phone_pause", gx + tw + gap, top, bh, bh, "II", "#64748b", () => { mode = "pause"; }, fz(main, "main"));
   if (!STANDALONE) iconButton("ui_fullscreen", gx + tw + gap + bh + gap, top, bh, bh, "⛶", "#64748b", toggleFullscreen, fz(main, "main"));
+  // SPEC-029: в тренировке — «Пропустить» под временем и кнопками (обучение целиком; то же есть в паузе)
+  if (tutorialGame && mode === "play") fitButton(gx, top + bh + gap, gw, bh, "⏭ " + L().sceneSkip, CFG.MENU_LOOK.back, tutorialSkip, main, main).id = "tutorial:skip";
   // кружки команды под мини-картой
   const tr = teamRect();
   plate("team", tr.x, tr.y, tr.w, tr.h);
@@ -4548,6 +4672,8 @@ function drawHUD(t) {
   label(timerText(), UW / 2 - 40, 25, 14, OUT);
   iconButton("round_pause", UW / 2 + 22, 8, 40, 34, "II", "#64748b", () => { mode = "pause"; }, 16);
   if (!STANDALONE) iconButton("ui_fullscreen", UW / 2 + 68, 8, 40, 34, "⛶", "#64748b", toggleFullscreen, 18);   // на iPhone нет Fullscreen API
+  // SPEC-029: в тренировке — маленькая «Пропустить» справа от кнопок (обучение целиком; то же есть в паузе)
+  if (tutorialGame && mode === "play") fitButton(UW / 2 + (STANDALONE ? 68 : 114), 8, CFG.TUTORIAL_LOOK.skipW, 34, "⏭ " + L().sceneSkip, CFG.MENU_LOOK.back, tutorialSkip, 16, 11).id = "tutorial:skip";
 
   drawSticks();
   if (isTouch && stats.time < 5) {
@@ -5276,10 +5402,17 @@ function drawStory() {
       y += b.rows.length * lh + 5 * k;
     });
     y += 6 * k;
+    // SPEC-029: «▶ Тренировка» внизу справа — обучение ещё раз (в конце — снова сюда)
+    const pt = "▶ " + L().tut.practice;
+    ctx.font = hudFont(PHONE ? cpx(18) : 20);
+    const pw = Math.min((X1 - X0) * 0.45, Math.max(B * 2.5, scaledW(pt) + 30 * k));
+    fitButton(X1 - pw, Y1 - B, pw, B, pt, M.ok, () => openTutorial("story"), PHONE ? cpx(18) : 20, minMain).id = "story:practice";
     const ctl = PHONE ? [["controls:touch", L().touch1]] : [["controls:0", L().controls1], ["controls:1", L().controls2]];
     for (const [id, t] of ctl) {
-      const b = noteRows(t, PHONE ? cpx(S.phoneRule) : 15, minHint, X1 - X0, 2);
-      y += rowsAt(id, b, (X0 + X1) / 2, y, M.soft) + 2 * k;
+      // SPEC-029: строка, которая дошла бы до нижнего ряда, — левее кнопки «Тренировка»
+      const cs = PHONE ? cpx(S.phoneRule) : 15, cw = y + 2 * cs * 1.2 > Y1 - B - g ? X1 - X0 - pw - g : X1 - X0;
+      const b = noteRows(t, cs, minHint, cw, 2);
+      y += rowsAt(id, b, X0 + cw / 2, y, M.soft) + 2 * k;
       hudRects[hudRects.length - 1].text = t;
       if (PHONE) noteText("hint", b.sz);
     }
@@ -5411,8 +5544,9 @@ function drawScene() {
   const before = storyScene.play;                           // перед уровнем: на последней странице «Играть»
   // нижний ряд: «Пропустить» слева (на последней странице длинной заставки её нет), точки страниц, справа «Дальше» / «Играть» / «Готово»
   const by = Y1 - B, bw = PHONE ? Math.min((X1 - X0) * 0.36, Math.max(B * 2.8, cpx(150))) : S.btnW, bsz = PHONE ? cpx(20) : 24;
-  fitButton(X1 - bw, by, bw, B, last ? (before ? "▶ " + L().play : L().ok) : L().sceneNext + " ▶", M.ok, sceneNext, bsz, minMain).id = "scene:next";
-  if (!last || n === 1) fitButton(X0, by, bw, B, L().sceneSkip, M.back, sceneSkip, bsz, minMain).id = "scene:skip";
+  const goOn = !!storyScene.skip && storyScene.id !== TUTORIAL_SCENES.at(-1);   // SPEC-029: лист обучения — и на последней «Дальше» (дальше тренировка)
+  fitButton(X1 - bw, by, bw, B, last && !goOn ? (before ? "▶ " + L().play : L().ok) : L().sceneNext + " ▶", M.ok, sceneNext, bsz, minMain).id = "scene:next";
+  if (!last || n === 1 || storyScene.skip) fitButton(X0, by, bw, B, L().sceneSkip, M.back, sceneSkip, bsz, minMain).id = "scene:skip";   // SPEC-029: обучение — на каждой
   if (n > 1) {
     const dr = M.story.dot * k, step = dr * 3.4, dx0 = (X0 + X1) / 2 - step * (n - 1) / 2;
     for (let i = 0; i < n; i++) { circle(dx0 + i * step, by + B / 2, i === storyScene.page ? dr * 1.5 : dr); fillStroke(i === storyScene.page ? M.title : M.panel, 2 * k); }
@@ -6115,7 +6249,9 @@ function endActions(m) {
   return [[L().again, M.shop, retryLevel], ["🛒 " + L().shop, M.shop, shopAfterLose], map];
 }
 // пауза (SPEC-017): Продолжить · Карта · Главная
-const pauseActions = () => [[L().resume, CFG.MENU_LOOK.ok, resumeGame], ["🗺 " + L().map, CFG.MENU_LOOK.back, toMap], ["🏠 " + L().home, CFG.MENU_LOOK.back, toHome]];
+// SPEC-029: в тренировке — Продолжить · Ещё раз · Пропустить (обучение)
+const pauseActions = () => (tutorialGame ? [[L().resume, CFG.MENU_LOOK.ok, resumeGame], ["🔁 " + L().again, CFG.MENU_LOOK.back, restartTutorialGame], ["⏭ " + L().sceneSkip, CFG.MENU_LOOK.back, tutorialSkip]]
+  : [[L().resume, CFG.MENU_LOOK.ok, resumeGame], ["🗺 " + L().map, CFG.MENU_LOOK.back, toMap], ["🏠 " + L().home, CFG.MENU_LOOK.back, toHome]]);
 function drawOverlayPhone() {
   const c = cpx;
   if (mode === "home") drawHome();
@@ -8731,6 +8867,8 @@ artGate();                                  // SPEC-020: экран загруз
 // SPEC-022: самый первый запуск (и старое сохранение без seen: история новая для всех) — комикс «Как всё началось» (под экраном
 // загрузки, пока он есть). Тесты его пропускают: их init-скрипт ставит window.__bbNoIntro (кроме теста первого запуска)
 let introDue = !progress.seen.intro && window.__bbNoIntro !== true;   // открывается в frame(), когда экрана загрузки уже нет
+// SPEC-029: после комикса — обучение (только настоящий первый запуск: firstTutorial); тесты пропускают его: window.__bbNoTutorial
+const tutorialDue = firstTutorial(progress) && window.__bbNoTutorial !== true;
 window.__bbReady = true;
 let last = performance.now(), T = 0;
 function frame(now) {
@@ -8738,7 +8876,7 @@ function frame(now) {
   const dt = Math.max(0, Math.min(0.05, (now - last) / 1000));
   last = now;
   if (simMode) { requestAnimationFrame(frame); return; }   // sim: ни логики, ни рисования — игру шагает simRun
-  if (introDue && mode === "home" && !document.getElementById("loading")) { introDue = false; openScene("intro"); }   // SPEC-022: первый запуск
+  if (introDue && mode === "home" && !document.getElementById("loading")) { introDue = false; openScene("intro", tutorialDue ? () => openTutorial("map") : null); }   // SPEC-022: первый запуск (SPEC-029: потом обучение)
   T += dt;
   pollPads();
   if (!inWardrobe() && endTryOn()) resetWorld(numPlayers);   // SPEC-009/017: ушли из вкладки «Гардероб» (друзья — её часть) — примерка кончилась
@@ -8792,7 +8930,11 @@ window.__bb = {
   get levelCard() { return cardInfo && { ...cardInfo }; }, openMap,
   RULE_ICONS, STORY, openStory, get storyInfo() { return storyInfo && { ...storyInfo }; },
   // SPEC-022: заставки (scene — логика: { id, page, pages } или null; sceneInfo — нарисованное в этом кадре), боссы уровней
-  SCENE_IDS, openScene, sceneNext, sceneSkip, bigMood, winTitle, get pushWaves() { return pushWaves.map(w => ({ ...w })); }, get scene() { return storyScene && { id: storyScene.id, page: storyScene.page, pages: scenePageCount() }; },
+  SCENE_IDS, openScene, sceneNext, sceneSkip, scenePages, bigMood,
+  // SPEC-029: обучение — шаги, идёт ли ({ step, page — страница листа, game — 1 / 2 в тренировке, иначе 0, back } или null), начать
+  // (back «map» / «story», с шага from), пропустить; firstTutorial(p) — откроется ли само после комикса (чистая)
+  TUTORIAL_STEPS, get tutorial() { const s = tutorialStep(); return s && { step: s, page: storyScene && TUTORIAL_SCENES.includes(storyScene.id) ? storyScene.page : 0, game: s.startsWith("game") ? Number(s.slice(4)) : 0, back: tutorial.back }; },
+  openTutorial, tutorialSkip, firstTutorial, winTitle, get pushWaves() { return pushWaves.map(w => ({ ...w })); }, get scene() { return storyScene && { id: storyScene.id, page: storyScene.page, pages: scenePageCount() }; },
   get sceneInfo() { return sceneInfo && { ...sceneInfo }; }, bossFor, BOSSES, BOSS_LOOKS, bigCalm, KID_HEAD_R, LITTLE_SCALE,   // SPEC-021 размеры героев (тест look3d)
   // SPEC-022: вид Большого в 3D (для тестов): образ, босс и его детали, масштаб, цвета футболки и штанов
   bigLook() { const m = big && big.model; return m ? { look: m.look, boss: m.boss || null, parts: Object.keys(m.bossParts || {}), scale: m.rig.scale.x,
