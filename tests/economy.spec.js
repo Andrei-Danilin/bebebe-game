@@ -841,10 +841,8 @@ async function upgradeTabProblems(page, phone) {
     const d = await page.evaluate(() => { const b = window.__bb, resets = ["en", "es", "ru"].flatMap(l => ["reset", "resetShort", "sure", "sureShort"].map(k => b.I18N[l][k]));
       return { buttons: b.buttonRects, hud: b.hudRects, ui: b.uiSize, texts: b.textSizes, min: b.CFG.PHONE_TEXT, tab: b.shopTab, resets }; });
     if (d.tab !== "upgrades") { fails.push(`${at}: tab ${d.tab}`); continue; }
-    // the reset button keeps room for fonts ~20 % wider than ours (CI's Linux fonts: "Сбросить прогресс" overflowed at 667, ru ×1.15)
-    const rb = d.buttons.find(q => d.resets.includes(q.text));
-    if (!rb) fails.push(`${at}: no reset button`);
-    else if (phone && rb.textW * 1.2 > rb.w + 0.5) fails.push(`${at}: reset button text ${rb.textW} leaves no room for wider fonts in ${rb.w}`);
+    // SPEC-026: Reset progress moved to the Character's Progress page — not on the Upgrades tab
+    if (d.buttons.some(q => d.resets.includes(q.text))) fails.push(`${at}: a reset button on the Upgrades tab`);
     const s = d.ui.scale, inside = r => r.x >= -0.01 && r.y >= -0.01 && r.x + r.w <= d.ui.w + 0.01 && r.y + r.h <= d.ui.h + 0.01;
     const btns = KEYS.map(k => d.buttons.find(q => q.id === "upg:" + k));
     if (btns.some(q => !q)) { fails.push(`${at}: missing upgrade buttons`); continue; }

@@ -236,41 +236,24 @@ test("fullscreen button is hidden in standalone mode", async ({ page }) => {
   expect(await page.evaluate(() => window.__bb.buttonNames)).not.toContain("toggleFullscreen");
 });
 
-test("install hint texts exist in every language", async ({ page }) => {
-  await openGameHttp(page);
-  const t = await page.evaluate(() => Object.fromEntries(Object.entries(window.__bb.I18N).map(([k, v]) => [k, v.installHint])));
-  expect(t).toEqual({
-    en: "Install on iPhone: Share ⬆️ → Add to Home Screen",
-    es: "Instalala en el iPhone: Compartir ⬆️ → Agregar a pantalla de inicio",
-    ru: "Установить на iPhone: Поделиться ⬆️ → На экран «Домой»"
-  });
-});
-
-test("install hint is not shown on desktop", async ({ page }) => {
-  await openGameHttp(page);
-  await frames(page);
-  expect(await page.evaluate(() => window.__bb.mode)).toBe("home");
-  expect(await page.evaluate(() => window.__bb.installHintShown)).toBe(false);
-});
-
+// SPEC-026 (Andrei: remove the install hint completely): no strings, no __bb flag, and iPhone Safari's home screen shows only
+// the logo, language, sound and the three buttons
 test.describe("on iPhone Safari", () => {
   test.use({ userAgent: IPHONE_UA, hasTouch: true });
 
-  test("install hint shows on iPhone Safari only", async ({ page }) => {
+  test("no install hint: the home screen is the same on iPhone Safari", async ({ page }) => {
     const errors = await openGameHttp(page);
-    for (const lang of ["en", "es", "ru"]) {
-      await page.evaluate(l => window.__bb.setLang(l), lang);
-      await frames(page);
-      expect(await page.evaluate(() => window.__bb.installHintShown), lang).toBe(true);
-    }
-    // only on the home screen
-    await page.evaluate(() => { window.__bb.mode = "shop"; });
     await frames(page);
-    expect(await page.evaluate(() => window.__bb.installHintShown)).toBe(false);
-    // not in the installed app
-    await openGameHttp(page, { query: "?standalone=1" });
-    await frames(page);
-    expect(await page.evaluate(() => window.__bb.installHintShown)).toBe(false);
-    expect(errors).toEqual([]);
+    const d = await page.evaluate(() => {
+      const b = window.__bb;
+      return { texts: Object.values(b.I18N).map(v => "installHint" in v), flag: "installHintShown" in b, mode: b.mode,
+        ids: b.buttonRects.map(q => q.id).sort(), hud: b.hudRects.map(h => h.id) };
+    });
+    expect(d.texts).toEqual([false, false, false]);
+    expect(d.flag).toBe(false);
+    expect(d.mode).toBe("home");
+    expect(d.ids).toEqual(["home:lang", "home:play", "home:shop", "home:sound", "home:story"]);
+    expect(d.hud).toEqual(["home:title"]);
+    expect(errors.filter(e => !e.includes("Failed to load resource"))).toEqual([]);
   });
 });
