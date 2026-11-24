@@ -139,7 +139,8 @@ Menus:
 | Home | `Enter` / `Space` — Play, `S` — Story, `B` — Shop | A — Play, X — Story, Y — Shop | tap the buttons |
 | Level map | `←` / `→` — world (locked bonus worlds are skipped), `↑` / `↓` — pick a stop, `Enter` — its level card, `Esc` — home | D-pad left/right or the shoulder buttons (LB / RB) — world, D-pad up/down — stop, A — card, B — home | tap a tab or a stop; swipe left/right — world |
 | Level card | `Enter` or `1` — one player, `2` — two players, `S` — the world's story chapter, `Esc` — close | A — one player, X — two players, Y — story chapter, B — close | Play (computer: 1 / 2 players), ✕ or a tap outside — close |
-| Story | `←` / `→` — chapter, `Esc` — back | D-pad or shoulders — chapter, Y — How to play, B — back | ◀ ▶ or swipe |
+| Story | `←` / `→` — chapter, `V` — watch the chapter's scene again, `Esc` — back | D-pad or shoulders — chapter, X — watch the scene, Y — How to play, B — back | ◀ ▶ or swipe, ▶ on the picture — watch the scene |
+| Story scene | `Enter` / `Space` / `→` — next, `←` — back, `Esc` — skip | A — next, B — skip | tap — next, Skip |
 | Shop | `←` / `→` — tab, `Enter` / `Esc` — done; `R` — random outfit in the Wardrobe | D-pad left/right — tab, X — random outfit (Y — Player 2) | tap the tabs |
 
 ## Items
