@@ -20,6 +20,8 @@
   #wrap { position: relative; border-radius: 14px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,.45); background: #5f9e4a; }
   #wrap canvas { position: absolute; left: 0; top: 0; display: block; }
   #gl { pointer-events: none; }
+  /* SPEC-021: бумажное зерно поверх 3D, под 2D-интерфейсом (картинку и прозрачность ставит код, CFG.PAPER_GRAIN_LOOK) */
+  #paper { position: absolute; inset: 0; pointer-events: none; mix-blend-mode: multiply; display: none; }
   body.phone #wrap { border-radius: 0; box-shadow: none; }   /* телефон: игра на весь экран */
   #game { touch-action: none; }
   /* поле ввода имени поверх подписи на холсте (шрифт ≥ 16px — iPhone не увеличивает страницу) */
@@ -34,6 +36,7 @@
 <body>
 <div id="wrap">
   <canvas id="gl"></canvas>
+  <div id="paper"></div>
   <canvas id="game"></canvas>
   <div id="loading"><div>BeBeBe Atrapar 3D…</div><div id="loadbar"><i></i></div></div>
 </div>
@@ -215,6 +218,16 @@ const CFG = {
     btnCorner: 0.34, offBtn: "#a3a3a3", cache: 3, heart: 1.3, hudIcon: 1.12, stickRing: "rgba(61,43,31,.6)", stickBase: 0.9, knob: 24,
     ink: { text: "#3d2b1f", good: "#15803d", off: "#64748b", gold: "#b45309", bad: "#b91c1c", line: "rgba(61,43,31,.45)" },
     fxHeart: 0.55, fxStar: 0.45, fxDust: 0.6, popBurst: 1.7, popH: 2.4, winBox: [800, 34, 500], loseBox: [780, 160, 290], pauseBox: [700, 190, 220], stop: 1.12, glow: 1.25, stamp: 0.62, pen: "rgba(40,60,160,.85)", coinLeft: 0.36, coinRight: 0.08 },
+  // SPEC-021: 3D как рисунок фломастером. Контур 3D (свой цвет — OUT остаётся у 2D): цвет, во сколько раз толще, чем просила
+  // деталь (до SPEC-021 — 1), дрожание толщины по осям (± доля) и сдвиг оболочки (± доля толщины: одна сторона линии толще), зерно
+  OUTLINE_LOOK: { color: "#1b1b1b", k: 2, wobble: 0.22, shift: 0.35, seed: 21 },
+  OUTLINE_WOBBLE: true,      // SPEC-021: контур чуть неровный (false — ровный, ровно k × толщину)
+  // SPEC-021: заливка — два тона (тень / свет, доля яркости солнца), свет неба; тень от солнца: насколько тёмная (0…1) и размытие
+  TOON_LOOK: { tones: [150, 255], sky: 1.15, shadow: 0.5, shadowRadius: 3 },
+  // SPEC-021: бумажное зерно поверх 3D (умножение): прозрачность, размер плитки px, зерно случайности, светлый и тёмный тон бумаги,
+  // волокна (сколько, длина px), пятна (сколько, радиус px)
+  PAPER_GRAIN: true,
+  PAPER_GRAIN_LOOK: { alpha: 0.08, size: 256, seed: 7, light: [255, 250, 238], dark: [105, 90, 70], fibers: 110, fiberLen: 14, blots: 22, blotR: 26 },
   // SPEC-017: как выглядят меню (главный экран, вкладка «Гардероб», карта уровней) — цвета и размеры в одном месте, под будущие рисунки.
   // Цвета: карточка экрана и её контур, название, плашки (фон, контур, текст), закрытый бонус (текст, вуаль картинки), кнопки Играть /
   // История (storyBtn; story ниже — размеры экрана истории) / Магазин,
@@ -5615,7 +5628,7 @@ const LITTLE_SCALE = 1.6, BIG_SCALE = 1.4;   // герои крупнее кле
 const camTarget = new THREE.Vector3(COLS / 2, 0, ROWS / 2 + 0.4);
 const camBase = new THREE.Vector3();
 
-scene.add(new THREE.HemisphereLight(0xffffff, 0x5d7f45, 1.15));
+scene.add(new THREE.HemisphereLight(0xffffff, 0x5d7f45, CFG.TOON_LOOK.sky));
 const sun = new THREE.DirectionalLight(0xfff1dc, 2.0);
 sun.position.set(COLS / 2 - 9, 24, ROWS / 2 + 9);
 sun.target.position.copy(camTarget);
@@ -5624,6 +5637,7 @@ sun.shadow.mapSize.set(2048, 2048);
 Object.assign(sun.shadow.camera, { left: -21, right: 21, top: 17, bottom: -17, near: 1, far: 70 });
 sun.shadow.camera.updateProjectionMatrix();
 sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.03;
+sun.shadow.intensity = CFG.TOON_LOOK.shadow; sun.shadow.radius = CFG.TOON_LOOK.shadowRadius;   // SPEC-021: тень светлее и мягче (как штриховка)
 scene.add(sun, sun.target);
 
 // Камера: наклон сверху, вся карта помещается в кадр
@@ -5785,7 +5799,8 @@ function toScreenTo(o, x, y, h = 0) {
 }
 
 // ---------- Материалы ----------
-const gradTex = new THREE.DataTexture(new Uint8Array([105, 180, 255]), 3, 1, THREE.RedFormat);
+// SPEC-021: два тона, как фломастер — свет и тень (TOON_LOOK.tones), без бликов (MeshToonMaterial)
+const gradTex = new THREE.DataTexture(new Uint8Array(CFG.TOON_LOOK.tones), CFG.TOON_LOOK.tones.length, 1, THREE.RedFormat);
 gradTex.minFilter = gradTex.magFilter = THREE.NearestFilter; gradTex.needsUpdate = true;
 const matCache = new Map();
 function toon(color) {
@@ -5793,22 +5808,33 @@ function toon(color) {
   if (!m) { m = new THREE.MeshToonMaterial({ color, gradientMap: gradTex }); matCache.set(color, m); }
   return m;
 }
-const OUTLINE = new THREE.MeshBasicMaterial({ color: OUT, side: THREE.BackSide });
+const INK3 = CFG.OUTLINE_LOOK.color;      // SPEC-021: чёрный фломастер 3D (контуры, брови, рты); 2D-слой рисует своим OUT
+const OUTLINE = new THREE.MeshBasicMaterial({ color: INK3, side: THREE.BackSide });
 function ownMat(color, transparent = false) {
   const m = new THREE.MeshToonMaterial({ color, gradientMap: gradTex, transparent });
   m.userData.own = true;
-  m.userData.outline = transparent ? Object.assign(new THREE.MeshBasicMaterial({ color: OUT, side: THREE.BackSide, transparent: true }), { userData: { own: true } }) : OUTLINE;
+  m.userData.outline = transparent ? Object.assign(new THREE.MeshBasicMaterial({ color: INK3, side: THREE.BackSide, transparent: true }), { userData: { own: true } }) : OUTLINE;
   return m;
 }
-// Деталь с контуром (контур — та же форма чуть больше, изнанкой наружу)
+// SPEC-021: дрожание контура — своя случайность с зерна (не игровая rng(), не Math.random): одна и та же карта рисуется одинаково.
+// wobbleSeed(n) — с начала (buildMap3D — n = 0, персонажи — 1)
+let wobRng = mulberry32(CFG.OUTLINE_LOOK.seed);
+const wobbleSeed = n => { wobRng = mulberry32(CFG.OUTLINE_LOOK.seed + n); };
+const wob = a => (wobRng() * 2 - 1) * a;
+// Деталь с контуром (контур — та же форма чуть больше, изнанкой наружу). SPEC-021: толщина × OUTLINE_LOOK.k, чуть неровная:
+// по каждой оси своя толщина (± wobble) и оболочка чуть сдвинута (± shift толщины) — одна сторона линии толще другой
 function part(geo, color, outline = 0.03, mat = null) {
   const m = new THREE.Mesh(geo, mat || toon(color));
   m.castShadow = true;
   if (outline > 0) {
+    const L = CFG.OUTLINE_LOOK, on = CFG.OUTLINE_WOBBLE, t = outline * L.k;
     geo.computeBoundingBox();
     const sz = new THREE.Vector3(); geo.boundingBox.getSize(sz);
     const o = new THREE.Mesh(geo, mat ? mat.userData.outline : OUTLINE);
-    o.scale.set(1 + 2 * outline / Math.max(sz.x, 0.02), 1 + 2 * outline / Math.max(sz.y, 0.02), 1 + 2 * outline / Math.max(sz.z, 0.02));
+    const tx = t * (1 + (on ? wob(L.wobble) : 0)), ty = t * (1 + (on ? wob(L.wobble) : 0)), tz = t * (1 + (on ? wob(L.wobble) : 0));
+    o.scale.set(1 + 2 * tx / Math.max(sz.x, 0.02), 1 + 2 * ty / Math.max(sz.y, 0.02), 1 + 2 * tz / Math.max(sz.z, 0.02));
+    if (on) o.position.set(wob(L.shift) * tx, wob(L.shift) * ty, wob(L.shift) * tz);
+    o.userData.hull = outline;                                   // толщина, которую просила деталь (тест look3D)
     m.add(o);
   }
   return m;
@@ -5951,7 +5977,7 @@ function makeRockFor(place, o) {
       const c = part(new THREE.ConeGeometry(0.17, 0.25, 8), "#d4a24c", 0.02); c.position.set(x, 0.82, z); g.add(c);
     }
     const flag = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.12, 0.02), toon("#ef4444")); flag.position.set(0.42, 1.1, 0.32); g.add(flag);
-    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.35, 4), toon(OUT)); pole.position.set(0.32, 1.0, 0.32); g.add(pole);
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.35, 4), toon(INK3)); pole.position.set(0.32, 1.0, 0.32); g.add(pole);
   } else if (place === "winter") {                       // снеговик
     const b1 = part(sphere(0.42, 16, 12), "#ffffff", 0.035); b1.position.y = 0.4; g.add(b1);
     const b2 = part(sphere(0.31, 16, 12), "#ffffff", 0.03); b2.position.y = 0.98; g.add(b2);
@@ -6067,10 +6093,10 @@ function makePondFor(place, o) {
     return;
   }
   if (place === "field") { makeGoal(place, o); return; }   // SPEC-016: ворота
-  const rimC = place === "beach" ? "#ffffff" : place === "winter" ? "#ffffff" : place === "city" ? THEMES[place].deco.kerb : OUT;
+  const rimC = place === "beach" ? "#ffffff" : place === "winter" ? "#ffffff" : place === "city" ? THEMES[place].deco.kerb : INK3;
   const waterC = place === "beach" ? "#2dd4bf" : place === "winter" ? "#cfe9ff" : place === "city" ? THEMES[place].water.c : "#5ab8f0";
   mapGroup.add(flat(new THREE.ShapeGeometry(roundedRectShape(w + (place === "beach" ? 0.6 : 0.42), d + (place === "beach" ? 0.5 : 0.3), 0.7)), rimC, 0.012, cx, cz));
-  if (place === "beach") mapGroup.add(flat(new THREE.ShapeGeometry(roundedRectShape(w + 0.62, d + 0.52, 0.72)), OUT, 0.008, cx, cz));
+  if (place === "beach") mapGroup.add(flat(new THREE.ShapeGeometry(roundedRectShape(w + 0.62, d + 0.52, 0.72)), INK3, 0.008, cx, cz));
   const water = flat(new THREE.ShapeGeometry(roundedRectShape(w + 0.3, d + 0.18, 0.65)), waterC, 0.025, cx, cz);
   mapGroup.add(water);
   if (place === "winter") {                              // лёд с трещинками
@@ -6366,6 +6392,7 @@ function buildMap3D() {
   mapGroup = new THREE.Group(); scene.add(mapGroup);
   fadeTrees.length = 0; fadeBushes.length = 0; waves.length = 0; snow = null; bigHomeMats.length = 0;
   builtKey = mapKey();
+  wobbleSeed(0);                         // SPEC-021: одна и та же карта — те же неровные контуры
   scene.background.set(th.bg); scene.fog.color.set(th.bg);
   paintGround(place);
 
@@ -6411,7 +6438,9 @@ function buildMap3D() {
       const wall = tag(part(new THREE.BoxGeometry(w, WALL_H, d), c0, 0.025, wm), o.kind);
       wall.position.set(P(o.x) + w / 2, WALL_H / 2, P(o.y) + d / 2); wall.receiveShadow = true;
       mapGroup.add(wall);
-      const cap = new THREE.Mesh(new THREE.BoxGeometry(w - (place === "winter" ? 0 : 0.1), place === "winter" ? 0.12 : 0.05, d - (place === "winter" ? 0 : 0.1)), toon(c1));
+      const capGeo = new THREE.BoxGeometry(w - (place === "winter" ? 0 : 0.1), place === "winter" ? 0.12 : 0.05, d - (place === "winter" ? 0 : 0.1));
+      const cap = place === "winter" ? part(capGeo, c1, 0.02) : new THREE.Mesh(capGeo, toon(c1));
+      cap.castShadow = false;                                       // тень даёт сама стена   // SPEC-021: снег на стене выше её контура — свой контур
       cap.position.set(P(o.x) + w / 2, WALL_H + (place === "winter" ? 0.05 : 0.02), P(o.y) + d / 2); mapGroup.add(cap);
       if ((place === "school" || place === "city") && o.kind === "build" && (o.w > CELL * 2 || o.h > CELL * 2)) {   // окна на школе и витрины торгового центра
         const along = o.w > o.h, len = along ? w : d, n = Math.floor(len / 1.6);
@@ -6425,9 +6454,9 @@ function buildMap3D() {
         }
       }
     } else if (o.kind === "pond") makePondFor(place, o);
-    else if (o.kind === "rock") { const r = makeRockFor(place, o); r.position.set(P(o.x), 0, P(o.y)); mapGroup.add(r); }
+    else if (o.kind === "rock") { const r = makeRockFor(place, o); r.userData.obj = "rock"; r.position.set(P(o.x), 0, P(o.y)); mapGroup.add(r); }
     else if (o.kind === "tree") {
-      const t = makeTreeFor(place, o, true);
+      const t = makeTreeFor(place, o, true); t.g.userData.obj = "tree";   // SPEC-021: obj — что это (тест контуров look3D)
       t.g.position.set(P(o.x), 0, P(o.y)); t.g.traverse(q => { if (q.isMesh) q.castShadow = true; }); mapGroup.add(t.g);
       fadeTrees.push({ o, mats: t.mats, a: 1 });
     }
@@ -6510,7 +6539,7 @@ function addFace(head, r, opts = {}) {
       const white = part(sphere(r * 0.24, 12, 10), "#ffffff", 0.025); white.position.set(k * ex, ey, ez); head.add(white);
       const pupil = new THREE.Mesh(sphere(r * 0.13, 10, 8), toon("#111111")); pupil.position.set(k * ex, ey, ez + r * 0.17); head.add(pupil);
       f.eyes.push(white, pupil);
-      const brow = new THREE.Mesh(new THREE.BoxGeometry(r * 0.42, r * 0.09, r * 0.08), toon(OUT));
+      const brow = new THREE.Mesh(new THREE.BoxGeometry(r * 0.42, r * 0.09, r * 0.08), toon(INK3));
       brow.position.set(k * ex, ey + r * 0.32, ez + r * 0.08); head.add(brow); f.brows.push(brow); brow.userData.k = k;
     } else {
       const eye = new THREE.Mesh(sphere(r * 0.17, 10, 8), toon("#111111")); eye.position.set(k * ex, ey, ez); head.add(eye);
@@ -6519,7 +6548,7 @@ function addFace(head, r, opts = {}) {
       f.eyes.push(eye);
     }
   }
-  const mouth = new THREE.Mesh(new THREE.TorusGeometry(r * 0.17, r * 0.045, 6, 12, Math.PI), toon(OUT));
+  const mouth = new THREE.Mesh(new THREE.TorusGeometry(r * 0.17, r * 0.045, 6, 12, Math.PI), toon(INK3));
   mouth.rotation.z = Math.PI; mouth.position.set(0, -r * 0.3, r * 0.93); head.add(mouth); f.mouth = mouth;
   return f;
 }
@@ -6716,7 +6745,7 @@ function buildBigModel(sk) {
   } else if (sk.top === "horns") for (const k of [-1, 1]) {
     const c = part(new THREE.ConeGeometry(0.1, 0.42, 8), "#fef3c7", 0.02); c.position.set(k * 0.3, 0.5, 0); c.rotation.z = -k * 0.55; head.add(c);
   } else if (sk.top === "robot") {
-    const ant = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.3, 6), toon(OUT)); ant.position.y = 0.57; head.add(ant);
+    const ant = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.3, 6), toon(INK3)); ant.position.y = 0.57; head.add(ant);
     const bm = ownMat("#ef4444"); bm.emissive = new THREE.Color("#ef4444"); bm.emissiveIntensity = 0.5;
     blink = part(sphere(0.08), "", 0.02, bm); blink.position.y = 0.74; head.add(blink);
   } else if (sk.top === "pirate") {
@@ -6742,6 +6771,7 @@ let charGroup = new THREE.Group(); scene.add(charGroup);
 function buildCharacters() {
   scene.remove(charGroup); disposeTree(charGroup);
   charGroup = new THREE.Group(); scene.add(charGroup);
+  wobbleSeed(1);                         // SPEC-021: контуры героев дрожат одинаково при каждой постройке
   for (const l of littles) {
     l.model = buildLittleModel(l.look, l.kind === "player", l.id, l.kind === "player" ? gloveOf(l.id) : null);
     l.model.rig.scale.setScalar(LITTLE_SCALE); l.model.ghost.scale.setScalar(LITTLE_SCALE);
@@ -7087,8 +7117,72 @@ function renderPreviews(t) {
   renderer.setScissorTest(false);
 }
 
+// SPEC-021: бумажное зерно поверх 3D — картинка делается один раз (canvas, своя случайность с зерна), CFG.PAPER_GRAIN включает
+let paperMade = 0, paperOn = false;
+const paperEl = document.getElementById("paper");
+function makePaperGrain() {
+  const G = CFG.PAPER_GRAIN_LOOK, S = G.size, rnd = mulberry32(G.seed), cv = document.createElement("canvas");
+  cv.width = cv.height = S;
+  const g = cv.getContext("2d"), img = g.createImageData(S, S), d = img.data, [l0, l1, l2] = G.light, [d0, d1, d2] = G.dark;
+  for (let i = 0; i < S * S; i++) {                  // зерно: почти везде светлое, изредка тёмные крупинки
+    const n = rnd() ** 3, k = i * 4;
+    d[k] = l0 + (d0 - l0) * n; d[k + 1] = l1 + (d1 - l1) * n; d[k + 2] = l2 + (d2 - l2) * n; d[k + 3] = 255;
+  }
+  g.putImageData(img, 0, 0);
+  const dark = `rgb(${G.dark.join(",")})`;
+  g.globalAlpha = 0.18; g.fillStyle = dark;
+  for (let i = 0; i < G.blots; i++) { g.beginPath(); g.arc(rnd() * S, rnd() * S, G.blotR * (0.4 + rnd()), 0, Math.PI * 2); g.globalAlpha = 0.05 + rnd() * 0.1; g.fill(); }
+  g.strokeStyle = dark; g.lineWidth = 1; g.lineCap = "round";
+  for (let i = 0; i < G.fibers; i++) {               // волокна бумаги
+    const x = rnd() * S, y = rnd() * S, a = rnd() * Math.PI, len = G.fiberLen * (0.4 + rnd());
+    g.globalAlpha = 0.2 + rnd() * 0.3; g.beginPath(); g.moveTo(x, y);
+    g.quadraticCurveTo(x + Math.cos(a) * len / 2 + (rnd() - 0.5) * 4, y + Math.sin(a) * len / 2 + (rnd() - 0.5) * 4, x + Math.cos(a) * len, y + Math.sin(a) * len); g.stroke();
+  }
+  paperEl.style.backgroundImage = `url(${cv.toDataURL()})`;
+  paperEl.style.backgroundSize = S + "px " + S + "px";
+  paperEl.style.opacity = String(G.alpha);
+  paperMade++;
+}
+function syncPaper() {                                // каждый кадр: только сравнение, без новых объектов
+  const want = !!CFG.PAPER_GRAIN;
+  if (want === paperOn) return;
+  if (want && !paperMade) makePaperGrain();
+  paperEl.style.display = want ? "block" : "none";
+  paperOn = want;
+}
+// SPEC-021 (тесты): как нарисована 3D-сцена — контуры (цвета, во сколько раз толще просьбы детали, неровность, сдвиг, кто с контуром,
+// подпись карты), тона заливки, типы материалов, тень солнца, бумажное зерно
+function look3D() {
+  const ratios = [], colors = new Set(), types = new Set(), kinds = {};
+  let hulls = 0, shifted = 0, mapSig = 0, toonOffGradient = 0;
+  const kindOf = o => { for (let q = o; q; q = q.parent) { if (q.userData.piece || q.userData.obj) return q.userData.piece || q.userData.obj; if (q === charGroup) return "character"; } return "other"; };
+  const under = (o, root) => { for (let q = o; q; q = q.parent) if (q === root) return true; return false; };
+  scene.traverse(o => {
+    if (!o.isMesh) return;
+    types.add(o.material.type);
+    if (o.material.isMeshToonMaterial && o.material.gradientMap !== gradTex) toonOffGradient++;
+    if (!o.userData.hull) return;
+    hulls++;
+    const box = o.parent.geometry.boundingBox, sz = new THREE.Vector3(); box.getSize(sz);
+    const r = ["x", "y", "z"].map(a => (o.scale[a] - 1) * Math.max(sz[a], 0.02) / 2 / o.userData.hull);
+    ratios.push(...r);
+    colors.add("#" + o.material.color.getHexString());
+    if (o.position.lengthSq() > 0) shifted++;
+    const k = kindOf(o.parent); kinds[k] = (kinds[k] || 0) + 1;
+    if (under(o, mapGroup)) mapSig += r[0] + r[1] * 3 + r[2] * 7 + o.position.x * 11;
+  });
+  ratios.sort((a, b) => a - b);
+  const med = ratios[ratios.length >> 1] || 0;
+  const order = [...wrap.children].map(e => e.id).filter(id => id === "gl" || id === "paper" || id === "game");
+  return { outline: { colors: [...colors], hulls, k: med, spread: med ? (ratios[ratios.length - 1] - ratios[0]) / med : 0, shifted: hulls ? shifted / hulls : 0, kinds, mapSig: +mapSig.toFixed(6) },
+    tones: new Set(gradTex.image.data).size === gradTex.image.width ? gradTex.image.width : -1, materials: [...types], toonOffGradient,
+    shadow: { intensity: sun.shadow.intensity, radius: sun.shadow.radius },
+    paper: { shown: paperEl.style.display === "block", blend: getComputedStyle(paperEl).mixBlendMode, alpha: Number(paperEl.style.opacity), order, made: paperMade } };
+}
+
 function render3D(t) {
   renders++;
+  syncPaper();
   syncScene(t);
   renderer.setViewport(0, 0, CSS_W, CSS_H);
   renderer.render(scene, camera);
@@ -7210,7 +7304,7 @@ window.__bb = {
   get heardHint() { return heardHintOn() ? { text: heardHintText(), pi: heardHintPi, rect: heardHintRect && { ...heardHintRect, rows: [...heardHintRect.rows] } } : null; },
   get stickMarks() { return stickMarks.map(q => ({ ...q })); }, get tapLines() { return [...tapLines]; },
   GLOVES, KISSES, get shopLayout() { return shopLayout; },                         // SPEC-007 AC 10
-  levelType, levelReport, get levelInfo() { return levelInfo; }, clearLevelCache, CFG, THEMES,
+  levelType, levelReport, get levelInfo() { return levelInfo; }, clearLevelCache, CFG, THEMES, look3D,   // SPEC-021: look3D() — как нарисована 3D-сцена
   get banner() { return banner; }, bannerAlpha,
   // всё состояние мира, которое levelReport сохраняет и возвращает (для теста «не трогает идущую игру»)
   worldState() { return JSON.stringify({ obstacles, bushes, floors, decor, trees, flowers, safeZone, dangerZone, spawns, reachable: Array.from(reachable).join(""), grids: [blocked, blockedBig, moveGrid, seeGrid, moveGridBig].map(g => g.join("")) }); },
@@ -7222,7 +7316,7 @@ window.__bb = {
 // ошибку, чтобы визуальный тест, открытый в sim, падал громко, а не проверял пустоту.
 const SIM_DRAWN = ["buttonRects", "buttonNames", "tapButton", "hudRects", "mapInfo", "levelCard", "storyInfo", "textSizes", "minimap",
   "bannerRect", "rotateShown", "winPanel", "winLine", "bonusNote", "shopLayout", "kitHint", "heardHint", "edgeArrows", "stickMarks",
-  "tapLines", "installHintShown", "mapPieces", "groundColorAt", "camera", "minimapAlpha", "artUse"];
+  "tapLines", "installHintShown", "mapPieces", "groundColorAt", "camera", "minimapAlpha", "artUse", "look3D"];
 window.__bb.SIM_DRAWN = SIM_DRAWN;
 window.__bb = new Proxy(window.__bb, {
   get(t, k, r) {
