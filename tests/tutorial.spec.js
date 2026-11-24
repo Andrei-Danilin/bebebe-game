@@ -7,7 +7,8 @@ const fs = require("fs");
 const path = require("path");
 const { openGame, frames, step, sharedPage, resetGame, softly } = require("./helpers");
 
-// a shared sim page (logic) and a shared rendered desktop page (buttons); the fresh-page tests come first in the file
+// a shared sim page (logic) and a shared rendered page (desktop, then phone); order: sim and fresh-page tests first, the rendered
+// shared-page tests last (a rendered page left open slows every other test)
 const sharedSim = sharedPage(), sharedDesk = sharedPage();
 const fixture = (shared, key, opts) => async ({ browser }, use) => {
   const s = await shared.get(browser, key, { viewport: { width: 960, height: 640 } }, p => openGame(p, opts));
@@ -17,7 +18,17 @@ const fixture = (shared, key, opts) => async ({ browser }, use) => {
   expect(s.errors.splice(0)).toEqual([]);
   expect(await s.page.evaluate(() => JSON.stringify(window.__bb.CFG)), "the test restores every CFG value it changed").toBe(cfg);
 };
-const test = base.test.extend({ simPage: fixture(sharedSim, "sim", { sim: true }), desk: fixture(sharedDesk, "desk", {}) });
+// the phone page shares sharedDesk (one rendered page at a time): its tests come after the desktop ones
+const fixtureOn = (shared, key, ctx, opts) => async ({ browser }, use) => {
+  const s = await shared.get(browser, key, ctx, p => openGame(p, opts));
+  await resetGame(s.page);
+  const cfg = await s.page.evaluate(() => JSON.stringify(window.__bb.CFG));
+  await use(s.page);
+  expect(s.errors.splice(0)).toEqual([]);
+  expect(await s.page.evaluate(() => JSON.stringify(window.__bb.CFG)), "the test restores every CFG value it changed").toBe(cfg);
+};
+const test = base.test.extend({ simPage: fixture(sharedSim, "sim", { sim: true }), desk: fixture(sharedDesk, "desk", {}),
+  phone: fixtureOn(sharedDesk, "phone", { viewport: { width: 667, height: 375 }, hasTouch: true, isMobile: true }, { query: "?phone=1" }) });
 test.afterAll(async () => { await sharedSim.close(); await sharedDesk.close(); });
 
 // what the game is showing: the screen, the scene ({ id, page, pages }), the tutorial ({ step, page, game, back }), progress.seen
@@ -71,7 +82,7 @@ test("first launch: the intro comic, the tutorial, then the Park map with level 
   await frames(page);
   s = await state(page);
   expect(s.scene).toEqual({ id: "tutorial_a", page: 0, pages: 4 });
-  expect(s.tutorial).toEqual({ step: "a", page: 0, game: 0, back: "map" });
+  expect(s.tutorial).toEqual({ step: "a", page: 0, game: 0, hint: 0, back: "map" });
   expect([s.mode, s.seen.intro, s.seen.tutorial]).toEqual(["scene", true, false]);
   const cap = await page.evaluate(() => [window.__bb.sceneInfo.caption, window.__bb.I18N.en.tut.a(window.__bb.I18N.en.tut.tiptoeKey)[0]]);
   expect(cap[0], "a caption under the panel").toBe(cap[1]);
@@ -120,6 +131,195 @@ test("an old save that has seen the intro does not open the tutorial by itself",
   await frames(page);
   expect(await page.evaluate(() => window.__bb.buttonRects.map(q => q.id))).toContain("story:practice");
   expect(errors).toEqual([]);
+});
+
+// ---------- AC 2: the save shape — seen.tutorial merges with the defaults; who gets the tutorial by itself ----------
+test("progress.seen.tutorial: old saves load without it, only true counts", { tag: "@fast" }, async ({ simPage: page }) => {
+  const old = JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures", "saves", "pre-spec-029.json"), "utf8")).keys["bebebe-progress"];
+  const r = await page.evaluate(save => {
+    const b = window.__bb, seen = s => b.loadProgress(s).seen;
+    return { old: [seen(save).intro, seen(save).tutorial], none: seen(null).tutorial, yes: seen({ seen: { tutorial: true } }).tutorial,
+      junk: [seen({ seen: { tutorial: "yes" } }).tutorial, seen({ seen: "oops" }).tutorial],
+      // the tutorial opens by itself only on a real first launch: the intro not seen yet and no level won anywhere
+      first: [b.firstTutorial(b.loadProgress(null)), b.firstTutorial(b.loadProgress({ seen: { intro: true } })), b.firstTutorial(b.loadProgress(save)),
+        b.firstTutorial(b.loadProgress({ ...save, seen: {} })), b.firstTutorial(b.loadProgress({ seen: { tutorial: true } }))],
+      steps: b.TUTORIAL_STEPS, cfg: b.CFG.TUTORIAL };
+  }, old);
+  expect(r.old, "pre-SPEC-029 save: intro seen, tutorial not").toEqual([true, false]);
+  expect([r.none, r.yes, ...r.junk]).toEqual([false, true, false, false]);
+  expect(r.first, "fresh, seen intro, old save, old save without seen (plays already), tutorial seen").toEqual([true, false, false, false, false]);
+  expect(r.steps).toEqual(["a", "game1", "b", "c", "game2", "ready"]);
+  expect(r.cfg).toMatchObject({ hearts1: 3, hearts2: 5, speedMult: 0.6, pushCooldownMult: 2, itemEvery: 3, itemMax: 6, bananaShare: 0.4, kisses: 5, kits: 1, bothDownStand: 3, hintTimeout: 12 });
+});
+
+// ---------- AC 5, 7: the pages — four panels per sheet, a caption each (A4 follows the device), the last page ----------
+test("tutorial pages: four panels per sheet with captions in every language", { tag: "@fast" }, async ({ simPage: page }) => {
+  const r = await page.evaluate(() => {
+    const b = window.__bb, out = {};
+    for (const l of b.LANGS) {
+      b.setLang(l); out[l] = {};
+      for (const id of ["tutorial_a", "tutorial_b", "tutorial_c", "tutorial_ready"]) {
+        b.openScene(id);
+        out[l][id] = { pages: b.scene.pages, texts: b.scenePages(id).map(q => q.text) };
+      }
+    }
+    b.setLang("en"); b.sceneSkip(); b.mode = "home";
+    return { out, I: { a4touch: b.I18N.en.tut.a(b.I18N.en.tut.tiptoeTouch)[3] } };
+  });
+  const soft = softly();
+  for (const [l, o] of Object.entries(r.out)) {
+    for (const sh of SHEETS) {
+      soft(o["tutorial_" + sh].pages, `${l} ${sh}: 4 panels`).toBe(4);
+      for (const t of o["tutorial_" + sh].texts) soft(typeof t === "string" && t.length > 10, `${l} ${sh}: caption "${t}"`).toBe(true);
+    }
+    soft(o.tutorial_ready.pages, `${l} ready: one page`).toBe(1);
+  }
+  soft(r.out.en.tutorial_a.texts[0], "A1").toBe("Sneak up behind Dad and hug him! Every hug takes away one angry heart.");
+  soft(r.out.en.tutorial_a.texts[3], "A4 on the keyboard").toBe("Dad hears running behind him. Close to him, tiptoe! (hold Shift)");
+  soft(r.I.a4touch, "A4 on the phone").toBe("Dad hears running behind him. Close to him, tiptoe! (push the stick just a little)");
+  soft(r.out.en.tutorial_c.texts[3], "C4").toBe("Win levels, get coins, and buy all this in Character!");
+  soft.done();
+});
+
+// ---------- SPEC-029 step 3: practice game 1 — rescue and hug (AC 8–12, 17) ----------
+// in-page: start practice game 1 (from the menu, optionally with two players set), seeded
+const game1 = (page, players = 1) => page.evaluate(n => {
+  const b = window.__bb; b.resetWorld(n); b.mode = "home"; b.seedRandom(29); b.openTutorial("map", "game1");
+}, players);
+// in-page: step until cond() or the time runs out (sec of game time); → seconds used
+const stepUntil = (page, cond, max) => page.evaluate(([c, m]) => {
+  const b = window.__bb, f = new Function("b", "return " + c);
+  let t = 0;
+  for (; t < m && !f(b); t += 1 / 60) b.update(1 / 60);
+  return t;
+}, [cond, max]);
+
+test("practice game 1: one player and one bot, a slow Dad with 3 hearts on the small fixed map", { tag: "@fast" }, async ({ simPage: page }) => {
+  const before = await page.evaluate(() => { const b = window.__bb; return { park1: b.difficulty("park", 1), coins: b.progress.coins, ledger: b.ledger().length }; });
+  await game1(page, 2);                                  // two players set in the menu: the practice still has one
+  const r = await page.evaluate(() => {
+    const b = window.__bb, C = b.CFG, map = b.tutorialMapRect, cells = b.grid.COLS * b.grid.ROWS;
+    const out = { kinds: b.littles.map(l => l.kind), maxHp: b.big.maxHp, hp: b.big.hp, boss: b.big.boss, speeds: b.bigSpeeds(), mult: C.TUTORIAL.speedMult,
+      map, area: map.w * map.h / cells, world: b.worldState(), level: b.levelInfo, label: b.timerText(), safe: b.safeZone, danger: b.dangerZone, cell: b.grid.CELL };
+    // every cell the kids can reach is inside the meadow
+    out.outside = 0; out.reach = 0;
+    const st = JSON.parse(out.world).reachable;
+    for (let i = 0; i < st.length; i++) if (st[i] === "1") { out.reach++; const x = i % b.grid.COLS, y = Math.floor(i / b.grid.COLS); if (x < map.x || y < map.y || x >= map.x + map.w || y >= map.y + map.h) out.outside++; }
+    return out;
+  });
+  expect(r.kinds, "AC 8: one player, one bot").toEqual(["player", "bot"]);
+  expect([r.maxHp, r.hp, r.boss], "AC 9: 3 hearts, no boss").toEqual([3, 3, null]);
+  for (const k of ["chase", "search", "patrol"]) expect(r.speeds[k], `AC 9: ${k} = 0.6 × Park 1`).toBeCloseTo(before.park1[k] * r.mult, 6);
+  expect(r.area, "about half the Park 1 area").toBeGreaterThan(0.45);
+  expect(r.area).toBeLessThan(0.55);
+  expect(r.outside, "the kids reach only the meadow").toBe(0);
+  const inMap = z => z.x >= r.map.x * r.cell && z.y >= r.map.y * r.cell && z.x + z.w <= (r.map.x + r.map.w) * r.cell && z.y + z.h <= (r.map.y + r.map.h) * r.cell;
+  expect([inMap(r.safe), inMap(r.danger)], "the kids' house and Dad's house are on the meadow").toEqual([true, true]);
+  expect(r.label, "the HUD says Practice, not a level").toBe("Practice");
+  // the same map every time: a restart and a new start build it again exactly
+  const again = await page.evaluate(() => { const b = window.__bb; b.tutorialSkip(); b.seedRandom(3); b.openTutorial("map", "game1"); return b.worldState(); });
+  expect(again === r.world, "the practice map is fixed").toBe(true);
+  // no stars, items, bananas or coins: 40 s of play
+  const s = await page.evaluate(() => { const b = window.__bb; let items = 0, stars = 0; for (let i = 0; i < 40 * 60; i++) { b.update(1 / 60); items += b.items.length; stars += b.stars.length; } return { items, stars, coins: b.progress.coins, ledger: b.ledger().length }; });
+  expect(s).toEqual({ items: 0, stars: 0, coins: before.coins, ledger: before.ledger });
+});
+
+test("practice game 1 script: the bot is pushed at the start and waits, the player rescues, sneaks and hugs 3 times", async ({ simPage: page }) => {
+  await page.evaluate(() => { const b = window.__bb; Object.assign(b.progress.inv, { mittens: 3, kisses: 4, rescues: 2 }); b.progress.equip[0] = "mittens"; });
+  const inv0 = await page.evaluate(() => JSON.stringify(window.__bb.progress.inv));
+  await game1(page);
+  expect(await page.evaluate(() => window.__bb.tutorial.hint), "no hint before the friend falls").toBe(0);
+  // AC 10: the bot runs straight at Dad and is pushed (Dad turns to it)
+  const t = await stepUntil(page, "b.littles[1].state === 'down'", 20);
+  expect(t, "the bot is pushed within 20 s").toBeLessThan(20);
+  const ev = await page.evaluate(() => window.__bb.events.filter(e => e.type === "push").map(e => [e.who, e.blocked]));
+  expect(ev, "the first push is the bot's").toEqual([[1, false]]);
+  expect(await page.evaluate(() => window.__bb.tutorial.hint), "hint 1: rescue the friend").toBe(1);
+  // AC 10, 12: down without a timer — 60 s later still down (the player stays in the house)
+  await page.evaluate(() => { for (let i = 0; i < 60 * 60; i++) window.__bb.update(1 / 60); });
+  expect(await page.evaluate(() => [window.__bb.littles[1].state, window.__bb.events.some(e => e.type === "rest")])).toEqual(["down", false]);
+  // the player stands next to the bot (Dad calm, far away): rescued
+  await page.evaluate(() => {
+    const b = window.__bb, bot = b.littles[1], p = b.littles[0];
+    Object.assign(b.big, { state: "look", timer: 999, x: 560, y: 64, dir: 0, noPush: 0, pushCd: 0 });
+    Object.assign(p, { x: bot.x + 20, y: bot.y, state: "ok", kx: 0, ky: 0 });
+  });
+  await stepUntil(page, "b.littles[1].state === 'ok'", 5);
+  expect(await page.evaluate(() => [window.__bb.littles[1].state, window.__bb.events.filter(e => e.type === "rescued").map(e => e.by)])).toEqual(["ok", ["player"]]);
+  expect(await page.evaluate(() => window.__bb.tutorial.hint), "hint 2: sneak behind Dad").toBe(2);
+  // behind Dad within hug range → hint 3
+  await page.evaluate(() => {
+    const b = window.__bb, big = b.big, p = b.littles[0];
+    Object.assign(big, { state: "look", timer: 999, x: 400, y: 250, dir: 0, lookSign: 0 });
+    Object.assign(p, { x: 400 - 60, y: 250, state: "ok", kx: 0, ky: 0 });
+  });
+  await page.evaluate(() => window.__bb.update(1 / 60));
+  expect(await page.evaluate(() => window.__bb.tutorial.hint), "hint 3: hug 3 times").toBe(3);
+  // three hugs, one heart each (no mittens in the practice), then the kind moment and page B
+  const hearts = [];
+  for (let i = 0; i < 3; i++) {
+    hearts.push(await page.evaluate(() => {
+      const b = window.__bb, big = b.big, l = b.littles[0];
+      Object.assign(big, { state: "look", timer: 999, stun: 0, hugCd: 0, noPush: 0, slip: 0, pushCd: 0, blush: 0, x: 400, y: 250, dir: 0, lookSign: 0 });
+      Object.assign(l, { state: "ok", hugCd: 0, hugAnim: 0, invuln: 0, kx: 0, ky: 0, x: 400 - 34, y: 250 });
+      b.update(1 / 60);
+      return b.big.hp;
+    }));
+    if (i < 2) await page.evaluate(() => { for (let k = 0; k < 150; k++) window.__bb.update(1 / 60); });
+  }
+  expect(hearts, "each hug takes one heart").toEqual([2, 1, 0]);
+  await stepUntil(page, "b.mode !== 'play'", 8);
+  expect(await page.evaluate(() => [window.__bb.mode, window.__bb.scene && window.__bb.scene.id, window.__bb.tutorial.step])).toEqual(["scene", "tutorial_b", "b"]);
+  expect(await page.evaluate(() => JSON.stringify(window.__bb.progress.inv)), "AC 17: mittens, kisses and kits untouched").toBe(inv0);
+});
+
+test("practice game 1 cannot be lost: the bot rescues the player, both down stand up at the kids' house after 3 s", async ({ simPage: page }) => {
+  await page.evaluate(() => { const b = window.__bb; b.progress.inv.kisses = 3; b.progress.inv.rescues = 2; });
+  await game1(page);
+  await stepUntil(page, "b.littles[1].state === 'down'", 20);
+  // no kisses and no rescue kit in the practice (the real stock is not used)
+  const k = await page.evaluate(() => { const b = window.__bb, p = b.littles[0]; p.state = "ok"; const kiss = b.throwKiss(0); p.state = "down"; const kit = b.useRescueKit(0); return [kiss, kit, b.progress.inv.kisses, b.progress.inv.rescues]; });
+  expect(k).toEqual([false, false, 3, 2]);
+  // both down (the player just fell, see above): after bothDownStand seconds both stand at the kids' house
+  await page.evaluate(() => { const b = window.__bb; Object.assign(b.littles[0], { x: 300, y: 300 }); Object.assign(b.big, { state: "look", timer: 999, x: 560, y: 64 }); });
+  await page.evaluate(() => { for (let i = 0; i < Math.round(2.9 * 60); i++) window.__bb.update(1 / 60); });
+  expect(await page.evaluate(() => window.__bb.littles.map(l => l.state)), "2.9 s: still down").toEqual(["down", "down"]);
+  await page.evaluate(() => { for (let i = 0; i < 12; i++) window.__bb.update(1 / 60); });
+  const up = await page.evaluate(() => window.__bb.littles.map(l => [l.state, window.__bb.inSafe(l)]));
+  expect(up, "3 s: both up in the kids' house").toEqual([["ok", true], ["ok", true]]);
+  // the player falls alone: the bot comes and helps (normal bot rescue), however long it takes
+  await page.evaluate(() => {
+    const b = window.__bb;
+    Object.assign(b.big, { state: "look", timer: 999, x: 560, y: 64, dir: 0, lookSign: 0, noPush: 999 });
+    Object.assign(b.littles[0], { state: "down", downTimer: 0, x: 300, y: 300, rescue: 0, botWait: 0 });
+  });
+  const t = await stepUntil(page, "b.littles[0].state === 'ok'", 30);
+  expect(t).toBeLessThan(30);
+  expect(await page.evaluate(() => window.__bb.events.filter(e => e.type === "rescued").at(-1))).toMatchObject({ who: 0, by: "bot" });
+});
+
+test("AC 17: a real Park 1 after practice game 1 has its own numbers", async ({ simPage: page }) => {
+  const park = () => page.evaluate(() => {
+    const b = window.__bb; b.world = "park"; b.level = 1; b.startGame(1); b.seedRandom(5);
+    const out = { speeds: b.bigSpeeds(), hp: b.big.maxHp, kinds: b.littles.map(l => l.kind), world: b.worldState(), type: b.levelInfo.type, label: b.timerText() };
+    for (let i = 0; i < 20 * 60; i++) b.update(1 / 60);
+    out.items = b.events.filter(e => e.type === "item" || e.type === "slip").length + b.items.length;
+    b.progress.inv.kisses = 1; b.littles[0].state = "ok"; b.littles[0].kissCd = 0;
+    Object.assign(b.littles[0], { x: 300, y: 300 });
+    out.kiss = b.throwKiss(0); out.kissesLeft = b.progress.inv.kisses;
+    b.mode = "home";
+    return out;
+  });
+  const a = await park();
+  await game1(page, 2);
+  await page.evaluate(() => { for (let i = 0; i < 10 * 60; i++) window.__bb.update(1 / 60); window.__bb.tutorialSkip(); });
+  const z = await park();
+  expect(z.speeds).toEqual(a.speeds);
+  expect([z.hp, z.kinds.length, z.kinds.filter(k => k === "bot").length, z.type]).toEqual([5, 5, 4, "classic"]);
+  expect(z.world === a.world, "the Park 1 map").toBe(true);
+  expect(z.label).toMatch(/^Lv\. 1 /);
+  expect(z.items, "items appear in Park 1").toBeGreaterThan(0);
+  expect([z.kiss, z.kissesLeft], "the real kiss stock works again").toEqual([true, 0]);
 });
 
 // ---------- AC 3: Skip on every page and in both practice games (pause menu and corner button) → the Park map, seen ----------
@@ -181,7 +381,7 @@ test("Practice on the How-to-play page replays the tutorial and ends back on the
   await page.evaluate(() => window.__bb.tapButton("story:practice"));
   await frames(page);
   let s = await state(page);
-  expect([s.mode, s.scene && s.scene.id, s.tutorial]).toEqual(["scene", "tutorial_a", { step: "a", page: 0, game: 0, back: "story" }]);
+  expect([s.mode, s.scene && s.scene.id, s.tutorial]).toEqual(["scene", "tutorial_a", { step: "a", page: 0, game: 0, hint: 0, back: "story" }]);
   for (let i = 0; i < 4; i++) await page.evaluate(() => window.__bb.sceneNext());
   s = await state(page);
   expect([s.mode, s.tutorial.game, s.players], "one player, also with two players set").toEqual(["play", 1, 1]);
@@ -209,50 +409,30 @@ test("Practice on the How-to-play page replays the tutorial and ends back on the
   expect(await page.evaluate(() => [window.__bb.mode, window.__bb.storyInfo.page, window.__bb.tutorial])).toEqual(["story", "rules", null]);
 });
 
-// ---------- AC 2: the save shape — seen.tutorial merges with the defaults; who gets the tutorial by itself ----------
-test("progress.seen.tutorial: old saves load without it, only true counts", { tag: "@fast" }, async ({ simPage: page }) => {
-  const old = JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures", "saves", "pre-spec-029.json"), "utf8")).keys["bebebe-progress"];
-  const r = await page.evaluate(save => {
-    const b = window.__bb, seen = s => b.loadProgress(s).seen;
-    return { old: [seen(save).intro, seen(save).tutorial], none: seen(null).tutorial, yes: seen({ seen: { tutorial: true } }).tutorial,
-      junk: [seen({ seen: { tutorial: "yes" } }).tutorial, seen({ seen: "oops" }).tutorial],
-      // the tutorial opens by itself only on a real first launch: the intro not seen yet and no level won anywhere
-      first: [b.firstTutorial(b.loadProgress(null)), b.firstTutorial(b.loadProgress({ seen: { intro: true } })), b.firstTutorial(b.loadProgress(save)),
-        b.firstTutorial(b.loadProgress({ ...save, seen: {} })), b.firstTutorial(b.loadProgress({ seen: { tutorial: true } }))],
-      steps: b.TUTORIAL_STEPS, cfg: b.CFG.TUTORIAL };
-  }, old);
-  expect(r.old, "pre-SPEC-029 save: intro seen, tutorial not").toEqual([true, false]);
-  expect([r.none, r.yes, ...r.junk]).toEqual([false, true, false, false]);
-  expect(r.first, "fresh, seen intro, old save, old save without seen (plays already), tutorial seen").toEqual([true, false, false, false, false]);
-  expect(r.steps).toEqual(["a", "game1", "b", "c", "game2", "ready"]);
-  expect(r.cfg).toMatchObject({ hearts1: 3, hearts2: 5, speedMult: 0.6, pushCooldownMult: 2, itemEvery: 3, itemMax: 6, bananaShare: 0.4, kisses: 5, kits: 1, bothDownStand: 3, hintTimeout: 12 });
-});
-
-// ---------- AC 5, 7: the pages — four panels per sheet, a caption each (A4 follows the device), the last page ----------
-test("tutorial pages: four panels per sheet with captions in every language", { tag: "@fast" }, async ({ simPage: page }) => {
-  const r = await page.evaluate(() => {
-    const b = window.__bb, out = {};
-    for (const l of b.LANGS) {
-      b.setLang(l); out[l] = {};
-      for (const id of ["tutorial_a", "tutorial_b", "tutorial_c", "tutorial_ready"]) {
-        b.openScene(id);
-        out[l][id] = { pages: b.scene.pages, texts: b.scenePages(id).map(q => q.text) };
-      }
-    }
-    b.setLang("en"); b.sceneSkip(); b.mode = "home";
-    return { out, I: { a4touch: b.I18N.en.tut.a(b.I18N.en.tut.tiptoeTouch)[3] } };
-  });
+// the hint banner: drawn (desktop and phone 667×375), the device's controls, not on the corner Skip; the HUD label
+async function hintBanner(page, touch) {
   const soft = softly();
-  for (const [l, o] of Object.entries(r.out)) {
-    for (const sh of SHEETS) {
-      soft(o["tutorial_" + sh].pages, `${l} ${sh}: 4 panels`).toBe(4);
-      for (const t of o["tutorial_" + sh].texts) soft(typeof t === "string" && t.length > 10, `${l} ${sh}: caption "${t}"`).toBe(true);
-    }
-    soft(o.tutorial_ready.pages, `${l} ready: one page`).toBe(1);
+  for (const l of ["en", "es", "pt", "ru"]) {
+    await page.evaluate(lang => {
+      const b = window.__bb; b.setLang(lang); b.CFG.TEXT_TEST_SCALE = 1.3; b.resetWorld(1); b.mode = "home"; b.openTutorial("map", "game1");
+      b.littles[1].state = "down"; b.update(1 / 60);       // hint 1
+    }, l);
+    await frames(page);
+    const d = await page.evaluate(() => { const b = window.__bb; return { hint: b.tutorialHint, buttons: b.buttonRects, hud: b.hudRects, over: b.textOverflows, h: b.tutorial.hint, I: b.I18N[b.lang].tut }; });
+    soft(d.h, `${l}: hint 1`).toBe(1);
+    soft(d.hint && d.hint.text, `${l}: the text`).toBe(d.I.g1rescue);
+    const hit = (a, q) => a.x < q.x + q.w && q.x < a.x + a.w && a.y < q.y + q.h && q.y < a.y + a.h;
+    const sk = d.buttons.find(q => q.id === "tutorial:skip");
+    soft(!!sk, `${l}: Skip`).toBe(true);
+    if (d.hint) for (const q of [...d.buttons, ...d.hud.filter(r => r.id !== "tutorialHint")]) soft(hit(d.hint, q), `${l}: hint on ${q.id}`).toBe(false);
+    soft(d.over, `${l}: text fits`).toEqual([]);
   }
-  soft(r.out.en.tutorial_a.texts[0], "A1").toBe("Sneak up behind Dad and hug him! Every hug takes away one angry heart.");
-  soft(r.out.en.tutorial_a.texts[3], "A4 on the keyboard").toBe("Dad hears running behind him. Close to him, tiptoe! (hold Shift)");
-  soft(r.I.a4touch, "A4 on the phone").toBe("Dad hears running behind him. Close to him, tiptoe! (push the stick just a little)");
-  soft(r.out.en.tutorial_c.texts[3], "C4").toBe("Win levels, get coins, and buy all this in Character!");
+  await page.evaluate(() => { const b = window.__bb; b.CFG.TEXT_TEST_SCALE = 1; b.setLang("en"); b.littles[1].state = "ok"; b.update(1 / 60); });
+  await frames(page);
+  soft(await page.evaluate(() => window.__bb.tutorialHint && window.__bb.tutorialHint.text), "hint 2 with the device's controls")
+    .toBe(`Now sneak behind Dad — tiptoe close to him! (${touch ? "push the stick just a little" : "hold Shift"})`);
+  await page.evaluate(() => window.__bb.tutorialSkip());
   soft.done();
-});
+}
+test("practice game 1 hint banner on the desktop: hint style, it fits, clear of Skip", async ({ desk: page }) => { await hintBanner(page, false); });
+test("practice game 1 hint banner on the phone 667×375: it fits, clear of Skip", async ({ phone: page }) => { await hintBanner(page, true); });
