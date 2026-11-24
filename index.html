@@ -125,7 +125,8 @@ const CFG = {
   // SPEC-029: вид тренировок (придумал Claude): ширина маленькой «Пропустить» на компьютере (UI px); карта — где папа стоит в начале
   // тренировки 1 (клетки), кусты 2×2, деревья, камни, лужи [x, y, w] на поляне, шаг деревьев за изгородью, зерно цветочков
   TUTORIAL_LOOK: { skipW: 130, dadStart: [12.5, 6.5], bushes: [[10, 2], [7, 9], [2, 10], [13, 3]], trees: [[19, 2], [12, 12], [5, 8]], rocks: [[16, 4]],
-    ponds: [[6, 11, 3]], outStep: 3, flowerSeed: 29,
+    ponds: [[6, 11, 3]], outStep: 3, flowerSeed: 29, flowers: 30, flowerColors: ["#fff27a", "#ff9ecb", "#ffffff", "#b5e3ff"],
+    fallbackFig: 0.55, fallbackIcon: 0.85, fallbackPad: 8,   // запасная страница: доля ширины под фигурку, размер значка (доля места), поля (px)
     // SPEC-029 AC 6: страница без своей картинки — лист бумаги: слева фигурка (кусок картинки истории [x, y, w, h] — доли), справа
     // значки вещей и эффектов. pages — по клетке: [фигурка, значки…]; ready — последняя страница (её картинка — story_win)
     figures: { dad: ["story_start", [0.088, 0.131, 0.156, 0.242]], kids: ["story_win", [0.195, 0.594, 0.317, 0.332]], kindDad: ["story_win", [0.518, 0.55, 0.142, 0.29]] },
@@ -147,6 +148,9 @@ const CFG = {
     hintTimeout: 12,           // сек — подсказка тренировки 2 переходит к следующей, даже если её не сделали
     bots: 1,                   // ботов в тренировках (игрок всегда один)
     nearCells: 1.5,            // тренировка 1: «подкрался» — сзади папы ближе стольких клеток (сверх касания) — подсказка 3
+    scriptMax: 8,              // тренировка 1: сек — сценарий (папа ждёт бота) не дольше; бота так и не толкнули — дальше обычная игра
+    scriptTurn: 7,             // тренировка 1: рад/с — как быстро папа в сценарии поворачивается к боту
+    scriptPushPad: 8,          // тренировка 1: px — папа толкает бота, когда тот ближе касания + столько
     mapArea: 0.5               // карта тренировок — примерно такая доля площади Парка 1
   },
   MOOD_ANGRY: 2 / 3,         // доля злости (hp / maxHp): не меньше — злой (красное лицо, пар); не меньше MOOD_MID — средний; меньше — добреет
@@ -241,6 +245,7 @@ const CFG = {
   PHONE_HEART_MIN: 9,        // CSS px — шаг облачек злости на телефоне не меньше (SPEC-022: сначала теснятся облачка, подпись — целиком)
   PHONE_BTN_GAP: 8,          // CSS px — между соседними кнопками
   PHONE_TEXT: { title: 24, main: 15, hint: 13, input: 16 },   // CSS px — самый мелкий текст на телефоне
+  PHONE_CHIP_FONT: 1.3,      // SPEC-029: кружок команды на телефоне — под метку шрифтом до 30 % шире (CI, iPhone)
   // карточки магазина на телефоне (SPEC-007 AC 10), CSS px: картинка (обычная, самая маленькая, насколько может вырасти),
   // ширина картинки в её высотах, радиус кружка «у вас», поля, промежуток, отступ кружка от картинки, поле текста сбоку; строк не больше
   // picBox — высота рамки картинки в её размерах (пластырь наискосок выше картинки), badgeMin — самый маленький кружок,
@@ -1397,7 +1402,7 @@ function tutorialLevelGen() {
   for (let y = 0; y < ROWS; y += T.outStep) for (let x = R.w + 2 + (y / T.outStep) % 2; x < COLS; x += T.outStep) items.push({ t: "tree", x, y, v: (x + y) % 3 ? "pine" : "round", s: 1 });
   for (let y = R.h + 2; y < ROWS; y += T.outStep) for (let x = (y % 2); x < R.w + 2; x += T.outStep) items.push({ t: "tree", x, y, v: (x + y) % 3 ? "round" : "pine", s: 1 });
   const fr = mulberry32(T.flowerSeed), fl = [];
-  for (let i = 0; i < 30; i++) fl.push({ x: fr() * R.w * CELL, y: fr() * R.h * CELL, c: ["#fff27a", "#ff9ecb", "#ffffff", "#b5e3ff"][Math.floor(fr() * 4)] });
+  for (let i = 0; i < T.flowers; i++) fl.push({ x: fr() * R.w * CELL, y: fr() * R.h * CELL, c: T.flowerColors[Math.floor(fr() * T.flowerColors.length)] });
   return { type: "meadow", items, small: lc.small, big: [x0 + 3, y0 + 2], flowers: fl,
     doors: { small: lc.doors.small, big: bigDoors.map(d => houseDoor(x0, y0, BIG_HOUSE, BIG_HOUSE, d)) }, meta: {} };
 }
@@ -2455,6 +2460,7 @@ function logEvent(type, data) {
   const e = { t: stats.time, type, ...data };
   events.push(e);
   if (events.length > CFG.EVENT_LOG_MAX) events.splice(0, events.length - CFG.EVENT_LOG_MAX);
+  if (tutorialGame === 2) tutorialNote(e);                 // SPEC-029: подсказки тренировки 2
   return e;
 }
 // SPEC-009: книга монеток — события coins с загрузки страницы (startGame её не чистит), тоже не длиннее EVENT_LOG_MAX.
@@ -2573,6 +2579,7 @@ if (!hadOwned) adoptWorn(); else fitOutfitsToOwned();   // сохранение 
 // SPEC-009: единственный код, который меняет progress.coins (тест «only the ledger writes coins» это проверяет).
 // Каждое изменение — событие coins (журнал и книга), потом сохранение. Ноль не пишем.
 function addCoins(reason, amount) {
+  if (tutorialGame) return 0;                               // SPEC-029: в тренировке монеток нет (и записей в книге)
   amount = Math.max(amount, -progress.coins);              // копилка не уходит в минус (минус бывает только у отдыха, и он урезан);
   // другой отрицательный amount — ошибка: покупки идут только через spendCoins
   if (!amount) return 0;
@@ -2649,13 +2656,14 @@ let rewardDue = false;
 // выход из идущего уровня до победы (пауза → Меню, перезапуск или другой уровень): платим только обнимашки.
 // Последнее сердечко уже снято (pendingWin идёт) — это победа: засчитываем её, как если бы досмотрели (правило детей: обнял — победил)
 function leaveLevel() {
-  if (!rewardDue || (mode !== "play" && mode !== "pause")) return;
+  if (tutorialGame || !rewardDue || (mode !== "play" && mode !== "pause")) return;   // SPEC-029: тренировка не платит
   if (pendingWin > 0) { pendingWin = 0; logEvent("win", {}); giveReward(true); } else giveReward(false);
 }
 // Награда (SPEC-009). Строки по порядку экрана победы: первая победа / повтор, новые звёзды, бонусные звёздочки, обнимашки, отдых.
 // Каждая строка (кроме звёздочек — они уже в копилке с подбора) идёт в книгу через addCoins; нулевые не пишем.
 function giveReward(win) {
   rewardDue = false;
+  if (tutorialGame) return;                                 // SPEC-029: тренировка не платит и ничего не открывает
   const ph = stats.playerHugs;
   const starCoins = stats.starCoins;        // монетки за звёздочки уже в копилке (начислены при подборе)
   const partsOf = list => list.filter(([, a]) => a !== 0).map(([reason, amount]) => ({ reason, amount }));
@@ -2706,7 +2714,7 @@ function resetWorld(n) {
   littles.push(makeLittle(0, "player", -1, p1, makeLook(skinSel.p1)));
   if (n === 2) littles.push(makeLittle(1, "player", -1, { up: ["ArrowUp"], down: ["ArrowDown"], left: ["ArrowLeft"], right: ["ArrowRight"] }, makeLook(skinSel.p2)));
   let bi = 0;
-  const team = tutorialGame ? 1 + CFG.TUTORIAL.bots : 5;   // SPEC-029: в тренировке — игрок и один бот
+  const team = tutorialGame ? 1 + Math.max(1, CFG.TUTORIAL.bots) : 5;   // SPEC-029: в тренировке — игрок и бот (сценарий и спасение нужны хоть одному)
   while (littles.length < team) { littles.push(makeLittle(littles.length, "bot", bi, null, makeLook(botOutfit(bi)))); bi++; }
   const maxHp = tutorialGame ? CFG.TUTORIAL["hearts" + tutorialGame] : difficulty(curWorld, level).hearts;   // SPEC-029: тренировка — свои сердечки
   big = {
@@ -2905,7 +2913,7 @@ function tutorialNext() {
   if (tutorial.i >= TUTORIAL_STEPS.length - 1) tutorialEnd();
   else { tutorial.i++; tutorialShow(); }
 }
-// тренировка g: Парк 1 одним игроком (шаг 3 спека даёт свою карту), без надписи уровня и без награды
+// тренировка g: своя карта (resetWorld → applyTutorialMap; ключи мира и уровня — Парк 1), один игрок, без надписи уровня и без награды
 function startTutorialGame(g) {
   tutorialGame = g; curWorld = WORLDS[0]; level = 1;
   startGame(1);
@@ -2927,13 +2935,13 @@ function tutorialEnd() {
 // «Нажми 🩹» и «Папа услышал топот»; тренировка 1 — сценарий: папа стоит на поляне лицом к боту, бот бежит на него
 function tutorialSetup() {
   const T = CFG.TUTORIAL, g2 = tutorialGame === 2;
-  tut = { script: tutorialGame === 1, hint: g2 ? 1 : 0, bothDown: 0, seq: 1, hintT: 0, fell: false };
+  tut = { script: tutorialGame === 1, scriptT: 0, hint: g2 ? 1 : 0, bothDown: 0, seq: 1, hintT: 0, fell: false, did: [false, false, false, false, false] };
   tutorialInv = { kisses: g2 ? T.kisses : 0, rescues: g2 ? T.kits : 0, mittens: 0, mega: 0 };
   kitHintDone = true; heardHintDone = true;
   if (g2) itemCd = T.itemEvery;                            // первый предмет — через itemEvery сек
   if (tutorialGame === 1) {
     const [x, y] = CFG.TUTORIAL_LOOK.dadStart, b = littles[1];
-    Object.assign(big, { x: x * CELL, y: y * CELL, state: "look", timer: 999, dir: Math.atan2(b.y - y * CELL, b.x - x * CELL) });
+    Object.assign(big, { x: x * CELL, y: y * CELL, state: "look", timer: T.scriptMax, dir: Math.atan2(b.y - y * CELL, b.x - x * CELL) });
   }
 }
 // каждый кадр тренировки: лежат оба — через bothDownStand сек встают в домике маленьких (проиграть нельзя);
@@ -2953,8 +2961,10 @@ function updateTutorial(dt) {
   } else tut.bothDown = 0;
   if (tutorialGame === 2) { updateHints2(dt); return; }
   const p = littles[0], bot = littles[1];
+  // сценарий кончается, когда бот упал, — или через scriptMax сек (бота так и не толкнули: сразу подсказка 2)
   if (tut.script && bot.state !== "ok") tut.script = false;
-  if (tut.hint === 0 && bot.state === "down") tut.hint = 1;
+  else if (tut.script && (tut.scriptT += dt) >= T.scriptMax) { tut.script = false; if (!tut.hint) tut.hint = 2; }
+  if (tut.hint !== 1 && bot.state === "down") tut.hint = 1;   // друг упал (и снова) — подсказка 1; один шаг назад разрешён
   else if (tut.hint === 1 && bot.state === "ok") tut.hint = 2;
   else if (tut.hint === 2 && (stats.playerHugs > 0 || (p.state === "ok" && dist(p, big) < big.r + p.r + T.nearCells * CELL
     && angDiff(big.dir, Math.atan2(p.y - big.y, p.x - big.x)) > CFG.BEHIND_ANGLE))) tut.hint = 3;
@@ -2963,8 +2973,7 @@ function updateTutorial(dt) {
 // хоть раз или hintTimeout сек (сделанные раньше пропускаются); первое падение игрока — 4 «встань спасалкой» (вместо обычной
 // «Нажми 🩹»; пока лежит, не дольше hintTimeout), потом снова та, что прервали. tut.seq — следующая по порядку
 function updateHints2(dt) {
-  const p = littles[0], did = [false, events.some(e => e.type === "item" && e.who === p.id), events.some(e => e.type === "slip"),
-    kisses.some(k => k.owner === p.id) || events.some(e => e.type === "kiss" && e.who === p.id), events.some(e => e.type === "kit" && e.who === p.id)];
+  const p = littles[0], did = tut.did;                     // флаги ставит tutorialNote (по событиям) и throwKiss
   const nextSeq = () => { while (tut.seq <= 3 && did[tut.seq]) tut.seq++; return tut.seq <= 3 ? tut.seq : 0; };
   if (!tut.fell && p.state === "down") { tut.fell = true; if (!did[4]) { tut.hint = 4; tut.hintT = 0; } }
   if (!tut.hint) return;
@@ -2973,6 +2982,13 @@ function updateHints2(dt) {
     if (tut.hint !== 4) tut.seq = tut.hint + 1;
     tut.hint = nextSeq(); tut.hintT = 0;
   }
+}
+// событие игры в тренировке 2 → флаг сделанного для подсказок: предмет взял игрок, папа поскользнулся, спасалка игрока
+function tutorialNote(e) {
+  const p = littles[0];
+  if (e.type === "item" && e.who === p.id) tut.did[1] = true;
+  else if (e.type === "slip") tut.did[2] = true;
+  else if (e.type === "kit" && e.who === p.id) tut.did[4] = true;
 }
 // текст подсказки тренировки (или null); управление — по устройству, как на странице A4
 function tutorialHintText() {
@@ -3463,6 +3479,7 @@ function throwKiss(pi) {
   if (inSafe(l)) { popText(l.x, l.y - 40, L().noKissHome, "#fca5a5"); return false; }   // из домика нельзя
   if (l.kissCd > 0) return false;
   gameInv().kisses--; saveInv();
+  if (tutorialGame === 2 && l.id === littles[0].id) tut.did[3] = true;   // SPEC-029: подсказка «пошли поцелуй» сделана
   l.kissCd = CFG.KISS_COOLDOWN;
   const dx = Math.cos(l.dir), dy = Math.sin(l.dir);
   kisses.push({ id: ++kissSeq, owner: pi, x: l.x + dx * l.r, y: l.y + dy * l.r, dx, dy, travel: 0 });
@@ -3701,17 +3718,13 @@ function updateBots(dt) {
     } else if (big.slip > 0 && !rescueTarget.has(b) && dist(b, big) < 320) {   // Большой упал — бежим обнимать!
       b.task = "attack";
       moved = steerTo(b, big.x, big.y, speed, dt, false);
-    } else if (tutorialGame === 1 && tut.script && b === littles[1]) {   // SPEC-029: сценарий — бежит прямо на папу спереди
-      b.task = "script";
-      moved = steerTo(b, big.x, big.y, speed, dt, false);
     } else if (rescueTarget.has(b) && !(seen && dist(b, big) < 90) && !wide && !wideDanger(rescueTarget.get(b), b)) {
       const d = rescueTarget.get(b);
       b.task = "rescue";
       if (dist(b, d) > b.r + d.r + 4) moved = steerTo(b, d.x, d.y, speed, dt, false);
-    } else if (tutorialGame === 1) {                     // SPEC-029: тренировка 1 — сам не обнимает (это делает игрок), ждёт в домике
-      b.task = "wait";
-      const sp = spawns.small[b.id];
-      if (dist(b, sp) > 8) moved = steerTo(b, sp.x, sp.y, speed, dt, false);
+    } else if (tutorialGame === 1 && tut.script && b === littles[1]) {   // SPEC-029: сценарий — бежит прямо на папу спереди (спасать — важнее)
+      b.task = "script";
+      moved = steerTo(b, big.x, big.y, speed, dt, false);
     } else {
       if ((seen || wide) && b.fleeT <= 0) { b.fleeT = 1.0; b.fleeGoal = null; }
       if (seen || wide) b.fleeT = Math.max(b.fleeT, 0.6);
@@ -3721,7 +3734,8 @@ function updateBots(dt) {
         if (!b.fleeGoal || b.fleeRe <= 0 || dist(b, b.fleeGoal) < 15) { b.fleeGoal = fleePoint(b); b.fleeRe = 0.5; }
         moved = steerTo(b, b.fleeGoal.x, b.fleeGoal.y, speed, dt, false);
       } else {
-        if (!attackToken && botAttackCd <= 0 && b.lurkT <= 0 && free.has(b)) { attackToken = b; b.tokenT = 8; }
+        // SPEC-029: в тренировке 1 бот сам не обнимает (это делает игрок): убегает и ждёт рядом, как обычно, но не нападает
+        if (!attackToken && botAttackCd <= 0 && b.lurkT <= 0 && free.has(b) && tutorialGame !== 1) { attackToken = b; b.tokenT = 8; }
         const back = big.dir + Math.PI;
         if (attackToken === b) {
           b.task = "attack";
@@ -3940,8 +3954,8 @@ function updateBig(dt) {
 
   if (tutorialGame === 1 && tut.script) {                // SPEC-029: сценарий тренировки 1 — стоит, поворачивается к боту и толкает его
     const b = littles[1];
-    big.dir = turnToward(big.dir, Math.atan2(b.y - big.y, b.x - big.x), 7 * dt);
-    if (b.state === "ok" && dist(big, b) < big.r + b.r + 8) pushHit(b);
+    big.dir = turnToward(big.dir, Math.atan2(b.y - big.y, b.x - big.x), CFG.TUTORIAL.scriptTurn * dt);
+    if (b.state === "ok" && dist(big, b) < big.r + b.r + CFG.TUTORIAL.scriptPushPad) pushHit(b);
     return;
   }
   const speed = bigSpeeds();
@@ -4709,14 +4723,19 @@ function fz(size, cat) {
 const hudFont = sz => `900 ${sz}px system-ui, "Segoe UI", "Arial Rounded MT Bold", Arial, sans-serif`;
 // геометрия верхней полосы и кружков команды телефона (их же обходят камера и стрелки)
 const phoneTopBar = () => cpx(6) + cpx(CFG.PHONE_BTN_MIN);
-// кружок не уже любой своей метки («Я», «Б», 1, 2, счёт лежащего, z, !) самым мелким шрифтом подсказок — с CFG.TEXT_TEST_SCALE
-// (SPEC-029: шрифты CI и iPhone шире: «Me» не влезал в 30 CSS px); метки — от языка, не от состояния (кружки не прыгают)
+// кружок не уже любой своей метки («Я», «Б», 1, 2, счёт лежащего, z, !) самым мелким шрифтом подсказок с запасом PHONE_CHIP_FONT
+// на более широкие шрифты (SPEC-029: шрифты CI и iPhone шире — «Me» не влезал в 30 CSS px). Запас постоянный, не от
+// CFG.TEXT_TEST_SCALE: раскладка (камера, надпись уровня) не меняется, пока тест расширяет шрифт. Метки — от языка, не от состояния
+let chipCache = { key: "", d: 0 };
 function chipDiameter() {
+  const key = [lang, cpx(1)].join(":");                    // мерка — один раз на язык и размер UI
+  if (chipCache.key === key) return chipCache.d;
   const f = ctx.font;
   ctx.font = hudFont(minPx("hint"));
-  const need = Math.max(...[L().me, L().botChip, "1", "2", "88", "z", "!"].map(scaledW));
+  const need = Math.max(...[L().me, L().botChip, "1", "2", "88", "z", "!"].map(t => ctx.measureText(t).width)) * CFG.PHONE_CHIP_FONT;
   ctx.font = f;
-  return Math.max(cpx(30), need + cpx(4));
+  chipCache = { key, d: Math.max(cpx(30), need + cpx(4)) };
+  return chipCache.d;
 }
 function teamRect() {
   const mm = minimapRect(), cd = chipDiameter(), cw = cd + cpx(3), w = littles.length * cw + cpx(10), h = cd + cpx(8);
@@ -5729,7 +5748,8 @@ function drawBubbles(list, cr, ix, iy, iw, ih) {
 }
 // ---------- SPEC-022: заставка истории — картинка (комикс 8_start — по клетке), подпись, «Пропустить» и «Дальше» / «Играть» ----------
 // Компьютер: картинка над подписью; телефон: картинка слева, подпись справа. Нет картинки — заглушка истории (бумажный лист).
-// sceneInfo (для тестов) — { id, page, pages, art: "image" | "placeholder" | "thanks", caption, crop, bubble, panel } (SPEC-026: bubble, panel)
+// sceneInfo (для тестов) — { id, page, pages, art: "image" | "placeholder" | "fallback" | "thanks", caption, crop, bubble, panel, pieces }
+// (SPEC-026: bubble, panel; SPEC-029: "fallback" и pieces — страница обучения без своей картинки)
 let sceneInfo = null;
 function drawScene() {
   if (!storyScene) return;
@@ -5792,20 +5812,20 @@ function drawScene() {
   hudRects[hudRects.length - 1].text = pg.text;
   if (PHONE) noteText("main", b.sz);
   sceneInfo = { id: storyScene.id, page: storyScene.page, pages: n, art: img ? "image" : pieces ? "fallback" : "placeholder", caption: pg.text, crop: pg.crop,
-    bubble: bubbles[0] || null, panel, pieces };   // SPEC-029: pieces — что нарисовано на запасной странице обучения   // SPEC-026: облачко клетки (рамка строк, кегль, своё ли облачко) и где нарисована клетка
+    bubble: bubbles[0] || null, panel, pieces };   // SPEC-029: pieces — что нарисовано на запасной странице обучения (иначе null)   // SPEC-026: облачко клетки (рамка строк, кегль, своё ли облачко) и где нарисована клетка
 }
 // SPEC-029 AC 6: запасная страница обучения (нет картинки листа): бумажный лист, слева фигурка (кусок картинки истории; нет и её —
 // карандашные человечки), справа значки вещей и эффектов; → имена нарисованного («figure» — человечки)
 function drawTutorialFallback(r, [fig, ...icons]) {
   const S = CFG.MENU_LOOK.story, k = PHONE ? cpx(1) : 1, F = CFG.TUTORIAL_LOOK.figures[fig], drawn = [];
   rr(r.x, r.y, r.w, r.h, 10 * k); fillStroke(S.paper, 3 * k);
-  const fw = r.w * 0.55, box = { x: r.x + 8 * k, y: r.y + 8 * k, w: fw - 12 * k, h: r.h - 16 * k }, img = F && art(F[0]);
+  const L2 = CFG.TUTORIAL_LOOK, p = L2.fallbackPad * k, fw = r.w * L2.fallbackFig, box = { x: r.x + p, y: r.y + p, w: fw - 1.5 * p, h: r.h - 2 * p }, img = F && art(F[0]);
   if (img) {
     const [cx, cy, cw, ch] = F[1], sw = img.width * cw, sh = img.height * ch, s = Math.min(box.w / sw, box.h / sh), w = sw * s, h = sh * s;
     ctx.drawImage(img, img.width * cx, img.height * cy, sw, sh, box.x + (box.w - w) / 2, box.y + (box.h - h) / 2, w, h);
     noteArt(F[0]); drawn.push(F[0]);
   } else { storyPlaceholder(box, false, false); drawn.push("figure"); }
-  const n = icons.length, ix = r.x + fw + (r.w - fw) / 2, sz = Math.min((r.w - fw) * 0.85, (r.h / n) * 0.85);
+  const n = icons.length, ix = r.x + fw + (r.w - fw) / 2, sz = Math.min((r.w - fw) * L2.fallbackIcon, (r.h / n) * L2.fallbackIcon);
   icons.forEach((name, i) => { if (drawArtFit(name, ix, r.y + r.h * (i + 0.5) / n, sz)) drawn.push(name); });
   return drawn;
 }
@@ -7168,7 +7188,7 @@ const THEMES = {
 };
 const HEDGE_COLORS = ["#3f9a4a", "#7bd07e"];
 let mapGroup = null, builtKey = "";
-const mapKey = () => { const li = levelInfo || {}; return [li.world, li.lv, li.type === "tutorial" ? "tutorial" : "", li.attempt, li.fallback].join(":"); };   // SPEC-029: карта тренировок — своя   // какой уровень построен в 3D
+const mapKey = () => { const li = levelInfo || {}; return [li.world, li.lv, li.type === "tutorial" ? "tutorial" : "", li.attempt, li.fallback].join(":"); };   // какой уровень построен в 3D (SPEC-029: карта тренировок — свой ключ)
 const fadeTrees = [], fadeBushes = [], waves = [];
 let safeGlow = null, snow = null;
 const bigHomeMats = [];   // материалы стен дома Большого — мигают красным при обратном отсчёте

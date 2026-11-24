@@ -321,6 +321,36 @@ test("practice game 1 cannot be lost: the bot rescues the player, both down stan
   expect(await page.evaluate(() => window.__bb.events.filter(e => e.type === "rescued").at(-1))).toMatchObject({ who: 0, by: "bot" });
 });
 
+test("practice game 1: the friend falls again → hint 1 again; the bot does not hug; the script ends after scriptMax", async ({ simPage: page }) => {
+  await game1(page);
+  await stepUntil(page, "b.littles[1].state === 'down'", 20);
+  await page.evaluate(() => { const b = window.__bb; b.littles[1].state = "ok"; b.update(1 / 60); });
+  expect(await page.evaluate(() => window.__bb.tutorial.hint), "rescued: 2").toBe(2);
+  await page.evaluate(() => { const b = window.__bb; Object.assign(b.littles[1], { state: "down" }); b.update(1 / 60); });
+  expect(await page.evaluate(() => window.__bb.tutorial.hint), "fell again: back to 1").toBe(1);
+  // after the script the bot plays as a bot (flee, lurk, rescue) but never attacks or hugs Dad
+  const r = await page.evaluate(() => {
+    const b = window.__bb, tasks = new Set(); b.littles[1].state = "ok";
+    Object.assign(b.littles[0], { x: 80, y: 90 });                 // the player stays in the house
+    for (let i = 0; i < 60 * 60; i++) { b.update(1 / 60); tasks.add(b.littles[1].task); }
+    return { tasks: [...tasks], hugs: b.events.filter(e => e.type === "hug").length };
+  });
+  expect(r.tasks).not.toContain("attack");
+  expect(r.tasks).not.toContain("wait");
+  expect(r.hugs, "only the player hugs in practice game 1").toBe(0);
+  // a bot that never reaches Dad: the script ends after scriptMax seconds and the hints start at 2
+  await game1(page);
+  const s = await page.evaluate(() => {
+    const b = window.__bb, bot = b.littles[1], max = b.CFG.TUTORIAL.scriptMax;
+    bot.kind = "player"; bot.controls = { up: [], down: [], left: [], right: [] };   // pinned in the house
+    for (let i = 0; i < Math.round((max - 0.5) * 60); i++) b.update(1 / 60);
+    const before = b.tutorial.hint;
+    for (let i = 0; i < 60; i++) b.update(1 / 60);
+    return { before, after: b.tutorial.hint, max };
+  });
+  expect([s.max, s.before, s.after]).toEqual([8, 0, 2]);
+});
+
 test("AC 17: a real Park 1 after practice game 1 has its own numbers", async ({ simPage: page }) => {
   const park = () => page.evaluate(() => {
     const b = window.__bb; b.world = "park"; b.level = 1; b.startGame(1); b.seedRandom(5);
@@ -413,7 +443,7 @@ test("practice game 2: a new item every 3 s while fewer than 6, bananas 40 %, tw
 });
 
 test("practice game 2: 5 kisses and 1 rescue kit for this game only — the real stock and the save do not change", async ({ simPage: page }) => {
-  await page.evaluate(() => { const b = window.__bb; Object.assign(b.progress.inv, { kisses: 2, rescues: 3 }); b.saveProgress?.(); });
+  await page.evaluate(() => { const b = window.__bb; Object.assign(b.progress.inv, { kisses: 2, rescues: 3 }); });
   const save0 = await page.evaluate(() => [JSON.stringify(window.__bb.progress.inv), localStorage.getItem("bebebe-progress")]);
   await game2(page);
   const r = await page.evaluate(() => {
@@ -483,7 +513,7 @@ test("practice game 2: hearts gone → You're ready → the level map (replay: t
 test("AC 17: the whole tutorial changes nothing but seen.tutorial; a real Park 1 afterwards has its normal items and cooldowns", async ({ simPage: page }) => {
   const before = await page.evaluate(() => {
     const b = window.__bb; Object.assign(b.progress, { coins: 77 }); Object.assign(b.progress.inv, { kisses: 3, rescues: 1, mittens: 2, mega: 1 });
-    b.progress.equip[0] = "mega"; b.progress.worlds.park.unlocked = 4; b.progress.seen.tutorial = false; b.saveProgress?.();
+    b.progress.equip[0] = "mega"; b.progress.worlds.park.unlocked = 4; b.progress.seen.tutorial = false;
     return { p: JSON.parse(JSON.stringify(b.progress)), ledger: b.ledger().length };
   });
   // the whole tutorial: pages, game 1 (played a little, then won), pages, game 2 played with the autopilot for 40 s, then won
@@ -644,7 +674,7 @@ test("Practice on the How-to-play page replays the tutorial and ends back on the
 
 // the hint banner: drawn (desktop and phone 667×375), the device's controls, not on the corner Skip; the HUD label
 async function hintBanner(page, touch) {
-  const soft = softly();
+  const soft = softly(), scale0 = await page.evaluate(() => window.__bb.CFG.TEXT_TEST_SCALE);
   for (const l of ["en", "es", "pt", "ru"]) {
     await page.evaluate(lang => {
       const b = window.__bb; b.setLang(lang); b.CFG.TEXT_TEST_SCALE = 1.3; b.resetWorld(1); b.mode = "home"; b.openTutorial("map", "game1");
@@ -684,7 +714,7 @@ async function hintBanner(page, touch) {
     }
   }
   await page.evaluate(() => { const b = window.__bb; b.resetMenus(); b.mode = "home"; b.openTutorial("map", "game1"); b.littles[1].state = "down"; b.update(1 / 60); });
-  await page.evaluate(() => { const b = window.__bb; b.CFG.TEXT_TEST_SCALE = 1; b.setLang("en"); b.littles[1].state = "ok"; b.update(1 / 60); });
+  await page.evaluate(s => { const b = window.__bb; b.CFG.TEXT_TEST_SCALE = s; b.setLang("en"); b.littles[1].state = "ok"; b.update(1 / 60); }, scale0);
   await frames(page);
   soft(await page.evaluate(() => window.__bb.tutorialHint && window.__bb.tutorialHint.text), "hint 2 with the device's controls")
     .toBe(`Now sneak behind Dad — tiptoe close to him! (${touch ? "push the stick just a little" : "hold Shift"})`);
@@ -694,12 +724,12 @@ async function hintBanner(page, touch) {
 test("practice hint banners on the desktop: hint style, they fit, clear of the buttons", async ({ desk: page }) => { await hintBanner(page, false); });
 test("practice hint banners on the phone 667×375: they fit, clear of the buttons", async ({ phone: page }) => { await hintBanner(page, true); });
 
-// CI fonts are wider (×1.3 on CI ≈ ×1.5 here): the team chips grow to fit their label ("Me", "B", 1, 2, a count, z, !)
+// CI fonts are wider: the team chips leave room for labels ("Me", "B", 1, 2, a count, z, !) up to CFG.PHONE_CHIP_FONT (1.3) wider
 test("team chips fit their labels with wide fonts (phone 667×375, a level and the practice)", async ({ phone: page }) => {
-  const soft = softly();
+  const soft = softly(), scale0 = await page.evaluate(() => window.__bb.CFG.TEXT_TEST_SCALE);
   for (const l of ["en", "es", "pt", "ru"]) for (const where of ["park", "practice"]) {
     await page.evaluate(([lang, w]) => {
-      const b = window.__bb; b.setLang(lang); b.CFG.TEXT_TEST_SCALE = 1.5; b.resetMenus(); b.mode = "home";
+      const b = window.__bb; b.setLang(lang); b.CFG.TEXT_TEST_SCALE = b.CFG.PHONE_CHIP_FONT; b.resetMenus(); b.mode = "home";
       if (w === "park") { b.world = "park"; b.level = 1; b.startGame(1); } else b.openTutorial("map", "game1");
       Object.assign(b.big, { state: "look", timer: 999 });
     }, [l, where]);
@@ -707,6 +737,54 @@ test("team chips fit their labels with wide fonts (phone 667×375, a level and t
     const d = await page.evaluate(() => { const b = window.__bb, I = b.I18N[b.lang]; return { over: b.textOverflows, labels: [I.me, I.botChip, "!", "z", "1", "2"] }; });
     soft(d.over.filter(o => d.labels.includes(o.text) || /^\d+$/.test(o.text)), `${l} ${where}: chip labels`).toEqual([]);
   }
-  await page.evaluate(() => { const b = window.__bb; b.CFG.TEXT_TEST_SCALE = 1; b.setLang("en"); b.resetMenus(); b.mode = "home"; });
+  // the chips' size does not follow the test's font scale (the camera and the level banner keep their room while a test widens fonts)
+  const teamW = [];
+  for (const k of [1, 1.5]) {
+    await page.evaluate(kk => { const b = window.__bb; b.setLang("en"); b.CFG.TEXT_TEST_SCALE = kk; b.resetMenus(); b.mode = "home"; b.world = "park"; b.level = 1; b.startGame(1); }, k);
+    await frames(page);
+    teamW.push(await page.evaluate(() => window.__bb.hudRects.find(h => h.id === "team").w));
+  }
+  soft(teamW[1], "team chips at font ×1.5 = at ×1").toBe(teamW[0]);
+  await page.evaluate(s => { const b = window.__bb; b.CFG.TEXT_TEST_SCALE = s; b.setLang("en"); b.resetMenus(); b.mode = "home"; }, scale0);
   soft.done();
+});
+
+// AC 5: every tutorial caption fits on the phone with wide fonts (×1.3), inside its column and clear of the buttons
+test("tutorial captions fit the phone 667×375 in every language (×1.3)", async ({ phone: page }) => {
+  const soft = softly(), scale0 = await page.evaluate(() => window.__bb.CFG.TEXT_TEST_SCALE);
+  for (const l of ["en", "es", "pt", "ru"]) for (const [st, n] of [["a", 4], ["b", 4], ["c", 4], ["ready", 1]]) for (let pg = 0; pg < n; pg++) {
+    await page.evaluate(([lang, s, p]) => {
+      const b = window.__bb; b.setLang(lang); b.CFG.TEXT_TEST_SCALE = 1.3; b.resetMenus(); b.mode = "home"; b.openTutorial("map", s);
+      for (let i = 0; i < p; i++) b.sceneNext();
+    }, [l, st, pg]);
+    await frames(page);
+    const d = await page.evaluate(() => { const b = window.__bb; return { over: b.textOverflows, cap: b.hudRects.find(h => h.id === "scene:caption"), buttons: b.buttonRects, ui: b.uiSize, info: b.sceneInfo }; });
+    const at = `${l} ${st}${pg + 1}`, c = d.cap;
+    soft(d.over, `${at}: fits`).toEqual([]);
+    soft(!!c && c.text === d.info.caption, `${at}: the caption`).toBe(true);
+    if (c) {
+      soft(c.x >= 0 && c.y >= 0 && c.x + c.w <= d.ui.w && c.y + c.h <= d.ui.h, `${at}: on the screen`).toBe(true);
+      soft(!d.info.panel || c.x >= d.info.panel.x + d.info.panel.w, `${at}: right of the picture`).toBe(true);
+      for (const q of d.buttons) soft(c.x < q.x + q.w && q.x < c.x + c.w && c.y < q.y + q.h && q.y < c.y + c.h, `${at}: on ${q.id}`).toBe(false);
+    }
+  }
+  await page.evaluate(s => { const b = window.__bb; b.CFG.TEXT_TEST_SCALE = s; b.setLang("en"); b.resetMenus(); b.mode = "home"; }, scale0);
+  soft.done();
+});
+
+// AC 18: phone 667×375 pictures of one page per sheet and both practice games (attached to the report)
+test("tutorial screenshots for the report (phone 667×375)", async ({ phone: page }, testInfo) => {
+  for (const [name, step, pg] of [["a1", "a", 0], ["b1", "b", 0], ["c1", "c", 0], ["game1", "game1", 0], ["game2", "game2", 0]]) {
+    await page.evaluate(([s, p]) => {
+      const b = window.__bb; b.resetMenus(); b.mode = "home"; b.seedRandom(8); b.openTutorial("map", s);
+      for (let i = 0; i < p; i++) b.sceneNext();
+      if (s === "game1") for (let i = 0; i < 10 * 60 && b.littles[1].state !== "down"; i++) b.update(1 / 60);
+      if (s === "game2") for (let i = 0; i < 19 * 60; i++) b.update(1 / 60);
+    }, [step, pg]);
+    await frames(page);
+    const file = testInfo.outputPath(`tutorial-${name}-667.png`);
+    await page.screenshot({ path: file });
+    await testInfo.attach(`tutorial-${name}-667`, { path: file, contentType: "image/png" });
+  }
+  await page.evaluate(() => window.__bb.tutorialSkip());
 });
