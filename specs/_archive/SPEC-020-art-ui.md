@@ -1,6 +1,6 @@
 # SPEC-020 — Art pass 1: the notebook-comic look for every screen (2D)
 
-Status: ready
+Status: done (merged by "Merge SPEC-020", see git log)
 Complexity: L
 Branch: SPEC-020-art-ui
 Decided by: Andrei (2026-11-23): the game takes the style of the pictures in `art/` (kids' felt-tip doodles on a notebook page, generated from `claude/art-style-brief.md` — a claude.ai project doc, not in the repo); the 3D stays 3D (SPEC-021 restyles it). Asset pipeline, which picture goes where, fallbacks, sizes: Claude (spec author).
