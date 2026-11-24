@@ -1,6 +1,6 @@
 # SPEC-021 — Art pass 2: the 3D world in the comic style
 
-Status: ready
+Status: done (merged by "Merge SPEC-021", see git log)
 Complexity: L
 Branch: SPEC-021-art-3d
 Decided by: Andrei (2026-11-23): keep the game in 3D but restyle it like the pictures in `art/` — thick black outlines, flat felt-tip colours, paper feel; the Big One looks like the dad from the story (bald, stubble, red t-shirt, jeans); the dad's house is the messy, dirty little house (Andrei, 2026-11-22). Everything else (techniques, numbers, per-world palettes): Claude (spec author).
