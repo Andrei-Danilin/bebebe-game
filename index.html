@@ -521,8 +521,8 @@ const GLOVES = {
 
 // Воздушные поцелуи из магазина: цена и сколько в наборе (один запас на обоих игроков)
 const KISSES = { price: 20, pack: 5 };
-// Спасалка 🩹 (SPEC-007, решение детей): 3 штуки за 15 монеток, один запас на обоих игроков
-const RESCUE_KIT = { price: 15, pack: 3 };
+// Спасалка 🩹 (SPEC-007, решение детей: 3 штуки; SPEC-026, решение Андрея: цена 50, было 15), один запас на обоих игроков
+const RESCUE_KIT = { price: 50, pack: 3 };
 // Монетки за уровень (SPEC-009; числа придумал Claude, подбираются по отчёту баланса). Основа уровня n мира с индексом
 // сложности d (0–4, SPEC-016): BASE + PER_LEVEL × n + PER_WORLD × d. Первая победа уровня — вся основа, повтор — половина (решение детей: повтор дешевле).
 const REWARD = {
@@ -532,7 +532,8 @@ const REWARD = {
   NEW_STAR: 6,               // за каждую новую звезду уровня (выше прошлого рекорда; каждая звезда — один раз навсегда; было 8)
   PER_HUG: 1,                // за каждую обнимашку игрока — каждый раз, и при выходе из уровня до победы
   FIRST_MIN: 5,              // первая победа минус отдых — не меньше этого
-  REPLAY_MIN: 3              // повтор минус отдых — не меньше этого
+  REPLAY_MIN: 3,             // повтор минус отдых — не меньше этого
+  WIN_SCALE: 0.7             // SPEC-026 (Андрей: победа даёт на 30 % меньше): × строку уровня и монетки за новые звёзды, с округлением (не полы, не обнимашки, не звёздочки)
 };
 // Цены нарядов (SPEC-009; придумал Claude, проверить с детьми, какие вещи платные): ступени 1–3, у вещи price = цена ступени,
 // 0 — бесплатно (все причёски, первые шапки/куртки/штаны и Большие — так любой стартовый вид бесплатный)
@@ -543,11 +544,12 @@ const WARDROBE_TIERS = [
 ];
 const tierPrice = t => (t ? WARDROBE_TIERS[t - 1] : 0);
 // Улучшения (SPEC-009; придумал Claude): покупаются навсегда, действуют только на игроков (не на ботов и не на Большого) и не меняют
-// CFG — это множители игрока. step — прибавка за уровень, prices — цена следующего уровня (уровней столько, сколько цен)
+// CFG — это множители игрока. step — прибавка за уровень, prices — цена следующего уровня (уровней столько, сколько цен).
+// SPEC-026 (решение Андрея): все цены × 1,5 (было 100 / 200 / 300)
 const UPGRADES = {
-  fastFeet: { step: 0.03, prices: [100, 200, 300] },    // скорость игрока +3 % за уровень (до +9 %); предел Большого считается от обычной
-  longItems: { step: 0.15, prices: [100, 200, 300] },   // сапоги, плащ и щит, которые взял игрок, действуют дольше: +15 % за уровень
-  quickHelp: { step: 0.1, prices: [100, 200, 300] }     // игрок поднимает друга быстрее: −10 % времени за уровень (3 → 2,1 с)
+  fastFeet: { step: 0.03, prices: [150, 300, 450] },    // скорость игрока +3 % за уровень (до +9 %); предел Большого считается от обычной
+  longItems: { step: 0.15, prices: [150, 300, 450] },   // сапоги, плащ и щит, которые взял игрок, действуют дольше: +15 % за уровень
+  quickHelp: { step: 0.1, prices: [150, 300, 450] }     // игрок поднимает друга быстрее: −10 % времени за уровень (3 → 2,1 с)
 };
 const upgTop = k => UPGRADES[k].prices.length;   // последний уровень
 // Русское множественное число: ruPlural(n, ["поцелуй", "поцелуя", "поцелуев"])
@@ -2339,6 +2341,8 @@ function resetProgress() {
 }
 // SPEC-009: основа награды уровня n мира (SPEC-016: по индексу сложности мира, 0–4)
 const rewardBase = (world, n) => REWARD.BASE + REWARD.PER_LEVEL * n + REWARD.PER_WORLD * worldDifficulty(world);
+// SPEC-026: строка победы × REWARD.WIN_SCALE и округление (toFixed убирает хвост дробей: 45 × 0,7 = 31,4999… → 31,5 → 32)
+const winScale = v => Math.round(Number((v * REWARD.WIN_SCALE).toFixed(6)));
 // время третьей звезды уровня n мира (сек); его же берёт отчёт баланса (scripts/balance.js)
 const fastTarget = (world, n) => CFG.FAST_TIME(n) + worldDifficulty(world) * CFG.FAST_PER_WORLD;
 // уровень начат и ещё не оплачен (startGame → true; награда, сброс или замена прогресса → false)
@@ -2367,10 +2371,10 @@ function giveReward(win) {
   const stars = 1 + (nobodyOut ? 1 : 0) + (fast ? 1 : 0);
   const first = !wp.won[n], base = rewardBase(curWorld, n);
   const min = first ? REWARD.FIRST_MIN : REWARD.REPLAY_MIN;
-  const line = Math.max(first ? base : Math.floor(base / 2), min);   // повтор — половина основы
+  const line = Math.max(winScale(first ? base : Math.floor(base / 2)), min);   // повтор — половина основы; SPEC-026: × WIN_SCALE
   const restCut = Math.min(rests * CFG.COINS_PER_REST, line - min);   // отдых срезается до пола: строки всегда сходятся с итогом
   const prevStars = wp.stars[n] || 0, newStars = Math.max(0, stars - prevStars), bonusBefore = bonusUnlocked();
-  const parts = partsOf([[first ? "firstWin" : "replay", line], ["newStars", newStars * REWARD.NEW_STAR], ["star", starCoins], ["hugs", hugs], ["rests", -restCut]]);
+  const parts = partsOf([[first ? "firstWin" : "replay", line], ["newStars", winScale(newStars * REWARD.NEW_STAR)], ["star", starCoins], ["hugs", hugs], ["rests", -restCut]]);
   wp.stars[n] = Math.max(prevStars, stars);
   wp.won[n] = true;
   wp.unlocked = Math.max(wp.unlocked, Math.min(levelsPerWorld(), n + 1));   // только в этом мире

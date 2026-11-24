@@ -1227,7 +1227,7 @@ test("the shop shows four cards in one row", { tag: "@fast" }, async ({ page }) 
     }, id);
     await page.mouse.click(buy.x, buy.y);
   };
-  await page.evaluate(() => { window.__bb.progress.coins = 35; });
+  await page.evaluate(() => { window.__bb.progress.coins = 70; });   // SPEC-026: kisses 20 + kits 50
   await frames(page);
   await click("buy:kisses");
   expect(await page.evaluate(() => window.__bb.progress.inv.kisses)).toBe(5);
@@ -1254,11 +1254,11 @@ test("buying rescue kits", async ({ simPage: page }) => {
   const r = await page.evaluate(() => {
     const b = window.__bb, out = [];
     out.push([b.RESCUE_KIT.price, b.RESCUE_KIT.pack]);
-    b.progress.coins = 35;
+    b.progress.coins = 110;
     for (let i = 0; i < 3; i++) { b.buyRescueKit(); out.push([b.progress.coins, b.progress.inv.rescues]); }
     return out;
   });
-  expect(r).toEqual([[15, 3], [20, 3], [5, 6], [5, 6]]);   // 15 coins for 3; the third time there are not enough coins
+  expect(r).toEqual([[50, 3], [60, 3], [10, 6], [10, 6]]);   // SPEC-026: 50 coins for 3; the third time there are not enough coins
   await page.reload();
   await page.waitForFunction(() => window.__bbReady === true);
   expect(await page.evaluate(() => window.__bb.progress.inv.rescues)).toBe(6);
