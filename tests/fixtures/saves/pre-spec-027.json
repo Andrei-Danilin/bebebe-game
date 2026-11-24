@@ -1,0 +1,22 @@
+{
+  "about": "SPEC-027: outfits saved before the seven new clothes were appended (JACKETS had 10 items, PANTS 8). The indexes point at the last items of the old lists; they must load the same clothes, and the bought ones stay bought.",
+  "keys": {
+    "bebebe-progress": {
+      "coins": 120,
+      "owned": { "hats": ["glasses", "headband"], "jackets": ["teal", "cape"], "pants": ["purple", "joggers"], "big": ["captain"] }
+    },
+    "bebebe-outfits": {
+      "p1": { "hair": 7, "hat": 11, "jacket": 9, "pants": 7 },
+      "p2": { "hair": 4, "hat": 7, "jacket": 5, "pants": 6 },
+      "big": 3,
+      "v": 2
+    },
+    "bebebe-lang": "en"
+  },
+  "expect": {
+    "p1": { "hat": "glasses", "jacket": "teal", "pants": "purple" },
+    "p2": { "hat": "headband", "jacket": "cape", "pants": "joggers" },
+    "big": "captain",
+    "owned": { "hats": ["glasses", "headband"], "jackets": ["teal", "cape"], "pants": ["purple", "joggers"], "big": ["captain"] }
+  }
+}

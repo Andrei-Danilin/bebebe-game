@@ -500,12 +500,15 @@ const ITEM_ART = { mittens: "item_mittens", mega: "item_mega_mittens", kisses: "
 // улучшения и вкладки магазина — 22_icons_shop
 const UPG_ART = { fastFeet: "shop_fast_feet", longItems: "shop_long_items", quickHelp: "shop_quick_help" };
 const SHOP_TAB_ART = { progress: "star_gold", items: "shop_items", wardrobe: "shop_wardrobe", upgrades: "shop_upgrades" };   // SPEC-026: + «Прогресс»
-// вещи гардероба с рисунком 23_wardrobe (только точные совпадения с вещами игры; остальные — только 3D-превью)
+// рисунки вещей гардероба: 23_wardrobe и (SPEC-027) 29_wardrobe_2 — у каждой шапки (кроме «Ничего»), куртки и штанов есть свой
 const WARDROBE_ART = {
   hat: { cap: "hat_cap", beanie: "hat_beanie", crown: "hat_crown", bow: "hat_bow", flower: "hat_flower", ears: "hat_ears", tophat: "hat_tophat",
-    viking: "hat_viking", pirate: "hat_pirate", glasses: "hat_glasses" },
-  jacket: { hoodie: "jacket_hoodie" },
-  pants: { jeans: "pants_jeans", shorts: "pants_shorts", joggers: "pants_joggers" }
+    viking: "hat_viking", pirate: "hat_pirate", glasses: "hat_glasses", headband: "hat_ninja" },
+  jacket: { hoodie: "jacket_hoodie", tshirt: "jacket_tshirt", stripes: "jacket_orange_stripes", purple: "jacket_purple_zip", pinkhoodie: "jacket_pink_hoodie",
+    cape: "jacket_hero_cape", ninja: "jacket_ninja", sailor: "jacket_sailor", raincoat: "jacket_raincoat", teal: "jacket_teal_zip",
+    bluezip: "jacket_blue_zip", redzip: "jacket_red_zip", rainbow: "jacket_stripes", magiccape: "jacket_cape", trench: "jacket_trench" },
+  pants: { jeans: "pants_jeans", shorts: "pants_shorts", joggers: "pants_joggers", black: "pants_black", red: "pants_red", green: "pants_green",
+    pinkshorts: "pants_pink_shorts", purple: "pants_purple", overalls: "pants_overalls", striped: "pants_striped" }
 };
 // комиксы глав (8_start, 9_1…9_4, 26_1/26_2, 10_end)
 const STORY_ART = { began: "story_start", park: "story_park", field: "story_field", city: "story_city", school: "story_school",
@@ -1994,7 +1997,15 @@ const JACKETS = [
   { id: "ninja", price: tierPrice(2), color: "#1f2937", pattern: "belt",    trim: "#ef4444", name: N3("Ninja", "Ninja", "Ниндзя") },
   { id: "sailor", price: tierPrice(2), color: "#f8fafc", pattern: "stripes", trim: "#1d4ed8", name: N3("Sailor", "Marinero", "Тельняшка") },
   { id: "raincoat", price: tierPrice(2), color: "#facc15", pattern: "hood",    trim: "#ca8a04", name: N3("Raincoat", "Piloto", "Дождевик") },
-  { id: "teal", price: tierPrice(1), color: "#14b8a6", pattern: "zip",     trim: "#ccfbf1", name: N3("Teal jacket", "Campera turquesa", "Бирюзовая куртка") }
+  { id: "teal", price: tierPrice(1), color: "#14b8a6", pattern: "zip",     trim: "#ccfbf1", name: N3("Teal jacket", "Campera turquesa", "Бирюзовая куртка") },
+  // SPEC-027 (решение Андрея: нарисованные в art/23_wardrobe вещи — в игру; имена, ступени и цвета придумал Claude, проверить с детьми).
+  // Только в конец списка: сохранённые наряды — номера. bands — полосы радуги снизу вверх; long — длинные полы плаща
+  { id: "bluezip", price: tierPrice(1), color: "#3a86c8", pattern: "zip",     trim: "#f8fafc", name: N3("Blue zip jacket", "Campera azul con cierre", "Синяя куртка на молнии") },
+  { id: "redzip", price: tierPrice(1), color: "#d83838", pattern: "zip",     trim: "#f8fafc", name: N3("Red zip jacket", "Campera roja con cierre", "Красная куртка на молнии") },
+  { id: "rainbow", price: tierPrice(2), color: "#2bb5a5", pattern: "rainbow", trim: "#2bb5a5", name: N3("Rainbow", "Arcoíris", "Радуга"),
+    bands: ["#a855f7", "#3b82f6", "#22c55e", "#facc15", "#f97316", "#ef4444"] },
+  { id: "magiccape", price: tierPrice(3), color: "#4b3a75", pattern: "cape",    trim: "#ec4899", name: N3("Magic cape", "Capa mágica", "Волшебный плащ") },
+  { id: "trench", price: tierPrice(2), color: "#7a5634", pattern: "belt",    trim: "#3b2a1a", long: true, name: N3("Detective coat", "Gabardina de detective", "Плащ сыщика") }
 ];
 const PANTS = [
   { id: "jeans", price: tierPrice(0), color: "#3b5b92", shorts: false, name: N3("Jeans", "Jean", "Джинсы") },
@@ -2004,13 +2015,17 @@ const PANTS = [
   { id: "green", price: tierPrice(1), color: "#15803d", shorts: false, name: N3("Green", "Verde", "Зелёные") },
   { id: "pinkshorts", price: tierPrice(2), color: "#f472b6", shorts: true,  name: N3("Pink shorts", "Short rosa", "Розовые шорты") },
   { id: "joggers", price: tierPrice(1), color: "#9ca3af", shorts: false, name: N3("Joggers", "Jogging", "Спортивные") },
-  { id: "purple", price: tierPrice(1), color: "#7c3aed", shorts: false, name: N3("Purple", "Violeta", "Фиолетовые") }
+  { id: "purple", price: tierPrice(1), color: "#7c3aed", shorts: false, name: N3("Purple", "Violeta", "Фиолетовые") },
+  // SPEC-027: в конец списка. overalls — нагрудник и две лямки поверх куртки; stripes — цвет вертикальных полосок на штанинах
+  { id: "overalls", price: tierPrice(2), color: "#4a7ba0", shorts: false, overalls: true, name: N3("Overalls", "Jardinero", "Комбинезон") },
+  { id: "striped", price: tierPrice(1), color: "#d84838", shorts: false, stripes: "#facc15", name: N3("Striped pants", "Pantalón rayado", "Полосатые штаны") }
 ];
 const SLOTS = { hair: HAIRS, hat: HATS, jacket: JACKETS, pants: PANTS };
 const P_COLORS = ["#3b82f6", "#22c55e"];        // цвет меток игрока 1 и 2
 function makeLook(o) {
   const h = HAIRS[o.hair], hat = HATS[o.hat], j = JACKETS[o.jacket], pn = PANTS[o.pants];
-  return { skin: h.skin, hair: h.hair, style: h.style, acc: hat.id, shirt: j.color, pattern: j.pattern, trim: j.trim, pants: pn.color, shorts: pn.shorts };
+  return { skin: h.skin, hair: h.hair, style: h.style, acc: hat.id, shirt: j.color, pattern: j.pattern, trim: j.trim, pants: pn.color, shorts: pn.shorts,
+    bands: j.bands || null, long: !!j.long, overalls: !!pn.overalls, pantStripes: pn.stripes || null };   // SPEC-027: радуга, полы плаща, комбинезон, полоски
 }
 // ---------- Скины Большого ----------
 const BIG_SKINS = [
@@ -7692,10 +7707,16 @@ function buildLittleModel(look, isPlayer, pid = 0, glove = null) {
   const root = new THREE.Group(), rig = new THREE.Group(); root.add(rig);
   const legs = [], arms = [], boots = [], gloveParts = [];
   const tee = look.pattern === "plain" || look.pattern === "stripes";
+  const outfit = [];                                       // SPEC-027: новые детали одежды { piece, mesh } (тест: __bb.outfit3D)
+  const wearPart = (piece, mesh, parent) => { parent.add(mesh); outfit.push({ piece, mesh }); return mesh; };
   for (const k of [-1, 1]) {
     const pv = new THREE.Group(); pv.position.set(k * 0.1, 0.3, 0);
     const leg = part(capsule(0.075, 0.15), look.shorts ? look.skin : look.pants, 0.025); leg.position.y = -0.15; pv.add(leg);
     if (look.shorts) { const sh = part(new THREE.CylinderGeometry(0.095, 0.09, 0.14, 10), look.pants, 0.02); sh.position.y = -0.03; pv.add(sh); }
+    else if (look.pantStripes) for (const a of [k * Math.PI / 2, 0, Math.PI]) {   // SPEC-027: полоски сбоку, спереди и сзади штанины
+      const st = wearPart("pantStripe", new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.22, 0.012), toon(look.pantStripes)), pv);
+      st.position.set(Math.sin(a) * 0.076, -0.14, Math.cos(a) * 0.076); st.rotation.y = a;
+    }
     const shoe = part(new THREE.BoxGeometry(0.13, 0.07, 0.19), "#3b3b4f", 0.015); shoe.position.set(0, -0.28, 0.03); pv.add(shoe);
     const boot = part(new THREE.BoxGeometry(0.17, 0.2, 0.22), "#ef4444", 0.02); boot.position.set(0, -0.23, 0.03); boot.visible = false; pv.add(boot); boots.push(boot);
     const wing = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.16, 4), toon("#ffffff")); wing.rotation.z = k * 1.2; wing.position.set(k * 0.1, 0.03, -0.05); boot.add(wing);
@@ -7705,6 +7726,14 @@ function buildLittleModel(look, isPlayer, pid = 0, glove = null) {
   for (const [w, h] of [[0.05, 0.12], [0.12, 0.05]]) { const cr = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.02), toon("#ef4444")); cr.position.set(0, 0, 0.105); cast.add(cr); }
   const hips = part(new THREE.CylinderGeometry(0.19, 0.17, 0.12, 14), look.pants, 0.02); hips.position.y = 0.34; rig.add(hips);
   const body = part(capsule(0.2, 0.15), look.shirt, 0.03); body.position.y = 0.52; rig.add(body);
+  if (look.long) { const hem = wearPart("hem", part(new THREE.CylinderGeometry(0.2, 0.24, 0.16, 14), look.shirt, 0.02), rig); hem.position.y = 0.25; }   // SPEC-027: полы плаща
+  if (look.overalls) {                                     // SPEC-027: комбинезон — нагрудник и две лямки поверх куртки, пуговицы
+    const bib = wearPart("bib", part(new THREE.BoxGeometry(0.22, 0.2, 0.04), look.pants, 0.012), body); bib.position.set(0, -0.05, 0.19);
+    for (const k of [-1, 1]) {
+      const st = wearPart("strap", part(new THREE.BoxGeometry(0.04, 0.36, 0.03), look.pants, 0.01), body); st.position.set(k * 0.08, 0.1, 0.12); st.rotation.x = -0.75;
+      const bt = new THREE.Mesh(sphere(0.018, 6, 5), toon("#facc15")); bt.position.set(k * 0.08, 0.04, 0.215); body.add(bt);
+    }
+  }
   let cape = null;
   switch (look.pattern) {
     case "stripes": for (const y of [-0.08, 0.04, 0.16]) { const sr = new THREE.Mesh(new THREE.TorusGeometry(0.203, 0.022, 4, 22), toon(look.trim)); sr.rotation.x = Math.PI / 2; sr.position.y = y; body.add(sr); } break;
@@ -7725,6 +7754,15 @@ function buildLittleModel(look, isPlayer, pid = 0, glove = null) {
       break;
     }
     case "belt": { const bl = new THREE.Mesh(new THREE.TorusGeometry(0.205, 0.03, 4, 22), toon(look.trim)); bl.rotation.x = Math.PI / 2; bl.position.y = -0.1; body.add(bl); break; }
+    case "rainbow": {                                      // SPEC-027: шесть цветных полос снизу вверх (кольца по радиусу капсулы) и воротник
+      const n = look.bands.length, y0 = -0.14, dy = 0.06;
+      look.bands.forEach((c, i) => {
+        const y = y0 + i * dy, over = Math.max(0, Math.abs(y) - 0.075), r = Math.sqrt(0.04 - over * over) + 0.004;
+        const band = wearPart("band", new THREE.Mesh(new THREE.TorusGeometry(r, dy / 2, 4, 22), toon(c)), body); band.rotation.x = Math.PI / 2; band.position.y = y;
+      });
+      const col = part(new THREE.TorusGeometry(0.13, 0.04, 6, 18), look.trim, 0.015); col.rotation.x = Math.PI / 2; col.position.y = y0 + n * dy + 0.03; body.add(col);
+      break;
+    }
   }
   for (const k of [-1, 1]) {
     const pv = new THREE.Group(); pv.position.set(k * 0.24, 0.66, 0); pv.rotation.z = k * 0.18;
@@ -7761,7 +7799,7 @@ function buildLittleModel(look, isPlayer, pid = 0, glove = null) {
   ghost.add(part(capsule(0.25, 0.3), "", 0.02, gm));
   for (const k of [-1, 1]) { const e = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.025, 0.02), toon("#555555")); e.position.set(k * 0.1, 0.12, 0.25); e.rotation.z = 0.7; ghost.add(e); const e2 = e.clone(); e2.rotation.z = -0.7; ghost.add(e2); }
   ghost.visible = false;
-  return { root, rig, legs, arms, head, body, cast, face, ghost, ring, boots, bubble, cape, gloveParts, dizzyStars, cloaked: false };
+  return { root, rig, legs, arms, head, body, cast, face, ghost, ring, boots, bubble, cape, gloveParts, dizzyStars, outfit, cloaked: false };
 }
 function setCloak(m, on) {
   if (m.cloaked === on) return;
@@ -8561,8 +8599,16 @@ window.__bb = {
   UPGRADES, buyUpgrade, get upgrades() { return { ...progress.upgrades }; }, get shopTab() { return shopTab; }, set shopTab(v) { if (SHOP_TABS.includes(v)) { shopTab = v; wardrobePage = "looks"; } },   // SPEC-009 (SPEC-017: + «wardrobe»)
   WARDROBE_TIERS, buyLook, resetOutfits, loadOutfits,   // SPEC-021: loadOutfits(save) — чистое «сохранение → наряды»
   get outfits() { return { shown: cloneSkins(skinSel), saved: cloneSkins(skinKeep) }; },   // SPEC-009: гардероб
+  // SPEC-027: новые детали одежды модели: who — номер маленького или «p1» / «p2» (превью гардероба) → [{ piece, color }]
+  outfit3D(who) {
+    const m = typeof who === "number" ? littles[who] && littles[who].model : previewCache.get("L" + JSON.stringify(makeLook(skinSel[who])));
+    return m && m.outfit ? m.outfit.map(q => ({ piece: q.piece, color: "#" + q.mesh.material.color.getHexString() })) : null;
+  },
   wardrobe: () => ({ hat: HATS.map(({ id, price }) => ({ id, price })), jacket: JACKETS.map(({ id, price }) => ({ id, price })),
     pants: PANTS.map(({ id, price }) => ({ id, price })), big: BIG_SKINS.map(({ id, price }) => ({ id, price })), hairs: HAIRS.length }),
+  // SPEC-027: рисунки вещей, имена вещей по слотам ({ slot: { id: { en, es, ru } } }), наряд бота i на этом уровне (номера)
+  WARDROBE_ART, wardrobeNames: () => Object.fromEntries(LOOK_SLOTS.map(sl => [sl, Object.fromEntries(SLOTS[sl].map(q => [q.id, { ...q.name }]))])),
+  botOutfit: i => botOutfit(i),
   REWARD, get winPanel() { return winPanel && { ...winPanel }; },   // SPEC-009: числа награды; рамка строк награды на экране победы
   seedRandom,     // SPEC-008: seedRandom(n) — игровая случайность rng() с зерна n; seedRandom() — снова случайно
   sim, simRun, get events() { return events.map(e => ({ ...e })); },   // SPEC-008: режим симуляции, журнал событий (копии)
@@ -8619,7 +8665,7 @@ window.__bb = {
 // ошибку, чтобы визуальный тест, открытый в sim, падал громко, а не проверял пустоту.
 const SIM_DRAWN = ["buttonRects", "buttonNames", "tapButton", "hudRects", "mapInfo", "levelCard", "storyInfo", "textSizes", "minimap",
   "bannerRect", "rotateShown", "winPanel", "winLine", "bonusNote", "shopLayout", "kitHint", "heardHint", "edgeArrows", "stickMarks",
-  "tapLines", "homeInfo", "progressInfo", "mapPieces", "groundColorAt", "camera", "minimapAlpha", "artUse", "sceneInfo", "moodInfo", "bigLook", "look3D"];
+  "tapLines", "homeInfo", "progressInfo", "outfit3D", "mapPieces", "groundColorAt", "camera", "minimapAlpha", "artUse", "sceneInfo", "moodInfo", "bigLook", "look3D"];
 window.__bb.SIM_DRAWN = SIM_DRAWN;
 window.__bb = new Proxy(window.__bb, {
   get(t, k, r) {
