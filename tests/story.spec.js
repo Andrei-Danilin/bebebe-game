@@ -79,7 +79,7 @@ test("the first launch shows the start comic once", async ({ page }) => {
   const caps = await page.evaluate(() => window.__bb.STORY[0].captions.en);
   expect(s.info).toMatchObject({ id: "intro", page: 0, art: "image", caption: caps[0] });
   const crop0 = s.info.crop;
-  expect(await page.evaluate(() => window.__bb.progress.seen.intro), "seen as soon as it is shown").toBe(true);
+  expect(await page.evaluate(() => window.__bb.progress.seen.intro), "seen only when the player leaves it").toBe(false);
   // Enter = next panel (each its own caption and its own part of 8_start)
   await page.keyboard.press("Enter");
   await frames(page);
@@ -90,7 +90,7 @@ test("the first launch shows the start comic once", async ({ page }) => {
   expect((await page.evaluate(() => window.__bb.buttonRects.map(b => b.id))).sort()).toEqual(["scene:next", "scene:skip"]);
   await page.keyboard.press("Escape");
   await frames(page);
-  expect(await page.evaluate(() => [window.__bb.mode, window.__bb.scene])).toEqual(["home", null]);
+  expect(await page.evaluate(() => [window.__bb.mode, window.__bb.scene, window.__bb.progress.seen.intro])).toEqual(["home", null, true]);
   // saved: after a reload the game opens on the home screen
   await page.reload();
   await page.waitForFunction(() => window.__bbReady === true);
@@ -210,6 +210,23 @@ test("the first School 20 win shows the ending and the thank-you card", async ({
   await frames(page);
   await page.keyboard.press("Enter");
   expect(await page.evaluate(() => window.__bb.mode)).toBe("map");
+  // a first School 20 win paid by leaving through pause (the last hug done, Dad on his way home): the ending comes too
+  await page.evaluate(() => {
+    const b = window.__bb; b.progress.seen.ending = false; b.world = "school"; b.level = 20; b.startGame(1);
+    Object.assign(b.big, { state: "look", timer: 999, stun: 0, hugCd: 0, noPush: 0, slip: 0, pushCd: 0, x: 500, y: 320, dir: 0, hp: 1 });
+    Object.assign(b.littles[0], { state: "ok", hugCd: 0, hugAnim: 0, invuln: 0, kx: 0, ky: 0, x: 466, y: 320 });
+    for (let i = 0; i < 30; i++) b.update(1 / 60);
+    b.mode = "pause"; b.toMap();
+  });
+  expect(await page.evaluate(() => [window.__bb.mode, window.__bb.scene && window.__bb.scene.id])).toEqual(["scene", "ending"]);
+  await page.evaluate(() => window.__bb.sceneSkip());
+  expect(await page.evaluate(() => [window.__bb.mode, window.__bb.progress.seen.ending])).toEqual(["map", true]);
+  // one more ordinary win (seen): straight to the map
+  await page.evaluate(() => { const b = window.__bb; b.world = "school"; b.level = 20; b.startGame(1); });
+  await winNow(page);
+  await frames(page);
+  await page.keyboard.press("Enter");
+  expect(await page.evaluate(() => window.__bb.mode)).toBe("map");
 });
 
 // ---------- AC 9–11: every scene can be watched again from the Story ----------
@@ -230,6 +247,14 @@ test("every scene can be watched again from the Story", async ({ desk: page }) =
     await frames(page);
     soft(await page.evaluate(() => [window.__bb.mode, window.__bb.storyInfo && window.__bb.storyInfo.chapter]), `${ch}: back to its chapter`).toEqual(["story", ch]);
   }
+  soft(await page.evaluate(() => Object.values(window.__bb.progress.seen).some(Boolean)), "a replay from the Story does not count as the first showing").toBe(false);
+  // V on the keyboard replays the chapter's scene; its last button goes back, it does not say Play
+  await page.evaluate(() => window.__bb.openStory("park"));
+  await frames(page);
+  await page.keyboard.press("KeyV");
+  await frames(page);
+  soft(await page.evaluate(() => [window.__bb.mode, window.__bb.scene && window.__bb.scene.id, window.__bb.buttonRects.find(b => b.id === "scene:next").text]), "V: the park boss again").toEqual(["scene", "boss_park", "OK"]);
+  await page.keyboard.press("Escape");
   soft.done();
 });
 
@@ -264,7 +289,6 @@ async function meterCheck(page) {
   soft.done();
 }
 test("the anger meter shows Dad's anger (desktop)", { tag: "@fast" }, async ({ desk: page }) => meterCheck(page));
-test("the anger meter shows Dad's anger (phone 667×375)", async ({ phonePage: page }) => meterCheck(page));
 
 // ---------- AC 4: the win screen says "Dad is kind again!" (bosses: the boss's name) ----------
 async function winTitles(page) {
@@ -286,7 +310,6 @@ async function winTitles(page) {
   soft.done();
 }
 test("the win title: Dad is kind again (desktop)", async ({ desk: page }) => winTitles(page));
-test("the win title: Dad is kind again (phone 667×375)", async ({ phonePage: page }) => winTitles(page));
 
 // ---------- AC 3: Dad's mood on his face and over his head ----------
 // __bb.moodInfo (drawn) = { mood, face (the head colour), sprites (drawn this frame), cloud (its size) }
@@ -313,6 +336,13 @@ test("Dad's mood shows: angry red with steam and a dark cloud, mid orange-pink w
   m = await moodAt("park", 3, 0.2);
   soft([m.mood, m.face], "low").toEqual(["kind", look.kind]);
   soft(m.sprites, "hearts instead of steam").toEqual(["fx_hearts"]);
+  // a costume that is not a human face (the ogre) keeps its colour; the steam still shows
+  await page.evaluate(() => { const b = window.__bb; while (b.wardrobe().big[b.outfits.shown.big].id !== "ogre") b.cycleBig(1); });
+  m = await moodAt("park", 3, 1);
+  const ogre = await page.evaluate(() => window.__bb.big.model.faceBase);
+  soft([m.mood, m.face], "the ogre: angry, green as ever").toEqual(["angry", ogre]);
+  soft(m.sprites.includes("fx_storm_cloud"), "the ogre: the cloud still shows").toBe(true);
+  await page.evaluate(() => { const b = window.__bb; while (b.wardrobe().big[b.outfits.shown.big].id !== "dad") b.cycleBig(1); });
   // the grumpiest dad has the biggest cloud
   const a = await moodAt("park", 20, 1), s = await moodAt("school", 20, 1);
   soft(s.cloud > a.cloud, `the grumpiest dad's cloud (${s.cloud}) is bigger than the park boss's (${a.cloud})`).toBe(true);
@@ -372,6 +402,10 @@ test("each boss wears his own look on the dad model, a bit bigger", async ({ des
   soft.done();
   await page.evaluate(() => window.__bb.cycleBig(-1));
 });
+
+// ---------- the phone tests last (one shared rendered page at a time: desktop first, then phone) ----------
+test("the anger meter shows Dad's anger (phone 667×375)", async ({ phonePage: page }) => meterCheck(page));
+test("the win title: Dad is kind again (phone 667×375)", async ({ phonePage: page }) => winTitles(page));
 
 // ---------- AC 12: the scenes on a phone (667×375): big buttons, everything inside, nothing on anything ----------
 test("the scenes fit a 667×375 phone", async ({ phonePage: page }) => {

@@ -201,9 +201,9 @@ test("the dad becomes kind and walks home before the win screen", { tag: "@fast"
   // then he is kind: blushes, hearts burst, he walks to his house door; the friends cheer; the clock stops
   const d0 = await page.evaluate(() => {
     const b = window.__bb, ex = b.dangerZone.exits, big = b.big, near = Math.min(...ex.map(e => Math.hypot(e.x - big.x, e.y - big.y)));
-    return { mode: b.mode, kind: big.kind, blush: big.blush > 0, near, time: b.stats.time, cheer: b.texts.filter(t => t.text === b.I18N.en.cheer).length, wins: b.events.filter(e => e.type === "win").length };
+    return { mode: b.mode, kind: big.kind, blush: big.blush, near, time: b.stats.time, cheer: b.texts.filter(t => t.text === b.I18N.en.cheer).length, wins: b.events.filter(e => e.type === "win").length };
   });
-  expect([d0.mode, d0.kind, d0.blush, d0.wins]).toEqual(["play", true, true, 0]);
+  expect([d0.mode, d0.kind, d0.blush, d0.wins], "kind is his own state (not a kiss blush; the cheeks come from it)").toEqual(["play", true, 0, 0]);
   expect(d0.cheer, "the friends cheer").toBeGreaterThanOrEqual(2);
   await step(page, 0.5);
   const d1 = await page.evaluate(() => { const b = window.__bb, big = b.big; return { mode: b.mode, near: Math.min(...b.dangerZone.exits.map(e => Math.hypot(e.x - big.x, e.y - big.y))), time: b.stats.time, moving: big.moving }; });

@@ -35,7 +35,7 @@ test("boss levels have their boss", { tag: "@fast" }, async ({ simPage: page }) 
     for (const w of b.WORLDS) for (const n of [19, 20]) {
       b.world = w; b.level = n; b.resetWorld(1);
       const d = b.difficulty(w, n), base = Math.min(C.BIG_HP_MAX, C.BIG_HP + Math.floor((n - 1) / C.HP_LEVELS_PER_HEART) + b.worldDifficulty(w) * C.HP_PER_WORLD);
-      out[w + n] = { boss: b.bossFor(w, n), bigBoss: b.big.boss, scale: b.big.scale, maxHp: b.big.maxHp, hearts: d.hearts, base, chase: d.chase, search: d.search, patrol: d.patrol };
+      out[w + n] = { boss: b.bossFor(w, n), bigBoss: b.big.boss, maxHp: b.big.maxHp, hearts: d.hearts, base, chase: d.chase, search: d.search, patrol: d.patrol };
     }
     // the same level without the boss: what his speeds would be (levelBoost only)
     const plain = (w, n) => { const k = b.difficulty(w, n); return k; };
@@ -47,20 +47,18 @@ test("boss levels have their boss", { tag: "@fast" }, async ({ simPage: page }) 
   soft([r.extra, r.mainExtra, r.speed, r.scaleCfg], "CFG").toEqual([2, 3, 5, 1.1]);
   for (const w of ["park", "field", "city", "school"]) {
     const x = r[w + "20"], extra = w === "school" ? r.mainExtra : r.extra;
-    soft([x.boss, x.bigBoss, x.scale], `${w} 20: the boss`).toEqual([w, w, 1.1]);
+    soft([x.boss, x.bigBoss], `${w} 20: the boss`).toEqual([w, w]);   // his look and size: story.spec "each boss wears his own look"
     soft(x.hearts, `${w} 20: anger = the level's hearts + ${extra}`).toBe(x.base + extra);
     soft(x.maxHp, `${w} 20: the Big One starts with it`).toBe(x.hearts);
     for (const k of ["chase", "search", "patrol"]) soft(x[k] <= r.cap, `${w} 20: ${k} ≤ BIG_CHASE_MAX`).toBe(true);
     const y = r[w + "19"];
-    soft([y.boss, y.bigBoss, y.scale, y.hearts], `${w} 19: no boss`).toEqual([null, null, 1, y.base]);
+    soft([y.boss, y.bigBoss, y.hearts], `${w} 19: no boss`).toEqual([null, null, y.base]);
   }
   for (const w of ["beach", "winter"]) {
     const x = r[w + "20"];
-    soft([x.boss, x.bigBoss, x.scale, x.hearts], `${w} 20: no boss in a bonus world`).toEqual([null, null, 1, x.base]);
+    soft([x.boss, x.bigBoss, x.hearts], `${w} 20: no boss in a bonus world`).toEqual([null, null, x.base]);
   }
-  // the speed: + BOSS_SPEED, never above the cap (park 20 is below the cap without it)
   const park = r.park20;
-  soft(park.chase, "park 20 chase: +5").toBe(Math.min(r.cap, park.chase));
   soft.done();
   // park 20's chase is the plain level-20 chase + 5 (capped)
   const plain20 = await page.evaluate(() => { const b = window.__bb, C = b.CFG; const save = C.BOSS_SPEED; C.BOSS_SPEED = 0; const d = b.difficulty("park", 20); C.BOSS_SPEED = save; return d; });
@@ -126,6 +124,17 @@ test("a shield blocks the wide push for its owner only", async ({ simPage: page 
   });
   expect(r.states.slice(0, 2)).toEqual(["down", "ok"]);
   expect([r.shield, r.blocked]).toEqual([0, 1]);
+  // everybody shielded: no WHOOSH, no ring, the normal stand after a shield
+  const s = await page.evaluate(() => {
+    const b = window.__bb, L = b.littles;
+    window.__park(); window.__calm(480, 330, 0);
+    Object.assign(L[0], { x: 480 + 34, y: 330, fx: { boots: 0, cloak: 0, shield: 5 } }); Object.assign(L[1], { x: 480 + 60, y: 330 + 30, fx: { boots: 0, cloak: 0, shield: 5 } });
+    const t0 = b.texts.length, w0 = b.pushWaves.length;
+    b.update(1 / 60);
+    return { states: L.slice(0, 2).map(l => l.state), whoosh: b.texts.slice(t0).filter(t => t.text === b.I18N.en.whoosh).length, ring: b.pushWaves.length - w0, pushCd: b.big.pushCd, stand: b.CFG.PUSH_STAND };
+  });
+  expect([s.states, s.whoosh, s.ring]).toEqual([["ok", "ok"], 0, 0]);
+  expect(s.pushCd).toBeCloseTo(s.stand, 5);
 });
 
 // ---------- AC 8: bots near the bosses ----------

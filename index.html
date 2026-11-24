@@ -59,7 +59,7 @@ const CFG = {
   BIG_HP: 6,                 // сердечек у Большого на 1-м уровне Парка
   HP_LEVELS_PER_HEART: 4,    // +сердечко каждые 4 уровня мира (SPEC-006)
   HP_PER_WORLD: 1,           // и +1 за каждую ступень индекса сложности мира (WORLD_DIFFICULTY)
-  BIG_HP_MAX: 12,            // сердечек не больше ни на каком уровне
+  BIG_HP_MAX: 12,            // злости (сердечек) не больше ни на каком обычном уровне; у босса — больше (BOSS_EXTRA_HP, SPEC-022)
   DOWN_TIME: 18,             // сек — сколько ждёт маленький со сломанной ногой
   RESCUE_TIME: 3.0,          // сек — сколько стоять рядом, чтобы поднять друга
   RESCUE_DRAIN: 1.5,         // в сек — так быстро тает прогресс спасения, если помощник отошёл
@@ -73,7 +73,7 @@ const CFG = {
   WORLD_DIFFICULTY: { park: 0, field: 1, city: 2, school: 3, beach: 3, winter: 4 },
   WORLD_SPEED_START: [0, 5, 10, 15, 18],   // px/s — начало мира по индексу сложности (SPEC-006, SPEC-016)
   SPEED_PER_LEVEL: 1.2,      // px/s — Большой быстрее на каждом уровне мира
-  BIG_SPEED_PER_HIT: 4,      // и злится после каждой обнимашки
+  BIG_SPEED_PER_HIT: 4,      // и разгорячается: быстрее после каждого целого снятого сердечка (это не шкала злости, SPEC-022)
   CHASE_MAX_SHARE: 0.95,     // потолок: в погоне Большой не быстрее этой доли скорости игрока (без сапог)
   get BIG_CHASE_MAX() { return this.CHASE_MAX_SHARE * this.PLAYER_SPEED; },   // 142.5 px/s
   VISION_RANGE: 230,         // как далеко видит Большой
@@ -106,6 +106,10 @@ const CFG = {
   // SPEC-022 (придумал Claude): злость кончилась — папа добреет и идёт к двери своего дома, потом экран победы
   KIND_WALK: 3,              // сек — дольше не идёт (дошёл раньше — победа сразу); часы уровня в это время стоят
   KIND_SPEED: 110,           // px/с — шаг подобревшего папы
+  KIND_TURN: 6,              // рад/с — как быстро он поворачивается по дороге (и маленькие — к нему)
+  KIND_ARRIVE: 12,           // px — ближе к точке у двери — дошёл
+  KIND_HEARTS: 30,           // сердечек-частиц, когда добреет
+  WIDE_PUSH_SHAKE: 0.4,      // сек — тряска экрана от широкого толчка
   // SPEC-022 (решение Кости и Андрея: боссы сильнее и быстрее, самый злой папа толкает сразу нескольких; числа — Claude)
   BOSS_SCALE: 1.1,           // босс крупнее (вид; круг столкновений тот же)
   BOSS_EXTRA_HP: 2,          // злости у босса Парка, Поля и Города больше обычной на столько (может быть больше BIG_HP_MAX)
@@ -1057,11 +1061,21 @@ const worldIndex = world => Math.max(0, WORLDS.indexOf(world));
 const worldDifficulty = world => CFG.WORLD_DIFFICULTY[world] ?? 0;
 const levelsPerWorld = () => CFG.WORLD_TYPES.length;
 const levelPos = n => clamp(Math.floor(n) || 1, 1, levelsPerWorld()) - 1;
-// SPEC-022: босс уровня — последний уровень основного мира (его имя = мир: park, field, city; school — самый злой папа); иначе null.
-// У бонусных миров боссов нет (история Кости их ещё не придумала)
-const bossFor = (world, n) => (MAIN_WORLDS.includes(world) && Math.floor(n) === levelsPerWorld() ? world : null);
-// SPEC-022: заставки истории: комикс в начале, босс каждого основного мира, первый уровень бонусного мира, конец
-const SCENE_IDS = Object.freeze(["intro", ...MAIN_WORLDS.map(w => "boss_" + w), ...BONUS_WORLDS.map(w => "bonus_" + w), "ending"]);
+// SPEC-022: боссы — одна таблица (мир → босс последнего уровня): look — образ (BOSS_LOOKS), extraHp — ключ CFG с прибавкой злости,
+// power — особая сила ("wide" — широкий толчок, null — нет), cloud — ключ CFG.MOOD_LOOK с размером тёмного облачка.
+// Новый босс (например, бонусного мира) = строка здесь + образ + тексты (STORY boss, I18N bossNames, bossLine). У Пляжа и Зимы
+// боссов нет (история Кости их ещё не придумала)
+const BOSSES = Object.freeze({
+  park: { look: "park", extraHp: "BOSS_EXTRA_HP", power: null, cloud: "cloud" },
+  field: { look: "field", extraHp: "BOSS_EXTRA_HP", power: null, cloud: "cloud" },
+  city: { look: "city", extraHp: "BOSS_EXTRA_HP", power: null, cloud: "cloud" },
+  school: { look: "school", extraHp: "MAIN_BOSS_EXTRA_HP", power: "wide", cloud: "cloudBoss" }   // самый злой папа
+});
+// босс уровня — последний уровень мира из BOSSES (его имя = мир); иначе null
+const bossFor = (world, n) => (Object.hasOwn(BOSSES, world) && Math.floor(n) === levelsPerWorld() ? world : null);
+const bossPower = boss => (boss && BOSSES[boss] ? BOSSES[boss].power : null);
+// SPEC-022: заставки истории: комикс в начале, босс каждого мира из BOSSES, первый уровень бонусного мира, конец
+const SCENE_IDS = Object.freeze(["intro", ...Object.keys(BOSSES).map(w => "boss_" + w), ...BONUS_WORLDS.map(w => "bonus_" + w), "ending"]);
 const levelKey = (world, n) => world + ":" + n;
 // Тип уровня — по списку CFG.WORLD_TYPES (одинаковый во всех мирах)
 const levelType = (world, n) => CFG.WORLD_TYPES[levelPos(n)];
@@ -1971,19 +1985,20 @@ function makeLook(o) {
 }
 // ---------- Скины Большого ----------
 const BIG_SKINS = [
-  { id: "classic", price: tierPrice(0), shirt: "#9b2c3a", skin: "#f4b183", hair: "#3a2418", top: "spiky",  name: { en: "Classic", es: "Clásico", ru: "Классика" } },
+  // mood: true — лицо человека: краснеет / розовеет по злости (SPEC-022); у огра, робота и медведя лицо остаётся своим
+  { id: "classic", price: tierPrice(0), shirt: "#9b2c3a", skin: "#f4b183", hair: "#3a2418", top: "spiky",  name: { en: "Classic", es: "Clásico", ru: "Классика" }, mood: true },
   { id: "ogre", price: tierPrice(0), shirt: "#7c5a2e", skin: "#8fcf6a", hair: "#4d7c2a", top: "horns",  name: { en: "Ogre", es: "Ogro", ru: "Огр" } },
   { id: "robot", price: tierPrice(3), shirt: "#64748b", skin: "#cbd5e1", hair: "#475569", top: "robot",  name: { en: "Robot", es: "Robot", ru: "Робот" } },
-  { id: "captain", price: tierPrice(3), shirt: "#1e3a8a", skin: "#f1c27d", hair: "#1f2937", top: "pirate", name: { en: "Captain", es: "Capitán", ru: "Капитан" } },
+  { id: "captain", price: tierPrice(3), shirt: "#1e3a8a", skin: "#f1c27d", hair: "#1f2937", top: "pirate", name: { en: "Captain", es: "Capitán", ru: "Капитан" }, mood: true },
   { id: "bear", price: tierPrice(2), shirt: "#92400e", skin: "#b7793f", hair: "#78350f", top: "bear",   name: { en: "Bear", es: "Oso", ru: "Медведь" } },
   // SPEC-021 (решение Андрея): папа из истории — лысый, щетина, красная футболка, джинсы, кроссовки (art/1_papa). В конце списка:
   // сохранённые номера образов не меняют смысла; он — образ новой игры (DEFAULT_SKINS.big). stubble — щетина (доля цвета лица)
   { id: "dad", price: tierPrice(0), shirt: "#eb3e42", skin: "#f4b183", hair: "#3a2418", top: "dad", pants: "#3b6db5", shoes: "#5b3a29", sole: "#f5f5f4", stubble: 0.8,
-    name: { en: "Dad", es: "Papá", ru: "Папа" } }
+    name: { en: "Dad", es: "Papá", ru: "Папа" }, mood: true }
 ];
 // SPEC-022: образы боссов (Андрей: свой образ у каждого; вид придумал Claude по art/4_papas_bosses, 4_papas_bosses_new,
 // 5_papas_main_boss). Строятся на папе (образ "dad", точки m.anchors и свои материалы m.mats): цвета футболки, штанов, обуви
-// (legs: "skin" — голые ноги, шорты отдельной деталью) и список деталей (BOSS_PARTS); крупнее на CFG.BOSS_SCALE (big.scale).
+// (legs: "skin" — голые ноги, шорты отдельной деталью) и список деталей (BOSS_PARTS); крупнее на CFG.BOSS_SCALE (bossScale).
 // Босс уровня носит свой образ, какой бы образ Большого ни выбрали в гардеробе
 const BOSS_LOOKS = Object.freeze({
   park: { shirt: "#d7322f", pants: "#c62828", shoes: "#f1f5f9", trim: "#ffffff", parts: ["tracksuit", "whistle"] },          // красный спортивный костюм, свисток
@@ -2395,7 +2410,7 @@ function resetWorld(n) {
     path: [], repath: 0, moveDir: 0, walk: 0, moving: false, stun: 0, stunFace: 0, stunTurn: 0, pushCd: 0, noPush: 0, hugCd: 0, flash: 0, slip: 0,
     blush: 0, blushBy: 0,   // покраснел после поцелуя: сколько ещё сек и кто бросил (индекс игрока)
     kind: false,            // SPEC-022: злость кончилась — подобрел и идёт домой (pendingWin — сколько ещё идёт)
-    boss: bossFor(curWorld, level), scale: bossFor(curWorld, level) ? CFG.BOSS_SCALE : 1,   // SPEC-022: босс уровня (мир) или null; крупнее
+    boss: bossFor(curWorld, level),   // SPEC-022: босс уровня (мир из BOSSES) или null
     // SPEC-019: шум топота, сек до того, как снова слышит; поворот на топот (куда, сколько ещё, скорость) и сколько ещё смотрит туда
     noise: 0, hearCd: 0, hearFace: 0, hearTurnT: 0, hearRate: 0, hearLook: 0,
     skin: BIG_SKINS[skinSel.big]
@@ -2500,23 +2515,25 @@ function scenePages(id) {
   const [kind, w] = id.split("_");
   return [{ art: STORY_ART[w], crop: null, text: kind === "boss" ? storyOf(w).boss[lang] : storyOf(w).text[lang] }];
 }
-function openScene(id, then = null) {
+// opts.mark — отметить показанной, когда с неё уходят (сама открылась: запуск, уровень, финал; пересмотр из «Истории» — нет);
+// opts.play — перед уровнем: на последней странице «▶ Играть»
+function openScene(id, then = null, opts = {}) {
   if (!SCENE_IDS.includes(id)) return false;
-  storyScene = { id, page: 0, then };
+  storyScene = { id, page: 0, then, mark: opts.mark !== false, play: !!opts.play };
   mode = "scene";
-  if (!progress.seen[id]) { progress.seen[id] = true; saveProgress(); }
   return true;
 }
 const scenePageCount = () => (storyScene ? scenePages(storyScene.id).length : 0);
 // пропустить (Escape, B, «Пропустить») — сразу к тому, что дальше
 function sceneSkip() {
-  if (!storyScene) return;
-  const then = storyScene.then;
-  storyScene = null; mode = "home";
-  if (then) then();
+  const sc = storyScene;
+  storyScene = null; mode = "home";                       // без заставки — просто на главный экран
+  if (!sc) return;
+  if (sc.mark && !progress.seen[sc.id]) { progress.seen[sc.id] = true; saveProgress(); }   // показана — отмечаем, когда с неё ушли
+  if (sc.then) sc.then();
 }
 // дальше (Enter, пробел, A, тап, «Дальше» / «Играть» / «Готово»): следующая страница, после последней — как «Пропустить»
-function sceneNext() { if (!storyScene) return; if (storyScene.page < scenePageCount() - 1) storyScene.page++; else sceneSkip(); }
+function sceneNext() { if (storyScene && storyScene.page < scenePageCount() - 1) storyScene.page++; else sceneSkip(); }
 function scenePrev() { if (storyScene && storyScene.page > 0) storyScene.page--; }
 // заставка перед уровнем (мир, n), если её ещё не показывали: босс — перед 20-м уровнем основного мира, бонусный мир — перед
 // любым своим уровнем (первый раз это его первый уровень)
@@ -2524,15 +2541,16 @@ function sceneBefore(world, n) {
   const id = bossFor(world, n) ? "boss_" + world : BONUS_WORLDS.includes(world) ? "bonus_" + world : null;
   return id && !progress.seen[id] ? id : null;
 }
-function withScene(id, go) { if (id) openScene(id, go); else go(); }
-// финал: экран победы после первой победы 20-го уровня Школы — «Как всё закончилось» и «Спасибо» перед картой или магазином
-const endingDue = () => mode === "win" && !!lastReward && lastReward.win && lastReward.world === "school" && lastReward.worldDone && !progress.seen.ending;
+function withScene(id, go) { if (id) openScene(id, go, { play: true }); else go(); }
+// финал: после первой победы 20-го уровня Школы (экран победы или выход через паузу, который засчитал победу) — «Как всё закончилось»
+// и «Спасибо» перед картой, главным экраном или магазином
+const endingDue = () => !!lastReward && lastReward.win && lastReward.world === MAIN_WORLDS.at(-1) && lastReward.worldDone && !progress.seen.ending;
 // глава истории → её заставка (посмотреть ещё раз); после неё — снова эта глава
-const chapterScene = c => (c.id === "began" ? "intro" : c.id === "ended" ? "ending" : MAIN_WORLDS.includes(c.id) ? "boss_" + c.id : "bonus_" + c.id);
+const chapterScene = c => (c.id === "began" ? "intro" : c.id === "ended" ? "ending" : Object.hasOwn(BOSSES, c.id) ? "boss_" + c.id : "bonus_" + c.id);
 function watchChapter() {
   const c = STORY[storyCh], ch = storyCh;
   if (!chapterOpen(c)) return;
-  openScene(chapterScene(c), () => { mode = "story"; storyCh = ch; storyPage = "chapters"; });
+  openScene(chapterScene(c), () => { mode = "story"; storyCh = ch; storyPage = "chapters"; }, { mark: false });
 }
 // всё состояние экранов меню — как при запуске (тесты: resetGame)
 function resetMenus() {
@@ -2540,10 +2558,15 @@ function resetMenus() {
   storyCh = 0; storyBack = "home"; storyPage = "chapters"; storyScene = null;
 }
 function toMap() {
+  leaveLevel();
   if (endingDue()) { openScene("ending", toMap); return; }   // SPEC-022: сначала финал истории
-  leaveLevel(); resetWorld(numPlayers); mapSel = null; mode = "map";   // кольцо — снова на следующем уровне
+  resetWorld(numPlayers); mapSel = null; mode = "map";       // кольцо — снова на следующем уровне
 }
-function toHome() { leaveLevel(); resetWorld(numPlayers); mode = "home"; }
+function toHome() {
+  leaveLevel();
+  if (endingDue()) { openScene("ending", toHome); return; }  // SPEC-022: сначала финал истории
+  resetWorld(numPlayers); mode = "home";
+}
 const resumeGame = () => { mode = "play"; };
 const retryLevel = () => startGame(numPlayers);
 // экран итогов → магазин; «Готово» в магазине ведёт на карту. После победы — уже следующий уровень (как «Дальше»)
@@ -2631,6 +2654,7 @@ function onKey(code) {
   } else if (mode === "story") {
     if (back) storyBackKey();
     if (storyPage === "chapters" && code === "ArrowLeft") storyStep(-1);
+    if (storyPage === "chapters" && code === "KeyV") watchChapter();   // SPEC-022: V — посмотреть заставку главы
     if (storyPage === "chapters" && (code === "ArrowRight" || code === "Enter" || code === "Space")) storyStep(1);
   } else if (mode === "scene") {
     // SPEC-022: заставка — Enter / пробел / → дальше, ← назад, Escape пропустить
@@ -2899,7 +2923,7 @@ function canSee(l) {
 }
 const helps = (o, l) => o !== l && o.state === "ok" && dist(o, l) < o.r + l.r + 12;   // o стоит рядом с упавшим l и поднимает его
 // SPEC-022: толчок того, кого Большой поймал: самый злой папа (Школа 20) толкает широко — всех рядом перед собой
-function pushHit(t) { if (big.boss === "school") widePush(t); else push(t); }
+function pushHit(t) { if (bossPower(big.boss) === "wide") widePush(t); else push(t); }
 // широкий толчок: все маленькие (ok, могут действовать, не неуязвимы, не невидимки, не в домике) ближе WIDE_PUSH_R клеток в угле
 // WIDE_PUSH_ARC перед ним (и тот, кого поймал) — каждому обычный толчок (щит спасает своего хозяина), одно «ВЖУХ!», кольцо; стоит дольше
 function widePush(t) {
@@ -2907,11 +2931,13 @@ function widePush(t) {
   const hit = littles.filter(l => l === t || (canAct(l) && l.invuln <= 0 && l.fx.cloak <= 0 && !inSafe(l)
     && dist(l, big) <= reach + l.r && angDiff(big.dir, Math.atan2(l.y - big.y, l.x - big.x)) <= half));
   for (const l of hit) push(l, true);
-  logEvent("widePush", { n: hit.length });
+  const down = hit.filter(l => l.state === "down").length;
+  if (!down) return;                                       // всех спас щит — как обычный толчок в щит (PUSH_STAND), без «ВЖУХ!»
+  logEvent("widePush", { n: down });
   big.pushCd = CFG.WIDE_PUSH_STAND; big.noPush = CFG.PUSH_RECOVER;   // стоит дольше; передышка (правило детей) — как после любого толчка
   pushWaves.push({ x: big.x, y: big.y, t: 0, r: reach });
-  popText(big.x + Math.cos(big.dir) * 40, big.y + Math.sin(big.dir) * 40 - 40, L().whoosh, "#fde047", "whoosh");
-  shake = 0.4;
+  popText(big.x + Math.cos(big.dir) * big.r * 2, big.y + Math.sin(big.dir) * big.r * 2 - big.r * 2, L().whoosh, "#fde047", "whoosh");
+  shake = CFG.WIDE_PUSH_SHAKE;
   SFX.push();
 }
 function push(t, wide = false) {
@@ -2975,18 +3001,18 @@ function bigMood() {
 // SPEC-022: последняя обнимашка доиграла (правило детей) — папа добреет: краснеет, сердечки, друзья кричат «Ура!», идёт к двери
 // своего дома (не дольше KIND_WALK; часы уровня стоят — звезда «быстро» как раньше). Дошёл или время вышло — экран победы
 function startKindWalk() {
-  Object.assign(big, { kind: true, stun: 0, slip: 0, pushCd: 0, blush: CFG.KIND_WALK, hugCd: 99, path: [], state: "look", timer: 99 });
+  Object.assign(big, { kind: true, stun: 0, slip: 0, pushCd: 0, blush: 0, path: [] });   // своё состояние: ни шока, ни толчков, ни румянца-поцелуя
   big.home = nearestExit(big);
   pendingWin = CFG.KIND_WALK;
-  burst(big.x, big.y - 30, "heart", "#ff4d8d", 30);
+  burst(big.x, big.y - 30, "heart", "#ff4d8d", CFG.KIND_HEARTS);
   for (const l of littles) if (l.state === "ok") popText(l.x, l.y - 40, L().cheer, "#facc15");
   SFX.mwah();
 }
 function updateKindWalk(dt) {
-  for (const l of littles) { l.moving = false; l.speedFrac = 0; if (l.state === "ok" && l.hugAnim <= 0) l.dir = turnToward(l.dir, Math.atan2(big.y - l.y, big.x - l.x), 6 * dt); }
+  for (const l of littles) { l.moving = false; l.speedFrac = 0; if (l.state === "ok" && l.hugAnim <= 0) l.dir = turnToward(l.dir, Math.atan2(big.y - l.y, big.x - l.x), CFG.KIND_TURN * dt); }
   const g = big.home;
-  big.moving = !!g && dist(big, g) > 12 && steerTo(big, g.x, g.y, CFG.KIND_SPEED, dt, false);
-  if (big.moving) big.dir = turnToward(big.dir, big.moveDir, 6 * dt);
+  big.moving = !!g && dist(big, g) > CFG.KIND_ARRIVE && steerTo(big, g.x, g.y, CFG.KIND_SPEED, dt, false);
+  if (big.moving) big.dir = turnToward(big.dir, big.moveDir, CFG.KIND_TURN * dt);
   if (!big.moving) winNow();                               // у двери (или пути нет) — сразу победа
 }
 function winNow() {
@@ -3047,7 +3073,7 @@ const chaseCap = v => Math.min(CFG.BIG_CHASE_MAX, v);
 // SPEC-022: босс (bossFor): злости больше на BOSS_EXTRA_HP (самый злой папа — MAIN_BOSS_EXTRA_HP), каждая скорость + BOSS_SPEED (с потолком)
 function difficulty(world, n, lost = 0) {
   const boost = levelBoost(world, n) + Math.floor(lost) * CFG.BIG_SPEED_PER_HIT, boss = bossFor(world, n), bs = boss ? CFG.BOSS_SPEED : 0;
-  const extra = !boss ? 0 : boss === "school" ? CFG.MAIN_BOSS_EXTRA_HP : CFG.BOSS_EXTRA_HP;
+  const extra = boss ? CFG[BOSSES[boss].extraHp] : 0;
   return { chase: chaseCap(CFG.BIG_CHASE_SPEED + boost + bs), search: chaseCap(CFG.BIG_CHASE_SPEED * 0.85 + boost + bs),
     patrol: chaseCap(CFG.BIG_PATROL_SPEED + boost * 0.5 + bs), hearts: bigHearts(world, n) + extra, boost };
 }
@@ -3272,7 +3298,7 @@ function updateBots(dt) {
 // SPEC-022: точка p (бот или упавший, к которому он идёт; o — бот рядом с ним) — перед самым злым папой ближе WIDE_PUSH_R + BOT_WIDE_KEEP
 // клеток, а он может толкнуть (не стоит после толчка, не в шоке, не лежит, не красный, не отдыхает)
 function wideDanger(p, o = null) {
-  if (big.boss !== "school" || big.pushCd > 0 || big.stun > 0 || big.slip > 0 || big.blush > 0 || big.noPush > 0) return false;
+  if (bossPower(big.boss) !== "wide" || big.kind || big.pushCd > 0 || big.stun > 0 || big.slip > 0 || big.blush > 0 || big.noPush > 0) return false;
   const keep = (CFG.WIDE_PUSH_R + CFG.BOT_WIDE_KEEP) * CELL + (o ? o.r * 2 : 0);
   return dist(p, big) < keep && angDiff(big.dir, Math.atan2(p.y - big.y, p.x - big.x)) <= CFG.WIDE_PUSH_ARC * Math.PI / 360;
 }
@@ -3680,7 +3706,7 @@ function update(dt) {
 // SPEC-008: шагает игру пачкой (dt — сек игры за шаг), пока уровень идёт и не вышло seconds; → простые данные
 function simRun(seconds, dt = CFG.BALANCE.SIM_DT) {
   const n = Math.round(seconds / dt);
-  for (let i = 0; i < n && mode === "play"; i++) update(dt);
+  for (let i = 0; mode === "play" && (i < n || pendingWin > 0); i++) update(dt);   // SPEC-022: начатая победа (обнимашка, дорога домой) доигрывается
   return { ended: mode !== "play", win: mode === "win", time: stats.time };
 }
 // sim(on): включить/выключить режим симуляции; без аргумента — только узнать. Выключили — 3D строится заново.
@@ -3972,35 +3998,37 @@ function drawTapLines() {
 // (fx_hearts); нет картинок — рисунок кодом. Точка — m.anchors.top (над головой, не наклоняется). Лёжа после банана — ничего.
 // moodInfo (для тестов) — { mood, face, sprites, cloud }
 let moodInfo = null;
-const moodV = new THREE.Vector3();
+const moodNow = { mood: "", face: "", sprites: [], cloud: 0 };   // один объект на все кадры (moodInfo указывает на него, когда что-то нарисовано)
+const STEAM_BOTH = [-1, 1], STEAM_L = [-1], STEAM_R = [1];
+const MOOD_PUFFS = [[-0.22, 0.05, 0.22], [0, -0.08, 0.28], [0.24, 0.04, 0.2]];
 function moodSprite(name, x, y, s, alpha = 1) {
   ctx.globalAlpha = alpha;
   if (!drawArtFit(name, x, y, s)) {
     if (name === "fx_hearts") { drawHeart(x - s * 0.18, y, s * 0.22, "#ff6fa8"); drawHeart(x + s * 0.2, y - s * 0.15, s * 0.16, "#ff9ecb"); }
-    else { ctx.fillStyle = name === "fx_storm_cloud" ? "#3f3f46" : "#d4d4d8"; for (const [dx, dy, r] of [[-0.22, 0.05, 0.22], [0, -0.08, 0.28], [0.24, 0.04, 0.2]]) { circle(x + dx * s, y + dy * s, r * s); ctx.fill(); } }
+    else { ctx.fillStyle = name === "fx_storm_cloud" ? "#3f3f46" : "#d4d4d8"; for (const [dx, dy, r] of MOOD_PUFFS) { circle(x + dx * s, y + dy * s, r * s); ctx.fill(); } }
   }
   ctx.globalAlpha = 1;
-  moodInfo.sprites.push(name);
+  moodNow.sprites.push(name);
 }
 function drawMood(t) {
   const m = big && big.model;
   moodInfo = null;
   if (!m || !m.anchors) return;
   const ML = CFG.MOOD_LOOK, mood = m.mood || moodOf(big);
-  moodInfo = { mood, face: "#" + m.headMat.color.getHexString(), sprites: [], cloud: 0 };
+  moodInfo = moodNow; moodNow.mood = mood; moodNow.face = m.faceHex || ""; moodNow.sprites.length = 0; moodNow.cloud = 0;
   if (big.slip > 0) return;
-  m.anchors.top.getWorldPosition(moodV);
-  toScreenTo(fxA, moodV.x * CELL, moodV.z * CELL, moodV.y * CELL);
-  toScreenTo(fxB, moodV.x * CELL + CELL, moodV.z * CELL, moodV.y * CELL);
+  const h = m.topH * BIG_SCALE * bossScale(big) * CELL;    // точка над головой (m.anchors.top) по логике, без чтения сцены 3D
+  toScreenTo(fxA, big.x, big.y, h);
+  toScreenTo(fxB, big.x + CELL, big.y, h);
   const c = Math.hypot(fxB.x - fxA.x, fxB.y - fxA.y), x = fxA.x, y = fxA.y, puff = (t * ML.puff) % 1;
   if (mood === "angry" || mood === "mid") {
-    const sides = mood === "angry" ? [-1, 1] : [Math.floor(t * ML.puff) % 2 ? 1 : -1];
+    const sides = mood === "angry" ? STEAM_BOTH : Math.floor(t * ML.puff) % 2 ? STEAM_R : STEAM_L;
     const k = (mood === "angry" ? 1 : 0.7) * (0.8 + puff * 0.4);
     for (const sd of sides) moodSprite(sd < 0 ? "fx_steam_left" : "fx_steam_right", x + sd * c * (ML.steamX + puff * 0.2), y + c * ML.steamY, c * ML.steam * k, 1 - puff * 0.5);
   }
   if (mood === "angry") {
-    moodInfo.cloud = big.boss === "school" ? ML.cloudBoss : ML.cloud;
-    moodSprite("fx_storm_cloud", x, y - c * ML.cloudY, c * moodInfo.cloud);
+    moodNow.cloud = ML[big.boss && BOSSES[big.boss] ? BOSSES[big.boss].cloud : "cloud"];
+    moodSprite("fx_storm_cloud", x, y - c * ML.cloudY, c * moodNow.cloud);
   }
   if (mood === "kind" || mood === "happy") moodSprite("fx_hearts", x, y - c * (ML.heartsY + Math.sin(t * 3) * ML.bob), c * ML.hearts);
 }
@@ -4204,7 +4232,7 @@ function drawHUDPhone(t) {
   const pw = plateW();
   plate("hearts", m, top, pw, bh);
   noteText("main", labelFit(bigName, m + pad, top + bh / 2, main, nameW, "#9b2c3a", "left", main));
-  Object.assign(hudRects[hudRects.length - 1], { label: lastFit.text, labelX: m + pad, labelW: lastFit.w });   // SPEC-022: подпись злости — в плашке hearts
+  Object.assign(hudRects.find(r => r.id === "hearts"), { label: lastFit.text, labelX: m + pad, labelW: lastFit.w });   // SPEC-022: подпись злости — в плашке hearts
   const hx = m + pad + nameW + pad * 0.6 + hStep / 2;
   for (let i = 0; i < big.maxHp; i++) hpHeart(hx + i * hStep, top + bh / 2 - hSize / 2 - 1, hSize, heartFill(i, big.hp), hStep);
   // группа по центру свободного места
@@ -5080,7 +5108,7 @@ function drawScene() {
   const M = CFG.MENU_LOOK, S = M.scene, k = PHONE ? cpx(1) : 1, minMain = PHONE ? minPx("main") : 14;
   const { X0, X1, Y0, Y1, g, B } = menuFrame();
   const pages = scenePages(storyScene.id), n = pages.length, pg = pages[storyScene.page], last = storyScene.page === n - 1;
-  const before = /^(boss|bonus)_/.test(storyScene.id);       // перед уровнем: на последней странице «Играть»
+  const before = storyScene.play;                           // перед уровнем: на последней странице «Играть»
   // нижний ряд: «Пропустить» слева (на последней странице длинной заставки её нет), точки страниц, справа «Дальше» / «Играть» / «Готово»
   const by = Y1 - B, bw = PHONE ? Math.min((X1 - X0) * 0.36, Math.max(B * 2.8, cpx(150))) : S.btnW, bsz = PHONE ? cpx(20) : 24;
   fitButton(X1 - bw, by, bw, B, last ? (before ? "▶ " + L().play : L().ok) : L().sceneNext + " ▶", M.ok, sceneNext, bsz, minMain).id = "scene:next";
@@ -7622,7 +7650,7 @@ function buildBigModel(sk) {
   const anchors = { head: headSurf, top, torso, handL: hands[1], handR: hands[0] };   // лицом к +z: левая рука — +x
   root.traverse(o => { if (o.isMesh) o.castShadow = true; });
   return { root, rig, legs, arms, head, body, bodyMat, headMat, cheeks, face, sweat, stars, blink,
-    look: sk.id, faceMats, faceBase: sk.skin, stubbleMat, stubbleK: sk.stubble || 1, anchors, headTop: top, outfitAnchor: torso,
+    look: sk.id, faceMats, faceBase: sk.skin, moodFace: !!sk.mood, topH: top.position.y, stubbleMat, stubbleK: sk.stubble || 1, anchors, headTop: top, outfitAnchor: torso,
     mats: { shirt: bodyMat, pants: pantsMat, shoes: shoeMat, face: headMat, stubble: stubbleMat }, dad };
 }
 // SPEC-021 (для SPEC-022): цвет лица Большого — color (строка/число), null — цвет образа; щетина остаётся на тон темнее
@@ -7631,16 +7659,16 @@ function setBigFace(m, color) {
   if (m.stubbleMat) m.stubbleMat.color.copy(m.headMat.color).multiplyScalar(m.stubbleK);
 }
 
-// SPEC-022: детали образов боссов — к точкам папы (m.anchors) и к рукам/ногам (m.arms / m.legs); L — запись BOSS_LOOKS
+// SPEC-022: детали образов боссов — к точкам папы (m.anchors) и к рукам/ногам (m.arms / m.legs); look — запись BOSS_LOOKS
 const BOSS_PARTS = {
-  tracksuit(m, L) {                                       // длинные рукава и белые лампасы на рукавах и штанах, молния
-    const g = new THREE.Group();
+  tracksuit(m, look) {                                    // длинные рукава и белые лампасы на рукавах и штанах, молния
+    const g = new THREE.Group(); m.anchors.torso.add(g);
     m.arms.forEach((pv, i) => {
       const k = i ? 1 : -1, sl = part(capsule(0.145, 0.34), "", 0.025, m.mats.shirt); sl.position.y = -0.26; pv.add(sl);
-      const st = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.5, 0.04), toon(L.trim)); st.position.set(k * 0.14, -0.26, 0); pv.add(st);
+      const st = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.5, 0.04), toon(look.trim)); st.position.set(k * 0.14, -0.26, 0); pv.add(st);
     });
-    m.legs.forEach((pv, i) => { const st = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.52, 0.04), toon(L.trim)); st.position.set((i ? 1 : -1) * 0.155, -0.3, 0); pv.add(st); });
-    const zip = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.62, 0.02), toon(L.trim)); zip.position.set(0, 0.05, 0.47); m.anchors.torso.add(zip);
+    m.legs.forEach((pv, i) => { const st = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.52, 0.04), toon(look.trim)); st.position.set((i ? 1 : -1) * 0.155, -0.3, 0); pv.add(st); });
+    const zip = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.62, 0.02), toon(look.trim)); zip.position.set(0, 0.05, 0.47); g.add(zip);
     return g;
   },
   whistle(m) {                                            // свисток на шнурке
@@ -7649,14 +7677,14 @@ const BOSS_PARTS = {
     const w = part(new THREE.CylinderGeometry(0.05, 0.05, 0.14, 10), "#a1a1aa", 0.012); w.rotation.z = Math.PI / 2; g.add(w);
     return g;
   },
-  kit(m, L) {                                             // воротник и эмблема, синие шорты, белые гетры со щитками
+  kit(m, look) {                                             // воротник и эмблема, синие шорты, белые гетры со щитками
     const g = new THREE.Group(); m.anchors.torso.add(g);
-    const col = new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.035, 6, 18), toon(L.trim)); col.rotation.x = Math.PI / 2; col.position.y = 0.56; g.add(col);
-    const badge = part(new THREE.BoxGeometry(0.11, 0.13, 0.03), L.trim, 0.01); badge.position.set(0.2, 0.22, 0.43); g.add(badge);
+    const col = new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.035, 6, 18), toon(look.trim)); col.rotation.x = Math.PI / 2; col.position.y = 0.56; g.add(col);
+    const badge = part(new THREE.BoxGeometry(0.11, 0.13, 0.03), look.trim, 0.01); badge.position.set(0.2, 0.22, 0.43); g.add(badge);
     m.legs.forEach(pv => {
-      const sh = part(new THREE.CylinderGeometry(0.19, 0.2, 0.26, 12), L.trim, 0.025); sh.position.y = -0.1; pv.add(sh);
+      const sh = part(new THREE.CylinderGeometry(0.19, 0.2, 0.26, 12), look.trim, 0.025); sh.position.y = -0.1; pv.add(sh);
       const sock = part(new THREE.CylinderGeometry(0.16, 0.155, 0.3, 12), "#f8fafc", 0.02); sock.position.y = -0.42; pv.add(sock);
-      const band = new THREE.Mesh(new THREE.CylinderGeometry(0.162, 0.162, 0.05, 12), toon(L.trim)); band.position.y = -0.3; pv.add(band);
+      const band = new THREE.Mesh(new THREE.CylinderGeometry(0.162, 0.162, 0.05, 12), toon(look.trim)); band.position.y = -0.3; pv.add(band);
       const guard = part(new THREE.BoxGeometry(0.17, 0.2, 0.05), "#94a3b8", 0.012); guard.position.set(0, -0.43, 0.15); pv.add(guard);
     });
     return g;
@@ -7676,10 +7704,10 @@ const BOSS_PARTS = {
     const ridge = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.06, 0.8), toon("#ea580c")); ridge.position.y = 0.42; g.add(ridge);
     return g;
   },
-  vest(m, L) {                                            // жилет: оранжевый, две светоотражающие полосы
+  vest(m, look) {                                            // жилет: оранжевый, две светоотражающие полосы
     const g = new THREE.Group(); m.anchors.torso.add(g);
     const v = part(capsule(0.48, 0.3), "#fb923c", 0.03); v.scale.set(1, 0.95, 1.02); g.add(v);
-    for (const y of [-0.12, 0.14]) { const b = new THREE.Mesh(new THREE.CylinderGeometry(0.49, 0.49, 0.07, 20, 1, true), toon(L.trim)); b.position.y = y; g.add(b); }
+    for (const y of [-0.12, 0.14]) { const b = new THREE.Mesh(new THREE.CylinderGeometry(0.49, 0.49, 0.07, 20, 1, true), toon(look.trim)); b.position.y = y; g.add(b); }
     return g;
   },
   cone(m) {                                               // дорожный конус в руке
@@ -7689,9 +7717,9 @@ const BOSS_PARTS = {
     const base = part(new THREE.BoxGeometry(0.36, 0.05, 0.36), "#f97316", 0.012); base.position.y = -0.25; g.add(base);
     return g;
   },
-  overshirt(m, L) {                                       // белая рубашка нараспашку поверх красной футболки, в пятнах, рукава
+  overshirt(m, look) {                                       // белая рубашка нараспашку поверх красной футболки, в пятнах, рукава
     const g = new THREE.Group(); m.anchors.torso.add(g);
-    const sm = ownMat(L.trim); sm.side = THREE.DoubleSide;
+    const sm = ownMat(look.trim); sm.side = THREE.DoubleSide;
     const sh = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.52, 0.78, 22, 1, true, 0.42, TAU - 0.84), sm); sh.position.y = 0.06; sh.castShadow = true; g.add(sh);
     const ink = new THREE.Mesh(new THREE.CylinderGeometry(0.515, 0.535, 0.8, 22, 1, true, 0.42, TAU - 0.84), OUTLINE); ink.position.y = 0.06; g.add(ink);
     for (const [a, y] of [[0.7, 0.1], [0.95, -0.15], [-0.75, 0.2], [-1.1, -0.05], [0.55, -0.25]]) {
@@ -7717,15 +7745,16 @@ const BOSS_PARTS = {
 };
 // одеть модель папы в образ босса id (BOSS_LOOKS): цвета своих материалов и детали; m.boss, m.bossParts — для тестов
 function dressBoss(m, id) {
-  const L = BOSS_LOOKS[id];
-  if (!L) return;
-  m.mats.shirt.color.set(L.shirt);
-  m.mats.pants.color.set(L.legs === "skin" ? m.faceBase : L.pants);
-  if (m.mats.shoes) m.mats.shoes.color.set(L.shoes);
+  const look = BOSS_LOOKS[BOSSES[id] ? BOSSES[id].look : id];
+  if (!look) return;
+  m.mats.shirt.color.set(look.shirt);
+  m.mats.pants.color.set(look.legs === "skin" ? m.faceBase : look.pants);
+  if (m.mats.shoes) m.mats.shoes.color.set(look.shoes);
   m.boss = id; m.bossParts = {};
-  for (const p of L.parts) m.bossParts[p] = BOSS_PARTS[p](m, L);
+  for (const p of look.parts) m.bossParts[p] = BOSS_PARTS[p](m, look);
   m.root.traverse(o => { if (o.isMesh && !o.material.side) o.castShadow = true; });
 }
+const bossScale = b => (b.boss ? CFG.BOSS_SCALE : 1);   // SPEC-022: босс крупнее (вид; круг столкновений тот же)
 let charGroup = new THREE.Group(); scene.add(charGroup);
 function buildCharacters() {
   scene.remove(charGroup); disposeTree(charGroup);
@@ -7739,7 +7768,7 @@ function buildCharacters() {
   // SPEC-022: босс уровня — папа в образе босса (BOSS_LOOKS), крупнее (big.scale)
   big.model = buildBigModel(big.boss ? BIG_SKINS.find(s => s.id === "dad") : big.skin);
   if (big.boss) dressBoss(big.model, big.boss);
-  big.model.rig.scale.setScalar(BIG_SCALE * (big.scale || 1));
+  big.model.rig.scale.setScalar(BIG_SCALE * bossScale(big));
   charGroup.add(big.model.root);
 }
 function rebuild3D() {
@@ -7958,7 +7987,9 @@ const moodOf = b => (b.kind ? "happy" : bigMood());
 function syncBig(b, t) {
   const m = b.model;
   const mood = moodOf(b);
-  if (m.mood !== mood) { m.mood = mood; setBigFace(m, CFG.MOOD_LOOK.face[mood] ?? null); }   // перекрашиваем только при смене
+  if (m.mood !== mood) {                                   // перекрашиваем только при смене; лицо не человека (огр, робот, медведь) — своё
+    m.mood = mood; setBigFace(m, m.moodFace ? CFG.MOOD_LOOK.face[mood] ?? null : null); m.faceHex = "#" + m.headMat.color.getHexString();
+  }
   m.root.position.set(P(b.x), 0, P(b.y));
   m.root.rotation.y = Math.PI / 2 - b.dir;
   const slipped = b.slip > 0, shocked = b.stun > 0 || slipped, resting = b.noPush > 0 && !shocked;
@@ -7971,7 +8002,7 @@ function syncBig(b, t) {
     m.rig.position.set(0, b.moving ? Math.abs(Math.sin(b.walk)) * 0.07 : 0, 0);
     m.legs[0].rotation.x = b.moving ? Math.sin(b.walk) * 0.6 : 0; m.legs[1].rotation.x = -m.legs[0].rotation.x;
   }
-  const bs = BIG_SCALE * (b.scale || 1), s = bs * (hugged ? 1 + Math.sin(t * 20) * 0.03 : 1);   // SPEC-022: босс крупнее
+  const bs = BIG_SCALE * bossScale(b), s = bs * (hugged ? 1 + Math.sin(t * 20) * 0.03 : 1);   // SPEC-022: босс крупнее
   m.rig.scale.set(s, bs * (hugged ? 1 - Math.sin(t * 20) * 0.03 : 1), s);
   const armX = shocked ? -2.7 : (b.state === "chase" ? -1.25 : (b.moving ? -Math.sin(b.walk) * 0.5 : 0));
   m.arms[0].rotation.x = shocked ? armX + Math.sin(t * 14) * 0.2 : armX;
@@ -7983,7 +8014,7 @@ function syncBig(b, t) {
   m.face.mouth.rotation.z = (angry && !shocked) || resting ? 0 : Math.PI;
   m.head.rotation.z = shocked ? Math.sin(t * 6) * 0.15 : 0;
   m.bodyMat.emissive.set(b.flash > 0 ? "#ff8fb0" : "#000000");
-  const blushing = b.blush > 0;                           // покраснел после воздушного поцелуя
+  const blushing = b.blush > 0 || !!b.kind;               // покраснел после воздушного поцелуя или подобрел (SPEC-022)
   m.cheeks.visible = blushing;
   const br = blushing ? 0.55 + Math.sin(t * 8) * 0.12 : 0, bb2 = blushing ? 0.1 : 0;
   for (const fm of m.faceMats) fm.emissive.setRGB(br, 0, bb2);   // SPEC-021: всё лицо (и щетина) краснеет
@@ -8233,7 +8264,7 @@ resetWorld(1);
 artGate();                                  // SPEC-020: экран загрузки ждёт картинки (недолго); игра уже готова
 // SPEC-022: самый первый запуск (и старое сохранение без seen: история новая для всех) — комикс «Как всё началось» (под экраном
 // загрузки, пока он есть). Тесты его пропускают: их init-скрипт ставит window.__bbNoIntro (кроме теста первого запуска)
-if (!progress.seen.intro && window.__bbNoIntro !== true) openScene("intro");
+let introDue = !progress.seen.intro && window.__bbNoIntro !== true;   // открывается в frame(), когда экрана загрузки уже нет
 window.__bbReady = true;
 let last = performance.now(), T = 0;
 function frame(now) {
@@ -8241,6 +8272,7 @@ function frame(now) {
   const dt = Math.max(0, Math.min(0.05, (now - last) / 1000));
   last = now;
   if (simMode) { requestAnimationFrame(frame); return; }   // sim: ни логики, ни рисования — игру шагает simRun
+  if (introDue && mode === "home" && !document.getElementById("loading")) { introDue = false; openScene("intro"); }   // SPEC-022: первый запуск
   T += dt;
   pollPads();
   if (!inWardrobe() && endTryOn()) resetWorld(numPlayers);   // SPEC-009/017: ушли из вкладки «Гардероб» (друзья — её часть) — примерка кончилась
@@ -8295,7 +8327,7 @@ window.__bb = {
   RULE_ICONS, STORY, openStory, get storyInfo() { return storyInfo && { ...storyInfo }; },
   // SPEC-022: заставки (scene — логика: { id, page, pages } или null; sceneInfo — нарисованное в этом кадре), боссы уровней
   SCENE_IDS, openScene, sceneNext, sceneSkip, bigMood, winTitle, get pushWaves() { return pushWaves.map(w => ({ ...w })); }, get scene() { return storyScene && { id: storyScene.id, page: storyScene.page, pages: scenePageCount() }; },
-  get sceneInfo() { return sceneInfo && { ...sceneInfo }; }, bossFor, BOSS_LOOKS, KID_HEAD_R, LITTLE_SCALE,   // SPEC-021 размеры героев (тест look3d)
+  get sceneInfo() { return sceneInfo && { ...sceneInfo }; }, bossFor, BOSSES, BOSS_LOOKS, KID_HEAD_R, LITTLE_SCALE,   // SPEC-021 размеры героев (тест look3d)
   // SPEC-022: вид Большого в 3D (для тестов): образ, босс и его детали, масштаб, цвета футболки и штанов
   bigLook() { const m = big && big.model; return m ? { look: m.look, boss: m.boss || null, parts: Object.keys(m.bossParts || {}), scale: m.rig.scale.x,
     shirt: "#" + m.mats.shirt.color.getHexString(), pants: "#" + m.mats.pants.color.getHexString() } : null; }, get moodInfo() { return moodInfo && { ...moodInfo, sprites: [...moodInfo.sprites] }; },   // SPEC-017: главы истории (живой список), экран истории этого кадра
@@ -8312,7 +8344,7 @@ window.__bb = {
   sim, simRun, get events() { return events.map(e => ({ ...e })); },   // SPEC-008: режим симуляции, журнал событий (копии)
   ledger: () => ledger.map(e => ({ ...e })),   // SPEC-009: события coins за сессию (с загрузки страницы), копии
   get rngDraws() { return rngDraws; },   // SPEC-008: сколько раз тянули игровую случайность
-  setProgress(save) { rewardDue = false; progress = loadProgress(save); },   // SPEC-008 (баланс): прогресс из сохранения (null — новый), не записывает
+  setProgress(save) { rewardDue = false; lastReward = null; progress = loadProgress(save); },   // SPEC-008 (баланс): прогресс из сохранения (null — новый), не записывает
   levelsPerWorld,
   autopilot, autoThink,   // SPEC-008: autopilot(on, "careful"|"reckless") → { on, style }; autoThink(dt) — только решение (для теста)
   autoStick: i => autoMove[i] ? { x: autoMove[i].x, y: autoMove[i].y } : null,   // SPEC-019: «стик» автопилота игрока i после autoThink (копия)
