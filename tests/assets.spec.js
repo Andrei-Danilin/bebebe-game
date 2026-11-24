@@ -1,6 +1,8 @@
 // SPEC-020 AC 1: the art pipeline (scripts/assets.js + scripts/assets.json → assets/).
 // Node-only: no page fixture, so no browser starts. Reads the committed assets/ and re-runs a small part of the
 // pipeline twice into temp folders to check that it is deterministic.
+// Node-only: plain @playwright/test, not ./pw (its auto failure-screenshot fixture would start a browser for nothing) —
+// allowed by name in smoke.spec.js ("every spec file uses ./pw").
 const { test, expect } = require("@playwright/test");
 const fs = require("fs");
 const os = require("os");

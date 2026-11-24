@@ -15,7 +15,7 @@ test("loads to the home screen without errors", { tag: "@fast" }, async ({ page 
 // the sim guard.
 const LOGIC_GETTERS = ["mode", "muted", "wardrobePage", "littles", "big", "stats", "level", "world", "toast", "items", "progress",
   "lastReward", "upgrades", "shopTab", "outfits", "events", "rngDraws", "strictRng", "shake", "sticks", "uiSize", "names", "stars",
-  "dangerZone", "safeZone", "texts", "kisses", "bigMark", "levelInfo", "banner"];
+  "dangerZone", "safeZone", "texts", "kisses", "bigMark", "levelInfo", "banner", "artInfo", "artVersion"];
 test("every __bb getter is drawn state (SIM_DRAWN) or listed logic state", async ({ page }) => {
   const errors = await openGame(page, { sim: true });   // descriptors only, nothing drawn is read
   const r = await page.evaluate(() => {
@@ -151,6 +151,18 @@ test("tests never return game objects from evaluate", { tag: "@fast" }, () => {
   expect(hit(1, ev + "async () => window.__bb.big);")).toBe(true);
   expect(hit(1, ev + "() => window.__bb.littles[0].state);")).toBe(false);
   expect(hit(1, ev + "() => window.__bb.littles.find(l => l.kind === \"bot\").x);")).toBe(false);
+});
+
+// SPEC-023: every spec file takes test/expect from ./pw (failure screenshots on CI). Allowed exceptions, with the reason:
+// - assets.spec.js: Node-only (the art pipeline, no page) — ./pw's auto failureShots fixture needs the browser, so it would
+//   launch one for nothing.
+const PW_EXCEPTIONS = ["assets.spec.js"];
+test("every spec file uses ./pw (or is a listed Node-only exception)", { tag: "@fast" }, () => {
+  const dir = path.join(ROOT, "tests");
+  const bad = fs.readdirSync(dir).filter(f => f.endsWith(".spec.js") && !PW_EXCEPTIONS.includes(f))
+    .filter(f => !/require\("\.\/pw"\)/.test(fs.readFileSync(path.join(dir, f), "utf8")));
+  expect(bad).toEqual([]);
+  for (const f of PW_EXCEPTIONS) expect(fs.readFileSync(path.join(dir, f), "utf8"), f + " is Node-only: no page fixture").not.toMatch(/\{\s*page\s*\}/);
 });
 
 // Safari before iOS 16.4 cannot parse a regex lookbehind: the whole module fails with a SyntaxError and the game does

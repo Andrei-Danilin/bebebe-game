@@ -1,7 +1,7 @@
 // SPEC-020 AC 2: the asset loader and its fallbacks. Every sprite of assets/ is loaded and decoded once at start;
 // art(name) is the picture or null, and null means "draw it with code as before" — so the game must work without art/
 // (the claude.ai single page has no assets/ folder, a phone may lose a file).
-const { test, expect } = require("@playwright/test");
+const { test, expect } = require("./pw");   // SPEC-023: @playwright/test + failure screenshots
 const { openGame, frames, step } = require("./helpers");
 
 const failedLoads = e => e.includes("Failed to load resource") || e.includes("ERR_");
