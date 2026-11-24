@@ -34,7 +34,7 @@ test("manifest is linked and complete", async ({ page, request }) => {
   const m = await res.json();
   expect(m).toMatchObject({
     name: "BeBeBe Atrapar", short_name: "BeBeBe", start_url: "./", scope: "./",
-    display: "standalone", orientation: "landscape", background_color: "#2b3a2e", theme_color: "#2b3a2e"
+    display: "standalone", orientation: "landscape", background_color: "#faf4e2", theme_color: "#faf4e2"
   });
   const icon = (sizes, purpose) => m.icons.find(i => i.sizes === sizes && i.purpose === purpose && i.type === "image/png");
   expect(icon("192x192", "any")).toBeTruthy();
@@ -113,6 +113,9 @@ test("service worker registers and controls the page over http", { tag: "@fast" 
     "icons/icon-192.png", "icons/icon-512.png", "icons/icon-512-maskable.png"]) expect(keys).toContain(HTTP_BASE + u);
   expect(keys).toContain("https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.js");
   expect(keys).toContain("https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.core.js");
+  // SPEC-020: every art sprite is precached too (the list npm run assets writes into sw.js)
+  const sprites = await page.evaluate(() => window.__bb.ART_NAMES);
+  expect(sprites.filter(n => !keys.includes(HTTP_BASE + "assets/" + n + ".webp"))).toEqual([]);
   expect(errors).toEqual([]);
 });
 

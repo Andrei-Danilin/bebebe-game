@@ -21,6 +21,7 @@
 // fixed encoder settings, sources processed in manifest order.
 const path = require("path");
 const fs = require("fs");
+const crypto = require("crypto");
 const sharp = require("sharp");
 
 const ROOT = path.resolve(__dirname, "..");
@@ -441,8 +442,60 @@ async function debug(src, manifest = loadManifest()) {
   console.log(`${src} ${W}×${H}: ${groups.length} objects`);
   groups.forEach((g, i) => console.log(`${String(i).padStart(3)} [${g.x0},${g.y0} ${g.x1 - g.x0 + 1}×${g.y1 - g.y0 + 1}] area ${g.area} parts ${g.ids.length}  ${(s.names || [])[i] ?? ""}`));
 }
+// ---------- the lists other files keep (written between markers, so nobody edits them by hand) ----------
+// index.html: ART_NAMES (the sprites the game loads); sw.js: PRECACHE_ASSETS + ASSETS_HASH (a hash of their bytes: a redrawn
+// sprite changes sw.js, so the installed app fetches it again).
+const INDEX = path.join(ROOT, "index.html"), SW = path.join(ROOT, "sw.js");
+const MARK = { index: ["// art:start", "// art:end"], sw: ["// assets:start", "// assets:end"] };
+const NL = "\n";
 
-module.exports = { run, report, spriteNames, loadManifest, keyGreen, keyPaper, regionsOf, MANIFEST, ROOT };
+function assetsHash(names, dir = path.join(ROOT, "assets")) {
+  const h = crypto.createHash("sha256");
+  for (const n of names) { h.update(n + NL); h.update(fs.readFileSync(path.join(dir, n + ".webp"))); }
+  return h.digest("hex").slice(0, 12);
+}
+
+// A JS array literal's items, wrapped at ~120 columns.
+function arrayLines(items, indent) {
+  const lines = [];
+  let cur = "";
+  for (const it of items.map(x => JSON.stringify(x))) {
+    if (cur && (indent + cur + it).length > 118) { lines.push(indent + cur.trimEnd()); cur = ""; }
+    cur += it + ", ";
+  }
+  if (cur) lines.push(indent + cur.slice(0, -2));
+  return lines.join(NL);
+}
+
+function listBlocks(manifest = loadManifest(), dir = path.join(ROOT, "assets")) {
+  const names = spriteNames(manifest);
+  return {
+    index: ["const ART_NAMES = [", arrayLines(names, "  "), "];"].join(NL),
+    sw: [`const ASSETS_HASH = "${assetsHash(names, dir)}";`, "const PRECACHE_ASSETS = [",
+      arrayLines(names.map(n => "./assets/" + n + ".webp"), "  "), "];"].join(NL)
+  };
+}
+
+// The text between a file's markers, with LF line ends (null when the markers are missing).
+function between(text, [a, b]) {
+  text = text.split("\r\n").join(NL);
+  const i = text.indexOf(a), j = text.indexOf(b);
+  return i < 0 || j < i ? null : text.slice(text.indexOf(NL, i) + 1, j).trimEnd();
+}
+
+function writeLists(manifest = loadManifest()) {
+  const blocks = listBlocks(manifest);
+  for (const [file, key] of [[INDEX, "index"], [SW, "sw"]]) {
+    const text = fs.readFileSync(file, "utf8"), [a, b] = MARK[key];
+    if (between(text, MARK[key]) === null) throw new Error(`${path.basename(file)}: markers ${a} … ${b} not found`);
+    const eol = text.includes("\r\n") ? "\r\n" : NL;           // a Windows checkout (autocrlf) keeps its CRLF
+    const i = text.indexOf(NL, text.indexOf(a)) + 1, j = text.indexOf(b);
+    const next = text.slice(0, i) + (blocks[key] + NL).split(NL).join(eol) + text.slice(j);
+    if (next !== text) fs.writeFileSync(file, next);
+  }
+}
+
+module.exports = { run, report, spriteNames, loadManifest, keyGreen, keyPaper, regionsOf, listBlocks, between, writeLists, MARK, INDEX, SW, MANIFEST, ROOT };
 
 if (require.main === module) {
   (async () => {
@@ -455,6 +508,8 @@ if (require.main === module) {
     if (fs.existsSync(outDir)) for (const f of fs.readdirSync(outDir)) if (f.endsWith(".webp") && !want.has(f)) fs.unlinkSync(path.join(outDir, f));
     const rows = await run({ outDir, manifest });
     const { ok } = report(rows, manifest);
+    writeLists(manifest);
+    console.log("index.html ART_NAMES and sw.js PRECACHE_ASSETS / ASSETS_HASH updated");
     if (!ok) process.exitCode = 1;
   })().catch(e => { console.error(e.message || e); process.exit(1); });
 }

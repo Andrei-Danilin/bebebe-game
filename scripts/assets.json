@@ -21,7 +21,6 @@
     { "src": "26_2_bonus_winter.webp", "mode": "paper", "size": "background", "name": "story_winter" },
     { "src": "10_end.webp", "mode": "paper", "size": "background", "name": "story_end" },
     { "src": "11_win.webp", "mode": "paper", "size": "background", "name": "story_win" },
-    { "src": "2_icon.webp", "mode": "paper", "size": "button", "quality": 92, "name": "app_icon" },
     { "src": "19_logo.webp", "mode": "whole", "size": "logo", "coreFrac": 0.4, "holeMin": 8, "name": "logo" },
     { "src": "12_icons.webp", "mode": "sheet", "size": "icon",
       "names": ["icon_shield", "icon_bandaid", "icon_cupcake", "icon_angry_heart", "icon_pause", "icon_sound"] },
