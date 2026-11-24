@@ -322,6 +322,195 @@ test("AC 17: a real Park 1 after practice game 1 has its own numbers", async ({ 
   expect([z.kiss, z.kissesLeft], "the real kiss stock works again").toEqual([true, 0]);
 });
 
+// ---------- SPEC-029 step 4: practice game 2 — items, banana, kisses, rescue kit (AC 13–16, 17) ----------
+const game2 = (page, seed = 31) => page.evaluate(s => { const b = window.__bb; b.resetWorld(1); b.mode = "home"; b.seedRandom(s); b.openTutorial("map", "game2"); }, seed);
+// in-page: everybody still (the bot as a player without controls, the player in the house), Dad calm and standing
+const PIN = `(() => { const b = window.__bb;
+  b.littles.forEach(l => { if (l.kind === "bot") { l.kind = "player"; l.controls = { up: [], down: [], left: [], right: [] }; } });
+  Object.assign(b.big, { state: "look", timer: 9999, lookSign: 0, noPush: 9999, x: 560, y: 64, dir: 0 }); })()`;
+
+test("practice game 2: one player, one bot, Dad with 5 hearts, slow and weak (push cooldown × 2)", { tag: "@fast" }, async ({ simPage: page }) => {
+  const park1 = await page.evaluate(() => window.__bb.difficulty("park", 1));
+  await game2(page);
+  const r = await page.evaluate(() => {
+    const b = window.__bb, C = b.CFG, out = { kinds: b.littles.map(l => l.kind), hp: b.big.maxHp, speeds: b.bigSpeeds(), map: b.worldState() };
+    // a push: the cooldown after it is PUSH_RECOVER × pushCooldownMult
+    const l = b.littles[0];
+    Object.assign(b.big, { state: "look", timer: 999, stun: 0, slip: 0, blush: 0, pushCd: 0, noPush: 0, hugCd: 0, x: 400, y: 250, dir: 0 });
+    Object.assign(l, { state: "ok", invuln: 0, dizzy: 0, x: 400 + 34, y: 250, fx: { boots: 0, cloak: 0, shield: 0 } });
+    b.update(1 / 60);
+    out.pushed = l.state; out.noPush = b.big.noPush; out.want = C.PUSH_RECOVER * C.TUTORIAL.pushCooldownMult;
+    b.tutorialSkip(); b.openTutorial("map", "game1"); out.map1 = b.worldState(); b.tutorialSkip();
+    return out;
+  });
+  expect(r.kinds).toEqual(["player", "bot"]);
+  expect(r.hp).toBe(5);
+  for (const k of ["chase", "search", "patrol"]) expect(r.speeds[k], k).toBeCloseTo(park1[k] * 0.6, 6);
+  expect(r.pushed).toBe("down");
+  expect(r.noPush, "push cooldown doubled").toBeCloseTo(r.want, 4);
+  expect(r.map === r.map1, "the same map as practice game 1").toBe(true);
+});
+
+test("practice game 2: a new item every 3 s while fewer than 6, bananas 40 %, two bananas on the map most of the time", async ({ simPage: page }) => {
+  await game2(page);
+  await page.evaluate(PIN);
+  const r = await page.evaluate(() => {
+    const b = window.__bb, C = b.CFG.TUTORIAL, counts = [];
+    for (let i = 0; i < 30; i++) b.update(1 / 60);       // half a second off the spawn moments
+    for (let s = 1; s <= 7; s++) { for (let i = 0; i < Math.round(C.itemEvery * 60); i++) b.update(1 / 60); counts.push(b.items.length); }
+    // where they are: on the meadow, never behind the hedge
+    const m = b.tutorialMapRect, cell = b.grid.CELL;
+    const outside = b.items.filter(it => it.x > (m.x + m.w) * cell || it.y > (m.y + m.h) * cell).length;
+    return { counts, outside, every: C.itemEvery, max: C.itemMax };
+  });
+  expect(r.counts, "one more every 3 s, then never more than 6").toEqual([1, 2, 3, 4, 5, 6, 6]);
+  expect(r.outside).toBe(0);
+  // the share of kinds over many spawns (seeded) while 2 bananas lie on the map: bananas ≈ 40 %, the others ≈ 20 % each;
+  // with fewer than bananaMin (2) bananas on the map the next item is a banana
+  const share = await page.evaluate(() => {
+    const b = window.__bb, n = {}, two = [{ id: -1, kind: "banana", x: 900, y: 600, t: 0, life: 999 }, { id: -2, kind: "banana", x: 900, y: 500, t: 0, life: 999 }];
+    let all = 0;
+    for (let k = 0; k < 600; k++) { b.items.length = 0; b.items.push(...two); b.spawnItem(); const it = b.items[2]; if (it) { n[it.kind] = (n[it.kind] || 0) + 1; all++; } }
+    const low = [];
+    for (let k = 0; k < 20; k++) { b.items.length = 0; b.items.push(two[0]); b.spawnItem(); low.push(b.items[1] && b.items[1].kind); }
+    b.items.length = 0;
+    return { ...Object.fromEntries(Object.entries(n).map(([kk, v]) => [kk, v / all])), low: [...new Set(low)], min: b.CFG.TUTORIAL.bananaMin };
+  });
+  expect([share.low, share.min], "one banana on the map: the next is a banana").toEqual([["banana"], 2]);
+  expect(share.banana).toBeGreaterThan(0.34); expect(share.banana).toBeLessThan(0.46);
+  for (const k of ["boots", "cloak", "shield"]) { expect(share[k], k).toBeGreaterThan(0.15); expect(share[k], k).toBeLessThan(0.25); }
+  // a simulated minute of real play (normal bot, Dad patrolling, the player idle): at least 2 bananas on the map ≥ 60 % of the time
+  await game2(page, 7);
+  const t2 = await page.evaluate(() => {
+    const b = window.__bb; let two = 0, n = 0;
+    for (let i = 0; i < 60 * 60 && b.mode === "play"; i++) { b.update(1 / 60); if (i >= 9 * 60) { n++; if (b.items.filter(it => it.kind === "banana").length >= 2) two++; } }
+    return two / Math.max(1, n);
+  });
+  expect(t2, "time with ≥ 2 bananas (after the first 9 s; measured 0.90–1.00 over 20 seeds)").toBeGreaterThanOrEqual(0.75);
+});
+
+test("practice game 2: 5 kisses and 1 rescue kit for this game only — the real stock and the save do not change", async ({ simPage: page }) => {
+  await page.evaluate(() => { const b = window.__bb; Object.assign(b.progress.inv, { kisses: 2, rescues: 3 }); b.saveProgress?.(); });
+  const save0 = await page.evaluate(() => [JSON.stringify(window.__bb.progress.inv), localStorage.getItem("bebebe-progress")]);
+  await game2(page);
+  const r = await page.evaluate(() => {
+    const b = window.__bb, l = b.littles[0], kiss = [];
+    Object.assign(b.big, { state: "look", timer: 9999, noPush: 9999, x: 560, y: 64 });
+    for (let i = 0; i < 6; i++) { Object.assign(l, { state: "ok", kissCd: 0, x: 300, y: 300, dir: Math.PI }); kiss.push(b.throwKiss(0)); }
+    const kit = [];
+    for (let i = 0; i < 2; i++) { Object.assign(l, { state: "down" }); kit.push(b.useRescueKit(0)); }
+    return { kiss, kit, inv: JSON.stringify(b.progress.inv), stored: localStorage.getItem("bebebe-progress") };
+  });
+  expect(r.kiss, "5 kisses, then none").toEqual([true, true, true, true, true, false]);
+  expect(r.kit, "1 kit, then none").toEqual([true, false]);
+  expect([r.inv, r.stored], "the real stock and the save are untouched").toEqual(save0);
+});
+
+test("practice game 2 hints: item, banana, kiss — one at a time, each until done or 12 s; the kit after the first fall", async ({ simPage: page }) => {
+  await game2(page);
+  await page.evaluate(PIN);
+  const hint = () => page.evaluate(() => window.__bb.tutorial.hint);
+  const run = s => page.evaluate(sec => { for (let i = 0; i < Math.round(sec * 60); i++) window.__bb.update(1 / 60); }, s);
+  expect(await hint(), "1: grab an item").toBe(1);
+  await run(11.8);
+  expect(await hint(), "still 1 before 12 s").toBe(1);
+  await run(0.3);
+  expect(await hint(), "12 s: 2 — lead Dad onto a banana").toBe(2);
+  // Dad slips on a banana → 3
+  await page.evaluate(() => { const b = window.__bb; b.big.noPush = 0; b.items.push({ id: 999, kind: "banana", x: b.big.x, y: b.big.y, t: 0, life: 99 }); b.update(1 / 60); b.update(1 / 60); });
+  expect(await hint(), "slipped: 3 — send a kiss").toBe(3);
+  // the player falls (first time): 4 — the rescue kit, instead of the usual kit hint
+  await page.evaluate(() => { const b = window.__bb; Object.assign(b.littles[0], { state: "down", x: 300, y: 300 }); b.update(1 / 60); });
+  expect(await hint(), "first fall: 4 — the kit").toBe(4);
+  await page.evaluate(() => { window.__bb.useRescueKit(0); window.__bb.update(1 / 60); });
+  expect(await hint(), "kit used: back to 3").toBe(3);
+  await page.evaluate(() => { const b = window.__bb, l = b.littles[0]; Object.assign(l, { state: "ok", kissCd: 0, x: 300, y: 300, dir: Math.PI }); b.throwKiss(0); b.update(1 / 60); });
+  expect(await hint(), "kiss sent: no more hints").toBe(0);
+  // a grabbed item ends hint 1 at once (a fresh start)
+  await game2(page);
+  await page.evaluate(PIN);
+  await page.evaluate(() => { const b = window.__bb, l = b.littles[0]; Object.assign(l, { x: 300, y: 300 }); b.items.push({ id: 998, kind: "boots", x: 300, y: 300, t: 0, life: 99 }); b.update(1 / 60); b.update(1 / 60); });
+  expect(await hint(), "item grabbed: 2").toBe(2);
+  // the texts follow the device (keyboard here)
+  const t = await page.evaluate(() => { const T = window.__bb.I18N.en.tut; return [T.g2kiss(T.kissKey), T.g2kit(T.kitKey), T.g2item, T.g2banana]; });
+  expect(t).toEqual(["Send an air kiss 💋 (press E)", "Use the rescue kit 🩹 to get up! (press Q)", "Grab an item!", "Lead Dad onto a banana!"]);
+});
+
+test("practice game 2: hearts gone → You're ready → the level map (replay: the Story); both down stand up", async ({ simPage: page }) => {
+  await game2(page);
+  // no-lose as in game 1: both down stand up at the kids' house after 3 s
+  await page.evaluate(() => { const b = window.__bb; Object.assign(b.big, { state: "look", timer: 9999, noPush: 9999, x: 560, y: 64 }); b.littles.forEach((l, i) => Object.assign(l, { state: "down", x: 300 + i * 40, y: 300 })); });
+  await page.evaluate(() => { for (let i = 0; i < 3.1 * 60; i++) window.__bb.update(1 / 60); });
+  expect(await page.evaluate(() => window.__bb.littles.map(l => [l.state, window.__bb.inSafe(l)]))).toEqual([["ok", true], ["ok", true]]);
+  for (const back of ["map", "story"]) {
+    await page.evaluate(bk => {
+      const b = window.__bb; b.resetMenus(); b.mode = "home"; b.openTutorial(bk, "game2");
+      const big = b.big, l = b.littles[0];
+      Object.assign(big, { hp: 1, state: "look", timer: 999, stun: 0, hugCd: 0, noPush: 0, slip: 0, pushCd: 0, blush: 0, x: 400, y: 250, dir: 0 });
+      Object.assign(l, { state: "ok", hugCd: 0, hugAnim: 0, invuln: 0, kx: 0, ky: 0, x: 400 - 34, y: 250 });
+      for (let i = 0; i < 8 * 60 && b.mode === "play"; i++) b.update(1 / 60);
+    }, back);
+    expect(await page.evaluate(() => [window.__bb.mode, window.__bb.scene && window.__bb.scene.id]), back).toEqual(["scene", "tutorial_ready"]);
+    expect(await page.evaluate(() => window.__bb.scenePages("tutorial_ready")[0].text)).toBe("You're ready! Let's make the dads kind again!");
+    await page.evaluate(() => window.__bb.sceneNext());
+    expect(await page.evaluate(() => [window.__bb.mode, window.__bb.tutorial]), back).toEqual([back, null]);
+  }
+});
+
+test("AC 17: the whole tutorial changes nothing but seen.tutorial; a real Park 1 afterwards has its normal items and cooldowns", async ({ simPage: page }) => {
+  const before = await page.evaluate(() => {
+    const b = window.__bb; Object.assign(b.progress, { coins: 77 }); Object.assign(b.progress.inv, { kisses: 3, rescues: 1, mittens: 2, mega: 1 });
+    b.progress.equip[0] = "mega"; b.progress.worlds.park.unlocked = 4; b.progress.seen.tutorial = false; b.saveProgress?.();
+    return { p: JSON.parse(JSON.stringify(b.progress)), ledger: b.ledger().length };
+  });
+  // the whole tutorial: pages, game 1 (played a little, then won), pages, game 2 played with the autopilot for 40 s, then won
+  await page.evaluate(() => {
+    const b = window.__bb, win = () => {
+      const big = b.big, l = b.littles[0];
+      Object.assign(big, { hp: 1, state: "look", timer: 999, stun: 0, hugCd: 0, noPush: 0, slip: 0, pushCd: 0, blush: 0, x: 400, y: 250, dir: 0 });
+      Object.assign(l, { state: "ok", hugCd: 0, hugAnim: 0, invuln: 0, kx: 0, ky: 0, x: 400 - 34, y: 250 });
+      for (let i = 0; i < 8 * 60 && b.mode === "play"; i++) b.update(1 / 60);
+    };
+    b.mode = "home"; b.seedRandom(11); b.openTutorial("map");
+    for (let i = 0; i < 4; i++) b.sceneNext();
+    for (let i = 0; i < 20 * 60; i++) b.update(1 / 60);
+    win();
+    for (let i = 0; i < 8; i++) b.sceneNext();
+    b.autopilot(true, "careful");
+    for (let i = 0; i < 40 * 60 && b.mode === "play"; i++) b.update(1 / 60);
+    b.autopilot(false);
+    if (b.mode === "play") win();
+    b.sceneNext();
+  });
+  const after = await page.evaluate(() => { const b = window.__bb; return { mode: b.mode, p: JSON.parse(JSON.stringify(b.progress)), ledger: b.ledger().length, stored: JSON.parse(localStorage.getItem("bebebe-progress")) }; });
+  expect(after.mode).toBe("map");
+  expect(after.p.seen.tutorial).toBe(true);
+  expect({ ...after.p, seen: { ...after.p.seen, tutorial: false } }, "the save is the same except seen.tutorial").toEqual(before.p);
+  expect({ ...after.stored, seen: { ...after.stored.seen, tutorial: false } }, "stored too").toEqual(before.p);
+  expect(after.ledger, "no economy entries").toBe(before.ledger);
+  // a real Park 1: its own item rate and max, its own push cooldown
+  const r = await page.evaluate(() => {
+    const b = window.__bb, C = b.CFG; b.world = "park"; b.level = 1; b.startGame(1); b.seedRandom(5);
+    const cd = [];
+    let most = 0;
+    b.littles.forEach(l => { if (l.kind === "bot") { l.kind = "player"; l.controls = { up: [], down: [], left: [], right: [] }; } });
+    Object.assign(b.big, { state: "look", timer: 9999, lookSign: 0, noPush: 9999 });
+    for (let i = 0; i < 60 * 60; i++) { b.update(1 / 60); most = Math.max(most, b.items.length); }
+    const first = b.items.length;
+    const l = b.littles[0];
+    Object.assign(b.big, { state: "look", timer: 999, stun: 0, slip: 0, blush: 0, pushCd: 0, noPush: 0, hugCd: 0, x: 400, y: 250, dir: 0 });
+    Object.assign(l, { state: "ok", invuln: 0, dizzy: 0, x: 400 + 34, y: 250, fx: { boots: 0, cloak: 0, shield: 0 } });
+    b.update(1 / 60);
+    const out = { most, max: C.ITEM_MAX, noPush: b.big.noPush, recover: C.PUSH_RECOVER, hp: b.big.maxHp, kinds: b.littles.length, first };
+    b.mode = "home";
+    return out;
+  });
+  expect(r.most, "never more than ITEM_MAX items").toBeLessThanOrEqual(r.max);
+  expect(r.most, "items do appear").toBeGreaterThan(0);
+  expect(r.noPush, "the normal push cooldown").toBeCloseTo(r.recover, 4);
+  expect([r.hp, r.kinds]).toEqual([5, 5]);
+});
+
 // ---------- AC 3: Skip on every page and in both practice games (pause menu and corner button) → the Park map, seen ----------
 test("Skip from every tutorial step goes to the Park map and sets seen.tutorial", async ({ desk: page }) => {
   const soft = softly();
@@ -427,6 +616,30 @@ async function hintBanner(page, touch) {
     if (d.hint) for (const q of [...d.buttons, ...d.hud.filter(r => r.id !== "tutorialHint")]) soft(hit(d.hint, q), `${l}: hint on ${q.id}`).toBe(false);
     soft(d.over, `${l}: text fits`).toEqual([]);
   }
+  // practice game 2: its four hints (12 s each, then the first fall), every language at ×1.3
+  for (const l of ["en", "es", "pt", "ru"]) {
+    await page.evaluate(lang => {
+      const b = window.__bb; b.setLang(lang); b.CFG.TEXT_TEST_SCALE = 1.3; b.resetMenus(); b.mode = "home"; b.openTutorial("map", "game2");
+      b.littles.forEach(q => { if (q.kind === "bot") { q.kind = "player"; q.controls = { up: [], down: [], left: [], right: [] }; } });
+      Object.assign(b.big, { state: "look", timer: 9999, lookSign: 0, noPush: 9999, x: 560, y: 64 });
+    }, l);
+    for (const h of [1, 2, 3, 4]) {
+      await page.evaluate(hh => {
+        const b = window.__bb;
+        if (hh === 4) Object.assign(b.littles[0], { state: "down", x: 300, y: 300 });
+        if (hh > 1 && hh < 4) for (let i = 0; i < 12.1 * 60; i++) b.update(1 / 60);
+        b.update(1 / 60);
+      }, h);
+      await frames(page);
+      const d = await page.evaluate(() => { const b = window.__bb; return { hint: b.tutorialHint, buttons: b.buttonRects, hud: b.hudRects, over: b.textOverflows, h: b.tutorial.hint }; });
+      soft(d.h, `${l} game 2: hint ${h}`).toBe(h);
+      soft(!!d.hint, `${l} game 2 hint ${h}: drawn`).toBe(true);
+      const hit = (a, q) => a.x < q.x + q.w && q.x < a.x + a.w && a.y < q.y + q.h && q.y < a.y + a.h;
+      if (d.hint) for (const q of [...d.buttons, ...d.hud.filter(r => r.id !== "tutorialHint")]) soft(hit(d.hint, q), `${l} game 2 hint ${h} on ${q.id}`).toBe(false);
+      soft(d.over, `${l} game 2 hint ${h}: text fits`).toEqual([]);
+    }
+  }
+  await page.evaluate(() => { const b = window.__bb; b.resetMenus(); b.mode = "home"; b.openTutorial("map", "game1"); b.littles[1].state = "down"; b.update(1 / 60); });
   await page.evaluate(() => { const b = window.__bb; b.CFG.TEXT_TEST_SCALE = 1; b.setLang("en"); b.littles[1].state = "ok"; b.update(1 / 60); });
   await frames(page);
   soft(await page.evaluate(() => window.__bb.tutorialHint && window.__bb.tutorialHint.text), "hint 2 with the device's controls")
@@ -434,5 +647,5 @@ async function hintBanner(page, touch) {
   await page.evaluate(() => window.__bb.tutorialSkip());
   soft.done();
 }
-test("practice game 1 hint banner on the desktop: hint style, it fits, clear of Skip", async ({ desk: page }) => { await hintBanner(page, false); });
-test("practice game 1 hint banner on the phone 667×375: it fits, clear of Skip", async ({ phone: page }) => { await hintBanner(page, true); });
+test("practice hint banners on the desktop: hint style, they fit, clear of the buttons", async ({ desk: page }) => { await hintBanner(page, false); });
+test("practice hint banners on the phone 667×375: they fit, clear of the buttons", async ({ phone: page }) => { await hintBanner(page, true); });

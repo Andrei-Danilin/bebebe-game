@@ -132,6 +132,7 @@ const CFG = {
     pushCooldownMult: 2,       // тренировка 2: пауза папы между толчками × столько
     itemEvery: 3, itemMax: 6,  // тренировка 2: новый предмет каждые 3 сек, пока их на карте меньше 6
     bananaShare: 0.4,          // тренировка 2: доля бананов (остальное поровну: сапоги, плащ, щит)
+    bananaMin: 2,              // тренировка 2: бананов на карте меньше — следующий предмет банан («почти всегда хотя бы 2»)
     kisses: 5, kits: 1,        // тренировка 2: свои поцелуи и спасалка на эту игру (настоящий запас не тратится)
     bothDownStand: 3,          // сек — лежат оба: встают у домика маленьких
     hintTimeout: 12,           // сек — подсказка тренировки 2 переходит к следующей, даже если её не сделали
@@ -685,7 +686,10 @@ const I18N = {
       ready: "You're ready! Let's make the dads kind again!", practice: "Practice",
       // подсказки тренировки 1 (по шагам)
       g1rescue: "Your friend fell! Run to them and stand close to help them up.", g1sneak: k => `Now sneak behind Dad — tiptoe close to him! (${k})`,
-      g1hug: "Hug him from behind — 3 times!"
+      g1hug: "Hug him from behind — 3 times!",
+      // подсказки тренировки 2 (по одной); клавиша или кнопка — по устройству
+      g2item: "Grab an item!", g2banana: "Lead Dad onto a banana!", g2kiss: k => `Send an air kiss 💋 (${k})`, g2kit: k => `Use the rescue kit 🩹 to get up! (${k})`,
+      kissKey: "press E", kissTouch: "tap the 💋 button", kitKey: "press Q", kitTouch: "tap 🩹"
     },
     chapters: { began: "How it began", ended: "How it ended" }, endedLocked: "Win level 20 at the School to read the ending", howToPlay: "How to play",
     upg: { fastFeet: { name: "Fast feet", desc: p => `+${p}% speed` }, longItems: { name: "Long items", desc: () => "Items last longer" },
@@ -756,7 +760,9 @@ const I18N = {
         "Mitones abrigados: cada abrazo saca 2 corazones. ¡Los mitones gigantes, 3!", "¡Ganá niveles, juntá monedas y comprá todo esto en Personaje!"],
       ready: "¡Ya estás listo! ¡Vamos a hacer que los papás vuelvan a ser buenos!", practice: "Practicar",
       g1rescue: "¡Tu amigo se cayó! Corré hasta él y quedate cerca para ayudarlo a levantarse.", g1sneak: k => `Ahora acercate a Papá por detrás: ¡en puntitas cerca de él! (${k})`,
-      g1hug: "¡Abrazalo por detrás, 3 veces!"
+      g1hug: "¡Abrazalo por detrás, 3 veces!",
+      g2item: "¡Agarrá un objeto!", g2banana: "¡Llevá a Papá hasta una banana!", g2kiss: k => `Mandá un besito volador 💋 (${k})`, g2kit: k => `¡Usá la curita mágica 🩹 para levantarte! (${k})`,
+      kissKey: "apretá E", kissTouch: "tocá el botón 💋", kitKey: "apretá Q", kitTouch: "tocá 🩹"
     },
     chapters: { began: "Cómo empezó", ended: "Cómo terminó" }, endedLocked: "Ganá el nivel 20 de la Escuela para leer el final", howToPlay: "Cómo se juega",
     upg: { fastFeet: { name: "Pies rápidos", desc: p => `+${p}% velocidad` }, longItems: { name: "Cosas duraderas", desc: () => "Duran más" },
@@ -831,7 +837,9 @@ const I18N = {
         "Luvas quentinhas: cada abraço tira 2 corações. Luvas gigantes: 3!", "Vença fases, ganhe moedas e compre tudo isso em Personagem!"],
       ready: "Você está pronto! Vamos deixar os papais bonzinhos de novo!", practice: "Praticar",
       g1rescue: "Seu amigo caiu! Corra até ele e fique pertinho para ajudar a levantar.", g1sneak: k => `Agora chegue por trás do Papai — perto dele, na ponta dos pés! (${k})`,
-      g1hug: "Abrace ele por trás — 3 vezes!"
+      g1hug: "Abrace ele por trás — 3 vezes!",
+      g2item: "Pegue um item!", g2banana: "Leve o Papai até uma banana!", g2kiss: k => `Mande um beijinho 💋 (${k})`, g2kit: k => `Use o kit de resgate 🩹 para levantar! (${k})`,
+      kissKey: "aperte E", kissTouch: "toque no botão 💋", kitKey: "aperte Q", kitTouch: "toque em 🩹"
     },
     chapters: { began: "Como tudo começou", ended: "Como tudo terminou" }, endedLocked: "Vença a fase 20 da Escola para ler o final", howToPlay: "Como jogar",
     upg: { fastFeet: { name: "Pés rápidos", desc: p => `+${p}% de velocidade` }, longItems: { name: "Itens duradouros", desc: () => "Duram mais" },
@@ -903,7 +911,9 @@ const I18N = {
         "Тёплые рукавицы: обнимашка забирает 2 сердечка. Мега-рукавицы — 3!", "Выигрывай уровни, собирай монетки и покупай всё это в «Персонаже»!"],
       ready: "Ты готов! Давай сделаем пап снова добрыми!", practice: "Тренировка",
       g1rescue: "Друг упал! Беги к нему и встань рядом — поможешь подняться.", g1sneak: k => `Теперь подкрадись к папе сзади — рядом с ним на цыпочках! (${k})`,
-      g1hug: "Обними его сзади — 3 раза!"
+      g1hug: "Обними его сзади — 3 раза!",
+      g2item: "Возьми предмет!", g2banana: "Заведи папу на банан!", g2kiss: k => `Пошли воздушный поцелуй 💋 (${k})`, g2kit: k => `Встань спасалкой 🩹! (${k})`,
+      kissKey: "нажми E", kissTouch: "нажми кнопку 💋", kitKey: "нажми Q", kitTouch: "нажми 🩹"
     },
     chapters: { began: "Как всё началось", ended: "Как всё закончилось" }, endedLocked: "Пройди 20-й уровень в Школе, чтобы прочитать конец", howToPlay: "Как играть",
     upg: { fastFeet: { name: "Быстрые ноги", desc: p => `+${p}% скорости` }, longItems: { name: "Долгие вещи", desc: () => "Действуют дольше" },
@@ -2901,9 +2911,10 @@ function tutorialEnd() {
 // «Нажми 🩹» и «Папа услышал топот»; тренировка 1 — сценарий: папа стоит на поляне лицом к боту, бот бежит на него
 function tutorialSetup() {
   const T = CFG.TUTORIAL, g2 = tutorialGame === 2;
-  tut = { script: tutorialGame === 1, hint: 0, bothDown: 0 };
+  tut = { script: tutorialGame === 1, hint: g2 ? 1 : 0, bothDown: 0, seq: 1, hintT: 0, fell: false };
   tutorialInv = { kisses: g2 ? T.kisses : 0, rescues: g2 ? T.kits : 0, mittens: 0, mega: 0 };
   kitHintDone = true; heardHintDone = true;
+  if (g2) itemCd = T.itemEvery;                            // первый предмет — через itemEvery сек
   if (tutorialGame === 1) {
     const [x, y] = CFG.TUTORIAL_LOOK.dadStart, b = littles[1];
     Object.assign(big, { x: x * CELL, y: y * CELL, state: "look", timer: 999, dir: Math.atan2(b.y - y * CELL, b.x - x * CELL) });
@@ -2924,7 +2935,7 @@ function updateTutorial(dt) {
       }
     }
   } else tut.bothDown = 0;
-  if (tutorialGame !== 1) return;
+  if (tutorialGame === 2) { updateHints2(dt); return; }
   const p = littles[0], bot = littles[1];
   if (tut.script && bot.state !== "ok") tut.script = false;
   if (tut.hint === 0 && bot.state === "down") tut.hint = 1;
@@ -2932,11 +2943,27 @@ function updateTutorial(dt) {
   else if (tut.hint === 2 && (stats.playerHugs > 0 || (p.state === "ok" && dist(p, big) < big.r + p.r + T.nearCells * CELL
     && angDiff(big.dir, Math.atan2(p.y - big.y, p.x - big.x)) > CFG.BEHIND_ANGLE))) tut.hint = 3;
 }
+// тренировка 2: подсказки по одной — 1 «возьми предмет» → 2 «заведи папу на банан» → 3 «пошли поцелуй»; каждая — пока её не сделали
+// хоть раз или hintTimeout сек (сделанные раньше пропускаются); первое падение игрока — 4 «встань спасалкой» (вместо обычной
+// «Нажми 🩹»; пока лежит, не дольше hintTimeout), потом снова та, что прервали. tut.seq — следующая по порядку
+function updateHints2(dt) {
+  const p = littles[0], did = [false, events.some(e => e.type === "item" && e.who === p.id), events.some(e => e.type === "slip"),
+    kisses.some(k => k.owner === p.id) || events.some(e => e.type === "kiss" && e.who === p.id), events.some(e => e.type === "kit" && e.who === p.id)];
+  const nextSeq = () => { while (tut.seq <= 3 && did[tut.seq]) tut.seq++; return tut.seq <= 3 ? tut.seq : 0; };
+  if (!tut.fell && p.state === "down") { tut.fell = true; if (!did[4]) { tut.hint = 4; tut.hintT = 0; } }
+  if (!tut.hint) return;
+  tut.hintT += dt;
+  if (did[tut.hint] || tut.hintT >= CFG.TUTORIAL.hintTimeout || (tut.hint === 4 && p.state !== "down")) {
+    if (tut.hint !== 4) tut.seq = tut.hint + 1;
+    tut.hint = nextSeq(); tut.hintT = 0;
+  }
+}
 // текст подсказки тренировки (или null); управление — по устройству, как на странице A4
 function tutorialHintText() {
-  const T = L().tut;
+  const T = L().tut, touch = PHONE || isTouch;
+  if (tutorialGame === 2) return [null, T.g2item, T.g2banana, T.g2kiss(touch ? T.kissTouch : T.kissKey), T.g2kit(touch ? T.kitTouch : T.kitKey)][tut.hint] || null;
   if (tutorialGame !== 1) return null;
-  return tut.hint === 1 ? T.g1rescue : tut.hint === 2 ? T.g1sneak(PHONE || isTouch ? T.tiptoeTouch : T.tiptoeKey) : tut.hint === 3 ? T.g1hug : null;
+  return tut.hint === 1 ? T.g1rescue : tut.hint === 2 ? T.g1sneak(touch ? T.tiptoeTouch : T.tiptoeKey) : tut.hint === 3 ? T.g1hug : null;
 }
 const tutorialHintOn = () => mode === "play" && pendingWin <= 0 && !big.kind && !!tutorialHintText();
 // всё состояние экранов меню — как при запуске (тесты: resetGame); SPEC-029: и обучения нет
@@ -3328,6 +3355,8 @@ function widePush(t) {
   shake = CFG.WIDE_PUSH_SHAKE;
   SFX.push();
 }
+// SPEC-029: передышка папы после толчка; в тренировке 2 он слабее — × TUTORIAL.pushCooldownMult
+const pushRecover = () => CFG.PUSH_RECOVER * (tutorialGame === 2 ? CFG.TUTORIAL.pushCooldownMult : 1);
 function push(t, wide = false) {
   const a = Math.atan2(t.y - big.y, t.x - big.x);
   for (const l of littles) if (l.state === "down" && helps(t, l)) l.rescue = 0;   // помощника толкнули — спасение сначала
@@ -3335,7 +3364,7 @@ function push(t, wide = false) {
     t.fx.shield = 0;
     logEvent("push", { who: t.id, blocked: true });
     t.kx = Math.cos(a) * 280; t.ky = Math.sin(a) * 280;
-    big.pushCd = CFG.PUSH_STAND; big.noPush = CFG.PUSH_RECOVER;
+    big.pushCd = CFG.PUSH_STAND; big.noPush = pushRecover();
     popText(t.x, t.y - 40, L().blocked, "#7dd3fc");
     burst(t.x, t.y, "star", "#7dd3fc", 14);
     SFX.shield();
@@ -3349,7 +3378,7 @@ function push(t, wide = false) {
   // первый раз за уровень упал игрок со спасалками — короткая подсказка «Нажми 🩹» (SPEC-007)
   if (t.kind === "player" && !kitHintDone && gameInv().rescues > 0) { kitHintDone = true; kitHintT = CFG.KIT_HINT_TIME; kitHintPi = t.id; }
   big.pushCd = CFG.PUSH_STAND;
-  big.noPush = CFG.PUSH_RECOVER;          // передышка: какое-то время никого не толкает
+  big.noPush = pushRecover();             // передышка: какое-то время никого не толкает (SPEC-029: в тренировке 2 — дольше)
   burst(t.x, t.y, "dust", "#e5d3a1", 10);
   if (wide) return;                         // SPEC-022: широкий толчок — одно «ВЖУХ!» на всех (widePush)
   shake = 0.25;
@@ -3491,11 +3520,13 @@ function updateHugAnim(dt) {
 }
 // ---------- Предметы ----------
 function spawnItem() {
-  const r = rng();
-  const kind = r < 0.3 ? "boots" : r < 0.55 ? "cloak" : r < 0.75 ? "shield" : "banana";
+  const r = rng(), T = CFG.TUTORIAL, o = (1 - T.bananaShare) / 3;
+  // SPEC-029: в тренировке — бананов bananaShare, остальное поровну (сапоги, плащ, щит); бананов меньше bananaMin — сразу банан
+  const kind = tutorialGame ? (r < T.bananaShare || items.filter(it => it.kind === "banana").length < T.bananaMin ? "banana" : r < T.bananaShare + o ? "boots" : r < T.bananaShare + 2 * o ? "cloak" : "shield")
+    : r < 0.3 ? "boots" : r < 0.55 ? "cloak" : r < 0.75 ? "shield" : "banana";
   for (let k = 0; k < 80; k++) {
     const cx = 1 + Math.floor(rng() * (COLS - 2)), cy = 1 + Math.floor(rng() * (ROWS - 2));
-    if (blocked[cy * COLS + cx]) continue;
+    if (blocked[cy * COLS + cx] || (tutorialGame && !reachable[cy * COLS + cx])) continue;   // SPEC-029: не за изгородь тренировки
     const p = { x: (cx + 0.5) * CELL, y: (cy + 0.5) * CELL };
     if (inSafe(p) || dist(p, big) < 90 || littles.some(l => dist(l, p) < 50) || items.some(it => dist(it, p) < 64)) continue;
     items.push({ id: ++itemSeq, kind, x: p.x, y: p.y, t: 0, life: kind === "banana" ? CFG.ITEM_LIFE + 8 : CFG.ITEM_LIFE });
@@ -3552,9 +3583,12 @@ function updateStars(dt) {
 }
 
 function updateItems(dt) {
-  if (!big.kind && !tutorialGame) {                        // SPEC-029: в тренировке 1 вещей нет (тренировку 2 даёт шаг 4 спека)                                         // SPEC-022: пока подобревший папа идёт домой, новых вещей нет
+  // SPEC-022: пока подобревший папа идёт домой, новых вещей нет; SPEC-029: в тренировке 1 их нет совсем, в тренировке 2 — часто
+  // (каждые TUTORIAL.itemEvery сек, пока их меньше TUTORIAL.itemMax)
+  if (!big.kind && tutorialGame !== 1) {
+    const T = CFG.TUTORIAL;
     itemCd -= dt;
-    if (itemCd <= 0) { if (items.length < CFG.ITEM_MAX) spawnItem(); itemCd = rand(CFG.ITEM_EVERY[0], CFG.ITEM_EVERY[1]); }
+    if (itemCd <= 0) { if (items.length < (tutorialGame ? T.itemMax : CFG.ITEM_MAX)) spawnItem(); itemCd = tutorialGame ? T.itemEvery : rand(CFG.ITEM_EVERY[0], CFG.ITEM_EVERY[1]); }
   }
   for (const l of littles) for (const k of ["boots", "cloak", "shield"]) l.fx[k] = Math.max(0, l.fx[k] - dt);
   for (const it of items) {
