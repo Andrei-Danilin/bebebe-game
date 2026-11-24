@@ -20,8 +20,6 @@
   #wrap { position: relative; border-radius: 14px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,.45); background: #5f9e4a; }
   #wrap canvas { position: absolute; left: 0; top: 0; display: block; }
   #gl { pointer-events: none; }
-  /* SPEC-021: бумажное зерно поверх 3D, под 2D-интерфейсом (картинку и прозрачность ставит код, CFG.PAPER_GRAIN_LOOK) */
-  #paper { position: absolute; inset: 0; pointer-events: none; mix-blend-mode: multiply; display: none; }
   body.phone #wrap { border-radius: 0; box-shadow: none; }   /* телефон: игра на весь экран */
   #game { touch-action: none; }
   /* поле ввода имени поверх подписи на холсте (шрифт ≥ 16px — iPhone не увеличивает страницу) */
@@ -36,7 +34,6 @@
 <body>
 <div id="wrap">
   <canvas id="gl"></canvas>
-  <div id="paper"></div>
   <canvas id="game"></canvas>
   <div id="loading"><div>BeBeBe Atrapar 3D…</div><div id="loadbar"><i></i></div></div>
 </div>
@@ -242,13 +239,13 @@ const CFG = {
   KID_LOOK: { head: 1.25, headY: 1.04, eye: 0.11, cheek: "#ff8aa5", cheekR: 0.16, smile: 0.15, smileW: 0.035 },
   // SPEC-021: домики (art/15_houses). У домика маленьких крыша, пока не погасла, светится зелёным (glow, сила glowK) — как пол
   // безопасного дома: его всегда видно. Крыша: высота конька, свес, боковые скаты темнее (доля цвета), сугробиков на крыше (Зима);
-  // прозрачность «кто-то внутри», за сколько сек гаснет / проявляется,
+  // прозрачность «кто-то внутри», ниже какой не рисуется совсем, за сколько сек гаснет / проявляется,
   // на сколько клеток рамка «внутри» шире к дальней стороне (крыша не прячет стоящих за домом) и рядом для игрока.
   // kid — домик маленьких: крыша, труба, двери (створки снаружи), сердечко, цветы. big — грязный домик папы: крыша (кривизна, рад),
   // заплатки, труба, пятна грязи (сколько на стену), бельё, мусорный бак и мусор, «вонючие» линии, коробки пиццы, игрушки, грязь на земле
-  HOUSE_LOOK: { roofH: 1.3, eave: 0.2, side: 0.72, snowN: 9, faded: 0.1, fade: 0.25, behind: 1.5, near: 1.5,
+  HOUSE_LOOK: { roofH: 1.3, eave: 0.2, side: 0.72, snowN: 9, faded: 0.1, hide: 0.13, fade: 0.25, behind: 1.5, near: 1.5,
     kid: { glow: "#4ade80", glowK: 0.35, roof: "#3f86d1", plank: "#2f6db0", planks: 7, chimney: "#9fd3f5", door: "#4a90d9", heart: "#ff7eb3", mat: 0.22, flowers: ["#f472b6", "#facc15", "#ffffff", "#c084fc"], flowerN: 6, leaf: "#3f8a24" },
-    big: { roof: "#7b5b49", crook: 0.08, patches: ["#8fa3b8", "#5e4434", "#9a8a62"], chimney: "#b5483a", mud: "#6b4a2b", stains: 4, sock: "#e5e7eb", sockToe: "#9ca3af",
+    big: { roof: "#7b5b49", crook: 0.08, patches: ["#8fa3b8", "#5e4434", "#9a8a62"], stitch: "#2b1d14", chimney: "#b5483a", mud: "#6b4a2b", stains: 4, sock: "#e5e7eb", sockToe: "#9ca3af",
       shirt: "#cbd5e1", line: "#5b4636", bin: "#8a939b", trash: ["#65a30d", "#a16207", "#64748b", "#f59e0b", "#ef4444"], stink: "#7c9a5a", stinkN: 3,
       pizza: "#e8c48f", pizzaTop: "#f97316", toyCar: "#3b82f6", tyre: "#1f2937", bone: "#f5f5f4", ground: "rgba(107,74,43,.55)", groundN: 26 } },
   HATCH_LOOK: { freq: 3, width: 0.32, dark: 0.3, side: 0.45, lit: 0.6 },
@@ -6615,7 +6612,7 @@ function houseRoof(R, color, place, crook) {
 // точка на переднем скате (к камере): t — доля высоты, along — вдоль конька (сжимается к коньку)
 const slopeAt = (roof, t, along) => ({ x: along * (1 - t * (1 - roof.L / roof.len)), y: roof.rh * t + 0.015, z: (roof.span / 2) * (1 - t) + 0.015, rx: Math.atan2(roof.rh, roof.span / 2) });
 function addRoofFade(R, roof) {
-  const H = CFG.HOUSE_LOOK, hr = { x0: R.x * CELL, y0: (R.y - H.behind) * CELL, x1: (R.x + R.w) * CELL, y1: (R.y + R.h) * CELL, mats: roof.mats, meshes: roof.meshes, a: 1 };
+  const H = CFG.HOUSE_LOOK, hr = { g: roof.g, x0: R.x * CELL, y0: (R.y - H.behind) * CELL, x1: (R.x + R.w) * CELL, y1: (R.y + R.h) * CELL, mats: roof.mats, meshes: roof.meshes, a: 1 };
   houseRoofs.push(hr);
   return hr;
 }
@@ -6686,8 +6683,11 @@ function dressHouses(place) {
     let patches = 0;
     for (let i = 0; i < 3; i++) {                          // заплатки на переднем скате — плоские, вразброс вдоль ската
       const s = slopeAt(roof, 0.15 + rnd() * 0.35, ((i + 0.5) / 3 - 0.5) * (roof.len - 1.6) + (rnd() - 0.5) * 0.4), pm = ownMat(B.patches[i % B.patches.length], true);
-      const p = roof.add(part(new THREE.BoxGeometry(0.7 + rnd() * 0.35, 0.008, 0.5 + rnd() * 0.25), "", 0.008, pm), pm);
-      p.position.set(s.x, s.y, s.z); p.rotation.set(s.rx, (rnd() - 0.5) * 0.5, 0); patches++;
+      const pw = 0.7 + rnd() * 0.35, pd = 0.5 + rnd() * 0.25, fm = ownMat(B.stitch, true);   // заплатка без контура (иначе похожа на коробку):
+      const fr = roof.add(new THREE.Mesh(new THREE.BoxGeometry(pw + 0.06, 0.004, pd + 0.06), fm), fm);   // тёмная «строчка» по краю и сама заплатка
+      const p = roof.add(new THREE.Mesh(new THREE.BoxGeometry(pw, 0.004, pd), pm), pm);
+      for (const q of [fr, p]) { q.position.set(s.x, s.y + (q === p ? 0.004 : 0), s.z); q.rotation.set(s.rx, 0, 0); }
+      p.rotateY((rnd() - 0.5) * 0.5); fr.rotation.copy(p.rotation); patches++;
     }
     const cm = ownMat(B.chimney, true), chim = roof.add(part(new THREE.BoxGeometry(0.4, 0.7, 0.4), "", 0.02, cm), cm), cs = slopeAt(roof, 0.6, -roof.len / 5);
     chim.position.set(cs.x, cs.y + 0.25, cs.z); chim.rotation.z = 0.15;
@@ -6768,6 +6768,7 @@ function fadeRoofs(dt, t) {
     let inside = inHouse(big, hr, 0);
     for (const l of littles) if (inHouse(l, hr, l.kind === "player" ? near : 0)) inside = true;
     hr.a += ((inside ? H.faded : 1) - hr.a) * Math.min(1, dt / H.fade);
+    hr.g.visible = hr.a > H.hide;                       // почти погасла — не рисуем совсем (на телефоне крыша во весь экран)
     hr.glowNow = hr.glow ? H.kid.glowK * (0.75 + 0.25 * Math.sin(t * 3)) * (hr.a - H.faded) / (1 - H.faded) : 0;   // зелёный свет безопасного дома на крыше
     for (const mt of hr.mats) {
       mt.opacity = hr.a; mt.userData.outline.opacity = hr.a; mt.depthWrite = hr.a > 0.95;
@@ -7552,9 +7553,17 @@ function renderPreviews(t) {
   renderer.setScissorTest(false);
 }
 
-// SPEC-021: бумажное зерно поверх 3D — картинка делается один раз (canvas, своя случайность с зерна), CFG.PAPER_GRAIN включает
+// SPEC-021: бумажное зерно поверх 3D — картинка делается один раз (canvas, своя случайность с зерна), CFG.PAPER_GRAIN включает.
+// Рисуется последним в той же 3D-сцене: прямоугольник на весь экран, умножение цвета (MultiplyBlending) — под 2D-интерфейсом.
+// (Слой CSS mix-blend-mode: multiply поверх WebGL стоил на телефоне ~+20 % времени кадра — смешивание в композиторе.)
 let paperMade = 0, paperOn = false;
-const paperEl = document.getElementById("paper");
+const paperU = { uTex: { value: null }, uTile: { value: CFG.PAPER_GRAIN_LOOK.size }, uAlpha: { value: CFG.PAPER_GRAIN_LOOK.alpha } };
+const paperMat = new THREE.ShaderMaterial({ uniforms: paperU, transparent: true, depthTest: false, depthWrite: false,
+  blending: THREE.MultiplyBlending, premultipliedAlpha: true,
+  vertexShader: "void main() { gl_Position = vec4(position.xy, 0.0, 1.0); }",
+  fragmentShader: "uniform sampler2D uTex; uniform float uTile; uniform float uAlpha; void main() { vec3 g = texture2D(uTex, gl_FragCoord.xy / uTile).rgb; gl_FragColor = vec4(mix(vec3(1.0), g, uAlpha), 1.0); }" });
+const paperMesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), paperMat);
+paperMesh.frustumCulled = false; paperMesh.renderOrder = 1e6; paperMesh.visible = false; scene.add(paperMesh);
 function makePaperGrain() {
   const G = CFG.PAPER_GRAIN_LOOK, S = G.size, rnd = mulberry32(G.seed), cv = document.createElement("canvas");
   cv.width = cv.height = S;
@@ -7573,16 +7582,16 @@ function makePaperGrain() {
     g.globalAlpha = 0.2 + rnd() * 0.3; g.beginPath(); g.moveTo(x, y);
     g.quadraticCurveTo(x + Math.cos(a) * len / 2 + (rnd() - 0.5) * 4, y + Math.sin(a) * len / 2 + (rnd() - 0.5) * 4, x + Math.cos(a) * len, y + Math.sin(a) * len); g.stroke();
   }
-  paperEl.style.backgroundImage = `url(${cv.toDataURL()})`;
-  paperEl.style.backgroundSize = S + "px " + S + "px";
-  paperEl.style.opacity = String(G.alpha);
+  const tex = new THREE.CanvasTexture(cv); tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  paperU.uTex.value = tex;
   paperMade++;
 }
 function syncPaper() {                                // каждый кадр: только сравнение, без новых объектов
   const want = !!CFG.PAPER_GRAIN;
   if (want === paperOn) return;
   if (want && !paperMade) makePaperGrain();
-  paperEl.style.display = want ? "block" : "none";
+  paperU.uTile.value = CFG.PAPER_GRAIN_LOOK.size * renderer.getPixelRatio();   // плитка в px экрана
+  paperMesh.visible = want;
   paperOn = want;
 }
 // SPEC-021 (тесты): как нарисована 3D-сцена — контуры (цвета, во сколько раз толще просьбы детали, неровность, сдвиг, кто с контуром,
@@ -7593,7 +7602,7 @@ function look3D() {
   const kindOf = o => { for (let q = o; q; q = q.parent) { if (q.userData.piece || q.userData.obj) return q.userData.piece || q.userData.obj; if (q === charGroup) return "character"; } return "other"; };
   const under = (o, root) => { for (let q = o; q; q = q.parent) if (q === root) return true; return false; };
   scene.traverse(o => {
-    if (!o.isMesh) return;
+    if (!o.isMesh || o === paperMesh) return;
     types.add(o.material.type);
     if (o.material.isMeshToonMaterial && o.material.gradientMap !== gradTex) toonOffGradient++;
     if (!o.userData.hull) return;
@@ -7608,7 +7617,6 @@ function look3D() {
   });
   ratios.sort((a, b) => a - b);
   const med = ratios[ratios.length >> 1] || 0;
-  const order = [...wrap.children].map(e => e.id).filter(id => id === "gl" || id === "paper" || id === "game");
   // земля: по клеткам без пола — сколько разных цветов в середине клетки, во сколько раз цвет меняется поперёк штрихов сильнее,
   // чем вдоль (штрихи идут снизу-слева вверх-вправо), средний цвет
   const gc = groundCanvas, gd = gc.getContext("2d").getImageData(0, 0, gc.width, gc.height).data, k = gc.width / W, B = 12 * k, cols = [], diags = [], mean = [0, 0, 0];
@@ -7634,7 +7642,8 @@ function look3D() {
   return { outline: { colors: [...colors], hulls, k: med, spread: med ? (ratios[ratios.length - 1] - ratios[0]) / med : 0, shifted: hulls ? shifted / hulls : 0, kinds, mapSig: +mapSig.toFixed(6) },
     tones: new Set(gradTex.image.data).size === gradTex.image.width ? gradTex.image.width : -1, materials: [...types], toonOffGradient,
     shadow: { intensity: sun.shadow.intensity, radius: sun.shadow.radius },
-    paper: { shown: paperEl.style.display === "block", blend: getComputedStyle(paperEl).mixBlendMode, alpha: Number(paperEl.style.opacity), order, made: paperMade },
+    paper: { shown: paperMesh.visible, blend: paperMat.blending === THREE.MultiplyBlending ? "multiply" : "other", alpha: paperU.uAlpha.value,
+      over3D: paperMesh.parent === scene && !paperMat.depthTest && paperMesh.renderOrder >= Math.max(...scene.children.map(o => o.renderOrder)), made: paperMade },
     houses: houseInfo && { snow: houseInfo.snow,
       kid: houseInfo.kid && { ...houseInfo.kid, fade: undefined, alpha: houseInfo.kid.fade.a, glow: houseInfo.kid.fade.glowNow || 0 },
       big: houseInfo.big && { ...houseInfo.big, fade: undefined, alpha: houseInfo.big.fade.a } },

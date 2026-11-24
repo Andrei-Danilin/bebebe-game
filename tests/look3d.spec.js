@@ -66,7 +66,7 @@ test("a paper grain lies over the 3D (multiply, ~0.08) and CFG.PAPER_GRAIN switc
   expect(on.blend).toBe("multiply");
   expect(on.alpha).toBeGreaterThan(0.04);
   expect(on.alpha).toBeLessThan(0.15);
-  expect(on.order).toEqual(["gl", "paper", "game"]);       // over the 3D, under the 2D interface
+  expect(on.over3D).toBe(true);                            // drawn last over the 3D scene (the 2D interface canvas lies above the 3D one)
   expect(on.made).toBe(1);
   const off = await page.evaluate(async () => {
     const b = window.__bb; b.CFG.PAPER_GRAIN = false;
