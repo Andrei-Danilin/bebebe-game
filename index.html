@@ -206,9 +206,13 @@ const CFG = {
   // тетради menu_bg (доли x, y, ширины, высоты) — бумага панелей; скотч на углах панели (ширина, высота в UI px компьютера, цвет,
   // контур); углы бумажных кнопок (доля меньшей стороны кнопки), цвет «выключенной» кнопки (серая бумага), сколько листов бумаги
   // держать в кэше; листы паузы / победы / проигрыша на компьютере [ширина, верх, высота]; остановки карты: картинка к кружку, светящаяся «текущая» крупнее,
-  // штамп «Пройдено» (доля остановки); цвет дорожки (синяя ручка); плашка монеток coin_badge: доля картинки слева (монетка) и справа
+  // штамп «Пройдено» (доля остановки); цвет дорожки (синяя ручка); плашка монеток coin_badge: доля картинки слева (монетка) и справа.
+  // В игре: облачко-сердечко Большого (к шагу сердечек), значки HUD (к высоте кнопки), джойстик (цвет кольца «на цыпочках»,
+  // прозрачность основания, радиус шарика UI px); частицы-картинки (сердечко, искорка, пыль — доля клетки на экране);
+  // взрыв под всплывающей надписью (ширина к надписи, высота к кеглю)
   PAPER: { logoH: 132, phoneLogoH: 92, sheet: [0.3, 0.22, 0.45, 0.55], tapeW: 64, tapeH: 20, tape: "rgba(255,255,255,.62)", tapeLine: "rgba(120,120,120,.45)",
-    btnCorner: 0.34, offBtn: "#a3a3a3", cache: 6, winBox: [800, 34, 500], loseBox: [780, 160, 290], pauseBox: [700, 190, 220], stop: 1.12, glow: 1.25, stamp: 0.62, pen: "rgba(40,60,160,.85)", coinLeft: 0.36, coinRight: 0.08 },
+    btnCorner: 0.34, offBtn: "#a3a3a3", cache: 6, heart: 1.3, hudIcon: 1.12, stickRing: "rgba(61,43,31,.6)", stickBase: 0.9, knob: 24,
+    fxHeart: 0.55, fxStar: 0.45, fxDust: 0.6, popBurst: 1.7, popH: 2.4, winBox: [800, 34, 500], loseBox: [780, 160, 290], pauseBox: [700, 190, 220], stop: 1.12, glow: 1.25, stamp: 0.62, pen: "rgba(40,60,160,.85)", coinLeft: 0.36, coinRight: 0.08 },
   // SPEC-017: как выглядят меню (главный экран, вкладка «Гардероб», карта уровней) — цвета и размеры в одном месте, под будущие рисунки.
   // Цвета: карточка экрана и её контур, название, плашки (фон, контур, текст), закрытый бонус (текст, вуаль картинки), кнопки Играть /
   // История (storyBtn; story ниже — размеры экрана истории) / Магазин,
@@ -342,15 +346,18 @@ function artSettle(a, ok) {
   a.state = ok ? "ok" : "bad"; artCount[ok ? "ok" : "bad"]++;
   artProgress();
 }
-for (const name of ART_NAMES) {
-  const a = { img: null, state: "loading" };
-  artImgs.set(name, a);
-  try {
-    const img = a.img = new Image();
-    img.src = CFG.ART.dir + name + ".webp";
-    if (img.decode) img.decode().then(() => artSettle(a, true), () => artSettle(a, false));
-    else { img.onload = () => artSettle(a, true); img.onerror = () => artSettle(a, false); }
-  } catch (e) { artSettle(a, false); }
+for (const name of ART_NAMES) artImgs.set(name, { img: null, state: "loading" });
+// грузить начинаем, когда игра уже собрана (artGate): картинки не тормозят запуск (уровень, 3D) — экран загрузки их подождёт
+function artLoad() {
+  for (const [name, a] of artImgs) {
+    if (a.img) continue;
+    try {
+      const img = a.img = new Image();
+      img.src = CFG.ART.dir + name + ".webp";
+      if (img.decode) img.decode().then(() => artSettle(a, true), () => artSettle(a, false));
+      else { img.onload = () => artSettle(a, true); img.onerror = () => artSettle(a, false); }
+    } catch (e) { artSettle(a, false); }
+  }
 }
 const art = name => { const a = artImgs.get(name); return a && a.state === "ok" ? a.img : null; };
 // экран загрузки: полоска — доля готовых картинок; убираем, когда всё готово (или по таймеру из artGate)
@@ -363,6 +370,7 @@ function artProgress() {
 }
 // игра готова: ждём картинки не дольше CFG.ART.waitMs (window.__bbReady от этого не ждёт)
 function artGate() {
+  artLoad();
   const el = document.getElementById("loading");
   if (!el) return;
   if (artDone()) { el.remove(); return; }
@@ -2595,7 +2603,8 @@ function inputFor(l) {
 // =====================================================================
 //  ЛОГИКА
 // =====================================================================
-function popText(x, y, text, color) { texts.push({ x, y, text, color, t: 0 }); }
+// burst — картинка взрыва под надписью (SPEC-020: fx_burst_*), необязательно
+function popText(x, y, text, color, burst) { texts.push({ x, y, text, color, t: 0, burst, w: undefined }); }
 function burst(x, y, kind, color, n) {
   if (simMode) return;                   // в sim частиц нет (vrand, игровой rng() не трогают)
   for (let i = 0; i < n; i++) {
@@ -2636,7 +2645,7 @@ function push(t) {
   big.pushCd = CFG.PUSH_STAND;
   big.noPush = CFG.PUSH_RECOVER;          // передышка: какое-то время никого не толкает
   shake = 0.25;
-  popText(t.x, t.y - 40, L().bang, "#ffcc00");
+  popText(t.x, t.y - 40, L().bang, "#ffcc00", "fx_burst_red");
   burst(t.x, t.y, "dust", "#e5d3a1", 10);
   SFX.push();
 }
@@ -2654,7 +2663,7 @@ function hug(l, a) {
   stats.hugs++;
   if (l.kind === "player") stats.playerHugs++;
   logEvent("hug", { power, who: l.id, kind: l.kind });
-  popText(big.x, big.y - 70, power > 1 ? L().megaHug(power) : L().hug, power > 1 ? "#facc15" : "#ff6fa8");
+  popText(big.x, big.y - 70, power > 1 ? L().megaHug(power) : L().hug, power > 1 ? "#facc15" : "#ff6fa8", power > 1 ? "fx_burst_yellow" : "fx_burst_pink");
   burst(big.x, big.y - 30, "heart", "#ff4d8d", 12 * power);
   if (power > 1) shake = 0.3;
   SFX.hug();
@@ -2686,7 +2695,7 @@ function kissHit(k) {
   big.hp = Math.max(0, big.hp - CFG.KISS_DAMAGE);
   big.blush = CFG.KISS_BLUSH; big.blushBy = k.owner;
   big.pushCd = 0; big.path = []; big.moving = false; big.flash = 0.2;
-  popText(big.x, big.y - 40, L().kissHit, "#ff6fa8");
+  popText(big.x, big.y - 40, L().kissHit, "#ff6fa8", "fx_burst_pink");
   popText(big.x, big.y - 112, L().blush, "#fda4af");   // выше имени Большого
   SFX.mwah();
   if (big.hp <= 0) winSoon();                            // последнее полсердечка — победа, как после обнимашки
@@ -3256,7 +3265,7 @@ function throwOut(l) {
   logEvent("thrownOut", { who: l.id });
   if (attackToken === l) attackToken = null;
   shake = 0.2;
-  popText(l.x, l.y - 40, L().thrownOut, "#fca5a5");
+  popText(l.x, l.y - 40, L().thrownOut, "#fca5a5", "fx_burst_yellow");
   burst(l.x, l.y - 10, "star", "#fde047", 10);
   SFX.thrown();
 }
@@ -3448,6 +3457,17 @@ function regButton(x, y, w, h, text, act, id, textW) {
   const b = { x, y, w, h, act, text, textW, id };
   buttons.push(b);
   return b;
+}
+// SPEC-020, в игре: сердечко Большого — облачко 13_interface (целое / половинка — бледное / пустое); f как у heartFill
+const HEART_ART = ["cloud_heart_empty", "cloud_heart_half", "cloud_heart_full"];
+function hpHeart(x, y, s, f, step) {
+  if (drawArtFit(HEART_ART[f >= 1 ? 2 : f > 0 ? 1 : 0], x, y + s / 2, Math.max(s, step) * CFG.PAPER.heart)) return;
+  drawHpHeart(x, y, s, f);
+}
+// кнопка-значок HUD (пауза, во весь экран): картинка в прямоугольник кнопки или обычная кнопка
+function iconButton(name, x, y, w, h, text, color, act, size) {
+  if (drawArtFit(name, x + w / 2, y + h / 2, Math.min(w, h) * CFG.PAPER.hudIcon)) return regButton(x, y, w, h, text, act, undefined, Math.min(w, h));
+  return addButton(x, y, w, h, text, color, act, size);
 }
 // звезда картинкой (золотая / пустая) или кодом; монетка картинкой (на бумажных экранах) или кодом
 const drawStarArt = (x, y, r, filled) => drawArtFit(filled ? "star_gold" : "star_empty", x, y, r * 2.4) || drawStar(x, y, r, filled);
@@ -3663,17 +3683,32 @@ function drawMarkers(t) {
   else if (mark === "!") label(mark, bh.x, bh.y - 4, 28, "#ff3b30");
 }
 
+// SPEC-020: частицы — картинки 24_effects / v1/staff (сердечко, искорка, пыль), размер — доля клетки на экране (камера);
+// всплывающие надписи с burst (BONK, обнимашка, поцелуй, «выгнали») — на нарисованном взрыве. Точки экрана — в переиспользуемых объектах
+const FX_ART = { heart: "heart_full", star: "fx_sparkle", dust: "fx_dust" };
+const FX_SIZE = { heart: "fxHeart", star: "fxStar", dust: "fxDust" };
+const fxA = { x: 0, y: 0 }, fxB = { x: 0, y: 0 };
 function drawFx() {
+  const P = CFG.PAPER;
+  let cell = 0;
+  if (particles.length) { toScreenTo(fxA, big.x, big.y, 20); toScreenTo(fxB, big.x + CELL, big.y, 20); cell = Math.hypot(fxB.x - fxA.x, fxB.y - fxA.y); }
   for (const p of particles) {
-    const s = toScreen(p.x, p.y, 20);
+    toScreenTo(fxA, p.x, p.y, 20);
     ctx.globalAlpha = 1 - p.t / p.life;
-    if (p.kind === "heart") drawHeart(s.x, s.y, 12, p.color, false);
-    else { ctx.fillStyle = p.color; circle(s.x, s.y, p.kind === "star" ? 3.5 : 4.5); ctx.fill(); }
+    if (drawArtFit(FX_ART[p.kind], fxA.x, fxA.y, cell * P[FX_SIZE[p.kind]])) continue;
+    if (p.kind === "heart") drawHeart(fxA.x, fxA.y, 12, p.color, false);
+    else { ctx.fillStyle = p.color; circle(fxA.x, fxA.y, p.kind === "star" ? 3.5 : 4.5); ctx.fill(); }
   }
   ctx.globalAlpha = 1;
+  const sz = fz(21, "main");
   for (const tx of texts) {
-    const s = toScreen(tx.x, tx.y, 40);
-    ctx.globalAlpha = Math.max(0, 1 - tx.t / 1.2); label(tx.text, s.x, s.y, fz(21, "main"), tx.color);
+    toScreenTo(fxA, tx.x, tx.y, 40);
+    ctx.globalAlpha = Math.max(0, 1 - tx.t / 1.2);
+    if (tx.burst && art(tx.burst)) {
+      if (tx.w === undefined) { ctx.font = hudFont(sz); tx.w = ctx.measureText(tx.text).width; }   // ширина надписи — один раз
+      drawArt(tx.burst, fxA.x - tx.w * P.popBurst / 2, fxA.y - sz * P.popH / 2, tx.w * P.popBurst, sz * P.popH);
+    }
+    label(tx.text, fxA.x, fxA.y, sz, tx.color);
   }
   ctx.globalAlpha = 1;
 }
@@ -3702,15 +3737,18 @@ function toggleFullscreen() {
 // джойстики: основание и шарик под пальцем
 function drawSticks() {
   const SR = stickR();
+  const P = CFG.PAPER, base = art("phone_stick_base"), knob = art("phone_stick_knob");   // SPEC-020: джойстик 25_phone_controls
   for (const st of sticks.values()) {
-    ctx.globalAlpha = 0.35; circle(st.ox, st.oy, SR); fillStroke("#fff", 3);
-    // SPEC-019: внутреннее кольцо — граница «на цыпочках»: внутри него тихо, дальше — бегом
+    ctx.globalAlpha = base ? P.stickBase : 0.35;
+    if (!drawArtFit("phone_stick_base", st.ox, st.oy, SR * 2.1)) { circle(st.ox, st.oy, SR); fillStroke("#fff", 3); }
+    // SPEC-019: внутреннее кольцо — граница «на цыпочках»: внутри него тихо, дальше — бегом (на бумажном основании — тёмное)
     const ring = SR * CFG.TIPTOE_MAX;
-    ctx.globalAlpha = 0.6; circle(st.ox, st.oy, ring); ctx.lineWidth = 2; ctx.setLineDash([5, 5]); ctx.strokeStyle = "#fff"; ctx.stroke(); ctx.setLineDash([]);
+    ctx.globalAlpha = base ? 0.9 : 0.6; circle(st.ox, st.oy, ring); ctx.lineWidth = base ? 2.5 : 2; ctx.setLineDash([5, 5]); ctx.strokeStyle = base ? P.stickRing : "#fff"; ctx.stroke(); ctx.setLineDash([]);
     stickMarks.push({ x: st.ox, y: st.oy, R: SR, ring });
-    ctx.globalAlpha = 0.7;
-    const dx = st.x - st.ox, dy = st.y - st.oy, d = Math.hypot(dx, dy), k = d > SR ? SR / d : 1;
-    circle(st.ox + dx * k, st.oy + dy * k, 24); fillStroke(P_COLORS[st.player], 3);
+    ctx.globalAlpha = knob ? 0.95 : 0.7;
+    const dx = st.x - st.ox, dy = st.y - st.oy, d = Math.hypot(dx, dy), k = d > SR ? SR / d : 1, kx = st.ox + dx * k, ky = st.oy + dy * k;
+    if (drawArtFit("phone_stick_knob", kx, ky, P.knob * 2)) { circle(kx, ky, P.knob); ctx.lineWidth = 3; ctx.strokeStyle = P_COLORS[st.player]; ctx.stroke(); }
+    else { circle(kx, ky, 24); fillStroke(P_COLORS[st.player], 3); }
     ctx.globalAlpha = 1;
   }
 }
@@ -3772,13 +3810,13 @@ function drawHUDPhone(t) {
   plate("hearts", m, top, pw, bh);
   noteText("main", labelFit(bigName, m + pad, top + bh / 2, main, nameW, "#9b2c3a", "left", main));
   const hx = m + pad + nameW + pad * 0.6 + hStep / 2;
-  for (let i = 0; i < big.maxHp; i++) drawHpHeart(hx + i * hStep, top + bh / 2 - hSize / 2 - 1, hSize, heartFill(i, big.hp));
+  for (let i = 0; i < big.maxHp; i++) hpHeart(hx + i * hStep, top + bh / 2 - hSize / 2 - 1, hSize, heartFill(i, big.hp), hStep);
   // группа по центру свободного места
   const gx = m + pw + Math.max(gap, (mm.x - gap - (m + pw) - gw) / 2);
   plate("timer", gx, top, tw, bh);
   noteText("main", fitText(timeTxt, gx + tw / 2, top + bh / 2 + 1, main, tw, "center", OUT, 900, main));
-  addButton(gx + tw + gap, top, bh, bh, "II", "#64748b", () => { mode = "pause"; }, fz(main, "main"));
-  if (!STANDALONE) addButton(gx + tw + gap + bh + gap, top, bh, bh, "⛶", "#64748b", toggleFullscreen, fz(main, "main"));
+  iconButton("phone_pause", gx + tw + gap, top, bh, bh, "II", "#64748b", () => { mode = "pause"; }, fz(main, "main"));
+  if (!STANDALONE) iconButton("ui_fullscreen", gx + tw + gap + bh + gap, top, bh, bh, "⛶", "#64748b", toggleFullscreen, fz(main, "main"));
   // кружки команды под мини-картой
   const tr = teamRect();
   plate("team", tr.x, tr.y, tr.w, tr.h);
@@ -3797,7 +3835,7 @@ function drawHUDPhone(t) {
   if (gl) {
     const gx0 = rightEdge - gEach, gy0 = UH - m - gh;
     plate("gloves", gx0, gy0, gEach, gh);
-    drawMitten(gx0 + cpx(22), gy0 + gh / 2, cpx(28), gl);
+    drawArtFit(ITEM_ART[gl], gx0 + cpx(22), gy0 + gh / 2, cpx(36)) || drawMitten(gx0 + cpx(22), gy0 + gh / 2, cpx(28), gl);
     noteText("main", fitText("×" + progress.inv[gl], gx0 + cpx(54), gy0 + gh / 2 + 1, main, gEach - cpx(40), "center", OUT, 900, main));
     rightEdge = gx0 - gap;
   }
@@ -3834,7 +3872,7 @@ function drawHUD(t) {
   const hx = 18 + nameW + 18, hpW = hx + hearts - 10 - (hStep - hSize / 2) + 9;
   rr(10, 8, hpW, 34, 14); fillStroke("rgba(255,255,255,.8)", 3);
   labelFit(bigName, 18, 25, 15, nameW, "#9b2c3a", "left");
-  for (let i = 0; i < big.maxHp; i++) drawHpHeart(hx + i * hStep, 25 - hSize / 2 - 1, hSize, heartFill(i, big.hp));
+  for (let i = 0; i < big.maxHp; i++) hpHeart(hx + i * hStep, 25 - hSize / 2 - 1, hSize, heartFill(i, big.hp), hStep);
 
   const chipW = 32, totalW = littles.length * chipW + 14, x0 = UW - totalW - 10;
   rr(x0, 8, totalW, 34, 14); fillStroke("rgba(255,255,255,.8)", 3);
@@ -3852,9 +3890,9 @@ function drawHUD(t) {
   if (kinds.length || showKiss || showKit) {               // сколько сильных обнимашек, поцелуев и спасалок осталось
     const n = kinds.length + (showKiss ? 1 : 0) + (showKit ? 1 : 0);
     rr(10, 48, 20 + n * 70, 34, 14); fillStroke("rgba(255,255,255,.8)", 3);
-    kinds.forEach((k, i) => { drawMitten(30 + i * 70, 65, 26, k); label("×" + progress.inv[k], 58 + i * 70, 65, 16, OUT); });
-    if (showKiss) { const i = kinds.length; drawKiss(30 + i * 70, 67, 26); label("×" + progress.inv.kisses, 58 + i * 70, 65, 16, OUT); }
-    if (showKit) { const i = kinds.length + (showKiss ? 1 : 0); drawKit(30 + i * 70, 65, 30); label("×" + progress.inv.rescues, 58 + i * 70, 65, 16, OUT); }
+    kinds.forEach((k, i) => { drawArtFit(ITEM_ART[k], 30 + i * 70, 65, 32) || drawMitten(30 + i * 70, 65, 26, k); label("×" + progress.inv[k], 58 + i * 70, 65, 16, OUT); });
+    if (showKiss) { const i = kinds.length; drawArtFit("item_kiss", 30 + i * 70, 65, 34) || drawKiss(30 + i * 70, 67, 26); label("×" + progress.inv.kisses, 58 + i * 70, 65, 16, OUT); }
+    if (showKit) { const i = kinds.length + (showKiss ? 1 : 0); drawArtFit("icon_bandaid", 30 + i * 70, 65, 32) || drawKit(30 + i * 70, 65, 30); label("×" + progress.inv.rescues, 58 + i * 70, 65, 16, OUT); }
   }
   // кнопка игрока: 💋, а пока он лежит, хромает домой или отдыхает и спасалки есть — 🩹 на том же месте (SPEC-007)
   if (isTouch && mode === "play") for (let pi = 0; pi < numPlayers; pi++) {
@@ -3862,8 +3900,8 @@ function drawHUD(t) {
   }
   rr(UW / 2 - 95, 8, 110, 34, 14); fillStroke("rgba(255,255,255,.8)", 3);
   label(timerText(), UW / 2 - 40, 25, 14, OUT);
-  addButton(UW / 2 + 22, 8, 40, 34, "II", "#64748b", () => { mode = "pause"; }, 16);
-  if (!STANDALONE) addButton(UW / 2 + 68, 8, 40, 34, "⛶", "#64748b", toggleFullscreen, 18);   // на iPhone нет Fullscreen API
+  iconButton("round_pause", UW / 2 + 22, 8, 40, 34, "II", "#64748b", () => { mode = "pause"; }, 16);
+  if (!STANDALONE) iconButton("ui_fullscreen", UW / 2 + 68, 8, 40, 34, "⛶", "#64748b", toggleFullscreen, 18);   // на iPhone нет Fullscreen API
 
   drawSticks();
   if (isTouch && stats.time < 5) {
@@ -3919,9 +3957,13 @@ function kissButton(pi) {
   const rc = kissBtnRect(pi), r = rc.w / 2, cx = rc.x + r, cy = rc.y + r;
   const ready = canAct(l) && !inSafe(l) && l.kissCd <= 0;   // серая: перезарядка, в домике или не может действовать
   ctx.save(); ctx.globalAlpha = ready ? 0.95 : 0.55;
-  ctx.fillStyle = "rgba(0,0,0,.3)"; circle(cx + 2, cy + 4, r); ctx.fill();
-  circle(cx, cy, r); fillStroke(ready ? "#ffd1e3" : "#cbd5e1", 4, numPlayers === 2 ? P_COLORS[pi] : OUT);
-  drawKiss(cx, cy + 4, r * 1.15);
+  if (drawArtFit("phone_kiss", cx, cy, rc.w * CFG.PAPER.hudIcon)) {                 // SPEC-020: кнопка 25_phone_controls
+    if (numPlayers === 2) { circle(cx, cy, r); ctx.lineWidth = 4; ctx.strokeStyle = P_COLORS[pi]; ctx.stroke(); }
+  } else {
+    ctx.fillStyle = "rgba(0,0,0,.3)"; circle(cx + 2, cy + 4, r); ctx.fill();
+    circle(cx, cy, r); fillStroke(ready ? "#ffd1e3" : "#cbd5e1", 4, numPlayers === 2 ? P_COLORS[pi] : OUT);
+    drawKiss(cx, cy + 4, r * 1.15);
+  }
   if (l.kissCd > 0) {                                      // перезарядка — дуга
     ctx.lineWidth = 5; ctx.strokeStyle = "#ff4d8d"; ctx.lineCap = "round";
     ctx.beginPath(); ctx.arc(cx, cy, r - 6, -Math.PI / 2, -Math.PI / 2 + TAU * (1 - l.kissCd / CFG.KISS_COOLDOWN)); ctx.stroke(); ctx.lineCap = "butt";
@@ -3936,10 +3978,11 @@ function kissButton(pi) {
 function kitButton(pi, t) {
   const rc = kissBtnRect(pi), r = rc.w / 2, cx = rc.x + r, cy = rc.y + r, pulse = 0.5 + 0.5 * Math.sin(t * 5.5);
   ctx.save(); ctx.globalAlpha = 0.95;
-  ctx.fillStyle = "rgba(0,0,0,.3)"; circle(cx + 2, cy + 4, r); ctx.fill();
-  circle(cx, cy, r); fillStroke("#dcfce7", 4, numPlayers === 2 ? P_COLORS[pi] : OUT);
+  const pic = drawArtFit("phone_kit", cx, cy, rc.w * CFG.PAPER.hudIcon);              // SPEC-020: кнопка 25_phone_controls
+  if (!pic) { ctx.fillStyle = "rgba(0,0,0,.3)"; circle(cx + 2, cy + 4, r); ctx.fill(); circle(cx, cy, r); fillStroke("#dcfce7", 4, numPlayers === 2 ? P_COLORS[pi] : OUT); }
+  else if (numPlayers === 2) { circle(cx, cy, r); ctx.lineWidth = 4; ctx.strokeStyle = P_COLORS[pi]; ctx.stroke(); }
   ctx.globalAlpha = 0.35 + 0.5 * pulse; circle(cx, cy, r - 6); ctx.lineWidth = 4; ctx.strokeStyle = "#22c55e"; ctx.stroke();
-  ctx.globalAlpha = 1; drawKit(cx, cy, r * 1.3);
+  ctx.globalAlpha = 1; if (!pic) drawKit(cx, cy, r * 1.3);
   ctx.restore();
   const br = PHONE ? cpx(15) : 13;
   circle(cx + r * 0.72, cy - r * 0.72, br); fillStroke("#16a34a", 2.5);
@@ -5704,6 +5747,12 @@ function toScreen(x, y, h = 0) {
   _v.set(P(x), h * U, P(y)).project(camera);
   return { x: (_v.x + 1) / 2 * UW, y: (1 - _v.y) / 2 * UH };
 }
+// то же в готовый объект o (без нового объекта каждый кадр)
+function toScreenTo(o, x, y, h = 0) {
+  _v.set(P(x), h * U, P(y)).project(camera);
+  o.x = (_v.x + 1) / 2 * UW; o.y = (1 - _v.y) / 2 * UH;
+  return o;
+}
 
 // ---------- Материалы ----------
 const gradTex = new THREE.DataTexture(new Uint8Array([105, 180, 255]), 3, 1, THREE.RedFormat);
@@ -7059,7 +7108,8 @@ registerServiceWorker();
 // для отладки и тестов
 window.__bb = {
   // SPEC-020: art(name) — картинка или null; artInfo — сколько картинок готово / не загрузилось, всё ли решено
-  get artUse() { return { ...artUse }; }, resetArtUse, art, ART_NAMES, get artInfo() { return { total: ART_NAMES.length, ok: artCount.ok, bad: artCount.bad, done: artDone(), loadingShown: !!document.getElementById("loading") }; },
+  get artUse() { return { ...artUse }; }, resetArtUse, fxBurst: burst, popText,   // SPEC-020: частицы и всплывающие надписи (тест картинок эффектов)
+  art, ART_NAMES, get artInfo() { return { total: ART_NAMES.length, ok: artCount.ok, bad: artCount.bad, done: artDone(), loadingShown: !!document.getElementById("loading") }; },
   get mode() { return mode; }, set mode(v) { if (MODES.includes(v)) mode = v; },   // SPEC-017: только экраны из MODES
   // SPEC-017: экраны меню; wardrobePage — «looks» (наряды) или «friends» (имена друзей) во вкладке «Гардероб»; resetMenus — как при запуске
   MODES, toMap, toHome, resetMenus, get muted() { return muted; },

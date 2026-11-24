@@ -125,3 +125,54 @@ test("shop, story and the end screens are drawn with the art", async ({ page }) 
   expect(missing(use, ["menu_bg", "btn_green", "btn_grey"])).toEqual([]);
   expect(errors).toEqual([]);
 });
+
+// SPEC-020 step 5 (AC 6–8): the HUD, the effects and the phone controls are drawn with the art
+test("HUD, effects and the desktop pause / fullscreen buttons are drawn with the art", async ({ page }) => {
+  const errors = await openGame(page);
+  await page.waitForFunction(() => window.__bb.artInfo.done, null, { timeout: 15_000 });
+  const use = await drawn(page, () => {
+    const b = window.__bb;
+    b.startGame(1);
+    Object.assign(b.progress.inv, { mittens: 2, kisses: 3, rescues: 1 }); b.setEquip(0, "mittens");
+    const big = b.big;                                                     // (setEquip restarts the level: a new Big One)
+    big.hp = big.maxHp - 1.5;                                              // full, half and empty hearts
+    b.fxBurst(big.x, big.y, "heart", "#ff4d8d", 3); b.fxBurst(big.x, big.y, "star", "#fde047", 3); b.fxBurst(big.x, big.y, "dust", "#e5d3a1", 3);
+    b.popText(big.x, big.y - 40, b.I18N.en.bang, "#ffcc00", "fx_burst_red");
+  });
+  expect(missing(use, ["cloud_heart_full", "cloud_heart_half", "cloud_heart_empty", "round_pause", "ui_fullscreen", "item_mittens", "item_kiss", "icon_bandaid",
+    "heart_full", "fx_sparkle", "fx_dust", "fx_burst_red"])).toEqual([]);
+  expect(await page.evaluate(() => window.__bb.buttonNames)).toContain("toggleFullscreen");
+  expect(errors).toEqual([]);
+});
+
+test.describe("phone controls with the art", () => {
+  test.use({ viewport: { width: 667, height: 375 }, hasTouch: true, isMobile: true });
+  test("joystick, kiss, kit and pause buttons are the 25_phone_controls pictures, same hit sizes", async ({ page }) => {
+    const errors = await openGame(page, { query: "?phone=1" });
+    await page.waitForFunction(() => window.__bb.artInfo.done, null, { timeout: 15_000 });
+    let use = await drawn(page, () => {
+      const b = window.__bb, c = document.getElementById("game"), r = c.getBoundingClientRect(), u = b.uiSize;
+      b.startGame(1); b.progress.inv.kisses = 2;
+      const ev = (type, x, y) => c.dispatchEvent(new PointerEvent(type, { clientX: r.left + x * r.width / u.w, clientY: r.top + y * r.height / u.h, pointerId: 7, pointerType: "touch", isPrimary: true, bubbles: true, cancelable: true }));
+      ev("pointerdown", u.w * 0.25, u.h * 0.6); ev("pointermove", u.w * 0.25 + 20, u.h * 0.6);
+    });
+    expect(missing(use, ["phone_stick_base", "phone_stick_knob", "phone_kiss", "phone_pause", "ui_fullscreen"])).toEqual([]);
+    const d = await page.evaluate(() => { const b = window.__bb; return { buttons: b.buttonRects, s: b.uiSize.scale, marks: b.stickMarks }; });
+    for (const id of ["kiss:0"]) { const q = d.buttons.find(x => x.id === id); expect(Math.min(q.w, q.h) * d.s, id).toBeGreaterThanOrEqual(44); }
+    for (const q of d.buttons) expect(Math.min(q.w, q.h) * d.s, String(q.id || q.text)).toBeGreaterThanOrEqual(44 - 0.01);
+    expect(d.marks.length, "the tiptoe ring is still drawn on the drawn base").toBe(1);
+    // the kit button while the hero is down
+    use = await drawn(page, () => { const b = window.__bb, l = b.littles[0]; b.progress.inv.rescues = 1; l.state = "down"; l.downTimer = 10; });
+    expect(missing(use, ["phone_kit"])).toEqual([]);
+    expect(errors).toEqual([]);
+  });
+});
+
+// AC 10: on a cold cache the loading screen paints within 1 s (plain HTML with its own paper background, before three.js and
+// the art). first-paint is that screen; first-contentful-paint is about 2 s here on master too (software rendering), so not used
+test("the loading screen shows within 1 s on a cold cache @fast", async ({ page }) => {
+  await openGame(page);
+  const fp = await page.evaluate(() => (performance.getEntriesByType("paint").find(e => e.name === "first-paint") || {}).startTime);
+  expect(fp).toBeGreaterThan(0);
+  expect(fp).toBeLessThan(1000);
+});
