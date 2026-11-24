@@ -324,12 +324,14 @@ PowerShell examples: `$env:PW_GPU = "0"; npx playwright test tests/smoke.spec.js
 
 - **Tests** (`.github/workflows/tests.yml`): every push of a `SPEC-*` branch (and manual dispatch) runs the whole suite
   in **4 parallel shards**; a merge job joins them into one HTML report. The spec is merged only when this run is green.
-  `gh run list --branch <branch> --workflow tests.yml --limit 1` → `gh run watch <id> --exit-status`; reports:
-  `gh run download <id> -n html-report` (open `index.html`), failure traces/screenshots: `-n test-results-<shard>`.
+  `gh run list --workflow tests.yml --commit $(git rev-parse HEAD) --limit 1` (the run of the pushed commit; retry until it
+  appears) → `gh run watch <id> --exit-status`; reports: `gh run download <id> -n html-report` (open `index.html`), error
+  context + failure screenshots: `-n test-results-<shard>`.
 - **Pages** (`.github/workflows/pages.yml`): every push to `master` runs the same sharded tests, then publishes the site
   (`index.html`, `manifest.webmanifest`, `sw.js`, `icons/`, `v1-2d/`) to GitHub Pages. A red deploy with green tests is
   recovered with a fresh `gh workflow run pages.yml --ref master` (never `gh run rerun --failed`).
-- **Balance** (`.github/workflows/balance.yml`): `gh workflow run balance.yml -f ref=<branch>` → `gh run list --workflow balance.yml --limit 1`
+- **Balance** (`.github/workflows/balance.yml`): `gh workflow run balance.yml -f ref=<branch>` → `gh run list --workflow balance.yml --limit 5` (the run titled `Balance <branch>`,
+  created after the dispatch)
   → `gh run watch <id> --exit-status` → `gh run download <id> -n balance -D reports` (writes `reports/balance.md` and
   `reports/balance.json`), then commit them on the branch.
 

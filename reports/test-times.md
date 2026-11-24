@@ -170,7 +170,7 @@ started). A below-normal run gives way to all of that, so the local numbers are 
 | local fast set, `PW_GPU=0` | — | **4.0 min** (245 s wall), 29 passed |
 | local balance (`npm run balance`) | 139 s | **171 s** (below normal on the busy machine; the report itself unchanged) |
 | balance on GitHub (`balance.yml`, run 45292838058) | — | **53 s** run (script 21 s; checkout + npm ci + Chromium 21 s) |
-| CI whole suite per push (`tests.yml`, 4 shards + merge) | 15–21 min (one job) | **8 m 33 s** (run 45292838040, shards by file: 8:11 / 6:07 / 0:52 / 2:56), **7 m 28 s** (run 45294116381, `fullyParallel` on CI: shards 3:32 / 3:06 / 6:21 / 7:08, merge 16 s) |
+| CI whole suite per push (`tests.yml`, 4 shards + merge) | 15–21 min (one job) | **8 m 33 s** (run 45292838040, shards by file: 8:11 / 6:07 / 0:52 / 2:56), **7 m 28 s** (run 45294116381, `fullyParallel` on CI: shards 3:32 / 3:06 / 6:21 / 7:08, merge 16 s), **8 m 25 s** (run 45312023244, docs push: shards 2:18 / 3:00 / 3:49 / 8:06 — the last shard holds the phone/PWA/smoke tail) |
 
 Priority (AC 2), checked with `Get-CimInstance Win32_Process` / `Get-Process … PriorityClass` during a default run of one
 file: runner `node … cli.js test` base 6 = BelowNormal, its worker BelowNormal, the worker's browser and its renderer and
@@ -183,7 +183,7 @@ the SPEC-020 agent's Playwright run from `master`) took 15.3 min with 4 page-loa
 the same 4 with `PW_NICE=0` passed in 38.5 s. Once every session runs SPEC-023's config, all test runs are below normal
 and share the CPU evenly.
 
-Targets: CI ≤ 8 min — **met (7 m 28 s; −50…−65 %)**. Local whole ≤ 12 min with GPU — **not met on the busy machine
+Targets: CI ≤ 8 min — **borderline: met once (7 m 28 s), 8 m 25 s and 8 m 33 s on the other pushes** (−45…−65 % against 15–21 min). Local whole ≤ 12 min with GPU — **not met on the busy machine
 (15.5 min)**; fast set ≤ 2 min — **met (1.4 min)**. The GPU makes the fast set 2.8× faster than SwiftShader on the same
 machine. CI shards are still uneven (3–7 min): Playwright splits by test count, and the phone, menu and PWA tests
 (rendered, ~25–33 s each on CI) sit at the end of the file order; the sum of all tests on CI is 17.5 min
