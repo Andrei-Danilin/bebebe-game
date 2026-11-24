@@ -396,7 +396,7 @@ test("every wardrobe item has an id and a price; the basic ones and every defaul
   soft(free(r.w.hat), "free hats (the crown is in the 150 tier)").toEqual(["none", "cap", "beanie", "bow"]);
   soft(free(r.w.jacket), "the first 4 jackets are free").toEqual(r.w.jacket.slice(0, 4).map(q => q.id));
   soft(free(r.w.pants), "the first 4 pants are free").toEqual(r.w.pants.slice(0, 4).map(q => q.id));
-  soft(free(r.w.big), "Classic and Ogre are free").toEqual(["classic", "ogre"]);
+  soft(free(r.w.big), "Classic, Ogre and the Dad are free (SPEC-021: the dad, the default, is added at the end)").toEqual(["classic", "ogre", "dad"]);
   for (const k of ["hat", "jacket", "pants", "big"]) {
     soft(new Set(r.w[k].map(q => q.id)).size, `${k}: ids are unique`).toBe(r.w[k].length);
     for (const q of r.w[k]) soft(q.price === 0 || r.tiers.includes(q.price), `${k} ${q.id}: price ${q.price} is free or a tier`).toBe(true);
@@ -475,10 +475,11 @@ test("locked clothes can be tried on and bought", async ({ page }) => {
   // leaving with a locked Big One on: back to the last owned one, never saved
   await page.evaluate(n => { const b = window.__bb; b.progress.coins = 0; b.cycleBig(n - b.outfits.shown.big); }, robot);
   expect(await page.evaluate(() => window.__bb.outfits.shown.big)).toBe(robot);
-  expect((await outfitsSaved(page)).big).toBe(0);
+  const dad = W.big.findIndex(q => q.id === "dad");                          // SPEC-021: the default Big One is the dad
+  expect((await outfitsSaved(page)).big).toBe(dad);
   await page.keyboard.press("Escape");                                       // the shop's Wardrobe tab → home (SPEC-017)
   await frames(page);
-  expect(await page.evaluate(() => [window.__bb.mode, window.__bb.outfits.shown.big, window.__bb.outfits.saved.big])).toEqual(["home", 0, 0]);
+  expect(await page.evaluate(() => [window.__bb.mode, window.__bb.outfits.shown.big, window.__bb.outfits.saved.big])).toEqual(["home", dad, dad]);   // SPEC-021: back to the default, the dad
   // a game never starts in a locked look (even without a drawn frame in between)
   const tophat = idx("hat", "tophat");
   const g = await page.evaluate(n => {

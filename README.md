@@ -215,10 +215,12 @@ inside each world. After level 20 the win screen says the world is done and offe
 ## Outfits
 
 Shop → **Wardrobe** tab: each player builds an outfit from 4 parts — hair (8), hat (12), jacket (10, incl. hoodies,
-superhero cape, ninja) and pants (8, incl. shorts); 🎲 picks a random outfit. The Big One has 5 looks
-(Classic, Ogre, Robot, Captain, Bear). Bots get different outfits every level.
+superhero cape, ninja) and pants (8, incl. shorts); 🎲 picks a random outfit. The Big One has 6 looks
+(Classic, Ogre, Robot, Captain, Bear and the **Dad** from the story — bald, stubble, red t-shirt, jeans — the look of a
+new game; an older save that never changed the Big One gets the Dad too, and Classic stays in the wardrobe).
+Bots get different outfits every level.
 
-The basic clothes are free (all hair, 4 hats, 4 jackets, 4 pants, Classic and Ogre); the rest cost 40, 80 or 150
+The basic clothes are free (all hair, 4 hats, 4 jackets, 4 pants, Classic, Ogre and the Dad); the rest cost 40, 80 or 150
 coins and are kept forever once bought. A locked item shows 🔒 and its price: flip to it to try it on, then tap
 "Buy for N" twice. Leave the Wardrobe tab without buying and your last own look comes back; 🎲 picks only from your own
 clothes. Clothes worn in a save from before the wardrobe stay yours.
@@ -279,6 +281,9 @@ One HTML file, one ES module:
   with scissor viewports.
 - **Art** (`art/` → `assets/`): the menus, map, HUD, effects and phone buttons use the kids' felt-tip notebook
   pictures; every picture has a drawn-by-code fallback, so the game also runs without them (e.g. as a single page).
+- **3D look** (SPEC-021): the 3D world is drawn like the pictures — thick wobbly black outlines, two flat tones per colour,
+  felt-tip strokes and doodles on the ground, hatched walls, a light paper grain (desktop), round-headed kids, the Dad,
+  the blue kids' house and the dad's messy house (their roofs fade while someone is inside). All in code, no image files.
 
 ## Tuning
 
@@ -303,6 +308,7 @@ npm run assets         # art/ → assets/*.webp sprites (+ the sprite lists in i
 npm run icons          # art/2_icon.webp → the PNG app icons and the icon.svg favicon
 npm run docs:numbers   # rewrite the generated numbers table in docs/game-design.md from index.html (-- --check: only check)
 npm run balance        # play every level with the autopilot in sim mode → reports/balance.md + reports/balance.json
+node scripts/perf.js   # frame times, master vs the working copy (phone + desktop viewports; --rounds N, --grain, --base <ref>)
 ```
 
 ### Adding or changing a picture (SPEC-020)
