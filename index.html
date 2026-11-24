@@ -7,13 +7,13 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="BeBeBe">
-<meta name="theme-color" content="#2b3a2e">
+<meta name="theme-color" content="#faf4e2">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <title>BeBeBe Atrapar 3D</title>
 <style>
-  html, body { margin: 0; height: 100%; background: #2b3a2e; overflow: hidden; overscroll-behavior: none; }
+  html, body { margin: 0; height: 100%; background: #faf4e2; overflow: hidden; overscroll-behavior: none; }
   body { display: flex; align-items: center; justify-content: center; font-family: system-ui, "Segoe UI", Arial, sans-serif; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
   /* iPhone: keep the game out from under the notch and the home indicator (viewport-fit=cover) */
   body { box-sizing: border-box; padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px); }
@@ -24,14 +24,18 @@
   #game { touch-action: none; }
   /* поле ввода имени поверх подписи на холсте (шрифт ≥ 16px — iPhone не увеличивает страницу) */
   .name-input { position: absolute; box-sizing: border-box; margin: 0; padding: 0 6px; border: 2px solid #ff6fa8; border-radius: 10px; line-height: 1; background: #fff; color: #3d2b1f; font-weight: 900; font-family: system-ui, "Segoe UI", Arial, sans-serif; text-align: center; outline: none; -webkit-user-select: text; user-select: text; z-index: 5; }
-  #loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #fff; font: 700 22px system-ui, sans-serif; text-align: center; padding: 20px; }
+  #loading { position: absolute; inset: 0; display: flex; flex-direction: column; gap: 14px; align-items: center; justify-content: center; background: #faf4e2; color: #2f3f8f; font: 700 22px system-ui, sans-serif; text-align: center; padding: 20px; }
+  /* SPEC-020: полоска загрузки картинок; пока ждём картинки, игра уже готова — экран загрузки не ловит касания */
+  #loadbar { width: min(320px, 70%); height: 14px; border: 3px solid #2f3f8f; border-radius: 10px; overflow: hidden; }
+  #loadbar i { display: block; height: 100%; width: 0; background: #ff6fa8; }
+  #loading.art { pointer-events: none; }
 </style>
 </head>
 <body>
 <div id="wrap">
   <canvas id="gl"></canvas>
   <canvas id="game"></canvas>
-  <div id="loading">BeBeBe Atrapar 3D…</div>
+  <div id="loading"><div>BeBeBe Atrapar 3D…</div><div id="loadbar"><i></i></div></div>
 </div>
 <script>
   // Если 3D-движок не загрузился (нет интернета) — покажем подсказку
@@ -195,6 +199,9 @@ const CFG = {
   PHONE_SHOP: { pic: 30, picMin: 18, picGrow: 16, picW: 1.3, picBox: 1.1, badge: 11, badgeMin: 9, pad: 6, sp: 3, gap: 2, side: 5,
     nameLines: 2, descLines: 4, packLines: 2, shortLines: 1, haveLines: 2, noLines: 2, scan: 1, eps: 0.01,
     RESET_FIT: 1.15 },        // запас для надписи «Сбросить прогресс»: не влезает с ним — короткая «Сброс» (SPEC-009, шрифты CI шире)
+  // SPEC-020: картинки из папки dir (их делает npm run assets из art/); экран загрузки ждёт их не дольше waitMs мс, остальные
+  // появятся, когда догрузятся (до тех пор и при ошибке — рисунок кодом, как раньше)
+  ART: { dir: "assets/", waitMs: 5000 },
   // SPEC-017: как выглядят меню (главный экран, вкладка «Гардероб», карта уровней) — цвета и размеры в одном месте, под будущие рисунки.
   // Цвета: карточка экрана и её контур, название, плашки (фон, контур, текст), закрытый бонус (текст, вуаль картинки), кнопки Играть /
   // История (storyBtn; story ниже — размеры экрана истории) / Магазин,
@@ -292,6 +299,71 @@ const CFG = {
     arena: { homes: "diagonal", blockW: [4, 5], blockH: 4, ring: 3, gaps: [3, 4], gapW: [2, 3], halfRing: 0.5, halfGap: 2, bushes: [4, 6], trees: [4, 7], rocks: [0, 2] }
   }
 };
+
+// =====================================================================
+//  SPEC-020: КАРТИНКИ (assets/*.webp — их делает npm run assets из рисунков в art/)
+// =====================================================================
+// Каждая картинка грузится и декодируется один раз, сразу при старте. art(name) — готовая картинка или null; рисуем так:
+// const img = art("logo"); if (img) ctx.drawImage(img, …); else <рисунок кодом, как раньше>. Нет папки assets/ (страница
+// claude.ai) или файл не загрузился — игра работает и без картинок. Список между метками пишет scripts/assets.js.
+// art:start
+const ART_NAMES = [
+  "main_tile", "menu_bg", "map_bg_park", "map_bg_field", "map_bg_city", "map_bg_school", "map_bg_beach",
+  "map_bg_winter", "story_start", "story_park", "story_field", "story_city", "story_school", "story_beach",
+  "story_winter", "story_end", "story_win", "logo", "icon_shield", "icon_bandaid", "icon_cupcake", "icon_angry_heart",
+  "icon_pause", "icon_sound", "btn_green", "btn_pink", "btn_orange", "btn_grey", "round_play", "round_pause",
+  "round_sound", "round_restart", "cloud_heart_full", "cloud_heart_half", "cloud_heart_fading", "cloud_heart_empty",
+  "coin_badge", "ribbon_star", "house_messy", "house_kids", "stop_empty", "stop_current", "stop_locked", "stop_boss",
+  "star_gold", "star_empty", "stamp_done", "padlock", "world_park", "world_field", "world_city", "world_school",
+  "world_beach", "world_winter", "ui_play", "ui_back", "ui_home", "ui_story", "ui_bag", "ui_gear", "ui_sound_on",
+  "ui_sound_off", "ui_fullscreen", "ui_globe", "ui_coin", "ui_gift", "shop_fast_feet", "shop_long_items",
+  "shop_quick_help", "shop_wardrobe", "shop_items", "shop_upgrades", "hat_cap", "hat_beanie", "hat_crown", "hat_bow",
+  "hat_flower", "hat_ears", "hat_headband", "hat_tophat", "hat_viking", "hat_pirate", "hat_glasses", "jacket_blue_zip",
+  "jacket_hoodie", "jacket_stripes", "jacket_red_zip", "jacket_cape", "jacket_trench", "pants_shorts", "pants_jeans",
+  "pants_striped", "pants_overalls", "pants_joggers", "fx_burst_yellow", "fx_burst_red", "fx_burst_pink",
+  "fx_steam_left", "fx_steam_right", "fx_storm_cloud", "fx_stink", "fx_dizzy", "fx_hearts", "fx_speed", "fx_dust",
+  "fx_sparkle", "fx_bandaid", "fx_confetti", "phone_kiss", "phone_kit", "phone_stick_base", "phone_pause",
+  "phone_stick_knob", "item_boots", "item_cape", "item_banana", "item_mittens", "item_mega_mittens", "item_kiss",
+  "item_star", "item_coin", "heart_full", "heart_half", "heart_empty"
+];
+// art:end
+const artImgs = new Map();                       // имя → { img, state: "loading" | "ok" | "bad" }
+const artCount = { ok: 0, bad: 0 };
+const artDone = () => artCount.ok + artCount.bad >= ART_NAMES.length;
+function artSettle(a, ok) {
+  if (a.state !== "loading") return;
+  a.state = ok ? "ok" : "bad"; artCount[ok ? "ok" : "bad"]++;
+  artProgress();
+}
+for (const name of ART_NAMES) {
+  const a = { img: null, state: "loading" };
+  artImgs.set(name, a);
+  try {
+    const img = a.img = new Image();
+    img.src = CFG.ART.dir + name + ".webp";
+    if (img.decode) img.decode().then(() => artSettle(a, true), () => artSettle(a, false));
+    else { img.onload = () => artSettle(a, true); img.onerror = () => artSettle(a, false); }
+  } catch (e) { artSettle(a, false); }
+}
+const art = name => { const a = artImgs.get(name); return a && a.state === "ok" ? a.img : null; };
+// экран загрузки: полоска — доля готовых картинок; убираем, когда всё готово (или по таймеру из artGate)
+function artProgress() {
+  const el = document.getElementById("loading");
+  if (!el || !el.classList.contains("art")) return;
+  if (artDone()) { el.remove(); return; }
+  const bar = el.querySelector("#loadbar i");
+  if (bar) bar.style.width = Math.round(100 * (artCount.ok + artCount.bad) / ART_NAMES.length) + "%";
+}
+// игра готова: ждём картинки не дольше CFG.ART.waitMs (window.__bbReady от этого не ждёт)
+function artGate() {
+  const el = document.getElementById("loading");
+  if (!el) return;
+  if (artDone()) { el.remove(); return; }
+  el.classList.add("art");
+  artProgress();
+  setTimeout(() => el.remove(), CFG.ART.waitMs);
+}
+
 // Рукавицы из магазина: сколько сердечек забирает одна обнимашка, цена и сколько сильных обнимашек в наборе
 const GLOVES = {
   mittens: { power: 2, price: 30, charges: 3, color: "#ef4444", cuff: "#ffffff" },
@@ -6715,7 +6787,7 @@ function render3D(t) {
 // =====================================================================
 fit();
 resetWorld(1);
-document.getElementById("loading").remove();
+artGate();                                  // SPEC-020: экран загрузки ждёт картинки (недолго); игра уже готова
 window.__bbReady = true;
 let last = performance.now(), T = 0;
 function frame(now) {
@@ -6752,6 +6824,8 @@ registerServiceWorker();
 
 // для отладки и тестов
 window.__bb = {
+  // SPEC-020: art(name) — картинка или null; artInfo — сколько картинок готово / не загрузилось, всё ли решено
+  art, ART_NAMES, get artInfo() { return { total: ART_NAMES.length, ok: artCount.ok, bad: artCount.bad, done: artDone(), loadingShown: !!document.getElementById("loading") }; },
   get mode() { return mode; }, set mode(v) { if (MODES.includes(v)) mode = v; },   // SPEC-017: только экраны из MODES
   // SPEC-017: экраны меню; wardrobePage — «looks» (наряды) или «friends» (имена друзей) во вкладке «Гардероб»; resetMenus — как при запуске
   MODES, toMap, toHome, resetMenus, get muted() { return muted; },
