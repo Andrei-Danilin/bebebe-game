@@ -1,8 +1,9 @@
 // Service worker of BeBeBe Atrapar: the installed app keeps working offline after the first open.
 // Bump SW_VERSION when PRECACHE, the three.js version, an icon's content or a cache strategy changes
 // (a change to index.html alone needs no bump: it is network-first). The art sprites (assets/) are listed by npm run assets
-// below, with a hash of their bytes: a redrawn sprite changes this file, so the app installs again and refetches them.
-const SW_VERSION = "bebebe-v2";
+// below, with a hash of their bytes; the cache is named SW_VERSION + "-" + ASSETS_HASH, so a redrawn sprite gives a new cache
+// (the old one is deleted on activate) without a SW_VERSION bump.
+const SW_VERSION = "bebebe-v3";
 const CACHE_PREFIX = "bebebe-";          // all Pages projects of the account share one origin: touch only our caches
 const NET_TIMEOUT_MS = 4000;             // weak signal: after this long, a cached copy wins over a slow network
 const THREE_BASE = "https://cdn.jsdelivr.net/npm/three@0.187.0/build/";
@@ -50,15 +51,18 @@ const PRECACHE_ASSETS = [
   "./assets/heart_full.webp", "./assets/heart_half.webp", "./assets/heart_empty.webp"
 ];
 // assets:end
+const CACHE = SW_VERSION + "-" + ASSETS_HASH;
 const PRECACHE_THREE = [THREE_BASE + "three.module.js", THREE_BASE + "three.core.js"];
 const SCOPE_ROOT = new URL("./", self.location).href;
 const MATCH = { ignoreSearch: true, ignoreVary: true };
 
 self.addEventListener("install", event => {
   event.waitUntil((async () => {
-    const cache = await caches.open(SW_VERSION);
-    await cache.addAll(PRECACHE_LOCAL.concat(PRECACHE_ASSETS).map(u => new Request(u, { cache: "reload" })));
+    const cache = await caches.open(CACHE);
+    await cache.addAll(PRECACHE_LOCAL.map(u => new Request(u, { cache: "reload" })));   // the game itself: all or nothing
     await cache.addAll(PRECACHE_THREE.map(u => new Request(u, { mode: "cors" })));
+    // the art: one by one, a missing sprite never blocks the install (the game draws it with code)
+    await Promise.all(PRECACHE_ASSETS.map(u => cache.add(new Request(u, { cache: "no-cache" })).catch(() => {})));
     await self.skipWaiting();
   })());
 });
@@ -66,7 +70,7 @@ self.addEventListener("install", event => {
 self.addEventListener("activate", event => {
   event.waitUntil((async () => {
     const names = await caches.keys();
-    await Promise.all(names.filter(n => n.startsWith(CACHE_PREFIX) && n !== SW_VERSION).map(n => caches.delete(n)));
+    await Promise.all(names.filter(n => n.startsWith(CACHE_PREFIX) && n !== CACHE).map(n => caches.delete(n)));
     await self.clients.claim();
   })());
 });
@@ -75,7 +79,7 @@ self.addEventListener("activate", event => {
 function remember(event, request, response) {
   if (response.ok && (response.type === "basic" || response.type === "cors")) {
     const copy = response.clone();
-    const saved = caches.open(SW_VERSION).then(c => c.put(request, copy)).catch(() => {});
+    const saved = caches.open(CACHE).then(c => c.put(request, copy)).catch(() => {});
     try { event.waitUntil(saved); } catch (e) { /* the event is already over (cache answered first): saving goes on anyway */ }
   }
   return response;

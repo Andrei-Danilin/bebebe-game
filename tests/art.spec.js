@@ -5,6 +5,24 @@ const { test, expect } = require("@playwright/test");
 const { openGame, frames, step } = require("./helpers");
 
 const failedLoads = e => e.includes("Failed to load resource") || e.includes("ERR_");
+const fs = require("fs");
+const path = require("path");
+const INDEX_SRC = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+
+// SPEC-020 review: every art name the code can ask for exists — the tables (__bb.artTableNames) and the literal names in
+// index.html (art("…"), drawArt…("…", …), ITEM_ART-like tables are covered by the first list)
+test("every art name the game can draw is a sprite of the manifest @fast", async ({ page }) => {
+  await openGame(page);
+  const r = await page.evaluate(() => ({ names: window.__bb.ART_NAMES, table: window.__bb.artTableNames() }));
+  const lit = [...INDEX_SRC.matchAll(/\b(?:art|drawArt|drawArtFit|drawArtCover|drawArt9|iconButton|noteArt)\("([a-z0-9_]+)"/g)].map(m => m[1]);
+  // and every quoted sprite-like name anywhere else in index.html (outside the generated ART_NAMES list)
+  const body = INDEX_SRC.slice(0, INDEX_SRC.indexOf("// art:start")) + INDEX_SRC.slice(INDEX_SRC.indexOf("// art:end"));
+  const lit2 = [...body.matchAll(/"((?:stop|ui|phone|round|cloud|fx|item|icon|hat|pants|jacket|shop|world|map_bg|story|btn|star|heart|coin|menu|stamp)_[a-z]+(?:_[a-z]+)*)"/g)].map(m => m[1]);
+  expect(r.table.length).toBeGreaterThan(40);
+  expect(lit.length).toBeGreaterThan(15);
+  expect(lit2.length).toBeGreaterThan(40);
+  expect([...new Set([...r.table, ...lit, ...lit2])].filter(n => !r.names.includes(n))).toEqual([]);
+});
 
 // Every screen once (desktop): home, map, level card, story, the shop tabs, play, pause, win, lose.
 async function everyScreen(page) {
@@ -39,13 +57,43 @@ test("the game works without art: assets/ missing → every screen draws as befo
   expect(errors.filter(e => !failedLoads(e))).toEqual([]);
 });
 
+// SPEC-020 review: the same on a phone (667×375, ?phone=1): home, shop, play with effects and a stick touch, pause, win
+test.describe("the game works without art on a phone", () => {
+  test.use({ viewport: { width: 667, height: 375 }, hasTouch: true, isMobile: true });
+  test("assets/ missing on a phone → code drawing everywhere, no errors", async ({ page }) => {
+    await page.route(/\/assets\/[^/]+\.webp$/, route => route.fulfill({ status: 404, body: "" }));
+    const errors = await openGame(page, { query: "?phone=1" });
+    await page.waitForFunction(() => window.__bb.artInfo.done, null, { timeout: 15_000 });
+    await page.evaluate(() => window.__bb.resetArtUse());
+    const seen = [];
+    const show = async fn => { await page.evaluate(fn); await frames(page); seen.push(await page.evaluate(() => window.__bb.mode)); };
+    await show(() => { window.__bb.toHome(); });
+    await show(() => { const b = window.__bb; b.mode = "shop"; b.shopTab = "items"; });
+    await show(() => {
+      const b = window.__bb, c = document.getElementById("game"), r = c.getBoundingClientRect(), u = b.uiSize;
+      b.startGame(1); b.progress.inv.kisses = 2;
+      const big = b.big;
+      b.fxBurst(big.x, big.y, "heart", "#ff4d8d", 3); b.fxBurst(big.x, big.y, "star", "#fde047", 3); b.fxBurst(big.x, big.y, "dust", "#e5d3a1", 3);
+      b.popText(big.x, big.y - 40, b.I18N.en.bang, "#ffcc00", "bang");
+      const ev = (type, x, y) => c.dispatchEvent(new PointerEvent(type, { clientX: r.left + x * r.width / u.w, clientY: r.top + y * r.height / u.h, pointerId: 5, pointerType: "touch", isPrimary: true, bubbles: true, cancelable: true }));
+      ev("pointerdown", u.w * 0.25, u.h * 0.6); ev("pointermove", u.w * 0.25 + 20, u.h * 0.6);
+    });
+    expect(await page.evaluate(() => window.__bb.stickMarks.length), "the stick is drawn (by code)").toBe(1);
+    await show(() => { window.__bb.mode = "pause"; });
+    await show(() => { const b = window.__bb; b.startGame(1); b.giveReward(true); b.mode = "win"; });
+    expect(seen).toEqual(["home", "shop", "play", "pause", "win"]);
+    expect(await page.evaluate(() => window.__bb.artUse), "no sprite drawn").toEqual({});
+    expect(errors.filter(e => !failedLoads(e))).toEqual([]);
+  });
+});
+
 test("the art loads once at start: every sprite decoded, the loading screen gone @fast", async ({ page }) => {
   const errors = await openGame(page);
   await page.waitForFunction(() => window.__bb.artInfo.done, null, { timeout: 15_000 });
   const r = await page.evaluate(() => {
     const b = window.__bb, info = b.artInfo;
     const bad = b.ART_NAMES.filter(n => { const img = b.art(n); return !img || !img.complete || !img.naturalWidth; });
-    return { info, bad, same: b.art("logo") === b.art("logo"), unknown: b.art("no_such_sprite"), logoW: b.art("logo").naturalWidth };
+    return { info, bad, same: b.art("logo") === b.art("logo"), unknown: b.art("no_such_sprite"), logoW: b.art("logo").naturalWidth, version: b.artVersion };
   });
   expect(r.info).toMatchObject({ ok: r.info.total, bad: 0, done: true, loadingShown: false });
   expect(r.info.total).toBeGreaterThan(100);
@@ -53,6 +101,7 @@ test("the art loads once at start: every sprite decoded, the loading screen gone
   expect(r.same, "one Image per sprite, decoded once").toBe(true);
   expect(r.unknown).toBe(null);
   expect(r.logoW).toBeGreaterThan(500);
+  expect(r.version, "artVersion counts the sprites that became ready (SPEC-021 reads it)").toBe(r.info.total);
   expect(errors).toEqual([]);
 });
 
@@ -137,7 +186,7 @@ test("HUD, effects and the desktop pause / fullscreen buttons are drawn with the
     const big = b.big;                                                     // (setEquip restarts the level: a new Big One)
     big.hp = big.maxHp - 1.5;                                              // full, half and empty hearts
     b.fxBurst(big.x, big.y, "heart", "#ff4d8d", 3); b.fxBurst(big.x, big.y, "star", "#fde047", 3); b.fxBurst(big.x, big.y, "dust", "#e5d3a1", 3);
-    b.popText(big.x, big.y - 40, b.I18N.en.bang, "#ffcc00", "fx_burst_red");
+    b.popText(big.x, big.y - 40, b.I18N.en.bang, "#ffcc00", "bang");
   });
   expect(missing(use, ["cloud_heart_full", "cloud_heart_half", "cloud_heart_empty", "round_pause", "ui_fullscreen", "item_mittens", "item_kiss", "icon_bandaid",
     "heart_full", "fx_sparkle", "fx_dust", "fx_burst_red"])).toEqual([]);

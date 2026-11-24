@@ -209,9 +209,11 @@ const CFG = {
   // штамп «Пройдено» (доля остановки); цвет дорожки (синяя ручка); плашка монеток coin_badge: доля картинки слева (монетка) и справа.
   // В игре: облачко-сердечко Большого (к шагу сердечек), значки HUD (к высоте кнопки), джойстик (цвет кольца «на цыпочках»,
   // прозрачность основания, радиус шарика UI px); частицы-картинки (сердечко, искорка, пыль — доля клетки на экране);
-  // взрыв под всплывающей надписью (ширина к надписи, высота к кеглю)
+  // взрыв под всплывающей надписью (ширина к надписи, высота к кеглю); ink — цвета надписей экранов победы и проигрыша на бумаге
+  // (текст, «да», «нет», монетки, минус, черта итога)
   PAPER: { logoH: 132, phoneLogoH: 92, sheet: [0.3, 0.22, 0.45, 0.55], tapeW: 64, tapeH: 20, tape: "rgba(255,255,255,.62)", tapeLine: "rgba(120,120,120,.45)",
-    btnCorner: 0.34, offBtn: "#a3a3a3", cache: 6, heart: 1.3, hudIcon: 1.12, stickRing: "rgba(61,43,31,.6)", stickBase: 0.9, knob: 24,
+    btnCorner: 0.34, offBtn: "#a3a3a3", cache: 3, heart: 1.3, hudIcon: 1.12, stickRing: "rgba(61,43,31,.6)", stickBase: 0.9, knob: 24,
+    ink: { text: "#3d2b1f", good: "#15803d", off: "#64748b", gold: "#b45309", bad: "#b91c1c", line: "rgba(61,43,31,.45)" },
     fxHeart: 0.55, fxStar: 0.45, fxDust: 0.6, popBurst: 1.7, popH: 2.4, winBox: [800, 34, 500], loseBox: [780, 160, 290], pauseBox: [700, 190, 220], stop: 1.12, glow: 1.25, stamp: 0.62, pen: "rgba(40,60,160,.85)", coinLeft: 0.36, coinRight: 0.08 },
   // SPEC-017: как выглядят меню (главный экран, вкладка «Гардероб», карта уровней) — цвета и размеры в одном месте, под будущие рисунки.
   // Цвета: карточка экрана и её контур, название, плашки (фон, контур, текст), закрытый бонус (текст, вуаль картинки), кнопки Играть /
@@ -233,7 +235,9 @@ const CFG = {
   // высота — по тексту; поля, скругление, радиус звёзд, высота кнопок); скругление страницы, кольцо выбора (отступ, толщина), самый мелкий
   // текст плашки «Босс», размер рисунков фона (от, + до) и их цвета (doodle). story — экран истории: доля ширины под картинку, кегль
   // текста главы и строк правил (компьютер / телефон), точка-глава внизу (радиус), цвета бумаги, карандаша и сердечка заглушки,
-  // ширина «◀ назад» на компьютере, место под значок правила
+  // ширина «◀ назад» на компьютере, место под значок правила.
+  // SPEC-020: цвета play / ok / storyBtn / shop / back / icon / nav / dice (и map.ring, PAPER.offBtn) — ещё и роли кнопок: по цвету
+  // выбирается бумажная кнопка (PAPER_BTN у загрузчика картинок: зелёная, розовая, оранжевая, серая); новый цвет — рисунок кодом
   MENU_LOOK: { card: "rgba(255,250,235,.96)", cardLine: 5, title: "#ffcf33", pill: "#ffffff", pillLine: 3, ink: "#3d2b1f",
     locked: "#e5e7eb", lockedInk: "#64748b", lockedVeil: "rgba(226,232,240,.7)", play: "#3b82f6", storyBtn: "#a78bfa", shop: "#f59e0b", icon: "#cbd5e1", back: "#64748b", hint: "#2563eb",
     nav: "#94a3b8", ok: "#22c55e", alt: "#22c55e", tabOn: "#f59e0b", tabOff: "#cbd5e1", type: "#7c3aed", dim: "rgba(20,30,25,.45)", panel: "#ffffff",
@@ -338,28 +342,78 @@ const ART_NAMES = [
   "item_star", "item_coin", "heart_full", "heart_half", "heart_empty"
 ];
 // art:end
-const artImgs = new Map();                       // имя → { img, state: "loading" | "ok" | "bad" }
+// имя или свой путь → { img, state: "loading" | "ok" | "bad", own } (own — картинка по своему пути, в счёт загрузки не входит)
+const artImgs = new Map();
 const artCount = { ok: 0, bad: 0 };
+let artVersion = 0;                              // растёт, когда картинка готова: SPEC-021 (3D) по нему узнаёт, что пора взять текстуры
+let artStarted = false;
 const artDone = () => artCount.ok + artCount.bad >= ART_NAMES.length;
 function artSettle(a, ok) {
   if (a.state !== "loading") return;
-  a.state = ok ? "ok" : "bad"; artCount[ok ? "ok" : "bad"]++;
-  artProgress();
+  a.state = ok ? "ok" : "bad";
+  if (ok) artVersion++;
+  if (!a.own) { artCount[ok ? "ok" : "bad"]++; artProgress(); }
 }
-for (const name of ART_NAMES) artImgs.set(name, { img: null, state: "loading" });
-// грузить начинаем, когда игра уже собрана (artGate): картинки не тормозят запуск (уровень, 3D) — экран загрузки их подождёт
+function artFetch(a, src, then) {
+  try {
+    const img = a.img = new Image();
+    img.src = src;
+    const done = ok => { artSettle(a, ok); if (then) then(ok); };
+    if (img.decode) img.decode().then(() => done(true), () => done(false));
+    else { img.onload = () => done(true); img.onerror = () => done(false); }
+  } catch (e) { artSettle(a, false); if (then) then(false); }
+}
+for (const name of ART_NAMES) artImgs.set(name, { img: null, state: "loading", own: false });
+// грузить начинаем, когда игра уже собрана (artGate): картинки не тормозят запуск (уровень, 3D) — экран загрузки их подождёт.
+// Сначала логотип: не загрузился (нет папки assets/ — страница claude.ai) — остальные не просим, все «bad» (рисунок кодом).
+// Повторный вызов ничего не делает (sim(false) зовёт его, когда страница sim становится обычной)
 function artLoad() {
-  for (const [name, a] of artImgs) {
-    if (a.img) continue;
-    try {
-      const img = a.img = new Image();
-      img.src = CFG.ART.dir + name + ".webp";
-      if (img.decode) img.decode().then(() => artSettle(a, true), () => artSettle(a, false));
-      else { img.onload = () => artSettle(a, true); img.onerror = () => artSettle(a, false); }
-    } catch (e) { artSettle(a, false); }
-  }
+  if (artStarted) return;
+  artStarted = true;
+  const probe = artImgs.get("logo");
+  artFetch(probe, CFG.ART.dir + "logo.webp", ok => {
+    for (const [name, a] of artImgs) {
+      if (a.own || a.img) continue;
+      if (ok) artFetch(a, CFG.ART.dir + name + ".webp"); else artSettle(a, false);
+    }
+  });
 }
 const art = name => { const a = artImgs.get(name); return a && a.state === "ok" ? a.img : null; };
+// картинка по своему пути (глава истории с c.image): грузится один раз при первом запросе, той же таблицей
+function artFile(path) {
+  let a = artImgs.get(path);
+  if (!a) { a = { img: null, state: "loading", own: true }; artImgs.set(path, a); artFetch(a, path); }
+  return a.state === "ok" ? a.img : null;
+}
+// ---------- имена картинок: все таблицы «что → какая картинка» в одном месте (тест: каждое имя есть в ART_NAMES) ----------
+// цвет кнопки → бумажная кнопка 13_interface (цвета — роли из CFG.MENU_LOOK, см. комментарий там); других цветов — рисунок кодом
+const PAPER_BTN = (() => {
+  const M = CFG.MENU_LOOK;
+  return { [M.play]: "btn_green", [M.ok]: "btn_green", [M.storyBtn]: "btn_pink", [M.shop]: "btn_orange", [M.back]: "btn_grey", [M.icon]: "btn_grey", [M.nav]: "btn_grey",
+    [M.dice]: "btn_orange", [M.map.ring]: "btn_pink", [CFG.PAPER.offBtn]: "btn_grey" };
+})();
+// вещи (магазин, главный экран, HUD) — v1/staff и 12_icons
+const ITEM_ART = { mittens: "item_mittens", mega: "item_mega_mittens", kisses: "item_kiss", rescues: "icon_bandaid" };
+// улучшения и вкладки магазина — 22_icons_shop
+const UPG_ART = { fastFeet: "shop_fast_feet", longItems: "shop_long_items", quickHelp: "shop_quick_help" };
+const SHOP_TAB_ART = { items: "shop_items", wardrobe: "shop_wardrobe", upgrades: "shop_upgrades" };
+// вещи гардероба с рисунком 23_wardrobe (только точные совпадения с вещами игры; остальные — только 3D-превью)
+const WARDROBE_ART = {
+  hat: { cap: "hat_cap", beanie: "hat_beanie", crown: "hat_crown", bow: "hat_bow", flower: "hat_flower", ears: "hat_ears", tophat: "hat_tophat",
+    viking: "hat_viking", pirate: "hat_pirate", glasses: "hat_glasses" },
+  jacket: { hoodie: "jacket_hoodie" },
+  pants: { jeans: "pants_jeans", shorts: "pants_shorts", joggers: "pants_joggers" }
+};
+// комиксы глав (8_start, 9_1…9_4, 26_1/26_2, 10_end)
+const STORY_ART = { began: "story_start", park: "story_park", field: "story_field", city: "story_city", school: "story_school",
+  beach: "story_beach", winter: "story_winter", ended: "story_end" };
+// сердечко Большого по заполнению (0 пустое, 1 половинка — бледное облачко, 2 целое) — 13_interface
+const HEART_ART = ["cloud_heart_empty", "cloud_heart_half", "cloud_heart_full"];
+// частицы burst(kind) и взрыв под всплывающей надписью popText(…, meaning) — 24_effects, v1/staff
+const FX_ART = { heart: "heart_full", star: "fx_sparkle", dust: "fx_dust" };
+const POP_ART = { bang: "fx_burst_red", hug: "fx_burst_pink", mega: "fx_burst_yellow", kiss: "fx_burst_pink", out: "fx_burst_yellow" };
+// мир → значок (20_levelmap_parts) и страница карты (18_map_bg_*)
+const worldArt = w => "world_" + w, mapBgArt = w => "map_bg_" + w;
 // экран загрузки: полоска — доля готовых картинок; убираем, когда всё готово (или по таймеру из artGate)
 function artProgress() {
   const el = document.getElementById("loading");
@@ -370,6 +424,7 @@ function artProgress() {
 }
 // игра готова: ждём картинки не дольше CFG.ART.waitMs (window.__bbReady от этого не ждёт)
 function artGate() {
+  if (simMode) return;                          // sim (баланс, тесты): картинки не нужны; sim(false) начнёт загрузку
   artLoad();
   const el = document.getElementById("loading");
   if (!el) return;
@@ -2603,8 +2658,8 @@ function inputFor(l) {
 // =====================================================================
 //  ЛОГИКА
 // =====================================================================
-// burst — картинка взрыва под надписью (SPEC-020: fx_burst_*), необязательно
-function popText(x, y, text, color, burst) { texts.push({ x, y, text, color, t: 0, burst, w: undefined }); }
+// meaning — что случилось (SPEC-020: "bang" | "hug" | "mega" | "kiss" | "out"): под надписью рисуется свой взрыв (POP_ART), необязательно
+function popText(x, y, text, color, meaning) { texts.push({ x, y, text, color, t: 0, meaning, w: undefined }); }
 function burst(x, y, kind, color, n) {
   if (simMode) return;                   // в sim частиц нет (vrand, игровой rng() не трогают)
   for (let i = 0; i < n; i++) {
@@ -2645,7 +2700,7 @@ function push(t) {
   big.pushCd = CFG.PUSH_STAND;
   big.noPush = CFG.PUSH_RECOVER;          // передышка: какое-то время никого не толкает
   shake = 0.25;
-  popText(t.x, t.y - 40, L().bang, "#ffcc00", "fx_burst_red");
+  popText(t.x, t.y - 40, L().bang, "#ffcc00", "bang");
   burst(t.x, t.y, "dust", "#e5d3a1", 10);
   SFX.push();
 }
@@ -2663,7 +2718,7 @@ function hug(l, a) {
   stats.hugs++;
   if (l.kind === "player") stats.playerHugs++;
   logEvent("hug", { power, who: l.id, kind: l.kind });
-  popText(big.x, big.y - 70, power > 1 ? L().megaHug(power) : L().hug, power > 1 ? "#facc15" : "#ff6fa8", power > 1 ? "fx_burst_yellow" : "fx_burst_pink");
+  popText(big.x, big.y - 70, power > 1 ? L().megaHug(power) : L().hug, power > 1 ? "#facc15" : "#ff6fa8", power > 1 ? "mega" : "hug");
   burst(big.x, big.y - 30, "heart", "#ff4d8d", 12 * power);
   if (power > 1) shake = 0.3;
   SFX.hug();
@@ -2695,7 +2750,7 @@ function kissHit(k) {
   big.hp = Math.max(0, big.hp - CFG.KISS_DAMAGE);
   big.blush = CFG.KISS_BLUSH; big.blushBy = k.owner;
   big.pushCd = 0; big.path = []; big.moving = false; big.flash = 0.2;
-  popText(big.x, big.y - 40, L().kissHit, "#ff6fa8", "fx_burst_pink");
+  popText(big.x, big.y - 40, L().kissHit, "#ff6fa8", "kiss");
   popText(big.x, big.y - 112, L().blush, "#fda4af");   // выше имени Большого
   SFX.mwah();
   if (big.hp <= 0) winSoon();                            // последнее полсердечка — победа, как после обнимашки
@@ -3265,7 +3320,7 @@ function throwOut(l) {
   logEvent("thrownOut", { who: l.id });
   if (attackToken === l) attackToken = null;
   shake = 0.2;
-  popText(l.x, l.y - 40, L().thrownOut, "#fca5a5", "fx_burst_yellow");
+  popText(l.x, l.y - 40, L().thrownOut, "#fca5a5", "out");
   burst(l.x, l.y - 10, "star", "#fde047", 10);
   SFX.thrown();
 }
@@ -3351,7 +3406,7 @@ function simRun(seconds, dt = CFG.BALANCE.SIM_DT) {
 }
 // sim(on): включить/выключить режим симуляции; без аргумента — только узнать. Выключили — 3D строится заново.
 function sim(on) {
-  if (typeof on === "boolean" && on !== simMode) { simMode = on; if (!on) rebuild3D(); }
+  if (typeof on === "boolean" && on !== simMode) { simMode = on; if (!on) { rebuild3D(); artLoad(); } }
   return { on: simMode, renders, draws, sounds };
 }
 
@@ -3370,7 +3425,8 @@ function circle(x, y, r) { ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); }
 function ellipse(x, y, rx, ry) { ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, TAU); }
 function fillStroke(fill, lw = 3, stroke = OUT) { ctx.fillStyle = fill; ctx.fill(); ctx.lineWidth = lw; ctx.strokeStyle = stroke; ctx.stroke(); }
 // ---------- SPEC-020: картинки на холсте. Каждая функция рисует картинку name и возвращает true — или false, если картинки нет
-// (тогда вызывающий рисует кодом, как раньше). artUse — сколько раз за кадр нарисована каждая картинка (для тестов)
+// (тогда вызывающий рисует кодом, как раньше). artUse — сколько раз нарисована каждая картинка с последнего resetArtUse()
+// (копится, пока тест не сбросит; тесты: «этот экран нарисован картинками» / «без картинок — ни одной»)
 const artUse = {};
 function noteArt(name) { artUse[name] = (artUse[name] || 0) + 1; }
 function resetArtUse() { for (const k in artUse) delete artUse[k]; }
@@ -3413,15 +3469,8 @@ function drawArt9(name, x, y, w, h, c, cut = 0.3) {
   noteArt(name);
   return true;
 }
-// экраны с бумажными кнопками, плашками и панелями (в игре — HUD и кнопки телефона, шаг 5 SPEC-020)
-const PAPER_MODES = ["home", "map", "levelCard", "story", "shop", "pause", "win", "lose"];
-const paperUI = () => PAPER_MODES.includes(mode);
-// цвет кнопки → бумажная кнопка из 13_interface (зелёная, розовая, оранжевая, серая); другие цвета — рисунок кодом
-const PAPER_BTN = (() => {
-  const M = CFG.MENU_LOOK;
-  return { [M.play]: "btn_green", [M.ok]: "btn_green", [M.storyBtn]: "btn_pink", [M.shop]: "btn_orange", [M.back]: "btn_grey", [M.icon]: "btn_grey", [M.nav]: "btn_grey",
-    [M.dice]: "btn_orange", [M.map.ring]: "btn_pink", [CFG.PAPER.offBtn]: "btn_grey" };
-})();
+// бумажные экраны — все, кроме самой игры (в игре HUD и кнопки телефона рисуются картинками сами, где они есть)
+const paperUI = () => mode !== "play";
 // бумажная панель: кусок страницы тетради, контур, скотч на верхних углах; false — картинки нет
 // бумага панели рисуется один раз в свой холст (по размеру и скруглению) — в кадре одна отрисовка без масштаба
 const paperCache = [];
@@ -3458,8 +3507,7 @@ function regButton(x, y, w, h, text, act, id, textW) {
   buttons.push(b);
   return b;
 }
-// SPEC-020, в игре: сердечко Большого — облачко 13_interface (целое / половинка — бледное / пустое); f как у heartFill
-const HEART_ART = ["cloud_heart_empty", "cloud_heart_half", "cloud_heart_full"];
+// SPEC-020, в игре: сердечко Большого — облачко (HEART_ART); f как у heartFill
 function hpHeart(x, y, s, f, step) {
   if (drawArtFit(HEART_ART[f >= 1 ? 2 : f > 0 ? 1 : 0], x, y + s / 2, Math.max(s, step) * CFG.PAPER.heart)) return;
   drawHpHeart(x, y, s, f);
@@ -3479,11 +3527,14 @@ function plainText(text, x, y, size, color = OUT, align = "left") {
   ctx.fillText(text, x, y);
   if (PHONE) noteText("drawn", size);
 }
+const INK = new Set(Object.values(CFG.PAPER.ink));
 function label(text, x, y, size, color, align = "center") {
   ctx.font = `900 ${size}px system-ui, "Segoe UI", "Arial Rounded MT Bold", Arial, sans-serif`;   // = hudFont(size)
   ctx.textAlign = align; ctx.textBaseline = "middle";
-  ctx.lineJoin = "round"; ctx.lineWidth = labelStroke(size); ctx.strokeStyle = OUT;
-  ctx.strokeText(text, x, y);
+  if (!INK.has(color)) {                       // SPEC-020: чернила на бумаге (CFG.PAPER.ink) — без обводки
+    ctx.lineJoin = "round"; ctx.lineWidth = labelStroke(size); ctx.strokeStyle = OUT;
+    ctx.strokeText(text, x, y);
+  }
   ctx.fillStyle = color; ctx.fillText(text, x, y);
   if (PHONE) noteText("drawn", size);
 }
@@ -3685,7 +3736,6 @@ function drawMarkers(t) {
 
 // SPEC-020: частицы — картинки 24_effects / v1/staff (сердечко, искорка, пыль), размер — доля клетки на экране (камера);
 // всплывающие надписи с burst (BONK, обнимашка, поцелуй, «выгнали») — на нарисованном взрыве. Точки экрана — в переиспользуемых объектах
-const FX_ART = { heart: "heart_full", star: "fx_sparkle", dust: "fx_dust" };
 const FX_SIZE = { heart: "fxHeart", star: "fxStar", dust: "fxDust" };
 const fxA = { x: 0, y: 0 }, fxB = { x: 0, y: 0 };
 function drawFx() {
@@ -3704,9 +3754,10 @@ function drawFx() {
   for (const tx of texts) {
     toScreenTo(fxA, tx.x, tx.y, 40);
     ctx.globalAlpha = Math.max(0, 1 - tx.t / 1.2);
-    if (tx.burst && art(tx.burst)) {
+    const boom = tx.meaning && POP_ART[tx.meaning];
+    if (boom && art(boom)) {
       if (tx.w === undefined) { ctx.font = hudFont(sz); tx.w = ctx.measureText(tx.text).width; }   // ширина надписи — один раз
-      drawArt(tx.burst, fxA.x - tx.w * P.popBurst / 2, fxA.y - sz * P.popH / 2, tx.w * P.popBurst, sz * P.popH);
+      drawArt(boom, fxA.x - tx.w * P.popBurst / 2, fxA.y - sz * P.popH / 2, tx.w * P.popBurst, sz * P.popH);
     }
     label(tx.text, fxA.x, fxA.y, sz, tx.color);
   }
@@ -4347,7 +4398,7 @@ function mapDoodle(g, w, th, x, y, s, i) {
 function paintMapPage(g, w, pw, ph, pts, unit) {
   const A = CFG.MENU_LOOK.map, th = THEMES[w], r = A.pageR * unit;
   g.save(); g.beginPath(); g.moveTo(r, 0); g.arcTo(pw, 0, pw, ph, r); g.arcTo(pw, ph, 0, ph, r); g.arcTo(0, ph, 0, 0, r); g.arcTo(0, 0, pw, 0, r); g.closePath(); g.clip();
-  const bg = art("map_bg_" + w);
+  const bg = art(mapBgArt(w));
   if (bg) {                                                                // SPEC-020: нарисованная карта мира (cover), дорожка — синей ручкой
     const kk = Math.min(bg.naturalWidth / pw, bg.naturalHeight / ph);
     g.drawImage(bg, (bg.naturalWidth - pw * kk) / 2, (bg.naturalHeight - ph * kk) / 2, pw * kk, ph * kk, 0, 0, pw, ph);
@@ -4381,7 +4432,7 @@ function paintMapPage(g, w, pw, ph, pts, unit) {
   g.restore();
 }
 function drawMapPage(w, G, rects) {
-  const P = G.page, bgName = "map_bg_" + w, key = [w, P.x, P.y, P.w, P.h, VIEW, G.stop, rects.length, CFG.MENU_LOOK.map.cols, !!art(bgName)].join();
+  const P = G.page, bgName = mapBgArt(w), key = [w, P.x, P.y, P.w, P.h, VIEW, G.stop, rects.length, CFG.MENU_LOOK.map.cols, !!art(bgName)].join();
   if (!mapBgCache || mapBgCache.key !== key) {
     const cv = document.createElement("canvas");
     cv.width = Math.max(1, Math.ceil(P.w * VIEW)); cv.height = Math.max(1, Math.ceil(P.h * VIEW));
@@ -4492,9 +4543,9 @@ function drawMap(t) {
   WORLDS.forEach((wd, i) => {
     const x = tx0 + i * (tw + G.g), locked = !bonusOpen(wd), sel = wd === w;
     const ic = Math.min(tw, G.tabH);
-    if (art("world_" + wd)) {                                              // SPEC-020: значок мира из 20_levelmap_parts
+    if (art(worldArt(wd))) {                                              // SPEC-020: значок мира из 20_levelmap_parts
       if (locked) ctx.globalAlpha = 0.5;
-      drawArtFit("world_" + wd, x + tw / 2, G.Y0 + G.tabH / 2, ic * 1.06);
+      drawArtFit(worldArt(wd), x + tw / 2, G.Y0 + G.tabH / 2, ic * 1.06);
       ctx.globalAlpha = 1;
       if (locked) drawArtFit("padlock", x + tw / 2 + ic * 0.3, G.Y0 + G.tabH * 0.66, ic * 0.5);
       regButton(x, G.Y0, tw, G.tabH, locked ? "🔒" : WORLD_ICONS[wd], () => tapWorldTab(wd), "maptab:" + wd, ic);
@@ -4561,19 +4612,9 @@ function drawLevelCard() {
 
 // ---------- SPEC-017: история — глава (картинка и текст) или «Как играть» (правила и управление) ----------
 let storyInfo = null;                         // экран истории этого кадра (для тестов)
-const storyArt = new Map();                   // путь картинки → { img, state: "loading" | "ok" | "bad" }
-// картинка главы: есть путь и файл загрузился — «image»; нет пути, грузится или ошибка — заглушка (никаких исключений)
-function storyPicture(c) {
-  if (!c.image) return null;
-  let a = storyArt.get(c.image);
-  if (!a) {
-    a = { img: null, state: "loading" };
-    storyArt.set(c.image, a);
-    try { a.img = new Image(); a.img.onload = () => { a.state = "ok"; }; a.img.onerror = () => { a.state = "bad"; }; a.img.src = c.image; } catch (e) { a.state = "bad"; }
-  }
-  return a.state === "ok" ? a.img : null;
-}
-const storyLoad = c => !c.image ? "none" : (storyArt.get(c.image) || { state: "loading" }).state;
+// картинка главы по своему пути c.image (SPEC-020: тем же загрузчиком artFile); нет пути, грузится или ошибка — null
+const storyPicture = c => (c.image ? artFile(c.image) : null);
+const storyLoad = c => !c.image ? "none" : (artImgs.get(c.image) || { state: "loading" }).state;
 const chapterTitle = c => c.id === "began" ? "📖 " + L().chapters.began : c.id === "ended" ? "🎉 " + L().chapters.ended
   : `${WORLD_ICONS[c.id]} ${L().worlds[c.id]}${BONUS_WORLDS.includes(c.id) ? " · " + L().bonus : ""}`;
 // заглушка картинки: лист бумаги, карандашный рисунок (Большой и двое Маленьких обнимают его сзади), «Комикс скоро будет»
@@ -4604,9 +4645,6 @@ function storyPlaceholder(r, locked) {
   if (PHONE) noteText("main", f.sz);
   hudRects.push({ id: "story:soon", x: cx - f.w / 2, y: ty - f.sz * 0.6, w: f.w, h: f.sz * 1.2, text: f.text });
 }
-// SPEC-020: комиксы глав (8_start, 9_1…9_4, 26_1/26_2, 10_end)
-const STORY_ART = { began: "story_start", park: "story_park", field: "story_field", city: "story_city", school: "story_school",
-  beach: "story_beach", winter: "story_winter", ended: "story_end" };
 function drawStory() {
   const M = CFG.MENU_LOOK, S = M.story, k = PHONE ? cpx(1) : 1, minMain = PHONE ? minPx("main") : 13, minHint = PHONE ? minPx("hint") : 12;
   let X0, X1, Y0, Y1, g, B;
@@ -4722,20 +4760,20 @@ function drawRewardLines(rw, x, y, w, rowH, size, min, big, bigMin) {
   const put = (id, f, xx, yy, h = f.sz * 1.2) => hudRects.push({ id, x: xx, y: yy - h / 2, w: f.w, h, text: f.text });
   winPanel = { x, y, w, h: rowH * parts.length + gap + totalH };
   parts.forEach((p, i) => {
-    const yy = y + rowH * (i + 0.5), neg = p.amount < 0, col = neg ? "#fca5a5" : "#fde047";
+    const yy = y + rowH * (i + 0.5), neg = p.amount < 0, col = neg ? endInk("bad", "#fca5a5") : endInk("gold", "#fde047");
     const num = fitLine((neg ? "−" : "+") + Math.abs(p.amount), size, min, w / 3);
     label(num.text, x + w, yy, num.sz, col, "right"); note("main", num.sz); put("win-num:" + p.reason, num, x + w - num.w, yy);
     const name = fitLine(`${RW_ICONS[p.reason] || "•"} ${L().rw[p.reason] || p.reason}`, size, min, w - num.w - gap);
-    label(name.text, x, yy, name.sz, neg ? "#fca5a5" : "#fff", "left"); note("main", name.sz); put("win-line:" + p.reason, name, x, yy);
+    label(name.text, x, yy, name.sz, neg ? endInk("bad", "#fca5a5") : endInk("text", "#fff"), "left"); note("main", name.sz); put("win-line:" + p.reason, name, x, yy);
   });
   const ly = y + rowH * parts.length + gap / 2, ty = ly + gap / 2 + totalH / 2;
-  ctx.strokeStyle = "rgba(255,255,255,.55)"; ctx.lineWidth = Math.max(1, size / 9);
+  ctx.strokeStyle = endInk("line", "rgba(255,255,255,.55)"); ctx.lineWidth = Math.max(1, size / 9);
   ctx.beginPath(); ctx.moveTo(x, ly); ctx.lineTo(x + w, ly); ctx.stroke();
   const num = fitLine("+" + rw.coins, big, bigMin, w / 2);
-  label(num.text, x + w, ty, num.sz, "#fde047", "right"); note("title", num.sz); put("win-num:total", num, x + w - num.w, ty);
+  label(num.text, x + w, ty, num.sz, endInk("gold", "#fde047"), "right"); note("title", num.sz); put("win-num:total", num, x + w - num.w, ty);
   coinIcon(x + r, ty, r);
   const name = fitLine(L().rw.total, size, min, w - num.w - 2 * gap - 2 * r);
-  label(name.text, x + 2 * r + gap, ty, name.sz, "#fff", "left"); note("main", name.sz);
+  label(name.text, x + 2 * r + gap, ty, name.sz, endInk("text", "#fff"), "left"); note("main", name.sz);
   const h = Math.max(name.sz * 1.2, 2 * r);
   hudRects.push({ id: "win-line:total", x, y: ty - h / 2, w: 2 * r + gap + name.w, h, text: name.text });
 }
@@ -4822,7 +4860,6 @@ const upgradeCards = () => Object.keys(UPGRADES).map(k => {
   return { k, lv, top, name: L().upg[k].name, desc: L().upg[k].desc(Math.round(UPGRADES[k].step * 100)), price: lv < top ? UPGRADES[k].prices[lv] : 0,
     dots: "●".repeat(lv) + "○".repeat(top - lv) };
 });
-const UPG_ART = { fastFeet: "shop_fast_feet", longItems: "shop_long_items", quickHelp: "shop_quick_help" };   // SPEC-020: 22_icons_shop
 function upgPicture(k, x, y, s) {
   if (paperUI() && drawArtFit(UPG_ART[k], x, y, s * 1.2)) return;
   ctx.font = `${s}px system-ui, 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = "#000";
@@ -4849,7 +4886,6 @@ function upgButton(cd, x, y, w, h, size, min) {
 }
 // компьютер: вкладки «Вещи» · «Гардероб» · «Улучшения» (SPEC-017) от x, y, высота h; возвращает правый край
 const SHOP_TAB_ICONS = { items: "🛒 ", wardrobe: "👕 ", upgrades: "⭐ " };
-const SHOP_TAB_ART = { items: "shop_items", wardrobe: "shop_wardrobe", upgrades: "shop_upgrades" };   // SPEC-020: 22_icons_shop
 const shopTabText = (k, icons) => (icons ? SHOP_TAB_ICONS[k] : "") + L()[k + "Tab"];
 function shopTabs(x, y, h, size, min, gap, icons) {
   for (const k of SHOP_TABS) {
@@ -5003,9 +5039,9 @@ function homeGroups(h, size, min) {
   const max = CFG.STARS_PER_LEVEL * levelsPerWorld() * MAIN_WORLDS.length;
   const bonusPic = w => (x, y, s) => {
     const sz = s * 1.2;
-    if (art("world_" + w)) {                                               // SPEC-020: значок мира (закрытый — бледный)
+    if (art(worldArt(w))) {                                               // SPEC-020: значок мира (закрытый — бледный)
       if (!bonusOpen(w)) ctx.globalAlpha = 0.45;
-      drawArtFit("world_" + w, x, y, sz * 1.15);
+      drawArtFit(worldArt(w), x, y, sz * 1.15);
       ctx.globalAlpha = 1;
       return;
     }
@@ -5030,8 +5066,6 @@ const homeActions = () => {
     { id: "home:shop", text: "🛒 " + L().shop, color: M.shop, act: () => openShop(), keys: ["KeyB"], pad: [3] }
   ];
 };
-// SPEC-020: картинки вещей (плашки главного экрана) — из v1/staff и 12_icons
-const ITEM_ART = { mittens: "item_mittens", mega: "item_mega_mittens", kisses: "item_kiss", rescues: "icon_bandaid" };
 // маленькие значки звука (справа, w × h) и языка (слева от него, langW × h); x1 — правый край.
 // SPEC-020: с картинками — круглые значки 21_icons_ui; у языка рядом с глобусом код языка
 function homeIcons(x1, y, langW, w, h, size) {
@@ -5110,13 +5144,6 @@ function cycleButtons(key, sl, act, x, y, w, h, size, rightX) {
 }
 const lookRows = key => key === "big" ? [["look", BIG_SKINS, skinSel.big, d => cycleBig(d)]]
   : ["hair", "hat", "jacket", "pants"].map(sl => [sl, SLOTS[sl], skinSel[key][sl], d => cycleOutfit(key, sl, d)]);
-// SPEC-020: вещи гардероба, у которых есть рисунок 23_wardrobe (только точные совпадения с вещами игры; остальные — только 3D-превью)
-const WARDROBE_ART = {
-  hat: { cap: "hat_cap", beanie: "hat_beanie", crown: "hat_crown", bow: "hat_bow", flower: "hat_flower", ears: "hat_ears", tophat: "hat_tophat",
-    viking: "hat_viking", pirate: "hat_pirate", glasses: "hat_glasses" },
-  jacket: { hoodie: "jacket_hoodie" },
-  pants: { jeans: "pants_jeans", shorts: "pants_shorts", joggers: "pants_joggers" }
-};
 const THUMB_SLOTS = ["hat", "jacket", "pants"];
 // рисунки надетых вещей столбиком у правого края окошка 3D-превью (у Большого — нет)
 function lookThumbs(key, pnl) {
@@ -5340,10 +5367,10 @@ function drawOverlayPhone() {
     if (mode === "win") {
       // слева: заголовок, строка под ним, звёзды и за что они; справа — строки награды и итог (SPEC-009)
       pLabel(L().win, lx, Y0 + c(30), "title", 40, "#ffcf33", "center", colW);
-      pWrap(winText(), lx, Y0 + c(58), "main", 16, colW, 2, onPaper ? CFG.MENU_LOOK.ink : "#fff", 900);
+      pWrap(winText(), lx, Y0 + c(58), "main", 16, colW, 2, endInk("text", "#fff"), 900);
       for (let k = 0; k < CFG.STARS_PER_LEVEL; k++) drawStarArt(lx - c(56) + k * c(56), Y0 + c(138), c(21), k < rw.stars);
       [[true, L().victory], [rw.nobodyOut, L().nobodyOut], [rw.fast, L().fast(fmtTime(rw.target))]].forEach(([okk, txt], i) => {
-        pLabel((okk ? "✔ " : "✘ ") + txt, lx, Y0 + c(178) + i * c(26), "main", 15, okk ? "#bbf7d0" : "#cbd5e1", "center", colW);
+        pLabel((okk ? "✔ " : "✘ ") + txt, lx, Y0 + c(178) + i * c(26), "main", 15, okk ? endInk("good", "#bbf7d0") : endInk("off", "#cbd5e1"), "center", colW);
       });
       drawRewardLines(rw, rx - colW / 2, Y0 + c(14), colW, c(28), c(17), cpx(CFG.PHONE_TEXT.main), c(26), cpx(CFG.PHONE_TEXT.title));
       acts = endActions("win").map((a, i) => [...a, c([200, 150, 150][i])]);
@@ -5351,10 +5378,10 @@ function drawOverlayPhone() {
       drawBonusNote(UW / 2, Math.min(Y0 + c(262), Y1 - bh - g - c(15)), X1 - X0 - 2 * g, c(28), 15);
     } else {
       pLabel(L().lose, lx, Y0 + c(40), "title", 36, "#fca5a5", "center", colW);
-      pWrap(L().loseSub(fmtHearts(big.maxHp - big.hp), big.maxHp), lx, Y0 + c(70), "main", 17, colW, 3, onPaper ? CFG.MENU_LOOK.ink : "#fff", 900);
+      pWrap(L().loseSub(fmtHearts(big.maxHp - big.hp), big.maxHp), lx, Y0 + c(70), "main", 17, colW, 3, endInk("text", "#fff"), 900);
       const sc = lastReward ? lastReward.starCoins || 0 : 0, hugCoins = lastReward ? lastReward.coins - sc : 0;
-      if (hugCoins > 0) { coinIcon(rx - c(70), Y0 + c(60), c(12)); pLabel(L().forHugs(hugCoins), rx - c(50), Y0 + c(60), "main", 18, "#fde047", "left", colW - c(30)); }
-      if (sc > 0) pLabel("✨ " + L().starCoins(sc), rx, Y0 + c(90), "main", 16, "#fde047", "center", colW);
+      if (hugCoins > 0) { coinIcon(rx - c(70), Y0 + c(60), c(12)); pLabel(L().forHugs(hugCoins), rx - c(50), Y0 + c(60), "main", 18, endInk("gold", "#fde047"), "left", colW - c(30)); }
+      if (sc > 0) pLabel("✨ " + L().starCoins(sc), rx, Y0 + c(90), "main", 16, endInk("gold", "#fde047"), "center", colW);
       acts = endActions("lose").map((a, i) => [...a, c([180, 150, 150][i])]);
     }
     const total = acts.reduce((s, a) => s + a[3], 0) + g * 1.5 * (acts.length - 1);
@@ -5363,6 +5390,8 @@ function drawOverlayPhone() {
   }
 }
 
+// SPEC-020: на бумаге надписи итогов — чернилами (CFG.PAPER.ink[key]), без картинок — светлые, как раньше (dark)
+const endInk = (key, dark) => (paperUI() && art("menu_bg") ? CFG.PAPER.ink[key] : dark);
 // SPEC-020: бумажный лист под экраном паузы / победы / проигрыша на компьютере: box = [ширина, верх, высота] (UI px)
 function endPaper(box) {
   if (paperUI()) paperPanel(UW / 2 - box[0] / 2, box[1], box[0], box[2], 30);
@@ -5431,13 +5460,13 @@ function drawOverlay() {
   } else if (mode === "win") {
     endPaper(CFG.PAPER.winBox);
     label(L().win, UW / 2, 92, 72, "#ffcf33");
-    label(winText(), UW / 2, 146, 22, "#fff");
+    label(winText(), UW / 2, 146, 22, endInk("text", "#fff"));
     const rw = lastReward || { stars: 1, coins: 0, nobodyOut: false, fast: false, target: 0, parts: [] };
     // слева — звёзды и за что они, справа — строки награды и итог (SPEC-009)
     const lx = UW / 2 - 190;
     for (let k = 0; k < CFG.STARS_PER_LEVEL; k++) drawStarArt(lx - 80 + k * 80, 214, 32, k < rw.stars);
     [[true, L().victory], [rw.nobodyOut, L().nobodyOut], [rw.fast, L().fast(fmtTime(rw.target))]].forEach(([okk, txt], i) => {
-      labelFit((okk ? "✔ " : "✘ ") + txt, lx, 274 + i * 30, 18, 340, okk ? "#bbf7d0" : "#cbd5e1");
+      labelFit((okk ? "✔ " : "✘ ") + txt, lx, 274 + i * 30, 18, 340, okk ? endInk("good", "#bbf7d0") : endInk("off", "#cbd5e1"));
     });
     drawRewardLines(rw, UW / 2 + 20, 186, 340, 30, 19, 12, 26, 16);
     drawBonusNote(lx, 384, 360, 40, 20);   // SPEC-016: под строками звёзд, над кнопками
@@ -5448,10 +5477,10 @@ function drawOverlay() {
   } else if (mode === "lose") {
     endPaper(CFG.PAPER.loseBox);
     label(L().lose, UW / 2, UH / 2 - 100, 58, "#fca5a5");
-    label(L().loseSub(fmtHearts(big.maxHp - big.hp), big.maxHp), UW / 2, UH / 2 - 35, 24, "#fff");
+    label(L().loseSub(fmtHearts(big.maxHp - big.hp), big.maxHp), UW / 2, UH / 2 - 35, 24, endInk("text", "#fff"));
     const sc = lastReward ? lastReward.starCoins || 0 : 0, hugCoins = lastReward ? lastReward.coins - sc : 0;
-    if (hugCoins > 0) { coinIcon(UW / 2 - 70, UH / 2 - 2, 13); label(L().forHugs(hugCoins), UW / 2 - 50, UH / 2 - 2, 20, "#fde047", "left"); }
-    if (sc > 0) label("✨ " + L().starCoins(sc), UW / 2, UH / 2 + (hugCoins > 0 ? 22 : 0), 16, "#fde047");
+    if (hugCoins > 0) { coinIcon(UW / 2 - 70, UH / 2 - 2, 13); label(L().forHugs(hugCoins), UW / 2 - 50, UH / 2 - 2, 20, endInk("gold", "#fde047"), "left"); }
+    if (sc > 0) label("✨ " + L().starCoins(sc), UW / 2, UH / 2 + (hugCoins > 0 ? 22 : 0), 16, endInk("gold", "#fde047"));
     const geo = [[UW / 2 - 360, UH / 2 + 40, 240, 66], [UW / 2 - 100, UH / 2 + 40, 200, 66], [UW / 2 + 120, UH / 2 + 40, 240, 66]];
     endActions("lose").forEach(([txt, col, act], i) => { const [x, y, w, h] = geo[i]; addButton(x, y, w, h, txt, col, act, 22); });
   }
@@ -5543,6 +5572,7 @@ function drawUI(t) {
   if (mode !== "shop") { shopTab = "items"; wardrobePage = "looks"; }
   if (mode !== "map") toast = null;   // SPEC-017: подсказка карты — только пока карта на экране
   if (mode !== "map" && mode !== "levelCard") mapBgCache = null;   // фон страницы мира не держим в памяти вне карты
+  if (!paperUI()) paperCache.length = 0;                           // SPEC-020: и листы бумажных панелей — вне бумажных экранов
   ctx.setTransform(VIEW, 0, 0, VIEW, 0, 0);
   ctx.clearRect(0, 0, UW, UH);
   if (!inMenus()) { drawMarkers(t); drawFx(); drawHUD(t); }
@@ -7108,7 +7138,11 @@ registerServiceWorker();
 // для отладки и тестов
 window.__bb = {
   // SPEC-020: art(name) — картинка или null; artInfo — сколько картинок готово / не загрузилось, всё ли решено
-  get artUse() { return { ...artUse }; }, resetArtUse, fxBurst: burst, popText,   // SPEC-020: частицы и всплывающие надписи (тест картинок эффектов)
+  get artUse() { return { ...artUse }; }, resetArtUse, get artVersion() { return artVersion; },
+  // SPEC-020: все имена картинок, которые могут выдать таблицы (тест: каждое есть в ART_NAMES)
+  artTableNames: () => [...Object.values(PAPER_BTN), ...Object.values(ITEM_ART), ...Object.values(UPG_ART), ...Object.values(SHOP_TAB_ART),
+    ...Object.values(WARDROBE_ART).flatMap(Object.values), ...Object.values(STORY_ART), ...HEART_ART, ...Object.values(FX_ART), ...Object.values(POP_ART),
+    ...WORLDS.flatMap(w => [worldArt(w), mapBgArt(w)])], fxBurst: burst, popText,   // SPEC-020: частицы и всплывающие надписи (тест картинок эффектов)
   art, ART_NAMES, get artInfo() { return { total: ART_NAMES.length, ok: artCount.ok, bad: artCount.bad, done: artDone(), loadingShown: !!document.getElementById("loading") }; },
   get mode() { return mode; }, set mode(v) { if (MODES.includes(v)) mode = v; },   // SPEC-017: только экраны из MODES
   // SPEC-017: экраны меню; wardrobePage — «looks» (наряды) или «friends» (имена друзей) во вкладке «Гардероб»; resetMenus — как при запуске

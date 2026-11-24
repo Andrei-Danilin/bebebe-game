@@ -97,6 +97,7 @@ test("index.html and sw.js list every sprite (npm run assets keeps them in step)
   expect(between(fs.readFileSync(SW, "utf8"), MARK.sw), "sw.js PRECACHE_ASSETS / ASSETS_HASH: run npm run assets").toBe(want.sw);
   // and sw.js really precaches them, cache-first like the icons
   const sw = fs.readFileSync(SW, "utf8");
-  expect(sw).toContain("PRECACHE_LOCAL.concat(PRECACHE_ASSETS)");
+  expect(sw).toContain("PRECACHE_ASSETS.map(u => cache.add(");   // one by one, errors ignored (the core precache stays atomic)
+  expect(sw).toContain('const CACHE = SW_VERSION + "-" + ASSETS_HASH');
   expect(sw).toContain('url.pathname.includes("/assets/")');
 });
