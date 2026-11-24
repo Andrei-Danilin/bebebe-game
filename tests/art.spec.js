@@ -32,7 +32,7 @@ async function everyScreen(page) {
   await show("map", () => { window.__bb.toMap(); });
   await show("levelCard", () => { window.__bb.mode = "levelCard"; });
   await show("story", () => { window.__bb.openStory("began", "home"); });
-  for (const tab of ["items", "wardrobe", "upgrades"]) await show("shop", t => { const b = window.__bb; b.mode = "shop"; b.shopTab = t; }, tab);
+  for (const tab of ["progress", "items", "wardrobe", "upgrades"]) await show("shop", t => { const b = window.__bb; b.mode = "shop"; b.shopTab = t; }, tab);   // SPEC-026: + Progress
   await show("play", () => { window.__bb.startGame(1); });
   await step(page, 1);
   await show("pause", () => { window.__bb.mode = "pause"; });
@@ -54,8 +54,13 @@ test("the game works without art: assets/ missing → every screen draws as befo
   expect(await page.evaluate(() => window.__bb.art("logo"))).toBe(null);
   await page.evaluate(() => window.__bb.resetArtUse());
   const seen = await everyScreen(page);
-  expect(seen.map(s => s[1])).toEqual(["home", "map", "levelCard", "story", "shop", "shop", "shop", "play", "pause", "win", "lose", "home"]);
+  expect(seen.map(s => s[1])).toEqual(["home", "map", "levelCard", "story", "shop", "shop", "shop", "shop", "play", "pause", "win", "lose", "home"]);
   expect(await page.evaluate(() => window.__bb.artUse), "no sprite drawn: every screen used its code drawing").toEqual({});
+  // SPEC-026: the start comic without its picture (placeholder) writes no bubbles
+  await page.evaluate(() => window.__bb.openScene("intro"));
+  await frames(page);
+  expect(await page.evaluate(() => { const i = window.__bb.sceneInfo; return [i.art, i.bubble]; })).toEqual(["placeholder", null]);
+  await page.evaluate(() => window.__bb.sceneSkip());
   expect(errors.filter(e => !failedLoads(e))).toEqual([]);
 });
 
@@ -120,10 +125,11 @@ const missing = (use, names) => names.filter(n => !use[n]);
 test("home, level map and level card are drawn with the art", async ({ page }) => {
   const errors = await openGame(page, { lang: "ru" });
   await page.waitForFunction(() => window.__bb.artInfo.done, null, { timeout: 15_000 });
-  // home: notebook page, logo, paper buttons, globe + sound icons, bonus world badges, drawn coin and items
+  // home: notebook page, logo, paper buttons with their 21_icons_ui pictures (SPEC-026: Character = the bag until SPEC-027),
+  // globe + sound icons; the bonus badges, coins and items moved to the Character's Progress page (SPEC-026)
   let use = await drawn(page, () => { const b = window.__bb; b.toHome(); Object.assign(b.progress.inv, { mittens: 2, mega: 1, kisses: 3, rescues: 1 }); b.progress.coins = 5; });
-  expect(missing(use, ["menu_bg", "logo", "btn_green", "btn_pink", "btn_orange", "ui_globe", "ui_sound_on", "world_beach", "world_winter",
-    "item_coin", "item_mittens", "item_mega_mittens", "item_kiss", "icon_bandaid"])).toEqual([]);
+  expect(missing(use, ["menu_bg", "logo", "btn_green", "btn_pink", "btn_orange", "ui_globe", "ui_sound_on", "ui_play", "ui_story", "ui_bag"])).toEqual([]);
+  expect(["world_beach", "item_coin", "item_mittens"].filter(n => use[n]), "no progress on the home screen").toEqual([]);
   use = await drawn(page, () => { window.__bb.tapButton("home:sound"); });
   expect(missing(use, ["ui_sound_off"])).toEqual([]);
   await page.evaluate(() => window.__bb.tapButton("home:sound"));
@@ -161,6 +167,9 @@ test("shop, story and the end screens are drawn with the art", async ({ page }) 
   // shop · upgrades: the 22_icons_shop pictures
   use = await drawn(page, () => { const b = window.__bb; b.mode = "shop"; b.shopTab = "upgrades"; });
   expect(missing(use, ["shop_fast_feet", "shop_long_items", "shop_quick_help"])).toEqual([]);
+  // SPEC-026: Character · Progress — world badges, item and upgrade pictures, the star tab, the padlock of a locked bonus world
+  use = await drawn(page, () => { const b = window.__bb; b.mode = "shop"; b.shopTab = "progress"; });
+  expect(missing(use, ["star_gold", "world_park", "world_winter", "padlock", "item_mittens", "icon_bandaid", "shop_fast_feet", "coin_badge"])).toEqual([]);
   // story: the chapter comics in a paper frame
   use = await drawn(page, () => { window.__bb.openStory("began", "home"); });
   expect(missing(use, ["menu_bg", "story_start"])).toEqual([]);

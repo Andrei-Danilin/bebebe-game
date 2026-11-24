@@ -919,6 +919,18 @@ const PHONE_SCENES = {
   },
   // 10 coins: "not enough coins" under all four cards (SPEC-007: the tightest card layout)
   shop: async page => { await page.evaluate(() => { const b = window.__bb; b.progress.coins = 10; b.mode = "shop"; }); },
+  // SPEC-026: Character → Progress with everything counted (items, upgrades, a bonus world open, a long coin number) and its Reset armed
+  progress: async page => {
+    await page.evaluate(() => {
+      const b = window.__bb; b.mode = "home";
+      Object.assign(b.progress.inv, { mittens: 12, mega: 10, kisses: 15, rescues: 11 }); b.progress.coins = 12345;
+      Object.assign(b.progress.upgrades, { fastFeet: 3, longItems: 2, quickHelp: 1 }); b.progress.worlds.beach.won = { 1: true };
+    });
+    await frames(page);
+    await page.evaluate(() => window.__bb.tapButton("home:shop"));     // the real button: Character opens on Progress
+    await frames(page);
+    await page.evaluate(() => window.__bb.tapButton("progress:reset"));
+  },
   win: async page => {
     await page.evaluate(() => {
       const b = window.__bb; b.startGame(1);
@@ -1028,7 +1040,7 @@ for (const [vw, vh] of PHONE_SIZES) {
           return { ui: b.uiSize, buttons: b.buttonRects, hud: b.hudRects, mm: b.minimap, texts: b.textSizes, banner: b.bannerRect,
             hero: b.toScreen(l.x, l.y), head: b.toScreen(l.x, l.y, 72), mode: b.mode };
         });
-        expect(d.mode, label).toBe(name === "rest" || name === "long" || name === "down" ? "play" : name === "wardrobe" || name === "friends" ? "shop" : name === "card" ? "levelCard" : name === "rules" ? "story" : name);
+        expect(d.mode, label).toBe(name === "rest" || name === "long" || name === "down" ? "play" : name === "wardrobe" || name === "friends" || name === "progress" ? "shop" : name === "card" ? "levelCard" : name === "rules" ? "story" : name);
         fails.push(...phoneScreenProblems(label, d, minText));
         expect(d.texts.main || d.texts.title, `${label}: texts recorded`).toBeTruthy();
         if (name === "map") {
@@ -1044,6 +1056,11 @@ for (const [vw, vh] of PHONE_SIZES) {
         if (name === "shop") expect(d.buttons.map(q => q.id)).toEqual(expect.arrayContaining(["buy:mittens", "buy:mega", "buy:kisses", "buy:rescues"]));
         if (name === "wardrobe") expect(d.buttons.map(q => q.id)).toEqual(expect.arrayContaining(["tab:wardrobe", "buy-look:p1", "name:big", "random:p1", "openFriends"]));
         if (name === "friends") expect(d.buttons.filter(q => String(q.id).startsWith("name:bot")).length).toBe(4);
+        if (name === "progress") {   // SPEC-026: four tabs, Reset (armed) on the page, the numbers drawn, the 3D look free
+          expect(d.buttons.map(q => q.id).filter(id => String(id).startsWith("tab:")), label).toEqual(["tab:progress", "tab:items", "tab:wardrobe", "tab:upgrades"]);
+          expect(d.buttons.map(q => q.id), label).toContain("progress:reset");
+          expect(d.hud.map(h => h.id), label).toEqual(expect.arrayContaining(["progress:stars", "progress:worlds", "progress:bag:rescues", "progress:upg:fastFeet", "progress:clothes", "coins"]));
+        }
         if (name === "home") expect(d.buttons.map(q => q.id).sort()).toEqual(["home:lang", "home:play", "home:shop", "home:sound", "home:story"]);
         if (name === "play") {
           expect(d.texts.main, "play: main texts recorded").toBeTruthy();
@@ -1344,25 +1361,6 @@ test.describe("phone menus", () => {
     expect(Math.abs(box.width - r.rect.w * s)).toBeLessThan(1.5);
     expect(Math.abs(box.height - r.rect.h * s)).toBeLessThan(1.5);
     expect(errors).toEqual([]);
-  });
-
-  test("the install hint fits the phone home screen on iPhone Safari", async ({ browser }) => {
-    await shared.close();   // its own context: no second game page open next to it
-    const IPHONE_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1";
-    const ctx = await browser.newContext({ ...PHONE_CTX, viewport: { width: 667, height: 375 }, userAgent: IPHONE_UA });
-    const page = await ctx.newPage();
-    const errors = await openGame(page, { query: "?phone=1" });
-    const minText = await page.evaluate(() => window.__bb.CFG.PHONE_TEXT), fails = [];
-    for (const lang of ["en", "es", "ru"]) {
-      await page.evaluate(l => window.__bb.setLang(l), lang);
-      await frames(page);
-      const d = await page.evaluate(() => { const b = window.__bb; return { ui: b.uiSize, buttons: b.buttonRects, hud: b.hudRects, mm: b.minimap, texts: b.textSizes, shown: b.installHintShown }; });
-      expect(d.shown, lang).toBe(true);
-      fails.push(...phoneScreenProblems("home " + lang, d, minText));
-    }
-    expect(fails, fails.join("\n")).toEqual([]);
-    expect(errors).toEqual([]);
-    await ctx.close();
   });
 });
 

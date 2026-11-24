@@ -291,17 +291,19 @@ test("the reward grows with the world", async ({ simPage: page }) => {
     return out;
   });
   const R = r.R, base = w => R.BASE + R.PER_LEVEL * 5 + R.PER_WORLD * w;   // w — the difficulty index (SPEC-016: Winter 4)
+  const sc = v => Math.round(Number((v * R.WIN_SCALE).toFixed(6)));          // SPEC-026: the level line and the new stars × 0.7
   expect(r.cfg.fastPerWorld).toBe(10);
   // SPEC-009: each run is a first win (its own world): base + 3 new stars + 2 hugs, then + 3 star coins
-  expect(r.park.coins).toBe(base(0) + 3 * R.NEW_STAR + 2 * R.PER_HUG + 3);
-  expect(r.winter.coins).toBe(base(4) + 3 * R.NEW_STAR + 2 * R.PER_HUG + 3);
-  expect(r.winter.coins - r.park.coins).toBe(4 * r.cfg.perWorld);
+  expect(r.park.coins).toBe(sc(base(0)) + sc(3 * R.NEW_STAR) + 2 * R.PER_HUG + 3);
+  expect(r.winter.coins).toBe(sc(base(4)) + sc(3 * R.NEW_STAR) + 2 * R.PER_HUG + 3);
+  expect(r.winter.coins - r.park.coins).toBe(sc(base(4)) - sc(base(0)));
+  expect(r.winter.coins).toBeGreaterThan(r.park.coins);
   expect([r.park.target, r.winter.target]).toEqual([135, 175]);   // FAST_TIME(n) + difficulty × 10 s
   expect([r.parkSlow.fast, r.winterSlow.fast]).toEqual([false, true]);
   // the slow runs are replays of those levels: half the base, no new star (all 3 were earned the first time)
-  expect(r.parkSlow.parts[0]).toEqual({ reason: "replay", amount: Math.floor(base(0) / 2) });
-  expect(r.winterSlow.coins - r.parkSlow.coins).toBe(Math.floor(base(4) / 2) - Math.floor(base(0) / 2));
-  expect(r.floor.coins).toBe(R.FIRST_MIN + 2 * R.NEW_STAR + 2 * R.PER_HUG + 3);   // floor + 2 new stars (fast, no nobody-out) + hugs + star coins
+  expect(r.parkSlow.parts[0]).toEqual({ reason: "replay", amount: sc(Math.floor(base(0) / 2)) });
+  expect(r.winterSlow.coins - r.parkSlow.coins).toBe(sc(Math.floor(base(4) / 2)) - sc(Math.floor(base(0) / 2)));
+  expect(r.floor.coins).toBe(R.FIRST_MIN + sc(2 * R.NEW_STAR) + 2 * R.PER_HUG + 3);   // floor + 2 new stars (fast, no nobody-out) + hugs + star coins
 });
 
 test("winning level 20 finishes the world", async ({ page }) => {
@@ -1227,7 +1229,7 @@ test("the shop shows four cards in one row", { tag: "@fast" }, async ({ page }) 
     }, id);
     await page.mouse.click(buy.x, buy.y);
   };
-  await page.evaluate(() => { window.__bb.progress.coins = 35; });
+  await page.evaluate(() => { window.__bb.progress.coins = 70; });   // SPEC-026: kisses 20 + kits 50
   await frames(page);
   await click("buy:kisses");
   expect(await page.evaluate(() => window.__bb.progress.inv.kisses)).toBe(5);
@@ -1254,11 +1256,11 @@ test("buying rescue kits", async ({ simPage: page }) => {
   const r = await page.evaluate(() => {
     const b = window.__bb, out = [];
     out.push([b.RESCUE_KIT.price, b.RESCUE_KIT.pack]);
-    b.progress.coins = 35;
+    b.progress.coins = 110;
     for (let i = 0; i < 3; i++) { b.buyRescueKit(); out.push([b.progress.coins, b.progress.inv.rescues]); }
     return out;
   });
-  expect(r).toEqual([[15, 3], [20, 3], [5, 6], [5, 6]]);   // 15 coins for 3; the third time there are not enough coins
+  expect(r).toEqual([[50, 3], [60, 3], [10, 6], [10, 6]]);   // SPEC-026: 50 coins for 3; the third time there are not enough coins
   await page.reload();
   await page.waitForFunction(() => window.__bbReady === true);
   expect(await page.evaluate(() => window.__bb.progress.inv.rescues)).toBe(6);

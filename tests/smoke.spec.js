@@ -81,7 +81,7 @@ test("the gameplay states the sim tests build draw without errors", async ({ pag
 test("every screen draws without errors", async ({ page }) => {
   const errors = await openGame(page);
   // SPEC-017: home, map, story, the shop's three tabs and the friends page
-  for (const [m, tab, pg] of [["home"], ["map"], ["story"], ["shop", "items"], ["shop", "wardrobe"], ["shop", "wardrobe", "friends"], ["shop", "upgrades"], ["home"]]) {
+  for (const [m, tab, pg] of [["home"], ["map"], ["story"], ["shop", "progress"], ["shop", "items"], ["shop", "wardrobe"], ["shop", "wardrobe", "friends"], ["shop", "upgrades"], ["home"]]) {
     await page.evaluate(([v, t, f]) => { const b = window.__bb; b.mode = v; if (t) b.shopTab = t; if (f) b.wardrobePage = f; }, [m, tab, pg]);
     await page.waitForTimeout(150);
   }
@@ -113,7 +113,7 @@ for (const place of ["park", "beach", "winter", "school"]) {
 for (const lang of ["en", "es", "ru"]) {
   test(`language ${lang}: home, map, story, the shop tabs and friends draw`, async ({ page }) => {
     const errors = await openGame(page, { lang });
-    for (const [m, tab, pg] of [["home"], ["map"], ["story"], ["shop", "items"], ["shop", "wardrobe"], ["shop", "wardrobe", "friends"], ["shop", "upgrades"]]) {
+    for (const [m, tab, pg] of [["home"], ["map"], ["story"], ["shop", "progress"], ["shop", "items"], ["shop", "wardrobe"], ["shop", "wardrobe", "friends"], ["shop", "upgrades"]]) {
       await page.evaluate(([v, t, f]) => { const b = window.__bb; b.mode = v; if (t) b.shopTab = t; if (f) b.wardrobePage = f; }, [m, tab, pg]);
       await page.waitForTimeout(120);
     }

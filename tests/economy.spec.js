@@ -103,7 +103,7 @@ test("every coin change is in the ledger", async ({ simPage: page }) => {
     // money to spend (a test setup, not a game change: the ledger starts counting after it)
     b.mode = "home"; b.progress.coins = 100;
     const coins0 = b.progress.coins, n0 = b.ledger().length;
-    // shop: three buys; mega needs 60 and only 35 are left → no entry
+    // shop: three buys; mega needs 60 and nothing is left (SPEC-026: the kit costs 50) → no entry
     b.buyKisses(); b.buyGloves("mittens"); b.buyRescueKit(); b.buyGloves("mega");
     out.buys = strip(b.ledger().slice(n0));
     // a level start clears the event log, never the ledger
@@ -142,7 +142,7 @@ test("every coin change is in the ledger", async ({ simPage: page }) => {
     b.mode = "home";
     return out;
   });
-  const G = { mittens: 30, kisses: 20, rescues: 15 };
+  const G = { mittens: 30, kisses: 20, rescues: 50 };   // SPEC-026: the kit 50
   expect(r.buys).toEqual([
     { type: "coins", reason: "buy:kisses", amount: -G.kisses },
     { type: "coins", reason: "buy:mittens", amount: -G.mittens },
@@ -197,22 +197,25 @@ test("the reward rules: first win, replay, new stars, rests with floors, difficu
   });
   const { R, runs } = r, soft = softly();
   expect(Object.keys(DIFFICULTY)).toEqual(expect.arrayContaining(WORLDS));
-  const base = (w, n) => R.BASE + R.PER_LEVEL * n + R.PER_WORLD * DIFFICULTY[w];
-  const half = (w, n) => Math.floor(base(w, n) / 2);
+  // SPEC-026: a win pays × WIN_SCALE (Andrei: −30 %) on the level line and the new-star coins, each line rounded; floors, hugs, bonus stars unchanged
+  const win = v => Math.round(Number((v * R.WIN_SCALE).toFixed(6)));
+  const base = (w, n) => win(R.BASE + R.PER_LEVEL * n + R.PER_WORLD * DIFFICULTY[w]);
+  const half = (w, n) => win(Math.floor((R.BASE + R.PER_LEVEL * n + R.PER_WORLD * DIFFICULTY[w]) / 2));
+  const stars = k => win(k * R.NEW_STAR);
   expect(r.removed, "the old COINS_* keys are gone").toEqual([]);
   expect(r.rest).toBe(3);
   expect(r.star, "bonus star +3 (kids' number)").toBe(3);
   const want = {
-    firstSlow: [["firstWin", base("park", 5)], ["newStars", 2 * R.NEW_STAR], ["hugs", 2 * R.PER_HUG]],
+    firstSlow: [["firstWin", base("park", 5)], ["newStars", stars(2)], ["hugs", 2 * R.PER_HUG]],
     replaySlow: [["replay", half("park", 5)], ["hugs", 2 * R.PER_HUG]],
-    replayFast: [["replay", half("park", 5)], ["newStars", R.NEW_STAR]],
+    replayFast: [["replay", half("park", 5)], ["newStars", stars(1)]],
     replayFastAgain: [["replay", half("park", 5)]],
-    firstFast: [["firstWin", base("park", 6)], ["newStars", 3 * R.NEW_STAR], ["star", 6]],
-    oneRest: [["firstWin", base("park", 7)], ["newStars", 2 * R.NEW_STAR], ["hugs", 3 * R.PER_HUG], ["rests", -3]],
-    firstFloor: [["firstWin", base("park", 8)], ["newStars", R.NEW_STAR], ["rests", -(base("park", 8) - R.FIRST_MIN)]],
+    firstFast: [["firstWin", base("park", 6)], ["newStars", stars(3)], ["star", 6]],
+    oneRest: [["firstWin", base("park", 7)], ["newStars", stars(2)], ["hugs", 3 * R.PER_HUG], ["rests", -3]],
+    firstFloor: [["firstWin", base("park", 8)], ["newStars", stars(1)], ["rests", -(base("park", 8) - R.FIRST_MIN)]],
     replayFloor: [["replay", half("park", 8)], ["rests", -(half("park", 8) - R.REPLAY_MIN)]],
-    winterFirst: [["firstWin", base("winter", 5)], ["newStars", 2 * R.NEW_STAR], ["hugs", 2 * R.PER_HUG]],
-    winter20: [["firstWin", base("winter", 20)], ["newStars", 2 * R.NEW_STAR]]
+    winterFirst: [["firstWin", base("winter", 5)], ["newStars", stars(2)], ["hugs", 2 * R.PER_HUG]],
+    winter20: [["firstWin", base("winter", 20)], ["newStars", stars(2)]]
   };
   for (const [name, x] of Object.entries(runs)) {
     soft(x.parts, `${name}: the lines`).toEqual(want[name].map(([reason, amount]) => ({ reason, amount })));
@@ -222,12 +225,80 @@ test("the reward rules: first win, replay, new stars, rests with floors, difficu
     soft(x.won, `${name}: the level is marked won`).toBe(true);
     soft(x.first, `${name}: first win flag`).toBe(x.parts[0].reason === "firstWin");
   }
-  soft(runs.firstFloor.coins - R.NEW_STAR, "first win + rests never below FIRST_MIN").toBe(R.FIRST_MIN);
+  soft(runs.firstFloor.coins - stars(1), "first win + rests never below FIRST_MIN").toBe(R.FIRST_MIN);
   soft(runs.replayFloor.coins, "replay + rests never below REPLAY_MIN").toBe(R.REPLAY_MIN);
   soft(runs.replaySlow.coins < runs.firstSlow.coins, "a replay pays less than the first win (kids' rule)").toBe(true);
-  soft(runs.winterFirst.coins - runs.firstSlow.coins, "Winter (difficulty 4) pays 4 × PER_WORLD more than the Park (0)").toBe(4 * R.PER_WORLD);
+  soft(runs.winterFirst.coins - runs.firstSlow.coins, "Winter (difficulty 4) pays 4 × PER_WORLD more than the Park (0), × WIN_SCALE").toBe(base("winter", 5) - base("park", 5));
+  soft(base("winter", 5) > base("park", 5), "Winter pays more").toBe(true);
   soft(r.notWon, "a level never won is not marked").toBe(false);
   soft.done();
+});
+
+// ---------- SPEC-026 AC 1–4: Andrei's prices (a win pays 30 % less, the kit costs 50, upgrades ×1.5) ----------
+test("SPEC-026: a win pays 30 % less; the rescue kit costs 50; every upgrade ×1.5", { tag: "@fast" }, async ({ simPage: page }) => {
+  const r = await page.evaluate(() => {
+    const b = window.__bb, out = { scale: b.REWARD.WIN_SCALE, kit: { ...b.RESCUE_KIT }, upg: Object.fromEntries(Object.entries(b.UPGRADES).map(([k, u]) => [k, [...u.prices]])),
+      card: b.shopCards().find(c => c.k === "rescues").price, runs: {} };
+    const win = (name, w, n, st, before) => {
+      const wp = b.progress.worlds[w];
+      if (before) { wp.won[n] = true; wp.stars[n] = before; } else { delete wp.won[n]; delete wp.stars[n]; }
+      b.world = w; b.level = n; b.startGame(1);
+      Object.assign(b.stats, { playerHugs: 0, rests: 0, time: 9999, starCoins: 0 }, st);
+      b.giveReward(true); b.mode = "home";
+      out.runs[name] = { coins: b.lastReward.coins, parts: b.lastReward.parts.map(p => [p.reason, p.amount]) };
+    };
+    // Park 1, first win: slow, nobody rested (2 stars), 2 hugs, one bonus star picked up
+    win("park1First", "park", 1, { playerHugs: 2, starCoins: 3 });
+    // School 20, first win: slow, nobody rested (2 stars)
+    win("school20First", "school", 20, {});
+    // Park 1 replay: won before with 2 stars, now fast (the 3rd star is new)
+    win("park1Replay", "park", 1, { time: 10 }, 2);
+    // the kit: 49 coins are not enough, 50 buy a pack of 3
+    b.progress.coins = 49; b.progress.inv.rescues = 0; b.buyRescueKit();
+    out.kit49 = [b.progress.coins, b.progress.inv.rescues];
+    b.progress.coins = 50; b.buyRescueKit();
+    out.kit50 = [b.progress.coins, b.progress.inv.rescues];
+    // an upgrade: level 1 for 150
+    b.progress.coins = 149; b.progress.upgrades.fastFeet = 0; b.buyUpgrade("fastFeet");
+    out.upg149 = [b.progress.coins, b.progress.upgrades.fastFeet];
+    b.progress.coins = 150; b.buyUpgrade("fastFeet");
+    out.upg150 = [b.progress.coins, b.progress.upgrades.fastFeet];
+    return out;
+  });
+  expect(r.scale, "REWARD.WIN_SCALE (Andrei: −30 %)").toBe(0.7);
+  expect(r.kit, "RESCUE_KIT: 50 coins, pack stays 3").toEqual({ price: 50, pack: 3 });
+  expect(r.card, "the shop card shows the new price").toBe(50);
+  expect(r.upg, "every upgrade price ×1.5").toEqual({ fastFeet: [150, 300, 450], longItems: [150, 300, 450], quickHelp: [150, 300, 450] });
+  // base = 15 + 1 × n + 10 × difficulty; first win = all of it, replay = half (floor); × 0.7 and rounded; new stars 6 each × 0.7
+  expect(r.runs.park1First, "Park 1 first win: 16 → 11, 2 new stars 12 → 8, the bonus star and hugs unchanged").toEqual({ coins: 24, parts: [["firstWin", 11], ["newStars", 8], ["star", 3], ["hugs", 2]] });
+  expect(r.runs.school20First, "School 20 first win: 65 → 46 (45.5 rounds up), 2 new stars 12 → 8").toEqual({ coins: 54, parts: [["firstWin", 46], ["newStars", 8]] });
+  expect(r.runs.park1Replay, "Park 1 replay: 8 → 6, 1 new star 6 → 4").toEqual({ coins: 10, parts: [["replay", 6], ["newStars", 4]] });
+  expect(r.kit49, "49 coins buy no kit").toEqual([49, 0]);
+  expect(r.kit50, "50 coins buy 3 kits").toEqual([0, 3]);
+  expect(r.upg149).toEqual([149, 0]);
+  expect(r.upg150).toEqual([0, 1]);
+});
+
+test("SPEC-026: an old save keeps its kits, upgrade levels and clothes; nothing refunded or re-charged", async ({ simPage: page }) => {
+  const f = JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures", "saves", "pre-spec-026.json"), "utf8"));
+  const r = await page.evaluate(raw => {
+    const b = window.__bb, p = JSON.parse(JSON.stringify(b.loadProgress(JSON.parse(raw))));
+    // play on with it: the next longItems level (2) costs the new price for level 2
+    b.setProgress(JSON.parse(raw));
+    const c0 = b.progress.coins; b.buyUpgrade("longItems");
+    const fullTop = b.progress.upgrades.fastFeet;
+    b.buyUpgrade("fastFeet");                     // already at the top: nothing happens
+    return { p, spent: c0 - b.progress.coins, longItems: b.progress.upgrades.longItems, fastFeet: [fullTop, b.progress.upgrades.fastFeet], coinsAfter: b.progress.coins };
+  }, JSON.stringify(f.keys["bebebe-progress"]));
+  const want = f.expect.progress;
+  expect(r.p.coins, "coins as saved").toBe(want.coins);
+  expect(r.p.inv, "kits and items as saved").toEqual(want.inv);
+  expect(r.p.upgrades, "upgrade levels as saved").toEqual(want.upgrades);
+  expect(r.p.owned, "clothes as saved").toEqual(want.owned);
+  expect(r.spent, "the next level costs today's price").toBe(300);
+  expect(r.longItems).toBe(2);
+  expect(r.fastFeet, "a maxed upgrade stays maxed, no charge").toEqual([3, 3]);
+  expect(r.coinsAfter).toBe(want.coins - 300);
 });
 
 test("leaving a level early pays only the hugs", async ({ simPage: page }) => {
@@ -685,11 +756,11 @@ test("upgrades apply to players only and stop at level 3", { tag: "@fast" }, asy
     b.mode = "home";
     return out;
   });
-  expect(r.U).toEqual({ fastFeet: { step: 0.03, prices: [100, 200, 300] }, longItems: { step: 0.15, prices: [100, 200, 300] }, quickHelp: { step: 0.1, prices: [100, 200, 300] } });
+  expect(r.U).toEqual({ fastFeet: { step: 0.03, prices: [150, 300, 450] }, longItems: { step: 0.15, prices: [150, 300, 450] }, quickHelp: { step: 0.1, prices: [150, 300, 450] } });   // SPEC-026: ×1.5
   expect(r.poor).toEqual({ lv: 0, sound: true, ledger: 0 });
   expect(r.levels).toEqual([1, 2, 3, 3]);
-  expect(r.spent).toEqual([100, 200, 300].map(a => ({ reason: "buy:upgrade:fastFeet", amount: -a })));
-  expect(r.coinsAfter).toBe(5000 - 600);
+  expect(r.spent).toEqual([150, 300, 450].map(a => ({ reason: "buy:upgrade:fastFeet", amount: -a })));
+  expect(r.coinsAfter).toBe(5000 - 900);
   expect(r.all).toEqual({ fastFeet: 3, longItems: 3, quickHelp: 3 });
   expect(r.copy, "__bb.upgrades is a copy").toBe(3);
   expect(r.cfgSame, "upgrades change no CFG value").toBe(true);
@@ -707,7 +778,7 @@ test("upgrades are saved, merged with defaults and cleaned", async ({ simPage: p
     return [L({ upgrades: { fastFeet: 2, longItems: 9, quickHelp: "x", jump: 3 } }), L({ upgrades: { fastFeet: 1.7, longItems: -2 } }), L({ upgrades: "junk" }), L({ upgrades: null }), L({ coins: 4 })];
   });
   expect(c).toEqual([{ fastFeet: 2, longItems: 3, quickHelp: 0 }, { fastFeet: 1, longItems: 0, quickHelp: 0 }, ...Array(3).fill({ fastFeet: 0, longItems: 0, quickHelp: 0 })]);
-  await page.evaluate(() => { const b = window.__bb; b.progress.coins = 300; b.buyUpgrade("quickHelp"); b.buyUpgrade("quickHelp"); });
+  await page.evaluate(() => { const b = window.__bb; b.progress.coins = 450; b.buyUpgrade("quickHelp"); b.buyUpgrade("quickHelp"); });   // SPEC-026: 150 + 300
   await page.reload();
   await page.waitForFunction(() => window.__bbReady === true);
   expect(await page.evaluate(() => [window.__bb.upgrades, window.__bb.progress.coins])).toEqual([{ fastFeet: 0, longItems: 0, quickHelp: 2 }, 0]);
@@ -738,7 +809,7 @@ test("the shop has an Items tab and an Upgrades tab", async ({ page }) => {
   const d = await page.evaluate(() => ({ hud: window.__bb.hudRects, btn: window.__bb.buttonRects.filter(q => String(q.id).startsWith("upg:")), I: window.__bb.I18N.en }));
   expect(d.hud.find(h => h.id === "upg-dots:longItems").text).toBe("●●○");
   expect(d.hud.find(h => h.id === "upg-dots:fastFeet").text).toBe("○○○");
-  expect(d.btn.find(q => q.id === "upg:longItems").text).toContain("300");
+  expect(d.btn.find(q => q.id === "upg:longItems").text).toContain("450");   // SPEC-026: level 3 costs 450
   expect(d.btn.find(q => q.id === "upg:quickHelp").text).toContain(d.I.upgMax);
   await page.keyboard.press("ArrowLeft");                                     // SPEC-017: three tabs — Items · Wardrobe · Upgrades
   await frames(page);
@@ -770,10 +841,8 @@ async function upgradeTabProblems(page, phone) {
     const d = await page.evaluate(() => { const b = window.__bb, resets = ["en", "es", "ru"].flatMap(l => ["reset", "resetShort", "sure", "sureShort"].map(k => b.I18N[l][k]));
       return { buttons: b.buttonRects, hud: b.hudRects, ui: b.uiSize, texts: b.textSizes, min: b.CFG.PHONE_TEXT, tab: b.shopTab, resets }; });
     if (d.tab !== "upgrades") { fails.push(`${at}: tab ${d.tab}`); continue; }
-    // the reset button keeps room for fonts ~20 % wider than ours (CI's Linux fonts: "Сбросить прогресс" overflowed at 667, ru ×1.15)
-    const rb = d.buttons.find(q => d.resets.includes(q.text));
-    if (!rb) fails.push(`${at}: no reset button`);
-    else if (phone && rb.textW * 1.2 > rb.w + 0.5) fails.push(`${at}: reset button text ${rb.textW} leaves no room for wider fonts in ${rb.w}`);
+    // SPEC-026: Reset progress moved to the Character's Progress page — not on the Upgrades tab
+    if (d.buttons.some(q => d.resets.includes(q.text))) fails.push(`${at}: a reset button on the Upgrades tab`);
     const s = d.ui.scale, inside = r => r.x >= -0.01 && r.y >= -0.01 && r.x + r.w <= d.ui.w + 0.01 && r.y + r.h <= d.ui.h + 0.01;
     const btns = KEYS.map(k => d.buttons.find(q => q.id === "upg:" + k));
     if (btns.some(q => !q)) { fails.push(`${at}: missing upgrade buttons`); continue; }
@@ -839,14 +908,22 @@ test("the balance report's economy targets are computed from the runs' coins", {
   const upgradeRuns = [17, 18, 19, 20].map(n => ({ world: E.UPG_EXTRA[0], n, seed: 0, win: true, time: 40, coins: 0 }));
   const ec = analyseEconomy(runs, replayRuns, upgradeRuns, B, worlds, perWorld, prices), ok = ec.targets.map(t => t.ok);
   expect(ec.worlds.map(r => [r.world, r.median, r.total, r.streak])).toEqual([["park", 50, 300, 200], ["school", 100, 600, 400], ["beach", 100, 600, 400], ["winter", 100, 600, 400]]);
-  expect(ok[0], "Park median 50 is within 30–60").toBe(true);
-  expect(ok[3], "1800 > 60 % of 1500").toBe(false);
+  expect(ok[0], "Park median 50 is within PARK_PACKS × 15").toBe(true);
+  expect(ok[3], "1800 > UPGRADE_SHARE of 1500").toBe(false);
+  expect(ec.targets[0].want, "a fractional pack count prints as whole coins (SPEC-026: 1.6 × 15)").toBe(`${+(E.PARK_PACKS[0] * 15).toFixed(6)}–${E.PARK_PACKS[1] * 15}`);
   // replay: (10 + 50) / 2 min vs (40 + 40) / 2 min (the seed-0 first runs) = 75 % → red; park 2 pays 50 ≥ its first win 40 → red
   expect(ec.replay.map(r => [r.n, r.firstCoins, r.replayCoins])).toEqual([[1, 40, 10], [2, 40, 50]]);
   expect([ok[4], ok[5]]).toEqual([false, false]);
   // the upgrades pass needs the same levels in the first pass: here there are none past level 6, so it has no pairs
   expect(ec.upgrades).toEqual([]);
   expect(ok[6], "no upgrade runs to compare: not green").toBe(false);
+  // SPEC-026: the pace lines (no targets) — levels per pack in the Park (median 50) and per upgrade level (first 3 worlds: median 100)
+  const ec2 = analyseEconomy(runs, replayRuns, upgradeRuns, B, worlds, perWorld,
+    { ...prices, packs: [{ k: "kisses", price: 20 }, { k: "rescues", price: 50 }], upgradeLevels: [150, 300, 450] });
+  expect(ec2.targets.map(t => t.ok), "the pace adds no target").toEqual(ok);
+  expect(ec2.pace.packs).toEqual([{ k: "kisses", price: 20, levels: 0.4 }, { k: "rescues", price: 50, levels: 1 }]);
+  expect(ec2.pace.upgrades.map(q => [q.level, q.price, q.levels])).toEqual([[1, 150, 1.5], [2, 300, 3], [3, 450, 4.5]]);
+  expect(ec2.pace.allUpgrades).toEqual({ price: 1800, levels: 18 });
 });
 
 // ---------- review fixes (SPEC-009 fix round 1) ----------

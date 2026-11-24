@@ -289,16 +289,18 @@ const CFG = {
   // грани, к солнцу повёрнутые меньше side (cos), штрихуются — бока стен; повёрнутые к солнцу (0…side) — светлее (доля lit)
   HATCH_LOOK: { freq: 3, width: 0.32, dark: 0.3, side: 0.45, lit: 0.6 },
   // SPEC-017: как выглядят меню (главный экран, вкладка «Гардероб», карта уровней) — цвета и размеры в одном месте, под будущие рисунки.
-  // Цвета: карточка экрана и её контур, название, плашки (фон, контур, текст), закрытый бонус (текст, вуаль картинки), кнопки Играть /
-  // История (storyBtn; story ниже — размеры экрана истории) / Магазин,
+  // Цвета: карточка экрана и её контур, название, плашки (фон, контур, текст), закрытый бонус (текст, вуаль картинки), кнопки Играть
+  // (SPEC-026: зелёная и без картинок) / История (storyBtn, розовая; story ниже — размеры экрана истории) / Персонаж (shop),
   // значки языка и звука, кнопка «назад»; кнопки: стрелки (nav), «Готово» (ok), «2 игрока» (alt), вкладка выбрана / нет, тип уровня,
   // затемнение под карточкой, белые панели, «Друзья» и их заголовок, 🎲, сброс (обычный / «точно?»), подсказки, замок цены, тексты
-  // помельче, имя Большого. frame — карточка экрана меню на компьютере (ширина, верх, высота, скругление, поля, промежуток, высота кнопок).
-  // home — компьютер (UI px): карточка (ширина, верх, высота, скругление), название
-  // (середина, кегль), строки плашек (верх, высота, промежуток между строками и плашками, поле текста, кегль), Играть
-  // (ширина, высота, кегль, отступ сверху), История и Магазин (ширина, высота, кегль), значки (ширина звука и языка, высота, кегль,
-  // отступ от края).
-  // phoneHome — телефон (CSS px): доля и предел ширины правой колонки, кегль названия, строки плашек, высоты кнопок, ширина значка языка.
+  // помельче, имя Большого. frame — карточка экрана меню на компьютере (ширина, верх, высота, скругление, поля, промежуток, высота кнопок,
+  // SPEC-026: ширина ряда вкладок персонажа — до монеток).
+  // home — компьютер (UI px; SPEC-026: название и три кнопки столбиком по центру): карточка без картинки фона (ширина, верх, высота,
+  // скругление), кегль названия без картинки логотипа, поле плашек (карта), промежуток значков, колонка кнопок (доля ширины экрана не
+  // больше, ширина), поля сверху и снизу, логотип не шире logoW колонки и logoBand ширины экрана (и на телефоне: середина экрана — AC 7), от логотипа до кнопок, между кнопками, Играть (высота, кегль), История и Персонаж (высота,
+  // кегль), значки (ширина звука и языка, высота, кегль, отступ от края).
+  // phoneHome — телефон (CSS px; SPEC-026 — та же раскладка): доля и предел ширины колонки кнопок, кегль названия без логотипа, поле
+  // плашек (карта), от логотипа до кнопок, самый низкий логотип, Играть и остальные (высота, кегль), ширина значка языка.
   // wardrobe — вкладка «Гардероб»: окошко превью на телефоне, низ колонок и ряд кнопок на компьютере (UI px).
   // map — карта уровней: столбцов остановок (ряды змейкой), размер остановки (компьютер UI px / телефон CSS px), во сколько раз
   // больше остановка босса (уровень 20), доля высоты остановки под звёзды, высота вкладок (компьютер), ширина «◀ Главная» и монеток,
@@ -312,14 +314,20 @@ const CFG = {
   // SPEC-020: цвета play / ok / storyBtn / shop / back / icon / nav / dice (и map.ring, PAPER.offBtn) — ещё и роли кнопок: по цвету
   // выбирается бумажная кнопка (PAPER_BTN у загрузчика картинок: зелёная, розовая, оранжевая, серая); новый цвет — рисунок кодом
   MENU_LOOK: { card: "rgba(255,250,235,.96)", cardLine: 5, title: "#ffcf33", pill: "#ffffff", pillLine: 3, ink: "#3d2b1f",
-    locked: "#e5e7eb", lockedInk: "#64748b", lockedVeil: "rgba(226,232,240,.7)", play: "#3b82f6", storyBtn: "#a78bfa", shop: "#f59e0b", icon: "#cbd5e1", back: "#64748b", hint: "#2563eb",
+    locked: "#e5e7eb", lockedInk: "#64748b", lockedVeil: "rgba(226,232,240,.7)", play: "#16a34a", storyBtn: "#ec4899", shop: "#f59e0b", icon: "#cbd5e1", back: "#64748b",
     nav: "#94a3b8", ok: "#22c55e", alt: "#22c55e", tabOn: "#f59e0b", tabOff: "#cbd5e1", type: "#7c3aed", dim: "rgba(20,30,25,.45)", panel: "#ffffff",
     friends: "#a78bfa", friendsTitle: "#8b5cf6", dice: "#fbbf24", reset: "#94a3b8", armed: "#ef4444", note: "#64748b", lockNote: "#b45309", soft: "#475569", bigInk: "#9b2c3a",
-    frame: { w: 880, y: 26, h: 590, r: 30, padX: 15, padY: 14, g: 10, B: 50 },
-    home: { w: 660, y: 40, h: 560, r: 30, titleY: 136, titleSize: 54, rowY: 186, rowH: 44, rowGap: 14, gap: 12, pad: 14, text: 20,
-      playW: 320, playH: 84, playSize: 34, playGap: 30, subW: 155, subH: 62, subSize: 24, iconW: 56, langW: 92, iconH: 44, iconSize: 18, iconPad: 16 },
-    phoneHome: { col: 0.42, colMax: 300, titleSize: 30, rowH: 38, rowGap: 8, gap: 8, pad: 12, text: 16, playH: 78, subH: 54, langW: 76 },
+    frame: { w: 880, y: 26, h: 590, r: 30, padX: 15, padY: 14, g: 10, B: 50, tabsW: 655 },
+    home: { w: 660, y: 40, h: 560, r: 30, titleSize: 54, pad: 14, gap: 12, col: 0.4, colW: 320, top: 24, logoGap: 26, btnGap: 14, logoW: 1.4, logoBand: 0.5,
+      playH: 84, playSize: 34, subH: 62, subSize: 26, iconW: 56, langW: 92, iconH: 44, iconSize: 18, iconPad: 16 },
+    phoneHome: { col: 0.4, colMax: 300, titleSize: 30, pad: 12, logoGap: 10, logoMin: 56, playH: 64, playSize: 26, subH: 52, subSize: 20, langW: 76 },
     wardrobe: { preview: 110, colBottom: 548, rowY: 558, rowH: 46 },
+    // SPEC-026: страница «Прогресс» персонажа (раскладка — Claude, проверить с детьми). Компьютер (UI px): верх и низ страницы (под вкладками,
+    // над рядом «Готово»), ширина левой колонки (вид игрока и имя), промежуток колонок, доля остального под таблицу миров, окошко 3D-вида,
+    // высоты: имя, строка итога (звёзды, миры), строка мира, заголовок, клетка вещи / улучшения; кегли: текст, заголовок; самый мелкий
+    // текст, доля названия мира в строке (только компьютер); phone — то же на телефоне (CSS px; без верха и низа — под полосой вкладок)
+    progress: { top: 92, bottom: 528, left: 200, gap: 16, mid: 0.64, pv: 190, nameH: 32, sumH: 34, rowH: 46, titleH: 30, cellH: 46, text: 19, title: 19, min: 12, name: 0.4,
+      phone: { left: 112, gap: 12, mid: 0.54, pv: 104, nameH: 24, sumH: 24, rowH: 30, titleH: 22, cellH: 32, text: 15, title: 15 } },
     map: { cols: 5, stop: 62, phoneStop: 46, boss: 1.22, starRow: 0.3, tabH: 52, backW: 140, coinsW: 150, phoneCoins: 88, titleH: 38, phoneTitleH: 30,
       bounce: 4, bounceSpeed: 5, swipe: 50, toastTime: 2.5, toastRows: 2, toastLine: 1.1, toastPadY: 0.3, dotW: 4, dash: 2, dashGap: 9, path: "rgba(255,255,255,.9)", pageR: 18, ringPad: 5, ringW: 4, badgeMin: 11,
       open: "#ffffff", next: "#fde047", closed: "#cbd5e1", ring: "#ff6fa8", badge: "#ef4444", badgeInk: "#ffffff", done: "#15803d", doneBg: "#dcfce7", toastBg: "#334155", toastInk: "#ffffff",
@@ -327,9 +335,19 @@ const CFG = {
       doodle: { trunk: "#8b5a2b", ball: "#ffffff", window: "#bae6fd", flag: "#ef4444", palm: "#a0703f", leaf: "#16a34a", snow: "#ffffff", road: "#6b7280" } },
     // SPEC-022: заставки истории — клетки комикса 8_start (доли картинки [x, y, w, h], по порядку подписей), кегль подписи
     // (компьютер / телефон, UI px до cpx), строк подписи на компьютере (картинка над подписью), доля ширины под картинку на
-    // телефоне (картинка слева, подпись справа), ширина кнопок на компьютере, кегль «Спасибо!»
+    // телефоне (картинка слева, подпись справа), ширина кнопок на компьютере, кегль «Спасибо!».
+    // SPEC-026: облачка комикса для слов папы (STORY[0].bubbles) — [x, y, w, h, кончик хвостика x, y], доли всей картинки 8_start
+    // (1024×765; белое внутри облачка без хвостика, промерено по картинке), по клетке; какая часть облачка под текстом (ширина, высота:
+    // облачко круглое), строк не больше, шаг строк (в кеглях), самый мелкий текст на компьютере (как у подписи; телефон — PHONE_TEXT.main), цвет букв;
+    // своё облачко, когда слова не влезли: какая его часть под текстом (ширина, высота), во сколько раз больше нарисованного
+    // облачка самое меньшее (закрывает его), не шире доли клетки, отступ от края клетки (UI px компьютера), длина хвостика (доля
+    // высоты облачка), неровность контура (доля радиуса), «квадратность» (степень суперэллипса: 2 — эллипс, больше — ближе к
+    // прямоугольнику со скруглёнными углами, слова влезают лучше) и толщина контура (UI px компьютера)
     scene: { panels: [[0, 0, 0.5, 0.5], [0.5, 0, 0.5, 0.5], [0, 0.5, 0.5, 0.5], [0.5, 0.5, 0.5, 0.5]], text: 22, phoneText: 17, lines: 3,
-      phonePic: 0.6, btnW: 220, thanks: 46, phoneThanks: 30, madeBy: 24, phoneMadeBy: 18, cupcake: 0.42 },
+      phonePic: 0.6, btnW: 220, thanks: 46, phoneThanks: 30, madeBy: 24, phoneMadeBy: 18, cupcake: 0.42,
+      bubbles: [[255 / 1024, 28 / 765, 177 / 1024, 87 / 765, 270 / 1024, 136 / 765], [785 / 1024, 43 / 765, 155 / 1024, 87 / 765, 867 / 1024, 150 / 765],
+        [132 / 1024, 412 / 765, 113 / 1024, 78 / 765, 241 / 1024, 502 / 765], [633 / 1024, 396 / 765, 176 / 1024, 84 / 765, 664 / 1024, 516 / 765]],
+      bubbleIn: [0.84, 0.72], bubbleLines: 2, bubbleLh: 1.15, bubbleMin: 14, bubbleInk: "#1b1b1b", ownIn: [0.86, 0.7], ownCover: 1.08, ownMax: 1, ownEdge: 4, ownTail: 0.42, ownWobble: 0.03, ownRound: 3, ownLine: 3 },
     story: { pic: 0.47, text: 22, phoneText: 18, rule: 17, phoneRule: 15, dot: 6, paper: "#fffdf5", pencil: "#94a3b8", heart: "#f9a8d4", backW: 170, icon: 30 } },
   // типы уровней внутри каждого мира (SPEC-006): 1 — рисунок детей, 2–4 поляна, 5–7 деревня, 8–10 река,
   // 11–13 дом с комнатами, 14–16 арена, 17–20 лабиринт; число записей = уровней в мире
@@ -359,12 +377,14 @@ const CFG = {
     CI_LEVELS: [["park", 3], ["park", 18], ["field", 4], ["field", 19], ["city", 2], ["city", 18], ["school", 2], ["school", 19], ["beach", 4], ["beach", 17],
       ["winter", 5], ["winter", 20]],
     // SPEC-009: темп монеток (первое прохождение = careful-забеги с нового прогресса; доход забега = сумма его событий coins,
-    // медиана по сидам). «Набор» — самый дешёвый в магазине (спасалка, 15). PARK_PACKS — медиана дохода уровня Парка в наборах
+    // медиана по сидам). «Набор» — самый дешёвый в магазине (SPEC-026: поцелуи, 20; спасалка теперь 50). PARK_PACKS — медиана дохода уровня Парка в наборах
     // [от, до]; STREAK уровней подряд ≥ мега-рукавицы + STREAK_PACKS наборов; мир ≥ вещь высшей ступени + WORLD_PACKS наборов;
     // все улучшения ≤ UPGRADE_SHARE дохода первых UPGRADE_WORLDS миров; повтор (REPLAY: [мир, от, до], 1 сид) — доход в минуту
     // ≤ REPLAY_SHARE первой победы; проход с улучшениями на максимуме: каждый UPG_EVERY-й уровень и UPG_EXTRA [мир, от, до],
-    // медиана времени UPG_EXTRA ≥ UPG_TIME × без улучшений
-    ECONOMY: { PARK_PACKS: [2, 4], STREAK: 4, STREAK_PACKS: 2, WORLD_PACKS: 10, UPGRADE_WORLDS: 3, UPGRADE_SHARE: 0.6,
+    // медиана времени UPG_EXTRA ≥ UPG_TIME × без улучшений.
+    // SPEC-026: Andrei's prices — PARK_PACKS от 2 → 1,6 и UPGRADE_SHARE 0,6 → 1,15: перенесены на измеренное (Парк 32 = 1,6 × 20;
+    // улучшения 2700 = 114 % дохода первых 60 уровней); цены под цели не подгоняются
+    ECONOMY: { PARK_PACKS: [1.6, 4], STREAK: 4, STREAK_PACKS: 2, WORLD_PACKS: 10, UPGRADE_WORLDS: 3, UPGRADE_SHARE: 1.15,
       REPLAY: [["park", 1, 5], ["beach", 1, 5]], REPLAY_SHARE: 0.6, UPG_EVERY: 5, UPG_EXTRA: ["winter", 17, 20], UPG_TIME: 0.7 } },
   // SPEC-008: автопилот игроков (только для проверки баланса), px и сек. repath — пересчёт пути; звёздочки и предметы
   // берёт не дальше itemReach и если они дальше pickSafe от Большого и не под его взглядом; спасает друга, которого никакой
@@ -475,7 +495,7 @@ const PAPER_BTN = (() => {
 const ITEM_ART = { mittens: "item_mittens", mega: "item_mega_mittens", kisses: "item_kiss", rescues: "icon_bandaid" };
 // улучшения и вкладки магазина — 22_icons_shop
 const UPG_ART = { fastFeet: "shop_fast_feet", longItems: "shop_long_items", quickHelp: "shop_quick_help" };
-const SHOP_TAB_ART = { items: "shop_items", wardrobe: "shop_wardrobe", upgrades: "shop_upgrades" };
+const SHOP_TAB_ART = { progress: "star_gold", items: "shop_items", wardrobe: "shop_wardrobe", upgrades: "shop_upgrades" };   // SPEC-026: + «Прогресс»
 // вещи гардероба с рисунком 23_wardrobe (только точные совпадения с вещами игры; остальные — только 3D-превью)
 const WARDROBE_ART = {
   hat: { cap: "hat_cap", beanie: "hat_beanie", crown: "hat_crown", bow: "hat_bow", flower: "hat_flower", ears: "hat_ears", tophat: "hat_tophat",
@@ -521,8 +541,8 @@ const GLOVES = {
 
 // Воздушные поцелуи из магазина: цена и сколько в наборе (один запас на обоих игроков)
 const KISSES = { price: 20, pack: 5 };
-// Спасалка 🩹 (SPEC-007, решение детей): 3 штуки за 15 монеток, один запас на обоих игроков
-const RESCUE_KIT = { price: 15, pack: 3 };
+// Спасалка 🩹 (SPEC-007, решение детей: 3 штуки; SPEC-026, решение Андрея: цена 50, было 15), один запас на обоих игроков
+const RESCUE_KIT = { price: 50, pack: 3 };
 // Монетки за уровень (SPEC-009; числа придумал Claude, подбираются по отчёту баланса). Основа уровня n мира с индексом
 // сложности d (0–4, SPEC-016): BASE + PER_LEVEL × n + PER_WORLD × d. Первая победа уровня — вся основа, повтор — половина (решение детей: повтор дешевле).
 const REWARD = {
@@ -532,7 +552,8 @@ const REWARD = {
   NEW_STAR: 6,               // за каждую новую звезду уровня (выше прошлого рекорда; каждая звезда — один раз навсегда; было 8)
   PER_HUG: 1,                // за каждую обнимашку игрока — каждый раз, и при выходе из уровня до победы
   FIRST_MIN: 5,              // первая победа минус отдых — не меньше этого
-  REPLAY_MIN: 3              // повтор минус отдых — не меньше этого
+  REPLAY_MIN: 3,             // повтор минус отдых — не меньше этого
+  WIN_SCALE: 0.7             // SPEC-026 (Андрей: победа даёт на 30 % меньше): × строку уровня и монетки за новые звёзды, с округлением (не полы, не обнимашки, не звёздочки)
 };
 // Цены нарядов (SPEC-009; придумал Claude, проверить с детьми, какие вещи платные): ступени 1–3, у вещи price = цена ступени,
 // 0 — бесплатно (все причёски, первые шапки/куртки/штаны и Большие — так любой стартовый вид бесплатный)
@@ -543,11 +564,12 @@ const WARDROBE_TIERS = [
 ];
 const tierPrice = t => (t ? WARDROBE_TIERS[t - 1] : 0);
 // Улучшения (SPEC-009; придумал Claude): покупаются навсегда, действуют только на игроков (не на ботов и не на Большого) и не меняют
-// CFG — это множители игрока. step — прибавка за уровень, prices — цена следующего уровня (уровней столько, сколько цен)
+// CFG — это множители игрока. step — прибавка за уровень, prices — цена следующего уровня (уровней столько, сколько цен).
+// SPEC-026 (решение Андрея): все цены × 1,5 (было 100 / 200 / 300)
 const UPGRADES = {
-  fastFeet: { step: 0.03, prices: [100, 200, 300] },    // скорость игрока +3 % за уровень (до +9 %); предел Большого считается от обычной
-  longItems: { step: 0.15, prices: [100, 200, 300] },   // сапоги, плащ и щит, которые взял игрок, действуют дольше: +15 % за уровень
-  quickHelp: { step: 0.1, prices: [100, 200, 300] }     // игрок поднимает друга быстрее: −10 % времени за уровень (3 → 2,1 с)
+  fastFeet: { step: 0.03, prices: [150, 300, 450] },    // скорость игрока +3 % за уровень (до +9 %); предел Большого считается от обычной
+  longItems: { step: 0.15, prices: [150, 300, 450] },   // сапоги, плащ и щит, которые взял игрок, действуют дольше: +15 % за уровень
+  quickHelp: { step: 0.1, prices: [150, 300, 450] }     // игрок поднимает друга быстрее: −10 % времени за уровень (3 → 2,1 с)
 };
 const upgTop = k => UPGRADES[k].prices.length;   // последний уровень
 // Русское множественное число: ruPlural(n, ["поцелуй", "поцелуя", "поцелуев"])
@@ -583,13 +605,13 @@ const I18N = {
     lose: "The Big One won...", loseSub: (h, m) => `Hearts taken: ${h} of ${m}. Try again?`, again: "Try again",
     big: "Big One", hug: "Hug! -1", bang: "BAM!", saved: "Saved!", out: "Going home to rest", back: "Back in the game!", resting: (n, t) => `${n}: resting… back in ${t}`, help: n => `${n}: HELP!`,
     touch1: "Drag your finger on the screen to run", touch2: "Player 1: finger on the left  •  Player 2: on the right",
-    rotate: "Turn your device sideways ↻", installHint: "Install on iPhone: Share ⬆️ → Add to Home Screen", me: "Me", botChip: "B", safe: "SAFE",
+    rotate: "Turn your device sideways ↻", me: "Me", botChip: "B", safe: "SAFE",
     player1: "Player 1", player2: "Player 2", ok: "OK",
     slots: { hair: "Hair", hat: "Hat", jacket: "Jacket", pants: "Pants", look: "Look" },
     worlds: { park: "Park", field: "Football field", city: "City", school: "School", beach: "Beach", winter: "Winter" }, worldDone: (w, key) => `You finished the ${w}!`,
     bonus: "Bonus", bonusUnlocked: "Bonus worlds unlocked!",
     items: { boots: "Speed boots!", cloak: "Invisible!", shield: "Shield!" }, blocked: "Blocked!", slip: "Whoops!",
-    shop: "Shop", buy: "Buy", have: n => `You have: ${n} power ${n === 1 ? "hug" : "hugs"}`, wears: "wears", none: "None",
+    shop: "Shop", character: "Character", progressTab: "Progress", bag: "Bag", clothes: (n, m) => `Clothes: ${n} / ${m}`, buy: "Buy", have: n => `You have: ${n} power ${n === 1 ? "hug" : "hugs"}`, wears: "wears", none: "None",
     gloves: { mittens: "Warm mittens", mega: "Mega hug mittens" }, gloveDesc: p => `Each hug takes ${p} hearts`,
     pack: n => `Pack: ${n} power hugs`, notEnough: "Not enough coins", reset: "Reset progress", sure: "Sure? Tap again", resetShort: "Reset", sureShort: "Sure?",
     victory: "Victory", nobodyOut: "Nobody had to rest", fast: t => `Fast: under ${t}`, forHugs: n => `+${n} for hugs`,
@@ -646,13 +668,13 @@ const I18N = {
     lose: "Ganó el Grandote...", loseSub: (h, m) => `Corazones: ${h} de ${m}. ¿Otra vez?`, again: "Otra vez",
     big: "Grandote", hug: "¡Abrazo! -1", bang: "¡PUM!", saved: "¡Salvado!", out: "Me voy a descansar", back: "¡De vuelta!", resting: (n, t) => `${n}: descansando… volvés en ${t}`, help: n => `${n}: ¡AYUDA!`,
     touch1: "Deslizá el dedo por la pantalla para correr", touch2: "Jugador 1: dedo a la izquierda  •  Jugador 2: a la derecha",
-    rotate: "Girá el dispositivo ↻", installHint: "Instalala en el iPhone: Compartir ⬆️ → Agregar a pantalla de inicio", me: "Yo", botChip: "B", safe: "ZONA SEGURA",
+    rotate: "Girá el dispositivo ↻", me: "Yo", botChip: "B", safe: "ZONA SEGURA",
     player1: "Jugador 1", player2: "Jugador 2", ok: "Listo",
     slots: { hair: "Pelo", hat: "Gorro", jacket: "Campera", pants: "Pantalón", look: "Aspecto" },
     worlds: { park: "Parque", field: "Cancha", city: "Ciudad", school: "Escuela", beach: "Playa", winter: "Invierno" }, worldDone: (w, key) => `¡Terminaste ${w}!`,
     bonus: "Bonus", bonusUnlocked: "¡Se abrieron los mundos bonus!",
     items: { boots: "¡Zapatillas veloces!", cloak: "¡Invisible!", shield: "¡Escudo!" }, blocked: "¡Bloqueado!", slip: "¡Upa!",
-    shop: "Tienda", buy: "Comprar", have: n => `Tenés: ${n} ${n === 1 ? "abrazo potente" : "abrazos potentes"}`, wears: "usa", none: "Nada",
+    shop: "Tienda", character: "Personaje", progressTab: "Progreso", bag: "Mochila", clothes: (n, m) => `Ropa: ${n} / ${m}`, buy: "Comprar", have: n => `Tenés: ${n} ${n === 1 ? "abrazo potente" : "abrazos potentes"}`, wears: "usa", none: "Nada",
     gloves: { mittens: "Mitones abrigados", mega: "Mitones del abrazo gigante" }, gloveDesc: p => `Cada abrazo saca ${p} corazones`,
     pack: n => `Paquete: ${n} abrazos potentes`, notEnough: "No te alcanzan las monedas", reset: "Borrar progreso", sure: "¿Seguro? Tocá otra vez", resetShort: "Borrar", sureShort: "¿Seguro?",
     victory: "Victoria", nobodyOut: "Nadie tuvo que descansar", fast: t => `Rápido: menos de ${t}`, forHugs: n => `+${n} por los abrazos`,
@@ -704,7 +726,7 @@ const I18N = {
     lose: "Большой победил...", loseSub: (h, m) => `Сердечек забрали: ${h} из ${m}. Ещё разок?`, again: "Ещё раз",
     big: "Большой", hug: "Обнимашки! -1", bang: "БАХ!", saved: "Спасён!", out: "Иду отдыхать", back: "Снова в игре!", resting: (n, t) => `${n}: отдых… вернёшься через ${t}`, help: n => `${n}: ПОМОГИТЕ!`,
     touch1: "Води пальцем по экрану, чтобы бежать", touch2: "Игрок 1 — палец слева, Игрок 2 — палец справа",
-    rotate: "Поверни устройство боком ↻", installHint: "Установить на iPhone: Поделиться ⬆️ → На экран «Домой»", me: "Я", botChip: "Б", safe: "БЕЗОПАСНО",
+    rotate: "Поверни устройство боком ↻", me: "Я", botChip: "Б", safe: "БЕЗОПАСНО",
     player1: "Игрок 1", player2: "Игрок 2", ok: "Готово",
     slots: { hair: "Причёска", hat: "Головной убор", jacket: "Куртка", pants: "Штаны", look: "Вид" },
     worlds: { park: "Парк", field: "Футбольное поле", city: "Город", school: "Школа", beach: "Пляж", winter: "Зима" },
@@ -712,7 +734,7 @@ const I18N = {
     worldDone: (w, key) => `${w} ${key === "field" ? "пройдено" : key === "school" || key === "winter" ? "пройдена" : "пройден"}!`,
     bonus: "Бонус", bonusUnlocked: "Открылись бонусные миры!",
     items: { boots: "Сапоги-скороходы!", cloak: "Невидимка!", shield: "Щит!" }, blocked: "Щит спас!", slip: "Поскользнулся!",
-    shop: "Магазин", buy: "Купить", have: n => `У вас: ${n} ${["сильная обнимашка", "сильные обнимашки", "сильных обнимашек"][n % 10 === 1 && n % 100 !== 11 ? 0 : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 1 : 2]}`, wears: "носит", none: "Ничего",
+    shop: "Магазин", character: "Персонаж", progressTab: "Прогресс", bag: "Рюкзак", clothes: (n, m) => `Одежда: ${n} / ${m}`, buy: "Купить", have: n => `У вас: ${n} ${["сильная обнимашка", "сильные обнимашки", "сильных обнимашек"][n % 10 === 1 && n % 100 !== 11 ? 0 : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 1 : 2]}`, wears: "носит", none: "Ничего",
     gloves: { mittens: "Тёплые рукавицы", mega: "Мега-рукавицы" }, gloveDesc: p => `Каждая обнимашка забирает ${p} сердечка`,
     pack: n => `В наборе: ${n} сильные обнимашки`, notEnough: "Не хватает монеток", reset: "Сбросить прогресс", sure: "Точно? Нажми ещё раз", resetShort: "Сброс", sureShort: "Точно?",
     victory: "Победа", nobodyOut: "Никто не ушёл отдыхать", fast: t => `Быстро: меньше ${t}`, forHugs: n => `+${n} за обнимашки`,
@@ -748,6 +770,7 @@ const I18N = {
 //  Где история молчит (бонусные миры), одна простая фраза тем же голосом — написал Claude, проверить с Костей (specs/BACKLOG.md).
 //  captions — подписи комикса «Как всё началось» (по одной на клетку 8_start); text главы «начало» — они же короче (влезает в телефон);
 //  boss — фраза заставки перед боссом мира (SPEC-022, только основные миры: у бонусных боссов нет).
+//  bubbles — SPEC-026: слова папы в облачках комикса 8_start, по клетке (русские — Андрея, английские и испанские — Claude; docs/story.md).
 //  image — своя картинка главы (null — комикс из art/, STORY_ART; нет и его — заглушка «Комикс скоро будет»).
 // =====================================================================
 const STORY = [
@@ -767,7 +790,11 @@ const STORY = [
     text: {
       en: "Dad came home from work to an untidy house. Kids knocked him over, and somebody ate his favourite cupcake. He became the grumpiest dad and went to the café, and the other dads got angry too.",
       es: "Papá volvió del trabajo y la casa estaba desordenada. Unos chicos lo tiraron al piso y alguien se comió su cupcake favorito. Se volvió el papá más enojado, fue al café, y los otros papás también se enojaron.",
-      ru: "Папа пришёл с работы, а дома не убрано. Дети сбили его с ног, а любимое пирожное съели. Он стал самым злым папой и ушёл в кафе к другим папам — и они тоже стали злыми." } },
+      ru: "Папа пришёл с работы, а дома не убрано. Дети сбили его с ног, а любимое пирожное съели. Он стал самым злым папой и ушёл в кафе к другим папам — и они тоже стали злыми." },
+    bubbles: {
+      en: ["Oh, what a mess!", "Oh, kids!", "Where's my cupcake?!", "This is just impossible!!"],
+      es: ["¡Uy, qué desorden!", "¡Ay, los chicos!", "¿¡Dónde está mi cupcake!?", "¡¡Esto es imposible!!"],
+      ru: ["Ох, какой бардак!", "Ой, дети!", "Где мой кекс?!", "Это просто невозможно!!"] } },
   { id: "park", image: null, text: {
     en: "The angry dads moved to four worlds. The first one is the Park. The kids want to make the dads kind again: you have to hug them, lots of times!",
     es: "Los papás enojados se fueron a vivir a cuatro mundos. El primero es el Parque. Los chicos quieren que los papás vuelvan a ser buenos: ¡hay que abrazarlos, muchas veces!",
@@ -845,10 +872,7 @@ function isStandalone() {
       || new URLSearchParams(location.search).get("standalone") === "1";
   } catch (e) { return false; }
 }
-// iPhone/iPad (iPadOS притворяется Маком, но с тачем)
-const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 const STANDALONE = isStandalone();                 // режим отображения не меняется за сессию
-const showInstallHint = () => isIOS && !STANDALONE;
 // Телефон (SPEC-005): сенсорный экран с короткой стороной ≤ PHONE_MAX_SHORT_SIDE; ?phone=1 / ?phone=0 — принудительно.
 function isPhone() {
   try {
@@ -2148,7 +2172,6 @@ let botAttackCd = 0, prevToken = null;
 let mode = "home", numPlayers = 1, level = 1, attackToken = null, muted = false, shake = 0;
 let stats = { hugs: 0, time: 0 };
 let buttons = [];
-let installHintShown = false;   // подсказка «на экран Домой» нарисована в этом кадре (для тестов)
 let items = [], itemCd = 5, itemSeq = 0, pendingWin = 0, lastReward = null, resetArmed = false;
 // SPEC-008: журнал событий игры { t (сек игры), type, …данные } — для тестов, отчёта баланса и счёта монеток (SPEC-009).
 // Только простые данные; не длиннее CFG.EVENT_LOG_MAX (старые выпадают); очищается в начале уровня (startGame).
@@ -2339,6 +2362,8 @@ function resetProgress() {
 }
 // SPEC-009: основа награды уровня n мира (SPEC-016: по индексу сложности мира, 0–4)
 const rewardBase = (world, n) => REWARD.BASE + REWARD.PER_LEVEL * n + REWARD.PER_WORLD * worldDifficulty(world);
+// SPEC-026: строка победы × REWARD.WIN_SCALE и округление (toFixed убирает хвост дробей: 45 × 0,7 = 31,4999… → 31,5 → 32)
+const winScale = v => Math.round(Number((v * REWARD.WIN_SCALE).toFixed(6)));
 // время третьей звезды уровня n мира (сек); его же берёт отчёт баланса (scripts/balance.js)
 const fastTarget = (world, n) => CFG.FAST_TIME(n) + worldDifficulty(world) * CFG.FAST_PER_WORLD;
 // уровень начат и ещё не оплачен (startGame → true; награда, сброс или замена прогресса → false)
@@ -2367,10 +2392,10 @@ function giveReward(win) {
   const stars = 1 + (nobodyOut ? 1 : 0) + (fast ? 1 : 0);
   const first = !wp.won[n], base = rewardBase(curWorld, n);
   const min = first ? REWARD.FIRST_MIN : REWARD.REPLAY_MIN;
-  const line = Math.max(first ? base : Math.floor(base / 2), min);   // повтор — половина основы
+  const line = Math.max(winScale(first ? base : Math.floor(base / 2)), min);   // повтор — половина основы; SPEC-026: × WIN_SCALE
   const restCut = Math.min(rests * CFG.COINS_PER_REST, line - min);   // отдых срезается до пола: строки всегда сходятся с итогом
   const prevStars = wp.stars[n] || 0, newStars = Math.max(0, stars - prevStars), bonusBefore = bonusUnlocked();
-  const parts = partsOf([[first ? "firstWin" : "replay", line], ["newStars", newStars * REWARD.NEW_STAR], ["star", starCoins], ["hugs", hugs], ["rests", -restCut]]);
+  const parts = partsOf([[first ? "firstWin" : "replay", line], ["newStars", winScale(newStars * REWARD.NEW_STAR)], ["star", starCoins], ["hugs", hugs], ["rests", -restCut]]);
   wp.stars[n] = Math.max(prevStars, stars);
   wp.won[n] = true;
   wp.unlocked = Math.max(wp.unlocked, Math.min(levelsPerWorld(), n + 1));   // только в этом мире
@@ -2450,13 +2475,14 @@ const MODES = Object.freeze(["home", "map", "levelCard", "story", "shop", "play"
 const MENU_MODES = Object.freeze(["home", "map", "levelCard", "story", "shop", "scene"]);
 const inMenus = () => MENU_MODES.includes(mode);
 // магазин: вкладка (вне магазина снова «items»), страница гардероба (наряды или имена друзей), куда ведёт «Готово»
-const SHOP_TABS = Object.freeze(["items", "wardrobe", "upgrades"]);
+const SHOP_TABS = Object.freeze(["progress", "items", "wardrobe", "upgrades"]);   // SPEC-026: «Прогресс» персонажа — первая
 let shopTab = "items", wardrobePage = "looks", shopBack = "home";
 const inWardrobe = () => mode === "shop" && shopTab === "wardrobe";
-function setShopTab(k) { if (!SHOP_TABS.includes(k)) return; closeNameInput(true); shopTab = k; wardrobePage = "looks"; }
+function setShopTab(k) { if (!SHOP_TABS.includes(k)) return; closeNameInput(true); shopTab = k; wardrobePage = "looks"; resetArmed = false; }
 // ←/→ и крестовина: вкладки по кругу
 const switchShopTab = (d = 1) => setShopTab(SHOP_TABS[(SHOP_TABS.indexOf(shopTab) + d + SHOP_TABS.length) % SHOP_TABS.length]);
-function openShop(back = "home") { mode = "shop"; shopTab = "items"; wardrobePage = "looks"; shopBack = back; }
+// SPEC-026: tab — с какой вкладки: с главного (кнопка «Персонаж») — «Прогресс»; отовсюду ещё (победа, проигрыш) — «Вещи», как раньше
+function openShop(back = "home", tab = "items") { mode = "shop"; shopTab = SHOP_TABS.includes(tab) ? tab : "items"; wardrobePage = "looks"; shopBack = back; resetArmed = false; }
 function closeShop() { closeNameInput(true); if (shopBack === "map") { mapSel = null; mode = "map"; } else mode = "home"; }
 function openFriends() { closeNameInput(true); wardrobePage = "friends"; }
 function backToWardrobe() { closeNameInput(true); wardrobePage = "looks"; }
@@ -2510,9 +2536,10 @@ function chapterOpen(c) {
 // второй раз сама не откроется; пересмотр из «Истории» не отмечается
 let storyScene = null;
 const storyOf = id => STORY.find(c => c.id === id);
-// страницы: { art, crop ([x, y, w, h] — доли картинки или null — вся), text } или { thanks: true } (карточка «Спасибо» после финала)
+// страницы: { art, crop ([x, y, w, h] — доли картинки или null — вся), text, bubbles? } или { thanks: true } (карточка «Спасибо» после финала)
 function scenePages(id) {
-  if (id === "intro") return CFG.MENU_LOOK.scene.panels.map((crop, i) => ({ art: STORY_ART.began, crop, text: storyOf("began").captions[lang][i] }));
+  if (id === "intro") return CFG.MENU_LOOK.scene.panels.map((crop, i) => ({ art: STORY_ART.began, crop, text: storyOf("began").captions[lang][i],
+    bubbles: [{ i, text: storyOf("began").bubbles[lang][i] }] }));   // SPEC-026: слова папы в облачке этой клетки
   if (id === "ending") return [{ art: STORY_ART.ended, crop: null, text: storyOf("ended").text[lang] }, { thanks: true }];
   const [kind, w] = id.split("_");
   return [{ art: STORY_ART[w], crop: null, text: kind === "boss" ? storyOf(w).boss[lang] : storyOf(w).text[lang] }];
@@ -5083,16 +5110,21 @@ function drawStory() {
   const mh = by - g - top, pw = Math.min((X1 - X0) * S.pic, mh * 1.4), pic = { x: X0, y: top, w: pw, h: mh };
   // SPEC-020: картинка главы — свой путь (c.image) или комикс из art/ (STORY_ART); нет — заглушка
   const own = open && c.image ? storyPicture(c) : null, artName = open && !c.image ? STORY_ART[c.id] : null, img = own || (artName && art(artName));
+  let imgRect = null;
   if (img) {
     const fr = 5 * k, sc = Math.min((pic.w - 2 * fr) / img.width, (pic.h - 2 * fr) / img.height), iw = img.width * sc, ih = img.height * sc;
     const ix = pic.x + (pic.w - iw) / 2, iy = pic.y + (pic.h - ih) / 2;
+    imgRect = [ix, iy, iw, ih];
     rr(ix - fr, iy - fr, iw + 2 * fr, ih + 2 * fr, 6 * k); fillStroke(S.paper, 3 * k);   // бумажная рамка
     ctx.drawImage(img, ix, iy, iw, ih);
     if (artName) noteArt(artName);
     tape(ix + 6 * k, iy + 2 * k, -0.7, k * 0.8); tape(ix + iw - 6 * k, iy + 2 * k, 0.7, k * 0.8);
   } else storyPlaceholder(pic, !open);
+  // SPEC-026: «Как всё началось» — комикс целиком: слова папы во всех четырёх облачках
+  const bubbles = img && artName && c.bubbles ? drawBubbles(c.bubbles[lang].map((text, i) => ({ i, text })), [0, 0, 1, 1], ...imgRect) : [];
   if (open) {                                                // SPEC-022: ▶ в углу картинки — посмотреть заставку главы ещё раз
-    const r = B, bx = pic.x + pic.w - r - 4 * k, byy = pic.y + 4 * k;
+    // SPEC-026: в правом нижнем углу картинки (в правом верхнем — облачко второй клетки комикса)
+    const fr = imgRect || [pic.x, pic.y, pic.w, pic.h], r = B, bx = fr[0] + fr[2] - r - 4 * k, byy = fr[1] + fr[3] - r - 4 * k;
     if (!drawArtFit("round_play", bx + r / 2, byy + r / 2, r * 1.15)) { circle(bx + r / 2, byy + r / 2, r / 2); fillStroke(M.play, 3 * k); label("▶", bx + r / 2 + 2 * k, byy + r / 2, r * 0.45, "#fff"); }
     regButton(bx, byy, r, r, "▶", watchChapter, "story:scene", r);
   }
@@ -5103,11 +5135,85 @@ function drawStory() {
   rowsAt(open ? "story:text" : "story:locked", b, tx + tW / 2, top + Math.max(0, (mh - th) / 2), open ? M.ink : M.lockedInk);
   hudRects[hudRects.length - 1].text = text;
   if (PHONE) noteText("main", b.sz);
-  storyInfo = { chapter: c.id, index: storyCh, locked: !open, page: "chapters", title, text, art: !open ? "locked" : img ? "image" : "placeholder", load: storyLoad(c), pic };
+  storyInfo = { chapter: c.id, index: storyCh, locked: !open, page: "chapters", title, text, art: !open ? "locked" : img ? "image" : "placeholder", load: storyLoad(c), pic, bubbles };
+}
+// ---------- SPEC-026: слова папы в пустых облачках комикса 8_start (заставка «Как всё началось» и глава в «Истории») ----------
+// строки текста облачка: кегль от size до min (шаг 0,5), не больше lines строк, не шире maxW и не выше maxH (× TEXT_TEST_SCALE);
+// → { rows, sz, w, h, fit } (fit = false: не влезло и самым мелким — тогда строки самым мелким, их может быть больше lines)
+function bubbleRows(text, maxW, maxH, size, min, lines) {
+  const lh = CFG.MENU_LOOK.scene.bubbleLh;
+  for (let sz = size; ; sz = Math.max(min, sz - 0.5)) {
+    ctx.font = `800 ${sz}px system-ui, "Segoe UI", sans-serif`;
+    const rows = [];
+    let cur = "";
+    for (const wd of text.split(" ")) { const t = cur ? cur + " " + wd : wd; if (scaledW(t) > maxW && cur) { rows.push(cur); cur = wd; } else cur = t; }
+    rows.push(cur);
+    const w = Math.max(...rows.map(scaledW)), h = rows.length * sz * lh;
+    const fit = rows.length <= lines && w <= maxW && h <= maxH;
+    if (fit || sz <= min) return { rows, sz, w, h, fit, lh };
+  }
+}
+// неровный контур облачка (как фломастером): суперэллипс степени n с центром cx, cy, полуосями rx, ry; неровность — синусы, без случайности
+function wobblyBubble(cx, cy, rx, ry, wob, n) {
+  const sp = (v, e) => Math.sign(v) * Math.abs(v) ** e;
+  ctx.beginPath();
+  for (let j = 0; j <= 48; j++) {
+    const a = j / 48 * Math.PI * 2, f = 1 + wob * (Math.sin(a * 5 + 0.7) + 0.6 * Math.sin(a * 9 + 2.1)) / 1.6;
+    const x = cx + sp(Math.cos(a), 2 / n) * rx * f, y = cy + sp(Math.sin(a), 2 / n) * ry * f;
+    if (j) ctx.lineTo(x, y); else ctx.moveTo(x, y);
+  }
+  ctx.closePath();
+}
+// list — [{ i, text }] (облачко i = клетка i), cr — какая часть картинки нарисована (доли [x, y, w, h]), ix…ih — где она на экране.
+// Слова — по центру облачка, тёмные, жирные,
+// до двух строк, мельче — до самого мелкого текста подписи; не влезли и так — своё облачко поверх нарисованного (белое, неровный
+// чёрный контур, хвостик в ту же сторону), внутри клетки, по размеру слов.
+// → [{ i, text, x, y, w, h (рамка строк), size, rows, own, bubble (своё облачко или null), panel (клетка на экране) }]
+function drawBubbles(list, cr, ix, iy, iw, ih) {
+  const S = CFG.MENU_LOOK.scene, k = PHONE ? cpx(1) : 1, min = PHONE ? minPx("main") : S.bubbleMin, max = Math.max(min, PHONE ? cpx(S.phoneText) : S.text);
+  const X = f => ix + (f - cr[0]) / cr[2] * iw, Y = f => iy + (f - cr[1]) / cr[3] * ih, [inW, inH] = S.bubbleIn;
+  const out = [];
+  for (const { i, text } of list) {
+    const [bx, by, bw, bh, tx, ty] = S.bubbles[i], [px, py, pw, ph] = S.panels[i];
+    const box = { x: X(bx), y: Y(by), w: X(bx + bw) - X(bx), h: Y(by + bh) - Y(by) };
+    const panel = { x: Math.max(ix, X(px)), y: Math.max(iy, Y(py)) };
+    panel.w = Math.min(ix + iw, X(px + pw)) - panel.x; panel.h = Math.min(iy + ih, Y(py + ph)) - panel.y;
+    let b = bubbleRows(text, box.w * inW, box.h * inH, max, min, S.bubbleLines), cx = box.x + box.w / 2, cy = box.y + box.h / 2, bubble = null;
+    if (!b.fit) {
+      // своё облачко: слова самым мелким, ширина строки растёт, пока строк не больше lines (но облачко не шире ownMax клетки)
+      const m = S.ownEdge * k, [oW, oH] = S.ownIn, wMax = (panel.w * S.ownMax - 2 * m) * oW;
+      let w = box.w * inW;
+      do { b = bubbleRows(text, w, Infinity, min, min, S.bubbleLines); w *= 1.12; } while (b.rows.length > S.bubbleLines && w < wMax * 1.12);
+      // не меньше нарисованного облачка: пустого облачка не видно (SPEC-026: ни одной клетки с пустым облачком)
+      const ow = Math.min(panel.w - 2 * m, Math.max(box.w * S.ownCover, b.w / oW)), oh = Math.min(panel.h - 2 * m, Math.max(box.h * S.ownCover, b.h / oH));
+      cx = clamp(cx, panel.x + m + ow / 2, panel.x + panel.w - m - ow / 2); cy = clamp(cy, panel.y + m + oh / 2, panel.y + panel.h - m - oh / 2);
+      bubble = { x: cx - ow / 2, y: cy - oh / 2, w: ow, h: oh };
+      // хвостик — туда же, куда у нарисованного облачка (к его кончику), не дальше края клетки
+      const a = Math.atan2(Y(ty) - (box.y + box.h / 2), X(tx) - (box.x + box.w / 2)), len = oh * S.ownTail;
+      const tipX = clamp(cx + Math.cos(a) * (ow / 2 + len), panel.x + m, panel.x + panel.w - m), tipY = clamp(cy + Math.sin(a) * (oh / 2 + len), panel.y + m, panel.y + panel.h - m);
+      ctx.save();
+      ctx.lineWidth = S.ownLine * k; ctx.strokeStyle = S.bubbleInk; ctx.fillStyle = "#ffffff"; ctx.lineJoin = "round";
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(a - 0.3) * ow * 0.42, cy + Math.sin(a - 0.3) * oh * 0.42); ctx.lineTo(tipX, tipY);
+      ctx.lineTo(cx + Math.cos(a + 0.3) * ow * 0.42, cy + Math.sin(a + 0.3) * oh * 0.42); ctx.closePath();
+      ctx.fill(); ctx.stroke();
+      wobblyBubble(cx, cy, ow / 2, oh / 2, S.ownWobble, S.ownRound); ctx.fill(); ctx.stroke();
+      ctx.restore();
+    }
+    // строки по центру облачка
+    const lh = b.sz * b.lh, top = cy - b.h / 2;
+    ctx.save();
+    ctx.font = `800 ${b.sz}px system-ui, "Segoe UI", sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = S.bubbleInk;
+    b.rows.forEach((r, j) => ctx.fillText(r, cx, top + lh * (j + 0.5)));
+    ctx.restore();
+    if (PHONE) noteText("main", b.sz);
+    out.push({ i, text, x: cx - b.w / 2, y: top, w: b.w, h: b.h, size: b.sz, rows: b.rows.length, own: !!bubble, bubble, panel });
+  }
+  return out;
 }
 // ---------- SPEC-022: заставка истории — картинка (комикс 8_start — по клетке), подпись, «Пропустить» и «Дальше» / «Играть» ----------
 // Компьютер: картинка над подписью; телефон: картинка слева, подпись справа. Нет картинки — заглушка истории (бумажный лист).
-// sceneInfo (для тестов) — { id, page, pages, art: "image" | "placeholder" | "thanks", caption, crop }
+// sceneInfo (для тестов) — { id, page, pages, art: "image" | "placeholder" | "thanks", caption, crop, bubble, panel } (SPEC-026: bubble, panel)
 let sceneInfo = null;
 function drawScene() {
   if (!storyScene) return;
@@ -5140,7 +5246,7 @@ function drawScene() {
   const img = art(pg.art), cr = pg.crop || [0, 0, 1, 1];
   const aspect = img ? (img.width * cr[2]) / (img.height * cr[3]) : 16 / 9;
   const size = PHONE ? cpx(S.phoneText) : S.text, min = minMain;
-  let pic, tx, tW, ty, b;
+  let pic, tx, tW, ty, b, bubbles = [], panel = null;
   if (PHONE) {                                                // картинка слева, подпись справа (по высоте — посередине)
     const pw = Math.min(area.w * S.phonePic, area.h * aspect);
     pic = { x: area.x, y: area.y, w: pw, h: area.h };
@@ -5161,11 +5267,14 @@ function drawScene() {
     ctx.drawImage(img, img.width * cr[0], img.height * cr[1], sw, sh, ix, iy, iw, ih);
     noteArt(pg.art);
     tape(ix + 6 * k, iy + 2 * k, -0.7, k * 0.8); tape(ix + iw - 6 * k, iy + 2 * k, 0.7, k * 0.8);
+    if (pg.bubbles) bubbles = drawBubbles(pg.bubbles, cr, ix, iy, iw, ih);   // SPEC-026: слова папы в облачке клетки
+    panel = { x: ix, y: iy, w: iw, h: ih };
   } else storyPlaceholder(pic, false);
   rowsAt("scene:caption", b, tx + tW / 2, ty, M.ink);
   hudRects[hudRects.length - 1].text = pg.text;
   if (PHONE) noteText("main", b.sz);
-  sceneInfo = { id: storyScene.id, page: storyScene.page, pages: n, art: img ? "image" : "placeholder", caption: pg.text, crop: pg.crop };
+  sceneInfo = { id: storyScene.id, page: storyScene.page, pages: n, art: img ? "image" : "placeholder", caption: pg.text, crop: pg.crop,
+    bubble: bubbles[0] || null, panel };   // SPEC-026: облачко клетки (рамка строк, кегль, своё ли облачко) и где нарисована клетка
 }
 // SPEC-016: «Открылись бонусные миры!» на экране победы — только после победы, открывшей их (lastReward.bonusUnlocked);
 // плашка в hudRects (bonus-note), для тестов — bonusNote { text, x, y, w, h, size, textW }
@@ -5333,14 +5442,17 @@ function upgButton(cd, x, y, w, h, size, min) {
   }
   return b;
 }
-// компьютер: вкладки «Вещи» · «Гардероб» · «Улучшения» (SPEC-017) от x, y, высота h; возвращает правый край
-const SHOP_TAB_ICONS = { items: "🛒 ", wardrobe: "👕 ", upgrades: "⭐ " };
+// компьютер: вкладки «Прогресс» · «Вещи» · «Гардероб» · «Улучшения» (SPEC-017, SPEC-026) от x, y, высота h, в ширину maxW (не влезают —
+// все уже поровну); возвращает правый край
+const SHOP_TAB_ICONS = { progress: "🏆 ", items: "🛒 ", wardrobe: "👕 ", upgrades: "⭐ " };
 const shopTabText = (k, icons) => (icons ? SHOP_TAB_ICONS[k] : "") + L()[k + "Tab"];
-function shopTabs(x, y, h, size, min, gap, icons) {
-  for (const k of SHOP_TABS) {
+function shopTabs(x, y, h, size, min, gap, icons, maxW = Infinity) {
+  ctx.font = hudFont(size);
+  const nat = SHOP_TABS.map(k => Math.max(h, Math.min(scaledW(shopTabText(k, icons)), 200) + 30)), sum = nat.reduce((a, b) => a + b, 0);
+  const k0 = Math.min(1, (maxW - (SHOP_TABS.length - 1) * gap) / sum);
+  for (const [i, k] of SHOP_TABS.entries()) {
     const t = shopTabText(k, icons), color = shopTab === k ? CFG.MENU_LOOK.tabOn : CFG.MENU_LOOK.tabOff;
-    ctx.font = hudFont(size);
-    const w = Math.max(h, Math.min(scaledW(t), 200) + 30);
+    const w = Math.max(h, nat[i] * k0);
     if (!(icons && iconTab(x, y, w, h, SHOP_TAB_ART[k], L()[k + "Tab"], t, color, () => setShopTab(k), size, min, "tab:" + k)))
       fitButton(x, y, w, h, t, color, () => setShopTab(k), size, min).id = "tab:" + k;
     x += w + gap;
@@ -5360,8 +5472,8 @@ function iconTab(x, y, w, h, icon, text, full, color, act, size, min, id) {
   b.size = f.sz;
   return b;
 }
-// SPEC-017, телефон: верхняя полоса магазина — вкладки, монетки, средняя кнопка (сброс прогресса на «Вещах» и «Улучшениях»,
-// «Друзья» в гардеробе, «◀ Гардероб» на странице друзей) и «Готово». Ширины меряются с CFG.TEXT_TEST_SCALE (шрифты CI шире):
+// SPEC-017, телефон: верхняя полоса магазина — вкладки, монетки, средняя кнопка («Друзья» в гардеробе, «◀ Гардероб» на странице
+// друзей; SPEC-026: сброс прогресса — на странице «Прогресс») и «Готово». Ширины меряются с CFG.TEXT_TEST_SCALE (шрифты CI шире):
 // сначала «Готово» и монетки, средняя кнопка — полный текст или короткий, вкладки — всё, что осталось (тесно — уже, текст мельче)
 function phoneShopBar(f) {
   const c = cpx, { X0, X1, Y0, g, B } = f, min = minPx("main"), tabSz = c(17), midSz = c(15), okSz = c(18);
@@ -5371,24 +5483,36 @@ function phoneShopBar(f) {
   const pw = Math.max(c(76), scaledW(String(progress.coins)) + c(42));
   const tabT = SHOP_TABS.map(k => shopTabText(k, false)), tabW = tabT.map(t => Math.max(B, need(t, tabSz)));
   const M = CFG.MENU_LOOK;
-  const mid = shopTab !== "wardrobe" ? { texts: resetArmed ? [L().sure, L().sureShort] : [L().reset, L().resetShort], color: resetArmed ? M.armed : M.reset, act: resetProgress, min: c(110) }
+  // SPEC-026: сброс прогресса переехал на страницу «Прогресс»; средняя кнопка — только в гардеробе
+  const mid = shopTab !== "wardrobe" ? null
     : wardrobePage === "friends" ? { texts: ["◀ " + L().wardrobeTab, "◀"], color: M.ok, act: backToWardrobe, min: B }
     : { texts: ["👥 " + L().friends, "👥"], color: M.friends, act: openFriends, min: B };
   // надпись средней кнопки с запасом RESET_FIT (шрифты CI и iPhone шире наших)
   const midW = t => { ctx.font = hudFont(midSz); return Math.max(mid.min, scaledW(t) * CFG.PHONE_SHOP.RESET_FIT + c(20)); };
-  const avail = X1 - X0 - okW - pw - 5 * g, tabsNat = tabW.reduce((a, b) => a + b, 0);
-  const midT = mid.texts.find(t => tabsNat + midW(t) <= avail) ?? mid.texts.at(-1);
-  const mw = Math.min(midW(midT), avail - 3 * B), k = Math.min(1, (avail - mw) / tabsNat);
+  const avail = X1 - X0 - okW - pw - (mid ? 6 : 5) * g, tabsNat = tabW.reduce((a, b) => a + b, 0);
+  const midT = mid ? mid.texts.find(t => tabsNat + midW(t) <= avail) ?? mid.texts.at(-1) : null;
+  const mw = mid ? Math.min(midW(midT), avail - SHOP_TABS.length * B) : 0, room = avail - mw, k = Math.min(1, room / tabsNat);
+  // SPEC-026: четыре вкладки не влезают и самым мелким текстом (узкий телефон, длинные слова) — у выбранной надпись, у остальных
+  // только значок (картинка вкладки или эмодзи), по B
+  const atMin = tabT.reduce((a, t) => a + Math.max(B, need(t, min)), 0), compact = atMin > room;
+  const sel = SHOP_TABS.indexOf(shopTab);
   let x = X0;
   SHOP_TABS.forEach((key, i) => {
-    const w = Math.max(B, tabW[i] * k);
-    fitButton(x, Y0, w, B, tabT[i], shopTab === key ? M.tabOn : M.tabOff, () => setShopTab(key), tabSz, min).id = "tab:" + key;
+    const color = shopTab === key ? M.tabOn : M.tabOff, act = () => setShopTab(key);
+    const w = !compact ? Math.max(B, tabW[i] * k) : i === sel ? Math.max(B, Math.min(tabW[i], room - (SHOP_TABS.length - 1) * B)) : B;
+    if (compact && i !== sel) {
+      const icon = SHOP_TAB_ART[key], paper = PAPER_BTN[color], emoji = SHOP_TAB_ICONS[key].trim();
+      if (paperUI() && art(icon) && paper && drawArt9(paper, x, Y0, w, B, Math.min(w, B) * CFG.PAPER.btnCorner)) {
+        drawArtFit(icon, x + w / 2, Y0 + B / 2, B * 0.78);
+        regButton(x, Y0, w, B, emoji, act, "tab:" + key, B * 0.78);
+      } else fitButton(x, Y0, w, B, emoji, color, act, tabSz, min).id = "tab:" + key;
+    } else fitButton(x, Y0, w, B, tabT[i], color, act, tabSz, min).id = "tab:" + key;
     x += w + g;
   });
   rr(x, Y0 + c(4), pw, B - c(8), c(12)); fillStroke(M.panel, 3);
   hudRects.push({ id: "coins", x, y: Y0 + c(4), w: pw, h: B - c(8) });
   coinIcon(x + c(16), Y0 + B / 2, c(10)); pText(String(progress.coins), x + c(30), Y0 + B / 2 + 1, "main", 17, pw - c(36), "left", OUT, 900);
-  fitButton(X1 - okW - g - mw, Y0, mw, B, midT, mid.color, mid.act, midSz, min);
+  if (mid) fitButton(X1 - okW - g - mw, Y0, mw, B, midT, mid.color, mid.act, midSz, min);
   fitButton(X1 - okW, Y0, okW, B, L().ok, M.ok, closeShop, okSz, min);
 }
 // телефон: три карточки улучшений в полосе y0…Y1. Как карточки вещей: сначала мерка (pRows), потом рисуем; не влезает — картинка
@@ -5446,8 +5570,10 @@ function upgradeCardsDesktop() {
     if (cd.lv < cd.top && progress.coins < cd.price) rowsAt("upg-no:" + cd.k, noteRows(L().notEnough, 13, 10, tw, 1), cx, y0 + 270, "#ef4444", 700);
   });
 }
-// ---------- SPEC-017: главный экран — название, прогресс, бонусы (бонусные миры, монетки, свои вещи), Играть / История / Магазин ----------
-// звёзды основных миров (из STARS_PER_LEVEL × уровней × основных миров) и сколько основных миров пройдено целиком
+// ---------- SPEC-017/026: главный экран — название, язык и звук в углу, три кнопки столбиком: Играть · История · Персонаж ----------
+// SPEC-026 (решение Андрея): звёзды, миры, бонусные миры, монетки и подсказка «установить на iPhone» ушли с главного (прогресс — на
+// странице «Прогресс» персонажа); страница тетради menu_bg видна целиком и на телефоне — рисунки слева и справа, как на компьютере.
+// звёзды основных миров (из STARS_PER_LEVEL × уровней × основных миров) и сколько основных миров пройдено целиком — страница «Прогресс»
 const mainStars = () => MAIN_WORLDS.reduce((a, w) => a + worldStarsOf(w), 0);
 const worldsFinished = () => MAIN_WORLDS.filter(worldComplete).length;
 // плашка: { id, text, pic(x, y, s) — картинка слева, open }. Ширина = картинка + текст × CFG.TEXT_TEST_SCALE + поля (шрифты CI шире)
@@ -5466,53 +5592,16 @@ function drawPill(p, x, y, maxW) {
   if (PHONE) noteText("main", f.sz);
   hudRects.push({ id: p.id, x, y, w, h: p.h, text: f.text, textW: p.picW + f.w + 2 * p.pad, ...p.extra });
 }
-// плашки рядами в ширину maxW (по центру или слева); не влезла — следующий ряд; возвращает низ последнего ряда
-function pillRows(pills, x0, maxW, y, gap, rowGap, center) {
-  let row = [], w = 0, bottom = y;
-  const flush = () => {
-    if (!row.length) return;
-    let x = center ? x0 + (maxW - w) / 2 : x0;
-    for (const p of row) { drawPill(p, x, y, maxW); x += Math.min(p.w, maxW) + gap; }
-    bottom = y + row[0].h; y = bottom + rowGap; row = []; w = 0;
-  };
-  for (const p of pills) {
-    const pw = Math.min(p.w, maxW);
-    if (row.length && w + gap + pw > maxW) flush();
-    w += (row.length ? gap : 0) + pw; row.push(p);
-  }
-  flush();
-  return bottom;
-}
-// три группы плашек: прогресс; бонусные миры (🔒 или открыт); монетки и свои вещи (только где больше нуля)
-function homeGroups(h, size, min) {
-  const max = CFG.STARS_PER_LEVEL * levelsPerWorld() * MAIN_WORLDS.length;
-  const bonusPic = w => (x, y, s) => {
-    const sz = s * 1.2;
-    if (art(worldArt(w))) {                                               // SPEC-020: значок мира (закрытый — бледный)
-      if (!bonusOpen(w)) ctx.globalAlpha = 0.45;
-      drawArtFit(worldArt(w), x, y, sz * 1.15);
-      ctx.globalAlpha = 1;
-      return;
-    }
-    worldPicture(w, x - sz / 2, y - sz / 2, sz);
-    if (!bonusOpen(w)) { ctx.save(); rr(x - sz / 2, y - sz / 2, sz, sz, sz * 0.2); ctx.fillStyle = CFG.MENU_LOOK.lockedVeil; ctx.fill(); ctx.restore(); }
-  };
-  return [
-    [homePill("home:stars", `⭐ ${mainStars()} / ${max}`, h, size, min), homePill("home:worlds", L().worldsDone(worldsFinished(), MAIN_WORLDS.length), h, size, min)],
-    BONUS_WORLDS.map(w => { const open = bonusOpen(w); return homePill("home:bonus:" + w, (open ? "" : "🔒 ") + L().worlds[w], h, size, min, bonusPic(w), { open }); }),
-    [homePill("coins", String(progress.coins), h, size, min, (x, y, s) => drawArtFit("item_coin", x, y, s * 1.15) || drawCoin(x, y, s * 0.5)),
-      ...Object.keys(SHOP_PICTURES).filter(k => progress.inv[k] > 0).map(k => homePill("home:inv:" + k, "×" + progress.inv[k], h, size, min,
-        (x, y, s) => (ITEM_ART[k] && drawArtFit(ITEM_ART[k], x, y, s * 1.2)) || shopPicture(k, x, y, s)))]
-  ];
-}
 // SPEC-017: кнопки главного экрана — первая крупная («Играть»), остальные под ней; key — клавиши, pad — кнопки геймпада.
-// Одно место для обеих раскладок и для клавиатуры/геймпада (SPEC-013 добавит сюда «Онлайн»)
+// Одно место для обеих раскладок и для клавиатуры/геймпада (SPEC-013 добавит сюда «Онлайн»). SPEC-026: «Магазин» стал «Персонажем»
+// (та же клавиша B и кнопка Y; id «home:shop» прежний — переименовано только то, что видит игрок); icon — картинка 21_icons_ui слева
+// от надписи (до рисунков SPEC-027), emoji — вместо неё, когда картинок нет
 const homeActions = () => {
   const M = CFG.MENU_LOOK;
   return [
-    { id: "home:play", text: "▶ " + L().play, color: M.play, act: openMap, keys: ["Enter", "NumpadEnter", "Space"], pad: [0, 9] },
-    { id: "home:story", text: "📖 " + L().story, color: M.storyBtn, act: () => openStory(), keys: ["KeyS"], pad: [2] },
-    { id: "home:shop", text: "🛒 " + L().shop, color: M.shop, act: () => openShop(), keys: ["KeyB"], pad: [3] }
+    { id: "home:play", icon: "ui_play", emoji: "▶ ", text: L().play, color: M.play, act: openMap, keys: ["Enter", "NumpadEnter", "Space"], pad: [0, 9] },
+    { id: "home:story", icon: "ui_story", emoji: "📖 ", text: L().story, color: M.storyBtn, act: () => openStory(), keys: ["KeyS"], pad: [2] },
+    { id: "home:shop", icon: "ui_bag", emoji: "🎒 ", text: L().character, color: M.shop, act: () => openShop("home", "progress"), keys: ["KeyB"], pad: [3] }
   ];
 };
 // маленькие значки звука (справа, w × h) и языка (слева от него, langW × h); x1 — правый край.
@@ -5530,58 +5619,176 @@ function homeIcons(x1, y, langW, w, h, size) {
     regButton(lx, y, langW, h, "🌐 " + code, nextLang, "home:lang", ic + sp + f.w).size = f.sz;
   } else fitButton(lx, y, langW, h, "🌐 " + code, M.icon, nextLang, size, PHONE ? minPx("main") : size).id = "home:lang";
 }
-function drawHomeDesktop() {
-  const M = CFG.MENU_LOOK, H = M.home, page = drawArtCover("menu_bg", 0, 0, UW, UH), x0 = menuFrame(H, !page).x;   // SPEC-020: страница тетради
-  homeIcons(x0 + H.w - H.iconPad, H.y + H.iconPad, H.langW, H.iconW, H.iconH, H.iconSize);
-  const logo = art("logo");
+// SPEC-026: главный экран этого кадра (тесты): bg — видимая часть menu_bg (доли ширины картинки: x — левый край, w — ширина; null —
+// картинки нет, бумажная карточка), col — колонка кнопок (UI px), paper — бумажные кнопки по порядку (зелёная, розовая, оранжевая)
+let homeInfo = null;
+// одна раскладка для компьютера и телефона (SPEC-026): фон — страница menu_bg «cover» (лишнее срезается поровну), значки в углу,
+// по центру столбиком логотип и три кнопки (не шире col экрана); тесно по высоте — сначала ниже логотип, потом кнопки (не ниже 44 CSS px)
+function drawHome() {
+  const M = CFG.MENU_LOOK, H = PHONE ? M.phoneHome : M.home, D = M.home, c = PHONE ? cpx : (n => n), img = art("menu_bg");
+  let bg = null;
+  if (drawArtCover("menu_bg", 0, 0, UW, UH)) { const k = Math.min(img.naturalWidth / UW, img.naturalHeight / UH), w = UW * k / img.naturalWidth; bg = { x: (1 - w) / 2, w }; }
+  // без картинки фона — бумажная карточка, как раньше (значки — в её углу)
+  const f = PHONE ? phoneFrame(!bg) : menuFrame(D, !bg);
+  const top = PHONE ? f.Y0 : bg ? D.top : D.y + D.top, bottom = PHONE ? f.Y1 : bg ? UH - D.top : D.y + D.h - D.top;
+  if (PHONE) homeIcons(f.X1, f.Y0, c(H.langW), f.B, f.B, c(16));
+  else homeIcons(bg ? UW - D.iconPad : f.x + D.w - D.iconPad, bg ? D.iconPad : D.y + D.iconPad, D.langW, D.iconW, D.iconH, D.iconSize);
+  const acts = homeActions(), gap = PHONE ? f.g : D.btnGap, minH = PHONE ? f.B : D.subH, colW = Math.min(UW * H.col, PHONE ? c(H.colMax) : D.colW);
+  const logo = art("logo"), ratio = logo ? logo.naturalWidth / logo.naturalHeight : 4;
+  let lh = logo ? (PHONE ? c(CFG.PAPER.phoneLogoH) : CFG.PAPER.logoH) : (PHONE ? c(H.titleSize) : D.titleSize) * 1.3;
+  let playH = c(H.playH), subH = c(H.subH);
+  const need = () => lh + c(H.logoGap) + playH + (acts.length - 1) * (gap + subH), room = bottom - top;
+  if (logo && need() > room) lh = Math.max(PHONE ? c(H.logoMin) : D.titleSize, lh - (need() - room));
+  if (need() > room) subH = Math.max(minH, subH - (need() - room) / (acts.length - 1));
+  if (need() > room) playH = Math.max(minH, playH - (need() - room));
+  const titleW = Math.min(colW * D.logoW, UW * D.logoBand);               // логотип не шире колонки с запасом и середины экрана
+  if (logo) lh = Math.min(lh, titleW / ratio);
+  let y = top + Math.max(0, (room - need()) / 2);
   if (logo) {                                                              // SPEC-020: нарисованное название
-    const lh = CFG.PAPER.logoH, lw = lh * logo.naturalWidth / logo.naturalHeight, ly = H.rowY - H.rowGap - lh;
-    drawArt("logo", UW / 2 - lw / 2, ly, lw, lh);
-    hudRects.push({ id: "home:title", x: UW / 2 - lw / 2, y: ly, w: lw, h: lh, text: "BeBeBe Atrapar" });
+    const lw = lh * ratio;
+    drawArt("logo", UW / 2 - lw / 2, y, lw, lh);
+    hudRects.push({ id: "home:title", x: UW / 2 - lw / 2, y, w: lw, h: lh, text: "BeBeBe Atrapar" });
   } else {
-    label("BeBeBe Atrapar", UW / 2, H.titleY, H.titleSize, M.title);
-    ctx.font = hudFont(H.titleSize);
-    const tw = ctx.measureText("BeBeBe Atrapar").width;
-    hudRects.push({ id: "home:title", x: UW / 2 - tw / 2, y: H.titleY - H.titleSize * 0.6, w: tw, h: H.titleSize * 1.2, text: "BeBeBe Atrapar" });
+    const sz = PHONE ? pLabel("BeBeBe Atrapar", UW / 2, y + lh / 2, "title", H.titleSize, M.title, "center", titleW)
+      : labelFit("BeBeBe Atrapar", UW / 2, y + lh / 2, D.titleSize, titleW, M.title, "center", 24);
+    ctx.font = hudFont(sz);
+    const tw = Math.min(titleW, ctx.measureText("BeBeBe Atrapar").width);
+    hudRects.push({ id: "home:title", x: UW / 2 - tw / 2, y: y + lh / 2 - sz * 0.6, w: tw, h: sz * 1.2, text: "BeBeBe Atrapar" });
   }
-  let y = H.rowY;
-  for (const grp of homeGroups(H.rowH, H.text, 12)) y = pillRows(grp, x0 + 2 * H.pad, H.w - 4 * H.pad, y, H.gap, H.rowGap, true) + H.rowGap;
-  y += H.playGap - H.rowGap;
-  const [main, ...rest] = homeActions(), sw = (H.playW - (rest.length - 1) * H.gap) / rest.length;   // остальные — в ряд под «Играть»
-  fitButton(UW / 2 - H.playW / 2, y, H.playW, H.playH, main.text, main.color, main.act, H.playSize, 18).id = main.id;
-  y += H.playH + H.gap;
-  rest.forEach((a, i) => { fitButton(UW / 2 - H.playW / 2 + i * (sw + H.gap), y, sw, H.subH, a.text, a.color, a.act, H.subSize, 14).id = a.id; });
-  if (showInstallHint()) { fitText(L().installHint, UW / 2, y + H.subH + H.rowGap * 1.5, 15, H.w - 4 * H.pad, "center", M.hint, 800); installHintShown = true; }
+  y += lh + c(H.logoGap);
+  const x = UW / 2 - colW / 2, min = PHONE ? minPx("main") : 16;
+  acts.forEach((a, i) => {
+    const h = i ? subH : playH, size = c(i ? H.subSize : H.playSize);
+    if (!iconTab(x, y, colW, h, a.icon, a.text, a.emoji + a.text, a.color, a.act, size, min, a.id))
+      fitButton(x, y, colW, h, a.emoji + a.text, a.color, a.act, size, min).id = a.id;
+    y += h + gap;
+  });
+  homeInfo = { bg, col: { x, w: colW }, paper: acts.map(a => PAPER_BTN[a.color]), colors: acts.map(a => a.color) };
 }
-function drawHomePhone() {
-  const M = CFG.MENU_LOOK, P = M.phoneHome, c = cpx, S = CFG.PAPER.sheet, page = drawArtCover("menu_bg", 0, 0, UW, UH, S[0], S[1], S[2], S[3]);
-  const { X0, X1, Y0, Y1, g, B } = phoneFrame(!page);
-  const R = Math.min(c(P.colMax), (X1 - X0) * P.col), rx = X1 - R, lw = rx - c(16) - X0, lcx = X0 + lw / 2;
-  // справа: значки в углу, под ними Играть, История, Магазин — столбиком по центру оставшейся высоты
-  homeIcons(X1, Y0, c(P.langW), B, B, c(16));
-  const [main, ...rest] = homeActions(), top = Y0 + B + g;
-  const subH = Math.max(B, Math.min(c(P.subH), (Y1 - top - c(P.playH) - rest.length * g) / rest.length));   // остальные — столбиком
-  let by = top + Math.max(g, (Y1 - top - c(P.playH) - rest.length * (subH + g)) / 2);
-  fitButton(rx, by, R, c(P.playH), main.text, main.color, main.act, c(28), minPx("main")).id = main.id;
-  by += c(P.playH) + g;
-  for (const a of rest) { fitButton(rx, by, R, subH, a.text, a.color, a.act, c(20), minPx("main")).id = a.id; by += subH + g; }
-  // слева: название, плашки (переносятся по рядам), подсказка «установить»
-  const logo = art("logo");
-  let y;
-  if (logo) {                                                              // SPEC-020: нарисованное название
-    const ratio = logo.naturalWidth / logo.naturalHeight, lh = Math.min(c(CFG.PAPER.phoneLogoH), lw / ratio), lwd = lh * ratio;
-    drawArt("logo", lcx - lwd / 2, Y0, lwd, lh);
-    hudRects.push({ id: "home:title", x: lcx - lwd / 2, y: Y0, w: lwd, h: lh, text: "BeBeBe Atrapar" });
-    y = Y0 + lh + c(P.rowGap);
-  } else {
-    const ty = Y0 + c(P.titleSize) * 0.7, tsz = pLabel("BeBeBe Atrapar", lcx, ty, "title", P.titleSize, M.title, "center", lw);
-    ctx.font = hudFont(tsz);
-    const tw = Math.min(lw, ctx.measureText("BeBeBe Atrapar").width);
-    hudRects.push({ id: "home:title", x: lcx - tw / 2, y: ty - tsz * 0.6, w: tw, h: tsz * 1.2, text: "BeBeBe Atrapar" });
-    y = ty + tsz * 0.6 + c(P.rowGap) * 1.5;
+
+// ---------- SPEC-026: персонаж — страница «Прогресс» (только смотреть; раскладка — Claude): вид и имя игрока 1, звёзды и пройденные
+// миры, по строке на мир (значок, звёзды, уровни, «Пройдено» или замок), рюкзак, улучшения, гардероб; сброс прогресса ----------
+// одежда своя / всего: шапки, куртки, штаны, Большие (бесплатное — своё; причёски не в счёт — они все бесплатные)
+function clothesCount() {
+  let n = 0, m = 0;
+  for (const sl of [...LOOK_SLOTS, "big"]) (sl === "big" ? BIG_SKINS : SLOTS[sl]).forEach((_, i) => { m++; if (ownsItem(sl, i)) n++; });
+  return [n, m];
+}
+// уровни мира: пройдено (won) из levelsPerWorld()
+const worldWins = w => Array.from({ length: levelsPerWorld() }, (_, i) => i + 1).filter(n => progress.worlds[w].won[n] === true).length;
+// раскладка: три колонки под вкладками (компьютер — до ряда «Готово»): слева вид и имя игрока 1 (и сброс на телефоне), посередине
+// звёзды и миры, справа рюкзак, улучшения, гардероб; preview — окошко 3D-вида (его же берёт skinPanels для рендера)
+function progressGeom() {
+  const L0 = CFG.MENU_LOOK.progress, P = PHONE ? L0.phone : L0, c = PHONE ? cpx : (n => n);
+  let x0, x1, y0, y1, B;
+  if (PHONE) { const f = phoneFrame(false); x0 = f.X0; x1 = f.X1; y0 = f.Y0 + f.B + f.g; y1 = f.Y1; B = f.B; }
+  else { const f = menuFrame(undefined, false); x0 = f.X0; x1 = f.X1; y0 = L0.top; y1 = L0.bottom; B = f.B; }
+  const g = c(P.gap), lw = c(P.left), rest = x1 - x0 - lw - 2 * g, mw = rest * P.mid, h = y1 - y0, pv = Math.min(lw, c(P.pv));
+  return { P, c, g, B, left: { x: x0, y: y0, w: lw, h }, mid: { x: x0 + lw + g, y: y0, w: mw, h }, right: { x: x0 + lw + 2 * g + mw, y: y0, w: rest - mw, h },
+    preview: { x: x0 + (lw - pv) / 2, y: y0, w: pv, h: pv } };
+}
+// страница этого кадра (тесты): числа, как нарисованы
+let progressInfo = null;
+function progressPage() {
+  const G = progressGeom(), { P, c, g, B, left, mid, right, preview: pv } = G, M = CFG.MENU_LOOK;
+  const min = PHONE ? minPx("main") : CFG.MENU_LOOK.progress.min, size = c(P.text), tsize = c(P.title);
+  // одна строка: картинка слева (pic(x, cy, s) или null) и текст, сжимается до min (потом «…»); в hudRects — { id, text, textW }
+  const line = (id, t, x, y, h, maxW, opts = {}) => {
+    const s = opts.pic ? Math.min(h * 0.9, c(30)) : 0, sp = s ? c(4) : 0, f = fitLine(t, opts.size || size, min, maxW - s - sp);
+    const x0 = opts.center ? x + (maxW - s - sp - f.w) / 2 : x;
+    if (opts.pic) opts.pic(x0 + s / 2, y + h / 2, s);
+    plainText(f.text, x0 + s + sp, y + h / 2 + 1, f.sz, opts.color || M.ink);
+    if (PHONE) noteText("main", f.sz);
+    const r = { id, x: x0, y: y + h / 2 - Math.max(s, f.sz * 1.2) / 2, w: s + sp + f.w, h: Math.max(s, f.sz * 1.2), text: f.text, textW: s + sp + f.w };
+    hudRects.push(r);
+    return r;
+  };
+  const art2 = (name, fallback) => (x, y, s) => drawArtFit(name, x, y, s) || fallback(x, y, s);
+  const emoji = e => (x, y, s) => { ctx.font = `${s * 0.85}px system-ui, 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(e, x, y); };
+  // ---- слева: окошко 3D-вида игрока 1 (как в гардеробе), под ним имя; на телефоне внизу — сброс прогресса ----
+  rr(left.x - c(4), pv.y - c(4), left.w + c(8), pv.h + c(P.nameH) + c(12), c(14)); fillStroke(M.panel, 3);
+  ctx.clearRect(pv.x, pv.y, pv.w, pv.h);                       // окошко: здесь видно 3D-превью
+  ctx.lineWidth = 3; ctx.strokeStyle = OUT; ctx.strokeRect(pv.x, pv.y, pv.w, pv.h);
+  const name = nameFor("p1");
+  line("progress:name", name, left.x, pv.y + pv.h + c(4), c(P.nameH), left.w, { center: true, color: P_COLORS[0] });
+  if (PHONE) {
+    const texts = resetArmed ? [L().sure, L().sureShort] : [L().reset, L().resetShort], rsz = c(15);
+    ctx.font = hudFont(rsz);
+    const t = texts.find(q => scaledW(q) * CFG.PHONE_SHOP.RESET_FIT + c(20) <= left.w) ?? texts.at(-1);
+    fitButton(left.x, left.y + left.h - B, left.w, B, t, resetArmed ? M.armed : M.reset, resetProgress, rsz, min).id = "progress:reset";
   }
-  for (const grp of homeGroups(c(P.rowH), c(P.text), minPx("main"))) y = pillRows(grp, X0, lw, y, c(P.gap), c(P.rowGap), false) + c(P.rowGap);
-  if (showInstallHint()) { pWrap(L().installHint, lcx, y, "hint", 13, lw, 2, M.hint, 800); installHintShown = true; }
+  // ---- посередине: звёзды основных миров и пройденные миры, по строке на мир ----
+  const starMax = CFG.STARS_PER_LEVEL * levelsPerWorld() * MAIN_WORLDS.length, wmax = CFG.STARS_PER_LEVEL * levelsPerWorld();
+  const lockedAny = BONUS_WORLDS.some(w => !bonusOpen(w));
+  const note = lockedAny ? noteRows(L().lockedBonus, PHONE ? minPx("hint") : c(14), PHONE ? minPx("hint") : 12, mid.w, 2) : null;
+  const noteH = note ? note.rows.length * note.sz * 1.2 + c(4) : 0;
+  let sumH = c(P.sumH), rowH = c(P.rowH);
+  const fixed = 2 * sumH + noteH, floor = min * 1.3;
+  if (fixed + WORLDS.length * rowH > mid.h) rowH = Math.max(floor, (mid.h - fixed) / WORLDS.length);
+  let y = mid.y;
+  const star = (x, yy, s) => drawStarArt(x, yy, s * 0.42, true);
+  line("progress:stars", `${mainStars()} / ${starMax}`, mid.x, y, sumH, mid.w, { pic: star, size: tsize });
+  y += sumH;
+  line("progress:worlds", L().worldsDone(worldsFinished(), MAIN_WORLDS.length), mid.x, y, sumH, mid.w, { size: tsize });
+  y += sumH;
+  const iconW = rowH, stampW = rowH, nameW = PHONE ? 0 : (mid.w - iconW - stampW) * CFG.MENU_LOOK.progress.name, colW = (mid.w - iconW - stampW - nameW) / 2;
+  const worlds = WORLDS.map(w => {
+    const open = bonusOpen(w), stars = worldStarsOf(w), wins = worldWins(w), done = wins >= levelsPerWorld();
+    const rowY = y, cy = y + rowH / 2, is = rowH * 0.86;
+    if (!open) ctx.globalAlpha = 0.45;
+    if (!drawArtFit(worldArt(w), mid.x + iconW / 2, cy, is * 1.1)) worldPicture(w, mid.x + iconW / 2 - is / 2, cy - is / 2, is);
+    ctx.globalAlpha = 1;
+    hudRects.push({ id: "progress:icon:" + w, x: mid.x + (iconW - is) / 2, y: cy - is / 2, w: is, h: is });
+    let x = mid.x + iconW + c(4);
+    if (nameW) {                                             // название мира: до двух строк (длинные названия, широкие шрифты CI)
+      const nb = noteRows(L().worlds[w], size, min, nameW - c(6), 2), lh = nb.sz * 1.2, ny = cy - nb.rows.length * lh / 2;
+      ctx.font = `800 ${nb.sz}px system-ui, "Segoe UI", sans-serif`; ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.fillStyle = open ? M.ink : M.lockedInk;
+      nb.rows.forEach((r, j) => ctx.fillText(r, x, ny + lh * (j + 0.5)));
+      hudRects.push({ id: "progress:name:" + w, x, y: ny, w: nb.w, h: nb.rows.length * lh, text: nb.rows.join(" "), textW: nb.w });
+      x += nameW;
+    }
+    if (open) {
+      line("progress:stars:" + w, `${stars}/${wmax}`, x, rowY, rowH, colW - c(4), { pic: star });
+      line("progress:levels:" + w, `🏁 ${wins}/${levelsPerWorld()}`, x + colW, rowY, rowH, colW - c(4));
+      if (done) {
+        const ss = stampW * 0.9, sx = mid.x + mid.w - stampW / 2;
+        if (!drawArtFit("stamp_done", sx, cy, ss * 1.1)) emoji("✔️")(sx, cy, ss);
+        hudRects.push({ id: "progress:done:" + w, x: sx - ss / 2, y: cy - ss / 2, w: ss, h: ss });
+      }
+    } else {
+      const ps = rowH * 0.8, px = x + ps / 2;
+      if (!drawArtFit("padlock", px, cy, ps)) emoji("🔒")(px, cy, ps);
+      hudRects.push({ id: "progress:lock:" + w, x: px - ps / 2, y: cy - ps / 2, w: ps, h: ps });
+    }
+    y += rowH;
+    return { world: w, open, stars, max: wmax, levels: wins, done };
+  });
+  if (note) {
+    rowsAt("progress:lockNote", note, mid.x + mid.w / 2, y + c(4), M.lockedInk);
+    hudRects[hudRects.length - 1].text = L().lockedBonus;
+    if (PHONE) noteText("hint", note.sz);
+  }
+  // ---- справа: рюкзак (вещи и спасалки), улучшения (уровень из 3), гардероб (одежда своя / всего) ----
+  const tH = c(P.titleH), cellH = c(P.cellH);
+  let ry = right.y;
+  const title = (id, t) => { line(id, t, right.x, ry, tH, right.w, { size: tsize, color: M.type }); ry += tH; };
+  title("progress:bag", L().bag);
+  const kinds = Object.keys(SHOP_PICTURES), bagW = right.w / 2;
+  kinds.forEach((k, i) => {
+    const x = right.x + (i % 2) * bagW, yy = ry + Math.floor(i / 2) * cellH;
+    line("progress:bag:" + k, "×" + progress.inv[k], x, yy, cellH, bagW - c(6), { pic: (cx, cy, s) => (ITEM_ART[k] && drawArtFit(ITEM_ART[k], cx, cy, s * 1.15)) || shopPicture(k, cx, cy, s * 0.8) });
+  });
+  ry += Math.ceil(kinds.length / 2) * cellH + c(4);
+  title("progress:upgrades", L().upgradesTab);
+  const keys = Object.keys(UPGRADES), uw = right.w / keys.length;
+  keys.forEach((k, i) => line("progress:upg:" + k, `${upgLevel(k)}/${upgTop(k)}`, right.x + i * uw, ry, cellH, uw - c(4),
+    { pic: (cx, cy, s) => (UPG_ART[k] && drawArtFit(UPG_ART[k], cx, cy, s * 1.15)) || upgPicture(k, cx, cy, s * 0.8) }));
+  ry += cellH + c(4);
+  title("progress:wardrobe", L().wardrobeTab);
+  const [own, all] = clothesCount();
+  line("progress:clothes", L().clothes(own, all), right.x, ry, cellH * 0.8, right.w);
+  progressInfo = { name, stars: mainStars(), starsMax: starMax, worldsDone: worldsFinished(), worlds,
+    bag: Object.fromEntries(kinds.map(k => [k, progress.inv[k]])), upgrades: Object.fromEntries(keys.map(k => [k, upgLevel(k)])), clothes: [own, all], preview: { ...pv } };
 }
 
 // ---------- SPEC-017: вкладка «Гардероб» магазина — бывший экран нарядов (SPEC-003/009) и имена друзей ----------
@@ -5695,7 +5902,7 @@ function endActions(m) {
 const pauseActions = () => [[L().resume, CFG.MENU_LOOK.ok, resumeGame], ["🗺 " + L().map, CFG.MENU_LOOK.back, toMap], ["🏠 " + L().home, CFG.MENU_LOOK.back, toHome]];
 function drawOverlayPhone() {
   const c = cpx;
-  if (mode === "home") drawHomePhone();
+  if (mode === "home") drawHome();
   else if (mode === "story") drawStory();
   else if (mode === "scene") drawScene();
   else if (mode === "map" || mode === "levelCard") {
@@ -5703,8 +5910,9 @@ function drawOverlayPhone() {
     if (mode === "levelCard") { buttons = []; hudRects = []; drawLevelCard(); }   // под карточкой карта не нажимается
   } else if (mode === "shop") {
     const f = phoneFrame(), { X0, X1, Y0, Y1, g, B } = f;
-    phoneShopBar(f);   // SPEC-017: вкладки «Вещи» · «Гардероб» · «Улучшения», монетки, сброс / друзья, «Готово»
-    if (shopTab === "upgrades") upgradeCardsPhone(X0, X1, Y0 + B + c(8), Y1);
+    phoneShopBar(f);   // SPEC-017: вкладки (SPEC-026: «Прогресс» · «Вещи» · «Гардероб» · «Улучшения»), монетки, друзья, «Готово»
+    if (shopTab === "progress") progressPage();
+    else if (shopTab === "upgrades") upgradeCardsPhone(X0, X1, Y0 + B + c(8), Y1);
     else if (shopTab === "wardrobe") wardrobePhone(f);
     else {
       // четыре карточки в ряд: рукавицы, мега-рукавицы, воздушные поцелуи, спасалка (SPEC-007). Сверху картинка, название,
@@ -5854,7 +6062,7 @@ function drawOverlay() {
   if (mode === "play") return;
   ctx.fillStyle = "rgba(20,30,25,.55)"; ctx.fillRect(0, 0, UW, UH);
   if (PHONE) { drawOverlayPhone(); return; }
-  if (mode === "home") drawHomeDesktop();
+  if (mode === "home") drawHome();
   else if (mode === "story") drawStory();
   else if (mode === "scene") drawScene();
   else if (mode === "map" || mode === "levelCard") {
@@ -5862,9 +6070,10 @@ function drawOverlay() {
     if (mode === "levelCard") { buttons = []; hudRects = []; drawLevelCard(); }   // под карточкой карта не нажимается
   } else if (mode === "shop") {
     menuFrame();
-    shopTabs(UW / 2 - 420, 41, 46, 20, 12, 10, true);   // SPEC-009: вкладки на месте заголовка (SPEC-017: три)
+    shopTabs(UW / 2 - 420, 41, 46, 20, 12, 10, true, CFG.MENU_LOOK.frame.tabsW);   // SPEC-009: вкладки на месте заголовка (SPEC-017: три; SPEC-026: четыре — до монеток)
     coinPlate(UW / 2 + 250, 46, 150, 38);
-    if (shopTab === "upgrades") upgradeCardsDesktop();
+    if (shopTab === "progress") progressPage();
+    else if (shopTab === "upgrades") upgradeCardsDesktop();
     else if (shopTab === "wardrobe") wardrobeDesktop();
     else {
       // четыре карточки: рукавицы, мега-рукавицы, воздушные поцелуи, спасалка (SPEC-007)
@@ -5906,7 +6115,8 @@ function drawOverlay() {
       fitButton(UW / 2 + 130, W.rowY, 230, W.rowH, fr ? "◀ " + L().wardrobeTab : "👥 " + L().friends, fr ? CFG.MENU_LOOK.ok : CFG.MENU_LOOK.friends, fr ? backToWardrobe : openFriends, 20, 13);
     } else {
       addButton(UW / 2 - 100, 540, 200, 50, L().ok, CFG.MENU_LOOK.ok, closeShop, 22);
-      addButton(UW / 2 + 200, 548, 180, 36, resetArmed ? L().sure : L().reset, resetArmed ? CFG.MENU_LOOK.armed : CFG.MENU_LOOK.reset, resetProgress, 13);
+      // SPEC-026: «Сбросить прогресс» — только на странице «Прогресс» (то же «нажми ещё раз»)
+      if (shopTab === "progress") fitButton(UW / 2 + 200, 548, 180, 36, resetArmed ? L().sure : L().reset, resetArmed ? CFG.MENU_LOOK.armed : CFG.MENU_LOOK.reset, resetProgress, 13, 11).id = "progress:reset";
     }
   } else if (mode === "pause") {
     endPaper(CFG.PAPER.pauseBox);
@@ -6024,7 +6234,7 @@ function drawBanner() {
 function drawUI(t) {
   draws++;
   if (nameInput && !inWardrobe()) closeNameInput(false);
-  buttons = []; installHintShown = false; mapState = null; cardInfo = null; cardRect = null; storyInfo = null; sceneInfo = null; bonusNote = null; winLine = ""; mmShown = false; edgeArrows = []; hudRects = []; textSizes = {}; bannerRect = null; kitHintRect = null; heardHintRect = null; stickMarks = []; shopLayout = null; winPanel = null;
+  buttons = []; homeInfo = null; progressInfo = null; mapState = null; cardInfo = null; cardRect = null; storyInfo = null; sceneInfo = null; bonusNote = null; winLine = ""; mmShown = false; edgeArrows = []; hudRects = []; textSizes = {}; bannerRect = null; kitHintRect = null; heardHintRect = null; stickMarks = []; shopLayout = null; winPanel = null;
   if (mode !== "shop") { shopTab = "items"; wardrobePage = "looks"; }
   if (mode !== "map") toast = null;   // SPEC-017: подсказка карты — только пока карта на экране
   if (mode !== "map" && mode !== "levelCard") mapBgCache = null;   // фон страницы мира не держим в памяти вне карты
@@ -8099,7 +8309,10 @@ function previewModel(key, build) {
 }
 const SKIN_KEYS = ["p1", "p2", "big"];   // компьютер; телефон — phoneSkinCols() (SPEC-017: вкладка «Гардероб» магазина)
 const skinCx = i => UW / 2 - (SKIN_KEYS.length - 1) * 125 + i * 250;   // центр колонки
-const skinPanels = () => PHONE ? phoneSkinCols().map(col => ({ key: col.key, ...col.panel }))
+// SPEC-026: на странице «Прогресс» — одно окошко: игрок 1
+const progressTab = () => mode === "shop" && shopTab === "progress";
+const skinPanels = () => progressTab() ? [{ key: "p1", ...progressGeom().preview }]
+  : PHONE ? phoneSkinCols().map(col => ({ key: col.key, ...col.panel }))
   : SKIN_KEYS.map((key, i) => ({ key, x: skinCx(i) - 95, y: 136, w: 190, h: 140 }));
 function renderPreviews(t) {
   const lp1 = makeLook(skinSel.p1), lp2 = makeLook(skinSel.p2);
@@ -8260,7 +8473,7 @@ function render3D(t) {
   syncScene(t);
   renderer.setViewport(0, 0, CSS_W, CSS_H);
   renderer.render(scene, camera);
-  if (inWardrobe() && wardrobePage === "looks") renderPreviews(t);
+  if ((inWardrobe() && wardrobePage === "looks") || progressTab()) renderPreviews(t);   // SPEC-026: и на странице «Прогресс»
 }
 
 // =====================================================================
@@ -8367,7 +8580,7 @@ window.__bb = {
     return { pos3: v(camera.position), look3: v(camLook), target: { x: camLook.x * CELL, y: camLook.z * CELL }, aspect: camera.aspect,
       rect: camRect(), zoom: PHONE ? cam.zoom : 1, dist: camDist, ahead: { x: cam.lax, y: cam.lay } };
   },
-  isStandalone, get installHintShown() { return installHintShown; }, get buttonNames() { return buttons.map(b => b.act.name); },
+  isStandalone, get homeInfo() { return homeInfo && JSON.parse(JSON.stringify(homeInfo)); }, get progressInfo() { return progressInfo && JSON.parse(JSON.stringify(progressInfo)); }, clothesCount, get buttonNames() { return buttons.map(b => b.act.name); },
   get buttonRects() { return buttons.map(b => ({ id: b.id || b.act.name, x: b.x, y: b.y, w: b.w, h: b.h, text: b.text, textW: b.textW })); },
   nameTagH,   // SPEC-021: высота точки имени над ногами (px мира)
   updateCamera, camSnap, stickR, updateMinimapFade, get minimapAlpha() { return mmAlpha; }, skinPanels, resetBannerTimer() { bannerShownAt = -Infinity; }, showBanner,
@@ -8402,7 +8615,7 @@ window.__bb = {
 // ошибку, чтобы визуальный тест, открытый в sim, падал громко, а не проверял пустоту.
 const SIM_DRAWN = ["buttonRects", "buttonNames", "tapButton", "hudRects", "mapInfo", "levelCard", "storyInfo", "textSizes", "minimap",
   "bannerRect", "rotateShown", "winPanel", "winLine", "bonusNote", "shopLayout", "kitHint", "heardHint", "edgeArrows", "stickMarks",
-  "tapLines", "installHintShown", "mapPieces", "groundColorAt", "camera", "minimapAlpha", "artUse", "sceneInfo", "moodInfo", "bigLook", "look3D"];
+  "tapLines", "homeInfo", "progressInfo", "mapPieces", "groundColorAt", "camera", "minimapAlpha", "artUse", "sceneInfo", "moodInfo", "bigLook", "look3D"];
 window.__bb.SIM_DRAWN = SIM_DRAWN;
 window.__bb = new Proxy(window.__bb, {
   get(t, k, r) {

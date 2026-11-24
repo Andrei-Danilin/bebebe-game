@@ -62,65 +62,55 @@ function phoneProblems(at, d) {
   return out;
 }
 
-// ---------- AC 1: the home screen ----------
-test("home is minimal", async ({ page }) => {
-  await frames(page);
-  let d = await page.evaluate(() => {
-    const b = window.__bb, C = b.CFG;
-    return { mode: b.mode, ids: b.buttonRects.map(q => q.id), texts: b.buttonRects.map(q => q.text), hud: b.hudRects, done0: b.I18N.en.worldsDone(0, b.MAIN_WORLDS.length),
-      max: C.STARS_PER_LEVEL * b.levelsPerWorld() * b.MAIN_WORLDS.length, mains: b.MAIN_WORLDS.length, modes: b.MODES };
-  });
-  expect(d.mode, "the game opens on the home screen").toBe("home");
-  expect(d.max, "STARS_PER_LEVEL × levels × main worlds").toBe(240);
-  expect([...d.ids].sort(), "buttons: Play, Story, Shop and the two small icons — nothing else").toEqual(HOME_BUTTONS);
-  expect(d.hud.map(h => h.id).sort(), "the title, the progress, the bonus badges and the coins — no items yet").toEqual(["coins", "home:bonus:beach", "home:bonus:winter", "home:stars", "home:title", "home:worlds"]);
-  const hud = id => d.hud.find(h => h.id === id);
-  expect(hud("home:stars").text).toBe(`⭐ 0 / ${d.max}`);
-  expect(hud("home:worlds").text).toBe(d.done0);
-  expect(d.done0).toBe("Worlds finished: 0 / 4");
-  expect([hud("home:bonus:beach").open, hud("home:bonus:winter").open], "both bonus worlds locked").toEqual([false, false]);
-  expect(hud("home:bonus:beach").text).toContain("🔒");
-  expect(hud("coins").text).toBe("0");
-  expect(d.texts.some(t => /Skins|🎨/.test(t)), "no Skins button").toBe(false);
-  expect(d.modes, "no skins / names modes").toEqual(["home", "map", "levelCard", "story", "shop", "play", "pause", "win", "lose", "scene"]);   // SPEC-022: + the story scenes
-  // the big buttons, the language and sound icons small, in a corner (top right)
-  const r = await page.evaluate(() => window.__bb.buttonRects);
-  const btn = id => r.find(q => q.id === id), play = btn("home:play");
-  for (const id of ["home:story", "home:shop"]) expect(btn(id).w * btn(id).h, `${id} smaller than Play`).toBeLessThan(play.w * play.h);
-  for (const id of ["home:lang", "home:sound"]) {
-    expect(btn(id).w * btn(id).h, `${id} small`).toBeLessThan(btn("home:story").w * btn("home:story").h);
-    expect(btn(id).x, `${id} on the right`).toBeGreaterThan(480);
-    expect(btn(id).y, `${id} at the top`).toBeLessThan(play.y);
-  }
-
-  // progress: stars of the main worlds only, finished worlds (all 20 won), owned items with counts > 0 only, coins
+// ---------- AC 1: the home screen (SPEC-026: logo, language and sound, three buttons — nothing else) ----------
+test("home is minimal: the logo, language and sound, Play · Story · Character", async ({ page }) => {
+  // rich progress: coins, items, every main world won — none of it shows on the home screen (SPEC-026: it is on the Progress page)
   await page.evaluate(() => {
     const b = window.__bb, p = b.progress;
-    Object.assign(p.worlds.park, { unlocked: 20, won: Object.fromEntries(Array.from({ length: 20 }, (_, i) => [i + 1, true])), stars: Object.fromEntries(Array.from({ length: 20 }, (_, i) => [i + 1, 3])) });
-    Object.assign(p.worlds.field, { unlocked: 2, won: { 1: true }, stars: { 1: 2 } });
-    Object.assign(p.inv, { mittens: 3, mega: 0, kisses: 2, rescues: 0 }); p.coins = 77;
+    for (const w of b.MAIN_WORLDS) Object.assign(p.worlds[w], { unlocked: 20, won: Object.fromEntries(Array.from({ length: 20 }, (_, i) => [i + 1, true])) });
+    Object.assign(p.inv, { mittens: 3, mega: 1, kisses: 2, rescues: 4 }); p.coins = 77;
   });
   await frames(page);
-  d = await page.evaluate(() => ({ hud: window.__bb.hudRects, ids: window.__bb.buttonRects.map(q => q.id) }));
-  expect(d.hud.find(h => h.id === "home:stars").text).toBe("⭐ 62 / 240");
-  expect(d.hud.find(h => h.id === "home:worlds").text).toBe("Worlds finished: 1 / 4");
-  expect(d.hud.filter(h => h.id.startsWith("home:inv:")).map(h => [h.id, h.text])).toEqual([["home:inv:mittens", "×3"], ["home:inv:kisses", "×2"]]);
-  expect(d.hud.find(h => h.id === "coins").text).toBe("77");
-  expect([...d.ids].sort()).toEqual(HOME_BUTTONS);
-  // every main level won: the bonus badges open
-  await page.evaluate(() => { const b = window.__bb; for (const w of b.MAIN_WORLDS) Object.assign(b.progress.worlds[w], { unlocked: 20, won: Object.fromEntries(Array.from({ length: 20 }, (_, i) => [i + 1, true])) }); });
-  await frames(page);
-  d = await page.evaluate(() => ({ hud: window.__bb.hudRects }));
-  expect(["beach", "winter"].map(w => d.hud.find(h => h.id === "home:bonus:" + w).open)).toEqual([true, true]);
-  expect(d.hud.find(h => h.id === "home:bonus:beach").text).not.toContain("🔒");
-  expect(d.hud.find(h => h.id === "home:worlds").text).toBe("Worlds finished: 4 / 4");
-  // the texts in every language
-  expect(await page.evaluate(() => ["en", "es", "ru"].map(l => { const I = window.__bb.I18N[l]; return [I.play, I.story, I.shop, I.map, I.home, I.worldsDone(2, 4)]; }))).toEqual([
-    ["Play", "Story", "Shop", "Map", "Home", "Worlds finished: 2 / 4"],
-    ["Jugar", "Historia", "Tienda", "Mapa", "Inicio", "Mundos terminados: 2 / 4"],
-    ["Играть", "История", "Магазин", "Карта", "Главная", "Пройдено миров: 2 / 4"]]);
+  const d = await page.evaluate(() => {
+    const b = window.__bb;
+    return { mode: b.mode, ids: b.buttonRects.map(q => q.id), texts: b.buttonRects.map(q => q.text), hud: b.hudRects, modes: b.MODES, home: b.homeInfo, ui: b.uiSize,
+      rects: b.buttonRects, hint: ["en", "es", "ru"].map(l => "installHint" in b.I18N[l]), hintShown: "installHintShown" in b };
+  });
+  expect(d.mode, "the game opens on the home screen").toBe("home");
+  expect([...d.ids].sort(), "buttons: Play, Story, Character and the two small icons — nothing else").toEqual(HOME_BUTTONS);
+  expect(d.hud.map(h => h.id), "only the logo: no stars, worlds, bonus worlds, coins or items").toEqual(["home:title"]);
+  expect(d.hint, "the install hint is gone (Andrei: remove it completely)").toEqual([false, false, false]);
+  expect(d.hintShown, "no installHintShown in __bb").toBe(false);
+  expect(d.texts.some(t => /Skins|🎨/.test(t)), "no Skins button").toBe(false);
+  expect(d.modes, "no skins / names modes").toEqual(["home", "map", "levelCard", "story", "shop", "play", "pause", "win", "lose", "scene"]);   // SPEC-022: + the story scenes
+  // one centred column, in this order: Play (green), Story (pink), Character (orange); Play the biggest
+  const btn = id => d.rects.find(q => q.id === id), col = ["home:play", "home:story", "home:shop"].map(btn);
+  for (const q of col) {
+    expect(Math.abs(q.x + q.w / 2 - d.ui.w / 2), `${q.id} centred`).toBeLessThan(0.5);
+    expect(q.w, `${q.id} as wide as the column`).toBeCloseTo(col[0].w, 3);
+  }
+  expect(col[0].y < col[1].y && col[1].y < col[2].y, "Play, Story, Character from the top").toBe(true);
+  expect(col[0].h, "Play is the big one").toBeGreaterThan(col[1].h);
+  expect(d.home.paper, "paper buttons: green, pink, orange").toEqual(["btn_green", "btn_pink", "btn_orange"]);
+  // without art the code-drawn buttons have the same colours (hue of the fill: green 90–160°, pink 300–350°, orange 20–45°)
+  const hue = hex => { const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255), mx = Math.max(r, g, b), mn = Math.min(r, g, b), c = mx - mn;
+    const h = mx === r ? ((g - b) / c) % 6 : mx === g ? (b - r) / c + 2 : (r - g) / c + 4; return (h * 60 + 360) % 360; };
+  const [hp, hs, hc] = d.home.colors.map(hue);
+  expect([hp >= 90 && hp <= 160, hs >= 300 && hs <= 350, hc >= 20 && hc <= 45], `fallback colours ${d.home.colors}`).toEqual([true, true, true]);
+  expect(btn("home:shop").text, "the Character button").toBe("🎒 Character");
+  // the language and sound icons small, in the top right corner
+  for (const id of ["home:lang", "home:sound"]) {
+    expect(btn(id).w * btn(id).h, `${id} small`).toBeLessThan(col[1].w * col[1].h);
+    expect(btn(id).x, `${id} on the right`).toBeGreaterThan(d.ui.w * 0.75);
+    expect(btn(id).y + btn(id).h, `${id} at the top`).toBeLessThan(col[0].y);
+  }
+  // the label in every language (SPEC-026)
+  expect(await page.evaluate(() => ["en", "es", "ru"].map(l => { const I = window.__bb.I18N[l]; return [I.play, I.story, I.character, I.map, I.home]; }))).toEqual([
+    ["Play", "Story", "Character", "Map", "Home"],
+    ["Jugar", "Historia", "Personaje", "Mapa", "Inicio"],
+    ["Играть", "История", "Персонаж", "Карта", "Главная"]]);
 
-  // the buttons: Play → the map, Story, Shop; Escape goes back home; Enter = Play; the icons switch language and sound
+  // the buttons: Play → the map, Story, Character (→ its Progress page); Escape goes back home; Enter = Play, S = Story, B = Character
   await click(page, "home:play");
   expect(await page.evaluate(() => window.__bb.mode)).toBe("map");
   await page.keyboard.press("Escape");
@@ -132,14 +122,19 @@ test("home is minimal", async ({ page }) => {
   expect(await page.evaluate(() => window.__bb.mode)).toBe("story");
   await page.keyboard.press("Escape");
   await click(page, "home:shop");
-  expect(await page.evaluate(() => [window.__bb.mode, window.__bb.shopTab])).toEqual(["shop", "items"]);
+  expect(await page.evaluate(() => [window.__bb.mode, window.__bb.shopTab])).toEqual(["shop", "progress"]);
   await page.keyboard.press("Escape");
   expect(await page.evaluate(() => window.__bb.mode)).toBe("home");
+  await page.keyboard.press("KeyB");                                       // the old shop key opens Character
+  expect(await page.evaluate(() => [window.__bb.mode, window.__bb.shopTab])).toEqual(["shop", "progress"]);
+  await page.keyboard.press("Escape");
   await page.keyboard.press("Enter");
   expect(await page.evaluate(() => window.__bb.mode)).toBe("map");
   await page.evaluate(() => { window.__bb.mode = "home"; });
   await click(page, "home:lang");
   expect(await page.evaluate(() => document.documentElement.lang)).toBe("es");
+  await frames(page);
+  expect(await page.evaluate(() => window.__bb.buttonRects.find(q => q.id === "home:shop").text)).toBe("🎒 Personaje");
   const m0 = await page.evaluate(() => window.__bb.muted);
   await click(page, "home:sound");
   expect(await page.evaluate(() => window.__bb.muted)).toBe(!m0);
@@ -158,21 +153,47 @@ test("home is minimal", async ({ page }) => {
   expect(await page.evaluate(() => window.__bb.mode)).toBe("map");
 });
 
+// SPEC-026 AC 7: the same layout on desktop and phone — a centred column at most 40 % wide, the outer quarter on each side free of
+// menu controls (the corner icons excepted: Andrei's "language/sound in the corner"), menu_bg drawn whole enough that its doodles
+// on both sides show (desktop 3:2 crops ≤ 10 % per side; the phone sees it all)
+async function homeLayoutProblems(page, at) {
+  await page.evaluate(() => { const b = window.__bb; b.mode = "home"; });
+  await frames(page);
+  const d = await page.evaluate(() => { const b = window.__bb; return { home: b.homeInfo, buttons: b.buttonRects, hud: b.hudRects, ui: b.uiSize }; });
+  const out = [], W = d.ui.w, menu = [...d.buttons.filter(q => ["home:play", "home:story", "home:shop"].includes(q.id)), ...d.hud.filter(h => h.id === "home:title")];
+  if (menu.length !== 4) out.push(`${at}: ${menu.length} of the logo + three buttons`);
+  if (!d.home || !d.home.bg) { out.push(`${at}: menu_bg not drawn`); return out; }
+  if (d.home.col.w > 0.4 * W + 0.01) out.push(`${at}: column ${d.home.col.w} wider than 40 % of ${W}`);
+  for (const q of menu) {
+    if (q.x < 0.25 * W - 0.01 || q.x + q.w > 0.75 * W + 0.01) out.push(`${at}: ${q.id} reaches the outer quarter (${q.x.toFixed(1)}…${(q.x + q.w).toFixed(1)} of ${W})`);
+    if (q.y < 0 || q.y + q.h > d.ui.h) out.push(`${at}: ${q.id} off the screen`);
+  }
+  if (d.home.bg.w < 0.8) out.push(`${at}: only ${d.home.bg.w} of menu_bg's width shows`);
+  if (Math.abs(d.home.bg.x + d.home.bg.w / 2 - 0.5) > 0.001) out.push(`${at}: menu_bg not centred ${JSON.stringify(d.home.bg)}`);
+  return out;
+}
+test("SPEC-026: home is one centred column with the menu page's doodles on both sides (1280×720)", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  try {
+    const fails = await homeLayoutProblems(page, "1280×720");
+    expect(fails, fails.join("\n")).toEqual([]);
+  } finally { await page.setViewportSize({ width: 960, height: 640 }); await frames(page); }
+});
+test("SPEC-026: home is one centred column with the menu page's doodles on both sides (phone 667×375)", async ({ phonePage: page }) => {
+  const fails = await homeLayoutProblems(page, "667×375");
+  const bg = await page.evaluate(() => window.__bb.homeInfo.bg);
+  expect(fails, fails.join("\n")).toEqual([]);
+  expect(bg.w, "the phone (16:9) sees the whole page, not the plain middle").toBeGreaterThan(0.99);
+});
+
 test("home fits a phone in every language, also with wider fonts", async ({ phonePage: page }) => {
   const fails = [];
-  for (const lang of ["en", "es", "ru"]) for (const scale of [1, 1.15]) for (const rich of [false, true]) {
-    await page.evaluate(([l, s, r]) => {
-      const b = window.__bb; b.setProgress(null); b.setLang(l); b.CFG.TEXT_TEST_SCALE = s; b.mode = "home";
-      if (r) {   // everything shown: four item kinds with two-digit counts, a big coin number, the bonus worlds open
-        Object.assign(b.progress.inv, { mittens: 12, mega: 10, kisses: 15, rescues: 11 }); b.progress.coins = 12345;
-        for (const w of b.MAIN_WORLDS) Object.assign(b.progress.worlds[w], { unlocked: 20, won: Object.fromEntries(Array.from({ length: 20 }, (_, i) => [i + 1, true])) });
-      }
-    }, [lang, scale, rich]);
+  for (const lang of ["en", "es", "ru"]) for (const scale of [1, 1.15]) {
+    await page.evaluate(([l, s]) => { const b = window.__bb; b.setProgress(null); b.setLang(l); b.CFG.TEXT_TEST_SCALE = s; b.mode = "home"; }, [lang, scale]);
     await frames(page);
     const d = await page.evaluate(() => { const b = window.__bb; return { mode: b.mode, buttons: b.buttonRects, hud: b.hudRects, ui: b.uiSize, texts: b.textSizes, min: b.CFG.PHONE_TEXT }; });
-    const at = `${lang} ×${scale} ${rich ? "rich" : "fresh"}`;
+    const at = `${lang} ×${scale}`;
     if ([...d.buttons.map(q => q.id)].sort().join() !== HOME_BUTTONS.join()) fails.push(`${at}: buttons ${d.buttons.map(q => q.id)}`);
-    if (rich && d.hud.filter(h => h.id.startsWith("home:inv:")).length !== 4) fails.push(`${at}: not four item counts`);
     fails.push(...phoneProblems(at, d));
   }
   await page.evaluate(() => { const b = window.__bb; b.CFG.TEXT_TEST_SCALE = 1; b.setProgress(null); b.setLang("en"); });
@@ -186,13 +207,13 @@ test("the shop holds the wardrobe", async ({ page }) => {
   await page.evaluate(() => { window.__bb.mode = "shop"; });
   await frames(page);
   let d = await page.evaluate(() => window.__bb.buttonRects.filter(q => String(q.id).startsWith("tab:")));
-  expect(d.map(q => q.id), "three tabs in this order").toEqual(["tab:items", "tab:wardrobe", "tab:upgrades"]);
-  expect(d[0].x < d[1].x && d[1].x < d[2].x).toBe(true);
-  expect(d.map(q => q.text)).toEqual(["🛒 Items", "👕 Wardrobe", "⭐ Upgrades"]);
-  // ← → (and the d-pad) cycle the three tabs
+  expect(d.map(q => q.id), "four tabs in this order (SPEC-026: Progress first)").toEqual(["tab:progress", "tab:items", "tab:wardrobe", "tab:upgrades"]);
+  expect(d[0].x < d[1].x && d[1].x < d[2].x && d[2].x < d[3].x).toBe(true);
+  expect(d.map(q => q.text)).toEqual(["🏆 Progress", "🛒 Items", "👕 Wardrobe", "⭐ Upgrades"]);
+  // ← → (and the d-pad) cycle the four tabs
   const tabs = [];
-  for (const k of ["ArrowRight", "ArrowRight", "ArrowRight", "ArrowLeft"]) { await page.keyboard.press(k); tabs.push(await page.evaluate(() => window.__bb.shopTab)); }
-  expect(tabs).toEqual(["wardrobe", "upgrades", "items", "upgrades"]);
+  for (const k of ["ArrowRight", "ArrowRight", "ArrowRight", "ArrowRight", "ArrowLeft"]) { await page.keyboard.press(k); tabs.push(await page.evaluate(() => window.__bb.shopTab)); }
+  expect(tabs).toEqual(["wardrobe", "upgrades", "progress", "items", "progress"]);
   expect(await page.evaluate(() => { const b = window.__bb; b.shopTab = "wardrobe"; return b.shopTab; }), "__bb.shopTab accepts wardrobe").toBe("wardrobe");
   // the wardrobe: three previews, cycling arrows, dice, names, the friends button, the coins
   await frames(page);
@@ -220,7 +241,7 @@ test("the shop holds the wardrobe", async ({ page }) => {
   s = await screen(page);
   expect(await page.evaluate(() => [window.__bb.mode, window.__bb.shopTab, window.__bb.wardrobePage])).toEqual(["shop", "wardrobe", "friends"]);
   expect(s.ids.filter(id => String(id).startsWith("name:"))).toEqual(["name:bot1", "name:bot2", "name:bot3", "name:bot4"]);
-  expect(s.ids).toEqual(expect.arrayContaining(["tab:items", "tab:wardrobe", "tab:upgrades", "backToWardrobe"]));
+  expect(s.ids).toEqual(expect.arrayContaining(["tab:progress", "tab:items", "tab:wardrobe", "tab:upgrades", "backToWardrobe"]));
   expect(await page.evaluate(() => window.__bb.outfits.shown.p1.hat), "still trying on with Friends open").toBe(crown);
   await page.keyboard.press("Escape");
   expect(await page.evaluate(() => [window.__bb.mode, window.__bb.wardrobePage])).toEqual(["shop", "looks"]);
@@ -246,15 +267,15 @@ test("the shop holds the wardrobe", async ({ page }) => {
   await frames(page);
   expect(await page.evaluate(() => [window.__bb.shopTab, window.__bb.wardrobePage])).toEqual(["items", "looks"]);
   // the new tab's name in every language
-  expect(await page.evaluate(() => ["en", "es", "ru"].map(l => [window.__bb.I18N[l].itemsTab, window.__bb.I18N[l].wardrobeTab, window.__bb.I18N[l].upgradesTab])))
-    .toEqual([["Items", "Wardrobe", "Upgrades"], ["Cosas", "Ropa", "Mejoras"], ["Вещи", "Гардероб", "Улучшения"]]);
+  expect(await page.evaluate(() => ["en", "es", "ru"].map(l => [window.__bb.I18N[l].progressTab, window.__bb.I18N[l].itemsTab, window.__bb.I18N[l].wardrobeTab, window.__bb.I18N[l].upgradesTab])))
+    .toEqual([["Progress", "Items", "Wardrobe", "Upgrades"], ["Progreso", "Cosas", "Ropa", "Mejoras"], ["Прогресс", "Вещи", "Гардероб", "Улучшения"]]);
 });
 
 test("the wardrobe tab works and fits on a phone, also with wider fonts", async ({ phonePage: page }) => {
   await page.evaluate(() => { const b = window.__bb; b.mode = "shop"; b.shopTab = "wardrobe"; });
   await frames(page);
   const s = await screen(page);
-  expect(s.ids).toEqual(expect.arrayContaining(["tab:items", "tab:wardrobe", "tab:upgrades", "name:p1", "name:big", "random:p1", "openFriends", "cycle:p1:hat:1", "cycle:big:look:-1"]));
+  expect(s.ids).toEqual(expect.arrayContaining(["tab:progress", "tab:items", "tab:wardrobe", "tab:upgrades", "name:p1", "name:big", "random:p1", "openFriends", "cycle:p1:hat:1", "cycle:big:look:-1"]));
   expect(s.ids).not.toContain("name:p2");
   expect(await page.evaluate(() => window.__bb.skinPanels().map(p => p.key))).toEqual(["p1", "big"]);
   const fails = [];
@@ -276,6 +297,157 @@ test("the wardrobe tab works and fits on a phone, also with wider fonts", async 
     } else if (d.buttons.filter(q => String(q.id).startsWith("name:bot")).length !== 4) fails.push(`${at}: not four friends`);
   }
   await page.evaluate(() => { const b = window.__bb; b.CFG.TEXT_TEST_SCALE = 1; b.setLang("en"); b.resetOutfits(); b.mode = "home"; });
+  expect(fails, fails.slice(0, 15).join("\n")).toEqual([]);
+});
+
+// ---------- SPEC-026 AC 9–11: Character (the old shop) — Progress · Items · Wardrobe · Upgrades ----------
+// a save with mixed progress: the Park all won with 3 stars, Field 1–4 (level 4 won without stars), City 1, School nothing,
+// Beach played (so open) and Winter locked; items, upgrades, two paid clothes
+const MIXED = {
+  worlds: { park: { unlocked: 20, stars: Object.fromEntries(Array.from({ length: 20 }, (_, i) => [i + 1, 3])), won: all20() },
+    field: { unlocked: 5, stars: { 1: 3, 2: 2, 3: 1 }, won: { 1: true, 2: true, 3: true, 4: true } }, city: { unlocked: 2, stars: { 1: 2 } },
+    beach: { unlocked: 3, stars: { 1: 1, 2: 2 }, won: { 1: true, 2: true } } },
+  coins: 345, inv: { mittens: 3, mega: 0, kisses: 12, rescues: 4 }, owned: { hats: ["crown"], jackets: [], pants: [], big: ["captain"] },
+  upgrades: { fastFeet: 1, longItems: 3, quickHelp: 0 }
+};
+test("SPEC-026: Character — tabs Progress · Items · Wardrobe · Upgrades; home opens Progress, the end screens Items", async ({ page }) => {
+  await click(page, "home:shop");
+  let d = await page.evaluate(() => ({ tab: window.__bb.shopTab, mode: window.__bb.mode, tabs: window.__bb.buttonRects.filter(q => String(q.id).startsWith("tab:")) }));
+  expect([d.mode, d.tab], "home → Character → Progress").toEqual(["shop", "progress"]);
+  expect(d.tabs.map(q => q.id), "Progress first, then Items, Wardrobe, Upgrades").toEqual(["tab:progress", "tab:items", "tab:wardrobe", "tab:upgrades"]);
+  expect(d.tabs.every((q, i) => !i || q.x > d.tabs[i - 1].x + d.tabs[i - 1].w), "left to right, apart").toBe(true);
+  expect(d.tabs.at(-1).x + d.tabs.at(-1).w, "the tabs end before the coins").toBeLessThan((await page.evaluate(() => window.__bb.hudRects.find(h => h.id === "coins"))).x);
+  await page.keyboard.press("Escape");
+  // a win → Character opens on Items (as before); a loss too; __bb.mode = "shop" too
+  for (const [setup, btn] of [[() => { const b = window.__bb; b.world = "park"; b.level = 3; b.startGame(1); b.giveReward(true); b.mode = "win"; }, "shopAfterWin"],
+    [() => { const b = window.__bb; b.startGame(1); b.giveReward(false); b.mode = "lose"; }, "shopAfterLose"]]) {
+    await page.evaluate(setup); await frames(page);
+    expect(await page.evaluate(n => window.__bb.tapButton(n), btn), btn).toBe(true);
+    expect(await page.evaluate(() => [window.__bb.mode, window.__bb.shopTab]), btn).toEqual(["shop", "items"]);
+    await page.keyboard.press("Escape");
+  }
+  await page.evaluate(() => { window.__bb.mode = "shop"; }); await frames(page);
+  expect(await page.evaluate(() => window.__bb.shopTab), "__bb.mode = shop keeps the old default").toBe("items");
+  await page.evaluate(() => { window.__bb.mode = "home"; });
+});
+
+test("SPEC-026: the Progress page shows the save: look and name, stars, worlds, bag, upgrades, clothes", async ({ page }) => {
+  await page.evaluate(save => { const b = window.__bb; b.setProgress(save); b.mode = "home"; }, MIXED);
+  await click(page, "home:shop");
+  const d = await page.evaluate(() => {
+    const b = window.__bb, W = b.wardrobe(), p = b.progress, own = { hat: "hats", jacket: "jackets", pants: "pants", big: "big" };
+    // clothes counted here from the wardrobe lists, not by the game's clothesCount
+    const lists = [["hat", W.hat], ["jacket", W.jacket], ["pants", W.pants], ["big", W.big]];
+    const clothes = [lists.reduce((a, [k, l]) => a + l.filter(q => !q.price || p.owned[own[k]].includes(q.id)).length, 0), lists.reduce((a, [, l]) => a + l.length, 0)];
+    const I = b.I18N.en;
+    return { info: b.progressInfo, hud: b.hudRects, buttons: b.buttonRects, clothes, previews: b.skinPanels(), I: { lockedBonus: I.lockedBonus, clothes: I.clothes(...clothes) } };
+  });
+  const won = w => { const s = MIXED.worlds[w] || {}; return new Set([...Object.keys(s.won || {}), ...Object.keys(s.stars || {})]).size; };
+  const stars = w => Object.values((MIXED.worlds[w] || {}).stars || {}).reduce((a, b) => a + b, 0);
+  const i = d.info;
+  expect(i, "progressInfo drawn").toBeTruthy();
+  expect([i.stars, i.starsMax, i.worldsDone], "main-world stars / 240, worlds finished / 4").toEqual([60 + 6 + 2, 240, 1]);
+  expect(i.worlds.map(q => [q.world, q.open, q.stars, q.max, q.levels, q.done])).toEqual(["park", "field", "city", "school", "beach", "winter"].map(w =>
+    [w, w !== "winter", stars(w), 60, won(w), won(w) === 20]));
+  expect(i.bag, "bag counts").toEqual(MIXED.inv);
+  expect(i.upgrades, "upgrade levels").toEqual(MIXED.upgrades);
+  expect(i.clothes, "clothes owned / all (free count as owned)").toEqual(d.clothes);
+  expect(i.clothes[0], "two paid items owned on top of the free ones").toBeGreaterThan(2);
+  const text = id => (d.hud.find(h => h.id === id) || {}).text;
+  expect(text("progress:stars")).toBe("68 / 240");
+  expect(text("progress:worlds")).toBe("Worlds finished: 1 / 4");
+  expect(text("progress:name")).toBe("Player 1");
+  expect(text("progress:stars:park")).toBe("60/60");
+  expect(text("progress:levels:field")).toBe("🏁 4/20");
+  expect(text("progress:bag:kisses")).toBe("×12");
+  expect(text("progress:upg:longItems")).toBe("3/3");
+  expect(text("progress:clothes")).toBe(d.I.clothes);
+  expect(text("progress:bag")).toBe("Bag");
+  const ids = d.hud.map(h => h.id);
+  expect(ids.filter(id => id.startsWith("progress:done:")), "the done stamp: the Park only").toEqual(["progress:done:park"]);
+  expect(ids.filter(id => id.startsWith("progress:lock:")), "the padlock: locked Winter only").toEqual(["progress:lock:winter"]);
+  expect(text("progress:lockNote"), "the existing wording for a locked bonus world").toBe(d.I.lockedBonus);
+  expect(d.previews.map(q => q.key), "the 3D look of player 1").toEqual(["p1"]);
+  // read-only: only the tabs, OK and Reset are buttons
+  expect(d.buttons.map(q => q.id || q.text).filter(id => !String(id).startsWith("tab:")).sort()).toEqual(["closeShop", "progress:reset"]);
+  await page.evaluate(() => { const b = window.__bb; b.setProgress(null); b.mode = "home"; });
+});
+
+test("SPEC-026: Reset progress works from the Progress page and is gone from Items and Upgrades", async ({ page }) => {
+  const resets = await page.evaluate(() => ["en", "es", "ru"].flatMap(l => ["reset", "resetShort", "sure", "sureShort"].map(k => window.__bb.I18N[l][k])));
+  await page.evaluate(save => { const b = window.__bb; b.setProgress(save); b.mode = "home"; }, MIXED);
+  await click(page, "home:shop");
+  for (const tab of ["items", "upgrades", "wardrobe"]) {
+    await page.evaluate(t => { window.__bb.shopTab = t; }, tab); await frames(page);
+    const t = await page.evaluate(() => window.__bb.buttonRects.map(q => q.text));
+    expect(t.filter(x => resets.includes(x)), `no reset on ${tab}`).toEqual([]);
+  }
+  await click(page, "tab:progress");
+  await click(page, "progress:reset");
+  expect(await page.evaluate(() => [window.__bb.buttonRects.find(q => q.id === "progress:reset").text, window.__bb.progress.coins]), "armed, nothing reset yet").toEqual(["Sure? Tap again", 345]);
+  await click(page, "tab:items");
+  await click(page, "tab:progress");
+  expect(await page.evaluate(() => window.__bb.buttonRects.find(q => q.id === "progress:reset").text), "another tab disarms it").toBe("Reset progress");
+  await click(page, "progress:reset");
+  await click(page, "progress:reset");
+  const p = await page.evaluate(() => { const b = window.__bb; return { coins: b.progress.coins, inv: b.progress.inv, upg: b.progress.upgrades, park: b.progress.worlds.park.unlocked, info: b.progressInfo }; });
+  expect([p.coins, p.park], "fresh progress").toEqual([0, 1]);
+  expect(p.inv).toEqual({ mittens: 0, mega: 0, kisses: 0, rescues: 0 });
+  expect(p.upg).toEqual({ fastFeet: 0, longItems: 0, quickHelp: 0 });
+  expect([p.info.stars, p.info.worldsDone], "the page shows it").toEqual([0, 0]);
+  await page.evaluate(() => { window.__bb.mode = "home"; });
+});
+
+// the Progress page fits with no scrolling: every text in its box and inside the screen, nothing on anything, the 3D window free
+async function progressProblems(page, phone, size) {
+  const fails = [];
+  for (const lang of ["en", "es", "ru"]) for (const scale of phone ? [1, 1.15] : [1, 1.15, 1.3]) for (const rich of [false, true]) {   // desktop: ×1.3 too (CI fonts)
+    await page.evaluate(([l, sc, r, save]) => {
+      const b = window.__bb; b.setProgress(r ? save : null); b.setLang(l); b.CFG.TEXT_TEST_SCALE = sc;
+      if (r) { b.progress.coins = 12345; Object.assign(b.progress.inv, { mittens: 12, mega: 10, kisses: 15, rescues: 11 }); }
+      b.mode = "shop"; b.shopTab = "progress";
+    }, [lang, scale, rich, MIXED]);
+    await frames(page);
+    const d = await page.evaluate(() => { const b = window.__bb; return { buttons: b.buttonRects, hud: b.hudRects, ui: b.uiSize, texts: b.textSizes, min: b.CFG.PHONE_TEXT, previews: b.skinPanels(), info: b.progressInfo, names: b.I18N[document.documentElement.lang].worlds }; });
+    const at = `${size} ${lang} ×${scale} ${rich ? "rich" : "fresh"}`;
+    if (!d.info) { fails.push(`${at}: no Progress page`); continue; }
+    if (!phone) for (const w of ["park", "field", "city", "school", "beach", "winter"]) {   // the world names are shown whole (up to two lines)
+      const h = d.hud.find(q => q.id === "progress:name:" + w);
+      if (!h || h.text !== d.names[w]) fails.push(`${at}: world name ${w} "${h && h.text}"`);
+    }
+    const need = ["progress:name", "progress:stars", "progress:worlds", "progress:bag", "progress:upgrades", "progress:wardrobe", "progress:clothes",
+      ...["park", "field", "city", "school"].map(w => "progress:stars:" + w), "progress:bag:rescues", "progress:upg:quickHelp"];
+    for (const id of need) if (!d.hud.some(h => h.id === id)) fails.push(`${at}: no ${id}`);
+    if (phone) fails.push(...phoneProblems(at, d));
+    else {
+      const inside = r => r.x >= -0.01 && r.y >= -0.01 && r.x + r.w <= d.ui.w + 0.01 && r.y + r.h <= d.ui.h + 0.01;
+      for (const h of d.hud) {
+        if (!inside(h)) fails.push(`${at}: ${h.id} outside`);
+        if (h.textW !== undefined && h.textW > h.w + 0.5) fails.push(`${at}: ${h.id} text wider than its box`);
+        if (/…/.test(h.text || "")) fails.push(`${at}: ${h.id} text cut "${h.text}"`);
+        for (const b of d.buttons) if (overlaps(b, h)) fails.push(`${at}: button ${b.id || b.text} on ${h.id}`);
+      }
+      d.hud.forEach((a, i) => d.hud.slice(i + 1).forEach(b => { if (overlaps(a, b)) fails.push(`${at}: ${a.id} on ${b.id}`); }));
+      for (const b of d.buttons) if (b.textW !== undefined && b.textW > b.w + 0.5) fails.push(`${at}: button ${b.id || b.text} text wider than the button`);
+      d.buttons.forEach((a, i) => d.buttons.slice(i + 1).forEach(b => { if (overlaps(a, b)) fails.push(`${at}: ${a.id || a.text} on ${b.id || b.text}`); }));
+    }
+    for (const pv of d.previews) {
+      for (const h of d.hud) if (overlaps(h, pv)) fails.push(`${at}: ${h.id} on the 3D look`);
+      for (const b of d.buttons) if (overlaps(b, pv)) fails.push(`${at}: button ${b.id || b.text} on the 3D look`);
+    }
+  }
+  await page.evaluate(() => { const b = window.__bb; b.CFG.TEXT_TEST_SCALE = 1; b.setProgress(null); b.setLang("en"); b.mode = "home"; });
+  return fails;
+}
+test("SPEC-026: the Progress page fits one screen (1280×720), every language, wider fonts", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  try {
+    const fails = await progressProblems(page, false, "1280×720");
+    expect(fails, fails.slice(0, 15).join("\n")).toEqual([]);
+  } finally { await page.setViewportSize({ width: 960, height: 640 }); await frames(page); }
+});
+test("SPEC-026: the Progress page fits one screen (phone 667×375), every language, wider fonts", async ({ phonePage: page }) => {
+  const fails = await progressProblems(page, true, "667×375");
   expect(fails, fails.slice(0, 15).join("\n")).toEqual([]);
 });
 

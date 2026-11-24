@@ -152,7 +152,10 @@ test("the event log records gameplay and every coin change", async ({ page }) =>
     const calm = (x = 900, y = 600) => Object.assign(b.big, { x, y, state: "look", timer: 9999, stun: 0, slip: 0, noPush: 999, pushCd: 0, hugCd: 0, blush: 0, hp: 9 });
     const steps = (sec, dt = 1 / 60) => { for (let i = 0; i < Math.round(sec / dt); i++) b.update(dt); };
     // shop (the log still holds the last level until the next one starts): three buys, one with too few coins (no event)
-    b.mode = "home"; b.progress.coins = 100; seen = b.events.length;
+    // the prices from the game (SPEC-026 changed the kit): exactly enough for kisses + mittens + a kit, nothing left for mega
+    out.G = { mittens: b.GLOVES.mittens.price, mega: b.GLOVES.mega.price, kisses: b.KISSES.price, rescues: b.RESCUE_KIT.price };
+    out.coins0 = out.G.kisses + out.G.mittens + out.G.rescues;
+    b.mode = "home"; b.progress.coins = out.coins0; seen = b.events.length;
     b.buyKisses(); b.buyGloves("mittens"); b.buyRescueKit(); b.buyGloves("mega");
     out.buys = news(); out.coinsAfterBuys = b.progress.coins;
     // a level start clears the log
@@ -245,12 +248,12 @@ test("the event log records gameplay and every coin change", async ({ page }) =>
     return out;
   });
   const sum = parts => parts.reduce((s, p) => s + p.amount, 0);
-  const G = { mittens: 30, mega: 60, kisses: 20, rescues: 15 };
+  const G = r.G;
   expect(r.buys).toEqual([
     { type: "coins", reason: "buy:kisses", amount: -G.kisses },
     { type: "coins", reason: "buy:mittens", amount: -G.mittens },
     { type: "coins", reason: "buy:rescues", amount: -G.rescues }]);
-  expect(r.coinsAfterBuys).toBe(100 - 20 - 30 - 15);
+  expect(r.coinsAfterBuys, "mega is not bought with nothing left").toBe(r.coins0 - G.kisses - G.mittens - G.rescues);
   expect(r.start).toBe(0);
   expect(r.hug).toEqual([{ type: "hug", power: 2, who: 0, kind: "player" }]);
   expect(r.push).toEqual([{ type: "push", who: 1, blocked: false }, { type: "down", who: 1, kind: "player" }]);
