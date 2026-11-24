@@ -11,6 +11,8 @@ const { expect } = require("@playwright/test");
 const ROOT = path.resolve(__dirname, "..");
 const GAME_URL = "file://" + path.join(ROOT, "index.html").replace(/\\/g, "/");
 const THREE_DIR = path.join(ROOT, "node_modules", "three", "build");
+// SPEC-028: the game's languages in the globe's order (= __bb.LANGS); fit and coverage loops go over all of them
+const LANGS = ["en", "es", "pt", "ru"];
 
 // Init script (runs before every document of the page): clears localStorage once per test and sets the language.
 // Every test gets a fresh browser context, so only its first document clears. A reload or a later goto never clears:
@@ -205,4 +207,4 @@ async function setupHug(page) {
   });
 }
 
-module.exports = { openGame, openSim, openGameHttp, routeThree, frames, step, setupHug, softly, sharedPage, resetGame, GAME_URL, HTTP_BASE, ROOT };
+module.exports = { LANGS, openGame, openSim, openGameHttp, routeThree, frames, step, setupHug, softly, sharedPage, resetGame, GAME_URL, HTTP_BASE, ROOT };
