@@ -106,6 +106,16 @@ const CFG = {
   // SPEC-022 (придумал Claude): злость кончилась — папа добреет и идёт к двери своего дома, потом экран победы
   KIND_WALK: 3,              // сек — дольше не идёт (дошёл раньше — победа сразу); часы уровня в это время стоят
   KIND_SPEED: 110,           // px/с — шаг подобревшего папы
+  // SPEC-022 (решение Кости и Андрея: боссы сильнее и быстрее, самый злой папа толкает сразу нескольких; числа — Claude)
+  BOSS_SCALE: 1.1,           // босс крупнее (вид; круг столкновений тот же)
+  BOSS_EXTRA_HP: 2,          // злости у босса Парка, Поля и Города больше обычной на столько (может быть больше BIG_HP_MAX)
+  MAIN_BOSS_EXTRA_HP: 3,     // у самого злого папы (Школа 20)
+  BOSS_SPEED: 5,             // px/с — босс быстрее (погоня, поиск, обход), но не быстрее BIG_CHASE_MAX
+  WIDE_PUSH_R: 2.5,          // клеток — широкий толчок самого злого папы: все маленькие так близко перед ним…
+  WIDE_PUSH_ARC: 180,        // …в этом угле перед ним (градусов, всего) падают разом
+  WIDE_PUSH_STAND: 1.5,      // сек — после широкого толчка стоит дольше обычного (PUSH_STAND): можно обнять
+  BOT_WIDE_KEEP: 1,          // клеток — боты не подходят спереди к самому злому папе ближе WIDE_PUSH_R + столько, пока он может толкнуть
+  WAVE_TIME: 0.6,            // сек — кольцо широкого толчка расходится
   MOOD_ANGRY: 2 / 3,         // доля злости (hp / maxHp): не меньше — злой (красное лицо, пар); не меньше MOOD_MID — средний; меньше — добреет
   MOOD_MID: 1 / 3,
   ITEM_EVERY: [7, 11],       // сек — как часто появляются предметы
@@ -421,7 +431,7 @@ const STORY_ART = { began: "story_start", park: "story_park", field: "story_fiel
 const HEART_ART = ["cloud_heart_empty", "cloud_heart_half", "cloud_heart_full"];
 // частицы burst(kind) и взрыв под всплывающей надписью popText(…, meaning) — 24_effects, v1/staff
 const FX_ART = { heart: "heart_full", star: "fx_sparkle", dust: "fx_dust" };
-const POP_ART = { bang: "fx_burst_red", hug: "fx_burst_pink", mega: "fx_burst_yellow", kiss: "fx_burst_pink", out: "fx_burst_yellow" };
+const POP_ART = { bang: "fx_burst_red", hug: "fx_burst_pink", mega: "fx_burst_yellow", kiss: "fx_burst_pink", out: "fx_burst_yellow", whoosh: "fx_burst_yellow" };
 // мир → значок (20_levelmap_parts) и страница карты (18_map_bg_*)
 const worldArt = w => "world_" + w, mapBgArt = w => "map_bg_" + w;
 // экран загрузки: полоска — доля готовых картинок; убираем, когда всё готово (или по таймеру из artGate)
@@ -509,7 +519,7 @@ const I18N = {
     pause: "Paused", play: "Play", resume: "Continue", story: "Story", map: "Map", home: "Home",   // SPEC-017: экраны меню
     win: "YOU WIN!", winSub: "You hugged him lots of times, and he went home!", next: n => `Level ${n} ▶`,
     // SPEC-022: заголовок победы — папа (босс, набранное имя) снова добрый; «Ура!» друзей, пока он идёт домой; имена боссов
-    kindAgain: n => `${n} is kind again!`, cheer: "Yay!",
+    kindAgain: n => `${n} is kind again!`, cheer: "Yay!", whoosh: "WHOOSH!",
     bossNames: { park: "The park boss", field: "The coach", city: "The builder", school: "The grumpiest dad" },
     lose: "The Big One won...", loseSub: (h, m) => `Hearts taken: ${h} of ${m}. Try again?`, again: "Try again",
     big: "Big One", hug: "Hug! -1", bang: "BAM!", saved: "Saved!", out: "Going home to rest", back: "Back in the game!", resting: (n, t) => `${n}: resting… back in ${t}`, help: n => `${n}: HELP!`,
@@ -572,7 +582,7 @@ const I18N = {
     controls2: "Tablet/celu: deslizá el dedo  •  Joystick: palanca, A — elegir, B — volver, LB/RB — mundos",
     pause: "Pausa", play: "Jugar", resume: "Seguir", story: "Historia", map: "Mapa", home: "Inicio",
     win: "¡GANARON!", winSub: "¡Lo abrazaron muchas veces y se fue a su casa!", next: n => `Nivel ${n} ▶`,
-    kindAgain: n => `¡${n} volvió a ser bueno!`, cheer: "¡Bien!",
+    kindAgain: n => `¡${n} volvió a ser bueno!`, cheer: "¡Bien!", whoosh: "¡FIUUU!",
     bossNames: { park: "El jefe del parque", field: "El entrenador", city: "El albañil", school: "El papá más enojado" },
     lose: "Ganó el Grandote...", loseSub: (h, m) => `Corazones: ${h} de ${m}. ¿Otra vez?`, again: "Otra vez",
     big: "Grandote", hug: "¡Abrazo! -1", bang: "¡PUM!", saved: "¡Salvado!", out: "Me voy a descansar", back: "¡De vuelta!", resting: (n, t) => `${n}: descansando… volvés en ${t}`, help: n => `${n}: ¡AYUDA!`,
@@ -630,7 +640,7 @@ const I18N = {
     controls2: "Планшет/телефон: водите пальцем  •  Геймпад: стик, A — выбрать, B — назад, LB/RB — миры",
     pause: "Пауза", play: "Играть", resume: "Продолжить", story: "История", map: "Карта", home: "Главная",
     win: "ПОБЕДА!", winSub: "Его обняли много раз, и он ушёл домой!", next: n => `Уровень ${n} ▶`,
-    kindAgain: n => `${n} снова добрый!`, cheer: "Ура!",
+    kindAgain: n => `${n} снова добрый!`, cheer: "Ура!", whoosh: "ВЖУХ!",
     bossNames: { park: "Босс парка", field: "Тренер", city: "Строитель", school: "Самый злой папа" },
     lose: "Большой победил...", loseSub: (h, m) => `Сердечек забрали: ${h} из ${m}. Ещё разок?`, again: "Ещё раз",
     big: "Большой", hug: "Обнимашки! -1", bang: "БАХ!", saved: "Спасён!", out: "Иду отдыхать", back: "Снова в игре!", resting: (n, t) => `${n}: отдых… вернёшься через ${t}`, help: n => `${n}: ПОМОГИТЕ!`,
@@ -2064,6 +2074,7 @@ function logCoins(reason, amount) {
 }
 let bonusStars = [], starCd = 10, starSeq = 0;   // бонусные звёздочки (отдельно от предметов)
 let kisses = [], kissSeq = 0;                      // летящие воздушные поцелуи
+let pushWaves = [];                                // SPEC-022: кольца широкого толчка { x, y, t, r } (растут WAVE_TIME сек)
 let kitHintT = 0, kitHintDone = false, kitHintPi = 0, kitHintRect = null;   // подсказка «Нажми 🩹» (SPEC-007): раз за уровень
 let heardHintT = 0, heardHintDone = false, heardHintPi = 0, heardHintRect = null;   // SPEC-019: «Папа услышал топот!» — раз за уровень
 // ---------- Прогресс: миры (открытые уровни, звёзды), монетки, рукавицы (хранится в этом браузере) ----------
@@ -2306,11 +2317,12 @@ function resetWorld(n) {
     path: [], repath: 0, moveDir: 0, walk: 0, moving: false, stun: 0, stunFace: 0, stunTurn: 0, pushCd: 0, noPush: 0, hugCd: 0, flash: 0, slip: 0,
     blush: 0, blushBy: 0,   // покраснел после поцелуя: сколько ещё сек и кто бросил (индекс игрока)
     kind: false,            // SPEC-022: злость кончилась — подобрел и идёт домой (pendingWin — сколько ещё идёт)
+    boss: bossFor(curWorld, level), scale: bossFor(curWorld, level) ? CFG.BOSS_SCALE : 1,   // SPEC-022: босс уровня (мир) или null; крупнее
     // SPEC-019: шум топота, сек до того, как снова слышит; поворот на топот (куда, сколько ещё, скорость) и сколько ещё смотрит туда
     noise: 0, hearCd: 0, hearFace: 0, hearTurnT: 0, hearRate: 0, hearLook: 0,
     skin: BIG_SKINS[skinSel.big]
   };
-  items = []; itemCd = rand(4, 7); pendingWin = 0;
+  items = []; itemCd = rand(4, 7); pendingWin = 0; pushWaves = [];
   bonusStars = []; starCd = rand(CFG.STAR_EVERY[0], CFG.STAR_EVERY[1]);
   kisses = [];
   kitHintT = 0; kitHintDone = false;
@@ -2808,7 +2820,23 @@ function canSee(l) {
   return d < CFG.VISION_RANGE && diff < CFG.VISION_HALF && los(big.x, big.y, l.x, l.y, seeSolidAt);
 }
 const helps = (o, l) => o !== l && o.state === "ok" && dist(o, l) < o.r + l.r + 12;   // o стоит рядом с упавшим l и поднимает его
-function push(t) {
+// SPEC-022: толчок того, кого Большой поймал: самый злой папа (Школа 20) толкает широко — всех рядом перед собой
+function pushHit(t) { if (big.boss === "school") widePush(t); else push(t); }
+// широкий толчок: все маленькие (ok, могут действовать, не неуязвимы, не невидимки, не в домике) ближе WIDE_PUSH_R клеток в угле
+// WIDE_PUSH_ARC перед ним (и тот, кого поймал) — каждому обычный толчок (щит спасает своего хозяина), одно «ВЖУХ!», кольцо; стоит дольше
+function widePush(t) {
+  const reach = CFG.WIDE_PUSH_R * CELL, half = CFG.WIDE_PUSH_ARC * Math.PI / 360;
+  const hit = littles.filter(l => l === t || (canAct(l) && l.invuln <= 0 && l.fx.cloak <= 0 && !inSafe(l)
+    && dist(l, big) <= reach + l.r && angDiff(big.dir, Math.atan2(l.y - big.y, l.x - big.x)) <= half));
+  for (const l of hit) push(l, true);
+  logEvent("widePush", { n: hit.length });
+  big.pushCd = CFG.WIDE_PUSH_STAND; big.noPush = CFG.PUSH_RECOVER;   // стоит дольше; передышка (правило детей) — как после любого толчка
+  pushWaves.push({ x: big.x, y: big.y, t: 0, r: reach });
+  popText(big.x + Math.cos(big.dir) * 40, big.y + Math.sin(big.dir) * 40 - 40, L().whoosh, "#fde047", "whoosh");
+  shake = 0.4;
+  SFX.push();
+}
+function push(t, wide = false) {
   const a = Math.atan2(t.y - big.y, t.x - big.x);
   for (const l of littles) if (l.state === "down" && helps(t, l)) l.rescue = 0;   // помощника толкнули — спасение сначала
   if (t.fx.shield > 0) {                   // щит спасает от одного толчка
@@ -2830,9 +2858,10 @@ function push(t) {
   if (t.kind === "player" && !kitHintDone && progress.inv.rescues > 0) { kitHintDone = true; kitHintT = CFG.KIT_HINT_TIME; kitHintPi = t.id; }
   big.pushCd = CFG.PUSH_STAND;
   big.noPush = CFG.PUSH_RECOVER;          // передышка: какое-то время никого не толкает
+  burst(t.x, t.y, "dust", "#e5d3a1", 10);
+  if (wide) return;                         // SPEC-022: широкий толчок — одно «ВЖУХ!» на всех (widePush)
   shake = 0.25;
   popText(t.x, t.y - 40, L().bang, "#ffcc00", "bang");
-  burst(t.x, t.y, "dust", "#e5d3a1", 10);
   SFX.push();
 }
 function hug(l, a) {
@@ -2937,10 +2966,12 @@ const bigHearts = (world, n) => Math.min(CFG.BIG_HP_MAX, CFG.BIG_HP + Math.floor
 const chaseCap = v => Math.min(CFG.BIG_CHASE_MAX, v);
 // Единственный источник чисел Большого: { chase, search, patrol, hearts, boost } уровня (мир, n);
 // lost — сколько сердечек уже отняли (злость), по умолчанию 0; boost — прибавка без потолка
+// SPEC-022: босс (bossFor): злости больше на BOSS_EXTRA_HP (самый злой папа — MAIN_BOSS_EXTRA_HP), каждая скорость + BOSS_SPEED (с потолком)
 function difficulty(world, n, lost = 0) {
-  const boost = levelBoost(world, n) + Math.floor(lost) * CFG.BIG_SPEED_PER_HIT;
-  return { chase: chaseCap(CFG.BIG_CHASE_SPEED + boost), search: chaseCap(CFG.BIG_CHASE_SPEED * 0.85 + boost),
-    patrol: chaseCap(CFG.BIG_PATROL_SPEED + boost * 0.5), hearts: bigHearts(world, n), boost };
+  const boost = levelBoost(world, n) + Math.floor(lost) * CFG.BIG_SPEED_PER_HIT, boss = bossFor(world, n), bs = boss ? CFG.BOSS_SPEED : 0;
+  const extra = !boss ? 0 : boss === "school" ? CFG.MAIN_BOSS_EXTRA_HP : CFG.BOSS_EXTRA_HP;
+  return { chase: chaseCap(CFG.BIG_CHASE_SPEED + boost + bs), search: chaseCap(CFG.BIG_CHASE_SPEED * 0.85 + boost + bs),
+    patrol: chaseCap(CFG.BIG_PATROL_SPEED + boost * 0.5 + bs), hearts: bigHearts(world, n) + extra, boost };
 }
 const bigDifficulty = () => difficulty(curWorld, level, big.maxHp - big.hp);
 const bigBoost = () => bigDifficulty().boost;                     // насколько Большой быстрее сейчас (без потолка)
@@ -3106,6 +3137,7 @@ function updateBots(dt) {
     b.lurkT = Math.max(0, b.lurkT - dt);
     b.fleeRe -= dt;
     const seen = big.stun <= 0 && big.slip <= 0 && big.noPush <= 0 && big.blush <= 0 && canSee(b);
+    const wide = wideDanger(b);                           // SPEC-022: перед самым злым папой, пока он может толкнуть — отойти
     const speed = CFG.BOT_SPEED * (b.fx.boots > 0 ? CFG.BOOTS_MULT : 1);
     // SPEC-019: подкрадываясь (ближе HEAR_RADIUS + TIPTOE_NEAR клеток) и выжидая там, где он слышит (HEAR_RADIUS), — на цыпочках;
     // убегают и спасают — бегом
@@ -3119,13 +3151,13 @@ function updateBots(dt) {
     } else if (big.slip > 0 && !rescueTarget.has(b) && dist(b, big) < 320) {   // Большой упал — бежим обнимать!
       b.task = "attack";
       moved = steerTo(b, big.x, big.y, speed, dt, false);
-    } else if (rescueTarget.has(b) && !(seen && dist(b, big) < 90)) {
+    } else if (rescueTarget.has(b) && !(seen && dist(b, big) < 90) && !wide && !wideDanger(rescueTarget.get(b), b)) {
       const d = rescueTarget.get(b);
       b.task = "rescue";
       if (dist(b, d) > b.r + d.r + 4) moved = steerTo(b, d.x, d.y, speed, dt, false);
     } else {
-      if (seen && b.fleeT <= 0) { b.fleeT = 1.0; b.fleeGoal = null; }
-      if (seen) b.fleeT = Math.max(b.fleeT, 0.6);
+      if ((seen || wide) && b.fleeT <= 0) { b.fleeT = 1.0; b.fleeGoal = null; }
+      if (seen || wide) b.fleeT = Math.max(b.fleeT, 0.6);
       if (b.fleeT > 0) {
         b.task = "flee";
         if (attackToken === b) { attackToken = null; b.lurkT = rand(3, 6); }
@@ -3159,6 +3191,13 @@ function updateBots(dt) {
   prevToken = attackToken;
 }
 
+// SPEC-022: точка p (бот или упавший, к которому он идёт; o — бот рядом с ним) — перед самым злым папой ближе WIDE_PUSH_R + BOT_WIDE_KEEP
+// клеток, а он может толкнуть (не стоит после толчка, не в шоке, не лежит, не красный, не отдыхает)
+function wideDanger(p, o = null) {
+  if (big.boss !== "school" || big.pushCd > 0 || big.stun > 0 || big.slip > 0 || big.blush > 0 || big.noPush > 0) return false;
+  const keep = (CFG.WIDE_PUSH_R + CFG.BOT_WIDE_KEEP) * CELL + (o ? o.r * 2 : 0);
+  return dist(p, big) < keep && angDiff(big.dir, Math.atan2(p.y - big.y, p.x - big.x)) <= CFG.WIDE_PUSH_ARC * Math.PI / 360;
+}
 // Где ждать боту: в 170 px за Большим, но не в его доме; точка в стене или за водой — ближайшая свободная клетка
 function lurkPoint(a0) {
   for (const k of [0, 0.5, -0.5, 1, -1, 1.5, -1.5, 2, -2, 2.5, -2.5, Math.PI]) {
@@ -3356,7 +3395,7 @@ function updateBig(dt) {
     big.lastSeen = { x: target.x, y: target.y };
     big.moving = steerTo(big, target.x, target.y, speed.chase, dt, false);
     big.dir = turnToward(big.dir, Math.atan2(target.y - big.y, target.x - big.x), 7 * dt);
-    if (td < big.r + target.r + 8) push(target);
+    if (td < big.r + target.r + 8) pushHit(target);
     return;
   }
   hearNoise(dt);
@@ -3416,7 +3455,7 @@ function checkContacts() {
       const wants = l.kind === "player" || l.task === "attack";   // боты обнимают только когда сами решили
       if (wants && big.hugCd <= 0 && l.hugCd <= 0 && big.stun <= 0) hug(l, a);
     }
-    else if (diff < 1.9 && big.stun <= 0 && big.slip <= 0 && big.blush <= 0 && big.pushCd <= 0 && big.noPush <= 0 && l.invuln <= 0 && l.fx.cloak <= 0 && !inSafe(l)) push(l);
+    else if (diff < 1.9 && big.stun <= 0 && big.slip <= 0 && big.blush <= 0 && big.pushCd <= 0 && big.noPush <= 0 && l.invuln <= 0 && l.fx.cloak <= 0 && !inSafe(l)) pushHit(l);
   }
 }
 // ---------- Спасалка 🩹 (SPEC-007): игрок сразу встаёт там, где он есть — лёжа, по дороге в домик или отдыхая ----------
@@ -3524,6 +3563,8 @@ function updateFx(dt) {
   texts = texts.filter(t => t.t < 1.2);
   for (const p of particles) { p.t += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.96; p.vy *= 0.96; }
   particles = particles.filter(p => p.t < p.life);
+  for (const w of pushWaves) w.t += dt;
+  pushWaves = pushWaves.filter(w => w.t < CFG.WAVE_TIME);
   shake = Math.max(0, shake - dt);
 }
 function update(dt) {
@@ -3902,6 +3943,14 @@ const FX_SIZE = { heart: "fxHeart", star: "fxStar", dust: "fxDust" };
 const fxA = { x: 0, y: 0 }, fxB = { x: 0, y: 0 };
 function drawFx() {
   const P = CFG.PAPER;
+  for (const w of pushWaves) {                             // SPEC-022: кольцо широкого толчка — на земле, расходится и гаснет
+    const k = w.t / CFG.WAVE_TIME, rr0 = w.r * (0.35 + 0.65 * k);
+    ctx.beginPath();
+    for (let i = 0; i <= 32; i++) { toScreenTo(fxA, w.x + Math.cos(i / 32 * TAU) * rr0, w.y + Math.sin(i / 32 * TAU) * rr0, 2); if (i) ctx.lineTo(fxA.x, fxA.y); else ctx.moveTo(fxA.x, fxA.y); }
+    ctx.globalAlpha = 1 - k; ctx.lineWidth = PHONE ? cpx(6) : 6; ctx.strokeStyle = "#fde047"; ctx.stroke();
+    ctx.lineWidth = PHONE ? cpx(2) : 2; ctx.strokeStyle = OUT; ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
   let cell = 0;
   if (particles.length) { toScreenTo(fxA, big.x, big.y, 20); toScreenTo(fxB, big.x + CELL, big.y, 20); cell = Math.hypot(fxB.x - fxA.x, fxB.y - fxA.y); }
   for (const p of particles) {
@@ -7406,7 +7455,7 @@ window.__bb = {
   get levelCard() { return cardInfo && { ...cardInfo }; }, openMap,
   RULE_ICONS, STORY, openStory, get storyInfo() { return storyInfo && { ...storyInfo }; },
   // SPEC-022: заставки (scene — логика: { id, page, pages } или null; sceneInfo — нарисованное в этом кадре), боссы уровней
-  SCENE_IDS, openScene, sceneNext, sceneSkip, bigMood, winTitle, get scene() { return storyScene && { id: storyScene.id, page: storyScene.page, pages: scenePageCount() }; },
+  SCENE_IDS, openScene, sceneNext, sceneSkip, bigMood, winTitle, get pushWaves() { return pushWaves.map(w => ({ ...w })); }, get scene() { return storyScene && { id: storyScene.id, page: storyScene.page, pages: scenePageCount() }; },
   get sceneInfo() { return sceneInfo && { ...sceneInfo }; }, bossFor,   // SPEC-017: главы истории (живой список), экран истории этого кадра
   tapButton(id) { const q = buttons.find(r => (r.id || r.act.name) === id); if (q) q.act(); return !!q; },
   update, inSafe, I18N, startGame, resetWorld, cycleOutfit, randomOutfit, cycleBig, setLang, toScreen,
