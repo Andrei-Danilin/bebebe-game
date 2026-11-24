@@ -177,6 +177,29 @@ test("shop, story and the end screens are drawn with the art", async ({ page }) 
   expect(errors).toEqual([]);
 });
 
+// SPEC-020 fix: per text drawn in two frames of play — fill colour, and outline colour / width if it was stroked
+// (canvas gives colours back as "#rrggbb" or "rgba(r, g, b, a)")
+async function hudTexts(page) {
+  return page.evaluate(() => new Promise(res => {
+    const proto = CanvasRenderingContext2D.prototype, of = proto.fillText, os = proto.strokeText, seen = new Map();
+    const rec = t => { t = String(t); if (!seen.has(t)) seen.set(t, { text: t }); return seen.get(t); };
+    proto.strokeText = function (t, ...a) { Object.assign(rec(t), { stroke: String(this.strokeStyle), lw: this.lineWidth }); return os.call(this, t, ...a); };
+    proto.fillText = function (t, ...a) { Object.assign(rec(t), { fill: String(this.fillStyle), size: parseFloat((/(\d+(?:\.\d+)?)px/.exec(this.font) || [])[1]) }); return of.call(this, t, ...a); };
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      proto.fillText = of; proto.strokeText = os;
+      const b = window.__bb;
+      res({ list: [...seen.values()], lv: b.I18N.en.lvShort, bigName: b.names.big });
+    }));
+  }));
+}
+const lum = c => {
+  const m = /^#([0-9a-f]{6})$/i.exec(c), n = m ? [0, 2, 4].map(i => parseInt(m[1].slice(i, i + 2), 16)) : (/rgba?\(([^)]+)\)/.exec(c) || [, "255,255,255"])[1].split(",").map(Number);
+  return (0.2126 * n[0] + 0.7152 * n[1] + 0.0722 * n[2]) / 255;
+};
+// dark text (brightness < 0.35) with a dark (< 0.5) or thick (> 0.2 of the size) outline → "text fill/stroke@width"
+const smeared = list => list.filter(t => t.fill && t.stroke && lum(t.fill) < 0.35 && (lum(t.stroke) < 0.5 || t.lw > t.size * 0.2))
+  .map(t => `${t.text} ${t.fill}/${t.stroke}@${t.lw}`);
+
 // SPEC-020 step 5 (AC 6–8): the HUD, the effects and the phone controls are drawn with the art
 test("HUD, effects and the desktop pause / fullscreen buttons are drawn with the art", async ({ page }) => {
   const errors = await openGame(page);
@@ -193,14 +216,13 @@ test("HUD, effects and the desktop pause / fullscreen buttons are drawn with the
   expect(missing(use, ["cloud_heart_full", "cloud_heart_half", "cloud_heart_empty", "round_pause", "ui_fullscreen", "item_mittens", "item_kiss", "icon_bandaid",
     "heart_full", "fx_sparkle", "fx_dust", "fx_burst_red"])).toEqual([]);
   expect(await page.evaluate(() => window.__bb.buttonNames)).toContain("toggleFullscreen");
-  // the HUD texts (timer, item counts) keep their outline: strokeText is called for them in play
-  const stroked = await page.evaluate(() => new Promise(res => {
-    const proto = CanvasRenderingContext2D.prototype, orig = proto.strokeText, seen = [];
-    proto.strokeText = function (t, ...a) { seen.push(String(t)); return orig.call(this, t, ...a); };
-    requestAnimationFrame(() => requestAnimationFrame(() => { proto.strokeText = orig; res({ seen, lv: window.__bb.I18N.en.lvShort }); }));
-  }));
-  expect(stroked.seen.some(t => t.startsWith(stroked.lv)), "the timer is outlined").toBe(true);
-  expect(stroked.seen.some(t => /^×\d/.test(t)), "the item counts are outlined").toBe(true);
+  // SPEC-020 fix: the HUD texts sit on light plates — dark text (timer, item counts, the red name) has no dark outline (it made a
+  // blob); before the fix the timer was strokeText'd with OUT. They may keep a thin light halo.
+  const tx = await hudTexts(page);
+  expect(tx.list.find(t => t.text.startsWith(tx.lv)), "the timer is drawn").toBeTruthy();
+  expect(tx.list.find(t => /^×\d/.test(t.text)), "the item counts are drawn").toBeTruthy();
+  expect(tx.list.find(t => t.text === tx.bigName), "the Big One's name is drawn").toBeTruthy();
+  expect(smeared(tx.list), "dark HUD texts drawn with a dark outline").toEqual([]);
   expect(errors).toEqual([]);
 });
 
@@ -223,6 +245,10 @@ test.describe("phone controls with the art", () => {
     // the kit button while the hero is down
     use = await drawn(page, () => { const b = window.__bb, l = b.littles[0]; b.progress.inv.rescues = 1; l.state = "down"; l.downTimer = 10; });
     expect(missing(use, ["phone_kit"])).toEqual([]);
+    // SPEC-020 fix: the same rule as the desktop HUD — the red name on its plate has no dark outline
+    const tx = await hudTexts(page);
+    expect(tx.list.find(t => t.text === tx.bigName), "the Big One's name is drawn").toBeTruthy();
+    expect(smeared(tx.list), "dark HUD texts drawn with a dark outline").toEqual([]);
     expect(errors).toEqual([]);
   });
 });
