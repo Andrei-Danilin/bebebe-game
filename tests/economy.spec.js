@@ -448,10 +448,12 @@ test("the win screen lists each reward line and fits (phone 667×375)", async ({
 });
 
 test("every win-screen text is in every language", async ({ simPage: page }) => {
-  const I = await page.evaluate(() => { const I = window.__bb.I18N; return ["en", "es", "ru"].map(l => I[l].rw); });
+  const I = await page.evaluate(() => { const I = window.__bb.I18N; return window.__bb.LANGS.map(l => I[l].rw); });
+  expect(I.length).toBe(LANGS.length);
   expect(I[0]).toEqual({ firstWin: "First win", replay: "Replay", newStars: "New stars", star: "Bonus stars", hugs: "Hugs", rests: "Rests", total: "Total" });
   expect(I[1]).toEqual({ firstWin: "Primera vez", replay: "Repetición", newStars: "Estrellas nuevas", star: "Estrellitas", hugs: "Abrazos", rests: "Descansos", total: "Total" });
-  expect(I[2]).toEqual({ firstWin: "Первая победа", replay: "Повтор", newStars: "Новые звёзды", star: "Звёздочки", hugs: "Обнимашки", rests: "Отдых", total: "Итого" });
+  expect(I[2]).toEqual({ firstWin: "Primeira vitória", replay: "Jogou de novo", newStars: "Estrelas novas", star: "Estrelinhas", hugs: "Abraços", rests: "Descansos", total: "Total" });
+  expect(I[3]).toEqual({ firstWin: "Первая победа", replay: "Повтор", newStars: "Новые звёзды", star: "Звёздочки", hugs: "Обнимашки", rests: "Отдых", total: "Итого" });
 });
 
 // ---------- AC 3: the wardrobe ----------
@@ -674,8 +676,8 @@ test("the wardrobe tab with locked items fits (phone 667×375)", async ({ phoneP
 });
 
 test("every wardrobe text is in every language", async ({ simPage: page }) => {
-  const I = await page.evaluate(() => { const I = window.__bb.I18N; return ["en", "es", "ru"].map(l => [I[l].buyFor(150), I[l].tapAgain]); });
-  expect(I).toEqual([["Buy for 150", "Tap again to buy"], ["Comprar por 150", "Tocá otra vez para comprar"], ["Купить за 150", "Нажми ещё раз, чтобы купить"]]);
+  const I = await page.evaluate(() => { const I = window.__bb.I18N; return window.__bb.LANGS.map(l => [I[l].buyFor(150), I[l].tapAgain]); });
+  expect(I).toEqual([["Buy for 150", "Tap again to buy"], ["Comprar por 150", "Tocá otra vez para comprar"], ["Comprar por 150", "Toque de novo para comprar"], ["Купить за 150", "Нажми ещё раз, чтобы купить"]]);
 });
 
 // ---------- AC 5: upgrades ----------
@@ -888,10 +890,11 @@ test("the Upgrades tab fits (phone 932×430)", async ({ phone932: page }) => {
 });
 
 test("every upgrade text is in every language", async ({ simPage: page }) => {
-  const I = await page.evaluate(() => { const I = window.__bb.I18N; return ["en", "es", "ru"].map(l => [I[l].itemsTab, I[l].upgradesTab, I[l].upgMax, ...["fastFeet", "longItems", "quickHelp"].map(k => [I[l].upg[k].name, I[l].upg[k].desc(3)])]); });
+  const I = await page.evaluate(() => { const I = window.__bb.I18N; return window.__bb.LANGS.map(l => [I[l].itemsTab, I[l].upgradesTab, I[l].upgMax, ...["fastFeet", "longItems", "quickHelp"].map(k => [I[l].upg[k].name, I[l].upg[k].desc(3)])]); });
   expect(I[0]).toEqual(["Items", "Upgrades", "Max", ["Fast feet", "+3% speed"], ["Long items", "Items last longer"], ["Quick help", "Lift friends faster"]]);
   expect(I[1]).toEqual(["Cosas", "Mejoras", "Máximo", ["Pies rápidos", "+3% velocidad"], ["Cosas duraderas", "Duran más"], ["Ayuda rápida", "Levantás más rápido"]]);
-  expect(I[2]).toEqual(["Вещи", "Улучшения", "Максимум", ["Быстрые ноги", "+3% скорости"], ["Долгие вещи", "Действуют дольше"], ["Быстрая помощь", "Поднимаешь быстрее"]]);
+  expect(I[2]).toEqual(["Itens", "Melhorias", "Máximo", ["Pés rápidos", "+3% de velocidade"], ["Itens duradouros", "Duram mais"], ["Ajuda rápida", "Levante os amigos mais rápido"]]);
+  expect(I[3]).toEqual(["Вещи", "Улучшения", "Максимум", ["Быстрые ноги", "+3% скорости"], ["Долгие вещи", "Действуют дольше"], ["Быстрая помощь", "Поднимаешь быстрее"]]);
 });
 
 // ---------- AC 7–8: the economy section of the balance report (pure, no browser) ----------

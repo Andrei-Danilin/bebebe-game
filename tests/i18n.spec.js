@@ -152,7 +152,8 @@ test("the language on first launch: a saved one, else the browser's (pt, es, ru)
   expect(got).toEqual(cases.map(c => c[3]));
 });
 
-// a fresh browser context (nothing saved; `progress` = a bebebe-progress saved before the page loads, no language)
+// a fresh browser context (nothing saved; `progress` = a bebebe-progress saved before the page loads, no language); a true first
+// launch saves the language it picked (bebebe-lang), a returning player without a saved language saves nothing
 for (const [locale, progress, want, html] of [["pt-BR", false, "pt", "pt-BR"], ["es-AR", false, "es", "es"], ["fr-FR", false, "en", "en"], ["pt-BR", true, "en", "en"]]) {
   test(`a ${progress ? "returning player (progress, no saved language)" : "first launch"} in a ${locale} browser starts in ${want}`, async ({ browser }) => {
     const context = await browser.newContext({ locale });
@@ -160,13 +161,33 @@ for (const [locale, progress, want, html] of [["pt-BR", false, "pt", "pt-BR"], [
       if (progress) await context.addInitScript(() => { try { if (!localStorage.getItem("bebebe-progress")) localStorage.setItem("bebebe-progress", JSON.stringify({ coins: 5 })); } catch (e) { /* ok */ } });
       const page = await context.newPage();
       const errors = await openGame(page, { sim: true, clearStorage: false });
-      expect(await page.evaluate(() => [localStorage.getItem("bebebe-lang"), window.__bb.lang, document.documentElement.lang])).toEqual([null, want, html]);
+      expect(await page.evaluate(() => [localStorage.getItem("bebebe-lang"), window.__bb.lang, document.documentElement.lang])).toEqual([progress ? null : want, want, html]);
       expect(errors).toEqual([]);
     } finally {
       await context.close();
     }
   });
 }
+
+// SPEC-028 (fix-check): a pt-BR kid's first launch — the start comic is watched (that saves bebebe-progress), the game is opened
+// again: still Portuguese (the language picked on the first launch was saved)
+test("a first launch in a pt-BR browser stays Portuguese after the intro and a reload", async ({ browser }) => {
+  const context = await browser.newContext({ locale: "pt-BR" });
+  try {
+    const page = await context.newPage();
+    const errors = await openGame(page, { clearStorage: false, intro: true });
+    await page.waitForFunction(() => window.__bb.mode === "scene", null, { timeout: 15_000 });
+    await page.evaluate(() => { window.__bb.sceneSkip(); });
+    await frames(page);
+    expect(await page.evaluate(() => [window.__bb.lang, window.__bb.mode, localStorage.getItem("bebebe-progress") !== null, localStorage.getItem("bebebe-lang")])).toEqual(["pt", "home", true, "pt"]);
+    await page.reload();
+    await page.waitForFunction(() => window.__bbReady === true);
+    expect(await page.evaluate(() => [window.__bb.lang, document.documentElement.lang])).toEqual(["pt", "pt-BR"]);
+    expect(errors).toEqual([]);
+  } finally {
+    await context.close();
+  }
+});
 
 // SPEC-028 AC 1: a save with bebebe-lang = pt loads in Portuguese; the globe goes en → es → pt → ru → en and shows PT;
 // <html lang> is pt-BR while Portuguese is on

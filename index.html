@@ -950,7 +950,8 @@ const LANGS = ["en", "es", "pt", "ru"];   // SPEC-028: + português (Brasil); п
 const HTML_LANG = { pt: "pt-BR" };        // <html lang>: португальский — бразильский
 // SPEC-028: язык при запуске — сохранённый (bebebe-lang: старые en/es/ru, новый pt); если его нет и это самый первый запуск
 // (нет и bebebe-progress) — первый язык браузера из наших (pt-BR, pt-PT → pt; es-AR → es; ru-RU → ru), иначе английский.
-// У игрока с прогрессом, но без сохранённого языка, — английский, как раньше. Чистая функция (тест: __bb.detectLang); не бросает
+// У игрока с прогрессом, но без сохранённого языка, — английский, как раньше. Чистая функция (тест: __bb.detectLang); не бросает.
+// Язык, выбранный при самом первом запуске, сразу сохраняется в bebebe-lang (см. ниже)
 function detectLang(saved, navLangs, hasProgress = false) {
   if (LANGS.includes(saved)) return saved;
   if (hasProgress) return "en";
@@ -965,6 +966,9 @@ try {
   let saved = null, played = false;
   try { saved = localStorage.getItem("bebebe-lang"); played = localStorage.getItem("bebebe-progress") !== null; } catch (e) { /* без хранилища — по браузеру */ }
   lang = detectLang(saved, navigator.languages && navigator.languages.length ? [...navigator.languages] : [navigator.language], played);
+  // самый первый запуск: язык браузера сохраняется сразу — первая же игра пишет bebebe-progress, и без этого со второго запуска
+  // был бы английский (у игрока с прогрессом без сохранённого языка — английский, как раньше; его не трогаем)
+  if (!LANGS.includes(saved) && !played) { try { localStorage.setItem("bebebe-lang", lang); } catch (e) { /* без хранилища — ok */ } }
 } catch (e) { /* ok — английский */ }
 document.documentElement.lang = HTML_LANG[lang] || lang;
 const L = () => I18N[lang];
