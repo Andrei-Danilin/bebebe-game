@@ -139,3 +139,115 @@ test("switching levels keeps the renderer's texture and geometry count flat", as
   expect(r[6].geometries).toBeLessThanOrEqual(r[3].geometries + 2);
   expect(errors).toEqual([]);
 });
+
+// AC 5: the Little Ones like art/6_personas — a bigger round head (the head group is scaled, so hats and hair grow with it;
+// collision sizes stay), small dot eyes, rosy cheeks, a simple smile
+test("the Little Ones have big round heads with dot eyes, rosy cheeks and a smile", async ({ page }) => {
+  const errors = await openGame(page);
+  await play(page, "park", 1);
+  await frames(page);
+  const r = await page.evaluate(() => {
+    const b = window.__bb;
+    return { want: b.CFG.KID_LOOK.head, r: b.littles[0].r, kids: b.littles.map(l => { const m = l.model; return { head: m.head.scale.x, eyes: m.face.eyes.map(e => e.geometry.parameters.radius), cheeks: (m.face.cheeks || []).length, mouth: !!m.face.mouth }; }) };
+  });
+  expect(r.want).toBeGreaterThan(1.15);
+  for (const q of r.kids) {
+    expect(q.head).toBeCloseTo(r.want, 5);
+    expect(Math.max(...q.eyes)).toBeLessThan(0.035);       // dots (before: 0.046 eyes with a white highlight)
+    expect(q.cheeks).toBe(2);
+    expect(q.mouth).toBe(true);
+  }
+  expect(r.r).toBe(11);                                     // the logic size is untouched (looks only)
+  expect(errors).toEqual([]);
+});
+
+// AC 6: the dad is the Big One of a new save; BIG_SKINS keeps its order (dad is added at the end), so a saved index keeps
+// its costume — an old save that chose Classic or Ogre keeps it
+test("the dad is the Big One of a new save; an old save keeps the costume it chose", async ({ page }) => {
+  const errors = await openGame(page, { sim: true });
+  const ids = () => page.evaluate(() => { const b = window.__bb, W = b.wardrobe().big; return { shown: W[b.outfits.shown.big].id, saved: W[b.outfits.saved.big].id, price: W[b.outfits.saved.big].price, order: W.map(q => q.id) }; });
+  expect(await ids()).toEqual({ shown: "dad", saved: "dad", price: 0, order: ["classic", "ogre", "robot", "captain", "bear", "dad"] });
+  for (const [idx, id] of [[0, "classic"], [1, "ogre"]]) {
+    await page.evaluate(i => localStorage.setItem("bebebe-outfits", JSON.stringify({ p1: { hair: 0, hat: 1, jacket: 0, pants: 0 }, p2: { hair: 1, hat: 4, jacket: 1, pants: 3 }, big: i })), idx);
+    await page.reload();
+    await page.waitForFunction(() => window.__bbReady === true);
+    const r = await ids();
+    expect([r.shown, r.saved], `old save big: ${idx}`).toEqual([id, id]);
+  }
+  expect(errors).toEqual([]);
+});
+
+// AC 6: the dad's model like art/1_papa, with hooks for SPEC-022 (face colour by mood, an anchor above the head, an anchor
+// for outfits): setBigFace(model, colour) recolours the face (stubble follows, darker), setBigFace(model, null) restores it
+test("the dad: bald with stubble, small eyes, heavy brows, big nose, red t-shirt, jeans, sneakers — with hooks for his moods @fast", async ({ page }) => {
+  const errors = await openGame(page);
+  await play(page, "park", 1);
+  await frames(page);
+  const r = await page.evaluate(() => {
+    const b = window.__bb, m = b.big.model, hex = c => "#" + c.getHexString();
+    const out = { look: m.look, shirt: hex(m.bodyMat.color), parts: Object.keys(m.dad || {}).sort(), top: !!(m.headTop && m.headTop.isObject3D), outfit: !!(m.outfitAnchor && m.outfitAnchor.isObject3D),
+      eyes: m.face.eyes.map(e => e.geometry.parameters.radius), brows: m.face.brows.length, skin: hex(m.headMat.color) };
+    b.setBigFace(m, "#ff8a65"); out.faced = m.faceMats.map(q => hex(q.color));
+    b.setBigFace(m, null); out.back = m.faceMats.map(q => hex(q.color));
+    return out;
+  });
+  expect(r.look).toBe("dad");
+  expect(r.shirt).toBe("#eb3e42");
+  expect(r.parts).toEqual(["ears", "hairs", "jeans", "nose", "sleeves", "sneakers", "stubble"]);
+  expect(r.top && r.outfit).toBe(true);
+  expect(Math.max(...r.eyes)).toBeLessThan(0.07);          // small grumpy eyes (the old looks: 0.12 whites)
+  expect(r.brows).toBe(2);
+  expect(r.faced[0]).toBe("#ff8a65");
+  expect(r.faced[1]).not.toBe("#ff8a65");                  // the stubble stays a shade darker than the face
+  expect(r.back[0]).toBe(r.skin);
+  expect(errors).toEqual([]);
+});
+
+// AC 7: both houses in every world — the messy house of the dad, the blue house with a heart on the door; snow on the roofs in Winter
+test("the dad's house is the messy little house and the kids' house the blue one with a heart, in every world", async ({ page }) => {
+  test.setTimeout(120_000);
+  const errors = await openGame(page);
+  const r = await page.evaluate(() => {
+    const b = window.__bb, out = {};
+    for (const w of b.WORLDS) { b.world = w; b.level = 1; b.startGame(1); out[w] = b.look3D().houses; }
+    return out;
+  });
+  for (const [w, h] of Object.entries(r)) {
+    expect(h.kid.roof, `${w} kids' roof`).toBe(true);
+    expect(h.kid.hearts, `${w} heart on a door`).toBeGreaterThanOrEqual(1);
+    expect(h.kid.flowers, `${w} flowers`).toBeGreaterThanOrEqual(3);
+    expect(h.big.roof && h.big.crooked, `${w} crooked roof`).toBe(true);
+    expect(h.big.patches, `${w} roof patches`).toBeGreaterThanOrEqual(2);
+    expect(h.big.stains, `${w} mud stains`).toBeGreaterThanOrEqual(5);
+    expect([...h.big.laundry].sort(), `${w} sock and t-shirt`).toEqual(["shirt", "sock"]);
+    expect(h.big.bin && h.big.stink >= 2, `${w} overflowing bin with stink lines`).toBe(true);
+    expect(h.big.pizza, `${w} pizza boxes`).toBeGreaterThanOrEqual(2);
+    expect(h.big.toys, `${w} toys`).toBeGreaterThanOrEqual(1);
+    expect(h.snow, `${w} roof snow`).toBe(w === "winter" ? 2 : 0);
+  }
+  expect(errors).toEqual([]);
+});
+
+// AC 7: the roofs never hide a Little One: a roof fades while anyone is inside its house (and while the player is next to
+// it); empty and alone, it is solid
+test("a house roof fades while someone is inside, so it never hides a Little One", async ({ page }) => {
+  const errors = await openGame(page);
+  await play(page, "park", 1);
+  const place = async inside => page.evaluate(async inKid => {
+    const b = window.__bb, z = b.safeZone, d = b.dangerZone;
+    b.mode = "play";
+    b.littles.forEach((l, i) => { l.x = 15 * 32 + i * 40; l.y = 10 * 32; });   // the middle of the map, far from both houses
+    Object.assign(b.big, { x: 20 * 32, y: 12 * 32, state: "look", timer: 999 });
+    if (inKid) { const l = b.littles[1]; l.x = z.x + z.w / 2; l.y = z.y + z.h / 2; }
+    b.mode = "pause";                                        // frozen: the scene still renders and the roofs fade
+    await new Promise(r => setTimeout(r, 1000));
+    return b.look3D();
+  }, inside);
+  const empty = await place(false);
+  expect(empty.houses.kid.alpha).toBeGreaterThan(0.95);
+  expect(empty.houses.big.alpha).toBeGreaterThan(0.95);
+  const full = await place(true);
+  expect(full.houses.kid.alpha).toBeLessThan(0.5);
+  expect(full.roofHides[1]).toBe(false);                   // a ray from the camera to the kid's head meets no solid roof
+  expect(errors).toEqual([]);
+});
