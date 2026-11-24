@@ -388,3 +388,39 @@ test("the loading screen shows within 1 s on a cold cache @fast", async ({ page 
   expect(fp).toBeGreaterThan(0);
   expect(fp).toBeLessThan(1000);
 });
+
+// SPEC-030 AC 8–9 (done in SPEC-027): each home button — the icon at the left, CFG.MENU_LOOK.home.btnIconGap × the button height
+// from its left edge, vertically centred; the label centred in the whole button, or (a long label, after shrinking) shifted right
+// just enough to clear the icon plus the gap. Every language of I18N, phone 667×375 and desktop 1280×720
+for (const [name, ctx] of [["667×375 phone", { viewport: { width: 667, height: 375 }, hasTouch: true, isMobile: true, query: "?phone=1" }],
+  ["1280×720 desktop", { viewport: { width: 1280, height: 720 }, query: "" }]]) {
+  test.describe(name, () => {
+    test.use({ viewport: ctx.viewport, hasTouch: !!ctx.hasTouch, isMobile: !!ctx.isMobile });
+    test(`home buttons: icon at the left, label centred, no overlap, every language (${name})`, async ({ page }) => {
+      const errors = await openGame(page, { query: ctx.query });
+      await page.waitForFunction(() => window.__bb.artInfo.done, null, { timeout: 15_000 });
+      const langs = await page.evaluate(() => Object.keys(window.__bb.I18N));
+      expect(langs).toEqual(expect.arrayContaining(["en", "ru"]));
+      const bad = [];
+      for (const lang of langs) {
+        await page.evaluate(l => { const b = window.__bb; b.setLang(l); b.toHome(); }, lang);
+        await frames(page);
+        const r = await page.evaluate(() => ({ info: window.__bb.homeInfo, k: window.__bb.CFG.MENU_LOOK.home.btnIconGap }));
+        const btns = r.info.buttons;
+        if (btns.map(b => b.id).join() !== "home:play,home:story,home:shop") bad.push(`${lang}: buttons ${btns.map(b => b.id)}`);
+        for (const b of btns) {
+          const at = `${lang} ${b.id}`, gap = b.h * r.k, near = (p, q) => Math.abs(p - q) < 0.5;
+          if (!near(b.gap, gap) || !near(b.icon.x, b.x + gap)) bad.push(`${at}: icon left ${b.icon.x} ≠ ${b.x} + ${gap}`);
+          if (!near(b.icon.y + b.icon.h / 2, b.y + b.h / 2)) bad.push(`${at}: icon not vertically centred`);
+          if (!b.label.shifted && !near(b.label.cx, b.x + b.w / 2)) bad.push(`${at}: label centre ${b.label.cx} ≠ ${b.x + b.w / 2}`);
+          if (b.label.x < b.icon.x + b.icon.w + gap - 0.5) bad.push(`${at}: label on the icon`);
+          if (b.label.shifted && !near(b.label.x, b.icon.x + b.icon.w + gap)) bad.push(`${at}: shifted further than needed`);
+          if (b.label.x + b.label.w > b.x + b.w + 0.5) bad.push(`${at}: label out of the button`);
+        }
+        // (the Play button is taller, so its 12 % gap is wider: the icons start within a few px of each other, not exactly in one column)
+      }
+      expect(bad).toEqual([]);
+      expect(errors).toEqual([]);
+    });
+  });
+}
