@@ -149,8 +149,8 @@ test("the Little Ones have big round heads with dot eyes, rosy cheeks and a smil
   await frames(page);
   const r = await page.evaluate(() => {
     const b = window.__bb;
-    const K = b.CFG.KID_LOOK, top = K.headY + 0.27 * K.head;   // the head's top in model units
-    return { want: K.head, r: b.littles[0].r, tagAbove: b.nameTagH() / 32 / 1.6 > top, kids: b.littles.map(l => { const m = l.model, bub = m.bubble;
+    const K = b.CFG.KID_LOOK, top = K.headY + b.KID_HEAD_R * K.head;   // the head's top in model units
+    return { want: K.head, r: b.littles[0].r, tagAbove: b.nameTagH() / b.grid.CELL / b.LITTLE_SCALE > top, stars: b.littles.map(l => l.model.dizzyStars.position.y > top), kids: b.littles.map(l => { const m = l.model, bub = m.bubble;
       return { head: m.head.scale.x, eyes: m.face.eyes.map(e => e.geometry.parameters.radius), cheeks: (m.face.cheeks || []).length, mouth: !!m.face.mouth,
         inBubble: bub.position.y + bub.geometry.parameters.radius > top }; }) };
   });
@@ -163,6 +163,7 @@ test("the Little Ones have big round heads with dot eyes, rosy cheeks and a smil
     expect(q.inBubble, "the shield bubble covers the bigger head").toBe(true);
   }
   expect(r.tagAbove, "the name tag point is above the head").toBe(true);
+  expect(r.stars.every(Boolean), "the dizzy stars circle above the bigger head (from KID_LOOK)").toBe(true);
   expect(r.r).toBe(11);                                     // the logic size is untouched (looks only)
   expect(errors).toEqual([]);
 });
@@ -207,7 +208,7 @@ test("the dad: bald with stubble, small eyes, heavy brows, big nose, red t-shirt
   const r = await page.evaluate(() => {
     const b = window.__bb, m = b.big.model, hex = c => "#" + c.getHexString();
     const out = { look: m.look, shirt: hex(m.bodyMat.color), parts: Object.keys(m.dad || {}).sort(), top: !!(m.headTop && m.headTop.isObject3D), outfit: !!(m.outfitAnchor && m.outfitAnchor.isObject3D),
-      eyes: m.face.eyes.map(e => e.geometry.parameters.radius), brows: m.face.brows.length, skin: hex(m.headMat.color),
+      eyes: m.face.eyes.map(e => e.geometry.parameters.radius), brows: m.face.brows.length, skin: m.faceBase,   // SPEC-022: the face shows his mood (red when angry); faceBase is the look's own
       anchors: Object.keys(m.anchors).sort(), handsSwing: [m.anchors.handL.parent, m.anchors.handR.parent].every(q => m.arms.includes(q)),
       topNoTilt: m.anchors.top.parent === m.rig, hatOnHead: m.anchors.head.parent === m.head, aliases: m.headTop === m.anchors.top && m.outfitAnchor === m.anchors.torso,
       ownMats: ["shirt", "pants", "shoes", "face", "stubble"].every(k => m.mats[k] && m.mats[k].userData.own), sleevesShirt: m.dad.sleeves.every(q => q.material === m.mats.shirt) };
@@ -236,8 +237,13 @@ test("the dad's house is the messy little house and the kids' house the blue one
   const r = await page.evaluate(() => {
     const b = window.__bb, out = {};
     for (const w of b.WORLDS) { b.world = w; b.level = 1; b.startGame(1); out[w] = b.look3D().houses; }
+    // SPEC-022 (from SPEC-021's check): the laundry line finds a free spot on other levels too (it used to drop on ~half of them)
+    out.laundry = [];
+    for (const w of b.WORLDS) for (const n of [5, 10]) { b.world = w; b.level = n; b.startGame(1); out.laundry.push([w + " " + n, [...b.look3D().houses.big.laundry].sort().join(",")]); }
     return out;
   });
+  for (const [at, l] of r.laundry) expect(l, `${at}: sock and t-shirt`).toBe("shirt,sock");
+  delete r.laundry;
   for (const [w, h] of Object.entries(r)) {
     expect(h.kid.roof, `${w} kids' roof`).toBe(true);
     expect(h.kid.hearts, `${w} heart on a door`).toBeGreaterThanOrEqual(1);

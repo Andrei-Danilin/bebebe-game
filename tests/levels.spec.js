@@ -405,12 +405,14 @@ test("the Big One gets faster inside a world and never outruns a player", async 
     const wi = DIFFICULTY[w];
     for (let n = 1; n <= 20; n++) {
       const x = r.d[w][n - 1], boost = START[wi] + (n - 1) * PER, at = `${w} ${n}`;
+      // SPEC-022: level 20 of a main world is a boss: + 5 px/s on every speed (still capped), + 2 hearts (School: + 3), above the cap of 12
+      const boss = n === 20 && ["park", "field", "city", "school"].includes(w), bs = boss ? 5 : 0, extra = !boss ? 0 : w === "school" ? 3 : 2;
       soft(Object.keys(x).sort(), at).toEqual(["boost", "chase", "hearts", "patrol", "search"]);
       soft(x.boost, at).toBeCloseTo(boost, 6);
-      soft(x.chase, at).toBeCloseTo(Math.min(MAX, 112 + boost), 6);
-      soft(x.search, at).toBeCloseTo(Math.min(MAX, 112 * 0.85 + boost), 6);
-      soft(x.patrol, at).toBeCloseTo(70 + boost / 2, 6);
-      soft(x.hearts, at).toBe(Math.min(12, 6 + Math.floor((n - 1) / 4) + wi));
+      soft(x.chase, at).toBeCloseTo(Math.min(MAX, 112 + boost + bs), 6);
+      soft(x.search, at).toBeCloseTo(Math.min(MAX, 112 * 0.85 + boost + bs), 6);
+      soft(x.patrol, at).toBeCloseTo(70 + boost / 2 + bs, 6);
+      soft(x.hearts, at).toBe(Math.min(12, 6 + Math.floor((n - 1) / 4) + wi) + extra);
       soft(x.chase, `${at}: faster than a player`).toBeLessThanOrEqual(MAX + 1e-9);
       if (n > 1) soft(x.chase, `${at}: slower than the level before`).toBeGreaterThanOrEqual(r.d[w][n - 2].chase);
       if (n > 1) soft(x.hearts, `${at}: fewer hearts than the level before`).toBeGreaterThanOrEqual(r.d[w][n - 2].hearts);   // SPEC-008 AC 7
@@ -418,9 +420,9 @@ test("the Big One gets faster inside a world and never outruns a player", async 
   });
   // the spec's numbers (SPEC-016: park, field, city, school, beach, winter)
   expect(WORLDS.map(w => r.d[w][0].chase)).toEqual([112, 117, 122, 127, 127, 130]);
-  expect(r.d.park[19].chase).toBeCloseTo(134.8, 6);
+  expect(r.d.park[19].chase).toBeCloseTo(139.8, 6);      // SPEC-022: the park boss, 134.8 + 5
   expect(r.d.winter[19].chase).toBeCloseTo(MAX, 6);       // 152.8 before the cap
-  expect(WORLDS.map(w => [r.d[w][0].hearts, r.d[w][19].hearts])).toEqual([[6, 10], [7, 11], [8, 12], [9, 12], [9, 12], [10, 12]]);
+  expect(WORLDS.map(w => [r.d[w][0].hearts, r.d[w][19].hearts])).toEqual([[6, 12], [7, 13], [8, 14], [9, 15], [9, 12], [10, 12]]);   // SPEC-022: bosses
   // level 20 is harder than level 1 in every world; every world starts below the previous world's level 20
   WORLDS.forEach((w, wi) => {
     const first = r.d[w][0], last = r.d[w][19];
@@ -519,8 +521,9 @@ test("difficulty follows the story order", async ({ levelPage: page }) => {
     soft(first.chase < last.chase && first.hearts < last.hearts, `${w} 1 easier than ${prev} 20`).toBe(true);
   }
   // the bonus worlds: Beach as hard as the School or harder, Winter at least as hard as the Beach, level by level
+  // (SPEC-022: but School 20 is the grumpiest dad, a boss — the bonus worlds have no boss on level 20)
   for (let n = 1; n <= 20; n++) {
-    soft(harder(r.d.school[n - 1], r.d.beach[n - 1]), `beach ${n} ≥ school ${n}`).toBe(true);
+    if (n < 20) soft(harder(r.d.school[n - 1], r.d.beach[n - 1]), `beach ${n} ≥ school ${n}`).toBe(true);
     soft(harder(r.d.beach[n - 1], r.d.winter[n - 1]), `winter ${n} ≥ beach ${n}`).toBe(true);
   }
   soft(r.d.winter[0].chase > r.d.beach[0].chase, "winter 1 faster than beach 1").toBe(true);

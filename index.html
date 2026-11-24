@@ -59,7 +59,7 @@ const CFG = {
   BIG_HP: 6,                 // сердечек у Большого на 1-м уровне Парка
   HP_LEVELS_PER_HEART: 4,    // +сердечко каждые 4 уровня мира (SPEC-006)
   HP_PER_WORLD: 1,           // и +1 за каждую ступень индекса сложности мира (WORLD_DIFFICULTY)
-  BIG_HP_MAX: 12,            // сердечек не больше ни на каком уровне
+  BIG_HP_MAX: 12,            // злости (сердечек) не больше ни на каком обычном уровне; у босса — больше (BOSS_EXTRA_HP, SPEC-022)
   DOWN_TIME: 18,             // сек — сколько ждёт маленький со сломанной ногой
   RESCUE_TIME: 3.0,          // сек — сколько стоять рядом, чтобы поднять друга
   RESCUE_DRAIN: 1.5,         // в сек — так быстро тает прогресс спасения, если помощник отошёл
@@ -73,7 +73,7 @@ const CFG = {
   WORLD_DIFFICULTY: { park: 0, field: 1, city: 2, school: 3, beach: 3, winter: 4 },
   WORLD_SPEED_START: [0, 5, 10, 15, 18],   // px/s — начало мира по индексу сложности (SPEC-006, SPEC-016)
   SPEED_PER_LEVEL: 1.2,      // px/s — Большой быстрее на каждом уровне мира
-  BIG_SPEED_PER_HIT: 4,      // и злится после каждой обнимашки
+  BIG_SPEED_PER_HIT: 4,      // и разгорячается: быстрее после каждого целого снятого сердечка (это не шкала злости, SPEC-022)
   CHASE_MAX_SHARE: 0.95,     // потолок: в погоне Большой не быстрее этой доли скорости игрока (без сапог)
   get BIG_CHASE_MAX() { return this.CHASE_MAX_SHARE * this.PLAYER_SPEED; },   // 142.5 px/s
   VISION_RANGE: 230,         // как далеко видит Большой
@@ -103,6 +103,25 @@ const CFG = {
   BUSH_HIDES: true,          // в кустах Большой не видит (если не вплотную)
   BOT_ATTACK_PAUSE: [20, 30], // сек — как часто боты сами идут обнимать (главное для них — спасать)
   HUG_ANIM: 1.0,             // сек — маленький висит на спине у Большого (анимация обнимашки)
+  // SPEC-022 (придумал Claude): злость кончилась — папа добреет и идёт к двери своего дома, потом экран победы
+  KIND_WALK: 3,              // сек — дольше не идёт (дошёл раньше — победа сразу); часы уровня в это время стоят
+  KIND_SPEED: 110,           // px/с — шаг подобревшего папы
+  KIND_TURN: 6,              // рад/с — как быстро он поворачивается по дороге (и маленькие — к нему)
+  KIND_ARRIVE: 12,           // px — ближе к точке у двери — дошёл
+  KIND_HEARTS: 30,           // сердечек-частиц, когда добреет
+  WIDE_PUSH_SHAKE: 0.4,      // сек — тряска экрана от широкого толчка
+  // SPEC-022 (решение Кости и Андрея: боссы сильнее и быстрее, самый злой папа толкает сразу нескольких; числа — Claude)
+  BOSS_SCALE: 1.1,           // босс крупнее (вид; круг столкновений тот же)
+  BOSS_EXTRA_HP: 2,          // злости у босса Парка, Поля и Города больше обычной на столько (может быть больше BIG_HP_MAX)
+  MAIN_BOSS_EXTRA_HP: 3,     // у самого злого папы (Школа 20)
+  BOSS_SPEED: 5,             // px/с — босс быстрее (погоня, поиск, обход), но не быстрее BIG_CHASE_MAX
+  WIDE_PUSH_R: 2.5,          // клеток — широкий толчок самого злого папы: все маленькие так близко перед ним…
+  WIDE_PUSH_ARC: 180,        // …в этом угле перед ним (градусов, всего) падают разом
+  WIDE_PUSH_STAND: 1.5,      // сек — после широкого толчка стоит дольше обычного (PUSH_STAND): можно обнять
+  BOT_WIDE_KEEP: 1,          // клеток — боты не подходят спереди к самому злому папе ближе WIDE_PUSH_R + столько, пока он может толкнуть
+  WAVE_TIME: 0.6,            // сек — кольцо широкого толчка расходится
+  MOOD_ANGRY: 2 / 3,         // доля злости (hp / maxHp): не меньше — злой (красное лицо, пар); не меньше MOOD_MID — средний; меньше — добреет
+  MOOD_MID: 1 / 3,
   ITEM_EVERY: [7, 11],       // сек — как часто появляются предметы
   ITEM_MAX: 3,               // сколько предметов может лежать одновременно
   ITEM_LIFE: 20,             // сек — сколько предмет лежит, потом исчезает
@@ -190,6 +209,7 @@ const CFG = {
   STICK_ZONE: 0.55,          // доля ширины слева, где касание создаёт джойстик
   PHONE_STICK_R: 60,         // CSS px — радиус джойстика на телефоне
   PHONE_BTN_MIN: 44,         // CSS px — кнопка на телефоне не меньше
+  PHONE_HEART_MIN: 9,        // CSS px — шаг облачек злости на телефоне не меньше (SPEC-022: сначала теснятся облачка, подпись — целиком)
   PHONE_BTN_GAP: 8,          // CSS px — между соседними кнопками
   PHONE_TEXT: { title: 24, main: 15, hint: 13, input: 16 },   // CSS px — самый мелкий текст на телефоне
   // карточки магазина на телефоне (SPEC-007 AC 10), CSS px: картинка (обычная, самая маленькая, насколько может вырасти),
@@ -246,6 +266,13 @@ const CFG = {
   // SPEC-021: маленькие как в art/6_personas — голова больше (масштаб группы головы: причёски и шапки растут с ней) и её высота;
   // глаза-точки (доля радиуса головы), румянец (цвет, доля радиуса), улыбка (радиус и толщина, доли радиуса); над центром головы
   // до верха шапки (единицы головы, для имени — nameTagH), запас пузыря-щита над головой (единицы модели)
+  // SPEC-022: настроение папы (bigMood: по доле злости) — цвет лица и картинки над головой (точка m.anchors.top): злой — красный,
+  // пар с двух сторон и тёмное облачко; средний — оранжево-розовый, пар с одной стороны; добреет — розовый, сердечки вместо пара.
+  // Размеры и сдвиги — в клетках на экране (по точке над головой); cloudBoss — облачко самого злого папы (самое большое);
+  // puff — как часто пар «пыхает» (раз в сек), bob — покачивание сердечек (клеток)
+  MOOD_LOOK: { face: { angry: "#e8453c", mid: "#f39b7d", kind: "#f6a3be" }, steam: 1.0, steamX: 0.85, steamY: 0.55, cloud: 1.15, cloudY: 0.15,
+    cloudBoss: 1.7, hearts: 0.95, heartsY: 0.1, puff: 1.6, bob: 0.08,
+    wave: 2.5, waveAmp: 0.35, waveSpeed: 9 },   // подобрел и идёт домой: рука вверх (рад), машет ± waveAmp с частотой waveSpeed
   KID_LOOK: { head: 1.25, headY: 1.04, eye: 0.11, cheek: "#ff8aa5", cheekR: 0.16, smile: 0.15, smileW: 0.035, tagTop: 0.42, bubblePad: 0.1 },
   // SPEC-021: домики (art/15_houses). У домика маленьких крыша, пока не погасла, светится зелёным (glow, сила glowK) — как пол
   // безопасного дома: его всегда видно. Крыша: высота конька, свес, боковые скаты темнее (доля цвета), сугробиков на крыше (Зима);
@@ -298,6 +325,11 @@ const CFG = {
       open: "#ffffff", next: "#fde047", closed: "#cbd5e1", ring: "#ff6fa8", badge: "#ef4444", badgeInk: "#ffffff", done: "#15803d", doneBg: "#dcfce7", toastBg: "#334155", toastInk: "#ffffff",
       doodles: 9, doodleAlpha: 0.55, doodleSize: 44, doodleGrow: 22, cardW: 480, phoneCardW: 420, cardPad: 14, cardR: 22, cardStar: 10, cardBtn: 56,
       doodle: { trunk: "#8b5a2b", ball: "#ffffff", window: "#bae6fd", flag: "#ef4444", palm: "#a0703f", leaf: "#16a34a", snow: "#ffffff", road: "#6b7280" } },
+    // SPEC-022: заставки истории — клетки комикса 8_start (доли картинки [x, y, w, h], по порядку подписей), кегль подписи
+    // (компьютер / телефон, UI px до cpx), строк подписи на компьютере (картинка над подписью), доля ширины под картинку на
+    // телефоне (картинка слева, подпись справа), ширина кнопок на компьютере, кегль «Спасибо!»
+    scene: { panels: [[0, 0, 0.5, 0.5], [0.5, 0, 0.5, 0.5], [0, 0.5, 0.5, 0.5], [0.5, 0.5, 0.5, 0.5]], text: 22, phoneText: 17, lines: 3,
+      phonePic: 0.6, btnW: 220, thanks: 46, phoneThanks: 30, madeBy: 24, phoneMadeBy: 18, cupcake: 0.42 },
     story: { pic: 0.47, text: 22, phoneText: 18, rule: 17, phoneRule: 15, dot: 6, paper: "#fffdf5", pencil: "#94a3b8", heart: "#f9a8d4", backW: 170, icon: 30 } },
   // типы уровней внутри каждого мира (SPEC-006): 1 — рисунок детей, 2–4 поляна, 5–7 деревня, 8–10 река,
   // 11–13 дом с комнатами, 14–16 арена, 17–20 лабиринт; число записей = уровней в мире
@@ -458,7 +490,7 @@ const STORY_ART = { began: "story_start", park: "story_park", field: "story_fiel
 const HEART_ART = ["cloud_heart_empty", "cloud_heart_half", "cloud_heart_full"];
 // частицы burst(kind) и взрыв под всплывающей надписью popText(…, meaning) — 24_effects, v1/staff
 const FX_ART = { heart: "heart_full", star: "fx_sparkle", dust: "fx_dust" };
-const POP_ART = { bang: "fx_burst_red", hug: "fx_burst_pink", mega: "fx_burst_yellow", kiss: "fx_burst_pink", out: "fx_burst_yellow" };
+const POP_ART = { bang: "fx_burst_red", hug: "fx_burst_pink", mega: "fx_burst_yellow", kiss: "fx_burst_pink", out: "fx_burst_yellow", whoosh: "fx_burst_yellow" };
 // мир → значок (20_levelmap_parts) и страница карты (18_map_bg_*)
 const worldArt = w => "world_" + w, mapBgArt = w => "map_bg_" + w;
 // экран загрузки: полоска — доля готовых картинок; убираем, когда всё готово (или по таймеру из artGate)
@@ -544,7 +576,10 @@ const I18N = {
     controls1: "Keyboard: Player 1 — W A S D, Player 2 — arrows  •  P — pause  •  M — sound  •  L — language",
     controls2: "Tablet/phone: drag your finger  •  Gamepad: stick, A — choose, B — back, LB/RB — worlds",
     pause: "Paused", play: "Play", resume: "Continue", story: "Story", map: "Map", home: "Home",   // SPEC-017: экраны меню
-    win: "YOU WIN!", winSub: "The Big One is all hugged out!", next: n => `Level ${n} ▶`,
+    win: "YOU WIN!", winSub: "You hugged him lots of times, and he went home!", next: n => `Level ${n} ▶`,
+    // SPEC-022: заголовок победы — папа (босс, набранное имя) снова добрый; «Ура!» друзей, пока он идёт домой; имена боссов
+    kindAgain: n => `${n} is kind again!`, cheer: "Yay!", whoosh: "WHOOSH!",
+    bossNames: { park: "The park boss", field: "The coach", city: "The builder", school: "The grumpiest dad" },
     lose: "The Big One won...", loseSub: (h, m) => `Hearts taken: ${h} of ${m}. Try again?`, again: "Try again",
     big: "Big One", hug: "Hug! -1", bang: "BAM!", saved: "Saved!", out: "Going home to rest", back: "Back in the game!", resting: (n, t) => `${n}: resting… back in ${t}`, help: n => `${n}: HELP!`,
     touch1: "Drag your finger on the screen to run", touch2: "Player 1: finger on the left  •  Player 2: on the right",
@@ -568,13 +603,18 @@ const I18N = {
     typeLines: { classic: "Our own drawing — the very first map!", meadow: "Open grass — hide in the bushes!", village: "Little houses — sneak around the corners!",
       river: "A river with bridges — choose your way across!", rooms: "A big house — peek through the doors!", arena: "A ring to run around — get behind him!",
       maze: "A maze — find the way between the walls!" },
-    bossLine: "The boss: the grumpiest dad of this world. Lots of hugs needed!",
+    // SPEC-022: строка карточки 20-го уровня — по истории Кости: в Школе самый злой папа, в других мирах — главный папа мира (босс)
+    bossLine: { park: "Boss: the main dad of the Park. He is stronger than ordinary dads!", field: "Boss: the main dad of the Football field. He is stronger than ordinary dads!",
+      city: "Boss: the main dad of the City. He is stronger than ordinary dads!", school: "The grumpiest dad! He can push several kids at once!" },
+    // SPEC-022: заставки истории — кнопки («next» занято: кнопка следующего уровня), карточка «Спасибо» после финала
+    sceneNext: "Next", sceneSkip: "Skip", thanks: "Thank you for playing!", madeBy: "Made by Kostya and Dad",
     chapters: { began: "How it began", ended: "How it ended" }, endedLocked: "Win level 20 at the School to read the ending", howToPlay: "How to play",
     upg: { fastFeet: { name: "Fast feet", desc: p => `+${p}% speed` }, longItems: { name: "Long items", desc: () => "Items last longer" },
       quickHelp: { name: "Quick help", desc: () => "Lift friends faster" } },
     rw: { firstWin: "First win", replay: "Replay", newStars: "New stars", star: "Bonus stars", hugs: "Hugs", rests: "Rests", total: "Total" },
     starCoins: n => `Bonus stars: +${n}`, thrownOut: "Get out of my house!", friends: "Friends", tapToRename: "Tap a name to change it",
-    defaultBig: "Big One", defaultBots: ["Bo", "Mia", "Tom", "Lulu"],
+    // SPEC-022: сердечки Большого — злость папы; имя по умолчанию — Папа (набранное имя остаётся: «злость <имя>»)
+    defaultBig: "Dad", defaultBots: ["Bo", "Mia", "Tom", "Lulu"], anger: "Dad's anger", angerOf: n => `${n}'s anger`,
     kisses: "Air kisses", kissDesc: "Send from afar: ½ heart and he blushes", kissPack: n => `Pack: ${n} air kisses`,
     kissHave: n => `You have: ${n} ${n === 1 ? "kiss" : "kisses"}`, kissHit: "Mwah!", noKissHome: "Not from the house!", blush: "So shy!",
     kit: "Rescue kit", kitDesc: "Get up at once and play on", kitPack: n => `Pack: ${n} rescue kits`, kitHave: n => `You have: ${n} ${n === 1 ? "kit" : "kits"}`,
@@ -600,7 +640,9 @@ const I18N = {
     controls1: "Teclado: Jugador 1 — W A S D, Jugador 2 — flechas  •  P — pausa  •  M — sonido  •  L — idioma",
     controls2: "Tablet/celu: deslizá el dedo  •  Joystick: palanca, A — elegir, B — volver, LB/RB — mundos",
     pause: "Pausa", play: "Jugar", resume: "Seguir", story: "Historia", map: "Mapa", home: "Inicio",
-    win: "¡GANARON!", winSub: "¡Abrazaron al Grandote hasta el final!", next: n => `Nivel ${n} ▶`,
+    win: "¡GANARON!", winSub: "¡Lo abrazaron muchas veces y se fue a su casa!", next: n => `Nivel ${n} ▶`,
+    kindAgain: n => `¡${n} volvió a ser bueno!`, cheer: "¡Bien!", whoosh: "¡FIUUU!",
+    bossNames: { park: "El jefe del parque", field: "El entrenador", city: "El albañil", school: "El papá más enojado" },
     lose: "Ganó el Grandote...", loseSub: (h, m) => `Corazones: ${h} de ${m}. ¿Otra vez?`, again: "Otra vez",
     big: "Grandote", hug: "¡Abrazo! -1", bang: "¡PUM!", saved: "¡Salvado!", out: "Me voy a descansar", back: "¡De vuelta!", resting: (n, t) => `${n}: descansando… volvés en ${t}`, help: n => `${n}: ¡AYUDA!`,
     touch1: "Deslizá el dedo por la pantalla para correr", touch2: "Jugador 1: dedo a la izquierda  •  Jugador 2: a la derecha",
@@ -622,13 +664,15 @@ const I18N = {
     typeLines: { classic: "¡Nuestro dibujo, el primer mapa de todos!", meadow: "Pasto abierto: ¡escondete en los arbustos!", village: "Casitas: ¡andá a escondidas por las esquinas!",
       river: "Un río con puentes: ¡elegí por dónde cruzar!", rooms: "Una casa grande: ¡espiá por las puertas!", arena: "Una pista en ronda: ¡ponete detrás de él!",
       maze: "Un laberinto: ¡buscá el camino entre las paredes!" },
-    bossLine: "El jefe: el papá más gruñón de este mundo. ¡Hacen falta muchos abrazos!",
+    bossLine: { park: "Jefe: el papá principal del Parque. ¡Es más fuerte que los papás comunes!", field: "Jefe: el papá principal de la Cancha. ¡Es más fuerte que los papás comunes!",
+      city: "Jefe: el papá principal de la Ciudad. ¡Es más fuerte que los papás comunes!", school: "¡El papá más enojado! ¡Puede empujar a varios chicos a la vez!" },
+    sceneNext: "Siguiente", sceneSkip: "Saltar", thanks: "¡Gracias por jugar!", madeBy: "Hecho por Kostya y papá",
     chapters: { began: "Cómo empezó", ended: "Cómo terminó" }, endedLocked: "Ganá el nivel 20 de la Escuela para leer el final", howToPlay: "Cómo se juega",
     upg: { fastFeet: { name: "Pies rápidos", desc: p => `+${p}% velocidad` }, longItems: { name: "Cosas duraderas", desc: () => "Duran más" },
       quickHelp: { name: "Ayuda rápida", desc: () => "Levantás más rápido" } },
     rw: { firstWin: "Primera vez", replay: "Repetición", newStars: "Estrellas nuevas", star: "Estrellitas", hugs: "Abrazos", rests: "Descansos", total: "Total" },
     starCoins: n => `Estrellitas: +${n}`, thrownOut: "¡Fuera de mi casa!", friends: "Amigos", tapToRename: "Tocá un nombre para cambiarlo",
-    defaultBig: "Grandote", defaultBots: ["Tito", "Mora", "Lupe", "Facu"],
+    defaultBig: "Papá", defaultBots: ["Tito", "Mora", "Lupe", "Facu"], anger: "Enojo de papá", angerOf: n => `Enojo de ${n}`,
     kisses: "Besitos voladores", kissDesc: "Mandalo de lejos: ½ corazón y se pone colorado", kissPack: n => `Paquete: ${n} besitos voladores`,
     kissHave: n => `Tenés: ${n} ${n === 1 ? "besito" : "besitos"}`, kissHit: "¡Muak!", noKissHome: "¡Desde la casita no!", blush: "¡Qué vergüenza!",
     kit: "Curita mágica", kitDesc: "Levantate al toque y seguí jugando", kitPack: n => `Paquete: ${n} curitas`, kitHave: n => `Tenés: ${n} ${n === 1 ? "curita" : "curitas"}`,
@@ -654,7 +698,9 @@ const I18N = {
     controls1: "Клавиатура: Игрок 1 — W A S D, Игрок 2 — стрелки  •  P — пауза  •  M — звук  •  L — язык",
     controls2: "Планшет/телефон: водите пальцем  •  Геймпад: стик, A — выбрать, B — назад, LB/RB — миры",
     pause: "Пауза", play: "Играть", resume: "Продолжить", story: "История", map: "Карта", home: "Главная",
-    win: "ПОБЕДА!", winSub: "Большого обняли со всех сторон!", next: n => `Уровень ${n} ▶`,
+    win: "ПОБЕДА!", winSub: "Его обняли много раз, и он ушёл домой!", next: n => `Уровень ${n} ▶`,
+    kindAgain: n => `${n} снова добрый!`, cheer: "Ура!", whoosh: "ВЖУХ!",
+    bossNames: { park: "Босс парка", field: "Тренер", city: "Строитель", school: "Самый злой папа" },
     lose: "Большой победил...", loseSub: (h, m) => `Сердечек забрали: ${h} из ${m}. Ещё разок?`, again: "Ещё раз",
     big: "Большой", hug: "Обнимашки! -1", bang: "БАХ!", saved: "Спасён!", out: "Иду отдыхать", back: "Снова в игре!", resting: (n, t) => `${n}: отдых… вернёшься через ${t}`, help: n => `${n}: ПОМОГИТЕ!`,
     touch1: "Води пальцем по экрану, чтобы бежать", touch2: "Игрок 1 — палец слева, Игрок 2 — палец справа",
@@ -678,13 +724,15 @@ const I18N = {
     typeLines: { classic: "Наш рисунок — самая первая карта!", meadow: "Открытая поляна — прячься в кустах!", village: "Домики — подкрадывайся из-за углов!",
       river: "Река с мостиками — выбирай, где перейти!", rooms: "Большой дом — заглядывай в двери!", arena: "Кольцо — обеги и зайди ему за спину!",
       maze: "Лабиринт — найди дорогу между стенами!" },
-    bossLine: "Босс — самый ворчливый папа этого мира. Нужно много обнимашек!",
+    bossLine: { park: "Босс — главный папа Парка. Он сильнее обычных пап!", field: "Босс — главный папа Футбольного поля. Он сильнее обычных пап!",
+      city: "Босс — главный папа Города. Он сильнее обычных пап!", school: "Самый злой папа! Может толкнуть сразу нескольких детей!" },
+    sceneNext: "Дальше", sceneSkip: "Пропустить", thanks: "Спасибо, что играли!", madeBy: "Сделали Костя и папа",
     chapters: { began: "Как всё началось", ended: "Как всё закончилось" }, endedLocked: "Пройди 20-й уровень в Школе, чтобы прочитать конец", howToPlay: "Как играть",
     upg: { fastFeet: { name: "Быстрые ноги", desc: p => `+${p}% скорости` }, longItems: { name: "Долгие вещи", desc: () => "Действуют дольше" },
       quickHelp: { name: "Быстрая помощь", desc: () => "Поднимаешь быстрее" } },
     rw: { firstWin: "Первая победа", replay: "Повтор", newStars: "Новые звёзды", star: "Звёздочки", hugs: "Обнимашки", rests: "Отдых", total: "Итого" },
     starCoins: n => `Звёздочки: +${n}`, thrownOut: "Вон из моего дома!", friends: "Друзья", tapToRename: "Нажми на имя, чтобы поменять",
-    defaultBig: "Большой", defaultBots: ["Тёма", "Маша", "Вася", "Соня"],
+    defaultBig: "Папа", defaultBots: ["Тёма", "Маша", "Вася", "Соня"], anger: "Злость папы", angerOf: n => `${n} злится`,
     kisses: "Воздушные поцелуи", kissDesc: "Издалека: ½ сердечка, и он краснеет", kissPack: n => `В наборе: ${n} ${ruPlural(n, ["поцелуй", "поцелуя", "поцелуев"])}`,
     kissHave: n => `У вас: ${n} ${ruPlural(n, ["поцелуй", "поцелуя", "поцелуев"])}`, kissHit: "Чмок!", noKissHome: "Из домика нельзя!", blush: "Ой, смущён!",
     kit: "Спасалка", kitDesc: "Сразу встать и играть дальше", kitPack: n => `В наборе: ${n} ${ruPlural(n, ["спасалка", "спасалки", "спасалок"])}`,
@@ -695,44 +743,75 @@ const I18N = {
   }
 };
 // =====================================================================
-//  ИСТОРИЯ (SPEC-017): главы по порядку — начало, миры по сюжету, бонусные миры, конец.
-//  Тексты написаны по сюжету из спеков (решено в ходе работы, проверить с детьми: см. specs/BACKLOG.md).
-//  image — картинка главы (art/story/<id>.webp, когда появятся рисунки; null — заглушка «Комикс скоро будет»).
-//  Пока картинок нет, пути не заданы: страница с диска (file://) не запрашивает файлы, которых нет.
+//  ИСТОРИЯ (SPEC-017; SPEC-022: тексты — из истории Кости, docs/story.md): главы по порядку — начало, миры, бонусные миры, конец.
+//  Русский — словами Кости (сокращено, только где не влезало), английский и испанский (voseo) — простой перевод.
+//  Где история молчит (бонусные миры), одна простая фраза тем же голосом — написал Claude, проверить с Костей (specs/BACKLOG.md).
+//  captions — подписи комикса «Как всё началось» (по одной на клетку 8_start); text главы «начало» — они же короче (влезает в телефон);
+//  boss — фраза заставки перед боссом мира (SPEC-022, только основные миры: у бонусных боссов нет).
+//  image — своя картинка главы (null — комикс из art/, STORY_ART; нет и его — заглушка «Комикс скоро будет»).
 // =====================================================================
 const STORY = [
-  { id: "began", image: null, text: {
-    en: "One sunny day the dads in our neighbourhood got grumpy. They stopped playing and only grumbled! The Little Ones made a plan: sneak up from behind and give each dad a big hug, until he is kind again.",
-    es: "Un día de sol, los papás del barrio se pusieron gruñones. ¡Dejaron de jugar y solo refunfuñaban! Los Chiquitos hicieron un plan: acercarse por detrás y darle a cada papá un abrazo grande, hasta que vuelva a ser bueno.",
-    ru: "Однажды солнечным днём папы в нашем районе стали ворчливыми. Они перестали играть и только ворчали! Маленькие придумали план: подкрасться сзади и крепко обнять каждого папу, пока он снова не станет добрым." } },
+  { id: "began", image: null, captions: {
+    en: ["Dad had an ordinary day. He came home from work, and the house was untidy: everything thrown around and dirty. He didn't like it.",
+      "Then some kids ran past, playing, and knocked him off his feet. He started to get cross.",
+      "Then he opened the fridge: no food, and somebody had eaten his very favourite cupcake. Now he became the grumpiest dad!",
+      "Dad went to a café where lots of other dads were sitting, and told them what made him angry. All the dads understood him and got angry too."],
+    es: ["Papá tuvo un día común. Volvió del trabajo y la casa estaba desordenada: todo tirado y sucio. No le gustó nada.",
+      "Después pasaron corriendo unos chicos que jugaban y lo tiraron al piso. Empezó a enojarse.",
+      "Después abrió la heladera: no había comida, ¡y alguien se había comido su cupcake favorito! Ahí se volvió el papá más enojado.",
+      "Papá se fue a un café donde había muchos otros papás y les contó lo que lo había enojado. Todos lo entendieron y también se enojaron."],
+    ru: ["У папы был обычный день. Он пришёл с работы, а дома не убрано, всё разбросано и грязно. Ему это не нравится.",
+      "Потом мимо пробегают играющие дети и сбивают его с ног. Он начинает сердиться.",
+      "Потом он открывает холодильник, а еды нет, и его самое любимое пирожное съели. Тут он становится самым злым папой!",
+      "Папа уходит в кафе, где сидят много других пап, и рассказывает им, что его разозлило. Все папы его понимают и тоже становятся злыми."] },
+    text: {
+      en: "Dad came home from work to an untidy house. Kids knocked him over, and somebody ate his favourite cupcake. He became the grumpiest dad and went to the café, and the other dads got angry too.",
+      es: "Papá volvió del trabajo y la casa estaba desordenada. Unos chicos lo tiraron al piso y alguien se comió su cupcake favorito. Se volvió el papá más enojado, fue al café, y los otros papás también se enojaron.",
+      ru: "Папа пришёл с работы, а дома не убрано. Дети сбили его с ног, а любимое пирожное съели. Он стал самым злым папой и ушёл в кафе к другим папам — и они тоже стали злыми." } },
   { id: "park", image: null, text: {
-    en: "The grumpy dads moved into the park. Hug them from behind until they are kind again!",
-    es: "Los papás gruñones se mudaron al parque. ¡Abrazalos por detrás hasta que vuelvan a ser buenos!",
-    ru: "Ворчливые папы поселились в парке. Обнимай их сзади, пока они снова не станут добрыми!" } },
+    en: "The angry dads moved to four worlds. The first one is the Park. The kids want to make the dads kind again: you have to hug them, lots of times!",
+    es: "Los papás enojados se fueron a vivir a cuatro mundos. El primero es el Parque. Los chicos quieren que los papás vuelvan a ser buenos: ¡hay que abrazarlos, muchas veces!",
+    ru: "Злые папы поселились в четырёх мирах. Первый — Парк. Дети хотят сделать пап снова добрыми: для этого их надо обнимать, много раз!" },
+    boss: {
+      en: "This is the boss, the main dad of the Park. He is stronger than ordinary dads. Hug him lots of times until he is kind!",
+      es: "Este es el jefe, el papá principal del Parque. Es más fuerte que los papás comunes. ¡Abrazalo muchas veces hasta que vuelva a ser bueno!",
+      ru: "Это босс — главный папа Парка. Он сильнее обычных пап. Обнимай его много раз, пока он не станет добрым!" } },
   { id: "field", image: null, text: {
-    en: "Now a grumpy dad guards the football field. Sneak past the goals and hug him!",
-    es: "Ahora un papá gruñón cuida la cancha. ¡Pasá entre los arcos y abrazalo!",
-    ru: "Теперь футбольное поле сторожит ворчливый папа. Проберись мимо ворот и обними его!" } },
+    en: "The second world is the Football field. It's hard: a dad can push you, you can bump yourself and all that.",
+    es: "El segundo mundo es la Cancha. Es difícil: el papá te puede empujar, te podés golpear y todo eso.",
+    ru: "Второй мир — Футбольное поле. Это сложно: папа может толкнуть, можно удариться и всё такое." },
+    boss: {
+      en: "This is the boss, the main dad of the Football field. He is stronger than ordinary dads. Hug him lots of times until he is kind!",
+      es: "Este es el jefe, el papá principal de la Cancha. Es más fuerte que los papás comunes. ¡Abrazalo muchas veces hasta que vuelva a ser bueno!",
+      ru: "Это босс — главный папа Футбольного поля. Он сильнее обычных пап. Обнимай его много раз, пока он не станет добрым!" } },
   { id: "city", image: null, text: {
-    en: "The city streets are full of grumpy dads. Hide behind the cars and hug them all!",
-    es: "Las calles de la ciudad están llenas de papás gruñones. ¡Escondete detrás de los autos y abrazalos a todos!",
-    ru: "На улицах города полно ворчливых пап. Прячься за машинами и обними всех!" } },
+    en: "The third world is the City. When a dad is hugged lots of times, he becomes kind and goes home, and the kids get coins.",
+    es: "El tercer mundo es la Ciudad. Cuando a un papá lo abrazan muchas veces, se vuelve bueno y se va a su casa, y los chicos ganan monedas.",
+    ru: "Третий мир — Город. Когда папу обняли много раз, он становится добрым и уходит домой, а дети получают монетки." },
+    boss: {
+      en: "This is the boss, the main dad of the City. He is stronger than ordinary dads. Hug him lots of times until he is kind!",
+      es: "Este es el jefe, el papá principal de la Ciudad. Es más fuerte que los papás comunes. ¡Abrazalo muchas veces hasta que vuelva a ser bueno!",
+      ru: "Это босс — главный папа Города. Он сильнее обычных пап. Обнимай его много раз, пока он не станет добрым!" } },
   { id: "school", image: null, text: {
-    en: "The grumpiest dad of all is waiting at the School. Can you make him smile?",
-    es: "El papá más gruñón de todos te espera en la Escuela. ¿Podés hacerlo sonreír?",
-    ru: "В Школе ждёт самый ворчливый папа. Сможешь его развеселить?" } },
-  { id: "beach", image: null, text: {
-    en: "Bonus! The dads went to the beach to grumble in the sun. Hug them between the palm trees!",
-    es: "¡Bonus! Los papás se fueron a la playa a refunfuñar al sol. ¡Abrazalos entre las palmeras!",
-    ru: "Бонус! Папы ушли ворчать на пляж. Обними их среди пальм!" } },
-  { id: "winter", image: null, text: {
-    en: "Bonus! Even in the snow a dad is grumpy. A warm hug will melt his frown!",
-    es: "¡Bonus! Hasta en la nieve hay un papá gruñón. ¡Un abrazo calentito le derrite el enojo!",
-    ru: "Бонус! Даже в снегу папа ворчит. Тёплые обнимашки растопят его хмурость!" } },
+    en: "The last world is the School. The grumpiest dad lives here, the very dad from the start of the story. He put his own main dad, a boss, in every world.",
+    es: "El último mundo es la Escuela. Acá vive el papá más enojado, el mismo papá del principio de la historia. Él puso en cada mundo a su papá principal: un jefe.",
+    ru: "Последний мир — Школа. Тут живёт самый злой папа, тот самый папа из начала истории. Он поставил в каждый мир своего главного папу — босса." },
+    boss: {
+      en: "This is the grumpiest dad, the angriest of them all. His special power: he can push several kids at once!",
+      es: "Este es el papá más enojado, el más enojado de todos. Su poder especial: ¡puede empujar a varios chicos a la vez!",
+      ru: "Это самый злой папа — самый злой из всех. Его особая сила: он может толкнуть сразу нескольких детей!" } },
+  { id: "beach", image: null, text: {   // написал Claude (в истории про Пляж только «бонусный мир») — проверить с Костей
+    en: "Bonus world: the Beach. The angry dads grumble and sunbathe. Hug them until they are kind!",
+    es: "Mundo bonus: la Playa. Los papás enojados refunfuñan y toman sol. ¡Abrazalos hasta que vuelvan a ser buenos!",
+    ru: "Бонусный мир — Пляж. Злые папы ворчат и загорают на солнце. Обнимай их, пока они не станут добрыми!" } },
+  { id: "winter", image: null, text: {   // написал Claude (в истории про Зиму только «бонусный мир») — проверить с Костей
+    en: "Bonus world: Winter. An angry dad is building a wall of ice. Warm hugs will make him kind!",
+    es: "Mundo bonus: el Invierno. Un papá enojado construye una pared de hielo. ¡Unos abrazos calentitos lo van a volver bueno!",
+    ru: "Бонусный мир — Зима. Злой папа строит ледяную стену. Тёплые обнимашки сделают его добрым!" } },
   { id: "ended", image: null, text: {
-    en: "The grumpiest dad laughed and hugged everyone back. All the dads are kind again and play with the Little Ones every day. The end — hooray!",
-    es: "El papá más gruñón se rió y abrazó a todos. Todos los papás volvieron a ser buenos y juegan con los Chiquitos todos los días. ¡Fin, hurra!",
-    ru: "Самый ворчливый папа засмеялся и обнял всех в ответ. Все папы снова добрые и каждый день играют с Маленькими. Конец — ура!" } }
+    en: "When all the dads were kind, the kids won against the grumpiest dad. He became kind too, and now he sits at the table with the kids and they eat cupcakes together.",
+    es: "Cuando todos los papás se volvieron buenos, los chicos le ganaron al papá más enojado. Él también se volvió bueno, y ahora se sienta a la mesa con los chicos y comen cupcakes juntos.",
+    ru: "Когда все папы стали добрыми, дети побеждают самого злого папу. Он тоже становится добрым, и они вместе с детьми сидят за столом и кушают пирожные." } }
 ];
 // значки строк правил (I18N.*.rules) — по одному на строку, в том же порядке; тест i18n сверяет число (SPEC-019 добавит строку — и значок)
 const RULE_ICONS = ["❤", "👀", "🤝", "⏱", "🏠", "🍌", "👣"];
@@ -983,6 +1062,21 @@ const worldIndex = world => Math.max(0, WORLDS.indexOf(world));
 const worldDifficulty = world => CFG.WORLD_DIFFICULTY[world] ?? 0;
 const levelsPerWorld = () => CFG.WORLD_TYPES.length;
 const levelPos = n => clamp(Math.floor(n) || 1, 1, levelsPerWorld()) - 1;
+// SPEC-022: боссы — одна таблица (мир → босс последнего уровня): look — образ (BOSS_LOOKS), extraHp — ключ CFG с прибавкой злости,
+// power — особая сила ("wide" — широкий толчок, null — нет), cloud — ключ CFG.MOOD_LOOK с размером тёмного облачка.
+// Новый босс (например, бонусного мира) = строка здесь + образ + тексты (STORY boss, I18N bossNames, bossLine). У Пляжа и Зимы
+// боссов нет (история Кости их ещё не придумала)
+const BOSSES = Object.freeze({
+  park: { look: "park", extraHp: "BOSS_EXTRA_HP", power: null, cloud: "cloud" },
+  field: { look: "field", extraHp: "BOSS_EXTRA_HP", power: null, cloud: "cloud" },
+  city: { look: "city", extraHp: "BOSS_EXTRA_HP", power: null, cloud: "cloud" },
+  school: { look: "school", extraHp: "MAIN_BOSS_EXTRA_HP", power: "wide", cloud: "cloudBoss" }   // самый злой папа
+});
+// босс уровня — последний уровень мира из BOSSES (его имя = мир); иначе null
+const bossFor = (world, n) => (Object.hasOwn(BOSSES, world) && Math.floor(n) === levelsPerWorld() ? world : null);
+const bossPower = boss => (boss && BOSSES[boss] ? BOSSES[boss].power : null);
+// SPEC-022: заставки истории: комикс в начале, босс каждого мира из BOSSES, первый уровень бонусного мира, конец
+const SCENE_IDS = Object.freeze(["intro", ...Object.keys(BOSSES).map(w => "boss_" + w), ...BONUS_WORLDS.map(w => "bonus_" + w), "ending"]);
 const levelKey = (world, n) => world + ":" + n;
 // Тип уровня — по списку CFG.WORLD_TYPES (одинаковый во всех мирах)
 const levelType = (world, n) => CFG.WORLD_TYPES[levelPos(n)];
@@ -1772,7 +1866,7 @@ function resolveWalls(e) {
 function moveEntity(e, vx, vy, dt) { e.x += vx * dt; e.y += vy * dt; resolveWalls(e); }
 
 // Большой «спокоен»: в шоке, отдыхает после толчка или краснеет — конус бледный (3D и мини-карта)
-const bigCalm = () => big.stun > 0 || big.noPush > 0 || big.blush > 0;
+const bigCalm = () => !!big.kind || big.stun > 0 || big.noPush > 0 || big.blush > 0;   // SPEC-022: подобревший идёт домой — луч спокойный
 // многоугольник взгляда Большого в px мира: [x0, y0 (он сам), x1, y1, …] — n + 1 лучей, обрезанных стенами
 function visionPoly(n, out = []) {
   out.length = 2 * (n + 2); out[0] = big.x; out[1] = big.y;
@@ -1892,16 +1986,27 @@ function makeLook(o) {
 }
 // ---------- Скины Большого ----------
 const BIG_SKINS = [
-  { id: "classic", price: tierPrice(0), shirt: "#9b2c3a", skin: "#f4b183", hair: "#3a2418", top: "spiky",  name: { en: "Classic", es: "Clásico", ru: "Классика" } },
+  // mood: true — лицо человека: краснеет / розовеет по злости (SPEC-022); у огра, робота и медведя лицо остаётся своим
+  { id: "classic", price: tierPrice(0), shirt: "#9b2c3a", skin: "#f4b183", hair: "#3a2418", top: "spiky",  name: { en: "Classic", es: "Clásico", ru: "Классика" }, mood: true },
   { id: "ogre", price: tierPrice(0), shirt: "#7c5a2e", skin: "#8fcf6a", hair: "#4d7c2a", top: "horns",  name: { en: "Ogre", es: "Ogro", ru: "Огр" } },
   { id: "robot", price: tierPrice(3), shirt: "#64748b", skin: "#cbd5e1", hair: "#475569", top: "robot",  name: { en: "Robot", es: "Robot", ru: "Робот" } },
-  { id: "captain", price: tierPrice(3), shirt: "#1e3a8a", skin: "#f1c27d", hair: "#1f2937", top: "pirate", name: { en: "Captain", es: "Capitán", ru: "Капитан" } },
+  { id: "captain", price: tierPrice(3), shirt: "#1e3a8a", skin: "#f1c27d", hair: "#1f2937", top: "pirate", name: { en: "Captain", es: "Capitán", ru: "Капитан" }, mood: true },
   { id: "bear", price: tierPrice(2), shirt: "#92400e", skin: "#b7793f", hair: "#78350f", top: "bear",   name: { en: "Bear", es: "Oso", ru: "Медведь" } },
   // SPEC-021 (решение Андрея): папа из истории — лысый, щетина, красная футболка, джинсы, кроссовки (art/1_papa). В конце списка:
   // сохранённые номера образов не меняют смысла; он — образ новой игры (DEFAULT_SKINS.big). stubble — щетина (доля цвета лица)
   { id: "dad", price: tierPrice(0), shirt: "#eb3e42", skin: "#f4b183", hair: "#3a2418", top: "dad", pants: "#3b6db5", shoes: "#5b3a29", sole: "#f5f5f4", stubble: 0.8,
-    name: { en: "Dad", es: "Papá", ru: "Папа" } }
+    name: { en: "Dad", es: "Papá", ru: "Папа" }, mood: true }
 ];
+// SPEC-022: образы боссов (Андрей: свой образ у каждого; вид придумал Claude по art/4_papas_bosses, 4_papas_bosses_new,
+// 5_papas_main_boss). Строятся на папе (образ "dad", точки m.anchors и свои материалы m.mats): цвета футболки, штанов, обуви
+// (legs: "skin" — голые ноги, шорты отдельной деталью) и список деталей (BOSS_PARTS); крупнее на CFG.BOSS_SCALE (bossScale).
+// Босс уровня носит свой образ, какой бы образ Большого ни выбрали в гардеробе
+const BOSS_LOOKS = Object.freeze({
+  park: { shirt: "#d7322f", pants: "#c62828", shoes: "#f1f5f9", trim: "#ffffff", parts: ["tracksuit", "whistle"] },          // красный спортивный костюм, свисток
+  field: { shirt: "#f8fafc", legs: "skin", shoes: "#1e3a8a", trim: "#2563eb", parts: ["kit", "whistle", "ball"] },             // белая форма, синие шорты, гетры со щитками, мяч
+  city: { shirt: "#4d8b3a", pants: "#3b6db5", shoes: "#7c5a33", trim: "#facc15", parts: ["hardhat", "vest", "cone"] },          // оранжевая каска, жилет, конус
+  school: { shirt: "#eb3e42", pants: "#3b6db5", shoes: "#5b3a29", trim: "#f8fafc", parts: ["overshirt", "tie", "bag"] }        // рубашка в пятнах поверх футболки, галстук, сумка
+});
 // SPEC-009: skinSel — что показано (на экране нарядов можно примерить купленное и ещё не купленное), skinKeep — последний
 // свой вид (только купленное или бесплатное): его сохраняет bebebe-outfits (форма — индексы, как раньше) и с ним начинается игра
 const DEFAULT_SKINS = { p1: { hair: 0, hat: 1, jacket: 0, pants: 0 }, p2: { hair: 1, hat: 4, jacket: 1, pants: 3 }, big: BIG_SKINS.findIndex(q => q.id === "dad") };   // SPEC-021: папа
@@ -2063,6 +2168,7 @@ function logCoins(reason, amount) {
 }
 let bonusStars = [], starCd = 10, starSeq = 0;   // бонусные звёздочки (отдельно от предметов)
 let kisses = [], kissSeq = 0;                      // летящие воздушные поцелуи
+let pushWaves = [];                                // SPEC-022: кольца широкого толчка { x, y, t, r } (растут WAVE_TIME сек)
 let kitHintT = 0, kitHintDone = false, kitHintPi = 0, kitHintRect = null;   // подсказка «Нажми 🩹» (SPEC-007): раз за уровень
 let heardHintT = 0, heardHintDone = false, heardHintPi = 0, heardHintRect = null;   // SPEC-019: «Папа услышал топот!» — раз за уровень
 // ---------- Прогресс: миры (открытые уровни, звёзды), монетки, рукавицы (хранится в этом браузере) ----------
@@ -2070,9 +2176,15 @@ let heardHintT = 0, heardHintDone = false, heardHintPi = 0, heardHintRect = null
 // (SPEC-016: шесть миров; в старом сохранении нет field/city — они приходят новыми)
 // SPEC-009: won = { [n]: true } — уровни, уже выигранные хоть раз (первая победа платит всю основу, повтор — половину)
 const freshWorld = () => ({ unlocked: 1, stars: {}, won: {} });
+// SPEC-022: seen = { [заставка из SCENE_IDS]: true, если уже показана } — все ключи всегда есть
 const freshProgress = () => ({ worlds: Object.fromEntries(WORLDS.map(w => [w, freshWorld()])), lastWorld: WORLDS[0],
   coins: 0, inv: { mittens: 0, mega: 0, kisses: 0, rescues: 0 }, equip: ["none", "none"], owned: cleanOwned(null),
-  upgrades: cleanUpgrades(null) });
+  upgrades: cleanUpgrades(null), seen: cleanSeen(null) });
+// SPEC-022: показанные заставки из сохранения: только true у известных заставок; нет, испорчено или чужой ключ → не показана
+function cleanSeen(v) {
+  const ok = !!v && typeof v === "object" && !Array.isArray(v);
+  return Object.fromEntries(SCENE_IDS.map(id => [id, ok && v[id] === true]));
+}
 // SPEC-009: уровни улучшений { fastFeet, longItems, quickHelp } — целые 0…последний; нет или испорчено → 0
 function cleanUpgrades(v) {
   const out = {};
@@ -2122,7 +2234,7 @@ function loadProgress(pv) {
   const { unlocked, stars, worlds, lastWorld, ...rest } = pv;
   const src = worlds && typeof worlds === "object" ? worlds : {};
   const out = { ...p, ...rest, worlds: {}, lastWorld: WORLDS.includes(lastWorld) ? lastWorld : WORLDS[0],
-    inv: { ...p.inv, ...(pv.inv && typeof pv.inv === "object" ? pv.inv : {}) }, equip: Array.isArray(pv.equip) ? pv.equip : p.equip, owned: cleanOwned(pv.owned), upgrades: cleanUpgrades(pv.upgrades), coins: wholeCoins(pv.coins) };
+    inv: { ...p.inv, ...(pv.inv && typeof pv.inv === "object" ? pv.inv : {}) }, equip: Array.isArray(pv.equip) ? pv.equip : p.equip, owned: cleanOwned(pv.owned), upgrades: cleanUpgrades(pv.upgrades), coins: wholeCoins(pv.coins), seen: cleanSeen(pv.seen) };
   for (const w of WORLDS) out.worlds[w] = cleanWorld(src[w]);
   if (hasFlatProgress(pv)) {
     const old = cleanWorld({ unlocked, stars }), park = out.worlds[WORLDS[0]];
@@ -2298,11 +2410,13 @@ function resetWorld(n) {
     state: "look", timer: 4, lookSign: 1, lastSeen: null, goal: null, patrolT: 0,
     path: [], repath: 0, moveDir: 0, walk: 0, moving: false, stun: 0, stunFace: 0, stunTurn: 0, pushCd: 0, noPush: 0, hugCd: 0, flash: 0, slip: 0,
     blush: 0, blushBy: 0,   // покраснел после поцелуя: сколько ещё сек и кто бросил (индекс игрока)
+    kind: false,            // SPEC-022: злость кончилась — подобрел и идёт домой (pendingWin — сколько ещё идёт)
+    boss: bossFor(curWorld, level),   // SPEC-022: босс уровня (мир из BOSSES) или null
     // SPEC-019: шум топота, сек до того, как снова слышит; поворот на топот (куда, сколько ещё, скорость) и сколько ещё смотрит туда
     noise: 0, hearCd: 0, hearFace: 0, hearTurnT: 0, hearRate: 0, hearLook: 0,
     skin: BIG_SKINS[skinSel.big]
   };
-  items = []; itemCd = rand(4, 7); pendingWin = 0;
+  items = []; itemCd = rand(4, 7); pendingWin = 0; pushWaves = [];
   bonusStars = []; starCd = rand(CFG.STAR_EVERY[0], CFG.STAR_EVERY[1]);
   kisses = [];
   kitHintT = 0; kitHintDone = false;
@@ -2328,11 +2442,12 @@ const bannerAlpha = () => !banner ? 0 : clamp(Math.min(banner.t, CFG.BANNER_TIME
 // camSnap: начало уровня — камера телефона сразу у героя (в resetWorld нельзя: он же открывает меню, где камера показывает всю карту)
 function startGame(n) { leaveLevel(); endTryOn(); events = []; resetWorld(n); mode = "play"; rewardDue = true; mapSel = null; showBanner(); camSnap(); }
 // следующий уровень того же мира; после последнего мир пройден — на карту уровней
-function nextLevel() { if (level >= levelsPerWorld()) { toMap(); return; } level++; startGame(numPlayers); }
+function nextLevel() { if (level >= levelsPerWorld()) { toMap(); return; } level++; withScene(sceneBefore(curWorld, level), () => startGame(numPlayers)); }
 // ---------- SPEC-017: экраны и переходы между ними ----------
 // home — главный экран; map — карта уровней (levelCard — карточка уровня поверх неё); story — история; shop — магазин с вкладками
-const MODES = Object.freeze(["home", "map", "levelCard", "story", "shop", "play", "pause", "win", "lose"]);
-const MENU_MODES = Object.freeze(["home", "map", "levelCard", "story", "shop"]);
+// SPEC-022: scene — заставка истории (комикс в начале, босс, бонусный мир, конец) поверх меню
+const MODES = Object.freeze(["home", "map", "levelCard", "story", "shop", "play", "pause", "win", "lose", "scene"]);
+const MENU_MODES = Object.freeze(["home", "map", "levelCard", "story", "shop", "scene"]);
 const inMenus = () => MENU_MODES.includes(mode);
 // магазин: вкладка (вне магазина снова «items»), страница гардероба (наряды или имена друзей), куда ведёт «Готово»
 const SHOP_TABS = Object.freeze(["items", "wardrobe", "upgrades"]);
@@ -2376,7 +2491,7 @@ function chooseStop(n) {
 function tapWorldTab(w) { if (bonusOpen(w)) selectWorld(w); else showToast(L().lockedBonus); }
 const closeCard = () => { mode = "map"; };
 // «Играть» на карточке: тот же startGame, что и раньше (resetWorld → loadLevel, надпись уровня, камера телефона)
-function playCard(players) { level = cardLevel; startGame(players); }
+function playCard(players) { level = cardLevel; withScene(sceneBefore(curWorld, level), () => startGame(players)); }   // SPEC-022: сначала заставка, если пора
 // ---------- SPEC-017: история — главы по порядку и страница «Как играть» ----------
 // storyCh — глава на экране; storyBack — куда ведёт «назад» (главный экран или карточка уровня); storyPage — «chapters» или «rules»
 let storyCh = 0, storyBack = "home", storyPage = "chapters";
@@ -2389,17 +2504,78 @@ function chapterOpen(c) {
   if (WORLDS.includes(c.id)) return MAIN_WORLDS.includes(c.id) ? progress.worlds[c.id].unlocked >= 1 : bonusOpen(c.id);
   return c.id === "ended" ? progress.worlds.school.won[levelsPerWorld()] === true : true;
 }
+// ---------- SPEC-022: заставки истории ----------
+// storyScene — заставка на экране { id, page, then, mark, play }: id из SCENE_IDS, page — страница, then — что дальше (уровень, карта,
+// глава истории; null — главный экран). Открытая сама (mark) отмечается в progress.seen, когда с неё уходят (и сохраняется) —
+// второй раз сама не откроется; пересмотр из «Истории» не отмечается
+let storyScene = null;
+const storyOf = id => STORY.find(c => c.id === id);
+// страницы: { art, crop ([x, y, w, h] — доли картинки или null — вся), text } или { thanks: true } (карточка «Спасибо» после финала)
+function scenePages(id) {
+  if (id === "intro") return CFG.MENU_LOOK.scene.panels.map((crop, i) => ({ art: STORY_ART.began, crop, text: storyOf("began").captions[lang][i] }));
+  if (id === "ending") return [{ art: STORY_ART.ended, crop: null, text: storyOf("ended").text[lang] }, { thanks: true }];
+  const [kind, w] = id.split("_");
+  return [{ art: STORY_ART[w], crop: null, text: kind === "boss" ? storyOf(w).boss[lang] : storyOf(w).text[lang] }];
+}
+// opts.mark — отметить показанной, когда с неё уходят (сама открылась: запуск, уровень, финал; пересмотр из «Истории» — нет);
+// opts.play — перед уровнем: на последней странице «▶ Играть»
+function openScene(id, then = null, opts = {}) {
+  if (!SCENE_IDS.includes(id)) return false;
+  storyScene = { id, page: 0, then, mark: opts.mark !== false, play: !!opts.play };
+  mode = "scene";
+  return true;
+}
+const scenePageCount = () => (storyScene ? scenePages(storyScene.id).length : 0);
+// пропустить (Escape, B, «Пропустить») — сразу к тому, что дальше
+function sceneSkip() {
+  const sc = storyScene;
+  storyScene = null; mode = "home";                       // без заставки — просто на главный экран
+  if (!sc) return;
+  if (sc.mark && !progress.seen[sc.id]) { progress.seen[sc.id] = true; saveProgress(); }   // показана — отмечаем, когда с неё ушли
+  if (sc.then) sc.then();
+}
+// дальше (Enter, пробел, A, тап, «Дальше» / «Играть» / «Готово»): следующая страница, после последней — как «Пропустить»
+function sceneNext() { if (storyScene && storyScene.page < scenePageCount() - 1) storyScene.page++; else sceneSkip(); }
+function scenePrev() { if (storyScene && storyScene.page > 0) storyScene.page--; }
+// заставка перед уровнем (мир, n), если её ещё не показывали: босс — перед 20-м уровнем основного мира, бонусный мир — перед
+// любым своим уровнем (первый раз это его первый уровень)
+function sceneBefore(world, n) {
+  const id = bossFor(world, n) ? "boss_" + world : BONUS_WORLDS.includes(world) ? "bonus_" + world : null;
+  return id && !progress.seen[id] ? id : null;
+}
+function withScene(id, go) { if (id) openScene(id, go, { play: true }); else go(); }
+// финал: после первой победы 20-го уровня Школы (экран победы или выход через паузу, который засчитал победу) — «Как всё закончилось»
+// и «Спасибо» перед картой, главным экраном или магазином
+const endingDue = () => !!lastReward && lastReward.win && lastReward.world === MAIN_WORLDS.at(-1) && lastReward.worldDone && !progress.seen.ending;
+// глава истории → её заставка (посмотреть ещё раз); после неё — снова эта глава
+const chapterScene = c => (c.id === "began" ? "intro" : c.id === "ended" ? "ending" : Object.hasOwn(BOSSES, c.id) ? "boss_" + c.id : "bonus_" + c.id);
+function watchChapter() {
+  const c = STORY[storyCh], ch = storyCh;
+  if (!chapterOpen(c)) return;
+  openScene(chapterScene(c), () => { mode = "story"; storyCh = ch; storyPage = "chapters"; }, { mark: false });
+}
 // всё состояние экранов меню — как при запуске (тесты: resetGame)
 function resetMenus() {
   closeNameInput(false); shopTab = "items"; wardrobePage = "looks"; shopBack = "home"; mapSel = null; toast = null; cardLevel = 1; mapSwipe = null;
-  storyCh = 0; storyBack = "home"; storyPage = "chapters";
+  storyCh = 0; storyBack = "home"; storyPage = "chapters"; storyScene = null;
 }
-function toMap() { leaveLevel(); resetWorld(numPlayers); mapSel = null; mode = "map"; }   // кольцо — снова на следующем уровне
-function toHome() { leaveLevel(); resetWorld(numPlayers); mode = "home"; }
+function toMap() {
+  leaveLevel();
+  if (endingDue()) { openScene("ending", toMap); return; }   // SPEC-022: сначала финал истории
+  resetWorld(numPlayers); mapSel = null; mode = "map";       // кольцо — снова на следующем уровне
+}
+function toHome() {
+  leaveLevel();
+  if (endingDue()) { openScene("ending", toHome); return; }  // SPEC-022: сначала финал истории
+  resetWorld(numPlayers); mode = "home";
+}
 const resumeGame = () => { mode = "play"; };
 const retryLevel = () => startGame(numPlayers);
 // экран итогов → магазин; «Готово» в магазине ведёт на карту. После победы — уже следующий уровень (как «Дальше»)
-function shopAfterWin() { level = clamp(level + 1, 1, worldProgress().unlocked); resetWorld(numPlayers); openShop("map"); }
+function shopAfterWin() {
+  if (endingDue()) { openScene("ending", shopAfterWin); return; }   // SPEC-022: сначала финал истории
+  level = clamp(level + 1, 1, worldProgress().unlocked); resetWorld(numPlayers); openShop("map");
+}
 function shopAfterLose() { resetWorld(numPlayers); openShop("map"); }
 const nextLang = () => setLang(LANGS[(LANGS.indexOf(lang) + 1) % LANGS.length]);
 const toggleSound = () => { muted = !muted; };
@@ -2480,7 +2656,13 @@ function onKey(code) {
   } else if (mode === "story") {
     if (back) storyBackKey();
     if (storyPage === "chapters" && code === "ArrowLeft") storyStep(-1);
+    if (storyPage === "chapters" && code === "KeyV") watchChapter();   // SPEC-022: V — посмотреть заставку главы
     if (storyPage === "chapters" && (code === "ArrowRight" || code === "Enter" || code === "Space")) storyStep(1);
+  } else if (mode === "scene") {
+    // SPEC-022: заставка — Enter / пробел / → дальше, ← назад, Escape пропустить
+    if (back) sceneSkip();
+    else if (code === "ArrowLeft") scenePrev();
+    else if (code === "Enter" || code === "NumpadEnter" || code === "Space" || code === "ArrowRight") sceneNext();
   } else if (mode === "shop") {
     if (back && inWardrobe() && wardrobePage === "friends") backToWardrobe();   // имена друзей → наряды
     else if (back || code === "Enter" || code === "Space") closeShop();
@@ -2546,6 +2728,7 @@ canvas.addEventListener("pointerdown", e => {
   if (mode === "levelCard" && !hit && cardRect && !(p.x >= cardRect.x && p.x <= cardRect.x + cardRect.w && p.y >= cardRect.y && p.y <= cardRect.y + cardRect.h)) { closeCard(); return; }
   if (hit && hit.onUp) { pendingUp = { id: hit.id, pointerId: e.pointerId }; return; }
   if (hit) { hit.act(); return; }
+  if (mode === "scene") { sceneNext(); return; }      // SPEC-022: тап по заставке — дальше
   if (mode === "play" && e.pointerType !== "mouse") {
     if (PHONE && p.x > UW * CFG.STICK_ZONE) return;   // телефон: справа — только кнопки
     const player = numPlayers === 2 && p.x > UW / 2 ? 1 : 0;
@@ -2657,10 +2840,15 @@ function onPadButton(b, pad = 0) {
   } else if (mode === "story") {
     if (b === 1) storyBackKey();
     if (b === 3) storyPage = storyPage === "rules" ? "chapters" : "rules";   // Y — «Как играть»
+    if (b === 2 && storyPage === "chapters") watchChapter();               // SPEC-022: X — посмотреть заставку главы
     if (storyPage === "chapters") {
       if (b === 14 || b === CFG.PAD_PREV_WORLD) storyStep(-1);
       if (b === 15 || b === CFG.PAD_NEXT_WORLD || b === 0) storyStep(1);
     }
+  } else if (mode === "scene") {
+    if (b === 0 || b === 9 || b === 15) sceneNext();   // SPEC-022: A / Start / крестовина → — дальше, ← — назад, B — пропустить
+    if (b === 14) scenePrev();
+    if (b === 1) sceneSkip();
   } else if (mode === "shop") {
     const friends = inWardrobe() && wardrobePage === "friends";
     if (b === 1 && friends) backToWardrobe();
@@ -2736,7 +2924,25 @@ function canSee(l) {
   return d < CFG.VISION_RANGE && diff < CFG.VISION_HALF && los(big.x, big.y, l.x, l.y, seeSolidAt);
 }
 const helps = (o, l) => o !== l && o.state === "ok" && dist(o, l) < o.r + l.r + 12;   // o стоит рядом с упавшим l и поднимает его
-function push(t) {
+// SPEC-022: толчок того, кого Большой поймал: самый злой папа (Школа 20) толкает широко — всех рядом перед собой
+function pushHit(t) { if (bossPower(big.boss) === "wide") widePush(t); else push(t); }
+// широкий толчок: все маленькие (ok, могут действовать, не неуязвимы, не невидимки, не в домике) ближе WIDE_PUSH_R клеток в угле
+// WIDE_PUSH_ARC перед ним (и тот, кого поймал) — каждому обычный толчок (щит спасает своего хозяина), одно «ВЖУХ!», кольцо; стоит дольше
+function widePush(t) {
+  const reach = CFG.WIDE_PUSH_R * CELL, half = CFG.WIDE_PUSH_ARC * Math.PI / 360;
+  const hit = littles.filter(l => l === t || (canAct(l) && l.invuln <= 0 && l.fx.cloak <= 0 && !inSafe(l)
+    && dist(l, big) <= reach + l.r && angDiff(big.dir, Math.atan2(l.y - big.y, l.x - big.x)) <= half));
+  for (const l of hit) push(l, true);
+  const down = hit.filter(l => l.state === "down").length;
+  if (!down) return;                                       // всех спас щит — как обычный толчок в щит (PUSH_STAND), без «ВЖУХ!»
+  logEvent("widePush", { n: down });
+  big.pushCd = CFG.WIDE_PUSH_STAND; big.noPush = CFG.PUSH_RECOVER;   // стоит дольше; передышка (правило детей) — как после любого толчка
+  pushWaves.push({ x: big.x, y: big.y, t: 0, r: reach });
+  popText(big.x + Math.cos(big.dir) * big.r * 2, big.y + Math.sin(big.dir) * big.r * 2 - big.r * 2, L().whoosh, "#fde047", "whoosh");
+  shake = CFG.WIDE_PUSH_SHAKE;
+  SFX.push();
+}
+function push(t, wide = false) {
   const a = Math.atan2(t.y - big.y, t.x - big.x);
   for (const l of littles) if (l.state === "down" && helps(t, l)) l.rescue = 0;   // помощника толкнули — спасение сначала
   if (t.fx.shield > 0) {                   // щит спасает от одного толчка
@@ -2758,9 +2964,10 @@ function push(t) {
   if (t.kind === "player" && !kitHintDone && progress.inv.rescues > 0) { kitHintDone = true; kitHintT = CFG.KIT_HINT_TIME; kitHintPi = t.id; }
   big.pushCd = CFG.PUSH_STAND;
   big.noPush = CFG.PUSH_RECOVER;          // передышка: какое-то время никого не толкает
+  burst(t.x, t.y, "dust", "#e5d3a1", 10);
+  if (wide) return;                         // SPEC-022: широкий толчок — одно «ВЖУХ!» на всех (widePush)
   shake = 0.25;
   popText(t.x, t.y - 40, L().bang, "#ffcc00", "bang");
-  burst(t.x, t.y, "dust", "#e5d3a1", 10);
   SFX.push();
 }
 function hug(l, a) {
@@ -2788,6 +2995,35 @@ function hug(l, a) {
   if (big.hp <= 0) winSoon();   // победа — после последней обнимашки
 }
 function winSoon() { pendingWin = CFG.HUG_ANIM; big.stun = 99; }
+// SPEC-022: настроение папы по доле злости (для вида: лицо, пар, сердечки — SPEC-022 часть B рисует по нему)
+function bigMood() {
+  const f = big && big.maxHp > 0 ? big.hp / big.maxHp : 0;
+  return f >= CFG.MOOD_ANGRY ? "angry" : f >= CFG.MOOD_MID ? "mid" : "kind";
+}
+// SPEC-022: последняя обнимашка доиграла (правило детей) — папа добреет: краснеет, сердечки, друзья кричат «Ура!», идёт к двери
+// своего дома (не дольше KIND_WALK; часы уровня стоят — звезда «быстро» как раньше). Дошёл или время вышло — экран победы
+function startKindWalk() {
+  Object.assign(big, { kind: true, stun: 0, slip: 0, pushCd: 0, blush: 0, path: [], state: "look", noise: 0, hearTurnT: 0, hearLook: 0 });   // своё состояние: ни шока, ни толчков, ни румянца-поцелуя
+  big.home = nearestExit(big);
+  pendingWin = CFG.KIND_WALK;
+  burst(big.x, big.y - 30, "heart", "#ff4d8d", CFG.KIND_HEARTS);
+  for (const l of littles) if (l.state === "ok") popText(l.x, l.y - 40, L().cheer, "#facc15");
+  SFX.mwah();
+}
+function updateKindWalk(dt) {
+  for (const l of littles) { l.moving = false; l.speedFrac = 0; if (l.state === "ok" && l.hugAnim <= 0) l.dir = turnToward(l.dir, Math.atan2(big.y - l.y, big.x - l.x), CFG.KIND_TURN * dt); }
+  const g = big.home;
+  big.moving = !!g && dist(big, g) > CFG.KIND_ARRIVE && steerTo(big, g.x, g.y, CFG.KIND_SPEED, dt, false);
+  if (big.moving) big.dir = turnToward(big.dir, big.moveDir, CFG.KIND_TURN * dt);
+  if (!big.moving) winNow();                               // у двери (или пути нет) — сразу победа
+}
+function winNow() {
+  pendingWin = 0;
+  if (mode !== "play") return;
+  mode = "win"; logEvent("win", {}); giveReward(true); SFX.win(); burst(big.x, big.y - 30, "heart", "#ff4d8d", 40);
+}
+// SPEC-022: заголовок экрана победы: «<имя> снова добрый!» — босс уровня по имени босса, иначе набранное имя или «Папа»
+const winTitle = () => L().kindAgain(bossFor(curWorld, level) ? L().bossNames[curWorld] : nameFor("big"));
 // ---------- Воздушные поцелуи: летят прямо, полсердечка, Большой краснеет ----------
 function throwKiss(pi) {
   const l = littles[pi];
@@ -2803,7 +3039,7 @@ function throwKiss(pi) {
 }
 function kissHit(k) {
   burst(big.x, big.y - 30, "heart", "#ff4d8d", 10);
-  const blush = !(big.stun > 0 || big.hugCd > 0 || big.blush > 0);
+  const blush = !(pendingWin > 0 || big.stun > 0 || big.hugCd > 0 || big.blush > 0);   // SPEC-022: победа уже идёт — только сердечки
   logEvent("kiss", { who: k.owner, result: "hit", blush });
   if (!blush) return;   // в шоке (и 0.3 с после него) или уже красный — только сердечки
   big.hp = Math.max(0, big.hp - CFG.KISS_DAMAGE);
@@ -2836,10 +3072,12 @@ const bigHearts = (world, n) => Math.min(CFG.BIG_HP_MAX, CFG.BIG_HP + Math.floor
 const chaseCap = v => Math.min(CFG.BIG_CHASE_MAX, v);
 // Единственный источник чисел Большого: { chase, search, patrol, hearts, boost } уровня (мир, n);
 // lost — сколько сердечек уже отняли (злость), по умолчанию 0; boost — прибавка без потолка
+// SPEC-022: босс (bossFor): злости больше на BOSS_EXTRA_HP (самый злой папа — MAIN_BOSS_EXTRA_HP), каждая скорость + BOSS_SPEED (с потолком)
 function difficulty(world, n, lost = 0) {
-  const boost = levelBoost(world, n) + Math.floor(lost) * CFG.BIG_SPEED_PER_HIT;
-  return { chase: chaseCap(CFG.BIG_CHASE_SPEED + boost), search: chaseCap(CFG.BIG_CHASE_SPEED * 0.85 + boost),
-    patrol: chaseCap(CFG.BIG_PATROL_SPEED + boost * 0.5), hearts: bigHearts(world, n), boost };
+  const boost = levelBoost(world, n) + Math.floor(lost) * CFG.BIG_SPEED_PER_HIT, boss = bossFor(world, n), bs = boss ? CFG.BOSS_SPEED : 0;
+  const extra = boss ? CFG[BOSSES[boss].extraHp] : 0;
+  return { chase: chaseCap(CFG.BIG_CHASE_SPEED + boost + bs), search: chaseCap(CFG.BIG_CHASE_SPEED * 0.85 + boost + bs),
+    patrol: chaseCap(CFG.BIG_PATROL_SPEED + boost * 0.5 + bs), hearts: bigHearts(world, n) + extra, boost };
 }
 const bigDifficulty = () => difficulty(curWorld, level, big.maxHp - big.hp);
 const bigBoost = () => bigDifficulty().boost;                     // насколько Большой быстрее сейчас (без потолка)
@@ -2922,13 +3160,15 @@ function updateStars(dt) {
 }
 
 function updateItems(dt) {
-  itemCd -= dt;
-  if (itemCd <= 0) { if (items.length < CFG.ITEM_MAX) spawnItem(); itemCd = rand(CFG.ITEM_EVERY[0], CFG.ITEM_EVERY[1]); }
+  if (!big.kind) {                                         // SPEC-022: пока подобревший папа идёт домой, новых вещей нет
+    itemCd -= dt;
+    if (itemCd <= 0) { if (items.length < CFG.ITEM_MAX) spawnItem(); itemCd = rand(CFG.ITEM_EVERY[0], CFG.ITEM_EVERY[1]); }
+  }
   for (const l of littles) for (const k of ["boots", "cloak", "shield"]) l.fx[k] = Math.max(0, l.fx[k] - dt);
   for (const it of items) {
     it.t += dt;
     if (it.kind === "banana") {
-      if (big.slip <= 0 && big.stun <= 0 && dist(big, it) < big.r + 8) {
+      if (!big.kind && big.slip <= 0 && big.stun <= 0 && dist(big, it) < big.r + 8) {   // SPEC-022: по дороге домой не поскальзывается
         it.t = 999;
         big.slip = CFG.SLIP_STUN; big.path = []; big.flash = 0.2;
         logEvent("slip", {});
@@ -3005,6 +3245,7 @@ function updateBots(dt) {
     b.lurkT = Math.max(0, b.lurkT - dt);
     b.fleeRe -= dt;
     const seen = big.stun <= 0 && big.slip <= 0 && big.noPush <= 0 && big.blush <= 0 && canSee(b);
+    const wide = wideDanger(b);                           // SPEC-022: перед самым злым папой, пока он может толкнуть — отойти
     const speed = CFG.BOT_SPEED * (b.fx.boots > 0 ? CFG.BOOTS_MULT : 1);
     // SPEC-019: подкрадываясь (ближе HEAR_RADIUS + TIPTOE_NEAR клеток) и выжидая там, где он слышит (HEAR_RADIUS), — на цыпочках;
     // убегают и спасают — бегом
@@ -3018,13 +3259,13 @@ function updateBots(dt) {
     } else if (big.slip > 0 && !rescueTarget.has(b) && dist(b, big) < 320) {   // Большой упал — бежим обнимать!
       b.task = "attack";
       moved = steerTo(b, big.x, big.y, speed, dt, false);
-    } else if (rescueTarget.has(b) && !(seen && dist(b, big) < 90)) {
+    } else if (rescueTarget.has(b) && !(seen && dist(b, big) < 90) && !wide && !wideDanger(rescueTarget.get(b), b)) {
       const d = rescueTarget.get(b);
       b.task = "rescue";
       if (dist(b, d) > b.r + d.r + 4) moved = steerTo(b, d.x, d.y, speed, dt, false);
     } else {
-      if (seen && b.fleeT <= 0) { b.fleeT = 1.0; b.fleeGoal = null; }
-      if (seen) b.fleeT = Math.max(b.fleeT, 0.6);
+      if ((seen || wide) && b.fleeT <= 0) { b.fleeT = 1.0; b.fleeGoal = null; }
+      if (seen || wide) b.fleeT = Math.max(b.fleeT, 0.6);
       if (b.fleeT > 0) {
         b.task = "flee";
         if (attackToken === b) { attackToken = null; b.lurkT = rand(3, 6); }
@@ -3058,6 +3299,13 @@ function updateBots(dt) {
   prevToken = attackToken;
 }
 
+// SPEC-022: точка p (бот или упавший, к которому он идёт; o — бот рядом с ним) — перед самым злым папой ближе WIDE_PUSH_R + BOT_WIDE_KEEP
+// клеток, а он может толкнуть (не стоит после толчка, не в шоке, не лежит, не красный, не отдыхает)
+function wideDanger(p, o = null) {
+  if (bossPower(big.boss) !== "wide" || big.kind || big.pushCd > 0 || big.stun > 0 || big.slip > 0 || big.blush > 0 || big.noPush > 0) return false;
+  const keep = (CFG.WIDE_PUSH_R + CFG.BOT_WIDE_KEEP) * CELL + (o ? o.r * 2 : 0);
+  return dist(p, big) < keep && angDiff(big.dir, Math.atan2(p.y - big.y, p.x - big.x)) <= CFG.WIDE_PUSH_ARC * Math.PI / 360;
+}
 // Где ждать боту: в 170 px за Большим, но не в его доме; точка в стене или за водой — ближайшая свободная клетка
 function lurkPoint(a0) {
   for (const k of [0, 0.5, -0.5, 1, -1, 1.5, -1.5, 2, -2, 2.5, -2.5, Math.PI]) {
@@ -3205,6 +3453,7 @@ function hearNoise(dt) {
 }
 // значок над Большим (тот же порядок, что рисуется): 🍌💫, ?!, 💗, ❓ (обернулся на топот), 👂 (слышит), 💦, !
 function bigMark() {
+  if (big.kind) return "💗";                               // SPEC-022: подобрел — не «!» и не «👂»
   if (big.slip > 0) return "🍌💫";
   if (big.stun > 0) return "?!";
   if (big.blush > 0) return "💗";
@@ -3255,7 +3504,7 @@ function updateBig(dt) {
     big.lastSeen = { x: target.x, y: target.y };
     big.moving = steerTo(big, target.x, target.y, speed.chase, dt, false);
     big.dir = turnToward(big.dir, Math.atan2(target.y - big.y, target.x - big.x), 7 * dt);
-    if (td < big.r + target.r + 8) push(target);
+    if (td < big.r + target.r + 8) pushHit(target);
     return;
   }
   hearNoise(dt);
@@ -3304,6 +3553,7 @@ function separate() {
   }
 }
 function checkContacts() {
+  if (pendingWin > 0) return;                              // SPEC-022: злость кончилась — ни обнимашек, ни толчков (он добреет)
   for (const l of littles) {
     if (mode !== "play") return;
     if (!canAct(l)) continue;   // голова кружится: не обнимает, толкнуть нельзя
@@ -3314,7 +3564,7 @@ function checkContacts() {
       const wants = l.kind === "player" || l.task === "attack";   // боты обнимают только когда сами решили
       if (wants && big.hugCd <= 0 && l.hugCd <= 0 && big.stun <= 0) hug(l, a);
     }
-    else if (diff < 1.9 && big.stun <= 0 && big.slip <= 0 && big.blush <= 0 && big.pushCd <= 0 && big.noPush <= 0 && l.invuln <= 0 && l.fx.cloak <= 0 && !inSafe(l)) push(l);
+    else if (diff < 1.9 && big.stun <= 0 && big.slip <= 0 && big.blush <= 0 && big.pushCd <= 0 && big.noPush <= 0 && l.invuln <= 0 && l.fx.cloak <= 0 && !inSafe(l)) pushHit(l);
   }
 }
 // ---------- Спасалка 🩹 (SPEC-007): игрок сразу встаёт там, где он есть — лёжа, по дороге в домик или отдыхая ----------
@@ -3422,10 +3672,12 @@ function updateFx(dt) {
   texts = texts.filter(t => t.t < 1.2);
   for (const p of particles) { p.t += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.96; p.vy *= 0.96; }
   particles = particles.filter(p => p.t < p.life);
+  for (const w of pushWaves) w.t += dt;
+  pushWaves = pushWaves.filter(w => w.t < CFG.WAVE_TIME);
   shake = Math.max(0, shake - dt);
 }
 function update(dt) {
-  stats.time += dt;
+  if (!big.kind) stats.time += dt;                         // SPEC-022: пока подобревший папа идёт домой, часы уровня стоят
   if (banner && (banner.t += dt) >= CFG.BANNER_TIME) banner = null;
   for (const l of littles) {
     l.invuln = Math.max(0, l.invuln - dt);
@@ -3439,10 +3691,8 @@ function update(dt) {
   }
   kitHintT = Math.max(0, kitHintT - dt);
   heardHintT = Math.max(0, heardHintT - dt);
-  autoThink(dt);
-  updatePlayers(dt);
-  updateBots(dt);
-  updateBig(dt);
+  if (big.kind) updateKindWalk(dt);                        // SPEC-022: идёт домой; маленькие стоят и радуются
+  else { autoThink(dt); updatePlayers(dt); updateBots(dt); updateBig(dt); }
   updateHugAnim(dt);
   updateKisses(dt);
   separate();
@@ -3453,14 +3703,15 @@ function update(dt) {
   updateItems(dt);
   updateStars(dt);
   updateFx(dt);
-  if (pendingWin > 0) { pendingWin -= dt; if (pendingWin <= 0 && mode === "play") { mode = "win"; logEvent("win", {}); giveReward(true); SFX.win(); burst(big.x, big.y - 30, "heart", "#ff4d8d", 40); } }
+  // победа в два шага (SPEC-022): последняя обнимашка доигрывает (HUG_ANIM) → папа добреет и идёт домой (KIND_WALK) → экран победы
+  if (pendingWin > 0) { pendingWin -= dt; if (pendingWin <= 0 && mode === "play") { if (big.kind) winNow(); else startKindWalk(); } }
   const players = littles.filter(p => p.kind === "player");
   // проигрыша больше нет: кого не спасли — отдыхает в домике и возвращается (за это меньше монеток)
 }
 // SPEC-008: шагает игру пачкой (dt — сек игры за шаг), пока уровень идёт и не вышло seconds; → простые данные
 function simRun(seconds, dt = CFG.BALANCE.SIM_DT) {
   const n = Math.round(seconds / dt);
-  for (let i = 0; i < n && mode === "play"; i++) update(dt);
+  for (let i = 0; mode === "play" && (i < n || pendingWin > 0); i++) update(dt);   // SPEC-022: начатая победа (обнимашка, дорога домой) доигрывается
   return { ended: mode !== "play", win: mode === "win", time: stats.time };
 }
 // sim(on): включить/выключить режим симуляции; без аргумента — только узнать. Выключили — 3D строится заново.
@@ -3639,6 +3890,7 @@ function wrapText(text, x, y, size, maxW, lines, color, weight) {
   rows.forEach((r, i) => ctx.fillText(r, x, y0 + i * lh));
 }
 // Подпись с контуром, которая сжимается под ширину (не мельче 11px), а если не влезает — обрезается «…»
+let lastFit = null;   // что нарисовал последний labelFit: { text, sz, w } (SPEC-022: подпись злости — в hudRects)
 function labelFit(text, x, y, size, maxW, color, align = "center", min = 11) {
   const font = sz => `900 ${sz}px system-ui, "Segoe UI", "Arial Rounded MT Bold", Arial, sans-serif`;
   let sz = size;
@@ -3646,6 +3898,7 @@ function labelFit(text, x, y, size, maxW, color, align = "center", min = 11) {
   while (ctx.measureText(text).width > maxW && sz > min) { sz = Math.max(min, sz - 0.5); ctx.font = font(sz); }
   let chars = Array.from(text);
   while (chars.length > 1 && ctx.measureText(text).width > maxW) { chars = chars.slice(0, -1); text = chars.join("").trimEnd() + "…"; }
+  lastFit = { text, sz, w: ctx.measureText(text).width };
   label(text, x, y, sz, color, align);
   return sz;
 }
@@ -3746,6 +3999,44 @@ function drawTapLines() {
     ctx.restore();
   }
 }
+// SPEC-022: над головой папы по настроению — пар (24_effects fx_steam_left/right), тёмное облачко (fx_storm_cloud), сердечки
+// (fx_hearts); нет картинок — рисунок кодом. Точка — m.anchors.top (над головой, не наклоняется). Лёжа после банана — ничего.
+// moodInfo (для тестов) — { mood, face, sprites, cloud }
+let moodInfo = null;
+const moodNow = { mood: "", face: "", sprites: [], cloud: 0 };   // один объект на все кадры (moodInfo указывает на него, когда что-то нарисовано)
+const STEAM_BOTH = [-1, 1], STEAM_L = [-1], STEAM_R = [1];
+const MOOD_PUFFS = [[-0.22, 0.05, 0.22], [0, -0.08, 0.28], [0.24, 0.04, 0.2]];
+function moodSprite(name, x, y, s, alpha = 1) {
+  ctx.globalAlpha = alpha;
+  if (!drawArtFit(name, x, y, s)) {
+    if (name === "fx_hearts") { drawHeart(x - s * 0.18, y, s * 0.22, "#ff6fa8"); drawHeart(x + s * 0.2, y - s * 0.15, s * 0.16, "#ff9ecb"); }
+    else { ctx.fillStyle = name === "fx_storm_cloud" ? "#3f3f46" : "#d4d4d8"; for (const [dx, dy, r] of MOOD_PUFFS) { circle(x + dx * s, y + dy * s, r * s); ctx.fill(); } }
+  }
+  ctx.globalAlpha = 1;
+  moodNow.sprites.push(name);
+}
+function drawMood(t) {
+  const m = big && big.model;
+  moodInfo = null;
+  if (!m || !m.anchors) return;
+  const ML = CFG.MOOD_LOOK, mood = m.mood || moodOf(big);
+  moodInfo = moodNow; moodNow.mood = mood; moodNow.face = m.faceHex || ""; moodNow.sprites.length = 0; moodNow.cloud = 0;
+  if (big.slip > 0) return;
+  const h = m.topH * BIG_SCALE * bossScale(big) * CELL;    // точка над головой (m.anchors.top) по логике, без чтения сцены 3D
+  toScreenTo(fxA, big.x, big.y, h);
+  toScreenTo(fxB, big.x + CELL, big.y, h);
+  const c = Math.hypot(fxB.x - fxA.x, fxB.y - fxA.y), x = fxA.x, y = fxA.y, puff = (t * ML.puff) % 1;
+  if (mood === "angry" || mood === "mid") {
+    const sides = mood === "angry" ? STEAM_BOTH : Math.floor(t * ML.puff) % 2 ? STEAM_R : STEAM_L;
+    const k = (mood === "angry" ? 1 : 0.7) * (0.8 + puff * 0.4);
+    for (const sd of sides) moodSprite(sd < 0 ? "fx_steam_left" : "fx_steam_right", x + sd * c * (ML.steamX + puff * 0.2), y + c * ML.steamY, c * ML.steam * k, 1 - puff * 0.5);
+  }
+  if (mood === "angry") {
+    moodNow.cloud = ML[big.boss && BOSSES[big.boss] ? BOSSES[big.boss].cloud : "cloud"];
+    moodSprite("fx_storm_cloud", x, y - c * ML.cloudY, c * moodNow.cloud);
+  }
+  if (mood === "kind" || mood === "happy") moodSprite("fx_hearts", x, y - c * (ML.heartsY + Math.sin(t * 3) * ML.bob), c * ML.hearts);
+}
 function drawMarkers(t) {
   drawTapLines();
   if (safeZone) {
@@ -3816,6 +4107,14 @@ const FX_SIZE = { heart: "fxHeart", star: "fxStar", dust: "fxDust" };
 const fxA = { x: 0, y: 0 }, fxB = { x: 0, y: 0 };
 function drawFx() {
   const P = CFG.PAPER;
+  for (const w of pushWaves) {                             // SPEC-022: кольцо широкого толчка — на земле, расходится и гаснет
+    const k = w.t / CFG.WAVE_TIME, rr0 = w.r * (0.35 + 0.65 * k);
+    ctx.beginPath();
+    for (let i = 0; i <= 32; i++) { toScreenTo(fxA, w.x + Math.cos(i / 32 * TAU) * rr0, w.y + Math.sin(i / 32 * TAU) * rr0, 2); if (i) ctx.lineTo(fxA.x, fxA.y); else ctx.moveTo(fxA.x, fxA.y); }
+    ctx.globalAlpha = 1 - k; ctx.lineWidth = PHONE ? cpx(6) : 6; ctx.strokeStyle = "#fde047"; ctx.stroke();
+    ctx.lineWidth = PHONE ? cpx(2) : 2; ctx.strokeStyle = OUT; ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
   let cell = 0;
   if (particles.length) { toScreenTo(fxA, big.x, big.y, 20); toScreenTo(fxB, big.x + CELL, big.y, 20); cell = Math.hypot(fxB.x - fxA.x, fxB.y - fxA.y); }
   for (const p of particles) {
@@ -3880,6 +4179,8 @@ function drawSticks() {
   }
 }
 // ---------- Общие тексты HUD (компьютер и телефон) ----------
+// SPEC-022: подпись злости: «Злость папы»; набранное имя — «<имя> злится» (на всех уровнях, и у боссов)
+const angerLabel = () => (typedName("big") ? L().angerOf(typedName("big")) : L().anger);
 const timerText = () => { const s = Math.floor(stats.time); return `${L().lvShort} ${level}  ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
 // кружок команды: секунды до «домой» у упавшего, «z» у отдыхающего, иначе метка игрока или бота
 const chipText = l => l.state === "down" ? String(Math.ceil(l.downTimer)) : l.state === "home" || l.state === "rest" ? "z" : l.kind === "player" ? chipName(l) : L().botChip;
@@ -3927,15 +4228,17 @@ function drawHUDPhone(t) {
   const timeTxt = timerText();
   ctx.font = hudFont(main);
   const tw = ctx.measureText(timeTxt).width + 2 * pad, nBtn = STANDALONE ? 1 : 2, gw = tw + nBtn * (gap + bh);
-  // имя Большого и сердечки: не влезает — сердечки плотнее, потом имя короче
-  const bigName = nameFor("big"), room = mm.x - gap - m - gw - gap;
-  let hStep = cpx(21), hSize = cpx(18), nameW = Math.min(ctx.measureText(bigName).width, cpx(110));
+  // SPEC-022: злость папы (подпись) и облачка-сердечки. Подпись — вся (ширина с CFG.TEXT_TEST_SCALE: шрифты CI и iPhone шире);
+  // не влезает — облачка плотнее (до PHONE_HEART_MIN), и только потом подпись короче
+  const bigName = angerLabel(), room = mm.x - gap - m - gw - gap;
+  let hStep = cpx(21), hSize = cpx(18), nameW = scaledW(bigName);
   const plateW = () => pad + nameW + pad * 0.6 + big.maxHp * hStep + pad * 0.4;
-  if (plateW() > room) { hStep = Math.max(cpx(12), (room - pad * 2 - nameW) / big.maxHp); hSize = Math.min(hSize, hStep * 0.95); }
+  if (plateW() > room) { hStep = Math.max(cpx(CFG.PHONE_HEART_MIN), (room - pad * 2 - nameW) / big.maxHp); hSize = Math.min(hSize, hStep * 0.95); }
   if (plateW() > room) nameW = Math.max(cpx(36), room - pad * 2 - big.maxHp * hStep);
   const pw = plateW();
   plate("hearts", m, top, pw, bh);
-  noteText("main", labelFit(bigName, m + pad, top + bh / 2, main, nameW, "#9b2c3a", "left", main));
+  noteText("main", labelFit(bigName, m + pad, top + bh / 2, main, nameW / CFG.TEXT_TEST_SCALE + 0.01, "#9b2c3a", "left", main));   // + 0.01: × и ÷ масштаба не точны
+  Object.assign(hudRects.find(r => r.id === "hearts"), { label: lastFit.text, labelX: m + pad, labelW: lastFit.w * CFG.TEXT_TEST_SCALE });   // SPEC-022: подпись злости — в плашке hearts
   const hx = m + pad + nameW + pad * 0.6 + hStep / 2;
   for (let i = 0; i < big.maxHp; i++) hpHeart(hx + i * hStep, top + bh / 2 - hSize / 2 - 1, hSize, heartFill(i, big.hp), hStep);
   // группа по центру свободного места
@@ -3991,14 +4294,15 @@ function drawHUDPhone(t) {
 }
 function drawHUD(t) {
   if (PHONE) { drawHUDPhone(t); return; }
-  // имя Большого + сердечки; полоска не налезает на таймер в центре
-  const many = big.maxHp > 8, hStep = many ? 17 : 21, hSize = many ? 15 : 18;   // много сердечек — ставим плотнее, чтобы влезло имя
-  const bigName = nameFor("big"), hearts = big.maxHp * hStep, timerX = UW / 2 - 95;
+  // SPEC-022: злость папы (подпись + облачка-сердечки); полоска не налезает на таймер в центре
+  const many = big.maxHp > 8, lots = big.maxHp > 12, hStep = lots ? 15 : many ? 17 : 21, hSize = lots ? 13 : many ? 15 : 18;   // много облачек — плотнее, чтобы влезла подпись
+  const bigName = angerLabel(), hearts = big.maxHp * hStep, timerX = UW / 2 - 95;
   ctx.font = `900 15px system-ui, "Segoe UI", "Arial Rounded MT Bold", Arial, sans-serif`;
   const nameW = Math.min(ctx.measureText(bigName).width, timerX - 10 - 8 - 8 - 18 - hearts - 6);
   const hx = 18 + nameW + 18, hpW = hx + hearts - 10 - (hStep - hSize / 2) + 9;
   rr(10, 8, hpW, 34, 14); fillStroke("rgba(255,255,255,.8)", 3);
   labelFit(bigName, 18, 25, 15, nameW, "#9b2c3a", "left");
+  hudRects.push({ id: "hearts", x: 10, y: 8, w: hpW, h: 34, label: lastFit.text, labelX: 18, labelW: lastFit.w });   // SPEC-022: + подпись злости
   for (let i = 0; i < big.maxHp; i++) hpHeart(hx + i * hStep, 25 - hSize / 2 - 1, hSize, heartFill(i, big.hp), hStep);
 
   const chipW = 32, totalW = littles.length * chipW + 14, x0 = UW - totalW - 10;
@@ -4430,12 +4734,13 @@ function mapGeom() {
   return { X0, X1, Y0, g, B: 44, tabH: A.tabH, backW: A.backW, backText: "◀ " + L().home, coinsW: A.coinsW, titleH: A.titleH, stop: A.stop,
     page: { x: X0, y: Y0 + A.tabH + g, w: X1 - X0, h: Y1 - Y0 - A.tabH - g } };
 }
-// остановки змейкой: ряды по A.cols, нечётные ряды справа налево; под остановкой место для звёзд; босс (последний уровень) крупнее
+// остановки змейкой: ряды по A.cols, нечётные ряды справа налево; под остановкой место для звёзд; босс (последний уровень
+// основного мира; SPEC-022: у бонусных миров босса нет) крупнее
 function stopRects(G) {
   const A = CFG.MENU_LOOK.map, n = levelsPerWorld(), cols = A.cols, rows = Math.ceil(n / cols);
   const ay = G.page.y + G.titleH + G.g, px = G.page.w / cols, py = (G.page.y + G.page.h - ay) / rows, starH = G.stop * A.starRow;
   return Array.from({ length: n }, (_, i) => {
-    const r = Math.floor(i / cols), col = r % 2 ? cols - 1 - i % cols : i % cols, boss = i === n - 1, s = G.stop * (boss ? A.boss : 1);
+    const r = Math.floor(i / cols), col = r % 2 ? cols - 1 - i % cols : i % cols, boss = !!bossFor(curWorld, i + 1), s = G.stop * (boss ? A.boss : 1);
     const cx = G.page.x + px * (col + 0.5), cy = ay + py * (r + 0.5) - starH / 2;
     return { n: i + 1, x: cx - s / 2, y: cy - s / 2, w: s, h: s, cx, cy, boss };
   });
@@ -4653,7 +4958,8 @@ function drawLevelCard() {
   const n = cardLevel, minMain = PHONE ? minPx("main") : 13, minHint = PHONE ? minPx("hint") : 12, pad = A.cardPad * k;
   const cw = Math.min(UW - 40 * k, (PHONE ? A.phoneCardW : A.cardW) * k), BH = PHONE ? B + 6 * k : A.cardBtn, sr = A.cardStar * k;
   const title = `${L().worlds[curWorld]} · ${L().level} ${n}`, type = L().types[levelType(curWorld, n)];
-  const line = n >= levelsPerWorld() ? L().bossLine : L().typeLines[levelType(curWorld, n)], stars = worldProgress().stars[n] || 0;
+  // SPEC-022: строка босса — только у мира с боссом (у бонусных миров босса нет — обычная строка типа)
+  const line = n >= levelsPerWorld() && L().bossLine[curWorld] ? L().bossLine[curWorld] : L().typeLines[levelType(curWorld, n)], stars = worldProgress().stars[n] || 0;
   const f1 = fitLine(title, PHONE ? cpx(22) : 26, minMain, cw - 3 * pad - B), f2 = fitLine(type, PHONE ? cpx(17) : 20, minMain, cw - 2 * pad);
   const lb = noteRows(line, PHONE ? cpx(16) : 18, minHint, cw - 2 * pad, 3), lineH = lb.rows.length * lb.sz * 1.2;
   const ch = pad + B + g + f2.sz * 1.2 + g + lineH + g + 2 * sr + g + BH + pad, x = UW / 2 - cw / 2, y = Math.max(4 * k, UH / 2 - ch / 2);
@@ -4785,6 +5091,11 @@ function drawStory() {
     if (artName) noteArt(artName);
     tape(ix + 6 * k, iy + 2 * k, -0.7, k * 0.8); tape(ix + iw - 6 * k, iy + 2 * k, 0.7, k * 0.8);
   } else storyPlaceholder(pic, !open);
+  if (open) {                                                // SPEC-022: ▶ в углу картинки — посмотреть заставку главы ещё раз
+    const r = B, bx = pic.x + pic.w - r - 4 * k, byy = pic.y + 4 * k;
+    if (!drawArtFit("round_play", bx + r / 2, byy + r / 2, r * 1.15)) { circle(bx + r / 2, byy + r / 2, r / 2); fillStroke(M.play, 3 * k); label("▶", bx + r / 2 + 2 * k, byy + r / 2, r * 0.45, "#fff"); }
+    regButton(bx, byy, r, r, "▶", watchChapter, "story:scene", r);
+  }
   const text = open ? c.text[lang] : BONUS_WORLDS.includes(c.id) ? L().lockedBonus : L().endedLocked;
   const tx = X0 + pw + 2 * g, tW = X1 - tx, size = PHONE ? cpx(S.phoneText) : S.text, min = PHONE ? minMain : 14;
   const b = noteRows(text, size, min, tW, Math.max(1, Math.floor(mh / (min * 1.2))));
@@ -4793,6 +5104,68 @@ function drawStory() {
   hudRects[hudRects.length - 1].text = text;
   if (PHONE) noteText("main", b.sz);
   storyInfo = { chapter: c.id, index: storyCh, locked: !open, page: "chapters", title, text, art: !open ? "locked" : img ? "image" : "placeholder", load: storyLoad(c), pic };
+}
+// ---------- SPEC-022: заставка истории — картинка (комикс 8_start — по клетке), подпись, «Пропустить» и «Дальше» / «Играть» ----------
+// Компьютер: картинка над подписью; телефон: картинка слева, подпись справа. Нет картинки — заглушка истории (бумажный лист).
+// sceneInfo (для тестов) — { id, page, pages, art: "image" | "placeholder" | "thanks", caption, crop }
+let sceneInfo = null;
+function drawScene() {
+  if (!storyScene) return;
+  const M = CFG.MENU_LOOK, S = M.scene, k = PHONE ? cpx(1) : 1, minMain = PHONE ? minPx("main") : 14;
+  const { X0, X1, Y0, Y1, g, B } = menuFrame();
+  const pages = scenePages(storyScene.id), n = pages.length, pg = pages[storyScene.page], last = storyScene.page === n - 1;
+  const before = storyScene.play;                           // перед уровнем: на последней странице «Играть»
+  // нижний ряд: «Пропустить» слева (на последней странице длинной заставки её нет), точки страниц, справа «Дальше» / «Играть» / «Готово»
+  const by = Y1 - B, bw = PHONE ? Math.min((X1 - X0) * 0.36, Math.max(B * 2.8, cpx(150))) : S.btnW, bsz = PHONE ? cpx(20) : 24;
+  fitButton(X1 - bw, by, bw, B, last ? (before ? "▶ " + L().play : L().ok) : L().sceneNext + " ▶", M.ok, sceneNext, bsz, minMain).id = "scene:next";
+  if (!last || n === 1) fitButton(X0, by, bw, B, L().sceneSkip, M.back, sceneSkip, bsz, minMain).id = "scene:skip";
+  if (n > 1) {
+    const dr = M.story.dot * k, step = dr * 3.4, dx0 = (X0 + X1) / 2 - step * (n - 1) / 2;
+    for (let i = 0; i < n; i++) { circle(dx0 + i * step, by + B / 2, i === storyScene.page ? dr * 1.5 : dr); fillStroke(i === storyScene.page ? M.title : M.panel, 2 * k); }
+  }
+  const area = { x: X0, y: Y0, w: X1 - X0, h: by - g - Y0 };
+  if (pg.thanks) {                                            // «Спасибо, что играли!», кто сделал, пирожное (как в конце истории)
+    const cs = area.h * S.cupcake, cy = area.y + cs / 2;
+    if (!drawArtFit("icon_cupcake", area.x + area.w / 2, cy, cs)) drawArtFit("fx_hearts", area.x + area.w / 2, cy, cs);
+    const t1 = fitLine(L().thanks, PHONE ? cpx(S.phoneThanks) : S.thanks, PHONE ? minPx("title") : 20, area.w), y1 = area.y + cs + g + t1.sz * 0.6;
+    label(t1.text, area.x + area.w / 2, y1, t1.sz, M.title, "center");
+    hudRects.push({ id: "scene:thanks", x: area.x + area.w / 2 - t1.w / 2, y: y1 - t1.sz * 0.6, w: t1.w, h: t1.sz * 1.2, text: t1.text });
+    const t2 = fitLine(L().madeBy, PHONE ? cpx(S.phoneMadeBy) : S.madeBy, minMain, area.w), y2 = y1 + t1.sz * 0.6 + g + t2.sz * 0.6;
+    plainText(t2.text, area.x + area.w / 2, y2, t2.sz, M.ink, "center");
+    hudRects.push({ id: "scene:madeBy", x: area.x + area.w / 2 - t2.w / 2, y: y2 - t2.sz * 0.6, w: t2.w, h: t2.sz * 1.2, text: t2.text });
+    if (PHONE) { noteText("title", t1.sz); noteText("main", t2.sz); }
+    sceneInfo = { id: storyScene.id, page: storyScene.page, pages: n, art: "thanks", caption: null, crop: null };
+    return;
+  }
+  const img = art(pg.art), cr = pg.crop || [0, 0, 1, 1];
+  const aspect = img ? (img.width * cr[2]) / (img.height * cr[3]) : 16 / 9;
+  const size = PHONE ? cpx(S.phoneText) : S.text, min = minMain;
+  let pic, tx, tW, ty, b;
+  if (PHONE) {                                                // картинка слева, подпись справа (по высоте — посередине)
+    const pw = Math.min(area.w * S.phonePic, area.h * aspect);
+    pic = { x: area.x, y: area.y, w: pw, h: area.h };
+    tx = area.x + pw + 2 * g; tW = X1 - tx;
+    b = noteRows(pg.text, size, min, tW, Math.max(1, Math.floor(area.h / (min * 1.2))));
+    ty = area.y + Math.max(0, (area.h - b.rows.length * b.sz * 1.2) / 2);
+  } else {                                                    // подпись внизу, картинка над ней на всё остальное место
+    tx = area.x; tW = area.w;
+    b = noteRows(pg.text, size, min, tW, S.lines);
+    const th = b.rows.length * b.sz * 1.2;
+    pic = { x: area.x, y: area.y, w: area.w, h: area.h - th - g };
+    ty = pic.y + pic.h + g;
+  }
+  if (img) {
+    const fr = 5 * k, sw = img.width * cr[2], sh = img.height * cr[3];
+    const sc = Math.min((pic.w - 2 * fr) / sw, (pic.h - 2 * fr) / sh), iw = sw * sc, ih = sh * sc, ix = pic.x + (pic.w - iw) / 2, iy = pic.y + (pic.h - ih) / 2;
+    rr(ix - fr, iy - fr, iw + 2 * fr, ih + 2 * fr, 6 * k); fillStroke(M.story.paper, 3 * k);   // бумажная рамка, как в «Истории»
+    ctx.drawImage(img, img.width * cr[0], img.height * cr[1], sw, sh, ix, iy, iw, ih);
+    noteArt(pg.art);
+    tape(ix + 6 * k, iy + 2 * k, -0.7, k * 0.8); tape(ix + iw - 6 * k, iy + 2 * k, 0.7, k * 0.8);
+  } else storyPlaceholder(pic, false);
+  rowsAt("scene:caption", b, tx + tW / 2, ty, M.ink);
+  hudRects[hudRects.length - 1].text = pg.text;
+  if (PHONE) noteText("main", b.sz);
+  sceneInfo = { id: storyScene.id, page: storyScene.page, pages: n, art: img ? "image" : "placeholder", caption: pg.text, crop: pg.crop };
 }
 // SPEC-016: «Открылись бонусные миры!» на экране победы — только после победы, открывшей их (lastReward.bonusUnlocked);
 // плашка в hudRects (bonus-note), для тестов — bonusNote { text, x, y, w, h, size, textW }
@@ -5324,6 +5697,7 @@ function drawOverlayPhone() {
   const c = cpx;
   if (mode === "home") drawHomePhone();
   else if (mode === "story") drawStory();
+  else if (mode === "scene") drawScene();
   else if (mode === "map" || mode === "levelCard") {
     drawMap(T);
     if (mode === "levelCard") { buttons = []; hudRects = []; drawLevelCard(); }   // под карточкой карта не нажимается
@@ -5442,8 +5816,12 @@ function drawOverlayPhone() {
     let acts;
     if (mode === "win") {
       // слева: заголовок, строка под ним, звёзды и за что они; справа — строки награды и итог (SPEC-009)
-      pLabel(L().win, lx, Y0 + c(30), "title", 40, "#ffcf33", "center", colW);
-      pWrap(winText(), lx, Y0 + c(58), "main", 16, colW, 2, endInk("text", "#fff"), 900);
+      // SPEC-022: «Папа снова добрый!» — до двух строк, строка под ним — сразу под заголовком
+      const tb = pRows(winTitle(), "title", 32, colW, 2, 900), ty0 = Y0 + c(4);
+      tb.rows.forEach((r, i) => label(r, lx, ty0 + tb.lh * (i + 0.5), tb.sz, "#ffcf33"));
+      noteText("title", tb.sz);
+      hudRects.push({ id: "win:title", x: lx - tb.w / 2, y: ty0, w: tb.w, h: tb.h, text: tb.rows.join(" ") });
+      pWrap(winText(), lx, ty0 + tb.h + c(2), "main", 16, colW, 2, endInk("text", "#fff"), 900);
       for (let k = 0; k < CFG.STARS_PER_LEVEL; k++) drawStarArt(lx - c(56) + k * c(56), Y0 + c(138), c(21), k < rw.stars);
       [[true, L().victory], [rw.nobodyOut, L().nobodyOut], [rw.fast, L().fast(fmtTime(rw.target))]].forEach(([okk, txt], i) => {
         pLabel((okk ? "✔ " : "✘ ") + txt, lx, Y0 + c(178) + i * c(26), "main", 15, okk ? endInk("good", "#bbf7d0") : endInk("off", "#cbd5e1"), "center", colW);
@@ -5478,6 +5856,7 @@ function drawOverlay() {
   if (PHONE) { drawOverlayPhone(); return; }
   if (mode === "home") drawHomeDesktop();
   else if (mode === "story") drawStory();
+  else if (mode === "scene") drawScene();
   else if (mode === "map" || mode === "levelCard") {
     drawMap(T);
     if (mode === "levelCard") { buttons = []; hudRects = []; drawLevelCard(); }   // под карточкой карта не нажимается
@@ -5535,7 +5914,8 @@ function drawOverlay() {
     pauseActions().forEach(([txt, col, act], i) => fitButton(UW / 2 - 320 + i * 220, UH / 2, 200, 66, txt, col, act, 24, 14));
   } else if (mode === "win") {
     endPaper(CFG.PAPER.winBox);
-    label(L().win, UW / 2, 92, 72, "#ffcf33");
+    labelFit(winTitle(), UW / 2, 92, 60, CFG.PAPER.winBox[0] - 60, "#ffcf33", "center", 30);   // SPEC-022: «Папа снова добрый!»
+    hudRects.push({ id: "win:title", x: UW / 2 - lastFit.w / 2, y: 92 - lastFit.sz * 0.6, w: lastFit.w, h: lastFit.sz * 1.2, text: lastFit.text });
     label(winText(), UW / 2, 146, 22, endInk("text", "#fff"));
     const rw = lastReward || { stars: 1, coins: 0, nobodyOut: false, fast: false, target: 0, parts: [] };
     // слева — звёзды и за что они, справа — строки награды и итог (SPEC-009)
@@ -5644,14 +6024,14 @@ function drawBanner() {
 function drawUI(t) {
   draws++;
   if (nameInput && !inWardrobe()) closeNameInput(false);
-  buttons = []; installHintShown = false; mapState = null; cardInfo = null; cardRect = null; storyInfo = null; bonusNote = null; winLine = ""; mmShown = false; edgeArrows = []; hudRects = []; textSizes = {}; bannerRect = null; kitHintRect = null; heardHintRect = null; stickMarks = []; shopLayout = null; winPanel = null;
+  buttons = []; installHintShown = false; mapState = null; cardInfo = null; cardRect = null; storyInfo = null; sceneInfo = null; bonusNote = null; winLine = ""; mmShown = false; edgeArrows = []; hudRects = []; textSizes = {}; bannerRect = null; kitHintRect = null; heardHintRect = null; stickMarks = []; shopLayout = null; winPanel = null;
   if (mode !== "shop") { shopTab = "items"; wardrobePage = "looks"; }
   if (mode !== "map") toast = null;   // SPEC-017: подсказка карты — только пока карта на экране
   if (mode !== "map" && mode !== "levelCard") mapBgCache = null;   // фон страницы мира не держим в памяти вне карты
   if (!paperUI()) paperCache.length = 0;                           // SPEC-020: и листы бумажных панелей — вне бумажных экранов
   ctx.setTransform(VIEW, 0, 0, VIEW, 0, 0);
   ctx.clearRect(0, 0, UW, UH);
-  if (!inMenus()) { drawMarkers(t); drawFx(); drawHUD(t); }
+  if (!inMenus()) { drawMarkers(t); drawMood(t); drawFx(); drawHUD(t); } else moodInfo = null;
   if (mode === "play" && banner) drawBanner();
   drawOverlay();
   if (PHONE && nameInput) {                // телефон: поле ввода следует за своей подписью (клавиатура могла поменять высоту экрана)
@@ -6777,14 +7157,23 @@ function dressHouses(place) {
       const lidP = part(new THREE.BoxGeometry(0.42, 0.04, 0.42), B.pizza, 0.012); lidP.position.set(0, 0.2, -0.22); lidP.rotation.x = -1.2; open.add(lidP);
       }
     }
-    if (d1) {
-      const a = at(d1, d1.len / 2 + 0.2, 0.7), b = at(d1, d1.len / 2 + 1.8, 0.7);
-      if (free(a) && free(b)) {
+    // SPEC-022 (из проверки SPEC-021): верёвка с бельём — первое свободное место: у второй двери справа, слева, у первой двери,
+    // короче; раньше при занятой клетке столба бельё пропадало (~половина уровней)
+    const lineSpot = (() => {
+      for (const d of [d1, d0]) if (d) for (const sd of [1, -1]) for (const [o0, o1, out] of [[0.2, 1.8, 0.7], [0.2, 1.3, 0.7], [0.2, 1.8, 1.1], [0.2, 1.3, 1.1]]) {
+        const a = at(d, sd * (d.len / 2 + o0), out), b = at(d, sd * (d.len / 2 + o1), out), mid = { x: (a.x + b.x) / 2, z: (a.z + b.z) / 2 };
+        if (free(a) && free(b) && free(mid)) return { a, b, d };
+      }
+      return null;
+    })();
+    if (lineSpot) {
+      const { a, b } = lineSpot, ld = lineSpot.d;
+      {
       const lg = new THREE.Group(); mapGroup.add(lg); props.push(lg);
       for (const p of [a, b]) { const post = part(new THREE.CylinderGeometry(0.03, 0.03, 0.8, 5), B.line, 0.01); post.position.set(p.x, 0.4, p.z); lg.add(post); }
       const lineLen = Math.hypot(b.x - a.x, b.z - a.z), line = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, lineLen, 4), toon(B.line));
       line.position.set((a.x + b.x) / 2, 0.76, (a.z + b.z) / 2); line.rotation.order = "YXZ"; line.rotation.set(Math.PI / 2, Math.atan2(b.x - a.x, b.z - a.z), 0); lg.add(line);
-      const on = t => ({ x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t }), ry = Math.atan2(d1.nx, d1.nz);
+      const on = t => ({ x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t }), ry = Math.atan2(ld.nx, ld.nz);
       const s = on(0.3), sock = new THREE.Group(); sock.position.set(s.x, 0.62, s.z); sock.rotation.y = ry; lg.add(sock);
       sock.add(part(new THREE.BoxGeometry(0.09, 0.24, 0.03), B.sock, 0.01));
       const toe = part(new THREE.BoxGeometry(0.16, 0.08, 0.03), B.sockToe, 0.01); toe.position.set(0.04, -0.12, 0); sock.add(toe); items.laundry.push("sock");
@@ -6792,6 +7181,8 @@ function dressHouses(place) {
       shirt.add(part(new THREE.BoxGeometry(0.28, 0.3, 0.03), B.shirt, 0.01));
       const arms = part(new THREE.BoxGeometry(0.46, 0.1, 0.03), B.shirt, 0.01); arms.position.y = 0.12; shirt.add(arms); items.laundry.push("shirt");
       }
+    }
+    if (d1) {
       const tp = at(d1, -(d1.len / 2 + 0.9), 0.9);
       if (free(tp)) {
       const car = new THREE.Group(); car.position.set(tp.x, 0, tp.z); car.rotation.y = 0.7; mapGroup.add(car); props.push(car);
@@ -7136,7 +7527,7 @@ function buildLittleModel(look, isPlayer, pid = 0, glove = null) {
   }
   const head = new THREE.Group(); head.position.y = CFG.KID_LOOK.headY; head.scale.setScalar(CFG.KID_LOOK.head); rig.add(head);   // SPEC-021: голова больше
   head.add(part(sphere(KID_HEAD_R, 18, 14), look.skin, 0.03));
-  const face = addFace(head, 0.27);
+  const face = addFace(head, KID_HEAD_R);
   addHair(head, look);
   let ring = null;
   if (isPlayer) {
@@ -7147,7 +7538,8 @@ function buildLittleModel(look, isPlayer, pid = 0, glove = null) {
   const bm = new THREE.MeshToonMaterial({ color: "#7dd3fc", gradientMap: gradTex, transparent: true, opacity: 0.3, depthWrite: false }); bm.userData.own = true;
   const bubR = (CFG.KID_LOOK.headY + KID_HEAD_R * CFG.KID_LOOK.head + CFG.KID_LOOK.bubblePad) / 2;   // SPEC-021: пузырь-щит от земли до макушки
   const bubble = new THREE.Mesh(sphere(bubR, 18, 14), bm); bubble.position.y = bubR; bubble.visible = false; rig.add(bubble);
-  const dizzyStars = new THREE.Group(); dizzyStars.position.y = 1.58; dizzyStars.visible = false; rig.add(dizzyStars);
+  // звёздочки «голова кружится»: над головой, на полпути к точке имени (из KID_LOOK, как nameTagH)
+  const dizzyStars = new THREE.Group(); dizzyStars.position.y = CFG.KID_LOOK.headY + (KID_HEAD_R + CFG.KID_LOOK.tagTop / 2) * CFG.KID_LOOK.head; dizzyStars.visible = false; rig.add(dizzyStars);
   for (let i = 0; i < 3; i++) { const s = part(new THREE.OctahedronGeometry(0.075), "#fde047", 0.015); s.position.set(Math.cos(i * TAU / 3) * 0.3, 0, Math.sin(i * TAU / 3) * 0.3); dizzyStars.add(s); }
   root.traverse(o => { if (o.isMesh && o !== ring && o !== bubble) o.castShadow = true; });
   const ghost = new THREE.Group();
@@ -7190,7 +7582,8 @@ function buildBigModel(sk) {
   const body = part(capsule(0.46, 0.35), "", 0.04, bodyMat); body.position.y = 1.08; rig.add(body);
   if (sk.top === "pirate") for (const y of [-0.15, 0.05, 0.25]) { const s = new THREE.Mesh(new THREE.TorusGeometry(0.465, 0.035, 4, 24), toon("#e5e7eb")); s.rotation.x = Math.PI / 2; s.position.y = y; body.add(s); }
   else if (sk.top === "robot") { const pnl = part(new THREE.BoxGeometry(0.4, 0.3, 0.06), "#0ea5e9", 0.02); pnl.position.set(0, 0.05, 0.45); body.add(pnl); }
-  else { const bc = sk.top === "bear" ? "#e8b48a" : dad ? sk.shirt : "#" + new THREE.Color(sk.shirt).lerp(new THREE.Color("#ffffff"), 0.3).getHexString(); const belly = new THREE.Mesh(sphere(0.3, 14, 10), toon(bc)); belly.scale.set(1, 1.1, 0.35); belly.position.set(0, -0.05, 0.36); body.add(belly); }
+  // SPEC-022: живот папы — материалом футболки (наряды боссов перекрашивают и его)
+  else { const bc = sk.top === "bear" ? "#e8b48a" : dad ? sk.shirt : "#" + new THREE.Color(sk.shirt).lerp(new THREE.Color("#ffffff"), 0.3).getHexString(); const belly = new THREE.Mesh(sphere(0.3, 14, 10), dad ? bodyMat : toon(bc)); belly.scale.set(1, 1.1, 0.35); belly.position.set(0, -0.05, 0.36); body.add(belly); }
   for (const k of [-1, 1]) {
     const pv = new THREE.Group(); pv.position.set(k * 0.58, 1.32, 0); pv.rotation.z = k * 0.25;
     const arm = part(capsule(0.13, 0.36), sk.skin, 0.03); arm.position.y = -0.28; pv.add(arm);
@@ -7263,15 +7656,112 @@ function buildBigModel(sk) {
   const anchors = { head: headSurf, top, torso, handL: hands[1], handR: hands[0] };   // лицом к +z: левая рука — +x
   root.traverse(o => { if (o.isMesh) o.castShadow = true; });
   return { root, rig, legs, arms, head, body, bodyMat, headMat, cheeks, face, sweat, stars, blink,
-    look: sk.id, faceMats, faceBase: sk.skin, stubbleMat, stubbleK: sk.stubble || 1, anchors, headTop: top, outfitAnchor: torso,
+    look: sk.id, faceMats, faceBase: sk.skin, moodFace: !!sk.mood, topH: top.position.y, stubbleMat, stubbleK: sk.stubble || 1, anchors, headTop: top, outfitAnchor: torso,
     mats: { shirt: bodyMat, pants: pantsMat, shoes: shoeMat, face: headMat, stubble: stubbleMat }, dad };
 }
 // SPEC-021 (для SPEC-022): цвет лица Большого — color (строка/число), null — цвет образа; щетина остаётся на тон темнее
 function setBigFace(m, color) {
   m.headMat.color.set(color == null ? m.faceBase : color);
   if (m.stubbleMat) m.stubbleMat.color.copy(m.headMat.color).multiplyScalar(m.stubbleK);
+  m.faceHex = "#" + m.headMat.color.getHexString();       // SPEC-022: цвет лица для moodInfo (меняется только здесь)
 }
 
+// SPEC-022: детали образов боссов — к точкам папы (m.anchors) и к рукам/ногам (m.arms / m.legs); look — запись BOSS_LOOKS
+const BOSS_PARTS = {
+  tracksuit(m, look) {                                    // длинные рукава и белые лампасы на рукавах и штанах, молния
+    const g = new THREE.Group(); m.anchors.torso.add(g);
+    m.arms.forEach((pv, i) => {
+      const k = i ? 1 : -1, sl = part(capsule(0.145, 0.34), "", 0.025, m.mats.shirt); sl.position.y = -0.26; pv.add(sl);
+      const st = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.5, 0.04), toon(look.trim)); st.position.set(k * 0.14, -0.26, 0); pv.add(st);
+    });
+    m.legs.forEach((pv, i) => { const st = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.52, 0.04), toon(look.trim)); st.position.set((i ? 1 : -1) * 0.155, -0.3, 0); pv.add(st); });
+    const zip = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.62, 0.02), toon(look.trim)); zip.position.set(0, 0.05, 0.47); g.add(zip);
+    return g;
+  },
+  whistle(m) {                                            // свисток на шнурке
+    const g = new THREE.Group(); g.position.set(0, 0.18, 0.47); m.anchors.torso.add(g);
+    const cord = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.012, 5, 18, Math.PI), toon("#d4d4d8")); cord.rotation.z = Math.PI; cord.position.y = 0.2; g.add(cord);
+    const w = part(new THREE.CylinderGeometry(0.05, 0.05, 0.14, 10), "#a1a1aa", 0.012); w.rotation.z = Math.PI / 2; g.add(w);
+    return g;
+  },
+  kit(m, look) {                                             // воротник и эмблема, синие шорты, белые гетры со щитками
+    const g = new THREE.Group(); m.anchors.torso.add(g);
+    const col = new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.035, 6, 18), toon(look.trim)); col.rotation.x = Math.PI / 2; col.position.y = 0.56; g.add(col);
+    const badge = part(new THREE.BoxGeometry(0.11, 0.13, 0.03), look.trim, 0.01); badge.position.set(0.2, 0.22, 0.43); g.add(badge);
+    m.legs.forEach(pv => {
+      const sh = part(new THREE.CylinderGeometry(0.19, 0.2, 0.26, 12), look.trim, 0.025); sh.position.y = -0.1; pv.add(sh);
+      const sock = part(new THREE.CylinderGeometry(0.16, 0.155, 0.3, 12), "#f8fafc", 0.02); sock.position.y = -0.42; pv.add(sock);
+      const band = new THREE.Mesh(new THREE.CylinderGeometry(0.162, 0.162, 0.05, 12), toon(look.trim)); band.position.y = -0.3; pv.add(band);
+      const guard = part(new THREE.BoxGeometry(0.17, 0.2, 0.05), "#94a3b8", 0.012); guard.position.set(0, -0.43, 0.15); pv.add(guard);
+    });
+    return g;
+  },
+  ball(m) {                                               // мяч в руке (под мышкой)
+    const g = new THREE.Group(); g.position.set(0, 0.06, 0.12); m.anchors.handL.add(g);
+    g.add(part(sphere(0.21, 16, 12), "#ffffff", 0.02));
+    for (const [x, y, z] of [[0, 0, 0.2], [0.19, 0.05, 0.03], [-0.17, 0.1, 0.06], [0.05, 0.19, -0.05], [-0.06, -0.18, 0.05]]) {
+      const p = new THREE.Mesh(sphere(0.06, 8, 6), toon("#1f2937")); p.position.set(x, y, z); p.scale.setScalar(0.9); g.add(p);
+    }
+    return g;
+  },
+  hardhat(m) {                                            // оранжевая каска на макушке (наклоняется с головой)
+    const g = new THREE.Group(); g.position.y = -0.14; m.anchors.head.add(g);
+    const dome = part(new THREE.SphereGeometry(0.44, 18, 10, 0, TAU, 0, Math.PI / 2), "#f97316", 0.03); g.add(dome);
+    const brim = part(new THREE.CylinderGeometry(0.56, 0.56, 0.05, 20), "#f97316", 0.02); brim.position.set(0, 0.02, 0.04); g.add(brim);
+    const ridge = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.06, 0.8), toon("#ea580c")); ridge.position.y = 0.42; g.add(ridge);
+    return g;
+  },
+  vest(m, look) {                                            // жилет: оранжевый, две светоотражающие полосы
+    const g = new THREE.Group(); m.anchors.torso.add(g);
+    const v = part(capsule(0.48, 0.3), "#fb923c", 0.03); v.scale.set(1, 0.95, 1.02); g.add(v);
+    for (const y of [-0.12, 0.14]) { const b = new THREE.Mesh(new THREE.CylinderGeometry(0.49, 0.49, 0.07, 20, 1, true), toon(look.trim)); b.position.y = y; g.add(b); }
+    return g;
+  },
+  cone(m) {                                               // дорожный конус в руке
+    const g = new THREE.Group(); g.position.set(0, -0.12, 0.12); g.rotation.x = 0.5; m.anchors.handR.add(g);
+    g.add(part(new THREE.ConeGeometry(0.17, 0.5, 14), "#f97316", 0.02));
+    const band = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.115, 0.1, 14), toon("#ffffff")); band.position.y = 0.02; g.add(band);
+    const base = part(new THREE.BoxGeometry(0.36, 0.05, 0.36), "#f97316", 0.012); base.position.y = -0.25; g.add(base);
+    return g;
+  },
+  overshirt(m, look) {                                       // белая рубашка нараспашку поверх красной футболки, в пятнах, рукава
+    const g = new THREE.Group(); m.anchors.torso.add(g);
+    const sm = ownMat(look.trim); sm.side = THREE.DoubleSide;
+    const sh = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.52, 0.78, 22, 1, true, 0.42, TAU - 0.84), sm); sh.position.y = 0.06; sh.castShadow = true; g.add(sh);
+    const ink = new THREE.Mesh(new THREE.CylinderGeometry(0.515, 0.535, 0.8, 22, 1, true, 0.42, TAU - 0.84), OUTLINE); ink.position.y = 0.06; g.add(ink);
+    for (const [a, y] of [[0.7, 0.1], [0.95, -0.15], [-0.75, 0.2], [-1.1, -0.05], [0.55, -0.25]]) {
+      const st = new THREE.Mesh(sphere(0.045, 8, 6), toon("#a16207")); st.scale.set(1, 0.8, 0.3);
+      st.position.set(Math.sin(a) * 0.525, y + 0.06, Math.cos(a) * 0.525); st.rotation.y = a; g.add(st);
+    }
+    m.arms.forEach(pv => { const sl = part(new THREE.CylinderGeometry(0.18, 0.17, 0.42, 12), "", 0.025, sm); sl.position.y = -0.12; pv.add(sl); });
+    return g;
+  },
+  tie(m) {                                                // галстук, ослабленный (чуть набок)
+    const g = new THREE.Group(); g.position.set(0.03, 0.32, 0.47); g.rotation.z = 0.18; m.anchors.torso.add(g);
+    g.add(part(new THREE.BoxGeometry(0.1, 0.08, 0.04), "#334155", 0.01));
+    const t = part(new THREE.BoxGeometry(0.11, 0.48, 0.03), "#334155", 0.012); t.position.y = -0.27; g.add(t);
+    return g;
+  },
+  bag(m) {                                                // сумка через плечо: ремень наискосок и сумка у бедра
+    const g = new THREE.Group(); m.anchors.torso.add(g);
+    const strap = new THREE.Mesh(new THREE.BoxGeometry(0.07, 1.15, 0.03), toon("#5b3a29")); strap.position.set(0, 0.02, 0.5); strap.rotation.z = 0.78; g.add(strap);
+    const bag = part(new THREE.BoxGeometry(0.42, 0.32, 0.15), "#7c4a2d", 0.025); bag.position.set(0.52, -0.42, 0.12); g.add(bag);
+    const flap = new THREE.Mesh(new THREE.BoxGeometry(0.43, 0.12, 0.16), toon("#5b3a29")); flap.position.set(0.52, -0.31, 0.125); g.add(flap);
+    return g;
+  }
+};
+// одеть модель папы в образ босса id (BOSS_LOOKS): цвета своих материалов и детали; m.boss, m.bossParts — для тестов
+function dressBoss(m, id) {
+  const look = BOSS_LOOKS[BOSSES[id] ? BOSSES[id].look : id];
+  if (!look) return;
+  m.mats.shirt.color.set(look.shirt);
+  m.mats.pants.color.set(look.legs === "skin" ? m.faceBase : look.pants);
+  if (m.mats.shoes) m.mats.shoes.color.set(look.shoes);
+  m.boss = id; m.bossParts = {};
+  for (const p of look.parts) m.bossParts[p] = BOSS_PARTS[p](m, look);
+  m.root.traverse(o => { if (o.isMesh && !o.material.side) o.castShadow = true; });
+}
+const bossScale = b => (b.boss ? CFG.BOSS_SCALE : 1);   // SPEC-022: босс крупнее (вид; круг столкновений тот же)
 let charGroup = new THREE.Group(); scene.add(charGroup);
 function buildCharacters() {
   scene.remove(charGroup); disposeTree(charGroup);
@@ -7282,8 +7772,10 @@ function buildCharacters() {
     l.model.rig.scale.setScalar(LITTLE_SCALE); l.model.ghost.scale.setScalar(LITTLE_SCALE);
     charGroup.add(l.model.root, l.model.ghost);
   }
-  big.model = buildBigModel(big.skin);
-  big.model.rig.scale.setScalar(BIG_SCALE);
+  // SPEC-022: босс уровня — папа в образе босса (BOSS_LOOKS), крупнее (bossScale)
+  big.model = buildBigModel(big.boss ? BIG_SKINS.find(s => s.id === "dad") : big.skin);
+  if (big.boss) dressBoss(big.model, big.boss);
+  big.model.rig.scale.setScalar(BIG_SCALE * bossScale(big));
   charGroup.add(big.model.root);
 }
 function rebuild3D() {
@@ -7497,8 +7989,14 @@ function syncLittle(l, t) {
     m.face.mouth.rotation.z = Math.PI;
   }
 }
+// SPEC-022: настроение на экране: злой / средний / добреет (bigMood), подобрел и идёт домой — "happy" (лицо как у образа)
+const moodOf = b => (b.kind ? "happy" : bigMood());
 function syncBig(b, t) {
   const m = b.model;
+  const mood = moodOf(b);
+  if (m.mood !== mood) {                                   // перекрашиваем только при смене; лицо не человека (огр, робот, медведь) — своё
+    m.mood = mood; setBigFace(m, m.moodFace ? CFG.MOOD_LOOK.face[mood] ?? null : null);
+  }
   m.root.position.set(P(b.x), 0, P(b.y));
   m.root.rotation.y = Math.PI / 2 - b.dir;
   const slipped = b.slip > 0, shocked = b.stun > 0 || slipped, resting = b.noPush > 0 && !shocked;
@@ -7511,8 +8009,8 @@ function syncBig(b, t) {
     m.rig.position.set(0, b.moving ? Math.abs(Math.sin(b.walk)) * 0.07 : 0, 0);
     m.legs[0].rotation.x = b.moving ? Math.sin(b.walk) * 0.6 : 0; m.legs[1].rotation.x = -m.legs[0].rotation.x;
   }
-  const s = BIG_SCALE * (hugged ? 1 + Math.sin(t * 20) * 0.03 : 1);
-  m.rig.scale.set(s, BIG_SCALE * (hugged ? 1 - Math.sin(t * 20) * 0.03 : 1), s);
+  const bs = BIG_SCALE * bossScale(b), s = bs * (hugged ? 1 + Math.sin(t * 20) * 0.03 : 1);   // SPEC-022: босс крупнее
+  m.rig.scale.set(s, bs * (hugged ? 1 - Math.sin(t * 20) * 0.03 : 1), s);
   const armX = shocked ? -2.7 : (b.state === "chase" ? -1.25 : (b.moving ? -Math.sin(b.walk) * 0.5 : 0));
   m.arms[0].rotation.x = shocked ? armX + Math.sin(t * 14) * 0.2 : armX;
   m.arms[1].rotation.x = shocked ? armX - Math.sin(t * 14) * 0.2 : (b.state === "chase" ? armX : -armX);
@@ -7523,13 +8021,21 @@ function syncBig(b, t) {
   m.face.mouth.rotation.z = (angry && !shocked) || resting ? 0 : Math.PI;
   m.head.rotation.z = shocked ? Math.sin(t * 6) * 0.15 : 0;
   m.bodyMat.emissive.set(b.flash > 0 ? "#ff8fb0" : "#000000");
-  const blushing = b.blush > 0;                           // покраснел после воздушного поцелуя
+  const blushing = b.blush > 0 || !!b.kind;               // покраснел после воздушного поцелуя или подобрел (SPEC-022)
   m.cheeks.visible = blushing;
   const br = blushing ? 0.55 + Math.sin(t * 8) * 0.12 : 0, bb2 = blushing ? 0.1 : 0;
   for (const fm of m.faceMats) fm.emissive.setRGB(br, 0, bb2);   // SPEC-021: всё лицо (и щетина) краснеет
   // смущается: голову чуть вверх (красное лицо видно сверху), руки вместе, улыбается
   if (blushing && !shocked) { m.head.rotation.x = -0.2; m.arms[0].rotation.x = -0.5; m.arms[1].rotation.x = -0.5; m.face.mouth.rotation.z = Math.PI; }
   else m.head.rotation.x = 0;
+  // SPEC-022: подобрел (идёт домой, art/11_win, art/1_papa): улыбается, краснеет (румянец — blush), машет одной рукой, другая качается
+  const ML = CFG.MOOD_LOOK;
+  if (b.kind) {
+    m.face.mouth.rotation.z = Math.PI;
+    for (const brw of m.face.brows) brw.rotation.z = brw.userData.k * 0.2;
+    m.arms[0].rotation.x = 0; m.arms[0].rotation.z = -(ML.wave + Math.sin(t * ML.waveSpeed) * ML.waveAmp);
+    m.arms[1].rotation.x = b.moving ? Math.sin(b.walk) * 0.5 : 0; m.arms[1].rotation.z = 0.25;
+  } else { m.arms[0].rotation.z = -0.25; m.arms[1].rotation.z = 0.25; }   // как при постройке (k × 0.25)
   if (m.blink) m.blink.material.emissiveIntensity = Math.floor(t * 3) % 2 ? 1 : 0.2;
 }
 let lastSyncT = 0;
@@ -7763,6 +8269,9 @@ function render3D(t) {
 fit();
 resetWorld(1);
 artGate();                                  // SPEC-020: экран загрузки ждёт картинки (недолго); игра уже готова
+// SPEC-022: самый первый запуск (и старое сохранение без seen: история новая для всех) — комикс «Как всё началось» (под экраном
+// загрузки, пока он есть). Тесты его пропускают: их init-скрипт ставит window.__bbNoIntro (кроме теста первого запуска)
+let introDue = !progress.seen.intro && window.__bbNoIntro !== true;   // открывается в frame(), когда экрана загрузки уже нет
 window.__bbReady = true;
 let last = performance.now(), T = 0;
 function frame(now) {
@@ -7770,6 +8279,7 @@ function frame(now) {
   const dt = Math.max(0, Math.min(0.05, (now - last) / 1000));
   last = now;
   if (simMode) { requestAnimationFrame(frame); return; }   // sim: ни логики, ни рисования — игру шагает simRun
+  if (introDue && mode === "home" && !document.getElementById("loading")) { introDue = false; openScene("intro"); }   // SPEC-022: первый запуск
   T += dt;
   pollPads();
   if (!inWardrobe() && endTryOn()) resetWorld(numPlayers);   // SPEC-009/017: ушли из вкладки «Гардероб» (друзья — её часть) — примерка кончилась
@@ -7821,7 +8331,13 @@ window.__bb = {
   // SPEC-017: карта этого кадра, подсказка, карточка уровня; tapButton(id) — нажать кнопку этого кадра (как пальцем)
   get mapInfo() { return mapState && JSON.parse(JSON.stringify(mapState)); }, get toast() { return toast && { ...toast }; },
   get levelCard() { return cardInfo && { ...cardInfo }; }, openMap,
-  RULE_ICONS, STORY, openStory, get storyInfo() { return storyInfo && { ...storyInfo }; },   // SPEC-017: главы истории (живой список), экран истории этого кадра
+  RULE_ICONS, STORY, openStory, get storyInfo() { return storyInfo && { ...storyInfo }; },
+  // SPEC-022: заставки (scene — логика: { id, page, pages } или null; sceneInfo — нарисованное в этом кадре), боссы уровней
+  SCENE_IDS, openScene, sceneNext, sceneSkip, bigMood, winTitle, get pushWaves() { return pushWaves.map(w => ({ ...w })); }, get scene() { return storyScene && { id: storyScene.id, page: storyScene.page, pages: scenePageCount() }; },
+  get sceneInfo() { return sceneInfo && { ...sceneInfo }; }, bossFor, BOSSES, BOSS_LOOKS, bigCalm, KID_HEAD_R, LITTLE_SCALE,   // SPEC-021 размеры героев (тест look3d)
+  // SPEC-022: вид Большого в 3D (для тестов): образ, босс и его детали, масштаб, цвета футболки и штанов
+  bigLook() { const m = big && big.model; return m ? { look: m.look, boss: m.boss || null, parts: Object.keys(m.bossParts || {}), scale: m.rig.scale.x,
+    shirt: "#" + m.mats.shirt.color.getHexString(), pants: "#" + m.mats.pants.color.getHexString() } : null; }, get moodInfo() { return moodInfo && { ...moodInfo, sprites: [...moodInfo.sprites] }; },   // SPEC-017: главы истории (живой список), экран истории этого кадра
   tapButton(id) { const q = buttons.find(r => (r.id || r.act.name) === id); if (q) q.act(); return !!q; },
   update, inSafe, I18N, startGame, resetWorld, cycleOutfit, randomOutfit, cycleBig, setLang, toScreen,
   get items() { return items; }, get progress() { return progress; }, buyGloves, setEquip, get lastReward() { return lastReward; }, spawnItem,
@@ -7835,7 +8351,7 @@ window.__bb = {
   sim, simRun, get events() { return events.map(e => ({ ...e })); },   // SPEC-008: режим симуляции, журнал событий (копии)
   ledger: () => ledger.map(e => ({ ...e })),   // SPEC-009: события coins за сессию (с загрузки страницы), копии
   get rngDraws() { return rngDraws; },   // SPEC-008: сколько раз тянули игровую случайность
-  setProgress(save) { rewardDue = false; progress = loadProgress(save); },   // SPEC-008 (баланс): прогресс из сохранения (null — новый), не записывает
+  setProgress(save) { rewardDue = false; lastReward = null; progress = loadProgress(save); },   // SPEC-008 (баланс): прогресс из сохранения (null — новый), не записывает
   levelsPerWorld,
   autopilot, autoThink,   // SPEC-008: autopilot(on, "careful"|"reckless") → { on, style }; autoThink(dt) — только решение (для теста)
   autoStick: i => autoMove[i] ? { x: autoMove[i].x, y: autoMove[i].y } : null,   // SPEC-019: «стик» автопилота игрока i после autoThink (копия)
@@ -7886,7 +8402,7 @@ window.__bb = {
 // ошибку, чтобы визуальный тест, открытый в sim, падал громко, а не проверял пустоту.
 const SIM_DRAWN = ["buttonRects", "buttonNames", "tapButton", "hudRects", "mapInfo", "levelCard", "storyInfo", "textSizes", "minimap",
   "bannerRect", "rotateShown", "winPanel", "winLine", "bonusNote", "shopLayout", "kitHint", "heardHint", "edgeArrows", "stickMarks",
-  "tapLines", "installHintShown", "mapPieces", "groundColorAt", "camera", "minimapAlpha", "artUse", "look3D"];
+  "tapLines", "installHintShown", "mapPieces", "groundColorAt", "camera", "minimapAlpha", "artUse", "sceneInfo", "moodInfo", "bigLook", "look3D"];
 window.__bb.SIM_DRAWN = SIM_DRAWN;
 window.__bb = new Proxy(window.__bb, {
   get(t, k, r) {

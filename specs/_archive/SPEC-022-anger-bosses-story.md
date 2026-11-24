@@ -1,6 +1,6 @@
 # SPEC-022 — Dad's anger, bosses and story scenes
 
-Status: ready
+Status: done (merged by "Merge SPEC-022", see git log)
 Complexity: L
 Branch: SPEC-022-anger-bosses
 Decided by: Kostya (story, 2026-11-22: angry dads become kind after many hugs and go home; a boss in every world; the grumpiest dad in the School can push several kids at once) and Andrei (2026-11-23: hearts become the dad's **anger**, the win is **"Dad is kind again!"** with the dad smiling and walking home; bosses are stronger and have their own look; story scenes — the start comic on first launch, a picture before each boss, the ending after School level 20). Numbers, timings, layouts, texts: Claude (spec author).

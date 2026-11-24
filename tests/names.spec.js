@@ -27,10 +27,10 @@ async function buttonCenter(page, id) {
 
 test("names are saved, cleaned and survive a reload", async ({ simPage: page }) => {
   let n = await page.evaluate(() => window.__bb.names);
-  expect(n).toEqual({ p1: "Player 1", p2: "Player 2", big: "Big One", bots: ["Bo", "Mia", "Tom", "Lulu"] });
+  expect(n).toEqual({ p1: "Player 1", p2: "Player 2", big: "Dad", bots: ["Bo", "Mia", "Tom", "Lulu"] });
   await page.evaluate(() => window.__bb.setLang("es"));
   n = await page.evaluate(() => window.__bb.names);
-  expect(n.big).toBe("Grandote");
+  expect(n.big).toBe("Papá");                        // SPEC-022: the default Big One is Dad / Papá / Папа
   expect(n.bots).toEqual(["Tito", "Mora", "Lupe", "Facu"]);
   await page.evaluate(() => {
     const b = window.__bb;
@@ -58,14 +58,14 @@ test("names are saved, cleaned and survive a reload", async ({ simPage: page }) 
   await page.reload();
   await page.waitForFunction(() => window.__bbReady === true);
   n = await page.evaluate(() => window.__bb.names);
-  expect(n).toEqual({ p1: "Игрок 1", p2: "Игрок 2", big: "Большой", bots: ["Тёма", "Маша", "Вася", "Соня"] });
+  expect(n).toEqual({ p1: "Игрок 1", p2: "Игрок 2", big: "Папа", bots: ["Тёма", "Маша", "Вася", "Соня"] });
   // partly wrong data → only the good fields are kept
   await page.evaluate(() => localStorage.setItem("bebebe-names", JSON.stringify({ p1: "Ana", big: 42, bots: "x" })));
   await page.reload();
   await page.waitForFunction(() => window.__bbReady === true);
   n = await page.evaluate(() => window.__bb.names);
   expect(n.p1).toBe("Ana");
-  expect(n.big).toBe("Большой");
+  expect(n.big).toBe("Папа");
   expect(n.bots).toEqual(["Тёма", "Маша", "Вася", "Соня"]);
 });
 
@@ -79,7 +79,7 @@ test("names can be typed in the wardrobe tab", async ({ page }) => {
   expect(await input.getAttribute("maxlength")).toBe("24");     // room for 12 emoji (2 UTF-16 units each); the save cuts to 12
   expect(await input.getAttribute("enterkeyhint")).toBe("done");
   expect(await input.getAttribute("autocapitalize")).toBe("words");
-  expect(await input.inputValue()).toBe("Big One");
+  expect(await input.inputValue()).toBe("Dad");
   const fs = await input.evaluate(el => parseFloat(getComputedStyle(el).fontSize));
   expect(fs).toBeGreaterThanOrEqual(16);
   const box = await input.boundingBox();                 // exactly over the label

@@ -38,7 +38,10 @@ function strictRng() { window.__bbStrictRng = true; }
 // SPEC-023: a run at below-normal priority on a busy machine can need longer than 30 s to load the game
 const READY_MS = process.env.PW_NICE === "0" ? 30_000 : 60_000;
 const withSim = (query, sim) => (sim ? query + (query.includes("?") ? "&" : "?") + "sim=1" : query);
-async function openGame(page, { lang = "en", clearStorage = true, query = "", sim = false } = {}) {
+// SPEC-022: the very first launch opens the start comic (mode "scene"); the tests start on the home screen instead — the init
+// script sets window.__bbNoIntro, which the game reads at start. `intro: true` = a real first launch (the first-launch test).
+function noIntro() { window.__bbNoIntro = true; }
+async function openGame(page, { lang = "en", clearStorage = true, query = "", sim = false, intro = false } = {}) {
   const errors = [];
   page.on("pageerror", e => errors.push(String(e)));
   page.on("console", m => { if (m.type() === "error") errors.push("console: " + m.text()); });
@@ -48,6 +51,7 @@ async function openGame(page, { lang = "en", clearStorage = true, query = "", si
     await route.fulfill({ path: file, contentType: "application/javascript", headers: { "Access-Control-Allow-Origin": "*" } });
   });
   await page.addInitScript(strictRng);
+  if (!intro) await page.addInitScript(noIntro);
   if (clearStorage) {
     await page.addInitScript(clearOnce, lang);
   }
@@ -80,12 +84,13 @@ async function routeThree(context) {
 
 // Like openGame(), but over http from scripts/serve.js (the webServer in playwright.config.js),
 // so the service worker and the manifest work. `query` is appended to the URL (e.g. "?standalone=1").
-async function openGameHttp(page, { lang = "en", query = "", clearStorage = true } = {}) {
+async function openGameHttp(page, { lang = "en", query = "", clearStorage = true, intro = false } = {}) {
   const errors = [];
   page.on("pageerror", e => errors.push(String(e)));
   page.on("console", m => { if (m.type() === "error") errors.push("console: " + m.text()); });
   await routeThree(page.context());
   await page.addInitScript(strictRng);
+  if (!intro) await page.addInitScript(noIntro);
   if (clearStorage) {
     await page.addInitScript(clearOnce, lang);
   }
