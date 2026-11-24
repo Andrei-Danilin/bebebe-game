@@ -92,6 +92,11 @@ test("home is minimal: the logo, language and sound, Play · Story · Character"
   expect(col[0].y < col[1].y && col[1].y < col[2].y, "Play, Story, Character from the top").toBe(true);
   expect(col[0].h, "Play is the big one").toBeGreaterThan(col[1].h);
   expect(d.home.paper, "paper buttons: green, pink, orange").toEqual(["btn_green", "btn_pink", "btn_orange"]);
+  // without art the code-drawn buttons have the same colours (hue of the fill: green 90–160°, pink 300–350°, orange 20–45°)
+  const hue = hex => { const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255), mx = Math.max(r, g, b), mn = Math.min(r, g, b), c = mx - mn;
+    const h = mx === r ? ((g - b) / c) % 6 : mx === g ? (b - r) / c + 2 : (r - g) / c + 4; return (h * 60 + 360) % 360; };
+  const [hp, hs, hc] = d.home.colors.map(hue);
+  expect([hp >= 90 && hp <= 160, hs >= 300 && hs <= 350, hc >= 20 && hc <= 45], `fallback colours ${d.home.colors}`).toEqual([true, true, true]);
   expect(btn("home:shop").text, "the Character button").toBe("🎒 Character");
   // the language and sound icons small, in the top right corner
   for (const id of ["home:lang", "home:sound"]) {
@@ -396,16 +401,20 @@ test("SPEC-026: Reset progress works from the Progress page and is gone from Ite
 // the Progress page fits with no scrolling: every text in its box and inside the screen, nothing on anything, the 3D window free
 async function progressProblems(page, phone, size) {
   const fails = [];
-  for (const lang of ["en", "es", "ru"]) for (const scale of [1, 1.15]) for (const rich of [false, true]) {
+  for (const lang of ["en", "es", "ru"]) for (const scale of phone ? [1, 1.15] : [1, 1.15, 1.3]) for (const rich of [false, true]) {   // desktop: ×1.3 too (CI fonts)
     await page.evaluate(([l, sc, r, save]) => {
       const b = window.__bb; b.setProgress(r ? save : null); b.setLang(l); b.CFG.TEXT_TEST_SCALE = sc;
       if (r) { b.progress.coins = 12345; Object.assign(b.progress.inv, { mittens: 12, mega: 10, kisses: 15, rescues: 11 }); }
       b.mode = "shop"; b.shopTab = "progress";
     }, [lang, scale, rich, MIXED]);
     await frames(page);
-    const d = await page.evaluate(() => { const b = window.__bb; return { buttons: b.buttonRects, hud: b.hudRects, ui: b.uiSize, texts: b.textSizes, min: b.CFG.PHONE_TEXT, previews: b.skinPanels(), info: b.progressInfo }; });
+    const d = await page.evaluate(() => { const b = window.__bb; return { buttons: b.buttonRects, hud: b.hudRects, ui: b.uiSize, texts: b.textSizes, min: b.CFG.PHONE_TEXT, previews: b.skinPanels(), info: b.progressInfo, names: b.I18N[document.documentElement.lang].worlds }; });
     const at = `${size} ${lang} ×${scale} ${rich ? "rich" : "fresh"}`;
     if (!d.info) { fails.push(`${at}: no Progress page`); continue; }
+    if (!phone) for (const w of ["park", "field", "city", "school", "beach", "winter"]) {   // the world names are shown whole (up to two lines)
+      const h = d.hud.find(q => q.id === "progress:name:" + w);
+      if (!h || h.text !== d.names[w]) fails.push(`${at}: world name ${w} "${h && h.text}"`);
+    }
     const need = ["progress:name", "progress:stars", "progress:worlds", "progress:bag", "progress:upgrades", "progress:wardrobe", "progress:clothes",
       ...["park", "field", "city", "school"].map(w => "progress:stars:" + w), "progress:bag:rescues", "progress:upg:quickHelp"];
     for (const id of need) if (!d.hud.some(h => h.id === id)) fails.push(`${at}: no ${id}`);

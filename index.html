@@ -289,14 +289,15 @@ const CFG = {
   // грани, к солнцу повёрнутые меньше side (cos), штрихуются — бока стен; повёрнутые к солнцу (0…side) — светлее (доля lit)
   HATCH_LOOK: { freq: 3, width: 0.32, dark: 0.3, side: 0.45, lit: 0.6 },
   // SPEC-017: как выглядят меню (главный экран, вкладка «Гардероб», карта уровней) — цвета и размеры в одном месте, под будущие рисунки.
-  // Цвета: карточка экрана и её контур, название, плашки (фон, контур, текст), закрытый бонус (текст, вуаль картинки), кнопки Играть /
-  // История (storyBtn; story ниже — размеры экрана истории) / Магазин,
+  // Цвета: карточка экрана и её контур, название, плашки (фон, контур, текст), закрытый бонус (текст, вуаль картинки), кнопки Играть
+  // (SPEC-026: зелёная и без картинок) / История (storyBtn, розовая; story ниже — размеры экрана истории) / Персонаж (shop),
   // значки языка и звука, кнопка «назад»; кнопки: стрелки (nav), «Готово» (ok), «2 игрока» (alt), вкладка выбрана / нет, тип уровня,
   // затемнение под карточкой, белые панели, «Друзья» и их заголовок, 🎲, сброс (обычный / «точно?»), подсказки, замок цены, тексты
-  // помельче, имя Большого. frame — карточка экрана меню на компьютере (ширина, верх, высота, скругление, поля, промежуток, высота кнопок).
+  // помельче, имя Большого. frame — карточка экрана меню на компьютере (ширина, верх, высота, скругление, поля, промежуток, высота кнопок,
+  // SPEC-026: ширина ряда вкладок персонажа — до монеток).
   // home — компьютер (UI px; SPEC-026: название и три кнопки столбиком по центру): карточка без картинки фона (ширина, верх, высота,
   // скругление), кегль названия без картинки логотипа, поле плашек (карта), промежуток значков, колонка кнопок (доля ширины экрана не
-  // больше, ширина), поля сверху и снизу, от логотипа до кнопок, между кнопками, Играть (высота, кегль), История и Персонаж (высота,
+  // больше, ширина), поля сверху и снизу, логотип не шире logoW колонки и logoBand ширины экрана (и на телефоне: середина экрана — AC 7), от логотипа до кнопок, между кнопками, Играть (высота, кегль), История и Персонаж (высота,
   // кегль), значки (ширина звука и языка, высота, кегль, отступ от края).
   // phoneHome — телефон (CSS px; SPEC-026 — та же раскладка): доля и предел ширины колонки кнопок, кегль названия без логотипа, поле
   // плашек (карта), от логотипа до кнопок, самый низкий логотип, Играть и остальные (высота, кегль), ширина значка языка.
@@ -313,11 +314,11 @@ const CFG = {
   // SPEC-020: цвета play / ok / storyBtn / shop / back / icon / nav / dice (и map.ring, PAPER.offBtn) — ещё и роли кнопок: по цвету
   // выбирается бумажная кнопка (PAPER_BTN у загрузчика картинок: зелёная, розовая, оранжевая, серая); новый цвет — рисунок кодом
   MENU_LOOK: { card: "rgba(255,250,235,.96)", cardLine: 5, title: "#ffcf33", pill: "#ffffff", pillLine: 3, ink: "#3d2b1f",
-    locked: "#e5e7eb", lockedInk: "#64748b", lockedVeil: "rgba(226,232,240,.7)", play: "#3b82f6", storyBtn: "#a78bfa", shop: "#f59e0b", icon: "#cbd5e1", back: "#64748b", hint: "#2563eb",
+    locked: "#e5e7eb", lockedInk: "#64748b", lockedVeil: "rgba(226,232,240,.7)", play: "#16a34a", storyBtn: "#ec4899", shop: "#f59e0b", icon: "#cbd5e1", back: "#64748b",
     nav: "#94a3b8", ok: "#22c55e", alt: "#22c55e", tabOn: "#f59e0b", tabOff: "#cbd5e1", type: "#7c3aed", dim: "rgba(20,30,25,.45)", panel: "#ffffff",
     friends: "#a78bfa", friendsTitle: "#8b5cf6", dice: "#fbbf24", reset: "#94a3b8", armed: "#ef4444", note: "#64748b", lockNote: "#b45309", soft: "#475569", bigInk: "#9b2c3a",
-    frame: { w: 880, y: 26, h: 590, r: 30, padX: 15, padY: 14, g: 10, B: 50 },
-    home: { w: 660, y: 40, h: 560, r: 30, titleSize: 54, pad: 14, gap: 12, col: 0.4, colW: 320, top: 24, logoGap: 26, btnGap: 14,
+    frame: { w: 880, y: 26, h: 590, r: 30, padX: 15, padY: 14, g: 10, B: 50, tabsW: 655 },
+    home: { w: 660, y: 40, h: 560, r: 30, titleSize: 54, pad: 14, gap: 12, col: 0.4, colW: 320, top: 24, logoGap: 26, btnGap: 14, logoW: 1.4, logoBand: 0.5,
       playH: 84, playSize: 34, subH: 62, subSize: 26, iconW: 56, langW: 92, iconH: 44, iconSize: 18, iconPad: 16 },
     phoneHome: { col: 0.4, colMax: 300, titleSize: 30, pad: 12, logoGap: 10, logoMin: 56, playH: 64, playSize: 26, subH: 52, subSize: 20, langW: 76 },
     wardrobe: { preview: 110, colBottom: 548, rowY: 558, rowH: 46 },
@@ -325,7 +326,7 @@ const CFG = {
     // над рядом «Готово»), ширина левой колонки (вид игрока и имя), промежуток колонок, доля остального под таблицу миров, окошко 3D-вида,
     // высоты: имя, строка итога (звёзды, миры), строка мира, заголовок, клетка вещи / улучшения; кегли: текст, заголовок; самый мелкий
     // текст, доля названия мира в строке (только компьютер); phone — то же на телефоне (CSS px; без верха и низа — под полосой вкладок)
-    progress: { top: 92, bottom: 528, left: 200, gap: 16, mid: 0.64, pv: 190, nameH: 32, sumH: 34, rowH: 46, titleH: 30, cellH: 46, text: 19, title: 19, min: 12, name: 0.46,
+    progress: { top: 92, bottom: 528, left: 200, gap: 16, mid: 0.64, pv: 190, nameH: 32, sumH: 34, rowH: 46, titleH: 30, cellH: 46, text: 19, title: 19, min: 12, name: 0.4,
       phone: { left: 112, gap: 12, mid: 0.54, pv: 104, nameH: 24, sumH: 24, rowH: 30, titleH: 22, cellH: 32, text: 15, title: 15 } },
     map: { cols: 5, stop: 62, phoneStop: 46, boss: 1.22, starRow: 0.3, tabH: 52, backW: 140, coinsW: 150, phoneCoins: 88, titleH: 38, phoneTitleH: 30,
       bounce: 4, bounceSpeed: 5, swipe: 50, toastTime: 2.5, toastRows: 2, toastLine: 1.1, toastPadY: 0.3, dotW: 4, dash: 2, dashGap: 9, path: "rgba(255,255,255,.9)", pageR: 18, ringPad: 5, ringW: 4, badgeMin: 11,
@@ -337,7 +338,7 @@ const CFG = {
     // телефоне (картинка слева, подпись справа), ширина кнопок на компьютере, кегль «Спасибо!».
     // SPEC-026: облачка комикса для слов папы (STORY[0].bubbles) — [x, y, w, h, кончик хвостика x, y], доли всей картинки 8_start
     // (1024×765; белое внутри облачка без хвостика, промерено по картинке), по клетке; какая часть облачка под текстом (ширина, высота:
-    // облачко круглое), строк не больше, самый мелкий текст на компьютере (как у подписи; телефон — PHONE_TEXT.main), цвет букв;
+    // облачко круглое), строк не больше, шаг строк (в кеглях), самый мелкий текст на компьютере (как у подписи; телефон — PHONE_TEXT.main), цвет букв;
     // своё облачко, когда слова не влезли: какая его часть под текстом (ширина, высота), во сколько раз больше нарисованного
     // облачка самое меньшее (закрывает его), не шире доли клетки, отступ от края клетки (UI px компьютера), длина хвостика (доля
     // высоты облачка), неровность контура (доля радиуса), «квадратность» (степень суперэллипса: 2 — эллипс, больше — ближе к
@@ -346,7 +347,7 @@ const CFG = {
       phonePic: 0.6, btnW: 220, thanks: 46, phoneThanks: 30, madeBy: 24, phoneMadeBy: 18, cupcake: 0.42,
       bubbles: [[255 / 1024, 28 / 765, 177 / 1024, 87 / 765, 270 / 1024, 136 / 765], [785 / 1024, 43 / 765, 155 / 1024, 87 / 765, 867 / 1024, 150 / 765],
         [132 / 1024, 412 / 765, 113 / 1024, 78 / 765, 241 / 1024, 502 / 765], [633 / 1024, 396 / 765, 176 / 1024, 84 / 765, 664 / 1024, 516 / 765]],
-      bubbleIn: [0.84, 0.72], bubbleLines: 2, bubbleMin: 14, bubbleInk: "#1b1b1b", ownIn: [0.86, 0.7], ownCover: 1.08, ownMax: 1, ownEdge: 4, ownTail: 0.42, ownWobble: 0.03, ownRound: 3, ownLine: 3 },
+      bubbleIn: [0.84, 0.72], bubbleLines: 2, bubbleLh: 1.15, bubbleMin: 14, bubbleInk: "#1b1b1b", ownIn: [0.86, 0.7], ownCover: 1.08, ownMax: 1, ownEdge: 4, ownTail: 0.42, ownWobble: 0.03, ownRound: 3, ownLine: 3 },
     story: { pic: 0.47, text: 22, phoneText: 18, rule: 17, phoneRule: 15, dot: 6, paper: "#fffdf5", pencil: "#94a3b8", heart: "#f9a8d4", backW: 170, icon: 30 } },
   // типы уровней внутри каждого мира (SPEC-006): 1 — рисунок детей, 2–4 поляна, 5–7 деревня, 8–10 река,
   // 11–13 дом с комнатами, 14–16 арена, 17–20 лабиринт; число записей = уровней в мире
@@ -2480,8 +2481,8 @@ const inWardrobe = () => mode === "shop" && shopTab === "wardrobe";
 function setShopTab(k) { if (!SHOP_TABS.includes(k)) return; closeNameInput(true); shopTab = k; wardrobePage = "looks"; resetArmed = false; }
 // ←/→ и крестовина: вкладки по кругу
 const switchShopTab = (d = 1) => setShopTab(SHOP_TABS[(SHOP_TABS.indexOf(shopTab) + d + SHOP_TABS.length) % SHOP_TABS.length]);
-// SPEC-026: с главного (кнопка «Персонаж») — на «Прогресс»; отовсюду ещё (победа, проигрыш) — на «Вещи», как раньше
-function openShop(back = "home") { mode = "shop"; shopTab = back === "home" ? "progress" : "items"; wardrobePage = "looks"; shopBack = back; resetArmed = false; }
+// SPEC-026: tab — с какой вкладки: с главного (кнопка «Персонаж») — «Прогресс»; отовсюду ещё (победа, проигрыш) — «Вещи», как раньше
+function openShop(back = "home", tab = "items") { mode = "shop"; shopTab = SHOP_TABS.includes(tab) ? tab : "items"; wardrobePage = "looks"; shopBack = back; resetArmed = false; }
 function closeShop() { closeNameInput(true); if (shopBack === "map") { mapSel = null; mode = "map"; } else mode = "home"; }
 function openFriends() { closeNameInput(true); wardrobePage = "friends"; }
 function backToWardrobe() { closeNameInput(true); wardrobePage = "looks"; }
@@ -5140,7 +5141,7 @@ function drawStory() {
 // строки текста облачка: кегль от size до min (шаг 0,5), не больше lines строк, не шире maxW и не выше maxH (× TEXT_TEST_SCALE);
 // → { rows, sz, w, h, fit } (fit = false: не влезло и самым мелким — тогда строки самым мелким, их может быть больше lines)
 function bubbleRows(text, maxW, maxH, size, min, lines) {
-  const lh = 1.15;
+  const lh = CFG.MENU_LOOK.scene.bubbleLh;
   for (let sz = size; ; sz = Math.max(min, sz - 0.5)) {
     ctx.font = `800 ${sz}px system-ui, "Segoe UI", sans-serif`;
     const rows = [];
@@ -5201,8 +5202,10 @@ function drawBubbles(list, cr, ix, iy, iw, ih) {
     }
     // строки по центру облачка
     const lh = b.sz * b.lh, top = cy - b.h / 2;
+    ctx.save();
     ctx.font = `800 ${b.sz}px system-ui, "Segoe UI", sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = S.bubbleInk;
     b.rows.forEach((r, j) => ctx.fillText(r, cx, top + lh * (j + 0.5)));
+    ctx.restore();
     if (PHONE) noteText("main", b.sz);
     out.push({ i, text, x: cx - b.w / 2, y: top, w: b.w, h: b.h, size: b.sz, rows: b.rows.length, own: !!bubble, bubble, panel });
   }
@@ -5598,7 +5601,7 @@ const homeActions = () => {
   return [
     { id: "home:play", icon: "ui_play", emoji: "▶ ", text: L().play, color: M.play, act: openMap, keys: ["Enter", "NumpadEnter", "Space"], pad: [0, 9] },
     { id: "home:story", icon: "ui_story", emoji: "📖 ", text: L().story, color: M.storyBtn, act: () => openStory(), keys: ["KeyS"], pad: [2] },
-    { id: "home:shop", icon: "ui_bag", emoji: "🎒 ", text: L().character, color: M.shop, act: () => openShop(), keys: ["KeyB"], pad: [3] }
+    { id: "home:shop", icon: "ui_bag", emoji: "🎒 ", text: L().character, color: M.shop, act: () => openShop("home", "progress"), keys: ["KeyB"], pad: [3] }
   ];
 };
 // маленькие значки звука (справа, w × h) и языка (слева от него, langW × h); x1 — правый край.
@@ -5638,17 +5641,18 @@ function drawHome() {
   if (logo && need() > room) lh = Math.max(PHONE ? c(H.logoMin) : D.titleSize, lh - (need() - room));
   if (need() > room) subH = Math.max(minH, subH - (need() - room) / (acts.length - 1));
   if (need() > room) playH = Math.max(minH, playH - (need() - room));
-  if (logo) lh = Math.min(lh, colW * 1.4 / ratio);                         // логотип не шире колонки с запасом
+  const titleW = Math.min(colW * D.logoW, UW * D.logoBand);               // логотип не шире колонки с запасом и середины экрана
+  if (logo) lh = Math.min(lh, titleW / ratio);
   let y = top + Math.max(0, (room - need()) / 2);
   if (logo) {                                                              // SPEC-020: нарисованное название
     const lw = lh * ratio;
     drawArt("logo", UW / 2 - lw / 2, y, lw, lh);
     hudRects.push({ id: "home:title", x: UW / 2 - lw / 2, y, w: lw, h: lh, text: "BeBeBe Atrapar" });
   } else {
-    const sz = PHONE ? pLabel("BeBeBe Atrapar", UW / 2, y + lh / 2, "title", H.titleSize, M.title, "center", colW * 1.4)
-      : labelFit("BeBeBe Atrapar", UW / 2, y + lh / 2, D.titleSize, colW * 1.4, M.title, "center", 24);
+    const sz = PHONE ? pLabel("BeBeBe Atrapar", UW / 2, y + lh / 2, "title", H.titleSize, M.title, "center", titleW)
+      : labelFit("BeBeBe Atrapar", UW / 2, y + lh / 2, D.titleSize, titleW, M.title, "center", 24);
     ctx.font = hudFont(sz);
-    const tw = Math.min(colW * 1.4, ctx.measureText("BeBeBe Atrapar").width);
+    const tw = Math.min(titleW, ctx.measureText("BeBeBe Atrapar").width);
     hudRects.push({ id: "home:title", x: UW / 2 - tw / 2, y: y + lh / 2 - sz * 0.6, w: tw, h: sz * 1.2, text: "BeBeBe Atrapar" });
   }
   y += lh + c(H.logoGap);
@@ -5659,7 +5663,7 @@ function drawHome() {
       fitButton(x, y, colW, h, a.emoji + a.text, a.color, a.act, size, min).id = a.id;
     y += h + gap;
   });
-  homeInfo = { bg, col: { x, w: colW }, paper: acts.map(a => PAPER_BTN[a.color]) };
+  homeInfo = { bg, col: { x, w: colW }, paper: acts.map(a => PAPER_BTN[a.color]), colors: acts.map(a => a.color) };
 }
 
 // ---------- SPEC-026: персонаж — страница «Прогресс» (только смотреть; раскладка — Claude): вид и имя игрока 1, звёзды и пройденные
@@ -5736,7 +5740,13 @@ function progressPage() {
     ctx.globalAlpha = 1;
     hudRects.push({ id: "progress:icon:" + w, x: mid.x + (iconW - is) / 2, y: cy - is / 2, w: is, h: is });
     let x = mid.x + iconW + c(4);
-    if (nameW) { line("progress:name:" + w, L().worlds[w], x, rowY, rowH, nameW - c(6), { color: open ? M.ink : M.lockedInk }); x += nameW; }
+    if (nameW) {                                             // название мира: до двух строк (длинные названия, широкие шрифты CI)
+      const nb = noteRows(L().worlds[w], size, min, nameW - c(6), 2), lh = nb.sz * 1.2, ny = cy - nb.rows.length * lh / 2;
+      ctx.font = `800 ${nb.sz}px system-ui, "Segoe UI", sans-serif`; ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.fillStyle = open ? M.ink : M.lockedInk;
+      nb.rows.forEach((r, j) => ctx.fillText(r, x, ny + lh * (j + 0.5)));
+      hudRects.push({ id: "progress:name:" + w, x, y: ny, w: nb.w, h: nb.rows.length * lh, text: nb.rows.join(" "), textW: nb.w });
+      x += nameW;
+    }
     if (open) {
       line("progress:stars:" + w, `${stars}/${wmax}`, x, rowY, rowH, colW - c(4), { pic: star });
       line("progress:levels:" + w, `🏁 ${wins}/${levelsPerWorld()}`, x + colW, rowY, rowH, colW - c(4));
@@ -6060,7 +6070,7 @@ function drawOverlay() {
     if (mode === "levelCard") { buttons = []; hudRects = []; drawLevelCard(); }   // под карточкой карта не нажимается
   } else if (mode === "shop") {
     menuFrame();
-    shopTabs(UW / 2 - 420, 41, 46, 20, 12, 10, true, 655);   // SPEC-009: вкладки на месте заголовка (SPEC-017: три; SPEC-026: четыре — до монеток)
+    shopTabs(UW / 2 - 420, 41, 46, 20, 12, 10, true, CFG.MENU_LOOK.frame.tabsW);   // SPEC-009: вкладки на месте заголовка (SPEC-017: три; SPEC-026: четыре — до монеток)
     coinPlate(UW / 2 + 250, 46, 150, 38);
     if (shopTab === "progress") progressPage();
     else if (shopTab === "upgrades") upgradeCardsDesktop();

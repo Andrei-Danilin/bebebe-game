@@ -217,3 +217,4 @@ One line each: what, where it came from. The spec author turns a line into a spe
 - SPEC-026, decided during the run: the win scale is applied to each reward line on its own and rounded (the level line, then the new-star line), so the win-screen lines still add up; Math.round after `toFixed(6)` (45 × 0.7 = 31.5 → 32, not 31).
 - SPEC-026, decided during the run: on a narrow phone the four Character tabs don't fit as text (Russian, Spanish): the selected tab keeps its text, the others show only their picture. Another tab disarms an armed "Reset progress".
 - SPEC-026, decided during the run: the Story picture's ▶ (watch the scene again) moved to the picture's bottom-right corner (the top-right corner held panel 2's bubble); the game's own bubble is at least as big as the drawn one, so no empty bubble peeks out.
+- SPEC-026 review: the comic bubble text fit (`bubbleRows`) is measured every frame — cache it per language / size (perf), Claude.
