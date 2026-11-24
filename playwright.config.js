@@ -16,7 +16,10 @@ module.exports = defineConfig({
   globalSetup: require.resolve("./tests/global-setup.js"),
   timeout: 90_000,
   expect: { timeout: 10_000 },
-  fullyParallel: false,
+  // SPEC-023: on CI the suite runs in 4 shards (tests.yml). Without fullyParallel Playwright shards by whole files, and the
+  // shards took 0.3–7.7 min (phone/gameplay in one); with it each shard gets a quarter of the tests, still in file order
+  // with one worker, so the shared pages work as locally. Locally nothing changes (one worker, no shards).
+  fullyParallel: !!process.env.CI,
   workers: 1,
   retries: 0,
   reporter: [["list"]],
