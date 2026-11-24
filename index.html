@@ -237,15 +237,18 @@ const CFG = {
   // грани, к солнцу повёрнутые меньше side (cos), штрихуются — бока стен; повёрнутые к солнцу (0…side) — светлее (доля lit)
   // SPEC-021: маленькие как в art/6_personas — голова больше (масштаб группы головы: причёски и шапки растут с ней) и её высота;
   // глаза-точки (доля радиуса головы), румянец (цвет, доля радиуса), улыбка (радиус и толщина, доли радиуса)
+  // SPEC-021: конус взгляда Большого: смотрит / гонится / спокоен — цвет и прозрачность (до SPEC-021 жёлтый был #fff05a)
+  CONE_LOOK: { look: "#ffd92e", lookA: 0.42, chase: "#ff4632", chaseA: 0.34, calm: "#d4dcff", calmA: 0.22 },
   KID_LOOK: { head: 1.25, headY: 1.04, eye: 0.11, cheek: "#ff8aa5", cheekR: 0.16, smile: 0.15, smileW: 0.035 },
-  // SPEC-021: домики (art/15_houses). Крыша: высота конька, свес, боковые скаты темнее (доля цвета), сугробиков на крыше (Зима);
+  // SPEC-021: домики (art/15_houses). У домика маленьких крыша, пока не погасла, светится зелёным (glow, сила glowK) — как пол
+  // безопасного дома: его всегда видно. Крыша: высота конька, свес, боковые скаты темнее (доля цвета), сугробиков на крыше (Зима);
   // прозрачность «кто-то внутри», за сколько сек гаснет / проявляется,
   // на сколько клеток рамка «внутри» шире к дальней стороне (крыша не прячет стоящих за домом) и рядом для игрока.
   // kid — домик маленьких: крыша, труба, двери (створки снаружи), сердечко, цветы. big — грязный домик папы: крыша (кривизна, рад),
   // заплатки, труба, пятна грязи (сколько на стену), бельё, мусорный бак и мусор, «вонючие» линии, коробки пиццы, игрушки, грязь на земле
   HOUSE_LOOK: { roofH: 1.3, eave: 0.2, side: 0.72, snowN: 9, faded: 0.1, fade: 0.25, behind: 1.5, near: 1.5,
-    kid: { roof: "#3f86d1", plank: "#2f6db0", planks: 7, chimney: "#9fd3f5", door: "#4a90d9", heart: "#ff7eb3", mat: 0.22, flowers: ["#f472b6", "#facc15", "#ffffff", "#c084fc"], flowerN: 6, leaf: "#3f8a24" },
-    big: { roof: "#7b5b49", crook: 0.08, patches: ["#8fa3b8", "#d6c49a", "#a8805e"], chimney: "#b5483a", mud: "#6b4a2b", stains: 4, sock: "#e5e7eb", sockToe: "#9ca3af",
+    kid: { glow: "#4ade80", glowK: 0.35, roof: "#3f86d1", plank: "#2f6db0", planks: 7, chimney: "#9fd3f5", door: "#4a90d9", heart: "#ff7eb3", mat: 0.22, flowers: ["#f472b6", "#facc15", "#ffffff", "#c084fc"], flowerN: 6, leaf: "#3f8a24" },
+    big: { roof: "#7b5b49", crook: 0.08, patches: ["#8fa3b8", "#5e4434", "#9a8a62"], chimney: "#b5483a", mud: "#6b4a2b", stains: 4, sock: "#e5e7eb", sockToe: "#9ca3af",
       shirt: "#cbd5e1", line: "#5b4636", bin: "#8a939b", trash: ["#65a30d", "#a16207", "#64748b", "#f59e0b", "#ef4444"], stink: "#7c9a5a", stinkN: 3,
       pizza: "#e8c48f", pizzaTop: "#f97316", toyCar: "#3b82f6", tyre: "#1f2937", bone: "#f5f5f4", ground: "rgba(107,74,43,.55)", groundN: 26 } },
   HATCH_LOOK: { freq: 3, width: 0.32, dark: 0.3, side: 0.45, lit: 0.6 },
@@ -1894,14 +1897,21 @@ const BIG_SKINS = [
 const DEFAULT_SKINS = { p1: { hair: 0, hat: 1, jacket: 0, pants: 0 }, p2: { hair: 1, hat: 4, jacket: 1, pants: 3 }, big: BIG_SKINS.findIndex(q => q.id === "dad") };   // SPEC-021: папа
 const cloneSkins = o => ({ p1: { ...o.p1 }, p2: { ...o.p2 }, big: o.big });
 let skinSel = cloneSkins(DEFAULT_SKINS);
+// SPEC-021: v — версия формы bebebe-outfits. В сохранении без неё (до SPEC-021) big: 0 — почти всегда «не выбирал» (Классика была
+// образом по умолчанию), поэтому такой Большой становится папой; другие номера остаются. Выбранная после этого Классика
+// сохраняется уже с v и остаётся Классикой
+const OUTFITS_V = 2;
 try {
   const sv = JSON.parse(localStorage.getItem("bebebe-outfits") || "null");
-  if (sv && sv.p1 && sv.p2) skinSel = sv;
+  if (sv && sv.p1 && sv.p2) {
+    skinSel = sv;
+    if (!(Number(sv.v) >= OUTFITS_V) && (Number(sv.big) || 0) === 0) skinSel.big = DEFAULT_SKINS.big;
+  }
 } catch (e) { /* ok */ }   // старый ключ bebebe-place больше не читается: место уровня — его мир (SPEC-006)
 for (const pk of ["p1", "p2"]) for (const k of Object.keys(SLOTS)) skinSel[pk][k] = clamp(skinSel[pk][k] | 0, 0, SLOTS[k].length - 1);
 skinSel.big = clamp(skinSel.big | 0, 0, BIG_SKINS.length - 1);
 let skinKeep = cloneSkins(skinSel);   // после загрузки прогресса надетое становится своим (adoptWorn)
-const saveSkins = () => { try { localStorage.setItem("bebebe-outfits", JSON.stringify(skinKeep)); } catch (e) { /* ok */ } };
+const saveSkins = () => { try { localStorage.setItem("bebebe-outfits", JSON.stringify({ ...skinKeep, v: OUTFITS_V })); } catch (e) { /* ok */ } };
 // гардероб (SPEC-009): купленное — в progress.owned по id; ключ списка для слота; бесплатное (price 0, причёски) — всегда своё
 const OWN_KEY = { hat: "hats", jacket: "jackets", pants: "pants", big: "big" };
 const LOOK_SLOTS = ["hat", "jacket", "pants"];   // платные слоты маленьких (причёски бесплатные)
@@ -6624,18 +6634,19 @@ function dressHouses(place) {
     const K = H.kid, { doors } = houseDoors("home", KR), roof = houseRoof(KR, K.roof, place, 0);
     const cm = ownMat(K.chimney, true), chim = roof.add(part(new THREE.BoxGeometry(0.34, 0.6, 0.34), "", 0.02, cm), cm), cs = slopeAt(roof, 0.62, roof.len / 5);
     chim.position.set(cs.x, cs.y + 0.22, cs.z);
-    const pm = ownMat(K.plank, true);
-    for (let i = 1; i < K.planks; i++) {                  // полосы листов крыши (как в art/15_houses) — вдоль ската
-      const s0 = slopeAt(roof, 0.42, (i / K.planks - 0.5) * (roof.len - 0.6)), pl = roof.add(new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.012, roof.span * 0.52), pm), pm);
-      pl.position.set(s0.x, s0.y, s0.z); pl.rotation.x = s0.rx;
+    const pm = ownMat(K.plank, true), planks = roof.add(new THREE.InstancedMesh(new THREE.BoxGeometry(0.035, 0.012, roof.span * 0.52), pm, K.planks - 1), pm);
+    const pMtx = new THREE.Matrix4(), pRot = new THREE.Matrix4();
+    for (let i = 1; i < K.planks; i++) {                  // полосы листов крыши (как в art/15_houses) — вдоль ската, один InstancedMesh
+      const s0 = slopeAt(roof, 0.42, (i / K.planks - 0.5) * (roof.len - 0.6));
+      planks.setMatrixAt(i - 1, pMtx.makeTranslation(s0.x, s0.y, s0.z).multiply(pRot.makeRotationX(s0.rx)));
     }
     mapGroup.add(roof.g);
-    const fade = addRoofFade(KR, roof);
+    const fade = addRoofFade(KR, roof); fade.glow = true;
     let hearts = 0;
     for (const d of doors) for (const k of [-1, 1]) {      // створки открыты к стене, снаружи, по бокам двери
       const off = d.len / 2 + 0.48, px = d.x + d.tx * off * k + d.nx * 0.53, pz = d.z + d.tz * off * k + d.nz * 0.53;
       if (px < 0 || pz < 0 || px > COLS || pz > ROWS) continue;
-      const leaf = faceTo(part(new THREE.BoxGeometry(0.9, 0.66, 0.05), K.door, 0.015), d); leaf.position.set(px, 0.36, pz); mapGroup.add(leaf);
+      const leaf = faceTo(part(new THREE.BoxGeometry(0.9, 0.66, 0.05), K.door, 0.015), d); leaf.position.set(px, 0.36, pz); leaf.castShadow = false; mapGroup.add(leaf);
       const ht = faceTo(new THREE.Mesh(heartGeo(0.11), toon(K.heart)), d); ht.position.set(px + d.nx * 0.03, 0.42, pz + d.nz * 0.03); mapGroup.add(ht); hearts++;
     }
     for (const d of doors) {                               // коврик-сердечко у каждой двери снаружи — его видно и сверху, под крышей
@@ -6645,18 +6656,25 @@ function dressHouses(place) {
     // цветы — у стены, которая смотрит внутрь карты (лучше всего — к камере)
     const side = [[0, 1], [0, -1], [1, 0], [-1, 0]].find(([nx, nz]) => nz > 0 ? KR.y + KR.h < ROWS - 0.5 : nz < 0 ? KR.y > 0.5 : nx > 0 ? KR.x + KR.w < COLS - 0.5 : KR.x > 0.5);
     let flowers = 0;
+    const fls = [];
     if (side) {
       const [nx, nz] = side, n = nz ? KR.w : KR.h;
       for (let i = 0; i < K.flowerN; i++) {
         const t = 0.4 + rnd() * (n - 0.8), x = nz ? KR.x + t : nx > 0 ? KR.x + KR.w + 0.2 : KR.x - 0.2, z = nz ? (nz > 0 ? KR.y + KR.h + 0.2 : KR.y - 0.2) : KR.y + t;
         if (doors.some(d => d.nx === nx && d.nz === nz && Math.abs(nz ? x - d.x : z - d.z) < d.len / 2 + 0.2)) continue;
-        const fl = new THREE.Group(); fl.position.set(x, 0, z);
-        const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.18, 4), toon(K.leaf)); stem.position.y = 0.09; fl.add(stem);
-        const c = K.flowers[i % K.flowers.length];
-        for (let p = 0; p < 5; p++) { const pt = part(sphere(0.04, 6, 5), c, 0.008); pt.position.set(Math.cos(p * TAU / 5) * 0.05, 0.2, Math.sin(p * TAU / 5) * 0.05); fl.add(pt); }
-        const mid = new THREE.Mesh(sphere(0.03, 6, 5), toon("#fde047")); mid.position.y = 0.21; fl.add(mid);
-        mapGroup.add(fl); flowers++;
+        fls.push({ x, z, c: K.flowers[i % K.flowers.length] }); flowers++;
       }
+    }
+    if (fls.length) {                                      // цветы — три InstancedMesh (стебли, лепестки своим цветом, серединки): три вызова на все
+      const mtx = new THREE.Matrix4(), col = new THREE.Color();
+      const stems = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.012, 0.012, 0.18, 4), toon(K.leaf), fls.length);
+      const mids = new THREE.InstancedMesh(sphere(0.03, 6, 5), toon("#fde047"), fls.length);
+      const petals = new THREE.InstancedMesh(sphere(0.045, 6, 5), toon("#ffffff"), fls.length * 5);
+      fls.forEach((f, i) => {
+        stems.setMatrixAt(i, mtx.makeTranslation(f.x, 0.09, f.z)); mids.setMatrixAt(i, mtx.makeTranslation(f.x, 0.21, f.z));
+        for (let p = 0; p < 5; p++) { petals.setMatrixAt(i * 5 + p, mtx.makeTranslation(f.x + Math.cos(p * TAU / 5) * 0.05, 0.2, f.z + Math.sin(p * TAU / 5) * 0.05)); petals.setColorAt(i * 5 + p, col.set(f.c)); }
+      });
+      mapGroup.add(stems, mids, petals);
     }
     info.kid = { roof: true, hearts, flowers, fade };
     if (THEMES[place].snow) info.snow++;
@@ -6666,9 +6684,9 @@ function dressHouses(place) {
   if (BR) {
     const B = H.big, { doors, wallAt } = houseDoors("bighome", BR), roof = houseRoof(BR, B.roof, place, B.crook);
     let patches = 0;
-    for (let i = 0; i < 3; i++) {                          // заплатки на переднем скате
-      const s = slopeAt(roof, 0.25 + rnd() * 0.45, (rnd() - 0.5) * (BR.w - 1.2)), pm = ownMat(B.patches[i % B.patches.length], true);
-      const p = roof.add(part(new THREE.BoxGeometry(0.5 + rnd() * 0.3, 0.02, 0.36 + rnd() * 0.2), "", 0.012, pm), pm);
+    for (let i = 0; i < 3; i++) {                          // заплатки на переднем скате — плоские, вразброс вдоль ската
+      const s = slopeAt(roof, 0.15 + rnd() * 0.35, ((i + 0.5) / 3 - 0.5) * (roof.len - 1.6) + (rnd() - 0.5) * 0.4), pm = ownMat(B.patches[i % B.patches.length], true);
+      const p = roof.add(part(new THREE.BoxGeometry(0.7 + rnd() * 0.35, 0.008, 0.5 + rnd() * 0.25), "", 0.008, pm), pm);
       p.position.set(s.x, s.y, s.z); p.rotation.set(s.rx, (rnd() - 0.5) * 0.5, 0); patches++;
     }
     const cm = ownMat(B.chimney, true), chim = roof.add(part(new THREE.BoxGeometry(0.4, 0.7, 0.4), "", 0.02, cm), cm), cs = slopeAt(roof, 0.6, -roof.len / 5);
@@ -6677,30 +6695,36 @@ function dressHouses(place) {
     const fade = addRoofFade(BR, roof);
     // пятна грязи на стенах, которые видно (не задней): плоские кляксы у земли
     let stains = 0;
+    const stainM = [], sMtx = new THREE.Matrix4(), sQ = new THREE.Quaternion(), sE = new THREE.Euler(), sP = new THREE.Vector3(), sS = new THREE.Vector3();
     for (const [nx, nz] of [[0, 1], [-1, 0], [1, 0]]) {
       const n = nz ? BR.w : BR.h;
       for (let i = 0; i < B.stains; i++) {
         const t = 0.3 + rnd() * (n - 0.6), cx = nz ? BR.x + t : nx > 0 ? BR.x + BR.w - 0.5 : BR.x + 0.5, cz = nz ? BR.y + BR.h - 0.5 : BR.y + t;
         if (!wallAt(Math.floor(cx), Math.floor(cz))) continue;
-        const st = new THREE.Mesh(new THREE.CircleGeometry(0.1 + rnd() * 0.14, 9), toon(B.mud)); st.scale.y = 0.6 + rnd() * 0.6;
-        st.rotation.y = Math.atan2(nx, nz); st.position.set(cx + nx * 0.512, 0.08 + rnd() * 0.32, cz + nz * 0.512); mapGroup.add(st); stains++;
+        const rr0 = 0.1 + rnd() * 0.14;
+        sS.set(rr0, rr0 * (0.6 + rnd() * 0.6), 1); sQ.setFromEuler(sE.set(0, Math.atan2(nx, nz), 0)); sP.set(cx + nx * 0.512, 0.08 + rnd() * 0.32, cz + nz * 0.512);
+        stainM.push(sMtx.compose(sP, sQ, sS).clone()); stains++;
       }
+    }
+    if (stainM.length) {                                   // пятна грязи — один InstancedMesh
+      const inst = new THREE.InstancedMesh(new THREE.CircleGeometry(1, 9), toon(B.mud), stainM.length);
+      stainM.forEach((m, i) => inst.setMatrixAt(i, m)); mapGroup.add(inst);
     }
     // у дверей снаружи: d0 — бак (с одной стороны) и пицца (с другой); d1 — бельё на верёвке и игрушки
     doors.sort((p, q) => Math.abs(q.nx) - Math.abs(p.nx) || q.nz - p.nz);   // сначала боковая дверь (её видно), потом нижняя, верхняя
     const d0 = doors[0], d1 = doors[1] || doors[0], at = (d, off, out) => ({ x: d.x + d.tx * off + d.nx * out, z: d.z + d.tz * off + d.nz * out });
-    const items = { bin: false, stink: 0, pizza: 0, toys: 0, laundry: [] };
+    const items = { bin: false, stink: 0, pizza: 0, toys: 0, laundry: [] }, props = [];
     if (d0) {
       const p = at(d0, d0.len / 2 + 0.75, 0.95), g = new THREE.Group(); g.position.set(p.x, 0, p.z); mapGroup.add(g);
       const bin = part(new THREE.CylinderGeometry(0.22, 0.18, 0.5, 12), B.bin, 0.02); bin.position.y = 0.25; g.add(bin); items.bin = true;
       const lid = part(new THREE.CylinderGeometry(0.24, 0.24, 0.04, 12), B.bin, 0.012); lid.position.set(0.18, 0.5, 0.05); lid.rotation.z = -0.9; g.add(lid);
-      for (let i = 0; i < 6; i++) { const tr = part(sphere(0.07 + rnd() * 0.04, 8, 6), B.trash[i % B.trash.length], 0.012); tr.position.set((rnd() - 0.5) * 0.24, 0.52 + rnd() * 0.12, (rnd() - 0.5) * 0.24); g.add(tr); }
+      for (let i = 0; i < 6; i++) { const tr = new THREE.Mesh(sphere(0.07 + rnd() * 0.04, 8, 6), toon(B.trash[i % B.trash.length])); tr.position.set((rnd() - 0.5) * 0.24, 0.52 + rnd() * 0.12, (rnd() - 0.5) * 0.24); g.add(tr); }
       for (let i = 0; i < B.stinkN; i++) {                 // «вонючие» волнистые линии над баком (без мух)
         const pts = [];
         for (let k = 0; k <= 6; k++) pts.push(new THREE.Vector3((i - 1) * 0.16 + Math.sin(k * 1.3 + i) * 0.05, 0.75 + k * 0.08, 0));
         g.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 16, 0.016, 4), toon(B.stink))); items.stink++;
       }
-      const q = at(d0, -(d0.len / 2 + 0.75), 0.95), pz = new THREE.Group(); pz.position.set(q.x, 0, q.z); pz.rotation.y = rnd() * 0.6; mapGroup.add(pz);
+      const q = at(d0, -(d0.len / 2 + 0.75), 0.95), pz = new THREE.Group(); pz.position.set(q.x, 0, q.z); pz.rotation.y = rnd() * 0.6; mapGroup.add(pz); props.push(pz);
       for (let i = 0; i < 2; i++) { const bx = part(new THREE.BoxGeometry(0.42, 0.05, 0.42), B.pizza, 0.012); bx.position.set(0, 0.03 + i * 0.055, 0); bx.rotation.y = i * 0.25; pz.add(bx); items.pizza++; }
       const open = new THREE.Group(); open.position.set(0.5, 0, 0.1); pz.add(open);
       const base = part(new THREE.BoxGeometry(0.42, 0.04, 0.42), B.pizza, 0.012); base.position.y = 0.02; open.add(base); items.pizza++;
@@ -6708,7 +6732,7 @@ function dressHouses(place) {
       const lidP = part(new THREE.BoxGeometry(0.42, 0.04, 0.42), B.pizza, 0.012); lidP.position.set(0, 0.2, -0.22); lidP.rotation.x = -1.2; open.add(lidP);
     }
     if (d1) {
-      const a = at(d1, d1.len / 2 + 0.2, 0.7), b = at(d1, d1.len / 2 + 1.8, 0.7), lg = new THREE.Group(); mapGroup.add(lg);
+      const a = at(d1, d1.len / 2 + 0.2, 0.7), b = at(d1, d1.len / 2 + 1.8, 0.7), lg = new THREE.Group(); mapGroup.add(lg); props.push(lg);
       for (const p of [a, b]) { const post = part(new THREE.CylinderGeometry(0.03, 0.03, 0.8, 5), B.line, 0.01); post.position.set(p.x, 0.4, p.z); lg.add(post); }
       const lineLen = Math.hypot(b.x - a.x, b.z - a.z), line = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, lineLen, 4), toon(B.line));
       line.position.set((a.x + b.x) / 2, 0.76, (a.z + b.z) / 2); line.rotation.order = "YXZ"; line.rotation.set(Math.PI / 2, Math.atan2(b.x - a.x, b.z - a.z), 0); lg.add(line);
@@ -6719,16 +6743,17 @@ function dressHouses(place) {
       const c = on(0.68), shirt = new THREE.Group(); shirt.position.set(c.x, 0.56, c.z); shirt.rotation.y = ry; lg.add(shirt);
       shirt.add(part(new THREE.BoxGeometry(0.28, 0.3, 0.03), B.shirt, 0.01));
       const arms = part(new THREE.BoxGeometry(0.46, 0.1, 0.03), B.shirt, 0.01); arms.position.y = 0.12; shirt.add(arms); items.laundry.push("shirt");
-      const tp = at(d1, -(d1.len / 2 + 0.9), 0.9), car = new THREE.Group(); car.position.set(tp.x, 0, tp.z); car.rotation.y = 0.7; mapGroup.add(car);
+      const tp = at(d1, -(d1.len / 2 + 0.9), 0.9), car = new THREE.Group(); car.position.set(tp.x, 0, tp.z); car.rotation.y = 0.7; mapGroup.add(car); props.push(car);
       const body = part(new THREE.BoxGeometry(0.28, 0.08, 0.15), B.toyCar, 0.012); body.position.y = 0.07; car.add(body);
       const cab = part(new THREE.BoxGeometry(0.14, 0.07, 0.13), B.toyCar, 0.01); cab.position.set(-0.02, 0.14, 0); car.add(cab);
       for (const [x, z] of [[-0.09, -0.08], [0.09, -0.08], [-0.09, 0.08], [0.09, 0.08]]) { const w = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.03, 8), toon(B.tyre)); w.rotation.x = Math.PI / 2; w.position.set(x, 0.035, z); car.add(w); }
       items.toys++;
-      const bp = at(d1, -(d1.len / 2 + 0.5), 1.35), bone = new THREE.Group(); bone.position.set(bp.x, 0.04, bp.z); bone.rotation.y = 1.1; mapGroup.add(bone);
+      const bp = at(d1, -(d1.len / 2 + 0.5), 1.35), bone = new THREE.Group(); bone.position.set(bp.x, 0.04, bp.z); bone.rotation.y = 1.1; mapGroup.add(bone); props.push(bone);
       const bar = part(new THREE.CylinderGeometry(0.025, 0.025, 0.22, 6), B.bone, 0.008); bar.rotation.z = Math.PI / 2; bone.add(bar);
-      for (const x of [-0.12, 0.12]) for (const z of [-0.03, 0.03]) { const kn = part(sphere(0.035, 6, 5), B.bone, 0.006); kn.position.set(x, 0, z); bone.add(kn); }
+      for (const x of [-0.12, 0.12]) for (const z of [-0.03, 0.03]) { const kn = new THREE.Mesh(sphere(0.035, 6, 5), toon(B.bone)); kn.position.set(x, 0, z); bone.add(kn); }
       items.toys++;
     }
+    for (const q of props) q.traverse(o => { o.castShadow = false; });   // мелочь у дома — без теней (меньше вызовов в проходе тени)
     info.big = { roof: true, crooked: Math.abs(roof.g.rotation.z) > 0.01, patches, stains, ...items, fade };
     if (THEMES[place].snow) info.snow++;
   }
@@ -6736,13 +6761,18 @@ function dressHouses(place) {
 }
 // SPEC-021: крыша гаснет, пока в доме кто-то есть (рамка чуть шире к дальней стороне), а у игрока — и когда он рядом; без новых объектов
 const inHouse = (q, hr, m) => q.x > hr.x0 - m && q.x < hr.x1 + m && q.y > hr.y0 - m && q.y < hr.y1 + m;
-function fadeRoofs(dt) {
+const roofGlow = new THREE.Color(CFG.HOUSE_LOOK.kid.glow);
+function fadeRoofs(dt, t) {
   const H = CFG.HOUSE_LOOK, near = H.near * CELL;
   for (const hr of houseRoofs) {
     let inside = inHouse(big, hr, 0);
     for (const l of littles) if (inHouse(l, hr, l.kind === "player" ? near : 0)) inside = true;
     hr.a += ((inside ? H.faded : 1) - hr.a) * Math.min(1, dt / H.fade);
-    for (const mt of hr.mats) { mt.opacity = hr.a; mt.userData.outline.opacity = hr.a; mt.depthWrite = hr.a > 0.95; }
+    hr.glowNow = hr.glow ? H.kid.glowK * (0.75 + 0.25 * Math.sin(t * 3)) * (hr.a - H.faded) / (1 - H.faded) : 0;   // зелёный свет безопасного дома на крыше
+    for (const mt of hr.mats) {
+      mt.opacity = hr.a; mt.userData.outline.opacity = hr.a; mt.depthWrite = hr.a > 0.95;
+      if (hr.glow && mt.emissive) mt.emissive.setRGB(roofGlow.r * hr.glowNow, roofGlow.g * hr.glowNow, roofGlow.b * hr.glowNow);
+    }
   }
 }
 function buildMap3D() {
@@ -6874,7 +6904,7 @@ const coneGeo = new THREE.BufferGeometry();
 coneGeo.setAttribute("position", new THREE.BufferAttribute(new Float32Array((CONE_N + 2) * 3), 3));
 const coneIdx = []; for (let i = 1; i <= CONE_N; i++) coneIdx.push(0, i + 1, i);
 coneGeo.setIndex(coneIdx);
-const coneMat = new THREE.MeshBasicMaterial({ color: "#fff05a", transparent: true, opacity: 0.4, depthWrite: false, side: THREE.DoubleSide });
+const coneMat = new THREE.MeshBasicMaterial({ color: CFG.CONE_LOOK.look, transparent: true, opacity: CFG.CONE_LOOK.lookA, depthWrite: false, side: THREE.DoubleSide });
 const coneMesh = new THREE.Mesh(coneGeo, coneMat); coneMesh.frustumCulled = false; coneMesh.renderOrder = 2;
 scene.add(coneMesh);
 function updateCone() {
@@ -6882,8 +6912,9 @@ function updateCone() {
   for (let i = 0; i <= CONE_N + 1; i++) { pos[i * 3] = P(vp[2 * i]); pos[i * 3 + 1] = 0.05; pos[i * 3 + 2] = P(vp[2 * i + 1]); }
   coneGeo.attributes.position.needsUpdate = true;
   const calm = bigCalm();
-  coneMat.color.set(calm ? "#d4dcff" : (big.state === "chase" ? "#ff4632" : "#fff05a"));
-  coneMat.opacity = calm ? 0.22 : (big.state === "chase" ? 0.34 : 0.4);
+  const C = CFG.CONE_LOOK;                                // SPEC-021: цвета в CFG (жёлтый гуще — виден и на песке Пляжа)
+  coneMat.color.set(calm ? C.calm : (big.state === "chase" ? C.chase : C.look));
+  coneMat.opacity = calm ? C.calmA : (big.state === "chase" ? C.chaseA : C.lookA);
 }
 const backMat = new THREE.MeshBasicMaterial({ color: "#ff78aa", transparent: true, opacity: 0.35, depthWrite: false, side: THREE.DoubleSide });
 const backMesh = new THREE.Mesh(new THREE.CircleGeometry(P(22 + 20), 20, -(Math.PI - CFG.BEHIND_ANGLE), 2 * (Math.PI - CFG.BEHIND_ANGLE)), backMat);
@@ -7114,11 +7145,14 @@ function buildBigModel(sk) {
     stubbleMat = ownMat(sk.skin); stubbleMat.color.multiplyScalar(sk.stubble); faceMats.push(stubbleMat);
     const sg = new THREE.SphereGeometry(r * 1.015, 20, 10, Math.PI / 2 - 1.25, 2.5, Math.PI * 0.56, Math.PI * 0.34);
     dad.stubble = new THREE.Mesh(sg, stubbleMat); head.add(dad.stubble);
-    for (let i = 0; i < 28; i++) {                       // точки щетины: сетка 7 × 4 со сдвигом рядов (без случайности)
+    const dots = [];                                     // точки щетины: сетка 7 × 4 со сдвигом рядов (без случайности), одним Points — один вызов
+    for (let i = 0; i < 28; i++) {
       const row = Math.floor(i / 7), a = Math.PI / 2 - 1.05 + ((i % 7) + (row % 2) * 0.5) / 7 * 2.1, th = Math.PI * (0.63 + row * 0.075);
-      const dot = new THREE.Mesh(sphere(0.014, 5, 4), toon(INK3));
-      dot.position.set(-Math.cos(a) * Math.sin(th) * r * 1.03, Math.cos(th) * r * 1.03, Math.sin(a) * Math.sin(th) * r * 1.03); dad.stubble.add(dot);
+      dots.push(-Math.cos(a) * Math.sin(th) * r * 1.03, Math.cos(th) * r * 1.03, Math.sin(a) * Math.sin(th) * r * 1.03);
     }
+    const dg = new THREE.BufferGeometry(); dg.setAttribute("position", new THREE.Float32BufferAttribute(dots, 3));
+    const dm = new THREE.PointsMaterial({ color: INK3, size: 0.03 }); dm.userData.own = true;
+    dad.stubble.add(new THREE.Points(dg, dm));
     dad.nose = part(sphere(r * 0.18, 12, 10), "", 0.02, headMat); dad.nose.scale.set(1, 0.85, 0.9); dad.nose.position.set(0, 0.05, r * 0.96); head.add(dad.nose);
     for (const k of [-1, 1]) { const e = part(sphere(r * 0.17, 10, 8), "", 0.02, headMat); e.scale.set(0.55, 1, 0.8); e.position.set(k * r * 0.98, 0, 0); head.add(e); dad.ears.push(e); }
     for (const k of [-1, 0, 1]) { const h = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.012, 0.16, 4), toon(INK3)); h.position.set(k * 0.07, r + 0.06, 0.02); h.rotation.z = -k * 0.35; head.add(h); dad.hairs.push(h); }
@@ -7443,7 +7477,7 @@ function syncScene(t) {
   backPivot.rotation.y = -(big.dir + Math.PI);
   backPivot.visible = big.stun <= 0 && big.slip <= 0 && !inMenus();
   backMat.opacity = 0.3 + Math.sin(t * 5) * 0.1;
-  fadeRoofs(dt);                          // SPEC-021: крыша не прячет тех, кто в доме
+  fadeRoofs(dt, t);                       // SPEC-021: крыша не прячет тех, кто в доме; у безопасного — зелёный свет
   for (const ft of fadeTrees) {
     const o = ft.o;
     const behind = littles.some(l => l.y < o.y + 4 && l.y > o.y - 80 && Math.abs(l.x - o.x) < 30) || (big.y < o.y + 4 && big.y > o.y - 90 && Math.abs(big.x - o.x) < 40);
@@ -7602,7 +7636,7 @@ function look3D() {
     shadow: { intensity: sun.shadow.intensity, radius: sun.shadow.radius },
     paper: { shown: paperEl.style.display === "block", blend: getComputedStyle(paperEl).mixBlendMode, alpha: Number(paperEl.style.opacity), order, made: paperMade },
     houses: houseInfo && { snow: houseInfo.snow,
-      kid: houseInfo.kid && { ...houseInfo.kid, fade: undefined, alpha: houseInfo.kid.fade.a },
+      kid: houseInfo.kid && { ...houseInfo.kid, fade: undefined, alpha: houseInfo.kid.fade.a, glow: houseInfo.kid.fade.glowNow || 0 },
       big: houseInfo.big && { ...houseInfo.big, fade: undefined, alpha: houseInfo.big.fade.a } },
     roofHides: littles.map(l => {                       // луч от камеры к голове маленького: упирается ли в непрозрачную крышу
       if (!l.model) return false;

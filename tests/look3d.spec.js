@@ -162,18 +162,28 @@ test("the Little Ones have big round heads with dot eyes, rosy cheeks and a smil
 });
 
 // AC 6: the dad is the Big One of a new save; BIG_SKINS keeps its order (dad is added at the end), so a saved index keeps
-// its costume — an old save that chose Classic or Ogre keeps it
-test("the dad is the Big One of a new save; an old save keeps the costume it chose", async ({ page }) => {
+// its costume. Coordinator decision (BACKLOG: check with Andrei): an old save (no v) with big 0 — Classic was the default, so
+// almost always "never chose" — gets the dad; any other index keeps its costume; Classic chosen after SPEC-021 (v: 2) stays
+test("the dad is the Big One of a new save and of an old default save; other old costumes and a new Classic stay", async ({ page }) => {
   const errors = await openGame(page, { sim: true });
   const ids = () => page.evaluate(() => { const b = window.__bb, W = b.wardrobe().big; return { shown: W[b.outfits.shown.big].id, saved: W[b.outfits.saved.big].id, price: W[b.outfits.saved.big].price, order: W.map(q => q.id) }; });
   expect(await ids()).toEqual({ shown: "dad", saved: "dad", price: 0, order: ["classic", "ogre", "robot", "captain", "bear", "dad"] });
-  for (const [idx, id] of [[0, "classic"], [1, "ogre"]]) {
-    await page.evaluate(i => localStorage.setItem("bebebe-outfits", JSON.stringify({ p1: { hair: 0, hat: 1, jacket: 0, pants: 0 }, p2: { hair: 1, hat: 4, jacket: 1, pants: 3 }, big: i })), idx);
+  for (const [save, id] of [[{ big: 0 }, "dad"], [{ big: 1 }, "ogre"], [{ big: "0" }, "dad"], [{}, "dad"], [{ big: 0, v: 2 }, "classic"], [{ big: 4, v: 2 }, "bear"]]) {
+    await page.evaluate(sv => localStorage.setItem("bebebe-outfits", JSON.stringify({ p1: { hair: 0, hat: 1, jacket: 0, pants: 0 }, p2: { hair: 1, hat: 4, jacket: 1, pants: 3 }, ...sv })), save);
     await page.reload();
     await page.waitForFunction(() => window.__bbReady === true);
     const r = await ids();
-    expect([r.shown, r.saved], `old save big: ${idx}`).toEqual([id, id]);
+    expect([r.shown, r.saved], `save ${JSON.stringify(save)}`).toEqual([id, id]);
   }
+  // Classic chosen now is saved with v and stays Classic after a reload
+  await page.evaluate(() => { localStorage.removeItem("bebebe-outfits"); });
+  await page.reload();
+  await page.waitForFunction(() => window.__bbReady === true);
+  await page.evaluate(() => { const b = window.__bb; b.cycleBig(-b.outfits.shown.big); });
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("bebebe-outfits")))).toMatchObject({ big: 0, v: 2 });
+  await page.reload();
+  await page.waitForFunction(() => window.__bbReady === true);
+  expect((await ids()).saved).toBe("classic");
   expect(errors).toEqual([]);
 });
 
@@ -233,21 +243,48 @@ test("the dad's house is the messy little house and the kids' house the blue one
 test("a house roof fades while someone is inside, so it never hides a Little One", async ({ page }) => {
   const errors = await openGame(page);
   await play(page, "park", 1);
-  const place = async inside => page.evaluate(async inKid => {
+  const place = inside => page.evaluate(inKid => {
     const b = window.__bb, z = b.safeZone, d = b.dangerZone;
     b.mode = "play";
     b.littles.forEach((l, i) => { l.x = 15 * 32 + i * 40; l.y = 10 * 32; });   // the middle of the map, far from both houses
     Object.assign(b.big, { x: 20 * 32, y: 12 * 32, state: "look", timer: 999 });
     if (inKid) { const l = b.littles[1]; l.x = z.x + z.w / 2; l.y = z.y + z.h / 2; }
     b.mode = "pause";                                        // frozen: the scene still renders and the roofs fade
-    await new Promise(r => setTimeout(r, 1000));
-    return b.look3D();
   }, inside);
-  const empty = await place(false);
+  // the fade takes ~0.25 s of frames; on a slow software renderer that is longer — wait for it, then read the scene
+  const settle = async ok => { await page.waitForFunction(ok, null, { timeout: 15_000 }); return page.evaluate(() => window.__bb.look3D()); };
+  await place(false);
+  const empty = await settle(() => { const h = window.__bb.look3D().houses; return h.kid.alpha > 0.95 && h.big.alpha > 0.95; });
   expect(empty.houses.kid.alpha).toBeGreaterThan(0.95);
   expect(empty.houses.big.alpha).toBeGreaterThan(0.95);
-  const full = await place(true);
+  expect(empty.houses.kid.glow, "AC 9: a solid roof of the safe house glows green").toBeGreaterThan(0.15);
+  await place(true);
+  const full = await settle(() => window.__bb.look3D().houses.kid.alpha < 0.12);
   expect(full.houses.kid.alpha).toBeLessThan(0.5);
   expect(full.roofHides[1]).toBe(false);                   // a ray from the camera to the kid's head meets no solid roof
+  expect(full.houses.kid.glow, "faded: the floor glow shows instead").toBeLessThan(0.1);
+  expect(errors).toEqual([]);
+});
+
+// AC 9: readability on every ground — the hero's black outline against each world's ground colours (WCAG contrast ratio),
+// the Big One's view cone (looking / chasing) and the safe-zone floor glow against the ground and the floor under them
+// (colour change of the blend, 0–441)
+test("the hero's outline, the view cone and the safe glow stand out on every world's ground", async ({ page }) => {
+  const errors = await openGame(page, { sim: true });
+  const r = await page.evaluate(() => ({ th: window.__bb.THEMES, W: window.__bb.WORLDS, ink: window.__bb.CFG.OUTLINE_LOOK.color, cone: window.__bb.CFG.CONE_LOOK }));
+  const rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+  const lum = h => { const [a, b, c] = rgb(h).map(v => v / 255).map(v => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)); return 0.2126 * a + 0.7152 * b + 0.0722 * c; };
+  const ratio = (a, b) => (Math.max(lum(a), lum(b)) + 0.05) / (Math.min(lum(a), lum(b)) + 0.05);
+  const blendShift = (ground, c, a) => { const g = rgb(ground), q = rgb(c); return Math.hypot(...g.map((v, i) => (q[i] - v) * a)); };
+  const problems = [];
+  for (const w of r.W) {
+    const t = r.th[w], light = [t.g1, t.g2, ...(t.square ? [t.square[0]] : [])], dark = t.deco && t.deco.asphalt ? [t.deco.asphalt] : [];
+    for (const g of light) if (ratio(r.ink, g) < 4.5) problems.push(`${w}: outline on ${g} ${ratio(r.ink, g).toFixed(2)}`);
+    for (const g of dark) if (ratio(r.ink, g) < 2.5) problems.push(`${w}: outline on asphalt ${g} ${ratio(r.ink, g).toFixed(2)}`);
+    for (const g of [t.g1, t.g2, ...dark]) for (const [k, c, a] of [["look", r.cone.look, r.cone.lookA], ["chase", r.cone.chase, r.cone.chaseA]])
+      if (blendShift(g, c, a) < 30) problems.push(`${w}: ${k} cone on ${g} ${blendShift(g, c, a).toFixed(1)}`);
+  }
+  if (blendShift("#f3d9a4", "#4ade80", 0.25) < 30) problems.push("safe glow on the wood floor");
+  expect(problems).toEqual([]);
   expect(errors).toEqual([]);
 });

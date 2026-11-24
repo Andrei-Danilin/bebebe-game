@@ -279,7 +279,7 @@ test("a whole old save starts the game: progress moves, outfits and names load, 
   expect(r.progress.owned, "SPEC-009: the worn crown and Robot are owned").toEqual(f.expect.owned);
   expect(r.written, "the migration wrote the new shape back").toMatchObject(f.expect.progress);
   expect([r.shown.p1, r.shown.p2, r.shown.big]).toEqual([f.expect.names.p1, f.expect.names.p2, f.expect.names.big]);
-  expect(r.outfits).toEqual(f.expect.outfits);
+  expect(r.outfits).toEqual({ ...f.expect.outfits, v: 2 });   // SPEC-021: the outfits shape carries its version
   expect(r.names).toEqual(f.expect.names);
   expect(r.saved).toEqual(r.progress);
 });
