@@ -29,7 +29,7 @@ What this spec does not do (so the run does not drift).
 ## Acceptance criteria
 1. Testable statement. → test: `tests/<file>` "<test name>"
 2. ...
-(Every new player-visible text: in en, es, ru.)
+(Every new player-visible text: in en, es, pt, ru.)
 
 ## Implementation steps
 1. Failing test(s) for AC 1, then the change. ...

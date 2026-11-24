@@ -42,7 +42,7 @@ const { browserArgs, lowerPriority } = require(path.resolve("tests/test-env.js")
   await b.close();
 })();
 ```
-Look at the image (Read tool) before the review: overlaps, text that does not fit (check `es` and `ru` — they are longer), characters hidden behind walls.
+Look at the image (Read tool) before the review: overlaps, text that does not fit (check `es`, `pt` and `ru` — they are longer), characters hidden behind walls.
 
 ## 4. Languages
-Switch with `window.__bb.setLang("es" | "ru")` before the screenshot when the change has text.
+Switch with `window.__bb.setLang("es" | "pt" | "ru")` before the screenshot when the change has text.

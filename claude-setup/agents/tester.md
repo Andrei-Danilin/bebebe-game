@@ -32,5 +32,5 @@ model: opus
 - Pin the scene: move the Big One away or set `big.state = "look"`, `big.timer = 999`; set exact positions; then `step()`.
 - Keep tests fast: no `evaluate` that returns a game object (a mutating body goes in braces); loop checks through `softly()` with one `expect` at the end.
 - Never wait in real time for game logic (`waitForTimeout` only to let a frame render before a draw-only check).
-- New UI text → it must exist in `I18N.en/es/ru` (covered by `i18n.spec.js`).
+- New UI text → it must exist in `I18N.en/es/pt/ru` (covered by `i18n.spec.js`); fit loops go over `LANGS` from `helpers.js` (all four languages).
 - Save-format changes: write a test that puts an old-format object into `localStorage`, reloads, and checks it loads.
