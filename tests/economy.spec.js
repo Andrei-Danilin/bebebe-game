@@ -103,7 +103,7 @@ test("every coin change is in the ledger", async ({ simPage: page }) => {
     // money to spend (a test setup, not a game change: the ledger starts counting after it)
     b.mode = "home"; b.progress.coins = 100;
     const coins0 = b.progress.coins, n0 = b.ledger().length;
-    // shop: three buys; mega needs 60 and only 35 are left → no entry
+    // shop: three buys; mega needs 60 and nothing is left (SPEC-026: the kit costs 50) → no entry
     b.buyKisses(); b.buyGloves("mittens"); b.buyRescueKit(); b.buyGloves("mega");
     out.buys = strip(b.ledger().slice(n0));
     // a level start clears the event log, never the ledger
@@ -142,7 +142,7 @@ test("every coin change is in the ledger", async ({ simPage: page }) => {
     b.mode = "home";
     return out;
   });
-  const G = { mittens: 30, kisses: 20, rescues: 15 };
+  const G = { mittens: 30, kisses: 20, rescues: 50 };   // SPEC-026: the kit 50
   expect(r.buys).toEqual([
     { type: "coins", reason: "buy:kisses", amount: -G.kisses },
     { type: "coins", reason: "buy:mittens", amount: -G.mittens },
@@ -778,7 +778,7 @@ test("upgrades are saved, merged with defaults and cleaned", async ({ simPage: p
     return [L({ upgrades: { fastFeet: 2, longItems: 9, quickHelp: "x", jump: 3 } }), L({ upgrades: { fastFeet: 1.7, longItems: -2 } }), L({ upgrades: "junk" }), L({ upgrades: null }), L({ coins: 4 })];
   });
   expect(c).toEqual([{ fastFeet: 2, longItems: 3, quickHelp: 0 }, { fastFeet: 1, longItems: 0, quickHelp: 0 }, ...Array(3).fill({ fastFeet: 0, longItems: 0, quickHelp: 0 })]);
-  await page.evaluate(() => { const b = window.__bb; b.progress.coins = 300; b.buyUpgrade("quickHelp"); b.buyUpgrade("quickHelp"); });
+  await page.evaluate(() => { const b = window.__bb; b.progress.coins = 450; b.buyUpgrade("quickHelp"); b.buyUpgrade("quickHelp"); });   // SPEC-026: 150 + 300
   await page.reload();
   await page.waitForFunction(() => window.__bbReady === true);
   expect(await page.evaluate(() => [window.__bb.upgrades, window.__bb.progress.coins])).toEqual([{ fastFeet: 0, longItems: 0, quickHelp: 2 }, 0]);

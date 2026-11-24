@@ -153,11 +153,13 @@ test("rewards add up, coins never go negative, inventory stays whole", async ({ 
   const { out, C, R } = r, soft = softly(), sum = p => p.reduce((s, x) => s + x.amount, 0);
   expect(out.runs.length).toBe(18);
   // SPEC-009: first win = base, replay = half the base, minus the rests down to the floor; + new stars, hugs, star coins
+  // SPEC-026: the level line and the new-star line × WIN_SCALE, each rounded (the floors, hugs and star coins unchanged)
+  const scaled = v => Math.round(Number((v * R.WIN_SCALE).toFixed(6)));
   const winCoins = x => {
     const wi = DIFFICULTY[x.world], base = R.BASE + R.PER_LEVEL * x.n + R.PER_WORLD * wi, first = !x.prev;
-    const min = first ? R.FIRST_MIN : R.REPLAY_MIN, line = Math.max(first ? base : Math.floor(base / 2), min);
+    const min = first ? R.FIRST_MIN : R.REPLAY_MIN, line = Math.max(scaled(first ? base : Math.floor(base / 2)), min);
     const stars = 1 + (x.st.rests ? 0 : 1) + (x.fast ? 1 : 0);
-    return line - Math.min(x.st.rests * C.REST, line - min) + Math.max(0, stars - x.prev) * R.NEW_STAR + x.st.playerHugs * R.PER_HUG + x.st.starCoins;
+    return line - Math.min(x.st.rests * C.REST, line - min) + scaled(Math.max(0, stars - x.prev) * R.NEW_STAR) + x.st.playerHugs * R.PER_HUG + x.st.starCoins;
   };
   for (const x of out.runs) {
     const at = `${x.world} ${x.n} ${x.name}`;

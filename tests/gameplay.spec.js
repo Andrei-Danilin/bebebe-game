@@ -291,17 +291,19 @@ test("the reward grows with the world", async ({ simPage: page }) => {
     return out;
   });
   const R = r.R, base = w => R.BASE + R.PER_LEVEL * 5 + R.PER_WORLD * w;   // w — the difficulty index (SPEC-016: Winter 4)
+  const sc = v => Math.round(Number((v * R.WIN_SCALE).toFixed(6)));          // SPEC-026: the level line and the new stars × 0.7
   expect(r.cfg.fastPerWorld).toBe(10);
   // SPEC-009: each run is a first win (its own world): base + 3 new stars + 2 hugs, then + 3 star coins
-  expect(r.park.coins).toBe(base(0) + 3 * R.NEW_STAR + 2 * R.PER_HUG + 3);
-  expect(r.winter.coins).toBe(base(4) + 3 * R.NEW_STAR + 2 * R.PER_HUG + 3);
-  expect(r.winter.coins - r.park.coins).toBe(4 * r.cfg.perWorld);
+  expect(r.park.coins).toBe(sc(base(0)) + sc(3 * R.NEW_STAR) + 2 * R.PER_HUG + 3);
+  expect(r.winter.coins).toBe(sc(base(4)) + sc(3 * R.NEW_STAR) + 2 * R.PER_HUG + 3);
+  expect(r.winter.coins - r.park.coins).toBe(sc(base(4)) - sc(base(0)));
+  expect(r.winter.coins).toBeGreaterThan(r.park.coins);
   expect([r.park.target, r.winter.target]).toEqual([135, 175]);   // FAST_TIME(n) + difficulty × 10 s
   expect([r.parkSlow.fast, r.winterSlow.fast]).toEqual([false, true]);
   // the slow runs are replays of those levels: half the base, no new star (all 3 were earned the first time)
-  expect(r.parkSlow.parts[0]).toEqual({ reason: "replay", amount: Math.floor(base(0) / 2) });
-  expect(r.winterSlow.coins - r.parkSlow.coins).toBe(Math.floor(base(4) / 2) - Math.floor(base(0) / 2));
-  expect(r.floor.coins).toBe(R.FIRST_MIN + 2 * R.NEW_STAR + 2 * R.PER_HUG + 3);   // floor + 2 new stars (fast, no nobody-out) + hugs + star coins
+  expect(r.parkSlow.parts[0]).toEqual({ reason: "replay", amount: sc(Math.floor(base(0) / 2)) });
+  expect(r.winterSlow.coins - r.parkSlow.coins).toBe(sc(Math.floor(base(4) / 2)) - sc(Math.floor(base(0) / 2)));
+  expect(r.floor.coins).toBe(R.FIRST_MIN + sc(2 * R.NEW_STAR) + 2 * R.PER_HUG + 3);   // floor + 2 new stars (fast, no nobody-out) + hugs + star coins
 });
 
 test("winning level 20 finishes the world", async ({ page }) => {
