@@ -256,7 +256,8 @@ function markdown(rep) {
       "A run's income = the sum of its coins events (reward lines + bonus stars); a level's income = the median over its seeds. " +
       "A run that did not win earns only its bonus-star coins (the sim never leaves a level, so no hugs line is paid) and counts the time limit; " +
       "replays are played only for levels whose seed-0 run won. " +
-      `Prices: cheapest pack ${ec.prices.cheapest}, mega mittens ${ec.prices.mega}, top wardrobe tier ${ec.prices.top}, all upgrades ${ec.prices.upgrades}.`, "",
+      `Prices: cheapest pack ${ec.prices.cheapest}, mega mittens ${ec.prices.mega}, top wardrobe tier ${ec.prices.top}, all upgrades ${ec.prices.upgrades}.` +
+        (ec.prices.wardrobe ? ` Wardrobe (SPEC-027): ${ec.prices.wardrobe.items} items, ${ec.prices.wardrobe.paid} paid, all paid items together ${ec.prices.wardrobe.total} coins.` : ""), "",
       "| Target | Value | Want | Result | Detail |", "|---|---|---|---|---|");
     for (const t of ec.targets) L.push(`| ${t.name} | ${t.value} | ${t.want} | ${t.ok ? "🟢 green" : "🔴 red"} | ${t.detail} |`);
     if (ec.pace) {
@@ -306,7 +307,10 @@ async function main() {
         prices: { cheapest: Math.min(...b.shopCards().map(c => c.price)), mega: b.GLOVES.mega.price, top: Math.max(...b.WARDROBE_TIERS),
           upgrades: Object.values(U).reduce((s, u) => s + u.prices.reduce((x, y) => x + y, 0), 0),
           // SPEC-026: the pace lines — every shop pack, and the price of each upgrade level (the first upgrade's list)
-          packs: b.shopCards().map(c => ({ k: c.k, price: c.price })), upgradeLevels: [...Object.values(U)[0].prices] },
+          packs: b.shopCards().map(c => ({ k: c.k, price: c.price })), upgradeLevels: [...Object.values(U)[0].prices],
+          // SPEC-027: the whole wardrobe (hats, jackets, pants, Big One looks): how many items, how many cost coins, all of them together
+          wardrobe: (() => { const W = b.wardrobe(), all = ["hat", "jacket", "pants", "big"].flatMap(k => W[k]), paid = all.filter(q => q.price > 0);
+            return { items: all.length, paid: paid.length, total: paid.reduce((a, q) => a + q.price, 0) }; })() },
         upgradeKeys: Object.entries(U).map(([k, u]) => [k, u.prices.length]) };
     });
     const plan = [];
