@@ -80,3 +80,62 @@ test("a paper grain lies over the 3D (multiply, ~0.08) and CFG.PAPER_GRAIN switc
   expect(off.again.made).toBe(1);                          // generated once, not per switch
   expect(errors).toEqual([]);
 });
+
+// AC 3 + 8: the ground of every world is painted with diagonal felt-tip strokes (seeded canvas strokes, not a flat colour per
+// cell) and keeps its THEMES colour underneath; walls, houses, cottages and roofs are hatched on their shade side
+test("every world's ground has diagonal marker strokes over its THEMES colour; walls and roofs are hatched", async ({ page }) => {
+  test.setTimeout(120_000);
+  const errors = await openGame(page);
+  const r = await page.evaluate(() => {
+    const b = window.__bb, out = {};
+    for (const w of b.WORLDS) for (const lv of [1, 5]) {             // walls and houses (1), cottages with roofs (5)
+      b.world = w; b.level = lv; b.startGame(1);
+      const L = b.look3D();
+      if (lv === 1) out[w] = { ground: L.ground, g1: b.THEMES[w].g1, g2: b.THEMES[w].g2 };
+      out[w]["hatch" + lv] = L.hatch;
+    }
+    return out;
+  });
+  const hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+  const dist = (a, c) => Math.hypot(a[0] - c[0], a[1] - c[1], a[2] - c[2]);
+  for (const [w, q] of Object.entries(r)) {
+    expect(q.ground.colors, `${w}: colours inside a cell`).toBeGreaterThanOrEqual(6);
+    expect(q.ground.diag, `${w}: strokes run diagonally (change along / across)`).toBeGreaterThan(1.15);
+    expect(Math.min(dist(q.ground.mean, hex(q.g1)), dist(q.ground.mean, hex(q.g2))), `${w}: ground stays its THEMES colour`).toBeLessThan(40);
+    for (const lv of [1, 5]) {
+      expect(q["hatch" + lv].pieces, `${w} ${lv}: walls found`).toBeGreaterThan(0);
+      expect(q["hatch" + lv].plain, `${w} ${lv}: walls without hatching`).toEqual([]);
+    }
+  }
+  await frames(page);                                       // the hatching shader compiles and draws without errors
+  expect(errors).toEqual([]);
+});
+
+// AC 8: Winter's maze walls are clearly darker than the snow (contrast ratio of their THEMES colours): the sides, and the
+// tops the camera mostly sees (before SPEC-021: #dbe8f6 walls with white snow caps — 1.2 and 1.0)
+test("winter maze walls stand out from the snow", async ({ page }) => {
+  const errors = await openGame(page, { sim: true });
+  const t = await page.evaluate(() => window.__bb.THEMES.winter);
+  const lum = h => { const [r, g, b] = [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255).map(c => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+  const ratio = (a, b) => (Math.max(lum(a), lum(b)) + 0.05) / (Math.min(lum(a), lum(b)) + 0.05);
+  expect(ratio(t.maze.wall, t.g1)).toBeGreaterThan(1.8);
+  expect(ratio(t.maze.wall, t.g2)).toBeGreaterThan(1.8);
+  expect(ratio(t.maze.cap, t.g1)).toBeGreaterThan(1.5);
+  expect(errors).toEqual([]);
+});
+
+// no leak: building levels one after another does not pile up textures or geometries in the renderer
+test("switching levels keeps the renderer's texture and geometry count flat", async ({ page }) => {
+  const errors = await openGame(page);
+  const r = await page.evaluate(async () => {
+    const b = window.__bb, seen = [], tick = () => new Promise(res => requestAnimationFrame(() => requestAnimationFrame(res)));
+    for (const [w, lv] of [["park", 1], ["winter", 5], ["city", 8], ["park", 1], ["winter", 5], ["city", 8], ["park", 1]]) {
+      b.world = w; b.level = lv; b.startGame(1); await tick();
+      seen.push(b.look3D().memory);
+    }
+    return seen;
+  });
+  expect(r[6].textures).toBeLessThanOrEqual(r[3].textures);
+  expect(r[6].geometries).toBeLessThanOrEqual(r[3].geometries + 2);
+  expect(errors).toEqual([]);
+});
