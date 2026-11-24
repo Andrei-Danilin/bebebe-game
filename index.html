@@ -224,6 +224,7 @@ const CFG = {
   // SPEC-021: заливка — два тона (тень / свет, доля яркости солнца), свет неба; тень от солнца: насколько тёмная (0…1) и размытие
   TOON_LOOK: { tones: [150, 255], sky: 1.15, shadow: 0.5, shadowRadius: 3 },
   PAPER_GRAIN: true,         // SPEC-021: бумажное зерно поверх 3D (false — без него; тест скорости его выключает)
+  PAPER_GRAIN_PHONE: false,  // SPEC-021: и на телефоне (по умолчанию нет: на телефоне оно стоило ~+4 % кадра сверх бюджета AC 10)
   // SPEC-021: бумажное зерно (умножение): прозрачность, размер плитки px, зерно случайности, светлый и тёмный тон бумаги,
   // волокна (сколько, длина px), пятна (сколько, радиус px)
   PAPER_GRAIN_LOOK: { alpha: 0.08, size: 256, seed: 7, light: [255, 250, 238], dark: [105, 90, 70], fibers: 110, fiberLen: 14, blots: 22, blotR: 26 },
@@ -231,14 +232,21 @@ const CFG = {
   // штрихами [от, до], изгиб, прозрачности (по пути на каждую); травинки, крапинки асфальта, точки песка, синие тени на снегу,
   // меловые рисунки — сколько на карту; зерно случайности (+ номер уровня)
   GROUND_LOOK: { angle: 38, gap: 6, width: 3.2, len: [16, 64], skip: [2, 22], wobble: 3, alpha: [0.16, 0.28], tufts: 70, specks: 700, dots: 650,
-    drifts: 34, chalk: 9, seed: 2111 },
-  // SPEC-021: штриховка стен и крыш на теневой стороне (единицы 3D): штрихов на единицу, толщина штриха (доля шага), насколько темнее;
-  // грани, к солнцу повёрнутые меньше side (cos), штрихуются — бока стен; повёрнутые к солнцу (0…side) — светлее (доля lit)
-  // SPEC-021: маленькие как в art/6_personas — голова больше (масштаб группы головы: причёски и шапки растут с ней) и её высота;
-  // глаза-точки (доля радиуса головы), румянец (цвет, доля радиуса), улыбка (радиус и толщина, доли радиуса)
+    drifts: 34, chalk: 9, seed: 2111,
+    // рисунки: травинка (прозрачность, толщина, размер от + разброс), песок (тёмные / светлые точки), сугробы (прозрачность, толщина,
+    // длина от + разброс, высота волны от + разброс), снежинки, крапинки улиц / двора [тёмные, светлые], мел (прозрачность, толщина,
+    // размер звёздочки / сердечка / спирали от + разброс)
+    doodle: { tuftA: 0.55, tuftW: 1.6, tuft: [4, 3], sandA: [0.45, 0.7], driftA: 0.5, driftW: 5, drift: [40, 70, 4, 5], snowA: 0.6,
+      streetA: [0.6, 0.5], yardA: [0.55, 0.55], chalkA: 0.7, chalkW: 1.8, chalkS: [7, 5] } },
+  // SPEC-021: полы домиков [заливка, доски] (деревянный — у маленьких, тёмный — у Большого); зелёный свет пола безопасного дома
+  FLOOR_LOOK: { wood: ["#f3d9a4", "#e0bf82"], dark: ["#d8a7a2", "#c48f8a"] },
+  SAFE_GLOW: { color: "#4ade80", alpha: 0.25 },
   // SPEC-021: конус взгляда Большого: смотрит / гонится / спокоен — цвет и прозрачность (до SPEC-021 жёлтый был #fff05a)
   CONE_LOOK: { look: "#ffd92e", lookA: 0.42, chase: "#ff4632", chaseA: 0.34, calm: "#d4dcff", calmA: 0.22 },
-  KID_LOOK: { head: 1.25, headY: 1.04, eye: 0.11, cheek: "#ff8aa5", cheekR: 0.16, smile: 0.15, smileW: 0.035 },
+  // SPEC-021: маленькие как в art/6_personas — голова больше (масштаб группы головы: причёски и шапки растут с ней) и её высота;
+  // глаза-точки (доля радиуса головы), румянец (цвет, доля радиуса), улыбка (радиус и толщина, доли радиуса); над центром головы
+  // до верха шапки (единицы головы, для имени — nameTagH), запас пузыря-щита над головой (единицы модели)
+  KID_LOOK: { head: 1.25, headY: 1.04, eye: 0.11, cheek: "#ff8aa5", cheekR: 0.16, smile: 0.15, smileW: 0.035, tagTop: 0.42, bubblePad: 0.1 },
   // SPEC-021: домики (art/15_houses). У домика маленьких крыша, пока не погасла, светится зелёным (glow, сила glowK) — как пол
   // безопасного дома: его всегда видно. Крыша: высота конька, свес, боковые скаты темнее (доля цвета), сугробиков на крыше (Зима);
   // прозрачность «кто-то внутри», ниже какой не рисуется совсем, за сколько сек гаснет / проявляется,
@@ -250,6 +258,8 @@ const CFG = {
     big: { roof: "#7b5b49", crook: 0.08, patches: ["#8fa3b8", "#5e4434", "#9a8a62"], stitch: "#2b1d14", chimney: "#b5483a", mud: "#6b4a2b", stains: 4, sock: "#e5e7eb", sockToe: "#9ca3af",
       shirt: "#cbd5e1", line: "#5b4636", bin: "#8a939b", trash: ["#65a30d", "#a16207", "#64748b", "#f59e0b", "#ef4444"], stink: "#7c9a5a", stinkN: 3,
       pizza: "#e8c48f", pizzaTop: "#f97316", toyCar: "#3b82f6", tyre: "#1f2937", bone: "#f5f5f4", ground: "rgba(107,74,43,.55)", groundN: 26 } },
+  // SPEC-021: штриховка стен и крыш на теневой стороне (единицы 3D): штрихов на единицу, толщина штриха (доля шага), насколько темнее;
+  // грани, к солнцу повёрнутые меньше side (cos), штрихуются — бока стен; повёрнутые к солнцу (0…side) — светлее (доля lit)
   HATCH_LOOK: { freq: 3, width: 0.32, dark: 0.3, side: 0.45, lit: 0.6 },
   // SPEC-017: как выглядят меню (главный экран, вкладка «Гардероб», карта уровней) — цвета и размеры в одном месте, под будущие рисунки.
   // Цвета: карточка экрана и её контур, название, плашки (фон, контур, текст), закрытый бонус (текст, вуаль картинки), кнопки Играть /
@@ -300,9 +310,10 @@ const CFG = {
   // шаг поиска места; прямоугольник героя на экране: полуширина тела в радиусах героя, полувысота имени в его кеглях,
   // запас под ногами в полуширинах тела
   PHONE_BANNER: { h: 42, pad: 20, edge: 10, radius: 18, scan: 2, heroSide: 1.5, heroText: 0.75, heroFeet: 0.6 },
-  // имя игрока над головой (drawMarkers; его же обходит надпись уровня на телефоне): высота точки над ногами (px мира),
-  // подъём имени над ней (UI px), кегль (на телефоне не мельче PHONE_TEXT.main)
-  NAME_TAG: { h: 72, up: 10, size: 15 },
+  // имя игрока над головой (drawMarkers; его же обходит надпись уровня на телефоне): подъём имени над точкой над головой (UI px),
+  // кегль (на телефоне не мельче PHONE_TEXT.main), подпись отдыхающего ниже на rest px мира. SPEC-021: сама точка — nameTagH()
+  // (верх головы с шапкой по CFG.KID_LOOK)
+  NAME_TAG: { up: 10, size: 15, rest: 16 },
   TEXT_TEST_SCALE: 1,        // только для тестов: ширина текста надписи уровня и карточек магазина на телефоне × это (шрифты CI и iPhone шире)
   LEVEL_ATTEMPTS: 40,        // столько раз пробуем построить честный уровень, потом — запасной вариант
   EVENT_LOG_MAX: 5000,       // SPEC-008: событий в __bb.events не больше (старые выпадают); очищается в начале уровня
@@ -1895,20 +1906,21 @@ const BIG_SKINS = [
 // свой вид (только купленное или бесплатное): его сохраняет bebebe-outfits (форма — индексы, как раньше) и с ним начинается игра
 const DEFAULT_SKINS = { p1: { hair: 0, hat: 1, jacket: 0, pants: 0 }, p2: { hair: 1, hat: 4, jacket: 1, pants: 3 }, big: BIG_SKINS.findIndex(q => q.id === "dad") };   // SPEC-021: папа
 const cloneSkins = o => ({ p1: { ...o.p1 }, p2: { ...o.p2 }, big: o.big });
+// SPEC-021: v — версия формы bebebe-outfits (пишем OUTFITS_V). В сохранении без неё или с v < DAD_SINCE_V (до SPEC-021) big: 0 —
+// почти всегда «не выбирал» (Классика была образом по умолчанию), поэтому такой Большой становится папой (решение координатора,
+// BACKLOG: проверить с Андреем); другие номера остаются. Классика, выбранная после этого, сохраняется с v и остаётся Классикой.
+const OUTFITS_V = 2, DAD_SINCE_V = 2;
+// чистая функция «сохранение → наряды» (то же при запуске; тесты проверяют формы через __bb.loadOutfits); никогда не бросает
+function loadOutfits(sv) {
+  const out = cloneSkins(DEFAULT_SKINS);
+  if (!sv || typeof sv !== "object" || !sv.p1 || !sv.p2) return out;
+  for (const pk of ["p1", "p2"]) for (const k of Object.keys(SLOTS)) out[pk][k] = clamp((typeof sv[pk] === "object" ? sv[pk][k] : 0) | 0, 0, SLOTS[k].length - 1);
+  const big = Number(sv.big) || 0;
+  out.big = (Number(sv.v) || 0) < DAD_SINCE_V && big === 0 ? DEFAULT_SKINS.big : clamp(big | 0, 0, BIG_SKINS.length - 1);
+  return out;
+}
 let skinSel = cloneSkins(DEFAULT_SKINS);
-// SPEC-021: v — версия формы bebebe-outfits. В сохранении без неё (до SPEC-021) big: 0 — почти всегда «не выбирал» (Классика была
-// образом по умолчанию), поэтому такой Большой становится папой; другие номера остаются. Выбранная после этого Классика
-// сохраняется уже с v и остаётся Классикой
-const OUTFITS_V = 2;
-try {
-  const sv = JSON.parse(localStorage.getItem("bebebe-outfits") || "null");
-  if (sv && sv.p1 && sv.p2) {
-    skinSel = sv;
-    if (!(Number(sv.v) >= OUTFITS_V) && (Number(sv.big) || 0) === 0) skinSel.big = DEFAULT_SKINS.big;
-  }
-} catch (e) { /* ok */ }   // старый ключ bebebe-place больше не читается: место уровня — его мир (SPEC-006)
-for (const pk of ["p1", "p2"]) for (const k of Object.keys(SLOTS)) skinSel[pk][k] = clamp(skinSel[pk][k] | 0, 0, SLOTS[k].length - 1);
-skinSel.big = clamp(skinSel.big | 0, 0, BIG_SKINS.length - 1);
+try { skinSel = loadOutfits(JSON.parse(localStorage.getItem("bebebe-outfits") || "null")); } catch (e) { /* ok */ }   // старый ключ bebebe-place больше не читается (SPEC-006)
 let skinKeep = cloneSkins(skinSel);   // после загрузки прогресса надетое становится своим (adoptWorn)
 const saveSkins = () => { try { localStorage.setItem("bebebe-outfits", JSON.stringify({ ...skinKeep, v: OUTFITS_V })); } catch (e) { /* ok */ } };
 // гардероб (SPEC-009): купленное — в progress.owned по id; ключ списка для слота; бесплатное (price 0, причёски) — всегда своё
@@ -3704,8 +3716,11 @@ function drawKit(x, y, s) {
 // Подписи над 3D-героями (имена, таймеры, SOS, значки Большого)
 // имя игрока над головой: hd — точка над ногами (над ней же имена ботов), x/y — где имя, кегль и обводка;
 // рисует drawMarkers, обходит надпись уровня на телефоне (heroScreenRect) — один источник
+// SPEC-021: высота точки имени над ногами (px мира) — верх головы с шапкой: голова больше (CFG.KID_LOOK), имя выше
+const KID_HEAD_R = 0.27;                   // радиус головы маленького в единицах модели (до масштаба головы)
+const nameTagH = () => (CFG.KID_LOOK.headY + (KID_HEAD_R + CFG.KID_LOOK.tagTop) * CFG.KID_LOOK.head) * LITTLE_SCALE * CELL;
 function playerNameTag(l) {
-  const T = CFG.NAME_TAG, hd = toScreen(l.x, l.y, T.h), size = PHONE ? Math.max(T.size, minPx("main")) : T.size;
+  const T = CFG.NAME_TAG, hd = toScreen(l.x, l.y, nameTagH()), size = PHONE ? Math.max(T.size, minPx("main")) : T.size;
   return { hd, x: hd.x, y: hd.y - T.up, size, stroke: labelStroke(size) };
 }
 // SPEC-019: «топ-топ» — короткие штрихи у ног того, кого Большой сейчас слышит (бежит рядом, вне взгляда); tapLines — чьи (тесты)
@@ -3744,7 +3759,7 @@ function drawMarkers(t) {
   for (const l of littles) {
     const isPlayer = l.kind === "player", name = nameOf(l);
     if (l.state === "home" || l.state === "rest") {
-      const hd = toScreen(l.x, l.y, l.state === "rest" ? 56 : 72);
+      const hd = toScreen(l.x, l.y, nameTagH() - (l.state === "rest" ? CFG.NAME_TAG.rest : 0));
       if (l.state === "rest") {
         const z = (t * 1.2 + l.id * 0.3) % 1;
         ctx.save(); ctx.globalAlpha = 1 - z; label("z", hd.x + 10 + z * 14, hd.y - 6 - z * 22, fz(12, "hint") + z * 8, "#e0e7ff"); ctx.restore();
@@ -5562,7 +5577,7 @@ function nameLabel(rect, slot, color) {
 // прямоугольник героя на экране (UI px): от ног до имени над головой (playerNameTag, как в drawMarkers), шириной с тело или имя
 function heroScreenRect(l) {
   const P = CFG.PHONE_BANNER, tag = playerNameTag(l), head = tag.hd, feet = toScreen(l.x, l.y);
-  const side = P.heroSide * Math.max(Math.abs(toScreen(l.x + l.r, l.y).x - feet.x), Math.abs(toScreen(l.x + l.r, l.y, CFG.NAME_TAG.h).x - head.x));
+  const side = P.heroSide * Math.max(Math.abs(toScreen(l.x + l.r, l.y).x - feet.x), Math.abs(toScreen(l.x + l.r, l.y, nameTagH()).x - head.x));
   ctx.font = hudFont(tag.size);
   const nw = ctx.measureText(nameOf(l)).width + tag.stroke;   // с обводкой
   const x0 = Math.min(feet.x - side, tag.x - nw / 2), x1 = Math.max(feet.x + side, tag.x + nw / 2);
@@ -5885,6 +5900,8 @@ function addHatch(m) {
       .replace("#include <worldpos_vertex>", "#include <worldpos_vertex>\n" + HATCH_VS);
     sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>" + HATCH_DECL + "\nuniform vec3 uHatchSun;\nuniform vec3 uHatch;\nuniform vec2 uHatchV;")
       .replace("#include <opaque_fragment>", HATCH_FS + "#include <opaque_fragment>");
+    // three.js поменял куски шейдера — штриховки не будет: громко, чтобы тесты (страница без ошибок) это заметили
+    if (!sh.vertexShader.includes("vHatchN = ") || !sh.fragmentShader.includes("uHatchV.x")) console.error("SPEC-021 hatch: shader chunks not found (three.js changed?)");
   };
   return m;
 }
@@ -6423,7 +6440,7 @@ function markerStrokes(rnd, colors, rect = null) {
 // SPEC-021: мелкие рисунки по земле своего мира (одним путём на вид): травинки, крапинки асфальта, точки песка, синие тени на
 // снегу, меловые каракули. Цвета — THEMES[place].marker / doodle
 function groundDoodles(place, th, rnd, streets) {
-  const G = CFG.GROUND_LOOK, [dark, light] = th.marker, path = new Path2D(), dots = (n, r, c, a, rect = null) => {
+  const G = CFG.GROUND_LOOK, D = G.doodle, [dark, light] = th.marker, path = new Path2D(), dots = (n, r, c, a, rect = null) => {
     const q = new Path2D();
     for (let i = 0; i < n; i++) {
       const x = rect ? rect.x + rnd() * rect.w : rnd() * W, y = rect ? rect.y + rnd() * rect.h : rnd() * H, rr2 = r * (0.5 + rnd());
@@ -6434,30 +6451,30 @@ function groundDoodles(place, th, rnd, streets) {
   ctx.save(); ctx.lineCap = "round"; ctx.lineJoin = "round";
   if (place === "park" || place === "field") {           // травинки: «v» из трёх штрихов
     for (let i = 0, n = place === "park" ? G.tufts : G.tufts / 2; i < n; i++) {
-      const x = rnd() * W, y = rnd() * H, s = 4 + rnd() * 3;
+      const x = rnd() * W, y = rnd() * H, s = D.tuft[0] + rnd() * D.tuft[1];
       for (const k of [-1, 0, 1]) { path.moveTo(x + k * 2, y); path.lineTo(x + k * s * 0.7, y - s * (k ? 0.8 : 1.1)); }
     }
-    ctx.globalAlpha = 0.55; ctx.strokeStyle = th.doodle; ctx.lineWidth = 1.6; ctx.stroke(path);
+    ctx.globalAlpha = D.tuftA; ctx.strokeStyle = th.doodle; ctx.lineWidth = D.tuftW; ctx.stroke(path);
   } else if (place === "beach") {                        // песок в точку
-    dots(G.dots, 1.3, dark, 0.45); dots(G.dots / 2, 1.2, light, 0.7);
+    dots(G.dots, 1.3, dark, D.sandA[0]); dots(G.dots / 2, 1.2, light, D.sandA[1]);
   } else if (place === "winter") {                       // голубые тени сугробов — длинные мягкие волны
     for (let i = 0; i < G.drifts; i++) {
-      const x = rnd() * W, y = rnd() * H, len = 40 + rnd() * 70, h = 4 + rnd() * 5;
+      const x = rnd() * W, y = rnd() * H, len = D.drift[0] + rnd() * D.drift[1], h = D.drift[2] + rnd() * D.drift[3];
       path.moveTo(x, y); path.bezierCurveTo(x + len * 0.3, y - h, x + len * 0.7, y + h, x + len, y - h * 0.3);
     }
-    ctx.globalAlpha = 0.5; ctx.strokeStyle = th.doodle; ctx.lineWidth = 5; ctx.stroke(path);
-    dots(G.dots / 3, 1, dark, 0.6);
+    ctx.globalAlpha = D.driftA; ctx.strokeStyle = th.doodle; ctx.lineWidth = D.driftW; ctx.stroke(path);
+    dots(G.dots / 3, 1, dark, D.snowA);
   } else if (place === "city") {                         // крапинки на асфальте улиц, штрихи по асфальту
-    for (const r of streets) { markerStrokes(rnd, th.asphaltMarker, r); dots(G.specks / 2, 1, th.asphaltMarker[0], 0.6, r); dots(G.specks / 4, 0.9, th.asphaltMarker[1], 0.5, r); }
+    for (const r of streets) { markerStrokes(rnd, th.asphaltMarker, r); dots(G.specks / 2, 1, th.asphaltMarker[0], D.streetA[0], r); dots(G.specks / 4, 0.9, th.asphaltMarker[1], D.streetA[1], r); }
   } else if (place === "school") {                       // асфальт двора в крапинку и меловые каракули: звёздочки, сердечки, спирали
-    dots(G.specks, 1, dark, 0.55); dots(G.specks / 2, 0.9, light, 0.55);
+    dots(G.specks, 1, dark, D.yardA[0]); dots(G.specks / 2, 0.9, light, D.yardA[1]);
     for (let i = 0; i < G.chalk; i++) {
-      const x = CELL + rnd() * (W - 2 * CELL), y = CELL + rnd() * (H - 2 * CELL), s = 7 + rnd() * 5, kind = i % 3;
+      const x = CELL + rnd() * (W - 2 * CELL), y = CELL + rnd() * (H - 2 * CELL), s = D.chalkS[0] + rnd() * D.chalkS[1], kind = i % 3;
       if (kind === 0) for (let k = 0; k <= 5; k++) { const a = -Math.PI / 2 + k * 4 * Math.PI / 5; k ? path.lineTo(x + Math.cos(a) * s, y + Math.sin(a) * s) : path.moveTo(x + Math.cos(a) * s, y + Math.sin(a) * s); }
       else if (kind === 1) { path.moveTo(x, y + s * 0.8); path.bezierCurveTo(x - s * 1.4, y - s * 0.2, x - s * 0.4, y - s, x, y - s * 0.3); path.bezierCurveTo(x + s * 0.4, y - s, x + s * 1.4, y - s * 0.2, x, y + s * 0.8); }
       else for (let k = 0; k < 24; k++) { const a = k * 0.5, r = s * k / 24; k ? path.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r) : path.moveTo(x, y); }
     }
-    ctx.globalAlpha = 0.7; ctx.strokeStyle = th.doodle; ctx.lineWidth = 1.8; ctx.stroke(path);
+    ctx.globalAlpha = D.chalkA; ctx.strokeStyle = th.doodle; ctx.lineWidth = D.chalkW; ctx.stroke(path);
   }
   ctx.restore();
 }
@@ -6502,6 +6519,15 @@ function paintGround(place) {
       }
     });
   }
+  if (dangerZone) {                                      // SPEC-021: грязь на земле вокруг дома папы (до полов: пол поверх, если клякса залезла)
+    const B = CFG.HOUSE_LOOK.big, x0 = dangerZone.x - CELL, y0 = dangerZone.y - CELL, x1 = dangerZone.x + dangerZone.w + CELL, y1 = dangerZone.y + dangerZone.h + CELL, m = CELL * 1.2;
+    ctx.fillStyle = B.ground;
+    for (let i = 0; i < B.groundN; i++) {
+      const x = x0 - m + rnd() * (x1 - x0 + 2 * m), y = y0 - m + rnd() * (y1 - y0 + 2 * m);
+      if (x > x0 && x < x1 && y > y0 && y < y1) continue;    // только снаружи, у стен
+      ctx.beginPath(); ctx.ellipse(x, y, 5 + rnd() * 9, 3 + rnd() * 5, rnd() * 3, 0, TAU); ctx.fill();
+    }
+  }
   for (const f of floors) {
     if (f.kind === "bridge") {                           // доски поперёк пути через реку
       const [plank, gap] = th.bridge;
@@ -6524,18 +6550,10 @@ function paintGround(place) {
       ctx.fillStyle = place === "school" ? "#dbc59c" : "#e4d9c6";
       for (let y = 0; y < f.h / CELL; y++) for (let x = 0; x < f.w / CELL; x++) if ((x + y) % 2) ctx.fillRect(f.x + x * CELL, f.y + y * CELL, CELL, CELL);
     } else {
-      ctx.fillStyle = f.kind === "wood" ? "#f3d9a4" : "#d8a7a2"; ctx.fillRect(f.x, f.y, f.w, f.h);
-      ctx.strokeStyle = f.kind === "wood" ? "#e0bf82" : "#c48f8a"; ctx.lineWidth = 2;
+      const FL = CFG.FLOOR_LOOK[f.kind === "wood" ? "wood" : "dark"];   // SPEC-021: цвета полов в CFG (тест читаемости)
+      ctx.fillStyle = FL[0]; ctx.fillRect(f.x, f.y, f.w, f.h);
+      ctx.strokeStyle = FL[1]; ctx.lineWidth = 2;
       for (let y = f.y + 16; y < f.y + f.h; y += 16) { ctx.beginPath(); ctx.moveTo(f.x, y); ctx.lineTo(f.x + f.w, y); ctx.stroke(); }
-    }
-  }
-  if (dangerZone) {                                      // SPEC-021: грязь на земле вокруг дома папы
-    const B = CFG.HOUSE_LOOK.big, x0 = dangerZone.x - CELL, y0 = dangerZone.y - CELL, x1 = dangerZone.x + dangerZone.w + CELL, y1 = dangerZone.y + dangerZone.h + CELL, m = CELL * 1.2;
-    ctx.fillStyle = B.ground;
-    for (let i = 0; i < B.groundN; i++) {
-      const x = x0 - m + rnd() * (x1 - x0 + 2 * m), y = y0 - m + rnd() * (y1 - y0 + 2 * m);
-      if (x > x0 && x < x1 && y > y0 && y < y1) continue;    // только снаружи, у стен
-      ctx.beginPath(); ctx.ellipse(x, y, 5 + rnd() * 9, 3 + rnd() * 5, rnd() * 3, 0, TAU); ctx.fill();
     }
   }
   for (const d of decor) {
@@ -6629,6 +6647,9 @@ function houseRoof(R, color, place, crook) {
 const slopeAt = (roof, t, along) => ({ x: along * (1 - t * (1 - roof.L / roof.len)), y: roof.rh * t + 0.015, z: (roof.span / 2) * (1 - t) + 0.015, rx: Math.atan2(roof.rh, roof.span / 2) });
 function addRoofFade(R, roof) {
   const H = CFG.HOUSE_LOOK, hr = { g: roof.g, x0: R.x * CELL, y0: (R.y - H.behind) * CELL, x1: (R.x + R.w) * CELL, y1: (R.y + R.h) * CELL, mats: roof.mats, meshes: roof.meshes, a: 1 };
+  hr.a = roofInside(hr) ? H.faded : 1;                    // сразу как надо: в начале уровня маленькие в доме — без вспышки крыши
+  for (const mt of hr.mats) { mt.opacity = hr.a; mt.userData.outline.opacity = hr.a; mt.depthWrite = hr.a > 0.95; }
+  hr.g.visible = hr.a > H.hide;
   houseRoofs.push(hr);
   return hr;
 }
@@ -6697,9 +6718,10 @@ function dressHouses(place) {
   if (BR) {
     const B = H.big, { doors, wallAt } = houseDoors("bighome", BR), roof = houseRoof(BR, B.roof, place, B.crook);
     let patches = 0;
+    const fm = ownMat(B.stitch, true);                     // «строчка» заплаток — один материал на крышу
     for (let i = 0; i < 3; i++) {                          // заплатки на переднем скате — плоские, вразброс вдоль ската
       const s = slopeAt(roof, 0.15 + rnd() * 0.35, ((i + 0.5) / 3 - 0.5) * (roof.len - 1.6) + (rnd() - 0.5) * 0.4), pm = ownMat(B.patches[i % B.patches.length], true);
-      const pw = 0.7 + rnd() * 0.35, pd = 0.5 + rnd() * 0.25, fm = ownMat(B.stitch, true);   // заплатка без контура (иначе похожа на коробку):
+      const pw = 0.7 + rnd() * 0.35, pd = 0.5 + rnd() * 0.25;   // заплатка без контура (иначе похожа на коробку):
       const fr = roof.add(new THREE.Mesh(new THREE.BoxGeometry(pw + 0.06, 0.004, pd + 0.06), fm), fm);   // тёмная «строчка» по краю и сама заплатка
       const p = roof.add(new THREE.Mesh(new THREE.BoxGeometry(pw, 0.004, pd), pm), pm);
       for (const q of [fr, p]) { q.position.set(s.x, s.y + (q === p ? 0.004 : 0), s.z); q.rotation.set(s.rx, 0, 0); }
@@ -6730,8 +6752,12 @@ function dressHouses(place) {
     doors.sort((p, q) => Math.abs(q.nx) - Math.abs(p.nx) || q.nz - p.nz);   // сначала боковая дверь (её видно), потом нижняя, верхняя
     const d0 = doors[0], d1 = doors[1] || doors[0], at = (d, off, out) => ({ x: d.x + d.tx * off + d.nx * out, z: d.z + d.tz * off + d.nz * out });
     const items = { bin: false, stink: 0, pizza: 0, toys: 0, laundry: [] }, props = [];
+    const free = q => q.x > 0.3 && q.z > 0.3 && q.x < COLS - 0.3 && q.z < ROWS - 0.3 && !obstacles.some(o => o.shape === "circle"   // не на занятой клетке и в карте
+      ? Math.hypot(o.x - q.x * CELL, o.y - q.z * CELL) < (o.r || 0) + 8 : q.x * CELL > o.x - 6 && q.x * CELL < o.x + o.w + 6 && q.z * CELL > o.y - 6 && q.z * CELL < o.y + o.h + 6);
     if (d0) {
-      const p = at(d0, d0.len / 2 + 0.75, 0.95), g = new THREE.Group(); g.position.set(p.x, 0, p.z); mapGroup.add(g);
+      const p = at(d0, d0.len / 2 + 0.75, 0.95);
+      if (free(p)) {
+      const g = new THREE.Group(); g.position.set(p.x, 0, p.z); mapGroup.add(g); props.push(g);
       const bin = part(new THREE.CylinderGeometry(0.22, 0.18, 0.5, 12), B.bin, 0.02); bin.position.y = 0.25; g.add(bin); items.bin = true;
       const lid = part(new THREE.CylinderGeometry(0.24, 0.24, 0.04, 12), B.bin, 0.012); lid.position.set(0.18, 0.5, 0.05); lid.rotation.z = -0.9; g.add(lid);
       for (let i = 0; i < 6; i++) { const tr = new THREE.Mesh(sphere(0.07 + rnd() * 0.04, 8, 6), toon(B.trash[i % B.trash.length])); tr.position.set((rnd() - 0.5) * 0.24, 0.52 + rnd() * 0.12, (rnd() - 0.5) * 0.24); g.add(tr); }
@@ -6740,15 +6766,21 @@ function dressHouses(place) {
         for (let k = 0; k <= 6; k++) pts.push(new THREE.Vector3((i - 1) * 0.16 + Math.sin(k * 1.3 + i) * 0.05, 0.75 + k * 0.08, 0));
         g.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 16, 0.016, 4), toon(B.stink))); items.stink++;
       }
-      const q = at(d0, -(d0.len / 2 + 0.75), 0.95), pz = new THREE.Group(); pz.position.set(q.x, 0, q.z); pz.rotation.y = rnd() * 0.6; mapGroup.add(pz); props.push(pz);
+      }
+      const q = at(d0, -(d0.len / 2 + 0.75), 0.95);
+      if (free(q)) {
+      const pz = new THREE.Group(); pz.position.set(q.x, 0, q.z); pz.rotation.y = rnd() * 0.6; mapGroup.add(pz); props.push(pz);
       for (let i = 0; i < 2; i++) { const bx = part(new THREE.BoxGeometry(0.42, 0.05, 0.42), B.pizza, 0.012); bx.position.set(0, 0.03 + i * 0.055, 0); bx.rotation.y = i * 0.25; pz.add(bx); items.pizza++; }
       const open = new THREE.Group(); open.position.set(0.5, 0, 0.1); pz.add(open);
       const base = part(new THREE.BoxGeometry(0.42, 0.04, 0.42), B.pizza, 0.012); base.position.y = 0.02; open.add(base); items.pizza++;
       const pie = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.02, 14, 1, false, 0, TAU * 0.8), toon(B.pizzaTop)); pie.position.y = 0.05; open.add(pie);
       const lidP = part(new THREE.BoxGeometry(0.42, 0.04, 0.42), B.pizza, 0.012); lidP.position.set(0, 0.2, -0.22); lidP.rotation.x = -1.2; open.add(lidP);
+      }
     }
     if (d1) {
-      const a = at(d1, d1.len / 2 + 0.2, 0.7), b = at(d1, d1.len / 2 + 1.8, 0.7), lg = new THREE.Group(); mapGroup.add(lg); props.push(lg);
+      const a = at(d1, d1.len / 2 + 0.2, 0.7), b = at(d1, d1.len / 2 + 1.8, 0.7);
+      if (free(a) && free(b)) {
+      const lg = new THREE.Group(); mapGroup.add(lg); props.push(lg);
       for (const p of [a, b]) { const post = part(new THREE.CylinderGeometry(0.03, 0.03, 0.8, 5), B.line, 0.01); post.position.set(p.x, 0.4, p.z); lg.add(post); }
       const lineLen = Math.hypot(b.x - a.x, b.z - a.z), line = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, lineLen, 4), toon(B.line));
       line.position.set((a.x + b.x) / 2, 0.76, (a.z + b.z) / 2); line.rotation.order = "YXZ"; line.rotation.set(Math.PI / 2, Math.atan2(b.x - a.x, b.z - a.z), 0); lg.add(line);
@@ -6759,15 +6791,22 @@ function dressHouses(place) {
       const c = on(0.68), shirt = new THREE.Group(); shirt.position.set(c.x, 0.56, c.z); shirt.rotation.y = ry; lg.add(shirt);
       shirt.add(part(new THREE.BoxGeometry(0.28, 0.3, 0.03), B.shirt, 0.01));
       const arms = part(new THREE.BoxGeometry(0.46, 0.1, 0.03), B.shirt, 0.01); arms.position.y = 0.12; shirt.add(arms); items.laundry.push("shirt");
-      const tp = at(d1, -(d1.len / 2 + 0.9), 0.9), car = new THREE.Group(); car.position.set(tp.x, 0, tp.z); car.rotation.y = 0.7; mapGroup.add(car); props.push(car);
+      }
+      const tp = at(d1, -(d1.len / 2 + 0.9), 0.9);
+      if (free(tp)) {
+      const car = new THREE.Group(); car.position.set(tp.x, 0, tp.z); car.rotation.y = 0.7; mapGroup.add(car); props.push(car);
       const body = part(new THREE.BoxGeometry(0.28, 0.08, 0.15), B.toyCar, 0.012); body.position.y = 0.07; car.add(body);
       const cab = part(new THREE.BoxGeometry(0.14, 0.07, 0.13), B.toyCar, 0.01); cab.position.set(-0.02, 0.14, 0); car.add(cab);
       for (const [x, z] of [[-0.09, -0.08], [0.09, -0.08], [-0.09, 0.08], [0.09, 0.08]]) { const w = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.03, 8), toon(B.tyre)); w.rotation.x = Math.PI / 2; w.position.set(x, 0.035, z); car.add(w); }
       items.toys++;
-      const bp = at(d1, -(d1.len / 2 + 0.5), 1.35), bone = new THREE.Group(); bone.position.set(bp.x, 0.04, bp.z); bone.rotation.y = 1.1; mapGroup.add(bone); props.push(bone);
+      }
+      const bp = at(d1, -(d1.len / 2 + 0.5), 1.35);
+      if (free(bp)) {
+      const bone = new THREE.Group(); bone.position.set(bp.x, 0.04, bp.z); bone.rotation.y = 1.1; mapGroup.add(bone); props.push(bone);
       const bar = part(new THREE.CylinderGeometry(0.025, 0.025, 0.22, 6), B.bone, 0.008); bar.rotation.z = Math.PI / 2; bone.add(bar);
       for (const x of [-0.12, 0.12]) for (const z of [-0.03, 0.03]) { const kn = new THREE.Mesh(sphere(0.035, 6, 5), toon(B.bone)); kn.position.set(x, 0, z); bone.add(kn); }
       items.toys++;
+      }
     }
     for (const q of props) q.traverse(o => { o.castShadow = false; });   // мелочь у дома — без теней (меньше вызовов в проходе тени)
     info.big = { roof: true, crooked: Math.abs(roof.g.rotation.z) > 0.01, patches, stains, ...items, fade };
@@ -6778,12 +6817,18 @@ function dressHouses(place) {
 // SPEC-021: крыша гаснет, пока в доме кто-то есть (рамка чуть шире к дальней стороне), а у игрока — и когда он рядом; без новых объектов
 const inHouse = (q, hr, m) => q.x > hr.x0 - m && q.x < hr.x1 + m && q.y > hr.y0 - m && q.y < hr.y1 + m;
 const roofGlow = new THREE.Color(CFG.HOUSE_LOOK.kid.glow);
+// кто-то (или предмет на полу) в доме — крыша гаснет
+function roofInside(hr) {
+  const near = CFG.HOUSE_LOOK.near * CELL;
+  if (big && inHouse(big, hr, 0)) return true;
+  for (const l of littles) if (inHouse(l, hr, l.kind === "player" ? near : 0)) return true;
+  for (const it of items) if (inHouse(it, hr, 0)) return true;
+  return false;
+}
 function fadeRoofs(dt, t) {
-  const H = CFG.HOUSE_LOOK, near = H.near * CELL;
+  const H = CFG.HOUSE_LOOK;
   for (const hr of houseRoofs) {
-    let inside = inHouse(big, hr, 0);
-    for (const l of littles) if (inHouse(l, hr, l.kind === "player" ? near : 0)) inside = true;
-    hr.a += ((inside ? H.faded : 1) - hr.a) * Math.min(1, dt / H.fade);
+    hr.a += ((roofInside(hr) ? H.faded : 1) - hr.a) * Math.min(1, dt / H.fade);
     hr.g.visible = hr.a > H.hide;                       // почти погасла — не рисуем совсем (на телефоне крыша во весь экран)
     hr.glowNow = hr.glow ? H.kid.glowK * (0.75 + 0.25 * Math.sin(t * 3)) * (hr.a - H.faded) / (1 - H.faded) : 0;   // зелёный свет безопасного дома на крыше
     for (const mt of hr.mats) {
@@ -6900,7 +6945,7 @@ function buildMap3D() {
   if (safeZone) {
     const f = floors.find(fl => fl.x >= safeZone.x && fl.y >= safeZone.y && fl.x < safeZone.x + safeZone.w && fl.y < safeZone.y + safeZone.h);
     if (f) {
-      const m = new THREE.MeshBasicMaterial({ color: "#4ade80", transparent: true, opacity: 0.25, depthWrite: false }); m.userData.own = true;
+      const m = new THREE.MeshBasicMaterial({ color: CFG.SAFE_GLOW.color, transparent: true, opacity: CFG.SAFE_GLOW.alpha, depthWrite: false }); m.userData.own = true;
       safeGlow = new THREE.Mesh(new THREE.PlaneGeometry(P(f.w) - 0.1, P(f.h) - 0.1), m);
       safeGlow.rotation.x = -Math.PI / 2; safeGlow.position.set(P(f.x + f.w / 2), 0.03, P(f.y + f.h / 2));
       mapGroup.add(safeGlow);
@@ -7090,7 +7135,7 @@ function buildLittleModel(look, isPlayer, pid = 0, glove = null) {
     rig.add(pv); arms.push(pv);
   }
   const head = new THREE.Group(); head.position.y = CFG.KID_LOOK.headY; head.scale.setScalar(CFG.KID_LOOK.head); rig.add(head);   // SPEC-021: голова больше
-  head.add(part(sphere(0.27, 18, 14), look.skin, 0.03));
+  head.add(part(sphere(KID_HEAD_R, 18, 14), look.skin, 0.03));
   const face = addFace(head, 0.27);
   addHair(head, look);
   let ring = null;
@@ -7100,7 +7145,8 @@ function buildLittleModel(look, isPlayer, pid = 0, glove = null) {
     ring.rotation.x = -Math.PI / 2; ring.position.y = 0.035; root.add(ring);
   }
   const bm = new THREE.MeshToonMaterial({ color: "#7dd3fc", gradientMap: gradTex, transparent: true, opacity: 0.3, depthWrite: false }); bm.userData.own = true;
-  const bubble = new THREE.Mesh(sphere(0.62, 18, 14), bm); bubble.position.y = 0.62; bubble.visible = false; rig.add(bubble);
+  const bubR = (CFG.KID_LOOK.headY + KID_HEAD_R * CFG.KID_LOOK.head + CFG.KID_LOOK.bubblePad) / 2;   // SPEC-021: пузырь-щит от земли до макушки
+  const bubble = new THREE.Mesh(sphere(bubR, 18, 14), bm); bubble.position.y = bubR; bubble.visible = false; rig.add(bubble);
   const dizzyStars = new THREE.Group(); dizzyStars.position.y = 1.58; dizzyStars.visible = false; rig.add(dizzyStars);
   for (let i = 0; i < 3; i++) { const s = part(new THREE.OctahedronGeometry(0.075), "#fde047", 0.015); s.position.set(Math.cos(i * TAU / 3) * 0.3, 0, Math.sin(i * TAU / 3) * 0.3); dizzyStars.add(s); }
   root.traverse(o => { if (o.isMesh && o !== ring && o !== bubble) o.castShadow = true; });
@@ -7127,12 +7173,14 @@ function setCloak(m, on) {
 // маленькие глаза, тяжёлые брови, футболка с рукавами, джинсы, кроссовки — детали в m.dad
 function buildBigModel(sk) {
   const root = new THREE.Group(), rig = new THREE.Group(); root.add(rig);
-  const legs = [], arms = [], dad = sk.top === "dad" ? { jeans: [], sneakers: [], sleeves: [], ears: [], hairs: [] } : null;
+  const legs = [], arms = [], hands = [], dad = sk.top === "dad" ? { jeans: [], sneakers: [], sleeves: [], ears: [], hairs: [] } : null;
+  // свои материалы у перекрашиваемых частей (SPEC-022: наряды боссов): штаны у всех, кроссовки у папы; футболка и рукава — bodyMat
+  const pantsMat = ownMat(sk.pants || "#2d2d3f"), shoeMat = dad ? ownMat(sk.shoes) : null;
   for (const k of [-1, 1]) {
     const pv = new THREE.Group(); pv.position.set(k * 0.22, 0.55, 0);
-    const leg = part(capsule(0.15, 0.28), sk.pants || "#2d2d3f", 0.03); leg.position.y = -0.3; pv.add(leg);
+    const leg = part(capsule(0.15, 0.28), "", 0.03, pantsMat); leg.position.y = -0.3; pv.add(leg);
     if (dad) {
-      const shoe = part(new THREE.BoxGeometry(0.3, 0.13, 0.42), sk.shoes, 0.025); shoe.position.set(0, -0.6, 0.07); pv.add(shoe);
+      const shoe = part(new THREE.BoxGeometry(0.3, 0.13, 0.42), "", 0.025, shoeMat); shoe.position.set(0, -0.6, 0.07); pv.add(shoe);
       const sole = new THREE.Mesh(new THREE.BoxGeometry(0.31, 0.04, 0.43), toon(sk.sole)); sole.position.y = -0.065; shoe.add(sole);
       dad.jeans.push(leg); dad.sneakers.push(shoe);
     }
@@ -7147,7 +7195,8 @@ function buildBigModel(sk) {
     const pv = new THREE.Group(); pv.position.set(k * 0.58, 1.32, 0); pv.rotation.z = k * 0.25;
     const arm = part(capsule(0.13, 0.36), sk.skin, 0.03); arm.position.y = -0.28; pv.add(arm);
     const hand = part(sphere(0.15), sk.skin, 0.025); hand.position.y = -0.55; pv.add(hand);
-    if (dad) { const sl = part(new THREE.CylinderGeometry(0.17, 0.16, 0.24, 12), sk.shirt, 0.025); sl.position.y = -0.04; pv.add(sl); dad.sleeves.push(sl); }
+    const ha = new THREE.Group(); ha.position.y = -0.55; pv.add(ha); hands.push(ha);   // SPEC-022: точка в руке (качается с рукой)
+    if (dad) { const sl = part(new THREE.CylinderGeometry(0.17, 0.16, 0.24, 12), "", 0.025, bodyMat); sl.position.y = -0.04; pv.add(sl); dad.sleeves.push(sl); }
     rig.add(pv); arms.push(pv);
   }
   const head = new THREE.Group(); head.position.y = 1.98; rig.add(head);
@@ -7173,7 +7222,7 @@ function buildBigModel(sk) {
     dad.nose = part(sphere(r * 0.18, 12, 10), "", 0.02, headMat); dad.nose.scale.set(1, 0.85, 0.9); dad.nose.position.set(0, 0.05, r * 0.96); head.add(dad.nose);
     for (const k of [-1, 1]) { const e = part(sphere(r * 0.17, 10, 8), "", 0.02, headMat); e.scale.set(0.55, 1, 0.8); e.position.set(k * r * 0.98, 0, 0); head.add(e); dad.ears.push(e); }
     for (const k of [-1, 0, 1]) { const h = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.012, 0.16, 4), toon(INK3)); h.position.set(k * 0.07, r + 0.06, 0.02); h.rotation.z = -k * 0.35; head.add(h); dad.hairs.push(h); }
-    face.mouth.scale.set(0.8, 0.8, 1); face.mouth.position.set(0, -0.08, r * 0.95);
+    face.mouth.scale.set(0.8, 0.8, 1); face.mouth.position.set(0, -0.08, Math.sqrt((r * 1.015) ** 2 - 0.08 ** 2) + 0.01);   // ~0.01 перед щетиной
   }
   const cheeks = new THREE.Group(); cheeks.visible = false; head.add(cheeks);   // румянец: красные щёки
   for (const k of [-1, 1]) { const c = new THREE.Mesh(sphere(0.12, 10, 8), toon("#ff1f4b")); c.scale.set(1.35, 0.8, 0.5); c.position.set(k * 0.29, -0.12, sk.top === "robot" ? 0.43 : 0.4); cheeks.add(c); }
@@ -7206,11 +7255,16 @@ function buildBigModel(sk) {
   const sweat = new THREE.Mesh(sphere(0.09, 10, 8), toon("#7dd3fc")); sweat.scale.y = 1.4; sweat.position.set(0.45, 0.35, 0.35); sweat.visible = false; head.add(sweat);
   const stars = new THREE.Group(); stars.position.y = 2.75; stars.visible = false; rig.add(stars);
   for (let i = 0; i < 3; i++) { const s = part(new THREE.OctahedronGeometry(0.12), "#fde047", 0.02); s.position.set(Math.cos(i * TAU / 3) * 0.55, 0, Math.sin(i * TAU / 3) * 0.55); stars.add(s); }
-  const headTop = new THREE.Group(); headTop.position.y = r + 0.2; head.add(headTop);          // SPEC-022: над головой
-  const outfitAnchor = new THREE.Group(); outfitAnchor.position.y = 1.08; rig.add(outfitAnchor);   // SPEC-022: наряды на туловище
+  // SPEC-022 точки: head — на макушке (шапки; наклоняется с головой), top — над головой в rig (пар, сердечки, облачко; голова
+  // краснеет/кружится — top не наклоняется), torso — на туловище (наряды), handL / handR — в ладонях (качаются с руками)
+  const headSurf = new THREE.Group(); headSurf.position.y = r; head.add(headSurf);
+  const top = new THREE.Group(); top.position.y = head.position.y + r + 0.2; rig.add(top);
+  const torso = new THREE.Group(); torso.position.y = body.position.y; rig.add(torso);
+  const anchors = { head: headSurf, top, torso, handL: hands[1], handR: hands[0] };   // лицом к +z: левая рука — +x
   root.traverse(o => { if (o.isMesh) o.castShadow = true; });
   return { root, rig, legs, arms, head, body, bodyMat, headMat, cheeks, face, sweat, stars, blink,
-    look: sk.id, faceMats, faceBase: sk.skin, stubbleMat, stubbleK: sk.stubble || 1, headTop, outfitAnchor, dad };
+    look: sk.id, faceMats, faceBase: sk.skin, stubbleMat, stubbleK: sk.stubble || 1, anchors, headTop: top, outfitAnchor: torso,
+    mats: { shirt: bodyMat, pants: pantsMat, shoes: shoeMat, face: headMat, stubble: stubbleMat }, dad };
 }
 // SPEC-021 (для SPEC-022): цвет лица Большого — color (строка/число), null — цвет образа; щетина остаётся на тон темнее
 function setBigFace(m, color) {
@@ -7471,7 +7525,8 @@ function syncBig(b, t) {
   m.bodyMat.emissive.set(b.flash > 0 ? "#ff8fb0" : "#000000");
   const blushing = b.blush > 0;                           // покраснел после воздушного поцелуя
   m.cheeks.visible = blushing;
-  m.headMat.emissive.setRGB(blushing ? 0.55 + Math.sin(t * 8) * 0.12 : 0, 0, blushing ? 0.1 : 0);
+  const br = blushing ? 0.55 + Math.sin(t * 8) * 0.12 : 0, bb2 = blushing ? 0.1 : 0;
+  for (const fm of m.faceMats) fm.emissive.setRGB(br, 0, bb2);   // SPEC-021: всё лицо (и щетина) краснеет
   // смущается: голову чуть вверх (красное лицо видно сверху), руки вместе, улыбается
   if (blushing && !shocked) { m.head.rotation.x = -0.2; m.arms[0].rotation.x = -0.5; m.arms[1].rotation.x = -0.5; m.face.mouth.rotation.z = Math.PI; }
   else m.head.rotation.x = 0;
@@ -7602,64 +7657,81 @@ function makePaperGrain() {
   paperU.uTex.value = tex;
   paperMade++;
 }
-function syncPaper() {                                // каждый кадр: только сравнение, без новых объектов
-  const want = !!CFG.PAPER_GRAIN;
+let paperPR = 0;
+function syncPaper() {                                // каждый кадр: только сравнения, без новых объектов
+  const want = !!CFG.PAPER_GRAIN && (!PHONE || !!CFG.PAPER_GRAIN_PHONE), pr = renderer.getPixelRatio();
+  if (pr !== paperPR) { paperPR = pr; paperU.uTile.value = CFG.PAPER_GRAIN_LOOK.size * pr; }   // плитка в px экрана
   if (want === paperOn) return;
   if (want && !paperMade) makePaperGrain();
-  paperU.uTile.value = CFG.PAPER_GRAIN_LOOK.size * renderer.getPixelRatio();   // плитка в px экрана
   paperMesh.visible = want;
   paperOn = want;
 }
-// SPEC-021 (тесты): как нарисована 3D-сцена — контуры (цвета, во сколько раз толще просьбы детали, неровность, сдвиг, кто с контуром,
-// подпись карты), тона заливки, типы материалов, тень солнца, бумажное зерно
-function look3D() {
-  const ratios = [], colors = new Set(), types = new Set(), kinds = {};
-  let hulls = 0, shifted = 0, mapSig = 0, toonOffGradient = 0;
-  const kindOf = o => { for (let q = o; q; q = q.parent) { if (q.userData.piece || q.userData.obj) return q.userData.piece || q.userData.obj; if (q === charGroup) return "character"; } return "other"; };
-  const under = (o, root) => { for (let q = o; q; q = q.parent) if (q === root) return true; return false; };
-  scene.traverse(o => {
-    if (!o.isMesh || o === paperMesh) return;
-    types.add(o.material.type);
-    if (o.material.isMeshToonMaterial && o.material.gradientMap !== gradTex) toonOffGradient++;
-    if (!o.userData.hull) return;
-    hulls++;
-    const box = o.parent.geometry.boundingBox, sz = new THREE.Vector3(); box.getSize(sz);
-    const r = ["x", "y", "z"].map(a => (o.scale[a] - 1) * Math.max(sz[a], 0.02) / 2 / o.userData.hull);
-    ratios.push(...r);
-    colors.add("#" + o.material.color.getHexString());
-    if (o.position.lengthSq() > 0) shifted++;
-    const k = kindOf(o.parent); kinds[k] = (kinds[k] || 0) + 1;
-    if (under(o, mapGroup)) mapSig += r[0] + r[1] * 3 + r[2] * 7 + o.position.x * 11;
-  });
-  ratios.sort((a, b) => a - b);
-  const med = ratios[ratios.length >> 1] || 0;
+// SPEC-021 (тесты): как нарисована 3D-сцена. look3D() — всё; look3D("houses") и т. п. — только эта часть (дёшево, для опроса):
+// outline — контуры (цвета, во сколько раз толще просьбы детали, неровность, сдвиг, у кого контур, подпись карты), materials — тона
+// заливки, типы материалов, тень солнца; paper — бумажное зерно; ground — штрихи земли; hatch — штриховка; houses — домики, крыши
+// и луч камеры к голове каждого маленького (roofHides); memory — текстуры и геометрии рендерера
+const LOOK_PARTS = {
+  outline() {
+    const ratios = [], colors = new Set(), kinds = {};
+    let hulls = 0, shifted = 0, mapSig = 0;
+    const kindOf = o => { for (let q = o; q; q = q.parent) { if (q.userData.piece || q.userData.obj) return q.userData.piece || q.userData.obj; if (q === charGroup) return "character"; } return "other"; };
+    const under = (o, root) => { for (let q = o; q; q = q.parent) if (q === root) return true; return false; };
+    scene.traverse(o => {
+      if (!o.isMesh || !o.userData.hull) return;
+      hulls++;
+      const box = o.parent.geometry.boundingBox, sz = new THREE.Vector3(); box.getSize(sz);
+      const r = ["x", "y", "z"].map(a => (o.scale[a] - 1) * Math.max(sz[a], 0.02) / 2 / o.userData.hull);
+      ratios.push(...r);
+      colors.add("#" + o.material.color.getHexString());
+      if (o.position.lengthSq() > 0) shifted++;
+      const k = kindOf(o.parent); kinds[k] = (kinds[k] || 0) + 1;
+      if (under(o, mapGroup)) mapSig += r[0] + r[1] * 3 + r[2] * 7 + o.position.x * 11;
+    });
+    ratios.sort((a, b) => a - b);
+    const med = ratios[ratios.length >> 1] || 0;
+    return { outline: { colors: [...colors], hulls, k: med, spread: med ? (ratios[ratios.length - 1] - ratios[0]) / med : 0, shifted: hulls ? shifted / hulls : 0, kinds, mapSig: +mapSig.toFixed(6) } };
+  },
+  materials() {
+    const types = new Set();
+    let toonOffGradient = 0;
+    scene.traverse(o => {
+      if (!o.isMesh || o === paperMesh) return;
+      types.add(o.material.type);
+      if (o.material.isMeshToonMaterial && o.material.gradientMap !== gradTex) toonOffGradient++;
+    });
+    return { tones: new Set(gradTex.image.data).size === gradTex.image.width ? gradTex.image.width : -1, materials: [...types], toonOffGradient,
+      shadow: { intensity: sun.shadow.intensity, radius: sun.shadow.radius } };
+  },
+  paper: () => ({ paper: { shown: paperMesh.visible, blend: paperMat.blending === THREE.MultiplyBlending ? "multiply" : "other", alpha: paperU.uAlpha.value,
+    over3D: paperMesh.parent === scene && !paperMat.depthTest && paperMesh.renderOrder >= Math.max(...scene.children.map(o => o.renderOrder)), made: paperMade } }),
   // земля: по клеткам без пола — сколько разных цветов в середине клетки, во сколько раз цвет меняется поперёк штрихов сильнее,
   // чем вдоль (штрихи идут снизу-слева вверх-вправо), средний цвет
-  const gc = groundCanvas, gd = gc.getContext("2d").getImageData(0, 0, gc.width, gc.height).data, k = gc.width / W, B = 12 * k, cols = [], diags = [], mean = [0, 0, 0];
-  let nMean = 0;
-  const px = (x, y) => (y * gc.width + x) * 4, df = (i, j) => Math.abs(gd[i] - gd[j]) + Math.abs(gd[i + 1] - gd[j + 1]) + Math.abs(gd[i + 2] - gd[j + 2]);
-  for (let cy = 0; cy < ROWS; cy++) for (let cx = 0; cx < COLS; cx++) {
-    const x0 = (cx + 0.5) * CELL * k - B / 2, y0 = (cy + 0.5) * CELL * k - B / 2;
-    if (floors.some(f => (cx + 1) * CELL > f.x && cx * CELL < f.x + f.w && (cy + 1) * CELL > f.y && cy * CELL < f.y + f.h)) continue;
-    const seen = new Set(); let along = 0, across = 0;
-    for (let y = y0 + 3; y < y0 + B - 3; y++) for (let x = x0 + 3; x < x0 + B - 3; x++) {
-      const i = px(x, y); seen.add((gd[i] << 16) | (gd[i + 1] << 8) | gd[i + 2]);
-      along += df(i, px(x + 3, y - 3)); across += df(i, px(x + 3, y + 3));
-      mean[0] += gd[i]; mean[1] += gd[i + 1]; mean[2] += gd[i + 2]; nMean++;
+  ground() {
+    const gc = groundCanvas, gd = gc.getContext("2d").getImageData(0, 0, gc.width, gc.height).data, k = gc.width / W, B = 12 * k, cols = [], diags = [], mean = [0, 0, 0];
+    let nMean = 0;
+    const px = (x, y) => (y * gc.width + x) * 4, df = (i, j) => Math.abs(gd[i] - gd[j]) + Math.abs(gd[i + 1] - gd[j + 1]) + Math.abs(gd[i + 2] - gd[j + 2]);
+    for (let cy = 0; cy < ROWS; cy++) for (let cx = 0; cx < COLS; cx++) {
+      const x0 = (cx + 0.5) * CELL * k - B / 2, y0 = (cy + 0.5) * CELL * k - B / 2;
+      if (floors.some(f => (cx + 1) * CELL > f.x && cx * CELL < f.x + f.w && (cy + 1) * CELL > f.y && cy * CELL < f.y + f.h)) continue;
+      const seen = new Set(); let along = 0, across = 0;
+      for (let y = y0 + 3; y < y0 + B - 3; y++) for (let x = x0 + 3; x < x0 + B - 3; x++) {
+        const i = px(x, y); seen.add((gd[i] << 16) | (gd[i + 1] << 8) | gd[i + 2]);
+        along += df(i, px(x + 3, y - 3)); across += df(i, px(x + 3, y + 3));
+        mean[0] += gd[i]; mean[1] += gd[i + 1]; mean[2] += gd[i + 2]; nMean++;
+      }
+      cols.push(seen.size); diags.push(along ? across / along : 1);
     }
-    cols.push(seen.size); diags.push(along ? across / along : 1);
-  }
-  const midOf = a => (a.sort((p, q) => p - q), a[a.length >> 1] || 0);
-  const ground = { colors: midOf(cols), diag: midOf(diags), mean: mean.map(v => Math.round(v / Math.max(1, nMean))) };
-  // штриховка: стены, домики и крыши карты — у всех ли материал со штриховкой
-  const plain = [];
-  let pieces = 0;
-  if (mapGroup) mapGroup.traverse(q => { if (q.isMesh && HATCHED.has(q.userData.piece)) { pieces++; if (!q.material.userData.hatch) plain.push(q.userData.piece); } });
-  return { outline: { colors: [...colors], hulls, k: med, spread: med ? (ratios[ratios.length - 1] - ratios[0]) / med : 0, shifted: hulls ? shifted / hulls : 0, kinds, mapSig: +mapSig.toFixed(6) },
-    tones: new Set(gradTex.image.data).size === gradTex.image.width ? gradTex.image.width : -1, materials: [...types], toonOffGradient,
-    shadow: { intensity: sun.shadow.intensity, radius: sun.shadow.radius },
-    paper: { shown: paperMesh.visible, blend: paperMat.blending === THREE.MultiplyBlending ? "multiply" : "other", alpha: paperU.uAlpha.value,
-      over3D: paperMesh.parent === scene && !paperMat.depthTest && paperMesh.renderOrder >= Math.max(...scene.children.map(o => o.renderOrder)), made: paperMade },
+    const midOf = a => (a.sort((p, q) => p - q), a[a.length >> 1] || 0);
+    return { ground: { colors: midOf(cols), diag: midOf(diags), mean: mean.map(v => Math.round(v / Math.max(1, nMean))) } };
+  },
+  // штриховка: стены, домики и крыши карты — у всех ли материал со штриховкой; сколько программ со штриховкой собрано
+  hatch() {
+    const plain = [];
+    let pieces = 0;
+    if (mapGroup) mapGroup.traverse(q => { if (q.isMesh && HATCHED.has(q.userData.piece)) { pieces++; if (!q.material.userData.hatch) plain.push(q.userData.piece); } });
+    return { hatch: { pieces, plain: [...new Set(plain)], programs: (renderer.info.programs || []).filter(q => q.cacheKey.includes("hatch")).length } };
+  },
+  houses: () => ({
     houses: houseInfo && { snow: houseInfo.snow,
       kid: houseInfo.kid && { ...houseInfo.kid, fade: undefined, alpha: houseInfo.kid.fade.a, glow: houseInfo.kid.fade.glowNow || 0 },
       big: houseInfo.big && { ...houseInfo.big, fade: undefined, alpha: houseInfo.big.fade.a } },
@@ -7667,9 +7739,13 @@ function look3D() {
       if (!l.model) return false;
       const head = l.model.head.getWorldPosition(new THREE.Vector3()), dir = head.clone().sub(camera.position), dist = dir.length();
       const hits = new THREE.Raycaster(camera.position.clone(), dir.normalize(), 0, dist).intersectObjects(houseRoofs.flatMap(hr => hr.meshes), false);
-      return hits.some(h => h.object.material.opacity > 0.5);
-    }),
-    ground, hatch: { pieces, plain: [...new Set(plain)], programs: (renderer.info.programs || []).filter(q => q.cacheKey.includes("hatch")).length }, memory: { ...renderer.info.memory } };
+      return hits.some(h => h.object.visible && h.object.material.opacity > 0.5);
+    }) }),
+  memory: () => ({ memory: { ...renderer.info.memory } })
+};
+function look3D(only) {
+  if (only) return LOOK_PARTS[only] ? LOOK_PARTS[only]() : null;
+  return Object.assign({}, ...Object.values(LOOK_PARTS).map(f => f()));
 }
 
 function render3D(t) {
@@ -7750,7 +7826,8 @@ window.__bb = {
   update, inSafe, I18N, startGame, resetWorld, cycleOutfit, randomOutfit, cycleBig, setLang, toScreen,
   get items() { return items; }, get progress() { return progress; }, buyGloves, setEquip, get lastReward() { return lastReward; }, spawnItem,
   UPGRADES, buyUpgrade, get upgrades() { return { ...progress.upgrades }; }, get shopTab() { return shopTab; }, set shopTab(v) { if (SHOP_TABS.includes(v)) { shopTab = v; wardrobePage = "looks"; } },   // SPEC-009 (SPEC-017: + «wardrobe»)
-  WARDROBE_TIERS, buyLook, resetOutfits, get outfits() { return { shown: cloneSkins(skinSel), saved: cloneSkins(skinKeep) }; },   // SPEC-009: гардероб
+  WARDROBE_TIERS, buyLook, resetOutfits, loadOutfits,   // SPEC-021: loadOutfits(save) — чистое «сохранение → наряды»
+  get outfits() { return { shown: cloneSkins(skinSel), saved: cloneSkins(skinKeep) }; },   // SPEC-009: гардероб
   wardrobe: () => ({ hat: HATS.map(({ id, price }) => ({ id, price })), jacket: JACKETS.map(({ id, price }) => ({ id, price })),
     pants: PANTS.map(({ id, price }) => ({ id, price })), big: BIG_SKINS.map(({ id, price }) => ({ id, price })), hairs: HAIRS.length }),
   REWARD, get winPanel() { return winPanel && { ...winPanel }; },   // SPEC-009: числа награды; рамка строк награды на экране победы
@@ -7776,6 +7853,7 @@ window.__bb = {
   },
   isStandalone, get installHintShown() { return installHintShown; }, get buttonNames() { return buttons.map(b => b.act.name); },
   get buttonRects() { return buttons.map(b => ({ id: b.id || b.act.name, x: b.x, y: b.y, w: b.w, h: b.h, text: b.text, textW: b.textW })); },
+  nameTagH,   // SPEC-021: высота точки имени над ногами (px мира)
   updateCamera, camSnap, stickR, updateMinimapFade, get minimapAlpha() { return mmAlpha; }, skinPanels, resetBannerTimer() { bannerShownAt = -Infinity; }, showBanner,
   get textSizes() { return { ...textSizes }; }, get rotateShown() { return rotateShown; }, get bannerRect() { return bannerRect && { ...bannerRect }; },
   get minimap() { return mmShown ? { x: mmState.x, y: mmState.y, w: mmState.w, h: mmState.h, alpha: mmState.alpha, baseDraws: mmDraws, markers: mmState.markers.slice(0, mmCount).map(m => ({ ...m })) } : null; },

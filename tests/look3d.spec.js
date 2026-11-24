@@ -108,7 +108,8 @@ test("every world's ground has diagonal marker strokes over its THEMES colour; w
     }
   }
   await frames(page);                                       // the hatching shader compiles and draws without errors
-  expect(errors).toEqual([]);
+  expect(await page.evaluate(() => window.__bb.look3D("hatch").hatch.programs), "a compiled hatch program").toBeGreaterThanOrEqual(1);
+  expect(errors).toEqual([]);                               // addHatch logs an error if three.js changed the shader chunks
 });
 
 // AC 8: Winter's maze walls are clearly darker than the snow (contrast ratio of their THEMES colours): the sides, and the
@@ -148,7 +149,10 @@ test("the Little Ones have big round heads with dot eyes, rosy cheeks and a smil
   await frames(page);
   const r = await page.evaluate(() => {
     const b = window.__bb;
-    return { want: b.CFG.KID_LOOK.head, r: b.littles[0].r, kids: b.littles.map(l => { const m = l.model; return { head: m.head.scale.x, eyes: m.face.eyes.map(e => e.geometry.parameters.radius), cheeks: (m.face.cheeks || []).length, mouth: !!m.face.mouth }; }) };
+    const K = b.CFG.KID_LOOK, top = K.headY + 0.27 * K.head;   // the head's top in model units
+    return { want: K.head, r: b.littles[0].r, tagAbove: b.nameTagH() / 32 / 1.6 > top, kids: b.littles.map(l => { const m = l.model, bub = m.bubble;
+      return { head: m.head.scale.x, eyes: m.face.eyes.map(e => e.geometry.parameters.radius), cheeks: (m.face.cheeks || []).length, mouth: !!m.face.mouth,
+        inBubble: bub.position.y + bub.geometry.parameters.radius > top }; }) };
   });
   expect(r.want).toBeGreaterThan(1.15);
   for (const q of r.kids) {
@@ -156,7 +160,9 @@ test("the Little Ones have big round heads with dot eyes, rosy cheeks and a smil
     expect(Math.max(...q.eyes)).toBeLessThan(0.035);       // dots (before: 0.046 eyes with a white highlight)
     expect(q.cheeks).toBe(2);
     expect(q.mouth).toBe(true);
+    expect(q.inBubble, "the shield bubble covers the bigger head").toBe(true);
   }
+  expect(r.tagAbove, "the name tag point is above the head").toBe(true);
   expect(r.r).toBe(11);                                     // the logic size is untouched (looks only)
   expect(errors).toEqual([]);
 });
@@ -168,13 +174,18 @@ test("the dad is the Big One of a new save and of an old default save; other old
   const errors = await openGame(page, { sim: true });
   const ids = () => page.evaluate(() => { const b = window.__bb, W = b.wardrobe().big; return { shown: W[b.outfits.shown.big].id, saved: W[b.outfits.saved.big].id, price: W[b.outfits.saved.big].price, order: W.map(q => q.id) }; });
   expect(await ids()).toEqual({ shown: "dad", saved: "dad", price: 0, order: ["classic", "ogre", "robot", "captain", "bear", "dad"] });
-  for (const [save, id] of [[{ big: 0 }, "dad"], [{ big: 1 }, "ogre"], [{ big: "0" }, "dad"], [{}, "dad"], [{ big: 0, v: 2 }, "classic"], [{ big: 4, v: 2 }, "bear"]]) {
-    await page.evaluate(sv => localStorage.setItem("bebebe-outfits", JSON.stringify({ p1: { hair: 0, hat: 1, jacket: 0, pants: 0 }, p2: { hair: 1, hat: 4, jacket: 1, pants: 3 }, ...sv })), save);
-    await page.reload();
-    await page.waitForFunction(() => window.__bbReady === true);
-    const r = await ids();
-    expect([r.shown, r.saved], `save ${JSON.stringify(save)}`).toEqual([id, id]);
-  }
+  // the shapes through the pure merge the start code runs (no reload each)
+  const shapes = await page.evaluate(() => {
+    const b = window.__bb, W = b.wardrobe().big, base = { p1: { hair: 0, hat: 1, jacket: 0, pants: 0 }, p2: { hair: 1, hat: 4, jacket: 1, pants: 3 } };
+    return [{ big: 0 }, { big: 1 }, { big: "0" }, {}, { big: 0, v: 1 }, { big: 0, v: 2 }, { big: 4, v: 2 }, { big: 99 }, { big: -3, v: 2 }, { big: "x" }]
+      .map(sv => W[b.loadOutfits({ ...base, ...sv }).big].id).concat([null, "junk", { p1: 1 }].map(sv => W[b.loadOutfits(sv).big].id));
+  });
+  expect(shapes).toEqual(["dad", "ogre", "dad", "dad", "dad", "classic", "bear", "dad", "classic", "dad", "dad", "dad", "dad"]);
+  // one real reload: an old default save starts with the dad
+  await page.evaluate(() => localStorage.setItem("bebebe-outfits", JSON.stringify({ p1: { hair: 0, hat: 1, jacket: 0, pants: 0 }, p2: { hair: 1, hat: 4, jacket: 1, pants: 3 }, big: 0 })));
+  await page.reload();
+  await page.waitForFunction(() => window.__bbReady === true);
+  expect(await ids()).toMatchObject({ shown: "dad", saved: "dad" });
   // Classic chosen now is saved with v and stays Classic after a reload
   await page.evaluate(() => { localStorage.removeItem("bebebe-outfits"); });
   await page.reload();
@@ -196,7 +207,10 @@ test("the dad: bald with stubble, small eyes, heavy brows, big nose, red t-shirt
   const r = await page.evaluate(() => {
     const b = window.__bb, m = b.big.model, hex = c => "#" + c.getHexString();
     const out = { look: m.look, shirt: hex(m.bodyMat.color), parts: Object.keys(m.dad || {}).sort(), top: !!(m.headTop && m.headTop.isObject3D), outfit: !!(m.outfitAnchor && m.outfitAnchor.isObject3D),
-      eyes: m.face.eyes.map(e => e.geometry.parameters.radius), brows: m.face.brows.length, skin: hex(m.headMat.color) };
+      eyes: m.face.eyes.map(e => e.geometry.parameters.radius), brows: m.face.brows.length, skin: hex(m.headMat.color),
+      anchors: Object.keys(m.anchors).sort(), handsSwing: [m.anchors.handL.parent, m.anchors.handR.parent].every(q => m.arms.includes(q)),
+      topNoTilt: m.anchors.top.parent === m.rig, hatOnHead: m.anchors.head.parent === m.head, aliases: m.headTop === m.anchors.top && m.outfitAnchor === m.anchors.torso,
+      ownMats: ["shirt", "pants", "shoes", "face", "stubble"].every(k => m.mats[k] && m.mats[k].userData.own), sleevesShirt: m.dad.sleeves.every(q => q.material === m.mats.shirt) };
     b.setBigFace(m, "#ff8a65"); out.faced = m.faceMats.map(q => hex(q.color));
     b.setBigFace(m, null); out.back = m.faceMats.map(q => hex(q.color));
     return out;
@@ -205,6 +219,8 @@ test("the dad: bald with stubble, small eyes, heavy brows, big nose, red t-shirt
   expect(r.shirt).toBe("#eb3e42");
   expect(r.parts).toEqual(["ears", "hairs", "jeans", "nose", "sleeves", "sneakers", "stubble"]);
   expect(r.top && r.outfit).toBe(true);
+  expect(r.anchors).toEqual(["handL", "handR", "head", "top", "torso"]);
+  expect([r.handsSwing, r.topNoTilt, r.hatOnHead, r.aliases, r.ownMats, r.sleevesShirt]).toEqual([true, true, true, true, true, true]);
   expect(Math.max(...r.eyes)).toBeLessThan(0.07);          // small grumpy eyes (the old looks: 0.12 whites)
   expect(r.brows).toBe(2);
   expect(r.faced[0]).toBe("#ff8a65");
@@ -242,6 +258,8 @@ test("the dad's house is the messy little house and the kids' house the blue one
 // it); empty and alone, it is solid
 test("a house roof fades while someone is inside, so it never hides a Little One", async ({ page }) => {
   const errors = await openGame(page);
+  // at the start the kids stand in their house: the roof is already faded on the first frame (no flash)
+  expect(await page.evaluate(() => { const b = window.__bb; b.world = "park"; b.level = 1; b.startGame(1); return b.look3D("houses").houses.kid.alpha; })).toBeLessThan(0.5);
   await play(page, "park", 1);
   const place = inside => page.evaluate(inKid => {
     const b = window.__bb, z = b.safeZone, d = b.dangerZone;
@@ -252,17 +270,21 @@ test("a house roof fades while someone is inside, so it never hides a Little One
     b.mode = "pause";                                        // frozen: the scene still renders and the roofs fade
   }, inside);
   // the fade takes ~0.25 s of frames; on a slow software renderer that is longer — wait for it, then read the scene
-  const settle = async ok => { await page.waitForFunction(ok, null, { timeout: 15_000 }); return page.evaluate(() => window.__bb.look3D()); };
+  const settle = async ok => { await page.waitForFunction(ok, null, { timeout: 15_000 }); return page.evaluate(() => window.__bb.look3D("houses")); };
   await place(false);
-  const empty = await settle(() => { const h = window.__bb.look3D().houses; return h.kid.alpha > 0.95 && h.big.alpha > 0.95; });
+  const empty = await settle(() => { const h = window.__bb.look3D("houses").houses; return h.kid.alpha > 0.95 && h.big.alpha > 0.95; });
   expect(empty.houses.kid.alpha).toBeGreaterThan(0.95);
   expect(empty.houses.big.alpha).toBeGreaterThan(0.95);
   expect(empty.houses.kid.glow, "AC 9: a solid roof of the safe house glows green").toBeGreaterThan(0.15);
   await place(true);
-  const full = await settle(() => window.__bb.look3D().houses.kid.alpha < 0.12);
+  const full = await settle(() => window.__bb.look3D("houses").houses.kid.alpha < 0.12);
   expect(full.houses.kid.alpha).toBeLessThan(0.5);
   expect(full.roofHides[1]).toBe(false);                   // a ray from the camera to the kid's head meets no solid roof
   expect(full.houses.kid.glow, "faded: the floor glow shows instead").toBeLessThan(0.1);
+  // an item lying in the dad's house fades his roof too (nobody inside)
+  await place(false);
+  await page.evaluate(() => { const b = window.__bb, d = b.dangerZone; b.mode = "play"; b.spawnItem(); const it = b.items[b.items.length - 1]; it.x = d.x + d.w / 2; it.y = d.y + d.h / 2; b.mode = "pause"; });
+  expect((await settle(() => window.__bb.look3D("houses").houses.big.alpha < 0.12)).houses.big.alpha).toBeLessThan(0.5);
   expect(errors).toEqual([]);
 });
 
@@ -271,7 +293,7 @@ test("a house roof fades while someone is inside, so it never hides a Little One
 // (colour change of the blend, 0–441)
 test("the hero's outline, the view cone and the safe glow stand out on every world's ground", async ({ page }) => {
   const errors = await openGame(page, { sim: true });
-  const r = await page.evaluate(() => ({ th: window.__bb.THEMES, W: window.__bb.WORLDS, ink: window.__bb.CFG.OUTLINE_LOOK.color, cone: window.__bb.CFG.CONE_LOOK }));
+  const r = await page.evaluate(() => { const C = window.__bb.CFG; return { th: window.__bb.THEMES, W: window.__bb.WORLDS, ink: C.OUTLINE_LOOK.color, cone: C.CONE_LOOK, glow: C.SAFE_GLOW, floor: C.FLOOR_LOOK.wood[0] }; });
   const rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
   const lum = h => { const [a, b, c] = rgb(h).map(v => v / 255).map(v => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)); return 0.2126 * a + 0.7152 * b + 0.0722 * c; };
   const ratio = (a, b) => (Math.max(lum(a), lum(b)) + 0.05) / (Math.min(lum(a), lum(b)) + 0.05);
@@ -284,7 +306,17 @@ test("the hero's outline, the view cone and the safe glow stand out on every wor
     for (const g of [t.g1, t.g2, ...dark]) for (const [k, c, a] of [["look", r.cone.look, r.cone.lookA], ["chase", r.cone.chase, r.cone.chaseA]])
       if (blendShift(g, c, a) < 30) problems.push(`${w}: ${k} cone on ${g} ${blendShift(g, c, a).toFixed(1)}`);
   }
-  if (blendShift("#f3d9a4", "#4ade80", 0.25) < 30) problems.push("safe glow on the wood floor");
+  if (blendShift(r.floor, r.glow.color, r.glow.alpha) < 30) problems.push("safe glow on the wood floor");
   expect(problems).toEqual([]);
+  expect(errors).toEqual([]);
+});
+
+// AC 10 / Goal: the paper grain is off on a phone by default (CFG.PAPER_GRAIN_PHONE), on for desktop
+test("the paper grain is off on a phone by default", async ({ page }) => {
+  await page.setViewportSize({ width: 844, height: 390 });
+  const errors = await openGame(page, { query: "?phone=1" });
+  await play(page, "park", 1);
+  await frames(page);
+  expect(await page.evaluate(() => [window.__bb.phone, window.__bb.CFG.PAPER_GRAIN, window.__bb.look3D("paper").paper.shown])).toEqual([true, true, false]);
   expect(errors).toEqual([]);
 });
