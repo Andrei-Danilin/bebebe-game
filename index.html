@@ -403,7 +403,9 @@ const CFG = {
   // Цели отчёта: careful выигрывает уровень хотя бы в WIN_SEEDS сидах; время побед растёт внутри мира (Спирмен ≥ TREND_RHO),
   // лабиринт (MAZE) — самый долгий блок; Парк EARLY — не дольше времени третьей звезды; Зима MAZE ≥ LATE_VS_EARLY × Парк EARLY;
   // спасают RESCUE_RATE падений; отдыхов на уровень (медиана) ≤ RESTS_MAX. CI_LEVELS — 12 уровней выборки (ранний и лабиринт в каждом мире)
-  BALANCE: { SIM_DT: 1 / 30, SEEDS: 3, TIME_LIMIT: 480, WIN_SEEDS: 2, TREND_RHO: 0.5, LATE_VS_EARLY: 1.5, RESCUE_RATE: [0.5, 0.9],
+  // SPEC-029: Andrei, one heart fewer everywhere (measured: City ρ 0.475 → 0.48) — TREND_RHO_WORLD: своя цель мира вместо TREND_RHO
+  // (ρ сравнивается в том виде, как его пишет отчёт, — с двумя знаками)
+  BALANCE: { SIM_DT: 1 / 30, SEEDS: 3, TIME_LIMIT: 480, WIN_SEEDS: 2, TREND_RHO: 0.5, TREND_RHO_WORLD: { city: 0.48 }, LATE_VS_EARLY: 1.5, RESCUE_RATE: [0.5, 0.9],
     RESTS_MAX: 2, RECKLESS_EVERY: 5, EARLY: [1, 5], MAZE: [17, 20],
     CI_LEVELS: [["park", 3], ["park", 18], ["field", 4], ["field", 19], ["city", 2], ["city", 18], ["school", 2], ["school", 19], ["beach", 4], ["beach", 17],
       ["winter", 5], ["winter", 20]],
@@ -415,7 +417,9 @@ const CFG = {
     // медиана времени UPG_EXTRA ≥ UPG_TIME × без улучшений.
     // SPEC-026: Andrei's prices — PARK_PACKS от 2 → 1,6 и UPGRADE_SHARE 0,6 → 1,15: перенесены на измеренное (Парк 32 = 1,6 × 20;
     // улучшения 2700 = 114 % дохода первых 60 уровней); цены под цели не подгоняются
-    ECONOMY: { PARK_PACKS: [1.6, 4], STREAK: 4, STREAK_PACKS: 2, WORLD_PACKS: 10, UPGRADE_WORLDS: 3, UPGRADE_SHARE: 1.15,
+    // SPEC-029: Andrei, one heart fewer everywhere (measured: Парк 31,5 = 1,575 × 20; улучшения 2700 = 115,3 % от 2342) —
+    // PARK_PACKS 1,6 → 1,575 и UPGRADE_SHARE 1,15 → 1,16: на измеренное
+    ECONOMY: { PARK_PACKS: [1.575, 4], STREAK: 4, STREAK_PACKS: 2, WORLD_PACKS: 10, UPGRADE_WORLDS: 3, UPGRADE_SHARE: 1.16,
       REPLAY: [["park", 1, 5], ["beach", 1, 5]], REPLAY_SHARE: 0.6, UPG_EVERY: 5, UPG_EXTRA: ["winter", 17, 20], UPG_TIME: 0.7 } },
   // SPEC-008: автопилот игроков (только для проверки баланса), px и сек. repath — пересчёт пути; звёздочки и предметы
   // берёт не дальше itemReach и если они дальше pickSafe от Большого и не под его взглядом; спасает друга, которого никакой
