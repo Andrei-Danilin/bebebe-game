@@ -49,9 +49,9 @@ Every scene can be skipped and watched again in **Story** (▶ on the chapter pi
 
 ## Starting a level
 
-The **home screen** shows your stars (out of 240 in the main worlds), how many worlds you finished, the bonus worlds
-(🔒 until open), your coins and the items you own, and three big buttons: **Play**, **Story**, **Shop**. The small
-🌐 and 🔊 icons in the corner switch the language and the sound.
+The **home screen** shows the logo and three big buttons in a column: **Play**, **Story**, **Character**. The small
+🌐 and 🔊 icons in the corner switch the language and the sound. Your stars, worlds, coins and things are on the
+Character's **Progress** page.
 
 1. **Play** opens the **level map**: one page per world, the six worlds as tabs at the top (🌳 Park, ⚽ Football field,
    🏙️ City, 🏫 School, then the bonus 🏖️ Beach and ❄️ Winter). Each page has 20 level stops on a winding dotted path:
@@ -62,16 +62,16 @@ The **home screen** shows your stars (out of 240 in the main worlds), how many w
 
 So from opening the game to playing is three taps: Play → the bouncing stop → Play.
 
-**Story** — the comic of the whole adventure, chapter by chapter: How it began, one chapter per world, How it
-ended (after the School's boss). A world's chapter opens with the world; until the comic pictures are drawn, a
+**Story** — the comic of the whole adventure, chapter by chapter: How it began (Dad's own words in the comic's speech
+bubbles), one chapter per world, How it ended (after the School's boss). A world's chapter opens with the world; until the comic pictures are drawn, a
 pencil sketch says "Comic coming soon". **❓ How to play** on the story screen lists the rules and the controls.
 
-After a level: the win screen offers the next level, the **Map** and the **Shop**; the pause menu offers Continue,
-Map and Home.
+After a level: the win screen offers the next level, the **Map** and the **Shop** (the Character's Items tab); the pause
+menu offers Continue, Map and Home.
 
 ## Install on iPhone
 
-1. Open https://andrei-danilin.github.io/bebebe-game/ in **Safari** (the home screen shows a hint).
+1. Open https://andrei-danilin.github.io/bebebe-game/ in **Safari**.
 2. Tap **Share** ⬆️ → **Add to Home Screen** → **Add**.
 3. Start **BeBeBe** from the home screen: full screen, no browser bar. Turn the phone sideways.
 
@@ -136,12 +136,12 @@ Menus:
 
 | Screen | Keyboard | Gamepad | Touch |
 |---|---|---|---|
-| Home | `Enter` / `Space` — Play, `S` — Story, `B` — Shop | A — Play, X — Story, Y — Shop | tap the buttons |
+| Home | `Enter` / `Space` — Play, `S` — Story, `B` — Character | A — Play, X — Story, Y — Character | tap the buttons |
 | Level map | `←` / `→` — world (locked bonus worlds are skipped), `↑` / `↓` — pick a stop, `Enter` — its level card, `Esc` — home | D-pad left/right or the shoulder buttons (LB / RB) — world, D-pad up/down — stop, A — card, B — home | tap a tab or a stop; swipe left/right — world |
 | Level card | `Enter` or `1` — one player, `2` — two players, `S` — the world's story chapter, `Esc` — close | A — one player, X — two players, Y — story chapter, B — close | Play (computer: 1 / 2 players), ✕ or a tap outside — close |
 | Story | `←` / `→` — chapter, `V` — watch the chapter's scene again, `Esc` — back | D-pad or shoulders — chapter, X — watch the scene, Y — How to play, B — back | ◀ ▶ or swipe, ▶ on the picture — watch the scene |
 | Story scene | `Enter` / `Space` / `→` — next, `←` — back, `Esc` — skip | A — next, B — skip | tap — next, Skip |
-| Shop | `←` / `→` — tab, `Enter` / `Esc` — done; `R` — random outfit in the Wardrobe | D-pad left/right — tab, X — random outfit (Y — Player 2) | tap the tabs |
+| Character | `←` / `→` — tab, `Enter` / `Esc` — done; `R` — random outfit in the Wardrobe | D-pad left/right — tab, X — random outfit (Y — Player 2) | tap the tabs |
 
 ## Items
 
@@ -176,23 +176,27 @@ Coins (the win screen shows one line for each):
 
 | Line | Coins |
 |---|---|
-| 🏆 First win of a level | `15 + n + 10 × w`, −3 for every rest (never below 5) |
-| 🔁 Replay of a won level | half of that, −3 for every rest (never below 3) — playing on pays more than replaying |
-| ⭐ New stars | +6 for each star above your best on that level — each star pays only once, ever |
+| 🏆 First win of a level | `(15 + n + 10 × w) × 0.7`, rounded, −3 for every rest (never below 5) |
+| 🔁 Replay of a won level | half of the base × 0.7, −3 for every rest (never below 3) — playing on pays more than replaying |
+| ⭐ New stars | 6 × 0.7 for each star above your best on that level (the line rounded) — each star pays only once, ever |
 | ✨ Bonus stars | +3 each, every time (rests never eat them; they go into the coin box the moment you pick them up) |
 | 🤗 Hugs | +1 for every hug by a player, every time |
 
 Leaving a level before the win (pause → Map or Home) pays the hugs only; leaving during the final hug still counts as the win.
 
-**Shop** (home screen, or after a level) has three tabs: **Items** · **Wardrobe** (outfits and names, see below) ·
-**Upgrades**. **Items**: gloves, air kisses and rescue kits, bought with coins in packs.
+**Character** (home screen; after a level the **Shop** button opens it on Items) has four tabs: **Progress** ·
+**Items** · **Wardrobe** (outfits and names, see below) · **Upgrades**. **Progress** (opened from home) shows player 1's
+look and name, the stars (out of 240) and finished worlds, one row per world (stars out of 60, levels won out of 20, a
+"done" stamp, a padlock on a locked bonus world), the bag (gloves, air kisses, rescue kits), the upgrade levels and how
+many clothes you own — and the "Reset progress" button. **Items**: gloves, air kisses and rescue kits, bought with
+coins in packs.
 
 | Item | Price | Pack | Effect |
 |---|---|---|---|
 | Warm mittens | 30 | 3 power hugs | a hug takes 2 hearts |
 | Mega hug mittens | 60 | 3 power hugs | a hug takes 3 hearts |
 | 💋 Air kisses | 20 | 5 kisses | flies up to 7 cells; a hit takes ½ heart and the Big One blushes for 1.5 s |
-| 🩹 Rescue kit | 15 | 3 kits | get up at once (down, limping home or resting) with 2 s of protection |
+| 🩹 Rescue kit | 50 | 3 kits | get up at once (down, limping home or resting) with 2 s of protection |
 
 Each player chooses which gloves to wear; a power hug uses one charge from the shared stock, and when it runs
 out hugs are normal again. Gloves show on the character's hands; the HUD shows how many power hugs are left.
@@ -200,7 +204,7 @@ Air kisses are one shared stock for both players (bots don't throw them); each t
 a player can throw one per second. Rescue kits are one shared stock too; the first time a player with kits
 falls in a level, a hint says "Press 🩹 to get up!". The Big One's hearts bar shows half hearts.
 
-**Upgrades** tab (bought once, kept forever; 3 levels each at 100 / 200 / 300 coins; they help players only, never
+**Upgrades** tab (bought once, kept forever; 3 levels each at 150 / 300 / 450 coins; they help players only, never
 bots or the Big One):
 
 | Upgrade | Per level (max 3) |
@@ -209,7 +213,7 @@ bots or the Big One):
 | ⏳ Long items | boots, invisibility and shield you pick up last 15 % longer |
 | 🤝 Quick help | you lift a friend 10 % faster (3 → 2.1 s) |
 
-"Reset progress" (tap twice) starts over — coins, stock, clothes and upgrades.
+"Reset progress" (on the Progress page, tap twice) starts over — coins, stock, clothes and upgrades.
 
 ## Worlds
 
