@@ -12,7 +12,7 @@ const INDEX_SRC = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf
 // SPEC-020 review: every art name the code can ask for exists — the tables (__bb.artTableNames) and the literal names in
 // index.html (art("…"), drawArt…("…", …), ITEM_ART-like tables are covered by the first list)
 test("every art name the game can draw is a sprite of the manifest @fast", async ({ page }) => {
-  await openGame(page);
+  await openGame(page, { sim: true });                                     // names only, nothing drawn
   const r = await page.evaluate(() => ({ names: window.__bb.ART_NAMES, table: window.__bb.artTableNames() }));
   const lit = [...INDEX_SRC.matchAll(/\b(?:art|drawArt|drawArtFit|drawArtCover|drawArt9|iconButton|noteArt)\("([a-z0-9_]+)"/g)].map(m => m[1]);
   // and every quoted sprite-like name anywhere else in index.html (outside the generated ART_NAMES list)
@@ -43,12 +43,14 @@ async function everyScreen(page) {
 }
 
 test("the game works without art: assets/ missing → every screen draws as before, no errors", async ({ page }) => {
-  await page.route(/\/assets\/[^/]+\.webp$/, route => route.fulfill({ status: 404, body: "" }));
+  const asked = [];
+  await page.route(/\/assets\/[^/]+\.webp$/, route => { asked.push(route.request().url().split("/").pop()); return route.fulfill({ status: 404, body: "" }); });
   const errors = await openGame(page);
   await page.waitForFunction(() => window.__bb.artInfo.done, null, { timeout: 15_000 });
   const info = await page.evaluate(() => window.__bb.artInfo);
   expect(info).toMatchObject({ ok: 0, bad: info.total, done: true, loadingShown: false });
   expect(info.total).toBe((await page.evaluate(() => window.__bb.ART_NAMES)).length);
+  expect(asked, "only the logo is asked for: when it fails, the other sprites are not requested").toEqual(["logo.webp"]);
   expect(await page.evaluate(() => window.__bb.art("logo"))).toBe(null);
   await page.evaluate(() => window.__bb.resetArtUse());
   const seen = await everyScreen(page);
@@ -191,6 +193,14 @@ test("HUD, effects and the desktop pause / fullscreen buttons are drawn with the
   expect(missing(use, ["cloud_heart_full", "cloud_heart_half", "cloud_heart_empty", "round_pause", "ui_fullscreen", "item_mittens", "item_kiss", "icon_bandaid",
     "heart_full", "fx_sparkle", "fx_dust", "fx_burst_red"])).toEqual([]);
   expect(await page.evaluate(() => window.__bb.buttonNames)).toContain("toggleFullscreen");
+  // the HUD texts (timer, item counts) keep their outline: strokeText is called for them in play
+  const stroked = await page.evaluate(() => new Promise(res => {
+    const proto = CanvasRenderingContext2D.prototype, orig = proto.strokeText, seen = [];
+    proto.strokeText = function (t, ...a) { seen.push(String(t)); return orig.call(this, t, ...a); };
+    requestAnimationFrame(() => requestAnimationFrame(() => { proto.strokeText = orig; res({ seen, lv: window.__bb.I18N.en.lvShort }); }));
+  }));
+  expect(stroked.seen.some(t => t.startsWith(stroked.lv)), "the timer is outlined").toBe(true);
+  expect(stroked.seen.some(t => /^×\d/.test(t)), "the item counts are outlined").toBe(true);
   expect(errors).toEqual([]);
 });
 
@@ -215,6 +225,18 @@ test.describe("phone controls with the art", () => {
     expect(missing(use, ["phone_kit"])).toEqual([]);
     expect(errors).toEqual([]);
   });
+});
+
+// a sim page (balance, logic tests) loads no sprite and does not keep the loading screen
+test("a sim page requests no sprites @fast", async ({ page }) => {
+  let asked = 0;
+  await page.route(/\/assets\/[^/]+\.webp$/, route => { asked++; return route.continue(); });
+  await openGame(page, { sim: true });
+  await page.waitForTimeout(300);
+  const r = await page.evaluate(() => ({ info: window.__bb.artInfo, loading: !!document.getElementById("loading") }));
+  expect(asked).toBe(0);
+  expect(r.info).toMatchObject({ ok: 0, bad: 0, done: false, loadingShown: false });
+  expect(r.loading).toBe(false);
 });
 
 // AC 10: on a cold cache the loading screen paints within 1 s (plain HTML with its own paper background, before three.js and
