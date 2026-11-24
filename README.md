@@ -47,6 +47,17 @@ The story comes from Kostya: the comic "How it began" opens the very first game,
 his level, the bonus worlds have their pictures, and after School level 20 comes "How it ended" and a thank-you card.
 Every scene can be skipped and watched again in **Story** (▶ on the chapter picture).
 
+## The tutorial
+
+On the very first launch the comic is followed by a short **tutorial** (Skip on every page jumps to the end):
+picture pages about hugs, pushes, rescues and tiptoeing → **practice game 1** (you and one bot against a slow Dad
+with 3 hearts: the bot gets pushed, you help it up, sneak behind Dad and hug him three times) → picture pages about
+the items, the banana, air kisses, the rescue kit and the mittens → **practice game 2** (lots of items and bananas,
+5 air kisses and 1 rescue kit just for this game, Dad with 5 hearts) → "You're ready!" and the level map with
+level 1 waiting. You can't lose a practice game, and nothing you do there changes your coins, stars, levels or
+things. **▶ Practice** on the Story's **❓ How to play** page plays the whole tutorial again.
+Since SPEC-029 Dad starts with **5 hearts** on Park 1 (one fewer on every level).
+
 ## Starting a level
 
 The **home screen** shows the logo and three big buttons in a column, each with a drawn icon: **Play**, **Story**, **Character**. The small
@@ -64,7 +75,8 @@ So from opening the game to playing is three taps: Play → the bouncing stop �
 
 **Story** — the comic of the whole adventure, chapter by chapter: How it began (Dad's own words in the comic's speech
 bubbles), one chapter per world, How it ended (after the School's boss). A world's chapter opens with the world; until the comic pictures are drawn, a
-pencil sketch says "Comic coming soon". **❓ How to play** on the story screen lists the rules and the controls.
+pencil sketch says "Comic coming soon". **❓ How to play** on the story screen lists the rules and the controls,
+and its **▶ Practice** button plays the tutorial again.
 
 After a level: the win screen offers the next level, the **Map** and the **Shop** (the Character's Items tab); the pause
 menu offers Continue, Map and Home.
@@ -141,6 +153,8 @@ Menus:
 | Level card | `Enter` or `1` — one player, `2` — two players, `S` — the world's story chapter, `Esc` — close | A — one player, X — two players, Y — story chapter, B — close | Play (computer: 1 / 2 players), ✕ or a tap outside — close |
 | Story | `←` / `→` — chapter, `V` — watch the chapter's scene again, `Esc` — back | D-pad or shoulders — chapter, X — watch the scene, Y — How to play, B — back | ◀ ▶ or swipe, ▶ on the picture — watch the scene |
 | Story scene | `Enter` / `Space` / `→` — next, `←` — back, `Esc` — skip | A — next, B — skip | tap — next, Skip |
+| How to play | `Enter` / `Space` — Practice (the tutorial), `Esc` — back to the chapters | A — Practice, Y / B — back | ▶ Practice |
+| Tutorial | pages as a story scene (`Esc` — skip the whole tutorial); in a practice game `P` / `Esc` — pause (Continue · Try again · Skip), `Q` in the pause — skip | Start — pause, B in the pause — skip | Skip on every page, ⏭ in the corner of a practice game |
 | Character | `←` / `→` — tab, `Enter` / `Esc` — done; `R` — random outfit in the Wardrobe | D-pad left/right — tab, X — random outfit (Y — Player 2) | tap the tabs |
 
 ## Items
@@ -337,7 +351,9 @@ node scripts/perf.js   # frame times, master vs the working copy (phone + deskto
 
 1. Put the picture into `art/` (WebP; a sheet of stickers on a solid green background, or a picture on paper).
 2. Add or change its entry in [`scripts/assets.json`](scripts/assets.json): `"mode"` (`paper` = use the whole picture,
-   `whole` = a green sheet kept as one picture, `sheet` = cut a green sheet into sprites, `boxes` = cut by boxes),
+   `whole` = a green sheet kept as one picture, `sheet` = cut a green sheet into sprites, `boxes` = cut by boxes;
+   `"erase"` paints circles over stray bits — on a sheet or, since SPEC-029, on a `paper` picture; `"clear"` (SPEC-029)
+   paints circles with the sheet green before keying, to drop a part glued to an object),
    `"size"` (`icon`, `button`, `logo`, `background`) and the sprite names (`"names"` in reading order, `null` skips a
    duplicate). `node scripts/assets.js --debug <file>` lists the pieces it finds on a sheet, so you can count and name them.
 3. Run `npm run assets`: it writes `assets/`, updates the sprite lists in `index.html` and `sw.js`, and prints the sizes
