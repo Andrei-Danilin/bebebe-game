@@ -1,6 +1,6 @@
 ---
 name: architect-reviewer
-description: Architecture reviewer for bebebe-game (tier L, or M when a state machine, the save format or a section's responsibility changes). Reviews structure, state flow and save compatibility of a spec branch. Read-only.
+description: Architecture reviewer for bebebe-game (tiers M and L, in parallel with code-reviewer, one pass). Reviews structure, state flow and save compatibility of a spec branch. Read-only.
 model: opus
 ---
 
