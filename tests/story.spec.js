@@ -368,7 +368,7 @@ async function winTitles(page) {
   const soft = softly(), want = {
     en: { dad: "Dad is kind again!", max: "Max is kind again!", park: "The park boss is kind again!", school: "The grumpiest dad is kind again!" },
     es: { dad: "¡Papá volvió a ser bueno!", max: "¡Max volvió a ser bueno!", park: "¡El jefe del parque volvió a ser bueno!", school: "¡El papá más enojado volvió a ser bueno!" },
-    pt: { dad: "Papai ficou bonzinho de novo!", max: "Max ficou bonzinho de novo!", park: "O chefe do parque ficou bonzinho de novo!", school: "O papai mais bravo ficou bonzinho de novo!" },   // SPEC-028
+    pt: { dad: "Papai ficou bonzinho!", max: "Max ficou bonzinho!", park: "O chefe do parque ficou bonzinho!", school: "O papai mais bravo ficou bonzinho!" },   // SPEC-028
     ru: { dad: "Папа снова добрый!", max: "Max снова добрый!", park: "Босс парка снова добрый!", school: "Самый злой папа снова добрый!" } };
   for (const lang of LANGS) for (const [key, world, n, typed] of [["dad", "park", 3, ""], ["max", "city", 5, "Max"], ["park", "park", 20, ""], ["school", "school", 20, "Max"], ["dad", "winter", 20, ""]]) {
     await page.evaluate(([l, w, lv, t]) => {

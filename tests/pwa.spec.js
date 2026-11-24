@@ -249,7 +249,8 @@ test.describe("on iPhone Safari", () => {
       return { texts: Object.values(b.I18N).map(v => "installHint" in v), flag: "installHintShown" in b, mode: b.mode,
         ids: b.buttonRects.map(q => q.id).sort(), hud: b.hudRects.map(h => h.id) };
     });
-    expect(d.texts).toEqual([false, false, false]);
+    expect(d.texts.length, "every language").toBe(4);
+    expect(d.texts.every(x => !x), "no language has installHint").toBe(true);
     expect(d.flag).toBe(false);
     expect(d.mode).toBe("home");
     expect(d.ids).toEqual(["home:lang", "home:play", "home:shop", "home:sound", "home:story"]);
