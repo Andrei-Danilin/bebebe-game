@@ -4693,8 +4693,17 @@ function fz(size, cat) {
 const hudFont = sz => `900 ${sz}px system-ui, "Segoe UI", "Arial Rounded MT Bold", Arial, sans-serif`;
 // геометрия верхней полосы и кружков команды телефона (их же обходят камера и стрелки)
 const phoneTopBar = () => cpx(6) + cpx(CFG.PHONE_BTN_MIN);
+// кружок не уже любой своей метки («Я», «Б», 1, 2, счёт лежащего, z, !) самым мелким шрифтом подсказок — с CFG.TEXT_TEST_SCALE
+// (SPEC-029: шрифты CI и iPhone шире: «Me» не влезал в 30 CSS px); метки — от языка, не от состояния (кружки не прыгают)
+function chipDiameter() {
+  const f = ctx.font;
+  ctx.font = hudFont(minPx("hint"));
+  const need = Math.max(...[L().me, L().botChip, "1", "2", "88", "z", "!"].map(scaledW));
+  ctx.font = f;
+  return Math.max(cpx(30), need + cpx(4));
+}
 function teamRect() {
-  const mm = minimapRect(), cd = cpx(30), cw = cd + cpx(3), w = littles.length * cw + cpx(10), h = cd + cpx(8);
+  const mm = minimapRect(), cd = chipDiameter(), cw = cd + cpx(3), w = littles.length * cw + cpx(10), h = cd + cpx(8);
   return { x: mm.x + mm.w - w, y: mm.y + mm.h + cpx(CFG.PHONE_BTN_GAP), w, h, cd, cw };
 }
 // места экрана, где героя не видно: верхняя полоса и угол мини-карты с кружками (pad — запас);

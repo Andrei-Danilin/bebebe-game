@@ -649,3 +649,20 @@ async function hintBanner(page, touch) {
 }
 test("practice hint banners on the desktop: hint style, they fit, clear of the buttons", async ({ desk: page }) => { await hintBanner(page, false); });
 test("practice hint banners on the phone 667×375: they fit, clear of the buttons", async ({ phone: page }) => { await hintBanner(page, true); });
+
+// CI fonts are wider (×1.3 on CI ≈ ×1.5 here): the team chips grow to fit their label ("Me", "B", 1, 2, a count, z, !)
+test("team chips fit their labels with wide fonts (phone 667×375, a level and the practice)", async ({ phone: page }) => {
+  const soft = softly();
+  for (const l of ["en", "es", "pt", "ru"]) for (const where of ["park", "practice"]) {
+    await page.evaluate(([lang, w]) => {
+      const b = window.__bb; b.setLang(lang); b.CFG.TEXT_TEST_SCALE = 1.5; b.resetMenus(); b.mode = "home";
+      if (w === "park") { b.world = "park"; b.level = 1; b.startGame(1); } else b.openTutorial("map", "game1");
+      Object.assign(b.big, { state: "look", timer: 999 });
+    }, [l, where]);
+    await frames(page);
+    const d = await page.evaluate(() => { const b = window.__bb, I = b.I18N[b.lang]; return { over: b.textOverflows, labels: [I.me, I.botChip, "!", "z", "1", "2"] }; });
+    soft(d.over.filter(o => d.labels.includes(o.text) || /^\d+$/.test(o.text)), `${l} ${where}: chip labels`).toEqual([]);
+  }
+  await page.evaluate(() => { const b = window.__bb; b.CFG.TEXT_TEST_SCALE = 1; b.setLang("en"); b.resetMenus(); b.mode = "home"; });
+  soft.done();
+});
