@@ -277,6 +277,8 @@ One HTML file, one ES module:
 - **2D layer** (`#game` canvas on top): menus, HUD, name tags, rescue timers, the phone mini-map — positions are
   projected from 3D with `toScreen()`. On a phone the camera follows the hero and the 2D layer has its own size. The shop's Wardrobe tab cuts "windows" in this layer where 3D previews are rendered
   with scissor viewports.
+- **Art** (`art/` → `assets/`): the menus, map, HUD, effects and phone buttons use the kids' felt-tip notebook
+  pictures; every picture has a drawn-by-code fallback, so the game also runs without them (e.g. as a single page).
 
 ## Tuning
 
@@ -297,10 +299,22 @@ npm run test:fast      # the @fast set while working (~1.5 min)
 npx playwright test tests/gameplay.spec.js   # one test file (-g "<name>" for one test)
 npx playwright test    # all tests (smoke, gameplay rules, levels, phone, i18n, PWA; starts scripts/serve.js itself) — normally on CI, see below
 npm run serve          # the game over http on http://localhost:8123/ (service worker, manifest)
-npm run icons          # icons/icon.svg → the PNG app icons
+npm run assets         # art/ → assets/*.webp sprites (+ the sprite lists in index.html and sw.js), prints sizes and the budget
+npm run icons          # art/2_icon.webp → the PNG app icons and the icon.svg favicon
 npm run docs:numbers   # rewrite the generated numbers table in docs/game-design.md from index.html (-- --check: only check)
 npm run balance        # play every level with the autopilot in sim mode → reports/balance.md + reports/balance.json
 ```
+
+### Adding or changing a picture (SPEC-020)
+
+1. Put the picture into `art/` (WebP; a sheet of stickers on a solid green background, or a picture on paper).
+2. Add or change its entry in [`scripts/assets.json`](scripts/assets.json): `"mode"` (`paper` = use the whole picture,
+   `whole` = a green sheet kept as one picture, `sheet` = cut a green sheet into sprites, `boxes` = cut by boxes),
+   `"size"` (`icon`, `button`, `logo`, `background`) and the sprite names (`"names"` in reading order, `null` skips a
+   duplicate). `node scripts/assets.js --debug <file>` lists the pieces it finds on a sheet, so you can count and name them.
+3. Run `npm run assets`: it writes `assets/`, updates the sprite lists in `index.html` and `sw.js`, and prints the sizes
+   (budget 4 MB, one background ≤ 250 KB). Look at the new sprites, then commit `art/`, `scripts/assets.json`, `assets/`,
+   `index.html` and `sw.js` together. Using a new sprite in the game is a spec's job (the code draws it with a fallback).
 
 ### Local test runs: GPU and low priority (SPEC-023)
 
