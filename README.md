@@ -130,7 +130,7 @@ Open the file in any modern browser — no build step. Works on desktop, tablet 
 | Tiptoe 👣 — touch | push the joystick only a little (inside the dashed inner ring) | the same |
 | Tiptoe 👣 — gamepad | tilt the stick only part of the way | the same on pad 2 |
 
-`P` — pause, `M` — sound, `L` — language (English / Español (AR) / Русский).
+`P` — pause, `M` — sound, `L` — language (English / Español (AR) / Português (BR) / Русский). On the first launch the game picks the browser's language if it is one of these (otherwise English).
 
 Menus:
 

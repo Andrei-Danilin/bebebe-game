@@ -20,13 +20,13 @@ test.afterAll(async () => { await sharedSim.close(); });
 
 // the seven new clothes (AC 4): list, id, picture, tier price, names
 const NEW = [
-  ["jacket", "bluezip", "jacket_blue_zip", 40, "Blue zip jacket", "Campera azul con cierre", "Синяя куртка на молнии"],
-  ["jacket", "redzip", "jacket_red_zip", 40, "Red zip jacket", "Campera roja con cierre", "Красная куртка на молнии"],
-  ["jacket", "rainbow", "jacket_stripes", 80, "Rainbow", "Arcoíris", "Радуга"],
-  ["jacket", "magiccape", "jacket_cape", 150, "Magic cape", "Capa mágica", "Волшебный плащ"],
-  ["jacket", "trench", "jacket_trench", 80, "Detective coat", "Gabardina de detective", "Плащ сыщика"],
-  ["pants", "overalls", "pants_overalls", 80, "Overalls", "Jardinero", "Комбинезон"],
-  ["pants", "striped", "pants_striped", 40, "Striped pants", "Pantalón rayado", "Полосатые штаны"]
+  ["jacket", "bluezip", "jacket_blue_zip", 40, "Blue zip jacket", "Campera azul con cierre", "Blusa azul", "Синяя куртка на молнии"],
+  ["jacket", "redzip", "jacket_red_zip", 40, "Red zip jacket", "Campera roja con cierre", "Blusa vermelha", "Красная куртка на молнии"],
+  ["jacket", "rainbow", "jacket_stripes", 80, "Rainbow", "Arcoíris", "Arco-íris", "Радуга"],
+  ["jacket", "magiccape", "jacket_cape", 150, "Magic cape", "Capa mágica", "Capa mágica", "Волшебный плащ"],
+  ["jacket", "trench", "jacket_trench", 80, "Detective coat", "Gabardina de detective", "Sobretudo", "Плащ сыщика"],
+  ["pants", "overalls", "pants_overalls", 80, "Overalls", "Jardinero", "Macacão", "Комбинезон"],
+  ["pants", "striped", "pants_striped", 40, "Striped pants", "Pantalón rayado", "Calça listrada", "Полосатые штаны"]
 ];
 // the lists as they were before SPEC-027 (the order an old save's indexes point into)
 const OLD = {
@@ -70,9 +70,9 @@ test("seven new clothes are appended with their tier prices and names in every l
   soft(r.W.pants.slice(OLD.pants.length).map(q => q.id), "new pants at the end").toEqual(NEW.filter(q => q[0] === "pants").map(q => q[1]));
   soft(r.W.hat.length, "no new hats").toBe(OLD.hat.length);
   soft(r.tiers, "WARDROBE_TIERS unchanged").toEqual([40, 80, 150]);
-  for (const [sl, id, , price, en, es, ru] of NEW) {
+  for (const [sl, id, , price, en, es, pt, ru] of NEW) {
     soft(r.W[sl].find(q => q.id === id)?.price, `${id} price`).toBe(price);
-    soft(r.names[sl][id], `${id} names`).toEqual({ en, es, ru });
+    soft(r.names[sl][id], `${id} names`).toEqual({ en, es, pt, ru });   // SPEC-028: + pt
   }
   soft.done();
 });

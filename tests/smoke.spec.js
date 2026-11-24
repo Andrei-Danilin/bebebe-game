@@ -1,6 +1,6 @@
 // Smoke tests: the game loads, every screen and place renders, nothing throws.
 const { test, expect } = require("./pw");   // SPEC-023: @playwright/test + failure screenshots
-const { openGame, step, frames, ROOT } = require("./helpers");
+const { LANGS, openGame, step, frames, ROOT } = require("./helpers");
 const fs = require("fs");
 const path = require("path");
 
@@ -15,7 +15,7 @@ test("loads to the home screen without errors", { tag: "@fast" }, async ({ page 
 // the sim guard.
 const LOGIC_GETTERS = ["mode", "muted", "wardrobePage", "littles", "big", "stats", "level", "world", "toast", "items", "progress",
   "lastReward", "upgrades", "shopTab", "outfits", "events", "rngDraws", "strictRng", "shake", "sticks", "uiSize", "names", "stars",
-  "dangerZone", "safeZone", "texts", "kisses", "bigMark", "levelInfo", "banner", "artInfo", "artVersion", "scene", "pushWaves"];
+  "dangerZone", "safeZone", "texts", "kisses", "bigMark", "levelInfo", "banner", "artInfo", "artVersion", "scene", "pushWaves", "lang"];   // SPEC-028: lang
 test("every __bb getter is drawn state (SIM_DRAWN) or listed logic state", async ({ page }) => {
   const errors = await openGame(page, { sim: true });   // descriptors only, nothing drawn is read
   const r = await page.evaluate(() => {
@@ -110,7 +110,7 @@ for (const place of ["park", "beach", "winter", "school"]) {
   });
 }
 
-for (const lang of ["en", "es", "ru"]) {
+for (const lang of LANGS) {
   test(`language ${lang}: home, map, story, the shop tabs and friends draw`, async ({ page }) => {
     const errors = await openGame(page, { lang });
     for (const [m, tab, pg] of [["home"], ["map"], ["story"], ["shop", "progress"], ["shop", "items"], ["shop", "wardrobe"], ["shop", "wardrobe", "friends"], ["shop", "upgrades"]]) {

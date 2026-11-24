@@ -42,7 +42,7 @@
   setTimeout(function () {
     if (!window.__bbReady) {
       var el = document.getElementById("loading");
-      if (el) el.innerHTML = "The 3D engine (three.js) needs an internet connection to load.<br>El motor 3D necesita internet.<br>Для 3D-движка нужен интернет.";
+      if (el) el.innerHTML = "The 3D engine (three.js) needs an internet connection to load.<br>El motor 3D necesita internet.<br>O motor 3D precisa de internet.<br>Для 3D-движка нужен интернет.";
     }
   }, 6000);
 </script>
@@ -595,9 +595,12 @@ const UPGRADES = {
 const upgTop = k => UPGRADES[k].prices.length;   // последний уровень
 // Русское множественное число: ruPlural(n, ["поцелуй", "поцелуя", "поцелуев"])
 const ruPlural = (n, f) => f[n % 10 === 1 && n % 100 !== 11 ? 0 : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 1 : 2];
+// SPEC-028: португальское множественное: 1 — единственное, всё остальное (и 0) — множественное
+const ptPlural = (n, one, many) => (n === 1 ? one : many);
 
 // =====================================================================
-//  ЯЗЫКИ: English (по умолчанию), Español (Argentina), Русский
+//  ЯЗЫКИ: English (по умолчанию), Español (Argentina), Português (Brasil; SPEC-028), Русский
+//  Порядок ключей I18N = LANGS. Португальский — перевод Claude (você, простые слова для детей 6–10), проверить с носителем (BACKLOG)
 // =====================================================================
 const I18N = {
   en: {
@@ -723,6 +726,69 @@ const I18N = {
     types: { classic: "Nuestro dibujo", meadow: "Pradera", maze: "Laberinto", village: "Pueblito", river: "Río con puentes", rooms: "Casa con cuartos", arena: "Arena" },
     levelIntro: (w, n, t) => `${w} · Nivel ${n}: ${t}`, levelIntroShort: (w, n, t) => `${w} · ${n}: ${t}`, levelIntroTiny: (w, n, t) => `${n}: ${t}`, worldStars: (n, max) => `⭐ ${n}/${max}`
   },
+  // SPEC-028: português do Brasil — «você», короткие простые фразы; слова игры: abraço, Papai, bonzinho, bravo, moedas, kit de resgate,
+  // beijinhos, cupcake; Большой — Grandão; уровень — «fase» (так говорят в играх); сильная обнимашка — superabraço
+  pt: {
+    name: "Português",
+    rules: n => [
+      "Chegue POR TRÁS do Grandão e dê um abraço: ele perde um coração",
+      "Se ele te VÊ (raio amarelo), ele te empurra e sua perna quebra",
+      `Os amigos vêm e ficam ${CFG.RESCUE_TIME} segundos do seu lado para te levantar`,
+      `Se ninguém ajudar em ${n} s, você vai para casa e descansa ${CFG.REST_TIME} s`,
+      "Nos arbustos ele não te vê. Sua casa é segura: o Grandão não entra",
+      "Pegue itens: botas rápidas, invisibilidade, escudo — e uma banana para ele escorregar!",
+      I18N.pt.ruleTiptoe
+    ],
+    ruleTiptoe: "Correu perto do Papai? Ele escuta — ande na ponta dos pés!",
+    // SPEC-028: на бразильской клавиатуре (ABNT2) на клавише «/» американской раскладки написано «;»
+    heardHint: k => `O Papai ouviu você correr! Perto dele, ande na ponta dos pés: segure ${k}`, heardKey1: "⇦ Shift", heardKey2: "/ (;)",
+    heardHintTouch: "O Papai ouviu você correr! Mexa o joystick só um pouquinho para andar na ponta dos pés",
+    level: "Fase", lvShort: "Fase", onePlayer: "1 jogador", twoPlayers: "2 jogadores",
+    controls1: "Teclado: Jogador 1 — W A S D, Jogador 2 — setas  •  P — pausa  •  M — som  •  L — idioma",
+    controls2: "Tablet/celular: arraste o dedo  •  Controle: analógico, A — escolher, B — voltar, LB/RB — mundos",
+    pause: "Pausa", play: "Jogar", resume: "Continuar", story: "História", map: "Mapa", home: "Início",
+    win: "VOCÊS GANHARAM!", winSub: "Vocês deram muitos abraços nele, e ele foi para casa!", next: n => `Fase ${n} ▶`,
+    kindAgain: n => `${n} ficou bonzinho!`, cheer: "Eba!", whoosh: "VUUUSH!",   // SPEC-028: kindAgain без «de novo» — длинное имя босса не влезало (шрифты CI)
+    bossNames: { park: "O chefe do parque", field: "O treinador", city: "O construtor", school: "O papai mais bravo" },
+    lose: "Perdemos…", loseSub: (h, m) => `Corações: ${h} de ${m}. Mais uma vez?`, again: "De novo",
+    big: "Grandão", hug: "Abraço! -1", bang: "BUM!", saved: "Salvo!", out: "Vou descansar", back: "De volta ao jogo!", resting: (n, t) => `${n}: descansando… volta em ${t}`, help: n => `${n}: SOCORRO!`,
+    touch1: "Arraste o dedo na tela para correr", touch2: "Jogador 1: dedo à esquerda  •  Jogador 2: à direita",
+    rotate: "Vire o aparelho de lado ↻", me: "Eu", botChip: "B", safe: "SEGURO",
+    player1: "Jogador 1", player2: "Jogador 2", ok: "OK",
+    slots: { hair: "Cabelo", hat: "Chapéu", jacket: "Jaqueta", pants: "Calça", look: "Visual" },
+    worlds: { park: "Parque", field: "Campo de futebol", city: "Cidade", school: "Escola", beach: "Praia", winter: "Inverno" },
+    // артикль по миру: a Cidade, a Escola, a Praia; o Parque, o Campo de futebol, o Inverno
+    worldDone: (w, key) => `Você terminou ${key === "city" || key === "school" || key === "beach" ? "a" : "o"} ${w}!`,
+    bonus: "Bônus", bonusUnlocked: "Mundos bônus liberados!",
+    items: { boots: "Botas rápidas!", cloak: "Invisível!", shield: "Escudo!" }, blocked: "Bloqueado!", slip: "Opa!",
+    shop: "Loja", character: "Personagem", progressTab: "Progresso", bag: "Mochila", clothes: (n, m) => `Roupas: ${n} / ${m}`, buy: "Comprar", have: n => `Você tem: ${n} ${ptPlural(n, "superabraço", "superabraços")}`, wears: "usa", none: "Nada",
+    gloves: { mittens: "Luvas quentinhas", mega: "Luvas gigantes" }, gloveDesc: p => `Cada abraço tira ${p} corações`,
+    pack: n => `Pacote: ${n} ${ptPlural(n, "superabraço", "superabraços")}`, notEnough: "Faltam moedas", reset: "Apagar progresso", sure: "Certeza? Toque de novo", resetShort: "Apagar", sureShort: "Certeza?",
+    victory: "Vitória", nobodyOut: "Ninguém descansou", fast: t => `Rápido: menos de ${t}`, forHugs: n => `+${n} pelos abraços`,
+    megaHug: p => `Superabraço! -${p}`, coinsWord: "moedas",
+    buyFor: n => `Comprar por ${n}`, tapAgain: "Toque de novo para comprar",
+    itemsTab: "Itens", wardrobeTab: "Guarda-roupa", upgradesTab: "Melhorias", upgMax: "Máximo",
+    worldsDone: (n, max) => `Mundos terminados: ${n} / ${max}`, comicSoon: "Quadrinho em breve",
+    lockedLevel: n => `Primeiro vença a fase ${n}`, lockedBonus: "Vença todas as fases dos mundos principais para abrir", boss: "Chefe", done: "✔ Feito!",
+    typeLines: { classic: "Nosso desenho — o primeiro mapa de todos!", meadow: "Grama aberta — se esconda nos arbustos!", village: "Casinhas — chegue de fininho pelas esquinas!",
+      river: "Um rio com pontes — escolha por onde passar!", rooms: "Uma casa grande — espie pelas portas!", arena: "Uma pista redonda — chegue por trás dele!",
+      maze: "Um labirinto — ache a saída entre as paredes!" },
+    bossLine: { park: "Chefe: o papai principal do Parque. Ele é mais forte que os papais comuns!", field: "Chefe: o papai principal do Campo de futebol. Ele é mais forte que os papais comuns!",
+      city: "Chefe: o papai principal da Cidade. Ele é mais forte que os papais comuns!", school: "O papai mais bravo! Ele pode empurrar várias crianças de uma vez!" },
+    sceneNext: "Próximo", sceneSkip: "Pular", thanks: "Obrigado por jogar!", madeBy: "Feito por Kostya e Papai",
+    chapters: { began: "Como tudo começou", ended: "Como tudo terminou" }, endedLocked: "Vença a fase 20 da Escola para ler o final", howToPlay: "Como jogar",
+    upg: { fastFeet: { name: "Pés rápidos", desc: p => `+${p}% de velocidade` }, longItems: { name: "Itens duradouros", desc: () => "Duram mais" },
+      quickHelp: { name: "Ajuda rápida", desc: () => "Levante os amigos mais rápido" } },
+    rw: { firstWin: "Primeira vitória", replay: "Jogou de novo", newStars: "Estrelas novas", star: "Estrelinhas", hugs: "Abraços", rests: "Descansos", total: "Total" },
+    starCoins: n => `Estrelinhas: +${n}`, thrownOut: "Fora da minha casa!", friends: "Amigos", tapToRename: "Toque num nome para mudar",
+    defaultBig: "Papai", defaultBots: ["Léo", "Bia", "Davi", "Lulu"], anger: "Papai bravo", angerOf: n => `${n} bravo`,
+    kisses: "Beijinhos", kissDesc: "Mande de longe: ½ coração e ele fica vermelho", kissPack: n => `Pacote: ${n} ${ptPlural(n, "beijinho", "beijinhos")}`,
+    kissHave: n => `Você tem: ${n} ${ptPlural(n, "beijinho", "beijinhos")}`, kissHit: "Muá!", noKissHome: "Da casinha não!", blush: "Que vergonha!",
+    kit: "Kit de resgate", kitDesc: "Levante na hora e continue jogando", kitPack: n => `Pacote: ${n} ${ptPlural(n, "kit", "kits")}`, kitHave: n => `Você tem: ${n} ${ptPlural(n, "kit", "kits")}`,
+    kitUsed: "De volta ao jogo!", kitHint: "Aperte 🩹 para levantar!", kitKey1: "Q", kitKey2: "Shift ⇨", packShort: n => `📦 ×${n}`,
+    types: { classic: "Nosso desenho", meadow: "Gramado", maze: "Labirinto", village: "Vila", river: "Rio com pontes", rooms: "Casa com quartos", arena: "Arena" },
+    levelIntro: (w, n, t) => `${w} · Fase ${n}: ${t}`, levelIntroShort: (w, n, t) => `${w} · ${n}: ${t}`, levelIntroTiny: (w, n, t) => `${n}: ${t}`, worldStars: (n, max) => `⭐ ${n}/${max}`
+  },
   ru: {
     name: "Русский",
     rules: n => [
@@ -787,11 +853,11 @@ const I18N = {
 };
 // =====================================================================
 //  ИСТОРИЯ (SPEC-017; SPEC-022: тексты — из истории Кости, docs/story.md): главы по порядку — начало, миры, бонусные миры, конец.
-//  Русский — словами Кости (сокращено, только где не влезало), английский и испанский (voseo) — простой перевод.
+//  Русский — словами Кости (сокращено, только где не влезало), английский, испанский (voseo) и португальский (você, SPEC-028) — простой перевод.
 //  Где история молчит (бонусные миры), одна простая фраза тем же голосом — написал Claude, проверить с Костей (specs/BACKLOG.md).
 //  captions — подписи комикса «Как всё началось» (по одной на клетку 8_start); text главы «начало» — они же короче (влезает в телефон);
 //  boss — фраза заставки перед боссом мира (SPEC-022, только основные миры: у бонусных боссов нет).
-//  bubbles — SPEC-026: слова папы в облачках комикса 8_start, по клетке (русские — Андрея, английские и испанские — Claude; docs/story.md).
+//  bubbles — SPEC-026: слова папы в облачках комикса 8_start, по клетке (русские — Андрея, английские и испанские — Claude, португальские — SPEC-028; docs/story.md).
 //  image — своя картинка главы (null — комикс из art/, STORY_ART; нет и его — заглушка «Комикс скоро будет»).
 // =====================================================================
 const STORY = [
@@ -804,6 +870,10 @@ const STORY = [
       "Después pasaron corriendo unos chicos que jugaban y lo tiraron al piso. Empezó a enojarse.",
       "Después abrió la heladera: no había comida, ¡y alguien se había comido su cupcake favorito! Ahí se volvió el papá más enojado.",
       "Papá se fue a un café donde había muchos otros papás y les contó lo que lo había enojado. Todos lo entendieron y también se enojaron."],
+    pt: ["O Papai teve um dia comum. Ele voltou do trabalho, e a casa estava bagunçada: tudo jogado e sujo. Ele não gostou.",
+      "Depois, umas crianças passaram correndo, brincando, e o derrubaram. Ele começou a ficar bravo.",
+      "Depois ele abriu a geladeira: não tinha comida, e alguém comeu o cupcake favorito dele. Aí ele virou o papai mais bravo!",
+      "O Papai foi a um café cheio de outros papais e contou o que o deixou bravo. Todos os papais entenderam e ficaram bravos também."],
     ru: ["У папы был обычный день. Он пришёл с работы, а дома не убрано, всё разбросано и грязно. Ему это не нравится.",
       "Потом мимо пробегают играющие дети и сбивают его с ног. Он начинает сердиться.",
       "Потом он открывает холодильник, а еды нет, и его самое любимое пирожное съели. Тут он становится самым злым папой!",
@@ -811,65 +881,101 @@ const STORY = [
     text: {
       en: "Dad came home from work to an untidy house. Kids knocked him over, and somebody ate his favourite cupcake. He became the grumpiest dad and went to the café, and the other dads got angry too.",
       es: "Papá volvió del trabajo y la casa estaba desordenada. Unos chicos lo tiraron al piso y alguien se comió su cupcake favorito. Se volvió el papá más enojado, fue al café, y los otros papás también se enojaron.",
+      pt: "O Papai voltou do trabalho, e a casa estava bagunçada. Umas crianças o derrubaram, e alguém comeu o cupcake favorito dele. Ele virou o papai mais bravo e foi ao café, e os outros papais ficaram bravos também.",
       ru: "Папа пришёл с работы, а дома не убрано. Дети сбили его с ног, а любимое пирожное съели. Он стал самым злым папой и ушёл в кафе к другим папам — и они тоже стали злыми." },
     bubbles: {
       en: ["Oh, what a mess!", "Oh, kids!", "Where's my cupcake?!", "This is just impossible!!"],
       es: ["¡Uy, qué desorden!", "¡Ay, los chicos!", "¿¡Dónde está mi cupcake!?", "¡¡Esto es imposible!!"],
+      pt: ["Nossa, que bagunça!", "Ai, as crianças!", "Cadê meu cupcake?!", "Isso é impossível!!"],   // SPEC-028: «simplesmente» не влезало в облачко «Истории» на телефоне
       ru: ["Ох, какой бардак!", "Ой, дети!", "Где мой кекс?!", "Это просто невозможно!!"] } },
   { id: "park", image: null, text: {
     en: "The angry dads moved to four worlds. The first one is the Park. The kids want to make the dads kind again: you have to hug them, lots of times!",
     es: "Los papás enojados se fueron a vivir a cuatro mundos. El primero es el Parque. Los chicos quieren que los papás vuelvan a ser buenos: ¡hay que abrazarlos, muchas veces!",
+    pt: "Os papais bravos se mudaram para quatro mundos. O primeiro é o Parque. As crianças querem que os papais fiquem bonzinhos de novo: é preciso abraçar eles, muitas vezes!",
     ru: "Злые папы поселились в четырёх мирах. Первый — Парк. Дети хотят сделать пап снова добрыми: для этого их надо обнимать, много раз!" },
     boss: {
       en: "This is the boss, the main dad of the Park. He is stronger than ordinary dads. Hug him lots of times until he is kind!",
       es: "Este es el jefe, el papá principal del Parque. Es más fuerte que los papás comunes. ¡Abrazalo muchas veces hasta que vuelva a ser bueno!",
+      pt: "Este é o chefe, o papai principal do Parque. Ele é mais forte que os papais comuns. Dê muitos abraços nele até ele ficar bonzinho!",
       ru: "Это босс — главный папа Парка. Он сильнее обычных пап. Обнимай его много раз, пока он не станет добрым!" } },
   { id: "field", image: null, text: {
     en: "The second world is the Football field. It's hard: a dad can push you, you can bump yourself and all that.",
     es: "El segundo mundo es la Cancha. Es difícil: el papá te puede empujar, te podés golpear y todo eso.",
+    pt: "O segundo mundo é o Campo de futebol. É difícil: o papai pode te empurrar, você pode levar um tombo e tudo mais.",
     ru: "Второй мир — Футбольное поле. Это сложно: папа может толкнуть, можно удариться и всё такое." },
     boss: {
       en: "This is the boss, the main dad of the Football field. He is stronger than ordinary dads. Hug him lots of times until he is kind!",
       es: "Este es el jefe, el papá principal de la Cancha. Es más fuerte que los papás comunes. ¡Abrazalo muchas veces hasta que vuelva a ser bueno!",
+      pt: "Este é o chefe, o papai principal do Campo de futebol. Ele é mais forte que os papais comuns. Dê muitos abraços nele até ele ficar bonzinho!",
       ru: "Это босс — главный папа Футбольного поля. Он сильнее обычных пап. Обнимай его много раз, пока он не станет добрым!" } },
   { id: "city", image: null, text: {
     en: "The third world is the City. When a dad is hugged lots of times, he becomes kind and goes home, and the kids get coins.",
     es: "El tercer mundo es la Ciudad. Cuando a un papá lo abrazan muchas veces, se vuelve bueno y se va a su casa, y los chicos ganan monedas.",
+    pt: "O terceiro mundo é a Cidade. Quando um papai ganha muitos abraços, ele fica bonzinho e vai para casa, e as crianças ganham moedas.",
     ru: "Третий мир — Город. Когда папу обняли много раз, он становится добрым и уходит домой, а дети получают монетки." },
     boss: {
       en: "This is the boss, the main dad of the City. He is stronger than ordinary dads. Hug him lots of times until he is kind!",
       es: "Este es el jefe, el papá principal de la Ciudad. Es más fuerte que los papás comunes. ¡Abrazalo muchas veces hasta que vuelva a ser bueno!",
+      pt: "Este é o chefe, o papai principal da Cidade. Ele é mais forte que os papais comuns. Dê muitos abraços nele até ele ficar bonzinho!",
       ru: "Это босс — главный папа Города. Он сильнее обычных пап. Обнимай его много раз, пока он не станет добрым!" } },
   { id: "school", image: null, text: {
     en: "The last world is the School. The grumpiest dad lives here, the very dad from the start of the story. He put his own main dad, a boss, in every world.",
     es: "El último mundo es la Escuela. Acá vive el papá más enojado, el mismo papá del principio de la historia. Él puso en cada mundo a su papá principal: un jefe.",
+    pt: "O último mundo é a Escola. Aqui mora o papai mais bravo, aquele do começo da história. Ele colocou em cada mundo o seu papai principal: um chefe.",
     ru: "Последний мир — Школа. Тут живёт самый злой папа, тот самый папа из начала истории. Он поставил в каждый мир своего главного папу — босса." },
     boss: {
       en: "This is the grumpiest dad, the angriest of them all. His special power: he can push several kids at once!",
       es: "Este es el papá más enojado, el más enojado de todos. Su poder especial: ¡puede empujar a varios chicos a la vez!",
+      pt: "Este é o papai mais bravo, o mais bravo de todos. O poder especial dele: ele pode empurrar várias crianças de uma vez!",
       ru: "Это самый злой папа — самый злой из всех. Его особая сила: он может толкнуть сразу нескольких детей!" } },
   { id: "beach", image: null, text: {   // написал Claude (в истории про Пляж только «бонусный мир») — проверить с Костей
     en: "Bonus world: the Beach. The angry dads grumble and sunbathe. Hug them until they are kind!",
     es: "Mundo bonus: la Playa. Los papás enojados refunfuñan y toman sol. ¡Abrazalos hasta que vuelvan a ser buenos!",
+    pt: "Mundo bônus: a Praia. Os papais bravos resmungam e tomam sol. Dê abraços neles até eles ficarem bonzinhos!",
     ru: "Бонусный мир — Пляж. Злые папы ворчат и загорают на солнце. Обнимай их, пока они не станут добрыми!" } },
   { id: "winter", image: null, text: {   // написал Claude (в истории про Зиму только «бонусный мир») — проверить с Костей
     en: "Bonus world: Winter. An angry dad is building a wall of ice. Warm hugs will make him kind!",
     es: "Mundo bonus: el Invierno. Un papá enojado construye una pared de hielo. ¡Unos abrazos calentitos lo van a volver bueno!",
+    pt: "Mundo bônus: o Inverno. Um papai bravo está construindo uma parede de gelo. Abraços quentinhos vão deixar ele bonzinho!",
     ru: "Бонусный мир — Зима. Злой папа строит ледяную стену. Тёплые обнимашки сделают его добрым!" } },
   { id: "ended", image: null, text: {
     en: "When all the dads were kind, the kids won against the grumpiest dad. He became kind too, and now he sits at the table with the kids and they eat cupcakes together.",
     es: "Cuando todos los papás se volvieron buenos, los chicos le ganaron al papá más enojado. Él también se volvió bueno, y ahora se sienta a la mesa con los chicos y comen cupcakes juntos.",
+    pt: "Quando todos os papais ficaram bonzinhos, as crianças venceram o papai mais bravo. Ele também ficou bonzinho, e agora ele senta à mesa com as crianças e eles comem cupcakes juntos.",
     ru: "Когда все папы стали добрыми, дети побеждают самого злого папу. Он тоже становится добрым, и они вместе с детьми сидят за столом и кушают пирожные." } }
 ];
 // значки строк правил (I18N.*.rules) — по одному на строку, в том же порядке; тест i18n сверяет число (SPEC-019 добавит строку — и значок)
 const RULE_ICONS = ["❤", "👀", "🤝", "⏱", "🏠", "🍌", "👣"];
-const LANGS = ["en", "es", "ru"];
+const LANGS = ["en", "es", "pt", "ru"];   // SPEC-028: + português (Brasil); порядок — как переключает значок 🌐
+const HTML_LANG = { pt: "pt-BR" };        // <html lang>: португальский — бразильский
+// SPEC-028: язык при запуске — сохранённый (bebebe-lang: старые en/es/ru, новый pt); если его нет и это самый первый запуск
+// (нет и bebebe-progress) — первый язык браузера из наших (pt-BR, pt-PT → pt; es-AR → es; ru-RU → ru), иначе английский.
+// У игрока с прогрессом, но без сохранённого языка, — английский, как раньше. Чистая функция (тест: __bb.detectLang); не бросает.
+// Язык, выбранный при самом первом запуске, сразу сохраняется в bebebe-lang (см. ниже)
+function detectLang(saved, navLangs, hasProgress = false) {
+  if (LANGS.includes(saved)) return saved;
+  if (hasProgress) return "en";
+  for (const n of Array.isArray(navLangs) ? navLangs : []) {
+    const code = typeof n === "string" ? n.slice(0, 2).toLowerCase() : "";
+    if (LANGS.includes(code)) return code;
+  }
+  return "en";
+}
 let lang = "en";
-try { const saved = localStorage.getItem("bebebe-lang"); if (LANGS.includes(saved)) lang = saved; } catch (e) { /* без хранилища — английский */ }
+try {
+  let saved = null, played = false;
+  try { saved = localStorage.getItem("bebebe-lang"); played = localStorage.getItem("bebebe-progress") !== null; } catch (e) { /* без хранилища — по браузеру */ }
+  lang = detectLang(saved, navigator.languages && navigator.languages.length ? [...navigator.languages] : [navigator.language], played);
+  // самый первый запуск: язык браузера сохраняется сразу — первая же игра пишет bebebe-progress, и без этого со второго запуска
+  // был бы английский (у игрока с прогрессом без сохранённого языка — английский, как раньше; его не трогаем)
+  if (!LANGS.includes(saved) && !played) { try { localStorage.setItem("bebebe-lang", lang); } catch (e) { /* без хранилища — ok */ } }
+} catch (e) { /* ok — английский */ }
+document.documentElement.lang = HTML_LANG[lang] || lang;
 const L = () => I18N[lang];
 function setLang(l) {
+  if (!LANGS.includes(l)) return;
   lang = l;
-  document.documentElement.lang = l;
+  document.documentElement.lang = HTML_LANG[l] || l;
   try { localStorage.setItem("bebebe-lang", l); } catch (e) { /* ok */ }
 }
 
@@ -1976,63 +2082,63 @@ const inBush = l => CFG.BUSH_HIDES && bushes.some(b => Math.hypot(l.x - b.x, l.y
 //  ПЕРСОНАЖИ
 // =====================================================================
 // ---------- Наряды маленьких: причёска, головной убор, куртка, штаны ----------
-const N3 = (en, es, ru) => ({ en, es, ru });
+const Nm = (en, es, pt, ru) => ({ en, es, pt, ru });   // SPEC-028: имя вещи на четырёх языках (было N3; N4 — соседи клетки)
 const HAIRS = [
-  { skin: "#ffd8b5", hair: "#6b3e1f", style: "short", name: N3("Brown", "Castaño", "Каштановые") },
-  { skin: "#ffe0c2", hair: "#f2c14e", style: "long",  name: N3("Blonde", "Rubia", "Светлые") },
-  { skin: "#c68642", hair: "#2b2b2b", style: "short", name: N3("Black", "Negro", "Чёрные") },
-  { skin: "#f1c27d", hair: "#c2410c", style: "spiky", name: N3("Ginger", "Colorado", "Рыжие") },
-  { skin: "#8d5524", hair: "#3b2a20", style: "bun",   name: N3("Bun", "Rodete", "Пучок") },
-  { skin: "#ffd8b5", hair: "#6b3e1f", style: "none",  name: N3("Bald", "Pelado", "Лысый") },
-  { skin: "#ffe0c2", hair: "#f472b6", style: "long",  name: N3("Pink", "Rosa", "Розовые") },
-  { skin: "#c68642", hair: "#3b82f6", style: "spiky", name: N3("Blue punk", "Punk azul", "Синий ирокез") }
+  { skin: "#ffd8b5", hair: "#6b3e1f", style: "short", name: Nm("Brown", "Castaño", "Castanho", "Каштановые") },
+  { skin: "#ffe0c2", hair: "#f2c14e", style: "long",  name: Nm("Blonde", "Rubia", "Loiro", "Светлые") },
+  { skin: "#c68642", hair: "#2b2b2b", style: "short", name: Nm("Black", "Negro", "Preto", "Чёрные") },
+  { skin: "#f1c27d", hair: "#c2410c", style: "spiky", name: Nm("Ginger", "Colorado", "Ruivo", "Рыжие") },
+  { skin: "#8d5524", hair: "#3b2a20", style: "bun",   name: Nm("Bun", "Rodete", "Coque", "Пучок") },
+  { skin: "#ffd8b5", hair: "#6b3e1f", style: "none",  name: Nm("Bald", "Pelado", "Careca", "Лысый") },
+  { skin: "#ffe0c2", hair: "#f472b6", style: "long",  name: Nm("Pink", "Rosa", "Rosa", "Розовые") },
+  { skin: "#c68642", hair: "#3b82f6", style: "spiky", name: Nm("Blue punk", "Punk azul", "Moicano azul", "Синий ирокез") }
 ];
 const HATS = [
-  { id: "none",     price: tierPrice(0), name: N3("None", "Nada", "Ничего") },
-  { id: "cap",      price: tierPrice(0), name: N3("Cap", "Gorra", "Кепка") },
-  { id: "beanie",   price: tierPrice(0), name: N3("Beanie", "Gorro de lana", "Шапка") },
-  { id: "crown",    price: tierPrice(3), name: N3("Crown", "Corona", "Корона") },
-  { id: "bow",      price: tierPrice(0), name: N3("Bow", "Moño", "Бантик") },
-  { id: "flower",   price: tierPrice(1), name: N3("Flower", "Flor", "Цветок") },
-  { id: "ears",     price: tierPrice(2), name: N3("Kitty ears", "Orejas de gato", "Кошачьи ушки") },
-  { id: "headband", price: tierPrice(2), name: N3("Ninja band", "Vincha ninja", "Повязка ниндзя") },
-  { id: "tophat",   price: tierPrice(3), name: N3("Top hat", "Galera", "Цилиндр") },
-  { id: "viking",   price: tierPrice(3), name: N3("Viking", "Vikingo", "Викинг") },
-  { id: "pirate",   price: tierPrice(2), name: N3("Pirate", "Pirata", "Пират") },
-  { id: "glasses",  price: tierPrice(1), name: N3("Glasses", "Anteojos", "Очки") }
+  { id: "none",     price: tierPrice(0), name: Nm("None", "Nada", "Nada", "Ничего") },
+  { id: "cap",      price: tierPrice(0), name: Nm("Cap", "Gorra", "Boné", "Кепка") },
+  { id: "beanie",   price: tierPrice(0), name: Nm("Beanie", "Gorro de lana", "Gorro", "Шапка") },
+  { id: "crown",    price: tierPrice(3), name: Nm("Crown", "Corona", "Coroa", "Корона") },
+  { id: "bow",      price: tierPrice(0), name: Nm("Bow", "Moño", "Laço", "Бантик") },
+  { id: "flower",   price: tierPrice(1), name: Nm("Flower", "Flor", "Flor", "Цветок") },
+  { id: "ears",     price: tierPrice(2), name: Nm("Kitty ears", "Orejas de gato", "Orelhas de gato", "Кошачьи ушки") },
+  { id: "headband", price: tierPrice(2), name: Nm("Ninja band", "Vincha ninja", "Faixa ninja", "Повязка ниндзя") },
+  { id: "tophat",   price: tierPrice(3), name: Nm("Top hat", "Galera", "Cartola", "Цилиндр") },
+  { id: "viking",   price: tierPrice(3), name: Nm("Viking", "Vikingo", "Viking", "Викинг") },
+  { id: "pirate",   price: tierPrice(2), name: Nm("Pirate", "Pirata", "Pirata", "Пират") },
+  { id: "glasses",  price: tierPrice(1), name: Nm("Glasses", "Anteojos", "Óculos", "Очки") }
 ];
 const JACKETS = [
-  { id: "tshirt", price: tierPrice(0), color: "#3b82f6", pattern: "plain",   trim: "#ffffff", name: N3("Blue T-shirt", "Remera azul", "Синяя футболка") },
-  { id: "hoodie", price: tierPrice(0), color: "#22c55e", pattern: "hood",    trim: "#15803d", name: N3("Green hoodie", "Buzo verde", "Зелёная толстовка") },
-  { id: "stripes", price: tierPrice(0), color: "#f59e0b", pattern: "stripes", trim: "#ffffff", name: N3("Striped", "Rayada", "Полосатая") },
-  { id: "purple", price: tierPrice(0), color: "#a855f7", pattern: "zip",     trim: "#f5f3ff", name: N3("Purple jacket", "Campera violeta", "Фиолетовая куртка") },
-  { id: "pinkhoodie", price: tierPrice(1), color: "#ec4899", pattern: "hood",    trim: "#be185d", name: N3("Pink hoodie", "Buzo rosa", "Розовая толстовка") },
-  { id: "cape", price: tierPrice(3), color: "#dc2626", pattern: "cape",    trim: "#2563eb", name: N3("Superhero", "Superhéroe", "Супергерой") },
-  { id: "ninja", price: tierPrice(2), color: "#1f2937", pattern: "belt",    trim: "#ef4444", name: N3("Ninja", "Ninja", "Ниндзя") },
-  { id: "sailor", price: tierPrice(2), color: "#f8fafc", pattern: "stripes", trim: "#1d4ed8", name: N3("Sailor", "Marinero", "Тельняшка") },
-  { id: "raincoat", price: tierPrice(2), color: "#facc15", pattern: "hood",    trim: "#ca8a04", name: N3("Raincoat", "Piloto", "Дождевик") },
-  { id: "teal", price: tierPrice(1), color: "#14b8a6", pattern: "zip",     trim: "#ccfbf1", name: N3("Teal jacket", "Campera turquesa", "Бирюзовая куртка") },
+  { id: "tshirt", price: tierPrice(0), color: "#3b82f6", pattern: "plain",   trim: "#ffffff", name: Nm("Blue T-shirt", "Remera azul", "Camiseta azul", "Синяя футболка") },
+  { id: "hoodie", price: tierPrice(0), color: "#22c55e", pattern: "hood",    trim: "#15803d", name: Nm("Green hoodie", "Buzo verde", "Moletom verde", "Зелёная толстовка") },
+  { id: "stripes", price: tierPrice(0), color: "#f59e0b", pattern: "stripes", trim: "#ffffff", name: Nm("Striped", "Rayada", "Listrada", "Полосатая") },
+  { id: "purple", price: tierPrice(0), color: "#a855f7", pattern: "zip",     trim: "#f5f3ff", name: Nm("Purple jacket", "Campera violeta", "Jaqueta roxa", "Фиолетовая куртка") },
+  { id: "pinkhoodie", price: tierPrice(1), color: "#ec4899", pattern: "hood",    trim: "#be185d", name: Nm("Pink hoodie", "Buzo rosa", "Moletom rosa", "Розовая толстовка") },
+  { id: "cape", price: tierPrice(3), color: "#dc2626", pattern: "cape",    trim: "#2563eb", name: Nm("Superhero", "Superhéroe", "Super-herói", "Супергерой") },
+  { id: "ninja", price: tierPrice(2), color: "#1f2937", pattern: "belt",    trim: "#ef4444", name: Nm("Ninja", "Ninja", "Ninja", "Ниндзя") },
+  { id: "sailor", price: tierPrice(2), color: "#f8fafc", pattern: "stripes", trim: "#1d4ed8", name: Nm("Sailor", "Marinero", "Marinheiro", "Тельняшка") },
+  { id: "raincoat", price: tierPrice(2), color: "#facc15", pattern: "hood",    trim: "#ca8a04", name: Nm("Raincoat", "Piloto", "Capa de chuva", "Дождевик") },
+  { id: "teal", price: tierPrice(1), color: "#14b8a6", pattern: "zip",     trim: "#ccfbf1", name: Nm("Teal jacket", "Campera turquesa", "Blusa turquesa", "Бирюзовая куртка") },
   // SPEC-027 (решение Андрея: нарисованные в art/23_wardrobe вещи — в игру; имена, ступени и цвета придумал Claude, проверить с детьми).
   // Только в конец списка: сохранённые наряды — номера. bands — полосы радуги снизу вверх; long — длинные полы плаща
-  { id: "bluezip", price: tierPrice(1), color: "#3a86c8", pattern: "zip",     trim: "#f8fafc", name: N3("Blue zip jacket", "Campera azul con cierre", "Синяя куртка на молнии") },
-  { id: "redzip", price: tierPrice(1), color: "#d83838", pattern: "zip",     trim: "#f8fafc", name: N3("Red zip jacket", "Campera roja con cierre", "Красная куртка на молнии") },
-  { id: "rainbow", price: tierPrice(2), color: "#2bb5a5", pattern: "rainbow", trim: "#2bb5a5", name: N3("Rainbow", "Arcoíris", "Радуга"),
+  { id: "bluezip", price: tierPrice(1), color: "#3a86c8", pattern: "zip",     trim: "#f8fafc", name: Nm("Blue zip jacket", "Campera azul con cierre", "Blusa azul", "Синяя куртка на молнии") },
+  { id: "redzip", price: tierPrice(1), color: "#d83838", pattern: "zip",     trim: "#f8fafc", name: Nm("Red zip jacket", "Campera roja con cierre", "Blusa vermelha", "Красная куртка на молнии") },
+  { id: "rainbow", price: tierPrice(2), color: "#2bb5a5", pattern: "rainbow", trim: "#2bb5a5", name: Nm("Rainbow", "Arcoíris", "Arco-íris", "Радуга"),
     bands: ["#a855f7", "#3b82f6", "#22c55e", "#facc15", "#f97316", "#ef4444"] },
-  { id: "magiccape", price: tierPrice(3), color: "#4b3a75", pattern: "cape",    trim: "#ec4899", name: N3("Magic cape", "Capa mágica", "Волшебный плащ") },
-  { id: "trench", price: tierPrice(2), color: "#7a5634", pattern: "belt",    trim: "#3b2a1a", long: true, name: N3("Detective coat", "Gabardina de detective", "Плащ сыщика") }
+  { id: "magiccape", price: tierPrice(3), color: "#4b3a75", pattern: "cape",    trim: "#ec4899", name: Nm("Magic cape", "Capa mágica", "Capa mágica", "Волшебный плащ") },
+  { id: "trench", price: tierPrice(2), color: "#7a5634", pattern: "belt",    trim: "#3b2a1a", long: true, name: Nm("Detective coat", "Gabardina de detective", "Sobretudo", "Плащ сыщика") }
 ];
 const PANTS = [
-  { id: "jeans", price: tierPrice(0), color: "#3b5b92", shorts: false, name: N3("Jeans", "Jean", "Джинсы") },
-  { id: "black", price: tierPrice(0), color: "#2d2d3f", shorts: false, name: N3("Black", "Negro", "Чёрные") },
-  { id: "red", price: tierPrice(0), color: "#dc2626", shorts: false, name: N3("Red", "Rojo", "Красные") },
-  { id: "shorts", price: tierPrice(0), color: "#c8a96a", shorts: true,  name: N3("Shorts", "Bermuda", "Шорты") },
-  { id: "green", price: tierPrice(1), color: "#15803d", shorts: false, name: N3("Green", "Verde", "Зелёные") },
-  { id: "pinkshorts", price: tierPrice(2), color: "#f472b6", shorts: true,  name: N3("Pink shorts", "Short rosa", "Розовые шорты") },
-  { id: "joggers", price: tierPrice(1), color: "#9ca3af", shorts: false, name: N3("Joggers", "Jogging", "Спортивные") },
-  { id: "purple", price: tierPrice(1), color: "#7c3aed", shorts: false, name: N3("Purple", "Violeta", "Фиолетовые") },
+  { id: "jeans", price: tierPrice(0), color: "#3b5b92", shorts: false, name: Nm("Jeans", "Jean", "Jeans", "Джинсы") },
+  { id: "black", price: tierPrice(0), color: "#2d2d3f", shorts: false, name: Nm("Black", "Negro", "Preta", "Чёрные") },
+  { id: "red", price: tierPrice(0), color: "#dc2626", shorts: false, name: Nm("Red", "Rojo", "Vermelha", "Красные") },
+  { id: "shorts", price: tierPrice(0), color: "#c8a96a", shorts: true,  name: Nm("Shorts", "Bermuda", "Bermuda", "Шорты") },
+  { id: "green", price: tierPrice(1), color: "#15803d", shorts: false, name: Nm("Green", "Verde", "Verde", "Зелёные") },
+  { id: "pinkshorts", price: tierPrice(2), color: "#f472b6", shorts: true,  name: Nm("Pink shorts", "Short rosa", "Short rosa", "Розовые шорты") },
+  { id: "joggers", price: tierPrice(1), color: "#9ca3af", shorts: false, name: Nm("Joggers", "Jogging", "Moletom", "Спортивные") },
+  { id: "purple", price: tierPrice(1), color: "#7c3aed", shorts: false, name: Nm("Purple", "Violeta", "Roxa", "Фиолетовые") },
   // SPEC-027: в конец списка. overalls — нагрудник и две лямки поверх куртки; stripes — цвет вертикальных полосок на штанинах
-  { id: "overalls", price: tierPrice(2), color: "#4a7ba0", shorts: false, overalls: true, name: N3("Overalls", "Jardinero", "Комбинезон") },
-  { id: "striped", price: tierPrice(1), color: "#d84838", shorts: false, stripes: "#facc15", name: N3("Striped pants", "Pantalón rayado", "Полосатые штаны") }
+  { id: "overalls", price: tierPrice(2), color: "#4a7ba0", shorts: false, overalls: true, name: Nm("Overalls", "Jardinero", "Macacão", "Комбинезон") },
+  { id: "striped", price: tierPrice(1), color: "#d84838", shorts: false, stripes: "#facc15", name: Nm("Striped pants", "Pantalón rayado", "Calça listrada", "Полосатые штаны") }
 ];
 const SLOTS = { hair: HAIRS, hat: HATS, jacket: JACKETS, pants: PANTS };
 const P_COLORS = ["#3b82f6", "#22c55e"];        // цвет меток игрока 1 и 2
@@ -2044,15 +2150,15 @@ function makeLook(o) {
 // ---------- Скины Большого ----------
 const BIG_SKINS = [
   // mood: true — лицо человека: краснеет / розовеет по злости (SPEC-022); у огра, робота и медведя лицо остаётся своим
-  { id: "classic", price: tierPrice(0), shirt: "#9b2c3a", skin: "#f4b183", hair: "#3a2418", top: "spiky",  name: { en: "Classic", es: "Clásico", ru: "Классика" }, mood: true },
-  { id: "ogre", price: tierPrice(0), shirt: "#7c5a2e", skin: "#8fcf6a", hair: "#4d7c2a", top: "horns",  name: { en: "Ogre", es: "Ogro", ru: "Огр" } },
-  { id: "robot", price: tierPrice(3), shirt: "#64748b", skin: "#cbd5e1", hair: "#475569", top: "robot",  name: { en: "Robot", es: "Robot", ru: "Робот" } },
-  { id: "captain", price: tierPrice(3), shirt: "#1e3a8a", skin: "#f1c27d", hair: "#1f2937", top: "pirate", name: { en: "Captain", es: "Capitán", ru: "Капитан" }, mood: true },
-  { id: "bear", price: tierPrice(2), shirt: "#92400e", skin: "#b7793f", hair: "#78350f", top: "bear",   name: { en: "Bear", es: "Oso", ru: "Медведь" } },
+  { id: "classic", price: tierPrice(0), shirt: "#9b2c3a", skin: "#f4b183", hair: "#3a2418", top: "spiky",  name: { en: "Classic", es: "Clásico", pt: "Clássico", ru: "Классика" }, mood: true },
+  { id: "ogre", price: tierPrice(0), shirt: "#7c5a2e", skin: "#8fcf6a", hair: "#4d7c2a", top: "horns",  name: { en: "Ogre", es: "Ogro", pt: "Ogro", ru: "Огр" } },
+  { id: "robot", price: tierPrice(3), shirt: "#64748b", skin: "#cbd5e1", hair: "#475569", top: "robot",  name: { en: "Robot", es: "Robot", pt: "Robô", ru: "Робот" } },
+  { id: "captain", price: tierPrice(3), shirt: "#1e3a8a", skin: "#f1c27d", hair: "#1f2937", top: "pirate", name: { en: "Captain", es: "Capitán", pt: "Capitão", ru: "Капитан" }, mood: true },
+  { id: "bear", price: tierPrice(2), shirt: "#92400e", skin: "#b7793f", hair: "#78350f", top: "bear",   name: { en: "Bear", es: "Oso", pt: "Urso", ru: "Медведь" } },
   // SPEC-021 (решение Андрея): папа из истории — лысый, щетина, красная футболка, джинсы, кроссовки (art/1_papa). В конце списка:
   // сохранённые номера образов не меняют смысла; он — образ новой игры (DEFAULT_SKINS.big). stubble — щетина (доля цвета лица)
   { id: "dad", price: tierPrice(0), shirt: "#eb3e42", skin: "#f4b183", hair: "#3a2418", top: "dad", pants: "#3b6db5", shoes: "#5b3a29", sole: "#f5f5f4", stubble: 0.8,
-    name: { en: "Dad", es: "Papá", ru: "Папа" }, mood: true }
+    name: { en: "Dad", es: "Papá", pt: "Papai", ru: "Папа" }, mood: true }
 ];
 // SPEC-022: образы боссов (Андрей: свой образ у каждого; вид придумал Claude по art/4_papas_bosses, 4_papas_bosses_new,
 // 5_papas_main_boss). Строятся на папе (образ "dad", точки m.anchors и свои материалы m.mats): цвета футболки, штанов, обуви
@@ -3956,13 +4062,22 @@ function label(text, x, y, size, color, align = "center") {
   ctx.fillStyle = color; fillT(text, x, y);
   if (PHONE) noteText("drawn", size);
 }
-function fitText(text, x, y, size, maxW, align, color, weight, min = 9) {
-  let sz = size + 0.5;
-  do { sz = Math.max(min, sz - 0.5); ctx.font = `${weight} ${sz}px system-ui, "Segoe UI", sans-serif`; } while (ctx.measureText(text).width > maxW && sz > min);
+function fitText(text, x, y, size, maxW, align, color, weight, min = 9, scaled = false) {
+  let sz = size + 0.5, w = 0;
+  do { sz = Math.max(min, sz - 0.5); ctx.font = `${weight} ${sz}px system-ui, "Segoe UI", sans-serif`; w = ctx.measureText(text).width; } while (w > maxW && sz > min);
+  noteOverflow(text, w * min / sz, maxW, scaled);
   ctx.textAlign = align; ctx.textBaseline = "middle"; ctx.fillStyle = color;
   fillT(text, x, y);
   if (PHONE) noteText("drawn", sz);
   return sz;   // размер, которым написано
+}
+// SPEC-028: строка, которая не влезла бы даже самым мелким кеглем (ширина при min × CFG.TEXT_TEST_SCALE — так тесты изображают
+// шрифты CI), — в textOverflows этого кадра (__bb.textOverflows): fitText вылез бы за край, labelFit обрезал бы «…».
+// scaled — вызывающий уже разделил maxW на CFG.TEXT_TEST_SCALE (надпись уровня, плашка бонусов, подпись злости)
+let textOverflows = [];
+function noteOverflow(text, wMin, maxW, scaled) {
+  const k = CFG.TEXT_TEST_SCALE, w = wMin * k, lim = scaled ? maxW * k : maxW;
+  if (w > lim + 0.5 && textOverflows.length < 50) textOverflows.push({ text, w: Math.round(w), maxW: Math.round(lim) });
 }
 // Текст в несколько строк (по словам), не больше lines строк; не влезает — мельче
 function wrapText(text, x, y, size, maxW, lines, color, weight) {
@@ -3976,7 +4091,12 @@ function wrapText(text, x, y, size, maxW, lines, color, weight) {
       if (ctx.measureText(t).width > maxW && cur) { rows.push(cur); cur = wd; } else cur = t;
     }
     rows.push(cur);
-    if ((rows.length <= lines && rows.every(r => ctx.measureText(r).width <= maxW)) || sz <= 9) break;
+    const fit = rows.length <= lines && rows.every(r => ctx.measureText(r).width <= maxW);
+    if (!fit && sz <= 9) {   // SPEC-028: сдался на самом мелком — лишние строки или строка шире места → textOverflows
+      if (rows.length > lines) noteOverflow(text, maxW * rows.length / lines, maxW);
+      for (const r of rows) noteOverflow(r, ctx.measureText(r).width, maxW);
+    }
+    if (fit || sz <= 9) break;
     sz -= 0.5;
   }
   ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = color;
@@ -3985,12 +4105,13 @@ function wrapText(text, x, y, size, maxW, lines, color, weight) {
 }
 // Подпись с контуром, которая сжимается под ширину (не мельче 11px), а если не влезает — обрезается «…»
 let lastFit = null;   // что нарисовал последний labelFit: { text, sz, w } (SPEC-022: подпись злости — в hudRects)
-function labelFit(text, x, y, size, maxW, color, align = "center", min = 11) {
+function labelFit(text, x, y, size, maxW, color, align = "center", min = 11, scaled = false) {
   const font = sz => `900 ${sz}px system-ui, "Segoe UI", "Arial Rounded MT Bold", Arial, sans-serif`;
   let sz = size;
   ctx.font = font(sz);
   while (ctx.measureText(text).width > maxW && sz > min) { sz = Math.max(min, sz - 0.5); ctx.font = font(sz); }
   let chars = Array.from(text);
+  if (sz <= min || CFG.TEXT_TEST_SCALE !== 1) noteOverflow(text, ctx.measureText(text).width * min / sz, maxW, scaled);   // крупнее min при ×1 — влезло
   while (chars.length > 1 && ctx.measureText(text).width > maxW) { chars = chars.slice(0, -1); text = chars.join("").trimEnd() + "…"; }
   lastFit = { text, sz, w: ctx.measureText(text).width };
   label(text, x, y, sz, color, align);
@@ -4331,7 +4452,7 @@ function drawHUDPhone(t) {
   if (plateW() > room) nameW = Math.max(cpx(36), room - pad * 2 - big.maxHp * hStep);
   const pw = plateW();
   plate("hearts", m, top, pw, bh);
-  noteText("main", labelFit(bigName, m + pad, top + bh / 2, main, nameW / CFG.TEXT_TEST_SCALE + 0.01, "#9b2c3a", "left", main));   // + 0.01: × и ÷ масштаба не точны
+  noteText("main", labelFit(bigName, m + pad, top + bh / 2, main, nameW / CFG.TEXT_TEST_SCALE + 0.01, "#9b2c3a", "left", main, true));   // + 0.01: × и ÷ масштаба не точны
   Object.assign(hudRects.find(r => r.id === "hearts"), { label: lastFit.text, labelX: m + pad, labelW: lastFit.w * CFG.TEXT_TEST_SCALE });   // SPEC-022: подпись злости — в плашке hearts
   const hx = m + pad + nameW + pad * 0.6 + hStep / 2;
   for (let i = 0; i < big.maxHp; i++) hpHeart(hx + i * hStep, top + bh / 2 - hSize / 2 - 1, hSize, heartFill(i, big.hp), hStep);
@@ -5351,7 +5472,7 @@ function drawBonusNote(cx, cy, maxW, h, css) {
   if (!lastReward || !lastReward.bonusUnlocked) return;
   const text = "🎁 " + L().bonusUnlocked, padX = PHONE ? cpx(24) : 28;
   const min = PHONE ? cpx(CFG.PHONE_TEXT.main) : 14, start = PHONE ? Math.max(cpx(css), min) : css;
-  const size = fitText(text, -9999, -9999, start, (maxW - padX) / CFG.TEXT_TEST_SCALE, "center", OUT, 900, min);
+  const size = fitText(text, -9999, -9999, start, (maxW - padX) / CFG.TEXT_TEST_SCALE, "center", OUT, 900, min, true);
   const textW = ctx.measureText(text).width * CFG.TEXT_TEST_SCALE, w = Math.min(maxW, textW + padX), x = cx - w / 2, y = cy - h / 2;
   rr(x, y, w, h, h / 2); fillStroke("#fde047", PHONE ? cpx(3) : 4, "#db2777");
   fitText(text, cx, cy + 1, size, Infinity, "center", "#831843", 900, size);
@@ -6315,7 +6436,7 @@ function drawBanner() {
     if (!banner.place.spot) { ctx.restore(); return; }       // нигде не влезло — не показываем
     const { x, y, w, h, text, variant } = banner.place.spot, size = minPx("title");
     rr(x, y, w, h, cpx(P.radius)); fillStroke("rgba(255,250,235,.93)", 3);
-    const sz = fitText(text, x + w / 2, y + h / 2 + 1, size, (w - 2 * cpx(P.edge)) / CFG.TEXT_TEST_SCALE, "center", "#ff6fa8", 900, size);
+    const sz = fitText(text, x + w / 2, y + h / 2 + 1, size, (w - 2 * cpx(P.edge)) / CFG.TEXT_TEST_SCALE, "center", "#ff6fa8", 900, size, true);
     noteText("title", sz);
     bannerRect = { x, y, w, h, text, size: sz, short: text !== banner.text, variant };   // variant: full | short | tiny
     ctx.restore(); return;
@@ -6329,7 +6450,7 @@ function drawBanner() {
 function drawUI(t) {
   draws++;
   if (nameInput && !inWardrobe()) closeNameInput(false);
-  buttons = []; homeInfo = null; progressInfo = null; mapState = null; cardInfo = null; cardRect = null; storyInfo = null; sceneInfo = null; bonusNote = null; winLine = ""; mmShown = false; edgeArrows = []; hudRects = []; textSizes = {}; bannerRect = null; kitHintRect = null; heardHintRect = null; stickMarks = []; shopLayout = null; winPanel = null;
+  buttons = []; homeInfo = null; progressInfo = null; mapState = null; cardInfo = null; cardRect = null; storyInfo = null; sceneInfo = null; bonusNote = null; winLine = ""; mmShown = false; edgeArrows = []; hudRects = []; textOverflows = []; textSizes = {}; bannerRect = null; kitHintRect = null; heardHintRect = null; stickMarks = []; shopLayout = null; winPanel = null;
   if (mode !== "shop") { shopTab = "items"; wardrobePage = "looks"; }
   if (mode !== "map") toast = null;   // SPEC-017: подсказка карты — только пока карта на экране
   if (mode !== "map" && mode !== "levelCard") mapBgCache = null;   // фон страницы мира не держим в памяти вне карты
@@ -8677,6 +8798,7 @@ window.__bb = {
   bigLook() { const m = big && big.model; return m ? { look: m.look, boss: m.boss || null, parts: Object.keys(m.bossParts || {}), scale: m.rig.scale.x,
     shirt: "#" + m.mats.shirt.color.getHexString(), pants: "#" + m.mats.pants.color.getHexString() } : null; }, get moodInfo() { return moodInfo && { ...moodInfo, sprites: [...moodInfo.sprites] }; },   // SPEC-017: главы истории (живой список), экран истории этого кадра
   tapButton(id) { const q = buttons.find(r => (r.id || r.act.name) === id); if (q) q.act(); return !!q; },
+  LANGS, detectLang, get lang() { return lang; },   // SPEC-028: языки по порядку значка 🌐, язык при запуске (чистая), текущий язык
   update, inSafe, I18N, startGame, resetWorld, cycleOutfit, randomOutfit, cycleBig, setLang, toScreen,
   get items() { return items; }, get progress() { return progress; }, buyGloves, setEquip, get lastReward() { return lastReward; }, spawnItem,
   UPGRADES, buyUpgrade, get upgrades() { return { ...progress.upgrades }; }, get shopTab() { return shopTab; }, set shopTab(v) { if (SHOP_TABS.includes(v)) { shopTab = v; wardrobePage = "looks"; } },   // SPEC-009 (SPEC-017: + «wardrobe»)
@@ -8700,9 +8822,11 @@ window.__bb = {
   },
   wardrobe: () => ({ hat: HATS.map(({ id, price }) => ({ id, price })), jacket: JACKETS.map(({ id, price }) => ({ id, price })),
     pants: PANTS.map(({ id, price }) => ({ id, price })), big: BIG_SKINS.map(({ id, price }) => ({ id, price })), hairs: HAIRS.length }),
-  // SPEC-027: рисунки вещей, имена вещей по слотам ({ slot: { id: { en, es, ru } } }), наряд бота i на этом уровне (номера)
+  // SPEC-027: рисунки вещей, имена вещей по слотам ({ slot: { id: { en, es, pt, ru } } }), наряд бота i на этом уровне (номера)
   WARDROBE_ART: Object.freeze(Object.fromEntries(Object.entries(WARDROBE_ART).map(([k, v]) => [k, Object.freeze({ ...v })]))), wardrobeNames: () => Object.fromEntries(LOOK_SLOTS.map(sl => [sl, Object.fromEntries(SLOTS[sl].map(q => [q.id, { ...q.name }]))])),
   botOutfit: i => botOutfit(i),
+  // SPEC-028: все имена-объекты одежды и образов Большого по спискам (копии): { hair, hat, jacket, pants, big: [{ en, es, pt, ru }] }
+  itemNames: () => Object.fromEntries(Object.entries({ hair: HAIRS, hat: HATS, jacket: JACKETS, pants: PANTS, big: BIG_SKINS }).map(([k, l]) => [k, l.map(q => ({ ...q.name }))])),
   REWARD, get winPanel() { return winPanel && { ...winPanel }; },   // SPEC-009: числа награды; рамка строк награды на экране победы
   seedRandom,     // SPEC-008: seedRandom(n) — игровая случайность rng() с зерна n; seedRandom() — снова случайно
   sim, simRun, get events() { return events.map(e => ({ ...e })); },   // SPEC-008: режим симуляции, журнал событий (копии)
@@ -8728,7 +8852,7 @@ window.__bb = {
   get buttonRects() { return buttons.map(b => ({ id: b.id || b.act.name, x: b.x, y: b.y, w: b.w, h: b.h, text: b.text, textW: b.textW })); },
   nameTagH,   // SPEC-021: высота точки имени над ногами (px мира)
   updateCamera, camSnap, stickR, updateMinimapFade, get minimapAlpha() { return mmAlpha; }, skinPanels, resetBannerTimer() { bannerShownAt = -Infinity; }, showBanner,
-  get textSizes() { return { ...textSizes }; }, get rotateShown() { return rotateShown; }, get bannerRect() { return bannerRect && { ...bannerRect }; },
+  get textSizes() { return { ...textSizes }; }, get textOverflows() { return textOverflows.map(q => ({ ...q })); }, get rotateShown() { return rotateShown; }, get bannerRect() { return bannerRect && { ...bannerRect }; },
   get minimap() { return mmShown ? { x: mmState.x, y: mmState.y, w: mmState.w, h: mmState.h, alpha: mmState.alpha, baseDraws: mmDraws, markers: mmState.markers.slice(0, mmCount).map(m => ({ ...m })) } : null; },
   get edgeArrows() { return edgeArrows.map(a => ({ ...a })); }, get hudRects() { return hudRects.map(r => ({ ...r })); },
   get sticks() { return [...sticks].map(([id, s]) => ({ id, ...s })); },
@@ -8759,7 +8883,7 @@ window.__bb = {
 // ошибку, чтобы визуальный тест, открытый в sim, падал громко, а не проверял пустоту.
 const SIM_DRAWN = ["buttonRects", "buttonNames", "tapButton", "hudRects", "mapInfo", "levelCard", "storyInfo", "textSizes", "minimap",
   "bannerRect", "rotateShown", "winPanel", "winLine", "bonusNote", "shopLayout", "kitHint", "heardHint", "edgeArrows", "stickMarks",
-  "tapLines", "homeInfo", "progressInfo", "outfit3D", "bibClear", "mapPieces", "groundColorAt", "camera", "minimapAlpha", "artUse", "sceneInfo", "moodInfo", "bigLook", "look3D"];
+  "tapLines", "textOverflows", "homeInfo", "progressInfo", "outfit3D", "bibClear", "mapPieces", "groundColorAt", "camera", "minimapAlpha", "artUse", "sceneInfo", "moodInfo", "bigLook", "look3D"];
 window.__bb.SIM_DRAWN = SIM_DRAWN;
 window.__bb = new Proxy(window.__bb, {
   get(t, k, r) {

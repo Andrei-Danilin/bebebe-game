@@ -5,7 +5,7 @@ const base = require("./pw");   // SPEC-023: @playwright/test + failure screensh
 const { expect } = base;
 const fs = require("fs");
 const path = require("path");
-const { openGame, frames, softly, sharedPage, resetGame, ROOT } = require("./helpers");
+const { LANGS, openGame, frames, softly, sharedPage, resetGame, ROOT } = require("./helpers");
 
 // one rendered game page for the scene tests (resetGame before each); the fresh-page tests come first in the file
 const shared = sharedPage();
@@ -24,7 +24,6 @@ const test = base.test.extend({
 test.afterAll(async () => { await shared.close(); });
 
 const STORY_MD = fs.readFileSync(path.join(ROOT, "docs", "story.md"), "utf8");
-const LANGS = ["en", "es", "ru"];
 
 // ---------- AC 13: every story text is rewritten from docs/story.md ----------
 test("the story texts come from Kostya's story (docs/story.md)", { tag: "@fast" }, async ({ page }) => {
@@ -32,7 +31,7 @@ test("the story texts come from Kostya's story (docs/story.md)", { tag: "@fast" 
   const d = await page.evaluate(() => {
     const b = window.__bb;
     return { story: b.STORY.map(c => ({ id: c.id, text: c.text, captions: c.captions || null, boss: c.boss || null })),
-      bossLine: Object.fromEntries(["en", "es", "ru"].map(l => [l, b.I18N[l].bossLine])) };
+      bossLine: Object.fromEntries(b.LANGS.map(l => [l, b.I18N[l].bossLine])) };
   });
   const soft = softly(), by = id => d.story.find(c => c.id === id);
   // the start comic: four captions (one per panel of 8_start), in every language, Kostya's words in Russian
@@ -71,7 +70,8 @@ test("the story texts come from Kostya's story (docs/story.md)", { tag: "@fast" 
 const BUBBLES = {
   ru: ["Ох, какой бардак!", "Ой, дети!", "Где мой кекс?!", "Это просто невозможно!!"],
   en: ["Oh, what a mess!", "Oh, kids!", "Where's my cupcake?!", "This is just impossible!!"],
-  es: ["¡Uy, qué desorden!", "¡Ay, los chicos!", "¿¡Dónde está mi cupcake!?", "¡¡Esto es imposible!!"]
+  es: ["¡Uy, qué desorden!", "¡Ay, los chicos!", "¿¡Dónde está mi cupcake!?", "¡¡Esto es imposible!!"],
+  pt: ["Nossa, que bagunça!", "Ai, as crianças!", "Cadê meu cupcake?!", "Isso é impossível!!"]   // SPEC-028 AC 5 ("simplesmente" cut for the phone Story page)
 };
 // the white regions of art/8_start.webp (1024×765) without the tails, measured for the spec and checked with sharp (SPEC-026)
 const BUBBLE_PX = [[255, 28, 432, 115], [785, 43, 940, 130], [132, 412, 245, 490], [633, 396, 809, 480]];
@@ -357,8 +357,8 @@ async function meterCheck(page) {
     }
   }
   await page.evaluate(() => { const b = window.__bb; b.CFG.TEXT_TEST_SCALE = 1; b.setName("big", ""); b.setLang("en"); });
-  const T = await page.evaluate(() => ["en", "es", "ru"].map(l => [window.__bb.I18N[l].anger, window.__bb.I18N[l].defaultBig]));
-  expect(T).toEqual([["Dad's anger", "Dad"], ["Enojo de papá", "Papá"], ["Злость папы", "Папа"]]);
+  const T = await page.evaluate(() => window.__bb.LANGS.map(l => [window.__bb.I18N[l].anger, window.__bb.I18N[l].defaultBig]));
+  expect(T).toEqual([["Dad's anger", "Dad"], ["Enojo de papá", "Papá"], ["Papai bravo", "Papai"], ["Злость папы", "Папа"]]);
   soft.done();
 }
 test("the anger meter shows Dad's anger (desktop)", { tag: "@fast" }, async ({ desk: page }) => meterCheck(page));
@@ -368,6 +368,7 @@ async function winTitles(page) {
   const soft = softly(), want = {
     en: { dad: "Dad is kind again!", max: "Max is kind again!", park: "The park boss is kind again!", school: "The grumpiest dad is kind again!" },
     es: { dad: "¡Papá volvió a ser bueno!", max: "¡Max volvió a ser bueno!", park: "¡El jefe del parque volvió a ser bueno!", school: "¡El papá más enojado volvió a ser bueno!" },
+    pt: { dad: "Papai ficou bonzinho!", max: "Max ficou bonzinho!", park: "O chefe do parque ficou bonzinho!", school: "O papai mais bravo ficou bonzinho!" },   // SPEC-028
     ru: { dad: "Папа снова добрый!", max: "Max снова добрый!", park: "Босс парка снова добрый!", school: "Самый злой папа снова добрый!" } };
   for (const lang of LANGS) for (const [key, world, n, typed] of [["dad", "park", 3, ""], ["max", "city", 5, "Max"], ["park", "park", 20, ""], ["school", "school", 20, "Max"], ["dad", "winter", 20, ""]]) {
     await page.evaluate(([l, w, lv, t]) => {

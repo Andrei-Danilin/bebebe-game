@@ -4,7 +4,7 @@ const base = require("./pw");   // SPEC-023: @playwright/test + failure screensh
 const { expect } = base;
 const path = require("path");
 const fs = require("fs");
-const { openGame, frames, softly, sharedPage, resetGame, ROOT } = require("./helpers");
+const { LANGS, openGame, frames, softly, sharedPage, resetGame, ROOT } = require("./helpers");
 const docsNumbers = require("../scripts/docs-numbers.js");
 
 // SPEC-018: one game page for the file; resetGame() before each test, page errors and a changed CFG fail the test.
@@ -287,10 +287,10 @@ test("a whole old save starts the game: progress moves, outfits and names load, 
 });
 
 // ---------- AC 10: shop and texts ----------
-test("every shop item has a price, a pack, a picture, texts in three languages, a buy button and a buy test", async ({ page }) => {
+test("every shop item has a price, a pack, a picture, texts in every language, a buy button and a buy test", async ({ page }) => {
   const r = await page.evaluate(() => {
     const b = window.__bb, out = {};
-    for (const l of ["en", "es", "ru"]) { b.setLang(l); out[l] = b.shopCards(); }
+    for (const l of b.LANGS) { b.setLang(l); out[l] = b.shopCards(); }
     b.setLang("en"); b.mode = "shop";
     return out;
   });
@@ -307,7 +307,7 @@ test("every shop item has a price, a pack, a picture, texts in three languages, 
     soft(c.price, `${c.k}: price`).toBeGreaterThan(0);
     soft(c.packN, `${c.k}: pack`).toBeGreaterThan(0);
     soft(c.picture, `${c.k}: a picture`).toBe(true);
-    for (const l of ["en", "es", "ru"]) {
+    for (const l of LANGS) {
       const cl = r[l].find(q => q.k === c.k);
       soft(typeof cl.name === "string" && cl.name.trim().length > 0, `${c.k} ${l}: name`).toBe(true);
       soft(typeof cl.desc === "string" && cl.desc.trim().length > 0, `${c.k} ${l}: description`).toBe(true);
@@ -316,7 +316,7 @@ test("every shop item has a price, a pack, a picture, texts in three languages, 
     const call = c.k === "mittens" || c.k === "mega" ? `buyGloves("${c.k}")` : c.k === "kisses" ? "buyKisses(" : c.k === "rescues" ? "buyRescueKit(" : `buy:${c.k}`;
     soft(buyTests.some(t => t.body.includes(call) || t.body.includes(`"buy:${c.k}"`)), `${c.k}: a buy test in gameplay.spec.js`).toBe(true);
   }
-  for (const l of ["es", "ru"]) soft(r[l].map(c => c.name), `${l}: translated`).not.toEqual(r.en.map(c => c.name));
+  for (const l of LANGS.slice(1)) soft(r[l].map(c => c.name), `${l}: translated`).not.toEqual(r.en.map(c => c.name));
   // every key in the generated numbers section exists in the code
   const keys = docsNumbers.sectionKeys(fs.readFileSync(DOC, "utf8"));
   expect(keys.length).toBeGreaterThan(50);

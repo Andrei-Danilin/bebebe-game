@@ -2,7 +2,7 @@
 // art(name) is the picture or null, and null means "draw it with code as before" — so the game must work without art/
 // (the claude.ai single page has no assets/ folder, a phone may lose a file).
 const { test, expect } = require("./pw");   // SPEC-023: @playwright/test + failure screenshots
-const { openGame, frames, step } = require("./helpers");
+const { LANGS, openGame, frames, step } = require("./helpers");
 
 const failedLoads = e => e.includes("Failed to load resource") || e.includes("ERR_");
 const fs = require("fs");
@@ -144,7 +144,7 @@ async function drawnTexts(page, setup, arg) {
 test("home, the Progress tab and the Story buttons use the comic menu icons; the old icons are their fallback", async ({ page }) => {
   const errors = await openGame(page);
   await page.waitForFunction(() => window.__bb.artInfo.done, null, { timeout: 15_000 });
-  for (const lang of ["en", "es", "ru"]) {
+  for (const lang of LANGS) {
     const use = await drawn(page, l => { const b = window.__bb; b.setLang(l); b.toHome(); }, lang);
     expect(missing(use, ["menu_play", "menu_story", "menu_character"]), lang).toEqual([]);
     expect(["ui_play", "ui_story", "ui_bag"].filter(n => use[n]), lang + ": not the old icons").toEqual([]);

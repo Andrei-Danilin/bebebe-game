@@ -1,6 +1,6 @@
 # SPEC-028 — Português (Brasil): the fourth language
 
-Status: ready
+Status: done (merged by "Merge SPEC-028", see git log)
 Complexity: M
 Branch: SPEC-028-portuguese
 Decided by: Andrei (2026-11-24): add Portuguese, the Brazilian variety (pt-BR). Translation: Claude, simple words for kids 6–10 — to be checked by a native speaker (BACKLOG).
