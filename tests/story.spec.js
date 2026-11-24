@@ -326,6 +326,30 @@ test("Dad's mood shows: angry red with steam and a dark cloud, mid orange-pink w
   soft.done();
 });
 
+// ---------- AC 4 (looks): on the way home he smiles, blushes, waves and hearts fly ----------
+test("the kind dad smiles, blushes and waves on his way home", async ({ desk: page }) => {
+  await page.waitForFunction(() => window.__bb.artInfo.done);
+  await page.evaluate(() => {
+    const b = window.__bb; b.world = "park"; b.level = 3; b.startGame(1);
+    Object.assign(b.big, { state: "look", timer: 999, stun: 0, hugCd: 0, noPush: 0, slip: 0, pushCd: 0, x: 500, y: 320, dir: 0, hp: 1 });
+    Object.assign(b.littles[0], { state: "ok", hugCd: 0, hugAnim: 0, invuln: 0, kx: 0, ky: 0, x: 466, y: 320 });
+    for (let i = 0; i < 70; i++) b.update(1 / 60);      // the last hug (1 s), then he is kind
+    b.mode = "pause";                                     // hold the moment (no logic), keep drawing
+  });
+  await frames(page);
+  const r = await page.evaluate(() => {
+    const b = window.__bb, m = b.big.model;
+    return { kind: b.big.kind, cheeks: m.cheeks.visible, smile: Math.abs(Math.abs(m.face.mouth.rotation.z) - Math.PI) < 0.01, wave: m.arms[0].rotation.z,
+      face: "#" + m.headMat.color.getHexString(), base: m.faceBase, mood: b.moodInfo.mood, sprites: b.moodInfo.sprites };
+  });
+  expect(r.kind).toBe(true);
+  expect([r.cheeks, r.smile], "blushes and smiles").toEqual([true, true]);
+  expect(r.wave, "one arm up, waving").toBeLessThan(-1.5);
+  expect([r.mood, r.face], "his own face colour again").toEqual(["happy", r.base]);
+  expect(r.sprites).toContain("fx_hearts");
+  await page.evaluate(() => { window.__bb.mode = "play"; });
+});
+
 // ---------- AC 12: the scenes on a phone (667×375): big buttons, everything inside, nothing on anything ----------
 test("the scenes fit a 667×375 phone", async ({ phonePage: page }) => {
   const soft = softly();

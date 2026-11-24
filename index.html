@@ -266,7 +266,8 @@ const CFG = {
   // Размеры и сдвиги — в клетках на экране (по точке над головой); cloudBoss — облачко самого злого папы (самое большое);
   // puff — как часто пар «пыхает» (раз в сек), bob — покачивание сердечек (клеток)
   MOOD_LOOK: { face: { angry: "#e8453c", mid: "#f39b7d", kind: "#f6a3be" }, steam: 1.0, steamX: 0.85, steamY: 0.55, cloud: 1.15, cloudY: 0.15,
-    cloudBoss: 1.7, hearts: 0.95, heartsY: 0.1, puff: 1.6, bob: 0.08 },
+    cloudBoss: 1.7, hearts: 0.95, heartsY: 0.1, puff: 1.6, bob: 0.08,
+    wave: 2.5, waveAmp: 0.35, waveSpeed: 9 },   // подобрел и идёт домой: рука вверх (рад), машет ± waveAmp с частотой waveSpeed
   KID_LOOK: { head: 1.25, headY: 1.04, eye: 0.11, cheek: "#ff8aa5", cheekR: 0.16, smile: 0.15, smileW: 0.035, tagTop: 0.42, bubblePad: 0.1 },
   // SPEC-021: домики (art/15_houses). У домика маленьких крыша, пока не погасла, светится зелёным (glow, сила glowK) — как пол
   // безопасного дома: его всегда видно. Крыша: высота конька, свес, боковые скаты темнее (доля цвета), сугробиков на крыше (Зима);
@@ -7869,6 +7870,14 @@ function syncBig(b, t) {
   // смущается: голову чуть вверх (красное лицо видно сверху), руки вместе, улыбается
   if (blushing && !shocked) { m.head.rotation.x = -0.2; m.arms[0].rotation.x = -0.5; m.arms[1].rotation.x = -0.5; m.face.mouth.rotation.z = Math.PI; }
   else m.head.rotation.x = 0;
+  // SPEC-022: подобрел (идёт домой, art/11_win, art/1_papa): улыбается, краснеет (румянец — blush), машет одной рукой, другая качается
+  const ML = CFG.MOOD_LOOK;
+  if (b.kind) {
+    m.face.mouth.rotation.z = Math.PI;
+    for (const brw of m.face.brows) brw.rotation.z = brw.userData.k * 0.2;
+    m.arms[0].rotation.x = 0; m.arms[0].rotation.z = -(ML.wave + Math.sin(t * ML.waveSpeed) * ML.waveAmp);
+    m.arms[1].rotation.x = b.moving ? Math.sin(b.walk) * 0.5 : 0; m.arms[1].rotation.z = 0.25;
+  } else { m.arms[0].rotation.z = -0.25; m.arms[1].rotation.z = 0.25; }   // как при постройке (k × 0.25)
   if (m.blink) m.blink.material.emissiveIntensity = Math.floor(t * 3) % 2 ? 1 : 0.2;
 }
 let lastSyncT = 0;
