@@ -1865,7 +1865,7 @@ function resolveWalls(e) {
 function moveEntity(e, vx, vy, dt) { e.x += vx * dt; e.y += vy * dt; resolveWalls(e); }
 
 // Большой «спокоен»: в шоке, отдыхает после толчка или краснеет — конус бледный (3D и мини-карта)
-const bigCalm = () => big.stun > 0 || big.noPush > 0 || big.blush > 0;
+const bigCalm = () => !!big.kind || big.stun > 0 || big.noPush > 0 || big.blush > 0;   // SPEC-022: подобревший идёт домой — луч спокойный
 // многоугольник взгляда Большого в px мира: [x0, y0 (он сам), x1, y1, …] — n + 1 лучей, обрезанных стенами
 function visionPoly(n, out = []) {
   out.length = 2 * (n + 2); out[0] = big.x; out[1] = big.y;
@@ -2504,8 +2504,9 @@ function chapterOpen(c) {
   return c.id === "ended" ? progress.worlds.school.won[levelsPerWorld()] === true : true;
 }
 // ---------- SPEC-022: заставки истории ----------
-// storyScene — заставка на экране { id, page, then }: id из SCENE_IDS, page — страница, then — что дальше (уровень, карта, глава
-// истории; null — главный экран). Показанная заставка сразу отмечается в progress.seen (и сохраняется): второй раз сама не откроется
+// storyScene — заставка на экране { id, page, then, mark, play }: id из SCENE_IDS, page — страница, then — что дальше (уровень, карта,
+// глава истории; null — главный экран). Открытая сама (mark) отмечается в progress.seen, когда с неё уходят (и сохраняется) —
+// второй раз сама не откроется; пересмотр из «Истории» не отмечается
 let storyScene = null;
 const storyOf = id => STORY.find(c => c.id === id);
 // страницы: { art, crop ([x, y, w, h] — доли картинки или null — вся), text } или { thanks: true } (карточка «Спасибо» после финала)
@@ -3001,7 +3002,7 @@ function bigMood() {
 // SPEC-022: последняя обнимашка доиграла (правило детей) — папа добреет: краснеет, сердечки, друзья кричат «Ура!», идёт к двери
 // своего дома (не дольше KIND_WALK; часы уровня стоят — звезда «быстро» как раньше). Дошёл или время вышло — экран победы
 function startKindWalk() {
-  Object.assign(big, { kind: true, stun: 0, slip: 0, pushCd: 0, blush: 0, path: [] });   // своё состояние: ни шока, ни толчков, ни румянца-поцелуя
+  Object.assign(big, { kind: true, stun: 0, slip: 0, pushCd: 0, blush: 0, path: [], state: "look", noise: 0, hearTurnT: 0, hearLook: 0 });   // своё состояние: ни шока, ни толчков, ни румянца-поцелуя
   big.home = nearestExit(big);
   pendingWin = CFG.KIND_WALK;
   burst(big.x, big.y - 30, "heart", "#ff4d8d", CFG.KIND_HEARTS);
@@ -3158,13 +3159,15 @@ function updateStars(dt) {
 }
 
 function updateItems(dt) {
-  itemCd -= dt;
-  if (itemCd <= 0) { if (items.length < CFG.ITEM_MAX) spawnItem(); itemCd = rand(CFG.ITEM_EVERY[0], CFG.ITEM_EVERY[1]); }
+  if (!big.kind) {                                         // SPEC-022: пока подобревший папа идёт домой, новых вещей нет
+    itemCd -= dt;
+    if (itemCd <= 0) { if (items.length < CFG.ITEM_MAX) spawnItem(); itemCd = rand(CFG.ITEM_EVERY[0], CFG.ITEM_EVERY[1]); }
+  }
   for (const l of littles) for (const k of ["boots", "cloak", "shield"]) l.fx[k] = Math.max(0, l.fx[k] - dt);
   for (const it of items) {
     it.t += dt;
     if (it.kind === "banana") {
-      if (big.slip <= 0 && big.stun <= 0 && dist(big, it) < big.r + 8) {
+      if (!big.kind && big.slip <= 0 && big.stun <= 0 && dist(big, it) < big.r + 8) {   // SPEC-022: по дороге домой не поскальзывается
         it.t = 999;
         big.slip = CFG.SLIP_STUN; big.path = []; big.flash = 0.2;
         logEvent("slip", {});
@@ -3449,6 +3452,7 @@ function hearNoise(dt) {
 }
 // значок над Большим (тот же порядок, что рисуется): 🍌💫, ?!, 💗, ❓ (обернулся на топот), 👂 (слышит), 💦, !
 function bigMark() {
+  if (big.kind) return "💗";                               // SPEC-022: подобрел — не «!» и не «👂»
   if (big.slip > 0) return "🍌💫";
   if (big.stun > 0) return "?!";
   if (big.blush > 0) return "💗";
@@ -7657,6 +7661,7 @@ function buildBigModel(sk) {
 function setBigFace(m, color) {
   m.headMat.color.set(color == null ? m.faceBase : color);
   if (m.stubbleMat) m.stubbleMat.color.copy(m.headMat.color).multiplyScalar(m.stubbleK);
+  m.faceHex = "#" + m.headMat.color.getHexString();       // SPEC-022: цвет лица для moodInfo (меняется только здесь)
 }
 
 // SPEC-022: детали образов боссов — к точкам папы (m.anchors) и к рукам/ногам (m.arms / m.legs); look — запись BOSS_LOOKS
@@ -7765,7 +7770,7 @@ function buildCharacters() {
     l.model.rig.scale.setScalar(LITTLE_SCALE); l.model.ghost.scale.setScalar(LITTLE_SCALE);
     charGroup.add(l.model.root, l.model.ghost);
   }
-  // SPEC-022: босс уровня — папа в образе босса (BOSS_LOOKS), крупнее (big.scale)
+  // SPEC-022: босс уровня — папа в образе босса (BOSS_LOOKS), крупнее (bossScale)
   big.model = buildBigModel(big.boss ? BIG_SKINS.find(s => s.id === "dad") : big.skin);
   if (big.boss) dressBoss(big.model, big.boss);
   big.model.rig.scale.setScalar(BIG_SCALE * bossScale(big));
@@ -7988,7 +7993,7 @@ function syncBig(b, t) {
   const m = b.model;
   const mood = moodOf(b);
   if (m.mood !== mood) {                                   // перекрашиваем только при смене; лицо не человека (огр, робот, медведь) — своё
-    m.mood = mood; setBigFace(m, m.moodFace ? CFG.MOOD_LOOK.face[mood] ?? null : null); m.faceHex = "#" + m.headMat.color.getHexString();
+    m.mood = mood; setBigFace(m, m.moodFace ? CFG.MOOD_LOOK.face[mood] ?? null : null);
   }
   m.root.position.set(P(b.x), 0, P(b.y));
   m.root.rotation.y = Math.PI / 2 - b.dir;
@@ -8327,7 +8332,7 @@ window.__bb = {
   RULE_ICONS, STORY, openStory, get storyInfo() { return storyInfo && { ...storyInfo }; },
   // SPEC-022: заставки (scene — логика: { id, page, pages } или null; sceneInfo — нарисованное в этом кадре), боссы уровней
   SCENE_IDS, openScene, sceneNext, sceneSkip, bigMood, winTitle, get pushWaves() { return pushWaves.map(w => ({ ...w })); }, get scene() { return storyScene && { id: storyScene.id, page: storyScene.page, pages: scenePageCount() }; },
-  get sceneInfo() { return sceneInfo && { ...sceneInfo }; }, bossFor, BOSSES, BOSS_LOOKS, KID_HEAD_R, LITTLE_SCALE,   // SPEC-021 размеры героев (тест look3d)
+  get sceneInfo() { return sceneInfo && { ...sceneInfo }; }, bossFor, BOSSES, BOSS_LOOKS, bigCalm, KID_HEAD_R, LITTLE_SCALE,   // SPEC-021 размеры героев (тест look3d)
   // SPEC-022: вид Большого в 3D (для тестов): образ, босс и его детали, масштаб, цвета футболки и штанов
   bigLook() { const m = big && big.model; return m ? { look: m.look, boss: m.boss || null, parts: Object.keys(m.bossParts || {}), scale: m.rig.scale.x,
     shirt: "#" + m.mats.shirt.color.getHexString(), pants: "#" + m.mats.pants.color.getHexString() } : null; }, get moodInfo() { return moodInfo && { ...moodInfo, sprites: [...moodInfo.sprites] }; },   // SPEC-017: главы истории (живой список), экран истории этого кадра

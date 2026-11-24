@@ -209,6 +209,14 @@ test("the dad becomes kind and walks home before the win screen", { tag: "@fast"
   const d1 = await page.evaluate(() => { const b = window.__bb, big = b.big; return { mode: b.mode, near: Math.min(...b.dangerZone.exits.map(e => Math.hypot(e.x - big.x, e.y - big.y))), time: b.stats.time, moving: big.moving }; });
   if (d1.mode === "play") expect(d1.near, "he walks towards his house door").toBeLessThan(d0.near);
   expect(d1.time, "the clock is stopped during the walk (the fast star stays as it was)").toBeCloseTo(d0.time, 5);
+  // on the way home he is calm: no "!" or 👂 over him, a calm cone, no banana slip
+  const calm = await page.evaluate(() => {
+    const b = window.__bb; b.big.noise = 99;
+    b.items.push({ id: 9999, kind: "banana", x: b.big.x, y: b.big.y, t: 0, life: 30 });
+    b.update(1 / 60);
+    return { mark: b.bigMark, calm: b.bigCalm(), slip: b.big.slip };
+  });
+  if (d1.mode === "play") expect(calm).toEqual({ mark: "💗", calm: true, slip: 0 });
   // at most KIND_WALK seconds later: the win screen (rewards as before: a real win)
   const walk = await page.evaluate(() => { const b = window.__bb; let t = 0.5; while (b.mode === "play" && t < 10) { b.update(1 / 60); t += 1 / 60; } return { t, max: b.CFG.KIND_WALK, mode: b.mode, wins: b.events.filter(e => e.type === "win").length, reward: b.lastReward && b.lastReward.win }; });
   expect(walk.mode).toBe("win");
