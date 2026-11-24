@@ -379,7 +379,7 @@ test("old saves: levels with stars count as won", async ({ page }) => {
 
 // ---------- AC 2: the win screen ----------
 // One scene with every line (first win: new stars, bonus stars, hugs, rests) and one replay of level 20 (worldDone line),
-// in three languages, with normal and wider fonts (CFG.TEXT_TEST_SCALE 1.15, like CI). The lines and their sums are in
+// in every language, with normal and wider fonts (CFG.TEXT_TEST_SCALE 1.15, like CI). The lines and their sums are in
 // hudRects (win-line:<reason>, win-num:<reason>, + total); __bb.winPanel is the box they must stay in.
 const WIN_SCENES = {
   first: [{ world: "park", n: 5, stats: { playerHugs: 4, rests: 1, time: 10, starCoins: 6 }, won: false }],
@@ -447,7 +447,7 @@ test("the win screen lists each reward line and fits (phone 667×375)", async ({
   expect(fails, fails.slice(0, 12).join("\n")).toEqual([]);
 });
 
-test("every win-screen text is in three languages", async ({ simPage: page }) => {
+test("every win-screen text is in every language", async ({ simPage: page }) => {
   const I = await page.evaluate(() => { const I = window.__bb.I18N; return ["en", "es", "ru"].map(l => I[l].rw); });
   expect(I[0]).toEqual({ firstWin: "First win", replay: "Replay", newStars: "New stars", star: "Bonus stars", hugs: "Hugs", rests: "Rests", total: "Total" });
   expect(I[1]).toEqual({ firstWin: "Primera vez", replay: "Repetición", newStars: "Estrellas nuevas", star: "Estrellitas", hugs: "Abrazos", rests: "Descansos", total: "Total" });
@@ -673,7 +673,7 @@ test("the wardrobe tab with locked items fits (phone 667×375)", async ({ phoneP
   expect(fails, fails.slice(0, 12).join("\n")).toEqual([]);
 });
 
-test("every wardrobe text is in three languages", async ({ simPage: page }) => {
+test("every wardrobe text is in every language", async ({ simPage: page }) => {
   const I = await page.evaluate(() => { const I = window.__bb.I18N; return ["en", "es", "ru"].map(l => [I[l].buyFor(150), I[l].tapAgain]); });
   expect(I).toEqual([["Buy for 150", "Tap again to buy"], ["Comprar por 150", "Tocá otra vez para comprar"], ["Купить за 150", "Нажми ещё раз, чтобы купить"]]);
 });
@@ -826,7 +826,7 @@ test("the shop has an Items tab and an Upgrades tab", async ({ page }) => {
   await page.evaluate(() => { window.__bb.mode = "home"; });
 });
 
-// the Upgrades tab fits: three languages, fonts ×1 / ×1.15, too few coins and plenty (one upgrade at max)
+// the Upgrades tab fits: every language, fonts ×1 / ×1.15, too few coins and plenty (one upgrade at max)
 async function upgradeTabProblems(page, phone) {
   const fails = [];
   const overlaps = (a, b) => a.x < b.x + b.w - 0.01 && a.x + a.w > b.x + 0.01 && a.y < b.y + b.h - 0.01 && a.y + a.h > b.y + 0.01;
@@ -887,7 +887,7 @@ test("the Upgrades tab fits (phone 932×430)", async ({ phone932: page }) => {
   expect(fails, fails.slice(0, 12).join("\n")).toEqual([]);
 });
 
-test("every upgrade text is in three languages", async ({ simPage: page }) => {
+test("every upgrade text is in every language", async ({ simPage: page }) => {
   const I = await page.evaluate(() => { const I = window.__bb.I18N; return ["en", "es", "ru"].map(l => [I[l].itemsTab, I[l].upgradesTab, I[l].upgMax, ...["fastFeet", "longItems", "quickHelp"].map(k => [I[l].upg[k].name, I[l].upg[k].desc(3)])]); });
   expect(I[0]).toEqual(["Items", "Upgrades", "Max", ["Fast feet", "+3% speed"], ["Long items", "Items last longer"], ["Quick help", "Lift friends faster"]]);
   expect(I[1]).toEqual(["Cosas", "Mejoras", "Máximo", ["Pies rápidos", "+3% velocidad"], ["Cosas duraderas", "Duran más"], ["Ayuda rápida", "Levantás más rápido"]]);

@@ -42,7 +42,7 @@
   setTimeout(function () {
     if (!window.__bbReady) {
       var el = document.getElementById("loading");
-      if (el) el.innerHTML = "The 3D engine (three.js) needs an internet connection to load.<br>El motor 3D necesita internet.<br>Для 3D-движка нужен интернет.";
+      if (el) el.innerHTML = "The 3D engine (three.js) needs an internet connection to load.<br>El motor 3D necesita internet.<br>O motor 3D precisa de internet.<br>Для 3D-движка нужен интернет.";
     }
   }, 6000);
 </script>
@@ -745,7 +745,7 @@ const I18N = {
     heardHintTouch: "O Papai ouviu você correr! Mexa o joystick só um pouquinho para andar na ponta dos pés",
     level: "Fase", lvShort: "Fase", onePlayer: "1 jogador", twoPlayers: "2 jogadores",
     controls1: "Teclado: Jogador 1 — W A S D, Jogador 2 — setas  •  P — pausa  •  M — som  •  L — idioma",
-    controls2: "Tablet/celular: arraste o dedo  •  Controle: alavanca, A — escolher, B — voltar, LB/RB — mundos",
+    controls2: "Tablet/celular: arraste o dedo  •  Controle: analógico, A — escolher, B — voltar, LB/RB — mundos",
     pause: "Pausa", play: "Jogar", resume: "Continuar", story: "História", map: "Mapa", home: "Início",
     win: "VOCÊS GANHARAM!", winSub: "Vocês deram muitos abraços nele, e ele foi para casa!", next: n => `Fase ${n} ▶`,
     kindAgain: n => `${n} ficou bonzinho de novo!`, cheer: "Eba!", whoosh: "VUUUSH!",
@@ -778,7 +778,7 @@ const I18N = {
     sceneNext: "Próximo", sceneSkip: "Pular", thanks: "Obrigado por jogar!", madeBy: "Feito por Kostya e Papai",
     chapters: { began: "Como tudo começou", ended: "Como tudo terminou" }, endedLocked: "Vença a fase 20 da Escola para ler o final", howToPlay: "Como jogar",
     upg: { fastFeet: { name: "Pés rápidos", desc: p => `+${p}% de velocidade` }, longItems: { name: "Itens duradouros", desc: () => "Duram mais" },
-      quickHelp: { name: "Ajuda rápida", desc: () => "Levanta mais rápido" } },
+      quickHelp: { name: "Ajuda rápida", desc: () => "Levante os amigos mais rápido" } },
     rw: { firstWin: "Primeira vitória", replay: "Jogou de novo", newStars: "Estrelas novas", star: "Estrelinhas", hugs: "Abraços", rests: "Descansos", total: "Total" },
     starCoins: n => `Estrelinhas: +${n}`, thrownOut: "Fora da minha casa!", friends: "Amigos", tapToRename: "Toque num nome para mudar",
     defaultBig: "Papai", defaultBots: ["Léo", "Bia", "Davi", "Lulu"], anger: "Papai bravo", angerOf: n => `${n} bravo`,
@@ -948,10 +948,12 @@ const STORY = [
 const RULE_ICONS = ["❤", "👀", "🤝", "⏱", "🏠", "🍌", "👣"];
 const LANGS = ["en", "es", "pt", "ru"];   // SPEC-028: + português (Brasil); порядок — как переключает значок 🌐
 const HTML_LANG = { pt: "pt-BR" };        // <html lang>: португальский — бразильский
-// SPEC-028: язык при запуске — сохранённый (bebebe-lang: старые en/es/ru, новый pt), иначе первый язык браузера из наших
-// (pt-BR, pt-PT → pt; es-AR → es; ru-RU → ru), иначе английский. Чистая функция (тест: __bb.detectLang); никогда не бросает
-function detectLang(saved, navLangs) {
+// SPEC-028: язык при запуске — сохранённый (bebebe-lang: старые en/es/ru, новый pt); если его нет и это самый первый запуск
+// (нет и bebebe-progress) — первый язык браузера из наших (pt-BR, pt-PT → pt; es-AR → es; ru-RU → ru), иначе английский.
+// У игрока с прогрессом, но без сохранённого языка, — английский, как раньше. Чистая функция (тест: __bb.detectLang); не бросает
+function detectLang(saved, navLangs, hasProgress = false) {
   if (LANGS.includes(saved)) return saved;
+  if (hasProgress) return "en";
   for (const n of Array.isArray(navLangs) ? navLangs : []) {
     const code = typeof n === "string" ? n.slice(0, 2).toLowerCase() : "";
     if (LANGS.includes(code)) return code;
@@ -960,9 +962,9 @@ function detectLang(saved, navLangs) {
 }
 let lang = "en";
 try {
-  let saved = null;
-  try { saved = localStorage.getItem("bebebe-lang"); } catch (e) { /* без хранилища — по браузеру */ }
-  lang = detectLang(saved, navigator.languages && navigator.languages.length ? [...navigator.languages] : [navigator.language]);
+  let saved = null, played = false;
+  try { saved = localStorage.getItem("bebebe-lang"); played = localStorage.getItem("bebebe-progress") !== null; } catch (e) { /* без хранилища — по браузеру */ }
+  lang = detectLang(saved, navigator.languages && navigator.languages.length ? [...navigator.languages] : [navigator.language], played);
 } catch (e) { /* ok — английский */ }
 document.documentElement.lang = HTML_LANG[lang] || lang;
 const L = () => I18N[lang];
@@ -4085,7 +4087,12 @@ function wrapText(text, x, y, size, maxW, lines, color, weight) {
       if (ctx.measureText(t).width > maxW && cur) { rows.push(cur); cur = wd; } else cur = t;
     }
     rows.push(cur);
-    if ((rows.length <= lines && rows.every(r => ctx.measureText(r).width <= maxW)) || sz <= 9) break;
+    const fit = rows.length <= lines && rows.every(r => ctx.measureText(r).width <= maxW);
+    if (!fit && sz <= 9) {   // SPEC-028: сдался на самом мелком — лишние строки или строка шире места → textOverflows
+      if (rows.length > lines) noteOverflow(text, maxW * rows.length / lines, maxW);
+      for (const r of rows) noteOverflow(r, ctx.measureText(r).width, maxW);
+    }
+    if (fit || sz <= 9) break;
     sz -= 0.5;
   }
   ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = color;
@@ -4100,7 +4107,7 @@ function labelFit(text, x, y, size, maxW, color, align = "center", min = 11, sca
   ctx.font = font(sz);
   while (ctx.measureText(text).width > maxW && sz > min) { sz = Math.max(min, sz - 0.5); ctx.font = font(sz); }
   let chars = Array.from(text);
-  noteOverflow(text, ctx.measureText(text).width * min / sz, maxW, scaled);
+  if (sz <= min || CFG.TEXT_TEST_SCALE !== 1) noteOverflow(text, ctx.measureText(text).width * min / sz, maxW, scaled);   // крупнее min при ×1 — влезло
   while (chars.length > 1 && ctx.measureText(text).width > maxW) { chars = chars.slice(0, -1); text = chars.join("").trimEnd() + "…"; }
   lastFit = { text, sz, w: ctx.measureText(text).width };
   label(text, x, y, sz, color, align);

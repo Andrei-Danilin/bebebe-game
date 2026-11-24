@@ -5,7 +5,7 @@ const base = require("./pw");   // SPEC-023: @playwright/test + failure screensh
 const { expect } = base;
 const path = require("path");
 const fs = require("fs");
-const { openGame, frames, softly } = require("./helpers");
+const { LANGS, openGame, frames, softly } = require("./helpers");
 
 const LEVEL1 = JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures", "level1.json"), "utf8"));
 // SPEC-006: worlds and the types inside every world; SPEC-016: the story order — main worlds, then the bonus ones
@@ -180,8 +180,8 @@ test("the map shows six worlds and switches between them", async ({ page }) => {
   for (const k of ["ArrowRight", "ArrowLeft", "ArrowLeft", "ArrowLeft", "ArrowLeft", "ArrowLeft"]) { await page.keyboard.press(k); seq.push(await page.evaluate(() => window.__bb.world)); }
   expect(seq).toEqual(["winter", "school", "city", "field", "park", "winter"]);
   // the names and the star line in every language
-  const I = await page.evaluate(() => ["en", "es", "ru"].map(l => window.__bb.I18N[l].worldStars(7, 60)));
-  expect(I).toEqual(["⭐ 7/60", "⭐ 7/60", "⭐ 7/60"]);
+  const I = await page.evaluate(() => window.__bb.LANGS.map(l => window.__bb.I18N[l].worldStars(7, 60)));
+  expect(I).toEqual(LANGS.map(() => "⭐ 7/60"));
   await page.evaluate(() => window.__bb.selectWorld("field"));
   for (const [lang, want] of [["es", "⚽ Cancha  ⭐ 0/60"], ["pt", "⚽ Campo de futebol  ⭐ 0/60"], ["ru", "⚽ Футбольное поле  ⭐ 0/60"]]) {
     await page.evaluate(l => window.__bb.setLang(l), lang);

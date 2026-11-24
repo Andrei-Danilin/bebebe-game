@@ -135,28 +135,36 @@ test("the tiptoe rule and the heard hints are in every language", async ({ page 
   expect(en).toEqual(["Run near Dad and he hears you — tiptoe!", "Dad heard you running! Tiptoe near him: hold ⇦ Shift", "Dad heard you running! Push the stick just a little to tiptoe"]);
 });
 
-// SPEC-028 AC 2: the first launch (no saved language) follows the browser: pt*, es*, ru* → that language, anything else English;
-// a saved language always wins (old saves: en / es / ru; new: pt); a broken save → the browser rule
-test("the language on first launch: a saved one, else the browser's (pt, es, ru), else English", { tag: "@fast" }, async ({ page }) => {
+// SPEC-028 AC 2: a true first launch (no saved language and no progress) follows the browser: pt*, es*, ru* → that language,
+// anything else English; a saved language always wins (old saves: en / es / ru; new: pt); a player with progress but no saved
+// language keeps English, as before SPEC-028; a broken save → the same rules
+test("the language on first launch: a saved one, else the browser's (pt, es, ru) on a first launch, else English", { tag: "@fast" }, async ({ page }) => {
   await openGame(page, { sim: true });
   const cases = [
-    [null, ["pt-BR"], "pt"], [null, ["pt-PT", "en"], "pt"], [null, ["PT"], "pt"], [null, ["es-AR"], "es"], [null, ["es"], "es"],
-    [null, ["ru-RU"], "ru"], [null, ["en-US"], "en"], [null, ["de-DE", "fr"], "en"], [null, ["de-DE", "pt-BR"], "pt"],
-    [null, [], "en"], [null, undefined, "en"], [null, [null, 3, ""], "en"],
-    ["en", ["pt-BR"], "en"], ["es", ["ru"], "es"], ["ru", ["pt"], "ru"], ["pt", ["en-US"], "pt"], ["xx", ["ru"], "ru"], ["", ["es-MX"], "es"]
+    [null, ["pt-BR"], false, "pt"], [null, ["pt-PT", "en"], false, "pt"], [null, ["PT"], false, "pt"], [null, ["es-AR"], false, "es"], [null, ["es"], false, "es"],
+    [null, ["ru-RU"], false, "ru"], [null, ["en-US"], false, "en"], [null, ["de-DE", "fr"], false, "en"], [null, ["de-DE", "pt-BR"], false, "pt"],
+    [null, [], false, "en"], [null, undefined, false, "en"], [null, [null, 3, ""], false, "en"],
+    ["en", ["pt-BR"], false, "en"], ["es", ["ru"], false, "es"], ["ru", ["pt"], false, "ru"], ["pt", ["en-US"], false, "pt"], ["xx", ["ru"], false, "ru"], ["", ["es-MX"], false, "es"],
+    // progress but no saved language: English, whatever the browser says; a saved language still wins
+    [null, ["pt-BR"], true, "en"], [null, ["ru-RU"], true, "en"], ["xx", ["es"], true, "en"], ["pt", ["en-US"], true, "pt"], ["ru", ["pt-BR"], true, "ru"]
   ];
-  const got = await page.evaluate(cs => cs.map(([saved, nav]) => window.__bb.detectLang(saved, nav)), cases);
-  expect(got).toEqual(cases.map(c => c[2]));
+  const got = await page.evaluate(cs => cs.map(([saved, nav, played]) => window.__bb.detectLang(saved, nav, played)), cases);
+  expect(got).toEqual(cases.map(c => c[3]));
 });
 
-for (const [locale, want, html] of [["pt-BR", "pt", "pt-BR"], ["es-AR", "es", "es"], ["fr-FR", "en", "en"]]) {
-  test(`a first launch in a ${locale} browser starts in ${want}`, async ({ browser }) => {
+// a fresh browser context (nothing saved; `progress` = a bebebe-progress saved before the page loads, no language)
+for (const [locale, progress, want, html] of [["pt-BR", false, "pt", "pt-BR"], ["es-AR", false, "es", "es"], ["fr-FR", false, "en", "en"], ["pt-BR", true, "en", "en"]]) {
+  test(`a ${progress ? "returning player (progress, no saved language)" : "first launch"} in a ${locale} browser starts in ${want}`, async ({ browser }) => {
     const context = await browser.newContext({ locale });
-    const page = await context.newPage();
-    const errors = await openGame(page, { sim: true, clearStorage: false });   // a fresh context: nothing saved
-    expect(await page.evaluate(() => [localStorage.getItem("bebebe-lang"), window.__bb.lang, document.documentElement.lang])).toEqual([null, want, html]);
-    expect(errors).toEqual([]);
-    await context.close();
+    try {
+      if (progress) await context.addInitScript(() => { try { if (!localStorage.getItem("bebebe-progress")) localStorage.setItem("bebebe-progress", JSON.stringify({ coins: 5 })); } catch (e) { /* ok */ } });
+      const page = await context.newPage();
+      const errors = await openGame(page, { sim: true, clearStorage: false });
+      expect(await page.evaluate(() => [localStorage.getItem("bebebe-lang"), window.__bb.lang, document.documentElement.lang])).toEqual([null, want, html]);
+      expect(errors).toEqual([]);
+    } finally {
+      await context.close();
+    }
   });
 }
 
