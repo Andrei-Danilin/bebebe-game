@@ -2,7 +2,9 @@
 // Most tests open index.html from disk; three.js is served from node_modules instead of the CDN
 // (see tests/helpers.js), so the tests run offline.
 // The PWA tests (tests/pwa.spec.js) need http: scripts/serve.js is started as the webServer.
+// SPEC-023: GPU locally, SwiftShader on CI (PW_GPU=auto|0|1), below-normal priority (PW_NICE=0: off) — tests/test-env.js.
 const { defineConfig } = require("@playwright/test");
+const { browserArgs } = require("./tests/test-env");
 
 // Lets context.route() see the requests a service worker makes (the PWA tests route jsDelivr that way).
 process.env.PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS = "1";
@@ -11,9 +13,13 @@ const PORT = Number(process.env.PORT) || 8123;
 
 module.exports = defineConfig({
   testDir: "./tests",
+  globalSetup: require.resolve("./tests/global-setup.js"),
   timeout: 90_000,
   expect: { timeout: 10_000 },
-  fullyParallel: false,
+  // SPEC-023: on CI the suite runs in 4 shards (tests.yml). Without fullyParallel Playwright shards by whole files, and the
+  // shards took 0.3–7.7 min (phone/gameplay in one); with it each shard gets a quarter of the tests, still in file order
+  // with one worker, so the shared pages work as locally. Locally nothing changes (one worker, no shards).
+  fullyParallel: !!process.env.CI,
   workers: 1,
   retries: 0,
   reporter: [["list"]],
@@ -26,9 +32,10 @@ module.exports = defineConfig({
   },
   use: {
     viewport: { width: 960, height: 640 },
-    // Software WebGL so the tests also run on machines/VMs without a GPU.
+    // SPEC-023: hardware WebGL locally (d3d11/metal/gl), software (SwiftShader) on CI, with PW_GPU=0, or when the global
+    // setup finds no GPU context (it sets PW_GL; workers load this config again and see it).
     launchOptions: {
-      args: ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"],
+      args: browserArgs(),
       ...(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {})
     },
     // SPEC-018: "only-on-failure" takes a screenshot of every page at the end of EVERY test (and drops it when the test

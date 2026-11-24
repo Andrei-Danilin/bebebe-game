@@ -1,10 +1,15 @@
 // Names for the players, the Big One and the bot friends (SPEC-003): saved in `bebebe-names`, cleaned, typed in the shop's
 // Wardrobe tab (SPEC-017; the bot friends on its Friends page).
-const { test, expect } = require("@playwright/test");
+const base = require("./pw");   // SPEC-023: @playwright/test + failure screenshots
+const { expect } = base;
 const { openGame, frames } = require("./helpers");
 
-test.beforeEach(async ({ page }) => { page.errors = await openGame(page); });
-test.afterEach(async ({ page }) => { expect(page.errors).toEqual([]); });
+// `page` = a fresh rendered game; SPEC-023: `simPage` = a fresh game in sim mode (logic only, nothing drawn). Page errors
+// fail the test.
+const test = base.test.extend({
+  page: async ({ page }, use) => { const errors = await openGame(page); await use(page); expect(errors).toEqual([]); },
+  simPage: async ({ context }, use) => { const p = await context.newPage(), errors = await openGame(p, { sim: true }); await use(p); expect(errors).toEqual([]); }
+});
 
 // Centre of a button registered this frame (by its id), in page pixels.
 async function buttonCenter(page, id) {
@@ -20,7 +25,7 @@ async function buttonCenter(page, id) {
   return r;
 }
 
-test("names are saved, cleaned and survive a reload", async ({ page }) => {
+test("names are saved, cleaned and survive a reload", async ({ simPage: page }) => {
   let n = await page.evaluate(() => window.__bb.names);
   expect(n).toEqual({ p1: "Player 1", p2: "Player 2", big: "Big One", bots: ["Bo", "Mia", "Tom", "Lulu"] });
   await page.evaluate(() => window.__bb.setLang("es"));

@@ -1,6 +1,6 @@
 // SPEC-005: phone mode (camera follows the hero, mini-map, big controls).
 // Phone tests run at 844×390 with touch + isMobile and ?phone=1; the desktop test checks that nothing changed.
-const base = require("@playwright/test");
+const base = require("./pw");   // SPEC-023: @playwright/test + failure screenshots
 const { expect } = base;
 const { openGame, step, frames, sharedPage, resetGame } = require("./helpers");
 

@@ -294,18 +294,65 @@ Rules for Claude Code: [`CLAUDE.md`](CLAUDE.md). Game rules: [`docs/game-design.
 ```bash
 npm run setup          # once: Playwright + three.js for the tests, Chromium, Claude Code agents
 npm run test:fast      # the @fast set while working (~1.5 min)
-npx playwright test    # all tests: smoke, gameplay rules, levels, phone, i18n, PWA (~10 min; starts scripts/serve.js itself)
+npx playwright test tests/gameplay.spec.js   # one test file (-g "<name>" for one test)
+npx playwright test    # all tests (smoke, gameplay rules, levels, phone, i18n, PWA; starts scripts/serve.js itself) — normally on CI, see below
 npm run serve          # the game over http on http://localhost:8123/ (service worker, manifest)
 npm run icons          # icons/icon.svg → the PNG app icons
 npm run docs:numbers   # rewrite the generated numbers table in docs/game-design.md from index.html (-- --check: only check)
 npm run balance        # play every level with the autopilot in sim mode → reports/balance.md + reports/balance.json
 ```
 
-Every push to `master` runs the tests on GitHub Actions and publishes the site (`index.html`, `manifest.webmanifest`,
-`sw.js`, `icons/`, `v1-2d/`) to GitHub Pages (`.github/workflows/pages.yml`).
+### Local test runs: GPU and low priority (SPEC-023)
 
-A spec that changes gameplay numbers or rules runs `npm run balance` before the merge and commits the updated
-`reports/balance.*`; the numbers table in `docs/game-design.md` is generated (`npm run docs:numbers`), never edited by hand.
+- Locally the test browser draws 3D on the **GPU**; on CI (and without a usable GPU) it uses **SwiftShader** (software).
+  `PW_GPU=0` forces SwiftShader locally (what CI uses), `PW_GPU=1` forces the GPU; unset = auto. If the GPU context
+  cannot be created, the run falls back to SwiftShader and prints one line saying so. `tests/env.spec.js` checks the
+  WebGL renderer matches the chosen backend.
+- The test runner, its browsers and `npm run balance` run at **below-normal priority**, so the computer stays usable
+  during a run. `PW_NICE=0` keeps normal priority. Below normal gives way to every normal program: while the machine is
+  already busy (e.g. other Claude Code sessions running their tests) a run can crawl. With the GPU that was fine (the whole
+  suite passed at below normal on a busy machine), but **SwiftShader (`PW_GPU=0`, or the fallback) needs every CPU core and
+  starved into 90 s timeouts there — run it as `PW_GPU=0 PW_NICE=0`** (measured in SPEC-023, `reports/test-times.md`).
+- Claude Code itself at low priority on Windows (everything it starts inherits it): `start /belownormal claude --model opus`
+  in `cmd` (from PowerShell: `cmd /c start /belownormal claude --model opus`; it opens a new console window).
+- Logic-only tests open the game in **sim mode** (`openGame(page, { sim: true })`: no 3D, no audio), so they are fast
+  everywhere; tests that check what is drawn stay rendered.
 
-Run a spec: `claude --model opus` at the repo root, paste `docs/process/run-templates/RUN_S.md`
-(or `RUN_M` / `RUN_L`, as the spec's `Complexity:` says) with the spec name filled in.
+PowerShell examples: `$env:PW_GPU = "0"; npx playwright test tests/smoke.spec.js` · bash: `PW_GPU=0 npx playwright test tests/smoke.spec.js`.
+
+### CI on GitHub
+
+- **Tests** (`.github/workflows/tests.yml`): every push of a `SPEC-*` branch (and manual dispatch) runs the whole suite
+  in **4 parallel shards**; a merge job joins them into one HTML report. The spec is merged only when this run is green.
+  `gh run list --workflow tests.yml --commit $(git rev-parse HEAD) --limit 1` (the run of the pushed commit; retry until it
+  appears) → `gh run watch <id> --exit-status`; reports: `gh run download <id> -n html-report` (open `index.html`), error
+  context + failure screenshots: `-n test-results-<shard>`.
+- **Pages** (`.github/workflows/pages.yml`): every push to `master` runs the same sharded tests, then publishes the site
+  (`index.html`, `manifest.webmanifest`, `sw.js`, `icons/`, `v1-2d/`) to GitHub Pages. A red deploy with green tests is
+  recovered with a fresh `gh workflow run pages.yml --ref master` (never `gh run rerun --failed`).
+- **Balance** (`.github/workflows/balance.yml`): `gh workflow run balance.yml -f ref=<branch>` → `gh run list --workflow balance.yml --limit 5` (the run titled `Balance <branch>`,
+  created after the dispatch)
+  → `gh run watch <id> --exit-status` → `gh run download <id> -n balance -D reports` (writes `reports/balance.md` and
+  `reports/balance.json`), then commit them on the branch.
+
+A spec that changes gameplay numbers or rules gets its balance report from the Balance workflow before the merge and
+commits the updated `reports/balance.*`; the numbers table in `docs/game-design.md` is generated (`npm run docs:numbers`), never edited by hand.
+
+Run a spec: `claude --model opus` at the repo root (on Windows at low priority: `start /belownormal claude --model opus`),
+paste `docs/process/run-templates/RUN_S.md` (or `RUN_M` / `RUN_L`, as the spec's `Complexity:` says) with the spec name
+filled in. Locally it runs only the fast set and the tests of what changed; the whole suite runs on CI for the pushed branch.
+
+### Running the queue on another machine
+
+Any machine with Node (LTS), Chrome or Edge, `git`, the GitHub CLI `gh` (logged in: `gh auth login`) and Claude Code
+`claude` can run specs or a whole queue, e.g. a spare computer, so Andrei's own one stays free:
+
+```bash
+git clone https://github.com/Andrei-Danilin/bebebe-game.git
+cd bebebe-game
+npm run setup                      # Playwright + three.js, Chromium, Claude Code agents
+claude --model opus                # then paste docs/process/run-templates/RUN_QUEUE.md (or RUN_S/M/L)
+```
+
+Without a GPU the local tests fall back to SwiftShader by themselves (slower; `PW_GPU=0` to force it). The heavy runs
+(whole suite, balance) happen on GitHub either way; only one machine should work on a queue at a time.

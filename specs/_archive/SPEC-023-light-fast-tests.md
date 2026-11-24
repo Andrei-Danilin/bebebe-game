@@ -1,6 +1,6 @@
 # SPEC-023 — Light and fast testing: GPU locally, low priority, heavy runs on GitHub, logic tests without 3D
 
-Status: ready
+Status: done (merged by "Merge SPEC-023", see git log)
 Complexity: M
 Branch: SPEC-023-light-tests
 Decided by: Andrei (2026-11-23): runs make his computer slow and take 3–4 hours per spec; do all of these before SPEC-020: tests on the GPU locally, low priority, the whole suite and the balance report on GitHub (sharded), logic tests without 3D. How (flags, workflows, sharding, which tests move): Claude (spec author).

@@ -1,29 +1,28 @@
 // Gameplay rules decided by the kids (see docs/game-design.md). Each test pins one rule.
-const base = require("@playwright/test");
+const base = require("./pw");   // SPEC-023: @playwright/test + failure screenshots
 const { expect } = base;
 const { openGame, step, setupHug, frames, sharedPage, resetGame, softly } = require("./helpers");
 
 // SPEC-018: the tests share one game page (one per context kind: the touch tests get their own) instead of a fresh page
 // each. Before every test resetGame() puts it back to a freshly opened game (storage, language, progress, names,
 // gamepad stubs, level cache), then Park 1 starts as before; page errors fail the test that caused them.
-const shared = sharedPage();
-const test = base.test.extend({
-  page: async ({ browser, hasTouch }, use) => {
-    const s = await shared.get(browser, hasTouch ? "touch" : "desktop", { viewport: { width: 960, height: 640 }, hasTouch }, p => openGame(p));
-    await resetGame(s.page);
-    const cfg = await s.page.evaluate(() => JSON.stringify(window.__bb.CFG));
-    await use(s.page);
-    expect(s.errors.splice(0)).toEqual([]);
-    expect(await s.page.evaluate(() => JSON.stringify(window.__bb.CFG)), "the test restores every CFG value it changed").toBe(cfg);
-  }
-});
-test.afterAll(async () => { await shared.close(); });
+// SPEC-023: rule tests that check only logic ask for `simPage` — a shared page in sim mode (no 3D, no drawing; the game
+// moves only by step() / update). Tests that check what is drawn ask for `page` (rendered). A sim page draws nothing, so it
+// may stay open next to the rendered one.
+const shared = sharedPage(), sharedSim = sharedPage();
+const fixture = (pages, sim) => async ({ browser, hasTouch }, use) => {
+  const s = await pages.get(browser, (hasTouch ? "touch" : "desktop") + (sim ? "-sim" : ""), { viewport: { width: 960, height: 640 }, hasTouch }, p => openGame(p, { sim }));
+  await resetGame(s.page);
+  const cfg = await s.page.evaluate(() => JSON.stringify(window.__bb.CFG));
+  await s.page.evaluate(() => { window.__bb.world = "park"; window.__bb.level = 1; window.__bb.startGame(1); });   // Park 1 is running
+  await use(s.page);
+  expect(s.errors.splice(0)).toEqual([]);
+  expect(await s.page.evaluate(() => JSON.stringify(window.__bb.CFG)), "the test restores every CFG value it changed").toBe(cfg);
+};
+const test = base.test.extend({ page: fixture(shared, false), simPage: fixture(sharedSim, true) });
+test.afterAll(async () => { await shared.close(); await sharedSim.close(); });
 
-test.beforeEach(async ({ page }) => {
-  await page.evaluate(() => { window.__bb.world = "park"; window.__bb.level = 1; window.__bb.startGame(1); });
-});
-
-test("a hug from behind takes one heart and shocks the Big One", { tag: "@fast" }, async ({ page }) => {
+test("a hug from behind takes one heart and shocks the Big One", { tag: "@fast" }, async ({ simPage: page }) => {
   const hp0 = await page.evaluate(() => window.__bb.big.hp);
   await setupHug(page);
   await step(page, 0.1);
@@ -33,7 +32,7 @@ test("a hug from behind takes one heart and shocks the Big One", { tag: "@fast" 
   expect(s.anim).toBeGreaterThan(0);       // jumps on the back
 });
 
-test("seen from the front, a Little One is pushed and breaks a leg", { tag: "@fast" }, async ({ page }) => {
+test("seen from the front, a Little One is pushed and breaks a leg", { tag: "@fast" }, async ({ simPage: page }) => {
   await page.evaluate(() => {
     const b = window.__bb, big = b.big, l = b.littles[0];
     Object.assign(big, { state: "look", timer: 999, stun: 0, noPush: 0, pushCd: 0, slip: 0, x: 500, y: 320, dir: 0 });
@@ -59,7 +58,7 @@ async function installTestHelpers(page) {
   });
 }
 
-test("rescue takes 3 seconds and drains when the helper leaves", { tag: "@fast" }, async ({ page }) => {
+test("rescue takes 3 seconds and drains when the helper leaves", { tag: "@fast" }, async ({ simPage: page }) => {
   await installTestHelpers(page);
   const r = await page.evaluate(() => {
     const b = window.__bb, t = window.__t, L = b.littles, out = {};
@@ -83,7 +82,7 @@ test("rescue takes 3 seconds and drains when the helper leaves", { tag: "@fast" 
   expect(r.d).toBe("ok");
 });
 
-test("pushing the helper resets the rescue", async ({ page }) => {
+test("pushing the helper resets the rescue", async ({ simPage: page }) => {
   await installTestHelpers(page);
   const r = await page.evaluate(() => {
     const b = window.__bb, t = window.__t, L = b.littles;
@@ -101,7 +100,7 @@ test("pushing the helper resets the rescue", async ({ page }) => {
   expect(r.r).toBe(0);
 });
 
-test("bots wait before they go to rescue", async ({ page }) => {
+test("bots wait before they go to rescue", async ({ simPage: page }) => {
   await installTestHelpers(page);
   // 1 player + 4 bots; the Big One pushes the player
   const r = await page.evaluate(() => {
@@ -125,7 +124,7 @@ test("bots wait before they go to rescue", async ({ page }) => {
 });
 
 // SPEC-007 AC 1: the rest is 30 s (kids' decision); the rules text speaks in seconds, computed from REST_TIME
-test("an unrescued Little One rests 30 seconds", { tag: "@fast" }, async ({ page }) => {
+test("an unrescued Little One rests 30 seconds", { tag: "@fast" }, async ({ simPage: page }) => {
   expect(await page.evaluate(() => window.__bb.CFG.REST_TIME)).toBe(30);
   await page.evaluate(() => {
     const L = window.__bb.littles; Object.assign(window.__bb.big, { x: 900, y: 600, state: "look", timer: 9999 });
@@ -162,7 +161,7 @@ test("an unrescued Little One rests 30 seconds", { tag: "@fast" }, async ({ page
   for (const l of ["en", "es", "ru"]) expect(lines[l], l).not.toMatch(/min|мин/);
 });
 
-test("winning gives stars and coins, unlocks the next level and survives a reload", { tag: "@fast" }, async ({ page }) => {
+test("winning gives stars and coins, unlocks the next level and survives a reload", { tag: "@fast" }, async ({ simPage: page }) => {
   await page.evaluate(() => { window.__bb.big.hp = 1; });
   await setupHug(page);
   await step(page, 1.5);
@@ -220,7 +219,7 @@ test("worlds unlock their own levels", async ({ page }) => {
   expect(await tapStop(3)).toEqual(["levelCard", 3]);
 });
 
-test("the reward grows with the world", async ({ page }) => {
+test("the reward grows with the world", async ({ simPage: page }) => {
   const r = await page.evaluate(() => {
     const b = window.__bb, out = {};
     const win = (w, n, st) => { b.world = w; b.level = n; b.startGame(1); Object.assign(b.stats, st); b.giveReward(true); return { ...b.lastReward }; };
@@ -288,7 +287,7 @@ test("winning level 20 finishes the world", async ({ page }) => {
   expect(await page.evaluate(() => [window.__bb.mode, window.__bb.world])).toEqual(["map", "school"]);
 });
 
-test("each rest takes coins from the level reward", async ({ page }) => {
+test("each rest takes coins from the level reward", async ({ simPage: page }) => {
   await page.evaluate(() => { window.__bb.stats.rests = 2; window.__bb.big.hp = 1; });
   await setupHug(page);
   await step(page, 1.5);
@@ -297,7 +296,7 @@ test("each rest takes coins from the level reward", async ({ page }) => {
   expect(r.stars).toBe(2);                 // no "nobody had to rest" star
 });
 
-test("warm mittens: bought in the shop, a hug takes 2 hearts and uses a charge", async ({ page }) => {
+test("warm mittens: bought in the shop, a hug takes 2 hearts and uses a charge", async ({ simPage: page }) => {
   await page.evaluate(() => { window.__bb.progress.coins = 30; window.__bb.buyGloves("mittens"); window.__bb.setEquip(0, "mittens"); window.__bb.startGame(1); });
   expect(await page.evaluate(() => window.__bb.progress.coins)).toBe(0);
   const hp0 = await page.evaluate(() => window.__bb.big.hp);
@@ -308,7 +307,7 @@ test("warm mittens: bought in the shop, a hug takes 2 hearts and uses a charge",
 });
 
 // SPEC-008 AC 10: every shop card has a buy test
-test("buying mega mittens: 3 charges, a hug takes 3 hearts", async ({ page }) => {
+test("buying mega mittens: 3 charges, a hug takes 3 hearts", async ({ simPage: page }) => {
   await page.evaluate(() => { const b = window.__bb; b.progress.coins = 65; b.buyGloves("mega"); b.setEquip(0, "mega"); b.startGame(1); });
   expect(await page.evaluate(() => [window.__bb.progress.coins, window.__bb.progress.inv.mega])).toEqual([5, 3]);
   const hp0 = await page.evaluate(() => window.__bb.big.hp);
@@ -318,14 +317,14 @@ test("buying mega mittens: 3 charges, a hug takes 3 hearts", async ({ page }) =>
   expect(await page.evaluate(() => window.__bb.progress.inv.mega)).toBe(2);
 });
 
-test("not enough coins: nothing is bought", async ({ page }) => {
+test("not enough coins: nothing is bought", async ({ simPage: page }) => {
   await page.evaluate(() => { window.__bb.progress.coins = 10; window.__bb.buyGloves("mega"); });
   const p = await page.evaluate(() => window.__bb.progress);
   expect(p.coins).toBe(10);
   expect(p.inv.mega).toBe(0);
 });
 
-test("the Big One never enters the Little Ones' house", async ({ page }) => {
+test("the Big One never enters the Little Ones' house", async ({ simPage: page }) => {
   // the house is the safe zone: 60 s of normal play, the Big One's centre is never inside it
   const n = await page.evaluate(() => {
     let inside = 0; const b = window.__bb;
@@ -335,7 +334,7 @@ test("the Big One never enters the Little Ones' house", async ({ page }) => {
   expect(n).toBe(0);
 });
 
-test("a banana makes the Big One slip; he can be hugged from the front", async ({ page }) => {
+test("a banana makes the Big One slip; he can be hugged from the front", async ({ simPage: page }) => {
   await page.evaluate(() => {
     const b = window.__bb; Object.assign(b.big, { state: "look", timer: 999, x: 500, y: 320, dir: 0, stun: 0, slip: 0 });
     b.items.length = 0; b.items.push({ id: 999, kind: "banana", x: 503, y: 321, t: 0, life: 30 });
@@ -348,7 +347,7 @@ test("a banana makes the Big One slip; he can be hugged from the front", async (
   expect(await page.evaluate(() => window.__bb.big.hp)).toBe(hp0 - 1);
 });
 
-test("picking up speed boots makes a Little One faster for a while", async ({ page }) => {
+test("picking up speed boots makes a Little One faster for a while", async ({ simPage: page }) => {
   await page.evaluate(() => {
     const b = window.__bb, l = b.littles[0]; Object.assign(b.big, { x: 900, y: 600, state: "look", timer: 999 });
     Object.assign(l, { state: "ok", x: 400, y: 300 });
@@ -361,7 +360,7 @@ test("picking up speed boots makes a Little One faster for a while", async ({ pa
 // ---------- The Big One's house is dangerous (SPEC-003) ----------
 const fnv = str => { let h = 0x811c9dc5; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; } return h.toString(16); };
 
-test("the Big One's house is a danger zone", async ({ page }) => {
+test("the Big One's house is a danger zone", async ({ simPage: page }) => {
   for (let lv = 1; lv <= 5; lv++) {
     const r = await page.evaluate(v => {
       const b = window.__bb; b.level = v; b.startGame(1);
@@ -379,7 +378,7 @@ test("the Big One's house is a danger zone", async ({ page }) => {
   expect(fnv(items)).toBe("78645e45");
 });
 
-test("staying 5 s in the Big One's house throws you out", async ({ page }) => {
+test("staying 5 s in the Big One's house throws you out", async ({ simPage: page }) => {
   await installTestHelpers(page);
   const r = await page.evaluate(() => {
     const b = window.__bb, t = window.__t, l = b.littles[0], z = b.dangerZone, out = {};
@@ -420,7 +419,7 @@ test("staying 5 s in the Big One's house throws you out", async ({ page }) => {
   expect(r.dizzyEnd).toBe(0);
 });
 
-test("downed Little Ones have no house timer, the shield does not help", async ({ page }) => {
+test("downed Little Ones have no house timer, the shield does not help", async ({ simPage: page }) => {
   await installTestHelpers(page);
   const r = await page.evaluate(() => {
     const b = window.__bb, t = window.__t, l = b.littles[0], z = b.dangerZone, out = {};
@@ -439,7 +438,7 @@ test("downed Little Ones have no house timer, the shield does not help", async (
   expect(r.shield.dz).toBeGreaterThan(1.5);
 });
 
-test("bots don't linger in the Big One's house", async ({ page }) => {
+test("bots don't linger in the Big One's house", async ({ simPage: page }) => {
   const r = await page.evaluate(() => {
     const b = window.__bb, z = b.dangerZone;
     Object.assign(b.big, { x: 480, y: 320, state: "look", timer: 3 });
@@ -460,7 +459,7 @@ test("bots don't linger in the Big One's house", async ({ page }) => {
 });
 
 // ---------- Bonus stars (SPEC-003) ----------
-test("bonus stars appear and disappear", async ({ page }) => {
+test("bonus stars appear and disappear", async ({ simPage: page }) => {
   await installTestHelpers(page);
   const r = await page.evaluate(() => {
     const b = window.__bb, t = window.__t, out = {};
@@ -486,7 +485,7 @@ test("bonus stars appear and disappear", async ({ page }) => {
   expect(r.gone).toBe(true);
 });
 
-test("stars spawn only in fair places", async ({ page }) => {
+test("stars spawn only in fair places", async ({ simPage: page }) => {
   const bad = await page.evaluate(() => {
     const b = window.__bb, out = [];
     for (let lv = 1; lv <= 5; lv++) {
@@ -521,7 +520,7 @@ test("stars spawn only in fair places", async ({ page }) => {
   expect(bad).toEqual([]);
 });
 
-test("only players pick up stars", async ({ page }) => {
+test("only players pick up stars", async ({ simPage: page }) => {
   await installTestHelpers(page);
   const r = await page.evaluate(() => {
     const b = window.__bb, t = window.__t, out = {};
@@ -589,7 +588,7 @@ test("star coins are added to the reward", async ({ page }) => {
   await page.waitForTimeout(300);                   // the lose screen draws without errors
 });
 
-test("a danger zone without exits throws out to the nearest free cell", async ({ page }) => {
+test("a danger zone without exits throws out to the nearest free cell", async ({ simPage: page }) => {
   await installTestHelpers(page);
   const r = await page.evaluate(() => {
     const b = window.__bb, t = window.__t, l = b.littles[0], z = b.dangerZone;
@@ -609,7 +608,7 @@ test("a danger zone without exits throws out to the nearest free cell", async ({
 // The thrower stands outside the Little Ones' house, next to its right wall (level 1: wall x 192..224, row 1 is y 32..64).
 const KISS_SPOT = { x: 270, y: 48 };
 
-test("buying air kisses", async ({ page }) => {
+test("buying air kisses", async ({ simPage: page }) => {
   const r = await page.evaluate(() => {
     const b = window.__bb, out = [];
     b.progress.coins = 45;
@@ -628,7 +627,7 @@ test("buying air kisses", async ({ page }) => {
 // __bb.loadProgress, the same pure merge the start code runs on the parsed save (a reload is ~3 s each)
 const loadSave = (page, save) => page.evaluate(v => window.__bb.loadProgress(JSON.parse(v)), JSON.stringify(save));
 
-test("old saves get 0 kisses", async ({ page }) => {
+test("old saves get 0 kisses", async ({ simPage: page }) => {
   const old = inv => ({ unlocked: 3, stars: { 1: 2 }, coins: 12, inv, equip: ["mittens", "none"] });
   await page.evaluate(v => localStorage.setItem("bebebe-progress", JSON.stringify(v)), old({ mittens: 1, mega: 0 }));
   await page.reload();
@@ -717,7 +716,7 @@ test("bonus worlds open after all main levels", async ({ page }) => {
 });
 
 // SPEC-006 AC 7
-test("old saves move into the Park", { tag: "@fast" }, async ({ page }) => {
+test("old saves move into the Park", { tag: "@fast" }, async ({ simPage: page }) => {
   const load = async save => {
     await page.evaluate(v => localStorage.setItem("bebebe-progress", JSON.stringify(v)), save);
     await page.reload();
@@ -765,7 +764,7 @@ test("old saves move into the Park", { tag: "@fast" }, async ({ page }) => {
   expect(lower.worlds.park).toEqual({ unlocked: 9, stars: { 3: 3 }, won: { 3: true } });   // the newer world data is never lowered
 });
 
-test("throwing spends a kiss and has a cooldown", async ({ page }) => {
+test("throwing spends a kiss and has a cooldown", async ({ simPage: page }) => {
   await installTestHelpers(page);
   const r = await page.evaluate(spot => {
     const b = window.__bb, t = window.__t, l = b.littles[0], out = {};
@@ -911,7 +910,7 @@ test.describe("on a touch screen", () => {
   });
 });
 
-test("no kisses from the safe house", async ({ page }) => {
+test("no kisses from the safe house", async ({ simPage: page }) => {
   await installTestHelpers(page);
   const r = await page.evaluate(() => {
     const b = window.__bb, t = window.__t, l = b.littles[0], z = b.safeZone;
@@ -928,7 +927,7 @@ test("no kisses from the safe house", async ({ page }) => {
   expect(r.texts).toContain(r.want);
 });
 
-test("kisses stop at walls and fly over ponds", async ({ page }) => {
+test("kisses stop at walls and fly over ponds", async ({ simPage: page }) => {
   await installTestHelpers(page);
   const wall = await page.evaluate(spot => {
     const b = window.__bb, t = window.__t, l = b.littles[0];
@@ -961,7 +960,7 @@ test("kisses stop at walls and fly over ponds", async ({ page }) => {
   expect(pond.maxX).toBeGreaterThan(pond.end);       // flew over the whole pond
 });
 
-test("trees, rocks and the map edge stop kisses; bushes do not", async ({ page }) => {
+test("trees, rocks and the map edge stop kisses; bushes do not", async ({ simPage: page }) => {
   await installTestHelpers(page);
   const r = await page.evaluate(spot => {
     const b = window.__bb, t = window.__t, l = b.littles[0], w = b.grid, out = {};
@@ -1001,7 +1000,7 @@ test("trees, rocks and the map edge stop kisses; bushes do not", async ({ page }
   expect(r.edge.minY).toBeGreaterThanOrEqual(0);
 });
 
-test("a kiss never hits the Big One through a wall", async ({ page }) => {
+test("a kiss never hits the Big One through a wall", async ({ simPage: page }) => {
   await installTestHelpers(page);
   const r = await page.evaluate(spot => {
     const b = window.__bb, t = window.__t, big = b.big, l = b.littles[0];
@@ -1036,7 +1035,7 @@ async function kissScene(page) {
   });
 }
 
-test("a kiss takes half a heart and makes him blush", async ({ page }) => {
+test("a kiss takes half a heart and makes him blush", async ({ simPage: page }) => {
   await kissScene(page);
   const r = await page.evaluate(() => {
     const b = window.__bb, t = window.__t, big = b.big, l = b.littles[0], out = {};
@@ -1071,7 +1070,7 @@ test("a kiss takes half a heart and makes him blush", async ({ page }) => {
   expect(Math.hypot(r.lastSeen.x - r.thrower.x, r.lastSeen.y - r.thrower.y)).toBeLessThan(1);
 });
 
-test("kisses during shock or blush do no damage", async ({ page }) => {
+test("kisses during shock or blush do no damage", async ({ simPage: page }) => {
   await kissScene(page);
   const r = await page.evaluate(() => {
     const b = window.__bb, t = window.__t, big = b.big, out = {};
@@ -1096,7 +1095,7 @@ test("kisses during shock or blush do no damage", async ({ page }) => {
   expect(r.second).toEqual({ lost: 0.5, refreshed: false });
 });
 
-test("a blushing Big One can be hugged", async ({ page }) => {
+test("a blushing Big One can be hugged", async ({ simPage: page }) => {
   await kissScene(page);
   const r = await page.evaluate(() => {
     const b = window.__bb, t = window.__t, big = b.big, l = b.littles[0];
@@ -1114,7 +1113,7 @@ test("a blushing Big One can be hugged", async ({ page }) => {
   expect(r.anim).toBeGreaterThan(0);
 });
 
-test("the last half heart by a kiss wins the level", async ({ page }) => {
+test("the last half heart by a kiss wins the level", async ({ simPage: page }) => {
   await kissScene(page);
   const r = await page.evaluate(() => {
     const b = window.__bb, t = window.__t;
@@ -1134,7 +1133,7 @@ test("the last half heart by a kiss wins the level", async ({ page }) => {
   expect(r.reward.stars).toBeGreaterThanOrEqual(1);
 });
 
-test("hearts bar shows half hearts", async ({ page }) => {
+test("hearts bar shows half hearts", async ({ simPage: page }) => {
   const r = await page.evaluate(() => {
     const b = window.__bb, f = b.heartFill, big = b.big, out = {};
     out.fill = [f(0, 2.5), f(1, 2.5), f(2, 2.5), f(3, 2.5), f(5, 6), f(0, 0), f(0, 0.5)];
@@ -1194,7 +1193,7 @@ async function downPlayer(page, state = "down") {
   }, state);
 }
 
-test("buying rescue kits", async ({ page }) => {
+test("buying rescue kits", async ({ simPage: page }) => {
   const r = await page.evaluate(() => {
     const b = window.__bb, out = [];
     out.push([b.RESCUE_KIT.price, b.RESCUE_KIT.pack]);
@@ -1210,7 +1209,7 @@ test("buying rescue kits", async ({ page }) => {
   expect(after.rescues).toBe(0);
 });
 
-test("old saves get 0 kits", async ({ page }) => {
+test("old saves get 0 kits", async ({ simPage: page }) => {
   const load = async save => {
     await page.evaluate(v => localStorage.setItem("bebebe-progress", JSON.stringify(v)), save);
     await page.reload();
@@ -1230,7 +1229,7 @@ test("old saves get 0 kits", async ({ page }) => {
   expect((await loadSave(page, { ...old, inv: "junk" })).inv).toEqual({ mittens: 0, mega: 0, kisses: 0, rescues: 0 });
 });
 
-test("a kit gets a downed player up at once", async ({ page }) => {
+test("a kit gets a downed player up at once", async ({ simPage: page }) => {
   await downPlayer(page);
   const r = await page.evaluate(() => {
     const b = window.__bb, l = b.littles[0], out = {};
@@ -1271,7 +1270,7 @@ test("a kit gets a downed player up at once", async ({ page }) => {
   expect(n).toEqual({ bot: false, botState: "down", left: 2, none: false, noneState: "down", noneLeft: 0, missing: false });
 });
 
-test("a kit ends limping home", async ({ page }) => {
+test("a kit ends limping home", async ({ simPage: page }) => {
   await downPlayer(page, "home");
   const r = await page.evaluate(() => {
     const b = window.__bb, l = b.littles[0];
@@ -1285,7 +1284,7 @@ test("a kit ends limping home", async ({ page }) => {
   expect(r).toEqual({ ok: true, state: "ok", invuln: 2, path: 0, moved: 0, left: 0, rests: 1, later: "ok", rests2: 1 });
 });
 
-test("a kit ends the rest", async ({ page }) => {
+test("a kit ends the rest", async ({ simPage: page }) => {
   await downPlayer(page, "rest");
   const r = await page.evaluate(() => {
     const b = window.__bb, l = b.littles[0];
@@ -1300,7 +1299,7 @@ test("a kit ends the rest", async ({ page }) => {
   expect(r).toEqual({ ok: true, state: "ok", invuln: 2, restTimer: 0, moved: 0, left: 2, rests: 1, home: true, later: "ok" });
 });
 
-test("a kit while down keeps the nobody-out star", async ({ page }) => {
+test("a kit while down keeps the nobody-out star", async ({ simPage: page }) => {
   await downPlayer(page);
   const r = await page.evaluate(() => {
     const b = window.__bb, l = b.littles[0];
@@ -1460,7 +1459,7 @@ test.describe("rescue kit on a touch screen", () => {
 });
 
 // review fix 2: the double tap on the shared slot — the 💋 that appears there does not fire at once
-test("a kit does not throw an air kiss right after", async ({ page }) => {
+test("a kit does not throw an air kiss right after", async ({ simPage: page }) => {
   await downPlayer(page);
   const r = await page.evaluate(() => {
     const b = window.__bb, l = b.littles[0], out = {};
@@ -1653,7 +1652,7 @@ test.describe("tiptoe on a touch screen", () => {
   });
 });
 
-test("the Big One turns when a kid runs behind him", { tag: "@fast" }, async ({ page }) => {
+test("the Big One turns when a kid runs behind him", { tag: "@fast" }, async ({ simPage: page }) => {
   await installHearHelpers(page);
   const r = await page.evaluate(() => {
     const b = window.__bb, h = window.__h, C = b.CFG, big = b.big, out = {};
@@ -1726,7 +1725,7 @@ test("the Big One turns when a kid runs behind him", { tag: "@fast" }, async ({ 
   expect(r.decay.noise).toBeCloseTo(r.decay.want, 2);
 });
 
-test("tiptoeing behind him is silent", async ({ page }) => {
+test("tiptoeing behind him is silent", async ({ simPage: page }) => {
   await installHearHelpers(page);
   const r = await page.evaluate(() => {
     const b = window.__bb, h = window.__h, big = b.big, l = b.littles[0], out = {};
@@ -1778,7 +1777,7 @@ test("tiptoeing behind him is silent", async ({ page }) => {
   expect(r.hug).toEqual([1, 0]);
 });
 
-test("no hearing while stunned or blushing", async ({ page }) => {
+test("no hearing while stunned or blushing", async ({ simPage: page }) => {
   await installHearHelpers(page);
   const r = await page.evaluate(() => {
     const b = window.__bb, h = window.__h, out = {};
@@ -1817,7 +1816,7 @@ test("no hearing while stunned or blushing", async ({ page }) => {
   expect(r.final).toEqual([0, 0]);
 });
 
-test("cooldown after a turn", async ({ page }) => {
+test("cooldown after a turn", async ({ simPage: page }) => {
   await installHearHelpers(page);
   const r = await page.evaluate(() => {
     const b = window.__bb, h = window.__h, big = b.big, turns = [];
@@ -1841,7 +1840,7 @@ test("cooldown after a turn", async ({ page }) => {
   expect(r.turns[1] - r.turns[0]).toBeLessThan(gap + 0.1);
 });
 
-test("noise turn leads to a chase", async ({ page }) => {
+test("noise turn leads to a chase", async ({ simPage: page }) => {
   await installHearHelpers(page);
   const r = await page.evaluate(() => {
     const b = window.__bb, h = window.__h, big = b.big, l = b.littles[0], out = {};
@@ -1903,7 +1902,7 @@ test("the heard hint shows once per level, only for players", async ({ page }) =
 
 // SPEC-019 AC 4: bots sneaking up (attack) or waiting near him (lurk) tiptoe within HEAR_RADIUS + 1 cells; fleeing and
 // rescuing bots run (even near him); far away they move as before
-test("bots tiptoe near the Big One", async ({ page }) => {
+test("bots tiptoe near the Big One", async ({ simPage: page }) => {
   await installHearHelpers(page);
   const r = await page.evaluate(() => {
     const b = window.__bb, h = window.__h, C = b.CFG, near = (C.HEAR_RADIUS + C.TIPTOE_NEAR) * b.grid.CELL, hear = C.HEAR_RADIUS * b.grid.CELL, out = { bad: [], seen: {} };
@@ -1946,7 +1945,7 @@ test("bots tiptoe near the Big One", async ({ page }) => {
 
 // SPEC-019: the careful autopilot tiptoes behind or beside him within HEAR_RADIUS + 1 cells while he can hear; in front of him,
 // far away or while he is stunned it runs; the reckless one always runs. Only through its stick (autoMove).
-test("the careful autopilot tiptoes near his back, the reckless one runs", async ({ page }) => {
+test("the careful autopilot tiptoes near his back, the reckless one runs", async ({ simPage: page }) => {
   await installHearHelpers(page);
   const r = await page.evaluate(() => {
     const b = window.__bb, h = window.__h, C = b.CFG, out = {};
