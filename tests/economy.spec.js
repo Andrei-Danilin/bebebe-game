@@ -908,8 +908,9 @@ test("the balance report's economy targets are computed from the runs' coins", {
   const upgradeRuns = [17, 18, 19, 20].map(n => ({ world: E.UPG_EXTRA[0], n, seed: 0, win: true, time: 40, coins: 0 }));
   const ec = analyseEconomy(runs, replayRuns, upgradeRuns, B, worlds, perWorld, prices), ok = ec.targets.map(t => t.ok);
   expect(ec.worlds.map(r => [r.world, r.median, r.total, r.streak])).toEqual([["park", 50, 300, 200], ["school", 100, 600, 400], ["beach", 100, 600, 400], ["winter", 100, 600, 400]]);
-  expect(ok[0], "Park median 50 is within 30–60").toBe(true);
-  expect(ok[3], "1800 > 60 % of 1500").toBe(false);
+  expect(ok[0], "Park median 50 is within PARK_PACKS × 15").toBe(true);
+  expect(ok[3], "1800 > UPGRADE_SHARE of 1500").toBe(false);
+  expect(ec.targets[0].want, "a fractional pack count prints as whole coins (SPEC-026: 1.6 × 15)").toBe(`${+(E.PARK_PACKS[0] * 15).toFixed(6)}–${E.PARK_PACKS[1] * 15}`);
   // replay: (10 + 50) / 2 min vs (40 + 40) / 2 min (the seed-0 first runs) = 75 % → red; park 2 pays 50 ≥ its first win 40 → red
   expect(ec.replay.map(r => [r.n, r.firstCoins, r.replayCoins])).toEqual([[1, 40, 10], [2, 40, 50]]);
   expect([ok[4], ok[5]]).toEqual([false, false]);

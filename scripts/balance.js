@@ -163,7 +163,8 @@ function analyseEconomy(runs, replayRuns, upgradeRuns, B, worlds, perWorld, pric
   const worldRows = worlds.map(w => ({ world: w, total: sum(perLevel[w]), median: median(perLevel[w]), streak: streak(w), perLevel: perLevel[w] }));
   const targets = [], add = (name, value, want, ok, detail = "") => targets.push({ name, value, want, ok, detail });
   // 1. Park: a cheap pack almost every level and savings for the rest
-  const park = worldRows[0], lo = E.PARK_PACKS[0] * c, hi = E.PARK_PACKS[1] * c;
+  // SPEC-026: a fractional pack count (1.6 × 20) — round away float noise, so 32 ≥ 32.000000000000004 holds
+  const coins = v => Number(v.toFixed(6)), park = worldRows[0], lo = coins(E.PARK_PACKS[0] * c), hi = coins(E.PARK_PACKS[1] * c);
   add(`${worlds[0]}: median first-win income per level (${E.PARK_PACKS[0]}–${E.PARK_PACKS[1]} × the cheapest pack, ${c})`, fmt(park.median, 1), `${lo}–${hi}`,
     park.median >= lo && park.median <= hi, park.perLevel.map((v, i) => `${i + 1}: ${fmt(v)}`).join(", "));
   // 2. any STREAK first wins in a row buy mega mittens + STREAK_PACKS cheap packs, in every world
@@ -177,7 +178,7 @@ function analyseEconomy(runs, replayRuns, upgradeRuns, B, worlds, perWorld, pric
   // 4. all upgrades take at most UPGRADE_SHARE of the first UPGRADE_WORLDS worlds' income
   const early = sum(worldRows.slice(0, E.UPGRADE_WORLDS).map(r => r.total));
   add(`all upgrades (${prices.upgrades}) ≤ ${pct(E.UPGRADE_SHARE)} of the first ${E.UPGRADE_WORLDS * perWorld} levels' income`,
-    `${prices.upgrades} vs ${fmt(early)} (${pct(prices.upgrades / early)})`, `≤ ${pct(E.UPGRADE_SHARE)}`, prices.upgrades <= E.UPGRADE_SHARE * early);
+    `${prices.upgrades} vs ${fmt(early)} (${pct(prices.upgrades / early)})`, `≤ ${pct(E.UPGRADE_SHARE)}`, prices.upgrades <= coins(E.UPGRADE_SHARE * early));
   // 5. replaying pays less per game-minute than playing on (the same levels and seeds)
   const pairs = replayRuns.map(r => ({ replay: r, first: careful.find(q => q.world === r.world && q.n === r.n && q.seed === r.seed) })).filter(x => x.first);
   const perMin = rs => { const t = sum(rs.map(r => runTime(r, limit))); return t ? sum(rs.map(r => r.coins)) / (t / 60) : 0; };
