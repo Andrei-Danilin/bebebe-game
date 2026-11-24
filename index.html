@@ -687,7 +687,7 @@ const I18N = {
 //  ИСТОРИЯ (SPEC-017; SPEC-022: тексты — из истории Кости, docs/story.md): главы по порядку — начало, миры, бонусные миры, конец.
 //  Русский — словами Кости (сокращено, только где не влезало), английский и испанский (voseo) — простой перевод.
 //  Где история молчит (бонусные миры), одна простая фраза тем же голосом — написал Claude, проверить с Костей (specs/BACKLOG.md).
-//  captions — подписи комикса «Как всё началось» (по одной на клетку 8_start; text главы — они же подряд);
+//  captions — подписи комикса «Как всё началось» (по одной на клетку 8_start); text главы «начало» — они же короче (влезает в телефон);
 //  boss — фраза заставки перед боссом мира (SPEC-022, только основные миры: у бонусных боссов нет).
 //  image — своя картинка главы (null — комикс из art/, STORY_ART; нет и его — заглушка «Комикс скоро будет»).
 // =====================================================================
@@ -704,7 +704,11 @@ const STORY = [
     ru: ["У папы был обычный день. Он пришёл с работы, а дома не убрано, всё разбросано и грязно. Ему это не нравится.",
       "Потом мимо пробегают играющие дети и сбивают его с ног. Он начинает сердиться.",
       "Потом он открывает холодильник, а еды нет, и его самое любимое пирожное съели. Тут он становится самым злым папой!",
-      "Папа уходит в кафе, где сидят много других пап, и рассказывает им, что его разозлило. Все папы его понимают и тоже становятся злыми."] } },
+      "Папа уходит в кафе, где сидят много других пап, и рассказывает им, что его разозлило. Все папы его понимают и тоже становятся злыми."] },
+    text: {
+      en: "Dad came home from work to an untidy house. Kids knocked him over, and somebody ate his favourite cupcake. He became the grumpiest dad and went to the café, and the other dads got angry too.",
+      es: "Papá volvió del trabajo y la casa estaba desordenada. Unos chicos lo tiraron al piso y alguien se comió su cupcake favorito. Se volvió el papá más enojado, fue al café, y los otros papás también se enojaron.",
+      ru: "Папа пришёл с работы, а дома не убрано. Дети сбили его с ног, а любимое пирожное съели. Он стал самым злым папой и ушёл в кафе к другим папам — и они тоже стали злыми." } },
   { id: "park", image: null, text: {
     en: "The angry dads moved to four worlds. The first one is the Park. The kids want to make the dads kind again: you have to hug them, lots of times!",
     es: "Los papás enojados se fueron a vivir a cuatro mundos. El primero es el Parque. Los chicos quieren que los papás vuelvan a ser buenos: ¡hay que abrazarlos, muchas veces!",
@@ -750,8 +754,6 @@ const STORY = [
     es: "Cuando todos los papás se volvieron buenos, los chicos le ganaron al papá más enojado. Él también se volvió bueno, y ahora se sienta a la mesa con los chicos y comen cupcakes juntos.",
     ru: "Когда все папы стали добрыми, дети побеждают самого злого папу. Он тоже становится добрым, и они вместе с детьми сидят за столом и кушают пирожные." } }
 ];
-// текст главы с подписями комикса — подписи подряд (страница главы в «Истории»)
-for (const c of STORY) if (c.captions) c.text = Object.fromEntries(Object.entries(c.captions).map(([l, a]) => [l, a.join(" ")]));
 // значки строк правил (I18N.*.rules) — по одному на строку, в том же порядке; тест i18n сверяет число (SPEC-019 добавит строку — и значок)
 const RULE_ICONS = ["❤", "👀", "🤝", "⏱", "🏠", "🍌", "👣"];
 const LANGS = ["en", "es", "ru"];
