@@ -32,8 +32,10 @@ test("the game works without art: assets/ missing → every screen draws as befo
   expect(info).toMatchObject({ ok: 0, bad: info.total, done: true, loadingShown: false });
   expect(info.total).toBe((await page.evaluate(() => window.__bb.ART_NAMES)).length);
   expect(await page.evaluate(() => window.__bb.art("logo"))).toBe(null);
+  await page.evaluate(() => window.__bb.resetArtUse());
   const seen = await everyScreen(page);
   expect(seen.map(s => s[1])).toEqual(["home", "map", "levelCard", "story", "shop", "shop", "shop", "play", "pause", "win", "lose", "home"]);
+  expect(await page.evaluate(() => window.__bb.artUse), "no sprite drawn: every screen used its code drawing").toEqual({});
   expect(errors.filter(e => !failedLoads(e))).toEqual([]);
 });
 
@@ -51,5 +53,39 @@ test("the art loads once at start: every sprite decoded, the loading screen gone
   expect(r.same, "one Image per sprite, decoded once").toBe(true);
   expect(r.unknown).toBe(null);
   expect(r.logoW).toBeGreaterThan(500);
+  expect(errors).toEqual([]);
+});
+
+// SPEC-020 step 3 (AC 3, AC 4, AC 5 level card): which sprites a screen drew this frame (__bb.artUse counts drawImage per name)
+async function drawn(page, setup, arg) {
+  await page.evaluate(setup, arg);
+  await frames(page);
+  await page.evaluate(() => window.__bb.resetArtUse());
+  await frames(page);
+  return page.evaluate(() => window.__bb.artUse);
+}
+const missing = (use, names) => names.filter(n => !use[n]);
+
+test("home, level map and level card are drawn with the art", async ({ page }) => {
+  const errors = await openGame(page, { lang: "ru" });
+  await page.waitForFunction(() => window.__bb.artInfo.done, null, { timeout: 15_000 });
+  // home: notebook page, logo, paper buttons, globe + sound icons, bonus world badges, drawn coin and items
+  let use = await drawn(page, () => { const b = window.__bb; b.toHome(); Object.assign(b.progress.inv, { mittens: 2, mega: 1, kisses: 3, rescues: 1 }); b.progress.coins = 5; });
+  expect(missing(use, ["menu_bg", "logo", "btn_green", "btn_pink", "btn_orange", "ui_globe", "ui_sound_on", "world_beach", "world_winter",
+    "item_coin", "item_mittens", "item_mega_mittens", "item_kiss", "icon_bandaid"])).toEqual([]);
+  use = await drawn(page, () => { window.__bb.tapButton("home:sound"); });
+  expect(missing(use, ["ui_sound_off"])).toEqual([]);
+  await page.evaluate(() => window.__bb.tapButton("home:sound"));
+  // map: the world's page, stops (empty with a number, the current one glowing, locked, the boss), stars, the done stamp,
+  // world tabs, the coin plate, the paper back button
+  use = await drawn(page, () => { const b = window.__bb; b.world = "park"; Object.assign(b.progress.worlds.park, { unlocked: 3, won: { 1: true, 2: true }, stars: { 1: 3, 2: 1 } }); b.toMap(); });
+  expect(missing(use, ["map_bg_park", "stop_empty", "stop_current", "stop_locked", "stop_boss", "star_gold", "star_empty", "stamp_done",
+    "world_park", "world_field", "world_city", "world_school", "world_beach", "world_winter", "padlock", "coin_badge", "btn_grey"])).toEqual([]);
+  use = await drawn(page, () => { const b = window.__bb; b.tapButton("maptab:field"); });
+  expect(missing(use, ["map_bg_field"])).toEqual([]);
+  // level card: a paper panel (notebook paper), drawn stars, paper buttons
+  use = await drawn(page, () => { const b = window.__bb; b.world = "park"; b.tapButton("stop:1"); });
+  expect(await page.evaluate(() => window.__bb.mode)).toBe("levelCard");
+  expect(missing(use, ["menu_bg", "star_gold", "btn_green", "btn_pink", "btn_grey"])).toEqual([]);
   expect(errors).toEqual([]);
 });
