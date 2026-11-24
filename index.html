@@ -536,7 +536,8 @@ const I18N = {
       quickHelp: { name: "Quick help", desc: () => "Lift friends faster" } },
     rw: { firstWin: "First win", replay: "Replay", newStars: "New stars", star: "Bonus stars", hugs: "Hugs", rests: "Rests", total: "Total" },
     starCoins: n => `Bonus stars: +${n}`, thrownOut: "Get out of my house!", friends: "Friends", tapToRename: "Tap a name to change it",
-    defaultBig: "Big One", defaultBots: ["Bo", "Mia", "Tom", "Lulu"],
+    // SPEC-022: сердечки Большого — злость папы; имя по умолчанию — Папа (набранное имя остаётся: «злость <имя>»)
+    defaultBig: "Dad", defaultBots: ["Bo", "Mia", "Tom", "Lulu"], anger: "Dad's anger", angerOf: n => `${n}'s anger`,
     kisses: "Air kisses", kissDesc: "Send from afar: ½ heart and he blushes", kissPack: n => `Pack: ${n} air kisses`,
     kissHave: n => `You have: ${n} ${n === 1 ? "kiss" : "kisses"}`, kissHit: "Mwah!", noKissHome: "Not from the house!", blush: "So shy!",
     kit: "Rescue kit", kitDesc: "Get up at once and play on", kitPack: n => `Pack: ${n} rescue kits`, kitHave: n => `You have: ${n} ${n === 1 ? "kit" : "kits"}`,
@@ -592,7 +593,7 @@ const I18N = {
       quickHelp: { name: "Ayuda rápida", desc: () => "Levantás más rápido" } },
     rw: { firstWin: "Primera vez", replay: "Repetición", newStars: "Estrellas nuevas", star: "Estrellitas", hugs: "Abrazos", rests: "Descansos", total: "Total" },
     starCoins: n => `Estrellitas: +${n}`, thrownOut: "¡Fuera de mi casa!", friends: "Amigos", tapToRename: "Tocá un nombre para cambiarlo",
-    defaultBig: "Grandote", defaultBots: ["Tito", "Mora", "Lupe", "Facu"],
+    defaultBig: "Papá", defaultBots: ["Tito", "Mora", "Lupe", "Facu"], anger: "Enojo de papá", angerOf: n => `Enojo de ${n}`,
     kisses: "Besitos voladores", kissDesc: "Mandalo de lejos: ½ corazón y se pone colorado", kissPack: n => `Paquete: ${n} besitos voladores`,
     kissHave: n => `Tenés: ${n} ${n === 1 ? "besito" : "besitos"}`, kissHit: "¡Muak!", noKissHome: "¡Desde la casita no!", blush: "¡Qué vergüenza!",
     kit: "Curita mágica", kitDesc: "Levantate al toque y seguí jugando", kitPack: n => `Paquete: ${n} curitas`, kitHave: n => `Tenés: ${n} ${n === 1 ? "curita" : "curitas"}`,
@@ -650,7 +651,7 @@ const I18N = {
       quickHelp: { name: "Быстрая помощь", desc: () => "Поднимаешь быстрее" } },
     rw: { firstWin: "Первая победа", replay: "Повтор", newStars: "Новые звёзды", star: "Звёздочки", hugs: "Обнимашки", rests: "Отдых", total: "Итого" },
     starCoins: n => `Звёздочки: +${n}`, thrownOut: "Вон из моего дома!", friends: "Друзья", tapToRename: "Нажми на имя, чтобы поменять",
-    defaultBig: "Большой", defaultBots: ["Тёма", "Маша", "Вася", "Соня"],
+    defaultBig: "Папа", defaultBots: ["Тёма", "Маша", "Вася", "Соня"], anger: "Злость папы", angerOf: n => `${n} злится`,
     kisses: "Воздушные поцелуи", kissDesc: "Издалека: ½ сердечка, и он краснеет", kissPack: n => `В наборе: ${n} ${ruPlural(n, ["поцелуй", "поцелуя", "поцелуев"])}`,
     kissHave: n => `У вас: ${n} ${ruPlural(n, ["поцелуй", "поцелуя", "поцелуев"])}`, kissHit: "Чмок!", noKissHome: "Из домика нельзя!", blush: "Ой, смущён!",
     kit: "Спасалка", kitDesc: "Сразу встать и играть дальше", kitPack: n => `В наборе: ${n} ${ruPlural(n, ["спасалка", "спасалки", "спасалок"])}`,
@@ -3683,6 +3684,7 @@ function wrapText(text, x, y, size, maxW, lines, color, weight) {
   rows.forEach((r, i) => ctx.fillText(r, x, y0 + i * lh));
 }
 // Подпись с контуром, которая сжимается под ширину (не мельче 11px), а если не влезает — обрезается «…»
+let lastFit = null;   // что нарисовал последний labelFit: { text, sz, w } (SPEC-022: подпись злости — в hudRects)
 function labelFit(text, x, y, size, maxW, color, align = "center", min = 11) {
   const font = sz => `900 ${sz}px system-ui, "Segoe UI", "Arial Rounded MT Bold", Arial, sans-serif`;
   let sz = size;
@@ -3690,6 +3692,7 @@ function labelFit(text, x, y, size, maxW, color, align = "center", min = 11) {
   while (ctx.measureText(text).width > maxW && sz > min) { sz = Math.max(min, sz - 0.5); ctx.font = font(sz); }
   let chars = Array.from(text);
   while (chars.length > 1 && ctx.measureText(text).width > maxW) { chars = chars.slice(0, -1); text = chars.join("").trimEnd() + "…"; }
+  lastFit = { text, sz, w: ctx.measureText(text).width };
   label(text, x, y, sz, color, align);
   return sz;
 }
@@ -3921,6 +3924,8 @@ function drawSticks() {
   }
 }
 // ---------- Общие тексты HUD (компьютер и телефон) ----------
+// SPEC-022: подпись злости: «Злость папы»; набранное имя — «<имя> злится» (на всех уровнях, и у боссов)
+const angerLabel = () => (typedName("big") ? L().angerOf(typedName("big")) : L().anger);
 const timerText = () => { const s = Math.floor(stats.time); return `${L().lvShort} ${level}  ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
 // кружок команды: секунды до «домой» у упавшего, «z» у отдыхающего, иначе метка игрока или бота
 const chipText = l => l.state === "down" ? String(Math.ceil(l.downTimer)) : l.state === "home" || l.state === "rest" ? "z" : l.kind === "player" ? chipName(l) : L().botChip;
@@ -3968,15 +3973,16 @@ function drawHUDPhone(t) {
   const timeTxt = timerText();
   ctx.font = hudFont(main);
   const tw = ctx.measureText(timeTxt).width + 2 * pad, nBtn = STANDALONE ? 1 : 2, gw = tw + nBtn * (gap + bh);
-  // имя Большого и сердечки: не влезает — сердечки плотнее, потом имя короче
-  const bigName = nameFor("big"), room = mm.x - gap - m - gw - gap;
-  let hStep = cpx(21), hSize = cpx(18), nameW = Math.min(ctx.measureText(bigName).width, cpx(110));
+  // SPEC-022: злость папы (подпись) и облачка-сердечки: не влезает — облачка плотнее, потом подпись короче
+  const bigName = angerLabel(), room = mm.x - gap - m - gw - gap;
+  let hStep = cpx(21), hSize = cpx(18), nameW = Math.min(ctx.measureText(bigName).width, cpx(150));   // SPEC-022: «El enojo de papá» — шире имени
   const plateW = () => pad + nameW + pad * 0.6 + big.maxHp * hStep + pad * 0.4;
   if (plateW() > room) { hStep = Math.max(cpx(12), (room - pad * 2 - nameW) / big.maxHp); hSize = Math.min(hSize, hStep * 0.95); }
   if (plateW() > room) nameW = Math.max(cpx(36), room - pad * 2 - big.maxHp * hStep);
   const pw = plateW();
   plate("hearts", m, top, pw, bh);
   noteText("main", labelFit(bigName, m + pad, top + bh / 2, main, nameW, "#9b2c3a", "left", main));
+  Object.assign(hudRects[hudRects.length - 1], { label: lastFit.text, labelX: m + pad, labelW: lastFit.w });   // SPEC-022: подпись злости — в плашке hearts
   const hx = m + pad + nameW + pad * 0.6 + hStep / 2;
   for (let i = 0; i < big.maxHp; i++) hpHeart(hx + i * hStep, top + bh / 2 - hSize / 2 - 1, hSize, heartFill(i, big.hp), hStep);
   // группа по центру свободного места
@@ -4032,14 +4038,15 @@ function drawHUDPhone(t) {
 }
 function drawHUD(t) {
   if (PHONE) { drawHUDPhone(t); return; }
-  // имя Большого + сердечки; полоска не налезает на таймер в центре
-  const many = big.maxHp > 8, hStep = many ? 17 : 21, hSize = many ? 15 : 18;   // много сердечек — ставим плотнее, чтобы влезло имя
-  const bigName = nameFor("big"), hearts = big.maxHp * hStep, timerX = UW / 2 - 95;
+  // SPEC-022: злость папы (подпись + облачка-сердечки); полоска не налезает на таймер в центре
+  const many = big.maxHp > 8, lots = big.maxHp > 12, hStep = lots ? 15 : many ? 17 : 21, hSize = lots ? 13 : many ? 15 : 18;   // много облачек — плотнее, чтобы влезла подпись
+  const bigName = angerLabel(), hearts = big.maxHp * hStep, timerX = UW / 2 - 95;
   ctx.font = `900 15px system-ui, "Segoe UI", "Arial Rounded MT Bold", Arial, sans-serif`;
   const nameW = Math.min(ctx.measureText(bigName).width, timerX - 10 - 8 - 8 - 18 - hearts - 6);
   const hx = 18 + nameW + 18, hpW = hx + hearts - 10 - (hStep - hSize / 2) + 9;
   rr(10, 8, hpW, 34, 14); fillStroke("rgba(255,255,255,.8)", 3);
   labelFit(bigName, 18, 25, 15, nameW, "#9b2c3a", "left");
+  hudRects.push({ id: "hearts", x: 10, y: 8, w: hpW, h: 34, label: lastFit.text, labelX: 18, labelW: lastFit.w });   // SPEC-022: + подпись злости
   for (let i = 0; i < big.maxHp; i++) hpHeart(hx + i * hStep, 25 - hSize / 2 - 1, hSize, heartFill(i, big.hp), hStep);
 
   const chipW = 32, totalW = littles.length * chipW + 14, x0 = UW - totalW - 10;
