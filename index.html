@@ -236,7 +236,8 @@ const CFG = {
     btnCorner: 0.34, offBtn: "#a3a3a3", cache: 3, heart: 1.3, hudIcon: 1.12, stickRing: "rgba(61,43,31,.6)", stickBase: 0.9, knob: 24,
     ink: { text: "#2e2116", good: "#15803d", off: "#64748b", gold: "#b45309", bad: "#b91c1c", line: "rgba(61,43,31,.45)" },
     fxHeart: 0.55, fxStar: 0.45, fxDust: 0.6, popBurst: 1.7, popH: 2.4, winBox: [800, 34, 500], loseBox: [780, 160, 290], pauseBox: [700, 190, 220], stop: 1.12, glow: 1.25, stamp: 0.62, pen: "rgba(40,60,160,.85)", coinLeft: 0.36, coinRight: 0.08,
-    darkInk: 0.35, halo: "rgba(255,250,235,.9)", haloW: 0.12 },
+    darkInk: 0.35, halo: "rgba(255,250,235,.9)", haloW: 0.12,
+    emojiArt: 1.15, iconOnly: 0.78 },   // SPEC-027: картинка вместо эмодзи в надписи (× меньшее из ширины эмодзи и размера шрифта); значок на кнопке без надписи (× высоты)
   // SPEC-021: 3D как рисунок фломастером. Контур 3D (свой цвет — OUT остаётся у 2D): цвет, во сколько раз толще, чем просила
   // деталь (до SPEC-021 — 1), дрожание толщины по осям (± доля) и сдвиг оболочки (± доля толщины: одна сторона линии толще), зерно
   OUTLINE_LOOK: { color: "#1b1b1b", k: 2, wobble: 0.22, shift: 0.35, seed: 21 },
@@ -499,7 +500,7 @@ const PAPER_BTN = (() => {
 const ITEM_ART = { mittens: "item_mittens", mega: "item_mega_mittens", kisses: "item_kiss", rescues: "icon_bandaid" };
 // улучшения и вкладки магазина — 22_icons_shop
 const UPG_ART = { fastFeet: "shop_fast_feet", longItems: "shop_long_items", quickHelp: "shop_quick_help" };
-const SHOP_TAB_ART = { progress: "star_gold", items: "shop_items", wardrobe: "shop_wardrobe", upgrades: "shop_upgrades" };   // SPEC-026: + «Прогресс»
+const SHOP_TAB_ART = { progress: "tab_progress", items: "shop_items", wardrobe: "shop_wardrobe", upgrades: "shop_upgrades" };   // SPEC-026: + «Прогресс» (SPEC-027: свой значок)
 // рисунки вещей гардероба: 23_wardrobe и (SPEC-027) 29_wardrobe_2 — у каждой шапки (кроме «Ничего»), куртки и штанов есть свой
 const WARDROBE_ART = {
   hat: { cap: "hat_cap", beanie: "hat_beanie", crown: "hat_crown", bow: "hat_bow", flower: "hat_flower", ears: "hat_ears", tophat: "hat_tophat",
@@ -510,6 +511,18 @@ const WARDROBE_ART = {
   pants: { jeans: "pants_jeans", shorts: "pants_shorts", joggers: "pants_joggers", black: "pants_black", red: "pants_red", green: "pants_green",
     pinkshorts: "pants_pink_shorts", purple: "pants_purple", overalls: "pants_overalls", striped: "pants_striped" }
 };
+// SPEC-027: эмодзи в надписях → картинка (34_small_icons и уже нарисованные). fillT / strokeT рисуют её на месте эмодзи, нет картинки — эмодзи
+const EMOJI_ART = { "👥": "ui_friends", "🎲": "ui_dice", "❓": "ui_question", "✏": "ui_pencil", "📦": "ui_pack", "👂": "ui_ear", "🗺": "ui_map",
+  "✔": "ui_check", "✘": "ui_cross", "✕": "ui_cross", "🔒": "padlock", "🩹": "icon_bandaid", "💋": "item_kiss", "⭐": "star_gold", "🪙": "item_coin",
+  "📖": "menu_story", "🏆": "tab_progress", "🎒": "menu_character", "🏠": "ui_home", "🛒": "shop_items", "👕": "shop_wardrobe",
+  "🛡": "icon_shield", "🍌": "item_banana", "👟": "item_boots", "👻": "item_cape", "❤": "heart_full", "🤝": "shop_quick_help" };
+// SPEC-027: новая картинка не загрузилась — прежняя (а нет и её — рисунок кодом или эмодзи, как у всякой картинки SPEC-020)
+const ART_FALLBACK = { menu_play: "ui_play", menu_story: "ui_story", menu_character: "ui_bag", tab_progress: "star_gold" };
+// первая загруженная картинка из name и его запасных (ART_FALLBACK) или null
+function artPick(name) {
+  for (let n = name; n; n = ART_FALLBACK[n]) if (art(n)) return n;
+  return null;
+}
 // комиксы глав (8_start, 9_1…9_4, 26_1/26_2, 10_end)
 const STORY_ART = { began: "story_start", park: "story_park", field: "story_field", city: "story_city", school: "story_school",
   beach: "story_beach", winter: "story_winter", ended: "story_end" };
@@ -3801,6 +3814,40 @@ function drawArtFit(name, cx, cy, size) {
   ctx.drawImage(img, cx - w / 2, cy - h / 2, w, h); noteArt(name);
   return true;
 }
+// SPEC-027: надпись, где эмодзи из EMOJI_ART заменены картинками: картинка встаёт в ту же ширину, что заняло бы эмодзи (раскладка,
+// мерки measureText и textW не меняются), остальное — обычным текстом тем же шрифтом; картинки нет — эмодзи. stroke — обводка
+// надписи (label): картинки не обводятся. Все надписи UI идут через fillT / strokeT (не земля: в groundCanvas картинок не рисуем)
+const EMOJI_RE = new RegExp(`(${Object.keys(EMOJI_ART).join("|")})\uFE0F?`, "gu");
+function textArt(text, x, y, stroke) {
+  text = String(text);
+  const plain = () => (stroke ? ctx.strokeText(text, x, y) : ctx.fillText(text, x, y));
+  EMOJI_RE.lastIndex = 0;
+  if (!EMOJI_RE.test(text)) return plain();
+  EMOJI_RE.lastIndex = 0;                                  // matchAll начинает с lastIndex, который сдвинул test()
+  const segs = [];
+  let at = 0;
+  for (const m of text.matchAll(EMOJI_RE)) {
+    const name = artPick(EMOJI_ART[m[1]]);
+    if (!name) continue;
+    if (m.index > at) segs.push({ t: text.slice(at, m.index) });
+    segs.push({ t: m[0], name });
+    at = m.index + m[0].length;
+  }
+  if (!segs.length) return plain();
+  if (at < text.length) segs.push({ t: text.slice(at) });
+  const ws = segs.map(q => ctx.measureText(q.t).width), total = ws.reduce((a, b) => a + b, 0), align = ctx.textAlign, bl = ctx.textBaseline;
+  const sz = parseFloat((/(\d+(?:\.\d+)?)px/.exec(ctx.font) || [])[1]) || 16;
+  const cy = bl === "middle" ? y : bl === "top" || bl === "hanging" ? y + sz / 2 : bl === "bottom" || bl === "ideographic" ? y - sz / 2 : y - sz * 0.35;
+  let cx = align === "center" ? x - total / 2 : align === "right" || align === "end" ? x - total : x;
+  ctx.textAlign = "left";
+  segs.forEach((q, i) => {
+    if (!q.name) { if (stroke) ctx.strokeText(q.t, cx, y); else ctx.fillText(q.t, cx, y); }
+    else if (!stroke) drawArtFit(q.name, cx + ws[i] / 2, cy, Math.min(ws[i], sz) * CFG.PAPER.emojiArt);
+    cx += ws[i];
+  });
+  ctx.textAlign = align;
+}
+const fillT = (text, x, y) => textArt(text, x, y, false), strokeT = (text, x, y) => textArt(text, x, y, true);
 // заполнить прямоугольник с обрезкой лишнего (cover); fx, fy, fw, fh — из какой части картинки брать (доли)
 function drawArtCover(name, x, y, w, h, fx = 0, fy = 0, fw = 1, fh = 1) {
   const img = art(name);
@@ -3880,7 +3927,7 @@ const labelStroke = size => Math.max(3, size / 4.5);   // толщина обв�
 // число на белой плашке (монетки, звёзды): тёмный текст без обводки — с обводкой цвета OUT цифры сливаются
 function plainText(text, x, y, size, color = OUT, align = "left") {
   ctx.font = hudFont(size); ctx.textAlign = align; ctx.textBaseline = "middle"; ctx.fillStyle = color;
-  ctx.fillText(text, x, y);
+  fillT(text, x, y);
   if (PHONE) noteText("drawn", size);
 }
 const INK = new Set(Object.values(CFG.PAPER.ink));
@@ -3903,16 +3950,16 @@ function label(text, x, y, size, color, align = "center") {
   if (!(INK.has(color) && paperUI())) {        // SPEC-020: чернила на бумажном экране (CFG.PAPER.ink) — без обводки
     const P = CFG.PAPER, dark = colorLum(color) < P.darkInk;   // тёмная надпись (таймер, ×N, имя Большого на плашке) — светлый ореол
     ctx.lineJoin = "round"; ctx.lineWidth = dark ? size * P.haloW : labelStroke(size); ctx.strokeStyle = dark ? P.halo : OUT;
-    ctx.strokeText(text, x, y);
+    strokeT(text, x, y);
   }
-  ctx.fillStyle = color; ctx.fillText(text, x, y);
+  ctx.fillStyle = color; fillT(text, x, y);
   if (PHONE) noteText("drawn", size);
 }
 function fitText(text, x, y, size, maxW, align, color, weight, min = 9) {
   let sz = size + 0.5;
   do { sz = Math.max(min, sz - 0.5); ctx.font = `${weight} ${sz}px system-ui, "Segoe UI", sans-serif`; } while (ctx.measureText(text).width > maxW && sz > min);
   ctx.textAlign = align; ctx.textBaseline = "middle"; ctx.fillStyle = color;
-  ctx.fillText(text, x, y);
+  fillT(text, x, y);
   if (PHONE) noteText("drawn", sz);
   return sz;   // размер, которым написано
 }
@@ -3933,7 +3980,7 @@ function wrapText(text, x, y, size, maxW, lines, color, weight) {
   }
   ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = color;
   const lh = sz * 1.25, y0 = y - (rows.length - 1) * lh / 2 + (lines - 1) * lh / 2;
-  rows.forEach((r, i) => ctx.fillText(r, x, y0 + i * lh));
+  rows.forEach((r, i) => fillT(r, x, y0 + i * lh));
 }
 // Подпись с контуром, которая сжимается под ширину (не мельче 11px), а если не влезает — обрезается «…»
 let lastFit = null;   // что нарисовал последний labelFit: { text, sz, w } (SPEC-022: подпись злости — в hudRects)
@@ -4118,7 +4165,7 @@ function drawMarkers(t) {
         const n = Math.ceil(CFG.DANGER_TIME - l.dangerT), ph = (CFG.DANGER_TIME - l.dangerT) % 1;
         label(String(n), hd.x, hd.y - (isPlayer ? 46 : 36) - (ic ? 24 : 0), 34 + ph * 12, n <= 1 ? "#ff3b30" : "#fb923c");
       }
-      if (ic) { ctx.font = "15px system-ui, 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(ic, hd.x, hd.y - (isPlayer ? 30 : 20)); }
+      if (ic) { ctx.font = "15px system-ui, 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; fillT(ic, hd.x, hd.y - (isPlayer ? 30 : 20)); }
     } else {
       const c = toScreen(l.x, l.y, 10);
       ctx.lineWidth = 4; ctx.lineCap = "round";
@@ -4416,7 +4463,7 @@ function drawHeardHint(x, bottom, w, size, min, pad) {
   const text = heardHintText(), b = noteRows(text, size, min, w - 2 * pad, 2), lh = b.sz * 1.2, h = b.rows.length * lh + pad, y = bottom - h;
   rr(x, y, w, h, Math.min(pad * 1.4, h / 2)); fillStroke("rgba(255,250,235,.95)", 3);
   ctx.font = `800 ${b.sz}px system-ui, "Segoe UI", sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = "#7c3aed";
-  b.rows.forEach((q, i) => ctx.fillText(q, x + w / 2, y + pad / 2 + lh * (i + 0.5)));
+  b.rows.forEach((q, i) => fillT(q, x + w / 2, y + pad / 2 + lh * (i + 0.5)));
   hudRects.push({ id: "heardHint", x, y, w, h });
   heardHintRect = { x, y, w, h, text, rows: b.rows, size: b.sz };
   return b.sz;
@@ -4676,7 +4723,7 @@ function pRows(text, cat, css, maxW, lines, weight = 700) {
 function pDraw(b, x, y, color = OUT, align = "center") {
   ctx.font = `${b.weight} ${b.sz}px system-ui, "Segoe UI", sans-serif`;
   ctx.textAlign = align; ctx.textBaseline = "middle"; ctx.fillStyle = color;
-  b.rows.forEach((r, i) => ctx.fillText(r, x, y + b.lh / 2 + i * b.lh));
+  b.rows.forEach((r, i) => fillT(r, x, y + b.lh / 2 + i * b.lh));
   noteText(b.cat, b.sz);
   return b.h;
 }
@@ -4890,7 +4937,7 @@ function drawStop(q, info, t, won) {
     const min = PHONE ? minPx("hint") : A.badgeMin, bh = R * 0.62, bw = q.w * 0.96;
     const f = fitLine(L().boss, Math.max(min, bh * 0.72), min, bw - 6 * k);
     rr(q.cx - bw / 2, cy - R * 0.92, bw, bh, bh / 2); fillStroke(A.badge, 2 * k);
-    ctx.font = hudFont(f.sz); ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = A.badgeInk; ctx.fillText(f.text, q.cx, cy - R * 0.92 + bh / 2 + 1);
+    ctx.font = hudFont(f.sz); ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = A.badgeInk; fillT(f.text, q.cx, cy - R * 0.92 + bh / 2 + 1);
     if (PHONE) noteText("hint", f.sz);
     info.badge = { text: f.text, w: bw, textW: f.w + 6 * k, size: f.sz };
     numY = cy + R * 0.22; numSz = R * 0.62;
@@ -4909,7 +4956,7 @@ function drawStop(q, info, t, won) {
     if (drawn && !q.boss) { /* замок уже на картинке */ }
     else if (!drawArtFit("padlock", q.cx - R * 0.7, cy + R * 0.55, R * 0.62)) {
       ctx.font = `${R * 0.6}px system-ui, 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-      ctx.fillText("🔒", q.cx + R * 0.7, cy + R * 0.62);
+      fillT("🔒", q.cx + R * 0.7, cy + R * 0.62);
     }
   } else {
     const sr = Math.max(4 * k, R * 0.24), step = sr * 2.2, sy = q.y + q.h + sr * 0.4;
@@ -5027,7 +5074,7 @@ function drawLevelCard() {
   if (PHONE) noteText("hint", lb.sz);
   for (let i = 0; i < CFG.STARS_PER_LEVEL; i++) drawStarArt(UW / 2 + (i - 1) * sr * 2.6, yy + sr, sr, i < stars);
   const by = y + ch - pad - BH;
-  fitButton(x + pad, by, BH, BH, "📖", M.storyBtn, () => openStory(curWorld, "levelCard"), PHONE ? cpx(20) : 24, minMain).id = "card:story";
+  iconOnlyButton(x + pad, by, BH, BH, "menu_story", "📖", M.storyBtn, () => openStory(curWorld, "levelCard"), PHONE ? cpx(20) : 24, minMain, "card:story");   // SPEC-027: значок 28_menu_icons
   const px = x + pad + BH + g, pw = cw - 2 * pad - BH - g;
   if (PHONE) fitButton(px, by, pw, BH, "▶ " + L().play, M.play, () => playCard(1), cpx(22), minMain).id = "card:play";
   else {
@@ -5051,7 +5098,7 @@ function storyPlaceholder(r, locked) {
   rr(r.x, r.y, r.w, r.h, 10 * k); fillStroke(S.paper, 3 * k);
   if (locked) {
     ctx.font = `${Math.min(r.w, r.h) * 0.35}px system-ui, 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.fillText("🔒", r.x + r.w / 2, r.y + r.h / 2);
+    fillT("🔒", r.x + r.w / 2, r.y + r.h / 2);
     return;
   }
   const u = Math.min(r.w, r.h * 1.2) / 10, cx = r.x + r.w / 2, base = r.y + r.h * 0.68;
@@ -5099,9 +5146,9 @@ function drawStory() {
     L().rules(CFG.DOWN_TIME).forEach((r, i) => {
       const b = noteRows(r, size, minHint, maxW, 3), lh = b.sz * 1.2;
       ctx.font = `${size}px system-ui, 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-      ctx.fillText(RULE_ICONS[i] || "•", X0 + iw / 2, y + lh / 2);
+      fillT(RULE_ICONS[i] || "•", X0 + iw / 2, y + lh / 2);
       ctx.font = `800 ${b.sz}px system-ui, "Segoe UI", sans-serif`; ctx.textAlign = "left"; ctx.fillStyle = M.ink;
-      b.rows.forEach((q, j) => ctx.fillText(q, X0 + iw, y + lh * (j + 0.5)));
+      b.rows.forEach((q, j) => fillT(q, X0 + iw, y + lh * (j + 0.5)));
       if (PHONE) noteText("hint", b.sz);
       hudRects.push({ id: "rules:" + i, x: X0 + iw, y, w: b.w, h: b.rows.length * lh, text: r });
       y += b.rows.length * lh + 5 * k;
@@ -5223,7 +5270,7 @@ function drawBubbles(list, cr, ix, iy, iw, ih) {
     const lh = b.sz * b.lh, top = cy - b.h / 2;
     ctx.save();
     ctx.font = `800 ${b.sz}px system-ui, "Segoe UI", sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = S.bubbleInk;
-    b.rows.forEach((r, j) => ctx.fillText(r, cx, top + lh * (j + 0.5)));
+    b.rows.forEach((r, j) => fillT(r, cx, top + lh * (j + 0.5)));
     ctx.restore();
     if (PHONE) noteText("main", b.sz);
     out.push({ i, text, x: cx - b.w / 2, y: top, w: b.w, h: b.h, size: b.sz, rows: b.rows.length, own: !!bubble, bubble, panel });
@@ -5400,7 +5447,7 @@ function previewNote(key, box, text, color) {
   rr(x, y, w, h, Math.min(10, h / 3)); ctx.fillStyle = "rgba(15,23,42,.78)"; ctx.fill();
   ctx.save(); ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
   ctx.font = `800 ${b.sz}px system-ui, "Segoe UI", sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = color;
-  b.rows.forEach((q, i) => ctx.fillText(q, x + w / 2, y + pad + lh * (i + 0.5)));
+  b.rows.forEach((q, i) => fillT(q, x + w / 2, y + pad + lh * (i + 0.5)));
   ctx.restore();
   if (PHONE) noteText("hint", b.sz);
   hudRects.push({ id: "look-note:" + key, x, y, w, h });
@@ -5426,7 +5473,7 @@ function fitButton(x, y, w, h, text, color, act, size, min) {
 function rowsAt(id, b, cx, y, color, weight = 800) {
   const lh = b.sz * 1.2;
   ctx.font = `${weight} ${b.sz}px system-ui, "Segoe UI", sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = color;
-  b.rows.forEach((q, i) => ctx.fillText(q, cx, y + lh * (i + 0.5)));
+  b.rows.forEach((q, i) => fillT(q, cx, y + lh * (i + 0.5)));
   hudRects.push({ id, x: cx - b.w / 2, y, w: b.w, h: b.rows.length * lh, text: b.rows.join(" ") });
   return b.rows.length * lh;
 }
@@ -5440,7 +5487,7 @@ const upgradeCards = () => Object.keys(UPGRADES).map(k => {
 function upgPicture(k, x, y, s) {
   if (paperUI() && drawArtFit(UPG_ART[k], x, y, s * 1.2)) return;
   ctx.font = `${s}px system-ui, 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = "#000";
-  ctx.fillText(UPG_ICONS[k], x, y);
+  fillT(UPG_ICONS[k], x, y);
 }
 // уровень кружками ●●○ по центру cx (hudRects «upg-dots:<k>», текст — те же кружки)
 function upgDots(cd, cx, cy, r) {
@@ -5480,15 +5527,25 @@ function shopTabs(x, y, h, size, min, gap, icons, maxW = Infinity) {
 }
 // SPEC-020: бумажная вкладка со значком-картинкой слева от надписи (вместо эмодзи); null — нет картинок, рисуй как раньше
 function iconTab(x, y, w, h, icon, text, full, color, act, size, min, id) {
-  const paper = PAPER_BTN[color], k = PHONE ? cpx(1) : 1;
-  if (!paperUI() || !paper || !art(icon) || !art(paper)) return null;
+  const paper = PAPER_BTN[color], k = PHONE ? cpx(1) : 1, pic = artPick(icon);   // SPEC-027: новый значок или прежний (ART_FALLBACK)
+  if (!paperUI() || !paper || !pic || !art(paper)) return null;
   const ic = h * 0.82, sp = 4 * k, f = fitLine(text, size, min, w - ic - sp - 14 * k), tw = ic + sp + f.w, x0 = x + (w - tw) / 2;
   drawArt9(paper, x, y, w, h, Math.min(w, h) * CFG.PAPER.btnCorner);
-  drawArtFit(icon, x0 + ic / 2, y + h / 2, ic);
+  drawArtFit(pic, x0 + ic / 2, y + h / 2, ic);
   label(f.text, x0 + ic + sp, y + h / 2 + 1, f.sz, "#fff", "left");
   if (PHONE) noteText("main", f.sz);
   const b = regButton(x, y, w, h, full, act, id, tw);
   b.size = f.sz;
+  return b;
+}
+// SPEC-027: бумажная кнопка без надписи, только значок-картинка (icon или его запасная) на iconOnly высоты; нет картинок — кнопка с эмодзи
+function iconOnlyButton(x, y, w, h, icon, emoji, color, act, size, min, id) {
+  const paper = PAPER_BTN[color], pic = artPick(icon);
+  if (paperUI() && pic && paper && drawArt9(paper, x, y, w, h, Math.min(w, h) * CFG.PAPER.btnCorner)) {
+    drawArtFit(pic, x + w / 2, y + h / 2, Math.min(w, h) * CFG.PAPER.iconOnly);
+    return regButton(x, y, w, h, emoji, act, id, Math.min(w, h) * CFG.PAPER.iconOnly);
+  }
+  const b = fitButton(x, y, w, h, emoji, color, act, size, min); b.id = id;
   return b;
 }
 // SPEC-017, телефон: верхняя полоса магазина — вкладки, монетки, средняя кнопка («Друзья» в гардеробе, «◀ Гардероб» на странице
@@ -5505,7 +5562,7 @@ function phoneShopBar(f) {
   // SPEC-026: сброс прогресса переехал на страницу «Прогресс»; средняя кнопка — только в гардеробе
   const mid = shopTab !== "wardrobe" ? null
     : wardrobePage === "friends" ? { texts: ["◀ " + L().wardrobeTab, "◀"], color: M.ok, act: backToWardrobe, min: B }
-    : { texts: ["👥 " + L().friends, "👥"], color: M.friends, act: openFriends, min: B };
+    : { texts: ["👥 " + L().friends, "👥"], color: M.friends, act: openFriends, min: B, icon: "ui_friends" };   // SPEC-027: короткая — значок 34_small_icons
   // надпись средней кнопки с запасом RESET_FIT (шрифты CI и iPhone шире наших)
   const midW = t => { ctx.font = hudFont(midSz); return Math.max(mid.min, scaledW(t) * CFG.PHONE_SHOP.RESET_FIT + c(20)); };
   const avail = X1 - X0 - okW - pw - (mid ? 6 : 5) * g, tabsNat = tabW.reduce((a, b) => a + b, 0);
@@ -5519,19 +5576,15 @@ function phoneShopBar(f) {
   SHOP_TABS.forEach((key, i) => {
     const color = shopTab === key ? M.tabOn : M.tabOff, act = () => setShopTab(key);
     const w = !compact ? Math.max(B, tabW[i] * k) : i === sel ? Math.max(B, Math.min(tabW[i], room - (SHOP_TABS.length - 1) * B)) : B;
-    if (compact && i !== sel) {
-      const icon = SHOP_TAB_ART[key], paper = PAPER_BTN[color], emoji = SHOP_TAB_ICONS[key].trim();
-      if (paperUI() && art(icon) && paper && drawArt9(paper, x, Y0, w, B, Math.min(w, B) * CFG.PAPER.btnCorner)) {
-        drawArtFit(icon, x + w / 2, Y0 + B / 2, B * 0.78);
-        regButton(x, Y0, w, B, emoji, act, "tab:" + key, B * 0.78);
-      } else fitButton(x, Y0, w, B, emoji, color, act, tabSz, min).id = "tab:" + key;
-    } else fitButton(x, Y0, w, B, tabT[i], color, act, tabSz, min).id = "tab:" + key;
+    if (compact && i !== sel) iconOnlyButton(x, Y0, w, B, SHOP_TAB_ART[key], SHOP_TAB_ICONS[key].trim(), color, act, tabSz, min, "tab:" + key);
+    else fitButton(x, Y0, w, B, tabT[i], color, act, tabSz, min).id = "tab:" + key;
     x += w + g;
   });
   rr(x, Y0 + c(4), pw, B - c(8), c(12)); fillStroke(M.panel, 3);
   hudRects.push({ id: "coins", x, y: Y0 + c(4), w: pw, h: B - c(8) });
   coinIcon(x + c(16), Y0 + B / 2, c(10)); pText(String(progress.coins), x + c(30), Y0 + B / 2 + 1, "main", 17, pw - c(36), "left", OUT, 900);
-  if (mid) fitButton(X1 - okW - g - mw, Y0, mw, B, midT, mid.color, mid.act, midSz, min);
+  if (mid && mid.icon && midT === mid.texts.at(-1)) iconOnlyButton(X1 - okW - g - mw, Y0, mw, B, mid.icon, midT, mid.color, mid.act, midSz, min);
+  else if (mid) fitButton(X1 - okW - g - mw, Y0, mw, B, midT, mid.color, mid.act, midSz, min);
   fitButton(X1 - okW, Y0, okW, B, L().ok, M.ok, closeShop, okSz, min);
 }
 // телефон: три карточки улучшений в полосе y0…Y1. Как карточки вещей: сначала мерка (pRows), потом рисуем; не влезает — картинка
@@ -5613,14 +5666,14 @@ function drawPill(p, x, y, maxW) {
 }
 // SPEC-017: кнопки главного экрана — первая крупная («Играть»), остальные под ней; key — клавиши, pad — кнопки геймпада.
 // Одно место для обеих раскладок и для клавиатуры/геймпада (SPEC-013 добавит сюда «Онлайн»). SPEC-026: «Магазин» стал «Персонажем»
-// (та же клавиша B и кнопка Y; id «home:shop» прежний — переименовано только то, что видит игрок); icon — картинка 21_icons_ui слева
-// от надписи (до рисунков SPEC-027), emoji — вместо неё, когда картинок нет
+// (та же клавиша B и кнопка Y; id «home:shop» прежний — переименовано только то, что видит игрок); icon — картинка слева от надписи
+// (SPEC-027: 28_menu_icons; не загрузилась — прежняя 21_icons_ui, ART_FALLBACK), emoji — вместо неё, когда картинок нет
 const homeActions = () => {
   const M = CFG.MENU_LOOK;
   return [
-    { id: "home:play", icon: "ui_play", emoji: "▶ ", text: L().play, color: M.play, act: openMap, keys: ["Enter", "NumpadEnter", "Space"], pad: [0, 9] },
-    { id: "home:story", icon: "ui_story", emoji: "📖 ", text: L().story, color: M.storyBtn, act: () => openStory(), keys: ["KeyS"], pad: [2] },
-    { id: "home:shop", icon: "ui_bag", emoji: "🎒 ", text: L().character, color: M.shop, act: () => openShop("home", "progress"), keys: ["KeyB"], pad: [3] }
+    { id: "home:play", icon: "menu_play", emoji: "▶ ", text: L().play, color: M.play, act: openMap, keys: ["Enter", "NumpadEnter", "Space"], pad: [0, 9] },
+    { id: "home:story", icon: "menu_story", emoji: "📖 ", text: L().story, color: M.storyBtn, act: () => openStory(), keys: ["KeyS"], pad: [2] },
+    { id: "home:shop", icon: "menu_character", emoji: "🎒 ", text: L().character, color: M.shop, act: () => openShop("home", "progress"), keys: ["KeyB"], pad: [3] }
   ];
 };
 // маленькие значки звука (справа, w × h) и языка (слева от него, langW × h); x1 — правый край.
@@ -5723,7 +5776,7 @@ function progressPage() {
     return r;
   };
   const art2 = (name, fallback) => (x, y, s) => drawArtFit(name, x, y, s) || fallback(x, y, s);
-  const emoji = e => (x, y, s) => { ctx.font = `${s * 0.85}px system-ui, 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(e, x, y); };
+  const emoji = e => (x, y, s) => { ctx.font = `${s * 0.85}px system-ui, 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; fillT(e, x, y); };
   // ---- слева: окошко 3D-вида игрока 1 (как в гардеробе), под ним имя; на телефоне внизу — сброс прогресса ----
   rr(left.x - c(4), pv.y - c(4), left.w + c(8), pv.h + c(P.nameH) + c(12), c(14)); fillStroke(M.panel, 3);
   ctx.clearRect(pv.x, pv.y, pv.w, pv.h);                       // окошко: здесь видно 3D-превью
@@ -5762,7 +5815,7 @@ function progressPage() {
     if (nameW) {                                             // название мира: до двух строк (длинные названия, широкие шрифты CI)
       const nb = noteRows(L().worlds[w], size, min, nameW - c(6), 2), lh = nb.sz * 1.2, ny = cy - nb.rows.length * lh / 2;
       ctx.font = `800 ${nb.sz}px system-ui, "Segoe UI", sans-serif`; ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.fillStyle = open ? M.ink : M.lockedInk;
-      nb.rows.forEach((r, j) => ctx.fillText(r, x, ny + lh * (j + 0.5)));
+      nb.rows.forEach((r, j) => fillT(r, x, ny + lh * (j + 0.5)));
       hudRects.push({ id: "progress:name:" + w, x, y: ny, w: nb.w, h: nb.rows.length * lh, text: nb.rows.join(" "), textW: nb.w });
       x += nameW;
     }
@@ -5848,7 +5901,7 @@ function wardrobeDesktop() {
     const key = pnl.key, [title, color] = cols[key], cx = skinCx(i);
     rr(cx - 115, 88, 230, W.colBottom - 88, 22); fillStroke(CFG.MENU_LOOK.panel, 3.5);
     label(title, cx - (key === "big" ? 0 : 18), 112, 20, color);
-    if (key !== "big") addButton(cx + 62, 96, 42, 32, "🎲", CFG.MENU_LOOK.dice, () => randomOutfit(key), 18).id = "random:" + key;
+    if (key !== "big") iconOnlyButton(cx + 62, 96, 42, 32, "ui_dice", "🎲", CFG.MENU_LOOK.dice, () => randomOutfit(key), 18, 18, "random:" + key);   // SPEC-027: кубик картинкой
     ctx.clearRect(pnl.x, pnl.y, pnl.w, pnl.h);              // окошко: здесь видно 3D-превью
     ctx.lineWidth = 3; ctx.strokeStyle = OUT; ctx.strokeRect(pnl.x, pnl.y, pnl.w, pnl.h);
     lookThumbs(key, pnl);
@@ -5899,7 +5952,7 @@ function wardrobePhone(f) {
       row(col.x, ny + B + g, col.w, lookRows("big")[0]);
     } else {
       const x = pnl.x + pnl.w + c(12), w = col.x + col.w - x, nr = { x, y: pnl.y, w, h: B }, dy = pnl.y + 4 * (B + g);
-      addButton(pnl.x, dy, pnl.w, B, "🎲", CFG.MENU_LOOK.dice, () => randomOutfit("p1"), fz(18, "main")).id = "random:p1";   // на одной высоте со «Штанами»
+      iconOnlyButton(pnl.x, dy, pnl.w, B, "ui_dice", "🎲", CFG.MENU_LOOK.dice, () => randomOutfit("p1"), fz(18, "main"), fz(18, "main"), "random:p1");   // на одной высоте со «Штанами» (SPEC-027: кубик картинкой)
       if (lockedItems("p1").length) lookBuy("p1", nr, { x: pnl.x, y: pnl.y + pnl.h + c(6), w: pnl.w, lines: 3 });
       else { nameLabel(nr, "p1", color); pWrap(L().tapToRename, pnl.x + pnl.w / 2, pnl.y + pnl.h + c(8), "hint", 13, pnl.w, 4, CFG.MENU_LOOK.note, 700); }
       lookRows("p1").forEach((r, i) => row(x, pnl.y + B + g + i * (B + g), w, r));
@@ -8568,7 +8621,7 @@ window.__bb = {
   get artUse() { return { ...artUse }; }, resetArtUse, get artVersion() { return artVersion; },
   // SPEC-020: все имена картинок, которые могут выдать таблицы (тест: каждое есть в ART_NAMES)
   artTableNames: () => [...Object.values(PAPER_BTN), ...Object.values(ITEM_ART), ...Object.values(UPG_ART), ...Object.values(SHOP_TAB_ART),
-    ...Object.values(WARDROBE_ART).flatMap(Object.values), ...Object.values(STORY_ART), ...HEART_ART, ...Object.values(FX_ART), ...Object.values(POP_ART),
+    ...Object.values(WARDROBE_ART).flatMap(Object.values), ...Object.values(EMOJI_ART), ...Object.entries(ART_FALLBACK).flat(), ...Object.values(STORY_ART), ...HEART_ART, ...Object.values(FX_ART), ...Object.values(POP_ART),
     ...WORLDS.flatMap(w => [worldArt(w), mapBgArt(w)])], fxBurst: burst, popText,   // SPEC-020: частицы и всплывающие надписи (тест картинок эффектов)
   art, ART_NAMES, get artInfo() { return { total: ART_NAMES.length, ok: artCount.ok, bad: artCount.bad, done: artDone(), loadingShown: !!document.getElementById("loading") }; },
   get mode() { return mode; }, set mode(v) { if (MODES.includes(v)) mode = v; },   // SPEC-017: только экраны из MODES

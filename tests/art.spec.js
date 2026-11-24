@@ -56,6 +56,11 @@ test("the game works without art: assets/ missing → every screen draws as befo
   const seen = await everyScreen(page);
   expect(seen.map(s => s[1])).toEqual(["home", "map", "levelCard", "story", "shop", "shop", "shop", "shop", "play", "pause", "win", "lose", "home"]);
   expect(await page.evaluate(() => window.__bb.artUse), "no sprite drawn: every screen used its code drawing").toEqual({});
+  // SPEC-027 2a: without the small icons the emoji are drawn as before (level card ✕ and 📖, the wardrobe's 🎲 and 👥)
+  const card = await drawnTexts(page, () => { const b = window.__bb; b.toMap(); b.mode = "levelCard"; });
+  expect(card.filter(t => t === "✕" || t === "📖")).toEqual(expect.arrayContaining(["✕", "📖"]));
+  const wardrobe = await drawnTexts(page, () => { const b = window.__bb; b.mode = "shop"; b.shopTab = "wardrobe"; });
+  expect(wardrobe.filter(t => t.includes("🎲") || t.includes("👥")).length).toBeGreaterThanOrEqual(2);
   // SPEC-026: the start comic without its picture (placeholder) writes no bubbles
   await page.evaluate(() => window.__bb.openScene("intro"));
   await frames(page);
@@ -122,13 +127,114 @@ async function drawn(page, setup, arg) {
 }
 const missing = (use, names) => names.filter(n => !use[n]);
 
+// SPEC-027: every text the 2D layer writes (fillText and strokeText) in two frames after setup
+async function drawnTexts(page, setup, arg) {
+  if (setup) { await page.evaluate(setup, arg); await frames(page); }
+  return page.evaluate(() => new Promise(res => {
+    const proto = CanvasRenderingContext2D.prototype, of = proto.fillText, os = proto.strokeText, seen = new Set();
+    proto.fillText = function (t, ...a) { seen.add(String(t)); return of.call(this, t, ...a); };
+    proto.strokeText = function (t, ...a) { seen.add(String(t)); return os.call(this, t, ...a); };
+    requestAnimationFrame(() => requestAnimationFrame(() => { proto.fillText = of; proto.strokeText = os; res([...seen]); }));
+  }));
+}
+
+// SPEC-027 AC 2: the home buttons carry the 28_menu_icons pictures left of their label (the label stays, every language), the
+// Progress tab its trophy, the Story buttons of the level card and the Story screen the open book; without those pictures — the
+// old icons (21_icons_ui, the star tab)
+test("home, the Progress tab and the Story buttons use the comic menu icons; the old icons are their fallback", async ({ page }) => {
+  const errors = await openGame(page);
+  await page.waitForFunction(() => window.__bb.artInfo.done, null, { timeout: 15_000 });
+  for (const lang of ["en", "es", "ru"]) {
+    const use = await drawn(page, l => { const b = window.__bb; b.setLang(l); b.toHome(); }, lang);
+    expect(missing(use, ["menu_play", "menu_story", "menu_character"]), lang).toEqual([]);
+    expect(["ui_play", "ui_story", "ui_bag"].filter(n => use[n]), lang + ": not the old icons").toEqual([]);
+    const texts = await drawnTexts(page), L = await page.evaluate(l => window.__bb.I18N[l], lang);
+    expect([L.play, L.story, L.character].filter(t => !texts.includes(t)), lang + ": the labels are drawn").toEqual([]);
+  }
+  await page.evaluate(() => window.__bb.setLang("en"));
+  let use = await drawn(page, () => { const b = window.__bb; b.mode = "shop"; b.shopTab = "progress"; });
+  expect(missing(use, ["tab_progress"])).toEqual([]);
+  use = await drawn(page, () => { const b = window.__bb; b.toMap(); b.mode = "levelCard"; });
+  expect(missing(use, ["menu_story"]), "level card: the Story button").toEqual([]);
+  expect(await page.evaluate(() => window.__bb.buttonRects.find(q => q.id === "card:story").text)).toBe("📖");
+  await page.evaluate(() => { window.__bb.openStory("park", "home"); });
+  await frames(page);                                                      // the chapter page's buttons, then its "How to play"
+  use = await drawn(page, () => { window.__bb.tapButton("story:rules"); });
+  expect(missing(use, ["menu_story"]), "Story screen: the Story button of the rules page").toEqual([]);
+  expect(errors).toEqual([]);
+  // without the new pictures: the old ones (a fresh page; the first one is closed — two game pages at once slow each other)
+  const context = page.context();
+  await page.close();
+  const p2 = await context.newPage();
+  await p2.route(/\/assets\/(menu_[a-z]+|tab_progress)\.webp$/, route => route.fulfill({ status: 404, body: "" }));
+  const errors2 = await openGame(p2);
+  await p2.waitForFunction(() => window.__bb.artInfo.done, null, { timeout: 15_000 });
+  use = await drawn(p2, () => { window.__bb.toHome(); });
+  expect(missing(use, ["ui_play", "ui_story", "ui_bag"])).toEqual([]);
+  use = await drawn(p2, () => { const b = window.__bb; b.mode = "shop"; b.shopTab = "progress"; });
+  expect(missing(use, ["star_gold"])).toEqual([]);
+  use = await drawn(p2, () => { const b = window.__bb; b.toMap(); b.mode = "levelCard"; });
+  expect(missing(use, ["ui_story"])).toEqual([]);
+  expect(Object.keys(use).filter(n => n.startsWith("menu_") || n === "tab_progress")).toEqual([]);
+  await p2.close();
+  expect(errors2.filter(e => !failedLoads(e))).toEqual([]);
+});
+
+// SPEC-027 2a: with the art loaded no screen writes these emoji any more — 34_small_icons and the pictures the game already had
+// replace them (desktop and phone: home, map, level card, every Character tab and the friends page, the Story screen, win / lose / pause)
+const ARTED_EMOJI = ["👥", "🎲", "❓", "✏", "📦", "👂", "🗺", "✔", "✘", "✕", "🔒", "🩹", "💋", "⭐", "🪙", "📖"];
+async function emojiLeft(page) {
+  const screens = [
+    ["home", () => { window.__bb.toHome(); }],
+    ["map", () => { const b = window.__bb; Object.assign(b.progress.worlds.park, { unlocked: 3, won: { 1: true, 2: true }, stars: { 1: 3, 2: 1 } }); b.toMap(); }],
+    ["level card", () => { const b = window.__bb; b.toMap(); b.mode = "levelCard"; }],
+    ["progress", () => { const b = window.__bb; b.mode = "shop"; b.shopTab = "progress"; }],
+    ["items", () => { const b = window.__bb; b.mode = "shop"; b.shopTab = "items"; b.progress.inv.kisses = 3; }],
+    ["wardrobe (locked items)", () => { const b = window.__bb, W = b.wardrobe(); b.mode = "shop"; b.shopTab = "wardrobe"; b.progress.coins = 0;
+      b.cycleOutfit("p1", "jacket", W.jacket.findIndex(q => q.id === "rainbow") - b.outfits.shown.p1.jacket); }],
+    ["wardrobe (armed buy)", () => { const b = window.__bb; b.progress.coins = 999; b.buyLook("p1"); }],
+    ["friends", () => { const b = window.__bb; b.resetOutfits(); b.mode = "shop"; b.shopTab = "wardrobe"; b.wardrobePage = "friends"; }],
+    ["upgrades", () => { const b = window.__bb; b.mode = "shop"; b.shopTab = "upgrades"; b.progress.upgrades.fastFeet = 3; }],
+    ["story", () => { window.__bb.openStory("park", "home"); }],
+    ["story (closed chapter)", () => { window.__bb.openStory("ended", "home"); }],
+    ["story rules", () => { window.__bb.tapButton("story:rules"); }],
+    ["win", () => { const b = window.__bb; b.startGame(1); b.stats.playerHugs = 2; b.giveReward(true); b.mode = "win"; }],
+    ["lose", () => { const b = window.__bb; b.startGame(1); b.giveReward(false); b.mode = "lose"; }],
+    ["pause", () => { const b = window.__bb; b.startGame(1); b.mode = "pause"; }]
+  ];
+  const art = await page.evaluate(() => window.__bb.art("ui_dice") !== null && window.__bb.art("padlock") !== null);
+  const left = [];
+  for (const [name, fn] of screens) for (const t of await drawnTexts(page, fn)) for (const e of ARTED_EMOJI) if (t.includes(e)) left.push(name + ": " + t);
+  await page.evaluate(() => { const b = window.__bb; b.resetOutfits(); b.wardrobePage = "looks"; b.toHome(); });
+  return { art, left };
+}
+test("with the art loaded no screen writes an emoji that has a picture (34_small_icons and the older ones)", async ({ page }) => {
+  const errors = await openGame(page);
+  await page.waitForFunction(() => window.__bb.artInfo.done, null, { timeout: 15_000 });
+  const r = await emojiLeft(page);
+  expect(r.art).toBe(true);
+  expect(r.left).toEqual([]);
+  expect(errors).toEqual([]);
+});
+test.describe("on a phone", () => {
+  test.use({ viewport: { width: 667, height: 375 }, hasTouch: true, isMobile: true });
+  test("with the art loaded no phone screen writes an emoji that has a picture (667)", async ({ page }) => {
+    const errors = await openGame(page, { query: "?phone=1" });
+    await page.waitForFunction(() => window.__bb.artInfo.done, null, { timeout: 15_000 });
+    const r = await emojiLeft(page);
+    expect(r.art).toBe(true);
+    expect(r.left).toEqual([]);
+    expect(errors).toEqual([]);
+  });
+});
+
 test("home, level map and level card are drawn with the art", async ({ page }) => {
   const errors = await openGame(page, { lang: "ru" });
   await page.waitForFunction(() => window.__bb.artInfo.done, null, { timeout: 15_000 });
-  // home: notebook page, logo, paper buttons with their 21_icons_ui pictures (SPEC-026: Character = the bag until SPEC-027),
+  // home: notebook page, logo, paper buttons with their 28_menu_icons pictures (SPEC-027; the 21_icons_ui ones are their fallback),
   // globe + sound icons; the bonus badges, coins and items moved to the Character's Progress page (SPEC-026)
   let use = await drawn(page, () => { const b = window.__bb; b.toHome(); Object.assign(b.progress.inv, { mittens: 2, mega: 1, kisses: 3, rescues: 1 }); b.progress.coins = 5; });
-  expect(missing(use, ["menu_bg", "logo", "btn_green", "btn_pink", "btn_orange", "ui_globe", "ui_sound_on", "ui_play", "ui_story", "ui_bag"])).toEqual([]);
+  expect(missing(use, ["menu_bg", "logo", "btn_green", "btn_pink", "btn_orange", "ui_globe", "ui_sound_on", "menu_play", "menu_story", "menu_character"])).toEqual([]);
   expect(["world_beach", "item_coin", "item_mittens"].filter(n => use[n]), "no progress on the home screen").toEqual([]);
   use = await drawn(page, () => { window.__bb.tapButton("home:sound"); });
   expect(missing(use, ["ui_sound_off"])).toEqual([]);
