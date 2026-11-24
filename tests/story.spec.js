@@ -288,6 +288,44 @@ async function winTitles(page) {
 test("the win title: Dad is kind again (desktop)", async ({ desk: page }) => winTitles(page));
 test("the win title: Dad is kind again (phone 667×375)", async ({ phonePage: page }) => winTitles(page));
 
+// ---------- AC 3: Dad's mood on his face and over his head ----------
+// __bb.moodInfo (drawn) = { mood, face (the head colour), sprites (drawn this frame), cloud (its size) }
+test("Dad's mood shows: angry red with steam and a dark cloud, mid orange-pink with less steam, kind pink with hearts", async ({ desk: page }) => {
+  await page.waitForFunction(() => window.__bb.artInfo.done);
+  const look = await page.evaluate(() => window.__bb.CFG.MOOD_LOOK.face);
+  const soft = softly();
+  const moodAt = async (world, n, frac, extra = "") => {
+    await page.evaluate(([w, lv, f]) => {
+      const b = window.__bb; b.world = w; b.level = lv; b.startGame(1);
+      Object.assign(b.big, { hp: Math.round(b.big.maxHp * f * 2) / 2, state: "look", timer: 999, x: 480, y: 330 });
+    }, [world, n, frac]);
+    await frames(page);
+    return page.evaluate(() => window.__bb.moodInfo);
+  };
+  let m = await moodAt("park", 3, 1);
+  soft([m.mood, m.face], "full anger").toEqual(["angry", look.angry]);
+  soft(m.sprites.filter(s => s.startsWith("fx_steam")).length, "steam from both ears").toBe(2);
+  soft(m.sprites.includes("fx_storm_cloud"), "a dark cloud").toBe(true);
+  m = await moodAt("park", 3, 0.5);
+  soft([m.mood, m.face], "half").toEqual(["mid", look.mid]);
+  soft(m.sprites.filter(s => s.startsWith("fx_steam")).length, "less steam").toBe(1);
+  soft(m.sprites.includes("fx_storm_cloud"), "no cloud").toBe(false);
+  m = await moodAt("park", 3, 0.2);
+  soft([m.mood, m.face], "low").toEqual(["kind", look.kind]);
+  soft(m.sprites, "hearts instead of steam").toEqual(["fx_hearts"]);
+  // the grumpiest dad has the biggest cloud
+  const a = await moodAt("park", 20, 1), s = await moodAt("school", 20, 1);
+  soft(s.cloud > a.cloud, `the grumpiest dad's cloud (${s.cloud}) is bigger than the park boss's (${a.cloud})`).toBe(true);
+  // the blush of a kiss still works on top (the emissive of the face), and lying after a banana shows nothing over his head
+  const k = await page.evaluate(() => { const b = window.__bb; b.big.blush = 2; return 0; });
+  await frames(page);
+  soft(await page.evaluate(() => window.__bb.big.model.cheeks.visible), "blush cheeks on top of the mood").toBe(true);
+  await page.evaluate(() => { const b = window.__bb; b.big.blush = 0; b.big.slip = 2; });
+  await frames(page);
+  soft((await page.evaluate(() => window.__bb.moodInfo)).sprites, "lying: nothing over his head").toEqual([]);
+  soft.done();
+});
+
 // ---------- AC 12: the scenes on a phone (667×375): big buttons, everything inside, nothing on anything ----------
 test("the scenes fit a 667×375 phone", async ({ phonePage: page }) => {
   const soft = softly();

@@ -261,6 +261,12 @@ const CFG = {
   // SPEC-021: маленькие как в art/6_personas — голова больше (масштаб группы головы: причёски и шапки растут с ней) и её высота;
   // глаза-точки (доля радиуса головы), румянец (цвет, доля радиуса), улыбка (радиус и толщина, доли радиуса); над центром головы
   // до верха шапки (единицы головы, для имени — nameTagH), запас пузыря-щита над головой (единицы модели)
+  // SPEC-022: настроение папы (bigMood: по доле злости) — цвет лица и картинки над головой (точка m.anchors.top): злой — красный,
+  // пар с двух сторон и тёмное облачко; средний — оранжево-розовый, пар с одной стороны; добреет — розовый, сердечки вместо пара.
+  // Размеры и сдвиги — в клетках на экране (по точке над головой); cloudBoss — облачко самого злого папы (самое большое);
+  // puff — как часто пар «пыхает» (раз в сек), bob — покачивание сердечек (клеток)
+  MOOD_LOOK: { face: { angry: "#e8453c", mid: "#f39b7d", kind: "#f6a3be" }, steam: 1.0, steamX: 0.85, steamY: 0.55, cloud: 1.15, cloudY: 0.15,
+    cloudBoss: 1.7, hearts: 0.95, heartsY: 0.1, puff: 1.6, bob: 0.08 },
   KID_LOOK: { head: 1.25, headY: 1.04, eye: 0.11, cheek: "#ff8aa5", cheekR: 0.16, smile: 0.15, smileW: 0.035, tagTop: 0.42, bubblePad: 0.1 },
   // SPEC-021: домики (art/15_houses). У домика маленьких крыша, пока не погасла, светится зелёным (glow, сила glowK) — как пол
   // безопасного дома: его всегда видно. Крыша: высота конька, свес, боковые скаты темнее (доля цвета), сугробиков на крыше (Зима);
@@ -3951,6 +3957,42 @@ function drawTapLines() {
     ctx.restore();
   }
 }
+// SPEC-022: над головой папы по настроению — пар (24_effects fx_steam_left/right), тёмное облачко (fx_storm_cloud), сердечки
+// (fx_hearts); нет картинок — рисунок кодом. Точка — m.anchors.top (над головой, не наклоняется). Лёжа после банана — ничего.
+// moodInfo (для тестов) — { mood, face, sprites, cloud }
+let moodInfo = null;
+const moodV = new THREE.Vector3();
+function moodSprite(name, x, y, s, alpha = 1) {
+  ctx.globalAlpha = alpha;
+  if (!drawArtFit(name, x, y, s)) {
+    if (name === "fx_hearts") { drawHeart(x - s * 0.18, y, s * 0.22, "#ff6fa8"); drawHeart(x + s * 0.2, y - s * 0.15, s * 0.16, "#ff9ecb"); }
+    else { ctx.fillStyle = name === "fx_storm_cloud" ? "#3f3f46" : "#d4d4d8"; for (const [dx, dy, r] of [[-0.22, 0.05, 0.22], [0, -0.08, 0.28], [0.24, 0.04, 0.2]]) { circle(x + dx * s, y + dy * s, r * s); ctx.fill(); } }
+  }
+  ctx.globalAlpha = 1;
+  moodInfo.sprites.push(name);
+}
+function drawMood(t) {
+  const m = big && big.model;
+  moodInfo = null;
+  if (!m || !m.anchors) return;
+  const ML = CFG.MOOD_LOOK, mood = m.mood || moodOf(big);
+  moodInfo = { mood, face: "#" + m.headMat.color.getHexString(), sprites: [], cloud: 0 };
+  if (big.slip > 0) return;
+  m.anchors.top.getWorldPosition(moodV);
+  toScreenTo(fxA, moodV.x * CELL, moodV.z * CELL, moodV.y * CELL);
+  toScreenTo(fxB, moodV.x * CELL + CELL, moodV.z * CELL, moodV.y * CELL);
+  const c = Math.hypot(fxB.x - fxA.x, fxB.y - fxA.y), x = fxA.x, y = fxA.y, puff = (t * ML.puff) % 1;
+  if (mood === "angry" || mood === "mid") {
+    const sides = mood === "angry" ? [-1, 1] : [Math.floor(t * ML.puff) % 2 ? 1 : -1];
+    const k = (mood === "angry" ? 1 : 0.7) * (0.8 + puff * 0.4);
+    for (const sd of sides) moodSprite(sd < 0 ? "fx_steam_left" : "fx_steam_right", x + sd * c * (ML.steamX + puff * 0.2), y + c * ML.steamY, c * ML.steam * k, 1 - puff * 0.5);
+  }
+  if (mood === "angry") {
+    moodInfo.cloud = big.boss === "school" ? ML.cloudBoss : ML.cloud;
+    moodSprite("fx_storm_cloud", x, y - c * ML.cloudY, c * moodInfo.cloud);
+  }
+  if (mood === "kind" || mood === "happy") moodSprite("fx_hearts", x, y - c * (ML.heartsY + Math.sin(t * 3) * ML.bob), c * ML.hearts);
+}
 function drawMarkers(t) {
   drawTapLines();
   if (safeZone) {
@@ -5944,7 +5986,7 @@ function drawUI(t) {
   if (!paperUI()) paperCache.length = 0;                           // SPEC-020: и листы бумажных панелей — вне бумажных экранов
   ctx.setTransform(VIEW, 0, 0, VIEW, 0, 0);
   ctx.clearRect(0, 0, UW, UH);
-  if (!inMenus()) { drawMarkers(t); drawFx(); drawHUD(t); }
+  if (!inMenus()) { drawMarkers(t); drawMood(t); drawFx(); drawHUD(t); } else moodInfo = null;
   if (mode === "play" && banner) drawBanner();
   drawOverlay();
   if (PHONE && nameInput) {                // телефон: поле ввода следует за своей подписью (клавиатура могла поменять высоту экрана)
@@ -7790,8 +7832,12 @@ function syncLittle(l, t) {
     m.face.mouth.rotation.z = Math.PI;
   }
 }
+// SPEC-022: настроение на экране: злой / средний / добреет (bigMood), подобрел и идёт домой — "happy" (лицо как у образа)
+const moodOf = b => (b.kind ? "happy" : bigMood());
 function syncBig(b, t) {
   const m = b.model;
+  const mood = moodOf(b);
+  if (m.mood !== mood) { m.mood = mood; setBigFace(m, CFG.MOOD_LOOK.face[mood] ?? null); }   // перекрашиваем только при смене
   m.root.position.set(P(b.x), 0, P(b.y));
   m.root.rotation.y = Math.PI / 2 - b.dir;
   const slipped = b.slip > 0, shocked = b.stun > 0 || slipped, resting = b.noPush > 0 && !shocked;
@@ -8120,7 +8166,7 @@ window.__bb = {
   RULE_ICONS, STORY, openStory, get storyInfo() { return storyInfo && { ...storyInfo }; },
   // SPEC-022: заставки (scene — логика: { id, page, pages } или null; sceneInfo — нарисованное в этом кадре), боссы уровней
   SCENE_IDS, openScene, sceneNext, sceneSkip, bigMood, winTitle, get pushWaves() { return pushWaves.map(w => ({ ...w })); }, get scene() { return storyScene && { id: storyScene.id, page: storyScene.page, pages: scenePageCount() }; },
-  get sceneInfo() { return sceneInfo && { ...sceneInfo }; }, bossFor,   // SPEC-017: главы истории (живой список), экран истории этого кадра
+  get sceneInfo() { return sceneInfo && { ...sceneInfo }; }, bossFor, get moodInfo() { return moodInfo && { ...moodInfo, sprites: [...moodInfo.sprites] }; },   // SPEC-017: главы истории (живой список), экран истории этого кадра
   tapButton(id) { const q = buttons.find(r => (r.id || r.act.name) === id); if (q) q.act(); return !!q; },
   update, inSafe, I18N, startGame, resetWorld, cycleOutfit, randomOutfit, cycleBig, setLang, toScreen,
   get items() { return items; }, get progress() { return progress; }, buyGloves, setEquip, get lastReward() { return lastReward; }, spawnItem,
@@ -8185,7 +8231,7 @@ window.__bb = {
 // ошибку, чтобы визуальный тест, открытый в sim, падал громко, а не проверял пустоту.
 const SIM_DRAWN = ["buttonRects", "buttonNames", "tapButton", "hudRects", "mapInfo", "levelCard", "storyInfo", "textSizes", "minimap",
   "bannerRect", "rotateShown", "winPanel", "winLine", "bonusNote", "shopLayout", "kitHint", "heardHint", "edgeArrows", "stickMarks",
-  "tapLines", "installHintShown", "mapPieces", "groundColorAt", "camera", "minimapAlpha", "artUse", "sceneInfo", "look3D"];
+  "tapLines", "installHintShown", "mapPieces", "groundColorAt", "camera", "minimapAlpha", "artUse", "sceneInfo", "moodInfo", "look3D"];
 window.__bb.SIM_DRAWN = SIM_DRAWN;
 window.__bb = new Proxy(window.__bb, {
   get(t, k, r) {
