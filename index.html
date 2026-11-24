@@ -56,7 +56,7 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.m
 // SPEC-008: scripts/docs-numbers.js и tests/balance.spec.js (через readValue) читают этот объект в Node (без браузера): значения — только
 // литералы и выражения из них (и Math); геттер может ссылаться на this, функция — только на свои аргументы.
 const CFG = {
-  BIG_HP: 6,                 // сердечек у Большого на 1-м уровне Парка
+  BIG_HP: 5,                 // сердечек у Большого на 1-м уровне Парка (SPEC-029: Андрей — на одно меньше везде)
   HP_LEVELS_PER_HEART: 4,    // +сердечко каждые 4 уровня мира (SPEC-006)
   HP_PER_WORLD: 1,           // и +1 за каждую ступень индекса сложности мира (WORLD_DIFFICULTY)
   BIG_HP_MAX: 12,            // злости (сердечек) не больше ни на каком обычном уровне; у босса — больше (BOSS_EXTRA_HP, SPEC-022)
