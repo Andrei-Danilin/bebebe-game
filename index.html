@@ -8701,7 +8701,7 @@ window.__bb = {
   wardrobe: () => ({ hat: HATS.map(({ id, price }) => ({ id, price })), jacket: JACKETS.map(({ id, price }) => ({ id, price })),
     pants: PANTS.map(({ id, price }) => ({ id, price })), big: BIG_SKINS.map(({ id, price }) => ({ id, price })), hairs: HAIRS.length }),
   // SPEC-027: рисунки вещей, имена вещей по слотам ({ slot: { id: { en, es, ru } } }), наряд бота i на этом уровне (номера)
-  get WARDROBE_ART() { return Object.freeze(Object.fromEntries(Object.entries(WARDROBE_ART).map(([k, v]) => [k, Object.freeze({ ...v })]))); }, wardrobeNames: () => Object.fromEntries(LOOK_SLOTS.map(sl => [sl, Object.fromEntries(SLOTS[sl].map(q => [q.id, { ...q.name }]))])),
+  WARDROBE_ART: Object.freeze(Object.fromEntries(Object.entries(WARDROBE_ART).map(([k, v]) => [k, Object.freeze({ ...v })]))), wardrobeNames: () => Object.fromEntries(LOOK_SLOTS.map(sl => [sl, Object.fromEntries(SLOTS[sl].map(q => [q.id, { ...q.name }]))])),
   botOutfit: i => botOutfit(i),
   REWARD, get winPanel() { return winPanel && { ...winPanel }; },   // SPEC-009: числа награды; рамка строк награды на экране победы
   seedRandom,     // SPEC-008: seedRandom(n) — игровая случайность rng() с зерна n; seedRandom() — снова случайно
