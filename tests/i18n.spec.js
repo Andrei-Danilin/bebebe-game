@@ -1,9 +1,9 @@
 // Every text exists in all three languages (English is the reference). A new string must be added to en, es and ru.
-const { test, expect } = require("@playwright/test");
+const { test, expect } = require("./pw");   // SPEC-023: @playwright/test + failure screenshots
 const { openGame, softly } = require("./helpers");
 
 test("es and ru have every key that en has, with the same type", { tag: "@fast" }, async ({ page }) => {
-  await openGame(page);
+  await openGame(page, { sim: true });   // SPEC-023: texts only, nothing drawn
   const missing = await page.evaluate(() => {
     const out = [], I = window.__bb.I18N;
     const walk = (ref, other, lang, p) => {
@@ -23,7 +23,7 @@ test("es and ru have every key that en has, with the same type", { tag: "@fast" 
 
 // SPEC-017: every story chapter has its text in all three languages
 test("every STORY text is in en, es and ru", async ({ page }) => {
-  await openGame(page);
+  await openGame(page, { sim: true });   // SPEC-023: texts only, nothing drawn
   const bad = await page.evaluate(() => window.__bb.STORY.flatMap(c => ["en", "es", "ru"].filter(l => !(typeof c.text[l] === "string" && c.text[l].trim().length > 10)).map(l => `${c.id}: ${l}`)));
   expect(bad).toEqual([]);
   expect(await page.evaluate(() => window.__bb.STORY.length)).toBe(8);
@@ -34,7 +34,7 @@ test("every STORY text is in en, es and ru", async ({ page }) => {
 
 // SPEC-019: the tiptoe rule line (7th "How to play" line, its own key too) and the first-time "heard you" hints
 test("the tiptoe rule and the heard hints are in en, es and ru", async ({ page }) => {
-  await openGame(page);
+  await openGame(page, { sim: true });   // SPEC-023: texts only, nothing drawn
   const r = await page.evaluate(() => ["en", "es", "ru"].map(l => {
     const I = window.__bb.I18N[l], rules = I.rules(18);
     return { l, n: rules.length, last: rules[rules.length - 1] === I.ruleTiptoe, icon: window.__bb.RULE_ICONS[6],

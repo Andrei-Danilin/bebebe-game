@@ -1,6 +1,6 @@
 // SPEC-017: the menus — the minimal home screen, the level map and the level card, the story (and "How to play"),
 // the shop with the Wardrobe tab, the end-screen flows; desktop and phone 667×375 (fonts ×1 and ×1.15).
-const base = require("@playwright/test");
+const base = require("./pw");   // SPEC-023: @playwright/test + failure screenshots
 const { expect } = base;
 const { openGame, frames, sharedPage, resetGame, ROOT } = require("./helpers");
 const fs = require("fs");

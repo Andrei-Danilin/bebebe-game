@@ -7218,6 +7218,18 @@ window.__bb = {
   mapPieces() { const r = []; if (mapGroup) mapGroup.traverse(q => { if (q.userData.piece && q.material && q.material.color) r.push({ piece: q.userData.piece, color: "#" + q.material.color.getHexString(), y: q.position.y }); }); return r; },
   groundColorAt(x, y) { const d = groundCanvas.getContext("2d").getImageData(Math.round(x * 2), Math.round(y * 2), 1, 1).data; return "#" + [d[0], d[1], d[2]].map(v => v.toString(16).padStart(2, "0")).join(""); }
 };
+// SPEC-023 AC 5: в sim ничего не рисуется — состояние, которое заполняют drawUI / 3D, устарело или пусто. Чтение бросает
+// ошибку, чтобы визуальный тест, открытый в sim, падал громко, а не проверял пустоту.
+const SIM_DRAWN = ["buttonRects", "buttonNames", "tapButton", "hudRects", "mapInfo", "levelCard", "storyInfo", "textSizes", "minimap",
+  "bannerRect", "rotateShown", "winPanel", "winLine", "bonusNote", "shopLayout", "kitHint", "heardHint", "edgeArrows", "stickMarks",
+  "tapLines", "installHintShown", "mapPieces", "groundColorAt", "camera", "minimapAlpha"];
+window.__bb.SIM_DRAWN = SIM_DRAWN;
+window.__bb = new Proxy(window.__bb, {
+  get(t, k, r) {
+    if (simMode && SIM_DRAWN.includes(k)) throw new Error(`sim mode: __bb.${String(k)} is drawn state and nothing is drawn — this test needs a rendered page (openGame without sim)`);
+    return Reflect.get(t, k, r);
+  }
+});
 </script>
 </body>
 </html>

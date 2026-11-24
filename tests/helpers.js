@@ -31,8 +31,14 @@ function clearOnce(l) {
 // throws (the game reads window.__bbStrictRng at start); in normal play the game falls back to visual randomness.
 function strictRng() { window.__bbStrictRng = true; }
 
-// `query` is appended to the URL (e.g. "?phone=1").
-async function openGame(page, { lang = "en", clearStorage = true, query = "" } = {}) {
+// `query` is appended to the URL (e.g. "?phone=1"). SPEC-023: `sim: true` opens the game in sim mode (adds sim=1 to the
+// query, so "?phone=1" + sim → "?phone=1&sim=1"): no 3D, no 2D drawing, no audio, the frame loop does not play — for tests
+// that check logic or numbers only; they advance the game with step() / __bb.update / __bb.simRun. Drawing helpers
+// (frames(), page.screenshot()) and the per-frame drawn state of __bb (buttonRects, hudRects, …) throw in sim mode.
+// SPEC-023: a run at below-normal priority on a busy machine can need longer than 30 s to load the game
+const READY_MS = process.env.PW_NICE === "0" ? 30_000 : 60_000;
+const withSim = (query, sim) => (sim ? query + (query.includes("?") ? "&" : "?") + "sim=1" : query);
+async function openGame(page, { lang = "en", clearStorage = true, query = "", sim = false } = {}) {
   const errors = [];
   page.on("pageerror", e => errors.push(String(e)));
   page.on("console", m => { if (m.type() === "error") errors.push("console: " + m.text()); });
@@ -45,13 +51,20 @@ async function openGame(page, { lang = "en", clearStorage = true, query = "" } =
   if (clearStorage) {
     await page.addInitScript(clearOnce, lang);
   }
-  await page.goto(GAME_URL + query);
-  await page.waitForFunction(() => window.__bbReady === true, null, { timeout: 30_000 });
+  if (sim) guardSim(page);
+  await page.goto(GAME_URL + withSim(query, sim));
+  await page.waitForFunction(() => window.__bbReady === true, null, { timeout: READY_MS });
   return errors;
 }
 
-// SPEC-008: the game in sim mode (?sim=1) — the balance tests and scripts/balance.js open it the same way
-const openSim = (page, opts = {}) => openGame(page, { ...opts, query: "?sim=1" });
+// SPEC-008: the game in sim mode — the balance tests and scripts/balance.js open it the same way (SPEC-023: = sim: true)
+const openSim = (page, opts = {}) => openGame(page, { ...opts, sim: true });
+
+// SPEC-023 AC 5: a page opened in sim mode draws nothing, so a screenshot of it tests nothing — it throws instead.
+// (frames() and the drawn state of __bb check the page itself; see frames() and SIM_DRAWN in index.html.)
+function guardSim(page) {
+  page.screenshot = async () => { throw new Error("sim mode: nothing is drawn — a test that takes a screenshot needs a rendered page (openGame without sim)"); };
+}
 
 const HTTP_BASE = `http://localhost:${Number(process.env.PORT) || 8123}/`;
 
@@ -77,13 +90,18 @@ async function openGameHttp(page, { lang = "en", query = "", clearStorage = true
     await page.addInitScript(clearOnce, lang);
   }
   await page.goto(HTTP_BASE + query);
-  await page.waitForFunction(() => window.__bbReady === true, null, { timeout: 30_000 });
+  await page.waitForFunction(() => window.__bbReady === true, null, { timeout: READY_MS });
   return errors;
 }
 
 // Waits for two animation frames, so the 2D layer has redrawn after a state change.
+// SPEC-023 AC 5: in sim mode the frame loop draws nothing (and plays no logic), so waiting for frames there means the
+// test checks drawing on a page that does not draw — it throws.
 async function frames(page) {
-  await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
+  await page.evaluate(() => {
+    if (window.__bb && window.__bb.sim().on) throw new Error("sim mode: frames() waits for drawing, but nothing is drawn — this test needs a rendered page (openGame without sim)");
+    return new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  });
 }
 
 async function step(page, seconds) {
@@ -135,8 +153,9 @@ function softly() {
 }
 
 // SPEC-018: one game page shared by the tests of a file (a fresh page costs ~2 s of load per test). At most ONE shared
-// page is open: a second open game page keeps rendering 3D in software and makes every other test 3–5× slower, so
+// rendered page is open: a second open game page keeps rendering 3D in software and makes every other test 3–5× slower, so
 // get() with another key closes the old page first, and a spec closes it before any fresh-page test and in afterAll.
+// SPEC-023: a page in sim mode draws nothing, so a spec keeps its sim pages in a second sharedPage() next to the rendered one.
 // get(browser, key, contextOptions, open) → { page, errors }; open(page) loads the game and returns its error list.
 function sharedPage() {
   let cur = null;

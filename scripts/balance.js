@@ -267,8 +267,11 @@ async function main() {
   const t0 = Date.now();
   const { chromium } = require("@playwright/test");
   const { openSim } = require("../tests/helpers.js");
+  // SPEC-023: below-normal priority (PW_NICE=0: off), inherited by the browser; sim mode draws nothing, so SwiftShader stays
+  const { lowerPriority, SWIFTSHADER_ARGS, niceArgs } = require("../tests/test-env.js");
+  lowerPriority();
   const browser = await chromium.launch({
-    args: ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"],
+    args: [...SWIFTSHADER_ARGS, ...niceArgs()],
     ...(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {})
   });
   try {

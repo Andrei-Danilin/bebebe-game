@@ -1,9 +1,13 @@
 // SPEC-008: seeded randomness, sim mode, the event log, autopilot and the balance CI sample.
-const base = require("@playwright/test");
+const base = require("./pw");   // SPEC-023: @playwright/test + failure screenshots
 const { expect } = base;
 const path = require("path");
 const fs = require("fs");
 const { openSim, frames, sharedPage, resetGame, ROOT } = require("./helpers");
+
+// two real animation frames without the sim guard of frames() (SPEC-023): the sim test below checks that frames pass
+// and nothing is drawn
+const rafs = page => page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
 
 // SPEC-018: one game page for the file, opened in sim mode (?sim=1: nothing drawn, the frame loop does not play);
 // resetGame() before each test, page errors and a changed CFG fail the test. A test that turns sim off turns it back on.
@@ -74,7 +78,7 @@ test("sim mode draws nothing, plays no sound, the frame loop does not play; simR
   await page.evaluate(() => { const b = window.__bb; b.world = "park"; b.level = 1; b.startGame(1); });
   // sim on (from ?sim=1): frames pass, nothing is drawn, the game does not move, a hug makes no sound
   const s0 = await look();
-  await frames(page); await frames(page);
+  await rafs(page); await rafs(page);
   await hugNow();
   const s1 = await look();
   expect(s0.on).toBe(true);
@@ -112,6 +116,30 @@ test("sim mode draws nothing, plays no sound, the frame loop does not play; simR
   expect(r.win.win).toBe(true);
   expect(r.win.time).toBeLessThan(2 + 5);                // the hug, the hug animation, then the win
   expect([r.mode, r.reward]).toEqual(["win", true]);
+});
+
+// SPEC-023 AC 5: a visual check on a sim page fails loudly — frames(), page.screenshot() and every piece of drawn
+// state in __bb throw a "sim mode" error; with sim off the same reads work again.
+test("drawing helpers and drawn state throw in sim mode", { tag: "@fast" }, async ({ page }) => {
+  await page.evaluate(() => { const b = window.__bb; b.world = "park"; b.level = 1; b.startGame(1); });
+  await expect(frames(page)).rejects.toThrow(/sim mode/);
+  await expect(page.screenshot()).rejects.toThrow(/sim mode/);
+  const reads = () => page.evaluate(() => {
+    const b = window.__bb, out = {};
+    for (const k of b.SIM_DRAWN) {
+      if (!(k in b)) { out[k] = "missing from __bb"; continue; }
+      try { const v = b[k]; if (typeof v === "function") v.call(b, 0, 0); out[k] = "ok"; } catch (e) { out[k] = String(e.message || e); }
+    }
+    return out;
+  });
+  const inSim = await reads();
+  expect(Object.keys(inSim).length).toBeGreaterThanOrEqual(20);
+  expect(Object.entries(inSim).filter(([, v]) => !/^sim mode: __bb\.\w+ is drawn state/.test(v)).map(([k]) => k), "every drawn-state read throws in sim").toEqual([]);
+  await page.evaluate(() => { window.__bb.sim(false); });
+  await rafs(page);
+  const drawn = await reads();
+  await page.evaluate(() => { window.__bb.sim(true); });
+  expect(Object.entries(drawn).filter(([, v]) => /sim mode/.test(v)).map(([k]) => k), "with sim off nothing throws the sim error").toEqual([]);
 });
 
 // ---------- AC 4: the event log ----------

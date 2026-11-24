@@ -2,7 +2,7 @@
 // standalone mode, install hint). Most tests run over http (scripts/serve.js, the webServer).
 // Notes: jsDelivr is routed at context level (routeThree) so the service worker's requests are
 // intercepted too; that needs PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS=1 (set in playwright.config.js).
-const { test, expect } = require("@playwright/test");
+const { test, expect } = require("./pw");   // SPEC-023: @playwright/test + failure screenshots
 const fs = require("fs");
 const path = require("path");
 const { openGame, openGameHttp, routeThree, frames, step, HTTP_BASE, ROOT } = require("./helpers");
