@@ -21,6 +21,8 @@ const fixture = (pages, sim) => async ({ browser, hasTouch }, use) => {
 };
 const test = base.test.extend({ page: fixture(shared, false), simPage: fixture(sharedSim, true) });
 test.afterAll(async () => { await shared.close(); await sharedSim.close(); });
+// SPEC-022: after the last hug (HUG_ANIM 1 s, kids' rule) the dad becomes kind and walks home (≤ KIND_WALK 3 s), then the win screen
+const WIN_WAIT = 4.5;
 
 test("a hug from behind takes one heart and shocks the Big One", { tag: "@fast" }, async ({ simPage: page }) => {
   const hp0 = await page.evaluate(() => window.__bb.big.hp);
@@ -164,7 +166,7 @@ test("an unrescued Little One rests 30 seconds", { tag: "@fast" }, async ({ simP
 test("winning gives stars and coins, unlocks the next level and survives a reload", { tag: "@fast" }, async ({ simPage: page }) => {
   await page.evaluate(() => { window.__bb.big.hp = 1; });
   await setupHug(page);
-  await step(page, 1.5);
+  await step(page, WIN_WAIT);
   expect(await page.evaluate(() => window.__bb.mode)).toBe("win");
   const r = await page.evaluate(() => window.__bb.lastReward);
   expect(r.stars).toBe(3);
@@ -183,8 +185,55 @@ test("winning gives stars and coins, unlocks the next level and survives a reloa
 async function winLevel(page) {
   await page.evaluate(() => { window.__bb.big.hp = 1; });
   await setupHug(page);
-  await step(page, 1.5);
+  await step(page, WIN_WAIT);
 }
+
+// ---------- SPEC-022 AC 4: Dad becomes kind and walks home, then the win screen ----------
+// __bb.big.kind — he became kind (the walk home); __bb.bigMood() — "angry" (≥ 2/3 of his anger), "mid" (≥ 1/3), "kind"
+test("the dad becomes kind and walks home before the win screen", { tag: "@fast" }, async ({ simPage: page }) => {
+  await page.evaluate(() => { const b = window.__bb; b.big.hp = 1; for (const l of b.littles.slice(1)) Object.assign(l, { x: 120, y: 120, state: "ok" }); });
+  await setupHug(page);
+  await step(page, 0.5);
+  // the last hug plays to the end first (kids' rule): still playing, the Little One on his back, not kind yet
+  let s = await page.evaluate(() => { const b = window.__bb; return { mode: b.mode, hp: b.big.hp, anim: b.littles[0].hugAnim > 0, kind: !!b.big.kind, mood: b.bigMood() }; });
+  expect(s).toEqual({ mode: "play", hp: 0, anim: true, kind: false, mood: "kind" });
+  await step(page, 0.6);
+  // then he is kind: blushes, hearts burst, he walks to his house door; the friends cheer; the clock stops
+  const d0 = await page.evaluate(() => {
+    const b = window.__bb, ex = b.dangerZone.exits, big = b.big, near = Math.min(...ex.map(e => Math.hypot(e.x - big.x, e.y - big.y)));
+    return { mode: b.mode, kind: big.kind, blush: big.blush > 0, near, time: b.stats.time, cheer: b.texts.filter(t => t.text === b.I18N.en.cheer).length, wins: b.events.filter(e => e.type === "win").length };
+  });
+  expect([d0.mode, d0.kind, d0.blush, d0.wins]).toEqual(["play", true, true, 0]);
+  expect(d0.cheer, "the friends cheer").toBeGreaterThanOrEqual(2);
+  await step(page, 0.5);
+  const d1 = await page.evaluate(() => { const b = window.__bb, big = b.big; return { mode: b.mode, near: Math.min(...b.dangerZone.exits.map(e => Math.hypot(e.x - big.x, e.y - big.y))), time: b.stats.time, moving: big.moving }; });
+  if (d1.mode === "play") expect(d1.near, "he walks towards his house door").toBeLessThan(d0.near);
+  expect(d1.time, "the clock is stopped during the walk (the fast star stays as it was)").toBeCloseTo(d0.time, 5);
+  // at most KIND_WALK seconds later: the win screen (rewards as before: a real win)
+  const walk = await page.evaluate(() => { const b = window.__bb; let t = 0.5; while (b.mode === "play" && t < 10) { b.update(1 / 60); t += 1 / 60; } return { t, max: b.CFG.KIND_WALK, mode: b.mode, wins: b.events.filter(e => e.type === "win").length, reward: b.lastReward && b.lastReward.win }; });
+  expect(walk.mode).toBe("win");
+  expect(walk.t).toBeLessThanOrEqual(walk.max + 0.05);
+  expect([walk.wins, walk.reward]).toEqual([1, true]);
+});
+
+test("leaving through pause during the walk home still pays the win", async ({ simPage: page }) => {
+  await page.evaluate(() => { window.__bb.big.hp = 1; });
+  await setupHug(page);
+  await step(page, 1.2);
+  expect(await page.evaluate(() => [window.__bb.mode, window.__bb.big.kind])).toEqual(["play", true]);
+  await page.evaluate(() => { const b = window.__bb; b.mode = "pause"; b.toMap(); });
+  const r = await page.evaluate(() => ({ mode: window.__bb.mode, wins: window.__bb.events.filter(e => e.type === "win").length, won: window.__bb.progress.worlds.park.won[1],
+    paid: window.__bb.ledger().some(e => e.reason === "firstWin") }));
+  expect(r).toEqual({ mode: "map", wins: 1, won: true, paid: true });
+});
+
+test("Dad's mood follows his anger: angry, mid, kind", async ({ simPage: page }) => {
+  const r = await page.evaluate(() => {
+    const b = window.__bb, m = hp => { b.big.maxHp = 9; b.big.hp = hp; return b.bigMood(); };
+    return [m(9), m(6), m(5.5), m(3), m(2.5), m(0)];
+  });
+  expect(r).toEqual(["angry", "angry", "mid", "mid", "kind", "kind"]);
+});
 
 test("worlds unlock their own levels", async ({ page }) => {
   // a real first load with no save (the shared page would only show resetProgress())
@@ -259,7 +308,7 @@ test("winning level 20 finishes the world", async ({ page }) => {
   await page.keyboard.press("Enter");
   expect(await page.evaluate(() => [window.__bb.mode, window.__bb.world, window.__bb.level])).toEqual(["play", "school", 4]);
   // level 20: the world is done, the win screen offers the map instead of a next level (SPEC-017)
-  await page.evaluate(() => { const b = window.__bb; b.progress.worlds.school.unlocked = 20; b.level = 20; b.startGame(1); });
+  await page.evaluate(() => { const b = window.__bb; b.progress.worlds.school.unlocked = 20; b.progress.seen.ending = true; b.level = 20; b.startGame(1); });   // SPEC-022: the ending was seen
   await winLevel(page);
   await frames(page);
   const end = await page.evaluate(() => ({ mode: window.__bb.mode, buttons: window.__bb.buttonNames, line: window.__bb.winLine, reward: window.__bb.lastReward, unlocked: window.__bb.progress.worlds.school.unlocked }));
@@ -290,7 +339,7 @@ test("winning level 20 finishes the world", async ({ page }) => {
 test("each rest takes coins from the level reward", async ({ simPage: page }) => {
   await page.evaluate(() => { window.__bb.stats.rests = 2; window.__bb.big.hp = 1; });
   await setupHug(page);
-  await step(page, 1.5);
+  await step(page, WIN_WAIT);
   const r = await page.evaluate(() => window.__bb.lastReward);
   expect(r.parts.find(p => p.reason === "rests")).toEqual({ reason: "rests", amount: -6 });   // COINS_PER_REST 3 × 2
   expect(r.stars).toBe(2);                 // no "nobody had to rest" star
@@ -566,7 +615,7 @@ test("star coins are added to the reward", async ({ page }) => {
   expect(await take()).toBe(6);
   await page.evaluate(() => { window.__bb.stats.rests = 10; window.__bb.big.hp = 1; });
   await setupHug(page);
-  await step(page, 1.5);
+  await step(page, WIN_WAIT);
   const r = await page.evaluate(() => ({ ...window.__bb.lastReward, R: { ...window.__bb.REWARD } }));
   const part = k => (r.parts.find(p => p.reason === k) || { amount: 0 }).amount;
   expect(r.starCoins).toBe(3);
@@ -1122,7 +1171,7 @@ test("the last half heart by a kiss wins the level", async ({ simPage: page }) =
     const hp = b.big.hp, n = b.progress.inv.kisses;
     b.littles[0].kissCd = 0;
     const again = b.throwKiss(0), n2 = b.progress.inv.kisses;   // the level is already won: nothing is spent
-    t.step(1.5);
+    t.step(4.5);                                                 // SPEC-022: + the walk home
     return { hp, mode: b.mode, reward: b.lastReward, again, spent: n - n2 };
   });
   expect(r.again).toBe(false);

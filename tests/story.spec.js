@@ -266,6 +266,28 @@ async function meterCheck(page) {
 test("the anger meter shows Dad's anger (desktop)", { tag: "@fast" }, async ({ desk: page }) => meterCheck(page));
 test("the anger meter shows Dad's anger (phone 667×375)", async ({ phonePage: page }) => meterCheck(page));
 
+// ---------- AC 4: the win screen says "Dad is kind again!" (bosses: the boss's name) ----------
+async function winTitles(page) {
+  const soft = softly(), want = {
+    en: { dad: "Dad is kind again!", max: "Max is kind again!", park: "The park boss is kind again!", school: "The grumpiest dad is kind again!" },
+    es: { dad: "¡Papá volvió a ser bueno!", max: "¡Max volvió a ser bueno!", park: "¡El jefe del parque volvió a ser bueno!", school: "¡El papá más enojado volvió a ser bueno!" },
+    ru: { dad: "Папа снова добрый!", max: "Max снова добрый!", park: "Босс парка снова добрый!", school: "Самый злой папа снова добрый!" } };
+  for (const lang of LANGS) for (const [key, world, n, typed] of [["dad", "park", 3, ""], ["max", "city", 5, "Max"], ["park", "park", 20, ""], ["school", "school", 20, "Max"], ["dad", "winter", 20, ""]]) {
+    await page.evaluate(([l, w, lv, t]) => {
+      const b = window.__bb; b.setLang(l); b.setName("big", t); b.progress.seen.ending = true; b.world = w; b.progress.worlds[w].unlocked = 20; b.level = lv; b.startGame(1);
+      b.big.hp = 0; b.giveReward(true); b.mode = "win";
+    }, [lang, world, n, typed]);
+    await frames(page);
+    const t = await page.evaluate(() => window.__bb.hudRects.find(h => h.id === "win:title"));
+    soft(t && t.text, `${lang} ${world} ${n}${typed ? " typed" : ""}`).toBe(want[lang][key]);
+    soft(t && t.x >= 0 && t.x + t.w <= (await page.evaluate(() => window.__bb.uiSize.w)), `${lang} ${world} ${n}: the title inside the screen`).toBe(true);
+  }
+  await page.evaluate(() => window.__bb.setName("big", ""));
+  soft.done();
+}
+test("the win title: Dad is kind again (desktop)", async ({ desk: page }) => winTitles(page));
+test("the win title: Dad is kind again (phone 667×375)", async ({ phonePage: page }) => winTitles(page));
+
 // ---------- AC 12: the scenes on a phone (667×375): big buttons, everything inside, nothing on anything ----------
 test("the scenes fit a 667×375 phone", async ({ phonePage: page }) => {
   const soft = softly();

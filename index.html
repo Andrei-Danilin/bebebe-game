@@ -103,6 +103,11 @@ const CFG = {
   BUSH_HIDES: true,          // в кустах Большой не видит (если не вплотную)
   BOT_ATTACK_PAUSE: [20, 30], // сек — как часто боты сами идут обнимать (главное для них — спасать)
   HUG_ANIM: 1.0,             // сек — маленький висит на спине у Большого (анимация обнимашки)
+  // SPEC-022 (придумал Claude): злость кончилась — папа добреет и идёт к двери своего дома, потом экран победы
+  KIND_WALK: 3,              // сек — дольше не идёт (дошёл раньше — победа сразу); часы уровня в это время стоят
+  KIND_SPEED: 110,           // px/с — шаг подобревшего папы
+  MOOD_ANGRY: 2 / 3,         // доля злости (hp / maxHp): не меньше — злой (красное лицо, пар); не меньше MOOD_MID — средний; меньше — добреет
+  MOOD_MID: 1 / 3,
   ITEM_EVERY: [7, 11],       // сек — как часто появляются предметы
   ITEM_MAX: 3,               // сколько предметов может лежать одновременно
   ITEM_LIFE: 20,             // сек — сколько предмет лежит, потом исчезает
@@ -502,7 +507,10 @@ const I18N = {
     controls1: "Keyboard: Player 1 — W A S D, Player 2 — arrows  •  P — pause  •  M — sound  •  L — language",
     controls2: "Tablet/phone: drag your finger  •  Gamepad: stick, A — choose, B — back, LB/RB — worlds",
     pause: "Paused", play: "Play", resume: "Continue", story: "Story", map: "Map", home: "Home",   // SPEC-017: экраны меню
-    win: "YOU WIN!", winSub: "The Big One is all hugged out!", next: n => `Level ${n} ▶`,
+    win: "YOU WIN!", winSub: "You hugged him lots of times, and he went home!", next: n => `Level ${n} ▶`,
+    // SPEC-022: заголовок победы — папа (босс, набранное имя) снова добрый; «Ура!» друзей, пока он идёт домой; имена боссов
+    kindAgain: n => `${n} is kind again!`, cheer: "Yay!",
+    bossNames: { park: "The park boss", field: "The coach", city: "The builder", school: "The grumpiest dad" },
     lose: "The Big One won...", loseSub: (h, m) => `Hearts taken: ${h} of ${m}. Try again?`, again: "Try again",
     big: "Big One", hug: "Hug! -1", bang: "BAM!", saved: "Saved!", out: "Going home to rest", back: "Back in the game!", resting: (n, t) => `${n}: resting… back in ${t}`, help: n => `${n}: HELP!`,
     touch1: "Drag your finger on the screen to run", touch2: "Player 1: finger on the left  •  Player 2: on the right",
@@ -563,7 +571,9 @@ const I18N = {
     controls1: "Teclado: Jugador 1 — W A S D, Jugador 2 — flechas  •  P — pausa  •  M — sonido  •  L — idioma",
     controls2: "Tablet/celu: deslizá el dedo  •  Joystick: palanca, A — elegir, B — volver, LB/RB — mundos",
     pause: "Pausa", play: "Jugar", resume: "Seguir", story: "Historia", map: "Mapa", home: "Inicio",
-    win: "¡GANARON!", winSub: "¡Abrazaron al Grandote hasta el final!", next: n => `Nivel ${n} ▶`,
+    win: "¡GANARON!", winSub: "¡Lo abrazaron muchas veces y se fue a su casa!", next: n => `Nivel ${n} ▶`,
+    kindAgain: n => `¡${n} volvió a ser bueno!`, cheer: "¡Bien!",
+    bossNames: { park: "El jefe del parque", field: "El entrenador", city: "El albañil", school: "El papá más enojado" },
     lose: "Ganó el Grandote...", loseSub: (h, m) => `Corazones: ${h} de ${m}. ¿Otra vez?`, again: "Otra vez",
     big: "Grandote", hug: "¡Abrazo! -1", bang: "¡PUM!", saved: "¡Salvado!", out: "Me voy a descansar", back: "¡De vuelta!", resting: (n, t) => `${n}: descansando… volvés en ${t}`, help: n => `${n}: ¡AYUDA!`,
     touch1: "Deslizá el dedo por la pantalla para correr", touch2: "Jugador 1: dedo a la izquierda  •  Jugador 2: a la derecha",
@@ -619,7 +629,9 @@ const I18N = {
     controls1: "Клавиатура: Игрок 1 — W A S D, Игрок 2 — стрелки  •  P — пауза  •  M — звук  •  L — язык",
     controls2: "Планшет/телефон: водите пальцем  •  Геймпад: стик, A — выбрать, B — назад, LB/RB — миры",
     pause: "Пауза", play: "Играть", resume: "Продолжить", story: "История", map: "Карта", home: "Главная",
-    win: "ПОБЕДА!", winSub: "Большого обняли со всех сторон!", next: n => `Уровень ${n} ▶`,
+    win: "ПОБЕДА!", winSub: "Его обняли много раз, и он ушёл домой!", next: n => `Уровень ${n} ▶`,
+    kindAgain: n => `${n} снова добрый!`, cheer: "Ура!",
+    bossNames: { park: "Босс парка", field: "Тренер", city: "Строитель", school: "Самый злой папа" },
     lose: "Большой победил...", loseSub: (h, m) => `Сердечек забрали: ${h} из ${m}. Ещё разок?`, again: "Ещё раз",
     big: "Большой", hug: "Обнимашки! -1", bang: "БАХ!", saved: "Спасён!", out: "Иду отдыхать", back: "Снова в игре!", resting: (n, t) => `${n}: отдых… вернёшься через ${t}`, help: n => `${n}: ПОМОГИТЕ!`,
     touch1: "Води пальцем по экрану, чтобы бежать", touch2: "Игрок 1 — палец слева, Игрок 2 — палец справа",
@@ -2293,6 +2305,7 @@ function resetWorld(n) {
     state: "look", timer: 4, lookSign: 1, lastSeen: null, goal: null, patrolT: 0,
     path: [], repath: 0, moveDir: 0, walk: 0, moving: false, stun: 0, stunFace: 0, stunTurn: 0, pushCd: 0, noPush: 0, hugCd: 0, flash: 0, slip: 0,
     blush: 0, blushBy: 0,   // покраснел после поцелуя: сколько ещё сек и кто бросил (индекс игрока)
+    kind: false,            // SPEC-022: злость кончилась — подобрел и идёт домой (pendingWin — сколько ещё идёт)
     // SPEC-019: шум топота, сек до того, как снова слышит; поворот на топот (куда, сколько ещё, скорость) и сколько ещё смотрит туда
     noise: 0, hearCd: 0, hearFace: 0, hearTurnT: 0, hearRate: 0, hearLook: 0,
     skin: BIG_SKINS[skinSel.big]
@@ -2847,6 +2860,35 @@ function hug(l, a) {
   if (big.hp <= 0) winSoon();   // победа — после последней обнимашки
 }
 function winSoon() { pendingWin = CFG.HUG_ANIM; big.stun = 99; }
+// SPEC-022: настроение папы по доле злости (для вида: лицо, пар, сердечки — SPEC-022 часть B рисует по нему)
+function bigMood() {
+  const f = big && big.maxHp > 0 ? big.hp / big.maxHp : 0;
+  return f >= CFG.MOOD_ANGRY ? "angry" : f >= CFG.MOOD_MID ? "mid" : "kind";
+}
+// SPEC-022: последняя обнимашка доиграла (правило детей) — папа добреет: краснеет, сердечки, друзья кричат «Ура!», идёт к двери
+// своего дома (не дольше KIND_WALK; часы уровня стоят — звезда «быстро» как раньше). Дошёл или время вышло — экран победы
+function startKindWalk() {
+  Object.assign(big, { kind: true, stun: 0, slip: 0, pushCd: 0, blush: CFG.KIND_WALK, hugCd: 99, path: [], state: "look", timer: 99 });
+  big.home = nearestExit(big);
+  pendingWin = CFG.KIND_WALK;
+  burst(big.x, big.y - 30, "heart", "#ff4d8d", 30);
+  for (const l of littles) if (l.state === "ok") popText(l.x, l.y - 40, L().cheer, "#facc15");
+  SFX.mwah();
+}
+function updateKindWalk(dt) {
+  for (const l of littles) { l.moving = false; l.speedFrac = 0; if (l.state === "ok" && l.hugAnim <= 0) l.dir = turnToward(l.dir, Math.atan2(big.y - l.y, big.x - l.x), 6 * dt); }
+  const g = big.home;
+  big.moving = !!g && dist(big, g) > 12 && steerTo(big, g.x, g.y, CFG.KIND_SPEED, dt, false);
+  if (big.moving) big.dir = turnToward(big.dir, big.moveDir, 6 * dt);
+  if (!big.moving) winNow();                               // у двери (или пути нет) — сразу победа
+}
+function winNow() {
+  pendingWin = 0;
+  if (mode !== "play") return;
+  mode = "win"; logEvent("win", {}); giveReward(true); SFX.win(); burst(big.x, big.y - 30, "heart", "#ff4d8d", 40);
+}
+// SPEC-022: заголовок экрана победы: «<имя> снова добрый!» — босс уровня по имени босса, иначе набранное имя или «Папа»
+const winTitle = () => L().kindAgain(bossFor(curWorld, level) ? L().bossNames[curWorld] : nameFor("big"));
 // ---------- Воздушные поцелуи: летят прямо, полсердечка, Большой краснеет ----------
 function throwKiss(pi) {
   const l = littles[pi];
@@ -2862,7 +2904,7 @@ function throwKiss(pi) {
 }
 function kissHit(k) {
   burst(big.x, big.y - 30, "heart", "#ff4d8d", 10);
-  const blush = !(big.stun > 0 || big.hugCd > 0 || big.blush > 0);
+  const blush = !(pendingWin > 0 || big.stun > 0 || big.hugCd > 0 || big.blush > 0);   // SPEC-022: победа уже идёт — только сердечки
   logEvent("kiss", { who: k.owner, result: "hit", blush });
   if (!blush) return;   // в шоке (и 0.3 с после него) или уже красный — только сердечки
   big.hp = Math.max(0, big.hp - CFG.KISS_DAMAGE);
@@ -3363,6 +3405,7 @@ function separate() {
   }
 }
 function checkContacts() {
+  if (pendingWin > 0) return;                              // SPEC-022: злость кончилась — ни обнимашек, ни толчков (он добреет)
   for (const l of littles) {
     if (mode !== "play") return;
     if (!canAct(l)) continue;   // голова кружится: не обнимает, толкнуть нельзя
@@ -3484,7 +3527,7 @@ function updateFx(dt) {
   shake = Math.max(0, shake - dt);
 }
 function update(dt) {
-  stats.time += dt;
+  if (!big.kind) stats.time += dt;                         // SPEC-022: пока подобревший папа идёт домой, часы уровня стоят
   if (banner && (banner.t += dt) >= CFG.BANNER_TIME) banner = null;
   for (const l of littles) {
     l.invuln = Math.max(0, l.invuln - dt);
@@ -3498,10 +3541,8 @@ function update(dt) {
   }
   kitHintT = Math.max(0, kitHintT - dt);
   heardHintT = Math.max(0, heardHintT - dt);
-  autoThink(dt);
-  updatePlayers(dt);
-  updateBots(dt);
-  updateBig(dt);
+  if (big.kind) updateKindWalk(dt);                        // SPEC-022: идёт домой; маленькие стоят и радуются
+  else { autoThink(dt); updatePlayers(dt); updateBots(dt); updateBig(dt); }
   updateHugAnim(dt);
   updateKisses(dt);
   separate();
@@ -3512,7 +3553,8 @@ function update(dt) {
   updateItems(dt);
   updateStars(dt);
   updateFx(dt);
-  if (pendingWin > 0) { pendingWin -= dt; if (pendingWin <= 0 && mode === "play") { mode = "win"; logEvent("win", {}); giveReward(true); SFX.win(); burst(big.x, big.y - 30, "heart", "#ff4d8d", 40); } }
+  // победа в два шага (SPEC-022): последняя обнимашка доигрывает (HUG_ANIM) → папа добреет и идёт домой (KIND_WALK) → экран победы
+  if (pendingWin > 0) { pendingWin -= dt; if (pendingWin <= 0 && mode === "play") { if (big.kind) winNow(); else startKindWalk(); } }
   const players = littles.filter(p => p.kind === "player");
   // проигрыша больше нет: кого не спасли — отдыхает в домике и возвращается (за это меньше монеток)
 }
@@ -5560,8 +5602,12 @@ function drawOverlayPhone() {
     let acts;
     if (mode === "win") {
       // слева: заголовок, строка под ним, звёзды и за что они; справа — строки награды и итог (SPEC-009)
-      pLabel(L().win, lx, Y0 + c(30), "title", 40, "#ffcf33", "center", colW);
-      pWrap(winText(), lx, Y0 + c(58), "main", 16, colW, 2, endInk("text", "#fff"), 900);
+      // SPEC-022: «Папа снова добрый!» — до двух строк, строка под ним — сразу под заголовком
+      const tb = pRows(winTitle(), "title", 32, colW, 2, 900), ty0 = Y0 + c(4);
+      tb.rows.forEach((r, i) => label(r, lx, ty0 + tb.lh * (i + 0.5), tb.sz, "#ffcf33"));
+      noteText("title", tb.sz);
+      hudRects.push({ id: "win:title", x: lx - tb.w / 2, y: ty0, w: tb.w, h: tb.h, text: tb.rows.join(" ") });
+      pWrap(winText(), lx, ty0 + tb.h + c(2), "main", 16, colW, 2, endInk("text", "#fff"), 900);
       for (let k = 0; k < CFG.STARS_PER_LEVEL; k++) drawStarArt(lx - c(56) + k * c(56), Y0 + c(138), c(21), k < rw.stars);
       [[true, L().victory], [rw.nobodyOut, L().nobodyOut], [rw.fast, L().fast(fmtTime(rw.target))]].forEach(([okk, txt], i) => {
         pLabel((okk ? "✔ " : "✘ ") + txt, lx, Y0 + c(178) + i * c(26), "main", 15, okk ? endInk("good", "#bbf7d0") : endInk("off", "#cbd5e1"), "center", colW);
@@ -5654,7 +5700,8 @@ function drawOverlay() {
     pauseActions().forEach(([txt, col, act], i) => fitButton(UW / 2 - 320 + i * 220, UH / 2, 200, 66, txt, col, act, 24, 14));
   } else if (mode === "win") {
     endPaper(CFG.PAPER.winBox);
-    label(L().win, UW / 2, 92, 72, "#ffcf33");
+    labelFit(winTitle(), UW / 2, 92, 60, CFG.PAPER.winBox[0] - 60, "#ffcf33", "center", 30);   // SPEC-022: «Папа снова добрый!»
+    hudRects.push({ id: "win:title", x: UW / 2 - lastFit.w / 2, y: 92 - lastFit.sz * 0.6, w: lastFit.w, h: lastFit.sz * 1.2, text: lastFit.text });
     label(winText(), UW / 2, 146, 22, endInk("text", "#fff"));
     const rw = lastReward || { stars: 1, coins: 0, nobodyOut: false, fast: false, target: 0, parts: [] };
     // слева — звёзды и за что они, справа — строки награды и итог (SPEC-009)
@@ -7359,7 +7406,7 @@ window.__bb = {
   get levelCard() { return cardInfo && { ...cardInfo }; }, openMap,
   RULE_ICONS, STORY, openStory, get storyInfo() { return storyInfo && { ...storyInfo }; },
   // SPEC-022: заставки (scene — логика: { id, page, pages } или null; sceneInfo — нарисованное в этом кадре), боссы уровней
-  SCENE_IDS, openScene, sceneNext, sceneSkip, get scene() { return storyScene && { id: storyScene.id, page: storyScene.page, pages: scenePageCount() }; },
+  SCENE_IDS, openScene, sceneNext, sceneSkip, bigMood, winTitle, get scene() { return storyScene && { id: storyScene.id, page: storyScene.page, pages: scenePageCount() }; },
   get sceneInfo() { return sceneInfo && { ...sceneInfo }; }, bossFor,   // SPEC-017: главы истории (живой список), экран истории этого кадра
   tapButton(id) { const q = buttons.find(r => (r.id || r.act.name) === id); if (q) q.act(); return !!q; },
   update, inSafe, I18N, startGame, resetWorld, cycleOutfit, randomOutfit, cycleBig, setLang, toScreen,
