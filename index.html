@@ -7123,14 +7123,23 @@ function dressHouses(place) {
       const lidP = part(new THREE.BoxGeometry(0.42, 0.04, 0.42), B.pizza, 0.012); lidP.position.set(0, 0.2, -0.22); lidP.rotation.x = -1.2; open.add(lidP);
       }
     }
-    if (d1) {
-      const a = at(d1, d1.len / 2 + 0.2, 0.7), b = at(d1, d1.len / 2 + 1.8, 0.7);
-      if (free(a) && free(b)) {
+    // SPEC-022 (из проверки SPEC-021): верёвка с бельём — первое свободное место: у второй двери справа, слева, у первой двери,
+    // короче; раньше при занятой клетке столба бельё пропадало (~половина уровней)
+    const lineSpot = (() => {
+      for (const d of [d1, d0]) if (d) for (const sd of [1, -1]) for (const [o0, o1, out] of [[0.2, 1.8, 0.7], [0.2, 1.3, 0.7], [0.2, 1.8, 1.1], [0.2, 1.3, 1.1]]) {
+        const a = at(d, sd * (d.len / 2 + o0), out), b = at(d, sd * (d.len / 2 + o1), out), mid = { x: (a.x + b.x) / 2, z: (a.z + b.z) / 2 };
+        if (free(a) && free(b) && free(mid)) return { a, b, d };
+      }
+      return null;
+    })();
+    if (lineSpot) {
+      const { a, b } = lineSpot, ld = lineSpot.d;
+      {
       const lg = new THREE.Group(); mapGroup.add(lg); props.push(lg);
       for (const p of [a, b]) { const post = part(new THREE.CylinderGeometry(0.03, 0.03, 0.8, 5), B.line, 0.01); post.position.set(p.x, 0.4, p.z); lg.add(post); }
       const lineLen = Math.hypot(b.x - a.x, b.z - a.z), line = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, lineLen, 4), toon(B.line));
       line.position.set((a.x + b.x) / 2, 0.76, (a.z + b.z) / 2); line.rotation.order = "YXZ"; line.rotation.set(Math.PI / 2, Math.atan2(b.x - a.x, b.z - a.z), 0); lg.add(line);
-      const on = t => ({ x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t }), ry = Math.atan2(d1.nx, d1.nz);
+      const on = t => ({ x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t }), ry = Math.atan2(ld.nx, ld.nz);
       const s = on(0.3), sock = new THREE.Group(); sock.position.set(s.x, 0.62, s.z); sock.rotation.y = ry; lg.add(sock);
       sock.add(part(new THREE.BoxGeometry(0.09, 0.24, 0.03), B.sock, 0.01));
       const toe = part(new THREE.BoxGeometry(0.16, 0.08, 0.03), B.sockToe, 0.01); toe.position.set(0.04, -0.12, 0); sock.add(toe); items.laundry.push("sock");
@@ -7138,6 +7147,8 @@ function dressHouses(place) {
       shirt.add(part(new THREE.BoxGeometry(0.28, 0.3, 0.03), B.shirt, 0.01));
       const arms = part(new THREE.BoxGeometry(0.46, 0.1, 0.03), B.shirt, 0.01); arms.position.y = 0.12; shirt.add(arms); items.laundry.push("shirt");
       }
+    }
+    if (d1) {
       const tp = at(d1, -(d1.len / 2 + 0.9), 0.9);
       if (free(tp)) {
       const car = new THREE.Group(); car.position.set(tp.x, 0, tp.z); car.rotation.y = 0.7; mapGroup.add(car); props.push(car);
@@ -7482,7 +7493,7 @@ function buildLittleModel(look, isPlayer, pid = 0, glove = null) {
   }
   const head = new THREE.Group(); head.position.y = CFG.KID_LOOK.headY; head.scale.setScalar(CFG.KID_LOOK.head); rig.add(head);   // SPEC-021: голова больше
   head.add(part(sphere(KID_HEAD_R, 18, 14), look.skin, 0.03));
-  const face = addFace(head, 0.27);
+  const face = addFace(head, KID_HEAD_R);
   addHair(head, look);
   let ring = null;
   if (isPlayer) {
@@ -7493,7 +7504,8 @@ function buildLittleModel(look, isPlayer, pid = 0, glove = null) {
   const bm = new THREE.MeshToonMaterial({ color: "#7dd3fc", gradientMap: gradTex, transparent: true, opacity: 0.3, depthWrite: false }); bm.userData.own = true;
   const bubR = (CFG.KID_LOOK.headY + KID_HEAD_R * CFG.KID_LOOK.head + CFG.KID_LOOK.bubblePad) / 2;   // SPEC-021: пузырь-щит от земли до макушки
   const bubble = new THREE.Mesh(sphere(bubR, 18, 14), bm); bubble.position.y = bubR; bubble.visible = false; rig.add(bubble);
-  const dizzyStars = new THREE.Group(); dizzyStars.position.y = 1.58; dizzyStars.visible = false; rig.add(dizzyStars);
+  // звёздочки «голова кружится»: над головой, на полпути к точке имени (из KID_LOOK, как nameTagH)
+  const dizzyStars = new THREE.Group(); dizzyStars.position.y = CFG.KID_LOOK.headY + (KID_HEAD_R + CFG.KID_LOOK.tagTop / 2) * CFG.KID_LOOK.head; dizzyStars.visible = false; rig.add(dizzyStars);
   for (let i = 0; i < 3; i++) { const s = part(new THREE.OctahedronGeometry(0.075), "#fde047", 0.015); s.position.set(Math.cos(i * TAU / 3) * 0.3, 0, Math.sin(i * TAU / 3) * 0.3); dizzyStars.add(s); }
   root.traverse(o => { if (o.isMesh && o !== ring && o !== bubble) o.castShadow = true; });
   const ghost = new THREE.Group();
@@ -8283,7 +8295,7 @@ window.__bb = {
   RULE_ICONS, STORY, openStory, get storyInfo() { return storyInfo && { ...storyInfo }; },
   // SPEC-022: заставки (scene — логика: { id, page, pages } или null; sceneInfo — нарисованное в этом кадре), боссы уровней
   SCENE_IDS, openScene, sceneNext, sceneSkip, bigMood, winTitle, get pushWaves() { return pushWaves.map(w => ({ ...w })); }, get scene() { return storyScene && { id: storyScene.id, page: storyScene.page, pages: scenePageCount() }; },
-  get sceneInfo() { return sceneInfo && { ...sceneInfo }; }, bossFor, BOSS_LOOKS,
+  get sceneInfo() { return sceneInfo && { ...sceneInfo }; }, bossFor, BOSS_LOOKS, KID_HEAD_R, LITTLE_SCALE,   // SPEC-021 размеры героев (тест look3d)
   // SPEC-022: вид Большого в 3D (для тестов): образ, босс и его детали, масштаб, цвета футболки и штанов
   bigLook() { const m = big && big.model; return m ? { look: m.look, boss: m.boss || null, parts: Object.keys(m.bossParts || {}), scale: m.rig.scale.x,
     shirt: "#" + m.mats.shirt.color.getHexString(), pants: "#" + m.mats.pants.color.getHexString() } : null; }, get moodInfo() { return moodInfo && { ...moodInfo, sprites: [...moodInfo.sprites] }; },   // SPEC-017: главы истории (живой список), экран истории этого кадра
