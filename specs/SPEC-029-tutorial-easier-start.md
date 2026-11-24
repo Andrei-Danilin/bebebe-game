@@ -1,6 +1,6 @@
 # SPEC-029 — Tutorial: funny pictures and two practice games; Dad starts with 5 hearts
 
-Status: ready (the pictures `art/30…33` from Andrei are optional: without them the game keeps the old item crops and uses the fallback tutorial pages)
+Status: ready (art `30_items`, `31_tutorial_a`, `32_tutorial_b`, `33_tutorial_c` are on master since e3f99e8, checked by Claude 2026-11-24; the fallback pages stay for missing files)
 Complexity: L
 Branch: SPEC-029-tutorial
 Decided by: Andrei (2026-11-24, after playing):
@@ -92,6 +92,11 @@ Separately: Dad's hearts drop by one everywhere (`CFG.BIG_HP` 6 → 5).
 6. **Art:**
    - `art/31_tutorial_a.webp`, `art/32_tutorial_b.webp`, `art/33_tutorial_c.webp` (2×2 panels each) → `tutorial_a/b/c` in `assets/` (paper mode, like `8_start`);
    - `art/30_items.webp` (green sheet, 11 items in reading order) → `item_boots`, `item_cape`, `item_banana`, `item_mittens`, `item_mega_mittens`, `item_kiss`, `item_star`, `item_coin`, `heart_full`, `heart_half`, `heart_empty`. This replaces every crop from the old `v1/staff.webp`; that source entry is removed from `scripts/assets.json`.
+   - **Panel A4 has stray words.** Gemini drew "BONK!", "turn" and "shh" in panel A4 (and a thin vertical line through Dad).
+     - Remove the three words with the pipeline's `erase` op (circles painted with the surrounding paper), so the panel works in every language. Keep the line.
+     - If the erased patches look wrong, keep the panel as it is and note it in the report and BACKLOG ("redraw A4").
+     - The "BONK!" in panel A2 stays: it is the sound of the push.
+   - **Sheet 30.** Map its 11 regions in reading order: boots, cloak, banana, mittens, mega mittens, kiss, star, coin, full, half and empty heart. Sparkles, wind puffs and the cloak's dashed trail may come out as separate small regions; merge them into their item or drop them (`small` / `merge`).
    - **Fallback when an art file is missing:** each panel is built from existing art on paper: the item / effect icons (`icon_*`, `item_*`, `fx_*`) and a kid or Dad figure from the 3D preview or the `story_*` art, with the same caption. A test runs the tutorial with the new art missing and checks every page draws.
 7. **Captions** (en / es / ru / pt; English below; Claude's wording, check with Kostya). The control hint on page A4 follows the device: Shift on keyboard, "push the stick just a little" on the phone.
    - **A1:** "Sneak up behind Dad and hug him! Every hug takes away one angry heart."

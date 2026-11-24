@@ -1,6 +1,6 @@
 # SPEC-027 — Every piece of clothing has a picture, seven new clothes, comic icons for Play / Story / Character
 
-Status: ready (needs `art/28_menu_icons.webp` and `art/29_wardrobe_2.webp` from Andrei — see Pre-flight; `art/34_small_icons.webp` optional)
+Status: ready (`art/28_menu_icons.webp`, `art/29_wardrobe_2.webp`, `art/34_small_icons.webp` are on master since e3f99e8, checked by Claude 2026-11-24: every sheet has its items in the asked order)
 Complexity: M
 Branch: SPEC-027-wardrobe-icons
 Decided by: Andrei (2026-11-24):
@@ -28,7 +28,7 @@ This spec cuts them into `assets/`, maps every item, adds the seven new clothes 
 ## Pre-flight
 1. Check that `art/28_menu_icons.webp` and `art/29_wardrobe_2.webp` exist on master.
    - If either is missing, this spec is skipped for now (queue: mark it `pending`, run the next spec, come back after it). If it is still missing then, stop the queue with "waiting for art 28/29".
-2. `node scripts/assets.js --debug <sheet>` on each sheet:
+2. `node scripts/assets.js --debug <sheet>` on each sheet (28: the play triangle's motion lines are small separate strokes, drop or merge them):
    - count the regions;
    - map them in reading order to the names below;
    - if Gemini drew a different order or count, map by looking at each region (the debug output shows boxes). Note any region you could not use in the report.
