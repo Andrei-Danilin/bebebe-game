@@ -1078,7 +1078,7 @@ for (const [vw, vh] of PHONE_SIZES) {
 
 // SPEC-006 AC 13: the level banner on a phone never covers the hero (CI fonts are wider than Windows ones).
 // One page per phone size; world, language, hero position and the font scale are set through __bb, no reloads.
-// The hero's screen rect: feet to the name above the head (CFG.NAME_TAG, as drawMarkers draws it),
+// The hero's screen rect: feet to the name above the head (CFG.NAME_TAG + __bb.nameTagH(), as drawMarkers draws it),
 // as wide as his body or his name. The whole matrix runs again with a simulated 15 % wider banner font.
 const BANNER_LEVELS = [1, 10];   // "Our drawing" and a two-digit level with the longest type text ("River with bridges" / "Река с мостиками")
 
@@ -1144,8 +1144,8 @@ function measureBanner(page, lang, pos, fontScale) {
     await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
     b = window.__bb; l = b.littles[0];
     const s = b.uiSize.scale, P = b.CFG.PHONE_BANNER, T = b.CFG.NAME_TAG;
-    const feet = b.toScreen(l.x, l.y), head = b.toScreen(l.x, l.y, T.h);
-    const side = P.heroSide * Math.max(Math.abs(b.toScreen(l.x + l.r, l.y).x - feet.x), Math.abs(b.toScreen(l.x + l.r, l.y, T.h).x - head.x));
+    const feet = b.toScreen(l.x, l.y), head = b.toScreen(l.x, l.y, b.nameTagH());   // SPEC-021: above the bigger head
+    const side = P.heroSide * Math.max(Math.abs(b.toScreen(l.x + l.r, l.y).x - feet.x), Math.abs(b.toScreen(l.x + l.r, l.y, b.nameTagH()).x - head.x));
     const ctx = document.createElement("canvas").getContext("2d"), nameSize = Math.max(T.size, b.CFG.PHONE_TEXT.main / s);
     ctx.font = `900 ${nameSize}px system-ui, "Segoe UI", "Arial Rounded MT Bold", Arial, sans-serif`;
     const nameW = ctx.measureText(b.nameOf(l)).width + Math.max(3, nameSize / 4.5);
