@@ -4683,7 +4683,7 @@ function drawHUDPhone(t) {
   // уровень и время + кнопки
   const timeTxt = timerText();
   ctx.font = hudFont(main);
-  const tw = (tutorialGame ? scaledW(timeTxt) : ctx.measureText(timeTxt).width) + 2 * pad, nBtn = STANDALONE ? 1 : 2, gw = tw + nBtn * (gap + bh);   // SPEC-029: «Тренировка» — с запасом на широкие шрифты
+  const tw = (tutorialGame ? scaledW(timeTxt) : ctx.measureText(timeTxt).width) + 2 * pad, nBtn = (STANDALONE ? 1 : 2) + (tutorialGame ? 1 : 0), gw = tw + nBtn * (gap + bh);   // SPEC-029: «Тренировка» — с запасом на широкие шрифты; + ⏭
   // SPEC-022: злость папы (подпись) и облачка-сердечки. Подпись — вся (ширина с CFG.TEXT_TEST_SCALE: шрифты CI и iPhone шире);
   // не влезает — облачка плотнее (до PHONE_HEART_MIN), и только потом подпись короче
   const bigName = angerLabel(), room = mm.x - gap - m - gw - gap;
@@ -4703,8 +4703,8 @@ function drawHUDPhone(t) {
   noteText("main", fitText(timeTxt, gx + tw / 2, top + bh / 2 + 1, main, tw, "center", OUT, 900, main));
   iconButton("phone_pause", gx + tw + gap, top, bh, bh, "II", "#64748b", () => { mode = "pause"; }, fz(main, "main"));
   if (!STANDALONE) iconButton("ui_fullscreen", gx + tw + gap + bh + gap, top, bh, bh, "⛶", "#64748b", toggleFullscreen, fz(main, "main"));
-  // SPEC-029: в тренировке — «Пропустить» под временем и кнопками (обучение целиком; то же есть в паузе)
-  if (tutorialGame && mode === "play") fitButton(gx, top + bh + gap, gw, bh, "⏭ " + L().sceneSkip, CFG.MENU_LOOK.back, tutorialSkip, main, main).id = "tutorial:skip";
+  // SPEC-029: в тренировке — кнопка ⏭ «Пропустить» (обучение целиком; то же со словом — в паузе) в ряду кнопок, после «во весь экран»
+  if (tutorialGame && mode === "play") addButton(gx + tw + gap + (STANDALONE ? 1 : 2) * (bh + gap), top, bh, bh, "⏭", CFG.MENU_LOOK.back, tutorialSkip, fz(main, "main")).id = "tutorial:skip";
   // кружки команды под мини-картой
   const tr = teamRect();
   plate("team", tr.x, tr.y, tr.w, tr.h);
@@ -5517,9 +5517,18 @@ function drawStory() {
   const top = Y0 + B + g;
   if (rules) {
     // правила (как было в меню) — значок слева, строка до двух-трёх рядов; ниже управление (телефон — только про палец)
-    const size = (PHONE ? cpx(S.phoneRule) : S.rule), iw = S.icon * k, maxW = X1 - X0 - iw;
+    // SPEC-029: нижний ряд — свой: справа «▶ Тренировка» (обучение ещё раз; в конце — снова сюда), на телефоне слева от неё —
+    // строка управления; правила — над рядом (на телефоне не влезают — мельче, не мельче подсказок)
+    const iw = S.icon * k, maxW = X1 - X0 - iw, by = Y1 - B, lines = L().rules(CFG.DOWN_TIME);
+    const pt = "▶ " + L().tut.practice;
+    ctx.font = hudFont(PHONE ? cpx(18) : 20);
+    const pw = Math.min((X1 - X0) * 0.45, Math.max(B * 2.5, scaledW(pt) + 30 * k));
+    fitButton(X1 - pw, by, pw, B, pt, M.ok, () => openTutorial("story"), PHONE ? cpx(18) : 20, minMain).id = "story:practice";
+    const rulesH = sz => lines.reduce((h, r) => { const b = noteRows(r, sz, minHint, maxW, 3); return h + b.rows.length * b.sz * 1.2 + 5 * k; }, 0);
+    let size = PHONE ? cpx(S.phoneRule) : S.rule;
+    if (PHONE) while (size > minHint && rulesH(size) > by - g - (top + 4 * k)) size = Math.max(minHint, size - 0.5);
     let y = top + 4 * k;
-    L().rules(CFG.DOWN_TIME).forEach((r, i) => {
+    lines.forEach((r, i) => {
       const b = noteRows(r, size, minHint, maxW, 3), lh = b.sz * 1.2;
       ctx.font = `${size}px system-ui, 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
       fillT(RULE_ICONS[i] || "•", X0 + iw / 2, y + lh / 2);
@@ -5530,19 +5539,17 @@ function drawStory() {
       y += b.rows.length * lh + 5 * k;
     });
     y += 6 * k;
-    // SPEC-029: «▶ Тренировка» внизу справа — обучение ещё раз (в конце — снова сюда)
-    const pt = "▶ " + L().tut.practice;
-    ctx.font = hudFont(PHONE ? cpx(18) : 20);
-    const pw = Math.min((X1 - X0) * 0.45, Math.max(B * 2.5, scaledW(pt) + 30 * k));
-    fitButton(X1 - pw, Y1 - B, pw, B, pt, M.ok, () => openTutorial("story"), PHONE ? cpx(18) : 20, minMain).id = "story:practice";
-    const ctl = PHONE ? [["controls:touch", L().touch1]] : [["controls:0", L().controls1], ["controls:1", L().controls2]];
-    for (const [id, t] of ctl) {
-      // SPEC-029: строка, которая дошла бы до нижнего ряда, — левее кнопки «Тренировка»
-      const cs = PHONE ? cpx(S.phoneRule) : 15, cw = y + 2 * cs * 1.2 > Y1 - B - g ? X1 - X0 - pw - g : X1 - X0;
-      const b = noteRows(t, cs, minHint, cw, 2);
+    if (PHONE) {                                           // про палец — в нижнем ряду, левее «Тренировки», по середине ряда
+      const t = L().touch1, cw = X1 - X0 - pw - g, b = noteRows(t, cpx(S.phoneRule), minHint, cw, 2);
+      rowsAt("controls:touch", b, X0 + cw / 2, by + (B - b.rows.length * b.sz * 1.2) / 2, M.soft);
+      hudRects[hudRects.length - 1].text = t;
+      noteText("hint", b.sz);
+    } else for (const [id, t] of [["controls:0", L().controls1], ["controls:1", L().controls2]]) {
+      // строка, которая дошла бы до нижнего ряда, — левее кнопки «Тренировка»
+      const cw = y + 2 * 15 * 1.2 > by - g ? X1 - X0 - pw - g : X1 - X0;
+      const b = noteRows(t, 15, minHint, cw, 2);
       y += rowsAt(id, b, X0 + cw / 2, y, M.soft) + 2 * k;
       hudRects[hudRects.length - 1].text = t;
-      if (PHONE) noteText("hint", b.sz);
     }
     storyInfo = { chapter: c.id, index: storyCh, locked: !open, page: "rules", title, text: "", art: null };
     return;
