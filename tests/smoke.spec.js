@@ -1,12 +1,69 @@
 // Smoke tests: the game loads, every screen and place renders, nothing throws.
 const { test, expect } = require("./pw");   // SPEC-023: @playwright/test + failure screenshots
-const { openGame, step, ROOT } = require("./helpers");
+const { openGame, step, frames, ROOT } = require("./helpers");
 const fs = require("fs");
 const path = require("path");
 
 test("loads to the home screen without errors", { tag: "@fast" }, async ({ page }) => {
   const errors = await openGame(page);
   expect(await page.evaluate(() => window.__bb.mode)).toBe("home");
+  expect(errors).toEqual([]);
+});
+
+// SPEC-023 AC 5: every getter of window.__bb is either drawn state (in __bb.SIM_DRAWN: throws in sim mode) or on this
+// list of logic state that a sim test may read. A new getter must be put in one of the two, so a drawn one can't slip past
+// the sim guard.
+const LOGIC_GETTERS = ["mode", "muted", "wardrobePage", "littles", "big", "stats", "level", "world", "toast", "items", "progress",
+  "lastReward", "upgrades", "shopTab", "outfits", "events", "rngDraws", "strictRng", "shake", "sticks", "uiSize", "names", "stars",
+  "dangerZone", "safeZone", "texts", "kisses", "bigMark", "levelInfo", "banner"];
+test("every __bb getter is drawn state (SIM_DRAWN) or listed logic state", async ({ page }) => {
+  const errors = await openGame(page);
+  const r = await page.evaluate(() => {
+    const d = Object.getOwnPropertyDescriptors(window.__bb);   // descriptors only: no getter runs
+    return { getters: Object.keys(d).filter(k => d[k].get), all: Object.keys(d), drawn: window.__bb.SIM_DRAWN };
+  });
+  expect(r.getters.filter(k => !r.drawn.includes(k) && !LOGIC_GETTERS.includes(k)), "getters in neither SIM_DRAWN nor LOGIC_GETTERS").toEqual([]);
+  expect(r.drawn.filter(k => LOGIC_GETTERS.includes(k)), "in both lists").toEqual([]);
+  expect(r.drawn.filter(k => !r.all.includes(k)), "SIM_DRAWN names missing from __bb").toEqual([]);
+  expect(LOGIC_GETTERS.filter(k => !r.getters.includes(k)), "LOGIC_GETTERS that are no getter of __bb").toEqual([]);
+  expect(errors).toEqual([]);
+});
+
+// SPEC-023: the rule tests moved to sim pages no longer draw the states they build. This one rendered test builds them —
+// an air kiss in flight, a blushing Big One, a throw-out of his house, a downed Little One and a rescue kit, a bonus star,
+// every level type — and draws real frames of each: nothing may throw while drawing them.
+test("the gameplay states the sim tests build draw without errors", async ({ page }) => {
+  const errors = await openGame(page);
+  const seen = {};
+  const scene = async (name, fn, arg) => { seen[name] = await page.evaluate(fn, arg); await frames(page); await frames(page); };
+  await page.evaluate(() => { const b = window.__bb; b.world = "park"; b.level = 1; b.startGame(1); });
+  await scene("kiss", () => {
+    const b = window.__bb, l = b.littles[0]; Object.assign(b.big, { x: 900, y: 600, state: "look", timer: 9999, stun: 0, slip: 0, noPush: 0, pushCd: 0 });
+    b.progress.inv.kisses = 3; Object.assign(l, { state: "ok", x: 480, y: 320, kissCd: 0, invuln: 0 });
+    b.throwKiss(0); b.update(1 / 60);
+    return b.kisses.length;
+  });
+  await scene("blush", () => { const b = window.__bb; b.big.blush = 2; b.update(1 / 60); return b.big.blush > 0; });
+  await scene("throwOut", () => {
+    const b = window.__bb, l = b.littles[0], z = b.dangerZone; Object.assign(b.big, { x: 900, y: 600, state: "look", timer: 9999, stun: 0, slip: 0, noPush: 0, pushCd: 0 });
+    Object.assign(l, { state: "ok", x: z.x + z.w / 2, y: z.y + z.h / 2, invuln: 0 });
+    for (let i = 0; i < 5.2 * 60; i++) b.update(1 / 60);
+    return b.inDanger(l) === false && l.dizzy > 0;
+  });
+  await scene("down", () => {
+    const b = window.__bb, l = b.littles[0];
+    Object.assign(b.big, { state: "look", timer: 999, stun: 0, noPush: 0, pushCd: 0, slip: 0, blush: 0, x: 500, y: 320, dir: 0 });
+    Object.assign(l, { state: "ok", invuln: 0, dizzy: 0, x: 535, y: 320 });
+    for (let i = 0; i < 12; i++) b.update(1 / 60);
+    return l.state;
+  });
+  await scene("kit", () => { const b = window.__bb; Object.assign(b.big, { x: 900, y: 600, state: "look", timer: 9999, stun: 0, slip: 0, noPush: 0, pushCd: 0 }); b.progress.inv.rescues = 1; const ok = b.useRescueKit(0); b.update(1 / 60); return ok; });
+  await scene("star", () => { const b = window.__bb; b.spawnStar(300, 200); b.update(1 / 60); return b.stars.length > 0; });
+  for (const lv of [1, 2, 5, 8, 11, 14, 17]) {          // one level of every type (as in levels.spec "every world dresses every level type")
+    await scene("type" + lv, n => { const b = window.__bb; b.level = n; b.startGame(1); for (let i = 0; i < 30; i++) b.update(1 / 60); return b.levelInfo.type; }, lv);
+  }
+  expect(seen).toMatchObject({ kiss: 1, blush: true, throwOut: true, down: "down", kit: true, star: true });
+  expect(new Set([1, 2, 5, 8, 11, 14, 17].map(n => seen["type" + n])).size, "every level type was built").toBe(7);
   expect(errors).toEqual([]);
 });
 

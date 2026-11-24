@@ -1,10 +1,13 @@
 # SPEC-023: the balance report on GitHub (npm run balance: every level with the autopilot in sim mode).
-# Start: gh workflow run balance.yml -f ref=<branch>   → gh run list --workflow balance.yml --limit 1
+# Start: gh workflow run balance.yml -f ref=<branch>
+#        gh run list --workflow balance.yml --limit 5 --json databaseId,displayTitle,createdAt
+#          → the run titled "Balance <branch>" (run-name below) with createdAt after the dispatch
 #        gh run watch <id> --exit-status               → gh run download <id> -n balance -D reports
 # and commit reports/balance.md + reports/balance.json on the branch.
 # workflow_dispatch works only once this file is on the default branch (master); a push that changes this file on a
 # spec branch also runs it (that is how SPEC-023 tried it before the merge).
 name: Balance
+run-name: Balance ${{ inputs.ref || github.ref_name }}
 
 on:
   workflow_dispatch:

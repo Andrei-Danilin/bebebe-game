@@ -29,7 +29,8 @@ const glArgs = (backend = glBackend()) => (backend === "gpu" ? gpuArgs() : SWIFT
 // Chrome on Windows raises its GPU process to "Above normal" whatever the parent's priority (measured: the browser,
 // renderer and utility processes inherit "Below normal", the GPU process does not; --disable-gpu-sandbox,
 // --disable-features=GpuProcessHighPriorityWin change nothing). --in-process-gpu runs the GPU work (hardware or
-// SwiftShader) inside the browser process, which inherits "Below normal". Only locally on Windows with PW_NICE on.
+// SwiftShader) inside the browser process, which inherits "Below normal". Only locally on Windows with PW_NICE on:
+// PW_NICE=0 drops --in-process-gpu too (the GPU process is separate again, as on CI).
 const niceArgs = (env = process.env) => (process.platform === "win32" && env.PW_NICE !== "0" && !env.CI ? ["--in-process-gpu"] : []);
 // every flag the test browser gets
 const browserArgs = (backend = glBackend(), env = process.env) => [...glArgs(backend), ...niceArgs(env)];

@@ -4,7 +4,7 @@
 # - from pages.yml (workflow_call) before every deploy of master.
 # Each shard writes a blob report; the `report` job merges them into one HTML report (artifact `html-report`) and fails
 # when a shard failed. A failing shard also uploads its test-results/ (error context, failure screenshots) as
-# `test-results-<shard>`. On CI the browser draws with SwiftShader (tests/test-env.js: process.env.CI).
+# `test-results-<shard>` (error context + failure screenshots; no traces are recorded). On CI the browser draws with SwiftShader (tests/test-env.js: process.env.CI).
 name: Tests
 
 on:
@@ -15,6 +15,13 @@ on:
 
 permissions:
   contents: read
+
+# A newer push of the same spec branch cancels the older run. Called from pages.yml (workflow_call) github.workflow is the
+# caller's name ("Pages") and github.event_name its event ("push"), so such runs get their own group per run and are never
+# cancelled here (pages.yml has its own `pages` group).
+concurrency:
+  group: ${{ github.workflow == 'Tests' && format('tests-{0}', github.ref) || format('tests-call-{0}', github.run_id) }}
+  cancel-in-progress: ${{ github.workflow == 'Tests' && github.event_name == 'push' }}
 
 jobs:
   test:
@@ -55,18 +62,21 @@ jobs:
           name: blob-report-${{ matrix.shard }}
           path: blob-report/
           retention-days: 3
+          overwrite: true
       - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: test-results-${{ matrix.shard }}
           path: test-results/
           retention-days: 7
+          overwrite: true
 
   report:
     name: merge reports
     if: ${{ !cancelled() }}
     needs: test
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7

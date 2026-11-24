@@ -32,7 +32,7 @@ test("the browser's processes run at below-normal priority (Windows)", async ({ 
     .split(/\r?\n/).map(l => l.trim().split(" ")).filter(r => r.length >= 4).map(([pid, ppid, prio, name]) => ({ pid: +pid, ppid: +ppid, prio: +prio, name }));
   const mine = new Set([process.pid]);
   for (let grew = true; grew;) { grew = false; for (const r of rows) if (!mine.has(r.pid) && mine.has(r.ppid)) { mine.add(r.pid); grew = true; } }
-  const browsers = rows.filter(r => mine.has(r.pid) && /chrom/i.test(r.name));
+  const browsers = rows.filter(r => mine.has(r.pid) && /chrom|msedge/i.test(r.name));
   expect(browsers.length, "the worker's browser processes are found").toBeGreaterThan(0);
   expect(browsers.filter(r => r.prio !== 6).map(r => `${r.name} ${r.pid}: base priority ${r.prio} (6 = below normal)`)).toEqual([]);
 });

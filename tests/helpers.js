@@ -35,6 +35,8 @@ function strictRng() { window.__bbStrictRng = true; }
 // query, so "?phone=1" + sim → "?phone=1&sim=1"): no 3D, no 2D drawing, no audio, the frame loop does not play — for tests
 // that check logic or numbers only; they advance the game with step() / __bb.update / __bb.simRun. Drawing helpers
 // (frames(), page.screenshot()) and the per-frame drawn state of __bb (buttonRects, hudRects, …) throw in sim mode.
+// SPEC-023: a run at below-normal priority on a busy machine can need longer than 30 s to load the game
+const READY_MS = process.env.PW_NICE === "0" ? 30_000 : 60_000;
 const withSim = (query, sim) => (sim ? query + (query.includes("?") ? "&" : "?") + "sim=1" : query);
 async function openGame(page, { lang = "en", clearStorage = true, query = "", sim = false } = {}) {
   const errors = [];
@@ -51,7 +53,7 @@ async function openGame(page, { lang = "en", clearStorage = true, query = "", si
   }
   if (sim) guardSim(page);
   await page.goto(GAME_URL + withSim(query, sim));
-  await page.waitForFunction(() => window.__bbReady === true, null, { timeout: 30_000 });
+  await page.waitForFunction(() => window.__bbReady === true, null, { timeout: READY_MS });
   return errors;
 }
 
@@ -88,7 +90,7 @@ async function openGameHttp(page, { lang = "en", query = "", clearStorage = true
     await page.addInitScript(clearOnce, lang);
   }
   await page.goto(HTTP_BASE + query);
-  await page.waitForFunction(() => window.__bbReady === true, null, { timeout: 30_000 });
+  await page.waitForFunction(() => window.__bbReady === true, null, { timeout: READY_MS });
   return errors;
 }
 

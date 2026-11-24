@@ -7,7 +7,8 @@ const fs = require("fs");
 const { openGame, sharedPage, resetGame, frames, softly, ROOT } = require("./helpers");
 
 // SPEC-018: one game page for the file; resetGame() before each test, page errors and a changed CFG fail the test.
-// A test that does not ask for `page` (the source scan) opens no browser at all.
+// A test that does not ask for `page` (the source scan) opens no game page (the worker's browser still starts: the
+// failure-screenshot fixture of tests/pw.js needs it).
 // SPEC-023: `simPage` = the same in sim mode (logic and numbers only; it draws nothing, so it may stay open next to a
 // rendered page).
 const shared = sharedPage(), sharedSim = sharedPage();

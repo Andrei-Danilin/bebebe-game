@@ -30,7 +30,8 @@ const BUSH_MIN = { classic: 3, meadow: 7, maze: 2, village: 3, river: 4, rooms: 
 // in English with the level cache cleared; page errors fail the test that caused them (then are cleared).
 // SPEC-023: that shared page is in sim mode (logic only: no 3D, nothing drawn), so it may stay open while fresh pages
 // run. The menu, banner and reload tests and the two tests that look at the 3D map pieces ask for `page`: a fresh
-// rendered page each. The fresh-page tests come first in this file (SPEC-018 order, kept).
+// rendered page each. The fresh-page tests come first in this file (SPEC-018 order, kept; on CI a shard may start in the
+// middle of the file, so no test relies on another having run before it).
 let shared = null;
 const test = base.test.extend({
   levelPage: async ({ browser }, use) => {
