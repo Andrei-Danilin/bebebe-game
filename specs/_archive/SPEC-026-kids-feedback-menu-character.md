@@ -1,6 +1,6 @@
 # SPEC-026 — Kids' feedback: cheaper rewards, dearer items, a three-button home, the Character screen, words in the comic bubbles
 
-Status: ready
+Status: done (merged by "Merge SPEC-026", see git log)
 Complexity: M
 Branch: SPEC-026-menu-character
 Decided by: Andrei (2026-11-24, after playing SPEC-016…022): every number and screen below is his decision. Claude (spec author) proposed only the layout details, the Progress page contents and the English/Spanish bubble wording; those are marked "(Claude)".
