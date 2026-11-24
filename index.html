@@ -252,6 +252,11 @@ const CFG = {
       open: "#ffffff", next: "#fde047", closed: "#cbd5e1", ring: "#ff6fa8", badge: "#ef4444", badgeInk: "#ffffff", done: "#15803d", doneBg: "#dcfce7", toastBg: "#334155", toastInk: "#ffffff",
       doodles: 9, doodleAlpha: 0.55, doodleSize: 44, doodleGrow: 22, cardW: 480, phoneCardW: 420, cardPad: 14, cardR: 22, cardStar: 10, cardBtn: 56,
       doodle: { trunk: "#8b5a2b", ball: "#ffffff", window: "#bae6fd", flag: "#ef4444", palm: "#a0703f", leaf: "#16a34a", snow: "#ffffff", road: "#6b7280" } },
+    // SPEC-022: заставки истории — клетки комикса 8_start (доли картинки [x, y, w, h], по порядку подписей), кегль подписи
+    // (компьютер / телефон, UI px до cpx), строк подписи на компьютере (картинка над подписью), доля ширины под картинку на
+    // телефоне (картинка слева, подпись справа), ширина кнопок на компьютере, кегль «Спасибо!»
+    scene: { panels: [[0, 0, 0.5, 0.5], [0.5, 0, 0.5, 0.5], [0, 0.5, 0.5, 0.5], [0.5, 0.5, 0.5, 0.5]], text: 22, phoneText: 17, lines: 3,
+      phonePic: 0.6, btnW: 220, thanks: 46, phoneThanks: 30, madeBy: 24, phoneMadeBy: 18, cupcake: 0.42 },
     story: { pic: 0.47, text: 22, phoneText: 18, rule: 17, phoneRule: 15, dot: 6, paper: "#fffdf5", pencil: "#94a3b8", heart: "#f9a8d4", backW: 170, icon: 30 } },
   // типы уровней внутри каждого мира (SPEC-006): 1 — рисунок детей, 2–4 поляна, 5–7 деревня, 8–10 река,
   // 11–13 дом с комнатами, 14–16 арена, 17–20 лабиринт; число записей = уровней в мире
@@ -524,6 +529,8 @@ const I18N = {
     // SPEC-022: строка карточки 20-го уровня — по истории Кости: в Школе самый злой папа, в других мирах — главный папа мира (босс)
     bossLine: { park: "Boss: the main dad of the Park. He is stronger than ordinary dads!", field: "Boss: the main dad of the Football field. He is stronger than ordinary dads!",
       city: "Boss: the main dad of the City. He is stronger than ordinary dads!", school: "The grumpiest dad! He can push several kids at once!" },
+    // SPEC-022: заставки истории — кнопки («next» занято: кнопка следующего уровня), карточка «Спасибо» после финала
+    sceneNext: "Next", sceneSkip: "Skip", thanks: "Thank you for playing!", madeBy: "Made by Kostya and Dad",
     chapters: { began: "How it began", ended: "How it ended" }, endedLocked: "Win level 20 at the School to read the ending", howToPlay: "How to play",
     upg: { fastFeet: { name: "Fast feet", desc: p => `+${p}% speed` }, longItems: { name: "Long items", desc: () => "Items last longer" },
       quickHelp: { name: "Quick help", desc: () => "Lift friends faster" } },
@@ -579,6 +586,7 @@ const I18N = {
       maze: "Un laberinto: ¡buscá el camino entre las paredes!" },
     bossLine: { park: "Jefe: el papá principal del Parque. ¡Es más fuerte que los papás comunes!", field: "Jefe: el papá principal de la Cancha. ¡Es más fuerte que los papás comunes!",
       city: "Jefe: el papá principal de la Ciudad. ¡Es más fuerte que los papás comunes!", school: "¡El papá más enojado! ¡Puede empujar a varios chicos a la vez!" },
+    sceneNext: "Siguiente", sceneSkip: "Saltar", thanks: "¡Gracias por jugar!", madeBy: "Hecho por Kostya y papá",
     chapters: { began: "Cómo empezó", ended: "Cómo terminó" }, endedLocked: "Ganá el nivel 20 de la Escuela para leer el final", howToPlay: "Cómo se juega",
     upg: { fastFeet: { name: "Pies rápidos", desc: p => `+${p}% velocidad` }, longItems: { name: "Cosas duraderas", desc: () => "Duran más" },
       quickHelp: { name: "Ayuda rápida", desc: () => "Levantás más rápido" } },
@@ -636,6 +644,7 @@ const I18N = {
       maze: "Лабиринт — найди дорогу между стенами!" },
     bossLine: { park: "Босс — главный папа Парка. Он сильнее обычных пап!", field: "Босс — главный папа Футбольного поля. Он сильнее обычных пап!",
       city: "Босс — главный папа Города. Он сильнее обычных пап!", school: "Самый злой папа! Может толкнуть сразу нескольких детей!" },
+    sceneNext: "Дальше", sceneSkip: "Пропустить", thanks: "Спасибо, что играли!", madeBy: "Сделали Костя и папа",
     chapters: { began: "Как всё началось", ended: "Как всё закончилось" }, endedLocked: "Пройди 20-й уровень в Школе, чтобы прочитать конец", howToPlay: "Как играть",
     upg: { fastFeet: { name: "Быстрые ноги", desc: p => `+${p}% скорости` }, longItems: { name: "Долгие вещи", desc: () => "Действуют дольше" },
       quickHelp: { name: "Быстрая помощь", desc: () => "Поднимаешь быстрее" } },
@@ -969,6 +978,11 @@ const worldIndex = world => Math.max(0, WORLDS.indexOf(world));
 const worldDifficulty = world => CFG.WORLD_DIFFICULTY[world] ?? 0;
 const levelsPerWorld = () => CFG.WORLD_TYPES.length;
 const levelPos = n => clamp(Math.floor(n) || 1, 1, levelsPerWorld()) - 1;
+// SPEC-022: босс уровня — последний уровень основного мира (его имя = мир: park, field, city; school — самый злой папа); иначе null.
+// У бонусных миров боссов нет (история Кости их ещё не придумала)
+const bossFor = (world, n) => (MAIN_WORLDS.includes(world) && Math.floor(n) === levelsPerWorld() ? world : null);
+// SPEC-022: заставки истории: комикс в начале, босс каждого основного мира, первый уровень бонусного мира, конец
+const SCENE_IDS = Object.freeze(["intro", ...MAIN_WORLDS.map(w => "boss_" + w), ...BONUS_WORLDS.map(w => "bonus_" + w), "ending"]);
 const levelKey = (world, n) => world + ":" + n;
 // Тип уровня — по списку CFG.WORLD_TYPES (одинаковый во всех мирах)
 const levelType = (world, n) => CFG.WORLD_TYPES[levelPos(n)];
@@ -2044,9 +2058,15 @@ let heardHintT = 0, heardHintDone = false, heardHintPi = 0, heardHintRect = null
 // (SPEC-016: шесть миров; в старом сохранении нет field/city — они приходят новыми)
 // SPEC-009: won = { [n]: true } — уровни, уже выигранные хоть раз (первая победа платит всю основу, повтор — половину)
 const freshWorld = () => ({ unlocked: 1, stars: {}, won: {} });
+// SPEC-022: seen = { [заставка из SCENE_IDS]: true, если уже показана } — все ключи всегда есть
 const freshProgress = () => ({ worlds: Object.fromEntries(WORLDS.map(w => [w, freshWorld()])), lastWorld: WORLDS[0],
   coins: 0, inv: { mittens: 0, mega: 0, kisses: 0, rescues: 0 }, equip: ["none", "none"], owned: cleanOwned(null),
-  upgrades: cleanUpgrades(null) });
+  upgrades: cleanUpgrades(null), seen: cleanSeen(null) });
+// SPEC-022: показанные заставки из сохранения: только true у известных заставок; нет, испорчено или чужой ключ → не показана
+function cleanSeen(v) {
+  const ok = !!v && typeof v === "object" && !Array.isArray(v);
+  return Object.fromEntries(SCENE_IDS.map(id => [id, ok && v[id] === true]));
+}
 // SPEC-009: уровни улучшений { fastFeet, longItems, quickHelp } — целые 0…последний; нет или испорчено → 0
 function cleanUpgrades(v) {
   const out = {};
@@ -2096,7 +2116,7 @@ function loadProgress(pv) {
   const { unlocked, stars, worlds, lastWorld, ...rest } = pv;
   const src = worlds && typeof worlds === "object" ? worlds : {};
   const out = { ...p, ...rest, worlds: {}, lastWorld: WORLDS.includes(lastWorld) ? lastWorld : WORLDS[0],
-    inv: { ...p.inv, ...(pv.inv && typeof pv.inv === "object" ? pv.inv : {}) }, equip: Array.isArray(pv.equip) ? pv.equip : p.equip, owned: cleanOwned(pv.owned), upgrades: cleanUpgrades(pv.upgrades), coins: wholeCoins(pv.coins) };
+    inv: { ...p.inv, ...(pv.inv && typeof pv.inv === "object" ? pv.inv : {}) }, equip: Array.isArray(pv.equip) ? pv.equip : p.equip, owned: cleanOwned(pv.owned), upgrades: cleanUpgrades(pv.upgrades), coins: wholeCoins(pv.coins), seen: cleanSeen(pv.seen) };
   for (const w of WORLDS) out.worlds[w] = cleanWorld(src[w]);
   if (hasFlatProgress(pv)) {
     const old = cleanWorld({ unlocked, stars }), park = out.worlds[WORLDS[0]];
@@ -2302,11 +2322,12 @@ const bannerAlpha = () => !banner ? 0 : clamp(Math.min(banner.t, CFG.BANNER_TIME
 // camSnap: начало уровня — камера телефона сразу у героя (в resetWorld нельзя: он же открывает меню, где камера показывает всю карту)
 function startGame(n) { leaveLevel(); endTryOn(); events = []; resetWorld(n); mode = "play"; rewardDue = true; mapSel = null; showBanner(); camSnap(); }
 // следующий уровень того же мира; после последнего мир пройден — на карту уровней
-function nextLevel() { if (level >= levelsPerWorld()) { toMap(); return; } level++; startGame(numPlayers); }
+function nextLevel() { if (level >= levelsPerWorld()) { toMap(); return; } level++; withScene(sceneBefore(curWorld, level), () => startGame(numPlayers)); }
 // ---------- SPEC-017: экраны и переходы между ними ----------
 // home — главный экран; map — карта уровней (levelCard — карточка уровня поверх неё); story — история; shop — магазин с вкладками
-const MODES = Object.freeze(["home", "map", "levelCard", "story", "shop", "play", "pause", "win", "lose"]);
-const MENU_MODES = Object.freeze(["home", "map", "levelCard", "story", "shop"]);
+// SPEC-022: scene — заставка истории (комикс в начале, босс, бонусный мир, конец) поверх меню
+const MODES = Object.freeze(["home", "map", "levelCard", "story", "shop", "play", "pause", "win", "lose", "scene"]);
+const MENU_MODES = Object.freeze(["home", "map", "levelCard", "story", "shop", "scene"]);
 const inMenus = () => MENU_MODES.includes(mode);
 // магазин: вкладка (вне магазина снова «items»), страница гардероба (наряды или имена друзей), куда ведёт «Готово»
 const SHOP_TABS = Object.freeze(["items", "wardrobe", "upgrades"]);
@@ -2350,7 +2371,7 @@ function chooseStop(n) {
 function tapWorldTab(w) { if (bonusOpen(w)) selectWorld(w); else showToast(L().lockedBonus); }
 const closeCard = () => { mode = "map"; };
 // «Играть» на карточке: тот же startGame, что и раньше (resetWorld → loadLevel, надпись уровня, камера телефона)
-function playCard(players) { level = cardLevel; startGame(players); }
+function playCard(players) { level = cardLevel; withScene(sceneBefore(curWorld, level), () => startGame(players)); }   // SPEC-022: сначала заставка, если пора
 // ---------- SPEC-017: история — главы по порядку и страница «Как играть» ----------
 // storyCh — глава на экране; storyBack — куда ведёт «назад» (главный экран или карточка уровня); storyPage — «chapters» или «rules»
 let storyCh = 0, storyBack = "home", storyPage = "chapters";
@@ -2363,17 +2384,69 @@ function chapterOpen(c) {
   if (WORLDS.includes(c.id)) return MAIN_WORLDS.includes(c.id) ? progress.worlds[c.id].unlocked >= 1 : bonusOpen(c.id);
   return c.id === "ended" ? progress.worlds.school.won[levelsPerWorld()] === true : true;
 }
+// ---------- SPEC-022: заставки истории ----------
+// storyScene — заставка на экране { id, page, then }: id из SCENE_IDS, page — страница, then — что дальше (уровень, карта, глава
+// истории; null — главный экран). Показанная заставка сразу отмечается в progress.seen (и сохраняется): второй раз сама не откроется
+let storyScene = null;
+const storyOf = id => STORY.find(c => c.id === id);
+// страницы: { art, crop ([x, y, w, h] — доли картинки или null — вся), text } или { thanks: true } (карточка «Спасибо» после финала)
+function scenePages(id) {
+  if (id === "intro") return CFG.MENU_LOOK.scene.panels.map((crop, i) => ({ art: STORY_ART.began, crop, text: storyOf("began").captions[lang][i] }));
+  if (id === "ending") return [{ art: STORY_ART.ended, crop: null, text: storyOf("ended").text[lang] }, { thanks: true }];
+  const [kind, w] = id.split("_");
+  return [{ art: STORY_ART[w], crop: null, text: kind === "boss" ? storyOf(w).boss[lang] : storyOf(w).text[lang] }];
+}
+function openScene(id, then = null) {
+  if (!SCENE_IDS.includes(id)) return false;
+  storyScene = { id, page: 0, then };
+  mode = "scene";
+  if (!progress.seen[id]) { progress.seen[id] = true; saveProgress(); }
+  return true;
+}
+const scenePageCount = () => (storyScene ? scenePages(storyScene.id).length : 0);
+// пропустить (Escape, B, «Пропустить») — сразу к тому, что дальше
+function sceneSkip() {
+  if (!storyScene) return;
+  const then = storyScene.then;
+  storyScene = null; mode = "home";
+  if (then) then();
+}
+// дальше (Enter, пробел, A, тап, «Дальше» / «Играть» / «Готово»): следующая страница, после последней — как «Пропустить»
+function sceneNext() { if (!storyScene) return; if (storyScene.page < scenePageCount() - 1) storyScene.page++; else sceneSkip(); }
+function scenePrev() { if (storyScene && storyScene.page > 0) storyScene.page--; }
+// заставка перед уровнем (мир, n), если её ещё не показывали: босс — перед 20-м уровнем основного мира, бонусный мир — перед
+// любым своим уровнем (первый раз это его первый уровень)
+function sceneBefore(world, n) {
+  const id = bossFor(world, n) ? "boss_" + world : BONUS_WORLDS.includes(world) ? "bonus_" + world : null;
+  return id && !progress.seen[id] ? id : null;
+}
+function withScene(id, go) { if (id) openScene(id, go); else go(); }
+// финал: экран победы после первой победы 20-го уровня Школы — «Как всё закончилось» и «Спасибо» перед картой или магазином
+const endingDue = () => mode === "win" && !!lastReward && lastReward.win && lastReward.world === "school" && lastReward.worldDone && !progress.seen.ending;
+// глава истории → её заставка (посмотреть ещё раз); после неё — снова эта глава
+const chapterScene = c => (c.id === "began" ? "intro" : c.id === "ended" ? "ending" : MAIN_WORLDS.includes(c.id) ? "boss_" + c.id : "bonus_" + c.id);
+function watchChapter() {
+  const c = STORY[storyCh], ch = storyCh;
+  if (!chapterOpen(c)) return;
+  openScene(chapterScene(c), () => { mode = "story"; storyCh = ch; storyPage = "chapters"; });
+}
 // всё состояние экранов меню — как при запуске (тесты: resetGame)
 function resetMenus() {
   closeNameInput(false); shopTab = "items"; wardrobePage = "looks"; shopBack = "home"; mapSel = null; toast = null; cardLevel = 1; mapSwipe = null;
-  storyCh = 0; storyBack = "home"; storyPage = "chapters";
+  storyCh = 0; storyBack = "home"; storyPage = "chapters"; storyScene = null;
 }
-function toMap() { leaveLevel(); resetWorld(numPlayers); mapSel = null; mode = "map"; }   // кольцо — снова на следующем уровне
+function toMap() {
+  if (endingDue()) { openScene("ending", toMap); return; }   // SPEC-022: сначала финал истории
+  leaveLevel(); resetWorld(numPlayers); mapSel = null; mode = "map";   // кольцо — снова на следующем уровне
+}
 function toHome() { leaveLevel(); resetWorld(numPlayers); mode = "home"; }
 const resumeGame = () => { mode = "play"; };
 const retryLevel = () => startGame(numPlayers);
 // экран итогов → магазин; «Готово» в магазине ведёт на карту. После победы — уже следующий уровень (как «Дальше»)
-function shopAfterWin() { level = clamp(level + 1, 1, worldProgress().unlocked); resetWorld(numPlayers); openShop("map"); }
+function shopAfterWin() {
+  if (endingDue()) { openScene("ending", shopAfterWin); return; }   // SPEC-022: сначала финал истории
+  level = clamp(level + 1, 1, worldProgress().unlocked); resetWorld(numPlayers); openShop("map");
+}
 function shopAfterLose() { resetWorld(numPlayers); openShop("map"); }
 const nextLang = () => setLang(LANGS[(LANGS.indexOf(lang) + 1) % LANGS.length]);
 const toggleSound = () => { muted = !muted; };
@@ -2455,6 +2528,11 @@ function onKey(code) {
     if (back) storyBackKey();
     if (storyPage === "chapters" && code === "ArrowLeft") storyStep(-1);
     if (storyPage === "chapters" && (code === "ArrowRight" || code === "Enter" || code === "Space")) storyStep(1);
+  } else if (mode === "scene") {
+    // SPEC-022: заставка — Enter / пробел / → дальше, ← назад, Escape пропустить
+    if (back) sceneSkip();
+    else if (code === "ArrowLeft") scenePrev();
+    else if (code === "Enter" || code === "NumpadEnter" || code === "Space" || code === "ArrowRight") sceneNext();
   } else if (mode === "shop") {
     if (back && inWardrobe() && wardrobePage === "friends") backToWardrobe();   // имена друзей → наряды
     else if (back || code === "Enter" || code === "Space") closeShop();
@@ -2520,6 +2598,7 @@ canvas.addEventListener("pointerdown", e => {
   if (mode === "levelCard" && !hit && cardRect && !(p.x >= cardRect.x && p.x <= cardRect.x + cardRect.w && p.y >= cardRect.y && p.y <= cardRect.y + cardRect.h)) { closeCard(); return; }
   if (hit && hit.onUp) { pendingUp = { id: hit.id, pointerId: e.pointerId }; return; }
   if (hit) { hit.act(); return; }
+  if (mode === "scene") { sceneNext(); return; }      // SPEC-022: тап по заставке — дальше
   if (mode === "play" && e.pointerType !== "mouse") {
     if (PHONE && p.x > UW * CFG.STICK_ZONE) return;   // телефон: справа — только кнопки
     const player = numPlayers === 2 && p.x > UW / 2 ? 1 : 0;
@@ -2631,10 +2710,15 @@ function onPadButton(b, pad = 0) {
   } else if (mode === "story") {
     if (b === 1) storyBackKey();
     if (b === 3) storyPage = storyPage === "rules" ? "chapters" : "rules";   // Y — «Как играть»
+    if (b === 2 && storyPage === "chapters") watchChapter();               // SPEC-022: X — посмотреть заставку главы
     if (storyPage === "chapters") {
       if (b === 14 || b === CFG.PAD_PREV_WORLD) storyStep(-1);
       if (b === 15 || b === CFG.PAD_NEXT_WORLD || b === 0) storyStep(1);
     }
+  } else if (mode === "scene") {
+    if (b === 0 || b === 9 || b === 15) sceneNext();   // SPEC-022: A / Start / крестовина → — дальше, ← — назад, B — пропустить
+    if (b === 14) scenePrev();
+    if (b === 1) sceneSkip();
   } else if (mode === "shop") {
     const friends = inWardrobe() && wardrobePage === "friends";
     if (b === 1 && friends) backToWardrobe();
@@ -4387,12 +4471,13 @@ function mapGeom() {
   return { X0, X1, Y0, g, B: 44, tabH: A.tabH, backW: A.backW, backText: "◀ " + L().home, coinsW: A.coinsW, titleH: A.titleH, stop: A.stop,
     page: { x: X0, y: Y0 + A.tabH + g, w: X1 - X0, h: Y1 - Y0 - A.tabH - g } };
 }
-// остановки змейкой: ряды по A.cols, нечётные ряды справа налево; под остановкой место для звёзд; босс (последний уровень) крупнее
+// остановки змейкой: ряды по A.cols, нечётные ряды справа налево; под остановкой место для звёзд; босс (последний уровень
+// основного мира; SPEC-022: у бонусных миров босса нет) крупнее
 function stopRects(G) {
   const A = CFG.MENU_LOOK.map, n = levelsPerWorld(), cols = A.cols, rows = Math.ceil(n / cols);
   const ay = G.page.y + G.titleH + G.g, px = G.page.w / cols, py = (G.page.y + G.page.h - ay) / rows, starH = G.stop * A.starRow;
   return Array.from({ length: n }, (_, i) => {
-    const r = Math.floor(i / cols), col = r % 2 ? cols - 1 - i % cols : i % cols, boss = i === n - 1, s = G.stop * (boss ? A.boss : 1);
+    const r = Math.floor(i / cols), col = r % 2 ? cols - 1 - i % cols : i % cols, boss = !!bossFor(curWorld, i + 1), s = G.stop * (boss ? A.boss : 1);
     const cx = G.page.x + px * (col + 0.5), cy = ay + py * (r + 0.5) - starH / 2;
     return { n: i + 1, x: cx - s / 2, y: cy - s / 2, w: s, h: s, cx, cy, boss };
   });
@@ -4743,6 +4828,11 @@ function drawStory() {
     if (artName) noteArt(artName);
     tape(ix + 6 * k, iy + 2 * k, -0.7, k * 0.8); tape(ix + iw - 6 * k, iy + 2 * k, 0.7, k * 0.8);
   } else storyPlaceholder(pic, !open);
+  if (open) {                                                // SPEC-022: ▶ в углу картинки — посмотреть заставку главы ещё раз
+    const r = B, bx = pic.x + pic.w - r - 4 * k, byy = pic.y + 4 * k;
+    if (!drawArtFit("round_play", bx + r / 2, byy + r / 2, r * 1.15)) { circle(bx + r / 2, byy + r / 2, r / 2); fillStroke(M.play, 3 * k); label("▶", bx + r / 2 + 2 * k, byy + r / 2, r * 0.45, "#fff"); }
+    regButton(bx, byy, r, r, "▶", watchChapter, "story:scene", r);
+  }
   const text = open ? c.text[lang] : BONUS_WORLDS.includes(c.id) ? L().lockedBonus : L().endedLocked;
   const tx = X0 + pw + 2 * g, tW = X1 - tx, size = PHONE ? cpx(S.phoneText) : S.text, min = PHONE ? minMain : 14;
   const b = noteRows(text, size, min, tW, Math.max(1, Math.floor(mh / (min * 1.2))));
@@ -4751,6 +4841,68 @@ function drawStory() {
   hudRects[hudRects.length - 1].text = text;
   if (PHONE) noteText("main", b.sz);
   storyInfo = { chapter: c.id, index: storyCh, locked: !open, page: "chapters", title, text, art: !open ? "locked" : img ? "image" : "placeholder", load: storyLoad(c), pic };
+}
+// ---------- SPEC-022: заставка истории — картинка (комикс 8_start — по клетке), подпись, «Пропустить» и «Дальше» / «Играть» ----------
+// Компьютер: картинка над подписью; телефон: картинка слева, подпись справа. Нет картинки — заглушка истории (бумажный лист).
+// sceneInfo (для тестов) — { id, page, pages, art: "image" | "placeholder" | "thanks", caption, crop }
+let sceneInfo = null;
+function drawScene() {
+  if (!storyScene) return;
+  const M = CFG.MENU_LOOK, S = M.scene, k = PHONE ? cpx(1) : 1, minMain = PHONE ? minPx("main") : 14;
+  const { X0, X1, Y0, Y1, g, B } = menuFrame();
+  const pages = scenePages(storyScene.id), n = pages.length, pg = pages[storyScene.page], last = storyScene.page === n - 1;
+  const before = /^(boss|bonus)_/.test(storyScene.id);       // перед уровнем: на последней странице «Играть»
+  // нижний ряд: «Пропустить» слева (на последней странице длинной заставки её нет), точки страниц, справа «Дальше» / «Играть» / «Готово»
+  const by = Y1 - B, bw = PHONE ? Math.min((X1 - X0) * 0.36, Math.max(B * 2.8, cpx(150))) : S.btnW, bsz = PHONE ? cpx(20) : 24;
+  fitButton(X1 - bw, by, bw, B, last ? (before ? "▶ " + L().play : L().ok) : L().sceneNext + " ▶", M.ok, sceneNext, bsz, minMain).id = "scene:next";
+  if (!last || n === 1) fitButton(X0, by, bw, B, L().sceneSkip, M.back, sceneSkip, bsz, minMain).id = "scene:skip";
+  if (n > 1) {
+    const dr = M.story.dot * k, step = dr * 3.4, dx0 = (X0 + X1) / 2 - step * (n - 1) / 2;
+    for (let i = 0; i < n; i++) { circle(dx0 + i * step, by + B / 2, i === storyScene.page ? dr * 1.5 : dr); fillStroke(i === storyScene.page ? M.title : M.panel, 2 * k); }
+  }
+  const area = { x: X0, y: Y0, w: X1 - X0, h: by - g - Y0 };
+  if (pg.thanks) {                                            // «Спасибо, что играли!», кто сделал, пирожное (как в конце истории)
+    const cs = area.h * S.cupcake, cy = area.y + cs / 2;
+    if (!drawArtFit("icon_cupcake", area.x + area.w / 2, cy, cs)) drawArtFit("fx_hearts", area.x + area.w / 2, cy, cs);
+    const t1 = fitLine(L().thanks, PHONE ? cpx(S.phoneThanks) : S.thanks, PHONE ? minPx("title") : 20, area.w), y1 = area.y + cs + g + t1.sz * 0.6;
+    label(t1.text, area.x + area.w / 2, y1, t1.sz, M.title, "center");
+    hudRects.push({ id: "scene:thanks", x: area.x + area.w / 2 - t1.w / 2, y: y1 - t1.sz * 0.6, w: t1.w, h: t1.sz * 1.2, text: t1.text });
+    const t2 = fitLine(L().madeBy, PHONE ? cpx(S.phoneMadeBy) : S.madeBy, minMain, area.w), y2 = y1 + t1.sz * 0.6 + g + t2.sz * 0.6;
+    plainText(t2.text, area.x + area.w / 2, y2, t2.sz, M.ink, "center");
+    hudRects.push({ id: "scene:madeBy", x: area.x + area.w / 2 - t2.w / 2, y: y2 - t2.sz * 0.6, w: t2.w, h: t2.sz * 1.2, text: t2.text });
+    if (PHONE) { noteText("title", t1.sz); noteText("main", t2.sz); }
+    sceneInfo = { id: storyScene.id, page: storyScene.page, pages: n, art: "thanks", caption: null, crop: null };
+    return;
+  }
+  const img = art(pg.art), cr = pg.crop || [0, 0, 1, 1];
+  const aspect = img ? (img.width * cr[2]) / (img.height * cr[3]) : 16 / 9;
+  const size = PHONE ? cpx(S.phoneText) : S.text, min = minMain;
+  let pic, tx, tW, ty, b;
+  if (PHONE) {                                                // картинка слева, подпись справа (по высоте — посередине)
+    const pw = Math.min(area.w * S.phonePic, area.h * aspect);
+    pic = { x: area.x, y: area.y, w: pw, h: area.h };
+    tx = area.x + pw + 2 * g; tW = X1 - tx;
+    b = noteRows(pg.text, size, min, tW, Math.max(1, Math.floor(area.h / (min * 1.2))));
+    ty = area.y + Math.max(0, (area.h - b.rows.length * b.sz * 1.2) / 2);
+  } else {                                                    // подпись внизу, картинка над ней на всё остальное место
+    tx = area.x; tW = area.w;
+    b = noteRows(pg.text, size, min, tW, S.lines);
+    const th = b.rows.length * b.sz * 1.2;
+    pic = { x: area.x, y: area.y, w: area.w, h: area.h - th - g };
+    ty = pic.y + pic.h + g;
+  }
+  if (img) {
+    const fr = 5 * k, sw = img.width * cr[2], sh = img.height * cr[3];
+    const sc = Math.min((pic.w - 2 * fr) / sw, (pic.h - 2 * fr) / sh), iw = sw * sc, ih = sh * sc, ix = pic.x + (pic.w - iw) / 2, iy = pic.y + (pic.h - ih) / 2;
+    rr(ix - fr, iy - fr, iw + 2 * fr, ih + 2 * fr, 6 * k); fillStroke(M.story.paper, 3 * k);   // бумажная рамка, как в «Истории»
+    ctx.drawImage(img, img.width * cr[0], img.height * cr[1], sw, sh, ix, iy, iw, ih);
+    noteArt(pg.art);
+    tape(ix + 6 * k, iy + 2 * k, -0.7, k * 0.8); tape(ix + iw - 6 * k, iy + 2 * k, 0.7, k * 0.8);
+  } else storyPlaceholder(pic, false);
+  rowsAt("scene:caption", b, tx + tW / 2, ty, M.ink);
+  hudRects[hudRects.length - 1].text = pg.text;
+  if (PHONE) noteText("main", b.sz);
+  sceneInfo = { id: storyScene.id, page: storyScene.page, pages: n, art: img ? "image" : "placeholder", caption: pg.text, crop: pg.crop };
 }
 // SPEC-016: «Открылись бонусные миры!» на экране победы — только после победы, открывшей их (lastReward.bonusUnlocked);
 // плашка в hudRects (bonus-note), для тестов — bonusNote { text, x, y, w, h, size, textW }
@@ -5282,6 +5434,7 @@ function drawOverlayPhone() {
   const c = cpx;
   if (mode === "home") drawHomePhone();
   else if (mode === "story") drawStory();
+  else if (mode === "scene") drawScene();
   else if (mode === "map" || mode === "levelCard") {
     drawMap(T);
     if (mode === "levelCard") { buttons = []; hudRects = []; drawLevelCard(); }   // под карточкой карта не нажимается
@@ -5436,6 +5589,7 @@ function drawOverlay() {
   if (PHONE) { drawOverlayPhone(); return; }
   if (mode === "home") drawHomeDesktop();
   else if (mode === "story") drawStory();
+  else if (mode === "scene") drawScene();
   else if (mode === "map" || mode === "levelCard") {
     drawMap(T);
     if (mode === "levelCard") { buttons = []; hudRects = []; drawLevelCard(); }   // под карточкой карта не нажимается
@@ -5602,7 +5756,7 @@ function drawBanner() {
 function drawUI(t) {
   draws++;
   if (nameInput && !inWardrobe()) closeNameInput(false);
-  buttons = []; installHintShown = false; mapState = null; cardInfo = null; cardRect = null; storyInfo = null; bonusNote = null; winLine = ""; mmShown = false; edgeArrows = []; hudRects = []; textSizes = {}; bannerRect = null; kitHintRect = null; heardHintRect = null; stickMarks = []; shopLayout = null; winPanel = null;
+  buttons = []; installHintShown = false; mapState = null; cardInfo = null; cardRect = null; storyInfo = null; sceneInfo = null; bonusNote = null; winLine = ""; mmShown = false; edgeArrows = []; hudRects = []; textSizes = {}; bannerRect = null; kitHintRect = null; heardHintRect = null; stickMarks = []; shopLayout = null; winPanel = null;
   if (mode !== "shop") { shopTab = "items"; wardrobePage = "looks"; }
   if (mode !== "map") toast = null;   // SPEC-017: подсказка карты — только пока карта на экране
   if (mode !== "map" && mode !== "levelCard") mapBgCache = null;   // фон страницы мира не держим в памяти вне карты
@@ -7135,6 +7289,9 @@ function render3D(t) {
 fit();
 resetWorld(1);
 artGate();                                  // SPEC-020: экран загрузки ждёт картинки (недолго); игра уже готова
+// SPEC-022: самый первый запуск (и старое сохранение без seen: история новая для всех) — комикс «Как всё началось» (под экраном
+// загрузки, пока он есть). Тесты его пропускают: их init-скрипт ставит window.__bbNoIntro (кроме теста первого запуска)
+if (!progress.seen.intro && window.__bbNoIntro !== true) openScene("intro");
 window.__bbReady = true;
 let last = performance.now(), T = 0;
 function frame(now) {
@@ -7193,7 +7350,10 @@ window.__bb = {
   // SPEC-017: карта этого кадра, подсказка, карточка уровня; tapButton(id) — нажать кнопку этого кадра (как пальцем)
   get mapInfo() { return mapState && JSON.parse(JSON.stringify(mapState)); }, get toast() { return toast && { ...toast }; },
   get levelCard() { return cardInfo && { ...cardInfo }; }, openMap,
-  RULE_ICONS, STORY, openStory, get storyInfo() { return storyInfo && { ...storyInfo }; },   // SPEC-017: главы истории (живой список), экран истории этого кадра
+  RULE_ICONS, STORY, openStory, get storyInfo() { return storyInfo && { ...storyInfo }; },
+  // SPEC-022: заставки (scene — логика: { id, page, pages } или null; sceneInfo — нарисованное в этом кадре), боссы уровней
+  SCENE_IDS, openScene, sceneNext, sceneSkip, get scene() { return storyScene && { id: storyScene.id, page: storyScene.page, pages: scenePageCount() }; },
+  get sceneInfo() { return sceneInfo && { ...sceneInfo }; }, bossFor,   // SPEC-017: главы истории (живой список), экран истории этого кадра
   tapButton(id) { const q = buttons.find(r => (r.id || r.act.name) === id); if (q) q.act(); return !!q; },
   update, inSafe, I18N, startGame, resetWorld, cycleOutfit, randomOutfit, cycleBig, setLang, toScreen,
   get items() { return items; }, get progress() { return progress; }, buyGloves, setEquip, get lastReward() { return lastReward; }, spawnItem,
@@ -7256,7 +7416,7 @@ window.__bb = {
 // ошибку, чтобы визуальный тест, открытый в sim, падал громко, а не проверял пустоту.
 const SIM_DRAWN = ["buttonRects", "buttonNames", "tapButton", "hudRects", "mapInfo", "levelCard", "storyInfo", "textSizes", "minimap",
   "bannerRect", "rotateShown", "winPanel", "winLine", "bonusNote", "shopLayout", "kitHint", "heardHint", "edgeArrows", "stickMarks",
-  "tapLines", "installHintShown", "mapPieces", "groundColorAt", "camera", "minimapAlpha", "artUse"];
+  "tapLines", "installHintShown", "mapPieces", "groundColorAt", "camera", "minimapAlpha", "artUse", "sceneInfo"];
 window.__bb.SIM_DRAWN = SIM_DRAWN;
 window.__bb = new Proxy(window.__bb, {
   get(t, k, r) {

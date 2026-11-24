@@ -82,7 +82,7 @@ test("home is minimal", async ({ page }) => {
   expect(hud("home:bonus:beach").text).toContain("🔒");
   expect(hud("coins").text).toBe("0");
   expect(d.texts.some(t => /Skins|🎨/.test(t)), "no Skins button").toBe(false);
-  expect(d.modes, "no skins / names modes").toEqual(["home", "map", "levelCard", "story", "shop", "play", "pause", "win", "lose"]);
+  expect(d.modes, "no skins / names modes").toEqual(["home", "map", "levelCard", "story", "shop", "play", "pause", "win", "lose", "scene"]);   // SPEC-022: + the story scenes
   // the big buttons, the language and sound icons small, in a corner (top right)
   const r = await page.evaluate(() => window.__bb.buttonRects);
   const btn = id => r.find(q => q.id === id), play = btn("home:play");
@@ -553,8 +553,10 @@ test("the level card starts the level", async ({ page }) => {
   await page.keyboard.press("Escape");
   await frames(page);
   expect(await page.evaluate(() => [window.__bb.mode, window.__bb.levelCard.n])).toEqual(["levelCard", 20]);
-  // Play = startGame: that world and level, the level banner, one or two players
+  // Play = startGame: that world and level, the level banner, one or two players (SPEC-022: the boss level shows its boss picture first)
   await click(page, "card:1");
+  expect(await page.evaluate(() => [window.__bb.mode, window.__bb.scene && window.__bb.scene.id])).toEqual(["scene", "boss_park"]);
+  await page.keyboard.press("Enter");
   expect(await page.evaluate(() => [window.__bb.mode, window.__bb.world, window.__bb.level, window.__bb.littles.filter(l => l.kind === "player").length, window.__bb.banner.text]))
     .toEqual(["play", "park", 20, 1, "Park · Level 20: Maze"]);
   // the texts: a line for every level type and the boss line, in every language
