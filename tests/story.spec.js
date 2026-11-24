@@ -261,29 +261,31 @@ test("every scene can be watched again from the Story", async ({ desk: page }) =
 // ---------- AC 1, 2: the hearts bar is Dad's anger meter ----------
 // hudRects "hearts" = the meter's plate, with the drawn label (label, labelX, labelW); the clouds are the SPEC-020 heart clouds (artUse)
 const meter = page => page.evaluate(() => {
-  const b = window.__bb, plate = b.hudRects.find(q => q.id === "hearts");
-  return { plate, lab: plate && { text: plate.label, x: plate.labelX, w: plate.labelW }, use: b.artUse };
+  const b = window.__bb, plate = b.hudRects.find(q => q.id === "hearts"), timer = b.hudRects.find(q => q.id === "timer");
+  return { plate, timer, lab: plate && { text: plate.label, x: plate.labelX, w: plate.labelW }, use: b.artUse };
 });
 async function meterCheck(page) {
   await page.waitForFunction(() => window.__bb.artInfo.done);
   const soft = softly();
-  for (const lang of LANGS) {
+  // with this machine's fonts and with the wider CI / iPhone fonts (CFG.TEXT_TEST_SCALE 1.15, like the other phone fit tests)
+  for (const scale of [1, 1.15]) for (const lang of LANGS) {
     for (const [hearts, typed] of [[3, ""], [15, ""], [15, "Max"]]) {
-      await page.evaluate(([l, n, t]) => {
-        const b = window.__bb; b.setLang(l); b.setName("big", t); b.world = "park"; b.level = 1; b.startGame(1);
+      await page.evaluate(([l, n, t, s]) => {
+        const b = window.__bb; b.CFG.TEXT_TEST_SCALE = s; b.setLang(l); b.setName("big", t); b.world = "park"; b.level = 1; b.startGame(1);
         Object.assign(b.big, { maxHp: n, hp: n - 1.5, state: "look", timer: 999 }); b.resetArtUse();
-      }, [lang, hearts, typed]);
+      }, [lang, hearts, typed, scale]);
       await frames(page);
       const m = await meter(page), I = await page.evaluate(l => { const T = window.__bb.I18N[l]; return { anger: T.anger, of: T.angerOf("Max") }; }, lang);
-      const at = `${lang} ${hearts} hearts${typed ? " typed" : ""}`;
+      const at = `${lang} ${hearts} hearts${typed ? " typed" : ""} ×${scale}`;
       soft(m.lab && m.lab.text, `${at}: the label`).toBe(typed ? I.of : I.anger);
       soft(m.lab && m.plate && m.lab.x >= m.plate.x && m.lab.x + m.lab.w <= m.plate.x + m.plate.w + 0.5, `${at}: the label inside the plate`).toBe(true);
       if (!typed) soft(/…/.test(m.lab ? m.lab.text : ""), `${at}: the label is not cut`).toBe(false);
+      if (m.timer && m.plate) soft(m.plate.x + m.plate.w <= m.timer.x + 0.5, `${at}: the plate stays left of the timer`).toBe(true);
       // the clouds: full, one half (pale) and the lost ones out
       soft([m.use.cloud_heart_full, m.use.cloud_heart_half, m.use.cloud_heart_empty].map(v => (v || 0) > 0), `${at}: full, half and out clouds`).toEqual([true, true, true]);
     }
   }
-  await page.evaluate(() => { const b = window.__bb; b.setName("big", ""); b.setLang("en"); });
+  await page.evaluate(() => { const b = window.__bb; b.CFG.TEXT_TEST_SCALE = 1; b.setName("big", ""); b.setLang("en"); });
   const T = await page.evaluate(() => ["en", "es", "ru"].map(l => [window.__bb.I18N[l].anger, window.__bb.I18N[l].defaultBig]));
   expect(T).toEqual([["Dad's anger", "Dad"], ["Enojo de papá", "Papá"], ["Злость папы", "Папа"]]);
   soft.done();

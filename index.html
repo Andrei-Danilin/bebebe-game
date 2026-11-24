@@ -209,6 +209,7 @@ const CFG = {
   STICK_ZONE: 0.55,          // доля ширины слева, где касание создаёт джойстик
   PHONE_STICK_R: 60,         // CSS px — радиус джойстика на телефоне
   PHONE_BTN_MIN: 44,         // CSS px — кнопка на телефоне не меньше
+  PHONE_HEART_MIN: 9,        // CSS px — шаг облачек злости на телефоне не меньше (SPEC-022: сначала теснятся облачка, подпись — целиком)
   PHONE_BTN_GAP: 8,          // CSS px — между соседними кнопками
   PHONE_TEXT: { title: 24, main: 15, hint: 13, input: 16 },   // CSS px — самый мелкий текст на телефоне
   // карточки магазина на телефоне (SPEC-007 AC 10), CSS px: картинка (обычная, самая маленькая, насколько может вырасти),
@@ -4227,16 +4228,17 @@ function drawHUDPhone(t) {
   const timeTxt = timerText();
   ctx.font = hudFont(main);
   const tw = ctx.measureText(timeTxt).width + 2 * pad, nBtn = STANDALONE ? 1 : 2, gw = tw + nBtn * (gap + bh);
-  // SPEC-022: злость папы (подпись) и облачка-сердечки: не влезает — облачка плотнее, потом подпись короче
+  // SPEC-022: злость папы (подпись) и облачка-сердечки. Подпись — вся (ширина с CFG.TEXT_TEST_SCALE: шрифты CI и iPhone шире);
+  // не влезает — облачка плотнее (до PHONE_HEART_MIN), и только потом подпись короче
   const bigName = angerLabel(), room = mm.x - gap - m - gw - gap;
-  let hStep = cpx(21), hSize = cpx(18), nameW = Math.min(ctx.measureText(bigName).width, cpx(150));   // SPEC-022: «El enojo de papá» — шире имени
+  let hStep = cpx(21), hSize = cpx(18), nameW = scaledW(bigName);
   const plateW = () => pad + nameW + pad * 0.6 + big.maxHp * hStep + pad * 0.4;
-  if (plateW() > room) { hStep = Math.max(cpx(12), (room - pad * 2 - nameW) / big.maxHp); hSize = Math.min(hSize, hStep * 0.95); }
+  if (plateW() > room) { hStep = Math.max(cpx(CFG.PHONE_HEART_MIN), (room - pad * 2 - nameW) / big.maxHp); hSize = Math.min(hSize, hStep * 0.95); }
   if (plateW() > room) nameW = Math.max(cpx(36), room - pad * 2 - big.maxHp * hStep);
   const pw = plateW();
   plate("hearts", m, top, pw, bh);
-  noteText("main", labelFit(bigName, m + pad, top + bh / 2, main, nameW, "#9b2c3a", "left", main));
-  Object.assign(hudRects.find(r => r.id === "hearts"), { label: lastFit.text, labelX: m + pad, labelW: lastFit.w });   // SPEC-022: подпись злости — в плашке hearts
+  noteText("main", labelFit(bigName, m + pad, top + bh / 2, main, nameW / CFG.TEXT_TEST_SCALE + 0.01, "#9b2c3a", "left", main));   // + 0.01: × и ÷ масштаба не точны
+  Object.assign(hudRects.find(r => r.id === "hearts"), { label: lastFit.text, labelX: m + pad, labelW: lastFit.w * CFG.TEXT_TEST_SCALE });   // SPEC-022: подпись злости — в плашке hearts
   const hx = m + pad + nameW + pad * 0.6 + hStep / 2;
   for (let i = 0; i < big.maxHp; i++) hpHeart(hx + i * hStep, top + bh / 2 - hSize / 2 - 1, hSize, heartFill(i, big.hp), hStep);
   // группа по центру свободного места
