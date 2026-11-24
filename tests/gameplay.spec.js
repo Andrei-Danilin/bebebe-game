@@ -1,7 +1,7 @@
 // Gameplay rules decided by the kids (see docs/game-design.md). Each test pins one rule.
 const base = require("./pw");   // SPEC-023: @playwright/test + failure screenshots
 const { expect } = base;
-const { openGame, step, setupHug, frames, sharedPage, resetGame, softly } = require("./helpers");
+const { LANGS, openGame, step, setupHug, frames, sharedPage, resetGame, softly } = require("./helpers");
 
 // SPEC-018: the tests share one game page (one per context kind: the touch tests get their own) instead of a fresh page
 // each. Before every test resetGame() puts it back to a freshly opened game (storage, language, progress, names,
@@ -148,19 +148,21 @@ test("an unrescued Little One rests 30 seconds", { tag: "@fast" }, async ({ simP
   // the help line says the seconds in every language, from CFG.REST_TIME (no minutes, no hard-coded number)
   const lines = await page.evaluate(() => {
     const b = window.__bb, I = b.I18N, out = {}, line = l => I[l].rules(15).find(s => s.includes("15"));
-    for (const l of ["en", "es", "ru"]) out[l] = line(l);
+    for (const l of b.LANGS) out[l] = line(l);
     b.CFG.REST_TIME = 45;
-    for (const l of ["en", "es", "ru"]) out[l + "45"] = line(l);
+    for (const l of b.LANGS) out[l + "45"] = line(l);
     b.CFG.REST_TIME = 30;
     return out;
   });
   expect(lines.en).toContain("rest for 30 s");
   expect(lines.es).toContain("descansás 30 segundos");
   expect(lines.ru).toContain("отдыхаешь 30 сек");
+  expect(lines.pt).toContain("descansa 30 s");   // SPEC-028
   expect(lines.en45).toContain("rest for 45 s");
   expect(lines.es45).toContain("descansás 45 segundos");
   expect(lines.ru45).toContain("отдыхаешь 45 сек");
-  for (const l of ["en", "es", "ru"]) expect(lines[l], l).not.toMatch(/min|мин/);
+  expect(lines.pt45).toContain("descansa 45 s");
+  for (const l of LANGS) expect(lines[l], l).not.toMatch(/min|мин/);
 });
 
 test("winning gives stars and coins, unlocks the next level and survives a reload", { tag: "@fast" }, async ({ simPage: page }) => {
@@ -1211,7 +1213,7 @@ test("hearts bar shows half hearts", async ({ simPage: page }) => {
 
 // SPEC-007 AC 3: a fourth card, the rescue kit
 test("the shop shows four cards in one row", { tag: "@fast" }, async ({ page }) => {
-  for (const lang of ["en", "es", "ru"]) {
+  for (const lang of LANGS) {
     await page.evaluate(l => { window.__bb.setLang(l); window.__bb.mode = "shop"; }, lang);
     await frames(page);
     const rects = await page.evaluate(() => window.__bb.buttonRects.filter(q => q.id.startsWith("buy:")));

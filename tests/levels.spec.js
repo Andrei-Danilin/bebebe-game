@@ -183,7 +183,7 @@ test("the map shows six worlds and switches between them", async ({ page }) => {
   const I = await page.evaluate(() => ["en", "es", "ru"].map(l => window.__bb.I18N[l].worldStars(7, 60)));
   expect(I).toEqual(["⭐ 7/60", "⭐ 7/60", "⭐ 7/60"]);
   await page.evaluate(() => window.__bb.selectWorld("field"));
-  for (const [lang, want] of [["es", "⚽ Cancha  ⭐ 0/60"], ["ru", "⚽ Футбольное поле  ⭐ 0/60"]]) {
+  for (const [lang, want] of [["es", "⚽ Cancha  ⭐ 0/60"], ["pt", "⚽ Campo de futebol  ⭐ 0/60"], ["ru", "⚽ Футбольное поле  ⭐ 0/60"]]) {
     await page.evaluate(l => window.__bb.setLang(l), lang);
     await frames(page);
     expect(await title()).toBe(want);
@@ -192,7 +192,7 @@ test("the map shows six worlds and switches between them", async ({ page }) => {
 
 // SPEC-017: the level type is on the level card (a tap on an open stop)
 test("the level card shows the level's type and it fits", async ({ page }) => {
-  for (const [lang, lv, want] of [["en", 8, "River with bridges"], ["es", 11, "Casa con cuartos"], ["ru", 8, "Река с мостиками"], ["ru", 14, "Арена с кольцом"], ["en", 1, "Our drawing"]]) {
+  for (const [lang, lv, want] of [["en", 8, "River with bridges"], ["es", 11, "Casa con cuartos"], ["ru", 8, "Река с мостиками"], ["ru", 14, "Арена с кольцом"], ["pt", 11, "Casa com quartos"], ["pt", 8, "Rio com pontes"], ["en", 1, "Our drawing"]]) {
     await page.evaluate(([l, n]) => { const b = window.__bb; b.setLang(l); b.progress.worlds.park.unlocked = 20; b.world = "park"; b.mode = "map"; }, [lang, lv]);
     await frames(page);
     await page.evaluate(n => window.__bb.tapButton("stop:" + n), lv);
@@ -214,9 +214,9 @@ test("worlds follow the story order", { tag: "@fast" }, async ({ levelPage: page
   const r = await page.evaluate(() => {
     const b = window.__bb;
     const out = { worlds: b.WORLDS, main: b.MAIN_WORLDS, bonus: b.BONUS_WORLDS, seed: b.WORLD_SEED, diff: b.CFG.WORLD_DIFFICULTY,
-      names: ["en", "es", "ru"].map(l => b.I18N[l].worlds), progressWorlds: Object.keys(b.progress.worlds),
+      names: b.LANGS.map(l => b.I18N[l].worlds), progressWorlds: Object.keys(b.progress.worlds),
       // review fix: every per-world table has exactly the worlds of WORLDS; the lists can't be changed at run time
-      keys: { seed: Object.keys(b.WORLD_SEED), diff: Object.keys(b.CFG.WORLD_DIFFICULTY), themes: Object.keys(b.THEMES), names: ["en", "es", "ru"].map(l => Object.keys(b.I18N[l].worlds)) },
+      keys: { seed: Object.keys(b.WORLD_SEED), diff: Object.keys(b.CFG.WORLD_DIFFICULTY), themes: Object.keys(b.THEMES), names: b.LANGS.map(l => Object.keys(b.I18N[l].worlds)) },
       speedStarts: b.CFG.WORLD_SPEED_START.length, frozen: [b.WORLDS, b.MAIN_WORLDS, b.BONUS_WORLDS, b.WORLD_SEED].map(Object.isFrozen) };
     if (typeof b.bonusUnlocked !== "function") return out;
     // bonusUnlocked(): every level of every main world won (the progress is put back after)
@@ -244,7 +244,7 @@ test("worlds follow the story order", { tag: "@fast" }, async ({ levelPage: page
   expect(r.seed).toEqual({ park: 1, school: 2, beach: 3, winter: 4, field: 5, city: 6 });
   const sorted = a => [...a].sort();
   expect({ seed: sorted(r.keys.seed), diff: sorted(r.keys.diff), themes: sorted(r.keys.themes), names: r.keys.names.map(sorted) })
-    .toEqual({ seed: sorted(WORLDS), diff: sorted(WORLDS), themes: sorted(WORLDS), names: [sorted(WORLDS), sorted(WORLDS), sorted(WORLDS)] });
+    .toEqual({ seed: sorted(WORLDS), diff: sorted(WORLDS), themes: sorted(WORLDS), names: [sorted(WORLDS), sorted(WORLDS), sorted(WORLDS), sorted(WORLDS)] });
   expect(new Set(Object.values(r.seed)).size, "WORLD_SEED values are unique (each world its own maps)").toBe(WORLDS.length);
   expect(Math.max(...Object.values(r.diff)), "every difficulty index has a WORLD_SPEED_START").toBeLessThan(r.speedStarts);
   expect(r.frozen).toEqual([true, true, true, true]);
@@ -252,6 +252,7 @@ test("worlds follow the story order", { tag: "@fast" }, async ({ levelPage: page
   expect(r.names).toEqual([
     { park: "Park", field: "Football field", city: "City", school: "School", beach: "Beach", winter: "Winter" },
     { park: "Parque", field: "Cancha", city: "Ciudad", school: "Escuela", beach: "Playa", winter: "Invierno" },
+    { park: "Parque", field: "Campo de futebol", city: "Cidade", school: "Escola", beach: "Praia", winter: "Inverno" },   // SPEC-028
     { park: "Парк", field: "Футбольное поле", city: "Город", school: "Школа", beach: "Пляж", winter: "Зима" }]);
   expect({ fresh: r.fresh, allMain: r.allMain, cityShort: r.cityShort, fieldShort: r.fieldShort, allStars: r.allStars, oldFour: r.oldFour })
     .toEqual({ fresh: false, allMain: true, cityShort: false, fieldShort: false, allStars: true, oldFour: false });

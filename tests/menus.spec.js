@@ -2,7 +2,7 @@
 // the shop with the Wardrobe tab, the end-screen flows; desktop and phone 667×375 (fonts ×1 and ×1.15).
 const base = require("./pw");   // SPEC-023: @playwright/test + failure screenshots
 const { expect } = base;
-const { openGame, frames, sharedPage, resetGame, ROOT } = require("./helpers");
+const { LANGS, openGame, frames, sharedPage, resetGame, ROOT } = require("./helpers");
 const fs = require("fs");
 const path = require("path");
 
@@ -74,12 +74,12 @@ test("home is minimal: the logo, language and sound, Play · Story · Character"
   const d = await page.evaluate(() => {
     const b = window.__bb;
     return { mode: b.mode, ids: b.buttonRects.map(q => q.id), texts: b.buttonRects.map(q => q.text), hud: b.hudRects, modes: b.MODES, home: b.homeInfo, ui: b.uiSize,
-      rects: b.buttonRects, hint: ["en", "es", "ru"].map(l => "installHint" in b.I18N[l]), hintShown: "installHintShown" in b };
+      rects: b.buttonRects, hint: b.LANGS.map(l => "installHint" in b.I18N[l]), hintShown: "installHintShown" in b };
   });
   expect(d.mode, "the game opens on the home screen").toBe("home");
   expect([...d.ids].sort(), "buttons: Play, Story, Character and the two small icons — nothing else").toEqual(HOME_BUTTONS);
   expect(d.hud.map(h => h.id), "only the logo: no stars, worlds, bonus worlds, coins or items").toEqual(["home:title"]);
-  expect(d.hint, "the install hint is gone (Andrei: remove it completely)").toEqual([false, false, false]);
+  expect(d.hint, "the install hint is gone (Andrei: remove it completely)").toEqual([false, false, false, false]);
   expect(d.hintShown, "no installHintShown in __bb").toBe(false);
   expect(d.texts.some(t => /Skins|🎨/.test(t)), "no Skins button").toBe(false);
   expect(d.modes, "no skins / names modes").toEqual(["home", "map", "levelCard", "story", "shop", "play", "pause", "win", "lose", "scene"]);   // SPEC-022: + the story scenes
@@ -188,7 +188,7 @@ test("SPEC-026: home is one centred column with the menu page's doodles on both 
 
 test("home fits a phone in every language, also with wider fonts", async ({ phonePage: page }) => {
   const fails = [];
-  for (const lang of ["en", "es", "ru"]) for (const scale of [1, 1.15]) {
+  for (const lang of LANGS) for (const scale of [1, 1.15]) {
     await page.evaluate(([l, s]) => { const b = window.__bb; b.setProgress(null); b.setLang(l); b.CFG.TEXT_TEST_SCALE = s; b.mode = "home"; }, [lang, scale]);
     await frames(page);
     const d = await page.evaluate(() => { const b = window.__bb; return { mode: b.mode, buttons: b.buttonRects, hud: b.hudRects, ui: b.uiSize, texts: b.textSizes, min: b.CFG.PHONE_TEXT }; });
@@ -279,7 +279,7 @@ test("the wardrobe tab works and fits on a phone, also with wider fonts", async 
   expect(s.ids).not.toContain("name:p2");
   expect(await page.evaluate(() => window.__bb.skinPanels().map(p => p.key))).toEqual(["p1", "big"]);
   const fails = [];
-  for (const lang of ["en", "es", "ru"]) for (const scale of [1, 1.15]) for (const st of ["looks", "poor", "armed", "friends"]) {
+  for (const lang of LANGS) for (const scale of [1, 1.15]) for (const st of ["looks", "poor", "armed", "friends"]) {
     await page.evaluate(([l, sc, state]) => {
       const b = window.__bb, W = b.wardrobe(), to = (slot, k, id) => b.cycleOutfit("p1", slot, W[k].findIndex(q => q.id === id) - b.outfits.shown.p1[slot]);
       b.setLang(l); b.CFG.TEXT_TEST_SCALE = sc; b.resetOutfits(); b.mode = "shop"; b.shopTab = "wardrobe"; b.wardrobePage = state === "friends" ? "friends" : "looks";
@@ -374,7 +374,7 @@ test("SPEC-026: the Progress page shows the save: look and name, stars, worlds, 
 });
 
 test("SPEC-026: Reset progress works from the Progress page and is gone from Items and Upgrades", async ({ page }) => {
-  const resets = await page.evaluate(() => ["en", "es", "ru"].flatMap(l => ["reset", "resetShort", "sure", "sureShort"].map(k => window.__bb.I18N[l][k])));
+  const resets = await page.evaluate(() => window.__bb.LANGS.flatMap(l => ["reset", "resetShort", "sure", "sureShort"].map(k => window.__bb.I18N[l][k])));
   await page.evaluate(save => { const b = window.__bb; b.setProgress(save); b.mode = "home"; }, MIXED);
   await click(page, "home:shop");
   for (const tab of ["items", "upgrades", "wardrobe"]) {
@@ -401,14 +401,14 @@ test("SPEC-026: Reset progress works from the Progress page and is gone from Ite
 // the Progress page fits with no scrolling: every text in its box and inside the screen, nothing on anything, the 3D window free
 async function progressProblems(page, phone, size) {
   const fails = [];
-  for (const lang of ["en", "es", "ru"]) for (const scale of phone ? [1, 1.15] : [1, 1.15, 1.3]) for (const rich of [false, true]) {   // desktop: ×1.3 too (CI fonts)
+  for (const lang of LANGS) for (const scale of phone ? [1, 1.15] : [1, 1.15, 1.3]) for (const rich of [false, true]) {   // desktop: ×1.3 too (CI fonts)
     await page.evaluate(([l, sc, r, save]) => {
       const b = window.__bb; b.setProgress(r ? save : null); b.setLang(l); b.CFG.TEXT_TEST_SCALE = sc;
       if (r) { b.progress.coins = 12345; Object.assign(b.progress.inv, { mittens: 12, mega: 10, kisses: 15, rescues: 11 }); }
       b.mode = "shop"; b.shopTab = "progress";
     }, [lang, scale, rich, MIXED]);
     await frames(page);
-    const d = await page.evaluate(() => { const b = window.__bb; return { buttons: b.buttonRects, hud: b.hudRects, ui: b.uiSize, texts: b.textSizes, min: b.CFG.PHONE_TEXT, previews: b.skinPanels(), info: b.progressInfo, names: b.I18N[document.documentElement.lang].worlds }; });
+    const d = await page.evaluate(() => { const b = window.__bb; return { buttons: b.buttonRects, hud: b.hudRects, ui: b.uiSize, texts: b.textSizes, min: b.CFG.PHONE_TEXT, previews: b.skinPanels(), info: b.progressInfo, names: b.I18N[b.lang].worlds }; });
     const at = `${size} ${lang} ×${scale} ${rich ? "rich" : "fresh"}`;
     if (!d.info) { fails.push(`${at}: no Progress page`); continue; }
     if (!phone) for (const w of ["park", "field", "city", "school", "beach", "winter"]) {   // the world names are shown whole (up to two lines)
@@ -655,7 +655,7 @@ test("the map fits a phone and swipes between worlds", async ({ phonePage: page 
   test.setTimeout(180_000);   // 27 map screens in software WebGL (~70 s locally)
   const fails = [];
   // ×1.3 for the toast: CI's Linux fonts are wider than ×1.15 of the local ones (the long lockedBonus line wraps, never cut)
-  const runs = ["en", "es", "ru"].flatMap(l => [1, 1.15].flatMap(s => ["fresh", "done", "toast", "card"].map(st => [l, s, st])).concat([[l, 1.3, "toast"]]));
+  const runs = LANGS.flatMap(l => [1, 1.15].flatMap(s => ["fresh", "done", "toast", "card"].map(st => [l, s, st])).concat([[l, 1.3, "toast"]]));
   for (const [lang, scale, st] of runs) {
     await page.evaluate(([l, s, state]) => {
       const b = window.__bb; b.setProgress(null); b.setLang(l); b.CFG.TEXT_TEST_SCALE = s; b.resetMenus();
@@ -732,16 +732,16 @@ test("the level card starts the level", async ({ page }) => {
   expect(await page.evaluate(() => [window.__bb.mode, window.__bb.world, window.__bb.level, window.__bb.littles.filter(l => l.kind === "player").length, window.__bb.banner.text]))
     .toEqual(["play", "park", 20, 1, "Park · Level 20: Maze"]);
   // the texts: a line for every level type and the boss line, in every language
-  const T = await page.evaluate(() => ["en", "es", "ru"].map(l => { const I = window.__bb.I18N[l]; return { keys: Object.keys(I.typeLines).sort(), types: Object.keys(I.types).sort(), ok: Object.values(I.typeLines).every(s => typeof s === "string" && s.length > 8), boss: I.bossLine }; }));
+  const T = await page.evaluate(() => window.__bb.LANGS.map(l => { const I = window.__bb.I18N[l]; return { keys: Object.keys(I.typeLines).sort(), types: Object.keys(I.types).sort(), ok: Object.values(I.typeLines).every(s => typeof s === "string" && s.length > 8), boss: I.bossLine }; }));
   for (const t of T) { expect(t.keys).toEqual(t.types); expect(t.ok).toBe(true); expect(Object.values(t.boss).every(s => s.length > 8)).toBe(true); }
 });
 
 // ---------- AC 8, 9: the story ----------
-// __bb.STORY — the chapters { id, image, text: { en, es, ru } }; __bb.storyInfo = { chapter, index, locked, page, title, text, art }
+// __bb.STORY — the chapters { id, image, text: { en, es, pt, ru } }; __bb.storyInfo = { chapter, index, locked, page, title, text, art }
 test("story chapters unlock with progress", async ({ page }) => {
   const S = await page.evaluate(() => window.__bb.STORY.map(c => ({ id: c.id, image: c.image, langs: Object.keys(c.text).sort() })));
   expect(S.map(c => c.id)).toEqual(["began", "park", "field", "city", "school", "beach", "winter", "ended"]);
-  for (const c of S) expect(c.langs, c.id).toEqual(["en", "es", "ru"]);
+  for (const c of S) expect(c.langs, c.id).toEqual([...LANGS].sort());
   await click(page, "home:story");
   const walk = async () => {
     const out = [];
@@ -805,7 +805,7 @@ test("story chapters unlock with progress", async ({ page }) => {
 
 test("story, rules and the level card fit a phone, also with wider fonts", async ({ phonePage: page }) => {
   const fails = [];
-  for (const lang of ["en", "es", "ru"]) for (const scale of [1, 1.15]) for (const st of ["began", "park", "ended", "rules", "card8", "card20"]) {
+  for (const lang of LANGS) for (const scale of [1, 1.15]) for (const st of ["began", "park", "ended", "rules", "card8", "card20"]) {
     await page.evaluate(([l, s, state]) => {
       const b = window.__bb; b.setProgress(null); b.setLang(l); b.CFG.TEXT_TEST_SCALE = s; b.resetMenus();
       b.progress.worlds.park.unlocked = 20; b.world = "park";
@@ -816,7 +816,7 @@ test("story, rules and the level card fit a phone, also with wider fonts", async
     if (st === "rules") await page.evaluate(() => window.__bb.tapButton("story:rules"));
     if (st.startsWith("card")) await page.evaluate(n => window.__bb.tapButton("stop:" + n), st.slice(4));
     await frames(page);
-    const d = await page.evaluate(() => { const b = window.__bb; return { mode: b.mode, buttons: b.buttonRects, hud: b.hudRects, ui: b.uiSize, texts: b.textSizes, min: b.CFG.PHONE_TEXT, info: b.storyInfo, card: b.levelCard, rules: b.I18N[document.documentElement.lang].rules(b.CFG.DOWN_TIME).length }; });
+    const d = await page.evaluate(() => { const b = window.__bb; return { mode: b.mode, buttons: b.buttonRects, hud: b.hudRects, ui: b.uiSize, texts: b.textSizes, min: b.CFG.PHONE_TEXT, info: b.storyInfo, card: b.levelCard, rules: b.I18N[b.lang].rules(b.CFG.DOWN_TIME).length }; });
     const at = `${lang} ×${scale} ${st}`;
     fails.push(...phoneProblems(at, d));
     if (st.startsWith("card")) {

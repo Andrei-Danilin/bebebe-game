@@ -4,7 +4,7 @@ const base = require("./pw");   // SPEC-023: @playwright/test + failure screensh
 const { expect } = base;
 const path = require("path");
 const fs = require("fs");
-const { openGame, sharedPage, resetGame, frames, softly, ROOT } = require("./helpers");
+const { LANGS, openGame, sharedPage, resetGame, frames, softly, ROOT } = require("./helpers");
 
 // SPEC-018: one game page for the file; resetGame() before each test, page errors and a changed CFG fail the test.
 // A test that does not ask for `page` (the source scan) opens no game page (the worker's browser still starts: the
@@ -397,7 +397,7 @@ async function showWin(page, { world, n, stats, won }) {
 async function winScreenProblems(page) {
   const fails = [];
   const overlaps = (a, b) => a.x < b.x + b.w - 0.01 && a.x + a.w > b.x + 0.01 && a.y < b.y + b.h - 0.01 && a.y + a.h > b.y + 0.01;
-  for (const lang of ["en", "es", "ru"]) for (const scale of [1, 1.15]) for (const [name, [scene]] of Object.entries(WIN_SCENES)) {
+  for (const lang of LANGS) for (const scale of [1, 1.15]) for (const [name, [scene]] of Object.entries(WIN_SCENES)) {
     const at = `${lang} ×${scale} ${name}`;
     await page.evaluate(([l, s]) => { window.__bb.setLang(l); window.__bb.CFG.TEXT_TEST_SCALE = s; }, [lang, scale]);
     await showWin(page, scene);
@@ -628,7 +628,7 @@ test("old saves keep their outfits", async ({ page }) => {
 async function skinsProblems(page, phone) {
   const fails = [];
   const overlaps = (a, b) => a.x < b.x + b.w - 0.01 && a.x + a.w > b.x + 0.01 && a.y < b.y + b.h - 0.01 && a.y + a.h > b.y + 0.01;
-  for (const lang of ["en", "es", "ru"]) for (const scale of [1, 1.15]) for (const state of ["poor", "p1", "big"]) {
+  for (const lang of LANGS) for (const scale of [1, 1.15]) for (const state of ["poor", "p1", "big"]) {
     const at = `${lang} ×${scale} ${state}`;
     await page.evaluate(([l, s, st]) => {
       const b = window.__bb, W = b.wardrobe(), to = (pk, slot, k, id) => b.cycleOutfit(pk, slot, W[k].findIndex(q => q.id === id) - b.outfits.shown[pk][slot]);
@@ -831,14 +831,14 @@ async function upgradeTabProblems(page, phone) {
   const fails = [];
   const overlaps = (a, b) => a.x < b.x + b.w - 0.01 && a.x + a.w > b.x + 0.01 && a.y < b.y + b.h - 0.01 && a.y + a.h > b.y + 0.01;
   const KEYS = ["fastFeet", "longItems", "quickHelp"];
-  for (const lang of ["en", "es", "ru"]) for (const scale of [1, 1.15]) for (const coins of [10, 9999]) {
+  for (const lang of LANGS) for (const scale of [1, 1.15]) for (const coins of [10, 9999]) {
     const at = `${lang} ×${scale} ${coins} coins`;
     await page.evaluate(([l, s, cn]) => {
       const b = window.__bb; b.setLang(l); b.CFG.TEXT_TEST_SCALE = s; b.progress.coins = cn;
       Object.assign(b.progress.upgrades, { fastFeet: 0, longItems: 2, quickHelp: 3 }); b.mode = "shop"; b.shopTab = "upgrades";
     }, [lang, scale, coins]);
     await frames(page);
-    const d = await page.evaluate(() => { const b = window.__bb, resets = ["en", "es", "ru"].flatMap(l => ["reset", "resetShort", "sure", "sureShort"].map(k => b.I18N[l][k]));
+    const d = await page.evaluate(() => { const b = window.__bb, resets = b.LANGS.flatMap(l => ["reset", "resetShort", "sure", "sureShort"].map(k => b.I18N[l][k]));
       return { buttons: b.buttonRects, hud: b.hudRects, ui: b.uiSize, texts: b.textSizes, min: b.CFG.PHONE_TEXT, tab: b.shopTab, resets }; });
     if (d.tab !== "upgrades") { fails.push(`${at}: tab ${d.tab}`); continue; }
     // SPEC-026: Reset progress moved to the Character's Progress page — not on the Upgrades tab

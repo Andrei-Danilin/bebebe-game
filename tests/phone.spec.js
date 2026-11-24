@@ -2,7 +2,7 @@
 // Phone tests run at 844×390 with touch + isMobile and ?phone=1; the desktop test checks that nothing changed.
 const base = require("./pw");   // SPEC-023: @playwright/test + failure screenshots
 const { expect } = base;
-const { openGame, step, frames, sharedPage, resetGame } = require("./helpers");
+const { LANGS, openGame, step, frames, sharedPage, resetGame } = require("./helpers");
 
 // SPEC-018: the ?phone=1 tests share one game page per screen setup (fixture `phonePage`: viewport, touch, mobile)
 // instead of a fresh page each. Before every test the page gets its viewport back, a name input left open is closed
@@ -995,7 +995,7 @@ for (const [vw, vh] of PHONE_SIZES) {
       }
       // the one-time "Bonus worlds unlocked!" note on the win screen: inside the screen, off the buttons, readable — measured with
       // the real font width and with a 15 % wider one (CFG.TEXT_TEST_SCALE, like CI's Linux fonts: the Spanish note was cut there)
-      for (const lang of ["en", "es", "ru"]) for (const fs of [1, 1.15]) {
+      for (const lang of LANGS) for (const fs of [1, 1.15]) {
         await page.evaluate(([l, f]) => {
           const b = window.__bb, all = () => Object.fromEntries(Array.from({ length: 20 }, (_, i) => [i + 1, true]));
           b.setProgress(null); b.setLang(l);
@@ -1031,7 +1031,7 @@ for (const [vw, vh] of PHONE_SIZES) {
       const errors = page.sharedErrors;
       const minText = await page.evaluate(() => window.__bb.CFG.PHONE_TEXT);
       const fails = [];
-      for (const [name0, setup] of (vw === 667 ? ["en", "es", "ru"] : ["en"]).flatMap(lg => Object.entries(PHONE_SCENES).map(([n, f]) => [lg + " " + n, async pg => { await pg.evaluate(l => window.__bb.setLang(l), lg); await f(pg); }]))) {
+      for (const [name0, setup] of (vw === 667 ? LANGS : ["en"]).flatMap(lg => Object.entries(PHONE_SCENES).map(([n, f]) => [lg + " " + n, async pg => { await pg.evaluate(l => window.__bb.setLang(l), lg); await f(pg); }]))) {
         const name = name0.split(" ")[1], label = name0;
         await setup(page);
         await frames(page);
@@ -1112,7 +1112,7 @@ const BANNER_LEVELS = [1, 10];   // "Our drawing" and a two-digit level with the
 // Every case still runs at both hero positions and both font scales.
 async function bannerPlan(page) {
   return page.evaluate(([W, levels]) => {
-    const b = window.__bb, ctx = document.createElement("canvas").getContext("2d"), LANGS = ["en", "es", "ru"];
+    const b = window.__bb, ctx = document.createElement("canvas").getContext("2d"), LANGS = b.LANGS;
     const width = (w, n, lg) => { const I = b.I18N[lg]; ctx.font = `900 30px system-ui, "Segoe UI", sans-serif`; return ctx.measureText(I.levelIntro(I.worlds[w], n, I.types[b.levelType(w, n)])).width; };
     const nameW = lg => { ctx.font = `900 30px system-ui, "Segoe UI", "Arial Rounded MT Bold", Arial, sans-serif`; return ctx.measureText(b.I18N[lg].player1).width; };
     const plan = [], add = (world, n, lang) => { if (!plan.some(p => p.world === world && p.n === n && p.lang === lang)) plan.push({ world, n, lang }); };
@@ -1209,7 +1209,7 @@ for (const [vw, vh] of PHONE_SIZES) {
       // languages including the one with the widest hero name
       const at = JSON.stringify(plan);
       expect(plan.some(p => p.world === "park" && p.n === 1 && p.lang === "en"), at).toBe(true);
-      for (const lg of ["en", "es", "ru"]) expect(plan.some(p => p.n === 1 && p.lang === lg), `level 1 in ${lg}: ${at}`).toBe(true);
+      for (const lg of LANGS) expect(plan.some(p => p.n === 1 && p.lang === lg), `level 1 in ${lg}: ${at}`).toBe(true);
       for (const w of ["park", "field", "city", "school", "beach", "winter"]) {
         const langs = plan.filter(p => p.world === w && p.n === 10).map(p => p.lang);
         expect(langs.length, `${w} 10: ${at}`).toBeGreaterThanOrEqual(2);
@@ -1249,7 +1249,7 @@ test.describe("phone banner too wide", () => {
     const errors = page.sharedErrors;
     const fails = [];
     try {
-      for (const [world, n, langs] of [["park", 11, ["en", "es", "ru"]], ["field", 10, ["ru"]]]) {
+      for (const [world, n, langs] of [["park", 11, LANGS], ["field", 10, ["ru"]]]) {
       await startBannerLevel(page, world, n);
       for (const lang of langs) for (const pos of ["start", "centre"]) {
         const label = `${world} ${n} ${lang} hero at ${pos}`;
@@ -1426,7 +1426,7 @@ for (const [vw, vh] of PHONE_SIZES) {
       const fails = [];
       let cases = 0;
       try {
-        for (const lang of ["en", "es", "ru"]) for (const coins of [10, 999]) {
+        for (const lang of LANGS) for (const coins of [10, 999]) {
           let lastStep = -1;
           for (const fontScale of coins === 10 ? SHOP_SCALES : vw === 667 ? [1, 1.3] : [1]) {
             const d = await page.evaluate(async ([lg, cn, fs]) => {
@@ -1462,7 +1462,7 @@ for (const [vw, vh] of PHONE_SIZES) {
       } finally {
         await page.evaluate(() => { window.__bb.CFG.TEXT_TEST_SCALE = 1; });
       }
-      expect(cases).toBe(3 * (SHOP_SCALES.length + (vw === 667 ? 2 : 1)));
+      expect(cases).toBe(LANGS.length * (SHOP_SCALES.length + (vw === 667 ? 2 : 1)));
       expect(errors).toEqual([]);
       expect(fails, fails.slice(0, 12).join("\n")).toEqual([]);
     });
@@ -1478,7 +1478,7 @@ test.describe("phone heard hint 667×375", () => {
   test("the heard hint fits a phone in every language", async ({ phonePage: page }) => {
     const minText = await page.evaluate(() => window.__bb.CFG.PHONE_TEXT);
     const fails = [];
-    for (const lang of ["en", "es", "ru"]) for (const fs of [1, 1.15]) {
+    for (const lang of LANGS) for (const fs of [1, 1.15]) {
       const d = await page.evaluate(async ([lg, f]) => {
         const b = window.__bb, g = b.grid;
         b.setLang(lg); b.CFG.TEXT_TEST_SCALE = f;
