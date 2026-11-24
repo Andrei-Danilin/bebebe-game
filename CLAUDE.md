@@ -11,7 +11,7 @@ A top-down 3D arcade game that Andrei makes with his kids from their scenario an
 - `index.html` — **v2, 3D**: one HTML file, one ES module, no build step. Three.js **r187** is imported from jsDelivr (pinned `three@0.187.0`); the game needs internet to load it the first time.
 - PWA files: `manifest.webmanifest`, `sw.js` (offline cache), `icons/` (`icon.svg` source + PNGs made by `npm run icons`). Published on GitHub Pages: **https://andrei-danilin.github.io/bebebe-game/** by `.github/workflows/pages.yml` (the sharded tests, then deploy) on every push to `master`. CI (SPEC-023): `.github/workflows/tests.yml` runs the whole suite in 4 shards on every push of a `SPEC-*` branch (and is reused by `pages.yml`); `.github/workflows/balance.yml` makes the balance report on demand.
 - `v1-2d/index.html` — v1, 2D canvas, offline. Frozen: no new features unless a spec names it.
-- `tests/` — Playwright tests (`smoke`, `gameplay`, `i18n` on `file://`; `pwa` over http from `scripts/serve.js`); three.js is served from `node_modules` so tests run offline.
+- `tests/` — Playwright tests (`smoke`, `gameplay`, `i18n` on `file://`; `pwa` over http from `scripts/serve.js`; `env` = GPU/priority of the test machine); three.js is served from `node_modules` so tests run offline. `tests/test-env.js` (GL backend, priority), `tests/global-setup.js`, `tests/pw.js` (failure screenshots).
 - `docs/` — `game-design.md` (rules), `architecture.md` (code map), `process/` (orchestration rules, run templates).
 - `specs/` — `SPEC-NNN-*.md` (one feature each), `BACKLOG.md`, `_archive/` (done specs).
 - `claude-setup/` — the committed source of the Claude Code agents and skills; `npm run claude:sync` copies them into `.claude/` (local, gitignored), where Claude Code finds them. Edit `claude-setup/`, never `.claude/` directly.
@@ -48,7 +48,7 @@ Never: `git push --force`, pushing anything but `master` and your own spec branc
 - Agents/skills changed in `claude-setup/`: `npm run claude:sync`.
 - Balance report: on GitHub `gh workflow run balance.yml -f ref=<branch>` → `gh run watch` → `gh run download <id> -n balance -D reports`; locally `npm run balance` (every level × 3 seeds with the autopilot in sim mode → `reports/balance.md`, `reports/balance.json`; targets in `CFG.BALANCE`). Not part of `npm test`; the CI sample is in `tests/balance.spec.js`.
 - CI: `gh run list --branch <branch>`, `gh run watch <id> --exit-status`, `gh run download <id>` (artifacts: `html-report` = the merged Playwright report, `test-results-<n>` = failure traces/screenshots of shard n).
-- Local test environment (SPEC-023): `PW_GPU` = auto (default: GPU locally, SwiftShader on CI) / `0` (force SwiftShader) / `1` (force GPU); `PW_NICE=0` keeps normal priority (default: the runner, its browsers and `npm run balance` run below normal). Claude Code itself at low priority on Windows: `start /belownormal claude --model opus`.
+- Local test environment (SPEC-023): `PW_GPU` = auto (default: GPU locally, SwiftShader on CI) / `0` (force SwiftShader) / `1` (force GPU); `PW_NICE=0` keeps normal priority (default: the runner, its browsers and `npm run balance` run below normal; SwiftShader runs on a busy machine starve at below normal — use `PW_GPU=0 PW_NICE=0`). Claude Code itself at low priority on Windows: `start /belownormal claude --model opus`.
 - Numbers section of `docs/game-design.md` (generated from `CFG`, `GLOVES`, `KISSES`, `RESCUE_KIT`): `npm run docs:numbers` (`--check` to only compare).
 - Fast set while working (`@fast`, ~1.5 min): `npm run test:fast` · all tests: on CI (Tests workflow on the pushed branch); locally `npx playwright test` only when a spec asks for it (`workers: 1`) · one file: `npx playwright test tests/gameplay.spec.js` · one test: `npx playwright test -g "banana"` · watch it: `npx playwright test --headed`.
 - Play locally: open `index.html` in a browser (Chrome/Edge/Safari/Firefox). Over http (service worker, manifest): `npm run serve` → http://localhost:8123/ (`PORT` to change it; Playwright starts it itself as `webServer`).
@@ -57,7 +57,8 @@ Never: `git push --force`, pushing anything but `master` and your own spec branc
 
 ## Test gotchas
 
-- Tests use software WebGL (SwiftShader); they are slow per frame, so gameplay is advanced with `step(page, seconds)` (logic only), not by waiting.
+- Locally the tests draw on the GPU, on CI with software WebGL (SwiftShader, slow per frame; `PW_GPU=0` locally does the same): gameplay is advanced with `step(page, seconds)` (logic only), not by waiting. A test that checks only logic or numbers opens the game in sim mode (`openGame(page, { sim: true })`, or the `simPage` fixture of the shared-page specs); in sim, `frames()`, `page.screenshot()` and the drawn state of `__bb` (`__bb.SIM_DRAWN`) throw — a test that checks drawing uses a rendered `page` (`docs/architecture.md` "Tests and CI").
+- Specs require `./pw` (= `@playwright/test` + failure screenshots of every open page), not `@playwright/test` directly.
 - Tests that change `__bb.CFG` restore it and call `__bb.clearLevelCache()` (the level cache keeps the accepted attempt per level).
 - `openGame()` clears `localStorage` once per test; a test about saving reloads the page and checks `window.__bb.progress`.
 - A test that needs a calm Big One sets `big.state = "look"` and a large `big.timer`, and moves him away; bots keep moving — pin what you assert.

@@ -10,7 +10,8 @@
 //   global setup probes the GPU once; if no hardware WebGL context comes up, it sets PW_GL=swiftshader (workers re-read
 //   the config with that env) and prints one line.
 // Priority (PW_NICE): below normal unless PW_NICE=0; child processes (workers, browsers) inherit it on Windows, except
-//   Chrome's GPU process (see niceArgs).
+//   Chrome's GPU process (see niceArgs). Below normal gives way to every normal program: fine with the GPU, but SwiftShader
+//   (all CPU cores) on a machine busy with other work starved into timeouts — PW_GPU=0 runs there want PW_NICE=0.
 const os = require("os");
 
 const SWIFTSHADER_ARGS = ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"];

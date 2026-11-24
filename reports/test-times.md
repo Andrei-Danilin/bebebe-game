@@ -1,4 +1,4 @@
-# Test times (SPEC-018)
+# Test times (SPEC-018, SPEC-023)
 
 How long the Playwright suite takes, before and after SPEC-018, and what was changed to make it faster without losing
 coverage. Durations come from `npx playwright test --reporter=json` (local) and from the Pages workflow log (CI).
@@ -140,3 +140,162 @@ stateless `webServer`).
 | phone "mini-map shows the level and everyone on it" (fixed in SPEC-010) | unchanged | 5/5 passed |
 | phone "edge arrows point to the off-screen Big One and downed friends" (fixed in SPEC-010) | serialization fix (50 → 4 s) | 5/5 passed |
 | levels "all 80 levels are fair and build fast" (failed in the baseline run: park 12 took 450 ms) | a build ≥ 200 ms is timed again; the fastest of up to 3 full builds counts | 5/5 passed |
+
+# SPEC-023: GPU locally, below-normal priority, sharded CI, logic tests in sim mode
+
+## Before
+
+The planned local "before" run on `master` (`7498cec`) was stopped by the system (low memory) and not repeated; the
+numbers come from the records. The old config drew with SwiftShader everywhere, which is what `PW_GPU=0` does now.
+
+| | value | source |
+|---|---|---|
+| local whole suite | **~25 min** (~244 tests, SwiftShader, normal priority) | orchestrator notes, SPEC-016…019 queue; SPEC-018 measured 9.8 min for 157 tests (above) |
+| local fast set | 1.4 min (15 tests, SPEC-018) | above |
+| local balance | 139 s (`durationSec` in `reports/balance.json` on `master`) | `reports/balance.json` |
+| CI (Pages workflow, one `test` job) | test job **15 m 08 s** (run 45272975936, `ada0f78`; `npx playwright test` step 14 m 34 s), **21 m 17 s** (45253495054, `592371b`), **19 m 39 s** (45245942170, `52e4704`); whole run incl. deploy 15 m 30 s / 21 m 41 s / 19 m 42 s | `gh run view <id> --json jobs` |
+
+## After
+
+Local: the same machine (Windows 11, 8 logical CPUs, Intel UHD Graphics, 32 GB), branch `SPEC-023-light-tests`, default
+settings = **GPU and below-normal priority**. **The machine was busy during all local runs**: other Claude Code sessions
+of other projects ran their own Playwright suite, vitest and perf scripts at normal priority (CPU 60–100 % before our runs
+started). A below-normal run gives way to all of that, so the local numbers are an upper bound, not the quiet-machine time.
+
+| | before | after |
+|---|---|---|
+| local whole suite, GPU (default) | ~25 min (SwiftShader) | **15.5 min** (15 m 45 s wall), **248 passed** |
+| local whole suite, `PW_GPU=0` (SwiftShader, as before) | ~25 min | **not completed — skipped on Andrei's word** (CI's SwiftShader shards are the proof that this backend passes). Two attempts were stopped: at below normal (21:30–22:23) it starved into 90 s timeouts (14 tests, all `Test timeout` / `waitForFunction` timeouts, none an assertion); with `PW_NICE=0` (22:37–23:06) it reached `economy.spec.js` in 28 min with 3 timeouts — SPEC-020's tests (another agent in a worktree) overlapped with it 22:34–22:58 |
+| local fast set, GPU | 1.4 min (15 tests) | **1.4 min** (88 s wall), 29 passed |
+| local fast set, `PW_GPU=0` | — | **4.0 min** (245 s wall), 29 passed |
+| local balance (`npm run balance`) | 139 s | **171 s** (below normal on the busy machine; the report itself unchanged) |
+| balance on GitHub (`balance.yml`, run 45292838058) | — | **53 s** run (script 21 s; checkout + npm ci + Chromium 21 s) |
+| CI whole suite per push (`tests.yml`, 4 shards + merge) | 15–21 min (one job) | **8 m 33 s** (run 45292838040, shards by file: 8:11 / 6:07 / 0:52 / 2:56), **7 m 28 s** (run 45294116381, `fullyParallel` on CI: shards 3:32 / 3:06 / 6:21 / 7:08, merge 16 s) |
+
+Priority (AC 2), checked with `Get-CimInstance Win32_Process` / `Get-Process … PriorityClass` during a default run of one
+file: runner `node … cli.js test` base 6 = BelowNormal, its worker BelowNormal, the worker's browser and its renderer and
+utility processes BelowNormal, no separate GPU process (`--in-process-gpu`). A "Normal" runner seen meanwhile was a run
+with `PW_NICE=0` set on purpose, or the other agent's run in `C:	mpebebe-020` (on `master`, without SPEC-023).
+Below normal gives way to every normal program: with SwiftShader and another session's tests running at normal priority,
+it starves (see the `PW_GPU=0` row) — run SwiftShader locally as `PW_GPU=0 PW_NICE=0`. Even with the GPU it starves
+while another session runs its tests at normal priority: the priority check run of `smoke.spec.js` (23:10–23:25, next to
+the SPEC-020 agent's Playwright run from `master`) took 15.3 min with 4 page-load timeouts (`__bbReady` not within 30 s);
+the same 4 with `PW_NICE=0` passed in 38.5 s. Once every session runs SPEC-023's config, all test runs are below normal
+and share the CPU evenly.
+
+Targets: CI ≤ 8 min — **met (7 m 28 s; −50…−65 %)**. Local whole ≤ 12 min with GPU — **not met on the busy machine
+(15.5 min)**; fast set ≤ 2 min — **met (1.4 min)**. The GPU makes the fast set 2.8× faster than SwiftShader on the same
+machine. CI shards are still uneven (3–7 min): Playwright splits by test count, and the phone, menu and PWA tests
+(rendered, ~25–33 s each on CI) sit at the end of the file order; the sum of all tests on CI is 17.5 min
+(phone 329 s, menus 188, gameplay 160, economy 143, smoke 71, pwa 69, levels 56, names 21, balance 9, invariants 4 s).
+Next step if CI must get faster: split `phone.spec.js` or weight the shards (BACKLOG).
+
+### What changed
+
+| change | where | effect |
+|---|---|---|
+| hardware WebGL locally (`--use-gl=angle --use-angle=d3d11` on Windows; `metal` / `gl` elsewhere); SwiftShader on CI, with `PW_GPU=0`, or after a failed GPU probe | `tests/test-env.js`, `playwright.config.js`, `tests/global-setup.js` | 3D frames cost the GPU instead of all CPU cores; renderer checked by `tests/env.spec.js` |
+| below-normal priority for the runner, workers, browsers and `npm run balance` (`PW_NICE=0`: off); `--in-process-gpu` on Windows because Chrome raises its GPU process to "Above normal" | `tests/test-env.js`, `tests/global-setup.js`, `scripts/balance.js` | the computer stays responsive; measured: every browser process "Below normal" (`tests/env.spec.js`) |
+| 90 logic-only tests (96 with the per-type loop) run on sim pages | gameplay 50, economy 10, invariants 7, levels 19 (+6 from the loop), i18n 3, names 1 | no 3D, no drawing, no audio while they run; every assertion kept |
+| sim guard: `frames()`, `page.screenshot()` and `__bb.SIM_DRAWN` throw in sim mode | `tests/helpers.js`, `index.html`, `balance.spec.js` test | a visual test cannot silently run on a sim page |
+| 4 CI shards, blob reports merged into one HTML report, Pages reuses them | `.github/workflows/tests.yml`, `pages.yml` | CI per push 15–21 → 7.5 min |
+| failure screenshots of every open page, only when a test fails | `tests/pw.js` | CI artifacts show the screen; no cost when green |
+
+### Tests that moved to sim mode (rendered → sim)
+
+Line numbers as on `master` before SPEC-023.
+
+Two tests were tried in sim and moved back, because they need the frame loop or sound: economy "upgrades apply to
+players only and stop at level 3" (asserts a sound request, none in sim) and gameplay "kiss keys for one and two
+players" (the gamepad is polled by the frame loop).
+
+- gameplay.spec.js:26 "a hug from behind takes one heart and shocks the Big One"
+- gameplay.spec.js:36 "seen from the front, a Little One is pushed and breaks a leg"
+- gameplay.spec.js:62 "rescue takes 3 seconds and drains when the helper leaves"
+- gameplay.spec.js:86 "pushing the helper resets the rescue"
+- gameplay.spec.js:104 "bots wait before they go to rescue"
+- gameplay.spec.js:128 "an unrescued Little One rests 30 seconds"
+- gameplay.spec.js:165 "winning gives stars and coins, unlocks the next level and survives a reload"
+- gameplay.spec.js:223 "the reward grows with the world"
+- gameplay.spec.js:291 "each rest takes coins from the level reward"
+- gameplay.spec.js:300 "warm mittens: bought in the shop, a hug takes 2 hearts and uses a charge"
+- gameplay.spec.js:311 "buying mega mittens: 3 charges, a hug takes 3 hearts"
+- gameplay.spec.js:321 "not enough coins: nothing is bought"
+- gameplay.spec.js:328 "the Big One never enters the Little Ones' house"
+- gameplay.spec.js:338 "a banana makes the Big One slip; he can be hugged from the front"
+- gameplay.spec.js:351 "picking up speed boots makes a Little One faster for a while"
+- gameplay.spec.js:364 "the Big One's house is a danger zone"
+- gameplay.spec.js:382 "staying 5 s in the Big One's house throws you out"
+- gameplay.spec.js:423 "downed Little Ones have no house timer, the shield does not help"
+- gameplay.spec.js:442 "bots don't linger in the Big One's house"
+- gameplay.spec.js:463 "bonus stars appear and disappear"
+- gameplay.spec.js:489 "stars spawn only in fair places"
+- gameplay.spec.js:524 "only players pick up stars"
+- gameplay.spec.js:592 "a danger zone without exits throws out to the nearest free cell"
+- gameplay.spec.js:612 "buying air kisses"
+- gameplay.spec.js:631 "old saves get 0 kisses"
+- gameplay.spec.js:720 "old saves move into the Park"
+- gameplay.spec.js:768 "throwing spends a kiss and has a cooldown"
+- gameplay.spec.js:914 "no kisses from the safe house"
+- gameplay.spec.js:931 "kisses stop at walls and fly over ponds"
+- gameplay.spec.js:964 "trees, rocks and the map edge stop kisses; bushes do not"
+- gameplay.spec.js:1004 "a kiss never hits the Big One through a wall"
+- gameplay.spec.js:1039 "a kiss takes half a heart and makes him blush"
+- gameplay.spec.js:1074 "kisses during shock or blush do no damage"
+- gameplay.spec.js:1099 "a blushing Big One can be hugged"
+- gameplay.spec.js:1117 "the last half heart by a kiss wins the level"
+- gameplay.spec.js:1137 "hearts bar shows half hearts"
+- gameplay.spec.js:1197 "buying rescue kits"
+- gameplay.spec.js:1213 "old saves get 0 kits"
+- gameplay.spec.js:1233 "a kit gets a downed player up at once"
+- gameplay.spec.js:1274 "a kit ends limping home"
+- gameplay.spec.js:1288 "a kit ends the rest"
+- gameplay.spec.js:1303 "a kit while down keeps the nobody-out star"
+- gameplay.spec.js:1463 "a kit does not throw an air kiss right after"
+- gameplay.spec.js:1656 "the Big One turns when a kid runs behind him"
+- gameplay.spec.js:1729 "tiptoeing behind him is silent"
+- gameplay.spec.js:1781 "no hearing while stunned or blushing"
+- gameplay.spec.js:1820 "cooldown after a turn"
+- gameplay.spec.js:1844 "noise turn leads to a chase"
+- gameplay.spec.js:1906 "bots tiptoe near the Big One"
+- gameplay.spec.js:1949 "the careful autopilot tiptoes near his back, the reckless one runs"
+- economy.spec.js:95 "every coin change is in the ledger"
+- economy.spec.js:166 "the reward rules: first win, replay, new stars, rests with floors, difficulty 0 and 4"
+- economy.spec.js:229 "leaving a level early pays only the hugs"
+- economy.spec.js:375 "every win-screen text is in three languages"
+- economy.spec.js:388 "every wardrobe item has an id and a price; the basic ones and every default look are free"
+- economy.spec.js:487 "random outfit uses only owned items; bots may wear anything"
+- economy.spec.js:600 "every wardrobe text is in three languages"
+- economy.spec.js:699 "upgrades are saved, merged with defaults and cleaned"
+- economy.spec.js:816 "every upgrade text is in three languages"
+- economy.spec.js:874 "a pause during the final hug and Map still counts the win; coins load as a whole number ≥ 0"
+- invariants.spec.js:32 "the Big One never outruns a player, patrols slower than he chases, bots outrun his search"
+- invariants.spec.js:54 "tiptoe speed is at least half the player speed and below the running line"
+- invariants.spec.js:62 "a friend can always arrive in time, and a Little One just stood up is not pushed at once"
+- invariants.spec.js:95 "rewards add up, coins never go negative, inventory stays whole"
+- invariants.spec.js:205 "every known save shape loads into the current one and round-trips"
+- invariants.spec.js:227 "old saves get the new worlds"
+- invariants.spec.js:263 "a whole old save starts the game: progress moves, outfits and names load, the game writes them back the same"
+- i18n.spec.js:5 "es and ru have every key that en has, with the same type"
+- i18n.spec.js:25 "every STORY text is in en, es and ru"
+- i18n.spec.js:36 "the tiptoe rule and the heard hints are in en, es and ru"
+- levels.spec.js:212 "worlds follow the story order"
+- levels.spec.js:260 "level 1 is the kids' drawing in every world"
+- levels.spec.js:279 "maps are fixed and differ between worlds"
+- levels.spec.js:305 "old worlds keep their maps"
+- levels.spec.js:325 "all 120 levels are fair"
+- levels.spec.js:370 "the Big One gets faster inside a world and never outruns a player"
+- levels.spec.js:483 "difficulty follows the story order"
+- levels.spec.js:561 "meadow is open with bushes"
+- levels.spec.js:581 "maze has 2-wide corridors and few dead ends"
+- levels.spec.js:622 "village has cottages, streets and a square"
+- levels.spec.js:680 "river has bridges and the houses on opposite banks"
+- levels.spec.js:733 "rooms all have doors and the building has loops"
+- levels.spec.js:786 "arena has a ring with gaps"
+- levels.spec.js:828 "the game starts exactly the level that levelReport checks"
+- levels.spec.js:865 "restarting a retried level builds it from the cache, the same as a fresh build"
+- levels.spec.js:884 "a level with no fair layout falls back and warns"
+- levels.spec.js:1007 `${type}: 60 s of play, nobody stuck`
+- levels.spec.js:1027 "kisses stop at maze walls and cottages and fly over the river"
+- levels.spec.js:1089 "rooms and arena need diagonal houses even if the CFG pairing is removed"
+- names.spec.js:23 "names are saved, cleaned and survive a reload"

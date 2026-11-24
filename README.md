@@ -309,7 +309,10 @@ npm run balance        # play every level with the autopilot in sim mode → rep
   cannot be created, the run falls back to SwiftShader and prints one line saying so. `tests/env.spec.js` checks the
   WebGL renderer matches the chosen backend.
 - The test runner, its browsers and `npm run balance` run at **below-normal priority**, so the computer stays usable
-  during a run. `PW_NICE=0` keeps normal priority.
+  during a run. `PW_NICE=0` keeps normal priority. Below normal gives way to every normal program: while the machine is
+  already busy (e.g. other Claude Code sessions running their tests) a run can crawl. With the GPU that was fine (the whole
+  suite passed at below normal on a busy machine), but **SwiftShader (`PW_GPU=0`, or the fallback) needs every CPU core and
+  starved into 90 s timeouts there — run it as `PW_GPU=0 PW_NICE=0`** (measured in SPEC-023, `reports/test-times.md`).
 - Claude Code itself at low priority on Windows (everything it starts inherits it): `start /belownormal claude --model opus`
   in `cmd` (from PowerShell: `cmd /c start /belownormal claude --model opus`; it opens a new console window).
 - Logic-only tests open the game in **sim mode** (`openGame(page, { sim: true })`: no 3D, no audio), so they are fast
