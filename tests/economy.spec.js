@@ -897,22 +897,25 @@ test("every upgrade text is in every language", async ({ simPage: page }) => {
   expect(I[3]).toEqual(["Вещи", "Улучшения", "Максимум", ["Быстрые ноги", "+3% скорости"], ["Долгие вещи", "Действуют дольше"], ["Быстрая помощь", "Поднимаешь быстрее"]]);
 });
 
-// ---------- SPEC-029: a world's own trend target (TREND_RHO_WORLD), ρ compared as printed (pure, no browser) ----------
-test("the time-trend target can be set per world and compares ρ as the report prints it", { tag: "@fast" }, () => {
+// ---------- SPEC-029: a world's own trend target (TREND_RHO_WORLD), ρ compared unrounded (pure, no browser) ----------
+test("the time-trend target can be set per world and compares the unrounded ρ", { tag: "@fast" }, () => {
   const { analyse, spearman } = require("../scripts/balance.js");
   const { readValue } = require("../scripts/docs-numbers.js");
   const B = readValue(fs.readFileSync(INDEX, "utf8"), "CFG").BALANCE;
-  expect([B.TREND_RHO, B.TREND_RHO_WORLD]).toEqual([0.5, { city: 0.48 }]);   // SPEC-029: Andrei, one heart fewer everywhere
-  // City's median times on the SPEC-029 balance run (ρ ≈ 0.475, printed 0.48) — the same times in the Park
+  expect([B.TREND_RHO, B.TREND_RHO_WORLD]).toEqual([0.5, { city: 0.475 }]);   // SPEC-029: Andrei, one heart fewer everywhere (measured 0.4752)
+  // City's median times on the SPEC-029 balance run (ρ 0.4752) — the same times in the Park
   const times = [79.07, 123.87, 47.57, 27.13, 79.13, 64.03, 37.8, 50.23, 72.63, 95.53, 43.3, 45.57, 64.43, 124.27, 110.77, 95.37, 64.73, 317.23, 109.8, 207.9];
   const run = (world, n, t) => ({ world, n, type: "meadow", target: 999, style: "careful", seed: 0, win: true, time: t, hugs: 0, playerHugs: 0, pushes: 0,
     falls: 0, rescues: 0, rests: 0, stars: 1, coins: 0, parts: [], bonusStars: 0 });
   const runs = ["park", "city"].flatMap(w => times.map((t, i) => run(w, i + 1, t)));
   const rho = spearman(times.map((_, i) => i + 1), times);
   const r = analyse(runs, B, ["park", "city"], 20), trend = w => r.targets.find(t => t.name.startsWith(`${w}: median time grows`));
-  expect(rho).toBeCloseTo(0.475, 3);
-  expect([trend("city").value, trend("city").want, trend("city").ok], "0.475 prints as 0.48: green").toEqual(["0.48", "≥ 0.48", true]);
+  expect(rho).toBeCloseTo(0.4752, 4);
+  expect([trend("city").value, trend("city").want, trend("city").ok], "0.4752 ≥ 0.475: green").toEqual(["0.48", "≥ 0.475", true]);
   expect([trend("park").want, trend("park").ok], "the other worlds keep TREND_RHO").toEqual(["≥ 0.5", false]);
+  // unrounded: a target a hair above the measured ρ (the same printed 0.48) is red — no rounding loosens any world's target
+  const r2 = analyse(runs, { ...B, TREND_RHO_WORLD: { city: rho + 0.0001 } }, ["park", "city"], 20);
+  expect(r2.targets.find(t => t.name.startsWith("city: median time grows")).ok, "a hair below the target is red").toBe(false);
 });
 
 // ---------- AC 7–8: the economy section of the balance report (pure, no browser) ----------
