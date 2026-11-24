@@ -3,7 +3,8 @@
 //   reports/balance.json — every run (with its coins events), the settings and the targets;
 //   reports/balance.md   — per level, per world, the targets red/green.
 // SPEC-009 adds the economy: two more passes (replays of a few levels; every 5th level with all upgrades maxed) and the
-// pace targets of CFG.BALANCE.ECONOMY, in an "Economy" section (balance.json: economy, replayRuns, upgradeRuns).
+// pace targets of CFG.BALANCE.ECONOMY, in an "Economy" section (balance.json: economy, replayRuns, upgradeRuns); SPEC-026: + the pace
+// at today's prices (levels per pack in the Park, levels per upgrade level), economy.pace.
 // Settings and targets live in CFG.BALANCE (index.html). Not part of `npm test`: `npm run balance` (~30 s).
 // tests/balance.spec.js requires runLevel() for the CI sample, and the page is opened with the tests' openSim(), so the
 // report and the tests play a level the same way.
@@ -194,8 +195,18 @@ function analyseEconomy(runs, replayRuns, upgradeRuns, B, worlds, perWorld, pric
   add(`${xw} ${xa}–${xz} with every upgrade maxed: median time ≥ ${pct(E.UPG_TIME)} of the time without (1 seed)`,
     `${fmt(upT)} s vs ${fmt(baseT)} s (${pct(baseT ? upT / baseT : 0)})`, `≥ ${pct(E.UPG_TIME)}`, extra.length > 0 && upT >= E.UPG_TIME * baseT,
     `wins with upgrades ${upgradeRuns.filter(r => r.win).length}/${upgradeRuns.length}`);
+  // SPEC-026: the pace at today's prices (no target): how many levels' median first-win income one pack costs in the Park,
+  // and one upgrade level in the first UPGRADE_WORLDS worlds (where the upgrades are bought)
+  const earlyMedian = median(worldRows.slice(0, E.UPGRADE_WORLDS).flatMap(r => r.perLevel));
+  const per = (price, inc) => (inc ? price / inc : null);
+  const pace = {
+    parkMedian: park.median, earlyMedian,
+    packs: (prices.packs || []).map(q => ({ k: q.k, price: q.price, levels: per(q.price, park.median) })),
+    upgrades: (prices.upgradeLevels || []).map((price, i) => ({ level: i + 1, price, levels: per(price, earlyMedian) })),
+    allUpgrades: { price: prices.upgrades, levels: per(prices.upgrades, earlyMedian) }
+  };
   return {
-    prices, targets, worlds: worldRows,
+    prices, targets, worlds: worldRows, pace,
     replay: pairs.map(x => ({ world: x.replay.world, n: x.replay.n, firstCoins: x.first.coins, replayCoins: x.replay.coins,
       firstTime: runTime(x.first, limit), replayTime: runTime(x.replay, limit), parts: x.replay.parts })),
     upgrades: upPairs.map(x => ({ world: x.up.world, n: x.up.n, win: x.up.win, time: runTime(x.up, limit), baseWin: x.base.win, baseTime: runTime(x.base, limit) }))
@@ -247,6 +258,16 @@ function markdown(rep) {
       `Prices: cheapest pack ${ec.prices.cheapest}, mega mittens ${ec.prices.mega}, top wardrobe tier ${ec.prices.top}, all upgrades ${ec.prices.upgrades}.`, "",
       "| Target | Value | Want | Result | Detail |", "|---|---|---|---|---|");
     for (const t of ec.targets) L.push(`| ${t.name} | ${t.value} | ${t.want} | ${t.ok ? "🟢 green" : "🔴 red"} | ${t.detail} |`);
+    if (ec.pace) {
+      const P = ec.pace;
+      L.push("", "### Pace at today's prices (SPEC-026)", "",
+        `Levels of median first-win income one purchase costs. Packs: in ${worlds[0]} (median ${fmt(P.parkMedian, 1)} coins per level). ` +
+        `Upgrades: in the first ${B.ECONOMY.UPGRADE_WORLDS} worlds (${worlds.slice(0, B.ECONOMY.UPGRADE_WORLDS).join(", ")}; median ${fmt(P.earlyMedian, 1)} coins per level).`, "",
+        "| Purchase | Price | Levels per purchase |", "|---|---|---|");
+      for (const q of P.packs) L.push(`| pack: ${q.k} (${worlds[0]}) | ${q.price} | ${fmt(q.levels, 1)} |`);
+      for (const q of P.upgrades) L.push(`| upgrade level ${q.level} | ${q.price} | ${fmt(q.levels, 1)} |`);
+      L.push(`| every upgrade to the top | ${P.allUpgrades.price} | ${fmt(P.allUpgrades.levels, 1)} |`);
+    }
     L.push("", "### First-win income per world", "", `| World | Total | Median per level | Lowest ${B.ECONOMY.STREAK} in a row | Per level 1→${rep.perWorld} |`, "|---|---|---|---|---|");
     for (const r of ec.worlds) L.push(`| ${r.world} | ${fmt(r.total)} | ${fmt(r.median, 1)} | ${fmt(r.streak)} | ${r.perLevel.map(v => fmt(v)).join(" ")} |`);
     L.push("", "### Replays (1 seed, the level already won at the first run's stars)", "", "| Level | First win: coins, time | Replay: coins, time | Replay parts |", "|---|---|---|---|");
@@ -282,7 +303,9 @@ async function main() {
       return { B: JSON.parse(JSON.stringify(b.CFG.BALANCE)), worlds: b.WORLDS, seeds: { ...b.WORLD_SEED }, perWorld: b.levelsPerWorld(),
         // SPEC-009: the prices the pace targets are measured in, and the top level of each upgrade
         prices: { cheapest: Math.min(...b.shopCards().map(c => c.price)), mega: b.GLOVES.mega.price, top: Math.max(...b.WARDROBE_TIERS),
-          upgrades: Object.values(U).reduce((s, u) => s + u.prices.reduce((x, y) => x + y, 0), 0) },
+          upgrades: Object.values(U).reduce((s, u) => s + u.prices.reduce((x, y) => x + y, 0), 0),
+          // SPEC-026: the pace lines — every shop pack, and the price of each upgrade level (the first upgrade's list)
+          packs: b.shopCards().map(c => ({ k: c.k, price: c.price })), upgradeLevels: [...Object.values(U)[0].prices] },
         upgradeKeys: Object.entries(U).map(([k, u]) => [k, u.prices.length]) };
     });
     const plan = [];

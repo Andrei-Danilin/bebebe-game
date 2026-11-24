@@ -918,6 +918,13 @@ test("the balance report's economy targets are computed from the runs' coins", {
   // the upgrades pass needs the same levels in the first pass: here there are none past level 6, so it has no pairs
   expect(ec.upgrades).toEqual([]);
   expect(ok[6], "no upgrade runs to compare: not green").toBe(false);
+  // SPEC-026: the pace lines (no targets) — levels per pack in the Park (median 50) and per upgrade level (first 3 worlds: median 100)
+  const ec2 = analyseEconomy(runs, replayRuns, upgradeRuns, B, worlds, perWorld,
+    { ...prices, packs: [{ k: "kisses", price: 20 }, { k: "rescues", price: 50 }], upgradeLevels: [150, 300, 450] });
+  expect(ec2.targets.map(t => t.ok), "the pace adds no target").toEqual(ok);
+  expect(ec2.pace.packs).toEqual([{ k: "kisses", price: 20, levels: 0.4 }, { k: "rescues", price: 50, levels: 1 }]);
+  expect(ec2.pace.upgrades.map(q => [q.level, q.price, q.levels])).toEqual([[1, 150, 1.5], [2, 300, 3], [3, 450, 4.5]]);
+  expect(ec2.pace.allUpgrades).toEqual({ price: 1800, levels: 18 });
 });
 
 // ---------- review fixes (SPEC-009 fix round 1) ----------
