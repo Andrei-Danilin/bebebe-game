@@ -1981,6 +1981,16 @@ const BIG_SKINS = [
   { id: "dad", price: tierPrice(0), shirt: "#eb3e42", skin: "#f4b183", hair: "#3a2418", top: "dad", pants: "#3b6db5", shoes: "#5b3a29", sole: "#f5f5f4", stubble: 0.8,
     name: { en: "Dad", es: "Papá", ru: "Папа" } }
 ];
+// SPEC-022: образы боссов (Андрей: свой образ у каждого; вид придумал Claude по art/4_papas_bosses, 4_papas_bosses_new,
+// 5_papas_main_boss). Строятся на папе (образ "dad", точки m.anchors и свои материалы m.mats): цвета футболки, штанов, обуви
+// (legs: "skin" — голые ноги, шорты отдельной деталью) и список деталей (BOSS_PARTS); крупнее на CFG.BOSS_SCALE (big.scale).
+// Босс уровня носит свой образ, какой бы образ Большого ни выбрали в гардеробе
+const BOSS_LOOKS = Object.freeze({
+  park: { shirt: "#d7322f", pants: "#c62828", shoes: "#f1f5f9", trim: "#ffffff", parts: ["tracksuit", "whistle"] },          // красный спортивный костюм, свисток
+  field: { shirt: "#f8fafc", legs: "skin", shoes: "#1e3a8a", trim: "#2563eb", parts: ["kit", "whistle", "ball"] },             // белая форма, синие шорты, гетры со щитками, мяч
+  city: { shirt: "#4d8b3a", pants: "#3b6db5", shoes: "#7c5a33", trim: "#facc15", parts: ["hardhat", "vest", "cone"] },          // оранжевая каска, жилет, конус
+  school: { shirt: "#eb3e42", pants: "#3b6db5", shoes: "#5b3a29", trim: "#f8fafc", parts: ["overshirt", "tie", "bag"] }        // рубашка в пятнах поверх футболки, галстук, сумка
+});
 // SPEC-009: skinSel — что показано (на экране нарядов можно примерить купленное и ещё не купленное), skinKeep — последний
 // свой вид (только купленное или бесплатное): его сохраняет bebebe-outfits (форма — индексы, как раньше) и с ним начинается игра
 const DEFAULT_SKINS = { p1: { hair: 0, hat: 1, jacket: 0, pants: 0 }, p2: { hair: 1, hat: 4, jacket: 1, pants: 3 }, big: BIG_SKINS.findIndex(q => q.id === "dad") };   // SPEC-021: папа
@@ -7526,7 +7536,8 @@ function buildBigModel(sk) {
   const body = part(capsule(0.46, 0.35), "", 0.04, bodyMat); body.position.y = 1.08; rig.add(body);
   if (sk.top === "pirate") for (const y of [-0.15, 0.05, 0.25]) { const s = new THREE.Mesh(new THREE.TorusGeometry(0.465, 0.035, 4, 24), toon("#e5e7eb")); s.rotation.x = Math.PI / 2; s.position.y = y; body.add(s); }
   else if (sk.top === "robot") { const pnl = part(new THREE.BoxGeometry(0.4, 0.3, 0.06), "#0ea5e9", 0.02); pnl.position.set(0, 0.05, 0.45); body.add(pnl); }
-  else { const bc = sk.top === "bear" ? "#e8b48a" : dad ? sk.shirt : "#" + new THREE.Color(sk.shirt).lerp(new THREE.Color("#ffffff"), 0.3).getHexString(); const belly = new THREE.Mesh(sphere(0.3, 14, 10), toon(bc)); belly.scale.set(1, 1.1, 0.35); belly.position.set(0, -0.05, 0.36); body.add(belly); }
+  // SPEC-022: живот папы — материалом футболки (наряды боссов перекрашивают и его)
+  else { const bc = sk.top === "bear" ? "#e8b48a" : dad ? sk.shirt : "#" + new THREE.Color(sk.shirt).lerp(new THREE.Color("#ffffff"), 0.3).getHexString(); const belly = new THREE.Mesh(sphere(0.3, 14, 10), dad ? bodyMat : toon(bc)); belly.scale.set(1, 1.1, 0.35); belly.position.set(0, -0.05, 0.36); body.add(belly); }
   for (const k of [-1, 1]) {
     const pv = new THREE.Group(); pv.position.set(k * 0.58, 1.32, 0); pv.rotation.z = k * 0.25;
     const arm = part(capsule(0.13, 0.36), sk.skin, 0.03); arm.position.y = -0.28; pv.add(arm);
@@ -7608,6 +7619,101 @@ function setBigFace(m, color) {
   if (m.stubbleMat) m.stubbleMat.color.copy(m.headMat.color).multiplyScalar(m.stubbleK);
 }
 
+// SPEC-022: детали образов боссов — к точкам папы (m.anchors) и к рукам/ногам (m.arms / m.legs); L — запись BOSS_LOOKS
+const BOSS_PARTS = {
+  tracksuit(m, L) {                                       // длинные рукава и белые лампасы на рукавах и штанах, молния
+    const g = new THREE.Group();
+    m.arms.forEach((pv, i) => {
+      const k = i ? 1 : -1, sl = part(capsule(0.145, 0.34), "", 0.025, m.mats.shirt); sl.position.y = -0.26; pv.add(sl);
+      const st = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.5, 0.04), toon(L.trim)); st.position.set(k * 0.14, -0.26, 0); pv.add(st);
+    });
+    m.legs.forEach((pv, i) => { const st = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.52, 0.04), toon(L.trim)); st.position.set((i ? 1 : -1) * 0.155, -0.3, 0); pv.add(st); });
+    const zip = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.62, 0.02), toon(L.trim)); zip.position.set(0, 0.05, 0.47); m.anchors.torso.add(zip);
+    return g;
+  },
+  whistle(m) {                                            // свисток на шнурке
+    const g = new THREE.Group(); g.position.set(0, 0.18, 0.47); m.anchors.torso.add(g);
+    const cord = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.012, 5, 18, Math.PI), toon("#d4d4d8")); cord.rotation.z = Math.PI; cord.position.y = 0.2; g.add(cord);
+    const w = part(new THREE.CylinderGeometry(0.05, 0.05, 0.14, 10), "#a1a1aa", 0.012); w.rotation.z = Math.PI / 2; g.add(w);
+    return g;
+  },
+  kit(m, L) {                                             // воротник и эмблема, синие шорты, белые гетры со щитками
+    const g = new THREE.Group(); m.anchors.torso.add(g);
+    const col = new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.035, 6, 18), toon(L.trim)); col.rotation.x = Math.PI / 2; col.position.y = 0.56; g.add(col);
+    const badge = part(new THREE.BoxGeometry(0.11, 0.13, 0.03), L.trim, 0.01); badge.position.set(0.2, 0.22, 0.43); g.add(badge);
+    m.legs.forEach(pv => {
+      const sh = part(new THREE.CylinderGeometry(0.19, 0.2, 0.26, 12), L.trim, 0.025); sh.position.y = -0.1; pv.add(sh);
+      const sock = part(new THREE.CylinderGeometry(0.16, 0.155, 0.3, 12), "#f8fafc", 0.02); sock.position.y = -0.42; pv.add(sock);
+      const band = new THREE.Mesh(new THREE.CylinderGeometry(0.162, 0.162, 0.05, 12), toon(L.trim)); band.position.y = -0.3; pv.add(band);
+      const guard = part(new THREE.BoxGeometry(0.17, 0.2, 0.05), "#94a3b8", 0.012); guard.position.set(0, -0.43, 0.15); pv.add(guard);
+    });
+    return g;
+  },
+  ball(m) {                                               // мяч в руке (под мышкой)
+    const g = new THREE.Group(); g.position.set(0, 0.06, 0.12); m.anchors.handL.add(g);
+    g.add(part(sphere(0.21, 16, 12), "#ffffff", 0.02));
+    for (const [x, y, z] of [[0, 0, 0.2], [0.19, 0.05, 0.03], [-0.17, 0.1, 0.06], [0.05, 0.19, -0.05], [-0.06, -0.18, 0.05]]) {
+      const p = new THREE.Mesh(sphere(0.06, 8, 6), toon("#1f2937")); p.position.set(x, y, z); p.scale.setScalar(0.9); g.add(p);
+    }
+    return g;
+  },
+  hardhat(m) {                                            // оранжевая каска на макушке (наклоняется с головой)
+    const g = new THREE.Group(); g.position.y = -0.14; m.anchors.head.add(g);
+    const dome = part(new THREE.SphereGeometry(0.44, 18, 10, 0, TAU, 0, Math.PI / 2), "#f97316", 0.03); g.add(dome);
+    const brim = part(new THREE.CylinderGeometry(0.56, 0.56, 0.05, 20), "#f97316", 0.02); brim.position.set(0, 0.02, 0.04); g.add(brim);
+    const ridge = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.06, 0.8), toon("#ea580c")); ridge.position.y = 0.42; g.add(ridge);
+    return g;
+  },
+  vest(m, L) {                                            // жилет: оранжевый, две светоотражающие полосы
+    const g = new THREE.Group(); m.anchors.torso.add(g);
+    const v = part(capsule(0.48, 0.3), "#fb923c", 0.03); v.scale.set(1, 0.95, 1.02); g.add(v);
+    for (const y of [-0.12, 0.14]) { const b = new THREE.Mesh(new THREE.CylinderGeometry(0.49, 0.49, 0.07, 20, 1, true), toon(L.trim)); b.position.y = y; g.add(b); }
+    return g;
+  },
+  cone(m) {                                               // дорожный конус в руке
+    const g = new THREE.Group(); g.position.set(0, -0.12, 0.12); g.rotation.x = 0.5; m.anchors.handR.add(g);
+    g.add(part(new THREE.ConeGeometry(0.17, 0.5, 14), "#f97316", 0.02));
+    const band = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.115, 0.1, 14), toon("#ffffff")); band.position.y = 0.02; g.add(band);
+    const base = part(new THREE.BoxGeometry(0.36, 0.05, 0.36), "#f97316", 0.012); base.position.y = -0.25; g.add(base);
+    return g;
+  },
+  overshirt(m, L) {                                       // белая рубашка нараспашку поверх красной футболки, в пятнах, рукава
+    const g = new THREE.Group(); m.anchors.torso.add(g);
+    const sm = ownMat(L.trim); sm.side = THREE.DoubleSide;
+    const sh = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.52, 0.78, 22, 1, true, 0.42, TAU - 0.84), sm); sh.position.y = 0.06; sh.castShadow = true; g.add(sh);
+    const ink = new THREE.Mesh(new THREE.CylinderGeometry(0.515, 0.535, 0.8, 22, 1, true, 0.42, TAU - 0.84), OUTLINE); ink.position.y = 0.06; g.add(ink);
+    for (const [a, y] of [[0.7, 0.1], [0.95, -0.15], [-0.75, 0.2], [-1.1, -0.05], [0.55, -0.25]]) {
+      const st = new THREE.Mesh(sphere(0.045, 8, 6), toon("#a16207")); st.scale.set(1, 0.8, 0.3);
+      st.position.set(Math.sin(a) * 0.525, y + 0.06, Math.cos(a) * 0.525); st.rotation.y = a; g.add(st);
+    }
+    m.arms.forEach(pv => { const sl = part(new THREE.CylinderGeometry(0.18, 0.17, 0.42, 12), "", 0.025, sm); sl.position.y = -0.12; pv.add(sl); });
+    return g;
+  },
+  tie(m) {                                                // галстук, ослабленный (чуть набок)
+    const g = new THREE.Group(); g.position.set(0.03, 0.32, 0.47); g.rotation.z = 0.18; m.anchors.torso.add(g);
+    g.add(part(new THREE.BoxGeometry(0.1, 0.08, 0.04), "#334155", 0.01));
+    const t = part(new THREE.BoxGeometry(0.11, 0.48, 0.03), "#334155", 0.012); t.position.y = -0.27; g.add(t);
+    return g;
+  },
+  bag(m) {                                                // сумка через плечо: ремень наискосок и сумка у бедра
+    const g = new THREE.Group(); m.anchors.torso.add(g);
+    const strap = new THREE.Mesh(new THREE.BoxGeometry(0.07, 1.15, 0.03), toon("#5b3a29")); strap.position.set(0, 0.02, 0.5); strap.rotation.z = 0.78; g.add(strap);
+    const bag = part(new THREE.BoxGeometry(0.42, 0.32, 0.15), "#7c4a2d", 0.025); bag.position.set(0.52, -0.42, 0.12); g.add(bag);
+    const flap = new THREE.Mesh(new THREE.BoxGeometry(0.43, 0.12, 0.16), toon("#5b3a29")); flap.position.set(0.52, -0.31, 0.125); g.add(flap);
+    return g;
+  }
+};
+// одеть модель папы в образ босса id (BOSS_LOOKS): цвета своих материалов и детали; m.boss, m.bossParts — для тестов
+function dressBoss(m, id) {
+  const L = BOSS_LOOKS[id];
+  if (!L) return;
+  m.mats.shirt.color.set(L.shirt);
+  m.mats.pants.color.set(L.legs === "skin" ? m.faceBase : L.pants);
+  if (m.mats.shoes) m.mats.shoes.color.set(L.shoes);
+  m.boss = id; m.bossParts = {};
+  for (const p of L.parts) m.bossParts[p] = BOSS_PARTS[p](m, L);
+  m.root.traverse(o => { if (o.isMesh && !o.material.side) o.castShadow = true; });
+}
 let charGroup = new THREE.Group(); scene.add(charGroup);
 function buildCharacters() {
   scene.remove(charGroup); disposeTree(charGroup);
@@ -7618,8 +7724,10 @@ function buildCharacters() {
     l.model.rig.scale.setScalar(LITTLE_SCALE); l.model.ghost.scale.setScalar(LITTLE_SCALE);
     charGroup.add(l.model.root, l.model.ghost);
   }
-  big.model = buildBigModel(big.skin);
-  big.model.rig.scale.setScalar(BIG_SCALE);
+  // SPEC-022: босс уровня — папа в образе босса (BOSS_LOOKS), крупнее (big.scale)
+  big.model = buildBigModel(big.boss ? BIG_SKINS.find(s => s.id === "dad") : big.skin);
+  if (big.boss) dressBoss(big.model, big.boss);
+  big.model.rig.scale.setScalar(BIG_SCALE * (big.scale || 1));
   charGroup.add(big.model.root);
 }
 function rebuild3D() {
@@ -7851,8 +7959,8 @@ function syncBig(b, t) {
     m.rig.position.set(0, b.moving ? Math.abs(Math.sin(b.walk)) * 0.07 : 0, 0);
     m.legs[0].rotation.x = b.moving ? Math.sin(b.walk) * 0.6 : 0; m.legs[1].rotation.x = -m.legs[0].rotation.x;
   }
-  const s = BIG_SCALE * (hugged ? 1 + Math.sin(t * 20) * 0.03 : 1);
-  m.rig.scale.set(s, BIG_SCALE * (hugged ? 1 - Math.sin(t * 20) * 0.03 : 1), s);
+  const bs = BIG_SCALE * (b.scale || 1), s = bs * (hugged ? 1 + Math.sin(t * 20) * 0.03 : 1);   // SPEC-022: босс крупнее
+  m.rig.scale.set(s, bs * (hugged ? 1 - Math.sin(t * 20) * 0.03 : 1), s);
   const armX = shocked ? -2.7 : (b.state === "chase" ? -1.25 : (b.moving ? -Math.sin(b.walk) * 0.5 : 0));
   m.arms[0].rotation.x = shocked ? armX + Math.sin(t * 14) * 0.2 : armX;
   m.arms[1].rotation.x = shocked ? armX - Math.sin(t * 14) * 0.2 : (b.state === "chase" ? armX : -armX);
@@ -8175,7 +8283,10 @@ window.__bb = {
   RULE_ICONS, STORY, openStory, get storyInfo() { return storyInfo && { ...storyInfo }; },
   // SPEC-022: заставки (scene — логика: { id, page, pages } или null; sceneInfo — нарисованное в этом кадре), боссы уровней
   SCENE_IDS, openScene, sceneNext, sceneSkip, bigMood, winTitle, get pushWaves() { return pushWaves.map(w => ({ ...w })); }, get scene() { return storyScene && { id: storyScene.id, page: storyScene.page, pages: scenePageCount() }; },
-  get sceneInfo() { return sceneInfo && { ...sceneInfo }; }, bossFor, get moodInfo() { return moodInfo && { ...moodInfo, sprites: [...moodInfo.sprites] }; },   // SPEC-017: главы истории (живой список), экран истории этого кадра
+  get sceneInfo() { return sceneInfo && { ...sceneInfo }; }, bossFor, BOSS_LOOKS,
+  // SPEC-022: вид Большого в 3D (для тестов): образ, босс и его детали, масштаб, цвета футболки и штанов
+  bigLook() { const m = big && big.model; return m ? { look: m.look, boss: m.boss || null, parts: Object.keys(m.bossParts || {}), scale: m.rig.scale.x,
+    shirt: "#" + m.mats.shirt.color.getHexString(), pants: "#" + m.mats.pants.color.getHexString() } : null; }, get moodInfo() { return moodInfo && { ...moodInfo, sprites: [...moodInfo.sprites] }; },   // SPEC-017: главы истории (живой список), экран истории этого кадра
   tapButton(id) { const q = buttons.find(r => (r.id || r.act.name) === id); if (q) q.act(); return !!q; },
   update, inSafe, I18N, startGame, resetWorld, cycleOutfit, randomOutfit, cycleBig, setLang, toScreen,
   get items() { return items; }, get progress() { return progress; }, buyGloves, setEquip, get lastReward() { return lastReward; }, spawnItem,
@@ -8240,7 +8351,7 @@ window.__bb = {
 // ошибку, чтобы визуальный тест, открытый в sim, падал громко, а не проверял пустоту.
 const SIM_DRAWN = ["buttonRects", "buttonNames", "tapButton", "hudRects", "mapInfo", "levelCard", "storyInfo", "textSizes", "minimap",
   "bannerRect", "rotateShown", "winPanel", "winLine", "bonusNote", "shopLayout", "kitHint", "heardHint", "edgeArrows", "stickMarks",
-  "tapLines", "installHintShown", "mapPieces", "groundColorAt", "camera", "minimapAlpha", "artUse", "sceneInfo", "moodInfo", "look3D"];
+  "tapLines", "installHintShown", "mapPieces", "groundColorAt", "camera", "minimapAlpha", "artUse", "sceneInfo", "moodInfo", "bigLook", "look3D"];
 window.__bb.SIM_DRAWN = SIM_DRAWN;
 window.__bb = new Proxy(window.__bb, {
   get(t, k, r) {

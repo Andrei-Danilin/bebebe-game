@@ -350,6 +350,29 @@ test("the kind dad smiles, blushes and waves on his way home", async ({ desk: pa
   await page.evaluate(() => { window.__bb.mode = "play"; });
 });
 
+// ---------- AC 5, 6 (looks): each boss wears his own look, built on the dad, a bit bigger ----------
+test("each boss wears his own look on the dad model, a bit bigger", async ({ desk: page }) => {
+  const r = await page.evaluate(() => {
+    const b = window.__bb, out = {};
+    b.cycleBig(1);                                        // another Big One look chosen in the wardrobe: bosses still wear theirs
+    for (const [w, n] of [["park", 20], ["field", 20], ["city", 20], ["school", 20], ["park", 19], ["beach", 20]]) { b.world = w; b.level = n; b.startGame(1); out[w + n] = b.bigLook(); }
+    out.looks = JSON.parse(JSON.stringify(b.BOSS_LOOKS)); out.k = b.CFG.BOSS_SCALE;
+    return out;
+  });
+  const soft = softly(), base = r.park19.scale;
+  for (const w of ["park", "field", "city", "school"]) {
+    const x = r[w + "20"], L = r.looks[w];
+    soft([x.look, x.boss], `${w} 20: the dad as the boss`).toEqual(["dad", w]);
+    soft(x.parts, `${w} 20: his parts`).toEqual(L.parts);
+    soft(x.shirt, `${w} 20: his shirt`).toBe(L.shirt);
+    soft(x.scale, `${w} 20: bigger by BOSS_SCALE`).toBeCloseTo(base * r.k, 5);
+  }
+  soft([r.park19.boss, r.park19.parts], "park 19: no boss look").toEqual([null, []]);
+  soft([r.beach20.boss, r.beach20.parts], "beach 20: no boss in a bonus world").toEqual([null, []]);
+  soft.done();
+  await page.evaluate(() => window.__bb.cycleBig(-1));
+});
+
 // ---------- AC 12: the scenes on a phone (667×375): big buttons, everything inside, nothing on anything ----------
 test("the scenes fit a 667×375 phone", async ({ phonePage: page }) => {
   const soft = softly();
