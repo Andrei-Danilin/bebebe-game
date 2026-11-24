@@ -31,6 +31,22 @@ A top-down arcade game designed by kids: the **Little Ones** team against the **
   out, it doesn't count as a rest (no coin penalty, the "nobody rested" star stays). Only players use them.
 - 1–2 players + bots (5 Little Ones in total; one player on a phone). Bots mostly rescue fallen friends.
 
+## The story, Dad's anger and the bosses
+
+The Big One is **Dad**. His hearts are his **anger**: every hug puts out a little red heart-cloud. While he is very
+angry his face is red, steam comes out of his ears and a little dark cloud hangs over him; as his anger drops his face
+turns pink and the steam turns into hearts. When the anger is gone he smiles, blushes, waves and walks home —
+**"Dad is kind again!"**
+
+Level 20 of the Park, the Football field and the City is a **boss**: the park boss in a red tracksuit with a whistle,
+the coach with a football, the builder in a hard hat with a road cone — a bit angrier, a bit faster, a bit bigger.
+School level 20 is **the grumpiest dad**: when he pushes, every kid close in front of him falls at once (WHOOSH!) —
+but afterwards he stands still a little longer, so you can hug him. The bonus worlds have no boss yet.
+
+The story comes from Kostya: the comic "How it began" opens the very first game, a picture shows each boss before
+his level, the bonus worlds have their pictures, and after School level 20 comes "How it ended" and a thank-you card.
+Every scene can be skipped and watched again in **Story** (▶ on the chapter picture).
+
 ## Starting a level
 
 The **home screen** shows your stars (out of 240 in the main worlds), how many worlds you finished, the bonus worlds
