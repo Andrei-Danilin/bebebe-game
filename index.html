@@ -125,7 +125,16 @@ const CFG = {
   // SPEC-029: вид тренировок (придумал Claude): ширина маленькой «Пропустить» на компьютере (UI px); карта — где папа стоит в начале
   // тренировки 1 (клетки), кусты 2×2, деревья, камни, лужи [x, y, w] на поляне, шаг деревьев за изгородью, зерно цветочков
   TUTORIAL_LOOK: { skipW: 130, dadStart: [12.5, 6.5], bushes: [[10, 2], [7, 9], [2, 10], [13, 3]], trees: [[19, 2], [12, 12], [5, 8]], rocks: [[16, 4]],
-    ponds: [[6, 11, 3]], outStep: 3, flowerSeed: 29 },
+    ponds: [[6, 11, 3]], outStep: 3, flowerSeed: 29,
+    // SPEC-029 AC 6: страница без своей картинки — лист бумаги: слева фигурка (кусок картинки истории [x, y, w, h] — доли), справа
+    // значки вещей и эффектов. pages — по клетке: [фигурка, значки…]; ready — последняя страница (её картинка — story_win)
+    figures: { dad: ["story_start", [0.088, 0.131, 0.156, 0.242]], kids: ["story_win", [0.195, 0.594, 0.317, 0.332]], kindDad: ["story_win", [0.518, 0.55, 0.142, 0.29]] },
+    pages: {
+      a: [["dad", "icon_angry_heart", "fx_hearts"], ["dad", "fx_burst_yellow", "fx_dust"], ["kids", "fx_hearts", "fx_sparkle"], ["dad", "ui_ear", "fx_speed"]],
+      b: [["kids", "item_boots", "fx_speed"], ["kids", "item_cape", "fx_sparkle"], ["kids", "icon_shield", "fx_burst_yellow"], ["dad", "item_banana", "fx_dizzy"]],
+      c: [["kindDad", "item_kiss", "fx_hearts"], ["kids", "icon_bandaid", "fx_bandaid"], ["kids", "item_mittens", "item_mega_mittens"], ["kids", "item_coin", "menu_character"]],
+      ready: ["kindDad", "fx_hearts", "fx_confetti"]
+    } },
   TUTORIAL: {                // SPEC-029: обучение — тренировки 1 и 2 (только они; придумал Claude в спеке, проверить с детьми)
     hearts1: 3, hearts2: 5,    // сердечек у папы в тренировке 1 и в тренировке 2
     speedMult: 0.6,            // скорости папы (прогулка, погоня) — × от Парка 1
@@ -445,26 +454,26 @@ const CFG = {
 // art:start
 const ART_NAMES = [
   "main_tile", "menu_bg", "map_bg_park", "map_bg_field", "map_bg_city", "map_bg_school", "map_bg_beach",
-  "map_bg_winter", "story_start", "story_park", "story_field", "story_city", "story_school", "story_beach",
-  "story_winter", "story_end", "story_win", "logo", "icon_shield", "icon_bandaid", "icon_cupcake", "icon_angry_heart",
-  "icon_pause", "icon_sound", "btn_green", "btn_pink", "btn_orange", "btn_grey", "round_play", "round_pause",
-  "round_sound", "round_restart", "cloud_heart_full", "cloud_heart_half", "cloud_heart_fading", "cloud_heart_empty",
-  "coin_badge", "ribbon_star", "house_messy", "house_kids", "stop_empty", "stop_current", "stop_locked", "stop_boss",
-  "star_gold", "star_empty", "stamp_done", "padlock", "world_park", "world_field", "world_city", "world_school",
-  "world_beach", "world_winter", "ui_play", "ui_back", "ui_home", "ui_story", "ui_bag", "ui_gear", "ui_sound_on",
-  "ui_sound_off", "ui_fullscreen", "ui_globe", "ui_coin", "ui_gift", "shop_fast_feet", "shop_long_items",
-  "shop_quick_help", "shop_wardrobe", "shop_items", "shop_upgrades", "hat_cap", "hat_beanie", "hat_crown", "hat_bow",
-  "hat_flower", "hat_ears", "hat_headband", "hat_tophat", "hat_viking", "hat_pirate", "hat_glasses", "jacket_blue_zip",
-  "jacket_hoodie", "jacket_stripes", "jacket_red_zip", "jacket_cape", "jacket_trench", "pants_shorts", "pants_jeans",
-  "pants_striped", "pants_overalls", "pants_joggers", "fx_burst_yellow", "fx_burst_red", "fx_burst_pink",
-  "fx_steam_left", "fx_steam_right", "fx_storm_cloud", "fx_stink", "fx_dizzy", "fx_hearts", "fx_speed", "fx_dust",
-  "fx_sparkle", "fx_bandaid", "fx_confetti", "phone_kiss", "phone_kit", "phone_stick_base", "phone_pause",
-  "phone_stick_knob", "menu_play", "menu_story", "menu_character", "tab_progress", "jacket_tshirt",
-  "jacket_orange_stripes", "jacket_purple_zip", "jacket_pink_hoodie", "jacket_teal_zip", "jacket_hero_cape",
-  "jacket_ninja", "jacket_sailor", "jacket_raincoat", "hat_ninja", "pants_black", "pants_red", "pants_green",
-  "pants_pink_shorts", "pants_purple", "ui_friends", "ui_dice", "ui_question", "ui_pencil", "ui_pack", "ui_ear",
-  "ui_map", "ui_check", "ui_cross", "item_boots", "item_cape", "item_banana", "item_mittens", "item_mega_mittens",
-  "item_kiss", "item_star", "item_coin", "heart_full", "heart_half", "heart_empty"
+  "map_bg_winter", "story_start", "tutorial_a", "tutorial_b", "tutorial_c", "story_park", "story_field", "story_city",
+  "story_school", "story_beach", "story_winter", "story_end", "story_win", "logo", "icon_shield", "icon_bandaid",
+  "icon_cupcake", "icon_angry_heart", "icon_pause", "icon_sound", "btn_green", "btn_pink", "btn_orange", "btn_grey",
+  "round_play", "round_pause", "round_sound", "round_restart", "cloud_heart_full", "cloud_heart_half",
+  "cloud_heart_fading", "cloud_heart_empty", "coin_badge", "ribbon_star", "house_messy", "house_kids", "stop_empty",
+  "stop_current", "stop_locked", "stop_boss", "star_gold", "star_empty", "stamp_done", "padlock", "world_park",
+  "world_field", "world_city", "world_school", "world_beach", "world_winter", "ui_play", "ui_back", "ui_home",
+  "ui_story", "ui_bag", "ui_gear", "ui_sound_on", "ui_sound_off", "ui_fullscreen", "ui_globe", "ui_coin", "ui_gift",
+  "shop_fast_feet", "shop_long_items", "shop_quick_help", "shop_wardrobe", "shop_items", "shop_upgrades", "hat_cap",
+  "hat_beanie", "hat_crown", "hat_bow", "hat_flower", "hat_ears", "hat_headband", "hat_tophat", "hat_viking",
+  "hat_pirate", "hat_glasses", "jacket_blue_zip", "jacket_hoodie", "jacket_stripes", "jacket_red_zip", "jacket_cape",
+  "jacket_trench", "pants_shorts", "pants_jeans", "pants_striped", "pants_overalls", "pants_joggers",
+  "fx_burst_yellow", "fx_burst_red", "fx_burst_pink", "fx_steam_left", "fx_steam_right", "fx_storm_cloud", "fx_stink",
+  "fx_dizzy", "fx_hearts", "fx_speed", "fx_dust", "fx_sparkle", "fx_bandaid", "fx_confetti", "phone_kiss", "phone_kit",
+  "phone_stick_base", "phone_pause", "phone_stick_knob", "menu_play", "menu_story", "menu_character", "tab_progress",
+  "jacket_tshirt", "jacket_orange_stripes", "jacket_purple_zip", "jacket_pink_hoodie", "jacket_teal_zip",
+  "jacket_hero_cape", "jacket_ninja", "jacket_sailor", "jacket_raincoat", "hat_ninja", "pants_black", "pants_red",
+  "pants_green", "pants_pink_shorts", "pants_purple", "ui_friends", "ui_dice", "ui_question", "ui_pencil", "ui_pack",
+  "ui_ear", "ui_map", "ui_check", "ui_cross", "item_boots", "item_cape", "item_banana", "item_mittens",
+  "item_mega_mittens", "item_kiss", "item_star", "item_coin", "heart_full", "heart_half", "heart_empty"
 ];
 // art:end
 // имя или свой путь → { img, state: "loading" | "ok" | "bad", own } (own — картинка по своему пути, в счёт загрузки не входит)
@@ -2868,11 +2877,14 @@ const tutorialStep = () => (tutorial ? TUTORIAL_STEPS[tutorial.i] : null);
 const firstTutorial = p => !p.seen.intro && !p.seen.tutorial && !WORLDS.some(w => Object.keys(p.worlds[w].won).length > 0);
 // страницы листа sh («a», «b», «c»: четыре клетки картинки tutorial_<sh>, подпись под каждой) или «ready» (одна страница)
 function tutorialPages(sh) {
-  const T = L().tut;
-  if (sh === "ready") return [{ art: null, crop: null, text: T.ready }];
+  const T = L().tut, F = CFG.TUTORIAL_LOOK.pages;
+  if (sh === "ready") return [{ art: "story_win", crop: null, text: T.ready, fallback: F.ready }];   // дети и подобревший папа
   const texts = sh === "a" ? T.a(PHONE || isTouch ? T.tiptoeTouch : T.tiptoeKey) : T[sh];
-  return CFG.MENU_LOOK.scene.panels.map((crop, i) => ({ art: "tutorial_" + sh, crop, text: texts[i] }));
+  return CFG.MENU_LOOK.scene.panels.map((crop, i) => ({ art: "tutorial_" + sh, crop, text: texts[i], fallback: F[sh][i] }));   // клетка листа (как комикс в начале)
 }
+// все картинки, которые может нарисовать обучение (листы, последняя страница, фигурки и значки запасных страниц)
+const tutorialArtNames = () => [...["a", "b", "c"].map(s => "tutorial_" + s), "story_win", ...Object.values(CFG.TUTORIAL_LOOK.figures).map(f => f[0]),
+  ...Object.values(CFG.TUTORIAL_LOOK.pages).flat(2).filter(n => !Object.hasOwn(CFG.TUTORIAL_LOOK.figures, n))];
 function openTutorial(back = "map", from = TUTORIAL_STEPS[0]) {
   if (!tutorial) tutorial = { i: 0, back: back === "story" ? "story" : "map", keep: { world: curWorld, level, players: numPlayers } };
   tutorial.i = Math.max(0, TUTORIAL_STEPS.indexOf(from));
@@ -5512,7 +5524,7 @@ const storyLoad = c => !c.image ? "none" : (artImgs.get(c.image) || { state: "lo
 const chapterTitle = c => c.id === "began" ? "📖 " + L().chapters.began : c.id === "ended" ? "🎉 " + L().chapters.ended
   : `${WORLD_ICONS[c.id]} ${L().worlds[c.id]}${BONUS_WORLDS.includes(c.id) ? " · " + L().bonus : ""}`;
 // заглушка картинки: лист бумаги, карандашный рисунок (Большой и двое Маленьких обнимают его сзади), «Комикс скоро будет»
-function storyPlaceholder(r, locked) {
+function storyPlaceholder(r, locked, soon = true) {   // SPEC-029: soon = false — без подписи «комикс скоро» (запасная страница обучения)
   const S = CFG.MENU_LOOK.story, k = PHONE ? cpx(1) : 1;
   rr(r.x, r.y, r.w, r.h, 10 * k); fillStroke(S.paper, 3 * k);
   if (locked) {
@@ -5534,6 +5546,7 @@ function storyPlaceholder(r, locked) {
   }
   ctx.fillStyle = S.heart; heartPath(cx, base - u * 6.6, u * 0.9); ctx.fill();
   ctx.restore();
+  if (!soon) return;
   const min = PHONE ? minPx("main") : 13, f = fitLine(L().comicSoon, PHONE ? cpx(16) : 18, min, r.w - 16 * k), ty = r.y + r.h - f.sz;
   plainText(f.text, cx, ty, f.sz, CFG.MENU_LOOK.lockedInk, "center");
   if (PHONE) noteText("main", f.sz);
@@ -5746,7 +5759,7 @@ function drawScene() {
   const img = art(pg.art), cr = pg.crop || [0, 0, 1, 1];
   const aspect = img ? (img.width * cr[2]) / (img.height * cr[3]) : 16 / 9;
   const size = PHONE ? cpx(S.phoneText) : S.text, min = minMain;
-  let pic, tx, tW, ty, b, bubbles = [], panel = null;
+  let pic, tx, tW, ty, b, bubbles = [], panel = null, pieces = null;
   if (PHONE) {                                                // картинка слева, подпись справа (по высоте — посередине)
     const pw = Math.min(area.w * S.phonePic, area.h * aspect);
     pic = { x: area.x, y: area.y, w: pw, h: area.h };
@@ -5769,12 +5782,28 @@ function drawScene() {
     tape(ix + 6 * k, iy + 2 * k, -0.7, k * 0.8); tape(ix + iw - 6 * k, iy + 2 * k, 0.7, k * 0.8);
     if (pg.bubbles) bubbles = drawBubbles(pg.bubbles, cr, ix, iy, iw, ih);   // SPEC-026: слова папы в облачке клетки
     panel = { x: ix, y: iy, w: iw, h: ih };
-  } else storyPlaceholder(pic, false);
+  } else if (pg.fallback) pieces = drawTutorialFallback(pic, pg.fallback);   // SPEC-029: обучение без своей картинки — из других картинок
+  else storyPlaceholder(pic, false);
   rowsAt("scene:caption", b, tx + tW / 2, ty, M.ink);
   hudRects[hudRects.length - 1].text = pg.text;
   if (PHONE) noteText("main", b.sz);
-  sceneInfo = { id: storyScene.id, page: storyScene.page, pages: n, art: img ? "image" : "placeholder", caption: pg.text, crop: pg.crop,
-    bubble: bubbles[0] || null, panel };   // SPEC-026: облачко клетки (рамка строк, кегль, своё ли облачко) и где нарисована клетка
+  sceneInfo = { id: storyScene.id, page: storyScene.page, pages: n, art: img ? "image" : pieces ? "fallback" : "placeholder", caption: pg.text, crop: pg.crop,
+    bubble: bubbles[0] || null, panel, pieces };   // SPEC-029: pieces — что нарисовано на запасной странице обучения   // SPEC-026: облачко клетки (рамка строк, кегль, своё ли облачко) и где нарисована клетка
+}
+// SPEC-029 AC 6: запасная страница обучения (нет картинки листа): бумажный лист, слева фигурка (кусок картинки истории; нет и её —
+// карандашные человечки), справа значки вещей и эффектов; → имена нарисованного («figure» — человечки)
+function drawTutorialFallback(r, [fig, ...icons]) {
+  const S = CFG.MENU_LOOK.story, k = PHONE ? cpx(1) : 1, F = CFG.TUTORIAL_LOOK.figures[fig], drawn = [];
+  rr(r.x, r.y, r.w, r.h, 10 * k); fillStroke(S.paper, 3 * k);
+  const fw = r.w * 0.55, box = { x: r.x + 8 * k, y: r.y + 8 * k, w: fw - 12 * k, h: r.h - 16 * k }, img = F && art(F[0]);
+  if (img) {
+    const [cx, cy, cw, ch] = F[1], sw = img.width * cw, sh = img.height * ch, s = Math.min(box.w / sw, box.h / sh), w = sw * s, h = sh * s;
+    ctx.drawImage(img, img.width * cx, img.height * cy, sw, sh, box.x + (box.w - w) / 2, box.y + (box.h - h) / 2, w, h);
+    noteArt(F[0]); drawn.push(F[0]);
+  } else { storyPlaceholder(box, false, false); drawn.push("figure"); }
+  const n = icons.length, ix = r.x + fw + (r.w - fw) / 2, sz = Math.min((r.w - fw) * 0.85, (r.h / n) * 0.85);
+  icons.forEach((name, i) => { if (drawArtFit(name, ix, r.y + r.h * (i + 0.5) / n, sz)) drawn.push(name); });
+  return drawn;
 }
 // SPEC-016: «Открылись бонусные миры!» на экране победы — только после победы, открывшей их (lastReward.bonusUnlocked);
 // плашка в hudRects (bonus-note), для тестов — bonusNote { text, x, y, w, h, size, textW }
@@ -9088,7 +9117,7 @@ window.__bb = {
   get artUse() { return { ...artUse }; }, resetArtUse, get artVersion() { return artVersion; },
   // SPEC-020: все имена картинок, которые могут выдать таблицы (тест: каждое есть в ART_NAMES)
   artTableNames: () => [...Object.values(PAPER_BTN), ...Object.values(ITEM_ART), ...Object.values(UPG_ART), ...Object.values(SHOP_TAB_ART),
-    ...Object.values(WARDROBE_ART).flatMap(Object.values), ...Object.values(EMOJI_ART), ...Object.entries(ART_FALLBACK).flat(), ...Object.values(STORY_ART), ...HEART_ART, ...Object.values(FX_ART), ...Object.values(POP_ART),
+    ...Object.values(WARDROBE_ART).flatMap(Object.values), ...Object.values(EMOJI_ART), ...Object.entries(ART_FALLBACK).flat(), ...Object.values(STORY_ART), ...tutorialArtNames(), ...HEART_ART, ...Object.values(FX_ART), ...Object.values(POP_ART),
     ...WORLDS.flatMap(w => [worldArt(w), mapBgArt(w)])], fxBurst: burst, popText,   // SPEC-020: частицы и всплывающие надписи (тест картинок эффектов)
   art, ART_NAMES, get artInfo() { return { total: ART_NAMES.length, ok: artCount.ok, bad: artCount.bad, done: artDone(), loadingShown: !!document.getElementById("loading") }; },
   get mode() { return mode; }, set mode(v) { if (MODES.includes(v)) mode = v; },   // SPEC-017: только экраны из MODES

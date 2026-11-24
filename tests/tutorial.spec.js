@@ -115,6 +115,29 @@ test("first launch: the intro comic, the tutorial, then the Park map with level 
   expect(errors).toEqual([]);
 });
 
+// ---------- AC 6: a missing tutorial picture — each panel is built from existing art on paper (a figure and the item icons) ----------
+test("tutorial pages without their pictures: every panel draws a figure and its icons, never the comic-soon placeholder", async ({ page }) => {
+  await page.route(/\/assets\/tutorial_[abc]\.webp$/, route => route.fulfill({ status: 404, body: "" }));
+  const errors = await openGame(page, { query: "?phone=1" });
+  await page.setViewportSize({ width: 667, height: 375 });
+  await page.waitForFunction(() => window.__bb.artInfo.done);
+  const soft = softly();
+  for (const sh of ["a", "b", "c"]) for (let pg = 0; pg < 4; pg++) {
+    await page.evaluate(([s, p]) => { const b = window.__bb; b.resetMenus(); b.mode = "home"; b.openTutorial("map", s); for (let i = 0; i < p; i++) b.sceneNext(); }, [sh, pg]);
+    await frames(page);
+    const d = await page.evaluate(() => ({ info: window.__bb.sceneInfo, soon: window.__bb.hudRects.some(h => h.id === "story:soon"), cap: window.__bb.hudRects.find(h => h.id === "scene:caption") }));
+    const at = `${sh}${pg + 1}`;
+    soft(d.info && d.info.art, `${at}: built from other art`).toBe("fallback");
+    soft(d.info && d.info.pieces.length >= 2, `${at}: a figure and an icon (${d.info && d.info.pieces})`).toBe(true);
+    soft(d.info && d.info.pieces.some(q => /^(item_|icon_|fx_|ui_|menu_)/.test(q)), `${at}: an item or effect icon`).toBe(true);
+    soft(d.info && d.info.pieces.some(q => /^story_|^figure$/.test(q)), `${at}: a kid or Dad figure`).toBe(true);
+    soft(d.soon, `${at}: no comic-soon placeholder`).toBe(false);
+    soft(!!(d.cap && d.cap.text), `${at}: the caption`).toBe(true);
+  }
+  soft.done();
+  expect(errors.filter(e => !e.includes("Failed to load resource")), "only the 404s of the missing pictures").toEqual([]);
+});
+
 // ---------- AC 2: an old save that has already seen the intro — the tutorial does not open by itself ----------
 test("an old save that has seen the intro does not open the tutorial by itself", async ({ page }) => {
   const errors = await openGame(page, { intro: true, tutorial: true });
@@ -509,6 +532,27 @@ test("AC 17: the whole tutorial changes nothing but seen.tutorial; a real Park 1
   expect(r.most, "items do appear").toBeGreaterThan(0);
   expect(r.noPush, "the normal push cooldown").toBeCloseTo(r.recover, 4);
   expect([r.hp, r.kinds]).toEqual([5, 5]);
+});
+
+// ---------- AC 5, 6: the pictures — one panel of tutorial_a/b/c per page (the intro's quarters), the ready page shows story_win ----------
+test("tutorial pages show their panel of tutorial_a/b/c; the ready page a picture", async ({ desk: page }) => {
+  await page.waitForFunction(() => window.__bb.artInfo.done);
+  const soft = softly();
+  const panels = await page.evaluate(() => window.__bb.CFG.MENU_LOOK.scene.panels);
+  for (const sh of ["a", "b", "c"]) for (let pg = 0; pg < 4; pg++) {
+    await page.evaluate(([s, p]) => { const b = window.__bb; b.resetMenus(); b.mode = "home"; b.openTutorial("map", s); for (let i = 0; i < p; i++) b.sceneNext(); b.resetArtUse(); }, [sh, pg]);
+    await frames(page);
+    const d = await page.evaluate(() => ({ info: window.__bb.sceneInfo, use: window.__bb.artUse }));
+    soft([d.info.art, d.info.crop], `${sh}${pg + 1}`).toEqual(["image", panels[pg]]);
+    soft(!!d.use["tutorial_" + sh], `${sh}${pg + 1}: tutorial_${sh} drawn`).toBe(true);
+  }
+  await page.evaluate(() => { const b = window.__bb; b.resetMenus(); b.mode = "home"; b.openTutorial("map", "ready"); b.resetArtUse(); });
+  await frames(page);
+  const r = await page.evaluate(() => ({ info: window.__bb.sceneInfo, use: window.__bb.artUse, names: window.__bb.artTableNames(), all: window.__bb.ART_NAMES }));
+  soft([r.info.art, !!r.use.story_win], "ready: story_win").toEqual(["image", true]);
+  for (const n of ["tutorial_a", "tutorial_b", "tutorial_c", "story_win"]) { soft(r.names.includes(n), `artTableNames has ${n}`).toBe(true); soft(r.all.includes(n), `ART_NAMES has ${n}`).toBe(true); }
+  await page.evaluate(() => window.__bb.tutorialSkip());
+  soft.done();
 });
 
 // ---------- AC 3: Skip on every page and in both practice games (pause menu and corner button) → the Park map, seen ----------

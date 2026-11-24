@@ -16,7 +16,8 @@
 // sheet colour a pixel must be to count as background), "edge" (px of soft, unmixed, despilled edge; wide for a glow
 // or translucent tape over the green), "holeMin" (enclosed key-colour patches smaller than this stay opaque).
 // Extra ops on a sheet: "erase" (paint circles with the colour sampled around them), "circles" (round crops, from the
-// sheet before the erase: the joystick knob drawn on its base).
+// sheet before the erase: the joystick knob drawn on its base). SPEC-029: "erase" works on a "paper" picture too (stray words);
+// "clear" (green sheet) paints circles with the sheet colour before keying — a part to drop that is glued to an object.
 // Output: WebP, trimmed with a small padding, only ever scaled down (never upscaled). Deterministic: no time stamps,
 // fixed encoder settings, sources processed in manifest order.
 const path = require("path");
@@ -280,6 +281,16 @@ function trim(img, pad) {
   return { buf: out, w: nw, h: nh, x0: (img.x0 || 0) + x0, y0: (img.y0 || 0) + y0 };
 }
 
+// SPEC-029: "clear" on a green sheet — circles [cx, cy, r] painted with the sheet colour BEFORE keying, so they key out (a drawn
+// trail glued to an object by its glow: the cloak's dashed trail on 30_items).
+function clearRGB(rgb, W, H, circles) {
+  const bg = borderColor(rgb, W, H);
+  for (const [cx, cy, r] of circles) for (let y = Math.max(0, Math.floor(cy - r)); y <= Math.min(H - 1, Math.ceil(cy + r)); y++)
+    for (let x = Math.max(0, Math.floor(cx - r)); x <= Math.min(W - 1, Math.ceil(cx + r)); x++) {
+      if (Math.hypot(x - cx, y - cy) > r) continue;
+      const i = (y * W + x) * 3; rgb[i] = bg[0]; rgb[i + 1] = bg[1]; rgb[i + 2] = bg[2];
+    }
+}
 // Paint circles [cx, cy, r] (sheet px) with the median colour of the ring just outside them.
 function erase(rgba, W, H, circles) {
   for (const [cx, cy, r] of circles) {
@@ -325,9 +336,15 @@ async function writeSprite(img, file, max, q) {
   return { w, h };
 }
 
-async function writePaper(src, file, maxW, q) {
+async function writePaper(src, file, maxW, q, circles = null) {
   const meta = await sharp(src).metadata();
   let p = sharp(src).removeAlpha();
+  if (circles) {                                  // SPEC-029: "erase" on a paper picture (stray words): circles painted with the paper around them
+    const { rgb, W, H } = await readRGB(src), rgba = Buffer.alloc(W * H * 4);
+    for (let i = 0; i < W * H; i++) { rgb.copy(rgba, i * 4, i * 3, i * 3 + 3); rgba[i * 4 + 3] = 255; }
+    erase(rgba, W, H, circles);
+    p = sharp(rgba, { raw: { width: W, height: H, channels: 4 } }).removeAlpha();
+  }
   if (meta.width > maxW) p = p.resize({ width: maxW, kernel: "lanczos3" });
   await p.webp({ quality: q.paperQuality, effort: q.effort, smartSubsample: true }).toFile(file);
   return { w: Math.min(meta.width, maxW), h: meta.width > maxW ? Math.round(meta.height * maxW / meta.width) : meta.height };
@@ -361,7 +378,7 @@ async function run({ outDir = path.join(ROOT, "assets"), only = null, manifest =
     const src = path.join(ROOT, "art", s.src);
     const max = manifest.sizes[s.size];
     if (!max) throw new Error(`${s.src}: unknown size "${s.size}"`);
-    if (s.mode === "paper") { await put(s.name, s.size, f => writePaper(src, f, max, s.quality ? { ...q, paperQuality: s.quality } : q)); continue; }
+    if (s.mode === "paper") { await put(s.name, s.size, f => writePaper(src, f, max, s.quality ? { ...q, paperQuality: s.quality } : q, s.erase || null)); continue; }
     const { rgb, W, H } = await readRGB(src);
     if (s.mode === "whole") {
       const rgba = keyGreen(rgb, W, H, s);
@@ -373,6 +390,7 @@ async function run({ outDir = path.join(ROOT, "assets"), only = null, manifest =
       continue;
     }
     if (s.mode === "sheet") {
+      if (s.clear) clearRGB(rgb, W, H, s.clear);
       const rgba = keyGreen(rgb, W, H, s);
       if (s.erase) erase(rgba, W, H, s.erase);
       const { label, groups } = findObjects(rgba, W, H, s);
@@ -437,6 +455,7 @@ function report(rows, manifest = loadManifest(), log = console.log) {
 async function debug(src, manifest = loadManifest()) {
   const s = manifest.sources.find(x => x.src === src) || { src };
   const { rgb, W, H } = await readRGB(path.join(ROOT, "art", src));
+  if (s.clear) clearRGB(rgb, W, H, s.clear);
   const rgba = keyGreen(rgb, W, H, s);
   const { groups } = findObjects(rgba, W, H, s);
   console.log(`${src} ${W}×${H}: ${groups.length} objects`);
