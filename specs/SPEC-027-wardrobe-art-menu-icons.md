@@ -1,6 +1,6 @@
 # SPEC-027 — Every piece of clothing has a picture, seven new clothes, comic icons for Play / Story / Character
 
-Status: ready (needs `art/28_menu_icons.webp` and `art/29_wardrobe_2.webp` from Andrei — see Pre-flight)
+Status: ready (needs `art/28_menu_icons.webp` and `art/29_wardrobe_2.webp` from Andrei — see Pre-flight; `art/34_small_icons.webp` optional)
 Complexity: M
 Branch: SPEC-027-wardrobe-icons
 Decided by: Andrei (2026-11-24):
@@ -71,6 +71,14 @@ This spec cuts them into `assets/`, maps every item, adds the seven new clothes 
    - the Character screen's Progress tab uses `tab_progress`;
    - the Story buttons on the level card and the Story screen use `menu_story` instead of 📖.
    - Missing art falls back to today's icon (as every SPEC-020 art does).
+
+### Small icons instead of emoji (sheet 34)
+2a. **Sheet `art/34_small_icons.webp`** (optional: skip this criterion if it is missing). It is a green sheet in reading order: `ui_friends`, `ui_dice`, `ui_question`, `ui_pencil`, `ui_pack`, `ui_ear`, `ui_map`, `ui_check`, `ui_cross`.
+   Each one replaces its emoji where it is drawn on screen:
+   - 👥 → `ui_friends`; 🎲 → `ui_dice`; ❓ → `ui_question`; ✏ → `ui_pencil`; 📦 → `ui_pack`; 👂 → `ui_ear`; 🗺 → `ui_map`; ✔ → `ui_check`; ✘ / ✕ → `ui_cross`.
+   - Emoji that already have art (🔒 → `padlock`, 🩹, 💋, ⭐, 🪙…) use it too, where the code still draws the emoji.
+   - Every replaced spot keeps the emoji as its fallback.
+   - A test lists the drawn labels on home, map, level card, Character tabs and the Story screen, and fails on any emoji from this list while its art is loaded.
 
 ### Every item has a picture
 3. **`WARDROBE_ART` mapping:**

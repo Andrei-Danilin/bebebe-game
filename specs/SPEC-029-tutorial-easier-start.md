@@ -1,6 +1,6 @@
 # SPEC-029 — Tutorial: funny pictures and two practice games; Dad starts with 5 hearts
 
-Status: ready (the tutorial pictures `art/30…33` from Andrei are optional: without them the game uses the fallback pages)
+Status: ready (the pictures `art/30…33` from Andrei are optional: without them the game keeps the old item crops and uses the fallback tutorial pages)
 Complexity: L
 Branch: SPEC-029-tutorial
 Decided by: Andrei (2026-11-24, after playing):
@@ -91,7 +91,7 @@ Separately: Dad's hearts drop by one everywhere (`CFG.BIG_HP` 6 → 5).
    - on the phone at 667×375 the caption fits (the scene's existing fit rules).
 6. **Art:**
    - `art/31_tutorial_a.webp`, `art/32_tutorial_b.webp`, `art/33_tutorial_c.webp` (2×2 panels each) → `tutorial_a/b/c` in `assets/` (paper mode, like `8_start`);
-   - `art/30_items.webp` (green sheet) → `item_banana`, `item_boots`, `item_cape` replace the old staff crops.
+   - `art/30_items.webp` (green sheet, 11 items in reading order) → `item_boots`, `item_cape`, `item_banana`, `item_mittens`, `item_mega_mittens`, `item_kiss`, `item_star`, `item_coin`, `heart_full`, `heart_half`, `heart_empty`. This replaces every crop from the old `v1/staff.webp`; that source entry is removed from `scripts/assets.json`.
    - **Fallback when an art file is missing:** each panel is built from existing art on paper: the item / effect icons (`icon_*`, `item_*`, `fx_*`) and a kid or Dad figure from the 3D preview or the `story_*` art, with the same caption. A test runs the tutorial with the new art missing and checks every page draws.
 7. **Captions** (en / es / ru / pt; English below; Claude's wording, check with Kostya). The control hint on page A4 follows the device: Shift on keyboard, "push the stick just a little" on the phone.
    - **A1:** "Sneak up behind Dad and hug him! Every hug takes away one angry heart."
@@ -179,7 +179,7 @@ Separately: Dad's hearts drop by one everywhere (`CFG.BIG_HP` 6 → 5).
    - item-rate and stock-isolation tests;
    - then the item spawner config, temporary kisses and kit, hints.
 5. Art:
-   - `scripts/assets.json` entries for 30–33 (`--debug` to map 30's regions: banana, boots, cloak in reading order), replacing the staff crops;
+   - `scripts/assets.json` entries for 30–33 (`--debug` to map 30's 11 regions in reading order), removing the `v1/staff.webp` entry;
    - fallback pages;
    - asset tests.
 6. Captions and hints in all languages (`i18n.spec` covers the new keys); phone fit; docs.
