@@ -1039,7 +1039,7 @@ for (const [vw, vh] of PHONE_SIZES) {
           expect(ids).toContain("back:home");
         }
         if (name === "card") expect(d.buttons.map(q => q.id)).toEqual(expect.arrayContaining(["card:play", "card:story", "card:close"]));
-        if (name === "story") expect(d.hud.map(h => h.id)).toEqual(expect.arrayContaining(["story:title", "story:text", "story:soon"]));
+        if (name === "story") expect(d.hud.map(h => h.id)).toEqual(expect.arrayContaining(["story:title", "story:text"]));   // SPEC-020: the comic, not the placeholder
         if (name === "rules") expect(d.hud.filter(h => h.id.startsWith("rules:")).length).toBe(7);
         if (name === "shop") expect(d.buttons.map(q => q.id)).toEqual(expect.arrayContaining(["buy:mittens", "buy:mega", "buy:kisses", "buy:rescues"]));
         if (name === "wardrobe") expect(d.buttons.map(q => q.id)).toEqual(expect.arrayContaining(["tab:wardrobe", "buy-look:p1", "name:big", "random:p1", "openFriends"]));

@@ -89,3 +89,39 @@ test("home, level map and level card are drawn with the art", async ({ page }) =
   expect(missing(use, ["menu_bg", "star_gold", "btn_green", "btn_pink", "btn_grey"])).toEqual([]);
   expect(errors).toEqual([]);
 });
+
+// SPEC-020 step 4 (AC 5): paper panels and drawn icons on the map frame, shop tabs, story, win / lose / pause
+test("shop, story and the end screens are drawn with the art", async ({ page }) => {
+  const errors = await openGame(page, { lang: "ru" });
+  await page.waitForFunction(() => window.__bb.artInfo.done, null, { timeout: 15_000 });
+  let use = await drawn(page, () => { window.__bb.toMap(); });
+  expect(missing(use, ["menu_bg"]), "the map's outer frame is paper").toEqual([]);
+  // shop · items: paper frame, tab icons, item pictures (v1/staff, 12_icons), drawn coins, paper buttons
+  use = await drawn(page, () => { const b = window.__bb; b.progress.coins = 40; b.mode = "shop"; b.shopTab = "items"; });
+  expect(missing(use, ["menu_bg", "shop_items", "shop_wardrobe", "shop_upgrades", "item_mittens", "item_mega_mittens", "item_kiss", "icon_bandaid",
+    "item_coin", "coin_badge", "btn_green", "btn_orange"])).toEqual([]);
+  // shop · wardrobe: thumbnails of the worn items that have a drawing (cap, green hoodie, jeans) next to the 3D preview
+  use = await drawn(page, () => {
+    const b = window.__bb, W = b.wardrobe(), cur = b.outfits.shown.p1;
+    b.mode = "shop"; b.shopTab = "wardrobe";
+    for (const [sl, id] of [["hat", "cap"], ["jacket", "hoodie"], ["pants", "jeans"]]) b.cycleOutfit("p1", sl, W[sl].findIndex(q => q.id === id) - cur[sl]);
+  });
+  expect(missing(use, ["hat_cap", "jacket_hoodie", "pants_jeans", "btn_grey"])).toEqual([]);
+  // shop · upgrades: the 22_icons_shop pictures
+  use = await drawn(page, () => { const b = window.__bb; b.mode = "shop"; b.shopTab = "upgrades"; });
+  expect(missing(use, ["shop_fast_feet", "shop_long_items", "shop_quick_help"])).toEqual([]);
+  // story: the chapter comics in a paper frame
+  use = await drawn(page, () => { window.__bb.openStory("began", "home"); });
+  expect(missing(use, ["menu_bg", "story_start"])).toEqual([]);
+  expect(await page.evaluate(() => window.__bb.storyInfo.art)).toBe("image");
+  use = await drawn(page, () => { window.__bb.openStory("park", "home"); });
+  expect(missing(use, ["story_park"])).toEqual([]);
+  // win, lose, pause: on a paper sheet; the win screen's stars and coin are drawn
+  use = await drawn(page, () => { const b = window.__bb; b.startGame(1); b.stats.playerHugs = 2; b.giveReward(true); b.mode = "win"; });
+  expect(missing(use, ["menu_bg", "item_coin", "btn_green"]).concat(use.star_gold || use.star_empty ? [] : ["star"])).toEqual([]);
+  use = await drawn(page, () => { const b = window.__bb; b.startGame(1); b.giveReward(false); b.mode = "lose"; });
+  expect(missing(use, ["menu_bg", "btn_orange"])).toEqual([]);
+  use = await drawn(page, () => { const b = window.__bb; b.startGame(1); b.mode = "pause"; });
+  expect(missing(use, ["menu_bg", "btn_green", "btn_grey"])).toEqual([]);
+  expect(errors).toEqual([]);
+});

@@ -595,12 +595,12 @@ test("story chapters unlock with progress", async ({ page }) => {
   await page.evaluate(() => { const b = window.__bb; for (const w of b.MAIN_WORLDS) Object.assign(b.progress.worlds[w], { unlocked: 20, won: Object.fromEntries(Array.from({ length: 20 }, (_, i) => [i + 1, true])) }); });
   for (let i = 0; i < 7; i++) await page.keyboard.press("ArrowLeft");
   expect((await walk()).map(x => x[1])).toEqual(Array(8).fill(false));
-  // the picture: the placeholder while there is no picture (a paper frame and "Comic coming soon"); a broken picture → the placeholder, no error
+  // the picture (SPEC-020): the chapter's comic from assets/ (art); a chapter's own image path wins: broken → the placeholder, no error
   for (let i = 0; i < 7; i++) await page.keyboard.press("ArrowLeft");
   await frames(page);
   s = await page.evaluate(() => ({ info: window.__bb.storyInfo, hud: window.__bb.hudRects }));
-  expect([s.info.chapter, s.info.art]).toEqual(["began", "placeholder"]);
-  expect(s.hud.find(h => h.id === "story:soon").text).toBe("Comic coming soon");
+  expect([s.info.chapter, s.info.art]).toEqual(["began", "image"]);
+  expect(s.hud.some(h => h.id === "story:soon"), "no placeholder while the comic is there").toBe(false);
   // storyInfo.load: the picture loader's state ("none" — no picture yet, "loading", "bad", "ok")
   const PNG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
   try {
