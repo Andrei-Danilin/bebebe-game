@@ -9,6 +9,7 @@
     "test:headed": "playwright test --headed",
     "claude:sync": "node scripts/claude-sync.js",
     "icons": "node scripts/make-icons.js",
+    "assets": "node scripts/assets.js",
     "docs:numbers": "node scripts/docs-numbers.js",
     "balance": "node scripts/balance.js",
     "serve": "node scripts/serve.js",
@@ -16,6 +17,7 @@
   },
   "devDependencies": {
     "@playwright/test": "1.65.1",
+    "sharp": "0.35.5",
     "three": "0.187.0"
   }
 }

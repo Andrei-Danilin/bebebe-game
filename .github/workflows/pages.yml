@@ -1,7 +1,7 @@
 # Tests (the sharded jobs of tests.yml, SPEC-023), then publishes the game on GitHub Pages (SPEC-001).
 # A red deploy with green tests: start a fresh run (gh workflow run pages.yml --ref master), never gh run rerun --failed
 # (it uploads a second github-pages artifact).
-# Only the site files go to Pages: index.html, manifest.webmanifest, sw.js, icons/, v1-2d/.
+# Only the site files go to Pages: index.html, manifest.webmanifest, sw.js, icons/, assets/, v1-2d/.
 name: Pages
 
 on:
@@ -37,7 +37,7 @@ jobs:
         run: |
           mkdir _site
           cp index.html manifest.webmanifest sw.js _site/
-          cp -r icons v1-2d _site/
+          cp -r icons assets v1-2d _site/
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5
         with:

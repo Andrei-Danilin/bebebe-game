@@ -12,6 +12,9 @@ const IPHONE_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleW
 const SW_FILE = path.join(ROOT, "sw.js");
 const SW_SRC = fs.existsSync(SW_FILE) ? fs.readFileSync(SW_FILE, "utf8") : "";
 const SW_VERSION = (SW_SRC.match(/const SW_VERSION\s*=\s*"([^"]+)"/) || [])[1];
+// SPEC-020: the cache is named SW_VERSION + "-" + ASSETS_HASH (the hash of the art sprites, written by npm run assets)
+const ASSETS_HASH = (SW_SRC.match(/const ASSETS_HASH\s*=\s*"([^"]+)"/) || [])[1];
+const CACHE = SW_VERSION + "-" + ASSETS_HASH;
 
 // PNG width/height from the IHDR chunk
 function pngSize(file) {
@@ -34,7 +37,7 @@ test("manifest is linked and complete", async ({ page, request }) => {
   const m = await res.json();
   expect(m).toMatchObject({
     name: "BeBeBe Atrapar", short_name: "BeBeBe", start_url: "./", scope: "./",
-    display: "standalone", orientation: "landscape", background_color: "#2b3a2e", theme_color: "#2b3a2e"
+    display: "standalone", orientation: "landscape", background_color: "#faf4e2", theme_color: "#faf4e2"
   });
   const icon = (sizes, purpose) => m.icons.find(i => i.sizes === sizes && i.purpose === purpose && i.type === "image/png");
   expect(icon("192x192", "any")).toBeTruthy();
@@ -108,11 +111,15 @@ test("service worker registers and controls the page over http", { tag: "@fast" 
   const errors = await openGameHttp(page);
   await waitForSW(page);
   expect(SW_VERSION).toBeTruthy();
-  const keys = await page.evaluate(async v => (await (await caches.open(v)).keys()).map(r => r.url), SW_VERSION);
+  expect(ASSETS_HASH).toBeTruthy();
+  const keys = await page.evaluate(async v => (await (await caches.open(v)).keys()).map(r => r.url), CACHE);
   for (const u of ["", "index.html", "manifest.webmanifest", "icons/icon.svg", "icons/apple-touch-icon.png",
     "icons/icon-192.png", "icons/icon-512.png", "icons/icon-512-maskable.png"]) expect(keys).toContain(HTTP_BASE + u);
   expect(keys).toContain("https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.js");
   expect(keys).toContain("https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.core.js");
+  // SPEC-020: every art sprite is precached too (the list npm run assets writes into sw.js)
+  const sprites = await page.evaluate(() => window.__bb.ART_NAMES);
+  expect(sprites.filter(n => !keys.includes(HTTP_BASE + "assets/" + n + ".webp"))).toEqual([]);
   expect(errors).toEqual([]);
 });
 
@@ -145,12 +152,12 @@ test("old caches are removed on a new SW_VERSION", async ({ page }) => {
   test.slow();                       // installs a second service worker (precaches three.js again): slow under load
   const ov = { fn: () => null };
   await withOwnServer(page, ov, async () => {
-    expect(await page.evaluate(() => caches.keys())).toEqual([SW_VERSION]);
+    expect(await page.evaluate(() => caches.keys())).toEqual([CACHE]);
     await page.evaluate(() => Promise.all([caches.open("bebebe-v0"), caches.open("other-pages-app")]));   // an older version + another app on the same origin
     const next = SW_SRC.replace(/const SW_VERSION\s*=\s*"[^"]+"/, 'const SW_VERSION = "bebebe-test-v2"');
     ov.fn = p => (p === "/sw.js" ? next : null);
     await page.evaluate(async () => (await navigator.serviceWorker.getRegistration()).update());
-    await expect.poll(() => page.evaluate(async () => (await caches.keys()).sort()), { timeout: 60_000 }).toEqual(["bebebe-test-v2", "other-pages-app"]);
+    await expect.poll(() => page.evaluate(async () => (await caches.keys()).sort()), { timeout: 60_000 }).toEqual(["bebebe-test-v2-" + ASSETS_HASH, "other-pages-app"]);
   });
 });
 

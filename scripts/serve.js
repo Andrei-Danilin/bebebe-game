@@ -15,7 +15,8 @@ const TYPES = {
   ".webmanifest": "application/manifest+json",
   ".json": "application/json",
   ".png": "image/png",
-  ".svg": "image/svg+xml"
+  ".svg": "image/svg+xml",
+  ".webp": "image/webp"
 };
 
 function makeServer({ override = null } = {}) {
