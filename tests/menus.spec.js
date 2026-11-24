@@ -157,6 +157,8 @@ test("home is minimal: the logo, language and sound, Play · Story · Character"
 // menu controls (the corner icons excepted: Andrei's "language/sound in the corner"), menu_bg drawn whole enough that its doodles
 // on both sides show (desktop 3:2 crops ≤ 10 % per side; the phone sees it all)
 async function homeLayoutProblems(page, at) {
+  // menu_bg must have loaded first (a fresh phone page on CI's SwiftShader can check before the sprite arrives)
+  await page.waitForFunction(() => window.__bb.artInfo.done, null, { timeout: 15_000 });
   await page.evaluate(() => { const b = window.__bb; b.mode = "home"; });
   await frames(page);
   const d = await page.evaluate(() => { const b = window.__bb; return { home: b.homeInfo, buttons: b.buttonRects, hud: b.hudRects, ui: b.uiSize }; });
