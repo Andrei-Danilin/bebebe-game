@@ -216,7 +216,7 @@ const CFG = {
   // (текст, «да», «нет», монетки, минус, черта итога)
   PAPER: { logoH: 132, phoneLogoH: 92, sheet: [0.3, 0.22, 0.45, 0.55], tapeW: 64, tapeH: 20, tape: "rgba(255,255,255,.62)", tapeLine: "rgba(120,120,120,.45)",
     btnCorner: 0.34, offBtn: "#a3a3a3", cache: 3, heart: 1.3, hudIcon: 1.12, stickRing: "rgba(61,43,31,.6)", stickBase: 0.9, knob: 24,
-    ink: { text: "#3d2b1f", good: "#15803d", off: "#64748b", gold: "#b45309", bad: "#b91c1c", line: "rgba(61,43,31,.45)" },
+    ink: { text: "#2e2116", good: "#15803d", off: "#64748b", gold: "#b45309", bad: "#b91c1c", line: "rgba(61,43,31,.45)" },
     fxHeart: 0.55, fxStar: 0.45, fxDust: 0.6, popBurst: 1.7, popH: 2.4, winBox: [800, 34, 500], loseBox: [780, 160, 290], pauseBox: [700, 190, 220], stop: 1.12, glow: 1.25, stamp: 0.62, pen: "rgba(40,60,160,.85)", coinLeft: 0.36, coinRight: 0.08 },
   // SPEC-021: 3D как рисунок фломастером. Контур 3D (свой цвет — OUT остаётся у 2D): цвет, во сколько раз толще, чем просила
   // деталь (до SPEC-021 — 1), дрожание толщины по осям (± доля) и сдвиг оболочки (± доля толщины: одна сторона линии толще), зерно
@@ -445,9 +445,9 @@ function artProgress() {
 }
 // игра готова: ждём картинки не дольше CFG.ART.waitMs (window.__bbReady от этого не ждёт)
 function artGate() {
-  if (simMode) return;                          // sim (баланс, тесты): картинки не нужны; sim(false) начнёт загрузку
-  artLoad();
   const el = document.getElementById("loading");
+  if (simMode) { if (el) el.remove(); return; }  // sim (баланс, тесты): картинки не нужны, экран загрузки — тоже; sim(false) начнёт загрузку
+  artLoad();
   if (!el) return;
   if (artDone()) { el.remove(); return; }
   el.classList.add("art");
@@ -3548,11 +3548,11 @@ function plainText(text, x, y, size, color = OUT, align = "left") {
   ctx.fillText(text, x, y);
   if (PHONE) noteText("drawn", size);
 }
-const INK = new Set(Object.values(CFG.PAPER.ink));
+const INK = new Set(Object.values(CFG.PAPER.ink));   // (ни один из них не OUT: обычные надписи цвета OUT остаются с обводкой)
 function label(text, x, y, size, color, align = "center") {
   ctx.font = `900 ${size}px system-ui, "Segoe UI", "Arial Rounded MT Bold", Arial, sans-serif`;   // = hudFont(size)
   ctx.textAlign = align; ctx.textBaseline = "middle";
-  if (!INK.has(color)) {                       // SPEC-020: чернила на бумаге (CFG.PAPER.ink) — без обводки
+  if (!(INK.has(color) && paperUI())) {        // SPEC-020: чернила на бумажном экране (CFG.PAPER.ink, свои цвета, не OUT) — без обводки
     ctx.lineJoin = "round"; ctx.lineWidth = labelStroke(size); ctx.strokeStyle = OUT;
     ctx.strokeText(text, x, y);
   }
