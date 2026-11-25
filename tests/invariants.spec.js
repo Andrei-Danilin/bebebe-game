@@ -200,7 +200,7 @@ test("rewards add up, coins never go negative, inventory stays whole", async ({ 
 // A fixture is a snapshot of all bebebe-* keys (`keys`: a string is stored as is, an object as JSON) and what it loads
 // into (`expect`: progress in the current shape, the outfits and the typed names). SPEC-009 reuses them. An old save is
 // checked with toMatchObject (a later spec may add fields with defaults without rewriting history); current.json exactly.
-const SAVES = ["pre-spec-003", "pre-spec-004", "pre-spec-006", "pre-spec-007", "stale-tab", "pre-spec-009", "pre-spec-016", "pre-spec-022", "pre-spec-026", "pre-spec-029", "current"];
+const SAVES = ["pre-spec-003", "pre-spec-004", "pre-spec-006", "pre-spec-007", "stale-tab", "pre-spec-009", "pre-spec-016", "pre-spec-022", "pre-spec-026", "pre-spec-029", "pre-spec-030", "current"];
 const save = n => JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures", "saves", n + ".json"), "utf8"));
 const asStored = keys => Object.fromEntries(Object.entries(keys).map(([k, v]) => [k, typeof v === "string" ? v : JSON.stringify(v)]));
 
@@ -235,15 +235,15 @@ test("old saves get the new worlds", async ({ simPage: page }) => {
     beach: { unlocked: 4, stars: stars(3), won: won(3) }, winter: { unlocked: 1, stars: {}, won: {} } }, lastWorld: "beach", coins: 120 };
   const r = await page.evaluate(([s, more]) => {
     const b = window.__bb, plain = v => JSON.parse(JSON.stringify(v)), p = b.loadProgress(s);
-    const has = typeof b.bonusOpen === "function" && typeof b.bonusUnlocked === "function";
+    const has = typeof b.worldOpen === "function" && typeof b.bonusUnlocked === "function", open = (w, q) => b.worldOpen(w, q).open;
     const out = { p: plain(p), keys: Object.keys(p.worlds), again: plain(b.loadProgress(plain(p))), has };
     if (has) {
       out.unlocked = b.bonusUnlocked(p);
-      out.open = Object.fromEntries(b.WORLDS.map(w => [w, b.bonusOpen(w, p)]));
+      out.open = Object.fromEntries(b.WORLDS.map(w => [w, open(w, p)]));
       // "has progress" = unlocked > 1, or any won or stars entry in that world
-      out.more = more.map(m => b.bonusOpen("winter", b.loadProgress({ worlds: { winter: m } })));
+      out.more = more.map(m => open("winter", b.loadProgress({ worlds: { winter: m } })));
       // a partial progress object (no worlds, a world without fields) never throws: nothing won, no progress
-      out.partial = [b.bonusUnlocked({}), b.bonusOpen("beach", {}), b.bonusOpen("beach", { worlds: { beach: {} } }), b.bonusOpen("winter", { worlds: { winter: { unlocked: 3 } } })];
+      out.partial = [b.bonusUnlocked({}), open("beach", {}), open("beach", { worlds: { beach: {} } }), open("winter", { worlds: { winter: { unlocked: 3 } } })];
     }
     return out;
   }, [old, [{ unlocked: 2 }, { stars: { 4: 1 } }, { won: { 7: true } }, { unlocked: 1, stars: {}, won: {} }, "junk"]]);
@@ -254,10 +254,11 @@ test("old saves get the new worlds", async ({ simPage: page }) => {
   soft.done();
   expect([r.p.lastWorld, r.p.coins]).toEqual(["beach", 120]);
   expect(r.again, "loading it again changes nothing").toEqual(r.p);
-  expect(r.has, "__bb.bonusOpen and __bb.bonusUnlocked").toBe(true);
+  expect(r.has, "__bb.worldOpen and __bb.bonusUnlocked").toBe(true);
   expect(r.unlocked, "Field and City are new: not every main level is won").toBe(false);
-  // main worlds are always open; Beach has progress and stays open; Winter has none and is locked
-  expect(r.open).toEqual({ park: true, field: true, city: true, school: true, beach: true, winter: false });
+  // SPEC-030: Park open, Field open (the Park is finished), City locked (new, the Field not finished), School and Beach played
+  // (they stay open); Winter has no progress and is locked
+  expect(r.open).toEqual({ park: true, field: true, city: false, school: true, beach: true, winter: false });
   expect(r.more).toEqual([true, true, true, false, false]);
   expect(r.partial).toEqual([false, false, false, true]);
 });

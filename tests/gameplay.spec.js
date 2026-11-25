@@ -253,7 +253,7 @@ test("worlds unlock their own levels", async ({ page }) => {
   expect(await page.evaluate(() => [window.__bb.mode, window.__bb.world, window.__bb.level])).toEqual(["home", "park", 1]);
   const start = await page.evaluate(() => JSON.parse(JSON.stringify(window.__bb.progress)));
   expect(Object.keys(start.worlds)).toEqual(["park", "field", "city", "school", "beach", "winter"]);   // SPEC-016: the story order
-  for (const w of Object.keys(start.worlds)) expect(start.worlds[w], w).toEqual({ unlocked: 1, stars: {}, won: {} });   // every world open from the start
+  for (const w of Object.keys(start.worlds)) expect(start.worlds[w], w).toEqual({ unlocked: 1, stars: {}, won: {} });   // every world at its level 1 (SPEC-030: only the Park open)
   expect(start.lastWorld).toBe("park");
   expect("unlocked" in start || "stars" in start).toBe(false);
   expect(await page.evaluate(() => window.__bb.CFG.STARS_PER_LEVEL)).toBe(3);
@@ -704,11 +704,13 @@ test("old saves get 0 kisses", async ({ simPage: page }) => {
 
 // ---------- SPEC-016 AC 5: the bonus worlds (Beach, Winter) open after every level of the main worlds is won ----------
 test("bonus worlds open after all main levels", async ({ page }) => {
-  // fresh progress: Beach and Winter are locked; the map refuses them (selectWorld, ←/→, a tap on the tab)
+  // Park, Field and City finished (SPEC-030: the School opens after the City): Beach and Winter are locked; the map refuses
+  // them (selectWorld, ←/→, a tap on the tab)
   const fresh = await page.evaluate(() => {
-    const b = window.__bb;
+    const b = window.__bb, all = () => Object.fromEntries(Array.from({ length: 20 }, (_, i) => [i + 1, true]));
+    for (const w of ["park", "field", "city"]) Object.assign(b.progress.worlds[w], { unlocked: 20, won: all() });
     b.world = "school"; b.level = 1; b.mode = "map";
-    const out = { unlocked: b.bonusUnlocked(), open: b.WORLDS.map(w => b.bonusOpen(w)) };
+    const out = { unlocked: b.bonusUnlocked(), open: b.WORLDS.map(w => b.worldOpen(w).open) };
     b.selectWorld("beach"); out.select = b.world;
     return out;
   });
@@ -812,7 +814,9 @@ test("old saves move into the Park", { tag: "@fast" }, async ({ simPage: page })
   expect(part.lastWorld).toBe("park");
   // SPEC-016: the only change here — "winter" is now a bonus world, locked without Winter progress, so it opens on the Park
   expect((await loadSave(page, { coins: 1, lastWorld: "winter" })).lastWorld).toBe("park");
-  expect((await loadSave(page, { coins: 1, lastWorld: "school" })).lastWorld).toBe("school");
+  // SPEC-030: the School is locked too until the City is finished, unless it was played (old saves keep it)
+  expect((await loadSave(page, { coins: 1, lastWorld: "school" })).lastWorld).toBe("park");
+  expect((await loadSave(page, { coins: 1, lastWorld: "school", worlds: { school: { unlocked: 2, won: { 1: true } } } })).lastWorld).toBe("school");
   // a stale page wrote both worlds and the old flat fields: the flat ones merge into the Park (higher unlocked, best stars), then go away
   const both = await load({ coins: 9, worlds: { park: { unlocked: 4, stars: { 1: 1, 2: 3 } }, school: { unlocked: 2, stars: {} } }, unlocked: 6, stars: { 1: 3, 2: 1, 25: 3 } });
   expect(both.worlds.park).toEqual({ unlocked: 6, stars: { 1: 3, 2: 3 }, won: { 1: true, 2: true } });
