@@ -219,7 +219,7 @@ function drawTapLines() {
     const f = toScreen(l.x, l.y, 0);
     const lw = PHONE ? cpx(3) : 3;
     ctx.save(); ctx.lineCap = "round";
-    for (const [color, w] of [["rgba(30,41,59,.6)", lw + 2.5], ["#fff", lw]]) {   // белые косые чёрточки с тёмным краем — слева и справа от ног
+    for (const [color, w] of /** @type {[string, number][]} */ ([["rgba(30,41,59,.6)", lw + 2.5], ["#fff", lw]])) {   // белые косые чёрточки с тёмным краем — слева и справа от ног
       ctx.strokeStyle = color; ctx.lineWidth = w;
       for (const side of [-1, 1]) for (let i = 0; i < T.taps; i++) {
         const y = f.y - i * len * 0.8;

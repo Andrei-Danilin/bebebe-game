@@ -11,7 +11,7 @@ const NAME_SLOTS = ["p1", "p2", "big", "bot1", "bot2", "bot3", "bot4"];
 export const BOT_SLOTS = 4;
 export function cleanName(s) {
   if (typeof s !== "string") return "";
-  s = s.replace(/[\u0000-\u001f\u007f-\u009f]/g, "").trim();     // без управляющих символов
+  s = s.replace(/[\u0000-\u001f\u007f-\u009f]/g, "").trim();     // eslint-disable-line no-control-regex -- без управляющих символов
   return Array.from(s).slice(0, CFG.NAME_MAX).join("").trim();      // длина — по кодовым точкам (эмодзи = 1)
 }
 let namesTyped = { p1: "", p2: "", big: "", bots: ["", "", "", ""] };
@@ -22,7 +22,7 @@ export function namesFrom(nv) {
   const bots = Array.isArray(nv.bots) ? nv.bots : [];
   return { p1: cleanName(nv.p1), p2: cleanName(nv.p2), big: cleanName(nv.big), bots: Array.from({ length: BOT_SLOTS }, (_, i) => cleanName(bots[i])) };
 }
-const saveNames = () => writeNames(namesTyped);
+const saveNames = () => writeNames();
 export const typedName = slot => slot.startsWith("bot") ? namesTyped.bots[Number(slot.slice(3)) - 1] : namesTyped[slot];
 function defaultName(slot) {
   if (slot === "p1") return L().player1;

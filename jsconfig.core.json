@@ -1,0 +1,11 @@
+// SPEC-025 AC 9: the core (src/core/ + the shared data it imports) strict-ish — every `strict` check except noImplicitAny and
+// strictNullChecks (both deferred: BACKLOG "Core noImplicitAny"). Run by `npm run typecheck` after jsconfig.json.
+{
+  "extends": "./jsconfig.json",
+  "compilerOptions": {
+    "strict": true,
+    "noImplicitAny": false,
+    "strictNullChecks": false
+  },
+  "include": ["src/core/**/*.js", "src/i18n.js", "src/story.js", "src/version.js", "types/**/*.d.ts"]
+}

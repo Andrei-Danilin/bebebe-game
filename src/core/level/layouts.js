@@ -100,6 +100,7 @@ const shuffle = (rng, a) => { for (let k = a.length - 1; k > 0; k--) { const r =
 const genTree = rng => (x, y) => ({ t: "tree", x, y, v: rng() < 0.6 ? "pine" : "round", s: 0.9 + rng() * 0.25 });
 const genRock = rng => (x, y) => ({ t: "rock", x, y, s: 0.9 + rng() * 0.3 });
 const genBush = (x, y) => ({ t: "bush", x, y });
+/** @param {any} lc @param {number[]} range */
 const bushCount = (lc, [a, b]) => Math.max(CFG.BUSH_MIN[lc.type], lc.ri(a, b) - lc.tier);
 
 // Поляна: никаких зданий — кусты, деревья, камни и маленькие лужи

@@ -2,7 +2,7 @@
 // with his wide push; bonus worlds have no boss; bots near the bosses. Logic only: one shared sim page.
 const base = require("./pw");   // SPEC-023: @playwright/test + failure screenshots
 const { expect } = base;
-const { openGame, step, sharedPage, resetGame, softly } = require("./helpers");
+const { openGame, sharedPage, resetGame, softly } = require("./helpers");
 
 const sharedSim = sharedPage();
 const test = base.test.extend({

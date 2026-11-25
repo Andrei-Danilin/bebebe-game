@@ -15,6 +15,15 @@ function freshWorld() { return { unlocked: 1, stars: {}, won: {} }; }
 // SPEC-022: seen = { [заставка из SCENE_IDS]: true, если уже показана } — все ключи всегда есть (SPEC-029: + tutorial)
 // SPEC-011: function declarations (hoisted) — economy.js builds its first progress at import, while this module may still be
 // in the middle of its import cycle; everything they call is a function declaration or data of config/story/wardrobe
+// SPEC-025 AC 9: the save schema's progress part (JSDoc for `npm run typecheck`; the checks themselves: loadProgress,
+// badProgressFields). Unknown fields, worlds and ids are kept (SPEC-025 AC 3), so every object is open.
+/**
+ * @typedef {{ unlocked: number, stars: Record<string, number>, won: Record<string, boolean>, [field: string]: any }} WorldProgress
+ * @typedef {{ worlds: Record<string, WorldProgress>, lastWorld: string, coins: number,
+ *   inv: { mittens: number, mega: number, kisses: number, rescues: number, [item: string]: number },
+ *   equip: string[], owned: Record<string, any>, upgrades: Record<string, any>, seen: Record<string, boolean>, [field: string]: any }} Progress
+ */
+/** @returns {Progress} */
 export function freshProgress() {
   return { worlds: Object.fromEntries(WORLDS.map(w => [w, freshWorld()])), lastWorld: WORLDS[0],
     coins: 0, inv: { mittens: 0, mega: 0, kisses: 0, rescues: 0 }, equip: ["none", "none"], owned: cleanOwned(null),
@@ -94,6 +103,7 @@ export function badProgressFields(pv) {
   return bad;
 }
 export const hasFlatProgress = pv => !!pv && typeof pv === "object" && ("unlocked" in pv || "stars" in pv);
+/** @param {any} pv @returns {Progress} */
 export function loadProgress(pv) {
   const p = freshProgress();
   if (!pv || typeof pv !== "object" || Array.isArray(pv)) return p;   // SPEC-025 AC 3d: the root must be a plain object

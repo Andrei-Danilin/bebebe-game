@@ -17,7 +17,7 @@ let log = null;                      // the error log (read on the first error; 
 let logDirty = false, logWrittenAt = 0;
 let pausedByOops = false, lastShown = null;   // the entry the last card showed (the same one again → also a reload button)
 const seen = { version: null };     // the module set's SRC_HASH, read once (an error repeating every frame stays cheap)
-const version = () => { if (seen.version === null) { try { seen.version = document.querySelector("meta[name=src-hash]").content; } catch (e) { seen.version = "?"; } } return seen.version; };
+const version = () => { if (seen.version === null) { try { seen.version = /** @type {HTMLMetaElement} */ (document.querySelector("meta[name=src-hash]")).content; } catch (e) { seen.version = "?"; } } return seen.version; };
 const levelOf = () => (G ? `${G.world} ${G.level}` : "-");
 // the message of anything thrown: an Error's message, a string or a number as text, any other value only as its type (never its
 // content: a rejected object may carry names or save data)

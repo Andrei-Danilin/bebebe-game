@@ -28,6 +28,14 @@ import { namesFrom, noNames, setNamesTyped, typedNames } from "./names.js";
 import { adoptWorn, cloneSkins, fitOutfitsToOwned, loadOutfits, outfitsFromIds, outfitsToIds, setSkinKeep, setSkinSel, skinKeep } from "./outfits.js";
 import { localBackend, wrapBackend } from "./storage.js";
 
+// SPEC-025 AC 9: the save schema (JSDoc for `npm run typecheck`; the checks themselves: validSave, loadProgress). Fields are only
+// ever added; unknown fields are kept (AC 3), so the object is open.
+/**
+ * @typedef {{ hair?: string, hat?: string, jacket?: string, pants?: string, [slot: string]: any }} OutfitIds   one Little One's outfit by item id (AC 3c)
+ * @typedef {{ version: number, progress: import("../core/progress-rules.js").Progress,
+ *   outfits: { p1: OutfitIds, p2: OutfitIds, big: string }, names: { p1: string, p2: string, big: string, bots: string[] },
+ *   lang: string, migrated: Record<string, string | null>, persist?: { asked: boolean, granted: boolean }, [field: string]: any }} Save   bebebe-save
+ */
 export const SAVE_VERSION = 1;              // the shape of bebebe-save (a schema id, not a tunable number)
 export const SAVE_KEYS = Object.freeze({ save: "bebebe-save", backup: "bebebe-save-backup", broken: "bebebe-save-broken", session: "bebebe-save-session",
   migration: "bebebe-save-before-migration", reset: "bebebe-save-before-reset", reset2: "bebebe-save-before-reset-2", import: "bebebe-save-before-import", restore: "bebebe-save-before-restore", errors: "bebebe-errors", probe: "bebebe-probe" });
@@ -109,6 +117,7 @@ function holdSave(s) {
 }
 
 // ---------- the save object (what is written) ----------
+/** @returns {Save} */
 function saveObject() {
   const p = JSON.parse(JSON.stringify(progress));
   p.worlds = { ...held.worlds, ...p.worlds };
@@ -129,7 +138,7 @@ function saveObject() {
   for (const q of held.outfits) {
     if (q.pk === "big") { if (skinKeep.big === q.idx) outfits.big = q.id; } else if (skinKeep[q.pk][q.k] === q.idx) outfits[q.pk][q.k] = q.id;
   }
-  const out = { ...held.top, version: future ? futureVersion : SAVE_VERSION, progress: p, outfits, names: typedNames(), lang, migrated: { ...migrated } };
+  const out = /** @type {Save} */ ({ ...held.top, version: future ? futureVersion : SAVE_VERSION, progress: p, outfits, names: typedNames(), lang, migrated: { ...migrated } });
   if (persist) out.persist = { ...persist };
   if (future) for (const k of KNOWN_TOP) if (Object.hasOwn(held.top, k)) out[k] = held.top[k];
   return out;

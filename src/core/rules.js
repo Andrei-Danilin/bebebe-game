@@ -214,7 +214,7 @@ function starSpotOk(cx, cy) {
   return !G.items.some(it => cellIdx(it.x, it.y) === i) && !G.bonusStars.some(s => cellIdx(s.x, s.y) === i);
 }
 export function spawnStar(x, y) {
-  let p = null;
+  let p;
   if (typeof x === "number" && typeof y === "number") p = { x, y };   // для тестов: в заданной точке
   else {
     const spots = [];

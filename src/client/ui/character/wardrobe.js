@@ -158,6 +158,7 @@ export function wardrobePhone(f) {
     ctx.clearRect(pnl.x, pnl.y, pnl.w, pnl.h);              // окошко: здесь видно 3D-превью
     ctx.lineWidth = 3; ctx.strokeStyle = OUT; ctx.strokeRect(pnl.x, pnl.y, pnl.w, pnl.h);
     lookThumbs(col.key, pnl);
+    /** @param {number} x @param {number} y @param {number} w @param {any[]} r */
     const row = (x, y, w, [sl, list, sel, act]) => {         // ◀ подпись и название ▶
       cycleButtons(col.key, sl, act, x, y, B, B, fz(16, "main"), x + w - B);
       const lock = rowLock(sl, list, sel);

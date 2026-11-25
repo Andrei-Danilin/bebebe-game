@@ -15,7 +15,7 @@ export const fmtTime = sec => `${Math.floor(sec / 60)}:${String(Math.floor(sec %
 export const labelStroke = size => Math.max(3, size / 4.5);   // толщина обводки надписи label()
 // число на белой плашке (монетки, звёзды): тёмный текст без обводки — с обводкой цвета OUT цифры сливаются
 export function plainText(text, x, y, size, color = OUT, align = "left") {
-  ctx.font = hudFont(size); ctx.textAlign = align; ctx.textBaseline = "middle"; ctx.fillStyle = color;
+  ctx.font = hudFont(size); ctx.textAlign = /** @type {CanvasTextAlign} */ (align); ctx.textBaseline = "middle"; ctx.fillStyle = color;
   fillT(text, x, y);
   if (PHONE) noteText("drawn", size);
 }
@@ -35,7 +35,7 @@ function colorLum(c) {
 }
 export function label(text, x, y, size, color, align = "center") {
   ctx.font = `900 ${size}px system-ui, "Segoe UI", "Arial Rounded MT Bold", Arial, sans-serif`;   // = hudFont(size)
-  ctx.textAlign = align; ctx.textBaseline = "middle";
+  ctx.textAlign = /** @type {CanvasTextAlign} */ (align); ctx.textBaseline = "middle";
   if (!(INK.has(color) && paperUI())) {        // SPEC-020: чернила на бумажном экране (LOOK.PAPER.ink) — без обводки
     const P = LOOK.PAPER, dark = colorLum(color) < P.darkInk;   // тёмная надпись (таймер, ×N, имя Большого на плашке) — светлый ореол
     ctx.lineJoin = "round"; ctx.lineWidth = dark ? size * P.haloW : labelStroke(size); ctx.strokeStyle = dark ? P.halo : OUT;
@@ -45,10 +45,10 @@ export function label(text, x, y, size, color, align = "center") {
   if (PHONE) noteText("drawn", size);
 }
 export function fitText(text, x, y, size, maxW, align, color, weight, min = 9, scaled = false) {
-  let sz = size + 0.5, w = 0;
+  let sz = size + 0.5, w;
   do { sz = Math.max(min, sz - 0.5); ctx.font = `${weight} ${sz}px system-ui, "Segoe UI", sans-serif`; w = ctx.measureText(text).width; } while (w > maxW && sz > min);
   noteOverflow(text, w * min / sz, maxW, scaled);
-  ctx.textAlign = align; ctx.textBaseline = "middle"; ctx.fillStyle = color;
+  ctx.textAlign = /** @type {CanvasTextAlign} */ (align); ctx.textBaseline = "middle"; ctx.fillStyle = color;
   fillT(text, x, y);
   if (PHONE) noteText("drawn", sz);
   return sz;   // размер, которым написано
@@ -59,7 +59,7 @@ function noteOverflow(text, wMin, maxW, scaled) {
 }
 // Текст в несколько строк (по словам), не больше lines строк; не влезает — мельче
 export function wrapText(text, x, y, size, maxW, lines, color, weight) {
-  let sz = size, rows = [];
+  let sz = size, rows;
   for (;;) {
     ctx.font = `${weight} ${sz}px system-ui, "Segoe UI", sans-serif`;
     rows = [];
@@ -155,7 +155,7 @@ export function pRows(text, cat, css, maxW, lines, weight = 700) {
 }
 export function pDraw(b, x, y, color = OUT, align = "center") {
   ctx.font = `${b.weight} ${b.sz}px system-ui, "Segoe UI", sans-serif`;
-  ctx.textAlign = align; ctx.textBaseline = "middle"; ctx.fillStyle = color;
+  ctx.textAlign = /** @type {CanvasTextAlign} */ (align); ctx.textBaseline = "middle"; ctx.fillStyle = color;
   b.rows.forEach((r, i) => fillT(r, x, y + b.lh / 2 + i * b.lh));
   noteText(b.cat, b.sz);
   return b.h;
@@ -180,7 +180,7 @@ export function pWrap(text, x, y, cat, css, maxW, lines, color = OUT, weight = 7
 // но не меньше min; fit = false — не влезло и самым мелким. SPEC-031: текст истории (opts.keep) получает все строки — раскладку меняет
 // вызывающий; остальные экраны — как раньше, лишние строки отрезаются, но обрезанное попадает в textOverflows (noteUnfit)
 export function noteRows(text, size, min, maxW, lines, { maxH = Infinity, keep = false } = {}) {
-  let sz = size, rows = [], fit = false;
+  let sz = size, rows, fit;
   for (;;) {
     ctx.font = `800 ${sz}px system-ui, "Segoe UI", sans-serif`;
     rows = [];

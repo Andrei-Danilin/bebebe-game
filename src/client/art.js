@@ -105,7 +105,7 @@ function artProgress() {
   const el = document.getElementById("loading");
   if (!el || !el.classList.contains("art")) return;
   if (artDone()) { el.remove(); return; }
-  const bar = el.querySelector("#loadbar i");
+  const bar = /** @type {HTMLElement} */ (el.querySelector("#loadbar i"));
   if (bar) bar.style.width = Math.round(100 * (artCount.ok + artCount.bad) / ART_NAMES.length) + "%";
 }
 // игра готова: ждём картинки не дольше LOOK.ART.waitMs (window.__bbReady от этого не ждёт)

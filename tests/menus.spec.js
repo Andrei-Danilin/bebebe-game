@@ -210,7 +210,7 @@ test("the shop holds the wardrobe", async ({ page }) => {
   expect(await page.evaluate(() => { const b = window.__bb; b.mode = "skins"; const a = b.mode; b.mode = "names"; return [a, b.mode]; })).toEqual(["home", "home"]);
   await page.evaluate(() => { window.__bb.mode = "shop"; });
   await frames(page);
-  let d = await page.evaluate(() => window.__bb.buttonRects.filter(q => String(q.id).startsWith("tab:")));
+  const d = await page.evaluate(() => window.__bb.buttonRects.filter(q => String(q.id).startsWith("tab:")));
   expect(d.map(q => q.id), "four tabs in this order (SPEC-026: Progress first)").toEqual(["tab:progress", "tab:items", "tab:wardrobe", "tab:upgrades"]);
   expect(d[0].x < d[1].x && d[1].x < d[2].x && d[2].x < d[3].x).toBe(true);
   expect(d.map(q => q.text)).toEqual(["🏆 Progress", "🛒 Items", "👕 Wardrobe", "⭐ Upgrades"]);
@@ -316,7 +316,7 @@ const MIXED = {
 };
 test("SPEC-026: Character — tabs Progress · Items · Wardrobe · Upgrades; home opens Progress, the end screens Items", async ({ page }) => {
   await click(page, "home:shop");
-  let d = await page.evaluate(() => ({ tab: window.__bb.shopTab, mode: window.__bb.mode, tabs: window.__bb.buttonRects.filter(q => String(q.id).startsWith("tab:")) }));
+  const d = await page.evaluate(() => ({ tab: window.__bb.shopTab, mode: window.__bb.mode, tabs: window.__bb.buttonRects.filter(q => String(q.id).startsWith("tab:")) }));
   expect([d.mode, d.tab], "home → Character → Progress").toEqual(["shop", "progress"]);
   expect(d.tabs.map(q => q.id), "Progress first, then Items, Wardrobe, Upgrades").toEqual(["tab:progress", "tab:items", "tab:wardrobe", "tab:upgrades"]);
   expect(d.tabs.every((q, i) => !i || q.x > d.tabs[i - 1].x + d.tabs[i - 1].w), "left to right, apart").toBe(true);
@@ -481,7 +481,7 @@ test("win, lose and pause lead to the map, the shop and home", async ({ page }) 
   await click(page, "toMap");
   expect(await page.evaluate(() => [window.__bb.mode, window.__bb.world])).toEqual(["map", "city"]);
   // win → Shop: the next level is picked, the shop's OK goes back to the map
-  e = await end(() => { const b = window.__bb; b.world = "city"; b.level = 3; b.startGame(1); b.giveReward(true); b.mode = "win"; });
+  await end(() => { const b = window.__bb; b.world = "city"; b.level = 3; b.startGame(1); b.giveReward(true); b.mode = "win"; });
   await click(page, "shopAfterWin");
   expect(await page.evaluate(() => [window.__bb.mode, window.__bb.level])).toEqual(["shop", 4]);
   await page.keyboard.press("Escape");

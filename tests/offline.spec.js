@@ -26,7 +26,7 @@ function remoteUrls(file, text) {
   const found = [];
   const scan = (s, where) => { for (const m of s.matchAll(/https?:\/\/[^\s"'`)<>\\]+/g)) found.push({ url: m[0], where }); };
   const scanJs = (src, where, module) => {
-    let comments = [];
+    let comments;
     try { comments = espree.tokenize(src, { ecmaVersion: "latest", sourceType: module ? "module" : "script", comment: true, range: true }).comments; }
     catch (e) { comments = espree.tokenize(src, { ecmaVersion: "latest", sourceType: "script", comment: true, range: true }).comments; }
     let code = src;

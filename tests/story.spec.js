@@ -422,7 +422,7 @@ test("Dad's mood shows: angry red with steam and a dark cloud, mid orange-pink w
   const a = await moodAt("park", 20, 1), s = await moodAt("school", 20, 1);
   soft(s.cloud > a.cloud, `the grumpiest dad's cloud (${s.cloud}) is bigger than the park boss's (${a.cloud})`).toBe(true);
   // the blush of a kiss still works on top (the emissive of the face), and lying after a banana shows nothing over his head
-  const k = await page.evaluate(() => { const b = window.__bb; b.big.blush = 2; return 0; });
+  await page.evaluate(() => { window.__bb.big.blush = 2; });
   await frames(page);
   soft(await page.evaluate(() => window.__bb.model("big").cheeks.visible), "blush cheeks on top of the mood").toBe(true);
   await page.evaluate(() => { const b = window.__bb; b.big.blush = 0; b.big.slip = 2; });

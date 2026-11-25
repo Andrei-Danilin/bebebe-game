@@ -20,6 +20,7 @@ export function pButton(x, y, w, h, text, color, act, css = 18) {
   return b;
 }
 // SPEC-017: рамка экрана меню — карточка и её поля из LOOK.MENU_LOOK (телефон — phoneFrame); box — своя карточка (главный экран)
+/** @param {any} [box] @param {boolean} [card] */
 export function menuFrame(box = LOOK.MENU_LOOK.frame, card = true) {
   if (PHONE) return phoneFrame(card);
   const M = LOOK.MENU_LOOK, F = M.frame, x = UW / 2 - box.w / 2;

@@ -1,0 +1,24 @@
+// SPEC-025 AC 9: types for `npm run typecheck` only (tsc --noEmit --checkJs; nothing here ships or runs).
+// The page's own globals: the debug object and the flags the tests set before the game starts (docs/architecture.md
+// "window.__bb"), the inline script's boot hooks, and the vendor-prefixed browser APIs the client feature-tests.
+interface Window {
+  __bb: any;
+  __bbReady?: boolean;
+  __bbBoot?: any;
+  __bbSeed?: number;
+  __bbStrictRng?: boolean;
+  __bbNoIntro?: boolean;
+  __bbNoTutorial?: boolean;
+  __bbSaveBackend?: any;
+  webkitAudioContext?: typeof AudioContext;
+}
+interface Navigator {
+  standalone?: boolean;
+}
+interface Document {
+  webkitFullscreenElement?: Element | null;
+  webkitExitFullscreen?: () => Promise<void> | void;
+}
+interface HTMLElement {
+  webkitRequestFullscreen?: () => Promise<void> | void;
+}

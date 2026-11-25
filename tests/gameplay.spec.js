@@ -197,7 +197,7 @@ test("the dad becomes kind and walks home before the win screen", { tag: "@fast"
   await setupHug(page);
   await step(page, 0.5);
   // the last hug plays to the end first (kids' rule): still playing, the Little One on his back, not kind yet
-  let s = await page.evaluate(() => { const b = window.__bb; return { mode: b.mode, hp: b.big.hp, anim: b.littles[0].hugAnim > 0, kind: !!b.big.kind, mood: b.bigMood() }; });
+  const s = await page.evaluate(() => { const b = window.__bb; return { mode: b.mode, hp: b.big.hp, anim: b.littles[0].hugAnim > 0, kind: !!b.big.kind, mood: b.bigMood() }; });
   expect(s).toEqual({ mode: "play", hp: 0, anim: true, kind: false, mood: "kind" });
   await step(page, 0.6);
   // then he is kind: blushes, hearts burst, he walks to his house door; the friends cheer; the clock stops

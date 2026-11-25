@@ -546,7 +546,6 @@ test("AC 17: the whole tutorial changes nothing but seen.tutorial; a real Park 1
   // a real Park 1: its own item rate and max, its own push cooldown
   const r = await page.evaluate(() => {
     const b = window.__bb, C = b.CFG; b.seedRandom(5); b.world = "park"; b.level = 1; b.startGame(1); b.seedRandom(5);   // SPEC-011 AC 8d: seeded before the start too
-    const cd = [];
     let most = 0;
     b.littles.forEach(l => { if (l.kind === "bot") { l.kind = "player"; l.controls = { up: [], down: [], left: [], right: [] }; } });
     Object.assign(b.big, { state: "look", timer: 9999, lookSign: 0, noPush: 9999 });

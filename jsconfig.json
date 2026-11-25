@@ -1,0 +1,20 @@
+// SPEC-025 AC 9: `npm run typecheck` (scripts/typecheck.js) — tsc --noEmit --checkJs over the game code; TypeScript is a dev
+// dependency only, nothing is built or changed at runtime. This file: the whole of src/ at the basic level (the client);
+// jsconfig.core.json: the core strict-ish. types/: the page's globals and the "three" module (typed as any: the vendored
+// three.js ships no types).
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true,
+    "strict": false,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": [],
+    "skipLibCheck": true,
+    "paths": { "three": ["./types/three.d.ts"] }
+  },
+  "include": ["src/**/*.js", "types/**/*.d.ts"]
+}

@@ -19,13 +19,18 @@
     "lint": "node scripts/lint.js",
     "setup": "npm install && npx playwright install chromium && node scripts/claude-sync.js",
     "precache": "node scripts/precache.js",
-    "vendor:three": "node scripts/vendor-three.js"
+    "vendor:three": "node scripts/vendor-three.js",
+    "typecheck": "node scripts/typecheck.js",
+    "format": "node scripts/lint.js --format"
   },
   "devDependencies": {
+    "@eslint/js": "10.0.1",
     "@playwright/test": "1.65.1",
     "eslint": "10.14.0",
     "globals": "17.14.0",
+    "prettier": "3.10.1",
     "sharp": "0.35.5",
-    "three": "0.187.0"
+    "three": "0.187.0",
+    "typescript": "7.0.2"
   }
 }

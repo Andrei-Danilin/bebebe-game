@@ -306,7 +306,7 @@ async function hudTexts(page) {
   }));
 }
 const lum = c => {
-  const m = /^#([0-9a-f]{6})$/i.exec(c), n = m ? [0, 2, 4].map(i => parseInt(m[1].slice(i, i + 2), 16)) : (/rgba?\(([^)]+)\)/.exec(c) || [, "255,255,255"])[1].split(",").map(Number);
+  const m = /^#([0-9a-f]{6})$/i.exec(c), n = m ? [0, 2, 4].map(i => parseInt(m[1].slice(i, i + 2), 16)) : (/rgba?\(([^)]+)\)/.exec(c) || [null, "255,255,255"])[1].split(",").map(Number);
   return (0.2126 * n[0] + 0.7152 * n[1] + 0.0722 * n[2]) / 255;
 };
 // dark text (brightness < 0.35) with a dark (< 0.5) or thick (> 0.2 of the size) outline → "text fill/stroke@width"

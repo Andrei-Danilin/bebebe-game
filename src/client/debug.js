@@ -221,7 +221,7 @@ export function installDebug() {
   window.__bb.SIM_DRAWN = SIM_DRAWN;
   window.__bb = new Proxy(window.__bb, {
     get(t, k, r) {
-      if (simMode && SIM_DRAWN.includes(k)) throw new Error(`sim mode: __bb.${String(k)} is drawn state and nothing is drawn — this test needs a rendered page (openGame without sim)`);
+      if (simMode && SIM_DRAWN.includes(/** @type {string} */ (k))) throw new Error(`sim mode: __bb.${String(k)} is drawn state and nothing is drawn — this test needs a rendered page (openGame without sim)`);
       return Reflect.get(t, k, r);
     }
   });

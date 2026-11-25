@@ -18,8 +18,22 @@ import { G, setActiveGame } from "./active.js";
 // SPEC-012 AC 1: every piece of a game's state lives in its game object — newGame(opts) makes it, createGame(opts) builds it,
 // useGame / withGame / step make it the active game G. The screen (mode) and the last reward are the client's (src/client/flow.js).
 const N_CELLS = COLS * ROWS, N_FINE = FW * FH;
+// SPEC-025 AC 9: the types of the core's public API (JSDoc for `npm run typecheck`; nothing here runs)
+/**
+ * @typedef {{ mx: number, my: number, kiss: boolean, kit: boolean, act: boolean, tiptoe: boolean }} Input   a slot's controls (SPEC-012 AC 3)
+ * @typedef {{ shared: boolean, kisses: number, kits: number, gloves: { mittens: number, mega: number } }} Stock   a game's stock (AC 2)
+ * @typedef {{ slot: string, kind?: string, look?: any, name?: string | null, glove?: string | null, gloveCharges?: number,
+ *   kisses?: number, kits?: number, upgrades?: Record<string, number>, skin?: any, boss?: string }} Slot   a player or bot slot (AC 2)
+ * @typedef {{ t: number, type: string, [field: string]: any }} GameEvent   an entry of the gameplay log g.events (SPEC-008)
+ * @typedef {{ type: string, [field: string]: any }} Effect   an effect for the client in g.fx (AC 5; { type: "game", e } carries a GameEvent)
+ * @typedef {{ s: number, draws: number }} RngStream   the game's rng state (mulberry32)
+ * @typedef {{ world?: string, n?: number, players?: number, slots?: Slot[], mode?: string, stock?: any, practice?: any,
+ *   rng?: RngStream, seed?: number, fx?: boolean, keep?: object }} GameOptions   newGame / createGame options (AC 1, 2, 10)
+ * @typedef {ReturnType<typeof newGame>} Game   one game's whole state (AC 1)
+ */
 // SPEC-012 AC 1: the state of one game — plain data (the grids are typed arrays), nothing of the client. opts: world, n (level),
 // players, rng (a stream { s, draws } to continue) or seed. Not built yet: createGame builds it.
+/** @param {GameOptions} [opts] */
 export function newGame(opts = {}) {
   return {
     world: opts.world ?? WORLDS[0], level: opts.n ?? 1, players: opts.players ?? 1,
@@ -59,18 +73,24 @@ export function newGame(opts = {}) {
 }
 // SPEC-012 AC 1: the active game. useGame(g) — one assignment (the server calls it before stepping a room);
 // withGame(g, fn) — fn on g, then the game that was active before (also when fn throws); step(g, dt) — g one step of dt s
+/** @param {Game} g @returns {Game} */
 export function useGame(g) { setActiveGame(g); return g; }
+/** @template T @param {Game} g @param {() => T} fn @returns {T} */
 export function withGame(g, fn) { const prev = setActiveGame(g); try { return fn(); } finally { setActiveGame(prev); } }
+/** @param {Game} g @param {number} dt */
 export function step(g, dt) { useGame(g); update(dt); }
 // SPEC-012 AC 5: an effect for the client (it plays it as today): sfx { name }, burst { kind, x, y, n, color }, pop { key, args, x,
 // y, color, meaning } (an I18N key and its arguments — key null: args[0] is the text itself, a number or a sign), shake { t },
 // wave { x, y, r } (a wide push ring), hint { kind: "kit" | "kitOff" | "heard" | "practice", slot, step }, mood { level }
+/** @param {string} type @param {object} [data] */
 export function emit(type, data) { if (G.fx) G.fx.push({ type, ...data }); }
 // SPEC-012 AC 6 / 6b / 10: the events the client acts on — coins (a star), spent (a kiss, a kit, a glove charge), result (a level
 // won), practiceWin: logged in the gameplay log like any event, and handed to the client in the effect queue ({ type: "game", e })
 // so it applies each exactly once (the economy, the win screen, the next tutorial step)
+/** @param {string} type @param {object} [data] @returns {GameEvent} */
 export function logEcon(type, data) { const e = logEvent(type, data); if (G.fx) G.fx.push({ type: "game", e }); return e; }
 // SPEC-012 AC 2: a game's stock { shared, kisses, kits, gloves: { mittens, mega } } (local play: one pool for p1/p2)
+/** @type {(s: any) => Stock} */
 export const stockOf = s => ({ shared: s?.shared ?? true, kisses: s?.kisses ?? 0, kits: s?.kits ?? 0, gloves: { mittens: s?.gloves?.mittens ?? 0, mega: s?.gloves?.mega ?? 0 } });
 // SPEC-012 AC 10: the practice option — a step (1, 2) or { step, map, hearts, bots, stock, script } (script: an id — "game1" is the
 // scripted push of practice 1, practice.js) → plain data with today's defaults from CFG.TUTORIAL; nothing → null
@@ -80,6 +100,7 @@ export function practiceOf(p) {
   return { step: s, map: o.map ?? "tutorial", hearts: o.hearts ?? T["hearts" + s], bots: o.bots ?? T.bots,
     stock: stockOf(o.stock ?? (s === 2 ? { kisses: T.kisses, kits: T.kits } : null)), script: o.script ?? (s === 1 ? "game1" : null) };
 }
+/** @param {string} type @param {object} [data] @returns {GameEvent} */
 export function logEvent(type, data) {
   const e = { t: G.stats.time, type, ...data };
   G.events.push(e);
@@ -104,9 +125,11 @@ function makeLittle(i, s, botIndex) {
 // маленьких в команде (игроки + боты): 5; SPEC-029: в тренировке — игрок и бот (сценарий и спасение нужны хоть одному)
 // p — the practice option (practiceOf) or a step; by default the active game's
 export function teamSize(p = G.practice) { return p ? 1 + Math.max(1, typeof p === "object" ? p.bots : CFG.TUTORIAL.bots) : 5; }
+/** @type {() => Input} */
 export const newInput = () => ({ mx: 0, my: 0, kiss: false, kit: false, act: false, tiptoe: false });
 // SPEC-012 AC 2: the Little One slots of a game — the given ones (players and bots, in their order; at most teamSize()), then
 // bots up to teamSize(): { slot: "bot<k>", kind: "bot" }. A slot without kind is a player.
+/** @param {Slot[]} slots @returns {Slot[]} */
 export function fillSlots(slots) {
   const team = teamSize(), out = slots.filter(s => s.slot !== "big").slice(0, team).map(s => ({ kind: "player", ...s }));
   let k = out.filter(s => s.kind === "bot").length;
@@ -118,6 +141,7 @@ export function fillSlots(slots) {
 // боты до teamSize()) и Большой { slot: "big", kind: "bot" | "player", skin, name, boss } (boss — по умолчанию bossFor). Виды игра
 // только носит. Не чистая: тянет игровой rng() (те же вызовы в том же порядке, что раньше). Тренировка (tutorialGame) строит свою
 // карту и сценарий. В конце — hooks.rebuild (клиент строит 3D)
+/** @param {string} world @param {number} n @param {Slot[]} slots */
 export function buildGame(world, n, slots) {
   G.world = world; G.level = n; G.phase = "play";
   if (G.tutorialGame) applyTutorialMap(); else loadLevel(world, n);   // SPEC-029: тренировка — своя карта
@@ -156,6 +180,7 @@ export function buildGame(world, n, slots) {
 // n, slots (or players — that many player slots p1…), mode, stock, practice (the practice game's number, SPEC-029), rng (a stream
 // to continue) / seed, keep (fields carried over from the client's previous game before the build: its event log, ids,
 // autopilot…). → the game (not made active)
+/** @param {GameOptions} [opts] @returns {Game} */
 export function createGame(opts = {}) {
   const g = newGame(opts);
   if (opts.keep) Object.assign(g, opts.keep);
@@ -204,6 +229,7 @@ function updatePlayers(dt) {
   }
 }
 
+/** @param {number} dt */
 export function update(dt) {
   if (!G.big.kind) G.stats.time += dt;                         // SPEC-022: пока подобревший папа идёт домой, часы уровня стоят
   for (const l of G.littles) {

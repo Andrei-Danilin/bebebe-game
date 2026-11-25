@@ -13,7 +13,7 @@ import { renderer } from "./three/setup.js";
 //  ЭКРАН: снизу 3D-холст (Three.js), сверху прозрачный 2D-слой для меню и подписей
 // =====================================================================
 export const wrap = document.getElementById("wrap");
-export const canvas = document.getElementById("game");
+export const canvas = /** @type {HTMLCanvasElement} */ (document.getElementById("game"));
 export let ctx = canvas.getContext("2d");
 export const OUT = "#3d2b1f";        // мультяшный контур
 export let VIEW = 1, CSS_W = W, CSS_H = H, DPR = 1;
