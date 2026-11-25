@@ -7,7 +7,7 @@ Start: `claude --model opus` at the root of bebebe-game, on `master` (on Windows
 Implement `<SPEC>` (`specs/<SPEC file>`) yourself, following `docs/process/orchestration-rules.md` tier **S** and `CLAUDE.md` (speed rules: no local whole suite — CI on the pushed branch gates the merge).
 1. `npm run claude:sync` (agents/skills into `.claude/`). Checks: `git status --short` clean; on `master`; the spec file exists and its `Status:` is `ready`. Stop if one fails.
 2. `git checkout -b <branch from the spec>`.
-3. Read `CLAUDE.md`, the spec, `docs/game-design.md`, and only the `index.html` sections that `architecture.md` points to.
+3. Read `CLAUDE.md`, the spec, `docs/game-design.md`, and only the modules / inline `index.html` parts that `architecture.md` points to.
 4. TDD per AC: failing Playwright test first, then code. Tests while working: `npm run test:fast` + the test files of what changed (never the whole suite locally); phone layouts locally at 667×375 only (`-g "667"`).
 5. Commits `<SPEC>: <what>`, explicit paths, attribution lines from your system reminder. New strings in `en`, `es` (voseo), `ru`.
 6. CI: `git push -u origin <branch>` (never `--force`), the run of that commit `gh run list --workflow tests.yml --commit $(git rev-parse HEAD) --limit 1` (retry until it appears), `gh run watch <id> --exit-status`. Red → investigate from the artifacts (`gh run download <id>`: `html-report`, `test-results-<n>`), fix, push again.
