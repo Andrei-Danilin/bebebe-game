@@ -323,3 +323,4 @@ One line each: what, where it came from. The spec author turns a line into a spe
 - (SPEC-012 review) For SPEC-013: `perSlotCounts` counted into the stats as events happen (today read back from the capped log at the win).
 - (SPEC-012 review) For SPEC-013: `npm run bench:core -- --players 5 --fx` (5 players, the effect queue on).
 - (SPEC-012 review) For SPEC-025: move `economy.js` to the client or make it an explicit profile object; pure progress-rules helpers (no `progress` / `G.world` defaults); a coalescing async save queue (`payLevel` saves once per reward line).
+- (SPEC-012 review) `buyGloves` (`src/client/shop.js`) does not re-dress the menu kid after a first purchase or refill of the worn glove (as on master); call `redress()` there.

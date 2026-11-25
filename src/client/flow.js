@@ -189,7 +189,7 @@ export function closeShop() { closeNameInput(true); if (shopBack === "map") { ma
 export function openFriends() { closeNameInput(true); ui.wardrobePage = "friends"; }
 export function backToWardrobe() { closeNameInput(true); ui.wardrobePage = "looks"; }
 // ---------- SPEC-017: карта уровней ----------
-// мир карты — curWorld (выбор мира — selectWorld, он же запоминает progress.lastWorld); mapSel — остановка с кольцом выбора
+// мир карты — G.world (выбор мира — selectWorld, он же запоминает progress.lastWorld); mapSel — остановка с кольцом выбора
 // (клавиатура, геймпад) в этом мире, null — следующий уровень; toast — короткая подсказка внизу карты { text, t };
 // cardLevel — уровень открытой карточки; mapSwipe — палец/мышь, нажатые на карте (смена мира — на отпускании)
 export let mapSel = null, cardLevel = 1;
