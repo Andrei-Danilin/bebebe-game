@@ -389,7 +389,8 @@ test("two reset copies: a 60-star reset, play to 30 stars, reset again — both 
 
 test("during the gate's wait, ←/→ and the highlight skip the disabled answers: Enter only closes", async ({ page }) => {
   const errors = await openGame(page);
-  await page.evaluate(() => { window.__bb.mode = "story"; window.__bb.grownUps.open(); });
+  // the wait is wall clock: a long one, so slow (software-rendered) key presses all land inside it
+  await page.evaluate(() => { window.__bb.CFG.GATE_WRONG_WAIT = 60; window.__bb.mode = "story"; window.__bb.grownUps.open(); });
   await answer(page, false);
   for (const k of ["ArrowLeft", "ArrowRight", "ArrowRight", "ArrowLeft", "ArrowRight"]) {
     await page.keyboard.press(k);
@@ -397,5 +398,6 @@ test("during the gate's wait, ←/→ and the highlight skip the disabled answer
   }
   await page.keyboard.press("Enter");
   expect(await page.evaluate(() => [!!document.getElementById("gate"), !!document.getElementById("grownups")])).toEqual([false, false]);
+  await page.evaluate(() => { window.__bb.CFG.GATE_WRONG_WAIT = 3; });
   expect(errors).toEqual([]);
 });
