@@ -15,3 +15,18 @@ test("the __bb surface is unchanged", { tag: "@fast" }, async ({ page }) => {
   expect(BB_KEYS.filter(k => !keys.includes(k)), "__bb keys removed since the recorded list").toEqual([]);
   expect(errors).toEqual([]);
 });
+
+// AC 8b: over http the game registers sw.js; playwright.config.js blocks service workers for every spec but pwa.spec.js,
+// also in the contexts the shared-page fixtures make with browser.newContext()
+test("service workers are blocked outside the PWA tests", async ({ page, browser }) => {
+  const registrations = p => p.evaluate(async () => (await navigator.serviceWorker.getRegistrations()).length);
+  const errors = await openGame(page, { sim: true });
+  const ctx = await browser.newContext(), other = await ctx.newPage();
+  try {
+    const more = await openGame(other, { sim: true });
+    await page.waitForTimeout(500);
+    expect([await registrations(page), await registrations(other)]).toEqual([0, 0]);
+    expect(page.url().startsWith("http://"), "the game is opened over http").toBe(true);
+    expect([...errors, ...more]).toEqual([]);
+  } finally { await ctx.close(); }
+});

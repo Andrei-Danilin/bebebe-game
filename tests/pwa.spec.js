@@ -1,12 +1,16 @@
 // SPEC-001: installable PWA (manifest, icons, iOS metas, safe areas, service worker, offline,
 // standalone mode, install hint). Most tests run over http (scripts/serve.js, the webServer).
+// SPEC-011 AC 8b: playwright.config.js blocks service workers for every other spec; this one allows them.
 // Notes: jsDelivr is routed at context level (routeThree) so the service worker's requests are
 // intercepted too; that needs PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS=1 (set in playwright.config.js).
 const { test, expect } = require("./pw");   // SPEC-023: @playwright/test + failure screenshots
 const fs = require("fs");
 const path = require("path");
-const { openGame, openGameHttp, routeThree, frames, step, HTTP_BASE, ROOT } = require("./helpers");
+const { pathToFileURL } = require("url");
+const { openGame, openGameHttp, routeThree, frames, step, reloadGame, HTTP_BASE, ROOT } = require("./helpers");
 const { makeServer } = require("../scripts/serve");
+
+test.use({ serviceWorkers: "allow" });
 
 const IPHONE_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1";
 const SW_FILE = path.join(ROOT, "sw.js");
@@ -187,8 +191,10 @@ test("a server error (404/503) still opens the cached game", async ({ page }) =>
   });
 });
 
+// SPEC-011 AC 8: the one test still on file:// (the other tests open the game over http); Phase B replaces it with the
+// file:// notice test (AC 6), once the game needs http
 test("no service worker and no errors on file://", async ({ page }) => {
-  const errors = await openGame(page);
+  const errors = await openGame(page, { base: pathToFileURL(ROOT).href + "/" });
   await page.waitForTimeout(500);
   const sw = await page.evaluate(async () => {
     try { return navigator.serviceWorker ? (await navigator.serviceWorker.getRegistrations()).length : 0; } catch (e) { return 0; }
@@ -214,8 +220,7 @@ test("the game starts offline after the first visit", async ({ page, context }) 
   await context.unrouteAll({ behavior: "ignoreErrors" });
   await context.route("https://cdn.jsdelivr.net/**", route => route.abort("internetdisconnected"));
   await context.setOffline(true);
-  await page.reload();
-  await page.waitForFunction(() => window.__bbReady === true, null, { timeout: 30_000 });
+  await reloadGame(page);                          // SPEC-011 AC 8d: seeded again after the reload
   await page.evaluate(() => window.__bb.startGame(1));
   await step(page, 5);
   expect(await page.evaluate(() => window.__bb.mode)).toBe("play");

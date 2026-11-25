@@ -1,7 +1,7 @@
 // Gameplay rules decided by the kids (see docs/game-design.md). Each test pins one rule.
 const base = require("./pw");   // SPEC-023: @playwright/test + failure screenshots
 const { expect } = base;
-const { LANGS, openGame, step, setupHug, frames, sharedPage, resetGame, softly } = require("./helpers");
+const { LANGS, openGame, step, setupHug, frames, sharedPage, resetGame, reloadGame, softly } = require("./helpers");
 
 // SPEC-018: the tests share one game page (one per context kind: the touch tests get their own) instead of a fresh page
 // each. Before every test resetGame() puts it back to a freshly opened game (storage, language, progress, names,
@@ -248,8 +248,7 @@ test("Dad's mood follows his anger: angry, mid, kind", async ({ simPage: page })
 test("worlds unlock their own levels", async ({ page }) => {
   // a real first load with no save (the shared page would only show resetProgress())
   await page.evaluate(() => { for (const k of ["bebebe-progress", "bebebe-outfits", "bebebe-place"]) localStorage.removeItem(k); });
-  await page.reload();
-  await page.waitForFunction(() => window.__bbReady === true);
+  await reloadGame(page);                          // SPEC-011 AC 8d: seeded again after the reload
   expect(await page.evaluate(() => [window.__bb.mode, window.__bb.world, window.__bb.level])).toEqual(["home", "park", 1]);
   const start = await page.evaluate(() => JSON.parse(JSON.stringify(window.__bb.progress)));
   expect(Object.keys(start.worlds)).toEqual(["park", "field", "city", "school", "beach", "winter"]);   // SPEC-016: the story order
@@ -618,8 +617,7 @@ test("star coins are added to the reward", async ({ page }) => {
   });
   // a level that ends without a win keeps the star coins
   expect(await take()).toBe(3);
-  await page.reload();
-  await page.waitForFunction(() => window.__bbReady === true);
+  await reloadGame(page);                          // SPEC-011 AC 8d: seeded again after the reload
   expect(await page.evaluate(() => window.__bb.progress.coins)).toBe(3);
   // a win: the rest penalty brings the first-win line down to the floor, the star coins come on top
   await page.evaluate(() => { const b = window.__bb; b.world = "park"; b.level = 1; b.startGame(1); });
