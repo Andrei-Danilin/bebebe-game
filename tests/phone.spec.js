@@ -1058,7 +1058,7 @@ for (const [vw, vh] of PHONE_SIZES) {
         if (name === "friends") expect(d.buttons.filter(q => String(q.id).startsWith("name:bot")).length).toBe(4);
         if (name === "progress") {   // SPEC-026: four tabs, Reset (armed) on the page, the numbers drawn, the 3D look free
           expect(d.buttons.map(q => q.id).filter(id => String(id).startsWith("tab:")), label).toEqual(["tab:progress", "tab:items", "tab:wardrobe", "tab:upgrades"]);
-          expect(d.buttons.map(q => q.id), label).toContain("progress:reset");
+          expect(d.buttons.map(q => q.id), label).toEqual(expect.arrayContaining(["progress:reset", "progress:confirm"]));   // SPEC-025 AC 6b: armed — and the separate confirm
           expect(d.hud.map(h => h.id), label).toEqual(expect.arrayContaining(["progress:stars", "progress:worlds", "progress:bag:rescues", "progress:upg:fastFeet", "progress:clothes", "coins"]));
         }
         if (name === "home") expect(d.buttons.map(q => q.id).sort()).toEqual(["home:lang", "home:play", "home:shop", "home:sound", "home:story"]);

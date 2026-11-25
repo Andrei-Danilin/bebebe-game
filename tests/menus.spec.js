@@ -10,7 +10,9 @@ const path = require("path");
 // page errors and a changed CFG fail the test. At most one shared page is open (sharedPage closes the other one).
 const shared = sharedPage();
 const fixture = (key, ctx, query = "") => async ({ browser }, use) => {
-  const s = await shared.get(browser, key, ctx, p => openGame(p, { query }));
+  // the art is loaded before the first test (the home layout differs with and without the menu background picture: SPEC-025
+  // phase 2 made the start await the save module, which was enough to lose that race on a fresh page)
+  const s = await shared.get(browser, key, ctx, async p => { const e = await openGame(p, { query }); await p.waitForFunction(() => window.__bb.artInfo.done, null, { timeout: 60_000 }); return e; });
   await resetGame(s.page);
   const cfg = await s.page.evaluate(() => JSON.stringify(window.__bb.CFG));
   await use(s.page);
@@ -378,7 +380,7 @@ test("SPEC-026: the Progress page shows the save: look and name, stars, worlds, 
 });
 
 test("SPEC-026: Reset progress works from the Progress page and is gone from Items and Upgrades", async ({ page }) => {
-  const resets = await page.evaluate(() => window.__bb.LANGS.flatMap(l => ["reset", "resetShort", "sure", "sureShort"].map(k => window.__bb.I18N[l][k])));
+  const resets = await page.evaluate(() => window.__bb.LANGS.flatMap(l => ["reset", "resetShort", "resetCancel", "resetCancelShort", "resetConfirm"].map(k => window.__bb.I18N[l][k])));
   await page.evaluate(save => { const b = window.__bb; b.setProgress(save); b.mode = "home"; }, MIXED);
   await click(page, "home:shop");
   for (const tab of ["items", "upgrades", "wardrobe"]) {
@@ -388,12 +390,18 @@ test("SPEC-026: Reset progress works from the Progress page and is gone from Ite
   }
   await click(page, "tab:progress");
   await click(page, "progress:reset");
-  expect(await page.evaluate(() => [window.__bb.buttonRects.find(q => q.id === "progress:reset").text, window.__bb.progress.coins]), "armed, nothing reset yet").toEqual(["Sure? Tap again", 345]);
+  // SPEC-025 AC 6b: armed — the button says "No, keep it", the separate confirm is elsewhere; nothing reset yet
+  const text = id => page.evaluate(k => { const q = window.__bb.buttonRects.find(r => r.id === k); return q ? q.text : null; }, id);
+  expect([await text("progress:reset"), await text("progress:confirm"), await page.evaluate(() => window.__bb.progress.coins)], "armed, nothing reset yet").toEqual(["No, keep it", "Yes, erase everything", 345]);
   await click(page, "tab:items");
   await click(page, "tab:progress");
-  expect(await page.evaluate(() => window.__bb.buttonRects.find(q => q.id === "progress:reset").text), "another tab disarms it").toBe("Reset progress");
+  expect([await text("progress:reset"), await text("progress:confirm")], "another tab disarms it").toEqual(["Reset progress", null]);
   await click(page, "progress:reset");
   await click(page, "progress:reset");
+  expect([await text("progress:confirm"), await page.evaluate(() => window.__bb.progress.coins)], "a second tap on the same button cancels").toEqual([null, 345]);
+  await click(page, "progress:reset");
+  await page.waitForTimeout(900);                                    // CFG.RESET_CONFIRM_DELAY (0.8 s): the confirm listens now
+  await click(page, "progress:confirm");
   const p = await page.evaluate(() => { const b = window.__bb; return { coins: b.progress.coins, inv: b.progress.inv, upg: b.progress.upgrades, park: b.progress.worlds.park.unlocked, info: b.progressInfo }; });
   expect([p.coins, p.park], "fresh progress").toEqual([0, 1]);
   expect(p.inv).toEqual({ mittens: 0, mega: 0, kisses: 0, rescues: 0 });

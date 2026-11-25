@@ -26,6 +26,7 @@ import { initPreviews } from "./three/previews.js";
 import { hasWebGL2, initScene, initThree } from "./three/setup.js";
 import { initSync, render3D } from "./three/sync.js";
 import { firstTutorial, openTutorial } from "./tutorial.js";
+import { showDueNote } from "./ui/grownups.js";
 import { updateMinimapFade } from "./ui/minimap.js";
 import { drawUI } from "./ui/screens.js";
 
@@ -85,6 +86,7 @@ function tick(now) {
   last = now;
   if (simMode) return;                       // sim: ни логики, ни рисования — игру шагает simRun
   if (introDue && mode === "home" && !document.getElementById("loading")) { introDue = false; openScene("intro", tutorialDue ? () => openTutorial("map") : null); }   // SPEC-022: первый запуск (SPEC-029: потом обучение)
+  if (inMenus() && !document.getElementById("loading")) showDueNote(now);   // SPEC-025 AC 4 / 4b: a save note, once, in the menus
   ui.T += dt;
   pollPads();
   syncStock();                              // SPEC-012: the local stock follows the saves (shop, tests)

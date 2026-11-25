@@ -97,7 +97,8 @@ async function auditRequests(context) {
 }
 
 const WIN_WAIT = 4.5;   // the last hug plays out, then Dad walks home (as tests/gameplay.spec.js)
-// The walk of the audit: the first-run comic, the menus (home, map, Character with its tabs, the story, How to play), one level
+// The walk of the audit: the first-run comic, the menus (home, map, Character with its tabs, the story, How to play, the grown-ups
+// page — SPEC-025 phase 2), one level
 // and the win screen — on a rendered page, so the art, the 3D and the sounds load as for a player.
 async function walkGame(page) {
   await page.waitForFunction(() => window.__bb.artInfo.done, null, { timeout: 60_000 });
@@ -114,6 +115,12 @@ async function walkGame(page) {
   for (const tab of ["items", "wardrobe", "upgrades"]) await at(tab, t => { window.__bb.shopTab = t; }, tab);
   await at("story", () => { window.__bb.openStory(); });
   await at("rules", () => { window.__bb.tapButton("story:rules"); });
+  // SPEC-025 phase 2: the grown-ups page (behind the gate: the right answer), opened and closed
+  await at("grownups", () => {
+    const b = window.__bb; b.grownUps.open();
+    const g = b.grownUps.gate; [...document.querySelectorAll("#gate button")].find(q => q.textContent === String(g.a * g.b)).click();
+  });
+  shots.push(["grownups page", await page.evaluate(() => { const el = document.getElementById("grownups"); if (el) el.querySelector("[data-act=close]").click(); return !!el; })]);
   await at("level", () => { window.__bb.startGame(1); });
   await page.evaluate(() => { window.__bb.big.hp = 1; });
   await setupHug(page);
@@ -122,7 +129,8 @@ async function walkGame(page) {
   shots.push(["win", await page.evaluate(() => window.__bb.mode)]);
   return shots;
 }
-const WALKED = [["home", "home"], ["map", "map"], ["character", "shop"], ["items", "shop"], ["wardrobe", "shop"], ["upgrades", "shop"], ["story", "story"], ["rules", "story"], ["level", "play"], ["win", "win"]];
+const WALKED = [["home", "home"], ["map", "map"], ["character", "shop"], ["items", "shop"], ["wardrobe", "shop"], ["upgrades", "shop"], ["story", "story"], ["rules", "story"],
+  ["grownups", "story"], ["grownups page", true], ["level", "play"], ["win", "win"]];
 
 test("no request leaves the origin: network blocked from the start, no service worker", async ({ page, context }) => {
   test.slow();

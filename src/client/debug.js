@@ -50,6 +50,7 @@ import { clothesCount } from "./ui/character/progress.js";
 import { artUse, KID_HEAD_R, nameTagH, resetArtUse, tapLines } from "./ui/draw.js";
 import { heardHintOn, heardHintText, heartFill, timerText } from "./ui/hud.js";
 import { mmAlpha, mmCount, mmDraws, mmState, updateMinimapFade } from "./ui/minimap.js";
+import { gateState, openGrownUps, parentGate } from "./ui/grownups.js";
 import { drawUI } from "./ui/screens.js";
 import { fmtHearts } from "./ui/text.js";
 import { winTitle } from "./ui/win.js";
@@ -128,6 +129,8 @@ export function installDebug() {
     // parents' code (code(), readCode(text) → { ok, error }), the keys, the pure helpers (validSave, fingerprint, outfits by id ↔ indexes)
     save: Object.freeze({ get info() { return saveState(); }, queue: queueSave, flush: flushSaves, code: saveCode, readCode: t => { const r = readCode(t); return { ok: r.ok, error: r.error || null }; },
       KEYS: SAVE_KEYS, OLD_KEYS, VERSION: SAVE_VERSION, validSave, fingerprint, promptsForPersist, outfitsFromIds: v => outfitsOf(v), outfitsToIds: o => outfitsOf(o, true) }),
+    // SPEC-025 AC 6: the grown-ups page (open — behind the gate), the gate itself, the open question { a, b, answers } or null
+    grownUps: Object.freeze({ open: openGrownUps, parentGate, get gate() { return gateState(); } }),
     // SPEC-012 AC 1f: the menus' state a screen change resets (logic state: the same in sim and rendered pages) and the actions
     // that set it up: the shop, its friends page, the name input of a slot, a map stop or world tab (a locked one shows a hint)
     get screenState() { return { mode, shopTab: ui.shopTab, wardrobePage: ui.wardrobePage, toast: ui.toast && ui.toast.text, mapBgCache: !!ui.mapBgCache, nameInput: !!nameInput }; },
