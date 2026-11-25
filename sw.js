@@ -25,13 +25,13 @@ const NET_TIMEOUT_MS = 4000;             // weak signal: after this long, a cach
 const SW_BUILD = 7;
 const SW_STRATEGY = "463855aec6";
 const SW_VERSION = "bebebe-1.0.0-dev-b7";
-const SRC_HASH = "06a879dc79";
+const SRC_HASH = "2e65097d7e";
 const PRECACHE_LOCAL = [
   "./", "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512-maskable.png",
   "./icons/icon-512.png", "./icons/icon.svg", "./index.html", "./manifest.webmanifest"
 ];
 const PRECACHE_SRC = [
-  "./src/client/art-names.js?v=7228f7f839", "./src/client/art.js?v=00f3229cf4", "./src/client/debug.js?v=f0f0a2bac8",
+  "./src/client/art-names.js?v=7228f7f839", "./src/client/art.js?v=00f3229cf4", "./src/client/debug.js?v=8f03b34c76",
   "./src/client/errors.js?v=d36934cb61", "./src/client/flow.js?v=86fbc5a5b1", "./src/client/fx.js?v=73f397efb4",
   "./src/client/input.js?v=4f52e8309e", "./src/client/lifecycle.js?v=3a42079abe", "./src/client/look.js?v=c8031e12d0",
   "./src/client/main.js?v=3cd19acf5a", "./src/client/names.js?v=dff85cded6", "./src/client/outfits.js?v=8564eaee23",
@@ -40,8 +40,8 @@ const PRECACHE_SRC = [
   "./src/client/state.js?v=ff60e51534", "./src/client/storage.js?v=686b11f06c",
   "./src/client/three/bosses.js?v=7814dfb8d4", "./src/client/three/camera.js?v=39a889ad56",
   "./src/client/three/characters.js?v=87a7d8775e", "./src/client/three/houses.js?v=c9bc94bc94",
-  "./src/client/three/look3d.js?v=1dd4e9b9af", "./src/client/three/map3d.js?v=c3fed1392a",
-  "./src/client/three/materials.js?v=430d5adc38", "./src/client/three/previews.js?v=0cdeff7116",
+  "./src/client/three/look3d.js?v=6620453fc3", "./src/client/three/map3d.js?v=c3fed1392a",
+  "./src/client/three/materials.js?v=bf7b1c0f0f", "./src/client/three/previews.js?v=0cdeff7116",
   "./src/client/three/setup.js?v=f20369215b", "./src/client/three/sync.js?v=4461a2e27a",
   "./src/client/three/themes.js?v=6f17def67f", "./src/client/tutorial.js?v=acce35fa62",
   "./src/client/ui/character/items.js?v=0580594792", "./src/client/ui/character/progress.js?v=33eab7a02a",

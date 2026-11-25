@@ -76,7 +76,8 @@ const CFG_ALL = new Proxy({}, {
 // ошибку, чтобы визуальный тест, открытый в sim, падал громко, а не проверял пустоту.
 const SIM_DRAWN = ["buttonRects", "buttonNames", "tapButton", "hudRects", "mapInfo", "levelCard", "storyInfo", "textSizes", "minimap",
   "bannerRect", "rotateShown", "winPanel", "winLine", "bonusNote", "shopLayout", "kitHint", "heardHint", "edgeArrows", "stickMarks",
-  "tapLines", "textOverflows", "tutorialHint", "homeInfo", "progressInfo", "outfit3D", "bibClear", "mapPieces", "groundColorAt", "camera", "minimapAlpha", "artUse", "sceneInfo", "moodInfo", "bigLook", "look3D", "drawNow", "model"];
+  "tapLines", "textOverflows", "tutorialHint", "homeInfo", "progressInfo", "outfit3D", "bibClear", "mapPieces", "groundColorAt", "camera", "minimapAlpha", "artUse", "sceneInfo", "moodInfo", "bigLook", "look3D", "drawNow", "model",
+  "perf", "disposeCheck"];   // SPEC-025 AC 15 / 15b: the renderer's numbers and textures — a rendered page only
 
 // called once by main.js, in the start order of the one-file game
 export function installDebug() {

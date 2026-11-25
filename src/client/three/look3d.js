@@ -92,7 +92,8 @@ const LOOK_PARTS = {
 // SPEC-025 AC 15 (tests): disposeTree on a test group — an own material with its own texture map, an own material on the shared
 // ground texture (and the shared toon gradient): which of them were freed (three.js "dispose" events)
 export function disposeCheck() {
-  const freed = new Set(), watch = (o, k) => { o.addEventListener("dispose", () => freed.add(k)); return o; };
+  const freed = new Set(), listeners = [];
+  const watch = (o, k) => { const fn = () => freed.add(k); o.addEventListener("dispose", fn); listeners.push([o, fn]); return o; };
   const own = watch(new THREE.CanvasTexture(document.createElement("canvas")), "ownMap");
   const a = watch(ownMat("#ffffff"), "material"); a.map = own;
   const b = ownMat("#ffffff"); b.map = groundTex;
@@ -100,6 +101,7 @@ export function disposeCheck() {
   const g = new THREE.Group();
   g.add(new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), a), new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), b));
   disposeTree(g);
+  for (const [o, fn] of listeners) o.removeEventListener("dispose", fn);   // the shared textures keep no test listener
   return { ownMap: freed.has("ownMap"), sharedMap: freed.has("sharedMap"), gradient: freed.has("gradient"), material: freed.has("material") };
 }
 export function look3D(only) {

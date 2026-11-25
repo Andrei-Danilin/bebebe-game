@@ -10,8 +10,9 @@ import { renderer, scene, sun } from "./setup.js";
 
 // ---------- Материалы ----------
 // SPEC-021: два тона, как фломастер — свет и тень (TOON_LOOK.tones), без бликов (MeshToonMaterial)
-// SPEC-025 AC 15: a texture the whole game shares (the toon gradient, the ground canvas, the paper grain) — disposeTree never frees it
-function sharedTex(t) { t.userData.shared = true; return t; }
+// SPEC-025 AC 15: marks a texture the whole game shares (the toon gradient, the ground canvas, the paper grain) — disposeTree
+// never frees it. A module that makes a texture for the whole game passes it through here.
+export function sharedTex(t) { t.userData.shared = true; return t; }
 export const gradTex = sharedTex(new THREE.DataTexture(new Uint8Array(LOOK.TOON_LOOK.tones), LOOK.TOON_LOOK.tones.length, 1, THREE.RedFormat));
 
 const matCache = new Map();
@@ -84,8 +85,9 @@ export function part(geo, color, outline = 0.03, mat = null) {
   }
   return m;
 }
-// SPEC-025 AC 15: the texture slots of a material; disposeTree frees the textures of own materials, except the ones the whole
-// game shares (userData.shared: the toon gradient, the ground canvas)
+// SPEC-025 AC 15: ownership. A tree's geometries are its own; an own material (userData.own: ownMat and the like) belongs to the
+// tree that uses it, and so do its textures — unless marked by sharedTex() (the whole game's: gradient, ground canvas, paper
+// grain). Shared materials (toon(), OUTLINE) and shared textures are never freed here. TEX_SLOTS: the texture slots looked at.
 const TEX_SLOTS = ["map", "alphaMap", "aoMap", "bumpMap", "emissiveMap", "gradientMap", "lightMap", "normalMap", "displacementMap", "specularMap"];
 export function disposeTree(root) {
   root.traverse(o => {

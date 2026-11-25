@@ -41,6 +41,13 @@ test("AC 15b: __bb.perf() has every field after 2 s of play", { tag: "@fast" }, 
   expect(errors).toEqual([]);
 });
 
+test("AC 15b: perf and disposeCheck are drawn state — a sim page throws on them", { tag: "@fast" }, async ({ page }) => {
+  const errors = await openGame(page, { sim: true });
+  const r = await page.evaluate(() => ["perf", "disposeCheck"].map(k => { try { window.__bb[k](); return "no throw"; } catch (e) { return /sim mode/.test(e.message) ? "throws" : e.message; } }));
+  expect(r).toEqual(["throws", "throws"]);
+  expect(errors).toEqual([]);
+});
+
 test("AC 15b: ?perf=1 shows the overlay with a copy button", async ({ page }) => {
   const errors = await openGame(page, { query: "?perf=1" });
   await page.waitForFunction(() => /fps/.test((document.querySelector("#perf pre") || {}).textContent || ""), null, { timeout: 30_000 });
