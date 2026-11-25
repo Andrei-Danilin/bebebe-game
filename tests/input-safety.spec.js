@@ -84,8 +84,29 @@ test("a double tap on a boss comic starts the boss level once", async ({ page })
     const cv = document.getElementById("game");
     for (const i of [31, 32]) cv.dispatchEvent(new PointerEvent("pointerdown", { pointerId: i, clientX: p.x, clientY: p.y, bubbles: true, cancelable: true, pointerType: "touch", isPrimary: i === 31 }));
   }, [bg]);
-  expect(await page.evaluate(() => [window.__bb.mode, window.__bb.level, window.__bb.sticks.length]), "the second finger did not act in the level").toEqual(["play", 20, 0]);
+  // the second finger may start a stick in the level (a tap to move must never be lost), but nothing else happens twice
+  expect(await page.evaluate(() => [window.__bb.mode, window.__bb.level, window.__bb.scene]), "the level started once").toEqual(["play", 20, null]);
   await ev("pointerup", 31); await ev("pointerup", 32);
+});
+
+// review fix: the stale-list guard drops only buttons and screen-wide taps — a stick right after startGame and a swipe right after
+// the map opened (both before any frame drew the new screen) always start
+test("a stick starts on the first touch after startGame; a swipe works right after the map opens", async ({ page }) => {
+  await openGame(page);
+  await frames(page);
+  const d = await page.evaluate(() => {
+    const b = window.__bb, cv = document.getElementById("game"), c = cv.getBoundingClientRect();
+    const ev = (t, id, x, y) => cv.dispatchEvent(new PointerEvent(t, { pointerId: id, clientX: c.left + x * c.width, clientY: c.top + y * c.height, bubbles: true, cancelable: true, pointerType: "touch", isPrimary: true }));
+    b.startGame(1);
+    ev("pointerdown", 41, 0.25, 0.6); ev("pointermove", 41, 0.3, 0.6);
+    const sticks = b.sticks.length;
+    ev("pointerup", 41, 0.3, 0.6);
+    Object.assign(b.progress.worlds.park, { unlocked: 20, won: Object.fromEntries(Array.from({ length: 20 }, (_, i) => [i + 1, true])) });
+    b.world = "park"; b.toMap();
+    ev("pointerdown", 42, 0.7, 0.5); ev("pointermove", 42, 0.3, 0.5); ev("pointerup", 42, 0.3, 0.5);   // swipe left: the next world
+    return { sticks, world: b.world, mode: b.mode };
+  });
+  expect(d).toEqual({ sticks: 1, world: "field", mode: "map" });
 });
 
 test.describe("on a touch screen", () => {

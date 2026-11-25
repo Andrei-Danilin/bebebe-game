@@ -297,15 +297,18 @@ export function initInput() {
     e.preventDefault();
     initAudio();
     if (nameInput) { closeNameInput(true); return; }   // тап мимо поля — имя сохраняется
-    if (staleButtons()) return;                         // SPEC-025 AC 7d: a second finger in the frame that changed the screen
+    // SPEC-025 AC 7d: in the frame that changed the screen the drawn buttons (and the screen-wide taps: next comic page, resume,
+    // close the card) belong to the old screen — they do nothing; a stick, a swipe or a drag still starts
+    const stale = staleButtons();
     const p = toGame(e);
-    const hit = hitButton(p);
+    const hit = stale ? null : hitButton(p);
     // SPEC-017: на карте и в главах истории кнопки срабатывают на отпускании — палец, сдвинутый вбок, листает миры / главы
     if (mode === "map" || mode === "story" && ui.storyPage === "chapters") {
       ui.mapSwipe = { id: e.pointerId, x: p.x, y: p.y, hit: hit ? hit.id : null, mode };
       try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* ok */ }   // отпускание за краем холста — тоже наше
       return;
     }
+    if (stale && mode !== "play") return;
     if (mode === "levelCard" && !hit && ui.cardRect && !(p.x >= ui.cardRect.x && p.x <= ui.cardRect.x + ui.cardRect.w && p.y >= ui.cardRect.y && p.y <= ui.cardRect.y + ui.cardRect.h)) { closeCard(); return; }
     if (hit && hit.onUp) { pendingUp = { id: hit.id, pointerId: e.pointerId }; return; }
     if (hit) { hit.act(); return; }
@@ -330,7 +333,7 @@ export function initInput() {
   canvas.addEventListener("pointerup", e => {
     initAudio();                                       // SPEC-025 AC 14: WebKit unlocks audio on the release
     endStick(e);
-    if (staleButtons()) { ui.mapSwipe = null; pendingUp = null; return; }   // SPEC-025 AC 7d: the screen changed since the press
+    const stale = staleButtons();                      // SPEC-025 AC 7d: a swipe still works; a button of an older screen does not
     const sw = ui.mapSwipe;
     if (sw && sw.id === e.pointerId) {
       ui.mapSwipe = null;
@@ -340,12 +343,12 @@ export function initInput() {
         if (mode === "map") cycleWorld(dx < 0 ? 1 : -1); else storyStep(dx < 0 ? 1 : -1);
         return;
       }
-      const h = hitButton(p);
+      const h = stale ? null : hitButton(p);
       if (h && sw.hit && h.id === sw.hit) h.act();
       return;
     }
     const pu = pendingUp; pendingUp = null;
-    if (!pu || pu.pointerId !== e.pointerId) return;
+    if (!pu || pu.pointerId !== e.pointerId || stale) return;
     const hit = hitButton(toGame(e));
     if (hit && hit.id === pu.id) hit.act();              // тот же жест — фокус в поле, клавиатура на iOS открывается
   });
