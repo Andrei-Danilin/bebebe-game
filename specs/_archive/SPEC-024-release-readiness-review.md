@@ -1,6 +1,6 @@
 # SPEC-024 — Release-readiness review and architecture plan update
 
-Status: ready
+Status: done (merged by "Merge SPEC-024", see git log)
 Complexity: M
 Branch: SPEC-024-readiness-review
 Decided by: Andrei (2026-11-23): before the module split and the store releases, an independent read-only review of the code and the game logic; right after the report the queue goes on with the module split (SPEC-011), the headless core (SPEC-012) and the production foundation (SPEC-025), with their plans corrected by the review. How the review is done, report format, what may change in the plans: Claude (spec author).
