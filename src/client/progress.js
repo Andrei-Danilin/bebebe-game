@@ -23,7 +23,6 @@ export function setLang(l) {
 }
 // SPEC-012: the client saves after every change of progress it makes (economy events it applies, shop, wardrobe, screens)
 export function saveProgress() { queueSave(); }
-export const writeProgress = saveProgress;
 // наряды и имена — тоже в bebebe-save (их зовут outfits.js и names.js)
 export function writeOutfits() { queueSave(); }
 export function writeNames() { queueSave(); }

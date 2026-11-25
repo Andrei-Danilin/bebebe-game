@@ -16,7 +16,7 @@ import { eraseAll, importSave, listCopies, readCode, restoreCopy, saveCode, save
 import { LOOK } from "../look.js";
 
 // ---------- the gate ----------
-let gate = null;                             // the open question { a, b, answers } (or null)
+let gate = null;                             // the open question { a, b, answers, wait } (or null)
 const word = n => L().numberWords[n - CFG.GATE_MIN] || String(n);
 const randInt = (a, b) => a + Math.floor(vrand() * (b - a + 1));
 // a question: the product and CFG.GATE_ANSWERS - 1 other products near it, shuffled
@@ -32,17 +32,25 @@ export function parentGate(onPass) {
   if (document.getElementById("grownups")) { onPass(); return; }
   askGate(onPass, false);
 }
-function askGate(onPass, wrong) {
+// Review fix: guessing does not pass — after a wrong answer the new question ignores taps for CFG.GATE_WRONG_WAIT s (its answer
+// buttons are disabled), and the highlight (Enter / pad A) starts on ✕, so mashing a key or a pad button only closes the gate.
+// onCancel — ✕ (e.g. back to the page that asked)
+function askGate(onPass, wrong, onCancel = null) {
+  if (gate) clearTimeout(gate.wait);
   gate = newQuestion();
   const el = card("gate", [wrong ? L().gateWrong : null, L().parentsGate(word(gate.a), word(gate.b))]);
-  const row = el.querySelector(".row");
-  for (const v of gate.answers) button(row, String(v), () => {
-    if (v === gate.a * gate.b) { closeGate(); onPass(); } else askGate(onPass, true);
-  }, "answer");
-  button(row, "✕", closeGate, "close");
-  focusFirst(el);
+  const row = el.querySelector(".row"), answers = [];
+  for (const v of gate.answers) answers.push(button(row, String(v), () => {
+    if (v === gate.a * gate.b) { closeGate(); onPass(); } else askGate(onPass, true, onCancel);
+  }, "answer"));
+  const x = button(row, "✕", () => { closeGate(); if (onCancel) onCancel(); }, "close");
+  if (wrong) {
+    for (const b of answers) b.disabled = true;
+    gate.wait = setTimeout(() => { for (const b of answers) b.disabled = false; }, CFG.GATE_WRONG_WAIT * 1000);
+  }
+  x.classList.add("hl"); x.focus({ preventScroll: true });
 }
-function closeGate() { gate = null; hideCard("gate"); }
+function closeGate() { if (gate) clearTimeout(gate.wait); gate = null; hideCard("gate"); }
 export const gateState = () => (gate && document.getElementById("gate") ? { a: gate.a, b: gate.b, answers: [...gate.answers] } : null);
 
 // ---------- DOM helpers ----------
@@ -85,7 +93,8 @@ function showPage(note = null) {
   if (saveInfo.copies.reset) act(L().undoReset, "undoReset", () => restoreAndShow("reset"));
   act(L().restoreCopy, "restoreCopy", showCopies);
   act(L().errorLog, "errorLog", showLog);
-  act(L().eraseAll, "eraseAll", confirmErase);
+  // review fix: erasing everything always asks the gate again (also with the page open)
+  button(row, L().eraseAll, () => { closePage(); askGate(confirmErase, false, () => showPage()); }, "eraseAll");
   button(row, L().ok, closePage, "close");
   focusFirst(el);
 }
@@ -139,8 +148,12 @@ function showLog() {
   const v = subView([L().errorLog], [[L().copy, "copyLog", () => { v.area.select(); try { navigator.clipboard.writeText(text).catch(() => { /* selected */ }); } catch (e) { /* no clipboard */ } }], [L().ok, "back", () => showPage()]], text);
   v.area.readOnly = true;
 }
+// the highlight (Enter / pad A) starts on "No, keep it"
 function confirmErase() {
-  subView([L().eraseAll + "?"], [[L().resetConfirm, "eraseYes", () => { eraseAll().then(() => location.reload()); }], [L().resetCancel, "eraseNo", () => showPage()]]);
+  const v = subView([L().eraseAll + "?"], [[L().resetConfirm, "eraseYes", () => { eraseAll().then(() => location.reload()); }], [L().resetCancel, "eraseNo", () => showPage()]]);
+  const no = v.el.querySelector("[data-act=eraseNo]");
+  v.el.querySelectorAll("button").forEach(b => b.classList.toggle("hl", b === no));
+  no.focus({ preventScroll: true });
 }
 
 // ---------- the save notes ----------

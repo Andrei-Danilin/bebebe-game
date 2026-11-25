@@ -46,6 +46,7 @@ test("the gate: a multiplication in words, four answers; wrong → a new questio
   expect(g2.text, "the wrong-answer note").toContain("No es así. Probá con esta otra");
   expect(g2.g, "a new question object").not.toBe(null);
   expect(await page.evaluate(() => !!document.getElementById("grownups"))).toBe(false);
+  await page.waitForTimeout(3100);                                  // review fix: CFG.GATE_WRONG_WAIT s after a wrong answer
   await answer(page, true);
   expect(await page.evaluate(() => [!!document.getElementById("grownups"), window.__bb.grownUps.gate])).toEqual([true, null]);
   // ✕ closes a gate without opening anything
@@ -74,7 +75,9 @@ test("every adult action calls the gate", { tag: "@fast" }, () => {
   // every button of the page but OK is made by act(…), which runs its action through parentGate
   const made = [...[...body.matchAll(/\bact\([^,]+, "(\w+)"/g)].map(m => ["act", m[1]]), ...[...body.matchAll(/\bbutton\(row, [^,]+, [^,]+, "(\w+)"\)/g)].map(m => ["button", m[1]])];
   expect(made.filter(([how, name]) => how !== "act" && name !== "close"), "page actions not behind the gate").toEqual([]);
-  expect(made.map(([, n]) => n).sort()).toEqual(["close", "copyCode", "errorLog", "eraseAll", "pasteCode", "restoreCopy", "undoReset"].sort());
+  expect(made.map(([, n]) => n).sort()).toEqual(["close", "copyCode", "errorLog", "pasteCode", "restoreCopy", "undoReset"].sort());
+  // review fix: erasing everything asks the gate again even with the page open (askGate, not the page's pass)
+  expect(body).toContain("button(row, L().eraseAll, () => { closePage(); askGate(confirmErase, false, () => showPage()); }, \"eraseAll\");");
   expect(body).toMatch(/const act = \(label, name, fn\) => button\(row, label, \(\) => parentGate\(fn\), name\);/);
   expect(src, "the page itself is behind the gate").toMatch(/export function openGrownUps\(\) \{ parentGate\(showPage\); \}/);
   expect(src, "no long-press or tap-count gate").not.toMatch(/pointerdown[^\n]*setTimeout|longPress|tapCount/);
@@ -159,6 +162,7 @@ test("erase all data: every bebebe-* key goes, the old keys too; the game starts
   expect((await bebebeKeys(page)).length).toBeGreaterThan(5);
   await openPage(page);
   await pageAct(page, "eraseAll");
+  await answer(page);                                               // review fix: erase all asks the gate again
   await Promise.all([page.waitForEvent("load"), pageAct(page, "eraseYes")]);
   await page.waitForFunction(() => window.__bbReady === true);
   await page.waitForFunction(() => window.__bb.mode === "scene", null, { timeout: 30_000 });   // the first-run comic again
@@ -259,4 +263,88 @@ test("the error log on the grown-ups page, with Copy", async ({ page }) => {
   expect(await page.inputValue("#code-text")).toContain("test: shown to grown-ups");
   expect(await page.textContent("#grownups [data-act=copyLog]")).toBe("Copy");
   expect(errors.filter(e => !e.includes("test: shown to grown-ups"))).toEqual([]);
+});
+
+// ---------- review fixes ----------
+test("guessing never passes the gate: random taps after a wrong answer and pad A / Enter mashing never open the page", async ({ page }) => {
+  const errors = await openGame(page);
+  expect(await page.evaluate(() => window.__bb.CFG.GATE_WRONG_WAIT)).toBe(3);
+  await page.evaluate(() => { window.__bb.mode = "story"; window.__bb.grownUps.open(); });
+  await answer(page, false);                                          // one wrong answer: the new question ignores taps for 3 s
+  const t0 = Date.now();
+  while (Date.now() - t0 < 2500) {                                     // random answer buttons, as fast as a child taps
+    await page.evaluate(() => { const bs = [...document.querySelectorAll("#gate button[data-act=answer]")]; if (bs.length) bs[Math.floor(Math.random() * bs.length)].click(); });
+    await page.waitForTimeout(60);
+  }
+  expect(await page.evaluate(() => [!!document.getElementById("grownups"), !!document.getElementById("gate")]), "taps ignored after a wrong answer").toEqual([false, true]);
+  expect(await page.textContent("#gate"), "the new question keeps the wrong-answer note").toContain("Not quite. Here is another one");
+  // mashing Enter (and the pad's A presses the same highlighted button): the highlight is on ✕ — the gate closes, no page
+  for (let i = 0; i < 2; i++) {
+    await page.evaluate(() => { window.__bb.grownUps.open(); });
+    for (let k = 0; k < 6; k++) await page.keyboard.press("Enter");
+    expect(await page.evaluate(() => [!!document.getElementById("grownups"), !!document.getElementById("gate")]), "Enter mashing").toEqual([false, false]);
+  }
+  await page.evaluate(() => { window.__pads = [{ index: 0, id: "pad", mapping: "standard", connected: true, buttons: Array.from({ length: 17 }, () => ({ pressed: false, value: 0 })), axes: [0, 0, 0, 0] }]; navigator.getGamepads = () => window.__pads; window.__bb.grownUps.open(); });
+  for (let k = 0; k < 4; k++) {
+    await page.evaluate(() => { window.__pads[0].buttons[0].pressed = true; }); await frames(page);
+    await page.evaluate(() => { window.__pads[0].buttons[0].pressed = false; }); await frames(page);
+  }
+  expect(await page.evaluate(() => [!!document.getElementById("grownups"), !!document.getElementById("gate")]), "pad A mashing").toEqual([false, false]);
+  await page.evaluate(() => { delete navigator.getGamepads; window.__bb.resetPads(); });
+  expect(errors).toEqual([]);
+});
+
+test("erase all asks the gate again with the page open; Enter on its confirm keeps the data", async ({ page }) => {
+  const errors = await openGame(page);
+  await page.evaluate(() => { window.__bb.progress.coins = 66; window.__bb.save.queue(); });
+  await openPage(page);
+  await pageAct(page, "eraseAll");
+  expect(await page.evaluate(() => [!!window.__bb.grownUps.gate, !!document.getElementById("grownups")]), "the gate again, the page closed").toEqual([true, false]);
+  await page.click("#gate [data-act=close]");                         // ✕ goes back to the page
+  expect(await page.evaluate(() => !!document.getElementById("grownups"))).toBe(true);
+  await pageAct(page, "eraseAll");
+  await answer(page);
+  expect(await page.evaluate(() => document.activeElement && document.activeElement.dataset.act), "the confirm starts on No").toBe("eraseNo");
+  await page.keyboard.press("Enter");
+  expect(await page.evaluate(() => [window.__bb.progress.coins, localStorage.getItem("bebebe-save") !== null, !!document.querySelector("#grownups [data-act=copyCode]")])).toEqual([66, true, true]);
+  expect(errors).toEqual([]);
+});
+
+test("a second reset after a little play keeps the first undo snapshot; undo gives back the first progress", async ({ page }) => {
+  const errors = await openGame(page);
+  await page.evaluate(() => { const b = window.__bb; b.progress.coins = 500; b.progress.worlds.park.unlocked = 9; b.progress.worlds.park.stars = { 1: 3, 2: 3, 3: 2 }; b.progress.worlds.park.won = { 1: true, 2: true, 3: true }; b.save.queue(); });
+  await page.evaluate(() => window.__bb.resetProgress());
+  await page.evaluate(() => { const b = window.__bb; b.world = "park"; b.level = 1; b.startGame(1); b.giveReward(true); b.mode = "home"; });
+  // a later day: the same child resets again
+  await page.evaluate(() => { const now = Date.now; Date.now = () => now() + 3 * 86400000; window.__bb.resetProgress(); });
+  await page.waitForTimeout(100);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("bebebe-save-before-reset")).save.progress.coins), "the first snapshot kept").toBe(500);
+  await page.evaluate(() => { window.__bb.mode = "story"; });
+  await openPage(page);
+  await pageAct(page, "undoReset");
+  await page.waitForFunction(() => window.__bb.progress.coins === 500);
+  expect(await page.evaluate(() => window.__bb.progress.worlds.park.unlocked)).toBe(9);
+  expect(errors).toEqual([]);
+});
+
+test("restoring a copy keeps the save before it as bebebe-save-before-restore, which the page restores back", async ({ page }) => {
+  const errors = await openGame(page);
+  const old = { version: 1, progress: { coins: 40, worlds: { park: { unlocked: 2, stars: { 1: 1 }, won: { 1: true } } } }, lang: "en" };
+  await page.evaluate(o => { localStorage.setItem("bebebe-save-session", JSON.stringify({ at: Date.now(), save: o })); const b = window.__bb; b.progress.coins = 900; b.save.queue(); }, old);
+  await page.evaluate(() => { window.__bb.mode = "story"; });
+  await openPage(page);
+  await pageAct(page, "restoreCopy");
+  await page.click("#grownups [data-act='copy:session']");
+  await page.waitForFunction(() => window.__bb.progress.coins === 40);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("bebebe-save-before-restore")).save.progress.coins)).toBe(900);
+  await pageAct(page, "restoreCopy");
+  await page.click("#grownups [data-act='copy:restore']");
+  await page.waitForFunction(() => window.__bb.progress.coins === 900);
+  expect(errors).toEqual([]);
+});
+
+test("numberWords cover every gate factor in all four languages", { tag: "@fast" }, async ({ page }) => {
+  await openGame(page, { sim: true });
+  const r = await page.evaluate(() => { const b = window.__bb, n = b.CFG.GATE_MAX - b.CFG.GATE_MIN + 1; return b.LANGS.map(l => [l, b.I18N[l].numberWords.length === n && b.I18N[l].numberWords.every(w => typeof w === "string" && w.length > 0)]); });
+  expect(r).toEqual([["en", true], ["es", true], ["pt", true], ["ru", true]]);
 });
