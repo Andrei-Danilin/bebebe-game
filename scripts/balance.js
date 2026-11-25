@@ -7,7 +7,7 @@
 // at today's prices (levels per pack in the Park, levels per upgrade level), economy.pace.
 // Settings and targets live in CFG.BALANCE (index.html). Not part of `npm test`: `npm run balance` (~30 s).
 // tests/balance.spec.js requires runLevel() for the CI sample, and the page is opened with the tests' openSim(), so the
-// report and the tests play a level the same way.
+// report and the tests play a level the same way. SPEC-011 AC 8b: over http, from its own server (scripts/serve.js startServer).
 const path = require("path");
 const fs = require("fs");
 
@@ -291,16 +291,18 @@ async function main() {
   const t0 = Date.now();
   const { chromium } = require("@playwright/test");
   const { openSim } = require("../tests/helpers.js");
+  const { startServer } = require("./serve.js");
   // SPEC-023: below-normal priority (PW_NICE=0: off), inherited by the browser; sim mode draws nothing, so SwiftShader stays
   const { lowerPriority, SWIFTSHADER_ARGS, niceArgs } = require("../tests/test-env.js");
   lowerPriority();
+  const site = await startServer();                     // the repo root on a free port
   const browser = await chromium.launch({
     args: [...SWIFTSHADER_ARGS, ...niceArgs()],
     ...(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {})
   });
   try {
-    const page = await browser.newPage();
-    const errors = await openSim(page);                  // like the tests: from disk, three.js from node_modules, strict rng guard
+    const page = await browser.newPage({ serviceWorkers: "block" });   // like the tests: no service worker
+    const errors = await openSim(page, { base: site.base });   // like the tests: over http, three.js from node_modules, strict rng guard
     const { B, worlds, seeds, perWorld, prices, upgradeKeys } = await page.evaluate(() => {
       const b = window.__bb, U = b.UPGRADES;
       return { B: JSON.parse(JSON.stringify(b.CFG.BALANCE)), worlds: b.WORLDS, seeds: { ...b.WORLD_SEED }, perWorld: b.levelsPerWorld(),
@@ -347,7 +349,7 @@ async function main() {
     console.log(`targets: ${targets.length - red.length} green, ${red.length} red${red.length ? ":\n  - " + red.map(t => `${t.name}: ${t.value}`).join("\n  - ") : ""}`);
     const ered = economy.targets.filter(q => !q.ok);
     console.log(`economy: ${economy.targets.length - ered.length} green, ${ered.length} red${ered.length ? ":\n  - " + ered.map(q => `${q.name}: ${q.value}`).join("\n  - ") : ""}`);
-  } finally { await browser.close(); }
+  } finally { await browser.close(); await site.close(); }
 }
 
 if (require.main === module) main().catch(e => { console.error(e); process.exit(1); });

@@ -1,4 +1,6 @@
-// SPEC-021 AC 10: paired A/B frame times — another build of index.html (a git ref, default master) against the working copy.
+// SPEC-021 AC 10: paired A/B frame times — another build of the site (a git ref, default master) against the working copy.
+// SPEC-011 AC 8b: both sides over http, each from its own server (scripts/serve.js startServer): A = the whole tree of the ref
+// (git archive) in a temp folder, B = the repo root.
 // Rounds alternate A, B, A, B… in one browser (the tests' WebGL flags: GPU locally), so a busy machine slows both alike.
 // Scene: park level 2, seed 7, the Big One looking away; per viewport (phone 844×390 with ?phone=1, desktop 960×640):
 //   JS — the game's rAF callback time (logic + three.js command submission);
@@ -12,6 +14,7 @@ const os = require("os");
 const { execFileSync } = require("child_process");
 const { chromium } = require("@playwright/test");
 const { browserArgs } = require("../tests/test-env");
+const { startServer } = require("./serve");
 
 const ROOT = path.resolve(__dirname, "..");
 const THREE_DIR = path.join(ROOT, "node_modules", "three", "build");
@@ -19,7 +22,6 @@ const arg = (name, def) => { const i = process.argv.indexOf(name); return i < 0 
 const baseRef = arg("--base", "master"), rounds = Number(arg("--rounds", 4)), grain = process.argv.includes("--grain");
 const level = Number(arg("--level", 2)), wear = (arg("--wear", "") || "").split(",").filter(Boolean);
 const FRAMES = 240;
-const fileUrl = p => "file:///" + p.replace(/\\/g, "/");
 
 // Runs in the page before the game: wraps requestAnimationFrame to time the game's callback
 function initScript() {
@@ -37,11 +39,11 @@ function initScript() {
 }
 const median = a => { const s = [...a].sort((x, y) => x - y); return s[Math.floor(s.length / 2)]; };
 
-async function measure(browser, url, vw, vh, query) {
-  const page = await browser.newPage({ viewport: { width: vw, height: vh } });
+async function measure(browser, base, vw, vh, query) {
+  const page = await browser.newPage({ viewport: { width: vw, height: vh }, serviceWorkers: "block" });
   await page.route("https://cdn.jsdelivr.net/**", r => r.fulfill({ path: path.join(THREE_DIR, r.request().url().split("/").pop()), contentType: "application/javascript", headers: { "Access-Control-Allow-Origin": "*" } }));
   await page.addInitScript(initScript);
-  await page.goto(url + query);
+  await page.goto(base + "index.html" + query);
   await page.waitForFunction(() => window.__bbReady === true, null, { timeout: 60_000 });
   await page.waitForTimeout(1000);
   await page.evaluate(([g, n, ids]) => {
@@ -68,11 +70,12 @@ async function measure(browser, url, vw, vh, query) {
 
 (async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bebebe-perf-"));
-  fs.writeFileSync(path.join(dir, "index.html"), execFileSync("git", ["show", `${baseRef}:index.html`], { cwd: ROOT, maxBuffer: 64 * 1024 * 1024 }));
-  // SPEC-027: the sprites too, so both builds draw with art (without assets/ the base build fell back to code drawing); the base
-  // build asks only for its own ART_NAMES, all of which are still in assets/ (sprites are never renamed)
-  fs.cpSync(path.join(ROOT, "assets"), path.join(dir, "assets"), { recursive: true });
-  const A = fileUrl(path.join(dir, "index.html")), B = fileUrl(path.join(ROOT, "index.html"));
+  // SPEC-011 AC 8b: the whole tree of the ref (index.html, sw.js, icons/, its own assets/ — SPEC-027: so it draws with art —
+  // and src/ once it exists), so the A build loads exactly its own files
+  const tar = execFileSync("git", ["archive", "--format=tar", baseRef], { cwd: ROOT, maxBuffer: 1024 * 1024 * 1024 });
+  execFileSync("tar", ["-x", "-f", "-"], { cwd: dir, input: tar, maxBuffer: 64 * 1024 * 1024 });
+  const siteA = await startServer({ root: dir }), siteB = await startServer();
+  const A = siteA.base, B = siteB.base;
   const browser = await chromium.launch({ args: browserArgs() });
   console.log(`A = ${baseRef}, B = working copy, ${rounds} rounds, paper grain ${grain ? "on" : "off"}, park ${level}${wear.length ? ", player 1 wears " + wear : ""}`);
   for (const [name, vw, vh, q] of [["phone 844x390", 844, 390, "?phone=1"], ["desktop 960x640", 960, 640, ""]]) {
@@ -83,5 +86,6 @@ async function measure(browser, url, vw, vh, query) {
     console.log(`${name}: JS ${m(ra, "js")} → ${m(rb, "js")} ms (×${ratio("js")}), GPU ${m(ra, "gpu")} → ${m(rb, "gpu")} ms (×${ratio("gpu")})`);
   }
   await browser.close();
+  await siteA.close(); await siteB.close();
   fs.rmSync(dir, { recursive: true, force: true });
 })().catch(e => { console.error(e); process.exit(1); });
