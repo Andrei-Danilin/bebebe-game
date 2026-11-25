@@ -40,6 +40,7 @@ const WORLD_FIELDS = ["unlocked", "stars", "won"];
 let backend = localBackend;
 let loaded = false, loading = false, erased = false, flushQueued = false;
 let lastText = null;                       // the save text last written or loaded — the backup of the next write
+let lastWrite = Promise.resolve(true);     // the backend's answer to the last write (the start awaits it before the read-back)
 const pending = new Map();                 // key → text: only the last write per key waits
 let held = emptyHeld();                    // parts of the stored save written back unchanged (unknown fields, a newer version's shapes)
 let future = false, futureVersion = SAVE_VERSION;
@@ -125,13 +126,13 @@ function noteDue(key) { if (!saveInfo.notes.includes(key) && !saveInfo.shown.inc
 function write(key, text) {
   if (erased) return;
   if (key in COPY_KEY_NAME) saveInfo.copies[COPY_KEY_NAME[key]] = true;
-  backend.set(key, text).then(ok => { if (!ok) storageFailed(); });
+  lastWrite = backend.set(key, text).then(ok => { if (!ok) storageFailed(); return ok; });
 }
 const COPY_KEY_NAME = Object.fromEntries(COPY_NAMES.map(n => [SAVE_KEYS[n], n]));
 function remove(key) { if (key in COPY_KEY_NAME) saveInfo.copies[COPY_KEY_NAME[key]] = false; return backend.remove(key); }
 function writeMain(text) {
-  if (text === lastText) return;
-  if (lastText !== null) write(SAVE_KEYS.backup, wrapCopy(lastText));
+  // written even when unchanged (storage may have been cleared behind the game's back); the backup only when it differs
+  if (lastText !== null && text !== lastText) write(SAVE_KEYS.backup, wrapCopy(lastText));
   write(SAVE_KEYS.save, text);
   lastText = text;
 }
@@ -274,6 +275,7 @@ export async function loadSave() {
   G.level = worldProgress().unlocked;                         // меню открывается на последнем мире, на его новом уровне
   if (dirty && ok) {
     queueSave(); flushSaves();
+    await lastWrite;
     // AC 3 (3): written, read back and validated — the migration record counts only when this worked
     if ((await backend.get(SAVE_KEYS.save)) !== lastText) storageFailed();
   }

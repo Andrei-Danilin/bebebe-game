@@ -213,3 +213,140 @@ test("the schema: every broken field is defaulted (types and ranges), unknown id
   expect((await storedSave(page)).progress.owned.hats, "an unknown id is kept (a newer version's item)").toEqual(["crown", "zzz"]);
   expect(errors).toEqual([]);
 });
+
+// ---------- AC 4: copies, the broken save, recovery ----------
+const goodSave = coins => ({ version: 1, progress: { coins, worlds: { park: { unlocked: 3, stars: { 1: 2 }, won: { 1: true } } } }, lang: "en" });
+const copy = (save, at = Date.now()) => JSON.stringify({ at, save });
+test("a broken save loads the newest valid copy (truncated JSON, wrong types, empty) or starts fresh — never a crash", async ({ page }) => {
+  const errors = await openGame(page, { sim: true });
+  const cases = [
+    ["truncated JSON, a backup", { "bebebe-save": "{\"version\":1,\"progress\":{\"coins\":5", "bebebe-save-backup": copy(goodSave(77)) }, 77, "saveRecovered", "backup"],
+    ["wrong types, nothing else", { "bebebe-save": JSON.stringify({ version: "one", progress: [1, 2] }) }, 0, "freshStart", "fresh"],
+    ["empty, a session copy", { "bebebe-save": "", "bebebe-save-session": copy(goodSave(31)) }, 31, "saveRecovered", "session"],
+    ["not an object, a snapshot", { "bebebe-save": "[1,2,3]", "bebebe-save-before-reset": copy(goodSave(12), 1000), "bebebe-save-before-import": copy(goodSave(13), 2000) }, 13, "saveRecovered", "import"]
+  ];
+  const soft = softly();
+  for (const [name, keys, coins, note, from] of cases) {
+    await putStorage(page, keys);
+    await reloadGame(page);
+    const r = await page.evaluate(() => ({ coins: window.__bb.progress.coins, info: window.__bb.save.info, broken: localStorage.getItem("bebebe-save-broken") }));
+    soft(r.coins, `${name}: coins`).toBe(coins);
+    soft(r.info.notes, `${name}: the note`).toEqual([note]);
+    soft(r.info.recovered, `${name}: from`).toBe(from);
+    soft(r.broken, `${name}: the broken save kept unchanged`).toBe(keys["bebebe-save"]);
+    soft((await storedSave(page)).version, `${name}: a valid save written`).toBe(1);
+  }
+  soft.done();
+  // a broken copy already kept is not overwritten by a later failure
+  await putStorage(page, { "bebebe-save": "{oops", "bebebe-save-broken": "{the first" });
+  await reloadGame(page);
+  expect(await rawKey(page, "bebebe-save-broken")).toBe("{the first");
+  expect(errors).toEqual([]);
+});
+
+test("a truncated save wearing paid clothes: its raw text stays in bebebe-save-broken after the start and the first coin; no gifts", async ({ page }) => {
+  const errors = await openGame(page, { sim: true });
+  const W = await page.evaluate(() => window.__bb.wardrobe());
+  const crown = W.hat.findIndex(q => q.id === "crown");
+  // the broken save, and the old keys of the same device: a save without owned wearing the crown (a real migration would give it)
+  const broken = JSON.stringify({ version: 1, progress: { coins: 40 }, outfits: { p1: { hat: "crown" }, p2: {}, big: "robot" } }).slice(0, -9);
+  await putStorage(page, { "bebebe-save": broken, "bebebe-progress": { coins: 40, worlds: {} }, "bebebe-outfits": { p1: { hair: 0, hat: crown, jacket: 0, pants: 0 }, p2: { hair: 1, hat: 4, jacket: 1, pants: 3 }, big: 2, v: 2 } });
+  await reloadGame(page);
+  const r = await page.evaluate(() => ({ owned: window.__bb.progress.owned, hat: window.__bb.outfits.saved.p1.hat, info: window.__bb.save.info }));
+  expect(r.owned, "no adoptWorn after a failed load").toEqual({ hats: [], jackets: [], pants: [], big: [] });
+  expect(r.hat, "the crown is not owned: the slot's default").not.toBe(crown);
+  expect(r.info.recovered).toBe("old");
+  expect(await rawKey(page, "bebebe-save-broken"), "after the start").toBe(broken);
+  await page.evaluate(() => { window.__bb.progress.coins += 1; window.__bb.save.queue(); window.__bb.save.flush(); });
+  expect(await rawKey(page, "bebebe-save-broken"), "after the first coin").toBe(broken);
+  expect(errors).toEqual([]);
+});
+
+test("every write keeps the previous save as bebebe-save-backup; the session copy rotates at most once a day", { tag: "@fast" }, async ({ page }) => {
+  const errors = await openGame(page, { sim: true });
+  const r = await page.evaluate(() => {
+    const b = window.__bb, get = k => JSON.parse(localStorage.getItem(k));
+    b.progress.coins = 10; b.save.queue(); b.save.flush();
+    b.progress.coins = 20; b.save.queue(); b.save.flush();
+    return { save: get("bebebe-save").progress.coins, backup: get("bebebe-save-backup").save.progress.coins, days: b.CFG.SAVE_SESSION_DAYS };
+  });
+  expect(r).toEqual({ save: 20, backup: 10, days: 1 });
+  // a session copy from an earlier day is replaced by the save as loaded; one from today is kept
+  const yesterday = Date.now() - 2 * 86400000;
+  await putStorage(page, { "bebebe-save": goodSave(55), "bebebe-save-session": copy(goodSave(5), yesterday) });
+  await reloadGame(page);
+  const s1 = JSON.parse(await rawKey(page, "bebebe-save-session"));
+  expect([s1.save.progress.coins, s1.at > yesterday]).toEqual([55, true]);
+  await page.evaluate(() => { window.__bb.progress.coins = 99; window.__bb.save.queue(); });
+  await reloadGame(page);
+  expect(JSON.parse(await rawKey(page, "bebebe-save-session")).save.progress.coins, "rotated at most once a day").toBe(55);
+  expect(errors).toEqual([]);
+});
+
+test("a broken save shows the note once, in the menus", async ({ page }) => {
+  const errors = await openGame(page);
+  await putStorage(page, { "bebebe-save": "{broken", "bebebe-save-backup": copy(goodSave(8)) });
+  await reloadGame(page);
+  await page.waitForFunction(() => !!document.getElementById("save-note"), null, { timeout: 30_000 });
+  expect(await page.evaluate(() => [document.getElementById("save-note").textContent, window.__bb.save.info.shown, window.__bb.mode])).toEqual(["We fixed your save from a backup", ["saveRecovered"], "home"]);
+  expect(errors).toEqual([]);
+});
+
+// ---------- AC 4b: storage that cannot be written ----------
+test("localStorage access throws: the game opens, a level can be won, noSave shows once; no error card", async ({ page }) => {
+  await page.addInitScript(() => { Object.defineProperty(window, "localStorage", { configurable: true, get() { throw new DOMException("denied", "SecurityError"); } }); });
+  const errors = await openGame(page);
+  await winLevel(page, "park", 1);
+  expect(await page.evaluate(() => [window.__bb.progress.worlds.park.won["1"], window.__bb.save.info.noSave])).toEqual([true, true]);
+  await page.waitForFunction(() => !!document.getElementById("save-note"), null, { timeout: 30_000 });
+  expect(await page.evaluate(() => [document.getElementById("save-note").dataset.note, !!document.getElementById("oops"), window.__bb.errorLog.length])).toEqual(["noSave", false, 0]);
+  expect(errors).toEqual([]);
+});
+
+test("setItem throws QuotaExceededError mid-game: no error, the game goes on from memory, noSave shows", async ({ page }) => {
+  const errors = await openGame(page);
+  await page.waitForFunction(() => window.__bb.artInfo.done && !document.getElementById("loading"));
+  expect(await page.evaluate(() => window.__bb.save.info.noSave)).toBe(false);
+  await page.evaluate(() => { Storage.prototype.setItem = function () { throw new DOMException("full", "QuotaExceededError"); }; });
+  await winLevel(page, "park", 1);
+  await page.waitForFunction(() => !!document.getElementById("save-note"), null, { timeout: 30_000 });
+  expect(await page.evaluate(() => [window.__bb.progress.worlds.park.won["1"], window.__bb.save.info.noSave, document.getElementById("save-note").textContent, !!document.getElementById("oops")]))
+    .toEqual([true, true, "This device isn't keeping progress", false]);
+  expect(errors).toEqual([]);
+});
+
+// ---------- AC 5: persistent storage ----------
+// navigator.storage stubbed: persisted() answers `already`; persist() calls are counted (in sessionStorage: they survive a reload)
+function stubPersist(already) {
+  const n = () => Number(sessionStorage.getItem("persist-calls") || 0);
+  Object.defineProperty(navigator.storage, "persisted", { configurable: true, value: () => Promise.resolve(already) });
+  Object.defineProperty(navigator.storage, "persist", { configurable: true, value: () => { sessionStorage.setItem("persist-calls", String(n() + 1)); return Promise.resolve(true); } });
+}
+const persistCalls = page => page.evaluate(() => Number(sessionStorage.getItem("persist-calls") || 0));
+test("persist() is asked once, the answer kept in the save; never where persisted() is already true", async ({ page }) => {
+  await page.addInitScript(stubPersist, false);
+  const errors = await openGame(page, { sim: true });
+  await page.waitForFunction(() => window.__bb.save.info.persist !== null);
+  expect([await persistCalls(page), (await storedSave(page)).persist]).toEqual([1, { asked: true, granted: true }]);
+  await reloadGame(page);
+  expect(await persistCalls(page), "asked once").toBe(1);
+  expect(errors).toEqual([]);
+});
+test("persist() already true: kept without asking", async ({ page }) => {
+  await page.addInitScript(stubPersist, true);
+  await openGame(page, { sim: true });
+  await page.waitForFunction(() => window.__bb.save.info.persist !== null);
+  expect([await persistCalls(page), (await storedSave(page)).persist]).toEqual([0, { asked: true, granted: true }]);
+});
+test.describe("Firefox", () => {
+  test.use({ userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:128.0) Gecko/20100101 Firefox/128.0" });
+  test("persist() is skipped in Firefox (it shows a permission doorhanger)", async ({ page }) => {
+    await page.addInitScript(stubPersist, false);
+    const errors = await openGame(page, { sim: true });
+    await page.waitForTimeout(300);
+    expect([await persistCalls(page), await page.evaluate(() => window.__bb.save.info.persist)]).toEqual([0, null]);
+    expect(await page.evaluate(() => ["Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36",
+      "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0"].map(ua => window.__bb.save.promptsForPersist(ua)))).toEqual([false, true]);
+    expect(errors).toEqual([]);
+  });
+});
