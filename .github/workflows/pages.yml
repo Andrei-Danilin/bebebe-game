@@ -1,7 +1,10 @@
-# Tests (the sharded jobs of tests.yml, SPEC-023), then publishes the game on GitHub Pages (SPEC-001).
-# A red deploy with green tests: start a fresh run (gh workflow run pages.yml --ref master), never gh run rerun --failed
-# (it uploads a second github-pages artifact).
-# Only the site files go to Pages: index.html, manifest.webmanifest, sw.js, icons/, assets/, v1-2d/.
+# Tests (the sharded jobs of tests.yml, SPEC-023) and the site build run in parallel; when both are green the game is
+# published on GitHub Pages (SPEC-001).
+# SPEC-011 AC 10c: the site is built and uploaded in its own `build` job (npm run site = scripts/site.js, the one list of
+# site files: index.html, manifest.webmanifest, sw.js, icons/, assets/, v1-2d/, later src/), so `deploy` only deploys:
+# it tries once more after 30 s when the first deploy-pages attempt fails, then checks the live site serves this commit.
+# A red deploy with green tests can be rerun with `gh run rerun <id> --failed` (the artifact is uploaded once, by `build`,
+# and a rerun of `deploy` alone uploads nothing), or with a fresh `gh workflow run pages.yml --ref master`.
 name: Pages
 
 on:
@@ -17,30 +20,66 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # SPEC-023: the same 4 sharded test jobs as on spec branches (tests.yml), then the deploy
+  # SPEC-023: the same 4 sharded test jobs as on spec branches (tests.yml)
   test:
     uses: ./.github/workflows/tests.yml
 
-  deploy:
-    needs: test
+  # SPEC-011 AC 10c: build + upload, in parallel with the tests (Node built-ins only: no npm install)
+  build:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pages: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+      - name: Build the site (npm run site → _site/)
+        run: npm run site
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+
+  deploy:
+    needs: [test, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: read
       pages: write
       id-token: write
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: ${{ steps.deployment.outputs.page_url || steps.deployment-retry.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v7
-      - name: Collect the site files
-        run: |
-          mkdir _site
-          cp index.html manifest.webmanifest sw.js _site/
-          cp -r icons assets v1-2d _site/
-      - uses: actions/configure-pages@v6
-      - uses: actions/upload-pages-artifact@v5
-        with:
-          path: _site
+      # the deploy step failed in about 1 of 3 runs with green tests ("Fetching artifact metadata failed" and the like):
+      # one automatic retry
       - id: deployment
         uses: actions/deploy-pages@v5
+        continue-on-error: true
+      - name: Wait before the second attempt
+        if: steps.deployment.outcome == 'failure'
+        run: sleep 30
+      - id: deployment-retry
+        if: steps.deployment.outcome == 'failure'
+        uses: actions/deploy-pages@v5
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: index.html
+          sparse-checkout-cone-mode: false
+      # the live site serves this commit: the deployed index.html equals the commit's (the Pages CDN may lag: up to ~3 min)
+      - name: Check the live site serves this commit
+        env:
+          PAGE_URL: ${{ steps.deployment.outputs.page_url || steps.deployment-retry.outputs.page_url }}
+        run: |
+          test -n "$PAGE_URL" || { echo "no page_url from deploy-pages"; exit 1; }
+          for i in $(seq 1 18); do
+            if curl -fsSL -H "Cache-Control: no-cache" "${PAGE_URL%/}/index.html?v=${GITHUB_SHA}-$i" -o live.html && cmp -s live.html index.html; then
+              echo "live site serves ${GITHUB_SHA} (attempt $i)"; exit 0
+            fi
+            echo "attempt $i: the live index.html is not this commit's yet"; sleep 10
+          done
+          echo "the live site does not serve ${GITHUB_SHA} after 3 min"; exit 1
