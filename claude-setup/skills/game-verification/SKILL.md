@@ -1,15 +1,17 @@
 ---
 name: game-verification
-description: Use after every change to bebebe-game's index.html or tests, before review and before merge — runs the module syntax check, the fast set and the changed tests locally, the whole suite on CI (sharded Tests workflow on the pushed branch), and a screenshot check of changed screens.
+description: Use after every change to bebebe-game's code (src/, index.html) or tests, before review and before merge — runs the module syntax check, the fast set and the changed tests locally, the whole suite on CI (sharded Tests workflow on the pushed branch), and a screenshot check of changed screens.
 ---
 
 # Game verification — bebebe-game
 
 ## 1. Module syntax (seconds, no browser)
+The game is ES modules in `src/` (SPEC-011; `index.html` is only the shell). Every file must parse, and the core must load in plain Node:
 ```bash
-node -e "const s=require('fs').readFileSync('index.html','utf8');const a=s.indexOf('<script type=\"module\">')+22;const b=s.indexOf('</script>',a);require('fs').writeFileSync('.tmp-module.mjs',s.slice(a,b));" && node --check .tmp-module.mjs && echo SYNTAX_OK; rm -f .tmp-module.mjs
+for f in $(git ls-files 'src/*.js' 'src/**/*.js'); do node --check "$f" || echo "SYNTAX_FAIL $f"; done; echo SYNTAX_DONE
+node -e "import('./src/core/index.js').then(m => console.log('CORE_OK', Object.keys(m).length), e => { console.error(e); process.exit(1); })"
 ```
-Then `npm run lint` (ESLint, SPEC-011 AC 11b: undefined names, unused variables, `var`, `let` never reassigned, broken imports — in the inline module, `scripts/` and later `src/`): zero errors; every Tests run on CI runs it too.
+Then `npm run lint` (ESLint, SPEC-011 AC 11b: undefined names, unused variables, `var`, `let` never reassigned, another module's `let` reassigned, unresolved or missing imports — over `src/` and `scripts/`): zero errors; every Tests run on CI runs it too. After any change in `src/` also `npm run precache` (module hashes, the entry script's version, `SRC_HASH`).
 
 ## 2. Tests
 - **Locally**: `npm run test:fast` (~1.5 min) + the test files of what changed: `npx playwright test tests/<file>` or `-g "<name>"`; phone layouts at 667×375 only. Locally the browser uses the GPU at below-normal priority (`PW_GPU=0` → SwiftShader, then also `PW_NICE=0` on a busy machine; `PW_NICE=0` → normal priority). Never the whole suite locally unless the spec asks for it.
@@ -33,14 +35,16 @@ const { browserArgs, lowerPriority } = require(path.resolve("tests/test-env.js")
 (async () => {
   lowerPriority();
   const b = await chromium.launch({ args: browserArgs() });
+  const { makeServer } = require(path.resolve("scripts/serve.js"));   // the game opens over http only (SPEC-011)
+  const server = makeServer(); await new Promise(r => server.listen(0, r));
   const p = await b.newPage({ viewport: { width: 960, height: 640 } });
   await p.route("https://cdn.jsdelivr.net/**", r => r.fulfill({ path: path.resolve("node_modules/three/build/" + r.request().url().split("/").pop()), contentType: "application/javascript" }));
-  await p.goto("file://" + path.resolve("index.html"));
+  await p.goto(`http://localhost:${server.address().port}/index.html`);
   await p.waitForFunction(() => window.__bbReady, null, { timeout: 60_000 });
   await p.evaluate(() => { window.__bb.startGame(1); /* put the scene you changed here */ });
   await p.waitForTimeout(500);
   await p.screenshot({ path: (process.env.TEMP || "/tmp") + "/bb-shot.png" });
-  await b.close();
+  await b.close(); server.close();
 })();
 ```
 Look at the image (Read tool) before the review: overlaps, text that does not fit (check `es`, `pt` and `ru` — they are longer), characters hidden behind walls.

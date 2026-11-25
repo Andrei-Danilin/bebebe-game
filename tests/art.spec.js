@@ -5,15 +5,15 @@ const { test, expect } = require("./pw");   // SPEC-023: @playwright/test + fail
 const { LANGS, openGame, frames, step, gameSource } = require("./helpers");
 
 const failedLoads = e => e.includes("Failed to load resource") || e.includes("ERR_");
-const INDEX_SRC = gameSource();   // SPEC-011 AC 8c: index.html and src/**
+const INDEX_SRC = gameSource();   // SPEC-011 AC 8c: src/** (the game code)
 
 // SPEC-020 review: every art name the code can ask for exists — the tables (__bb.artTableNames) and the literal names in
-// index.html (art("…"), drawArt…("…", …), ITEM_ART-like tables are covered by the first list)
+// the game code (art("…"), drawArt…("…", …), ITEM_ART-like tables are covered by the first list)
 test("every art name the game can draw is a sprite of the manifest @fast", async ({ page }) => {
   await openGame(page, { sim: true });                                     // names only, nothing drawn
   const r = await page.evaluate(() => ({ names: window.__bb.ART_NAMES, table: window.__bb.artTableNames() }));
   const lit = [...INDEX_SRC.matchAll(/\b(?:art|drawArt|drawArtFit|drawArtCover|drawArt9|iconButton|noteArt)\("([a-z0-9_]+)"/g)].map(m => m[1]);
-  // and every quoted sprite-like name anywhere else in index.html (outside the generated ART_NAMES list)
+  // and every quoted sprite-like name anywhere else in the game code (outside the generated ART_NAMES list)
   const body = INDEX_SRC.slice(0, INDEX_SRC.indexOf("// art:start")) + INDEX_SRC.slice(INDEX_SRC.indexOf("// art:end"));
   const lit2 = [...body.matchAll(/"((?:stop|ui|phone|round|cloud|fx|item|icon|hat|pants|jacket|shop|world|map_bg|story|btn|star|heart|coin|menu|stamp)_[a-z]+(?:_[a-z]+)*)"/g)].map(m => m[1]);
   expect(r.table.length).toBeGreaterThan(40);

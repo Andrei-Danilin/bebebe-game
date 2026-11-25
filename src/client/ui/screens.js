@@ -1,0 +1,107 @@
+// SPEC-011: the 2D pass of a frame (drawUI) and the per-mode dispatch (drawOverlay, drawOverlayPhone). Client module (moved
+// out of index.html in Phase C).
+
+import { mode } from "../../core/game.js";
+import { L } from "../../i18n.js";
+import { paperCache, paperUI } from "../art.js";
+import { backToWardrobe, closeShop, inMenus, inWardrobe, openFriends } from "../flow.js";
+import { closeNameInput, nameInput, placeNameInput } from "../input.js";
+import { LOOK } from "../look.js";
+import { resetProgress } from "../progress.js";
+import { ctx, isTouch, PHONE, UH, UW, VIEW } from "../screen.js";
+import { ui } from "../state.js";
+import { itemsDesktop, itemsPhone } from "./character/items.js";
+import { progressPage } from "./character/progress.js";
+import { phoneShopBar, shopTabs } from "./character/tabs.js";
+import { upgradeCardsDesktop, upgradeCardsPhone } from "./character/upgrades.js";
+import { coinPlate, fitButton, wardrobeDesktop, wardrobePhone } from "./character/wardrobe.js";
+import { addButton, drawFx, drawMarkers, drawMood } from "./draw.js";
+import { drawHome } from "./home.js";
+import { drawBanner, drawHUD } from "./hud.js";
+import { drawLevelCard, drawMap } from "./map.js";
+import { menuFrame, phoneFrame } from "./menu.js";
+import { drawScene, drawStory } from "./story.js";
+import { cpx, fitText, label, pWrap } from "./text.js";
+import { endPhone, loseDesktop, pauseDesktop, pausePhone, winDesktop } from "./win.js";
+
+function drawOverlayPhone() {
+  const c = cpx;
+  if (mode === "home") drawHome();
+  else if (mode === "story") drawStory();
+  else if (mode === "scene") drawScene();
+  else if (mode === "map" || mode === "levelCard") {
+    drawMap(ui.T);
+    if (mode === "levelCard") { ui.buttons = []; ui.hudRects = []; drawLevelCard(); }   // под карточкой карта не нажимается
+  } else if (mode === "shop") {
+    const f = phoneFrame(), { X0, X1, Y0, Y1, B } = f;
+    phoneShopBar(f);   // SPEC-017: вкладки (SPEC-026: «Прогресс» · «Вещи» · «Гардероб» · «Улучшения»), монетки, друзья, «Готово»
+    if (ui.shopTab === "progress") progressPage();
+    else if (ui.shopTab === "upgrades") upgradeCardsPhone(X0, X1, Y0 + B + c(8), Y1);
+    else if (ui.shopTab === "wardrobe") wardrobePhone(f);
+    else itemsPhone(f);
+  } else if (mode === "pause") pausePhone();
+  else if (mode === "win" || mode === "lose") endPhone();
+}
+
+function drawOverlay() {
+  if (mode === "play") return;
+  ctx.fillStyle = "rgba(20,30,25,.55)"; ctx.fillRect(0, 0, UW, UH);
+  if (PHONE) { drawOverlayPhone(); return; }
+  if (mode === "home") drawHome();
+  else if (mode === "story") drawStory();
+  else if (mode === "scene") drawScene();
+  else if (mode === "map" || mode === "levelCard") {
+    drawMap(ui.T);
+    if (mode === "levelCard") { ui.buttons = []; ui.hudRects = []; drawLevelCard(); }   // под карточкой карта не нажимается
+  } else if (mode === "shop") {
+    menuFrame();
+    shopTabs(UW / 2 - 420, 41, 46, 20, 12, 10, true, LOOK.MENU_LOOK.frame.tabsW);   // SPEC-009: вкладки на месте заголовка (SPEC-017: три; SPEC-026: четыре — до монеток)
+    coinPlate(UW / 2 + 250, 46, 150, 38);
+    if (ui.shopTab === "progress") progressPage();
+    else if (ui.shopTab === "upgrades") upgradeCardsDesktop();
+    else if (ui.shopTab === "wardrobe") wardrobeDesktop();
+    else itemsDesktop();
+    if (ui.shopTab === "wardrobe") {
+      // SPEC-017: ряд под колонками гардероба — подсказка про имена, «Готово», «Друзья» (на странице друзей — «◀ Гардероб»)
+      const W = LOOK.MENU_LOOK.wardrobe, fr = ui.wardrobePage === "friends";
+      if (!fr) fitText(L().tapToRename, UW / 2 - 265, W.rowY + W.rowH / 2, 14, 290, "center", LOOK.MENU_LOOK.note, 700);
+      addButton(UW / 2 - 100, W.rowY, 200, W.rowH, L().ok, LOOK.MENU_LOOK.ok, closeShop, 22);
+      fitButton(UW / 2 + 130, W.rowY, 230, W.rowH, fr ? "◀ " + L().wardrobeTab : "👥 " + L().friends, fr ? LOOK.MENU_LOOK.ok : LOOK.MENU_LOOK.friends, fr ? backToWardrobe : openFriends, 20, 13);
+    } else {
+      addButton(UW / 2 - 100, 540, 200, 50, L().ok, LOOK.MENU_LOOK.ok, closeShop, 22);
+      // SPEC-026: «Сбросить прогресс» — только на странице «Прогресс» (то же «нажми ещё раз»)
+      if (ui.shopTab === "progress") fitButton(UW / 2 + 200, 548, 180, 36, ui.resetArmed ? L().sure : L().reset, ui.resetArmed ? LOOK.MENU_LOOK.armed : LOOK.MENU_LOOK.reset, resetProgress, 13, 11).id = "progress:reset";
+    }
+  } else if (mode === "pause") pauseDesktop();
+  else if (mode === "win") winDesktop();
+  else if (mode === "lose") loseDesktop();
+}
+
+export function drawUI(t) {
+  ui.draws++;
+  if (nameInput && !inWardrobe()) closeNameInput(false);
+  ui.buttons = []; ui.homeInfo = null; ui.progressInfo = null; ui.mapState = null; ui.cardInfo = null; ui.cardRect = null; ui.storyInfo = null; ui.sceneInfo = null; ui.bonusNote = null; ui.winLine = ""; ui.mmShown = false; ui.edgeArrows = []; ui.hudRects = []; ui.textOverflows = []; ui.textSizes = {}; ui.bannerRect = null; ui.kitHintRect = null; ui.heardHintRect = null; ui.tutorialHintRect = null; ui.stickMarks = []; ui.shopLayout = null; ui.winPanel = null;
+  if (mode !== "shop") { ui.shopTab = "items"; ui.wardrobePage = "looks"; }
+  if (mode !== "map") ui.toast = null;   // SPEC-017: подсказка карты — только пока карта на экране
+  if (mode !== "map" && mode !== "levelCard") ui.mapBgCache = null;   // фон страницы мира не держим в памяти вне карты
+  if (!paperUI()) paperCache.length = 0;                           // SPEC-020: и листы бумажных панелей — вне бумажных экранов
+  ctx.setTransform(VIEW, 0, 0, VIEW, 0, 0);
+  ctx.clearRect(0, 0, UW, UH);
+  if (!inMenus()) { drawMarkers(t); drawMood(t); drawFx(); drawHUD(t); } else ui.moodInfo = null;
+  if (mode === "play" && ui.banner) drawBanner();
+  drawOverlay();
+  if (PHONE && nameInput) {                // телефон: поле ввода следует за своей подписью (клавиатура могла поменять высоту экрана)
+    const b = ui.buttons.find(q => q.id === "name:" + nameInput.slot);
+    if (b) { nameInput.rect = { x: b.x, y: b.y, w: b.w, h: b.h }; placeNameInput(); }
+  }
+  ui.rotateShown = false;
+  if (isTouch && window.innerHeight > window.innerWidth) {
+    ctx.fillStyle = "rgba(20,30,25,.92)"; ctx.fillRect(0, 0, UW, UH);
+    if (PHONE) {   // телефон: узкий экран — крупно в несколько строк; кнопки под заставкой не нажимаются
+      ui.buttons = []; ui.rotateShown = true;
+      const h = pWrap(L().rotate, UW / 2, 0, "title", 30, UW - cpx(32), 3, "#fff", 900);   // мерка
+      ctx.fillStyle = "rgba(20,30,25,1)"; ctx.fillRect(0, 0, UW, UH);
+      pWrap(L().rotate, UW / 2, UH / 2 - h / 2, "title", 30, UW - cpx(32), 3, "#fff", 900);
+    } else label(L().rotate, UW / 2, UH / 2, 44, "#fff");
+  }
+}

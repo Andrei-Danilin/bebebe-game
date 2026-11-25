@@ -108,7 +108,7 @@ async function openGame(page, { lang = "en", clearStorage = true, query = "", si
 const openSim = (page, opts = {}) => openGame(page, { ...opts, sim: true });
 
 // SPEC-023 AC 5: a page opened in sim mode draws nothing, so a screenshot of it tests nothing — it throws instead.
-// (frames() and the drawn state of __bb check the page itself; see frames() and SIM_DRAWN in index.html.)
+// (frames() and the drawn state of __bb check the page itself; see frames() and SIM_DRAWN in src/client/debug.js.)
 function guardSim(page) {
   page.screenshot = async () => { throw new Error("sim mode: nothing is drawn — a test that takes a screenshot needs a rendered page (openGame without sim)"); };
 }
@@ -244,12 +244,12 @@ async function resetGame(page) {
   }, testSeed());
 }
 
-// SPEC-011 AC 8c: the game's code as one text — index.html (its inline module, until Phase C empties the shell) and every
-// src/**/*.js file — for the tests that scan the source (art names, Math.random, lookbehind, …).
+// SPEC-011 AC 8c: the game's code as one text — every src/**/*.js file (index.html is only the shell since Phase C) — for the
+// tests that scan the source (art names, Math.random, lookbehind, …).
 function gameSource() {
   const walk = d => !fs.existsSync(d) ? [] : fs.readdirSync(d, { withFileTypes: true })
     .flatMap(e => e.isDirectory() ? walk(path.join(d, e.name)) : e.name.endsWith(".js") ? [path.join(d, e.name)] : []);
-  return [path.join(ROOT, "index.html"), ...walk(path.join(ROOT, "src")).sort()].map(f => fs.readFileSync(f, "utf8")).join("\n");
+  return walk(path.join(ROOT, "src")).sort().map(f => fs.readFileSync(f, "utf8")).join("\n");
 }
 
 // Puts player 1 right behind a calm Big One so the next update() makes a hug.

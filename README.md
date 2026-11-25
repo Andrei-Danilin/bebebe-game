@@ -349,7 +349,7 @@ npm run assets         # art/ → assets/*.webp sprites (+ the sprite lists in s
 npm run icons          # art/2_icon.webp → the PNG app icons and the icon.svg favicon
 npm run docs:numbers   # rewrite the generated numbers table in docs/game-design.md from src/core/config.js and src/client/look.js (-- --check: only check)
 npm run balance        # play every level with the autopilot in sim mode → reports/balance.md + reports/balance.json
-npm run lint           # ESLint over src/, the client module in index.html and scripts/ (also a job of every CI test run)
+npm run lint           # ESLint over src/ and scripts/ (also a job of every CI test run)
 npm run site           # the site files (scripts/site.js, the one list) → _site/, what GitHub Pages publishes
 node scripts/perf.js   # frame times, master vs the working copy (phone + desktop viewports; --rounds N, --grain, --base <ref>)
 ```

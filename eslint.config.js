@@ -2,7 +2,7 @@
 // before a child hits it, plus the code style of hard rule 4; SPEC-025 extends the set (and adds Prettier, type checks).
 // - src/core/** (+ the shared src/i18n.js, src/story.js): only the globals Node and browsers share (console, performance, …)
 //   without the browser-only ones (CORE_FORBIDDEN, also banned by no-restricted-globals) — the core runs in Node too (AC 3);
-// - src/client/** and the inline module of index.html (extracted to .lint-index.mjs by scripts/lint.js): browser globals;
+// - src/client/**: browser globals (the inline module of index.html is gone since Phase C);
 // - scripts/**: Node (CommonJS).
 // The local "imports" rule (scripts/eslint-imports.js) checks that relative imports resolve and export what is imported.
 const globals = require("globals");
@@ -30,9 +30,9 @@ module.exports = [
     plugins: { local },
     rules: { ...RULES, "local/imports": "error", "no-restricted-globals": ["error", ...CORE_FORBIDDEN] }
   },
-  // the client and the inline module (Phase A: the whole game)
+  // the client
   {
-    files: ["src/client/**/*.js", ".lint-index.mjs"],
+    files: ["src/client/**/*.js"],
     languageOptions: { ...MODULE, globals: { ...globals.browser } },
     plugins: { local },
     rules: { ...RULES, "local/imports": "error" }

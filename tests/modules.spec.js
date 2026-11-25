@@ -1,7 +1,7 @@
 // SPEC-011: index.html split into ES modules (core / client). The checks of the module layout and of what must stay the
 // same through the move. Phase A: the __bb surface (AC 5c), service workers blocked (8b), the import map (1b), the lint config (11b);
 // Phase B: the references recorded on the unchanged game (same game, AC 7; saves load the same, AC 5b), then the layout,
-// dependency and Node checks.
+// dependency and Node checks; Phase C: the shell without game code (AC 1), the client tree (AC 2, 2e), only main.js starts the game.
 const { test, expect } = require("./pw");   // SPEC-023: @playwright/test + failure screenshots
 const fs = require("fs");
 const path = require("path");
@@ -59,7 +59,7 @@ test("three.js comes from the import map only", { tag: "@fast" }, () => {
   const map = JSON.parse(maps[0][1]), base = (sw.match(/const THREE_BASE\s*=\s*"([^"]+)"/) || [])[1];
   expect(map.imports.three, "the import map's three = sw.js THREE_BASE + three.module.js").toBe(base + "three.module.js");
   expect(html.indexOf("<script type=\"importmap\">"), "the import map comes before the module script").toBeLessThan(html.indexOf("<script type=\"module\""));
-  // every piece of game code without the import map: the inline module(s) and, from Phase B on, src/**
+  // every piece of game code without the import map: the shell (no game code since Phase C, AC 1) and src/**
   const code = [["index.html", html.replace(maps[0][0], "")], ...srcFiles(path.join(ROOT, "src")).map(f => [path.relative(ROOT, f), fs.readFileSync(f, "utf8")])];
   const bad = [];
   for (const [name, text] of code) {
@@ -71,7 +71,7 @@ test("three.js comes from the import map only", { tag: "@fast" }, () => {
 });
 
 // AC 11b: `npm run lint` (scripts/lint.js, eslint.config.js) — the minimal rule set on every block, no browser-only globals
-// for the core (it runs in Node; AC 3), browser globals for the client and the inline module, the local imports check for
+// for the core (it runs in Node; AC 3), browser globals for the client, the local imports check for
 // module code, and a lint job in every Tests run
 const BROWSER_ONLY = ["document", "window", "localStorage", "navigator", "requestAnimationFrame", "Audio", "AudioContext", "globalThis"];
 test("lint config covers src/", { tag: "@fast" }, () => {
@@ -80,8 +80,8 @@ test("lint config covers src/", { tag: "@fast" }, () => {
   const core = block("src/core/**/*.js"), client = block("src/client/**/*.js");
   expect(!!core && !!client, "a src/core and a src/client block").toBe(true);
   for (const f of ["src/i18n.js", "src/story.js"]) expect(block(f), `${f} is linted like the core`).toBe(core);
-  // the inline module is linted like the client while index.html still has one (Phase C empties the shell)
-  if (/<script type="module">/.test(fs.readFileSync(INDEX, "utf8"))) expect(client.files, "the inline module is linted like the client").toContain(".lint-index.mjs");
+  // Phase C: no inline module left in the shell, so nothing is extracted for linting any more
+  expect(config.flatMap(c => c.files || []).filter(f => f.includes("lint-index")), "no extracted inline module in the config").toEqual([]);
   expect(BROWSER_ONLY.filter(g => g in core.languageOptions.globals), "browser-only globals allowed in the core").toEqual([]);
   // globalThis is an ES built-in ESLint always knows: no-restricted-globals bans it (and the rest) in the core
   const banned = (core.rules["no-restricted-globals"] || []).slice(1).map(g => (typeof g === "string" ? g : g.name));
@@ -435,30 +435,52 @@ test("no module over 900 lines", { tag: "@fast" }, () => {
   expect(big).toEqual([]);
 });
 
-// AC 2 / 2b: docs/architecture.md has the module table (between <!-- modules:start --> and <!-- modules:end -->): every file of
+// AC 2 / 2b / 2e: docs/architecture.md has the module table (between <!-- modules:start --> and <!-- modules:end -->): every file of
 // src/ is listed, every listed file exists, the spec's core tree is there, and the state column names every module-level let
 const ARCH = path.join(ROOT, "docs", "architecture.md");
 const SPEC_CORE = ["index", "config", "util", "hooks", "world", "level/layouts", "level/generate", "level/build", "level/validate", "path",
   "difficulty", "rules", "bots", "big", "game", "mood", "hearing", "autopilot", "practice", "progress-rules", "economy"].map(n => `src/core/${n}.js`);
-test("every core module listed in architecture.md exists", { tag: "@fast" }, () => {
-  const doc = fs.readFileSync(ARCH, "utf8").replace(/\r\n/g, "\n");
+// AC 2 / 2e (Phase C): the client tree of the spec. Two names of AC 2 are not files, as architecture.md says: three/skins.js
+// (the wardrobe previews are three/previews.js, AC 2e) and ui/overlay.js / ui/overlay-phone.js (replaced by the screen modules)
+const SPEC_CLIENT = ["main", "state", "debug", "screen", "input", "sound", "progress", "outfits", "art", "flow", "tutorial",
+  "ui/draw", "ui/text", "ui/hud", "ui/phone", "ui/minimap", "ui/home", "ui/map", "ui/story", "ui/win",
+  "ui/character/progress", "ui/character/items", "ui/character/wardrobe", "ui/character/upgrades",
+  "three/setup", "three/camera", "three/themes", "three/map3d", "three/characters", "three/sync", "three/houses", "three/materials",
+  "three/bosses", "three/previews"].map(n => `src/client/${n}.js`);
+// the rows of the module table: file → the rest of its row
+function moduleTable() {
+  const doc = fs.readFileSync(ARCH, "utf8").split("\r\n").join("\n");
   const a = doc.indexOf("<!-- modules:start -->"), b = doc.indexOf("<!-- modules:end -->");
   expect(a > 0 && b > a, "the module table markers").toBe(true);
-  const rows = Object.fromEntries([...doc.slice(a, b).matchAll(/^\| `(src\/[^`]+)` \|(.*)$/gm)].map(m => [m[1], m[2]]));
-  const listed = Object.keys(rows);
-  expect(listed.filter(f => !fs.existsSync(path.join(ROOT, f))), "listed but missing").toEqual([]);
-  expect(allSrc().filter(f => !listed.includes(f)), "in src/ but not in the table").toEqual([]);
-  expect([...SPEC_CORE, ...SHARED, "src/client/look.js", "src/client/art-names.js"].filter(f => !listed.includes(f)), "the spec's modules").toEqual([]);
+  return Object.fromEntries([...doc.slice(a, b).matchAll(/^\| `(src\/[^`]+)` \|(.*)$/gm)].map(m => [m[1], m[2]]));
+}
+// every listed file exists, the table names every module-level let of the files of `files`
+function tableCovers(rows, files) {
   const missing = [];
-  for (const f of listed) {
+  for (const f of files) {
     const lets = [...readRoot(f).matchAll(/^(?:export )?let (.+)$/gm)].flatMap(m => [...m[1].matchAll(/(?:^|,\s*)([A-Za-z_$][\w$]*)\s*=/g)].map(x => x[1]));
     for (const l of lets) if (!rows[f].includes("`" + l + "`")) missing.push(`${f}: ${l}`);
   }
   expect(missing, "module-level lets the table does not name").toEqual([]);
+}
+test("every core module listed in architecture.md exists", { tag: "@fast" }, () => {
+  const rows = moduleTable(), listed = Object.keys(rows);
+  expect(listed.filter(f => !fs.existsSync(path.join(ROOT, f))), "listed but missing").toEqual([]);
+  const core = allSrc().filter(f => !f.startsWith("src/client/"));
+  expect(core.filter(f => !listed.includes(f)), "core and shared files not in the table").toEqual([]);
+  expect([...SPEC_CORE, ...SHARED].filter(f => !listed.includes(f)), "the spec's core modules").toEqual([]);
+  tableCovers(rows, core);
+});
+test("every module listed in architecture.md exists", { tag: "@fast" }, () => {
+  const rows = moduleTable(), listed = Object.keys(rows);
+  expect(listed.filter(f => !fs.existsSync(path.join(ROOT, f))), "listed but missing").toEqual([]);
+  expect(allSrc().filter(f => !listed.includes(f)), "in src/ but not in the table").toEqual([]);
+  expect(["src/client/look.js", "src/client/art-names.js", ...SPEC_CLIENT].filter(f => !listed.includes(f)), "the spec's client modules").toEqual([]);
+  tableCovers(rows, allSrc().filter(f => f.startsWith("src/client/")));
 });
 
 // AC 5: the live-bindings rule — a module's `let` is reassigned only in that module; others call its setter. ESLint's
-// no-import-assign enforces it for src/** (and for the inline module, linted by npm run lint): the config has it, no src file
+// no-import-assign enforces it for src/** (linted by npm run lint): the config has it, no src file
 // breaks it, and it really fires on a planted write
 test("live bindings: no module reassigns another module's let", async () => {
   test.setTimeout(60_000);
@@ -476,13 +498,11 @@ test("live bindings: no module reassigns another module's let", async () => {
 });
 
 // AC 5b: the saves are read in one place, before the first game: storage is read (getItem) only in initSaves and the two
-// helpers it calls (language, names) — today in the inline client, from Phase C in src/client/; the core never touches storage
+// helpers it calls (language, names) — in src/client/ (Phase C; before it, the inline client); the core never touches storage
 // (the dependency test above); initSaves runs once at the top level, initLang and initNames only from it.
 const SAVE_READERS = ["initSaves", "initLang", "initNames"];
 test("the saves are read only by initSaves at start", { tag: "@fast" }, () => {
-  const html = fs.readFileSync(INDEX, "utf8").replace(/\r\n/g, "\n"), open = "<script type=\"module\">\n";
-  const inline = html.slice(html.indexOf(open) + open.length, html.indexOf("</script>", html.indexOf(open)));
-  const client = [["index.html (module)", inline], ...allSrc().filter(f => f.startsWith("src/client/")).map(f => [f, readRoot(f).replace(/\r\n/g, "\n")])];
+  const client = allSrc().filter(f => f.startsWith("src/client/")).map(f => [f, readRoot(f).replace(/\r\n/g, "\n")]);
   const bad = [];
   let readers = 0;
   for (const [name, text] of client) {
@@ -502,14 +522,127 @@ test("the saves are read only by initSaves at start", { tag: "@fast" }, () => {
   }
 });
 
-// AC 8c: no script or test reads game code from index.html. The files that still read index.html read the shell, or (until
-// Phase C empties it) the inline client module for linting and source scans — each named here with why; a new reader fails.
+// AC 1 (Phase C): index.html is the shell — markup, CSS, the small non-module script (offline hint, file:// notice), the import
+// map and one entry script <script type="module" src="./src/client/main.js?v=<hash>">. An entry script's src is not remapped by
+// the import map, so npm run precache writes main.js's version into the tag (the same URL as the map's): a shell only ever
+// loads its own module versions. No inline module, no game code.
+test("index.html has no inline game code", { tag: "@fast" }, () => {
+  const html = fs.readFileSync(INDEX, "utf8").replace(/\r\n/g, "\n");
+  const scripts = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/g)].map(m => ({ attrs: m[1].trim(), body: m[2].trim(), all: m[0] }));
+  const map = JSON.parse(scripts.find(s => s.attrs === "type=\"importmap\"").body).imports;
+  const entry = map["./src/client/main.js"];
+  expect(entry, "main.js is in the import map at its hash").toMatch(/^\.\/src\/client\/main\.js\?v=[0-9a-f]{10}$/);
+  expect(scripts.filter(s => /type="module"/.test(s.attrs)).map(s => [s.attrs, s.body]), "one module script: the entry, no inline code")
+    .toEqual([[`type="module" src="${entry}"`, ""]]);
+  expect(scripts.map(s => s.attrs.replace(/ src=.*/, "")).sort(), "the three scripts of the shell").toEqual(["", "type=\"importmap\"", "type=\"module\""]);
+  const plain = scripts.find(s => s.attrs === "").body;
+  expect(plain.split("\n").length, "the non-module script stays small (offline hint, file:// notice)").toBeLessThan(30);
+  expect(plain, "the non-module script imports nothing").not.toMatch(/\bimport\b/);
+  const shell = scripts.reduce((h, s) => (s.attrs === "type=\"importmap\"" ? h.replace(s.all, "") : h), html);
+  expect(shell.split("\n").length, "the shell without the import map is small").toBeLessThan(120);
+});
+
+// AC 2e and the review of Phase B: only src/client/main.js starts the game. Every other client module holds only imports,
+// exports and declarations at its top level (its start-up work is an init function marked "called once by main.js"); main.js
+// calls each of them once, in the start order of the one-file game — the tests' rng flags, setHooks before initSaves, initSaves
+// before the renderer and the first resetWorld, then the loop, the service worker and window.__bb (debug.js). three.js is
+// imported by its bare name only.
+test("only main.js starts the game", { tag: "@fast" }, () => {
+  const espree = require("espree");
+  const OK = ["ImportDeclaration", "ExportNamedDeclaration", "ExportAllDeclaration", "VariableDeclaration", "FunctionDeclaration", "ClassDeclaration"];
+  const client = allSrc().filter(f => f.startsWith("src/client/")), MAIN = "src/client/main.js";
+  expect(client).toContain(MAIN);
+  const bad = [];
+  for (const f of client.filter(x => x !== MAIN)) {
+    const ast = espree.parse(readRoot(f), { ecmaVersion: "latest", sourceType: "module", loc: true });
+    for (const n of ast.body) if (!OK.includes(n.type)) bad.push(`${f}:${n.loc.start.line} ${n.type}`);
+  }
+  expect(bad, "top-level statements other than declarations outside main.js").toEqual([]);
+  const main = readRoot(MAIN).replace(/\r\n/g, "\n");
+  const inits = client.flatMap(f => [...readRoot(f).replace(/\r\n/g, "\n").matchAll(/^\/\/ called once by main\.js.*\nexport function (\w+)\(\)/gm)].map(m => [f, m[1]]));
+  expect(inits.map(([, n]) => n), "the init functions").toEqual(expect.arrayContaining(["initThree", "initScene", "initScreen", "initInput", "installDebug"]));
+  for (const [f, n] of inits) {
+    expect([...main.matchAll(new RegExp(`^${n}\\(\\);$`, "gm"))].length, `${n} (${f}) is called once by main.js`).toBe(1);
+    const others = client.filter(x => x !== MAIN && new RegExp(`(?<!function )\\b${n}\\(`).test(readRoot(x).replace(/\/\/.*$/gm, "")));
+    expect(others, `${n} is called only by main.js`).toEqual([]);
+  }
+  const at = ["setStrictRng(window.__bbStrictRng", "seedRandom(window.__bbSeed)", "setHooks({", "initSaves();", "initThree();\nfit();\ninitScene();", "resetWorld(1);",
+    "window.__bbReady = true;", "requestAnimationFrame(frame);", "registerServiceWorker();", "installDebug();"].map(t => [t, main.indexOf(t)]);
+  expect(at.filter(([, i]) => i < 0).map(([t]) => t), "main.js runs every start step").toEqual([]);
+  expect(at.map(([t]) => t), "in the start order").toEqual([...at].sort((x, y) => x[1] - y[1]).map(([t]) => t));
+  for (const f of client.filter(x => x.startsWith("src/client/three/"))) {
+    if (/\bTHREE\./.test(readRoot(f))) expect(readRoot(f), `${f} imports three by its bare name`).toMatch(/^import \* as THREE from "three";$/m);
+  }
+});
+
+// The review of Phase C: the client's imports form cycles, and inside a cycle a module may be evaluated before a module it
+// imports. A declaration initialiser at the top level (evaluated at load, outside any function) that reads an imported binding
+// of a module in the same import cycle which is evaluated later would throw (TDZ) or read a half-built value. Evaluation order
+// as the browser does it: depth-first from src/client/main.js, imports in source order, a module after its imports.
+test("no top-level read of a module evaluated later in the same import cycle", { tag: "@fast" }, () => {
+  const espree = require("espree");
+  const files = allSrc(), info = {};
+  for (const f of files) {
+    const ast = espree.parse(readRoot(f), { ecmaVersion: "latest", sourceType: "module", loc: true });
+    const imported = new Map(), deps = [];
+    for (const n of ast.body) {
+      if (n.type !== "ImportDeclaration" || !n.source.value.startsWith(".")) continue;
+      const to = path.posix.normalize(path.posix.join(path.posix.dirname(f), n.source.value));
+      deps.push(to);
+      for (const s of n.specifiers) imported.set(s.local.name, to);
+    }
+    // identifiers read while the module evaluates: in declaration initialisers, outside function bodies
+    const reads = [];
+    const visit = (node, key) => {
+      if (!node || typeof node.type !== "string" || /Function/.test(node.type)) return;
+      if (node.type === "Identifier" && imported.has(node.name) && key !== "skip") reads.push([node.name, node.loc.start.line]);
+      for (const k of Object.keys(node)) {
+        if (k === "loc" || k === "range") continue;
+        const skip = ((node.type === "Property" || node.type === "PropertyDefinition") && k === "key" && !node.computed) || (node.type === "MemberExpression" && k === "property" && !node.computed);
+        const v = node[k];
+        if (Array.isArray(v)) v.forEach(x => visit(x, skip ? "skip" : k)); else if (v && typeof v.type === "string") visit(v, skip ? "skip" : k);
+      }
+    };
+    for (const n of ast.body) {
+      const d = n.type === "ExportNamedDeclaration" ? n.declaration : n;
+      if (d && (d.type === "VariableDeclaration" || d.type === "ClassDeclaration")) visit(d);
+    }
+    info[f] = { imported, deps, reads };
+  }
+  // evaluation order and the import cycles (Tarjan's strongly connected components)
+  const order = [], seen = new Set();
+  const post = f => { if (seen.has(f) || !info[f]) return; seen.add(f); info[f].deps.forEach(post); order.push(f); };
+  post("src/client/main.js");
+  const pos = new Map(order.map((f, i) => [f, i]));
+  let idx = 0;
+  const st = [], on = new Set(), I = {}, low = {}, comp = {};
+  const sc = v => {
+    I[v] = low[v] = idx++; st.push(v); on.add(v);
+    for (const w of info[v].deps.filter(x => info[x])) {
+      if (!(w in I)) { sc(w); low[v] = Math.min(low[v], low[w]); } else if (on.has(w)) low[v] = Math.min(low[v], I[w]);
+    }
+    if (low[v] === I[v]) { let w; do { w = st.pop(); on.delete(w); comp[w] = v; } while (w !== v); }
+  };
+  files.forEach(f => { if (!(f in I)) sc(f); });
+  const bad = [];
+  let reads = 0;
+  for (const f of files) for (const [name, line] of info[f].reads) {
+    reads++;
+    const from = info[f].imported.get(name);
+    if (comp[from] === comp[f] && pos.has(from) && pos.has(f) && pos.get(from) > pos.get(f)) bad.push(`${f}:${line} reads ${name} of ${from}, evaluated later in the same cycle`);
+  }
+  expect(order.length, "main.js reaches the client and the core").toBeGreaterThan(60);
+  expect(reads, "the scan sees top-level reads (LOOK, CFG, …)").toBeGreaterThan(20);
+  expect(bad).toEqual([]);
+  expect(info["src/client/three/setup.js"].deps.filter(d => d.startsWith("src/client/") && !/\/(look|art-names)\.js$/.test(d)), "three/setup.js is a leaf of the client").toEqual([]);
+});
+
+// AC 8c: no script or test reads game code from index.html. The files that still read index.html read the shell (since Phase C
+// it has no game code) — each named here with why; a new reader fails.
 const INDEX_READERS = {
-  "scripts/lint.js": "lints the inline client module (until Phase C)",
   "scripts/eslint-imports.js": "the import map (shell): which bare names resolve",
-  "scripts/precache.js": "writes the shell's import map (module hashes) and <meta name=\"src-hash\"> (AC 9)",
-  "tests/helpers.js": "gameSource(): the inline client module next to src/** for the source scans (until Phase C)",
-  "tests/modules.spec.js": "the shell: the import map, the file:// notice, the inline module (lint config, saves check)",
+  "scripts/precache.js": "writes the shell's import map (module hashes), <meta name=\"src-hash\"> (AC 9) and the entry script's version",
+  "tests/modules.spec.js": "the shell: the import map, the file:// notice, no inline game code (AC 1)",
   "tests/pwa.spec.js": "the shell: the import map (three.js version) and the page the network-first test serves"
 };
 test("no script or test reads game code from index.html", { tag: "@fast" }, () => {

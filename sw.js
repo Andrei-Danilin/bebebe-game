@@ -7,25 +7,44 @@
 //   bebebe-three-<version>          three.js from jsDelivr, by its version.
 // The module URLs are versioned (./src/…/x.js?v=<hash of its bytes>: the import map of index.html, written by npm run precache
 // with SRC_HASH and the lists below), so a shell only ever asks for its own module versions; they are served cache-first.
+// An unversioned module URL is never answered from a cache (network only; Phase C, the review of Phase B).
 // index.html stays network-first: an online launch gets the new version at once. A network-fetched shell is stored only into
 // the complete src cache of its own SRC_HASH (its <meta name="src-hash">); if there is none yet (the new worker has not
 // finished installing), it is shown but not cached — so the cached shell always has its modules.
 // A module change needs no SW_VERSION bump: rerun npm run precache (SRC_HASH changes). Bump SW_VERSION when a cache strategy,
 // the three.js version (THREE_BASE = the import map's) or an icon's content changes. Old caches: the last 2 of each kind stay
 // (a page of the previous version may still be open), older ones are deleted on activate.
-const SW_VERSION = "bebebe-v4";
+const SW_VERSION = "bebebe-v5";
 const CACHE_PREFIX = "bebebe-";          // all Pages projects of the account share one origin: touch only our caches
 const NET_TIMEOUT_MS = 4000;             // weak signal: after this long, a cached copy wins over a slow network
 const THREE_BASE = "https://cdn.jsdelivr.net/npm/three@0.187.0/build/";
 // SPEC-011: written by npm run precache (scripts/precache.js) — do not edit by hand
 // precache:start
-const SRC_HASH = "a2b5fbb2c5";
+const SRC_HASH = "74ff548438";
 const PRECACHE_LOCAL = [
   "./", "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512-maskable.png",
   "./icons/icon-512.png", "./icons/icon.svg", "./index.html", "./manifest.webmanifest"
 ];
 const PRECACHE_SRC = [
-  "./src/client/art-names.js?v=7228f7f839", "./src/client/look.js?v=6b3f0ae3e3",
+  "./src/client/art-names.js?v=7228f7f839", "./src/client/art.js?v=b7eb2eb143", "./src/client/debug.js?v=792b6acc9c",
+  "./src/client/flow.js?v=aefd7355fa", "./src/client/fx.js?v=02df1e9940", "./src/client/input.js?v=c47e2ca5ed",
+  "./src/client/look.js?v=6b3f0ae3e3", "./src/client/main.js?v=e69a01ba3d", "./src/client/names.js?v=53974b368f",
+  "./src/client/outfits.js?v=14f0f56617", "./src/client/progress.js?v=4b67bae837",
+  "./src/client/screen.js?v=57a76e38b6", "./src/client/shop.js?v=dd1bd5d1e3", "./src/client/sound.js?v=e9ddab15a9",
+  "./src/client/state.js?v=90ca060a86", "./src/client/three/bosses.js?v=7814dfb8d4",
+  "./src/client/three/camera.js?v=8933a2a902", "./src/client/three/characters.js?v=9043e46291",
+  "./src/client/three/houses.js?v=f13b17c251", "./src/client/three/look3d.js?v=bc91f12374",
+  "./src/client/three/map3d.js?v=c7e5cf1a4b", "./src/client/three/materials.js?v=04f0b0550d",
+  "./src/client/three/previews.js?v=3ec7d7da4e", "./src/client/three/setup.js?v=a26d88fa4c",
+  "./src/client/three/sync.js?v=6a3198e926", "./src/client/three/themes.js?v=2dde3ea836",
+  "./src/client/tutorial.js?v=e7f38fd969", "./src/client/ui/character/items.js?v=0580594792",
+  "./src/client/ui/character/progress.js?v=e7feab8586", "./src/client/ui/character/tabs.js?v=6d32ab672c",
+  "./src/client/ui/character/upgrades.js?v=ee922fce9f", "./src/client/ui/character/wardrobe.js?v=e3e931bd3a",
+  "./src/client/ui/draw.js?v=dcfdd397a6", "./src/client/ui/home.js?v=5df7db0c9e",
+  "./src/client/ui/hud.js?v=c2a3b734ea", "./src/client/ui/map.js?v=82859d78c7", "./src/client/ui/menu.js?v=3e64627b0a",
+  "./src/client/ui/minimap.js?v=3bd617a1e1", "./src/client/ui/phone.js?v=89a748047b",
+  "./src/client/ui/screens.js?v=3ab759f00f", "./src/client/ui/story.js?v=a09830a3ea",
+  "./src/client/ui/text.js?v=56db91f1d4", "./src/client/ui/win.js?v=2aeb37b0ef",
   "./src/core/autopilot.js?v=f62807a252", "./src/core/big.js?v=f5caddcc69", "./src/core/bots.js?v=3816176aa9",
   "./src/core/config.js?v=518df17882", "./src/core/difficulty.js?v=d289c6f89d", "./src/core/economy.js?v=56dc2c8d89",
   "./src/core/game.js?v=03880750aa", "./src/core/hearing.js?v=d3484b3404", "./src/core/hooks.js?v=3d83dff9cc",
@@ -217,6 +236,10 @@ self.addEventListener("fetch", event => {
   } else if (local && url.pathname.includes("/src/") && url.searchParams.has("v")) {
     // a versioned module: the exact URL (its hash) from any of our caches, else the network — never written at runtime
     event.respondWith(cacheFirst(event, req, null, { ignoreVary: true }));
+  } else if (local && url.pathname.includes("/src/")) {
+    // an unversioned module URL (no ?v=; the shell never asks for one): the network only — never a cached copy of some other
+    // version (no ignoreSearch fallback across caches), so a page cannot mix module versions
+    return;
   } else if (url.href.startsWith(THREE_BASE)) {
     event.respondWith(cacheFirst(event, req, CACHE_THREE));
   } else if (local && url.pathname.includes("/assets/")) {

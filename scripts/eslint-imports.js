@@ -3,7 +3,7 @@
 // - a named / default import the target module does not export (missing named import; `export * from` is followed, with
 //   a visited set against cycles),
 // - a bare specifier that the import map of index.html does not name (a key ending in "/" matches as a prefix).
-// The target is parsed with espree (ESLint's own parser). Used by eslint.config.js for src/** and the extracted inline module.
+// The target is parsed with espree (ESLint's own parser). Used by eslint.config.js for src/**.
 const fs = require("fs");
 const path = require("path");
 const espree = require(require.resolve("espree", { paths: [path.dirname(require.resolve("eslint"))] }));

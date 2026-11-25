@@ -79,7 +79,7 @@ function coinWrites(src) {
 }
 
 test("only the ledger writes coins", { tag: "@fast" }, () => {
-  const src = gameSource();   // SPEC-011 AC 8c: index.html and src/** (addCoins / spendCoins live in src/core/economy.js)
+  const src = gameSource();   // SPEC-011 AC 8c: src/** (addCoins / spendCoins live in src/core/economy.js)
   const r = coinWrites(src);
   expect(r.found, "addCoins and spendCoins exist").toEqual([true, true]);
   expect(r.inside, "addCoins and spendCoins change progress.coins").toBeGreaterThanOrEqual(2);

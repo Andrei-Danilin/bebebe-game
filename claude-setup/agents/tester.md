@@ -9,9 +9,9 @@ model: opus
 ## Stack
 - Playwright, config `playwright.config.js`. Locally the browser draws on the **GPU** and runs at **below-normal priority**; on CI it uses SwiftShader (`tests/test-env.js`). `PW_GPU=0` forces SwiftShader locally (add `PW_NICE=0` on a busy machine: SwiftShader at below normal starves), `PW_GPU=1` forces the GPU, `PW_NICE=0` keeps normal priority.
 - Specs require `./pw` (= `@playwright/test` + failure screenshots of every open page), never `@playwright/test` directly.
-- The game is `index.html` opened from disk; `tests/helpers.js` serves three.js from `node_modules` (offline) and exposes:
+- The game is ES modules (`index.html` is the shell, the code is `src/**`) opened over http (`scripts/serve.js`, Playwright's `webServer`); `tests/helpers.js` serves three.js from `node_modules` (offline) and exposes:
   - `openGame(page, { lang, query, sim })` → array of page errors (assert it stays `[]`); `sim: true` = sim mode (no 3D, no drawing, no audio, no frame loop);
-  - `step(page, seconds)` → advances the game logic at 60 fps without waiting; `frames(page)` → two real frames (throws in sim);
+  - `step(page, seconds)` → advances the game logic at 60 fps without waiting; `frames(page)` → two real frames (throws in sim; the drawn getters of `__bb` are listed in `SIM_DRAWN`, `src/client/debug.js`);
   - `sharedPage()` / `resetGame()`; `setupHug(page)`; `softly()`.
 - Shared-page specs have two fixtures: `page` (rendered) and `simPage` (sim). `levels.spec.js`: `levelPage` is a sim page; `page` is a fresh rendered page.
 - The game is driven through `window.__bb` (fields in `docs/architecture.md`, "Tests and CI" for the test architecture).
