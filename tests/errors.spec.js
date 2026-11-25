@@ -159,6 +159,32 @@ test("an error on every frame of a menu: Home leads out, the same error again of
   await page.click("#oops button:has-text('Home')");
   await frames(page); await frames(page);
   expect([await page.evaluate(() => window.__bb.mode), await card(page)], "a working screen").toEqual(["home", null]);
+  // the keyboard: the highlight starts on Continue; → moves it to Home; Enter presses it
+  const highlight = () => page.evaluate(() => { const b = document.querySelector("#oops button.hl"); return b && b.innerText; });
+  await page.evaluate(() => { window.__bb.openMap(); });
+  await expect.poll(() => card(page)).not.toBeNull();
+  expect(await highlight()).toBe("Continue");
+  await page.keyboard.press("ArrowRight");
+  expect(await highlight()).toBe("Home");
+  await page.keyboard.press("Enter");
+  await frames(page); await frames(page);
+  expect([await page.evaluate(() => window.__bb.mode), await card(page)], "keyboard: out through Home").toEqual(["home", null]);
+  // the gamepad: D-pad → to Home, A presses it
+  await page.evaluate(() => {
+    window.__padDown = k => { window.__pads = [{ index: 0, id: "pad", mapping: "standard", axes: [0, 0], buttons: Array.from({ length: 17 }, (_, i) => ({ pressed: i === k, value: 0 })) }]; };
+    window.__padDown(-1);
+    Object.defineProperty(navigator, "getGamepads", { configurable: true, value: () => window.__pads });
+  });
+  await frames(page);
+  const pad = async k => { await page.evaluate(n => window.__padDown(n), k); await frames(page); await page.evaluate(() => window.__padDown(-1)); await frames(page); };
+  await page.evaluate(() => { window.__bb.openMap(); });
+  await expect.poll(() => card(page)).not.toBeNull();
+  await pad(15);
+  expect(await highlight()).toBe("Home");
+  await pad(0);
+  await frames(page);
+  expect([await page.evaluate(() => window.__bb.mode), await card(page)], "gamepad: out through Home").toEqual(["home", null]);
+  await page.evaluate(() => { window.__pads = []; delete navigator.getGamepads; });
   // broken at home too: Continue → the same error opens the card again, now with Try again (reload)
   await page.evaluate(() => { window.__breakOn = ["home", "map"]; });
   await expect.poll(() => card(page)).not.toBeNull();

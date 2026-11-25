@@ -122,7 +122,7 @@ export function installDebug() {
     // SPEC-025 AC 7: the local error log (copies); an error as the game reports it (card, log); nextLevel (AC 7d)
     get errorLog() { return errorLog(); }, reportError, nextLevel,
     // SPEC-025: forget every pad (AC 7e: the tests' gamepad stubs); the one "back" (AC 14d); the audio context (AC 14); restored (AC 14c)
-    resetPads, goBack, audioContext, get glRestored() { return glRestored; },   // SPEC-025 AC 7e: forget every pad (the tests' gamepad stubs)   // SPEC-025 AC 7: the local error log (copies); an error as the game reports it (card, log)
+    resetPads, goBack, audioContext, get glRestored() { return glRestored; },
     // SPEC-012 AC 1f: the menus' state a screen change resets (logic state: the same in sim and rendered pages) and the actions
     // that set it up: the shop, its friends page, the name input of a slot, a map stop or world tab (a locked one shows a hint)
     get screenState() { return { mode, shopTab: ui.shopTab, wardrobePage: ui.wardrobePage, toast: ui.toast && ui.toast.text, mapBgCache: !!ui.mapBgCache, nameInput: !!nameInput }; },

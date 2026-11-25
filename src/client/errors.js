@@ -56,11 +56,26 @@ export function logError(err) {
 export const errorLog = () => { flushErrorLog(true); return (log || readErrorLog()).map(e => ({ ...e })); };
 // a card is over the game (Oops, context loss): keys and pad buttons do not reach the game under it (input.js)
 export const cardOpen = () => !!document.querySelector(".bb-card");
-// Enter / Space / pad A on an open card: its first button (or the card's own tap)
+// Keyboard and gamepad on an open card: ←/→ (D-pad, stick) move the highlight between its buttons (it starts on the first);
+// Enter / Space / pad A press the highlighted one — or the button the player focused with Tab — or the card itself (no buttons)
+const cardButtons = el => [...el.querySelectorAll("button")];
+function highlighted(el) {
+  const bs = cardButtons(el), f = bs.indexOf(document.activeElement);
+  return f >= 0 ? f : Math.max(0, bs.findIndex(b => b.classList.contains("hl")));
+}
+function setHighlight(el, i) {
+  const bs = cardButtons(el);
+  bs.forEach((b, k) => b.classList.toggle("hl", k === i));
+  if (bs[i]) bs[i].focus({ preventScroll: true });
+}
+export function moveCardFocus(d) {
+  const el = document.querySelector(".bb-card"), n = el ? cardButtons(el).length : 0;
+  if (n) setHighlight(el, (highlighted(el) + d + n) % n);
+}
 export function pressCard() {
   const el = document.querySelector(".bb-card");
   if (!el) return false;
-  const b = el.querySelector("button");
+  const b = cardButtons(el)[highlighted(el)];
   (b || el).click();
   return true;
 }
@@ -108,6 +123,7 @@ export function showCard(id, text, buttons = [], onTap = null) {
   if (onTap) el.addEventListener("click", onTap);
   el.addEventListener("pointerdown", e => e.stopPropagation());
   wrap.append(el);
+  setHighlight(el, 0);                      // keyboard / gamepad: the highlight starts on the first button
   return el;
 }
 export function hideCard(id) { const el = document.getElementById(id); if (el) el.remove(); }

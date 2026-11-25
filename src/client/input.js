@@ -8,7 +8,7 @@ import { LOOK } from "./look.js";
 import { cleanName, nameFor, setName } from "./names.js";
 import { randomOutfit } from "./outfits.js";
 import { canvas, CSS_W, PHONE, UH, UW, wrap } from "./screen.js";
-import { cardOpen, pressCard } from "./errors.js";
+import { cardOpen, moveCardFocus, pressCard } from "./errors.js";
 import { initAudio } from "./sound.js";
 import { ui } from "./state.js";
 import { openTutorial, tutorialSkip } from "./tutorial.js";
@@ -162,6 +162,10 @@ export function pollPads() {
     let x = p.axes[0] || 0, y = p.axes[1] || 0;
     if (Math.hypot(x, y) < 0.25) { x = 0; y = 0; }
     if (btn[14]) x = -1; if (btn[15]) x = 1; if (btn[12]) y = -1; if (btn[13]) y = 1;
+    // SPEC-025: the stick (not the D-pad: its buttons do it above) pushed half-way left / right also moves a card's highlight
+    const side = Math.sign(Math.round(p.axes[0] || 0));
+    if (side && side !== s.side && cardOpen()) moveCardFocus(side);
+    s.side = side;
     s.x = x; s.y = y;
   });
   padSlots.forEach((s, pi) => { if (s.connected && !seen.has(s.index)) { s.connected = false; s.x = 0; s.y = 0; padLost(pi); } });
@@ -173,7 +177,11 @@ function padLost(pi) {
 }
 function onPadButton(b, pad = 0) {
   if (nameInput) return;
-  if (cardOpen()) { if (b === 0 || b === 9) pressCard(); return; }   // SPEC-025: a card over the game — A / Start press it, nothing else
+  if (cardOpen()) {                         // SPEC-025: a card over the game — D-pad ←/→ pick its button, A / Start press it, nothing else
+    if (b === 14 || b === 15) moveCardFocus(b === 14 ? -1 : 1);
+    else if (b === 0 || b === 9) pressCard();
+    return;
+  }
   initAudio();
   if (mode === "home") {
     const a = homeActions().find(q => q.pad.includes(b));   // SPEC-017: A — «Играть», X — история, Y — магазин
@@ -271,7 +279,8 @@ export function initInput() {
   window.addEventListener("keydown", e => {
     if (nameInput) return;                     // печатают имя: игровые клавиши (WASD, M, L, Esc…) не трогаем
     if (cardOpen()) {                          // SPEC-025: a card over the game — keys do not reach the game; Enter / Space press the card
-      if (e.code === "Enter" || e.code === "NumpadEnter" || e.code === "Space") { e.preventDefault(); if (!keys.has(e.code)) pressCard(); }
+      if (e.code === "ArrowLeft" || e.code === "ArrowRight") { e.preventDefault(); moveCardFocus(e.code === "ArrowLeft" ? -1 : 1); }
+      else if (e.code === "Enter" || e.code === "NumpadEnter" || e.code === "Space") { e.preventDefault(); if (!keys.has(e.code)) pressCard(); }   // the highlighted (or Tab-focused) button
       keys.add(e.code);
       return;
     }
