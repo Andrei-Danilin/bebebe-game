@@ -4,6 +4,8 @@ Base: `master` a52ecec (SPEC-031 merged), 2026-11-25. Read-only review by seven 
 
 Severity: **BLOCKER** = stops a store release or makes the next spec fail as written. **HIGH** = a child can lose progress or get a broken game, or a release step fails often. **MEDIUM** = a real risk with a workaround, or a gap in a plan. **LOW** = clean-up.
 
+Updated after the reviews of this report (fix round): SPEC-011 and SPEC-025 now run as three merges each (phases), RR-30's fix keeps today's update timing, RR-71 moved to SPEC-011 and RR-16 to SPEC-012, RR-51 is deferred, and RR-17, RR-24 and RR-52 were corrected.
+
 Spec column: **011** = SPEC-011 (module split, runs next), **012** = SPEC-012 (headless core), **025** = SPEC-025 (production foundation), **later** = a later release spec (packaging, store texts, signing, performance pass), **BACKLOG** = a line in `specs/BACKLOG.md` marked "(release review)". The ACs added to the three specs carry the same RR id.
 
 ---
@@ -45,7 +47,7 @@ Also blocking a submission: no privacy page or parents' area in the app (RR-52),
 
 | RR | Sev | Title | Lens ids | Spec |
 |---|---|---|---|---|
-| RR-01 | BLOCKER | The logic calls the client directly; the split needs a hooks port and a pure `buildGame` | A1 | 011 |
+| RR-01 | BLOCKER | The logic calls the client directly; the split needs a hooks port and a client-free `buildGame` | A1 | 011 |
 | RR-02 | HIGH | SPEC-011 module tree predates SPEC-016…031; half the code has no module | A2, M12 | 011 |
 | RR-03 | HIGH | Scripts and tests read or write `index.html` as source | A8, P16 | 011 |
 | RR-04 | HIGH | The tutorial is woven into the core; its win path calls the menu flow | A6 | 011 + 012 |
@@ -60,7 +62,7 @@ Also blocking a submission: no privacy page or parents' area in the app (RR-52),
 | RR-13 | MEDIUM | The "same game" baseline covers an empty inventory only | A13 | 011 + 012 |
 | RR-14 | MEDIUM | `window.__bb` is a 184-member unlisted surface; shims can hide real paths | M9 | 011 + 012 |
 | RR-15 | LOW | `architecture.md` line table and section headers mislead the split | A14, M12 | 011 |
-| RR-16 | LOW | Hidden state changes in the frame loop and in drawing | A15 | 011 |
+| RR-16 | LOW | Hidden state changes in the frame loop and in drawing | A15 | 012 (AC 1f, moved from 011) |
 | RR-17 | HIGH | Single-key migration plan unsafe (key-presence rules, old tabs, unknown fields, rollback) | S4, M5 | 025 |
 | RR-18 | HIGH | "Reset progress" = two quick taps, no grown-up check, no undo | S2, R3 | 025 + decision |
 | RR-19 | HIGH | An unreadable save is replaced without a trace, sometimes at startup | S1 | 025 |
@@ -95,7 +97,7 @@ Also blocking a submission: no privacy page or parents' area in the app (RR-52),
 | RR-48 | MEDIUM | Level start: new geometries and no shader warm-up | F7 | later |
 | RR-49 | MEDIUM | Text fit/wrap re-measured every frame | F8 | later |
 | RR-50 | MEDIUM | Trees, bushes and roofs are transparent all the time | F9 | later |
-| RR-51 | LOW | Per-frame garbage; event-log splice; A* allocations | F12 | 012 |
+| RR-51 | LOW | Per-frame garbage; event-log splice; A* allocations | F12 | BACKLOG (deferred from 012) |
 | RR-52 | BLOCKER | No privacy policy or parents' page in the app | K2 | 025 (slot) + later + decision |
 | RR-53 | HIGH | Planned parental gate is not an adult task; no Portuguese | K3 | 025 |
 | RR-54 | HIGH | Rules text: Dad "pushes you and breaks your leg", "limp home" | K4 | decision + later |
@@ -115,7 +117,7 @@ Also blocking a submission: no privacy page or parents' area in the app (RR-52),
 | RR-68 | MEDIUM | Two taps in one frame run two actions (skip into a locked level, buy without confirm) | R7 | 025 |
 | RR-69 | MEDIUM | Gamepads tracked by list position: a disconnect swaps players, phantom presses | R8, M14 | 025 (may move later) |
 | RR-70 | MEDIUM | Android Back leaves the app mid-level | R10, P12 | 025 (seam) + later + decision |
-| RR-71 | MEDIUM | Flaky `bosses.spec.js:141`: the cause is unseeded test starts | R11 | 012 |
+| RR-71 | MEDIUM | Flaky `bosses.spec.js:143` (assert :163): the cause is unseeded test starts | R11 | 011 (AC 8d, Phase A) |
 | RR-72 | LOW | Rotation/resize edge cases (live buttons under the rotate overlay, resize storms) | R12 | BACKLOG |
 | RR-73 | LOW | Two fingers on one stick half stop the hero | R14 | BACKLOG |
 | RR-74 | HIGH | Pages deploy fails ~1 in 3 runs with green tests; master not live | R4, M1 | 011 |
@@ -137,7 +139,7 @@ Context: `index.html` is 9,387 lines (module 49–9385). The 2D layer is 2,705 l
 #### RR-01 BLOCKER: The logic calls the client directly; SPEC-011 AC 3 cannot be met as written [A1]
 - **Location:** `resetWorld` 2750 (`PHONE`, `skinSel`/`makeLook`, `sticks.clear()`, `rebuild3D()`); `startGame` 2801 (`endTryOn`, `showBanner`, `camSnap`); `winNow` 3526–3530 (`tutorialNext`, `giveReward`, `SFX.win`, `burst`); `hug` 3483 (`saveProgress`); `updateStars` 3669 (`addCoins`); `throwKiss` 3540 / `useRescueKit` 4105 (`saveInv`); `logEvent` 2491 (`tutorialNote`); `SFX.*` ×17, `burst` ×17, `popText` ×18 in 3409–4251.
 - **Why:** SPEC-011 forbids any core → client import but keeps the module-level state and leaves sound, particles and saves to SPEC-012. `CORE_DOM_ALLOW` allows DOM names, not imports. So `SFX`, `burst`, `rebuild3D`, `saveProgress`, `skinSel`, `sticks` and `openScene` have no legal home, and every one is a cycle. The run will either break AC 3 or do half of SPEC-012 without its tests. The split is the base for both the store build and online play.
-- **Fix:** One port `src/core/hooks.js` (`setHooks({ sfx, burst, pop, shake, save, rebuild, onWin, onPracticeWin, … })`, no-op defaults so Node import works). The client registers the real functions in `main.js`, and SPEC-012 replaces the hooks with events. `resetWorld` splits into a pure core `buildGame(world, n, players)` and a client wrapper that does the 3D rebuild, `sticks.clear`, the phone one-player rule and `skinSel`.
+- **Fix:** One port `src/core/hooks.js` (`setHooks({ sfx, burst, pop, shake, save, rebuild, onWin, onPracticeWin, … })`, no-op defaults so Node import works). The client registers the real functions in `main.js`, and SPEC-012 replaces the hooks with events. `resetWorld` splits into a client-free core `buildGame(world, n, players)` (not pure: it still draws game `rng()`) and a client wrapper that does the 3D rebuild, `sticks.clear`, the phone one-player rule and `skinSel`.
 - **Spec:** SPEC-011 AC 3b, 3c.
 
 #### RR-02 HIGH: SPEC-011's module tree predates SPEC-016…031 [A2, M12]
@@ -217,8 +219,8 @@ Context: `index.html` is 9,387 lines (module 49–9385). The 2D layer is 2,705 l
 #### RR-12 MEDIUM: Reward and lock rules sit in the client; the logic writes saves mid-level; SPEC-012's "result instead of saving" does not match today's immediate saves [A11, S9]
 - **Location:** `giveReward` 2706–2738, `rewardBase`/`fastTarget` 2507, `worldOpen` 2592; `updateStars` 3669 (`addCoins("star")` at pickup: "kept even if the level is not won"); `hug` 3483 (glove charge saved); `throwKiss` 3540 / `useRescueKit` 4105 (`gameInv()` → `tutorialInv` in practice); local p1/p2 share one pool.
 - **Why:** If star coins and glove charges move into an end-of-level `result`, they are lost on quit or kill (today they are kept) or counted twice. The reward rules (game-design rules) would live where Node tests and a server cannot check them.
-- **Fix:** `src/core/progress-rules.js` (pure: `worldOpen`, `isOpen`, `bonusUnlocked`, `worldComplete`, `rewardBase`, `fastTarget`, `computeReward`). In SPEC-012, every mid-level economy change is an immediate event (`coins`, `spent(slot, "kiss"|"kit"|"glove")`) that the client applies and saves at once. `result` carries only the win lines, and a practice game emits no economy events.
-- **Spec:** SPEC-011 AC 2b (placement); SPEC-012 AC 6 (changed), 6b.
+- **Fix:** `src/core/progress-rules.js` (pure: `worldOpen`, `isOpen`, `bonusUnlocked`, `worldComplete`, `rewardBase`, `fastTarget`, `computeReward`). One owner of the economy data: core `economy.js` (`progress` as plain data, the session coin book `ledger`, `addCoins`, `spendCoins`, `gameInv`, `gloveOf`; it saves only through `hooks.save`), while the client's `progress.js` only loads (`setProgress`) and saves. The `ledger` stays outside the game object, because it survives `startGame` and the shop writes it. In SPEC-012, every mid-level economy change is an immediate event (`coins`, `spent(slot, "kiss"|"kit"|"glove")`) that the client applies and saves at once. `result` carries only the win lines, and a practice game emits no economy events.
+- **Spec:** SPEC-011 AC 2b, 5 (placement, owner); SPEC-012 AC 1b, 6 (changed), 6b.
 
 #### RR-13 MEDIUM: The "same game" baseline would cover only an empty inventory [A13]
 - **Location:** SPEC-011 AC 7; `openGame()` clears storage. The run depends on `makeLittle` 2747 (upgrades), `gloveOf`/`hug` (gloves) and `autoThink` 3911–3936 (kisses and kits only when owned).
@@ -240,7 +242,7 @@ Context: `index.html` is 9,387 lines (module 49–9385). The 2D layer is 2,705 l
 #### RR-16 LOW: Hidden state changes in the frame loop and in drawing [A15]
 - **Location:** `showBanner` 2790 uses the wall clock; `frame` 9229 writes `big.dir` in menus; `frame` 9225 resets the world when leaving the wardrobe; `drawUI` 6931–6935 resets `shopTab`, `wardrobePage`, `toast`, `mapBgCache` and closes the name input (nothing happens in sim mode).
 - **Fix:** Move the resets into the screen-change functions (`flow.js`). Drawing never changes state.
-- **Spec:** SPEC-011 AC 7b.
+- **Spec:** SPEC-012 AC 1f (fix round: moved from SPEC-011 AC 7b; it belongs with the showcase-game work).
 
 ### 2.2 Saves and data
 
@@ -264,13 +266,13 @@ What a lost save costs a child today: every world goes back to locked (the Field
   3. Build `bebebe-save`, write it, read it back and validate it.
   4. Only then stamp it migrated.
 
-  Old keys stay untouched in this spec. A stale-tab write after migration is merged again with max rules. Unknown fields and unknown worlds are kept and written back. A save with a newer `version` is played but never rewritten.
+  Old keys stay untouched in this spec (except the gated "Erase all data on this device"). A fingerprint of each old key's raw value, stored at migration, detects a stale-tab write, which is merged again with max rules. Unknown fields and unknown worlds are kept and written back. Schema rule: fields are only ever added, and a change of shape gets a new field name. A save with a newer `version` is played and written back with its own version and every field. A known field that fails this version's validation is written back unchanged, with the default used only in memory.
 - **Spec:** SPEC-025 AC 3 (changed).
 
 #### RR-18 HIGH: "Reset progress" is two quick taps for anyone, with no grown-up check and no undo [S2, R3]
 - **Location:** `resetProgress` 2680–2689 (the first call arms, the second wipes, no minimum delay). The armed "Sure?" button is in the same rect (phone 6401–6405, desktop 6814), and buttons fire on `pointerdown` (3236). `game-design.md`: "double tap … (придумал Claude)".
 - **Why:** Small children double-tap all the time. Two taps ~100 ms apart, or two fingers in one frame (RR-68), erase everything. In a Kids-category app this is the most likely real-world loss of progress, more likely than storage failure. The planned single backup does not help (RR-20).
-- **Fix:** The confirm sits at a different spot and ignores taps for `CFG.RESET_CONFIRM_DELAY` s. Before wiping, the current save is kept as `bebebe-save-before-reset`, and an undo is offered. Moving the button behind the parents' gate is decision D-12 (recommended).
+- **Fix:** After the first tap the reset button shows "No, keep it". A separate confirm sits at a different spot and ignores taps for `CFG.RESET_CONFIRM_DELAY` s. The armed texts `sure`/`sureShort` ("Sure? Tap again") are retired. Before wiping, the current save is kept as `bebebe-save-before-reset`, and an undo is offered. Moving the button behind the parents' gate is decision D-12 (recommended).
 - **Spec:** SPEC-025 AC 6b; decision D-12.
 
 #### RR-19 HIGH: An unreadable save is replaced without a trace, sometimes at startup [S1]
@@ -305,8 +307,8 @@ What a lost save costs a child today: every world goes back to locked (the Field
 
 #### RR-24 MEDIUM: A win in its last ~4 s is lost if the app is hidden or killed [S7, R5]
 - **Location:** `winSoon` 3503 (`pendingWin` 1 s) + `startKindWalk` 3514 (3 s); the timer runs only in the frame loop (4236); `winNow` → `giveReward` is the only place a win is written. There is no `visibilitychange`/`pagehide` handler.
-- **Why:** Kids press Home right at the "Hooray!". The kids' rule is "обнял — победил" (`leaveLevel` already settles a pending win on the menu path).
-- **Fix:** On hide with `pendingWin > 0`, record and save the win as `leaveLevel` does. On `pagehide`, settle the level like `leaveLevel`. Settle at most once per level, so a page that comes back never pays twice.
+- **Why:** Kids press Home right at the "Hooray!". `docs/game-design.md` :67–68 already counts leaving during the last hug as the win (`leaveLevel` settles a pending win on the menu path). That rule is marked "решено во время запуска, проверить с детьми" (decided during a run, to check with the kids), not a kids' decision.
+- **Fix:** On hide (`visibilitychange` hidden or `pagehide`), save only an already-decided win (hearts at 0, `pendingWin > 0`), the way `leaveLevel` records it. Settle nothing else (no hug coins, no other economy change). Settle at most once per level: a page that comes back (visible again, or `pageshow.persisted` from the back/forward cache) continues without paying twice.
 - **Spec:** SPEC-025 AC 14b.
 
 #### RR-25 MEDIUM: Outfits are saved as list indexes [S8]
@@ -357,12 +359,14 @@ Remote dependencies (verified): only three.js r187 (`index.html:50`, which pulls
 #### RR-30 HIGH: Network-first `src/**` per file can mix module versions [P3, M3, M14]
 - **Location:** `sw.js:97–119` `networkFirst` (each request races `NET_TIMEOUT_MS` = 4 s on its own); SPEC-011 AC 9.
 - **Why:** With one file, network-first is atomic. With ~40 modules on a weak connection right after a deploy, some come from the network (new) and some from the cache (old). One renamed export causes a link error: a blank page with no error card, because no handler runs when the graph fails to link. This is the most likely field failure of the split, and it hits kids on mobile data.
-- **Fix:** Treat `index.html` + `src/**` as one versioned unit:
-  - Precache all-or-nothing into a cache named `SW_VERSION-SRC_HASH-ASSETS_HASH`. A script writes `SRC_HASH` and the module list between markers, like `npm run assets`.
-  - Serve cache-first from that one cache. The new set takes over on the next launch, which is what happens today already.
-
-  A test delays one changed module past `NET_TIMEOUT_MS` and checks the page still starts on one consistent version.
-- **Spec:** SPEC-011 AC 9 (replaced).
+- **Fix (fix round; keeps today's update timing):**
+  - `index.html` stays network-first exactly as today. An online launch gets the new version at once, and the test "index.html is network-first…" stays unchanged.
+  - `npm run precache` writes a content hash per module, and the import map in `index.html` maps every `src/**` module URL to `…?v=<hash>` (import maps also remap the modules' relative imports). A shell can therefore only load its own module versions: a new shell asks for new URLs (no mix, and no stale CDN edge), while an old cached shell keeps its old URLs.
+  - There is no dynamic `import()`.
+  - Caches are separate: shell + `src/` by `SRC_HASH`, sprites by `ASSETS_HASH`, three.js by version, so a code deploy re-downloads no sprites.
+  - Versioned module URLs are served cache-first. The service worker writes the `src` cache only at install, and deletes an old cache only when no page of that version is open (or keeps the last 2).
+  - After merging `master`, rerun `npm run precache`; a test catches a stale hash or import map.
+- **Spec:** SPEC-011 AC 9 (replaced; Phase B).
 
 #### RR-31 HIGH: The site file list lives in three places; CI never tests `_site` or the deployed site [P2, M14]
 - **Location:** `pages.yml:36–40` (hand-copied list), `sw.js:10–13` `PRECACHE_LOCAL`; a future Capacitor `webDir` would be the fourth copy.
@@ -486,8 +490,8 @@ Figures are estimates from code and files. Nothing was run on a device; see the 
 
 #### RR-51 LOW: Per-frame garbage; event-log splice; A* allocations [F12]
 - **Location:** `drawUI` rebuilds ~25 arrays per frame; `new Set(…)` ×3 per frame (8758/8795/8838); A* allocates four typed arrays per repath (2113); the event log `splice`s 5,000 entries per event once full (2489); `JSON.stringify(makeLook())` ×2 per frame in the wardrobe.
-- **Fix:** In SPEC-012, the event log becomes a ring buffer and the pathfinder reuses per-game scratch buffers. The client-side items go to the performance pass.
-- **Spec:** SPEC-012 AC 12; later.
+- **Fix:** The event log becomes a ring buffer and the pathfinder reuses per-game scratch buffers. The client-side items go to the performance pass. Meanwhile SPEC-012 AC 5 puts effect events in a separate uncapped `g.fx` queue, so the capped gameplay log never loses gameplay events.
+- **Spec:** BACKLOG (fix round: deferred from SPEC-012 AC 12); later.
 
 ### 2.5 Store policy and privacy
 
@@ -496,9 +500,9 @@ Verified today: one third-party request (three.js, RR-29). No analytics, ads, fo
 #### RR-52 BLOCKER: No privacy policy or parents' page inside the app [K2]
 - **Why:** Apple 5.1.1(i) requires a policy link in App Store Connect and inside the app, and 5.1.4(b) requires a policy for every Kids app. Google Families requires a policy that matches the Data safety form. A web link would be a link out and need a gate.
 - **Fix:**
-  - SPEC-025 reserves the slot: a grown-ups page behind the gate, with a short factual "Privacy" section in four languages. It is readable offline, has no external link, and states what the code does (nothing collected or sent; what is stored; how to erase it).
+  - SPEC-025 can reserve the slot, **only if Andrei agrees (D-13)**: a grown-ups page behind the gate, with a short factual "Privacy" section in four languages that points to "Erase all data on this device". It is readable offline, has no external link, and states what the code does (nothing collected or sent; what is stored; how to erase it).
   - The legal policy text, the hosted URL, the contact address and the developer/legal entity go to the later release spec. Those are Andrei's (decision D-13), and SPEC-025 keeps "privacy texts" (the legal policy) out of scope.
-- **Spec:** SPEC-025 AC 6d; later; decision D-13.
+- **Spec:** SPEC-025 AC 6d (conditional on D-13, not in the must-ship list); later; decision D-13.
 
 #### RR-53 HIGH: The planned parental gate ("hold for 3 seconds") is not an adult task; no Portuguese [K3]
 - **Location:** SPEC-025 AC 6 and its texts table.
@@ -600,9 +604,9 @@ Verified today: one third-party request (three.js, RR-29). No analytics, ads, fo
 - **Fix:** SPEC-025 exposes one `goBack()` (today's Escape logic) as the only back handler, plus `__bb.goBack`. The wrapper (later) wires the native Back to it. What Back does on the home screen is decision D-14.
 - **Spec:** SPEC-025 AC 14d; later; decision D-14.
 
-#### RR-71 MEDIUM: Flaky `bosses.spec.js:141`: the cause is unseeded test starts [R11]
-- **Location:** `tests/bosses.spec.js` 22–31, 141–161; `tests/helpers.js:196` (`resetGame` calls `seedRandom()` with no value); the same seeding after the start in `tests/tutorial.spec.js` 356, 546.
-- **Spec:** SPEC-012 AC 11. Root cause and fix: section 3a.
+#### RR-71 MEDIUM: Flaky `bosses.spec.js:143` (assert :163): the cause is unseeded test starts [R11]
+- **Location:** `tests/bosses.spec.js` 22–31 and the test at 143 (assert at 163); `tests/helpers.js:196` (`resetGame` calls `seedRandom()` with no value); the same seeding after the start in `tests/tutorial.spec.js` 356, 546.
+- **Spec:** SPEC-011 AC 8d (Phase A; fix round: moved from SPEC-012, so the harness is fixed before the split). Root cause and fix: section 3a.
 
 #### RR-72 LOW: Rotation and resize edge cases [R12]
 - **Location:** 6946–6955 (`buttons = []` only on `PHONE`, so tablet buttons stay live under the rotate overlay); 9225–9226 (rotating back resumes play instantly); 1169–1170 (`fit()` on every resize event).
@@ -625,7 +629,7 @@ Facts:
 - **Location:** `.github/workflows/pages.yml:24–46`: `upload-pages-artifact@v5` and `deploy-pages@v5` are consecutive steps of one job.
 - **Why:** The deploy is how every fix reaches PWA players and later the web tree the wrapper is built from. At review time the deployment of a52ecec (SPEC-031) had failed and the site served SPEC-030. SPEC-029 never deployed on its own.
 - **Fix:** See section 3b. A separate `build` job uploads in parallel with the tests. `deploy` (`needs: [test, build]`) runs only `deploy-pages`, with one automatic retry. A post-deploy check confirms the live site serves this commit.
-- **Spec:** SPEC-011 AC 10c (SPEC-011 edits `pages.yml` anyway).
+- **Spec:** SPEC-011 AC 10c, Phase A (SPEC-011 edits `pages.yml` anyway). This retires the reference note "never `gh run rerun --failed`" (§3b, §4).
 
 #### RR-75 HIGH: The 9,400-line split runs with no undefined-name check [M2]
 - **Location:** SPEC-011 AC 3/4/11 (regex import scan, `node --check`, Node import of core); ESLint arrives only in SPEC-025.
@@ -661,7 +665,7 @@ Facts:
 #### RR-78 MEDIUM: Dependency updates [M7]
 - **Location:** three.js in `index.html:50`, `sw.js:9` and `package.json` (tests serve `node_modules/three`); `pwa.spec.js:144` compares only `index.html` ↔ `sw.js`; `tests.yml` triggers only on `SPEC-*` pushes; `node-version: lts/*`; actions pinned by major tag.
 - **Why:** Dependabot bumping `three` in `package.json` alone would make CI test a version players never get. Dependabot branches get no CI, and CLAUDE.md forbids touching other people's branches. `lts/*` moves Node majors silently.
-- **Fix:** A version-equality test (RR-29). Dependabot ignores `three`. Add a `pull_request` trigger and a CLAUDE.md procedure for bot PRs. Pin the Node major. SHA-pin the actions.
+- **Fix:** A version-equality test (RR-29). Dependabot ignores `three`. Add a `pull_request` trigger and a CLAUDE.md procedure for bot PRs: CI green, then a `--no-ff` merge into `master`. Merging pushes only `master` and GitHub deletes the bot branch, so no exception to CLAUDE.md's "Never" is needed. Pin the Node major. SHA-pin the actions.
 - **Spec:** SPEC-025 AC 11 (changed).
 
 #### RR-79 MEDIUM: Text-fit tests depend on the CI machine's fonts [M8]
@@ -700,9 +704,9 @@ Facts:
 
 ## 3. Root causes
 
-### 3a. `tests/bosses.spec.js:141` flake (R11)
+### 3a. `tests/bosses.spec.js:143` flake (R11)
 
-- **What failed:** Pages run 45515871840 on `master`: "the bot goes to help" got `came = false`. The same test was green on the branch.
+- **What failed:** Pages run 45515871840 on `master`: the test "bots keep out of the grumpiest dad's front when he is not standing" (`tests/bosses.spec.js:143`) failed its assert "the bot goes to help" (`:163`) with `came = false`. The same test was green on the branch.
 - **Root cause:**
   - `startGame → resetWorld → makeLittle` draws each bot's approach side (`offset`), `lurkT`, `botAttackCd`, `itemCd` and `starCd` from the game rng.
   - The test seeded the rng only after `startGame`.
@@ -713,7 +717,7 @@ Facts:
   1. The test now checks one start state of a behaviour with a wide spread. Any unrelated change in rng draw order (a new `rand()` in `makeLittle`, `resetWorld` or `update`) reshuffles the scenario and can fail a later spec **deterministically**, which looks like a regression.
   2. `tests/tutorial.spec.js:356` and `:546` still seed after the start.
   3. A failing unseeded test cannot be reproduced, because the seed is never logged.
-- **Fix (SPEC-012 AC 11):**
+- **Fix (SPEC-011 AC 8d, Phase A; fix round: moved from SPEC-012 AC 11):**
   - `resetGame` seeds from the test title (a stable hash) and prints the seed on failure.
   - A smoke scan fails on any `startGame(`/`resetWorld(` in a test that is not preceded by `seedRandom(n)`.
   - Fix the two tutorial tests.
@@ -726,11 +730,11 @@ Facts:
   - Each log shows `Artifact github-pages successfully finalized`, then 0.24–0.45 s later `Fetching artifact metadata … Found 5 artifact(s)` (the 4 `blob-report-*` + `html-report`), then `No artifacts named "github-pages" were found`. Successful runs log `Found 6` with the same timing.
   - The "fresh `workflow_dispatch`" workaround also failed twice in a row (45517743297 → 45519899541; 45537497907 → 45539507388). Each retry re-runs all 4 shards (~15 min).
 - **Root cause:** Eventual consistency of the artifact listing. `deploy-pages` lists the run's artifacts a fraction of a second after `upload-pages-artifact` finalizes it in the same job, and the new artifact is sometimes not listed yet. It is not a name clash with the test artifacts: it also happened in older runs with 0 other artifacts. "Check githubstatus.com" is a generic message.
-- **Fix (SPEC-011 AC 10c):** Follow GitHub's two-job Pages layout.
+- **Fix (SPEC-011 AC 10c, Phase A):** Follow GitHub's two-job Pages layout.
   - A `build` job (checkout, `npm run site`, `configure-pages`, `upload-pages-artifact`) runs **in parallel** with the test shards. It does not need them, so the artifact is minutes old by the time it is listed.
   - `deploy` (`needs: [test, build]`) has only `deploy-pages`, as a first attempt with `continue-on-error: true`, then `sleep 30` and a second `deploy-pages` if the first failed.
   - A last step checks that the live site serves this commit's `index.html` (or that the deployment status of the sha is `success`).
-- **Side effect:** With the upload in its own job, `gh run rerun --failed` re-runs only the deploy and no longer uploads a second `github-pages` artifact. CLAUDE.md step 8, the `pages.yml` header comment and the memory note "Pages deploy rerun" can then be updated (SPEC-011 docs). This changes a process rule Andrei wrote down, but only because its reason goes away (see section 4, "for information").
+- **Side effect:** With the upload in its own job, `gh run rerun --failed` re-runs only the deploy and no longer uploads a second `github-pages` artifact. CLAUDE.md step 8, the `pages.yml` header comment and the memory note "Pages deploy rerun" can then be updated (SPEC-011 docs). That "never rerun --failed" line is a reference note written after the earlier failures, not a process rule from Andrei. It is retired only because its reason goes away, and Andrei is told (section 4, "for information").
 - **Follow-up:** Watch the next 10 `master` deploys. If any deploy step still fails, open a BACKLOG item with the logs.
 
 ---
@@ -780,8 +784,8 @@ Each item would change a goal, a decision-type out-of-scope line, or a rule that
     - **Question:** Move "Reset progress" from the child's Progress page to the grown-ups page behind the gate? The double-tap rule is Claude's, but the button leaves the child's page.
     - **Recommendation:** yes, with "bring back erased progress" (undo) there too. SPEC-025 does the safe part either way: a delayed confirm at another spot, plus undo.
 13. **D-13 Privacy policy text, contact and developer name** (RR-52, K2).
-    - **Question:** Who is named as developer (a person or a legal entity), which contact email goes into the policy, and what is the final legal wording? Publishing is parked, so this is for the release spec.
-    - **Recommendation:** use the factual list in Appendix A, a dedicated contact address, and the same text in the app and on the website.
+    - **Question:** Who is named as developer (a person or a legal entity), which contact email goes into the policy, and what is the final legal wording? Publishing is parked, so this is for the release spec. Also: may SPEC-025 already add a short factual "Privacy" section to the new grown-ups page (what is stored, nothing sent, how to erase it; not the legal policy), or does all privacy text wait for the release spec?
+    - **Recommendation:** yes to the short in-app section in SPEC-025 (it is offline, has no link and states only what the code does). For the policy: use the factual list in Appendix A, a dedicated contact address, and the same text in the app and on the website.
 14. **D-14 What Android Back does on the home screen** (RR-70, R10).
     - **Options:** leave the app at once; ask "Leave the game?" with big Yes/No; leave on a second Back within 2 s.
     - **Recommendation:** ask, with big buttons.
@@ -796,9 +800,11 @@ Each item would change a goal, a decision-type out-of-scope line, or a rule that
     - **Recommendation:** as proposed in section 5.
 
 **For information (no decision needed, but Andrei should know):**
-- After SPEC-011, the installed app takes a new version on the next launch, with the whole module set swapped at once (RR-30). This is what happens today too.
-- After the deploy fix, `gh run rerun --failed` becomes safe, and the "fresh run, never rerun --failed" rule and memory note will be updated (RR-74).
-- SPEC-025 changes Claude's reset rule (delay and a separate confirm spot) and the "unknown fields dropped" plan (RR-17, RR-18).
+- After SPEC-011, updates arrive exactly as today: an online launch gets the new version at once, because `index.html` stays network-first. The modules are pinned to their content hashes, so a page never mixes two versions (RR-30).
+- SPEC-011 AC 10c retires the reference note "red deploy with green tests: start a fresh run, never `gh run rerun --failed`" (CLAUDE.md step 8, the `pages.yml` comment and the memory note). With the upload in its own job, `rerun --failed` re-runs only the deploy. The note was written after the earlier failures; it is not a rule Andrei set, and it goes only because its reason goes away (RR-74).
+- SPEC-011 and SPEC-025 each run as three merges (phases) instead of one, because the queue 024 → 011 → 012 → 025 stays as Andrei set it.
+- SPEC-025 changes Claude's reset rule (a "No, keep it" button and a separate, delayed confirm spot, plus undo) and the "unknown fields dropped" plan, and adds a gated "Erase all data on this device" (RR-17, RR-18).
+- SPEC-025 saves a win that is already decided when the app is hidden. This extends the rule at `game-design.md` :67–68, which is marked "решено во время запуска, проверить с детьми", so it can be checked with the kids together with that rule (RR-24).
 - The rating answers in Appendix B assume D-1 stays open.
 
 ---
