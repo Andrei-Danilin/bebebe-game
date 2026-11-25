@@ -38,11 +38,11 @@ test("an error on every frame: the loop goes on, one card, one log entry with a 
   await frames(page);
   const r0 = await page.evaluate(() => window.__bb.sim().renders);
   await breakFrames(page, true);
-  await page.waitForTimeout(2000);
-  const during = await page.evaluate(() => window.__bb.sim().renders);
+  // the loop goes on: renders keep advancing while every frame throws (polled, not counted over a fixed time: a SwiftShader
+  // frame on CI is slow, so a 2 s wait saw only 2–3 frames there)
+  await page.waitForFunction(r => window.__bb.sim().renders >= r + 10, r0, { timeout: 60_000, polling: 100 });
   await breakFrames(page, false);
   await frames(page);
-  expect(during - r0, "frames keep coming").toBeGreaterThan(3);
   const c = await card(page);
   expect(c && c.text).toContain(OOPS.en);
   expect(c.buttons).toEqual(["Continue", RESTART.en]);

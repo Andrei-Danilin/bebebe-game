@@ -12,6 +12,9 @@ const shared = sharedPage();
 const fixture = (key, ctx, query = "") => async ({ browser }, use) => {
   const s = await shared.get(browser, key, ctx, p => openGame(p, { query }));
   await resetGame(s.page);
+  // the comic's bubbles are drawn only on its picture: wait until the art has loaded (or failed) — the shared page's first test
+  // ran before the sprites were in on a slow CI machine and saw every page without its picture
+  await s.page.waitForFunction(() => window.__bb.artInfo.done, null, { timeout: 60_000 });
   const cfg = await s.page.evaluate(() => JSON.stringify(window.__bb.CFG));
   await use(s.page);
   expect(s.errors.splice(0)).toEqual([]);
