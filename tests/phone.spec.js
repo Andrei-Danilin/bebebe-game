@@ -342,7 +342,7 @@ test.describe("phone camera", () => {
     });
     expect(st).toBe("down");
     cam = await page.evaluate(() => window.__bb.camera);
-    let l = await heroPos(page);
+    const l = await heroPos(page);
     expect(Math.hypot(cam.ahead.x, cam.ahead.y)).toBeLessThan(1);
     expect(Math.abs(cam.target.x - l.x)).toBeLessThan(3);
     expect(Math.abs(cam.target.y - l.y)).toBeLessThan(3);
@@ -445,7 +445,6 @@ test.describe("phone controls", () => {
     expect(walk.dx).toBeGreaterThan(150 * 0.5 * walk.share - 2);       // he walks right at the speed the stick says
     expect(walk.dx).toBeLessThan(150 * 0.5 * walk.share + 2);
     expect(Math.abs(walk.dy)).toBeLessThan(2);
-    let p0, p1;
     // a far drag: the base follows the finger
     await touch(page, "pointermove", 150 + 300, 300);
     st = await page.evaluate(() => window.__bb.sticks);
@@ -454,12 +453,12 @@ test.describe("phone controls", () => {
     await touch(page, "pointerup", 450, 300);
     expect(await page.evaluate(() => window.__bb.sticks.length)).toBe(0);
     // right part, not on a button: nothing
-    p0 = await heroPos(page);
+    const p0 = await heroPos(page);
     await touch(page, "pointerdown", ui.w * 0.8, 200, 8);
     await touch(page, "pointermove", ui.w * 0.8 - 60, 200, 8);
     expect(await page.evaluate(() => window.__bb.sticks.length)).toBe(0);
     await step(page, 0.5);
-    p1 = await heroPos(page);
+    const p1 = await heroPos(page);
     expect(Math.hypot(p1.x - p0.x, p1.y - p0.y)).toBeLessThan(3);    // a stick would move him ≥ 20 px (3: a bot may bump him)
     await touch(page, "pointerup", ui.w * 0.8 - 60, 200, 8);
     // buttons win over the stick: the kiss button (right) and the pause button inside the stick zone.
@@ -735,7 +734,7 @@ test.describe("phone mini-map", () => {
       return { arrows: b.edgeArrows, hs: b.toScreen(l.x, l.y), ts: b.toScreen(b.big.x, b.big.y), mm: b.minimap, buttons: b.buttonRects };
     });
     expect(r.ts.x < 0 || r.ts.x > ui.w || r.ts.y < 0 || r.ts.y > ui.h).toBe(true);   // really off screen
-    let big = r.arrows.filter(a => a.kind === "big");
+    const big = r.arrows.filter(a => a.kind === "big");
     expect(big.length).toBe(1);
     const want = Math.atan2(r.ts.y - r.hs.y, r.ts.x - r.hs.x);
     expect(Math.abs(big[0].angle - want)).toBeLessThan(0.01);
@@ -763,7 +762,7 @@ test.describe("phone mini-map", () => {
     const best = await page.evaluate(() => {
       const b = window.__bb, mm = b.minimap;
       // a world point whose screen point is inside the mini-map
-      grid: for (let y = 16; y < 640; y += 16) for (let x = 16; x < 960; x += 16) {
+      for (let y = 16; y < 640; y += 16) for (let x = 16; x < 960; x += 16) {
         const s = b.toScreen(x, y);
         if (s.x > mm.x + 10 && s.x < mm.x + mm.w - 10 && s.y > mm.y + 10 && s.y < mm.y + mm.h - 10) {
           Object.assign(b.littles[1], { x: 900, y: 40, state: "rest", restTimer: 999 });

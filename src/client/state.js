@@ -7,6 +7,8 @@ export const ui = {
   // её шагает __bb.simRun. Счётчики — для теста: сколько раз рисовали 3D, 2D и сколько звуков просили (не в sim).
   renders: 0,
   draws: 0,
+  // SPEC-025 AC 15b: the draw calls and triangles of the last main 3D render (its shadow pass included), for __bb.perf()
+  mainPass: { calls: 0, triangles: 0 },
   sounds: 0,
   // SPEC-030: openedWorld — главный мир, который открыла победа и который карта ещё не показала (или null); worldBanner — плашка
   // «<мир> открыт!» на карте { world, t } (или null). Карта при входе (после экрана победы и заставки финала, если она есть) переходит

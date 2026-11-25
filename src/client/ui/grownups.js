@@ -10,7 +10,7 @@
 import { CFG } from "../../core/config.js";
 import { vrand } from "../../core/util.js";
 import { L, lang } from "../../i18n.js";
-import { errorLog, hideCard } from "../errors.js";
+import { buildVersion, errorLog, hideCard } from "../errors.js";
 import { progressReplaced } from "../progress.js";
 import { eraseAll, importSave, listCopies, readCode, restoreCopy, saveCode, saveInfo, takeNote } from "../save.js";
 import { LOOK } from "../look.js";
@@ -75,16 +75,15 @@ function button(parent, label, act, act2) {
   return b;
 }
 function focusFirst(el) { const b = el.querySelector("button"); if (b) { b.classList.add("hl"); b.focus({ preventScroll: true }); } }
-const version = () => { try { return document.querySelector("meta[name=src-hash]").content; } catch (e) { return "?"; } };
 
 // ---------- the grown-ups page ----------
 // opened from How to play, behind the gate
 export function openGrownUps() { parentGate(showPage); }
 function showPage(note = null) {
   const el = card("grownups", [L().forGrownUps], true), box = el.firstChild, row = el.querySelector(".row");
-  box.firstChild.className = "title";
+  /** @type {HTMLElement} */ (box.firstChild).className = "title";
   const line = (t, cls) => { const d = document.createElement("div"); d.textContent = t; if (cls) d.className = cls; box.insertBefore(d, row); return d; };
-  line(`${L().version}: ${version()}`, "small");
+  line(`${L().version}: ${buildVersion()}`, "small");
   if (saveInfo.noSave) line(L().noSave, "note");
   if (note) line(note, "note");
   const act = (label, name, fn) => button(row, label, () => parentGate(fn), name);
@@ -102,7 +101,7 @@ function closePage() { hideCard("grownups"); }
 // a sub-view of the page: its lines, a text area (optional) and buttons [[label, name, act]]
 function subView(lines, buttons, text = null) {
   const el = card("grownups", [L().forGrownUps, ...lines], true), box = el.firstChild, row = el.querySelector(".row");
-  box.firstChild.className = "title";
+  /** @type {HTMLElement} */ (box.firstChild).className = "title";
   let area = null;
   if (text !== null) {
     area = document.createElement("textarea");
@@ -136,7 +135,7 @@ const when = at => { try { return new Date(at).toLocaleString(lang === "pt" ? "p
 // the stored copies (newest kinds first) → a button each: the date, the stars and the coins it holds
 async function showCopies() {
   const list = await listCopies();
-  const v = subView([L().restoreCopy], list.map(q => [`📅 ${when(q.at)} · ⭐ ${q.stars} · 🪙 ${q.coins}`, "copy:" + q.name, () => restoreAndShow(q.name)]).concat([["✕", "back", () => showPage()]]));
+  const v = subView([L().restoreCopy], /** @type {any[]} */ (list.map(q => [`📅 ${when(q.at)} · ⭐ ${q.stars} · 🪙 ${q.coins}`, "copy:" + q.name, () => restoreAndShow(q.name)])).concat([["✕", "back", () => showPage()]]));
   v.el.dataset.copies = list.map(q => q.name).join(",");
 }
 async function restoreAndShow(name) {
@@ -151,7 +150,7 @@ function showLog() {
 // the highlight (Enter / pad A) starts on "No, keep it"
 function confirmErase() {
   const v = subView([L().eraseAll + "?"], [[L().resetConfirm, "eraseYes", () => { eraseAll().then(() => location.reload()); }], [L().resetCancel, "eraseNo", () => showPage()]]);
-  const no = v.el.querySelector("[data-act=eraseNo]");
+  const no = /** @type {HTMLElement} */ (v.el.querySelector("[data-act=eraseNo]"));
   v.el.querySelectorAll("button").forEach(b => b.classList.toggle("hl", b === no));
   no.focus({ preventScroll: true });
 }

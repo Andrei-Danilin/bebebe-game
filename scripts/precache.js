@@ -11,6 +11,12 @@
 //   sw.js:      between // precache:start / // precache:end — SRC_HASH, the shell files (PRECACHE_LOCAL) and the versioned
 //               module URLs (PRECACHE_SRC) the service worker installs into its "src" cache; THREE_VERSION (r<REVISION> of
 //               the vendored build) and PRECACHE_THREE, the versioned vendor URLs of its three.js cache (SPEC-025 AC 1).
+// SPEC-025 AC 12: and the versions —
+//   src/version.js: `export const VERSION = "<package.json version>"` (written first: it is a module, hashed like the rest);
+//   sw.js (same block): SW_VERSION = "bebebe-<version>-b<SW_BUILD>", derived — SW_BUILD is a build counter that goes up by one
+//               whenever SW_STRATEGY changes: the hash of sw.js outside its generated blocks (the cache strategy) and of the
+//               shell files the src cache keeps besides index.html (the icons, the manifest). So a strategy change or a
+//               redrawn icon can't ship under the old SW_VERSION, and a module- or sprite-only change keeps it.
 // A test (tests/pwa.spec.js) fails when the committed hashes, import map or SRC_HASH do not match the files: rerun this.
 //   node scripts/precache.js [--check]
 const crypto = require("crypto");
@@ -26,6 +32,9 @@ const ENTRY = "./src/client/main.js";
 const ENTRY_RE = /<script type="module" src="\.\/src\/client\/main\.js(?:\?v=[0-9a-f]*)?"><\/script>/;
 const THREE_DIR = "vendor/three";
 const THREE_ENTRY = "./vendor/three/three.module.js";
+const VERSION_FILE = path.join(ROOT, "src", "version.js");
+const SW_BLOCKS = [MARK, ["// assets:start", "// assets:end"]];   // generated: not part of the cache strategy
+const TEXT_SHELL = /\.(svg|webmanifest|json)$/;
 const hashOf = text => crypto.createHash("sha256").update(text).digest("hex").slice(0, 10);
 // a module's hash: of its text with LF line ends (a Windows checkout with CRLF gives the same hash as CI and Pages)
 const fileHash = f => hashOf(fs.readFileSync(f, "utf8").split("\r\n").join(NL));
@@ -37,7 +46,7 @@ const rel = f => "./" + path.relative(ROOT, f).replace(/\\/g, "/");
 // its licence file ships with the site but is not cached). sw.js is the worker itself, assets/ has its own list (npm run
 // assets), so neither is here.
 function lists() {
-  const shell = ["./"], modules = [], three = [];
+  const shell = ["./"], modules = [], three = [], shellFiles = [];
   for (const e of SITE) {
     const p = path.join(ROOT, e);
     if (e === "sw.js" || e === "assets") continue;
@@ -48,13 +57,35 @@ function lists() {
     const files = fs.statSync(p).isDirectory() ? walk(p).sort() : [p];
     for (const f of files) {
       if (e === "src") { if (f.endsWith(".js")) modules.push({ url: rel(f), hash: fileHash(f) }); }
-      else shell.push(rel(f));
+      else { shell.push(rel(f)); if (e !== "index.html") shellFiles.push(`${rel(f)} ${shellFileHash(f)}`); }
     }
   }
   modules.sort((x, y) => (x.url < y.url ? -1 : x.url > y.url ? 1 : 0));   // by posix path, the same on every system
   shell.sort((x, y) => (x === "./" ? -1 : y === "./" ? 1 : x < y ? -1 : x > y ? 1 : 0));
   const srcHash = hashOf(modules.map(m => `${m.url} ${m.hash}`).join(NL));
-  return { shell, modules, srcHash, three, threeVersion: threeVersion() };
+  const shellHash = hashOf(shellFiles.sort().join(NL));
+  return { shell, modules, srcHash, three, threeVersion: threeVersion(), version: gameVersion(), shellHash };
+}
+// a cached shell file's hash: text with LF line ends, binary (the png icons) as bytes
+const shellFileHash = f => (TEXT_SHELL.test(f) ? fileHash(f) : crypto.createHash("sha256").update(fs.readFileSync(f)).digest("hex").slice(0, 10));
+// SPEC-025 AC 12: the game version (package.json "version", semver) and the text of src/version.js for it
+function gameVersion() {
+  const v = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8")).version;
+  if (!/^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/.test(v || "")) throw new Error(`package.json: version "${v}" is not semver`);
+  return v;
+}
+const versionModule = v => [
+  "// SPEC-025 AC 12: the game version, from package.json \"version\" — written by npm run precache (scripts/precache.js), do not",
+  "// edit by hand. Shown on the grown-ups page and kept in the error log as <VERSION>+<SRC_HASH> (shared data).",
+  `export const VERSION = ${JSON.stringify(v)};`, ""].join(NL);
+// the cache strategy of a sw.js text: everything outside its generated blocks
+function strategyText(sw) {
+  let out = sw;
+  for (const [a, b] of SW_BLOCKS) {
+    const i = out.indexOf(a), j = out.indexOf(b);
+    if (i >= 0 && j > i) out = out.slice(0, out.indexOf(NL, i) + 1) + out.slice(j);
+  }
+  return out;
 }
 // the version of the vendored build: "r" + three.js REVISION (in three.core.js); its cache is named by it (sw.js)
 function threeVersion() {
@@ -94,25 +125,39 @@ function writeIndex(html, { modules, srcHash, three }) {
   return html;
 }
 
-function writeSw(sw, { shell, modules, srcHash, three, threeVersion: tv }) {
+function writeSw(sw, { shell, modules, srcHash, three, threeVersion: tv, version, shellHash }) {
   const a = sw.indexOf(MARK[0]), b = sw.indexOf(MARK[1]);
   if (a < 0 || b < a) throw new Error(`sw.js: markers ${MARK[0]} … ${MARK[1]} not found`);
-  const block = [`const SRC_HASH = "${srcHash}";`, "const PRECACHE_LOCAL = [", arrayLines(shell, "  "), "];",
+  // SPEC-025 AC 12: the build counter goes up when the strategy (or a cached shell file) changed since the block was written;
+  // the first run continues the hand-bumped "bebebe-v<N>"
+  const strategy = hashOf(strategyText(sw) + NL + shellHash);
+  const oldStrategy = (sw.match(/const SW_STRATEGY = "([0-9a-f]+)";/) || [])[1];
+  const oldBuild = Number((sw.match(/const SW_BUILD = (\d+);/) || sw.match(/const SW_VERSION = "bebebe-v(\d+)";/) || [0, 0])[1]);
+  const build = oldStrategy === strategy ? oldBuild : oldBuild + 1;
+  const block = [`const SW_BUILD = ${build};`, `const SW_STRATEGY = "${strategy}";`, `const SW_VERSION = "bebebe-${version}-b${build}";`,
+    `const SRC_HASH = "${srcHash}";`, "const PRECACHE_LOCAL = [", arrayLines(shell, "  "), "];",
     "const PRECACHE_SRC = [", arrayLines(modules.map(x => `${x.url}?v=${x.hash}`), "  "), "];",
     `const THREE_VERSION = "${tv}";`, "const PRECACHE_THREE = [", arrayLines(three.map(x => `${x.url}?v=${x.hash}`), "  "), "];"].join(NL);
   return sw.slice(0, sw.indexOf(NL, a) + 1) + block + NL + sw.slice(b);
 }
 
-// what the two files should be now (LF); the caller keeps a file's line ends
+// what the files should be now (LF); the caller keeps a file's line ends. src/version.js is one of the modules: a stale one
+// (check mode, or before the write) is hashed as it will be written
 function expected() {
-  const L = lists(), lf = f => fs.readFileSync(f, "utf8").split("\r\n").join(NL);
-  return { lists: L, index: writeIndex(lf(INDEX), L), sw: writeSw(lf(SW), L) };
+  const lf = f => (fs.existsSync(f) ? fs.readFileSync(f, "utf8").split("\r\n").join(NL) : "");
+  const version = versionModule(gameVersion()), L = lists();
+  if (lf(VERSION_FILE) !== version) {
+    L.modules = L.modules.filter(x => x.url !== "./src/version.js").concat([{ url: "./src/version.js", hash: hashOf(version) }]);
+    L.modules.sort((x, y) => (x.url < y.url ? -1 : x.url > y.url ? 1 : 0));
+    L.srcHash = hashOf(L.modules.map(m => `${m.url} ${m.hash}`).join(NL));
+  }
+  return { lists: L, version, index: writeIndex(lf(INDEX), L), sw: writeSw(lf(SW), L) };
 }
 
 function run({ check = false } = {}) {
   const e = expected(), stale = [];
-  for (const [file, next] of [[INDEX, e.index], [SW, e.sw]]) {
-    const text = fs.readFileSync(file, "utf8"), eol = text.includes("\r\n") ? "\r\n" : NL;
+  for (const [file, next] of [[VERSION_FILE, e.version], [INDEX, e.index], [SW, e.sw]]) {
+    const text = fs.existsSync(file) ? fs.readFileSync(file, "utf8") : "", eol = text.includes("\r\n") ? "\r\n" : NL;
     if (text.split("\r\n").join(NL) === next) continue;
     stale.push(path.basename(file));
     if (!check) fs.writeFileSync(file, next.split(NL).join(eol));
@@ -120,7 +165,7 @@ function run({ check = false } = {}) {
   return { stale, srcHash: e.lists.srcHash, modules: e.lists.modules.length };
 }
 
-module.exports = { lists, expected, run, writeIndex, writeSw, hashOf, fileHash, threeVersion, MARK, ENTRY, THREE_ENTRY };
+module.exports = { lists, expected, run, writeIndex, writeSw, hashOf, fileHash, threeVersion, gameVersion, versionModule, strategyText, MARK, ENTRY, THREE_ENTRY };
 
 if (require.main === module) {
   const check = process.argv.includes("--check");

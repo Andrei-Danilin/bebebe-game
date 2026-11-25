@@ -122,7 +122,8 @@ test.describe(() => {
 test("service worker registers and controls the page over http", { tag: "@fast" }, async ({ page }) => {
   const errors = await openGameHttp(page);
   await waitForSW(page);
-  expect(SW_VERSION).toBe("bebebe-v6");   // SPEC-025 AC 1: the vendored three.js from this origin (a strategy change)
+  // SPEC-025 AC 12: derived by npm run precache — the game version + the build counter (tests/tooling.spec.js)
+  expect(SW_VERSION).toBe(`bebebe-${JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8")).version}-b${(SW_SRC.match(/const SW_BUILD = (\d+);/) || [])[1]}`);
   expect(ASSETS_HASH && SRC_HASH && THREE_VERSION).toBeTruthy();
   // SPEC-011 AC 9: exactly the three caches
   expect((await page.evaluate(() => caches.keys())).sort()).toEqual([CACHE_ASSETS, CACHE_SRC, CACHE_THREE].sort());
@@ -261,6 +262,36 @@ test("a new shell never loads an old module", async ({ page }) => {
     expect(await page.evaluate(() => document.querySelector("meta[name=src-hash]").content)).toBe("testnew999");
     expect(await page.evaluate(() => window.__bbModuleVersion), "the new module, not the cached old one").toBe("new");
     expect(asked).toEqual(["?v=testnew001"]);
+  });
+});
+
+// SPEC-025 AC 13 (the rollback runbook relies on it): the installed app (worker active) gets a broken deploy — a shell whose
+// module throws at load: that launch shows the failed-start card, never a frozen screen. Then the fix (or a redeployed good
+// tag) goes live: the next online launch runs the fixed version, not a cached broken one (index.html is network-first, a
+// broken shell is never cached: its modules are not the worker's)
+test("a broken shell is replaced on the next online launch", async ({ page }) => {
+  test.slow();                       // serves three versions to an installed app
+  const ov = { fn: () => null };
+  await withOwnServer(page, ov, async () => {
+    const map = JSON.parse(INDEX_SRC.match(/<script type="importmap">([\s\S]*?)<\/script>/)[1]).imports;
+    const broken = {
+      html: INDEX_SRC.replace(map[ART_URL], ART_URL + "?v=testbad001").replace(`<meta name="src-hash" content="${SRC_HASH}">`, "<meta name=\"src-hash\" content=\"testbad999\">"),
+      art: fs.readFileSync(path.join(ROOT, ART_FILE), "utf8") + "\nthrow new Error(\"test: a broken build\");\n"
+    };
+    ov.fn = p => (p === "/index.html" || p === "/" ? broken.html : p === ART_FILE ? broken.art : null);
+    await page.reload();
+    await page.waitForSelector("#start-failed", { timeout: 30_000 });
+    expect(await page.evaluate(() => [document.querySelector("meta[name=src-hash]").content, window.__bbReady === true]), "the broken deploy").toEqual(["testbad999", false]);
+    // the fix is deployed: the next online launch runs it
+    const fixed = newVersion("fixed");
+    ov.fn = p => (p === "/index.html" || p === "/" ? fixed.html : p === ART_FILE ? fixed.art : null);
+    await page.reload();
+    await page.waitForFunction(() => window.__bbReady === true, null, { timeout: 30_000 });
+    expect(await page.evaluate(() => [document.querySelector("meta[name=src-hash]").content, window.__bbModuleVersion, !!document.getElementById("start-failed")]),
+      "the fixed version runs").toEqual(["testnew999", "fixed", false]);
+    await page.evaluate(() => { window.__bb.seedRandom(1); window.__bb.startGame(1); });
+    await step(page, 1);
+    expect(await page.evaluate(() => window.__bb.mode)).toBe("play");
   });
 });
 

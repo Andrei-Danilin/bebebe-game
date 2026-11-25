@@ -52,6 +52,10 @@ test("the gate: a multiplication in words, four answers; wrong → a new questio
   await page.evaluate(w => { window.__bb.CFG.GATE_WRONG_WAIT = w; }, wait0);
   await answer(page, true);
   expect(await page.evaluate(() => [!!document.getElementById("grownups"), window.__bb.grownUps.gate])).toEqual([true, null]);
+  // SPEC-025 AC 12: the page shows the game version (package.json = src/version.js) with the module set's hash
+  const pkgVersion = JSON.parse(require("fs").readFileSync(require("path").join(__dirname, "..", "package.json"), "utf8")).version;
+  const srcHash = await page.evaluate(() => document.querySelector("meta[name=src-hash]").content);
+  expect(await page.evaluate(() => document.querySelector("#grownups").textContent)).toContain(`Versión: ${pkgVersion}+${srcHash}`);
   // ✕ closes a gate without opening anything
   await page.click("#grownups [data-act=close]");
   await page.evaluate(() => { window.__bb.grownUps.open(); });
@@ -93,6 +97,11 @@ test("reset: two taps 50 ms apart and two pointers in one frame change nothing; 
   await frames(page);
   await page.evaluate(() => window.__bb.tapButton("home:shop"));
   await frames(page);
+  // the shipped delay; the delay is wall clock (performance.now() since the arming tap, progress.js resetConfirmReady). On a
+  // software-rendered CI page arm → frames → rects → 50 ms → click took longer than 0.8 s, so the taps "within the delay" run
+  // with a long delay, and the real reset below with the shipped one again
+  expect(await page.evaluate(() => window.__bb.CFG.RESET_CONFIRM_DELAY)).toBe(0.8);
+  await page.evaluate(() => { window.__bb.CFG.RESET_CONFIRM_DELAY = 60; });
   // a double tap: the reset button, then 50 ms later where the confirm appears
   await clickButton(page, "progress:reset");
   await frames(page);
@@ -117,8 +126,8 @@ test("reset: two taps 50 ms apart and two pointers in one frame change nothing; 
   await frames(page);
   expect(await page.evaluate(() => [window.__bb.progress.coins, window.__bb.progress.worlds.park.unlocked]), "two pointers in one frame").toEqual([345, 5]);
   // the real reset: armed, then the confirm after CFG.RESET_CONFIRM_DELAY
+  await page.evaluate(() => { window.__bb.CFG.RESET_CONFIRM_DELAY = 0.8; });
   if (!(await page.evaluate(() => window.__bb.buttonRects.some(r => r.id === "progress:confirm")))) { await clickButton(page, "progress:reset"); await frames(page); }
-  expect(await page.evaluate(() => window.__bb.CFG.RESET_CONFIRM_DELAY)).toBe(0.8);
   await page.waitForTimeout(850);
   await frames(page);
   await clickButton(page, "progress:confirm");
@@ -380,7 +389,8 @@ test("two reset copies: a 60-star reset, play to 30 stars, reset again — both 
 
 test("during the gate's wait, ←/→ and the highlight skip the disabled answers: Enter only closes", async ({ page }) => {
   const errors = await openGame(page);
-  await page.evaluate(() => { window.__bb.mode = "story"; window.__bb.grownUps.open(); });
+  // the wait is wall clock: a long one, so slow (software-rendered) key presses all land inside it
+  await page.evaluate(() => { window.__bb.CFG.GATE_WRONG_WAIT = 60; window.__bb.mode = "story"; window.__bb.grownUps.open(); });
   await answer(page, false);
   for (const k of ["ArrowLeft", "ArrowRight", "ArrowRight", "ArrowLeft", "ArrowRight"]) {
     await page.keyboard.press(k);
@@ -388,5 +398,6 @@ test("during the gate's wait, ←/→ and the highlight skip the disabled answer
   }
   await page.keyboard.press("Enter");
   expect(await page.evaluate(() => [!!document.getElementById("gate"), !!document.getElementById("grownups")])).toEqual([false, false]);
+  await page.evaluate(() => { window.__bb.CFG.GATE_WRONG_WAIT = 3; });
   expect(errors).toEqual([]);
 });

@@ -1,0 +1,33 @@
+# SPEC-025 AC 11: Dependabot — weekly, grouped PRs for the npm dev dependencies (tests and tooling; the game itself has no
+# runtime dependency) and for the GitHub Actions (pinned by commit SHA, AC 10). three.js is never bumped here: a new three.js is
+# a spec of its own (the vendored files, the licences, the service worker; CLAUDE.md hard rule 8).
+# Minor and patch updates come grouped (one PR per ecosystem); a major update comes as a PR of its own (read its breaking changes).
+# How such a PR is tested and merged: CLAUDE.md "Dependabot".
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps"
+    ignore:
+      - dependency-name: "three"
+    groups:
+      dev-dependencies:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps"
+    groups:
+      actions:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]

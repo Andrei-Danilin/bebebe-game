@@ -16,7 +16,7 @@ async function checkServer() {
   const base = `http://localhost:${Number(process.env.PORT) || 8123}/`, want = rootIdOf(ROOT);
   const stop = why => new Error(`[tests] the server at ${base} ${why}: stop it (an npm run serve of another checkout?) or set PORT`);
   let got;
-  try { got = (await fetch(base + "index.html", { method: "HEAD" })).headers.get("x-bebebe-root"); } catch (e) { throw new Error(`[tests] no http server at ${base}: ${e.message}`); }
+  try { got = (await fetch(base + "index.html", { method: "HEAD" })).headers.get("x-bebebe-root"); } catch (e) { throw new Error(`[tests] no http server at ${base}: ${e.message}`, { cause: e }); }
   if (got === want) return;
   if (got) throw stop(`serves another tree (X-Bebebe-Root ${got}, this checkout ${want})`);
   // no header: an older serve.js — it must serve exactly this checkout's files
@@ -31,7 +31,7 @@ module.exports = async function globalSetup() {
   await checkServer();
   lowerPriority();
   if (glBackend() !== "gpu" || !gpuAuto()) return;
-  let renderer = "", browser;
+  let renderer, browser;
   try {
     browser = await chromium.launch({ args: browserArgs("gpu"), ...(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {}) });
     const page = await browser.newPage();

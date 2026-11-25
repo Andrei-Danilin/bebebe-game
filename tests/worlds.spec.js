@@ -25,7 +25,6 @@ const test = base.test.extend({
 });
 test.afterAll(async () => { await shared.close(); await sharedSim.close(); });
 
-const WORLDS = ["park", "field", "city", "school", "beach", "winter"];
 const SAVES_DIR = path.join(__dirname, "fixtures", "saves");
 const save = n => JSON.parse(fs.readFileSync(path.join(SAVES_DIR, n + ".json"), "utf8"));
 // in the page: every level 1…n of a world won (the world finished when n = 20)

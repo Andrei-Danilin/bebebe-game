@@ -21,7 +21,6 @@ const putStorage = (page, keys) => page.evaluate(k => {
   for (const [n, v] of Object.entries(k)) localStorage.setItem(n, v);
 }, asStored(keys));
 const rawKey = (page, k) => page.evaluate(n => localStorage.getItem(n), k);
-const bebebeKeys = page => page.evaluate(() => Object.keys(localStorage).filter(k => k.startsWith("bebebe-")).sort());
 // a level won the quick way (the economy's own win path): world w, level n
 const winLevel = (page, w, n) => page.evaluate(([w2, n2]) => { const b = window.__bb; b.world = w2; b.level = n2; b.startGame(1); b.giveReward(true); b.mode = "home"; }, [w, n]);
 

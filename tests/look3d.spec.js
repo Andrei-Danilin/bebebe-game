@@ -268,7 +268,7 @@ test("a house roof fades while someone is inside, so it never hides a Little One
   expect(await page.evaluate(() => { const b = window.__bb; b.world = "park"; b.level = 1; b.startGame(1); return b.look3D("houses").houses.kid.alpha; })).toBeLessThan(0.5);
   await play(page, "park", 1);
   const place = inside => page.evaluate(inKid => {
-    const b = window.__bb, z = b.safeZone, d = b.dangerZone;
+    const b = window.__bb, z = b.safeZone;
     b.mode = "play";
     b.littles.forEach((l, i) => { l.x = 15 * 32 + i * 40; l.y = 10 * 32; });   // the middle of the map, far from both houses
     Object.assign(b.big, { x: 20 * 32, y: 12 * 32, state: "look", timer: 999 });

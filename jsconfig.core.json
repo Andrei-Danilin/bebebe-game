@@ -1,0 +1,13 @@
+// SPEC-025 AC 9: the core (src/core/ + the shared data it imports) strict-ish — every `strict` check except noImplicitAny and
+// strictNullChecks (both deferred: BACKLOG "Core noImplicitAny"). No DOM lib: only ES2022 and the globals Node and browsers share
+// (types/core-globals.d.ts), so a browser global in the core is a type error too. Run by `npm run typecheck` after jsconfig.json.
+{
+  "extends": "./jsconfig.json",
+  "compilerOptions": {
+    "strict": true,
+    "noImplicitAny": false,
+    "strictNullChecks": false,
+    "lib": ["ES2022"]
+  },
+  "include": ["src/core/**/*.js", "src/i18n.js", "src/story.js", "src/version.js", "types/core-globals.d.ts"]
+}

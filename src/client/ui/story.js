@@ -240,7 +240,7 @@ export function drawScene() {
   if (!ui.storyScene) return;
   const M = LOOK.MENU_LOOK, S = M.scene, k = PHONE ? cpx(1) : 1, minMain = PHONE ? minPx("main") : 14;
   const { X0, X1, Y0, Y1, g, B } = menuFrame();
-  const pages = scenePages(ui.storyScene.id), n = pages.length, pg = pages[ui.storyScene.page], last = ui.storyScene.page === n - 1;
+  const pages = scenePages(ui.storyScene.id), n = pages.length, pg = /** @type {any} */ (pages[ui.storyScene.page]), last = ui.storyScene.page === n - 1;
   const before = ui.storyScene.play;                           // перед уровнем: на последней странице «Играть»
   // нижний ряд: «Пропустить» слева (на последней странице длинной заставки её нет), точки страниц, справа «Дальше» / «Играть» / «Готово»
   const by = Y1 - B, bw = PHONE ? Math.min((X1 - X0) * 0.36, Math.max(B * 2.8, cpx(150))) : S.btnW, bsz = PHONE ? cpx(20) : 24;

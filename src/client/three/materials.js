@@ -10,7 +10,10 @@ import { renderer, scene, sun } from "./setup.js";
 
 // ---------- Материалы ----------
 // SPEC-021: два тона, как фломастер — свет и тень (TOON_LOOK.tones), без бликов (MeshToonMaterial)
-export const gradTex = new THREE.DataTexture(new Uint8Array(LOOK.TOON_LOOK.tones), LOOK.TOON_LOOK.tones.length, 1, THREE.RedFormat);
+// SPEC-025 AC 15: marks a texture the whole game shares (the toon gradient, the ground canvas, the paper grain) — disposeTree
+// never frees it. A module that makes a texture for the whole game passes it through here.
+export function sharedTex(t) { t.userData.shared = true; return t; }
+export const gradTex = sharedTex(new THREE.DataTexture(new Uint8Array(LOOK.TOON_LOOK.tones), LOOK.TOON_LOOK.tones.length, 1, THREE.RedFormat));
 
 const matCache = new Map();
 export function toon(color) {
@@ -82,11 +85,18 @@ export function part(geo, color, outline = 0.03, mat = null) {
   }
   return m;
 }
+// SPEC-025 AC 15: ownership. A tree's geometries are its own; an own material (userData.own: ownMat and the like) belongs to the
+// tree that uses it, and so do its textures — unless marked by sharedTex() (the whole game's: gradient, ground canvas, paper
+// grain). Shared materials (toon(), OUTLINE) and shared textures are never freed here. TEX_SLOTS: the texture slots looked at.
+const TEX_SLOTS = ["map", "alphaMap", "aoMap", "bumpMap", "emissiveMap", "gradientMap", "lightMap", "normalMap", "displacementMap", "specularMap"];
 export function disposeTree(root) {
   root.traverse(o => {
     if (o.geometry) o.geometry.dispose();
     if (o.isInstancedMesh) o.dispose();                  // буфер матриц InstancedMesh
-    if (o.material && o.material.userData && o.material.userData.own) o.material.dispose();
+    if (o.material && o.material.userData && o.material.userData.own) {
+      for (const k of TEX_SLOTS) { const t = o.material[k]; if (t && t.isTexture && !t.userData.shared) t.dispose(); }
+      o.material.dispose();
+    }
   });
 }
 export const sphere = (r, w = 16, h = 12) => new THREE.SphereGeometry(r, w, h);
@@ -124,7 +134,7 @@ function makePaperGrain() {
     g.globalAlpha = 0.2 + rnd() * 0.3; g.beginPath(); g.moveTo(x, y);
     g.quadraticCurveTo(x + Math.cos(a) * len / 2 + (rnd() - 0.5) * 4, y + Math.sin(a) * len / 2 + (rnd() - 0.5) * 4, x + Math.cos(a) * len, y + Math.sin(a) * len); g.stroke();
   }
-  const tex = new THREE.CanvasTexture(cv); tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  const tex = sharedTex(new THREE.CanvasTexture(cv)); tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
   paperU.uTex.value = tex;
   paperMade++;
 }
@@ -146,7 +156,7 @@ export function initMaterials() {
   groundCanvas = document.createElement("canvas");
   groundCanvas.width = W * 2;
   groundCanvas.height = H * 2;
-  groundTex = new THREE.CanvasTexture(groundCanvas);
+  groundTex = sharedTex(new THREE.CanvasTexture(groundCanvas));   // SPEC-025 AC 15: repainted per level, never freed
   groundTex.colorSpace = THREE.SRGBColorSpace;
   groundTex.anisotropy = 8;
   paperMesh.frustumCulled = false;

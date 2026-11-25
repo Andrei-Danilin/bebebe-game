@@ -340,6 +340,7 @@ export function render3D(t) {
   syncScene(t);
   renderer.setViewport(0, 0, CSS_W, CSS_H);
   renderer.render(scene, camera);
+  ui.mainPass.calls = renderer.info.render.calls; ui.mainPass.triangles = renderer.info.render.triangles;   // SPEC-025 AC 15b
   if ((inWardrobe() && ui.wardrobePage === "looks") || progressTab()) renderPreviews(t);   // SPEC-026: и на странице «Прогресс»
 }
 
