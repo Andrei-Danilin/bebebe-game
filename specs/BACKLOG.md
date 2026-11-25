@@ -329,3 +329,5 @@ One line each: what, where it came from. The spec author turns a line into a spe
 - (SPEC-025 phase 2) A held field (a newer version's shape of a known field, e.g. `inv`) silently drops this build's changes to it — note it in the rollback runbook (phase 3, AC 13).
 - (SPEC-025 phase 2) `CFG.GATE_*` and `CFG.RESET_CONFIRM_DELAY` are UI numbers in the core `CFG` — move them to `LOOK` at a config tidy-up.
 - (SPEC-025 phase 2) AC 6d, the factual "Privacy" section of the grown-ups page (`privacyTitle`, `privacyText`): skipped until Andrei decides D-13; else the release spec.
+- (release review, SPEC-025 phase 3, AC 9) Core `noImplicitAny` (and `strictNullChecks`): `jsconfig.core.json` runs every other `strict` check; turning `noImplicitAny` on means JSDoc types on ~590 core parameters (deferred as the AC allows).
+- (SPEC-025 phase 3, AC 8) Prettier over the JS of `src/`, `scripts/`, `tests/`: `.prettierrc.json` already holds today's style, but Prettier would rewrite every JS file (one statement per line, wrapped declarations); a spec of its own (one mechanical commit, module hashes rerun, the source-scanning tests checked) if Andrei wants it.
