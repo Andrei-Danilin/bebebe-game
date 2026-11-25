@@ -4,7 +4,7 @@ import { hooks } from "./hooks.js";
 import { angDiff, dist, rand, rng, turnToward } from "./util.js";
 import { bigSpeeds } from "./difficulty.js";
 import { bigDeaf, hearNoise, stopHearing } from "./hearing.js";
-import { inBush, randomFreePoint, steerTo } from "./path.js";
+import { inBush, moveEntity, randomFreePoint, steerTo } from "./path.js";
 import { pushHit } from "./rules.js";
 import { inSafe, los, seeSolidAt } from "./world.js";
 import { G } from "./active.js";
@@ -17,6 +17,24 @@ export function canSee(l) {
   if (d < G.big.r + l.r + 22 && diff < 1.9) return true;
   if (d > 45 && inBush(l)) return false;
   return d < CFG.VISION_RANGE && diff < CFG.VISION_HALF && los(G.big.x, G.big.y, l.x, l.y, seeSolidAt);
+}
+// SPEC-012 AC 4: a Big One a player moves (G.inputs.big): his timers run, he walks where the stick points at his chase speed
+// (not while stunned, slipping or red); no AI — no seeing, chasing, hearing or patrol (the push and button rules: SPEC-015)
+export function updateBigPlayer(dt) {
+  const b = G.big, inp = G.inputs.big;
+  b.flash = Math.max(0, b.flash - dt); b.hugCd = Math.max(0, b.hugCd - dt); b.noPush = Math.max(0, b.noPush - dt);
+  b.pushCd = Math.max(0, b.pushCd - dt); b.blush = Math.max(0, b.blush - dt);
+  b.moving = false;
+  if (b.slip > 0) { b.slip -= dt; return; }
+  if (b.stun > 0) { b.stun -= dt; b.dir = turnToward(b.dir, b.stunFace, b.stunTurn * dt); return; }
+  if (b.blush > 0 || !inp) return;
+  let x = inp.mx, y = inp.my;
+  const d = Math.hypot(x, y);
+  if (d > 1) { x /= d; y /= d; }
+  if (d < 0.05) return;
+  const sp = bigSpeeds().chase;
+  moveEntity(b, x * sp, y * sp, dt);
+  b.dir = Math.atan2(y, x); b.walk += dt * sp / 14; b.moving = true;
 }
 export function updateBig(dt) {
   G.big.flash = Math.max(0, G.big.flash - dt);

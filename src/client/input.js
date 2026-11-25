@@ -1,9 +1,9 @@
-// SPEC-011: keyboard, touch sticks, pointer buttons, the name input overlay, gamepads, tiptoe keys, deviceInput (the
-// inputFor hook). Client module (moved out of index.html in Phase C).
+// SPEC-011: keyboard, touch sticks, pointer buttons, the name input overlay, gamepads, tiptoe keys, deviceInput and fillInputs
+// (SPEC-012: the players' input slots). Client module (moved out of index.html in Phase C).
 
 import { CFG } from "../core/config.js";
 import { L } from "../i18n.js";
-import { backToWardrobe, chooseStop, closeCard, closeShop, cycleWorld, inWardrobe, kissNow, kitNow, mapSelN, mode, moveMapSel, nextLang, nextLevel, openStory, playCard, resumeGame, retryLevel, sceneNext, scenePrev, sceneSkip, setMode, storyBackKey, storyStep, switchShopTab, toggleSound, toMap, watchChapter } from "./flow.js";
+import { backToWardrobe, chooseStop, closeCard, closeShop, cycleWorld, inWardrobe, mapSelN, mode, moveMapSel, nextLang, nextLevel, openStory, playCard, pressKiss, pressKit, resumeGame, retryLevel, sceneNext, scenePrev, sceneSkip, setMode, storyBackKey, storyStep, switchShopTab, toggleSound, toMap, watchChapter } from "./flow.js";
 import { LOOK } from "./look.js";
 import { cleanName, nameFor, setName } from "./names.js";
 import { randomOutfit } from "./outfits.js";
@@ -14,6 +14,7 @@ import { openTutorial, tutorialSkip } from "./tutorial.js";
 import { homeActions } from "./ui/home.js";
 import { cpx } from "./ui/text.js";
 import { G } from "../core/active.js";
+import { newInput } from "../core/game.js";
 
 // =====================================================================
 //  УПРАВЛЕНИЕ: клавиатура, касания (джойстики), геймпад
@@ -60,9 +61,9 @@ function onKey(code) {
   } else if (mode === "play") {
     if (code === "KeyP" || back) setMode("pause");
     const kp = kissKeyPlayer(code);
-    if (kp >= 0) kissNow(kp);
+    if (kp >= 0) pressKiss(kp);
     const rp = kitKeyPlayer(code);
-    if (rp >= 0) kitNow(rp);
+    if (rp >= 0) pressKit(rp);
   } else if (mode === "pause") {
     if (code === "KeyP" || back) resumeGame();
     if (code === "KeyQ") (G.tutorialGame ? tutorialSkip : toMap)();   // SPEC-029: в тренировке Q — пропустить обучение
@@ -195,8 +196,8 @@ function onPadButton(b, pad = 0) {
     }
   } else if (mode === "play") {
     if (b === 9) setMode("pause");
-    if (b === LOOK.PAD_KISS && (G.players === 1 || pad < G.players)) kissNow(G.players === 1 ? 0 : pad);
-    if (b === LOOK.PAD_KIT && (G.players === 1 || pad < G.players)) kitNow(G.players === 1 ? 0 : pad);
+    if (b === LOOK.PAD_KISS && (G.players === 1 || pad < G.players)) pressKiss(G.players === 1 ? 0 : pad);
+    if (b === LOOK.PAD_KIT && (G.players === 1 || pad < G.players)) pressKit(G.players === 1 ? 0 : pad);
   }
   else if (mode === "pause") { if (b === 9 || b === 0) resumeGame(); if (b === 1) (G.tutorialGame ? tutorialSkip : toMap)(); }
   else if (mode === "win") { if (b === 0 || b === 9) nextLevel(); if (b === 1) toMap(); }
@@ -210,12 +211,17 @@ const TIPTOE_KEYS = [["ShiftLeft", "ShiftRight"], ["ShiftLeft"], ["Slash"]];
 const tiptoeKey = pi => (G.players === 1 ? TIPTOE_KEYS[0] : TIPTOE_KEYS[pi + 1] || []).some(k => keys.has(k));
 // Длина вектора — доля скорости. Стик/геймпад: наклон t < TIPTOE_MAX — на цыпочках (до TIPTOE_MULT), больше — бегом (t);
 // Shift — не быстрее TIPTOE_MULT. Автопилот — как есть (его длина и есть доля скорости).
-// SPEC-011 AC 3b: ввод игрока l с устройств (клавиши, Shift — на цыпочках; геймпады; джойстики касаний) — hooks.inputFor;
-// автопилот добавляет игра (inputFor в логике)
+// SPEC-011 AC 3b / SPEC-012 AC 3: ввод игрока l с устройств (клавиши, Shift — на цыпочках; геймпады; джойстики касаний) — в
+// слот игрока (fillInputs); автопилот добавляет игра
+// the keys of player pi (one player: WASD and the arrows; two: WASD and the arrows each); a test may give a Little One its own l.controls
+const KEYS_ONE = Object.freeze({ up: ["KeyW", "ArrowUp"], down: ["KeyS", "ArrowDown"], left: ["KeyA", "ArrowLeft"], right: ["KeyD", "ArrowRight"] });
+const KEYS_TWO = Object.freeze([{ up: ["KeyW"], down: ["KeyS"], left: ["KeyA"], right: ["KeyD"] }, { up: ["ArrowUp"], down: ["ArrowDown"], left: ["ArrowLeft"], right: ["ArrowRight"] }]);
+const NO_KEYS = Object.freeze({ up: [], down: [], left: [], right: [] });
+const controlsOf = l => l.controls || (G.players === 1 ? (l.id === 0 ? KEYS_ONE : NO_KEYS) : KEYS_TWO[l.id] || NO_KEYS);
 export function deviceInput(l) {
   const pi = l.id;
   let x = 0, y = 0;
-  const c = l.controls, pressed = arr => arr.some(k => keys.has(k));
+  const c = controlsOf(l), pressed = arr => arr.some(k => keys.has(k));
   x += (pressed(c.right) ? 1 : 0) - (pressed(c.left) ? 1 : 0);
   y += (pressed(c.down) ? 1 : 0) - (pressed(c.up) ? 1 : 0);
   pads.forEach((p, i) => { if (G.players === 1 || i === pi) { x += p.x; y += p.y; } });
@@ -232,6 +238,14 @@ export function deviceInput(l) {
     x *= k; y *= k;
   }
   return { x, y };
+}
+// SPEC-012 AC 3: the device sticks of every player into the input slots (before each step; the flags stay until the step fires them)
+export function fillInputs() {
+  for (const l of G.littles) {
+    if (l.kind !== "player") continue;
+    const inp = G.inputs[l.slot] || (G.inputs[l.slot] = newInput()), v = deviceInput(l);
+    inp.mx = v.x; inp.my = v.y;
+  }
 }
 
 // called once by main.js, in the start order of the one-file game

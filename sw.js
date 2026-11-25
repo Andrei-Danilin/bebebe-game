@@ -20,15 +20,15 @@ const NET_TIMEOUT_MS = 4000;             // weak signal: after this long, a cach
 const THREE_BASE = "https://cdn.jsdelivr.net/npm/three@0.187.0/build/";
 // SPEC-011: written by npm run precache (scripts/precache.js) — do not edit by hand
 // precache:start
-const SRC_HASH = "e66b96a303";
+const SRC_HASH = "b4b770f80c";
 const PRECACHE_LOCAL = [
   "./", "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512-maskable.png",
   "./icons/icon-512.png", "./icons/icon.svg", "./index.html", "./manifest.webmanifest"
 ];
 const PRECACHE_SRC = [
-  "./src/client/art-names.js?v=7228f7f839", "./src/client/art.js?v=9447a553cf", "./src/client/debug.js?v=4a90a9d1e6",
-  "./src/client/flow.js?v=a880cc1328", "./src/client/fx.js?v=02df1e9940", "./src/client/input.js?v=568dc582e2",
-  "./src/client/look.js?v=6b3f0ae3e3", "./src/client/main.js?v=e46110a155", "./src/client/names.js?v=53974b368f",
+  "./src/client/art-names.js?v=7228f7f839", "./src/client/art.js?v=9447a553cf", "./src/client/debug.js?v=0f8c3571e9",
+  "./src/client/flow.js?v=54dd2ef04c", "./src/client/fx.js?v=02df1e9940", "./src/client/input.js?v=f38653c7bc",
+  "./src/client/look.js?v=6b3f0ae3e3", "./src/client/main.js?v=86c965a17d", "./src/client/names.js?v=53974b368f",
   "./src/client/outfits.js?v=84a6f5b982", "./src/client/progress.js?v=ea78cf9d9e",
   "./src/client/screen.js?v=57a76e38b6", "./src/client/shop.js?v=8beafa3093", "./src/client/sound.js?v=e9ddab15a9",
   "./src/client/state.js?v=837893a4b3", "./src/client/three/bosses.js?v=7814dfb8d4",
@@ -41,13 +41,13 @@ const PRECACHE_SRC = [
   "./src/client/ui/character/progress.js?v=e7feab8586", "./src/client/ui/character/tabs.js?v=6d32ab672c",
   "./src/client/ui/character/upgrades.js?v=ee922fce9f", "./src/client/ui/character/wardrobe.js?v=e3e931bd3a",
   "./src/client/ui/draw.js?v=2e89a3dd64", "./src/client/ui/home.js?v=5df7db0c9e",
-  "./src/client/ui/hud.js?v=cef660b347", "./src/client/ui/map.js?v=280a3d0f5f", "./src/client/ui/menu.js?v=3e64627b0a",
+  "./src/client/ui/hud.js?v=ffc8b361db", "./src/client/ui/map.js?v=280a3d0f5f", "./src/client/ui/menu.js?v=3e64627b0a",
   "./src/client/ui/minimap.js?v=afd7cc3057", "./src/client/ui/phone.js?v=936b557d8e",
   "./src/client/ui/screens.js?v=2cd1b81306", "./src/client/ui/story.js?v=a09830a3ea",
   "./src/client/ui/text.js?v=56db91f1d4", "./src/client/ui/win.js?v=9b3f336da5", "./src/core/active.js?v=70aa836ebd",
-  "./src/core/autopilot.js?v=0bb81c32d1", "./src/core/big.js?v=e0b3bd0418", "./src/core/bots.js?v=fc04a520e3",
+  "./src/core/autopilot.js?v=91a6fc417a", "./src/core/big.js?v=f07429a952", "./src/core/bots.js?v=fc04a520e3",
   "./src/core/config.js?v=518df17882", "./src/core/difficulty.js?v=72aff2bd1e", "./src/core/economy.js?v=1e28a4840a",
-  "./src/core/game.js?v=58c8a15010", "./src/core/hearing.js?v=2b305fd522", "./src/core/hooks.js?v=b03dc16a6c",
+  "./src/core/game.js?v=bae22e93a3", "./src/core/hearing.js?v=2b305fd522", "./src/core/hooks.js?v=b44ef5515a",
   "./src/core/index.js?v=2ac6418608", "./src/core/level/build.js?v=fc9509a62b",
   "./src/core/level/generate.js?v=455b2ff4e4", "./src/core/level/layouts.js?v=068cdfd513",
   "./src/core/level/validate.js?v=3f3743eb46", "./src/core/mood.js?v=2401bf5d3c", "./src/core/path.js?v=b05dfc5c4e",

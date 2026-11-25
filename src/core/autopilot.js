@@ -4,13 +4,13 @@ import { angDiff, dist, normAng } from "./util.js";
 import { gameInv } from "./economy.js";
 import { bigListens } from "./hearing.js";
 import { inCone, steerPoint } from "./path.js";
-import { canUseKit, moveSpeed, throwKiss, useRescueKit } from "./rules.js";
+import { canUseKit, moveSpeed } from "./rules.js";
 import { canAct, inSafe, los, seeSolidAt } from "./world.js";
 import { G } from "./active.js";
 
 // =====================================================================
 //  АВТОПИЛОТ (SPEC-008): ведёт маленьких игроков для проверки баланса. Видит то же, что игрок, а действует только как
-//  игрок: «джойстик» autoMove, который читает inputFor(l), и кнопки 💋 throwKiss / 🩹 useRescueKit. Состояние Большого,
+//  игрок: «джойстик» autoMove, который прибавляется к стику его слота, и кнопки 💋 / 🩹 — флаги слота (SPEC-012 AC 3). Состояние Большого,
 //  ботов, самих маленьких, CFG и progress не трогает (тест «the autopilot plays only through the players' inputs»);
 //  своя память — autoNavs (путь к цели), путь ищет тем же steerPoint, что и боты.
 //  careful — к спине в обход взгляда (за стенами и кустами), вблизи перед ним обходит сбоку, обнимает сзади и сразу
@@ -64,30 +64,26 @@ const autoGoalReckless = l => G.big.slip > 0 ? { x: G.big.x, y: G.big.y, avoid: 
 // SPEC-019: careful идёт на цыпочках, когда он рядом (HEAR_RADIUS + TIPTOE_NEAR клеток), сзади или сбоку от Большого (вне взгляда) и тот прислушивается
 const autoTiptoe = l => bigListens() && dist(l, G.big) <= (CFG.HEAR_RADIUS + CFG.TIPTOE_NEAR) * CELL &&
   angDiff(G.big.dir, Math.atan2(l.y - G.big.y, l.x - G.big.x)) >= CFG.VISION_HALF;
-// Решение автопилота на этот шаг: autoMove[pi] = { x, y } (как стик, длина ≤ 1) и нажатия 💋 / 🩹
-export function autoThink(dt) {
-  G.autoMove = [];
-  if (!G.autoOn || G.phase === "won") return;
+// Решение автопилота для игрока l на этот шаг (SPEC-012 AC 3: через тот же вход, что у игрока): «стик» autoMove[l.id] = { x, y }
+// (длина ≤ 1, прибавляется к стику слота) и нажатия 💋 / 🩹 — флаги inp.kiss / inp.kit его слота (readInputs нажимает их сразу)
+export function autoDecide(l, inp, dt) {
   const A = CFG.AUTOPILOT;
-  for (const l of G.littles) {
-    if (l.kind !== "player") continue;
-    const n = autoNav(l);
-    n.x = l.x; n.y = l.y;
-    // 🩹: лежит долго и никто не поднимает (или уже хромает в домик, отдыхает)
-    if (G.autoStyle === "careful" && canUseKit(l) && (l.state !== "down" || (l.rescue <= 0 && l.downTimer < CFG.DOWN_TIME - A.kitWait))) { useRescueKit(l.id); continue; }
-    if (!canAct(l)) continue;
-    const goal = G.autoStyle === "reckless" ? autoGoalReckless(l) : autoGoalCareful(l);
-    if (Math.hypot(goal.x - l.x, goal.y - l.y) <= goal.stop) continue;
-    const { tx, ty } = steerPoint(n, goal.x, goal.y, dt, goal.avoid, () => A.repath);
-    const dx = tx - l.x, dy = ty - l.y, d = Math.hypot(dx, dy);
-    if (d < A.minStep) continue;
-    const sp = moveSpeed(l);
-    let m = Math.min(1, d / (sp * dt));                  // не проскочить точку
-    if (G.autoStyle === "careful" && autoTiptoe(l)) m = Math.min(m, CFG.TIPTOE_MULT);   // SPEC-019: рядом сзади/сбоку — на цыпочках
-    G.autoMove[l.id] = { x: dx / d * m, y: dy / d * m };
-    // 💋: смотрит на Большого, он близко, видно, и поцелуй сработает
-    if (G.autoStyle === "careful" && gameInv().kisses > 0 && l.kissCd <= 0 && !inSafe(l) && G.big.stun <= 0 && G.big.blush <= 0 && G.big.hugCd <= 0 &&
-      dist(l, G.big) < CFG.KISS_RANGE * A.kissReach && angDiff(l.dir, Math.atan2(G.big.y - l.y, G.big.x - l.x)) < A.kissAim &&
-      los(l.x, l.y, G.big.x, G.big.y, seeSolidAt)) throwKiss(l.id);
-  }
+  const n = autoNav(l);
+  n.x = l.x; n.y = l.y;
+  // 🩹: лежит долго и никто не поднимает (или уже хромает в домик, отдыхает)
+  if (G.autoStyle === "careful" && canUseKit(l) && (l.state !== "down" || (l.rescue <= 0 && l.downTimer < CFG.DOWN_TIME - A.kitWait))) { inp.kit = true; return; }
+  if (!canAct(l)) return;
+  const goal = G.autoStyle === "reckless" ? autoGoalReckless(l) : autoGoalCareful(l);
+  if (Math.hypot(goal.x - l.x, goal.y - l.y) <= goal.stop) return;
+  const { tx, ty } = steerPoint(n, goal.x, goal.y, dt, goal.avoid, () => A.repath);
+  const dx = tx - l.x, dy = ty - l.y, d = Math.hypot(dx, dy);
+  if (d < A.minStep) return;
+  const sp = moveSpeed(l);
+  let m = Math.min(1, d / (sp * dt));                  // не проскочить точку
+  if (G.autoStyle === "careful" && autoTiptoe(l)) m = Math.min(m, CFG.TIPTOE_MULT);   // SPEC-019: рядом сзади/сбоку — на цыпочках
+  G.autoMove[l.id] = { x: dx / d * m, y: dy / d * m };
+  // 💋: смотрит на Большого, он близко, видно, и поцелуй сработает
+  if (G.autoStyle === "careful" && gameInv().kisses > 0 && l.kissCd <= 0 && !inSafe(l) && G.big.stun <= 0 && G.big.blush <= 0 && G.big.hugCd <= 0 &&
+    dist(l, G.big) < CFG.KISS_RANGE * A.kissReach && angDiff(l.dir, Math.atan2(G.big.y - l.y, G.big.x - l.x)) < A.kissAim &&
+    los(l.x, l.y, G.big.x, G.big.y, seeSolidAt)) inp.kiss = true;
 }

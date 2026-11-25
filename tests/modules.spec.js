@@ -266,8 +266,8 @@ const codeOnly = s => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|\s)\/\/.*$/
   .replace(/"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|`(?:[^`\\]|\\.)*`/g, "\"\"");
 
 // AC 3b: the core reaches the client only through one port, src/core/hooks.js: setHooks({ … }) with no-op defaults (the Node
-// import works without a client). Every hook, and what replaces it (SPEC-012 turns sfx, burst, pop, shake, save and inputFor
-// into events and input slots and removes them here):
+// import works without a client). Every hook, and what replaces it (SPEC-012 turns sfx, burst, pop, shake and save into events
+// and removes them here; inputFor became the input slots G.inputs, AC 3):
 const HOOKS = {
   sfx: "a sound by its SFX name (SPEC-012: an event)",
   burst: "particles (SPEC-012: an event)",
@@ -280,11 +280,7 @@ const HOOKS = {
   onWin: "a level was won and paid: the client's flow (the map shows a world the win opened)",
   // the one hook in HOOKS_REENTER: it starts the next practice game, whose buildGame draws the gameplay rng() — so it runs
   // without the noGameRng guard every other hook has
-  onPracticeWin: "a practice game was won: the next tutorial step (re-enters the core)",
-  // one hook for all device input instead of separate keys / sticks / pads hooks (approved in B2): the client's deviceInput(l)
-  // reads the held keys (Shift = tiptoe), the touch sticks and the gamepads and shapes the vector; the core's inputFor adds the
-  // autopilot's stick
-  inputFor: "a player's device input: held keys (Shift = tiptoe), touch sticks, gamepads, shaped (SPEC-012: input slots)"
+  onPracticeWin: "a practice game was won: the next tutorial step (re-enters the core)"
 };
 // client code the logic called directly before SPEC-011 (RR-01) and client state it wrote: none of it in the core
 const CLIENT_NAMES = ["SFX", "burst", "popText", "texts", "particles", "shake", "banner", "showBanner", "camSnap", "rebuild3D", "sticks",

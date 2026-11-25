@@ -3,16 +3,15 @@
 import { CFG, COLS, FH, FW, ROWS, WORLDS } from "./config.js";
 import { hooks } from "./hooks.js";
 import { newRng, rand } from "./util.js";
-import { autoThink } from "./autopilot.js";
-import { updateBig } from "./big.js";
+import { autoDecide } from "./autopilot.js";
+import { updateBig, updateBigPlayer } from "./big.js";
 import { updateBots } from "./bots.js";
 import { difficulty } from "./difficulty.js";
-import { progress } from "./economy.js";
 import { loadLevel } from "./level/build.js";
 import { bossFor, startKindWalk, updateKindWalk } from "./mood.js";
 import { moveEntity } from "./path.js";
 import { applyTutorialMap, tutorialNote, tutorialSetup, updateTutorial } from "./practice.js";
-import { checkContacts, moveSpeed, separate, updateDanger, updateDowned, updateHugAnim, updateItems, updateKisses, updateResting, updateStars, winNow } from "./rules.js";
+import { checkContacts, moveSpeed, separate, throwKiss, updateDanger, updateDowned, updateHugAnim, updateItems, updateKisses, updateResting, updateStars, useRescueKit, winNow } from "./rules.js";
 import { canAct } from "./world.js";
 import { G, setActiveGame } from "./active.js";
 
@@ -24,6 +23,11 @@ const N_CELLS = COLS * ROWS, N_FINE = FW * FH;
 export function newGame(opts = {}) {
   return {
     world: opts.world ?? WORLDS[0], level: opts.n ?? 1, players: opts.players ?? 1,
+    // SPEC-012 AC 2: how the game is played ("local" | "online-a" | "online-b"; the core does not use it yet) and the shared
+    // stock of a local game { shared, kisses, kits, gloves: { mittens, mega } } (spent through progress until AC 6b)
+    net: opts.mode ?? "local", stock: opts.stock ?? null,
+    // SPEC-012 AC 3: the controls of each player slot (p1…p5, big): { mx, my, kiss, kit, act, tiptoe } — the core reads nothing else
+    inputs: {},
     // SPEC-012 AC 1c: the game's phase, set only by the core: "play" → (the last hug) "hugEnd" (CFG.HUG_ANIM) → "kindWalk" → "won"
     phase: "play",
     littles: [], big: null, botAttackCd: 0, prevToken: null, attackToken: null,
@@ -62,11 +66,13 @@ export function logEvent(type, data) {
   if (G.tutorialGame === 2) tutorialNote(e);                 // SPEC-029: подсказки тренировки 2
   return e;
 }
-// маленький i: look — вид от клиента (игра его только носит), upgrades — уровни улучшений игроков (у ботов нет)
-function makeLittle(i, kind, botIndex, controls, look, upgrades) {
-  const sp = G.spawns.small[i];
+// маленький i из слота s: look — вид от клиента (игра его только носит), upgrades — уровни улучшений игрока (у ботов нет);
+// name, glove, gloveCharges, kisses, kits — данные слота (игра их носит; тратится пока progress, SPEC-012 AC 6b)
+function makeLittle(i, s, botIndex) {
+  const sp = G.spawns.small[i], kind = s.kind, upgrades = s.upgrades || {};
   return {
-    id: i, x: sp.x, y: sp.y, r: 11, kind, botIndex, look, controls,
+    id: i, slot: s.slot, x: sp.x, y: sp.y, r: 11, kind, botIndex, look: s.look,
+    name: s.name ?? null, glove: s.glove ?? null, gloveCharges: s.gloveCharges ?? 0, kisses: s.kisses ?? 0, kits: s.kits ?? 0,
     state: "ok", downTimer: 0, rescue: 0, botWait: 0, invuln: 0, kx: 0, ky: 0, dangerT: 0, dizzy: 0,
     path: [], repath: 0, dir: Math.PI / 2, moveDir: 0, walk: 0, moving: false, speedFrac: 0, hugCd: 0,
     task: "idle", fleeT: 0, fleeGoal: null, fleeRe: 0, lurkT: rand(0, 2), offset: rand(-0.5, 0.5), tokenT: 0,
@@ -74,24 +80,33 @@ function makeLittle(i, kind, botIndex, controls, look, upgrades) {
     upg: kind === "player" ? { ...upgrades } : null          // SPEC-009: уровни улучшений этого игрока (у ботов нет)
   };
 }
-// SPEC-011 AC 3c: новая игра из простых данных, без клиента: уровень n мира world, players (1–2) маленьких-игроков и боты,
-// Большой. looks — виды от клиента: { players: [вид p1, вид p2], bots: [вид бота 0, 1, …], big: образ Большого } (игра их только
-// носит); upgrades — уровни улучшений игроков. Не чистая: тянет игровой rng() (те же вызовы в том же порядке, что раньше).
-// Тренировка (tutorialGame) строит свою карту и сценарий. В конце — hooks.rebuild (клиент строит 3D)
 // маленьких в команде (игроки + боты): 5; SPEC-029: в тренировке — игрок и бот (сценарий и спасение нужны хоть одному)
 export function teamSize() { return G.tutorialGame ? 1 + Math.max(1, CFG.TUTORIAL.bots) : 5; }
-export function buildGame(world, n, players, { looks, upgrades = progress.upgrades }) {
-  G.world = world; G.level = n; G.players = players; G.phase = "play";
+export const newInput = () => ({ mx: 0, my: 0, kiss: false, kit: false, act: false, tiptoe: false });
+// SPEC-012 AC 2: the Little One slots of a game — the given ones (players and bots, in their order; at most teamSize()), then
+// bots up to teamSize(): { slot: "bot<k>", kind: "bot" }. A slot without kind is a player.
+export function fillSlots(slots) {
+  const team = teamSize(), out = slots.filter(s => s.slot !== "big").slice(0, team).map(s => ({ kind: "player", ...s }));
+  let k = out.filter(s => s.kind === "bot").length;
+  while (out.length < team) out.push({ slot: "bot" + ++k, kind: "bot" });
+  return out;
+}
+// SPEC-011 AC 3c / SPEC-012 AC 2: новая игра из простых данных, без клиента: уровень n мира world, слоты slots — маленькие
+// { slot: "p1".."p5" | "bot1".."bot4", kind: "player" | "bot", look, name, glove, gloveCharges, kisses, kits, upgrades } (недостающие —
+// боты до teamSize()) и Большой { slot: "big", kind: "bot" | "player", skin, name, boss } (boss — по умолчанию bossFor). Виды игра
+// только носит. Не чистая: тянет игровой rng() (те же вызовы в том же порядке, что раньше). Тренировка (tutorialGame) строит свою
+// карту и сценарий. В конце — hooks.rebuild (клиент строит 3D)
+export function buildGame(world, n, slots) {
+  G.world = world; G.level = n; G.phase = "play";
   if (G.tutorialGame) applyTutorialMap(); else loadLevel(world, n);   // SPEC-029: тренировка — своя карта
   G.littles = [];
-  const p1 = players === 1
-    ? { up: ["KeyW", "ArrowUp"], down: ["KeyS", "ArrowDown"], left: ["KeyA", "ArrowLeft"], right: ["KeyD", "ArrowRight"] }
-    : { up: ["KeyW"], down: ["KeyS"], left: ["KeyA"], right: ["KeyD"] };
-  G.littles.push(makeLittle(0, "player", -1, p1, looks.players[0], upgrades));
-  if (players === 2) G.littles.push(makeLittle(1, "player", -1, { up: ["ArrowUp"], down: ["ArrowDown"], left: ["ArrowLeft"], right: ["ArrowRight"] }, looks.players[1], upgrades));
   let bi = 0;
-  const team = teamSize();
-  while (G.littles.length < team) { G.littles.push(makeLittle(G.littles.length, "bot", bi, null, looks.bots[bi], upgrades)); bi++; }
+  for (const s of fillSlots(slots)) G.littles.push(makeLittle(G.littles.length, s, s.kind === "bot" ? bi++ : -1));
+  G.players = G.littles.filter(l => l.kind === "player").length;
+  const bs = slots.find(s => s.slot === "big") || { slot: "big", kind: "bot" };
+  G.inputs = {};
+  for (const l of G.littles) if (l.kind === "player") G.inputs[l.slot] = newInput();
+  if (bs.kind === "player") G.inputs.big = newInput();
   const maxHp = G.tutorialGame ? CFG.TUTORIAL["hearts" + G.tutorialGame] : difficulty(world, n).hearts;   // SPEC-029: тренировка — свои сердечки
   G.big = {
     isBig: true, x: G.spawns.big.x, y: G.spawns.big.y, r: 22, dir: -Math.PI / 2, hp: maxHp, maxHp,
@@ -99,10 +114,11 @@ export function buildGame(world, n, players, { looks, upgrades = progress.upgrad
     path: [], repath: 0, moveDir: 0, walk: 0, moving: false, stun: 0, stunFace: 0, stunTurn: 0, pushCd: 0, noPush: 0, hugCd: 0, flash: 0, slip: 0,
     blush: 0, blushBy: 0,   // покраснел после поцелуя: сколько ещё сек и кто бросил (индекс игрока)
     kind: false,            // SPEC-022: злость кончилась — подобрел и идёт домой (pendingWin — сколько ещё идёт)
-    boss: G.tutorialGame ? null : bossFor(world, n),         // SPEC-022: босс уровня (мир из BOSSES) или null; в тренировке — нет
+    boss: G.tutorialGame ? null : bs.boss !== undefined ? bs.boss : bossFor(world, n),   // SPEC-022: босс уровня (мир из BOSSES) или null; в тренировке — нет
     // SPEC-019: шум топота, сек до того, как снова слышит; поворот на топот (куда, сколько ещё, скорость) и сколько ещё смотрит туда
     noise: 0, hearCd: 0, hearFace: 0, hearTurnT: 0, hearRate: 0, hearLook: 0,
-    skin: looks.big
+    skin: bs.skin ?? null, name: bs.name ?? null,
+    player: bs.kind === "player"   // SPEC-012 AC 4: a player moves him (G.inputs.big), his AI does not run
   };
   G.items = []; G.itemCd = rand(4, 7); G.pendingWin = 0; G.pushWaves = [];
   G.bonusStars = []; G.starCd = rand(CFG.STAR_EVERY[0], CFG.STAR_EVERY[1]);
@@ -115,32 +131,47 @@ export function buildGame(world, n, players, { looks, upgrades = progress.upgrad
   if (G.tutorialGame) tutorialSetup();                       // SPEC-029: тренировка — папа на поляне, сценарий, подсказки, свой запас
   hooks.rebuild();
 }
-const NO_LOOKS = Object.freeze({ players: [], bots: [], big: null });
-// SPEC-012 AC 1: a new game, built: newGame(opts) + buildGame on it (the active game is restored afterwards). opts: world, n,
-// players, looks, upgrades, practice (the practice game's number, SPEC-029), rng (a stream to continue) / seed, keep (fields
-// carried over from the client's previous game before the build: its event log, ids, autopilot…). → the game (not made active)
+// SPEC-012 AC 1 / 2: a new game, built: newGame(opts) + buildGame on it (the active game is restored afterwards). opts: world,
+// n, slots (or players — that many player slots p1…), mode, stock, practice (the practice game's number, SPEC-029), rng (a stream
+// to continue) / seed, keep (fields carried over from the client's previous game before the build: its event log, ids,
+// autopilot…). → the game (not made active)
 export function createGame(opts = {}) {
   const g = newGame(opts);
   if (opts.keep) Object.assign(g, opts.keep);
   if (opts.practice !== undefined) g.tutorialGame = opts.practice;
-  withGame(g, () => buildGame(g.world, g.level, g.players, { looks: opts.looks || NO_LOOKS, upgrades: opts.upgrades }));
+  const slots = opts.slots || Array.from({ length: opts.players ?? 1 }, (_, i) => ({ slot: "p" + (i + 1), kind: "player" }));
+  withGame(g, () => buildGame(g.world, g.level, slots));
   return g;
 }
-// чем рулит игрок l: ввод с устройств (hooks.inputFor) плюс «джойстик» автопилота (SPEC-008); длина не больше 1
-function inputFor(l) {
-  let { x, y } = hooks.inputFor(l);
-  const ap = G.autoMove[l.id];
+// SPEC-012 AC 3: the stick of input inp: tiptoe → no longer than TIPTOE_MULT; plus the autopilot's stick ap; length ≤ 1
+function stickOf(inp, ap) {
+  let x = inp ? inp.mx : 0, y = inp ? inp.my : 0;
+  if (inp && inp.tiptoe) { const t = Math.hypot(x, y); if (t > CFG.TIPTOE_MULT) { x *= CFG.TIPTOE_MULT / t; y *= CFG.TIPTOE_MULT / t; } }
   if (ap) { x += ap.x; y += ap.y; }
   const d = Math.hypot(x, y);
   if (d > 1) { x /= d; y /= d; }
   return { x, y };
+}
+// SPEC-012 AC 3: the buttons of the step, at its start, in slot order: for each player the autopilot decides (SPEC-008; it presses
+// through the same slot), then the slot's 🩹 and 💋 edge flags fire and are consumed. __bb.autoThink runs this too.
+export function readInputs(dt) {
+  G.autoMove = [];
+  const auto = G.autoOn && G.phase !== "won";
+  for (const l of G.littles) {
+    if (l.kind !== "player") continue;
+    const inp = G.inputs[l.slot] || (G.inputs[l.slot] = newInput());
+    if (auto) autoDecide(l, inp, dt);
+    if (inp.kit) { inp.kit = false; useRescueKit(l.id); }
+    if (inp.kiss) { inp.kiss = false; throwKiss(l.id); }
+    inp.act = false;                                      // SPEC-015 gives it a meaning
+  }
 }
 function updatePlayers(dt) {
   for (const l of G.littles) {
     if (l.kind !== "player") continue;
     l.moving = false; l.speedFrac = 0;
     if (!canAct(l)) continue;
-    const v = inputFor(l), m = Math.hypot(v.x, v.y);
+    const v = stickOf(G.inputs[l.slot], G.autoMove[l.id]), m = Math.hypot(v.x, v.y);
     if (m > 0.05) {
       const sp = moveSpeed(l);
       moveEntity(l, v.x * sp, v.y * sp, dt);
@@ -174,7 +205,7 @@ export function update(dt) {
   G.kitHintT = Math.max(0, G.kitHintT - dt);
   G.heardHintT = Math.max(0, G.heardHintT - dt);
   if (G.big.kind) updateKindWalk(dt);                        // SPEC-022: идёт домой; маленькие стоят и радуются
-  else { autoThink(dt); updatePlayers(dt); updateBots(dt); updateBig(dt); }
+  else { readInputs(dt); updatePlayers(dt); updateBots(dt); if (G.big.player) updateBigPlayer(dt); else updateBig(dt); }
   updateHugAnim(dt);
   updateKisses(dt);
   separate();

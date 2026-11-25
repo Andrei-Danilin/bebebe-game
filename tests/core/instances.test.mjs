@@ -69,3 +69,37 @@ test("a game is plain data", () => {
   for (let i = 0; i < steps(10); i++) { step(g, DT); step(copy, DT); }
   assert.ok(state(copy) === state(g), "the clone plays like the original");
 });
+
+// SPEC-012 AC 2: the slots — up to 5 Little Ones (players and bots), missing ones filled with bots; the Big One's slot
+test("slots fill with bots", () => {
+  const look = { hat: "cap" };
+  const g = createGame({ world: "park", n: 20, seed: 4, mode: "online-a", stock: { shared: true, kisses: 3, kits: 1, gloves: { mittens: 2, mega: 0 } },
+    slots: [{ slot: "p1", kind: "player", look, name: "Ana", glove: "mittens", gloveCharges: 2, kisses: 1, kits: 0, upgrades: { fastFeet: 2 } },
+      { slot: "p2", kind: "player" }, { slot: "big", kind: "bot", skin: { id: "ogre" }, name: "Dad" }] });
+  assert.deepEqual(g.littles.map(l => [l.id, l.slot, l.kind, l.botIndex]), [[0, "p1", "player", -1], [1, "p2", "player", -1], [2, "bot1", "bot", 0], [3, "bot2", "bot", 1], [4, "bot3", "bot", 2]]);
+  assert.equal(g.players, 2);
+  assert.deepEqual(Object.keys(g.inputs), ["p1", "p2"], "an input slot per player (a bot Big One has none)");
+  const p1 = g.littles[0];
+  assert.deepEqual([p1.look, p1.name, p1.glove, p1.gloveCharges, p1.upg, g.littles[2].upg], [look, "Ana", "mittens", 2, { fastFeet: 2 }, null]);
+  assert.deepEqual([g.net, g.stock.kisses, g.big.skin.id, g.big.name, g.big.boss, g.big.player], ["online-a", 3, "ogre", "Dad", "park", false]);
+  // five human players: no bot; more slots than the team are cut at five
+  const five = createGame({ world: "winter", n: 18, seed: 5, slots: ["p1", "p2", "p3", "p4", "p5", "p6"].map(slot => ({ slot, kind: "player" })) });
+  assert.deepEqual(five.littles.map(l => l.slot), ["p1", "p2", "p3", "p4", "p5"]);
+  assert.deepEqual(Object.keys(five.inputs), ["p1", "p2", "p3", "p4", "p5"]);
+  // a practice game keeps its own team size (player + bot)
+  const pr = createGame({ world: "park", n: 1, seed: 6, practice: 1, slots: [{ slot: "p1", kind: "player" }] });
+  assert.deepEqual(pr.littles.map(l => l.slot), ["p1", "bot1"]);
+  // the same seed and today's resetWorld order: the slots draw nothing extra (players first, then bots: the same rng calls)
+  const a = createGame({ world: "city", n: 7, seed: 9, players: 1 }), b = createGame({ world: "city", n: 7, seed: 9, slots: [{ slot: "p1" }] });
+  assert.equal(a.rng.draws, b.rng.draws);
+  assert.deepEqual(a.littles.map(l => [l.lurkT, l.offset]), b.littles.map(l => [l.lurkT, l.offset]));
+});
+
+test("a 5-player autopilot game plays in Node", () => {
+  setProgress(null);
+  const g = createGame({ world: "winter", n: 18, seed: 12, slots: ["p1", "p2", "p3", "p4", "p5"].map(slot => ({ slot, kind: "player" })) });
+  withGame(g, () => autopilot(true, "careful"));
+  for (let i = 0; i < steps(60) && g.phase !== "won"; i++) step(g, DT);
+  assert.ok(g.events.some(e => e.type === "hug" && e.kind === "player"), "the players hug");
+  assert.ok(g.littles.every(l => l.kind === "player"));
+});

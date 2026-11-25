@@ -5,7 +5,7 @@
 import { G } from "../core/active.js";
 import { BONUS_WORLDS, BOSSES, levelsPerWorld, MAIN_WORLDS, worldIndex, WORLDS } from "../core/config.js";
 import { progress, saveProgress } from "../core/economy.js";
-import { createGame, logEvent, teamSize, useGame } from "../core/game.js";
+import { createGame, logEvent, newInput, teamSize, useGame } from "../core/game.js";
 import { levelType } from "../core/level/generate.js";
 import { bossFor } from "../core/mood.js";
 import { isOpen, payReward, worldComplete, worldProgress } from "../core/progress-rules.js";
@@ -43,6 +43,11 @@ export function setMode(v) {
 export function setLastReward(v) { return (lastReward = v); }
 // a kiss or a kit needs the play screen too (pause: the client does not step the game, and the buttons do nothing)
 export const canKitNow = l => mode === "play" && canUseKit(l);
+// SPEC-012 AC 3: the 💋 / 🩹 keys and buttons press the player's input slot; the next step fires them (at its start)
+const press = (pi, k) => { const l = G.littles[pi]; if (mode !== "play" || !l || l.kind !== "player") return; (G.inputs[l.slot] || (G.inputs[l.slot] = newInput()))[k] = true; };
+export const pressKiss = pi => press(pi, "kiss");
+export const pressKit = pi => press(pi, "kit");
+// shims for the tests (__bb.throwKiss / useRescueKit): the rule at once, past the input slot
 export const kissNow = pi => mode === "play" && throwKiss(pi);
 export const kitNow = pi => mode === "play" && useRescueKit(pi);
 // a level won (the core's onWin hook, after payReward): the win screen and the world the win opened
@@ -86,6 +91,14 @@ export const rngDraws = () => localRng.draws;
 const KEEP = Object.freeze(["events", "rewardDue", "itemSeq", "starSeq", "kissSeq", "kitHintPi", "heardHintPi", "tutorialGame", "tut", "tutorialInv", "autoOn", "autoStyle"]);
 // the looks of n players, the bots and the Big One from the wardrobe (the game only carries them)
 const looksFor = n => ({ players: [makeLook(skinSel.p1), makeLook(skinSel.p2)], bots: Array.from({ length: teamSize() - n }, (_, bi) => makeLook(botOutfit(bi))), big: BIG_SKINS[skinSel.big] });
+// SPEC-012 AC 2: the slots of a local game — n players p1…pn (look, glove, upgrades from the saves), the bots with their looks,
+// the Big One (a bot) in the wardrobe's look; the shared stock of local play (one pool for p1/p2)
+function localSlots(n) {
+  const looks = looksFor(n);
+  return [...Array.from({ length: n }, (_, i) => ({ slot: "p" + (i + 1), kind: "player", look: looks.players[i], glove: progress.equip[i] ?? "none", upgrades: progress.upgrades })),
+    ...looks.bots.map((look, bi) => ({ slot: "bot" + (bi + 1), kind: "bot", look })), { slot: "big", kind: "bot", skin: looks.big }];
+}
+const localStock = () => ({ shared: true, kisses: progress.inv.kisses, kits: progress.inv.rescues, gloves: { mittens: progress.inv.mittens, mega: progress.inv.mega } });
 // the client's per-game view state from scratch: texts, particles, shake, sticks, the reset button, the menu spin of the Big One
 function clearView() { ui.texts = []; ui.particles = []; ui.shake = 0; sticks.clear(); ui.resetArmed = false; ui.menuSpin = 0; }
 function buildLocal(n, playable) {
@@ -93,7 +106,7 @@ function buildLocal(n, playable) {
   clearView();
   const keep = Object.fromEntries(KEEP.map(k => [k, G[k]]));
   lastReward = null;
-  useGame(createGame({ world: G.world, n: G.level, players: n, looks: looksFor(n), rng: playable ? localRng : { s: localRng.s, draws: 0 }, keep }));
+  useGame(createGame({ world: G.world, n: G.level, mode: "local", slots: localSlots(n), stock: localStock(), rng: playable ? localRng : { s: localRng.s, draws: 0 }, keep }));
 }
 // новая игра мира и уровня меню (G.world, G.level): правило телефона (играет один), виды из гардероба; надписи, частицы, тряска и
 // джойстики — с нуля. resetWorld — витрина меню (showcase), playWorld — игра, в которую играют

@@ -7,7 +7,7 @@ import { clamp } from "../../core/util.js";
 import { canAct, inSafe } from "../../core/world.js";
 import { L } from "../../i18n.js";
 import { ITEM_ART } from "../art.js";
-import { bannerAlpha, canKitNow, kissNow, kitNow, mode, setMode } from "../flow.js";
+import { bannerAlpha, canKitNow, mode, pressKiss, pressKit, setMode } from "../flow.js";
 import { chipName } from "../input.js";
 import { LOOK } from "../look.js";
 import { nameOf, typedName } from "../names.js";
@@ -151,7 +151,7 @@ export function kissButton(pi) {
   const br = PHONE ? cpx(15) : 13;
   circle(cx + r * 0.72, cy - r * 0.72, br); fillStroke("#ff4d8d", 2.5);
   label(String(gameInv().kisses), cx + r * 0.72, cy - r * 0.72 + 1, fz(13, "hint"), "#fff");
-  ui.buttons.push({ ...rc, act: () => kissNow(pi), id: "kiss:" + pi });
+  ui.buttons.push({ ...rc, act: () => pressKiss(pi), id: "kiss:" + pi });
 }
 // Круглая кнопка 🩹 игрока pi — на месте 💋 (поцелуй лёжа всё равно не бросить); мигает кольцом, сверху — сколько спасалок
 export function kitButton(pi, t) {
@@ -166,7 +166,7 @@ export function kitButton(pi, t) {
   const br = PHONE ? cpx(15) : 13;
   circle(cx + r * 0.72, cy - r * 0.72, br); fillStroke("#16a34a", 2.5);
   label(String(gameInv().rescues), cx + r * 0.72, cy - r * 0.72 + 1, fz(13, "hint"), "#fff");
-  ui.buttons.push({ ...rc, act: () => kitNow(pi), id: "kit:" + pi });
+  ui.buttons.push({ ...rc, act: () => pressKit(pi), id: "kit:" + pi });
 }
 
 // прямоугольник героя на экране (UI px): от ног до имени над головой (playerNameTag, как в drawMarkers), шириной с тело или имя

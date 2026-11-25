@@ -1,11 +1,11 @@
 // SPEC-011: window.__bb for the tests (getters and setters over the modules' live state, never copies), CFG_ALL (the
 // __bb.CFG Proxy over CFG and LOOK), SIM_DRAWN. Client module (moved out of index.html in Phase C).
 
-import { autopilot, autoThink } from "../core/autopilot.js";
+import { autopilot } from "../core/autopilot.js";
 import { BONUS_WORLDS, BOSSES, CELL, CFG, COLS, GLOVES, KISSES, levelsPerWorld, MAIN_WORLDS, RESCUE_KIT, REWARD, ROWS, UPGRADES, WARDROBE_TIERS, WORLD_SEED, worldDifficulty, WORLDS } from "../core/config.js";
 import { bigBoost, bigSpeeds, difficulty } from "../core/difficulty.js";
 import { ledger, progress, setProgress } from "../core/economy.js";
-import { simRun, update } from "../core/game.js";
+import { readInputs, simRun, update } from "../core/game.js";
 import { bigMark, isRunning } from "../core/hearing.js";
 import { clearLevelCache, generateLevel } from "../core/level/build.js";
 import { levelType } from "../core/level/generate.js";
@@ -24,7 +24,7 @@ import { ART_NAMES } from "./art-names.js";
 import { art, ART_FALLBACK, artCount, artDone, artVersion, EMOJI_ART, FX_ART, HEART_ART, ITEM_ART, mapBgArt, PAPER_BTN, POP_ART, SHOP_TAB_ART, STORY_ART, UPG_ART, WARDROBE_ART, worldArt } from "./art.js";
 import { bannerAlpha, chapterOpen, chooseStop, closeShop, giveReward, kissNow, kitNow, lastReward, mapTick, mode, MODES, openFriends, openMap, openScene, openShop, openStory, resetMenus, resetWorld, rngDraws, sceneNext, scenePageCount, scenePages, sceneSkip, seedRandom, selectWorld, setLastReward, setMode, setShopTab, shopAfterWin, showBanner, startGame, tapWorldTab, toHome, toMap } from "./flow.js";
 import { burst, popText } from "./fx.js";
-import { nameInput, openNameInput, stickR, sticks, toGame } from "./input.js";
+import { fillInputs, nameInput, openNameInput, stickR, sticks, toGame } from "./input.js";
 import { LOOK } from "./look.js";
 import { allNames, nameOf, setName } from "./names.js";
 import { BOSS_LOOKS, botOutfit, buyLook, cloneSkins, cycleBig, cycleOutfit, loadOutfits, LOOK_SLOTS, randomOutfit, resetOutfits, skinKeep, skinSel } from "./outfits.js";
@@ -122,7 +122,7 @@ export function installDebug() {
     openShop, openFriends, chooseStop, tapWorldTab, openNameInput: slot => openNameInput({ x: 0, y: 0, w: 100, h: 30 }, slot),
     tapButton(id) { const q = ui.buttons.find(r => (r.id || r.act.name) === id); if (q) q.act(); return !!q; },
     LANGS, detectLang, get lang() { return lang; },   // SPEC-028: языки по порядку значка 🌐, язык при запуске (чистая), текущий язык
-    update, inSafe, I18N, startGame, resetWorld, cycleOutfit, randomOutfit, cycleBig, setLang, toScreen,
+    update: dt => { fillInputs(); update(dt); }, inSafe, I18N, startGame, resetWorld, cycleOutfit, randomOutfit, cycleBig, setLang, toScreen,
     get items() { return G.items; }, get progress() { return progress; }, buyGloves, setEquip, get lastReward() { return lastReward; }, spawnItem,
     UPGRADES, buyUpgrade, get upgrades() { return { ...progress.upgrades }; }, get shopTab() { return ui.shopTab; }, set shopTab(v) { setShopTab(v); },   // SPEC-009 (SPEC-017: + «wardrobe»)
     WARDROBE_TIERS, buyLook, resetOutfits, loadOutfits,   // SPEC-021: loadOutfits(save) — чистое «сохранение → наряды»
@@ -157,7 +157,7 @@ export function installDebug() {
     get rngDraws() { return rngDraws(); },   // SPEC-008: сколько раз тянули игровую случайность
     setProgress(save) { G.rewardDue = false; setLastReward(null); ui.openedWorld = null; ui.worldBanner = null; setProgress(save); },   // SPEC-008 (баланс): прогресс из сохранения (null — новый), не записывает
     levelsPerWorld,
-    autopilot, autoThink,   // SPEC-008: autopilot(on, "careful"|"reckless") → { on, style }; autoThink(dt) — только решение (для теста)
+    autopilot, autoThink: readInputs,   // SPEC-008: autopilot(on, "careful"|"reckless") → { on, style }; autoThink(dt) — только решение (для теста)
     autoStick: i => G.autoMove[i] ? { x: G.autoMove[i].x, y: G.autoMove[i].y } : null,   // SPEC-019: «стик» автопилота игрока i после autoThink (копия)
     get strictRng() { return strictRng; }, set strictRng(v) { setStrictRng(!!v); },   // SPEC-008: тесты — генератор/3D с игровым rng() падает
     // SPEC-008 AC 10: карточки магазина простыми данными (без функций); picture — у карточки есть картинка
