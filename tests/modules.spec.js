@@ -448,6 +448,7 @@ test("the saves are read only by initSaves at start", { tag: "@fast" }, () => {
 const INDEX_READERS = {
   "scripts/lint.js": "lints the inline client module (until Phase C)",
   "scripts/eslint-imports.js": "the import map (shell): which bare names resolve",
+  "scripts/precache.js": "writes the shell's import map (module hashes) and <meta name=\"src-hash\"> (AC 9)",
   "tests/helpers.js": "gameSource(): the inline client module next to src/** for the source scans (until Phase C)",
   "tests/modules.spec.js": "the shell: the import map, the file:// notice, the inline module (lint config, saves check)",
   "tests/pwa.spec.js": "the shell: the import map (three.js version) and the page the network-first test serves"

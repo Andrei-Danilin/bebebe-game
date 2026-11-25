@@ -15,9 +15,15 @@ const IPHONE_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleW
 const SW_FILE = path.join(ROOT, "sw.js");
 const SW_SRC = fs.existsSync(SW_FILE) ? fs.readFileSync(SW_FILE, "utf8") : "";
 const SW_VERSION = (SW_SRC.match(/const SW_VERSION\s*=\s*"([^"]+)"/) || [])[1];
-// SPEC-020: the cache is named SW_VERSION + "-" + ASSETS_HASH (the hash of the art sprites, written by npm run assets)
+// SPEC-020: the hash of the art sprites (npm run assets); SPEC-011 AC 9: the hash of the module set (npm run precache)
 const ASSETS_HASH = (SW_SRC.match(/const ASSETS_HASH\s*=\s*"([^"]+)"/) || [])[1];
-const CACHE = SW_VERSION + "-" + ASSETS_HASH;
+const SRC_HASH = (SW_SRC.match(/const SRC_HASH\s*=\s*"([^"]+)"/) || [])[1];
+const THREE_VERSION = (SW_SRC.match(/cdn\.jsdelivr\.net\/npm\/three@([\d.]+)\/build\//) || [])[1];
+// SPEC-011 AC 9: three caches — the shell + modules by SRC_HASH, the sprites by ASSETS_HASH, three.js by its version
+const CACHE_SRC = SW_VERSION + "-src-" + SRC_HASH, CACHE_ASSETS = SW_VERSION + "-assets-" + ASSETS_HASH, CACHE_THREE = "bebebe-three-" + THREE_VERSION;
+// the string items of a `const NAME = [ … ];` list in sw.js
+const swList = name => { const m = SW_SRC.match(new RegExp(`const ${name} = \\[([\\s\\S]*?)\\];`)); return m ? [...m[1].matchAll(/"([^"]+)"/g)].map(x => x[1]) : []; };
+const precache = require("../scripts/precache");
 
 // PNG width/height from the IHDR chunk
 function pngSize(file) {
@@ -117,16 +123,22 @@ test.describe(() => {
 test("service worker registers and controls the page over http", { tag: "@fast" }, async ({ page }) => {
   const errors = await openGameHttp(page);
   await waitForSW(page);
-  expect(SW_VERSION).toBeTruthy();
-  expect(ASSETS_HASH).toBeTruthy();
-  const keys = await page.evaluate(async v => (await (await caches.open(v)).keys()).map(r => r.url), CACHE);
+  expect(SW_VERSION).toBe("bebebe-v4");
+  expect(ASSETS_HASH && SRC_HASH && THREE_VERSION).toBeTruthy();
+  // SPEC-011 AC 9: exactly the three caches
+  expect((await page.evaluate(() => caches.keys())).sort()).toEqual([CACHE_ASSETS, CACHE_SRC, CACHE_THREE].sort());
+  const keysOf = name => page.evaluate(async v => (await (await caches.open(v)).keys()).map(r => r.url), name);
+  const src = await keysOf(CACHE_SRC), three = await keysOf(CACHE_THREE), art = await keysOf(CACHE_ASSETS);
   for (const u of ["", "index.html", "manifest.webmanifest", "icons/icon.svg", "icons/apple-touch-icon.png",
-    "icons/icon-192.png", "icons/icon-512.png", "icons/icon-512-maskable.png"]) expect(keys).toContain(HTTP_BASE + u);
-  expect(keys).toContain("https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.js");
-  expect(keys).toContain("https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.core.js");
+    "icons/icon-192.png", "icons/icon-512.png", "icons/icon-512-maskable.png"]) expect(src).toContain(HTTP_BASE + u);
+  // the shell's modules, at their versioned URLs, and the marker of a complete install
+  expect(swList("PRECACHE_SRC").length).toBeGreaterThan(20);
+  expect(swList("PRECACHE_SRC").filter(u => !src.includes(HTTP_BASE + u.slice(2))), "modules not in the src cache").toEqual([]);
+  expect(src).toContain(HTTP_BASE + "__installed__");
+  expect(three.sort()).toEqual([`https://cdn.jsdelivr.net/npm/three@${THREE_VERSION}/build/three.core.js`, `https://cdn.jsdelivr.net/npm/three@${THREE_VERSION}/build/three.module.js`]);
   // SPEC-020: every art sprite is precached too (the list npm run assets writes into sw.js)
   const sprites = await page.evaluate(() => window.__bb.ART_NAMES);
-  expect(sprites.filter(n => !keys.includes(HTTP_BASE + "assets/" + n + ".webp"))).toEqual([]);
+  expect(sprites.filter(n => !art.includes(HTTP_BASE + "assets/" + n + ".webp"))).toEqual([]);
   expect(errors).toEqual([]);
 });
 
@@ -157,16 +169,112 @@ test("sw.js precaches the same three.js version index.html imports", async () =>
   expect(cached).toBe(imported);
 });
 
+// SPEC-011 AC 9: the cache rotation with three kinds of caches. A new version keeps the caches of the version before (a page of
+// it may still be open) and deletes older ones and old-style names; three.js is kept while its version is the same; other apps
+// on the origin are never touched
 test("old caches are removed on a new SW_VERSION", async ({ page }) => {
-  test.slow();                       // installs a second service worker (precaches three.js again): slow under load
+  test.slow();                       // installs two more service workers: slow under load
+  const ov = { fn: () => null };
+  const keys = () => page.evaluate(async () => (await caches.keys()).sort());
+  const version = v => SW_SRC.replace(/const SW_VERSION\s*=\s*"[^"]+"/, `const SW_VERSION = "${v}"`);
+  const update = () => page.evaluate(async () => (await navigator.serviceWorker.getRegistration()).update());
+  await withOwnServer(page, ov, async () => {
+    expect(await keys()).toEqual([CACHE_ASSETS, CACHE_SRC, CACHE_THREE].sort());
+    await page.evaluate(() => Promise.all([caches.open("bebebe-v0"), caches.open("other-pages-app")]));   // an old-style name + another app
+    ov.fn = p => (p === "/sw.js" ? version("bebebe-test-v2") : null);
+    await update();
+    const v2 = ["bebebe-test-v2-assets-" + ASSETS_HASH, "bebebe-test-v2-src-" + SRC_HASH];
+    await expect.poll(keys, { timeout: 60_000 }).toEqual([...v2, CACHE_ASSETS, CACHE_SRC, CACHE_THREE, "other-pages-app"].sort());
+    ov.fn = p => (p === "/sw.js" ? version("bebebe-test-v3") : null);
+    await update();
+    await expect.poll(keys, { timeout: 60_000 }).toEqual(["bebebe-test-v3-assets-" + ASSETS_HASH, "bebebe-test-v3-src-" + SRC_HASH, ...v2, CACHE_THREE, "other-pages-app"].sort());
+  });
+});
+
+// SPEC-011 AC 9: the module list of sw.js is every module on disk at its content hash; the shell list comes from the one site
+// list (scripts/site.js SITE through npm run precache)
+test("precache lists every module", { tag: "@fast" }, () => {
+  const onDisk = precache.lists().modules;
+  expect(onDisk.length).toBeGreaterThan(20);
+  expect(swList("PRECACHE_SRC"), "sw.js PRECACHE_SRC: run npm run precache").toEqual(onDisk.map(m => `${m.url}?v=${m.hash}`));
+  const walk = d => fs.readdirSync(d, { withFileTypes: true }).flatMap(e => e.isDirectory() ? walk(path.join(d, e.name)) : e.name.endsWith(".js") ? [path.join(d, e.name)] : []);
+  expect(swList("PRECACHE_SRC").map(u => u.replace(/\?v=[0-9a-f]{10}$/, "")).sort(), "every src/**/*.js").toEqual(walk(path.join(ROOT, "src")).map(f => "./" + path.relative(ROOT, f).replace(/\\/g, "/")).sort());
+  expect(swList("PRECACHE_LOCAL"), "sw.js PRECACHE_LOCAL: the shell").toEqual(precache.lists().shell);
+  expect(swList("PRECACHE_LOCAL")).toEqual(expect.arrayContaining(["./", "./index.html", "./manifest.webmanifest", "./icons/icon.svg"]));
+});
+
+// SPEC-011 AC 9: the import map pins every module URL to its hash (so a shell can only load its own module versions), the shell
+// carries SRC_HASH in <meta name="src-hash"> like sw.js; committed hashes, map or SRC_HASH that do not match the files fail
+// (rerun npm run precache — also after merging master); no dynamic import() in the game; ?v= lives only in the import map
+test("the import map pins every module to its hash", { tag: "@fast" }, () => {
+  const map = JSON.parse(INDEX_SRC.match(/<script type="importmap">([\s\S]*?)<\/script>/)[1]).imports;
+  const { modules, srcHash } = precache.lists();
+  expect(Object.keys(map).sort()).toEqual(["three", ...modules.map(m => m.url)].sort());
+  for (const m of modules) expect(map[m.url], m.url).toBe(`${m.url}?v=${precache.hashOf(fs.readFileSync(path.join(ROOT, m.url)))}`);
+  expect((INDEX_SRC.match(/<meta name="src-hash" content="([^"]+)">/) || [])[1], "index.html src-hash").toBe(srcHash);
+  expect(SRC_HASH, "sw.js SRC_HASH").toBe(srcHash);
+  expect(precache.run({ check: true }).stale, "run npm run precache").toEqual([]);
+  // the guard fires: one module's bytes changed → the map and SRC_HASH written from the files differ from the committed ones
+  const L = precache.lists(), changed = { ...L, modules: L.modules.map((m, i) => (i ? m : { ...m, hash: "0000000000" })) };
+  expect(precache.writeIndex(INDEX_SRC.split("\r\n").join("\n"), changed)).not.toBe(INDEX_SRC.split("\r\n").join("\n"));
+  // the game never loads a module around the map, and no import names a version
+  const { gameSource } = require("./helpers");
+  const code = gameSource();
+  expect(/\bimport\s*\(/.test(code), "no dynamic import() in the game").toBe(false);
+  expect(code.match(/\bfrom\s+["'][^"']*\?v=/g), "?v= only in the import map").toBeNull();
+});
+
+// SPEC-011 AC 9: a changed module with its old version still cached — a new shell asks for the new URL (its hash) and gets the
+// new module, never the cached old one: the page runs one version
+const ART_FILE = "/src/client/art-names.js";
+const ART_URL = "." + ART_FILE;
+const newVersion = (marker = "new") => {
+  const map = JSON.parse(INDEX_SRC.match(/<script type="importmap">([\s\S]*?)<\/script>/)[1]).imports;
+  const html = INDEX_SRC.replace(map[ART_URL], ART_URL + "?v=testnew001").replace(`<meta name="src-hash" content="${SRC_HASH}">`, "<meta name=\"src-hash\" content=\"testnew999\">");
+  const art = fs.readFileSync(path.join(ROOT, ART_FILE), "utf8") + `\nglobalThis.__bbModuleVersion = "${marker}";\n`;
+  return { html, art };
+};
+test("a new shell never loads an old module", async ({ page }) => {
   const ov = { fn: () => null };
   await withOwnServer(page, ov, async () => {
-    expect(await page.evaluate(() => caches.keys())).toEqual([CACHE]);
-    await page.evaluate(() => Promise.all([caches.open("bebebe-v0"), caches.open("other-pages-app")]));   // an older version + another app on the same origin
-    const next = SW_SRC.replace(/const SW_VERSION\s*=\s*"[^"]+"/, 'const SW_VERSION = "bebebe-test-v2"');
-    ov.fn = p => (p === "/sw.js" ? next : null);
-    await page.evaluate(async () => (await navigator.serviceWorker.getRegistration()).update());
-    await expect.poll(() => page.evaluate(async () => (await caches.keys()).sort()), { timeout: 60_000 }).toEqual(["bebebe-test-v2-" + ASSETS_HASH, "other-pages-app"]);
+    const asked = [];
+    page.on("request", r => { if (r.url().includes(ART_FILE)) asked.push(new URL(r.url()).search); });
+    const v = newVersion();
+    ov.fn = p => (p === "/index.html" ? v.html : p === ART_FILE ? v.art : null);
+    await page.reload();
+    await page.waitForFunction(() => window.__bbReady === true, null, { timeout: 30_000 });
+    expect(await page.evaluate(() => document.querySelector("meta[name=src-hash]").content)).toBe("testnew999");
+    expect(await page.evaluate(() => window.__bbModuleVersion), "the new module, not the cached old one").toBe("new");
+    expect(asked).toEqual(["?v=testnew001"]);
+  });
+});
+
+// SPEC-011 AC 9 (check of the fix round): the old worker is active; a new shell and a changed module are deployed, the new shell
+// is fetched once online, and the phone goes offline before the new worker has installed (here its install cannot finish: one
+// file of its list is missing). The fetched new shell was shown but not cached (no complete cache of its SRC_HASH), so the next
+// launch starts the old version from the old cache — with all its modules
+test("an offline launch after a half-installed update starts the old version", async ({ page, context }) => {
+  const ov = { fn: () => null };
+  await withOwnServer(page, ov, async () => {
+    const v = newVersion();
+    const sw = SW_SRC.replace(`const SRC_HASH = "${SRC_HASH}";`, "const SRC_HASH = \"testnew999\";")
+      .replace(/"\.\/src\/client\/art-names\.js\?v=[0-9a-f]+"/, "\"./src/client/art-names.js?v=testnew001\", \"./src/client/not-deployed-yet.js?v=0\"");
+    ov.fn = p => (p === "/index.html" ? v.html : p === ART_FILE ? v.art : p === "/sw.js" ? sw : null);
+    await page.reload();                                       // online: the new version runs
+    await page.waitForFunction(() => window.__bbReady === true, null, { timeout: 30_000 });
+    expect(await page.evaluate(() => window.__bbModuleVersion)).toBe("new");
+    await page.evaluate(async () => { try { await (await navigator.serviceWorker.getRegistration()).update(); } catch (e) { /* the install fails */ } });
+    expect(await page.evaluate(async () => (await caches.keys()).filter(n => n.includes("testnew999")).length
+      ? !!(await (await caches.open((await caches.keys()).find(n => n.includes("testnew999")))).match("./__installed__")) : false), "no complete cache of the new version").toBe(false);
+    await context.route("https://cdn.jsdelivr.net/**", route => route.abort("internetdisconnected"));
+    await context.setOffline(true);
+    await page.reload();
+    await page.waitForFunction(() => window.__bbReady === true, null, { timeout: 30_000 });
+    expect(await page.evaluate(() => document.querySelector("meta[name=src-hash]").content), "the old shell").toBe(SRC_HASH);
+    expect(await page.evaluate(() => window.__bbModuleVersion), "the old modules").toBeUndefined();
+    await page.evaluate(() => { window.__bb.seedRandom(1); window.__bb.startGame(1); });
+    await step(page, 2);
+    expect(await page.evaluate(() => window.__bb.mode)).toBe("play");
   });
 });
 

@@ -15,7 +15,8 @@
     "serve": "node scripts/serve.js",
     "site": "node scripts/site.js",
     "lint": "node scripts/lint.js",
-    "setup": "npm install && npx playwright install chromium && node scripts/claude-sync.js"
+    "setup": "npm install && npx playwright install chromium && node scripts/claude-sync.js",
+    "precache": "node scripts/precache.js"
   },
   "devDependencies": {
     "@playwright/test": "1.65.1",

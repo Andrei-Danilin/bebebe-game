@@ -8,6 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="BeBeBe">
 <meta name="theme-color" content="#faf4e2">
+<meta name="src-hash" content="a0c02b2d3f">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -57,9 +58,38 @@
     if (el) el.innerHTML = "<div id=\"file-notice\">" + FILE_NOTICE[l] + "</div>";
   }
 </script>
-<!-- SPEC-011 AC 1b: the one place that says where three.js comes from (the game imports the bare name "three"; sw.js THREE_BASE must match) -->
+<!-- SPEC-011 AC 1b: the one place that says where three.js comes from (the game imports the bare name "three"; sw.js THREE_BASE must match).
+     AC 9: and the version of every module (./src/…/x.js → ?v=<hash of its bytes>) — written by npm run precache, do not edit by hand -->
 <script type="importmap">
-{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.js" } }
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.js",
+  "./src/client/art-names.js": "./src/client/art-names.js?v=7228f7f839",
+  "./src/client/look.js": "./src/client/look.js?v=6b3f0ae3e3",
+  "./src/core/autopilot.js": "./src/core/autopilot.js?v=f62807a252",
+  "./src/core/big.js": "./src/core/big.js?v=f5caddcc69",
+  "./src/core/bots.js": "./src/core/bots.js?v=3816176aa9",
+  "./src/core/config.js": "./src/core/config.js?v=3409a82f50",
+  "./src/core/difficulty.js": "./src/core/difficulty.js?v=d289c6f89d",
+  "./src/core/economy.js": "./src/core/economy.js?v=56dc2c8d89",
+  "./src/core/game.js": "./src/core/game.js?v=4b759de4d9",
+  "./src/core/hearing.js": "./src/core/hearing.js?v=d3484b3404",
+  "./src/core/hooks.js": "./src/core/hooks.js?v=3d83dff9cc",
+  "./src/core/index.js": "./src/core/index.js?v=1c5be51a5b",
+  "./src/core/level/build.js": "./src/core/level/build.js?v=d67a9b12cd",
+  "./src/core/level/generate.js": "./src/core/level/generate.js?v=455b2ff4e4",
+  "./src/core/level/layouts.js": "./src/core/level/layouts.js?v=35c82d01f0",
+  "./src/core/level/validate.js": "./src/core/level/validate.js?v=e551cb4d78",
+  "./src/core/mood.js": "./src/core/mood.js?v=811aaf8d08",
+  "./src/core/path.js": "./src/core/path.js?v=8d09ea0e2c",
+  "./src/core/practice.js": "./src/core/practice.js?v=a172d7c821",
+  "./src/core/progress-rules.js": "./src/core/progress-rules.js?v=a8243540b6",
+  "./src/core/rules.js": "./src/core/rules.js?v=92957f5252",
+  "./src/core/util.js": "./src/core/util.js?v=966b25e5de",
+  "./src/core/wardrobe.js": "./src/core/wardrobe.js?v=d41ca5a53d",
+  "./src/core/world.js": "./src/core/world.js?v=1e0b79fedf",
+  "./src/i18n.js": "./src/i18n.js?v=a28c8e3da4",
+  "./src/story.js": "./src/story.js?v=31072db672"
+} }
 </script>
 <script type="module">
 import * as THREE from "three";

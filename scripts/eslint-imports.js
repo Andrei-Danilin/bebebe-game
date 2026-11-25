@@ -80,6 +80,8 @@ const rule = {
     const check = (node, specifiers) => {
       const src = node.source && node.source.value;
       if (typeof src !== "string") return;
+      // SPEC-011 AC 9: a module version (?v=<hash>) lives only in the import map (npm run precache), never in an import
+      if (/[?#]/.test(src)) { context.report({ node: node.source, message: `"${src}": no query or hash in an import — versions are the import map's (npm run precache)` }); return; }
       if (!src.startsWith("./") && !src.startsWith("../")) {
         if (!inImportMap(src)) context.report({ node: node.source, message: `"${src}" is not in the import map of index.html (${importMapKeys().join(", ") || "none"})` });
         return;

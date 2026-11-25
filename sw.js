@@ -1,24 +1,41 @@
 // Service worker of BeBeBe Atrapar: the installed app keeps working offline after the first open.
-// Bump SW_VERSION when PRECACHE, the three.js version, an icon's content or a cache strategy changes
-// (a change to index.html alone needs no bump: it is network-first). The art sprites (assets/) are listed by npm run assets
-// below, with a hash of their bytes; the cache is named SW_VERSION + "-" + ASSETS_HASH, so a redrawn sprite gives a new cache
-// (the old one is deleted on activate) without a SW_VERSION bump.
-const SW_VERSION = "bebebe-v3";
+// SPEC-011 AC 9: three caches, so a code deploy re-downloads no sprites and a sprite change no code:
+//   <SW_VERSION>-src-<SRC_HASH>     the shell (index.html, manifest, icons) + the game's ES modules, written only at install
+//                                   (plus the shell rule below); complete when its "installed" marker is there;
+//   <SW_VERSION>-assets-<ASSETS_HASH>  the art sprites (assets/, listed by npm run assets);
+//   bebebe-three-<version>          three.js from jsDelivr, by its version.
+// The module URLs are versioned (./src/…/x.js?v=<hash of its bytes>: the import map of index.html, written by npm run precache
+// with SRC_HASH and the lists below), so a shell only ever asks for its own module versions; they are served cache-first.
+// index.html stays network-first: an online launch gets the new version at once. A network-fetched shell is stored only into
+// the complete src cache of its own SRC_HASH (its <meta name="src-hash">); if there is none yet (the new worker has not
+// finished installing), it is shown but not cached — so the cached shell always has its modules.
+// A module change needs no SW_VERSION bump: rerun npm run precache (SRC_HASH changes). Bump SW_VERSION when a cache strategy,
+// the three.js version (THREE_BASE = the import map's) or an icon's content changes. Old caches: the last 2 of each kind stay
+// (a page of the previous version may still be open), older ones are deleted on activate.
+const SW_VERSION = "bebebe-v4";
 const CACHE_PREFIX = "bebebe-";          // all Pages projects of the account share one origin: touch only our caches
 const NET_TIMEOUT_MS = 4000;             // weak signal: after this long, a cached copy wins over a slow network
 const THREE_BASE = "https://cdn.jsdelivr.net/npm/three@0.187.0/build/";
+// SPEC-011: written by npm run precache (scripts/precache.js) — do not edit by hand
+// precache:start
+const SRC_HASH = "a0c02b2d3f";
 const PRECACHE_LOCAL = [
-  "./", "./index.html", "./manifest.webmanifest",
-  "./icons/icon.svg", "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512.png", "./icons/icon-512-maskable.png",
-  // SPEC-011: the game's ES modules (phase B stopgap; npm run precache writes this list with content hashes, AC 9)
-  "./src/client/art-names.js", "./src/client/look.js", "./src/core/autopilot.js", "./src/core/big.js",
-  "./src/core/bots.js", "./src/core/config.js", "./src/core/difficulty.js", "./src/core/economy.js",
-  "./src/core/game.js", "./src/core/hearing.js", "./src/core/hooks.js", "./src/core/index.js",
-  "./src/core/level/build.js", "./src/core/level/generate.js", "./src/core/level/layouts.js",
-  "./src/core/level/validate.js", "./src/core/mood.js", "./src/core/path.js", "./src/core/practice.js",
-  "./src/core/progress-rules.js", "./src/core/rules.js", "./src/core/util.js", "./src/core/wardrobe.js",
-  "./src/core/world.js", "./src/i18n.js", "./src/story.js"
+  "./", "./index.html", "./manifest.webmanifest", "./icons/apple-touch-icon.png", "./icons/icon-192.png",
+  "./icons/icon-512-maskable.png", "./icons/icon-512.png", "./icons/icon.svg"
 ];
+const PRECACHE_SRC = [
+  "./src/client/art-names.js?v=7228f7f839", "./src/client/look.js?v=6b3f0ae3e3",
+  "./src/core/autopilot.js?v=f62807a252", "./src/core/big.js?v=f5caddcc69", "./src/core/bots.js?v=3816176aa9",
+  "./src/core/config.js?v=3409a82f50", "./src/core/difficulty.js?v=d289c6f89d", "./src/core/economy.js?v=56dc2c8d89",
+  "./src/core/game.js?v=4b759de4d9", "./src/core/hearing.js?v=d3484b3404", "./src/core/hooks.js?v=3d83dff9cc",
+  "./src/core/index.js?v=1c5be51a5b", "./src/core/level/build.js?v=d67a9b12cd",
+  "./src/core/level/generate.js?v=455b2ff4e4", "./src/core/level/layouts.js?v=35c82d01f0",
+  "./src/core/level/validate.js?v=e551cb4d78", "./src/core/mood.js?v=811aaf8d08", "./src/core/path.js?v=8d09ea0e2c",
+  "./src/core/practice.js?v=a172d7c821", "./src/core/progress-rules.js?v=a8243540b6",
+  "./src/core/rules.js?v=92957f5252", "./src/core/util.js?v=966b25e5de", "./src/core/wardrobe.js?v=d41ca5a53d",
+  "./src/core/world.js?v=1e0b79fedf", "./src/i18n.js?v=a28c8e3da4", "./src/story.js?v=31072db672"
+];
+// precache:end
 // SPEC-020: written by npm run assets (scripts/assets.js) — do not edit by hand
 // assets:start
 const ASSETS_HASH = "df50cb2e11c5";
@@ -68,43 +85,82 @@ const PRECACHE_ASSETS = [
   "./assets/heart_full.webp", "./assets/heart_half.webp", "./assets/heart_empty.webp"
 ];
 // assets:end
-const CACHE = SW_VERSION + "-" + ASSETS_HASH;
+const CACHE_SRC = SW_VERSION + "-src-" + SRC_HASH;
+const CACHE_ASSETS = SW_VERSION + "-assets-" + ASSETS_HASH;
+const CACHE_THREE = CACHE_PREFIX + "three-" + (THREE_BASE.match(/three@([^/]+)\//) || [])[1];
 const PRECACHE_THREE = [THREE_BASE + "three.module.js", THREE_BASE + "three.core.js"];
 const SCOPE_ROOT = new URL("./", self.location).href;
+const INSTALLED = new URL("./__installed__", self.location).href;   // the marker of a complete src cache
 const MATCH = { ignoreSearch: true, ignoreVary: true };
+const KEEP = 2;                          // caches of each kind kept: this version and the one before
+
+const srcHashOf = html => (html.match(/<meta name="src-hash" content="([^"]+)">/) || [])[1] || null;
+const isComplete = async name => (await caches.has(name)) && !!(await (await caches.open(name)).match(INSTALLED));
 
 self.addEventListener("install", event => {
   event.waitUntil((async () => {
-    const cache = await caches.open(CACHE);
-    await cache.addAll(PRECACHE_LOCAL.map(u => new Request(u, { cache: "reload" })));   // the game itself: all or nothing
-    await cache.addAll(PRECACHE_THREE.map(u => new Request(u, { mode: "cors" })));
+    // the game itself: all or nothing, and the shell must be the one of these modules (a deploy in between → no install)
+    const src = await caches.open(CACHE_SRC);
+    await src.addAll([...PRECACHE_LOCAL, ...PRECACHE_SRC].map(u => new Request(u, { cache: "reload" })));
+    const shell = await src.match(SCOPE_ROOT);
+    if (!shell || srcHashOf(await shell.text()) !== SRC_HASH) { await caches.delete(CACHE_SRC); throw new Error("the shell is not the one of these modules"); }
+    await src.put(INSTALLED, new Response("1"));
+    // three.js: only what this version's cache does not have yet
+    const three = await caches.open(CACHE_THREE);
+    const missing = [];
+    for (const u of PRECACHE_THREE) if (!(await three.match(u))) missing.push(u);
+    await three.addAll(missing.map(u => new Request(u, { mode: "cors" })));
     // the art: one by one, a missing sprite never blocks the install (the game draws it with code)
-    await Promise.all(PRECACHE_ASSETS.map(u => cache.add(new Request(u, { cache: "no-cache" })).catch(() => {})));
+    const art = await caches.open(CACHE_ASSETS);
+    await Promise.all(PRECACHE_ASSETS.map(async u => { if (!(await art.match(u))) await art.add(new Request(u, { cache: "no-cache" })).catch(() => {}); }));
     await self.skipWaiting();
   })());
 });
 
+// the kind of one of our caches ("src", "assets", "three") or null (an old name: deleted)
+const kindOf = name => (/-src-[^-]+$/.test(name) ? "src" : /-assets-[^-]+$/.test(name) ? "assets" : name.startsWith(CACHE_PREFIX + "three-") ? "three" : null);
 self.addEventListener("activate", event => {
   event.waitUntil((async () => {
-    const names = await caches.keys();
-    await Promise.all(names.filter(n => n.startsWith(CACHE_PREFIX) && n !== CACHE).map(n => caches.delete(n)));
+    const mine = [CACHE_SRC, CACHE_ASSETS, CACHE_THREE];
+    const names = (await caches.keys()).filter(n => n.startsWith(CACHE_PREFIX) && !mine.includes(n));   // in creation order
+    const keep = new Set();
+    for (const kind of ["src", "assets", "three"]) names.filter(n => kindOf(n) === kind).slice(-(KEEP - 1)).forEach(n => keep.add(n));
+    await Promise.all(names.filter(n => !keep.has(n)).map(n => caches.delete(n)));
     await self.clients.claim();
   })());
 });
 
-// Keeps a copy of a good response (same-origin or CORS only, never opaque or errors) without delaying the page.
-function remember(event, request, response) {
+// Keeps a copy of a good response (same-origin or CORS only, never opaque or errors) in `cacheName`, without delaying the page.
+function remember(event, cacheName, request, response) {
   if (response.ok && (response.type === "basic" || response.type === "cors")) {
     const copy = response.clone();
-    const saved = caches.open(CACHE).then(c => c.put(request, copy)).catch(() => {});
+    const saved = caches.open(cacheName).then(c => c.put(request, copy)).catch(() => {});
     try { event.waitUntil(saved); } catch (e) { /* the event is already over (cache answered first): saving goes on anyway */ }
   }
   return response;
 }
+// The shell rule: a network-fetched index.html goes only into the complete src cache of its own SRC_HASH
+function rememberShell(event, request, response) {
+  if (response.ok && response.type === "basic") {
+    const copy = response.clone();
+    const saved = (async () => {
+      const hash = srcHashOf(await copy.clone().text()), name = hash && SW_VERSION + "-src-" + hash;
+      if (name && await isComplete(name)) await (await caches.open(name)).put(request, copy);
+    })().catch(() => {});
+    try { event.waitUntil(saved); } catch (e) { /* saving goes on anyway */ }
+  }
+  return response;
+}
 
-async function networkFirst(event, request, fallbackUrl) {
-  const fromCache = async () => (await caches.match(request, MATCH)) || (fallbackUrl ? await caches.match(fallbackUrl) : undefined);
-  const network = fetch(request).then(res => remember(event, request, res));
+// the cached shell: this worker's own version first (its modules are there), then any other copy
+async function cachedShell(request, fallbackUrl) {
+  const own = await caches.open(CACHE_SRC);
+  return (await own.match(request, MATCH)) || (fallbackUrl ? await own.match(fallbackUrl) : undefined)
+    || (await caches.match(request, MATCH)) || (fallbackUrl ? await caches.match(fallbackUrl) : undefined);
+}
+
+async function networkFirst(event, request, fallbackUrl, save, fromCache) {
+  const network = fetch(request).then(res => (save ? save(event, request, res) : res));
   network.catch(() => {});                                   // a late failure after the cache answered is fine
   let timer;
   const slow = new Promise(resolve => { timer = setTimeout(resolve, NET_TIMEOUT_MS, "slow"); });
@@ -121,9 +177,11 @@ async function networkFirst(event, request, fallbackUrl) {
   }
 }
 
-async function cacheFirst(event, request) {
-  const hit = await caches.match(request, { ignoreVary: true });
-  return hit || remember(event, request, await fetch(request));
+async function cacheFirst(event, request, cacheName, match = { ignoreVary: true }) {
+  const hit = await caches.match(request, match);
+  if (hit) return hit;
+  const res = await fetch(request);
+  return cacheName ? remember(event, cacheName, request, res) : res;
 }
 
 self.addEventListener("fetch", event => {
@@ -135,10 +193,19 @@ self.addEventListener("fetch", event => {
   const atRoot = path === SCOPE_ROOT || path === SCOPE_ROOT + "index.html";
   if (req.mode === "navigate" || atRoot) {
     // a new version of the game shows up as soon as the phone is online
-    event.respondWith(networkFirst(event, req, atRoot ? SCOPE_ROOT : null));
-  } else if (url.href.startsWith(THREE_BASE) || (local && (url.pathname.includes("/icons/") || url.pathname.includes("/assets/")))) {
-    event.respondWith(cacheFirst(event, req));
+    const fallback = atRoot ? SCOPE_ROOT : null;
+    event.respondWith(networkFirst(event, req, fallback, atRoot ? rememberShell : null, () => cachedShell(req, fallback)));
+  } else if (local && url.pathname.includes("/src/") && url.searchParams.has("v")) {
+    // a versioned module: the exact URL (its hash) from any of our caches, else the network — never written at runtime
+    event.respondWith(cacheFirst(event, req, null, { ignoreVary: true }));
+  } else if (url.href.startsWith(THREE_BASE)) {
+    event.respondWith(cacheFirst(event, req, CACHE_THREE));
+  } else if (local && url.pathname.includes("/assets/")) {
+    event.respondWith(cacheFirst(event, req, CACHE_ASSETS));
+  } else if (local && url.pathname.includes("/icons/")) {
+    event.respondWith(cacheFirst(event, req, null));
   } else {
-    event.respondWith(networkFirst(event, req, null));       // everything else: network, cache as fallback
+    // everything else (the manifest, an unversioned file): network, our caches as the fallback; nothing written
+    event.respondWith(networkFirst(event, req, null, null, () => caches.match(req, MATCH)));
   }
 });
