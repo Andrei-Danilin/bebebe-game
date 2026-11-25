@@ -3,7 +3,6 @@
 
 import * as THREE from "three";
 import { GLOVES, TAU } from "../../core/config.js";
-import { gloveOf } from "../../core/economy.js";
 import { noGameRng } from "../../core/util.js";
 import { BIG_SKINS } from "../../core/wardrobe.js";
 import { LOOK } from "../look.js";
@@ -16,6 +15,7 @@ import { BIG_SCALE, LITTLE_SCALE, scene } from "./setup.js";
 import { clearItemMeshes, clearKissMeshes, clearStarMeshes } from "./sync.js";
 import { KID_HEAD_R } from "../ui/draw.js";
 import { G } from "../../core/active.js";
+import { gloveOf } from "../../core/rules.js";
 
 // ---------- Персонажи ----------
 // SPEC-021: лицо. Маленькие (art/6_personas): глаза-точки, румянец, простая улыбка (KID_LOOK). Большой: глаза с белками и брови;

@@ -4,12 +4,12 @@
 
 import { G } from "../core/active.js";
 import { BONUS_WORLDS, BOSSES, levelsPerWorld, MAIN_WORLDS, worldIndex, WORLDS } from "../core/config.js";
-import { progress, saveProgress } from "../core/economy.js";
+import { addCoins, progress } from "../core/economy.js";
 import { createGame, logEvent, newInput, teamSize, useGame } from "../core/game.js";
 import { levelType } from "../core/level/generate.js";
 import { bossFor } from "../core/mood.js";
-import { isOpen, payReward, worldComplete, worldProgress } from "../core/progress-rules.js";
-import { canUseKit, throwKiss, useRescueKit } from "../core/rules.js";
+import { computeReward, isOpen, worldComplete, worldProgress } from "../core/progress-rules.js";
+import { canUseKit, levelResult, throwKiss, useRescueKit } from "../core/rules.js";
 import { clamp, newRng, seedRandom as seedStream } from "../core/util.js";
 import { BIG_SKINS } from "../core/wardrobe.js";
 import { L, lang, LANGS } from "../i18n.js";
@@ -18,17 +18,17 @@ import { STORY_ART } from "./art.js";
 import { closeNameInput, nameInput, sticks } from "./input.js";
 import { LOOK } from "./look.js";
 import { botOutfit, endTryOn, makeLook, skinSel } from "./outfits.js";
-import { setLang } from "./progress.js";
+import { saveProgress, setLang } from "./progress.js";
 import { PHONE } from "./screen.js";
 import { ui } from "./state.js";
 import { camSnap } from "./three/camera.js";
-import { setTutorial, tutorialPages } from "./tutorial.js";
+import { practiceStep, setPracticeStep, setTutorial, tutorialNext, tutorialPages } from "./tutorial.js";
 import { lockedText } from "./ui/map.js";
 import { rebuild3D } from "./three/characters.js";
 import { drainEvents } from "./fx.js";
 
 // SPEC-012 AC 1c: the screen is the client's (the core has only the game's phase, G.phase). mode — one of MODES; lastReward — the
-// reward of the last level paid (payReward's result: the win screen shows it), null after a new game is built
+// reward of the last level paid (payLevel's result: the win screen shows it), null after a new game is built
 export let mode = "home", lastReward = null;
 // SPEC-012 AC 1f: a screen change resets the menus' state that belongs to the screen left (drawing changes no state): the shop
 // tab and wardrobe page outside the shop, the map's hint outside the map, the world page's background outside the map and its
@@ -50,10 +50,40 @@ const press = (pi, k) => { const l = G.littles[pi]; if (mode !== "play" || !l ||
 export const pressKiss = pi => press(pi, "kiss");
 export const pressKit = pi => press(pi, "kit");
 // shims for the tests (__bb.throwKiss / useRescueKit): the rule at once, past the input slot
-export const kissNow = pi => { const r = mode === "play" && throwKiss(pi); drainEvents(); return r; };
-export const kitNow = pi => { const r = mode === "play" && useRescueKit(pi); drainEvents(); return r; };
-// a level won (the core's onWin hook, after payReward): the win screen and the world the win opened
-export function onWin(r) { lastReward = r; setMode("win"); noteOpenedWorld(r); }
+export const kissNow = pi => { syncStock(); const r = mode === "play" && throwKiss(pi); drainEvents(); return r; };
+export const kitNow = pi => { syncStock(); const r = mode === "play" && useRescueKit(pi); drainEvents(); return r; };
+// ---------- SPEC-012 AC 6 / 6b / 10: the client applies the game's events ----------
+// the local stock follows the saves (one pool for p1/p2; the shop and the tests change progress between steps), and each player
+// wears his saved glove — before every step and every frame; a practice game keeps its own stock
+export function syncStock() {
+  if (!G || !G.stock || G.tutorialGame) return;
+  const s = G.stock, inv = progress.inv;
+  s.kisses = inv.kisses; s.kits = inv.rescues; s.gloves.mittens = inv.mittens; s.gloves.mega = inv.mega;
+  for (const l of G.littles) if (l.kind === "player") l.glove = progress.equip[l.id] ?? "none";
+}
+const INV_KEY = Object.freeze({ kiss: "kisses", kit: "rescues" });
+// the level ended (the result event, or leaving early): the reward — computeReward, applied to progress and the coin book line by
+// line (each saved, as before); → the reward the win screen shows, or null (a practice game pays nothing)
+function payLevel(result) {
+  G.rewardDue = false;
+  if (G.tutorialGame) return null;                          // SPEC-029: тренировка не платит и ничего не открывает
+  const c = computeReward(progress, result);
+  if (c.world) {
+    const wp = progress.worlds[c.world.name];
+    wp.stars[c.world.n] = c.world.stars; wp.won[c.world.n] = true; wp.unlocked = c.world.unlocked;
+    progress.lastWorld = c.world.name;
+  }
+  for (const ln of c.lines) { addCoins(ln.reason, ln.amount); saveProgress(); }
+  return c.reward;
+}
+// one event of the game (drainEvents hands them over after the step, in order): star coins and spent charges go into the saves at
+// once (quitting mid-level keeps them), the result pays the level and opens the win screen, a practice win goes on with the tutorial
+export function applyGameEvent(e) {
+  if (e.type === "coins") { addCoins(e.reason, e.amount, e); saveProgress(); }
+  else if (e.type === "spent") { const k = e.kind === "glove" ? e.glove : INV_KEY[e.kind]; progress.inv[k]--; saveProgress(); }
+  else if (e.type === "result") { lastReward = payLevel(e); setMode("win"); noteOpenedWorld(lastReward); }
+  else if (e.type === "practiceWin") tutorialNext();
+}
 
 // выбор мира в меню (карточка, ↑/↓, крестовина геймпада): запоминается, показывается новый открытый уровень мира.
 // SPEC-016/030: закрытый мир выбрать нельзя (__bb.world — без проверки, для тестов и отчёта баланса)
@@ -75,8 +105,8 @@ function leaveLevel() {
   if (G.tutorialGame || !G.rewardDue || (mode !== "play" && mode !== "pause")) return;   // SPEC-029: тренировка не платит
   if (G.pendingWin > 0) { G.pendingWin = 0; logEvent("win", {}); giveReward(true); } else giveReward(false);
 }
-// клиент: награда (payReward) и мир, который она открыла (hooks.onWin зовёт noteOpenedWorld сам)
-export function giveReward(win) { lastReward = payReward(win); noteOpenedWorld(lastReward); }
+// клиент: награда уровня (payLevel по levelResult) и мир, который она открыла
+export function giveReward(win) { lastReward = payLevel(levelResult(win)); noteOpenedWorld(lastReward); }
 // SPEC-030: победа открыла главный мир — карта переключится на него, когда откроется
 export function noteOpenedWorld(r) { if (r && r.worldOpened) ui.openedWorld = r.worldOpened; }
 
@@ -90,13 +120,13 @@ export function noteOpenedWorld(r) { if (r && r.worldOpened) ui.openedWorld = r.
 const localRng = newRng();
 export function seedRandom(n) { seedStream(n, localRng); }
 export const rngDraws = () => localRng.draws;
-const KEEP = Object.freeze(["events", "rewardDue", "itemSeq", "starSeq", "kissSeq", "tutorialGame", "tut", "tutorialInv", "autoOn", "autoStyle"]);
+const KEEP = Object.freeze(["events", "rewardDue", "itemSeq", "starSeq", "kissSeq", "autoOn", "autoStyle"]);
 // the looks of n players, the bots and the Big One from the wardrobe (the game only carries them)
-const looksFor = n => ({ players: [makeLook(skinSel.p1), makeLook(skinSel.p2)], bots: Array.from({ length: teamSize() - n }, (_, bi) => makeLook(botOutfit(bi))), big: BIG_SKINS[skinSel.big] });
+const looksFor = (n, practice = G.practice) => ({ players: [makeLook(skinSel.p1), makeLook(skinSel.p2)], bots: Array.from({ length: teamSize(practice) - n }, (_, bi) => makeLook(botOutfit(bi))), big: BIG_SKINS[skinSel.big] });
 // SPEC-012 AC 2: the slots of a local game — n players p1…pn (look, glove, upgrades from the saves), the bots with their looks,
 // the Big One (a bot) in the wardrobe's look; the shared stock of local play (one pool for p1/p2)
 function localSlots(n) {
-  const looks = looksFor(n);
+  const looks = looksFor(n, practiceStep);
   return [...Array.from({ length: n }, (_, i) => ({ slot: "p" + (i + 1), kind: "player", look: looks.players[i], glove: progress.equip[i] ?? "none", upgrades: progress.upgrades })),
     ...looks.bots.map((look, bi) => ({ slot: "bot" + (bi + 1), kind: "bot", look })), { slot: "big", kind: "bot", skin: looks.big }];
 }
@@ -108,7 +138,7 @@ function buildLocal(n, playable) {
   clearView();
   const keep = Object.fromEntries(KEEP.map(k => [k, G[k]]));
   lastReward = null;
-  useGame(createGame({ world: G.world, n: G.level, mode: "local", slots: localSlots(n), stock: localStock(), rng: playable ? localRng : { s: localRng.s, draws: 0 }, keep }));
+  useGame(createGame({ world: G.world, n: G.level, mode: "local", slots: localSlots(n), stock: localStock(), practice: practiceStep, rng: playable ? localRng : { s: localRng.s, draws: 0 }, keep }));
 }
 // новая игра мира и уровня меню (G.world, G.level): правило телефона (играет один), виды из гардероба; надписи, частицы, тряска и
 // джойстики — с нуля. resetWorld — витрина меню (showcase), playWorld — игра, в которую играют
@@ -266,7 +296,7 @@ export function watchChapter() {
 // всё состояние экранов меню — как при запуске (тесты: resetGame); SPEC-029: и обучения нет
 export function resetMenus() {
   closeNameInput(false); ui.shopTab = "items"; ui.wardrobePage = "looks"; shopBack = "home"; mapSel = null; ui.toast = null; cardLevel = 1; ui.mapSwipe = null; ui.openedWorld = null; ui.worldBanner = null;
-  storyCh = 0; storyBack = "home"; ui.storyPage = "chapters"; ui.storyScene = null; setTutorial(null); G.tutorialGame = 0;
+  storyCh = 0; storyBack = "home"; ui.storyPage = "chapters"; ui.storyScene = null; setTutorial(null); setPracticeStep(0);
 }
 export function toMap() {
   leaveLevel();

@@ -2,9 +2,10 @@
 // Client module (moved out of index.html in Phase C).
 
 import { GLOVES, KISSES, RESCUE_KIT, UPGRADES } from "../core/config.js";
-import { progress, saveProgress, spendCoins } from "../core/economy.js";
+import { progress, spendCoins } from "../core/economy.js";
 import { SFX } from "./sound.js";
 import { redress } from "./flow.js";
+import { saveProgress } from "./progress.js";
 
 export function buyGloves(kind) {
   const g = GLOVES[kind];

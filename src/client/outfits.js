@@ -1,10 +1,10 @@
 // SPEC-011: the wardrobe state and looks: makeLook, BOSS_LOOKS, skinSel/skinKeep, try-on (tryingOn, endTryOn), buyLook,
 // adoptWorn, fitOutfitsToOwned, botOutfit. Client module (moved out of index.html in Phase C).
 
-import { progress, saveProgress, spendCoins } from "../core/economy.js";
+import { progress, spendCoins } from "../core/economy.js";
 import { clamp, vrand } from "../core/util.js";
 import { BIG_SKINS, HAIRS, HATS, JACKETS, PANTS, SLOTS } from "../core/wardrobe.js";
-import { writeOutfits } from "./progress.js";
+import { saveProgress, writeOutfits } from "./progress.js";
 import { SFX } from "./sound.js";
 import { G } from "../core/active.js";
 import { redress } from "./flow.js";

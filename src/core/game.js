@@ -25,7 +25,7 @@ export function newGame(opts = {}) {
     world: opts.world ?? WORLDS[0], level: opts.n ?? 1, players: opts.players ?? 1,
     // SPEC-012 AC 2: how the game is played ("local" | "online-a" | "online-b"; the core does not use it yet) and the shared
     // stock of a local game { shared, kisses, kits, gloves: { mittens, mega } } (spent through progress until AC 6b)
-    net: opts.mode ?? "local", stock: opts.stock ?? null,
+    net: opts.mode ?? "local", stock: stockOf(opts.stock),
     // SPEC-012 AC 3: the controls of each player slot (p1…p5, big): { mx, my, kiss, kit, act, tiptoe } — the core reads nothing else
     inputs: {},
     // SPEC-012 AC 1c: the game's phase, set only by the core: "play" → (the last hug) "hugEnd" (CFG.HUG_ANIM) → "kindWalk" → "won"
@@ -49,7 +49,8 @@ export function newGame(opts = {}) {
     moveGrid: new Uint8Array(N_FINE), seeGrid: new Uint8Array(N_FINE), moveGridBig: new Uint8Array(N_FINE),
     safeZone: null, dangerZone: null, spawns: { small: [], big: { x: 0, y: 0 } }, levelInfo: null,
     // SPEC-029: тренировка (practice.js): её номер (0 — обычный уровень), сценарий и подсказки, свой запас
-    tutorialGame: 0, tut: { script: false, hint: 0, bothDown: 0 }, tutorialInv: { kisses: 0, rescues: 0, mittens: 0, mega: 0 },
+    // SPEC-012 AC 10: practice — the practice game's option (practiceOf) or null; tutorialGame — its step (0 — a normal level)
+    practice: null, tutorialGame: 0, tut: { script: false, hint: 0, bothDown: 0 }, tutorialInv: stockOf(null),
     // SPEC-008: автопилот (autopilot.js): включён ли, стиль, память пути, «стик» этого шага
     autoOn: false, autoStyle: "careful", autoNavs: {}, autoMove: [],
     // SPEC-008 / SPEC-012: игровая случайность этой игры (mulberry32: состояние s, сколько раз тянули)
@@ -65,6 +66,20 @@ export function step(g, dt) { useGame(g); update(dt); }
 // y, color, meaning } (an I18N key and its arguments — key null: args[0] is the text itself, a number or a sign), shake { t },
 // wave { x, y, r } (a wide push ring), hint { kind: "kit" | "kitOff" | "heard" | "practice", slot, step }, mood { level }
 export function emit(type, data) { if (G.fx) G.fx.push({ type, ...data }); }
+// SPEC-012 AC 6 / 6b / 10: the events the client acts on — coins (a star), spent (a kiss, a kit, a glove charge), result (a level
+// won), practiceWin: logged in the gameplay log like any event, and handed to the client in the effect queue ({ type: "game", e })
+// so it applies each exactly once (the economy, the win screen, the next tutorial step)
+export function logEcon(type, data) { const e = logEvent(type, data); if (G.fx) G.fx.push({ type: "game", e }); return e; }
+// SPEC-012 AC 2: a game's stock { shared, kisses, kits, gloves: { mittens, mega } } (local play: one pool for p1/p2)
+export const stockOf = s => ({ shared: s?.shared ?? true, kisses: s?.kisses ?? 0, kits: s?.kits ?? 0, gloves: { mittens: s?.gloves?.mittens ?? 0, mega: s?.gloves?.mega ?? 0 } });
+// SPEC-012 AC 10: the practice option — a step (1, 2) or { step, map, hearts, bots, stock, script } (script: an id — "game1" is the
+// scripted push of practice 1, practice.js) → plain data with today's defaults from CFG.TUTORIAL; nothing → null
+export function practiceOf(p) {
+  if (!p) return null;
+  const o = typeof p === "number" ? { step: p } : p, T = CFG.TUTORIAL, s = o.step;
+  return { step: s, map: o.map ?? "tutorial", hearts: o.hearts ?? T["hearts" + s], bots: o.bots ?? T.bots,
+    stock: stockOf(o.stock ?? (s === 2 ? { kisses: T.kisses, kits: T.kits } : null)), script: o.script ?? (s === 1 ? "game1" : null) };
+}
 export function logEvent(type, data) {
   const e = { t: G.stats.time, type, ...data };
   G.events.push(e);
@@ -87,7 +102,8 @@ function makeLittle(i, s, botIndex) {
   };
 }
 // маленьких в команде (игроки + боты): 5; SPEC-029: в тренировке — игрок и бот (сценарий и спасение нужны хоть одному)
-export function teamSize() { return G.tutorialGame ? 1 + Math.max(1, CFG.TUTORIAL.bots) : 5; }
+// p — the practice option (practiceOf) or a step; by default the active game's
+export function teamSize(p = G.practice) { return p ? 1 + Math.max(1, typeof p === "object" ? p.bots : CFG.TUTORIAL.bots) : 5; }
 export const newInput = () => ({ mx: 0, my: 0, kiss: false, kit: false, act: false, tiptoe: false });
 // SPEC-012 AC 2: the Little One slots of a game — the given ones (players and bots, in their order; at most teamSize()), then
 // bots up to teamSize(): { slot: "bot<k>", kind: "bot" }. A slot without kind is a player.
@@ -113,7 +129,7 @@ export function buildGame(world, n, slots) {
   G.inputs = {};
   for (const l of G.littles) if (l.kind === "player") G.inputs[l.slot] = newInput();
   if (bs.kind === "player") G.inputs.big = newInput();
-  const maxHp = G.tutorialGame ? CFG.TUTORIAL["hearts" + G.tutorialGame] : difficulty(world, n).hearts;   // SPEC-029: тренировка — свои сердечки
+  const maxHp = G.tutorialGame ? G.practice.hearts : difficulty(world, n).hearts;   // SPEC-029: тренировка — свои сердечки
   G.big = {
     isBig: true, x: G.spawns.big.x, y: G.spawns.big.y, r: 22, dir: -Math.PI / 2, hp: maxHp, maxHp,
     state: "look", timer: 4, lookSign: 1, lastSeen: null, goal: null, patrolT: 0,
@@ -143,7 +159,7 @@ export function buildGame(world, n, slots) {
 export function createGame(opts = {}) {
   const g = newGame(opts);
   if (opts.keep) Object.assign(g, opts.keep);
-  if (opts.practice !== undefined) g.tutorialGame = opts.practice;
+  if (opts.practice !== undefined) { g.practice = practiceOf(opts.practice); g.tutorialGame = g.practice ? g.practice.step : 0; }
   const slots = opts.slots || Array.from({ length: opts.players ?? 1 }, (_, i) => ({ slot: "p" + (i + 1), kind: "player" }));
   withGame(g, () => buildGame(g.world, g.level, slots));
   return g;

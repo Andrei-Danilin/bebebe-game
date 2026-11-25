@@ -12,6 +12,7 @@ import { LOOK } from "./look.js";
 import { simMode } from "./screen.js";
 import { SFX } from "./sound.js";
 import { ui } from "./state.js";
+import { applyGameEvent, syncStock } from "./flow.js";
 
 // ---------- Эффекты клиента ----------
 // meaning — что случилось (SPEC-020: "bang" | "hug" | "mega" | "kiss" | "out"): под надписью рисуется свой взрыв (POP_ART), необязательно
@@ -62,6 +63,7 @@ function playEvent(e) {
     else if (e.kind === "heard") { ui.heardHintT = CFG.HEAR_HINT_TIME; ui.heardHintPi = pi; }
     // "practice": the HUD reads the practice hint step from the game (G.tut.hint)
   }
+  else if (e.type === "game") applyGameEvent(e.e);           // SPEC-012 AC 6 / 10: coins, spent, result, practiceWin
   // "mood": the 3D face and the mood sprites read Dad's mood from the game every frame
 }
 // empty the game's effect queue into sounds, particles, texts, shake, rings and hints (client code: no gameplay rng)
@@ -74,11 +76,10 @@ export function drainEvents(g = G) {
 // one step of the local game: the players' devices into their slots, the step, then its effects and their timers (the hints
 // age before the new ones arrive; texts, particles and rings age after, as when the core played them inside the step)
 export function stepGame(dt) {
-  const g = G;
+  syncStock();
   fillInputs();
   bannerTick(dt);
   update(dt);
-  if (g !== G) drainEvents(g);                               // a practice win started the next practice game inside the step
   hintTick(dt);
   drainEvents();
   for (const l of G.littles) if (l.hugAnim > 0 && vrand() < dt * 6) burst(G.big.x, G.big.y - 20, "heart", "#ff4d8d", 1);   // сердечки, пока обнимает

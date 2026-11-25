@@ -2,7 +2,7 @@
 // buttons, the level banner (drawBanner, placePhoneBanner). Client module (moved out of index.html in Phase C).
 
 import { CFG, TAU } from "../../core/config.js";
-import { gameInv, gloveOf, progress } from "../../core/economy.js";
+import { progress } from "../../core/economy.js";
 import { clamp } from "../../core/util.js";
 import { canAct, inSafe } from "../../core/world.js";
 import { L } from "../../i18n.js";
@@ -22,6 +22,7 @@ import { minimapRect } from "./minimap.js";
 import { drawHUDPhone, phoneTopBar } from "./phone.js";
 import { cpx, fitText, fmtTime, fz, hudFont, label, labelFit, lastFit, minPx, noteRows, noteText } from "./text.js";
 import { G } from "../../core/active.js";
+import { gameInv, gloveOf } from "../../core/rules.js";
 
 // Сердечко i в полоске: 1 — целое, 0.5 — половинка, 0 — пустое
 export const heartFill = (i, hp) => clamp(hp - i, 0, 1);
@@ -58,13 +59,13 @@ export function drawHUD(t) {
   });
 
   const gls = [0, 1].filter(pi => pi < G.players).map(pi => gloveOf(pi)).filter(Boolean);
-  const inv = gameInv(), kinds = [...new Set(gls)], showKiss = !isTouch && inv.kisses > 0, showKit = !isTouch && inv.rescues > 0;
+  const inv = gameInv(), kinds = [...new Set(gls)], showKiss = !isTouch && inv.kisses > 0, showKit = !isTouch && inv.kits > 0;
   if (kinds.length || showKiss || showKit) {               // сколько сильных обнимашек, поцелуев и спасалок осталось
     const n = kinds.length + (showKiss ? 1 : 0) + (showKit ? 1 : 0);
     rr(10, 48, 20 + n * 70, 34, 14); fillStroke("rgba(255,255,255,.8)", 3);
     kinds.forEach((k, i) => { drawArtFit(ITEM_ART[k], 30 + i * 70, 65, 32) || drawMitten(30 + i * 70, 65, 26, k); label("×" + progress.inv[k], 58 + i * 70, 65, 16, OUT); });
     if (showKiss) { const i = kinds.length; drawArtFit("item_kiss", 30 + i * 70, 65, 34) || drawKiss(30 + i * 70, 67, 26); label("×" + inv.kisses, 58 + i * 70, 65, 16, OUT); }
-    if (showKit) { const i = kinds.length + (showKiss ? 1 : 0); drawArtFit("icon_bandaid", 30 + i * 70, 65, 32) || drawKit(30 + i * 70, 65, 30); label("×" + inv.rescues, 58 + i * 70, 65, 16, OUT); }
+    if (showKit) { const i = kinds.length + (showKiss ? 1 : 0); drawArtFit("icon_bandaid", 30 + i * 70, 65, 32) || drawKit(30 + i * 70, 65, 30); label("×" + inv.kits, 58 + i * 70, 65, 16, OUT); }
   }
   // кнопка игрока: 💋, а пока он лежит, хромает домой или отдыхает и спасалки есть — 🩹 на том же месте (SPEC-007)
   if (isTouch && mode === "play") for (let pi = 0; pi < G.players; pi++) {
@@ -165,7 +166,7 @@ export function kitButton(pi, t) {
   ctx.restore();
   const br = PHONE ? cpx(15) : 13;
   circle(cx + r * 0.72, cy - r * 0.72, br); fillStroke("#16a34a", 2.5);
-  label(String(gameInv().rescues), cx + r * 0.72, cy - r * 0.72 + 1, fz(13, "hint"), "#fff");
+  label(String(gameInv().kits), cx + r * 0.72, cy - r * 0.72 + 1, fz(13, "hint"), "#fff");
   ui.buttons.push({ ...rc, act: () => pressKit(pi), id: "kit:" + pi });
 }
 

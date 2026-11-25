@@ -5,7 +5,7 @@ import { applyWorld, connectivity } from "./level/build.js";
 import { houseDoor, placeSmallHome } from "./level/generate.js";
 import { BIG_HOUSE, bigHouse, hWallTo, vWallTo } from "./level/layouts.js";
 import { G } from "./active.js";
-import { emit } from "./game.js";
+import { emit, stockOf } from "./game.js";
 
 // ---------- SPEC-029: карта тренировок обучения ----------
 // Своя, всегда одна и та же (без случайности): поляна в левом верхнем углу ≈ CFG.TUTORIAL.mapArea площади карты (21 × 14 клеток
@@ -46,8 +46,8 @@ export function applyTutorialMap() {
 // «Нажми 🩹» и «Папа услышал топот»; тренировка 1 — сценарий: папа стоит на поляне лицом к боту, бот бежит на него
 export function tutorialSetup() {
   const T = CFG.TUTORIAL, g2 = G.tutorialGame === 2;
-  G.tut = { script: G.tutorialGame === 1, scriptT: 0, hint: g2 ? 1 : 0, bothDown: 0, seq: 1, hintT: 0, fell: false, did: [false, false, false, false, false] };
-  G.tutorialInv = { kisses: g2 ? T.kisses : 0, rescues: g2 ? T.kits : 0, mittens: 0, mega: 0 };
+  G.tut = { script: G.practice.script === "game1", scriptT: 0, hint: g2 ? 1 : 0, bothDown: 0, seq: 1, hintT: 0, fell: false, did: [false, false, false, false, false] };
+  G.tutorialInv = stockOf(G.practice.stock);              // свой запас (настоящий не тратится; ни coins, ни spent)
   G.kitHintDone = true; G.heardHintDone = true;
   if (g2) G.itemCd = T.itemEvery;                            // первый предмет — через itemEvery сек
   if (G.tutorialGame === 1) {

@@ -1,7 +1,7 @@
 // SPEC-011: the phone HUD (SPEC-005): phoneTopBar, team chips, teamRect, phoneOccluders, drawHUDPhone. Client module (moved
 // out of index.html in Phase C).
 
-import { gameInv, gloveOf, progress } from "../../core/economy.js";
+import { progress } from "../../core/economy.js";
 import { L, lang } from "../../i18n.js";
 import { ITEM_ART } from "../art.js";
 import { LOOK } from "../look.js";
@@ -14,6 +14,7 @@ import { drawEdgeArrows, drawMinimap, minimapRect, showMinimap } from "./minimap
 import { cpx, fitText, fz, hudFont, labelFit, lastFit, minPx, noteText, scaledW } from "./text.js";
 import { G } from "../../core/active.js";
 import { canKitNow, mode, setMode } from "../flow.js";
+import { gameInv, gloveOf } from "../../core/rules.js";
 
 // геометрия верхней полосы и кружков команды телефона (их же обходят камера и стрелки)
 export const phoneTopBar = () => cpx(6) + cpx(LOOK.PHONE_BTN_MIN);

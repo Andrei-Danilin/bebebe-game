@@ -255,20 +255,22 @@ test("the event log records gameplay and every coin change", async ({ page }) =>
     { type: "coins", reason: "buy:rescues", amount: -G.rescues }]);
   expect(r.coinsAfterBuys, "mega is not bought with nothing left").toBe(r.coins0 - G.kisses - G.mittens - G.rescues);
   expect(r.start).toBe(0);
-  expect(r.hug).toEqual([{ type: "hug", power: 2, who: 0, kind: "player" }]);
+  // SPEC-012 AC 6b: a glove charge, a kiss and a kit are spent through a gameplay event (the client applies it to the saves)
+  expect(r.hug).toEqual([{ type: "spent", slot: "p1", kind: "glove", glove: "mittens" }, { type: "hug", power: 2, who: 0, kind: "player" }]);
   expect(r.push).toEqual([{ type: "push", who: 1, blocked: false }, { type: "down", who: 1, kind: "player" }]);
   expect(r.shield).toEqual([{ type: "push", who: 2, blocked: true }]);
   expect(r.rescue).toEqual([{ type: "rescued", who: 1, by: "player" }]);
   expect(r.rest).toEqual([{ type: "rest", who: 4 }, { type: "back", who: 4 }]);
-  expect(r.kissHit).toEqual([{ type: "kiss", who: 0, result: "hit", blush: true }]);
-  expect(r.kissMiss).toEqual([{ type: "kiss", who: 0, result: "miss" }]);
+  expect(r.kissHit).toEqual([{ type: "spent", slot: "p1", kind: "kiss" }, { type: "kiss", who: 0, result: "hit", blush: true }]);
+  expect(r.kissMiss).toEqual([{ type: "spent", slot: "p1", kind: "kiss" }, { type: "kiss", who: 0, result: "miss" }]);
   expect(r.kitUsed).toBe(true);
-  expect(r.kit).toEqual([{ type: "kit", who: 0 }]);
+  expect(r.kit).toEqual([{ type: "spent", slot: "p1", kind: "kit" }, { type: "kit", who: 0 }]);
   expect(r.pick).toEqual([{ type: "item", kind: "boots", who: 0 }, { type: "star", who: 0 }, { type: "coins", reason: "star", amount: 3 }]);
   expect(r.slip).toEqual([{ type: "slip" }]);
   expect(r.thrown).toEqual([{ type: "thrownOut", who: 0 }]);
   expect(r.capped).toEqual(["coins", "star", "coins"]);
-  expect(r.win.map(e => e.type)).toEqual(["hug", "win", ...r.win.filter(e => e.type === "coins").map(() => "coins")]);
+  // SPEC-012 AC 6: the win is followed by the result event; the client pays its lines (coins) after the step
+  expect(r.win.filter(e => e.type !== "spent").map(e => e.type)).toEqual(["hug", "win", "result", ...r.win.filter(e => e.type === "coins").map(() => "coins")]);
   const winCoins = r.win.filter(e => e.type === "coins");
   expect(winCoins.length).toBeGreaterThan(0);
   expect(r.reward.parts.map(p => p.reason)).toContain("firstWin");   // SPEC-009: the first win of Park 1

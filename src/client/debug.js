@@ -22,8 +22,8 @@ import { detectLang, I18N, L, lang, LANGS } from "../i18n.js";
 import { RULE_ICONS, SCENE_IDS, STORY, TUTORIAL_SCENES } from "../story.js";
 import { ART_NAMES } from "./art-names.js";
 import { art, ART_FALLBACK, artCount, artDone, artVersion, EMOJI_ART, FX_ART, HEART_ART, ITEM_ART, mapBgArt, PAPER_BTN, POP_ART, SHOP_TAB_ART, STORY_ART, UPG_ART, WARDROBE_ART, worldArt } from "./art.js";
-import { bannerAlpha, chapterOpen, chooseStop, closeShop, giveReward, kissNow, kitNow, lastReward, mapTick, mode, MODES, openFriends, openMap, openScene, openShop, openStory, resetMenus, resetWorld, rngDraws, sceneNext, scenePageCount, scenePages, sceneSkip, seedRandom, selectWorld, setLastReward, setMode, setShopTab, shopAfterWin, showBanner, startGame, tapWorldTab, toHome, toMap } from "./flow.js";
-import { burst, popText, stepGame } from "./fx.js";
+import { bannerAlpha, chapterOpen, chooseStop, closeShop, giveReward, kissNow, kitNow, lastReward, mapTick, mode, MODES, openFriends, openMap, openScene, openShop, openStory, resetMenus, resetWorld, rngDraws, sceneNext, scenePageCount, scenePages, sceneSkip, seedRandom, selectWorld, setLastReward, setMode, setShopTab, shopAfterWin, showBanner, startGame, syncStock, tapWorldTab, toHome, toMap } from "./flow.js";
+import { burst, drainEvents, popText, stepGame } from "./fx.js";
 import { nameInput, openNameInput, stickR, sticks, toGame } from "./input.js";
 import { LOOK } from "./look.js";
 import { allNames, nameOf, setName } from "./names.js";
@@ -157,7 +157,7 @@ export function installDebug() {
     get rngDraws() { return rngDraws(); },   // SPEC-008: сколько раз тянули игровую случайность
     setProgress(save) { G.rewardDue = false; setLastReward(null); ui.openedWorld = null; ui.worldBanner = null; setProgress(save); },   // SPEC-008 (баланс): прогресс из сохранения (null — новый), не записывает
     levelsPerWorld,
-    autopilot, autoThink: readInputs,   // SPEC-008: autopilot(on, "careful"|"reckless") → { on, style }; autoThink(dt) — только решение (для теста)
+    autopilot, autoThink: dt => { syncStock(); readInputs(dt); drainEvents(); },   // SPEC-008: autopilot(on, "careful"|"reckless") → { on, style }; autoThink(dt) — только решение (для теста)
     autoStick: i => G.autoMove[i] ? { x: G.autoMove[i].x, y: G.autoMove[i].y } : null,   // SPEC-019: «стик» автопилота игрока i после autoThink (копия)
     get strictRng() { return strictRng; }, set strictRng(v) { setStrictRng(!!v); },   // SPEC-008: тесты — генератор/3D с игровым rng() падает
     // SPEC-008 AC 10: карточки магазина простыми данными (без функций); picture — у карточки есть картинка

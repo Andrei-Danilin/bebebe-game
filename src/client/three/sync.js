@@ -3,7 +3,6 @@
 
 import * as THREE from "three";
 import { CFG } from "../../core/config.js";
-import { gloveOf } from "../../core/economy.js";
 import { bigMood } from "../../core/mood.js";
 import { bigCalm, visionPoly } from "../../core/path.js";
 import { vrand } from "../../core/util.js";
@@ -19,6 +18,7 @@ import { disposeTree, ownMat, part, sphere, syncPaper, toon } from "./materials.
 import { progressTab, renderPreviews } from "./previews.js";
 import { BIG_SCALE, camBase, camera, LITTLE_SCALE, P, renderer, scene } from "./setup.js";
 import { G } from "../../core/active.js";
+import { gloveOf } from "../../core/rules.js";
 
 // SPEC-012 AC 1d: where the Big One faces on screen — his dir, plus the client's menu spin while a menu is shown
 const bigFacing = () => G.big.dir + (inMenus() ? ui.menuSpin : 0);

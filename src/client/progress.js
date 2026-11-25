@@ -2,7 +2,7 @@
 // resetProgress. Client module (moved out of index.html in Phase C).
 
 import { WORLDS } from "../core/config.js";
-import { progress, saveProgress, setProgress } from "../core/economy.js";
+import { progress, setProgress } from "../core/economy.js";
 import { hasFlatProgress, isOpen, worldProgress } from "../core/progress-rules.js";
 import { detectLang, HTML_LANG, lang, LANGS, setCurrentLang } from "../i18n.js";
 import { resetWorld } from "./flow.js";
@@ -32,6 +32,8 @@ export function setLang(l) {
 // SPEC-011 review: every storage key of the client is read and written here — progress (hooks.save), language, outfits, names
 // прогресс → localStorage (hooks.save)
 export function writeProgress() { try { localStorage.setItem("bebebe-progress", JSON.stringify(progress)); } catch (e) { /* ok */ } }
+// SPEC-012: the client saves after every change of progress it makes (economy events it applies, shop, wardrobe, screens)
+export const saveProgress = writeProgress;
 // наряды (bebebe-outfits: { p1, p2, big, v }) и имена (bebebe-names) → localStorage — их зовут outfits.js и names.js
 export function writeOutfits(o) { try { localStorage.setItem("bebebe-outfits", JSON.stringify(o)); } catch (e) { /* ok */ } }
 export function writeNames(t) { try { localStorage.setItem("bebebe-names", JSON.stringify(t)); } catch (e) { /* ok */ } }

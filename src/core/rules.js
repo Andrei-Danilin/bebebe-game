@@ -1,14 +1,12 @@
 // SPEC-011: the rules — push (and the wide push), hug, win, kisses, items, bonus stars, contacts, the rescue kit, downed,
 // danger, resting. Core module.
-import { CELL, CFG, COLS, GLOVES, ROWS, UPGRADES } from "./config.js";
-import { hooks } from "./hooks.js";
-import { angDiff, dist, normAng, rand, rng, turnToward } from "./util.js";
+import { CELL, CFG, COLS, GLOVES, levelsPerWorld, ROWS, UPGRADES } from "./config.js";
+import { angDiff, clamp, dist, normAng, rand, rng, turnToward } from "./util.js";
 import { nearestExit } from "./bots.js";
-import { addCoins, gameInv, gloveOf, progress, saveInv, saveProgress } from "./economy.js";
-import { emit, logEvent } from "./game.js";
+import { emit, logEcon, logEvent } from "./game.js";
 import { bigMood, bossPower } from "./mood.js";
 import { cellIdx, resolveWalls, steerTo } from "./path.js";
-import { payReward } from "./progress-rules.js";
+import { fastTarget } from "./progress-rules.js";
 import { canAct, inDanger, inDangerXY, inSafe, los, moveSolidAt, seeSolidAt } from "./world.js";
 import { G } from "./active.js";
 
@@ -56,7 +54,7 @@ function push(t, wide = false) {
   t.kx = Math.cos(a) * 360; t.ky = Math.sin(a) * 360;
   if (G.attackToken === t) G.attackToken = null;
   // первый раз за уровень упал игрок со спасалками — короткая подсказка «Нажми 🩹» (SPEC-007)
-  if (t.kind === "player" && !G.kitHintDone && gameInv().rescues > 0) { G.kitHintDone = true; emit("hint", { kind: "kit", slot: t.slot }); }
+  if (t.kind === "player" && !G.kitHintDone && gameInv().kits > 0) { G.kitHintDone = true; emit("hint", { kind: "kit", slot: t.slot }); }
   G.big.pushCd = CFG.PUSH_STAND;
   G.big.noPush = pushRecover();             // передышка: какое-то время никого не толкает (SPEC-029: в тренировке 2 — дольше)
   emit("burst", { kind: "dust", x: t.x, y: t.y, n: 10, color: "#e5d3a1" });
@@ -69,7 +67,7 @@ function hug(l, a) {
   let power = 1;
   G.big.blush = 0;                                         // обнимашка заканчивает смущение, дальше обычный шок
   const gl = l.kind === "player" ? gloveOf(l.id) : null;
-  if (gl) { power = GLOVES[gl].power; progress.inv[gl]--; saveProgress(); }   // рукавицы: сразу 2–3 сердечка
+  if (gl) { power = GLOVES[gl].power; G.stock.gloves[gl]--; logEcon("spent", { slot: l.slot, kind: "glove", glove: gl }); }   // рукавицы: сразу 2–3 сердечка
   const mood0 = bigMood();
   G.big.hp = Math.max(0, G.big.hp - power); G.big.hugCd = CFG.HUG_STUN + 0.3; G.big.stun = CFG.HUG_STUN; G.big.stunFace = a; G.big.flash = 0.3;
   G.big.stunTurn = Math.abs(normAng(a - G.big.dir)) / CFG.HUG_STUN;   // медленно поворачивается, пока в шоке
@@ -92,13 +90,39 @@ function hug(l, a) {
   if (G.big.hp <= 0) winSoon();   // победа — после последней обнимашки
 }
 function winSoon() { G.pendingWin = CFG.HUG_ANIM; G.big.stun = 99; G.phase = "hugEnd"; }
-// SPEC-012 AC 1c: the game is won (phase "won"); the client shows the win screen (hooks.onWin)
+// SPEC-012 AC 1c / 6: the game is won (phase "won"): the result event (the client pays the reward and shows the win screen)
+// SPEC-012 AC 2 / 6b: the stock the game spends from — a practice game's own, else the game's (local play: the shared pool the client
+// keeps equal to the saves); the glove of player pi (his slot's, while the stock has its charges; none in practice)
+export const gameInv = () => (G.tutorialGame ? G.tutorialInv : G.stock);
+export const gloveOf = pi => { const l = G.littles[pi], g = l && l.glove; return !G.tutorialGame && g && g !== "none" && G.stock.gloves[g] > 0 ? g : null; };
+// SPEC-012 AC 6: what a level ended with — plain data for the client and computeReward (progress-rules.js). stats: the counts the
+// reward reads; perSlot: per slot (display only: never paid) hugs, pushes, star coins, kisses / kits / glove charges used, rests
+export function levelResult(win) {
+  const n = clamp(G.level, 1, levelsPerWorld()), s = G.stats;
+  return { world: G.world, n, time: s.time, win, nobodyOut: s.rests === 0, fast: s.time <= fastTarget(G.world, n),
+    stats: { hugs: s.hugs, playerHugs: s.playerHugs, rests: s.rests, starCoins: s.starCoins }, perSlot: perSlotCounts() };
+}
+function perSlotCounts() {
+  const out = {}, slotOf = who => G.littles[who] && G.littles[who].slot;
+  for (const l of G.littles) out[l.slot] = { hugs: 0, pushes: 0, starCoins: 0, kissesUsed: 0, kitsUsed: 0, gloveChargesUsed: 0, rests: 0 };
+  const USED = { kiss: "kissesUsed", kit: "kitsUsed", glove: "gloveChargesUsed" };
+  for (const e of G.events) {
+    const c = out[e.type === "spent" ? e.slot : slotOf(e.who)];
+    if (!c) continue;
+    if (e.type === "hug") c.hugs++;
+    else if (e.type === "push" && !e.blocked) c.pushes++;
+    else if (e.type === "star") c.starCoins += CFG.STAR_COINS;
+    else if (e.type === "rest") c.rests++;
+    else if (e.type === "spent") c[USED[e.kind]]++;
+  }
+  return out;
+}
 export function winNow() {
   G.pendingWin = 0;
   if (G.phase === "won") return;
   G.phase = "won";
-  if (G.tutorialGame) { hooks.onPracticeWin(); return; }     // SPEC-029: тренировка — без экрана победы и награды, дальше по обучению
-  logEvent("win", {}); hooks.onWin(payReward(true)); emit("sfx", { name: "win" }); emit("burst", { kind: "heart", x: G.big.x, y: G.big.y - 30, n: 40, color: "#ff4d8d" });
+  if (G.tutorialGame) { logEcon("practiceWin", { step: G.tutorialGame }); return; }   // SPEC-029: тренировка — без экрана победы и награды, дальше по обучению (клиент)
+  logEvent("win", {}); logEcon("result", levelResult(true)); emit("sfx", { name: "win" }); emit("burst", { kind: "heart", x: G.big.x, y: G.big.y - 30, n: 40, color: "#ff4d8d" });
 }
 // ---------- Воздушные поцелуи: летят прямо, полсердечка, Большой краснеет ----------
 export function throwKiss(pi) {
@@ -106,7 +130,8 @@ export function throwKiss(pi) {
   if (G.phase === "won" || G.pendingWin > 0 || !l || l.kind !== "player" || !canAct(l) || gameInv().kisses <= 0) return false;
   if (inSafe(l)) { emit("pop", { key: "noKissHome", args: [], x: l.x, y: l.y - 40, color: "#fca5a5" }); return false; }   // из домика нельзя
   if (l.kissCd > 0) return false;
-  gameInv().kisses--; saveInv();
+  gameInv().kisses--;
+  if (!G.tutorialGame) logEcon("spent", { slot: l.slot, kind: "kiss" });   // SPEC-029: запас тренировки — свой
   if (G.tutorialGame === 2 && l.id === G.littles[0].id) G.tut.did[3] = true;   // SPEC-029: подсказка «пошли поцелуй» сделана
   l.kissCd = CFG.KISS_COOLDOWN;
   const dx = Math.cos(l.dir), dy = Math.sin(l.dir);
@@ -213,7 +238,7 @@ export function updateStars(dt) {
     s.t = s.life;
     G.stats.starCoins += CFG.STAR_COINS;
     logEvent("star", { who: l.id });
-    addCoins("star", CFG.STAR_COINS);   // сразу в копилку: остаются, даже если уровень не выигран
+    logEcon("coins", { reason: "star", amount: CFG.STAR_COINS });   // клиент кладёт их в копилку сразу: остаются, даже если уровень не выигран
     emit("pop", { key: null, args: ["+" + CFG.STAR_COINS], x: s.x, y: s.y - 30, color: "#fde047" });
     emit("burst", { kind: "star", x: s.x, y: s.y, n: 16, color: "#fde047" });
     emit("sfx", { name: "star" });
@@ -297,11 +322,12 @@ export function checkContacts() {
 const KIT_STATES = Object.freeze(["down", "home", "rest"]);
 // одно правило для кнопки, подсказки и useRescueKit: идёт игра (победа ещё не наступает), игрок лежит/хромает/отдыхает;
 // пауза — у клиента (SPEC-012: canKitNow, kitNow в flow.js)
-export const canUseKit = l => G.phase !== "won" && G.pendingWin <= 0 && !!l && l.kind === "player" && KIT_STATES.includes(l.state) && gameInv().rescues > 0;
+export const canUseKit = l => G.phase !== "won" && G.pendingWin <= 0 && !!l && l.kind === "player" && KIT_STATES.includes(l.state) && gameInv().kits > 0;
 export function useRescueKit(pi) {
   const l = G.littles[pi];
   if (!canUseKit(l)) return false;                       // боты, игрок на ногах, нет спасалок, пауза — ничего
-  gameInv().rescues--; saveInv();
+  gameInv().kits--;
+  if (!G.tutorialGame) logEcon("spent", { slot: l.slot, kind: "kit" });
   logEvent("kit", { who: l.id });
   emit("hint", { kind: "kitOff", slot: l.slot });            // встал — его подсказка «Нажми 🩹» больше не нужна
   // лёжа (таймер ещё не кончился) — это не отдых: stats.rests не растёт; дома — уже засчитанный отдых остаётся

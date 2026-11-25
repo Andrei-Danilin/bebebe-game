@@ -2,16 +2,14 @@
 // the stick is clamped to length 1, the buttons are edge flags fired and consumed at the start of the step. Plain Node.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { CFG, createGame, progress, setProgress, step, withGame } from "../../src/core/index.js";
+import { CFG, createGame, setProgress, step, withGame } from "../../src/core/index.js";
 
 const DT = CFG.BALANCE.SIM_DT;
 // a calm Big One far away (he looks at nothing for a long time), so only the inputs move player 1
 const calm = g => Object.assign(g.big, { x: 900, y: 600, state: "look", timer: 9999, dir: Math.PI / 2, lookSign: 0, noPush: 999 });
 
 test("a player slot walks and throws a kiss from inputs only", () => {
-  setProgress(null);
-  progress.inv.kisses = 3;
-  const g = createGame({ world: "park", n: 1, seed: 3, slots: [{ slot: "p1", kind: "player" }] });
+  const g = createGame({ world: "park", n: 1, seed: 3, slots: [{ slot: "p1", kind: "player" }], stock: { kisses: 3 } });
   calm(g);
   const p = g.littles[0], inp = g.inputs.p1;
   Object.assign(p, { x: 300, y: 300 });
@@ -28,9 +26,10 @@ test("a player slot walks and throws a kiss from inputs only", () => {
   Object.assign(p, { dir: 0, kissCd: 0 });
   inp.kiss = true;
   step(g, DT);
-  assert.deepEqual([inp.kiss, g.kisses.length, progress.inv.kisses], [false, 1, 2]);
+  assert.deepEqual([inp.kiss, g.kisses.length, g.stock.kisses], [false, 1, 2]);
+  assert.deepEqual(g.events.filter(e => e.type === "spent").map(({ slot, kind }) => [slot, kind]), [["p1", "kiss"]]);
   step(g, DT);
-  assert.equal(progress.inv.kisses, 2, "a flag fires once");
+  assert.equal(g.stock.kisses, 2, "a flag fires once");
   assert.ok(g.events.every(e => e.type !== "kiss" || e.who === 0));
   // a bot's slot is never read: only player slots
   g.inputs.bot1 = { mx: 1, my: 0, kiss: true, kit: false, act: false, tiptoe: false };

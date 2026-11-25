@@ -20,39 +20,39 @@ const NET_TIMEOUT_MS = 4000;             // weak signal: after this long, a cach
 const THREE_BASE = "https://cdn.jsdelivr.net/npm/three@0.187.0/build/";
 // SPEC-011: written by npm run precache (scripts/precache.js) — do not edit by hand
 // precache:start
-const SRC_HASH = "21c74703d1";
+const SRC_HASH = "4f935f37ee";
 const PRECACHE_LOCAL = [
   "./", "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512-maskable.png",
   "./icons/icon-512.png", "./icons/icon.svg", "./index.html", "./manifest.webmanifest"
 ];
 const PRECACHE_SRC = [
-  "./src/client/art-names.js?v=7228f7f839", "./src/client/art.js?v=9447a553cf", "./src/client/debug.js?v=1d3d0efa65",
-  "./src/client/flow.js?v=ccebf479f1", "./src/client/fx.js?v=b3b62ba2db", "./src/client/input.js?v=f38653c7bc",
-  "./src/client/look.js?v=6b3f0ae3e3", "./src/client/main.js?v=02684a55db", "./src/client/names.js?v=53974b368f",
-  "./src/client/outfits.js?v=84a6f5b982", "./src/client/progress.js?v=ea78cf9d9e",
-  "./src/client/screen.js?v=57a76e38b6", "./src/client/shop.js?v=8beafa3093", "./src/client/sound.js?v=e9ddab15a9",
+  "./src/client/art-names.js?v=7228f7f839", "./src/client/art.js?v=9447a553cf", "./src/client/debug.js?v=0d6abeb92f",
+  "./src/client/flow.js?v=0d8889f665", "./src/client/fx.js?v=42d70d3481", "./src/client/input.js?v=f38653c7bc",
+  "./src/client/look.js?v=6b3f0ae3e3", "./src/client/main.js?v=44135f4206", "./src/client/names.js?v=53974b368f",
+  "./src/client/outfits.js?v=3e76d2feee", "./src/client/progress.js?v=efd066f61c",
+  "./src/client/screen.js?v=57a76e38b6", "./src/client/shop.js?v=ebde4ad6de", "./src/client/sound.js?v=e9ddab15a9",
   "./src/client/state.js?v=501d92d721", "./src/client/three/bosses.js?v=7814dfb8d4",
-  "./src/client/three/camera.js?v=39a889ad56", "./src/client/three/characters.js?v=02195cca3a",
+  "./src/client/three/camera.js?v=39a889ad56", "./src/client/three/characters.js?v=87a7d8775e",
   "./src/client/three/houses.js?v=c9bc94bc94", "./src/client/three/look3d.js?v=468f721ef8",
   "./src/client/three/map3d.js?v=c3fed1392a", "./src/client/three/materials.js?v=04f0b0550d",
   "./src/client/three/previews.js?v=7d96688728", "./src/client/three/setup.js?v=a26d88fa4c",
-  "./src/client/three/sync.js?v=3b294ec5a1", "./src/client/three/themes.js?v=6f17def67f",
-  "./src/client/tutorial.js?v=25e0f24c7b", "./src/client/ui/character/items.js?v=0580594792",
+  "./src/client/three/sync.js?v=402b0377a4", "./src/client/three/themes.js?v=6f17def67f",
+  "./src/client/tutorial.js?v=acce35fa62", "./src/client/ui/character/items.js?v=0580594792",
   "./src/client/ui/character/progress.js?v=e7feab8586", "./src/client/ui/character/tabs.js?v=6d32ab672c",
   "./src/client/ui/character/upgrades.js?v=ee922fce9f", "./src/client/ui/character/wardrobe.js?v=e3e931bd3a",
   "./src/client/ui/draw.js?v=9d2e3f5d4e", "./src/client/ui/home.js?v=5df7db0c9e",
-  "./src/client/ui/hud.js?v=7dd72e804a", "./src/client/ui/map.js?v=280a3d0f5f", "./src/client/ui/menu.js?v=3e64627b0a",
-  "./src/client/ui/minimap.js?v=afd7cc3057", "./src/client/ui/phone.js?v=936b557d8e",
+  "./src/client/ui/hud.js?v=3003a76bf5", "./src/client/ui/map.js?v=280a3d0f5f", "./src/client/ui/menu.js?v=3e64627b0a",
+  "./src/client/ui/minimap.js?v=afd7cc3057", "./src/client/ui/phone.js?v=23dc7eff7a",
   "./src/client/ui/screens.js?v=2cd1b81306", "./src/client/ui/story.js?v=a09830a3ea",
   "./src/client/ui/text.js?v=56db91f1d4", "./src/client/ui/win.js?v=9b3f336da5", "./src/core/active.js?v=70aa836ebd",
-  "./src/core/autopilot.js?v=91a6fc417a", "./src/core/big.js?v=745c03a759", "./src/core/bots.js?v=fc04a520e3",
-  "./src/core/config.js?v=518df17882", "./src/core/difficulty.js?v=72aff2bd1e", "./src/core/economy.js?v=1e28a4840a",
-  "./src/core/game.js?v=248981b568", "./src/core/hearing.js?v=3b691efd0b", "./src/core/hooks.js?v=2b8c32494c",
+  "./src/core/autopilot.js?v=528edb53f9", "./src/core/big.js?v=745c03a759", "./src/core/bots.js?v=fc04a520e3",
+  "./src/core/config.js?v=518df17882", "./src/core/difficulty.js?v=72aff2bd1e", "./src/core/economy.js?v=6c6ac20714",
+  "./src/core/game.js?v=2cc2a176fc", "./src/core/hearing.js?v=3b691efd0b", "./src/core/hooks.js?v=5ceea54c61",
   "./src/core/index.js?v=2ac6418608", "./src/core/level/build.js?v=fc9509a62b",
   "./src/core/level/generate.js?v=455b2ff4e4", "./src/core/level/layouts.js?v=068cdfd513",
   "./src/core/level/validate.js?v=3f3743eb46", "./src/core/mood.js?v=8dcad43e22", "./src/core/path.js?v=b05dfc5c4e",
-  "./src/core/practice.js?v=b8369ade70", "./src/core/progress-rules.js?v=164e73a31f",
-  "./src/core/rules.js?v=766f67b308", "./src/core/util.js?v=c7e01b9d3a", "./src/core/wardrobe.js?v=89c9230548",
+  "./src/core/practice.js?v=44fe1505f4", "./src/core/progress-rules.js?v=9aa174b661",
+  "./src/core/rules.js?v=234923ca7d", "./src/core/util.js?v=c7e01b9d3a", "./src/core/wardrobe.js?v=89c9230548",
   "./src/core/world.js?v=68fa838aaf", "./src/i18n.js?v=a28c8e3da4", "./src/story.js?v=31072db672"
 ];
 // precache:end

@@ -1,10 +1,9 @@
 // SPEC-008 / SPEC-011: the autopilot — plays the Little Ones the way a player does (balance report, tests). Core module.
 import { CELL, CFG } from "./config.js";
 import { angDiff, dist, normAng } from "./util.js";
-import { gameInv } from "./economy.js";
 import { bigListens } from "./hearing.js";
 import { inCone, steerPoint } from "./path.js";
-import { canUseKit, moveSpeed } from "./rules.js";
+import { canUseKit, gameInv, moveSpeed } from "./rules.js";
 import { canAct, inSafe, los, seeSolidAt } from "./world.js";
 import { G } from "./active.js";
 

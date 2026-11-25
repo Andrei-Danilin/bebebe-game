@@ -155,6 +155,8 @@ const firstDiff = (want, got, name) => {
   for (let i = 0; i < Math.max(want.length, got.length); i++) if (show(want[i]) !== show(got[i])) return `${name}[${i}] (of ${want.length} / ${got.length}): want ${show(want[i])}, got ${show(got[i])}`;
   return null;
 };
+// SPEC-012: spent (a kiss, a kit, a glove charge), result (a level won) and practiceWin are new gameplay events (AC 6b, 6, 10)
+const NEW_EVENT_TYPES = ["spent", "result", "practiceWin"];
 test("same seed, same game after the split", async ({ page }) => {
   test.setTimeout(180_000);
   const errors = await openGame(page, { sim: true });
@@ -164,6 +166,9 @@ test("same seed, same game after the split", async ({ page }) => {
   // and scripts/balance.js runLevel itself (its whole level, the balance summary) on the stocked save: Park 1
   const { runLevel } = require(path.join(ROOT, "scripts", "balance.js"));
   const summary = await page.evaluate(runLevel, { world: "park", n: 1, style: BASELINE.style, seed: BASELINE.seed, progress: save });
+  // SPEC-012 AC 6 / 10: the events the client acts on that the recorded game did not log (it spent and paid in place) — compared
+  // without exactly these types: every recorded event must still come in the same order with the same data
+  summary.events -= await page.evaluate(types => window.__bb.events.filter(e => types.includes(e.type)).length, NEW_EVENT_TYPES);
   expect(errors).toEqual([]);
   if (RECORD) {
     const run = r => {
@@ -182,7 +187,8 @@ test("same seed, same game after the split", async ({ page }) => {
   const bad = [];
   ref.runs.forEach((want, k) => {
     const got = runs[k], name = `${want.world} ${want.n} (${want.players}P)`;
-    for (const d of [firstDiff(want.snaps, got.snaps, "state"), firstDiff(want.events, got.events, "event")]) if (d) bad.push(`${name}: ${d}`);
+    const gotEvents = got.events.filter(e => !NEW_EVENT_TYPES.includes(e.type));
+    for (const d of [firstDiff(want.snaps, got.snaps, "state"), firstDiff(want.events, gotEvents, "event")]) if (d) bad.push(`${name}: ${d}`);
     const { snaps: s1, events: e1, ...wantHead } = want, { snaps: s2, events: e2, ...gotHead } = got;
     if (JSON.stringify(wantHead) !== JSON.stringify(gotHead)) bad.push(`${name}: want ${JSON.stringify(wantHead)}, got ${JSON.stringify(gotHead)}`);
   });
@@ -269,16 +275,9 @@ const codeOnly = s => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|\s)\/\/.*$/
 // import works without a client). SPEC-012 AC 5: the effects (sfx, burst, pop, shake, fx, banner) became events in G.fx and the
 // input hook became the input slots G.inputs (AC 3); the hooks left, each with why ("core hook list"):
 const HOOKS = {
-  // the client writes progress to storage after every change of economy.js (SPEC-012 step 5 turns the changes into events the
-  // client applies and saves, and removes this hook)
-  save: "write progress to storage — economy.js saves only through it (SPEC-012 step 5: events)",
-  // the 3D scene must be rebuilt at once, inside the build, for the game just built (its map and characters)
-  rebuild: "rebuild the 3D scene for the game buildGame just built",
-  // the win screen and the world the win opened (SPEC-012 step 5: the result event)
-  onWin: "a level was won and paid: the client's flow (the map shows a world the win opened)",
-  // the one hook in HOOKS_REENTER: it starts the next practice game, whose buildGame draws the gameplay rng() — so it runs
-  // without the noGameRng guard every other hook has (SPEC-012 step 5: the practiceWin event)
-  onPracticeWin: "a practice game was won: the next tutorial step (re-enters the core)"
+  // the one hook left: the 3D scene must be rebuilt at once, inside buildGame, for the game just built (its map and characters);
+  // everything else is an event the client applies after the step (effects AC 5, economy and win AC 6, practice win AC 10)
+  rebuild: "rebuild the 3D scene for the game buildGame just built"
 };
 // client code the logic called directly before SPEC-011 (RR-01) and client state it wrote: none of it in the core
 const CLIENT_NAMES = ["SFX", "burst", "popText", "texts", "particles", "shake", "banner", "showBanner", "camSnap", "rebuild3D", "sticks",
@@ -304,7 +303,7 @@ test("core hook list", { tag: "@fast" }, () => {
   expect(raw.filter(l => !l.includes("//")), "every hook says why it is still a hook").toEqual([]);
   expect(port).toMatch(/noGameRng\(""\s*\+\s*k\b/);
   expect(port).toMatch(/function setHooks\(/);
-  expect(readRoot("src/core/hooks.js"), "only onPracticeWin runs without the rng guard").toMatch(/HOOKS_REENTER = Object\.freeze\(\["onPracticeWin"\]\)/);
+  expect(readRoot("src/core/hooks.js"), "no hook re-enters the core (SPEC-012: the practice win is an event)").not.toMatch(/HOOKS_REENTER/);
   // and the core uses the port: every hook is called somewhere in the core
   const all = core.map(([, t]) => codeOnly(t)).join("\n");
   expect(Object.keys(HOOKS).filter(h => !new RegExp(`\\bhooks\\.${h}\\(`).test(all)), "hooks the core never calls").toEqual([]);
