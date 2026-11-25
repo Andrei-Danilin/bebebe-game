@@ -1,5 +1,6 @@
 // SPEC-011: index.html split into ES modules (core / client). The checks of the module layout and of what must stay the
-// same through the move. Phase A: the window.__bb surface (AC 5c); later phases add the layout, dependency and Node checks.
+// same through the move. Phase A: the __bb surface (AC 5c), service workers blocked (8b), the import map (1b), the lint config (11b);
+// later phases add the layout, dependency and Node checks.
 const { test, expect } = require("./pw");   // SPEC-023: @playwright/test + failure screenshots
 const fs = require("fs");
 const path = require("path");
@@ -52,4 +53,27 @@ test("three.js comes from the import map only", { tag: "@fast" }, () => {
   }
   expect(bad).toEqual([]);
   expect(/\bimport \* as THREE from "three";/.test(html), "the game imports the bare name").toBe(true);
+});
+
+// AC 11b: `npm run lint` (scripts/lint.js, eslint.config.js) — the minimal rule set on every block, no globals for the core
+// (it runs in Node), browser globals for the client and the inline module, the local imports check for module code, and
+// a lint job in every Tests run
+test("lint config covers src/", { tag: "@fast" }, () => {
+  const config = require(path.join(ROOT, "eslint.config.js"));
+  const block = file => config.find(c => (c.files || []).includes(file));
+  const core = block("src/core/**/*.js"), client = block("src/client/**/*.js");
+  expect(!!core && !!client, "a src/core and a src/client block").toBe(true);
+  for (const f of ["src/i18n.js", "src/story.js"]) expect(block(f), `${f} is linted like the core`).toBe(core);
+  expect(client.files, "the inline module is linted like the client").toContain(".lint-index.mjs");
+  expect(Object.keys(core.languageOptions.globals), "the core gets no globals").toEqual([]);
+  expect(client.languageOptions.globals.document, "the client gets browser globals").toBeDefined();
+  for (const c of [core, client]) {
+    expect(c.languageOptions.sourceType).toBe("module");
+    for (const r of ["no-undef", "no-unused-vars", "no-var", "prefer-const", "no-import-assign", "local/imports"]) expect(c.rules[r], r).toBeDefined();
+  }
+  expect(block("scripts/**/*.js"), "the scripts are linted").toBeDefined();
+  const lint = fs.readFileSync(path.join(ROOT, "scripts", "lint.js"), "utf8");
+  expect(lint, "lint.js lints src/ once it exists").toContain("\"src\"");
+  expect(JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8")).scripts.lint).toBe("node scripts/lint.js");
+  expect(fs.readFileSync(path.join(ROOT, ".github", "workflows", "tests.yml"), "utf8"), "every Tests run lints").toMatch(/run: npm run lint/);
 });

@@ -1,4 +1,4 @@
-# SPEC-023: the whole Playwright suite in 4 parallel shards.
+# SPEC-023: the whole Playwright suite in 4 parallel shards (SPEC-011: plus one lint job).
 # - on every push of a spec branch (SPEC-*): the orchestrator merges only when this run is green;
 # - by hand (workflow_dispatch);
 # - from pages.yml (workflow_call) before every deploy of master.
@@ -24,6 +24,21 @@ concurrency:
   cancel-in-progress: ${{ github.workflow == 'Tests' && github.event_name == 'push' }}
 
 jobs:
+  # SPEC-011 AC 11b: ESLint (npm run lint = scripts/lint.js) once per run, beside the shards; a lint error fails the run
+  # (and, called from pages.yml, blocks the deploy)
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+
   test:
     name: shard ${{ matrix.shard }}/4
     runs-on: ubuntu-latest
