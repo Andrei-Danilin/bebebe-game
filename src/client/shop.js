@@ -2,10 +2,10 @@
 // Client module (moved out of index.html in Phase C).
 
 import { GLOVES, KISSES, RESCUE_KIT, UPGRADES } from "../core/config.js";
-import { progress, saveProgress, spendCoins } from "../core/economy.js";
-import { numPlayers } from "../core/game.js";
-import { resetWorld } from "./flow.js";
+import { progress, spendCoins } from "../core/economy.js";
 import { SFX } from "./sound.js";
+import { redress } from "./flow.js";
+import { saveProgress } from "./progress.js";
 
 export function buyGloves(kind) {
   const g = GLOVES[kind];
@@ -34,4 +34,4 @@ export function buyUpgrade(k) {
   progress.upgrades[k] = lv + 1;
   saveProgress(); SFX.item();
 }
-export function setEquip(pi, kind) { progress.equip[pi] = kind; saveProgress(); resetWorld(numPlayers); }
+export function setEquip(pi, kind) { progress.equip[pi] = kind; saveProgress(); redress(); }

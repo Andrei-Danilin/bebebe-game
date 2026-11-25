@@ -148,7 +148,7 @@ test("every coin change is in the ledger", async ({ simPage: page }) => {
     { type: "coins", reason: "buy:mittens", amount: -G.mittens },
     { type: "coins", reason: "buy:rescues", amount: -G.rescues }]);
   expect(r.afterStart).toEqual({ events: 0, ledger: 3 });
-  expect(r.all[3], "the bonus star at pickup").toEqual({ type: "coins", reason: "star", amount: r.star });
+  expect(r.all[3], "the bonus star at pickup (SPEC-012: with the slot that picked it)").toEqual({ type: "coins", slot: "p1", reason: "star", amount: r.star });
   expect(r.win.length).toBeGreaterThan(0);
   expect(r.win.map(({ reason, amount }) => ({ reason, amount })), "the win lines = lastReward.parts without the star (paid at pickup)")
     .toEqual(r.winParts.filter(p => p.reason !== "star"));
@@ -998,4 +998,36 @@ test("a pause during the final hug and Map still counts the win; coins load as a
   expect(r.reasons.filter(x => x === "firstWin"), "the win is paid exactly once").toEqual(["firstWin"]);
   expect(r.n2, "nothing more is paid after the map").toBe(r.n1);
   expect(r.coins).toEqual([0, 0, 7, 12, 0]);
+});
+
+// SPEC-012 AC 6b / 9b: star coins and spent charges go into the saves at once (the client applies the game's coins / spent events
+// after the step) — quitting the app mid-level keeps them: storage already holds them. All through the real path: a hug with
+// mittens, a star picked up, a kiss and a kit pressed in the player's input slot, each step by __bb.update
+test("quitting mid-level keeps star coins and spent charges", { tag: "@fast" }, async ({ simPage: page }) => {
+  const r = await page.evaluate(() => {
+    const b = window.__bb, saved = () => JSON.parse(localStorage.getItem("bebebe-progress"));
+    b.progress.inv.kisses = 3; b.progress.inv.rescues = 2; b.progress.inv.mittens = 2; b.progress.coins = 10;
+    b.world = "park"; b.level = 1; b.startGame(1); b.setEquip(0, "mittens");
+    const L = b.littles, p1 = L[0];
+    L.forEach((l, i) => { if (i) Object.assign(l, { kind: "player", controls: { up: [], down: [], left: [], right: [] }, x: 860, y: 60 + i * 40, state: "ok" }); });
+    Object.assign(b.big, { x: 900, y: 600, state: "look", timer: 9999, stun: 0, slip: 0, noPush: 999, pushCd: 0, hugCd: 0, blush: 0, dir: Math.PI / 2 });
+    Object.assign(p1, { state: "ok", x: 600, y: 450, invuln: 0, hugAnim: 0, dizzy: 0, kx: 0, ky: 0, dir: 0, kissCd: 0 });
+    Object.assign(b.big, { x: 500, y: 320, dir: 0, hp: 5 }); Object.assign(p1, { x: 466, y: 320 });
+    b.update(1 / 60);                                                // a hug from behind with mittens (one charge)
+    const afterHug = { mittens: saved().inv.mittens, hp: b.big.hp };
+    Object.assign(b.big, { x: 900, y: 600, dir: Math.PI / 2 }); Object.assign(p1, { x: 600, y: 450, hugAnim: 0, kx: 0, ky: 0 });
+    b.spawnStar(600, 450); b.update(1 / 60);                         // a bonus star
+    const afterStar = saved();
+    b.game.inputs.p1.kiss = true; b.update(1 / 60);                  // a kiss, pressed through the slot
+    Object.assign(p1, { state: "down", downTimer: 10, rescue: 0 });
+    b.game.inputs.p1.kit = true; b.update(1 / 60);                   // a rescue kit
+    const s = saved();
+    return { afterHug, power: b.GLOVES.mittens.power, star: b.CFG.STAR_COINS, afterStar: afterStar.coins, coins: s.coins, kisses: s.inv.kisses, rescues: s.inv.rescues, state: p1.state,
+      mem: [b.progress.coins, b.progress.inv.kisses, b.progress.inv.rescues], due: b.events.filter(e => e.type === "spent").map(e => e.kind) };
+  });
+  expect(r.afterHug, "the glove charge is saved at once (the hug took the mittens' hearts)").toEqual({ mittens: 1, hp: 5 - r.power });
+  expect(r.afterStar, "the star coins are saved at once").toBe(10 + r.star);
+  expect([r.coins, r.kisses, r.rescues], "saved: star coins kept, one kiss and one kit spent").toEqual([10 + r.star, 2, 1]);
+  expect(r.mem, "the saves equal the game's progress").toEqual([r.coins, r.kisses, r.rescues]);
+  expect([r.state, r.due]).toEqual(["ok", ["glove", "kiss", "kit"]]);
 });

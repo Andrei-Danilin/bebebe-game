@@ -1,13 +1,12 @@
 // SPEC-011: path finding (A*), movement and collisions, the Big One's view cone. Core module.
 import { CELL, CFG, COLS, H, ROWS, W } from "./config.js";
 import { angDiff, clamp, dist, rand, rng } from "./util.js";
-import { big } from "./game.js";
-import { tutorialGame } from "./practice.js";
-import { blocked, blockedBig, bushes, inDangerXY, losWide, moveSolidAt, moveSolidBigAt, obstacles, reachable, safeZone, seeSolidAt } from "./world.js";
+import { inDangerXY, losWide, moveSolidAt, moveSolidBigAt, seeSolidAt } from "./world.js";
+import { G } from "./active.js";
 
 // ---------- Поиск пути (A*) ----------
 export function cellIdx(x, y) { return clamp(Math.floor(y / CELL), 0, ROWS - 1) * COLS + clamp(Math.floor(x / CELL), 0, COLS - 1); }
-function nearestFree(idx, grid = blocked) {
+function nearestFree(idx, grid = G.blocked) {
   if (!grid[idx]) return idx;
   const seen = new Uint8Array(COLS * ROWS), q = [idx];
   seen[idx] = 1;
@@ -24,8 +23,8 @@ function nearestFree(idx, grid = blocked) {
   }
   return idx;
 }
-const DIRS = [[1, 0, 1], [-1, 0, 1], [0, 1, 1], [0, -1, 1], [1, 1, 1.414], [1, -1, 1.414], [-1, 1, 1.414], [-1, -1, 1.414]];
-export function findPath(sx, sy, gx, gy, extraCost, grid = blocked) {
+const DIRS = Object.freeze([[1, 0, 1], [-1, 0, 1], [0, 1, 1], [0, -1, 1], [1, 1, 1.414], [1, -1, 1.414], [-1, 1, 1.414], [-1, -1, 1.414]]);
+export function findPath(sx, sy, gx, gy, extraCost, grid = G.blocked) {
   const N = COLS * ROWS;
   const s = nearestFree(cellIdx(sx, sy), grid), g = nearestFree(cellIdx(gx, gy), grid);
   const gs = new Float32Array(N).fill(Infinity), fs = new Float32Array(N).fill(Infinity);
@@ -58,13 +57,13 @@ export function findPath(sx, sy, gx, gy, extraCost, grid = blocked) {
   let c = g;
   while (c !== s && c !== -1) { pts.push({ x: (c % COLS + 0.5) * CELL, y: (((c / COLS) | 0) + 0.5) * CELL }); c = came[c]; }
   pts.reverse();
-  if (pts.length && !(grid === blockedBig ? moveSolidBigAt : moveSolidAt)(gx, gy)) pts[pts.length - 1] = { x: gx, y: gy };
+  if (pts.length && !(grid === G.blockedBig ? moveSolidBigAt : moveSolidAt)(gx, gy)) pts[pts.length - 1] = { x: gx, y: gy };
   return pts;
 }
 
 // ---------- Движение ----------
 export function resolveWalls(e) {
-  for (const o of obstacles) {
+  for (const o of G.obstacles) {
     if (!o.move) continue;
     if (o.shape === "rect") {
       const nx = clamp(e.x, o.x, o.x + o.w), ny = clamp(e.y, o.y, o.y + o.h);
@@ -80,8 +79,8 @@ export function resolveWalls(e) {
       if (d < min) { e.x += dx / d * (min - d); e.y += dy / d * (min - d); }
     }
   }
-  if (e.isBig && safeZone) {
-    const o = safeZone, nx = clamp(e.x, o.x, o.x + o.w), ny = clamp(e.y, o.y, o.y + o.h);
+  if (e.isBig && G.safeZone) {
+    const o = G.safeZone, nx = clamp(e.x, o.x, o.x + o.w), ny = clamp(e.y, o.y, o.y + o.h);
     const dx = e.x - nx, dy = e.y - ny, d2 = dx * dx + dy * dy;
     if (d2 < e.r * e.r) {
       if (d2 > 1e-6) { const d = Math.sqrt(d2); e.x += dx / d * (e.r - d); e.y += dy / d * (e.r - d); }
@@ -97,26 +96,27 @@ export function resolveWalls(e) {
 export function moveEntity(e, vx, vy, dt) { e.x += vx * dt; e.y += vy * dt; resolveWalls(e); }
 
 // Большой «спокоен»: в шоке, отдыхает после толчка или краснеет — конус бледный (3D и мини-карта)
-export const bigCalm = () => !!big.kind || big.stun > 0 || big.noPush > 0 || big.blush > 0;   // SPEC-022: подобревший идёт домой — луч спокойный
+export const bigCalm = () => !!G.big.kind || G.big.stun > 0 || G.big.noPush > 0 || G.big.blush > 0;   // SPEC-022: подобревший идёт домой — луч спокойный
 // многоугольник взгляда Большого в px мира: [x0, y0 (он сам), x1, y1, …] — n + 1 лучей, обрезанных стенами
-export function visionPoly(n, out = []) {
-  out.length = 2 * (n + 2); out[0] = big.x; out[1] = big.y;
-  const a0 = big.dir - CFG.VISION_HALF;
+// dir — куда он смотрит (по умолчанию G.big.dir; клиент в меню добавляет свой угол поворота)
+export function visionPoly(n, out = [], dir = G.big.dir) {
+  out.length = 2 * (n + 2); out[0] = G.big.x; out[1] = G.big.y;
+  const a0 = dir - CFG.VISION_HALF;
   for (let i = 0; i <= n; i++) {
     const a = a0 + i * (2 * CFG.VISION_HALF / n), cx = Math.cos(a), sy = Math.sin(a);
     let r = 0;
-    while (r < CFG.VISION_RANGE) { r += 5; if (seeSolidAt(big.x + cx * r, big.y + sy * r)) { r -= 5; break; } }
-    out[2 * i + 2] = big.x + cx * r; out[2 * i + 3] = big.y + sy * r;
+    while (r < CFG.VISION_RANGE) { r += 5; if (seeSolidAt(G.big.x + cx * r, G.big.y + sy * r)) { r -= 5; break; } }
+    out[2 * i + 2] = G.big.x + cx * r; out[2 * i + 3] = G.big.y + sy * r;
   }
   return out;
 }
 export function inCone(x, y) {
-  const dx = x - big.x, dy = y - big.y, d = Math.hypot(dx, dy);
-  return d < CFG.VISION_RANGE + 25 && angDiff(big.dir, Math.atan2(dy, dx)) < CFG.VISION_HALF + 0.2;
+  const dx = x - G.big.x, dy = y - G.big.y, d = Math.hypot(dx, dy);
+  return d < CFG.VISION_RANGE + 25 && angDiff(G.big.dir, Math.atan2(dy, dx)) < CFG.VISION_HALF + 0.2;
 }
 function clearTo(e, x, y, avoidCone) {
   if (!losWide(e.x, e.y, x, y, e.r - 1, e.isBig ? moveSolidBigAt : moveSolidAt)) return false;
-  if (avoidCone && big.stun <= 0 && big.blush <= 0) for (let t = 0.2; t <= 1.001; t += 0.2) if (inCone(e.x + (x - e.x) * t, e.y + (y - e.y) * t)) return false;
+  if (avoidCone && G.big.stun <= 0 && G.big.blush <= 0) for (let t = 0.2; t <= 1.001; t += 0.2) if (inCone(e.x + (x - e.x) * t, e.y + (y - e.y) * t)) return false;
   return true;
 }
 // Куда идти к цели (gx, gy): сама цель, если путь прямой, иначе следующая точка пути A*. e.path/e.repath — память пути;
@@ -128,7 +128,7 @@ export function steerPoint(e, gx, gy, dt, avoidCone, repathIn = () => rand(0.3, 
     if (e.repath <= 0 || !e.path.length) {
       const cost = e.isBig ? (avoidCone ? ((x, y) => (inCone(x, y) ? 20 : 0)) : null)
         : (x, y) => (avoidCone && inCone(x, y) ? 20 : 0) + (inDangerXY(x, y) ? CFG.BOT_DANGER_COST : 0);   // дом Большого — «дорогой»
-      e.path = findPath(e.x, e.y, gx, gy, cost, e.isBig ? blockedBig : blocked);
+      e.path = findPath(e.x, e.y, gx, gy, cost, e.isBig ? G.blockedBig : G.blocked);
       e.repath = repathIn();
     }
     while (e.path.length && Math.hypot(e.path[0].x - e.x, e.path[0].y - e.y) < 8) e.path.shift();
@@ -150,10 +150,10 @@ export function steerTo(e, gx, gy, speed, dt, avoidCone) {
 export function randomFreePoint() {
   for (let k = 0; k < 300; k++) {
     const cx = Math.floor(rng() * COLS), cy = Math.floor(rng() * ROWS);
-    if (blockedBig[cy * COLS + cx] || (tutorialGame && !reachable[cy * COLS + cx])) continue;   // SPEC-029: не за изгородь тренировки
+    if (G.blockedBig[cy * COLS + cx] || (G.tutorialGame && !G.reachable[cy * COLS + cx])) continue;   // SPEC-029: не за изгородь тренировки
     const p = { x: (cx + 0.5) * CELL, y: (cy + 0.5) * CELL };
-    if (dist(p, big) > 150) return p;
+    if (dist(p, G.big) > 150) return p;
   }
   return { x: W / 2, y: H / 2 };
 }
-export const inBush = l => CFG.BUSH_HIDES && bushes.some(b => Math.hypot(l.x - b.x, l.y - b.y) < b.r - 6);
+export const inBush = l => CFG.BUSH_HIDES && G.bushes.some(b => Math.hypot(l.x - b.x, l.y - b.y) < b.r - 6);

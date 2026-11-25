@@ -3,11 +3,8 @@
 // Client module (moved out of index.html in Phase C).
 
 import { BOSSES, CELL, CFG, GLOVES, TAU } from "../../core/config.js";
-import { big, littles, pushWaves } from "../../core/game.js";
 import { audible, bigListens, bigMark } from "../../core/hearing.js";
 import { inBush } from "../../core/path.js";
-import { tutorialGame } from "../../core/practice.js";
-import { safeZone } from "../../core/world.js";
 import { L } from "../../i18n.js";
 import { art, artPick, EMOJI_ART, EMOJI_RE, FX_ART, HEART_ART, PAPER_BTN, paperUI, POP_ART } from "../art.js";
 import { stickR, sticks } from "../input.js";
@@ -17,11 +14,13 @@ import { P_COLORS } from "../outfits.js";
 import { ctx, OUT, PHONE } from "../screen.js";
 import { ui } from "../state.js";
 import { toScreen, toScreenTo } from "../three/camera.js";
-import { bossScale } from "../three/characters.js";
+import { bossScale, modelOf } from "../three/characters.js";
 import { groundCanvas } from "../three/materials.js";
 import { BIG_SCALE, LITTLE_SCALE } from "../three/setup.js";
 import { moodOf } from "../three/sync.js";
 import { cpx, fitText, fmtTime, fz, hudFont, label, labelStroke, minPx, noteText } from "./text.js";
+import { G } from "../../core/active.js";
+import { mode } from "../flow.js";
 
 // =====================================================================
 //  2D-СЛОЙ: меню, HUD, подписи (поверх 3D)
@@ -211,9 +210,9 @@ export function playerNameTag(l) {
 export let tapLines = [];
 function drawTapLines() {
   tapLines = [];
-  if (!bigListens()) return;
+  if (mode !== "play" || !bigListens()) return;   // SPEC-012: in pause and on other screens he hears nothing (the client steps no game)
   const T = LOOK.TIPTOE_LOOK, len = PHONE ? cpx(T.tap) : T.tap;
-  for (const l of littles) {
+  for (const l of G.littles) {
     if (!audible(l)) continue;
     tapLines.push(l.id);
     if (Math.abs(Math.sin(l.walk)) < T.tapShow) continue;   // мигают в такт шагам
@@ -243,15 +242,15 @@ function moodSprite(name, x, y, s, alpha = 1) {
   moodNow.sprites.push(name);
 }
 export function drawMood(t) {
-  const m = big && big.model;
+  const m = modelOf(G.big);
   ui.moodInfo = null;
   if (!m || !m.anchors) return;
-  const ML = LOOK.MOOD_LOOK, mood = m.mood || moodOf(big);
+  const ML = LOOK.MOOD_LOOK, mood = m.mood || moodOf(G.big);
   ui.moodInfo = moodNow; moodNow.mood = mood; moodNow.face = m.faceHex || ""; moodNow.sprites.length = 0; moodNow.cloud = 0;
-  if (big.slip > 0) return;
-  const h = m.topH * BIG_SCALE * bossScale(big) * CELL;    // точка над головой (m.anchors.top) по логике, без чтения сцены 3D
-  toScreenTo(fxA, big.x, big.y, h);
-  toScreenTo(fxB, big.x + CELL, big.y, h);
+  if (G.big.slip > 0) return;
+  const h = m.topH * BIG_SCALE * bossScale(G.big) * CELL;    // точка над головой (m.anchors.top) по логике, без чтения сцены 3D
+  toScreenTo(fxA, G.big.x, G.big.y, h);
+  toScreenTo(fxB, G.big.x + CELL, G.big.y, h);
   const c = Math.hypot(fxB.x - fxA.x, fxB.y - fxA.y), x = fxA.x, y = fxA.y, puff = (t * ML.puff) % 1;
   if (mood === "angry" || mood === "mid") {
     const sides = mood === "angry" ? STEAM_BOTH : Math.floor(t * ML.puff) % 2 ? STEAM_R : STEAM_L;
@@ -259,22 +258,22 @@ export function drawMood(t) {
     for (const sd of sides) moodSprite(sd < 0 ? "fx_steam_left" : "fx_steam_right", x + sd * c * (ML.steamX + puff * 0.2), y + c * ML.steamY, c * ML.steam * k, 1 - puff * 0.5);
   }
   if (mood === "angry") {
-    moodNow.cloud = ML[big.boss && BOSSES[big.boss] ? BOSSES[big.boss].cloud : "cloud"];
+    moodNow.cloud = ML[G.big.boss && BOSSES[G.big.boss] ? BOSSES[G.big.boss].cloud : "cloud"];
     moodSprite("fx_storm_cloud", x, y - c * ML.cloudY, c * moodNow.cloud);
   }
   if (mood === "kind" || mood === "happy") moodSprite("fx_hearts", x, y - c * (ML.heartsY + Math.sin(t * 3) * ML.bob), c * ML.hearts);
 }
 export function drawMarkers(t) {
   drawTapLines();
-  if (safeZone) {
-    const s = toScreen(safeZone.x + safeZone.w / 2, safeZone.y + safeZone.h - 22, 0);
+  if (G.safeZone) {
+    const s = toScreen(G.safeZone.x + G.safeZone.w / 2, G.safeZone.y + G.safeZone.h - 22, 0);
     ctx.save(); ctx.globalAlpha = 0.75; fitText("🛡 " + L().safe, s.x, s.y, fz(14, "hint"), PHONE ? cpx(200) : 150, "center", "#14532d", 900, PHONE ? minPx("hint") : 9); ctx.restore();
   }
-  if (big.stun <= 0) {
-    const back = big.dir + Math.PI, p = toScreen(big.x + Math.cos(back) * (big.r + 16), big.y + Math.sin(back) * (big.r + 16), 4);
+  if (G.big.stun <= 0) {
+    const back = G.big.dir + Math.PI, p = toScreen(G.big.x + Math.cos(back) * (G.big.r + 16), G.big.y + Math.sin(back) * (G.big.r + 16), 4);
     drawHeart(p.x, p.y - 7, 14, "#ff6fa8");
   }
-  for (const l of littles) {
+  for (const l of G.littles) {
     const isPlayer = l.kind === "player", name = nameOf(l);
     if (l.state === "home" || l.state === "rest") {
       const hd = toScreen(l.x, l.y, nameTagH() - (l.state === "rest" ? LOOK.NAME_TAG.rest : 0));
@@ -304,19 +303,19 @@ export function drawMarkers(t) {
       const c = toScreen(l.x, l.y, 10);
       ctx.lineWidth = 4; ctx.lineCap = "round";
       ctx.strokeStyle = "rgba(0,0,0,.3)"; circle(c.x, c.y, 24); ctx.stroke();
-      const dn = tutorialGame ? CFG.DOWN_TIME : l.downTimer;   // SPEC-029: в тренировке лежат без времени — полный круг, без счёта
+      const dn = G.tutorialGame ? CFG.DOWN_TIME : l.downTimer;   // SPEC-029: в тренировке лежат без времени — полный круг, без счёта
       ctx.strokeStyle = dn < 5 && Math.floor(t * 6) % 2 ? "#fff" : "#ef4444";
       ctx.beginPath(); ctx.arc(c.x, c.y, 24, -Math.PI / 2, -Math.PI / 2 + TAU * (dn / CFG.DOWN_TIME)); ctx.stroke();
       if (l.rescue > 0) { ctx.strokeStyle = "#4ade80"; ctx.beginPath(); ctx.arc(c.x, c.y, 29, -Math.PI / 2, -Math.PI / 2 + TAU * (l.rescue / (l.rescueNeed || CFG.RESCUE_TIME))); ctx.stroke(); }
       ctx.lineCap = "butt";
-      if (!tutorialGame) label(String(Math.ceil(l.downTimer)), c.x + 30, c.y - 22, fz(15, "main"), "#fecaca");
+      if (!G.tutorialGame) label(String(Math.ceil(l.downTimer)), c.x + 30, c.y - 22, fz(15, "main"), "#fecaca");
       const pulse = 1 + Math.sin(t * 8) * 0.1;   // телефон: пульсирует вверх от минимального размера
       label(isPlayer ? L().help(name) : "SOS", c.x, c.y - 40, PHONE ? fz(12, "main") * (pulse + 0.1) : 12 * pulse, "#fde047");
     }
   }
-  const bh = toScreen(big.x, big.y, 134);
-  if (big.slip <= 0) {                                    // имя Большого над головой — выше значков «!», «?!», «💦» (они на bh.y − 18…+14)
-    ctx.save(); if (inBush(big)) ctx.globalAlpha = 0.4;
+  const bh = toScreen(G.big.x, G.big.y, 134);
+  if (G.big.slip <= 0) {                                    // имя Большого над головой — выше значков «!», «?!», «💦» (они на bh.y − 18…+14)
+    ctx.save(); if (inBush(G.big)) ctx.globalAlpha = 0.4;
     label(nameFor("big"), bh.x, bh.y - 34, fz(14, "main"), "#ff4d4d");
     ctx.restore();
   }
@@ -335,7 +334,7 @@ const FX_SIZE = { heart: "fxHeart", star: "fxStar", dust: "fxDust" };
 const fxA = { x: 0, y: 0 }, fxB = { x: 0, y: 0 };
 export function drawFx() {
   const P = LOOK.PAPER;
-  for (const w of pushWaves) {                             // SPEC-022: кольцо широкого толчка — на земле, расходится и гаснет
+  for (const w of ui.waves) {                             // SPEC-022: кольцо широкого толчка — на земле, расходится и гаснет
     const k = w.t / CFG.WAVE_TIME, rr0 = w.r * (0.35 + 0.65 * k);
     ctx.beginPath();
     for (let i = 0; i <= 32; i++) { toScreenTo(fxA, w.x + Math.cos(i / 32 * TAU) * rr0, w.y + Math.sin(i / 32 * TAU) * rr0, 2); if (i) ctx.lineTo(fxA.x, fxA.y); else ctx.moveTo(fxA.x, fxA.y); }
@@ -344,7 +343,7 @@ export function drawFx() {
     ctx.globalAlpha = 1;
   }
   let cell = 0;
-  if (ui.particles.length) { toScreenTo(fxA, big.x, big.y, 20); toScreenTo(fxB, big.x + CELL, big.y, 20); cell = Math.hypot(fxB.x - fxA.x, fxB.y - fxA.y); }
+  if (ui.particles.length) { toScreenTo(fxA, G.big.x, G.big.y, 20); toScreenTo(fxB, G.big.x + CELL, G.big.y, 20); cell = Math.hypot(fxB.x - fxA.x, fxB.y - fxA.y); }
   for (const p of ui.particles) {
     toScreenTo(fxA, p.x, p.y, 20);
     ctx.globalAlpha = 1 - p.t / p.life;

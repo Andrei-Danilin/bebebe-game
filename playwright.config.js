@@ -13,6 +13,7 @@ const PORT = Number(process.env.PORT) || 8123;
 
 module.exports = defineConfig({
   testDir: "./tests",
+  testMatch: "**/*.spec.js",           // SPEC-012 AC 7: tests/core/*.test.mjs are Node tests (npm run test:core), never Playwright's
   globalSetup: require.resolve("./tests/global-setup.js"),
   timeout: 90_000,
   expect: { timeout: 10_000 },

@@ -864,11 +864,29 @@ test("throwing spends a kiss and has a cooldown", async ({ simPage: page }) => {
   expect(r.none).toBe(false);
 });
 
+// SPEC-012 AC 3: a key press waits in the player's input slot for the next step; when the game leaves play first (pause, win,
+// another screen) the press is dropped — it never fires later
+test("a press pending when the game leaves play never fires", async ({ simPage: page }) => {
+  await installTestHelpers(page);
+  const r = await page.evaluate(spot => {
+    const b = window.__bb, t = window.__t;
+    b.progress.inv.kisses = 5; t.calm(); b.big.noPush = 999; t.pin([0]);
+    Object.assign(b.littles[0], { x: spot.x, y: spot.y, dir: 0, kissCd: 0 });
+    t.key("KeyE", true); t.key("KeyE", false);
+    b.mode = "pause"; b.mode = "play"; b.update(1 / 60);
+    const dropped = [b.kisses.length, b.progress.inv.kisses];
+    t.key("KeyE", true); t.key("KeyE", false); b.update(1 / 60);   // the same press in play fires at the next step
+    return { dropped, fired: [b.kisses.length, b.progress.inv.kisses] };
+  }, KISS_SPOT);
+  expect(r.dropped, "paused before the step: no kiss").toEqual([0, 5]);
+  expect(r.fired).toEqual([1, 4]);
+});
+
 test("kiss keys for one and two players", async ({ page }) => {
   await installTestHelpers(page);
   const r = await page.evaluate(spot => {
     const b = window.__bb, t = window.__t, out = {};
-    const press = code => { t.key(code, true); t.key(code, false); };
+    const press = code => { t.key(code, true); t.key(code, false); b.update(1 / 60); };   // SPEC-012 AC 3: the next step fires the press
     const ready = () => { t.calm(); b.big.noPush = 999; b.littles.forEach((l, i) => { if (l.kind === "player") Object.assign(l, { x: spot.x, y: spot.y + i * 60, dir: 0, kissCd: 0 }); }); };
     b.progress.inv.kisses = 20;
     ready();
@@ -1387,7 +1405,7 @@ test("kit keys for one and two players", async ({ page }) => {
   await installTestHelpers(page);
   const r = await page.evaluate(() => {
     const b = window.__bb, t = window.__t, out = {};
-    const press = code => { t.key(code, true); t.key(code, false); };
+    const press = code => { t.key(code, true); t.key(code, false); b.update(1 / 60); };   // SPEC-012 AC 3: the next step fires the press
     const down = (...ids) => ids.forEach(i => Object.assign(b.littles[i], { state: "down", downTimer: 10, rescue: 0 }));
     out.pad = b.CFG.PAD_KIT;
     b.progress.inv.rescues = 20;
@@ -1499,6 +1517,7 @@ test.describe("rescue kit on a touch screen", () => {
       const cx = rc.x + rc.w / 2, cy = rc.y + rc.h / 2;
       ev("pointerdown", cx, cy);
       ev("pointermove", cx - 140, cy - 80);
+      window.__t.step(1 / 60);                        // SPEC-012 AC 3: the tap presses the slot, the next step fires it
       const out = { state: l.state, left: b.progress.inv.rescues, sticks: b.sticks.length };
       ev("pointerup", cx - 140, cy - 80);
       return out;
@@ -1653,7 +1672,7 @@ test("tiptoe with Shift, stick tilt and gamepad", { tag: "@fast" }, async ({ pag
     out.p2ShiftL = h.speed(1, ["ArrowRight", "ShiftLeft"], spot);
     b.progress.inv.rescues = 1;
     Object.assign(b.littles[1], { state: "down", downTimer: 10 });
-    h.key("ShiftRight", true); h.key("ShiftRight", false);
+    h.key("ShiftRight", true); h.key("ShiftRight", false); b.update(1 / 60);   // SPEC-012 AC 3: the next step fires the press
     out.kit2 = [b.littles[1].state, b.progress.inv.rescues];
     out.bots = b.littles.map((l, i) => typeof b.isRunning(i));
     h.up();

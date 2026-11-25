@@ -1,13 +1,13 @@
 // SPEC-011: the wardrobe state and looks: makeLook, BOSS_LOOKS, skinSel/skinKeep, try-on (tryingOn, endTryOn), buyLook,
 // adoptWorn, fitOutfitsToOwned, botOutfit. Client module (moved out of index.html in Phase C).
 
-import { progress, saveProgress, spendCoins } from "../core/economy.js";
-import { level, numPlayers } from "../core/game.js";
+import { progress, spendCoins } from "../core/economy.js";
 import { clamp, vrand } from "../core/util.js";
 import { BIG_SKINS, HAIRS, HATS, JACKETS, PANTS, SLOTS } from "../core/wardrobe.js";
-import { resetWorld } from "./flow.js";
-import { writeOutfits } from "./progress.js";
+import { saveProgress, writeOutfits } from "./progress.js";
 import { SFX } from "./sound.js";
+import { G } from "../core/active.js";
+import { redress } from "./flow.js";
 
 export const P_COLORS = ["#3b82f6", "#22c55e"];        // цвет меток игрока 1 и 2
 export function makeLook(o) {
@@ -66,7 +66,7 @@ export function cycleOutfit(pk, slot, d) {
   const n = SLOTS[slot].length;
   skinSel[pk][slot] = (skinSel[pk][slot] + d + n) % n;
   if (ownsItem(slot, skinSel[pk][slot])) skinKeep[pk][slot] = skinSel[pk][slot];   // своё — сразу запоминается; чужое — только примерка
-  buyArmed = null; updateTryOn(); saveSkins(); resetWorld(numPlayers);
+  buyArmed = null; updateTryOn(); saveSkins(); redress();
 }
 // случайный вид — только из своего
 export function randomOutfit(pk) {
@@ -74,12 +74,12 @@ export function randomOutfit(pk) {
     const mine = SLOTS[k].map((_, i) => i).filter(i => ownsItem(k, i));
     skinSel[pk][k] = skinKeep[pk][k] = mine[Math.floor(vrand() * mine.length)];
   }
-  buyArmed = null; updateTryOn(); saveSkins(); resetWorld(numPlayers);
+  buyArmed = null; updateTryOn(); saveSkins(); redress();
 }
 export function cycleBig(d) {
   skinSel.big = (skinSel.big + d + BIG_SKINS.length) % BIG_SKINS.length;
   if (ownsItem("big", skinSel.big)) skinKeep.big = skinSel.big;
-  buyArmed = null; updateTryOn(); saveSkins(); resetWorld(numPlayers);
+  buyArmed = null; updateTryOn(); saveSkins(); redress();
 }
 // кнопка «Купить N» колонки: не хватает монеток — звук «нет»; первое нажатие только спрашивает, второе покупает всё примеренное
 export function buyLook(key) {
@@ -106,9 +106,9 @@ export function fitOutfitsToOwned() {
   skinSel = cloneSkins(skinKeep); buyArmed = null; tryingOn = false; saveSkins();
 }
 // для тестов: стартовые виды, ничего не примерено
-export function resetOutfits() { skinSel = cloneSkins(DEFAULT_SKINS); skinKeep = cloneSkins(DEFAULT_SKINS); buyArmed = null; tryingOn = false; saveSkins(); resetWorld(numPlayers); }
+export function resetOutfits() { skinSel = cloneSkins(DEFAULT_SKINS); skinKeep = cloneSkins(DEFAULT_SKINS); buyArmed = null; tryingOn = false; saveSkins(); redress(); }
 
-export const botOutfit = i => ({ hair: (i * 3 + level) % HAIRS.length, hat: (i * 5 + level * 2 + 1) % HATS.length, jacket: (i * 3 + 2 + level) % JACKETS.length, pants: (i * 2 + level) % PANTS.length });
+export const botOutfit = i => ({ hair: (i * 3 + G.level) % HAIRS.length, hat: (i * 5 + G.level * 2 + 1) % HATS.length, jacket: (i * 3 + 2 + G.level) % JACKETS.length, pants: (i * 2 + G.level) % PANTS.length });
 // SPEC-009: надетое в bebebe-outfits становится своим — только для сохранений без owned (до SPEC-009 всё было бесплатно), один раз
 export function adoptWorn() {
   let changed = false;

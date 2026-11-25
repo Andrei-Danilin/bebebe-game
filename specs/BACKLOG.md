@@ -309,10 +309,18 @@ One line each: what, where it came from. The spec author turns a line into a spe
 - (release review, RR-79) A local `PW_FONT=ci` mode that forces the CI fallback font in the 667 runs, so text that fits only locally is caught before the push; a bundled font is decision D-3.
 - (release review, RR-81) CI time (379 tests, 12–15 min per push): tag structural tests `@fast` (getter list, i18n coverage, three/SW version checks, `docs:numbers --check`), 6 or weighted shards, record CI time at each close in `reports/test-times.md`; target at most 10 min per push.
 - (release review, RR-74) After SPEC-011's `pages.yml` fix: watch the next 10 `master` deploys; if a deploy step still fails, collect the logs here.
-- (release review) SPEC-012 AC 8 bench (optional there): if SPEC-012 skips it, `npm run bench:core` (100 games side by side, ms per step median/p95, target p95 <= 1 ms on Andrei's laptop, result in `docs/architecture.md`) before SPEC-013 sizes the server.
 - (SPEC-011 review) Split `src/core/path.js` into a pure `grid.js` + `vision.js` and make `progress-rules.js` a stateless leaf module: removes the 14-module import cycle of the core (start of SPEC-012).
-- (SPEC-011 review) For SPEC-012: where the `fx` and `banner` hooks go (events the client consumes, like `sfx`/`burst`/`pop`), and queue a won practice game for the client instead of `onPracticeWin` re-entering the core (the next practice `buildGame`) from inside `update`.
-- (SPEC-011 review) For SPEC-012: an explicit named API in `src/core/index.js` (the server's surface) instead of `export *` from every core module.
+- (SPEC-011 review) For SPEC-013 (left by SPEC-012): an explicit named API in `src/core/index.js` (the server's surface: createGame, useGame, withGame, step, simRun, newInput, computeReward, levelResult, setProgress, CFG…) instead of `export *` from every core module.
 - (SPEC-011 review) The client's import cycle: a pure `ui/layout.js` for the HUD and menu geometry that `three/camera.js` and `three/previews.js` read (`minimapRect`, `teamRect`, `phoneTopBar`, `progressGeom`, `phoneSkinCols`); `KID_HEAD_R` to `look.js` or `three/setup.js`; the canvas helpers take a `ctx` argument instead of the `setCtx` swap; until then `paintGround`'s `setCtx` swap inside `try/finally`.
 - (SPEC-011 review) For SPEC-025: the error card for a failed start must be installed by the non-module script of `index.html` (a module graph that fails to load runs no module at all), and once `initSaves()` becomes `await loadSave()`, `window.__bbReady` must be set after `installDebug()` (tests read `__bb` as soon as it is ready).
-- (SPEC-011 review) Fx-only events, if any are added to the gameplay log later, count against `CFG.EVENT_LOG_MAX` (SPEC-012 AC 5 plans a separate uncapped `g.fx` queue for them).
+- (SPEC-012 review) For SPEC-013: an outbox of the events the client or server acts on, separate from the effects (`g.out`, always on; `fx: false` drops effects only) — or a monotonic `seq` on gameplay events — instead of the `{ type: "game" }` entries in `g.fx`.
+- (SPEC-012 review) For SPEC-013: per-slot stock when `stock.shared` is false (`gameInv(l)`, `gloveOf` with `l.gloveCharges`); today every game spends from the one `G.stock`.
+- (SPEC-012 review) For SPEC-013: a per-slot reward `computeReward(p, result, slot?)` (SPEC-013 AC 9) — SPEC-012's `perSlot` counts are display only.
+- (SPEC-012 review) For SPEC-013: the menu selection (`G.world` / `G.level` / `G.players`) and `rewardDue` out of the game object into client state.
+- (SPEC-012 review) For SPEC-013: drop the `rebuild` hook — `flow.js` `buildLocal` calls `rebuild3D` after `createGame`.
+- (SPEC-012 review) For SPEC-013: an allow-list for `createGame({ keep })` (today any field can be carried over).
+- (SPEC-012 review) For SPEC-013: abandoning / leaving a level as a server event (today the client's `leaveLevel` pays it).
+- (SPEC-012 review) For SPEC-013: `perSlotCounts` counted into the stats as events happen (today read back from the capped log at the win).
+- (SPEC-012 review) For SPEC-013: `npm run bench:core -- --players 5 --fx` (5 players, the effect queue on).
+- (SPEC-012 review) For SPEC-025: move `economy.js` to the client or make it an explicit profile object; pure progress-rules helpers (no `progress` / `G.world` defaults); a coalescing async save queue (`payLevel` saves once per reward line).
+- (SPEC-012 review) `buyGloves` (`src/client/shop.js`) does not re-dress the menu kid after a first purchase or refill of the worn glove (as on master); call `redress()` there.

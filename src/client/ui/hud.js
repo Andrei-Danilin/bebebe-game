@@ -2,15 +2,12 @@
 // buttons, the level banner (drawBanner, placePhoneBanner). Client module (moved out of index.html in Phase C).
 
 import { CFG, TAU } from "../../core/config.js";
-import { gameInv, gloveOf, progress } from "../../core/economy.js";
-import { big, heardHintPi, heardHintT, kitHintPi, kitHintT, level, littles, mode, numPlayers, setMode, stats } from "../../core/game.js";
-import { tutorialGame } from "../../core/practice.js";
-import { canUseKit, throwKiss, useRescueKit } from "../../core/rules.js";
+import { progress } from "../../core/economy.js";
 import { clamp } from "../../core/util.js";
 import { canAct, inSafe } from "../../core/world.js";
 import { L } from "../../i18n.js";
 import { ITEM_ART } from "../art.js";
-import { bannerAlpha } from "../flow.js";
+import { bannerAlpha, canKitNow, mode, pressKiss, pressKit, setMode } from "../flow.js";
 import { chipName } from "../input.js";
 import { LOOK } from "../look.js";
 import { nameOf, typedName } from "../names.js";
@@ -24,80 +21,82 @@ import { circle, drawArtFit, drawKiss, drawKit, drawMitten, drawSticks, fillStro
 import { minimapRect } from "./minimap.js";
 import { drawHUDPhone, phoneTopBar } from "./phone.js";
 import { cpx, fitText, fmtTime, fz, hudFont, label, labelFit, lastFit, minPx, noteRows, noteText } from "./text.js";
+import { G } from "../../core/active.js";
+import { gameInv, gloveOf } from "../../core/rules.js";
 
 // Сердечко i в полоске: 1 — целое, 0.5 — половинка, 0 — пустое
 export const heartFill = (i, hp) => clamp(hp - i, 0, 1);
 // ---------- Общие тексты HUD (компьютер и телефон) ----------
 // SPEC-022: подпись злости: «Злость папы»; набранное имя — «<имя> злится» (на всех уровнях, и у боссов)
 export const angerLabel = () => (typedName("big") ? L().angerOf(typedName("big")) : L().anger);
-export const timerText = () => { if (tutorialGame) return L().tut.practice; const s = Math.floor(stats.time); return `${L().lvShort} ${level}  ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };   // SPEC-029: в тренировке — «Тренировка»
+export const timerText = () => { if (G.tutorialGame) return L().tut.practice; const s = Math.floor(G.stats.time); return `${L().lvShort} ${G.level}  ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };   // SPEC-029: в тренировке — «Тренировка»
 // кружок команды: секунды до «домой» у упавшего, «z» у отдыхающего, иначе метка игрока или бота
-export const chipText = l => l.state === "down" ? (tutorialGame ? "!" : String(Math.ceil(l.downTimer))) : l.state === "home" || l.state === "rest" ? "z" : l.kind === "player" ? chipName(l) : L().botChip;
+export const chipText = l => l.state === "down" ? (G.tutorialGame ? "!" : String(Math.ceil(l.downTimer))) : l.state === "home" || l.state === "rest" ? "z" : l.kind === "player" ? chipName(l) : L().botChip;
 export const restText = l => "💤 " + L().resting(nameOf(l), fmtTime(Math.max(0, l.state === "rest" ? l.restTimer : CFG.REST_TIME)));
 
 export function drawHUD(t) {
   if (PHONE) { drawHUDPhone(t); return; }
   // SPEC-022: злость папы (подпись + облачка-сердечки); полоска не налезает на таймер в центре
-  const many = big.maxHp > 8, lots = big.maxHp > 12, hStep = lots ? 15 : many ? 17 : 21, hSize = lots ? 13 : many ? 15 : 18;   // много облачек — плотнее, чтобы влезла подпись
-  const bigName = angerLabel(), hearts = big.maxHp * hStep, timerX = UW / 2 - 95;
+  const many = G.big.maxHp > 8, lots = G.big.maxHp > 12, hStep = lots ? 15 : many ? 17 : 21, hSize = lots ? 13 : many ? 15 : 18;   // много облачек — плотнее, чтобы влезла подпись
+  const bigName = angerLabel(), hearts = G.big.maxHp * hStep, timerX = UW / 2 - 95;
   ctx.font = `900 15px system-ui, "Segoe UI", "Arial Rounded MT Bold", Arial, sans-serif`;
   const nameW = Math.min(ctx.measureText(bigName).width, timerX - 10 - 8 - 8 - 18 - hearts - 6);
   const hx = 18 + nameW + 18, hpW = hx + hearts - 10 - (hStep - hSize / 2) + 9;
   rr(10, 8, hpW, 34, 14); fillStroke("rgba(255,255,255,.8)", 3);
   labelFit(bigName, 18, 25, 15, nameW, "#9b2c3a", "left");
   ui.hudRects.push({ id: "hearts", x: 10, y: 8, w: hpW, h: 34, label: lastFit.text, labelX: 18, labelW: lastFit.w });   // SPEC-022: + подпись злости
-  for (let i = 0; i < big.maxHp; i++) hpHeart(hx + i * hStep, 25 - hSize / 2 - 1, hSize, heartFill(i, big.hp), hStep);
+  for (let i = 0; i < G.big.maxHp; i++) hpHeart(hx + i * hStep, 25 - hSize / 2 - 1, hSize, heartFill(i, G.big.hp), hStep);
 
-  const chipW = 32, totalW = littles.length * chipW + 14, x0 = UW - totalW - 10;
+  const chipW = 32, totalW = G.littles.length * chipW + 14, x0 = UW - totalW - 10;
   rr(x0, 8, totalW, 34, 14); fillStroke("rgba(255,255,255,.8)", 3);
-  littles.forEach((l, i) => {
+  G.littles.forEach((l, i) => {
     const cx = x0 + 7 + i * chipW + chipW / 2, cy = 25;
     ctx.globalAlpha = l.state === "home" || l.state === "rest" ? 0.45 : 1;
     circle(cx, cy, 11); fillStroke(l.state === "ok" ? l.look.shirt : "#9ca3af", 2.5);
     ctx.globalAlpha = 1;
     const down = l.state === "down", zz = l.state === "home" || l.state === "rest";
-    label(chipText(l), cx, cy, down ? 11 : zz ? 12 : l.kind === "player" && numPlayers === 1 ? 8 : 10, down ? "#fecaca" : "#fff");
+    label(chipText(l), cx, cy, down ? 11 : zz ? 12 : l.kind === "player" && G.players === 1 ? 8 : 10, down ? "#fecaca" : "#fff");
   });
 
-  const gls = [0, 1].filter(pi => pi < numPlayers).map(pi => gloveOf(pi)).filter(Boolean);
-  const inv = gameInv(), kinds = [...new Set(gls)], showKiss = !isTouch && inv.kisses > 0, showKit = !isTouch && inv.rescues > 0;
+  const gls = [0, 1].filter(pi => pi < G.players).map(pi => gloveOf(pi)).filter(Boolean);
+  const inv = gameInv(), kinds = [...new Set(gls)], showKiss = !isTouch && inv.kisses > 0, showKit = !isTouch && inv.kits > 0;
   if (kinds.length || showKiss || showKit) {               // сколько сильных обнимашек, поцелуев и спасалок осталось
     const n = kinds.length + (showKiss ? 1 : 0) + (showKit ? 1 : 0);
     rr(10, 48, 20 + n * 70, 34, 14); fillStroke("rgba(255,255,255,.8)", 3);
     kinds.forEach((k, i) => { drawArtFit(ITEM_ART[k], 30 + i * 70, 65, 32) || drawMitten(30 + i * 70, 65, 26, k); label("×" + progress.inv[k], 58 + i * 70, 65, 16, OUT); });
     if (showKiss) { const i = kinds.length; drawArtFit("item_kiss", 30 + i * 70, 65, 34) || drawKiss(30 + i * 70, 67, 26); label("×" + inv.kisses, 58 + i * 70, 65, 16, OUT); }
-    if (showKit) { const i = kinds.length + (showKiss ? 1 : 0); drawArtFit("icon_bandaid", 30 + i * 70, 65, 32) || drawKit(30 + i * 70, 65, 30); label("×" + inv.rescues, 58 + i * 70, 65, 16, OUT); }
+    if (showKit) { const i = kinds.length + (showKiss ? 1 : 0); drawArtFit("icon_bandaid", 30 + i * 70, 65, 32) || drawKit(30 + i * 70, 65, 30); label("×" + inv.kits, 58 + i * 70, 65, 16, OUT); }
   }
   // кнопка игрока: 💋, а пока он лежит, хромает домой или отдыхает и спасалки есть — 🩹 на том же месте (SPEC-007)
-  if (isTouch && mode === "play") for (let pi = 0; pi < numPlayers; pi++) {
-    if (canUseKit(littles[pi])) kitButton(pi, t); else if (gameInv().kisses > 0) kissButton(pi);
+  if (isTouch && mode === "play") for (let pi = 0; pi < G.players; pi++) {
+    if (canKitNow(G.littles[pi])) kitButton(pi, t); else if (gameInv().kisses > 0) kissButton(pi);
   }
   rr(UW / 2 - 95, 8, 110, 34, 14); fillStroke("rgba(255,255,255,.8)", 3);
   label(timerText(), UW / 2 - 40, 25, 14, OUT);
   iconButton("round_pause", UW / 2 + 22, 8, 40, 34, "II", "#64748b", () => { setMode("pause"); }, 16);
   if (!STANDALONE) iconButton("ui_fullscreen", UW / 2 + 68, 8, 40, 34, "⛶", "#64748b", toggleFullscreen, 18);   // на iPhone нет Fullscreen API
   // SPEC-029: в тренировке — маленькая «Пропустить» справа от кнопок (обучение целиком; то же есть в паузе)
-  if (tutorialGame && mode === "play") fitButton(UW / 2 + (STANDALONE ? 68 : 114), 8, CFG.TUTORIAL_LOOK.skipW, 34, "⏭ " + L().sceneSkip, LOOK.MENU_LOOK.back, tutorialSkip, 16, 11).id = "tutorial:skip";
+  if (G.tutorialGame && mode === "play") fitButton(UW / 2 + (STANDALONE ? 68 : 114), 8, CFG.TUTORIAL_LOOK.skipW, 34, "⏭ " + L().sceneSkip, LOOK.MENU_LOOK.back, tutorialSkip, 16, 11).id = "tutorial:skip";
 
   drawSticks();
-  if (isTouch && stats.time < 5) {
-    label(numPlayers === 2 ? L().touch2 : L().touch1, UW / 2, UH - 26, 18, "#fff");
+  if (isTouch && G.stats.time < 5) {
+    label(G.players === 2 ? L().touch2 : L().touch1, UW / 2, UH - 26, 18, "#fff");
   }
-  const resting = littles.filter(l => l.kind === "player" && (l.state === "home" || l.state === "rest"));
+  const resting = G.littles.filter(l => l.kind === "player" && (l.state === "home" || l.state === "rest"));
   resting.forEach((l, i) => {
     rr(UW / 2 - 230, UH - 58 - i * 44, 460, 38, 14); fillStroke("rgba(30,41,59,.75)", 3);
     fitText(restText(l), UW / 2, UH - 39 - i * 44, 17, 440, "center", "#e0e7ff", 800);
   });
   if (kitHintOn()) drawKitHint(UW / 2 - 230, UH - 58 - resting.length * 44, 460, 38, 14, () => {}, 18, 9);   // над плашками «отдыхает»
   // SPEC-019: ещё выше; в первые секунды на сенсорном экране — и над подписью «води пальцем»
-  if (heardHintOn()) drawHeardHint(UW / 2 - 300, UH - 20 - (resting.length + (kitHintOn() ? 1 : 0)) * 44 - (isTouch && stats.time < 5 ? 30 : 0), 600, 18, 12, 12);
-  if (tutorialHintOn()) ui.tutorialHintRect = hintPlate("tutorialHint", tutorialHintText(), UW / 2 - 300, UH - 20 - (isTouch && stats.time < 5 ? 30 : 0), 600, 18, 12, 12);   // SPEC-029
+  if (heardHintOn()) drawHeardHint(UW / 2 - 300, UH - 20 - (resting.length + (kitHintOn() ? 1 : 0)) * 44 - (isTouch && G.stats.time < 5 ? 30 : 0), 600, 18, 12, 12);
+  if (tutorialHintOn()) ui.tutorialHintRect = hintPlate("tutorialHint", tutorialHintText(), UW / 2 - 300, UH - 20 - (isTouch && G.stats.time < 5 ? 30 : 0), 600, 18, 12, 12);   // SPEC-029
 }
 
 // Подсказка «Нажми 🩹» (SPEC-007): видна KIT_HINT_TIME сек, пока упавший игрок может встать спасалкой.
 // Без сенсорного экрана — ещё и клавиша этого игрока: Q (игрок 2 вдвоём — Shift справа)
-export const kitHintOn = () => mode === "play" && kitHintT > 0 && canUseKit(littles[kitHintPi]);
-const kitHintText = () => L().kitHint + (PHONE || isTouch ? "" : ` (${numPlayers === 2 && kitHintPi === 1 ? L().kitKey2 : L().kitKey1})`);
+export const kitHintOn = () => mode === "play" && ui.kitHintT > 0 && canKitNow(G.littles[ui.kitHintPi]);
+const kitHintText = () => L().kitHint + (PHONE || isTouch ? "" : ` (${G.players === 2 && ui.kitHintPi === 1 ? L().kitKey2 : L().kitKey1})`);
 export function drawKitHint(x, y, w, h, r, note, size, min) {
   const text = kitHintText();
   rr(x, y, w, h, r); fillStroke("rgba(255,250,235,.95)", 3);
@@ -108,8 +107,8 @@ export function drawKitHint(x, y, w, h, r, note, size, min) {
 
 // Подсказка «Папа услышал топот!» (SPEC-019): видна HEAR_HINT_TIME сек после первого за уровень поворота на топот игрока.
 // Без сенсорного экрана — клавиша этого игрока (левый Shift; вдвоём у игрока 2 — «/»), иначе — про джойстик
-export const heardHintOn = () => mode === "play" && heardHintT > 0;
-const heardKey = () => numPlayers === 2 && heardHintPi === 1 ? L().heardKey2 : L().heardKey1;
+export const heardHintOn = () => mode === "play" && ui.heardHintT > 0;
+const heardKey = () => G.players === 2 && ui.heardHintPi === 1 ? L().heardKey2 : L().heardKey1;
 export const heardHintText = () => PHONE || isTouch ? L().heardHintTouch : L().heardHint(heardKey());
 // плашка нижним краем на bottom, до двух строк (мерка с LOOK.TEXT_TEST_SCALE, не мельче min); → кегль
 export function drawHeardHint(x, bottom, w, size, min, pad) {
@@ -129,20 +128,20 @@ export function hintPlate(id, text, x, bottom, w, size, min, pad) {
 // Круглая кнопка 💋 игрока pi: внизу справа (один игрок) или на своей стороне (двое); касание здесь — не джойстик
 export function kissBtnRect(pi) {
   if (PHONE) { const d = cpx(LOOK.PHONE_KISS_BTN), m = cpx(12); return { x: UW - m - d, y: UH - m - d, w: d, h: d }; }   // телефон: один игрок
-  const d = LOOK.KISS_BTN, m = 14, left = numPlayers === 2 && pi === 0;
+  const d = LOOK.KISS_BTN, m = 14, left = G.players === 2 && pi === 0;
   return { x: left ? m : UW - m - d, y: UH - m - d, w: d, h: d };
 }
 export function kissButton(pi) {
-  const l = littles[pi];
+  const l = G.littles[pi];
   if (!l) return;
   const rc = kissBtnRect(pi), r = rc.w / 2, cx = rc.x + r, cy = rc.y + r;
   const ready = canAct(l) && !inSafe(l) && l.kissCd <= 0;   // серая: перезарядка, в домике или не может действовать
   ctx.save(); ctx.globalAlpha = ready ? 0.95 : 0.55;
   if (drawArtFit("phone_kiss", cx, cy, rc.w * LOOK.PAPER.hudIcon)) {                 // SPEC-020: кнопка 25_phone_controls
-    if (numPlayers === 2) { circle(cx, cy, r); ctx.lineWidth = 4; ctx.strokeStyle = P_COLORS[pi]; ctx.stroke(); }
+    if (G.players === 2) { circle(cx, cy, r); ctx.lineWidth = 4; ctx.strokeStyle = P_COLORS[pi]; ctx.stroke(); }
   } else {
     ctx.fillStyle = "rgba(0,0,0,.3)"; circle(cx + 2, cy + 4, r); ctx.fill();
-    circle(cx, cy, r); fillStroke(ready ? "#ffd1e3" : "#cbd5e1", 4, numPlayers === 2 ? P_COLORS[pi] : OUT);
+    circle(cx, cy, r); fillStroke(ready ? "#ffd1e3" : "#cbd5e1", 4, G.players === 2 ? P_COLORS[pi] : OUT);
     drawKiss(cx, cy + 4, r * 1.15);
   }
   if (l.kissCd > 0) {                                      // перезарядка — дуга
@@ -153,22 +152,22 @@ export function kissButton(pi) {
   const br = PHONE ? cpx(15) : 13;
   circle(cx + r * 0.72, cy - r * 0.72, br); fillStroke("#ff4d8d", 2.5);
   label(String(gameInv().kisses), cx + r * 0.72, cy - r * 0.72 + 1, fz(13, "hint"), "#fff");
-  ui.buttons.push({ ...rc, act: () => throwKiss(pi), id: "kiss:" + pi });
+  ui.buttons.push({ ...rc, act: () => pressKiss(pi), id: "kiss:" + pi });
 }
 // Круглая кнопка 🩹 игрока pi — на месте 💋 (поцелуй лёжа всё равно не бросить); мигает кольцом, сверху — сколько спасалок
 export function kitButton(pi, t) {
   const rc = kissBtnRect(pi), r = rc.w / 2, cx = rc.x + r, cy = rc.y + r, pulse = 0.5 + 0.5 * Math.sin(t * 5.5);
   ctx.save(); ctx.globalAlpha = 0.95;
   const pic = drawArtFit("phone_kit", cx, cy, rc.w * LOOK.PAPER.hudIcon);              // SPEC-020: кнопка 25_phone_controls
-  if (!pic) { ctx.fillStyle = "rgba(0,0,0,.3)"; circle(cx + 2, cy + 4, r); ctx.fill(); circle(cx, cy, r); fillStroke("#dcfce7", 4, numPlayers === 2 ? P_COLORS[pi] : OUT); }
-  else if (numPlayers === 2) { circle(cx, cy, r); ctx.lineWidth = 4; ctx.strokeStyle = P_COLORS[pi]; ctx.stroke(); }
+  if (!pic) { ctx.fillStyle = "rgba(0,0,0,.3)"; circle(cx + 2, cy + 4, r); ctx.fill(); circle(cx, cy, r); fillStroke("#dcfce7", 4, G.players === 2 ? P_COLORS[pi] : OUT); }
+  else if (G.players === 2) { circle(cx, cy, r); ctx.lineWidth = 4; ctx.strokeStyle = P_COLORS[pi]; ctx.stroke(); }
   ctx.globalAlpha = 0.35 + 0.5 * pulse; circle(cx, cy, r - 6); ctx.lineWidth = 4; ctx.strokeStyle = "#22c55e"; ctx.stroke();
   ctx.globalAlpha = 1; if (!pic) drawKit(cx, cy, r * 1.3);
   ctx.restore();
   const br = PHONE ? cpx(15) : 13;
   circle(cx + r * 0.72, cy - r * 0.72, br); fillStroke("#16a34a", 2.5);
-  label(String(gameInv().rescues), cx + r * 0.72, cy - r * 0.72 + 1, fz(13, "hint"), "#fff");
-  ui.buttons.push({ ...rc, act: () => useRescueKit(pi), id: "kit:" + pi });
+  label(String(gameInv().kits), cx + r * 0.72, cy - r * 0.72 + 1, fz(13, "hint"), "#fff");
+  ui.buttons.push({ ...rc, act: () => pressKit(pi), id: "kit:" + pi });
 }
 
 // прямоугольник героя на экране (UI px): от ног до имени над головой (playerNameTag, как в drawMarkers), шириной с тело или имя

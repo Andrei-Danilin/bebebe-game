@@ -2,14 +2,13 @@
 // index.html in Phase C).
 
 import { CFG, levelsPerWorld, TAU, WORLD_SEED, WORLDS } from "../../core/config.js";
-import { curWorld, setMode } from "../../core/game.js";
 import { levelType } from "../../core/level/generate.js";
 import { bossFor } from "../../core/mood.js";
 import { isOpen, worldComplete, worldOpen, worldProgress } from "../../core/progress-rules.js";
 import { mulberry32 } from "../../core/util.js";
 import { L } from "../../i18n.js";
 import { art, mapBgArt, paperPanel, worldArt } from "../art.js";
-import { cardLevel, chooseStop, closeCard, mapSelN, nextStop, openStory, playCard, tapWorldTab } from "../flow.js";
+import { cardLevel, chooseStop, closeCard, mapSelN, nextStop, openStory, playCard, setMode, tapWorldTab } from "../flow.js";
 import { LOOK } from "../look.js";
 import { ctx, OUT, PHONE, UH, UW, VIEW } from "../screen.js";
 import { ui } from "../state.js";
@@ -21,6 +20,7 @@ import { drawPill, homePill } from "./home.js";
 import { menuFrame, phoneFrame, worldStarsOf } from "./menu.js";
 import { cpx, fz, hudFont, label, minPx, noteRows, noteText, plainText, scaledW } from "./text.js";
 import { fitLine } from "./win.js";
+import { G } from "../../core/active.js";
 
 // подсказка закрытого мира (по worldOpen): нужен главный мир — «Пройди <его>, чтобы открыть <этот>!», иначе — прежняя строка бонусных
 export const lockedText = w => { const o = worldOpen(w); return o.needs ? L().lockedWorld(o.needs, w) : L().lockedBonus; };
@@ -41,12 +41,12 @@ function mapGeom() {
 }
 // остановки змейкой: ряды по A.cols, нечётные ряды справа налево; под остановкой место для звёзд; босс (последний уровень
 // основного мира; SPEC-022: у бонусных миров босса нет) крупнее
-function stopRects(G) {
+function stopRects(MG) {
   const A = LOOK.MENU_LOOK.map, n = levelsPerWorld(), cols = A.cols, rows = Math.ceil(n / cols);
-  const ay = G.page.y + G.titleH + G.g, px = G.page.w / cols, py = (G.page.y + G.page.h - ay) / rows, starH = G.stop * A.starRow;
+  const ay = MG.page.y + MG.titleH + MG.g, px = MG.page.w / cols, py = (MG.page.y + MG.page.h - ay) / rows, starH = MG.stop * A.starRow;
   return Array.from({ length: n }, (_, i) => {
-    const r = Math.floor(i / cols), col = r % 2 ? cols - 1 - i % cols : i % cols, boss = !!bossFor(curWorld, i + 1), s = G.stop * (boss ? A.boss : 1);
-    const cx = G.page.x + px * (col + 0.5), cy = ay + py * (r + 0.5) - starH / 2;
+    const r = Math.floor(i / cols), col = r % 2 ? cols - 1 - i % cols : i % cols, boss = !!bossFor(G.world, i + 1), s = MG.stop * (boss ? A.boss : 1);
+    const cx = MG.page.x + px * (col + 0.5), cy = ay + py * (r + 0.5) - starH / 2;
     return { n: i + 1, x: cx - s / 2, y: cy - s / 2, w: s, h: s, cx, cy, boss };
   });
 }
@@ -117,8 +117,8 @@ function paintMapPage(g, w, pw, ph, pts, unit) {
   g.stroke(); g.setLineDash([]);
   g.restore();
 }
-function drawMapPage(w, G, rects) {
-  const P = G.page, bgName = mapBgArt(w), key = [w, P.x, P.y, P.w, P.h, VIEW, G.stop, rects.length, LOOK.MENU_LOOK.map.cols, !!art(bgName)].join();
+function drawMapPage(w, MG, rects) {
+  const P = MG.page, bgName = mapBgArt(w), key = [w, P.x, P.y, P.w, P.h, VIEW, MG.stop, rects.length, LOOK.MENU_LOOK.map.cols, !!art(bgName)].join();
   if (!ui.mapBgCache || ui.mapBgCache.key !== key) {
     const cv = document.createElement("canvas");
     cv.width = Math.max(1, Math.ceil(P.w * VIEW)); cv.height = Math.max(1, Math.ceil(P.h * VIEW));
@@ -203,13 +203,13 @@ function toastRows(text, size, maxW) {
   return rows.concat(cur);
 }
 // SPEC-030: look — та же плашка другого вида (id, цвета, по центру страницы): «<мир> открыт!» после победы, открывшей мир
-function drawToast(text, G, rects, th, ty, size, min, look = {}) {
-  const A = LOOK.MENU_LOOK.map, M = LOOK.MENU_LOOK, k = PHONE ? cpx(1) : 1, P = G.page, pad = 8 * k, maxW = P.w - 2 * pad;
+function drawToast(text, MG, rects, th, ty, size, min, look = {}) {
+  const A = LOOK.MENU_LOOK.map, M = LOOK.MENU_LOOK, k = PHONE ? cpx(1) : 1, P = MG.page, pad = 8 * k, maxW = P.w - 2 * pad;
   const id = look.id || "toast", bg = look.bg || A.toastBg, ink = look.ink || A.toastInk, pill = homePill(id, text, th, size, min);
   const one = fitLine(text, size, min, maxW - 2 * pill.pad);
   if (one.text === text) { mapPill(id, text, look.center ? P.x + (P.w - Math.min(pill.w, maxW)) / 2 : P.x + pad, ty, th, maxW, bg, ink, size, min); return; }
-  const padX = PHONE ? cpx(M.phoneHome.pad) : M.home.pad, top = P.y - G.g / 2;
-  const avail = Math.min(...rects.map(q => q.y)) - G.g / 2 - top;
+  const padX = PHONE ? cpx(M.phoneHome.pad) : M.home.pad, top = P.y - MG.g / 2;
+  const avail = Math.min(...rects.map(q => q.y)) - MG.g / 2 - top;
   const fit = sz => { const r = toastRows(text, sz, maxW - 2 * padX); return { r, sz, h: (r.length * A.toastLine + A.toastPadY) * sz }; };
   let f = fit(size);
   while (f.sz > min && (f.r.length > A.toastRows || f.h > avail)) f = fit(Math.max(min, f.sz - 0.5));
@@ -221,30 +221,30 @@ function drawToast(text, G, rects, th, ty, size, min, look = {}) {
   ui.hudRects.push({ id, x, y, w, h: f.h, text: f.r.join(" "), textW: textW + 2 * padX, rows: f.r });
 }
 export function drawMap(t) {
-  const M = LOOK.MENU_LOOK, A = M.map, G = mapGeom(), k = PHONE ? cpx(1) : 1, w = curWorld, wp = worldProgress();
+  const M = LOOK.MENU_LOOK, A = M.map, MG = mapGeom(), k = PHONE ? cpx(1) : 1, w = G.world, wp = worldProgress();
   menuFrame();
   const minMain = PHONE ? minPx("main") : 13;
   // верхний ряд: ◀ Главная, шесть вкладок, монетки
-  fitButton(G.X0, G.Y0, G.backW, G.tabH, G.backText, M.back, () => { setMode("home"); }, PHONE ? cpx(18) : 20, minMain).id = "back:home";
-  coinPlate(G.X1 - G.coinsW, G.Y0 + 4 * k, G.coinsW, G.tabH - 8 * k);
-  const tx0 = G.X0 + G.backW + G.g, tw = (G.X1 - G.coinsW - G.g - tx0 - (WORLDS.length - 1) * G.g) / WORLDS.length, tabs = [];
+  fitButton(MG.X0, MG.Y0, MG.backW, MG.tabH, MG.backText, M.back, () => { setMode("home"); }, PHONE ? cpx(18) : 20, minMain).id = "back:home";
+  coinPlate(MG.X1 - MG.coinsW, MG.Y0 + 4 * k, MG.coinsW, MG.tabH - 8 * k);
+  const tx0 = MG.X0 + MG.backW + MG.g, tw = (MG.X1 - MG.coinsW - MG.g - tx0 - (WORLDS.length - 1) * MG.g) / WORLDS.length, tabs = [];
   WORLDS.forEach((wd, i) => {
-    const x = tx0 + i * (tw + G.g), locked = !isOpen(wd), sel = wd === w;
-    const ic = Math.min(tw, G.tabH);
+    const x = tx0 + i * (tw + MG.g), locked = !isOpen(wd), sel = wd === w;
+    const ic = Math.min(tw, MG.tabH);
     if (art(worldArt(wd))) {                                              // SPEC-020: значок мира из 20_levelmap_parts
       if (locked) ctx.globalAlpha = 0.5;
-      drawArtFit(worldArt(wd), x + tw / 2, G.Y0 + G.tabH / 2, ic * 1.06);
+      drawArtFit(worldArt(wd), x + tw / 2, MG.Y0 + MG.tabH / 2, ic * 1.06);
       ctx.globalAlpha = 1;
-      if (locked) drawArtFit("padlock", x + tw / 2 + ic * 0.3, G.Y0 + G.tabH * 0.66, ic * 0.5);
-      regButton(x, G.Y0, tw, G.tabH, locked ? "🔒" : WORLD_ICONS[wd], () => tapWorldTab(wd), "maptab:" + wd, ic);
-    } else addButton(x, G.Y0, tw, G.tabH, locked ? "🔒" : WORLD_ICONS[wd], locked ? A.closed : THEMES[wd].g1, () => tapWorldTab(wd), PHONE ? fz(24, "main") : 30).id = "maptab:" + wd;
-    if (sel) { rr(x - 3 * k, G.Y0 - 3 * k, tw + 6 * k, G.tabH + 6 * k, 20 * k); ctx.lineWidth = A.ringW * k; ctx.strokeStyle = A.ring; ctx.stroke(); }
-    tabs.push({ world: wd, locked, selected: sel, x, y: G.Y0, w: tw, h: G.tabH });
+      if (locked) drawArtFit("padlock", x + tw / 2 + ic * 0.3, MG.Y0 + MG.tabH * 0.66, ic * 0.5);
+      regButton(x, MG.Y0, tw, MG.tabH, locked ? "🔒" : WORLD_ICONS[wd], () => tapWorldTab(wd), "maptab:" + wd, ic);
+    } else addButton(x, MG.Y0, tw, MG.tabH, locked ? "🔒" : WORLD_ICONS[wd], locked ? A.closed : THEMES[wd].g1, () => tapWorldTab(wd), PHONE ? fz(24, "main") : 30).id = "maptab:" + wd;
+    if (sel) { rr(x - 3 * k, MG.Y0 - 3 * k, tw + 6 * k, MG.tabH + 6 * k, 20 * k); ctx.lineWidth = A.ringW * k; ctx.strokeStyle = A.ring; ctx.stroke(); }
+    tabs.push({ world: wd, locked, selected: sel, x, y: MG.Y0, w: tw, h: MG.tabH });
   });
   // страница мира: фон и дорожка, строка заголовка (или подсказка), остановки
-  const rects = stopRects(G), next = nextStop(w), done = worldComplete(w), sel = mapSelN();
-  drawMapPage(w, G, rects);
-  const P = G.page, th = G.titleH * 0.86, ty = P.y + (G.titleH - th) / 2 + 4 * k, size = PHONE ? cpx(16) : 18, pad = 8 * k;
+  const rects = stopRects(MG), next = nextStop(w), done = worldComplete(w), sel = mapSelN();
+  drawMapPage(w, MG, rects);
+  const P = MG.page, th = MG.titleH * 0.86, ty = P.y + (MG.titleH - th) / 2 + 4 * k, size = PHONE ? cpx(16) : 18, pad = 8 * k;
   if (!ui.toast && !ui.worldBanner) {
     const title = `${WORLD_ICONS[w]} ${L().worlds[w]}  ${L().worldStars(worldStarsOf(w), CFG.STARS_PER_LEVEL * levelsPerWorld())}`;
     const used = mapPill("map:title", title, P.x + pad, ty, th, P.w * 0.62, M.pill, M.ink, size, minMain);
@@ -255,8 +255,8 @@ export function drawMap(t) {
     drawStop(q, info, t, !!wp.won[q.n]);
     return { ...info, x: q.x, y: q.y, w: q.w, h: q.h };
   });
-  if (ui.toast) drawToast(ui.toast.text, G, rects, th, ty, size, minMain);   // поверх остановок: двухстрочная заходит на верх страницы
-  else if (ui.worldBanner) drawToast("🎉 " + L().worldOpened(ui.worldBanner.world), G, rects, th, ty, size, minMain, { id: "world-opened", bg: A.openedBg, ink: A.openedInk, center: true });   // SPEC-030
+  if (ui.toast) drawToast(ui.toast.text, MG, rects, th, ty, size, minMain);   // поверх остановок: двухстрочная заходит на верх страницы
+  else if (ui.worldBanner) drawToast("🎉 " + L().worldOpened(ui.worldBanner.world), MG, rects, th, ty, size, minMain, { id: "world-opened", bg: A.openedBg, ink: A.openedInk, center: true });   // SPEC-030
   ui.mapState = { world: w, sel, done, tabs, stops };
 }
 // SPEC-017: карточка уровня — «Мир · Уровень n», тип, строка про тип (у 20-го — про босса), звёзды; внизу 📖 (глава мира) и
@@ -265,9 +265,9 @@ export function drawLevelCard() {
   const M = LOOK.MENU_LOOK, A = M.map, k = PHONE ? cpx(1) : 1, B = PHONE ? cpx(LOOK.PHONE_BTN_MIN) : 44, g = PHONE ? cpx(LOOK.PHONE_BTN_GAP) : 10;
   const n = cardLevel, minMain = PHONE ? minPx("main") : 13, minHint = PHONE ? minPx("hint") : 12, pad = A.cardPad * k;
   const cw = Math.min(UW - 40 * k, (PHONE ? A.phoneCardW : A.cardW) * k), BH = PHONE ? B + 6 * k : A.cardBtn, sr = A.cardStar * k;
-  const title = `${L().worlds[curWorld]} · ${L().level} ${n}`, type = L().types[levelType(curWorld, n)];
+  const title = `${L().worlds[G.world]} · ${L().level} ${n}`, type = L().types[levelType(G.world, n)];
   // SPEC-022: строка босса — только у мира с боссом (у бонусных миров босса нет — обычная строка типа)
-  const line = n >= levelsPerWorld() && L().bossLine[curWorld] ? L().bossLine[curWorld] : L().typeLines[levelType(curWorld, n)], stars = worldProgress().stars[n] || 0;
+  const line = n >= levelsPerWorld() && L().bossLine[G.world] ? L().bossLine[G.world] : L().typeLines[levelType(G.world, n)], stars = worldProgress().stars[n] || 0;
   const f1 = fitLine(title, PHONE ? cpx(22) : 26, minMain, cw - 3 * pad - B), f2 = fitLine(type, PHONE ? cpx(17) : 20, minMain, cw - 2 * pad);
   const lb = noteRows(line, PHONE ? cpx(16) : 18, minHint, cw - 2 * pad, 3), lineH = lb.rows.length * lb.sz * 1.2;
   const ch = pad + B + g + f2.sz * 1.2 + g + lineH + g + 2 * sr + g + BH + pad, x = UW / 2 - cw / 2, y = Math.max(4 * k, UH / 2 - ch / 2);
@@ -289,7 +289,7 @@ export function drawLevelCard() {
   if (PHONE) noteText("hint", lb.sz);
   for (let i = 0; i < CFG.STARS_PER_LEVEL; i++) drawStarArt(UW / 2 + (i - 1) * sr * 2.6, yy + sr, sr, i < stars);
   const by = y + ch - pad - BH;
-  iconOnlyButton(x + pad, by, BH, BH, "menu_story", "📖", M.storyBtn, () => openStory(curWorld, "levelCard"), PHONE ? cpx(20) : 24, minMain, "card:story");   // SPEC-027: значок 28_menu_icons
+  iconOnlyButton(x + pad, by, BH, BH, "menu_story", "📖", M.storyBtn, () => openStory(G.world, "levelCard"), PHONE ? cpx(20) : 24, minMain, "card:story");   // SPEC-027: значок 28_menu_icons
   const px = x + pad + BH + g, pw = cw - 2 * pad - BH - g;
   if (PHONE) fitButton(px, by, pw, BH, "▶ " + L().play, M.play, () => playCard(1), cpx(22), minMain).id = "card:play";
   else {
@@ -297,5 +297,5 @@ export function drawLevelCard() {
     fitButton(px, by, bw, BH, L().onePlayer, M.play, () => playCard(1), 24, 14).id = "card:1";
     fitButton(px + bw + g, by, bw, BH, L().twoPlayers, M.alt, () => playCard(2), 24, 14).id = "card:2";
   }
-  ui.cardInfo = { world: curWorld, n, title, type, line, stars };
+  ui.cardInfo = { world: G.world, n, title, type, line, stars };
 }

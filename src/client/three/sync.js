@@ -3,23 +3,25 @@
 
 import * as THREE from "three";
 import { CFG } from "../../core/config.js";
-import { gloveOf } from "../../core/economy.js";
-import { big, bonusStars, items, kisses, littles, mode } from "../../core/game.js";
 import { bigMood } from "../../core/mood.js";
 import { bigCalm, visionPoly } from "../../core/path.js";
 import { vrand } from "../../core/util.js";
-import { inMenus, inWardrobe } from "../flow.js";
+import { inMenus, inWardrobe, mode } from "../flow.js";
 import { LOOK } from "../look.js";
 import { CSS_H, CSS_W, PHONE } from "../screen.js";
 import { ui } from "../state.js";
 import { cam, camDist } from "./camera.js";
-import { bossScale, setBigFace, setCloak } from "./characters.js";
+import { bossScale, modelOf, setBigFace, setCloak } from "./characters.js";
 import { fadeRoofs } from "./houses.js";
 import { bigHomeMats, fadeBushes, fadeTrees, safeGlow, snow, waves } from "./map3d.js";
 import { disposeTree, ownMat, part, sphere, syncPaper, toon } from "./materials.js";
 import { progressTab, renderPreviews } from "./previews.js";
 import { BIG_SCALE, camBase, camera, LITTLE_SCALE, P, renderer, scene } from "./setup.js";
+import { G } from "../../core/active.js";
+import { gloveOf } from "../../core/rules.js";
 
+// SPEC-012 AC 1d: where the Big One faces on screen — his dir, plus the client's menu spin while a menu is shown
+const bigFacing = () => G.big.dir + (inMenus() ? ui.menuSpin : 0);
 // ---------- Конус обзора и «зона обнимашек» ----------
 export const CONE_N = 48, coneBuf = [];
 const coneGeo = new THREE.BufferGeometry();
@@ -28,13 +30,13 @@ const coneIdx = [];
 const coneMat = new THREE.MeshBasicMaterial({ color: LOOK.CONE_LOOK.look, transparent: true, opacity: LOOK.CONE_LOOK.lookA, depthWrite: false, side: THREE.DoubleSide });
 const coneMesh = new THREE.Mesh(coneGeo, coneMat);
 function updateCone() {
-  const pos = coneGeo.attributes.position.array, vp = visionPoly(CONE_N, coneBuf);
+  const pos = coneGeo.attributes.position.array, vp = visionPoly(CONE_N, coneBuf, bigFacing());
   for (let i = 0; i <= CONE_N + 1; i++) { pos[i * 3] = P(vp[2 * i]); pos[i * 3 + 1] = 0.05; pos[i * 3 + 2] = P(vp[2 * i + 1]); }
   coneGeo.attributes.position.needsUpdate = true;
   const calm = bigCalm();
   const C = LOOK.CONE_LOOK;                                // SPEC-021: цвета в CFG (жёлтый гуще — виден и на песке Пляжа)
-  coneMat.color.set(calm ? C.calm : (big.state === "chase" ? C.chase : C.look));
-  coneMat.opacity = calm ? C.calmA : (big.state === "chase" ? C.chaseA : C.lookA);
+  coneMat.color.set(calm ? C.calm : (G.big.state === "chase" ? C.chase : C.look));
+  coneMat.opacity = calm ? C.calmA : (G.big.state === "chase" ? C.chaseA : C.lookA);
 }
 const backMat = new THREE.MeshBasicMaterial({ color: "#ff78aa", transparent: true, opacity: 0.35, depthWrite: false, side: THREE.DoubleSide });
 const backMesh = new THREE.Mesh(new THREE.CircleGeometry(P(22 + 20), 20, -(Math.PI - CFG.BEHIND_ANGLE), 2 * (Math.PI - CFG.BEHIND_ANGLE)), backMat);
@@ -73,9 +75,9 @@ function makeItemMesh(kind) {
   return g;
 }
 function syncItems(t) {
-  const alive = new Set(items.map(it => it.id));
+  const alive = new Set(G.items.map(it => it.id));
   for (const [id, g] of itemMeshes) if (!alive.has(id)) { itemGroup.remove(g); disposeTree(g); itemMeshes.delete(id); }
-  for (const it of items) {
+  for (const it of G.items) {
     let g = itemMeshes.get(it.id);
     if (!g) { g = makeItemMesh(it.kind); itemGroup.add(g); itemMeshes.set(it.id, g); }
     g.position.set(P(it.x), 0, P(it.y));
@@ -110,9 +112,9 @@ function makeStarMesh() {
   return g;
 }
 function syncStars(t) {
-  const alive = new Set(bonusStars.map(s => s.id));
+  const alive = new Set(G.bonusStars.map(s => s.id));
   for (const [id, g] of starMeshes) if (!alive.has(id)) { starGroup.remove(g); disposeTree(g); starMeshes.delete(id); }
-  for (const s of bonusStars) {
+  for (const s of G.bonusStars) {
     let g = starMeshes.get(s.id);
     if (!g) { g = makeStarMesh(); starGroup.add(g); starMeshes.set(s.id, g); }
     g.position.set(P(s.x), 0, P(s.y));
@@ -153,10 +155,10 @@ function makeKissMesh() {
   return g;
 }
 function syncKisses(t) {
-  if (!kisses.length && !kissMeshes.size) return;
-  const alive = new Set(kisses.map(k => k.id));
+  if (!G.kisses.length && !kissMeshes.size) return;
+  const alive = new Set(G.kisses.map(k => k.id));
   for (const [id, g] of kissMeshes) if (!alive.has(id)) { kissGroup.remove(g); disposeTree(g); kissMeshes.delete(id); }
-  for (const k of kisses) {
+  for (const k of G.kisses) {
     let g = kissMeshes.get(k.id);
     if (!g) { g = makeKissMesh(); kissGroup.add(g); kissMeshes.set(k.id, g); }
     g.position.set(P(k.x), KISS_Y + Math.sin(t * 14 + k.id) * 0.04, P(k.y));
@@ -173,7 +175,7 @@ function syncKisses(t) {
 // ---------- Анимация каждый кадр ----------
 const swing = (m, a) => { m.legs[0].rotation.x = a; m.legs[1].rotation.x = -a; m.arms[0].rotation.x = -a * 0.8; m.arms[1].rotation.x = a * 0.8; };
 function syncLittle(l, t) {
-  const m = l.model, down = l.state === "down", going = l.state === "home", resting = l.state === "rest";
+  const m = modelOf(l), down = l.state === "down", going = l.state === "home", resting = l.state === "rest";
   m.root.visible = !(l.invuln > 0 && Math.floor(t * 12) % 2);
   m.ghost.visible = false;
   m.root.position.set(P(l.x), 0, P(l.y));
@@ -243,15 +245,15 @@ function syncLittle(l, t) {
 // SPEC-022: настроение на экране: злой / средний / добреет (bigMood), подобрел и идёт домой — "happy" (лицо как у образа)
 export const moodOf = b => (b.kind ? "happy" : bigMood());
 function syncBig(b, t) {
-  const m = b.model;
+  const m = modelOf(b);
   const mood = moodOf(b);
   if (m.mood !== mood) {                                   // перекрашиваем только при смене; лицо не человека (огр, робот, медведь) — своё
     m.mood = mood; setBigFace(m, m.moodFace ? LOOK.MOOD_LOOK.face[mood] ?? null : null);
   }
   m.root.position.set(P(b.x), 0, P(b.y));
-  m.root.rotation.y = Math.PI / 2 - b.dir;
+  m.root.rotation.y = Math.PI / 2 - bigFacing();
   const slipped = b.slip > 0, shocked = b.stun > 0 || slipped, resting = b.noPush > 0 && !shocked;
-  const hugged = littles.some(l => l.hugAnim > 0);
+  const hugged = G.littles.some(l => l.hugAnim > 0);
   if (slipped) {                                         // упал на спину после банана
     m.rig.rotation.set(-1.3, 0, 0); m.rig.position.set(0, 0.55, 0.9);
     m.legs[0].rotation.x = -0.6 + Math.sin(t * 10) * 0.4; m.legs[1].rotation.x = -0.6 - Math.sin(t * 10) * 0.4;
@@ -292,29 +294,29 @@ function syncBig(b, t) {
 let lastSyncT = 0;
 function syncScene(t) {
   const dt = Math.min(0.05, Math.max(0, t - lastSyncT)); lastSyncT = t;
-  for (const l of littles) syncLittle(l, t);
-  syncBig(big, t);
+  for (const l of G.littles) syncLittle(l, t);
+  syncBig(G.big, t);
   syncItems(t);
   syncStars(t);
   syncKisses(t);
   updateCone();
   // обратный отсчёт у игрока в доме Большого — стены мигают красным
-  const warn = mode === "play" && littles.some(l => l.kind === "player" && l.state === "ok" && l.dangerT > CFG.DANGER_TIME - LOOK.DANGER_WARN);
+  const warn = mode === "play" && G.littles.some(l => l.kind === "player" && l.state === "ok" && l.dangerT > CFG.DANGER_TIME - LOOK.DANGER_WARN);
   const glow = warn ? 0.45 + Math.sin(t * 12) * 0.35 : 0;
   for (const m of bigHomeMats) m.emissive.setRGB(glow, 0, 0);
-  backPivot.position.set(P(big.x), 0.045, P(big.y));
-  backPivot.rotation.y = -(big.dir + Math.PI);
-  backPivot.visible = big.stun <= 0 && big.slip <= 0 && !inMenus();
+  backPivot.position.set(P(G.big.x), 0.045, P(G.big.y));
+  backPivot.rotation.y = -(G.big.dir + Math.PI);
+  backPivot.visible = G.big.stun <= 0 && G.big.slip <= 0 && !inMenus();
   backMat.opacity = 0.3 + Math.sin(t * 5) * 0.1;
   fadeRoofs(dt, t);                       // SPEC-021: крыша не прячет тех, кто в доме; у безопасного — зелёный свет
   for (const ft of fadeTrees) {
     const o = ft.o;
-    const behind = littles.some(l => l.y < o.y + 4 && l.y > o.y - 80 && Math.abs(l.x - o.x) < 30) || (big.y < o.y + 4 && big.y > o.y - 90 && Math.abs(big.x - o.x) < 40);
+    const behind = G.littles.some(l => l.y < o.y + 4 && l.y > o.y - 80 && Math.abs(l.x - o.x) < 30) || (G.big.y < o.y + 4 && G.big.y > o.y - 90 && Math.abs(G.big.x - o.x) < 40);
     ft.a += ((behind ? 0.35 : 1) - ft.a) * 0.2;
     for (const mt of ft.mats) { mt.opacity = ft.a; mt.userData.outline.opacity = ft.a; mt.depthWrite = ft.a > 0.95; }
   }
   for (const fb of fadeBushes) {
-    const inside = littles.some(l => l.kind === "player" && Math.hypot(l.x - fb.b.x, l.y - fb.b.y) < fb.b.r + 4);
+    const inside = G.littles.some(l => l.kind === "player" && Math.hypot(l.x - fb.b.x, l.y - fb.b.y) < fb.b.r + 4);
     fb.a += ((inside ? 0.45 : 1) - fb.a) * 0.2;
     for (const mt of fb.mats) { mt.opacity = fb.a; mt.userData.outline.opacity = fb.a; mt.depthWrite = fb.a > 0.95; }
   }

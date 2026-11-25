@@ -155,6 +155,10 @@ const firstDiff = (want, got, name) => {
   for (let i = 0; i < Math.max(want.length, got.length); i++) if (show(want[i]) !== show(got[i])) return `${name}[${i}] (of ${want.length} / ${got.length}): want ${show(want[i])}, got ${show(got[i])}`;
   return null;
 };
+// SPEC-012: spent (a kiss, a kit, a glove charge), result (a level won) and practiceWin are new gameplay events (AC 6b, 6, 10)
+const NEW_EVENT_TYPES = ["spent", "result", "practiceWin"];
+// SPEC-012 AC 6b (review): the star's coins event now names the slot that picked the star — compared without that one new field
+const withoutStarSlot = e => { if (e.type !== "coins" || e.reason !== "star") return e; const { slot, ...rest } = e; return rest; };
 test("same seed, same game after the split", async ({ page }) => {
   test.setTimeout(180_000);
   const errors = await openGame(page, { sim: true });
@@ -164,6 +168,9 @@ test("same seed, same game after the split", async ({ page }) => {
   // and scripts/balance.js runLevel itself (its whole level, the balance summary) on the stocked save: Park 1
   const { runLevel } = require(path.join(ROOT, "scripts", "balance.js"));
   const summary = await page.evaluate(runLevel, { world: "park", n: 1, style: BASELINE.style, seed: BASELINE.seed, progress: save });
+  // SPEC-012 AC 6 / 10: the events the client acts on that the recorded game did not log (it spent and paid in place) — compared
+  // without exactly these types: every recorded event must still come in the same order with the same data
+  summary.events -= await page.evaluate(types => window.__bb.events.filter(e => types.includes(e.type)).length, NEW_EVENT_TYPES);
   expect(errors).toEqual([]);
   if (RECORD) {
     const run = r => {
@@ -182,7 +189,8 @@ test("same seed, same game after the split", async ({ page }) => {
   const bad = [];
   ref.runs.forEach((want, k) => {
     const got = runs[k], name = `${want.world} ${want.n} (${want.players}P)`;
-    for (const d of [firstDiff(want.snaps, got.snaps, "state"), firstDiff(want.events, got.events, "event")]) if (d) bad.push(`${name}: ${d}`);
+    const gotEvents = got.events.filter(e => !NEW_EVENT_TYPES.includes(e.type)).map(withoutStarSlot);
+    for (const d of [firstDiff(want.snaps, got.snaps, "state"), firstDiff(want.events, gotEvents, "event")]) if (d) bad.push(`${name}: ${d}`);
     const { snaps: s1, events: e1, ...wantHead } = want, { snaps: s2, events: e2, ...gotHead } = got;
     if (JSON.stringify(wantHead) !== JSON.stringify(gotHead)) bad.push(`${name}: want ${JSON.stringify(wantHead)}, got ${JSON.stringify(gotHead)}`);
   });
@@ -266,31 +274,18 @@ const codeOnly = s => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|\s)\/\/.*$/
   .replace(/"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|`(?:[^`\\]|\\.)*`/g, "\"\"");
 
 // AC 3b: the core reaches the client only through one port, src/core/hooks.js: setHooks({ … }) with no-op defaults (the Node
-// import works without a client). Every hook, and what replaces it (SPEC-012 turns sfx, burst, pop, shake, save and inputFor
-// into events and input slots and removes them here):
+// import works without a client). SPEC-012 AC 5: the effects (sfx, burst, pop, shake, fx, banner) became events in G.fx and the
+// input hook became the input slots G.inputs (AC 3); the hooks left, each with why ("core hook list"):
 const HOOKS = {
-  sfx: "a sound by its SFX name (SPEC-012: an event)",
-  burst: "particles (SPEC-012: an event)",
-  pop: "a flying text over the game; the core gives the text (SPEC-012: an event)",
-  shake: "camera shake (SPEC-012: an event)",
-  fx: "the client's own effects step inside update() (and in the menus): flying texts, particles, shake",
-  banner: "the level banner's clock: it runs while the level plays (update)",
-  save: "write progress to storage — economy.js saves only through it (SPEC-012: an event)",
-  rebuild: "rebuild the 3D scene for the game buildGame just built",
-  onWin: "a level was won and paid: the client's flow (the map shows a world the win opened)",
-  // the one hook in HOOKS_REENTER: it starts the next practice game, whose buildGame draws the gameplay rng() — so it runs
-  // without the noGameRng guard every other hook has
-  onPracticeWin: "a practice game was won: the next tutorial step (re-enters the core)",
-  // one hook for all device input instead of separate keys / sticks / pads hooks (approved in B2): the client's deviceInput(l)
-  // reads the held keys (Shift = tiptoe), the touch sticks and the gamepads and shapes the vector; the core's inputFor adds the
-  // autopilot's stick
-  inputFor: "a player's device input: held keys (Shift = tiptoe), touch sticks, gamepads, shaped (SPEC-012: input slots)"
+  // the one hook left: the 3D scene must be rebuilt at once, inside buildGame, for the game just built (its map and characters);
+  // everything else is an event the client applies after the step (effects AC 5, economy and win AC 6, practice win AC 10)
+  rebuild: "rebuild the 3D scene for the game buildGame just built"
 };
 // client code the logic called directly before SPEC-011 (RR-01) and client state it wrote: none of it in the core
 const CLIENT_NAMES = ["SFX", "burst", "popText", "texts", "particles", "shake", "banner", "showBanner", "camSnap", "rebuild3D", "sticks",
   "keys", "pads", "deviceInput", "stickR", "tiptoeKey", "PHONE", "isTouch", "skinSel", "skinKeep", "makeLook", "botOutfit",
   "tutorialNext", "openedWorld", "worldBanner", "writeProgress", "localStorage", "document", "simMode", "renderer", "camera", "ctx"];
-test("core reaches the client only through hooks", { tag: "@fast" }, () => {
+test("core hook list", { tag: "@fast" }, () => {
   const core = coreCode();
   expect(core.map(([f]) => f), "the core and the hooks port exist").toEqual(expect.arrayContaining(["src/core/hooks.js", "src/core/economy.js", "src/core/game.js"]));
   const bad = [];
@@ -306,12 +301,96 @@ test("core reaches the client only through hooks", { tag: "@fast" }, () => {
   const defaults = port.match(/HOOK_DEFAULTS\s*=\s*Object\.freeze\(\{([\s\S]*?)\n\}\)/);
   expect(!!defaults, "HOOK_DEFAULTS in hooks.js").toBe(true);
   expect([...defaults[1].matchAll(/^\s*(\w+):/gm)].map(m => m[1])).toEqual(Object.keys(HOOKS));
+  const raw = readRoot("src/core/hooks.js").replace(/\r\n/g, "\n").match(/HOOK_DEFAULTS\s*=\s*Object\.freeze\(\{\n([\s\S]*?)\n\}\)/)[1].split("\n");
+  expect(raw.filter(l => !l.includes("//")), "every hook says why it is still a hook").toEqual([]);
   expect(port).toMatch(/noGameRng\(""\s*\+\s*k\b/);
   expect(port).toMatch(/function setHooks\(/);
-  expect(readRoot("src/core/hooks.js"), "only onPracticeWin runs without the rng guard").toMatch(/HOOKS_REENTER = Object\.freeze\(\["onPracticeWin"\]\)/);
+  expect(readRoot("src/core/hooks.js"), "no hook re-enters the core (SPEC-012: the practice win is an event)").not.toMatch(/HOOKS_REENTER/);
   // and the core uses the port: every hook is called somewhere in the core
   const all = core.map(([, t]) => codeOnly(t)).join("\n");
   expect(Object.keys(HOOKS).filter(h => !new RegExp(`\\bhooks\\.${h}\\(`).test(all)), "hooks the core never calls").toEqual([]);
+});
+
+// SPEC-012 AC 7: the headless core's Node tests (tests/core/*.test.mjs) run with node --test (npm run test:core) as their own job of
+// every Tests run (spec branches and, through pages.yml, every deploy), and Playwright never loads them
+test("core tests run in Node on every Tests run", { tag: "@fast" }, () => {
+  expect(JSON.parse(readRoot("package.json")).scripts["test:core"]).toBe("node --test \"tests/core/*.test.mjs\"");
+  expect(readRoot(".github/workflows/tests.yml"), "a core job runs npm run test:core").toMatch(/\n {2}core:\n[\s\S]*?run: npm run test:core/);
+  expect(require(path.join(ROOT, "playwright.config.js")).testMatch, "Playwright runs *.spec.js only").toBe("**/*.spec.js");
+  const files = fs.readdirSync(path.join(ROOT, "tests", "core")).filter(f => f.endsWith(".test.mjs")).sort();
+  expect(files).toEqual(expect.arrayContaining(["inputs.test.mjs", "instances.test.mjs", "practice.test.mjs", "result.test.mjs", "run.test.mjs"]));
+});
+
+// SPEC-012 AC 1c: the core never reads or writes the client's screen — no `mode` identifier in src/core/ (code, not comments or
+// texts); the game has its own phase G.phase ("play" | "hugEnd" | "kindWalk" | "won"), set only by the core
+test("no `mode` identifier in src/core/", { tag: "@fast" }, () => {
+  const MODE = /(?<![.\w$])mode\b/;
+  expect(coreCode().filter(([, t]) => MODE.test(codeOnly(t))).map(([f]) => f), "src/core/ files that name `mode`").toEqual([]);
+  expect(MODE.test(codeOnly("if (mode === \"play\") x();")), "the scan sees a planted use").toBe(true);
+  const sets = [...coreCode().map(([, t]) => t).join("\n").matchAll(/G\.phase = "(\w+)"/g)].map(m => m[1]);
+  expect([...new Set(sets)].sort(), "the phases the core sets").toEqual(["hugEnd", "kindWalk", "play", "won"]);
+  expect(allSrc().filter(f => f.startsWith("src/client/") && /G\.phase\s*=[^=]/.test(readRoot(f))), "the client never sets the phase").toEqual([]);
+});
+
+// SPEC-012 AC 1 / 1b: a game's state lives in its game object (src/core/game.js newGame). Module level of src/core/ keeps only what
+// AC 1 allows: the active-game pointer, the hooks, the rng test switches, the level cache and the session economy (progress and
+// the coin book ledger), plus constant tables. A module-level `let` and a `const` holding a container (array, object, Map, Set,
+// typed array, or anything a call makes) that is not frozen must be in this list — a `let`-only scan would miss grids filled in
+// place. Each entry says why.
+const CORE_MODULE_STATE = {
+  "src/core/active.js:G": "the active-game pointer (AC 1)",
+  "src/core/util.js:rngOff": "the gameplay-rng guard: the name of the code that must not draw it (test switch, AC 1)",
+  "src/core/util.js:strictRng": "the strict rng guard of the tests (AC 1)",
+  "src/core/hooks.js:hookImpl": "the hooks the client registered (AC 1: the hooks)",
+  "src/core/level/build.js:levelCache": "the accepted attempt per level key: pure per key, shared by all games (AC 1)",
+  "src/core/economy.js:progress": "the player's economy (AC 1b: session economy data)",
+  "src/core/economy.js:ledger": "the session coin book: survives startGame, the shop writes it (AC 1b)",
+  // constant tables: data the game reads and never writes (CFG and the price tables are tuned by tests through __bb.CFG / __bb.*)
+  "src/core/config.js:CFG": "the rule numbers (constant table; tests tune them)",
+  "src/core/config.js:GLOVES": "constant table", "src/core/config.js:KISSES": "constant table", "src/core/config.js:RESCUE_KIT": "constant table",
+  "src/core/config.js:REWARD": "constant table", "src/core/config.js:WARDROBE_TIERS": "constant table", "src/core/config.js:UPGRADES": "constant table",
+  "src/core/wardrobe.js:HAIRS": "constant table", "src/core/wardrobe.js:HATS": "constant table", "src/core/wardrobe.js:JACKETS": "constant table",
+  "src/core/wardrobe.js:PANTS": "constant table", "src/core/wardrobe.js:BIG_SKINS": "constant table"
+};
+const SCALAR_INIT = ["ArrowFunctionExpression", "FunctionExpression", "Literal", "TemplateLiteral", "UnaryExpression", "BinaryExpression"];
+function coreModuleState(files) {                    // [file, kind, name] of every module-level let and container const
+  const espree = require("espree"), out = [];
+  for (const [f, text] of files) {
+    for (const n0 of espree.parse(text, { ecmaVersion: "latest", sourceType: "module" }).body) {
+      const n = n0.type === "ExportNamedDeclaration" ? n0.declaration : n0;
+      if (!n || n.type !== "VariableDeclaration") continue;
+      for (const d of n.declarations) {
+        const i = d.init, frozen = i && i.type === "CallExpression" && i.callee.type === "MemberExpression" && i.callee.object.name === "Object" && i.callee.property.name === "freeze";
+        if (n.kind === "let" || (i && !SCALAR_INIT.includes(i.type) && !frozen)) out.push(`${f}:${d.id.name}`);
+      }
+    }
+  }
+  return out;
+}
+test("no mutable module-level containers in core", { tag: "@fast" }, () => {
+  const found = coreModuleState(coreCode());
+  expect(found.filter(k => !CORE_MODULE_STATE[k]), "module-level state in src/core/ (move it into the game object, newGame)").toEqual([]);
+  expect(Object.keys(CORE_MODULE_STATE).filter(k => !found.includes(k)), "listed but gone (drop the line)").toEqual([]);
+  // the scan sees what it is for: a typed array, a Map, an array, a let, a call — and not a frozen table or a function
+  const planted = coreModuleState([["x.js", "export const a = new Uint8Array(4), b = new Map(), c = [];\nlet d = 0;\nconst e = make(), f = Object.freeze([1]), g = () => 1, h = 3;"]]);
+  expect(planted).toEqual(["x.js:a", "x.js:b", "x.js:c", "x.js:d", "x.js:e"]);
+});
+
+// SPEC-012 AC 5: the core never translates — a pop text is an I18N key and its arguments (emit("pop", { key, args, … })), each
+// client says it in its own language; no L(), I18N or import of src/i18n.js in src/core/
+test("no `L()` / `I18N` use in src/core/", { tag: "@fast" }, () => {
+  const bad = [];
+  for (const [f, text] of coreCode()) {
+    if (/from\s*["'][^"']*i18n\.js["']/.test(text)) bad.push(`${f}: imports i18n.js`);
+    const code = codeOnly(text);
+    if (/(?<![.\w$])L\(\)/.test(code)) bad.push(`${f}: calls L()`);
+    if (/(?<![.\w$])I18N\b/.test(code)) bad.push(`${f}: uses I18N`);
+  }
+  expect(bad).toEqual([]);
+  // and the effect events are the core's way to the client: every pop names a key (or a null key with the text itself)
+  const pops = coreCode().flatMap(([f, t]) => [...t.matchAll(/emit\("pop", \{ key: ([^,]+),/g)].map(m => m[1]));
+  expect(pops.length, "the core emits pop texts").toBeGreaterThan(15);
+  expect(pops.filter(k => !/^("\w+"|null|power > 1 \? "megaHug" : "hug")$/.test(k)), "pop keys that are not a key or null").toEqual([]);
 });
 
 // AC 2c: CFG is split by meaning — src/core/config.js holds the rules, generator and balance, src/client/look.js (LOOK) the look/UI

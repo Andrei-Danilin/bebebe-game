@@ -150,7 +150,7 @@ test("the Little Ones have big round heads with dot eyes, rosy cheeks and a smil
   const r = await page.evaluate(() => {
     const b = window.__bb;
     const K = b.CFG.KID_LOOK, top = K.headY + b.KID_HEAD_R * K.head;   // the head's top in model units
-    return { want: K.head, r: b.littles[0].r, tagAbove: b.nameTagH() / b.grid.CELL / b.LITTLE_SCALE > top, stars: b.littles.map(l => l.model.dizzyStars.position.y > top), kids: b.littles.map(l => { const m = l.model, bub = m.bubble;
+    return { want: K.head, r: b.littles[0].r, tagAbove: b.nameTagH() / b.grid.CELL / b.LITTLE_SCALE > top, stars: b.littles.map((l, i) => b.model(i).dizzyStars.position.y > top), kids: b.littles.map((l, i) => { const m = b.model(i), bub = m.bubble;
       return { head: m.head.scale.x, eyes: m.face.eyes.map(e => e.geometry.parameters.radius), cheeks: (m.face.cheeks || []).length, mouth: !!m.face.mouth,
         inBubble: bub.position.y + bub.geometry.parameters.radius > top }; }) };
   });
@@ -206,7 +206,7 @@ test("the dad: bald with stubble, small eyes, heavy brows, big nose, red t-shirt
   await play(page, "park", 1);
   await frames(page);
   const r = await page.evaluate(() => {
-    const b = window.__bb, m = b.big.model, hex = c => "#" + c.getHexString();
+    const b = window.__bb, m = b.model("big"), hex = c => "#" + c.getHexString();
     const out = { look: m.look, shirt: hex(m.bodyMat.color), parts: Object.keys(m.dad || {}).sort(), top: !!(m.headTop && m.headTop.isObject3D), outfit: !!(m.outfitAnchor && m.outfitAnchor.isObject3D),
       eyes: m.face.eyes.map(e => e.geometry.parameters.radius), brows: m.face.brows.length, skin: m.faceBase,   // SPEC-022: the face shows his mood (red when angry); faceBase is the look's own
       anchors: Object.keys(m.anchors).sort(), handsSwing: [m.anchors.handL.parent, m.anchors.handR.parent].every(q => m.arms.includes(q)),
@@ -381,5 +381,23 @@ test("the new clothes are built in 3D: rainbow bands, a coat hem, overalls, stri
   // an old look builds none of the new parts
   const old = await page.evaluate(() => { const b = window.__bb; return b.littles.slice(1).filter(l => !l.look.bands && !l.look.long && !l.look.overalls && !l.look.pantStripes).map((l, i) => b.outfit3D(b.littles.indexOf(l)).length); });
   expect(old.every(n => n === 0)).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+// SPEC-012 review: a glove change re-dresses the shown game (no rebuild of the level) — the kid's 3D model wears the new mittens at
+// once: mittens red, mega pink, none — no glove parts
+test("equipping a glove re-dresses the kid in the menus", async ({ page }) => {
+  const errors = await openGame(page);
+  const gloves = async kind => page.evaluate(k => {
+    const b = window.__bb;
+    b.progress.inv.mittens = 3; b.progress.inv.mega = 3;
+    b.setEquip(0, k);
+    const m = b.model(0);
+    return { n: m.gloveParts.length, color: m.gloveParts[0] ? "#" + m.gloveParts[0].material.color.getHexString() : null, want: k === "none" ? null : b.GLOVES[k].color };
+  }, kind);
+  for (const k of ["mittens", "mega", "none"]) {
+    const g = await gloves(k);
+    expect([g.n > 0, g.color], k).toEqual(k === "none" ? [false, null] : [true, g.want]);   // mitten, cuff and thumb on each hand
+  }
   expect(errors).toEqual([]);
 });

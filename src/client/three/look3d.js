@@ -3,14 +3,13 @@
 
 import * as THREE from "three";
 import { CELL, COLS, ROWS, W } from "../../core/config.js";
-import { littles } from "../../core/game.js";
-import { floors } from "../../core/world.js";
-import { charGroup } from "./characters.js";
+import { charGroup, modelOf } from "./characters.js";
 import { houseInfo, houseRoofs } from "./houses.js";
 import { mapGroup } from "./map3d.js";
 import { gradTex, groundCanvas, paperMade, paperMat, paperMesh, paperU } from "./materials.js";
 import { camera, renderer, scene, sun } from "./setup.js";
 import { HATCHED } from "./themes.js";
+import { G } from "../../core/active.js";
 
 // SPEC-021 (тесты): как нарисована 3D-сцена. look3D() — всё; look3D("houses") и т. п. — только эта часть (дёшево, для опроса):
 // outline — контуры (цвета, во сколько раз толще просьбы детали, неровность, сдвиг, у кого контур, подпись карты), materials — тона
@@ -58,7 +57,7 @@ const LOOK_PARTS = {
     const px = (x, y) => (y * gc.width + x) * 4, df = (i, j) => Math.abs(gd[i] - gd[j]) + Math.abs(gd[i + 1] - gd[j + 1]) + Math.abs(gd[i + 2] - gd[j + 2]);
     for (let cy = 0; cy < ROWS; cy++) for (let cx = 0; cx < COLS; cx++) {
       const x0 = (cx + 0.5) * CELL * k - B / 2, y0 = (cy + 0.5) * CELL * k - B / 2;
-      if (floors.some(f => (cx + 1) * CELL > f.x && cx * CELL < f.x + f.w && (cy + 1) * CELL > f.y && cy * CELL < f.y + f.h)) continue;
+      if (G.floors.some(f => (cx + 1) * CELL > f.x && cx * CELL < f.x + f.w && (cy + 1) * CELL > f.y && cy * CELL < f.y + f.h)) continue;
       const seen = new Set(); let along = 0, across = 0;
       for (let y = y0 + 3; y < y0 + B - 3; y++) for (let x = x0 + 3; x < x0 + B - 3; x++) {
         const i = px(x, y); seen.add((gd[i] << 16) | (gd[i + 1] << 8) | gd[i + 2]);
@@ -81,9 +80,10 @@ const LOOK_PARTS = {
     houses: houseInfo && { snow: houseInfo.snow,
       kid: houseInfo.kid && { ...houseInfo.kid, fade: undefined, alpha: houseInfo.kid.fade.a, glow: houseInfo.kid.fade.glowNow || 0 },
       big: houseInfo.big && { ...houseInfo.big, fade: undefined, alpha: houseInfo.big.fade.a } },
-    roofHides: littles.map(l => {                       // луч от камеры к голове маленького: упирается ли в непрозрачную крышу
-      if (!l.model) return false;
-      const head = l.model.head.getWorldPosition(new THREE.Vector3()), dir = head.clone().sub(camera.position), dist = dir.length();
+    roofHides: G.littles.map(l => {                       // луч от камеры к голове маленького: упирается ли в непрозрачную крышу
+      const m = modelOf(l);
+      if (!m) return false;
+      const head = m.head.getWorldPosition(new THREE.Vector3()), dir = head.clone().sub(camera.position), dist = dir.length();
       const hits = new THREE.Raycaster(camera.position.clone(), dir.normalize(), 0, dist).intersectObjects(houseRoofs.flatMap(hr => hr.meshes), false);
       return hits.some(h => h.object.visible && h.object.material.opacity > 0.5);
     }) }),

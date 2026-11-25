@@ -1,11 +1,10 @@
 // SPEC-011: the 2D pass of a frame (drawUI) and the per-mode dispatch (drawOverlay, drawOverlayPhone). Client module (moved
 // out of index.html in Phase C).
 
-import { mode } from "../../core/game.js";
 import { L } from "../../i18n.js";
 import { paperCache, paperUI } from "../art.js";
-import { backToWardrobe, closeShop, inMenus, inWardrobe, openFriends } from "../flow.js";
-import { closeNameInput, nameInput, placeNameInput } from "../input.js";
+import { backToWardrobe, closeShop, inMenus, mode, openFriends } from "../flow.js";
+import { nameInput, placeNameInput } from "../input.js";
 import { LOOK } from "../look.js";
 import { resetProgress } from "../progress.js";
 import { ctx, isTouch, PHONE, UH, UW, VIEW } from "../screen.js";
@@ -79,11 +78,7 @@ function drawOverlay() {
 
 export function drawUI(t) {
   ui.draws++;
-  if (nameInput && !inWardrobe()) closeNameInput(false);
   ui.buttons = []; ui.homeInfo = null; ui.progressInfo = null; ui.mapState = null; ui.cardInfo = null; ui.cardRect = null; ui.storyInfo = null; ui.sceneInfo = null; ui.bonusNote = null; ui.winLine = ""; ui.mmShown = false; ui.edgeArrows = []; ui.hudRects = []; ui.textOverflows = []; ui.textSizes = {}; ui.bannerRect = null; ui.kitHintRect = null; ui.heardHintRect = null; ui.tutorialHintRect = null; ui.stickMarks = []; ui.shopLayout = null; ui.winPanel = null;
-  if (mode !== "shop") { ui.shopTab = "items"; ui.wardrobePage = "looks"; }
-  if (mode !== "map") ui.toast = null;   // SPEC-017: подсказка карты — только пока карта на экране
-  if (mode !== "map" && mode !== "levelCard") ui.mapBgCache = null;   // фон страницы мира не держим в памяти вне карты
   if (!paperUI()) paperCache.length = 0;                           // SPEC-020: и листы бумажных панелей — вне бумажных экранов
   ctx.setTransform(VIEW, 0, 0, VIEW, 0, 0);
   ctx.clearRect(0, 0, UW, UH);

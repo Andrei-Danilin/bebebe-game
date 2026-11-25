@@ -517,6 +517,40 @@ test("win, lose and pause lead to the map, the shop and home", async ({ page }) 
   expect(await page.evaluate(() => [window.__bb.mode, window.__bb.levelCard && window.__bb.levelCard.n]), "win → Map → Enter: the next level's card").toEqual(["levelCard", 2]);
 });
 
+// ---------- SPEC-012 AC 1f: drawing changes no state ----------
+// The menus' resets (shop tab and wardrobe page outside the shop, the map hint outside the map, the world page background outside
+// the map and its card, the name input outside the wardrobe) happen on the screen change itself, so a sim page (nothing drawn)
+// ends every transition in the same state as a rendered page. Each step sets up what a reset would clear, then changes screen.
+const SCREEN_STEPS = [
+  ["home → Character", () => { const b = window.__bb; b.mode = "home"; b.openShop("home", "progress"); }],
+  ["Character → map", () => { const b = window.__bb; b.openShop("map"); b.shopTab = "wardrobe"; b.openFriends(); b.openNameInput("p1"); b.closeShop(); }],
+  ["map → home", () => { const b = window.__bb; b.tapWorldTab("winter"); b.mode = "home"; }],
+  ["win → shop", () => { const b = window.__bb; b.world = "park"; b.level = 1; b.startGame(1); b.giveReward(true); b.mode = "win"; b.shopAfterWin(); }],
+  ["shop → map", () => { const b = window.__bb; b.shopTab = "wardrobe"; b.openFriends(); b.openNameInput("big"); b.closeShop(); }]
+];
+test("a screen change in sim mode leaves the same state as in a rendered page", async ({ page }) => {
+  const run = async sim => {
+    await page.evaluate(on => { const b = window.__bb; b.sim(on); b.setProgress(null); b.world = "park"; b.level = 1; b.mode = "home"; }, sim);
+    const out = [];
+    for (const [name, act] of SCREEN_STEPS) {
+      await page.evaluate(act);
+      if (!sim) await frames(page);                       // the rendered page draws the new screen before it is read
+      const st = await page.evaluate(() => window.__bb.screenState);
+      if (st.mode === "map" || st.mode === "levelCard") st.mapBgCache = "on its screen";   // drawing fills the cache there (only a rendered page draws)
+      out.push([name, st]);
+    }
+    return out;
+  };
+  const drawn = await run(false), simmed = await run(true);
+  await page.evaluate(() => { window.__bb.sim(false); window.__bb.mode = "home"; });
+  expect(simmed).toEqual(drawn);
+  // the resets happened: the screens left behind leave nothing of theirs
+  const at = name => drawn.find(([n]) => n === name)[1];
+  expect(at("Character → map")).toEqual({ mode: "map", shopTab: "items", wardrobePage: "looks", toast: null, mapBgCache: "on its screen", nameInput: false });
+  expect(at("map → home")).toEqual({ mode: "home", shopTab: "items", wardrobePage: "looks", toast: null, mapBgCache: false, nameInput: false });
+  expect([at("home → Character").shopTab, at("win → shop").shopTab, at("shop → map").mode]).toEqual(["progress", "items", "map"]);
+});
+
 // ---------- AC 3–5: the level map ----------
 // __bb.mapInfo (drawn this frame) = { world, sel, done, tabs: [{ world, locked, selected, x, y, w, h }], stops: [{ n, stars, locked,
 // next, boss, sel, x, y, w, h, badge }] }; __bb.toast = { text } or null; __bb.levelCard = { world, n, title, type } on the card

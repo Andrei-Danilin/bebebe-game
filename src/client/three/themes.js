@@ -3,12 +3,12 @@
 
 import * as THREE from "three";
 import { CELL, COLS, H, ROWS, TAU, W } from "../../core/config.js";
-import { floors, obstacles } from "../../core/world.js";
 import { ctx } from "../screen.js";
 import { mapGroup, waves } from "./map3d.js";
 import { INK3, ownMat, part, sphere, toon, toonH } from "./materials.js";
 import { P, WALL_H } from "./setup.js";
 import { circle } from "../ui/draw.js";
+import { G } from "../../core/active.js";
 
 // ---------- Места: оформление поверх одного и того же генератора ----------
 export const THEMES = {
@@ -415,8 +415,8 @@ export function makeWaterFor(place, o) {
 export function riverBanks(place) {
   const t = THEMES[place].water, wet = new Uint8Array(COLS * ROWS), deck = new Uint8Array(COLS * ROWS);
   const mark = (g, r) => { for (let y = r.y / CELL; y < (r.y + r.h) / CELL; y++) for (let x = r.x / CELL; x < (r.x + r.w) / CELL; x++) g[y * COLS + x] = 1; };
-  for (const o of obstacles) if (o.kind === "water") mark(wet, o);
-  for (const f of floors) if (f.kind === "bridge") mark(deck, f);
+  for (const o of G.obstacles) if (o.kind === "water") mark(wet, o);
+  for (const f of G.floors) if (f.kind === "bridge") mark(deck, f);
   const strips = [];
   for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
     if (!wet[y * COLS + x]) continue;

@@ -17,7 +17,8 @@ const LOGIC_GETTERS = ["mode", "muted", "wardrobePage", "littles", "big", "stats
   "lastReward", "upgrades", "shopTab", "outfits", "events", "rngDraws", "strictRng", "shake", "sticks", "uiSize", "names", "stars",
   "dangerZone", "safeZone", "texts", "kisses", "bigMark", "levelInfo", "banner", "artInfo", "artVersion", "scene", "pushWaves", "lang",   // SPEC-028: lang
   "tutorial", "tutorialMapRect",    // SPEC-029: the tutorial state, the practice map
-  "textFloors"];                    // SPEC-031: phone text floors (reads CFG only)
+  "textFloors",                     // SPEC-031: phone text floors (reads CFG only)
+  "game", "screenState"];           // SPEC-012: the active game (plain data); the menus' screen state (AC 1f)
 test("every __bb getter is drawn state (SIM_DRAWN) or listed logic state", async ({ page }) => {
   const errors = await openGame(page, { sim: true });   // descriptors only, nothing drawn is read
   const r = await page.evaluate(() => {

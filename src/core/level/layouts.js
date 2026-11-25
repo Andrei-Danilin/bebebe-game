@@ -438,7 +438,7 @@ function arenaLayout(lc) {
   lc.meta.areas = { block: [{ x: bx, y: by, w: bw, h: bh }], ring: [{ x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 }], gaps, halfGaps };
 }
 
-export const LAYOUTS = {
+export const LAYOUTS = Object.freeze({
   classic: classicLayout, meadow: meadowLayout, maze: mazeLayout, village: villageLayout,
   river: riverLayout, rooms: roomsLayout, arena: arenaLayout
-};
+});

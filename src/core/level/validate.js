@@ -3,11 +3,13 @@ import { CELL, CFG, COLS, ROWS } from "../config.js";
 import { applyWorld, connectivity, generateLevel } from "./build.js";
 import { levelKey, levelTier, levelType } from "./generate.js";
 import { cellIdx, findPath } from "../path.js";
-import { blocked, blockedBig, buildGrids, bushes, dangerZone, decor, floors, flowers, moveGrid, moveGridBig, obstacles, reachable, safeZone, seeGrid, setMapState, setReachable, spawns, trees } from "../world.js";
+import { buildGrids } from "../world.js";
+import { newGame, withGame } from "../game.js";
+import { G } from "../active.js";
 
 // ---------- Честность уровня (SPEC-002) ----------
 // validateLevel проверяет уже применённый уровень (после applyWorld) по 7 правилам; ok — все выполнены.
-const N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+const N4 = Object.freeze([[1, 0], [-1, 0], [0, 1], [0, -1]]);
 function floodCells(start, grid) {
   const seen = new Uint8Array(COLS * ROWS);
   if (grid[start]) return seen;
@@ -32,7 +34,7 @@ const cellFree = (grid, [x, y]) => x >= 0 && y >= 0 && x < COLS && y < ROWS && !
 // count — сколько концов тупиков, longest — самый длинный тупиковый коридор (клеток).
 function deadEndScan(skip = null) {
   const WC = COLS - 1, WR = ROWS - 1, NW = WC * WR, ok = new Uint8Array(NW), deg = new Uint8Array(NW), len = new Uint16Array(NW), gone = new Uint8Array(NW);
-  const fr = (x, y) => !blockedBig[y * COLS + x];
+  const fr = (x, y) => !G.blockedBig[y * COLS + x];
   for (let j = 0; j < WR; j++) for (let i = 0; i < WC; i++) ok[j * WC + i] = fr(i, j) && fr(i + 1, j) && fr(i, j + 1) && fr(i + 1, j + 1) ? 1 : 0;
   const nb = w => {
     const i = w % WC, j = (w / WC) | 0, r = [];
@@ -57,23 +59,23 @@ export function validateLevel(gen, type) {
   const N = COLS * ROWS, fails = [];
   // 1, 2: всё свободное достижимо — для маленьких от их домика, для Большого (вне домика маленьких) от его места
   const small = connectivity(), smallReachAll = small.ok;
-  const bigReachAll = allSeen(blockedBig, floodCells(cellIdx(spawns.big.x, spawns.big.y), blockedBig));
+  const bigReachAll = allSeen(G.blockedBig, floodCells(cellIdx(G.spawns.big.x, G.spawns.big.y), G.blockedBig));
   // 4: свободные клетки вне обоих домиков
   const sz = gen.items.find(it => it.t === "safe"), dz = gen.items.find(it => it.t === "danger");
   const inRect = (x, y, r) => !!r && x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h;
   const bigBox = dz && { x: dz.x - 1, y: dz.y - 1, w: dz.w + 2, h: dz.h + 2 };
   let free = 0;
-  for (let i = 0; i < N; i++) { const x = i % COLS, y = (i / COLS) | 0; if (!blocked[i] && !inRect(x, y, sz) && !inRect(x, y, bigBox)) free++; }
+  for (let i = 0; i < N; i++) { const x = i % COLS, y = (i / COLS) | 0; if (!G.blocked[i] && !inRect(x, y, sz) && !inRect(x, y, bigBox)) free++; }
   const freeRatio = free / N;
   // 5: перед каждой дверью DOOR_APRON свободных рядов на обеих сетках
   const doors = gen.doors || { small: [], big: [] };
   let doorClear = doors.small.length > 0 && doors.big.length > 0;
-  for (const d of [...doors.small, ...doors.big]) for (let k = 1; k <= CFG.DOOR_APRON; k++) for (const c of doorFront(d, k)) if (!cellFree(blocked, c) || !cellFree(blockedBig, c)) doorClear = false;
+  for (const d of [...doors.small, ...doors.big]) for (let k = 1; k <= CFG.DOOR_APRON; k++) for (const c of doorFront(d, k)) if (!cellFree(G.blocked, c) || !cellFree(G.blockedBig, c)) doorClear = false;
   // 3: A* по сетке Большого от его двери до клетки перед дверью маленьких; кратчайшая пара дверей, диагональ = √2
   let housePath = Infinity;
   for (const bd of doors.big) for (const sd of doors.small) {
     const s = { x: (bd.x + 0.5) * CELL, y: (bd.y + 0.5) * CELL }, [fx0, fy0] = doorFront(sd, 1)[0];
-    const pts = findPath(s.x, s.y, (fx0 + 0.5) * CELL, (fy0 + 0.5) * CELL, null, blockedBig);
+    const pts = findPath(s.x, s.y, (fx0 + 0.5) * CELL, (fy0 + 0.5) * CELL, null, G.blockedBig);
     if (!pts.length) continue;
     let L = 0, px = s.x, py = s.y;
     for (const p of pts) { L += Math.hypot(p.x - px, p.y - py) / CELL; px = p.x; py = p.y; }
@@ -123,25 +125,17 @@ export function buildLevel(world, lv) {
     const gen = generateLevel(world, lv, attempt);
     applyWorld(gen);
     rep = validateLevel(gen, type);
-    const bigSeen = floodCells(cellIdx(spawns.big.x, spawns.big.y), blockedBig);
-    for (let i = 0; i < COLS * ROWS; i++) if (!blocked[i] && (!rep.seen[i] || (!blockedBig[i] && !bigSeen[i]))) {
-      obstacles.push({ shape: "rect", x: (i % COLS) * CELL, y: ((i / COLS) | 0) * CELL, w: CELL, h: CELL, move: true, sight: true, kind: "hedge" });
+    const bigSeen = floodCells(cellIdx(G.spawns.big.x, G.spawns.big.y), G.blockedBig);
+    for (let i = 0; i < COLS * ROWS; i++) if (!G.blocked[i] && (!rep.seen[i] || (!G.blockedBig[i] && !bigSeen[i]))) {
+      G.obstacles.push({ shape: "rect", x: (i % COLS) * CELL, y: ((i / COLS) | 0) * CELL, w: CELL, h: CELL, move: true, sight: true, kind: "hedge" });
     }
     buildGrids();
     rep.seen = connectivity().seen;
     console.warn(`level ${levelKey(world, lv)} (${type}): no fair layout in ${N} attempts (kept attempt ${attempt}: ${rep.fails.join(", ")}), pockets filled`);
   }
-  setReachable(rep.seen);
+  G.reachable = rep.seen;
   const { seen, ok, ...report } = rep;
   return { type, tier: levelTier(world, lv), attempt, attempts: tries, fallback, ...report, rejects, ms: performance.now() - t0 };
 }
-// Отчёт о честности уровня (для тестов): строит уровень и возвращает мир идущей игры как был
-export function levelReport(world, lv) {
-  const keep = { obstacles, bushes, floors, decor, trees, flowers, safeZone, dangerZone, spawns, reachable };
-  const grids = [blocked, blockedBig, moveGrid, seeGrid, moveGridBig], copies = grids.map(g => g.slice());
-  try { return buildLevel(world, lv); }
-  finally {
-    setMapState(keep);
-    grids.forEach((g, k) => g.set(copies[k]));
-  }
-}
+// Отчёт о честности уровня (для тестов): строит уровень на пустой карте своей игры (SPEC-012: newGame) — идущая игра не меняется
+export function levelReport(world, lv) { return withGame(newGame({ world, n: lv }), () => buildLevel(world, lv)); }

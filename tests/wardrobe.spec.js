@@ -123,3 +123,29 @@ test("the wardrobe pages through the new clothes and the Progress count includes
   expect(r.before[1]).toBe(all);
   expect(r.after).toEqual([r.before[0] + 2, all]);
 });
+
+// SPEC-012 AC 1d: changing an outfit, the Big One's look, a glove, the language or ending a try-on re-dresses the shown game —
+// the same game object, nobody moved, no gameplay rng drawn (rngDraws of the local game stream), the new looks worn
+test("wardrobe changes draw no game rng", { tag: "@fast" }, async ({ simPage: page }) => {
+  const r = await page.evaluate(() => {
+    const b = window.__bb;
+    b.progress.coins = 9999; b.progress.inv.mittens = 3;
+    b.world = "park"; b.level = 1; b.startGame(1);
+    for (let i = 0; i < 30; i++) b.update(1 / 30);            // a game in play: the bots have moved, the rng has been drawn
+    const game = b.game, draws = b.rngDraws, where = JSON.stringify(b.littles.map(l => [l.x, l.y, l.state])), look0 = JSON.stringify(b.littles[0].look);
+    b.mode = "shop"; b.shopTab = "wardrobe";
+    const changes = [() => b.cycleOutfit("p1", "hat", 1), () => b.cycleOutfit("p1", "jacket", 1), () => b.cycleOutfit("p1", "pants", -1),
+      () => b.cycleOutfit("p1", "hair", 1), () => b.randomOutfit("p1"), () => b.cycleBig(1), () => b.setEquip(0, "mittens"),
+      () => b.setLang("es"), () => b.setLang("en"), () => b.resetOutfits()];
+    const after = [];
+    for (const c of changes) { c(); after.push(b.rngDraws - draws); if (c === changes[0]) after.look = JSON.stringify(b.littles[0].look); }
+    const out = { same: b.game === game, draws: [...after], redressed: after.look !== look0, moved: JSON.stringify(b.littles.map(l => [l.x, l.y, l.state])) !== where, n: changes.length };
+    b.mode = "home";
+    return out;
+  });
+  expect(r.n).toBe(10);
+  expect(r.same, "the shown game is the same object (no buildGame / resetWorld)").toBe(true);
+  expect(r.draws, "no gameplay rng drawn by any change").toEqual(Array(10).fill(0));
+  expect(r.moved, "nobody moved").toBe(false);
+  expect(r.redressed, "player 1 wears the new hat").toBe(true);
+});

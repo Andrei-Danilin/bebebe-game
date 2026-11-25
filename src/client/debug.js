@@ -1,30 +1,30 @@
 // SPEC-011: window.__bb for the tests (getters and setters over the modules' live state, never copies), CFG_ALL (the
 // __bb.CFG Proxy over CFG and LOOK), SIM_DRAWN. Client module (moved out of index.html in Phase C).
 
-import { autoMove, autopilot, autoThink } from "../core/autopilot.js";
+import { autopilot } from "../core/autopilot.js";
 import { BONUS_WORLDS, BOSSES, CELL, CFG, COLS, GLOVES, KISSES, levelsPerWorld, MAIN_WORLDS, RESCUE_KIT, REWARD, ROWS, UPGRADES, WARDROBE_TIERS, WORLD_SEED, worldDifficulty, WORLDS } from "../core/config.js";
 import { bigBoost, bigSpeeds, difficulty } from "../core/difficulty.js";
 import { ledger, progress, setProgress } from "../core/economy.js";
-import { big, bonusStars, curWorld, events, heardHintPi, items, kisses, lastReward, level, littles, mode, pushWaves, setLastReward, setLevel, setMode, setRewardDue, setWorld, simRun, stats, update } from "../core/game.js";
+import { readInputs, simRun } from "../core/game.js";
 import { bigMark, isRunning } from "../core/hearing.js";
-import { clearLevelCache, generateLevel, levelInfo } from "../core/level/build.js";
+import { clearLevelCache, generateLevel } from "../core/level/build.js";
 import { levelType } from "../core/level/generate.js";
 import { levelReport } from "../core/level/validate.js";
 import { bigMood, bossFor } from "../core/mood.js";
 import { bigCalm } from "../core/path.js";
-import { tut, tutorialGame, tutorialMapRect } from "../core/practice.js";
+import { tutorialMapRect } from "../core/practice.js";
 import { bonusUnlocked, fastTarget, loadProgress, worldComplete, worldOpen } from "../core/progress-rules.js";
-import { spawnItem, spawnStar, throwKiss, useRescueKit } from "../core/rules.js";
-import { clamp, rngDraws, seedRandom, setStrictRng, strictRng } from "../core/util.js";
+import { spawnItem, spawnStar } from "../core/rules.js";
+import { clamp, setStrictRng, strictRng } from "../core/util.js";
 import { BIG_SKINS, HAIRS, HATS, JACKETS, PANTS, SLOTS } from "../core/wardrobe.js";
-import { blocked, blockedBig, bushes, dangerZone, decor, floors, flowers, inDanger, inSafe, moveGrid, moveGridBig, obstacles, reachable, safeZone, seeGrid, seeSolidAt, spawns, trees } from "../core/world.js";
+import { inDanger, inSafe, seeSolidAt } from "../core/world.js";
 import { detectLang, I18N, L, lang, LANGS } from "../i18n.js";
 import { RULE_ICONS, SCENE_IDS, STORY, TUTORIAL_SCENES } from "../story.js";
 import { ART_NAMES } from "./art-names.js";
 import { art, ART_FALLBACK, artCount, artDone, artVersion, EMOJI_ART, FX_ART, HEART_ART, ITEM_ART, mapBgArt, PAPER_BTN, POP_ART, SHOP_TAB_ART, STORY_ART, UPG_ART, WARDROBE_ART, worldArt } from "./art.js";
-import { bannerAlpha, chapterOpen, closeShop, giveReward, mapTick, MODES, openMap, openScene, openStory, resetMenus, resetWorld, sceneNext, scenePageCount, scenePages, sceneSkip, selectWorld, setShopTab, shopAfterWin, showBanner, startGame, toHome, toMap } from "./flow.js";
-import { burst, popText } from "./fx.js";
-import { stickR, sticks, toGame } from "./input.js";
+import { bannerAlpha, chapterOpen, chooseStop, closeShop, giveReward, kissNow, kitNow, lastReward, mapTick, mode, MODES, openFriends, openMap, openScene, openShop, openStory, resetMenus, resetWorld, rngDraws, sceneNext, scenePageCount, scenePages, sceneSkip, seedRandom, selectWorld, setLastReward, setMode, setShopTab, shopAfterWin, showBanner, startGame, tapWorldTab, toHome, toMap } from "./flow.js";
+import { burst, popText, runCore, stepGame } from "./fx.js";
+import { nameInput, openNameInput, stickR, sticks, toGame } from "./input.js";
 import { LOOK } from "./look.js";
 import { allNames, nameOf, setName } from "./names.js";
 import { BOSS_LOOKS, botOutfit, buyLook, cloneSkins, cycleBig, cycleOutfit, loadOutfits, LOOK_SLOTS, randomOutfit, resetOutfits, skinKeep, skinSel } from "./outfits.js";
@@ -33,7 +33,7 @@ import { CSS_H, CSS_W, isStandalone, PHONE, sim, simMode, UH, UW } from "./scree
 import { buyGloves, buyKisses, buyRescueKit, buyUpgrade, setEquip } from "./shop.js";
 import { ui } from "./state.js";
 import { cam, camDist, camLook, camRect, camSnap, toScreen, updateCamera } from "./three/camera.js";
-import { setBigFace } from "./three/characters.js";
+import { modelOf, setBigFace } from "./three/characters.js";
 import { look3D } from "./three/look3d.js";
 import { mapGroup } from "./three/map3d.js";
 import { groundCanvas, OUTLINE } from "./three/materials.js";
@@ -49,6 +49,7 @@ import { mmAlpha, mmCount, mmDraws, mmState, updateMinimapFade } from "./ui/mini
 import { drawUI } from "./ui/screens.js";
 import { fmtHearts } from "./ui/text.js";
 import { winTitle } from "./ui/win.js";
+import { G } from "../core/active.js";
 
 // для отладки и тестов
 // SPEC-011 AC 2c: __bb.CFG — один вид на числа ядра (src/core/config.js CFG) и вида (src/client/look.js LOOK): чтение, запись и
@@ -69,7 +70,7 @@ const CFG_ALL = new Proxy({}, {
 // ошибку, чтобы визуальный тест, открытый в sim, падал громко, а не проверял пустоту.
 const SIM_DRAWN = ["buttonRects", "buttonNames", "tapButton", "hudRects", "mapInfo", "levelCard", "storyInfo", "textSizes", "minimap",
   "bannerRect", "rotateShown", "winPanel", "winLine", "bonusNote", "shopLayout", "kitHint", "heardHint", "edgeArrows", "stickMarks",
-  "tapLines", "textOverflows", "tutorialHint", "homeInfo", "progressInfo", "outfit3D", "bibClear", "mapPieces", "groundColorAt", "camera", "minimapAlpha", "artUse", "sceneInfo", "moodInfo", "bigLook", "look3D", "drawNow"];
+  "tapLines", "textOverflows", "tutorialHint", "homeInfo", "progressInfo", "outfit3D", "bibClear", "mapPieces", "groundColorAt", "camera", "minimapAlpha", "artUse", "sceneInfo", "moodInfo", "bigLook", "look3D", "drawNow", "model"];
 
 // called once by main.js, in the start order of the one-file game
 export function installDebug() {
@@ -85,10 +86,10 @@ export function installDebug() {
     // SPEC-017: экраны меню; wardrobePage — «looks» (наряды) или «friends» (имена друзей) во вкладке «Гардероб»; resetMenus — как при запуске
     MODES, toMap, toHome, resetMenus, shopAfterWin, closeShop, get muted() { return ui.muted; },   // SPEC-030: и магазин после победы → «Готово»
     get wardrobePage() { return ui.wardrobePage; }, set wardrobePage(v) { if (v === "looks" || v === "friends") ui.wardrobePage = v; },
-    get littles() { return littles; }, get big() { return big; }, get stats() { return stats; },
-    get level() { return level; }, set level(v) { setLevel(clamp(Math.floor(v) || 1, 1, levelsPerWorld())); },
+    get littles() { return G.littles; }, get big() { return G.big; }, get stats() { return G.stats; },
+    get level() { return G.level; }, set level(v) { G.level = clamp(Math.floor(v) || 1, 1, levelsPerWorld()); },
     // SPEC-006: world — мир идущего/выбранного уровня (не мир — игнорируется), level — номер в мире
-    get world() { return curWorld; }, set world(v) { if (WORLDS.includes(v)) setWorld(v); }, WORLDS, difficulty, bigSpeeds,
+    get world() { return G.world; }, set world(v) { if (WORLDS.includes(v)) G.world = v; }, WORLDS, difficulty, bigSpeeds,
     // SPEC-016: списки миров, сиды по имени, индекс сложности, время третьей звезды, бонусные миры (p — прогресс, по умолчанию текущий)
     MAIN_WORLDS, BONUS_WORLDS, WORLD_SEED, worldDifficulty, fastTarget, bonusUnlocked, worldOpen, chapterOpen, worldComplete,
     get bonusNote() { return ui.bonusNote && { ...ui.bonusNote }; },   // SPEC-016: плашка «Открылись бонусные миры!» этого кадра (или null)
@@ -103,19 +104,26 @@ export function installDebug() {
     SCENE_IDS, openScene, sceneNext, sceneSkip, scenePages, bigMood,
     // SPEC-029: обучение — шаги, идёт ли ({ step, page — страница листа, game — 1 / 2 в тренировке, иначе 0, back } или null), начать
     // (back «map» / «story», с шага from), пропустить; firstTutorial(p) — откроется ли само после комикса (чистая)
-    TUTORIAL_STEPS, get tutorial() { const s = tutorialStep(); return s && { step: s, page: ui.storyScene && TUTORIAL_SCENES.includes(ui.storyScene.id) ? ui.storyScene.page : 0, game: s.startsWith("game") ? Number(s.slice(4)) : 0, hint: tutorialGame ? tut.hint : 0, back: tutorial.back }; },
+    TUTORIAL_STEPS, get tutorial() { const s = tutorialStep(); return s && { step: s, page: ui.storyScene && TUTORIAL_SCENES.includes(ui.storyScene.id) ? ui.storyScene.page : 0, game: s.startsWith("game") ? Number(s.slice(4)) : 0, hint: G.tutorialGame ? G.tut.hint : 0, back: tutorial.back }; },
     openTutorial, tutorialSkip, firstTutorial,
     // SPEC-029: клетки поляны тренировок { x, y, w, h }; подпись времени в HUD; подсказка тренировки этого кадра (плашка) или null
-    get tutorialMapRect() { return tutorialMapRect(); }, timerText, get tutorialHint() { return ui.tutorialHintRect && { ...ui.tutorialHintRect, rows: [...ui.tutorialHintRect.rows] }; }, winTitle, get pushWaves() { return pushWaves.map(w => ({ ...w })); }, get scene() { return ui.storyScene && { id: ui.storyScene.id, page: ui.storyScene.page, pages: scenePageCount() }; },
+    get tutorialMapRect() { return tutorialMapRect(); }, timerText, get tutorialHint() { return ui.tutorialHintRect && { ...ui.tutorialHintRect, rows: [...ui.tutorialHintRect.rows] }; }, winTitle, get pushWaves() { return ui.waves.map(w => ({ ...w })); }, get scene() { return ui.storyScene && { id: ui.storyScene.id, page: ui.storyScene.page, pages: scenePageCount() }; },
     get sceneInfo() { return ui.sceneInfo && { ...ui.sceneInfo }; }, drawNow() { drawUI(ui.T); }, bossFor,   // SPEC-031: drawNow — нарисовать слой интерфейса сейчас (тест раскладки рисует много экранов за один evaluate)
     BOSSES, BOSS_LOOKS, bigCalm, KID_HEAD_R, LITTLE_SCALE,   // SPEC-021 размеры героев (тест look3d)
     // SPEC-022: вид Большого в 3D (для тестов): образ, босс и его детали, масштаб, цвета футболки и штанов
-    bigLook() { const m = big && big.model; return m ? { look: m.look, boss: m.boss || null, parts: Object.keys(m.bossParts || {}), scale: m.rig.scale.x,
+    bigLook() { const m = modelOf(G.big); return m ? { look: m.look, boss: m.boss || null, parts: Object.keys(m.bossParts || {}), scale: m.rig.scale.x,
       shirt: "#" + m.mats.shirt.color.getHexString(), pants: "#" + m.mats.pants.color.getHexString() } : null; }, get moodInfo() { return ui.moodInfo && { ...ui.moodInfo, sprites: [...ui.moodInfo.sprites] }; },   // SPEC-017: главы истории (живой список), экран истории этого кадра
+    // SPEC-012 AC 1b: the 3D model of Little One i or of the Big One ("big") — models are kept by the client, not on the entities
+    model: who => modelOf(who === "big" ? G.big : G.littles[who]) || null,
+    get game() { return G; },   // SPEC-012: the active game (plain data)
+    // SPEC-012 AC 1f: the menus' state a screen change resets (logic state: the same in sim and rendered pages) and the actions
+    // that set it up: the shop, its friends page, the name input of a slot, a map stop or world tab (a locked one shows a hint)
+    get screenState() { return { mode, shopTab: ui.shopTab, wardrobePage: ui.wardrobePage, toast: ui.toast && ui.toast.text, mapBgCache: !!ui.mapBgCache, nameInput: !!nameInput }; },
+    openShop, openFriends, chooseStop, tapWorldTab, openNameInput: slot => openNameInput({ x: 0, y: 0, w: 100, h: 30 }, slot),
     tapButton(id) { const q = ui.buttons.find(r => (r.id || r.act.name) === id); if (q) q.act(); return !!q; },
     LANGS, detectLang, get lang() { return lang; },   // SPEC-028: языки по порядку значка 🌐, язык при запуске (чистая), текущий язык
-    update, inSafe, I18N, startGame, resetWorld, cycleOutfit, randomOutfit, cycleBig, setLang, toScreen,
-    get items() { return items; }, get progress() { return progress; }, buyGloves, setEquip, get lastReward() { return lastReward; }, spawnItem,
+    update: stepGame, inSafe, I18N, startGame, resetWorld, cycleOutfit, randomOutfit, cycleBig, setLang, toScreen,
+    get items() { return G.items; }, get progress() { return progress; }, buyGloves, setEquip, get lastReward() { return lastReward; }, spawnItem,
     UPGRADES, buyUpgrade, get upgrades() { return { ...progress.upgrades }; }, get shopTab() { return ui.shopTab; }, set shopTab(v) { setShopTab(v); },   // SPEC-009 (SPEC-017: + «wardrobe»)
     WARDROBE_TIERS, buyLook, resetOutfits, loadOutfits,   // SPEC-021: loadOutfits(save) — чистое «сохранение → наряды»
     get outfits() { return { shown: cloneSkins(skinSel), saved: cloneSkins(skinKeep) }; },   // SPEC-009: гардероб
@@ -144,13 +152,13 @@ export function installDebug() {
     itemNames: () => Object.fromEntries(Object.entries({ hair: HAIRS, hat: HATS, jacket: JACKETS, pants: PANTS, big: BIG_SKINS }).map(([k, l]) => [k, l.map(q => ({ ...q.name }))])),
     REWARD, get winPanel() { return ui.winPanel && { ...ui.winPanel }; },   // SPEC-009: числа награды; рамка строк награды на экране победы
     seedRandom,     // SPEC-008: seedRandom(n) — игровая случайность rng() с зерна n; seedRandom() — снова случайно
-    sim, simRun, get events() { return events.map(e => ({ ...e })); },   // SPEC-008: режим симуляции, журнал событий (копии)
+    sim, simRun: (seconds, dt) => simRun(seconds, dt, stepGame), get events() { return G.events.map(e => ({ ...e })); },   // SPEC-008: режим симуляции, журнал событий (копии)
     ledger: () => ledger.map(e => ({ ...e })),   // SPEC-009: события coins за сессию (с загрузки страницы), копии
-    get rngDraws() { return rngDraws; },   // SPEC-008: сколько раз тянули игровую случайность
-    setProgress(save) { setRewardDue(false); setLastReward(null); ui.openedWorld = null; ui.worldBanner = null; setProgress(save); },   // SPEC-008 (баланс): прогресс из сохранения (null — новый), не записывает
+    get rngDraws() { return rngDraws(); },   // SPEC-008: сколько раз тянули игровую случайность
+    setProgress(save) { G.rewardDue = false; setLastReward(null); ui.openedWorld = null; ui.worldBanner = null; setProgress(save); },   // SPEC-008 (баланс): прогресс из сохранения (null — новый), не записывает
     levelsPerWorld,
-    autopilot, autoThink,   // SPEC-008: autopilot(on, "careful"|"reckless") → { on, style }; autoThink(dt) — только решение (для теста)
-    autoStick: i => autoMove[i] ? { x: autoMove[i].x, y: autoMove[i].y } : null,   // SPEC-019: «стик» автопилота игрока i после autoThink (копия)
+    autopilot, autoThink: dt => runCore(() => readInputs(dt)),   // SPEC-008: autopilot(on, "careful"|"reckless") → { on, style }; autoThink(dt) — только решение (для теста)
+    autoStick: i => G.autoMove[i] ? { x: G.autoMove[i].x, y: G.autoMove[i].y } : null,   // SPEC-019: «стик» автопилота игрока i после autoThink (копия)
     get strictRng() { return strictRng; }, set strictRng(v) { setStrictRng(!!v); },   // SPEC-008: тесты — генератор/3D с игровым rng() падает
     // SPEC-008 AC 10: карточки магазина простыми данными (без функций); picture — у карточки есть картинка
     shopCards: () => shopCards().map(({ k, price, packN, name, desc }) => ({ k, price, packN, name, desc, picture: k in SHOP_PICTURES })),
@@ -174,23 +182,23 @@ export function installDebug() {
     get sticks() { return [...sticks].map(([id, s]) => ({ id, ...s })); },
     // слой интерфейса: размер в UI px, размер холста в CSS px, scale = CSS px на UI px (SPEC-005)
     get uiSize() { return { w: UW, h: UH, cssW: CSS_W, cssH: CSS_H, scale: CSS_W / UW }; }, toGame,
-    get names() { return allNames(); }, setName, nameOf, inDanger, get stars() { return bonusStars; }, spawnStar, giveReward,
-    get dangerZone() { return dangerZone; }, get safeZone() { return safeZone; }, get texts() { return ui.texts; }, generateLevel,
+    get names() { return allNames(); }, setName, nameOf, inDanger, get stars() { return G.bonusStars; }, spawnStar, giveReward,
+    get dangerZone() { return G.dangerZone; }, get safeZone() { return G.safeZone; }, get texts() { return ui.texts; }, generateLevel,
     // сетка карты (до SPEC-006 называлась world)
-    grid: { COLS, ROWS, CELL, get blocked() { return Array.from(blocked); }, get blockedBig() { return Array.from(blockedBig); }, seeSolid: seeSolidAt, get bushes() { return bushes.map(q => ({ ...q })); },
-      get obstacles() { return obstacles.map(o => ({ kind: o.kind, shape: o.shape, x: o.x, y: o.y, w: o.w, h: o.h, r: o.r, move: o.move, sight: o.sight })); } },
-    get kisses() { return kisses; }, throwKiss, buyKisses, resetProgress, heartFill, bigBoost, fmtHearts,
-    RESCUE_KIT, buyRescueKit, useRescueKit, get kitHint() { return ui.kitHintRect; },   // SPEC-007
+    grid: { COLS, ROWS, CELL, get blocked() { return Array.from(G.blocked); }, get blockedBig() { return Array.from(G.blockedBig); }, seeSolid: seeSolidAt, get bushes() { return G.bushes.map(q => ({ ...q })); },
+      get obstacles() { return G.obstacles.map(o => ({ kind: o.kind, shape: o.shape, x: o.x, y: o.y, w: o.w, h: o.h, r: o.r, move: o.move, sight: o.sight })); } },
+    get kisses() { return G.kisses; }, throwKiss: kissNow, buyKisses, resetProgress, heartFill, bigBoost, fmtHearts,
+    RESCUE_KIT, buyRescueKit, useRescueKit: kitNow, get kitHint() { return ui.kitHintRect; },   // SPEC-007
     // SPEC-019: бежит ли маленький i (true/false); значок над Большим; подсказка «услышал топот» (текст, чья, плашка этого кадра) или null;
     // джойстики этого кадра с кольцом «на цыпочках»
-    isRunning: i => isRunning(littles[i]), get bigMark() { return bigMark(); },
-    get heardHint() { return heardHintOn() ? { text: heardHintText(), pi: heardHintPi, rect: ui.heardHintRect && { ...ui.heardHintRect, rows: [...ui.heardHintRect.rows] } } : null; },
+    isRunning: i => isRunning(G.littles[i]), get bigMark() { return bigMark(); },
+    get heardHint() { return heardHintOn() ? { text: heardHintText(), pi: ui.heardHintPi, rect: ui.heardHintRect && { ...ui.heardHintRect, rows: [...ui.heardHintRect.rows] } } : null; },
     get stickMarks() { return ui.stickMarks.map(q => ({ ...q })); }, get tapLines() { return [...tapLines]; },
     GLOVES, KISSES, get shopLayout() { return ui.shopLayout; },                         // SPEC-007 AC 10
-    levelType, levelReport, get levelInfo() { return levelInfo; }, clearLevelCache, CFG: CFG_ALL, THEMES, look3D, setBigFace,   // SPEC-021: look3D() — как нарисована 3D-сцена
+    levelType, levelReport, get levelInfo() { return G.levelInfo; }, clearLevelCache, CFG: CFG_ALL, THEMES, look3D, setBigFace,   // SPEC-021: look3D() — как нарисована 3D-сцена
     get banner() { return ui.banner; }, bannerAlpha,
     // всё состояние мира, которое levelReport сохраняет и возвращает (для теста «не трогает идущую игру»)
-    worldState() { return JSON.stringify({ obstacles, bushes, floors, decor, trees, flowers, safeZone, dangerZone, spawns, reachable: Array.from(reachable).join(""), grids: [blocked, blockedBig, moveGrid, seeGrid, moveGridBig].map(g => g.join("")) }); },
+    worldState() { return JSON.stringify({ obstacles: G.obstacles, bushes: G.bushes, floors: G.floors, decor: G.decor, trees: G.trees, flowers: G.flowers, safeZone: G.safeZone, dangerZone: G.dangerZone, spawns: G.spawns, reachable: Array.from(G.reachable).join(""), grids: [G.blocked, G.blockedBig, G.moveGrid, G.seeGrid, G.moveGridBig].map(g => g.join("")) }); },
     // детали 3D-карты с метками: [{ piece, color }] (для тестов оформления) и цвет текстуры земли в точке
     mapPieces() { const r = []; if (mapGroup) mapGroup.traverse(q => { if (q.userData.piece && q.material && q.material.color) r.push({ piece: q.userData.piece, color: "#" + q.material.color.getHexString(), y: q.position.y }); }); return r; },
     groundColorAt(x, y) { const d = groundCanvas.getContext("2d").getImageData(Math.round(x * 2), Math.round(y * 2), 1, 1).data; return "#" + [d[0], d[1], d[2]].map(v => v.toString(16).padStart(2, "0")).join(""); }
