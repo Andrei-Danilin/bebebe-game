@@ -22,7 +22,7 @@ const CORE_FORBIDDEN = ["document", "window", "localStorage", "sessionStorage", 
 const CORE_GLOBALS = Object.fromEntries(Object.entries(globals["shared-node-browser"]).filter(([k]) => !CORE_FORBIDDEN.includes(k)));
 
 module.exports = [
-  { ignores: ["node_modules/**", "v1-2d/**", "_site/**", "test-results/**", "playwright-report/**", "assets/**", "art/**", "icons/**"] },
+  { ignores: ["node_modules/**", "v1-2d/**", "vendor/**", "_site/**", "test-results/**", "playwright-report/**", "assets/**", "art/**", "icons/**"] },
   // the core: no browser-only and no Node-only globals
   {
     files: ["src/core/**/*.js", "src/i18n.js", "src/story.js"],

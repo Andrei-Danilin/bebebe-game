@@ -47,3 +47,26 @@ The small new parts (rainbow bands, trouser stripes, overall buttons) cast no sh
 the medians; the paired ratios sit at the edge. The machine was busy (other runs that hour: the same scene gave ×0.97–×1.4 on
 phone JS and ×0.96–×1.16 on GPU between runs; park 2 default scene ×1.29 / ×1.07 phone, ×1.04 / ×1.11 desktop): the spread
 between runs is larger than the difference between the builds.
+
+## SPEC-025 — start times before and after vendoring three.js (AC 1b), measured 2026-11-25
+
+**Question:** does shipping three.js with the game (minified, from this origin) instead of loading it from jsDelivr change how
+fast the game starts?
+
+**Method:** `node scripts/perf.js --start --rounds 3` with `PW_GPU=0 PW_NICE=0` (software WebGL — SwiftShader, as on CI), the
+phone view of the CI runs (667×375, `?phone=1`, touch), no service worker. A = `master` before vendoring (three.js
+`three.module.js` + `three.core.js`, 2.1 MB unminified, from jsDelivr over the real network), B = the vendored minified files
+(0.8 MB) from the game's own server. Per round a cold start (a new browser context: empty HTTP cache) and a warm one (a second
+page of that context: HTTP cache). Times in ms from navigation start, median of 3 rounds:
+
+| | first paint | `__bbReady` | home screen interactive |
+|---|---|---|---|
+| cold, before (jsDelivr) | 56 | 779 | 5718 |
+| cold, after (vendored) | **44** | **491** | 5566 |
+| warm, before | 48 | 512 | 5567 |
+| warm, after | 44 | 546 | 5518 |
+
+**Result:** a cold start is ready ~0.3 s sooner (no CDN round trips, a third of the bytes to parse); a warm start is the same
+within the noise. "Home screen interactive" (the first frame with the home screen's buttons and no loading screen) is ~5.5 s
+on both sides: there the loading screen waits for the art sprites (`LOOK.ART.waitMs`, decoding all sprites in software
+rendering), not for three.js — RR-46 (load the large pictures per screen) is the lever for that, not this spec.

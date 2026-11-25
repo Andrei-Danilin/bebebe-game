@@ -41,9 +41,12 @@ test("the built site has the listed files and everything sw.js precaches", { tag
   const mods = swList(sw, "PRECACHE_SRC");
   expect(mods && mods.length, "PRECACHE_SRC read from sw.js").toBeGreaterThan(20);
   const map = JSON.parse(fs.readFileSync(path.join(out, "index.html"), "utf8").match(/<script type="importmap">([\s\S]*?)<\/script>/)[1]).imports;
-  const mapped = Object.entries(map).filter(([k]) => k.startsWith("./")).map(([, v]) => v);
+  const mapped = Object.entries(map).filter(([k]) => k.startsWith("./src/")).map(([, v]) => v);
   expect(mapped.length).toBe(mods.length);
-  expect([...mods, ...mapped].map(u => u.replace(/\?v=.*$/, "")).filter(rel => !fs.existsSync(fileOf(rel))), "modules missing from the site").toEqual([]);
+  // SPEC-025 AC 1: and the vendored three.js the import map points at, which sw.js precaches into its three.js cache
+  const three = swList(sw, "PRECACHE_THREE"), vendored = Object.entries(map).filter(([k]) => k === "three" || k.startsWith("./vendor/")).map(([, v]) => v);
+  expect(three && [...three].sort(), "PRECACHE_THREE = the vendored files of the import map").toEqual([...vendored].sort());
+  expect([...mods, ...mapped, ...three].map(u => u.replace(/\?v=.*$/, "")).filter(rel => !fs.existsSync(fileOf(rel))), "modules missing from the site").toEqual([]);
 });
 
 test("the game runs from the built site and asks only for files that are in it", async ({ page }) => {

@@ -1,16 +1,15 @@
 // Shared helpers for the game tests.
-// - openGame(): opens index.html over http (scripts/serve.js, the webServer of playwright.config.js; SPEC-011 AC 8),
-//   serves three.js from node_modules (no internet needed), collects page errors, waits until the game says it is ready
+// - openGame(): opens index.html over http (scripts/serve.js, the webServer of playwright.config.js; SPEC-011 AC 8; three.js is
+//   vendored since SPEC-025, so nothing comes from the internet), collects page errors, waits until the game says it is ready
 //   (window.__bbReady) and seeds the game rng from the test's title (SPEC-011 AC 8d, testSeed()).
 // - step(page, seconds): advances the game logic by N seconds at 60 fps, without waiting in real time.
-// - openGameHttp(): the same at the site root with three.js routed at context level, for the PWA tests (service worker, manifest).
+// - openGameHttp(): the same at the site root, for the PWA tests (service worker, manifest).
 // The game exposes a debug object window.__bb (mode, littles, big, items, progress, update, startGame, ...).
 const path = require("path");
 const fs = require("fs");
 const { expect, test } = require("@playwright/test");
 
 const ROOT = path.resolve(__dirname, "..");
-const THREE_DIR = path.join(ROOT, "node_modules", "three", "build");
 // SPEC-011 AC 8: every test opens the game over http (the webServer of playwright.config.js serves the repo root here);
 // scripts outside the Playwright runner (balance.js) start their own makeServer() and pass `base`.
 const HTTP_BASE = `http://localhost:${Number(process.env.PORT) || 8123}/`;
@@ -85,11 +84,6 @@ async function openGame(page, { lang = "en", clearStorage = true, query = "", si
   const errors = [];
   page.on("pageerror", e => errors.push(String(e)));
   page.on("console", m => { if (m.type() === "error") errors.push("console: " + m.text()); });
-  await page.route("https://cdn.jsdelivr.net/**", async route => {
-    const file = path.join(THREE_DIR, route.request().url().split("/").pop());
-    if (!fs.existsSync(file)) return route.abort();
-    await route.fulfill({ path: file, contentType: "application/javascript", headers: { "Access-Control-Allow-Origin": "*" } });
-  });
   await page.addInitScript(strictRng);
   if (testSeed() != null) await page.addInitScript(bootSeed, testSeed());
   if (!intro) await page.addInitScript(noIntro);
@@ -113,25 +107,13 @@ function guardSim(page) {
   page.screenshot = async () => { throw new Error("sim mode: nothing is drawn — a test that takes a screenshot needs a rendered page (openGame without sim)"); };
 }
 
-// Serves jsDelivr's three.js from node_modules at CONTEXT level, so requests made by the
-// service worker are intercepted too (needs PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS=1, set in the config).
-async function routeThree(context) {
-  await context.route("https://cdn.jsdelivr.net/**", async route => {
-    const file = path.join(THREE_DIR, route.request().url().split("/").pop());
-    if (!fs.existsSync(file)) return route.abort();
-    await route.fulfill({ path: file, contentType: "application/javascript", headers: { "Access-Control-Allow-Origin": "*" } });
-  });
-}
-
-// Like openGame(), but at the site root (HTTP_BASE + query) with three.js routed at context level, so the service worker's
-// requests are served too. SPEC-011 AC 8b: Playwright blocks service workers by default (playwright.config.js); a spec
+// Like openGame(), but at the site root (HTTP_BASE + query). SPEC-011 AC 8b: Playwright blocks service workers by default (playwright.config.js); a spec
 // that needs the service worker allows it with test.use({ serviceWorkers: "allow" }) (pwa.spec.js does).
 // `query` is appended to the URL (e.g. "?standalone=1").
 async function openGameHttp(page, { lang = "en", query = "", clearStorage = true, intro = false, tutorial = false } = {}) {
   const errors = [];
   page.on("pageerror", e => errors.push(String(e)));
   page.on("console", m => { if (m.type() === "error") errors.push("console: " + m.text()); });
-  await routeThree(page.context());
   await page.addInitScript(strictRng);
   if (testSeed() != null) await page.addInitScript(bootSeed, testSeed());
   if (!intro) await page.addInitScript(noIntro);
@@ -269,4 +251,4 @@ function textFloor(floors, cat) {
   return v;
 }
 
-module.exports = { gameSource, textFloor, LANGS, openGame, openSim, openGameHttp, routeThree, frames, step, setupHug, softly, sharedPage, resetGame, seedGame, reloadGame, testSeed, titleSeed, HTTP_BASE, ROOT };
+module.exports = { gameSource, textFloor, LANGS, openGame, openSim, openGameHttp, frames, step, setupHug, softly, sharedPage, resetGame, seedGame, reloadGame, testSeed, titleSeed, HTTP_BASE, ROOT };

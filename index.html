@@ -62,7 +62,8 @@
      AC 9: and the version of every module (./src/…/x.js → ?v=<hash of its bytes>) — written by npm run precache, do not edit by hand -->
 <script type="importmap">
 { "imports": {
-  "three": "https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.js",
+  "./vendor/three/three.core.js": "./vendor/three/three.core.js?v=60880f0fd0",
+  "three": "./vendor/three/three.module.js?v=49bfc58c40",
   "./src/client/art-names.js": "./src/client/art-names.js?v=7228f7f839",
   "./src/client/art.js": "./src/client/art.js?v=9447a553cf",
   "./src/client/debug.js": "./src/client/debug.js?v=a51819be45",

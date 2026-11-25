@@ -4,20 +4,21 @@
 //   <SW_VERSION>-src-<SRC_HASH>     the shell (index.html, manifest, icons) + the game's ES modules, written only at install
 //                                   (plus the shell rule below); complete when its "installed" marker is there;
 //   <SW_VERSION>-assets-<ASSETS_HASH>  the art sprites (assets/, listed by npm run assets);
-//   bebebe-three-<version>          three.js from jsDelivr, by its version.
+//   bebebe-three-<THREE_VERSION>    the vendored three.js (vendor/three/, SPEC-025 AC 1), by its version: a code deploy
+//                                   never downloads it again.
 // The module URLs are versioned (./src/…/x.js?v=<hash of its bytes>: the import map of index.html, written by npm run precache
 // with SRC_HASH and the lists below), so a shell only ever asks for its own module versions; they are served cache-first.
 // An unversioned module URL is never answered from a cache (network only; Phase C, the review of Phase B).
 // index.html stays network-first: an online launch gets the new version at once. A network-fetched shell is stored only into
 // the complete src cache of its own SRC_HASH (its <meta name="src-hash">); if there is none yet (the new worker has not
 // finished installing), it is shown but not cached — so the cached shell always has its modules.
-// A module change needs no SW_VERSION bump: rerun npm run precache (SRC_HASH changes). Bump SW_VERSION when a cache strategy,
-// the three.js version (THREE_BASE = the import map's) or an icon's content changes. Old caches: the last 2 of each kind stay
-// (a page of the previous version may still be open), older ones are deleted on activate.
-const SW_VERSION = "bebebe-v5";
+// A module change needs no SW_VERSION bump: rerun npm run precache (SRC_HASH changes; also THREE_VERSION and the versioned
+// vendor URLs when vendor/three/ changes). Bump SW_VERSION when a cache strategy or an icon's content changes. Old caches: the
+// last 2 of each kind stay (a page of the previous version may still be open), older ones are deleted on activate.
+// SPEC-025 AC 1: nothing is fetched from another host — three.js is vendored and served from this origin like the rest.
+const SW_VERSION = "bebebe-v6";
 const CACHE_PREFIX = "bebebe-";          // all Pages projects of the account share one origin: touch only our caches
 const NET_TIMEOUT_MS = 4000;             // weak signal: after this long, a cached copy wins over a slow network
-const THREE_BASE = "https://cdn.jsdelivr.net/npm/three@0.187.0/build/";
 // SPEC-011: written by npm run precache (scripts/precache.js) — do not edit by hand
 // precache:start
 const SRC_HASH = "a472357f2d";
@@ -54,6 +55,10 @@ const PRECACHE_SRC = [
   "./src/core/practice.js?v=44fe1505f4", "./src/core/progress-rules.js?v=9aa174b661",
   "./src/core/rules.js?v=f09e1fba51", "./src/core/util.js?v=c7e01b9d3a", "./src/core/wardrobe.js?v=89c9230548",
   "./src/core/world.js?v=68fa838aaf", "./src/i18n.js?v=a28c8e3da4", "./src/story.js?v=31072db672"
+];
+const THREE_VERSION = "r187";
+const PRECACHE_THREE = [
+  "./vendor/three/three.core.js?v=60880f0fd0", "./vendor/three/three.module.js?v=49bfc58c40"
 ];
 // precache:end
 // SPEC-020: written by npm run assets (scripts/assets.js) — do not edit by hand
@@ -107,8 +112,7 @@ const PRECACHE_ASSETS = [
 // assets:end
 const CACHE_SRC = SW_VERSION + "-src-" + SRC_HASH;
 const CACHE_ASSETS = SW_VERSION + "-assets-" + ASSETS_HASH;
-const CACHE_THREE = CACHE_PREFIX + "three-" + (THREE_BASE.match(/three@([^/]+)\//) || [])[1];
-const PRECACHE_THREE = [THREE_BASE + "three.module.js", THREE_BASE + "three.core.js"];
+const CACHE_THREE = CACHE_PREFIX + "three-" + THREE_VERSION;
 const SCOPE_ROOT = new URL("./", self.location).href;
 const INSTALLED = new URL("./__installed__", self.location).href;   // the marker of a complete src cache
 const MATCH = { ignoreSearch: true, ignoreVary: true };
@@ -139,11 +143,13 @@ self.addEventListener("install", event => {
     }
     await Promise.all(shellUrls.map((u, i) => src.put(u, shells[i])));
     if (!complete) await src.put(INSTALLED, new Response("1"));
-    // three.js: only what this version's cache does not have yet
+    // three.js: only what this version's cache does not have yet; anything else in it (an older URL) goes
     const three = await caches.open(CACHE_THREE);
     const missing = [];
     for (const u of PRECACHE_THREE) if (!(await three.match(u))) missing.push(u);
-    await three.addAll(missing.map(u => new Request(u, { mode: "cors" })));
+    await three.addAll(missing.map(u => new Request(u, { cache: "reload" })));
+    const want = new Set(PRECACHE_THREE.map(u => new URL(u, self.location).href));
+    for (const r of await three.keys()) if (!want.has(r.url)) await three.delete(r);
     // the art: one by one, a missing sprite never blocks the install (the game draws it with code)
     const art = await caches.open(CACHE_ASSETS);
     await Promise.all(PRECACHE_ASSETS.map(async u => { if (!(await art.match(u))) await art.add(new Request(u, { cache: "no-cache" })).catch(() => {}); }));
@@ -240,7 +246,8 @@ self.addEventListener("fetch", event => {
     // an unversioned module URL (no ?v=; the shell never asks for one): the network only — never a cached copy of some other
     // version (no ignoreSearch fallback across caches), so a page cannot mix module versions
     return;
-  } else if (url.href.startsWith(THREE_BASE)) {
+  } else if (local && url.pathname.includes("/vendor/")) {
+    // the vendored three.js (versioned URLs from the import map): its own cache, cache-first
     event.respondWith(cacheFirst(event, req, CACHE_THREE));
   } else if (local && url.pathname.includes("/assets/")) {
     event.respondWith(cacheFirst(event, req, CACHE_ASSETS));
