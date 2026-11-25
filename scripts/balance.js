@@ -96,8 +96,9 @@ function analyse(runs, B, worlds, perWorld) {
     `${levels.length}/${levels.length}`, lost.length === 0, lost.map(l => `${l.world} ${l.n} (${l.wins}/${l.runs})`).join(", "));
   // 2. per world: the trend of the median time goes up, and the maze block is the slowest block
   for (const w of worlds) {
-    const ls = of(w, 1, perWorld), rho = spearman(ls.map(l => l.n), ls.map(l => l.time));
-    add(`${w}: median time grows with the level (Spearman ρ)`, rho.toFixed(2), `≥ ${B.TREND_RHO}`, rho >= B.TREND_RHO);
+    // SPEC-029: a world may have its own target (TREND_RHO_WORLD)
+    const ls = of(w, 1, perWorld), rho = spearman(ls.map(l => l.n), ls.map(l => l.time)), want = (B.TREND_RHO_WORLD || {})[w] ?? B.TREND_RHO;
+    add(`${w}: median time grows with the level (Spearman ρ)`, rho.toFixed(2), `≥ ${want}`, rho >= want);
   }
   for (const w of worlds) {
     const blocks = {};

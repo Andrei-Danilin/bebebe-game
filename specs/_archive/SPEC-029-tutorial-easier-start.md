@@ -1,6 +1,6 @@
 # SPEC-029 — Tutorial: funny pictures and two practice games; Dad starts with 5 hearts
 
-Status: ready (art `30_items`, `31_tutorial_a`, `32_tutorial_b`, `33_tutorial_c` are on master since e3f99e8, checked by Claude 2026-11-24; the fallback pages stay for missing files)
+Status: done (merged by "Merge SPEC-029", see git log)
 Complexity: L
 Branch: SPEC-029-tutorial
 Decided by: Andrei (2026-11-24, after playing):

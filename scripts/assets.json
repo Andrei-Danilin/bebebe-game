@@ -13,6 +13,13 @@
     { "src": "18_map_bg_beach.webp", "mode": "paper", "size": "background", "name": "map_bg_beach" },
     { "src": "18_map_bg_winter.webp", "mode": "paper", "size": "background", "name": "map_bg_winter" },
     { "src": "8_start.webp", "mode": "paper", "size": "background", "name": "story_start" },
+    { "src": "31_tutorial_a.webp", "mode": "paper", "size": "background", "name": "tutorial_a",
+      "erase": [[565, 489, 20], [590, 480, 19], [613, 472, 19], [638, 463, 19], [659, 440, 10], [659, 457, 10], [657, 472, 7],
+                [590, 457, 8], [605, 452, 8], [618, 447, 8], [631, 444, 8], [646, 441, 8],
+                [675, 491, 10], [683, 479, 10], [690, 466, 10], [701, 456, 10], [686, 490, 6],
+                [901, 503, 9], [914, 495, 11], [929, 495, 11], [905, 488, 8], [912, 481, 8], [927, 481, 8]] },
+    { "src": "32_tutorial_b.webp", "mode": "paper", "size": "background", "name": "tutorial_b" },
+    { "src": "33_tutorial_c.webp", "mode": "paper", "size": "background", "name": "tutorial_c" },
     { "src": "9_1_boss_park.webp", "mode": "paper", "size": "background", "name": "story_park" },
     { "src": "9_2_boss_field.webp", "mode": "paper", "size": "background", "name": "story_field" },
     { "src": "9_3_boss_city.webp", "mode": "paper", "size": "background", "name": "story_city" },
@@ -62,19 +69,9 @@
                 "pants_black", "pants_red", "pants_green", "pants_pink_shorts", "pants_purple"] },
     { "src": "34_small_icons.webp", "mode": "sheet", "size": "icon", "small": 11000, "distFrac": 0.15,
       "names": ["ui_friends", "ui_dice", "ui_question", "ui_pencil", "ui_pack", "ui_ear", "ui_map", "ui_check", "ui_cross"] },
-    { "src": "v1/staff.webp", "mode": "boxes", "key": "paper", "size": "icon", "dropLines": true,
-      "boxes": {
-        "item_boots": [88, 91, 168, 165],
-        "item_cape": [307, 91, 170, 165],
-        "item_banana": [88, 319, 168, 165],
-        "item_mittens": [307, 319, 170, 165],
-        "item_mega_mittens": [525, 319, 170, 165],
-        "item_kiss": [88, 546, 168, 166],
-        "item_star": [307, 546, 170, 166],
-        "item_coin": [525, 546, 170, 166],
-        "heart_full": [88, 769, 168, 165],
-        "heart_half": [307, 769, 170, 165],
-        "heart_empty": [525, 769, 170, 165]
-      } }
+    { "src": "30_items.webp", "mode": "sheet", "size": "icon",
+      "clear": [[492, 140, 4], [500, 145, 7], [506, 160, 9], [500, 175, 9], [488, 188, 9], [475, 200, 9], [472, 213, 9], [482, 223, 9], [497, 225, 8]],
+      "names": ["item_boots", "item_cape", "item_banana", "item_mittens", "item_mega_mittens", "item_kiss", "item_star", "item_coin",
+                "heart_full", "heart_half", "heart_empty"] }
   ]
 }

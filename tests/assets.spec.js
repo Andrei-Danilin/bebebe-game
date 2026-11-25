@@ -42,6 +42,23 @@ test("the SPEC-027 sheets give their sprites: menu icons, the missing clothes, t
     .toEqual(["28_menu_icons.webp", "button", "29_wardrobe_2.webp", "icon", "34_small_icons.webp"]);
 });
 
+// SPEC-029 AC 6: the tutorial sheets (paper, one picture each; A4's stray words erased) and sheet 30 (11 items in reading
+// order) — sheet 30 replaces every crop of the old v1/staff.webp, whose entry is gone
+test("SPEC-029: the tutorial pictures and sheet 30 replace v1/staff @fast", async () => {
+  const by = src => manifest.sources.find(s => s.src === src);
+  expect(manifest.sources.filter(s => s.src.startsWith("v1/")).map(s => s.src), "no v1 source").toEqual([]);
+  for (const [src, name] of [["31_tutorial_a.webp", "tutorial_a"], ["32_tutorial_b.webp", "tutorial_b"], ["33_tutorial_c.webp", "tutorial_c"]]) {
+    const s = by(src);
+    expect([s?.mode, s?.size, s?.name], src).toEqual(["paper", "background", name]);
+    const m = await sharp(path.join(ASSETS, name + ".webp")).metadata();
+    expect([m.width, m.height], `${name}: the whole 2×2 sheet`).toEqual([1024, 765]);
+  }
+  expect(by("31_tutorial_a.webp").erase.length, "A4: BONK!, turn and shh erased").toBeGreaterThan(5);
+  for (const [x, y] of by("31_tutorial_a.webp").erase) expect(x > 512 && y > 383, "the erase stays in panel A4").toBe(true);
+  expect(by("30_items.webp")).toMatchObject({ mode: "sheet", size: "icon", names: ["item_boots", "item_cape", "item_banana", "item_mittens", "item_mega_mittens",
+    "item_kiss", "item_star", "item_coin", "heart_full", "heart_half", "heart_empty"] });
+});
+
 test("no green left at sprite edges @fast", async () => {
   const bad = [];
   for (const n of keyed) {
@@ -90,8 +107,9 @@ test("assets fit the budget @fast", async () => {
 });
 
 test("the pipeline is deterministic (two runs → identical files)", async () => {
-  // a sample covering every mode: whole (logo), sheet with merge + erase + circle crop, rekey, paper boxes, paper
-  const only = ["19_logo.webp", "25_phone_controls.webp", "20_levelmap_parts.webp", "v1/staff.webp", "14_interface.webp"];
+  // a sample covering every mode in use: whole (logo), sheet with merge + erase + circle crop, rekey, paper (+ erase)
+  // (SPEC-029: 30_items replaces the paper boxes of v1/staff; 31_tutorial_a — erase on a paper picture)
+  const only = ["19_logo.webp", "25_phone_controls.webp", "20_levelmap_parts.webp", "30_items.webp", "31_tutorial_a.webp", "14_interface.webp"];
   const dirs = [0, 1].map(i => fs.mkdtempSync(path.join(os.tmpdir(), `bb-assets-${i}-`)));
   try {
     const rows = [];

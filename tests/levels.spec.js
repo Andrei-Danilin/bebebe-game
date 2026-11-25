@@ -413,7 +413,7 @@ test("the Big One gets faster inside a world and never outruns a player", async 
       soft(x.chase, at).toBeCloseTo(Math.min(MAX, 112 + boost + bs), 6);
       soft(x.search, at).toBeCloseTo(Math.min(MAX, 112 * 0.85 + boost + bs), 6);
       soft(x.patrol, at).toBeCloseTo(70 + boost / 2 + bs, 6);
-      soft(x.hearts, at).toBe(Math.min(12, 6 + Math.floor((n - 1) / 4) + wi) + extra);
+      soft(x.hearts, at).toBe(Math.min(12, 5 + Math.floor((n - 1) / 4) + wi) + extra);   // SPEC-029: Park 1 = 5 (was 6)
       soft(x.chase, `${at}: faster than a player`).toBeLessThanOrEqual(MAX + 1e-9);
       if (n > 1) soft(x.chase, `${at}: slower than the level before`).toBeGreaterThanOrEqual(r.d[w][n - 2].chase);
       if (n > 1) soft(x.hearts, `${at}: fewer hearts than the level before`).toBeGreaterThanOrEqual(r.d[w][n - 2].hearts);   // SPEC-008 AC 7
@@ -423,7 +423,7 @@ test("the Big One gets faster inside a world and never outruns a player", async 
   expect(WORLDS.map(w => r.d[w][0].chase)).toEqual([112, 117, 122, 127, 127, 130]);
   expect(r.d.park[19].chase).toBeCloseTo(139.8, 6);      // SPEC-022: the park boss, 134.8 + 5
   expect(r.d.winter[19].chase).toBeCloseTo(MAX, 6);       // 152.8 before the cap
-  expect(WORLDS.map(w => [r.d[w][0].hearts, r.d[w][19].hearts])).toEqual([[6, 12], [7, 13], [8, 14], [9, 15], [9, 12], [10, 12]]);   // SPEC-022: bosses
+  expect(WORLDS.map(w => [r.d[w][0].hearts, r.d[w][19].hearts])).toEqual([[5, 11], [6, 12], [7, 13], [8, 15], [8, 12], [9, 12]]);   // SPEC-022: bosses; SPEC-029: one fewer, the cap of 12 stays
   // level 20 is harder than level 1 in every world; every world starts below the previous world's level 20
   WORLDS.forEach((w, wi) => {
     const first = r.d[w][0], last = r.d[w][19];
@@ -435,8 +435,8 @@ test("the Big One gets faster inside a world and never outruns a player", async 
   });
   soft.done();
   // in the game
-  expect(r.game.school5.maxHp).toBe(10);                  // SPEC-016: School is difficulty 3 (6 + 1 + 3)
-  expect(r.game.school5.hp).toBe(10);
+  expect(r.game.school5.maxHp).toBe(9);                   // SPEC-016: School is difficulty 3 (SPEC-029: 5 + 1 + 3)
+  expect(r.game.school5.hp).toBe(9);
   expect(r.game.school5.speeds.chase).toBeCloseTo(r.d.school[4].chase, 6);
   expect(r.game.school5.speeds.patrol).toBeCloseTo(r.d.school[4].patrol, 6);
   expect(r.game.winter20.maxHp).toBe(12);

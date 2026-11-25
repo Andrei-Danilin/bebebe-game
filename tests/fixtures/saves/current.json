@@ -1,5 +1,5 @@
 {
-  "about": "The current shape (SPEC-016 and later): six worlds in the story order (park, field, city, school + bonus beach, winter) with won flags, lastWorld, coins, inv with rescues, equip, owned clothes (ids; the worn Bear is owned), upgrade levels; outfits; names; SPEC-022: seen — the story scenes already shown.",
+  "about": "The current shape (SPEC-016 and later): six worlds in the story order (park, field, city, school + bonus beach, winter) with won flags, lastWorld, coins, inv with rescues, equip, owned clothes (ids; the worn Bear is owned), upgrade levels; outfits; names; SPEC-022: seen — the story scenes already shown. SPEC-029: seen.tutorial — the tutorial ended or was skipped.",
   "keys": {
     "bebebe-progress": {
       "worlds": {
@@ -97,7 +97,8 @@
         "boss_school": false,
         "bonus_beach": false,
         "bonus_winter": false,
-        "ending": false
+        "ending": false,
+        "tutorial": true
       }
     },
     "bebebe-outfits": {
@@ -225,7 +226,8 @@
         "boss_school": false,
         "bonus_beach": false,
         "bonus_winter": false,
-        "ending": false
+        "ending": false,
+        "tutorial": true
       }
     },
     "outfits": {
