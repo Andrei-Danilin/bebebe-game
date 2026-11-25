@@ -25,8 +25,8 @@ export function autopilot(on, style) {
   return { on: G.autoOn, style: G.autoStyle };
 }
 const autoNav = l => {
-  if (!G.autoNavs.has(l.id)) G.autoNavs.set(l.id, { x: l.x, y: l.y, r: l.r, path: [], repath: 0 });
-  return G.autoNavs.get(l.id);
+  if (!G.autoNavs[l.id]) G.autoNavs[l.id] = { x: l.x, y: l.y, r: l.r, path: [], repath: 0 };
+  return G.autoNavs[l.id];
 };
 // Большой сейчас может толкнуть (не в шоке, не лежит, не краснеет, не отдыхает после толчка)
 const bigDangerous = () => G.big.stun <= 0 && G.big.slip <= 0 && G.big.blush <= 0 && G.big.pushCd <= 0 && G.big.noPush <= 0;

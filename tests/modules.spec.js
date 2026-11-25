@@ -325,6 +325,50 @@ test("no `mode` identifier in src/core/", { tag: "@fast" }, () => {
   expect(allSrc().filter(f => f.startsWith("src/client/") && /G\.phase\s*=[^=]/.test(readRoot(f))), "the client never sets the phase").toEqual([]);
 });
 
+// SPEC-012 AC 1 / 1b: a game's state lives in its game object (src/core/game.js newGame). Module level of src/core/ keeps only what
+// AC 1 allows: the active-game pointer, the hooks, the rng test switches, the level cache and the session economy (progress and
+// the coin book ledger), plus constant tables. A module-level `let` and a `const` holding a container (array, object, Map, Set,
+// typed array, or anything a call makes) that is not frozen must be in this list — a `let`-only scan would miss grids filled in
+// place. Each entry says why.
+const CORE_MODULE_STATE = {
+  "src/core/active.js:G": "the active-game pointer (AC 1)",
+  "src/core/util.js:rngOff": "the gameplay-rng guard: the name of the code that must not draw it (test switch, AC 1)",
+  "src/core/util.js:strictRng": "the strict rng guard of the tests (AC 1)",
+  "src/core/hooks.js:hookImpl": "the hooks the client registered (AC 1: the hooks)",
+  "src/core/level/build.js:levelCache": "the accepted attempt per level key: pure per key, shared by all games (AC 1)",
+  "src/core/economy.js:progress": "the player's economy (AC 1b: session economy data)",
+  "src/core/economy.js:ledger": "the session coin book: survives startGame, the shop writes it (AC 1b)",
+  // constant tables: data the game reads and never writes (CFG and the price tables are tuned by tests through __bb.CFG / __bb.*)
+  "src/core/config.js:CFG": "the rule numbers (constant table; tests tune them)",
+  "src/core/config.js:GLOVES": "constant table", "src/core/config.js:KISSES": "constant table", "src/core/config.js:RESCUE_KIT": "constant table",
+  "src/core/config.js:REWARD": "constant table", "src/core/config.js:WARDROBE_TIERS": "constant table", "src/core/config.js:UPGRADES": "constant table",
+  "src/core/wardrobe.js:HAIRS": "constant table", "src/core/wardrobe.js:HATS": "constant table", "src/core/wardrobe.js:JACKETS": "constant table",
+  "src/core/wardrobe.js:PANTS": "constant table", "src/core/wardrobe.js:BIG_SKINS": "constant table"
+};
+const SCALAR_INIT = ["ArrowFunctionExpression", "FunctionExpression", "Literal", "TemplateLiteral", "UnaryExpression", "BinaryExpression"];
+function coreModuleState(files) {                    // [file, kind, name] of every module-level let and container const
+  const espree = require("espree"), out = [];
+  for (const [f, text] of files) {
+    for (const n0 of espree.parse(text, { ecmaVersion: "latest", sourceType: "module" }).body) {
+      const n = n0.type === "ExportNamedDeclaration" ? n0.declaration : n0;
+      if (!n || n.type !== "VariableDeclaration") continue;
+      for (const d of n.declarations) {
+        const i = d.init, frozen = i && i.type === "CallExpression" && i.callee.type === "MemberExpression" && i.callee.object.name === "Object" && i.callee.property.name === "freeze";
+        if (n.kind === "let" || (i && !SCALAR_INIT.includes(i.type) && !frozen)) out.push(`${f}:${d.id.name}`);
+      }
+    }
+  }
+  return out;
+}
+test("no mutable module-level containers in core", { tag: "@fast" }, () => {
+  const found = coreModuleState(coreCode());
+  expect(found.filter(k => !CORE_MODULE_STATE[k]), "module-level state in src/core/ (move it into the game object, newGame)").toEqual([]);
+  expect(Object.keys(CORE_MODULE_STATE).filter(k => !found.includes(k)), "listed but gone (drop the line)").toEqual([]);
+  // the scan sees what it is for: a typed array, a Map, an array, a let, a call — and not a frozen table or a function
+  const planted = coreModuleState([["x.js", "export const a = new Uint8Array(4), b = new Map(), c = [];\nlet d = 0;\nconst e = make(), f = Object.freeze([1]), g = () => 1, h = 3;"]]);
+  expect(planted).toEqual(["x.js:a", "x.js:b", "x.js:c", "x.js:d", "x.js:e"]);
+});
+
 // AC 2c: CFG is split by meaning — src/core/config.js holds the rules, generator and balance, src/client/look.js (LOOK) the look/UI
 // keys; key names did not change. No key in both; no look-named key in the core config except these (each with why); the core
 // never reads a LOOK key.

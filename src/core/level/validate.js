@@ -9,7 +9,7 @@ import { G } from "../active.js";
 
 // ---------- Честность уровня (SPEC-002) ----------
 // validateLevel проверяет уже применённый уровень (после applyWorld) по 7 правилам; ok — все выполнены.
-const N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+const N4 = Object.freeze([[1, 0], [-1, 0], [0, 1], [0, -1]]);
 function floodCells(start, grid) {
   const seen = new Uint8Array(COLS * ROWS);
   if (grid[start]) return seen;

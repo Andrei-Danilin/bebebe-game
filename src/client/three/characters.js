@@ -339,20 +339,26 @@ export function setBigFace(m, color) {
 
 export const bossScale = b => (b.boss ? LOOK.BOSS_SCALE : 1);   // SPEC-022: босс крупнее (вид; круг столкновений тот же)
 export let charGroup = new THREE.Group();
+// SPEC-012 AC 1b: the 3D models of the shown game, keyed by entity ("L<id>" for a Little One, "big"): game entities hold only plain data
+export const models = new Map();
+export const modelOf = e => (e ? models.get(e.isBig ? "big" : "L" + e.id) : undefined);
 function buildCharacters() {
   scene.remove(charGroup); disposeTree(charGroup);
   charGroup = new THREE.Group(); scene.add(charGroup);
   wobbleSeed(1);                         // SPEC-021: контуры героев дрожат одинаково при каждой постройке
+  models.clear();
   for (const l of G.littles) {
-    l.model = buildLittleModel(l.look, l.kind === "player", l.id, l.kind === "player" ? gloveOf(l.id) : null);
-    l.model.rig.scale.setScalar(LITTLE_SCALE); l.model.ghost.scale.setScalar(LITTLE_SCALE);
-    charGroup.add(l.model.root, l.model.ghost);
+    const m = buildLittleModel(l.look, l.kind === "player", l.id, l.kind === "player" ? gloveOf(l.id) : null);
+    m.rig.scale.setScalar(LITTLE_SCALE); m.ghost.scale.setScalar(LITTLE_SCALE);
+    charGroup.add(m.root, m.ghost);
+    models.set("L" + l.id, m);
   }
   // SPEC-022: босс уровня — папа в образе босса (BOSS_LOOKS), крупнее (bossScale)
-  G.big.model = buildBigModel(G.big.boss ? BIG_SKINS.find(s => s.id === "dad") : G.big.skin);
-  if (G.big.boss) dressBoss(G.big.model, G.big.boss);
-  G.big.model.rig.scale.setScalar(BIG_SCALE * bossScale(G.big));
-  charGroup.add(G.big.model.root);
+  const bm = buildBigModel(G.big.boss ? BIG_SKINS.find(s => s.id === "dad") : G.big.skin);
+  if (G.big.boss) dressBoss(bm, G.big.boss);
+  bm.rig.scale.setScalar(BIG_SCALE * bossScale(G.big));
+  charGroup.add(bm.root);
+  models.set("big", bm);
 }
 export function rebuild3D() {
   if (simMode) return;                   // sim: 3D не нужен; sim(false) построит заново

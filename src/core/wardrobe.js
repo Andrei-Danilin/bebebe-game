@@ -64,7 +64,7 @@ export const PANTS = [
   { id: "overalls", price: tierPrice(2), color: "#4a7ba0", shorts: false, overalls: true, name: Nm("Overalls", "Jardinero", "Macacão", "Комбинезон") },
   { id: "striped", price: tierPrice(1), color: "#d84838", shorts: false, stripes: "#facc15", name: Nm("Striped pants", "Pantalón rayado", "Calça listrada", "Полосатые штаны") }
 ];
-export const SLOTS = { hair: HAIRS, hat: HATS, jacket: JACKETS, pants: PANTS };
+export const SLOTS = Object.freeze({ hair: HAIRS, hat: HATS, jacket: JACKETS, pants: PANTS });
 // ---------- Скины Большого ----------
 export const BIG_SKINS = [
   // mood: true — лицо человека: краснеет / розовеет по злости (SPEC-022); у огра, робота и медведя лицо остаётся своим

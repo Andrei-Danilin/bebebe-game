@@ -14,7 +14,7 @@ import { P_COLORS } from "../outfits.js";
 import { ctx, OUT, PHONE } from "../screen.js";
 import { ui } from "../state.js";
 import { toScreen, toScreenTo } from "../three/camera.js";
-import { bossScale } from "../three/characters.js";
+import { bossScale, modelOf } from "../three/characters.js";
 import { groundCanvas } from "../three/materials.js";
 import { BIG_SCALE, LITTLE_SCALE } from "../three/setup.js";
 import { moodOf } from "../three/sync.js";
@@ -242,7 +242,7 @@ function moodSprite(name, x, y, s, alpha = 1) {
   moodNow.sprites.push(name);
 }
 export function drawMood(t) {
-  const m = G.big && G.big.model;
+  const m = modelOf(G.big);
   ui.moodInfo = null;
   if (!m || !m.anchors) return;
   const ML = LOOK.MOOD_LOOK, mood = m.mood || moodOf(G.big);

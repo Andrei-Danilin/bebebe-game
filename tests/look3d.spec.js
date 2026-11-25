@@ -150,7 +150,7 @@ test("the Little Ones have big round heads with dot eyes, rosy cheeks and a smil
   const r = await page.evaluate(() => {
     const b = window.__bb;
     const K = b.CFG.KID_LOOK, top = K.headY + b.KID_HEAD_R * K.head;   // the head's top in model units
-    return { want: K.head, r: b.littles[0].r, tagAbove: b.nameTagH() / b.grid.CELL / b.LITTLE_SCALE > top, stars: b.littles.map(l => l.model.dizzyStars.position.y > top), kids: b.littles.map(l => { const m = l.model, bub = m.bubble;
+    return { want: K.head, r: b.littles[0].r, tagAbove: b.nameTagH() / b.grid.CELL / b.LITTLE_SCALE > top, stars: b.littles.map((l, i) => b.model(i).dizzyStars.position.y > top), kids: b.littles.map((l, i) => { const m = b.model(i), bub = m.bubble;
       return { head: m.head.scale.x, eyes: m.face.eyes.map(e => e.geometry.parameters.radius), cheeks: (m.face.cheeks || []).length, mouth: !!m.face.mouth,
         inBubble: bub.position.y + bub.geometry.parameters.radius > top }; }) };
   });
@@ -206,7 +206,7 @@ test("the dad: bald with stubble, small eyes, heavy brows, big nose, red t-shirt
   await play(page, "park", 1);
   await frames(page);
   const r = await page.evaluate(() => {
-    const b = window.__bb, m = b.big.model, hex = c => "#" + c.getHexString();
+    const b = window.__bb, m = b.model("big"), hex = c => "#" + c.getHexString();
     const out = { look: m.look, shirt: hex(m.bodyMat.color), parts: Object.keys(m.dad || {}).sort(), top: !!(m.headTop && m.headTop.isObject3D), outfit: !!(m.outfitAnchor && m.outfitAnchor.isObject3D),
       eyes: m.face.eyes.map(e => e.geometry.parameters.radius), brows: m.face.brows.length, skin: m.faceBase,   // SPEC-022: the face shows his mood (red when angry); faceBase is the look's own
       anchors: Object.keys(m.anchors).sort(), handsSwing: [m.anchors.handL.parent, m.anchors.handR.parent].every(q => m.arms.includes(q)),

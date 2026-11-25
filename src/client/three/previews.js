@@ -6,7 +6,7 @@ import { BIG_SKINS } from "../../core/wardrobe.js";
 import { makeLook, skinSel } from "../outfits.js";
 import { CSS_W, PHONE, UH, UW } from "../screen.js";
 import { ui } from "../state.js";
-import { buildBigModel, buildLittleModel } from "./characters.js";
+import { buildBigModel, buildLittleModel, modelOf } from "./characters.js";
 import { disposeTree, toon } from "./materials.js";
 import { renderer } from "./setup.js";
 import { progressGeom } from "../ui/character/progress.js";
@@ -15,7 +15,7 @@ import { G } from "../../core/active.js";
 import { mode } from "../flow.js";
 
 // SPEC-027 (тесты): модель маленького — номер в littles или «p1» / «p2» (превью гардероба, из кэша)
-export const outfitModel = who => (typeof who === "number" ? G.littles[who] && G.littles[who].model : previewCache.get("L" + JSON.stringify(makeLook(skinSel[who]))));
+export const outfitModel = who => (typeof who === "number" ? modelOf(G.littles[who]) : previewCache.get("L" + JSON.stringify(makeLook(skinSel[who]))));
 // ---------- Превью нарядов (рисуется в «окошки» UI-слоя) ----------
 const previewScene = new THREE.Scene();
 

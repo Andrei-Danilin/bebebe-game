@@ -6,6 +6,7 @@
     "test": "playwright test",
     "test:smoke": "playwright test tests/smoke.spec.js",
     "test:fast": "playwright test --grep @fast",
+    "test:core": "node --test \"tests/core/*.test.mjs\"",
     "test:headed": "playwright test --headed",
     "claude:sync": "node scripts/claude-sync.js",
     "icons": "node scripts/make-icons.js",

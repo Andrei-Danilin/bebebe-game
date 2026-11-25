@@ -414,7 +414,7 @@ test("Dad's mood shows: angry red with steam and a dark cloud, mid orange-pink w
   // a costume that is not a human face (the ogre) keeps its colour; the steam still shows
   await page.evaluate(() => { const b = window.__bb; while (b.wardrobe().big[b.outfits.shown.big].id !== "ogre") b.cycleBig(1); });
   m = await moodAt("park", 3, 1);
-  const ogre = await page.evaluate(() => window.__bb.big.model.faceBase);
+  const ogre = await page.evaluate(() => window.__bb.model("big").faceBase);
   soft([m.mood, m.face], "the ogre: angry, green as ever").toEqual(["angry", ogre]);
   soft(m.sprites.includes("fx_storm_cloud"), "the ogre: the cloud still shows").toBe(true);
   await page.evaluate(() => { const b = window.__bb; while (b.wardrobe().big[b.outfits.shown.big].id !== "dad") b.cycleBig(1); });
@@ -424,7 +424,7 @@ test("Dad's mood shows: angry red with steam and a dark cloud, mid orange-pink w
   // the blush of a kiss still works on top (the emissive of the face), and lying after a banana shows nothing over his head
   const k = await page.evaluate(() => { const b = window.__bb; b.big.blush = 2; return 0; });
   await frames(page);
-  soft(await page.evaluate(() => window.__bb.big.model.cheeks.visible), "blush cheeks on top of the mood").toBe(true);
+  soft(await page.evaluate(() => window.__bb.model("big").cheeks.visible), "blush cheeks on top of the mood").toBe(true);
   await page.evaluate(() => { const b = window.__bb; b.big.blush = 0; b.big.slip = 2; });
   await frames(page);
   soft((await page.evaluate(() => window.__bb.moodInfo)).sprites, "lying: nothing over his head").toEqual([]);
@@ -443,7 +443,7 @@ test("the kind dad smiles, blushes and waves on his way home", async ({ desk: pa
   });
   await frames(page);
   const r = await page.evaluate(() => {
-    const b = window.__bb, m = b.big.model;
+    const b = window.__bb, m = b.model("big");
     return { kind: b.big.kind, cheeks: m.cheeks.visible, smile: Math.abs(Math.abs(m.face.mouth.rotation.z) - Math.PI) < 0.01, wave: m.arms[0].rotation.z,
       face: "#" + m.headMat.color.getHexString(), base: m.faceBase, mood: b.moodInfo.mood, sprites: b.moodInfo.sprites };
   });

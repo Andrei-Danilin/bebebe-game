@@ -45,7 +45,7 @@ export function newGame(opts = {}) {
     // SPEC-029: тренировка (practice.js): её номер (0 — обычный уровень), сценарий и подсказки, свой запас
     tutorialGame: 0, tut: { script: false, hint: 0, bothDown: 0 }, tutorialInv: { kisses: 0, rescues: 0, mittens: 0, mega: 0 },
     // SPEC-008: автопилот (autopilot.js): включён ли, стиль, память пути, «стик» этого шага
-    autoOn: false, autoStyle: "careful", autoNavs: new Map(), autoMove: [],
+    autoOn: false, autoStyle: "careful", autoNavs: {}, autoMove: [],
     // SPEC-008 / SPEC-012: игровая случайность этой игры (mulberry32: состояние s, сколько раз тянули)
     rng: opts.rng ?? newRng(opts.seed)
   };
@@ -111,7 +111,7 @@ export function buildGame(world, n, players, { looks, upgrades = progress.upgrad
   G.heardHintT = 0; G.heardHintDone = false;
   G.attackToken = null; G.prevToken = null; G.botAttackCd = rand(3, 5);
   G.stats = { hugs: 0, time: 0, playerHugs: 0, rests: 0, starCoins: 0 };
-  G.autoNavs = new Map(); G.autoMove = [];
+  G.autoNavs = {}; G.autoMove = [];
   if (G.tutorialGame) tutorialSetup();                       // SPEC-029: тренировка — папа на поляне, сценарий, подсказки, свой запас
   hooks.rebuild();
 }

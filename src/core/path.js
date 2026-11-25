@@ -23,7 +23,7 @@ function nearestFree(idx, grid = G.blocked) {
   }
   return idx;
 }
-const DIRS = [[1, 0, 1], [-1, 0, 1], [0, 1, 1], [0, -1, 1], [1, 1, 1.414], [1, -1, 1.414], [-1, 1, 1.414], [-1, -1, 1.414]];
+const DIRS = Object.freeze([[1, 0, 1], [-1, 0, 1], [0, 1, 1], [0, -1, 1], [1, 1, 1.414], [1, -1, 1.414], [-1, 1, 1.414], [-1, -1, 1.414]]);
 export function findPath(sx, sy, gx, gy, extraCost, grid = G.blocked) {
   const N = COLS * ROWS;
   const s = nearestFree(cellIdx(sx, sy), grid), g = nearestFree(cellIdx(gx, gy), grid);

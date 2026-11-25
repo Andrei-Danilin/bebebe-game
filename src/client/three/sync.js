@@ -12,7 +12,7 @@ import { LOOK } from "../look.js";
 import { CSS_H, CSS_W, PHONE } from "../screen.js";
 import { ui } from "../state.js";
 import { cam, camDist } from "./camera.js";
-import { bossScale, setBigFace, setCloak } from "./characters.js";
+import { bossScale, modelOf, setBigFace, setCloak } from "./characters.js";
 import { fadeRoofs } from "./houses.js";
 import { bigHomeMats, fadeBushes, fadeTrees, safeGlow, snow, waves } from "./map3d.js";
 import { disposeTree, ownMat, part, sphere, syncPaper, toon } from "./materials.js";
@@ -173,7 +173,7 @@ function syncKisses(t) {
 // ---------- Анимация каждый кадр ----------
 const swing = (m, a) => { m.legs[0].rotation.x = a; m.legs[1].rotation.x = -a; m.arms[0].rotation.x = -a * 0.8; m.arms[1].rotation.x = a * 0.8; };
 function syncLittle(l, t) {
-  const m = l.model, down = l.state === "down", going = l.state === "home", resting = l.state === "rest";
+  const m = modelOf(l), down = l.state === "down", going = l.state === "home", resting = l.state === "rest";
   m.root.visible = !(l.invuln > 0 && Math.floor(t * 12) % 2);
   m.ghost.visible = false;
   m.root.position.set(P(l.x), 0, P(l.y));
@@ -243,7 +243,7 @@ function syncLittle(l, t) {
 // SPEC-022: настроение на экране: злой / средний / добреет (bigMood), подобрел и идёт домой — "happy" (лицо как у образа)
 export const moodOf = b => (b.kind ? "happy" : bigMood());
 function syncBig(b, t) {
-  const m = b.model;
+  const m = modelOf(b);
   const mood = moodOf(b);
   if (m.mood !== mood) {                                   // перекрашиваем только при смене; лицо не человека (огр, робот, медведь) — своё
     m.mood = mood; setBigFace(m, m.moodFace ? LOOK.MOOD_LOOK.face[mood] ?? null : null);

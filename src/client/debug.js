@@ -33,7 +33,7 @@ import { CSS_H, CSS_W, isStandalone, PHONE, sim, simMode, UH, UW } from "./scree
 import { buyGloves, buyKisses, buyRescueKit, buyUpgrade, setEquip } from "./shop.js";
 import { ui } from "./state.js";
 import { cam, camDist, camLook, camRect, camSnap, toScreen, updateCamera } from "./three/camera.js";
-import { setBigFace } from "./three/characters.js";
+import { modelOf, setBigFace } from "./three/characters.js";
 import { look3D } from "./three/look3d.js";
 import { mapGroup } from "./three/map3d.js";
 import { groundCanvas, OUTLINE } from "./three/materials.js";
@@ -70,7 +70,7 @@ const CFG_ALL = new Proxy({}, {
 // ошибку, чтобы визуальный тест, открытый в sim, падал громко, а не проверял пустоту.
 const SIM_DRAWN = ["buttonRects", "buttonNames", "tapButton", "hudRects", "mapInfo", "levelCard", "storyInfo", "textSizes", "minimap",
   "bannerRect", "rotateShown", "winPanel", "winLine", "bonusNote", "shopLayout", "kitHint", "heardHint", "edgeArrows", "stickMarks",
-  "tapLines", "textOverflows", "tutorialHint", "homeInfo", "progressInfo", "outfit3D", "bibClear", "mapPieces", "groundColorAt", "camera", "minimapAlpha", "artUse", "sceneInfo", "moodInfo", "bigLook", "look3D", "drawNow"];
+  "tapLines", "textOverflows", "tutorialHint", "homeInfo", "progressInfo", "outfit3D", "bibClear", "mapPieces", "groundColorAt", "camera", "minimapAlpha", "artUse", "sceneInfo", "moodInfo", "bigLook", "look3D", "drawNow", "model"];
 
 // called once by main.js, in the start order of the one-file game
 export function installDebug() {
@@ -111,8 +111,11 @@ export function installDebug() {
     get sceneInfo() { return ui.sceneInfo && { ...ui.sceneInfo }; }, drawNow() { drawUI(ui.T); }, bossFor,   // SPEC-031: drawNow — нарисовать слой интерфейса сейчас (тест раскладки рисует много экранов за один evaluate)
     BOSSES, BOSS_LOOKS, bigCalm, KID_HEAD_R, LITTLE_SCALE,   // SPEC-021 размеры героев (тест look3d)
     // SPEC-022: вид Большого в 3D (для тестов): образ, босс и его детали, масштаб, цвета футболки и штанов
-    bigLook() { const m = G.big && G.big.model; return m ? { look: m.look, boss: m.boss || null, parts: Object.keys(m.bossParts || {}), scale: m.rig.scale.x,
+    bigLook() { const m = modelOf(G.big); return m ? { look: m.look, boss: m.boss || null, parts: Object.keys(m.bossParts || {}), scale: m.rig.scale.x,
       shirt: "#" + m.mats.shirt.color.getHexString(), pants: "#" + m.mats.pants.color.getHexString() } : null; }, get moodInfo() { return ui.moodInfo && { ...ui.moodInfo, sprites: [...ui.moodInfo.sprites] }; },   // SPEC-017: главы истории (живой список), экран истории этого кадра
+    // SPEC-012 AC 1b: the 3D model of Little One i or of the Big One ("big") — models are kept by the client, not on the entities
+    model: who => modelOf(who === "big" ? G.big : G.littles[who]) || null,
+    get game() { return G; },   // SPEC-012: the active game (plain data)
     tapButton(id) { const q = ui.buttons.find(r => (r.id || r.act.name) === id); if (q) q.act(); return !!q; },
     LANGS, detectLang, get lang() { return lang; },   // SPEC-028: языки по порядку значка 🌐, язык при запуске (чистая), текущий язык
     update, inSafe, I18N, startGame, resetWorld, cycleOutfit, randomOutfit, cycleBig, setLang, toScreen,

@@ -3,7 +3,7 @@
 
 import * as THREE from "three";
 import { CELL, COLS, ROWS, W } from "../../core/config.js";
-import { charGroup } from "./characters.js";
+import { charGroup, modelOf } from "./characters.js";
 import { houseInfo, houseRoofs } from "./houses.js";
 import { mapGroup } from "./map3d.js";
 import { gradTex, groundCanvas, paperMade, paperMat, paperMesh, paperU } from "./materials.js";
@@ -81,8 +81,9 @@ const LOOK_PARTS = {
       kid: houseInfo.kid && { ...houseInfo.kid, fade: undefined, alpha: houseInfo.kid.fade.a, glow: houseInfo.kid.fade.glowNow || 0 },
       big: houseInfo.big && { ...houseInfo.big, fade: undefined, alpha: houseInfo.big.fade.a } },
     roofHides: G.littles.map(l => {                       // луч от камеры к голове маленького: упирается ли в непрозрачную крышу
-      if (!l.model) return false;
-      const head = l.model.head.getWorldPosition(new THREE.Vector3()), dir = head.clone().sub(camera.position), dist = dir.length();
+      const m = modelOf(l);
+      if (!m) return false;
+      const head = m.head.getWorldPosition(new THREE.Vector3()), dir = head.clone().sub(camera.position), dist = dir.length();
       const hits = new THREE.Raycaster(camera.position.clone(), dir.normalize(), 0, dist).intersectObjects(houseRoofs.flatMap(hr => hr.meshes), false);
       return hits.some(h => h.object.visible && h.object.material.opacity > 0.5);
     }) }),

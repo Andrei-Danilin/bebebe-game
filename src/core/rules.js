@@ -292,7 +292,7 @@ export function checkContacts() {
   }
 }
 // ---------- Спасалка 🩹 (SPEC-007): игрок сразу встаёт там, где он есть — лёжа, по дороге в домик или отдыхая ----------
-const KIT_STATES = ["down", "home", "rest"];
+const KIT_STATES = Object.freeze(["down", "home", "rest"]);
 // одно правило для кнопки, подсказки и useRescueKit: идёт игра (победа ещё не наступает), игрок лежит/хромает/отдыхает;
 // пауза — у клиента (SPEC-012: canKitNow, kitNow в flow.js)
 export const canUseKit = l => G.phase !== "won" && G.pendingWin <= 0 && !!l && l.kind === "player" && KIT_STATES.includes(l.state) && gameInv().rescues > 0;
