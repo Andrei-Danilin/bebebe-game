@@ -36,6 +36,14 @@ test("the built site has the listed files and everything sw.js precaches", { tag
   expect(local && local.length, "PRECACHE_LOCAL read from sw.js").toBeGreaterThan(3);
   expect(art && art.length, "PRECACHE_ASSETS read from sw.js").toBeGreaterThan(10);
   expect([...local, ...art].filter(rel => !fs.existsSync(fileOf(rel))), "precached but missing from the site").toEqual([]);
+  // SPEC-011 AC 10: the ES modules are deployed — every versioned module sw.js precaches and every module the shell's import
+  // map names is a file of the site
+  const mods = swList(sw, "PRECACHE_SRC");
+  expect(mods && mods.length, "PRECACHE_SRC read from sw.js").toBeGreaterThan(20);
+  const map = JSON.parse(fs.readFileSync(path.join(out, "index.html"), "utf8").match(/<script type="importmap">([\s\S]*?)<\/script>/)[1]).imports;
+  const mapped = Object.entries(map).filter(([k]) => k.startsWith("./")).map(([, v]) => v);
+  expect(mapped.length).toBe(mods.length);
+  expect([...mods, ...mapped].map(u => u.replace(/\?v=.*$/, "")).filter(rel => !fs.existsSync(fileOf(rel))), "modules missing from the site").toEqual([]);
 });
 
 test("the game runs from the built site and asks only for files that are in it", async ({ page }) => {

@@ -1,0 +1,28 @@
+{
+  "about": "SPEC-011 AC 7: the stocked save of the 'same seed, same game after the split' baseline (tests/modules.spec.js, tests/fixtures/events-baseline.json): kisses, rescue kits, mittens and mega mittens equipped for both players, every upgrade at level 1 or more, some clothes owned, Park 1-3 won. The current shape (SPEC-029 and later). The baseline runs load bebebe-progress with __bb.setProgress, as scripts/balance.js runLevel does.",
+  "keys": {
+    "bebebe-progress": {
+      "worlds": {
+        "park": { "unlocked": 4, "stars": { "1": 3, "2": 2, "3": 1 }, "won": { "1": true, "2": true, "3": true } }
+      },
+      "lastWorld": "park",
+      "coins": 480,
+      "inv": { "mittens": 4, "mega": 3, "kisses": 8, "rescues": 4 },
+      "equip": ["mittens", "mega"],
+      "owned": { "hats": ["glasses"], "jackets": ["teal"], "pants": ["purple"], "big": ["captain"] },
+      "upgrades": { "fastFeet": 1, "longItems": 2, "quickHelp": 3 },
+      "seen": { "intro": true, "boss_park": true, "boss_field": false, "boss_city": false, "boss_school": false, "bonus_beach": false, "bonus_winter": false, "ending": false, "tutorial": true }
+    },
+    "bebebe-outfits": {
+      "p1": { "hair": 2, "hat": 1, "jacket": 3, "pants": 2 },
+      "p2": { "hair": 4, "hat": 0, "jacket": 1, "pants": 0 },
+      "big": 3,
+      "v": 2
+    },
+    "bebebe-names": { "p1": "Mila", "p2": "Tomás", "big": "Papá", "bots": ["Sol", "", "Тёма", ""] },
+    "bebebe-lang": "en"
+  },
+  "expect": {
+    "progress": {"worlds":{"park":{"unlocked":4,"stars":{"1":3,"2":2,"3":1},"won":{"1":true,"2":true,"3":true}},"field":{"unlocked":1,"stars":{},"won":{}},"city":{"unlocked":1,"stars":{},"won":{}},"school":{"unlocked":1,"stars":{},"won":{}},"beach":{"unlocked":1,"stars":{},"won":{}},"winter":{"unlocked":1,"stars":{},"won":{}}},"lastWorld":"park","coins":480,"inv":{"mittens":4,"mega":3,"kisses":8,"rescues":4},"equip":["mittens","mega"],"owned":{"hats":["glasses"],"jackets":["teal"],"pants":["purple"],"big":["captain"]},"upgrades":{"fastFeet":1,"longItems":2,"quickHelp":3},"seen":{"intro":true,"boss_park":true,"boss_field":false,"boss_city":false,"boss_school":false,"bonus_beach":false,"bonus_winter":false,"ending":false,"tutorial":true}}
+  }
+}

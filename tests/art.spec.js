@@ -2,12 +2,10 @@
 // art(name) is the picture or null, and null means "draw it with code as before" — so the game must work without art/
 // (the claude.ai single page has no assets/ folder, a phone may lose a file).
 const { test, expect } = require("./pw");   // SPEC-023: @playwright/test + failure screenshots
-const { LANGS, openGame, frames, step } = require("./helpers");
+const { LANGS, openGame, frames, step, gameSource } = require("./helpers");
 
 const failedLoads = e => e.includes("Failed to load resource") || e.includes("ERR_");
-const fs = require("fs");
-const path = require("path");
-const INDEX_SRC = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+const INDEX_SRC = gameSource();   // SPEC-011 AC 8c: index.html and src/**
 
 // SPEC-020 review: every art name the code can ask for exists — the tables (__bb.artTableNames) and the literal names in
 // index.html (art("…"), drawArt…("…", …), ITEM_ART-like tables are covered by the first list)

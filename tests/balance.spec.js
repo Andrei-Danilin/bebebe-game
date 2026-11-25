@@ -3,7 +3,7 @@ const base = require("./pw");   // SPEC-023: @playwright/test + failure screensh
 const { expect } = base;
 const path = require("path");
 const fs = require("fs");
-const { openSim, frames, sharedPage, resetGame, ROOT } = require("./helpers");
+const { openSim, frames, sharedPage, resetGame, gameSource, ROOT } = require("./helpers");
 
 // two real animation frames without the sim guard of frames() (SPEC-023): the sim test below checks that frames pass
 // and nothing is drawn
@@ -28,9 +28,9 @@ test.afterAll(async () => { await shared.close(); });
 // ---------- AC 1: all gameplay randomness goes through one seeded rng() ----------
 test("same seed, same game", { tag: "@fast" }, async ({ page }) => {
   // Math.random only in the helpers: the unseeded seed of rng() and the visual helper vrand()
-  const src = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
+  const src = gameSource();   // SPEC-011 AC 8c: index.html and src/** (rng() and vrand() live in src/core/util.js)
   const uses = src.split("\n").map((s, i) => [i + 1, s]).filter(([, s]) => s.includes("Math.random") && !s.trim().startsWith("//"));
-  const bad = uses.filter(([, s]) => !/^\s*(let rngNext = mulberry32\(|const vrand = )/.test(s)).map(([n, s]) => `index.html:${n}: ${s.trim()}`);
+  const bad = uses.filter(([, s]) => !/^\s*(export )?(let rngNext = mulberry32\(|const vrand = )/.test(s)).map(([n, s]) => `game code line ${n}: ${s.trim()}`);
   expect(bad, "Math.random outside rng()/vrand():\n" + bad.join("\n")).toEqual([]);
   expect(uses.length).toBe(2);
   // the tests run with the strict guard (openGame): level/3D code that used the gameplay rng() throws here;
@@ -362,7 +362,7 @@ test("the careful autopilot uses rescue kits and air kisses when it has them", a
 // no 2-minute stretch without any event (stuck), the event log not overflowing, no page errors (the fixture).
 const { runLevel } = require("../scripts/balance.js");
 const { readValue } = require("../scripts/docs-numbers.js");
-const CFG_SRC = readValue(fs.readFileSync(path.join(ROOT, "index.html"), "utf8"), "CFG"), BAL = CFG_SRC.BALANCE;
+const CFG_SRC = readValue(fs.readFileSync(path.join(ROOT, "src", "core", "config.js"), "utf8"), "CFG"), BAL = CFG_SRC.BALANCE;
 // SPEC-008 AC 14 (SPEC-016: six worlds): every world has at least an early and a maze level in the sample. Read from the source,
 // no page; the worlds are the keys of CFG.WORLD_DIFFICULTY (levels.spec.js checks they are exactly WORLDS)
 test("the CI sample has two levels in every world", { tag: "@fast" }, () => {

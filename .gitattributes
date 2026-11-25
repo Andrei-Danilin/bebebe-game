@@ -1,2 +1,8 @@
 # Binary files: never normalise line endings
 *.webp binary
+# SPEC-011: the ES modules are served and hashed (npm run precache) as LF on every machine
+src/** text eol=lf
+*.js text eol=lf
+*.html text eol=lf
+*.json text eol=lf
+*.md text eol=lf

@@ -1,5 +1,6 @@
 // SPEC-008 AC 11: writes the numbers section of docs/game-design.md from the code (Node, no browser).
-// Reads the source of the objects in OBJECTS from index.html, evaluates each object literal on its own and writes one
+// Reads the source of the objects in OBJECTS from src/core/config.js and src/client/look.js (SPEC-011; the look/UI keys of CFG
+// are LOOK there and are listed under CFG here), evaluates each object literal on its own and writes one
 // table row per top-level key — value and a one-line meaning taken from the source comment — between
 // <!-- numbers:start --> and <!-- numbers:end -->.
 //   npm run docs:numbers            rewrite the section
@@ -15,7 +16,10 @@ const MEANING_MAX = 200;
 const SMALL_OBJECT = 5;   // keys — an object this small may share one comment above it
 
 const ROOT = path.resolve(__dirname, "..");
-const INDEX = path.join(ROOT, "index.html");
+// SPEC-011 AC 2c: the core numbers and the look/UI numbers (LOOK, listed as CFG keys)
+const SOURCES = [path.join(ROOT, "src", "core", "config.js"), path.join(ROOT, "src", "client", "look.js")];
+const PARTS = { CFG: ["CFG", "LOOK"] };
+const source = () => SOURCES.map(f => fs.readFileSync(f, "utf8")).join("\n");
 const DOC = path.join(ROOT, "docs", "game-design.md");
 
 // Scans JS source from `from` (an opening { or [) and returns { end, keys }: the index after the matching bracket and the
@@ -101,8 +105,9 @@ const lf = s => s.replace(/\r\n/g, "\n");
 function rows(src, objects = OBJECTS) {
   src = lf(src);
   const out = [];
-  for (const name of objects) {
-    const o = readObject(src, name), obj = new Function(`return (${o.text});`)();
+  for (const name of objects) for (const part of PARTS[name] || [name]) {
+    if (part !== name && !new RegExp(String.raw`(?:^|\n)[ \t]*(?:export\s+)?const ${part}\s*=`).test(src)) continue;
+    const o = readObject(src, part), obj = new Function(`return (${o.text});`)();
     for (const { name: k, at } of o.keys) {
       const desc = Object.getOwnPropertyDescriptor(obj, k);
       let value;
@@ -121,10 +126,10 @@ function rows(src, objects = OBJECTS) {
   return out;
 }
 
-// The section between the markers (including the line breaks next to them), generated from the index.html source.
+// The section between the markers (including the line breaks next to them), generated from the config sources (source()).
 function render(src) {
   return ["",
-    "Генерируется из `index.html` командой `npm run docs:numbers` — руками не править (тест `tests/invariants.spec.js` следит). " +
+    "Генерируется из `src/core/config.js` и `src/client/look.js` (ключи вида — объект `LOOK`, здесь под `CFG`) командой `npm run docs:numbers` — руками не править (тест `tests/invariants.spec.js` следит). " +
     "Объекты: " + OBJECTS.map(o => "`" + o + "`").join(", ") + ". «derived» — вычисляется из других чисел; функция показана формулой; " +
     "вложенный объект — одной строкой.",
     "",
@@ -146,7 +151,7 @@ function sectionKeys(doc) {
 }
 
 if (require.main === module) {
-  const src = fs.readFileSync(INDEX, "utf8"), raw = fs.readFileSync(DOC, "utf8"), eol = raw.includes("\r\n") ? "\r\n" : "\n";
+  const src = source(), raw = fs.readFileSync(DOC, "utf8"), eol = raw.includes("\r\n") ? "\r\n" : "\n";
   const doc = lf(raw), cur = section(doc);
   if (cur === null) { console.error(`docs/game-design.md has no ${START} … ${END} markers`); process.exit(1); }
   const next = render(src);
@@ -164,4 +169,4 @@ if (require.main === module) {
 // The value of one object of the source (e.g. CFG) — for Node scripts and tests that need the numbers without a browser
 const readValue = (src, name) => new Function(`return (${readObject(lf(src), name).text});`)();
 
-module.exports = { render, rows, section, sectionKeys, readValue, OBJECTS };
+module.exports = { render, rows, section, sectionKeys, readValue, source, OBJECTS };
