@@ -1,6 +1,6 @@
 // SPEC-019 / SPEC-011: the Big One hears running feet. Core module.
 import { CELL, CFG } from "./config.js";
-import { angDiff, dist, normAng, rand } from "./util.js";
+import { angDiff, dist, normAng, rand, rng } from "./util.js";
 import { emit, logEvent } from "./game.js";
 import { inSafe, los, seeSolidAt } from "./world.js";
 import { G } from "./active.js";
@@ -35,7 +35,15 @@ export function hearNoise(dt) {
   }
   G.big.noise = add > 0 ? G.big.noise + add : Math.max(0, G.big.noise - CFG.NOISE_DECAY * dt);
   if (G.big.noise < CFG.NOISE_TURN || !loud) return;
-  const a = Math.atan2(loud.y - G.big.y, loud.x - G.big.x);
+  // SPEC-032: не всегда слышит — с вероятностью HEAR_CHANCE (тренировка 1 — TUTORIAL.hearChance); шанс 1 — без броска (игра до SPEC-032).
+  // Не расслышал: шум сброшен, HEAR_MISS_COOLDOWN сек снова не слышит, не оборачивается
+  const chance = G.tutorialGame === 1 ? CFG.TUTORIAL.hearChance : CFG.HEAR_CHANCE;
+  if (chance < 1 && rng() >= chance) {
+    G.big.noise = 0; G.big.hearCd = CFG.HEAR_MISS_COOLDOWN;
+    logEvent("hearMiss", { who: loud.id, kind: loud.kind });
+    return;
+  }
+  const a =Math.atan2(loud.y - G.big.y, loud.x - G.big.x);
   G.big.noise = 0; G.big.hearCd = CFG.HEAR_COOLDOWN;
   G.big.hearFace = a; G.big.hearTurnT = CFG.HEAR_TURN_TIME; G.big.hearRate = Math.abs(normAng(a - G.big.dir)) / CFG.HEAR_TURN_TIME;
   G.big.hearLook = rand(CFG.HEAR_LOOK[0], CFG.HEAR_LOOK[1]);

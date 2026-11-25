@@ -161,9 +161,16 @@ const firstDiff = (want, got, name) => {
 const NEW_EVENT_TYPES = ["spent", "result", "practiceWin"];
 // SPEC-012 AC 6b (review): the star's coins event now names the slot that picked the star — compared without that one new field
 const withoutStarSlot = e => { if (e.type !== "coins" || e.reason !== "star") return e; const { slot, ...rest } = e; return rest; };
+// SPEC-032 changed hearing on purpose (HEAR_CHANCE 0.6, HEAR_TURN_TIME 0.35): the recorded game is played with the old hearing,
+// which CFG still reaches (HEAR_CHANCE 1 draws no rng) — so the reference stays the same and proves nothing else changed
+const OLD_HEARING = { HEAR_CHANCE: 1, HEAR_TURN_TIME: 0.15 };
 test("same seed, same game after the split", async ({ page }) => {
   test.setTimeout(180_000);
   const errors = await openGame(page, { sim: true });
+  const keep = await page.evaluate(old => { const C = window.__bb.CFG, k = {}; for (const n of Object.keys(old)) { k[n] = C[n]; C[n] = old[n]; } return k; }, OLD_HEARING);
+  try { await sameGame(page, errors); } finally { await page.evaluate(k => { Object.assign(window.__bb.CFG, k); }, keep); }
+});
+async function sameGame(page, errors) {
   const save = readJson(path.join(SAVES_DIR, "baseline-stocked.json")).keys["bebebe-progress"];
   const runs = [];
   for (const [world, n, players] of BASELINE_RUNS) runs.push(await page.evaluate(baselineRun, { world, n, players, save, ...BASELINE }));
@@ -201,7 +208,7 @@ test("same seed, same game after the split", async ({ page }) => {
   // a reference that tests something: the stock and the main rules are used
   const types = new Set(ref.runs.flatMap(r => r.events.map(e => e.type)));
   expect(["hug", "push", "down", "item", "kiss", "kit"].filter(t => !types.has(t)), "event types the baseline never saw").toEqual([]);
-});
+}
 
 // AC 5b: every save fixture through a real page reload (the game's own start-up load) gives what it gave on the unchanged
 // game: progress, the outfits shown and saved, the names, the language, the world and level the menu is on, the screen,
