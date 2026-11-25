@@ -1,5 +1,6 @@
 // Service worker of BeBeBe Atrapar: the installed app keeps working offline after the first open.
-// SPEC-011 AC 9: three caches, so a code deploy re-downloads no sprites and a sprite change no code:
+// SPEC-011 AC 9: three caches, so a code deploy re-downloads no sprites and a sprite-only deploy no code (an install finds the
+// complete src cache of its SRC_HASH and keeps it):
 //   <SW_VERSION>-src-<SRC_HASH>     the shell (index.html, manifest, icons) + the game's ES modules, written only at install
 //                                   (plus the shell rule below); complete when its "installed" marker is there;
 //   <SW_VERSION>-assets-<ASSETS_HASH>  the art sprites (assets/, listed by npm run assets);
@@ -18,16 +19,16 @@ const NET_TIMEOUT_MS = 4000;             // weak signal: after this long, a cach
 const THREE_BASE = "https://cdn.jsdelivr.net/npm/three@0.187.0/build/";
 // SPEC-011: written by npm run precache (scripts/precache.js) — do not edit by hand
 // precache:start
-const SRC_HASH = "a0c02b2d3f";
+const SRC_HASH = "a2b5fbb2c5";
 const PRECACHE_LOCAL = [
-  "./", "./index.html", "./manifest.webmanifest", "./icons/apple-touch-icon.png", "./icons/icon-192.png",
-  "./icons/icon-512-maskable.png", "./icons/icon-512.png", "./icons/icon.svg"
+  "./", "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512-maskable.png",
+  "./icons/icon-512.png", "./icons/icon.svg", "./index.html", "./manifest.webmanifest"
 ];
 const PRECACHE_SRC = [
   "./src/client/art-names.js?v=7228f7f839", "./src/client/look.js?v=6b3f0ae3e3",
   "./src/core/autopilot.js?v=f62807a252", "./src/core/big.js?v=f5caddcc69", "./src/core/bots.js?v=3816176aa9",
-  "./src/core/config.js?v=3409a82f50", "./src/core/difficulty.js?v=d289c6f89d", "./src/core/economy.js?v=56dc2c8d89",
-  "./src/core/game.js?v=4b759de4d9", "./src/core/hearing.js?v=d3484b3404", "./src/core/hooks.js?v=3d83dff9cc",
+  "./src/core/config.js?v=518df17882", "./src/core/difficulty.js?v=d289c6f89d", "./src/core/economy.js?v=56dc2c8d89",
+  "./src/core/game.js?v=03880750aa", "./src/core/hearing.js?v=d3484b3404", "./src/core/hooks.js?v=3d83dff9cc",
   "./src/core/index.js?v=1c5be51a5b", "./src/core/level/build.js?v=d67a9b12cd",
   "./src/core/level/generate.js?v=455b2ff4e4", "./src/core/level/layouts.js?v=35c82d01f0",
   "./src/core/level/validate.js?v=e551cb4d78", "./src/core/mood.js?v=811aaf8d08", "./src/core/path.js?v=8d09ea0e2c",
@@ -99,12 +100,26 @@ const isComplete = async name => (await caches.has(name)) && !!(await (await cac
 
 self.addEventListener("install", event => {
   event.waitUntil((async () => {
-    // the game itself: all or nothing, and the shell must be the one of these modules (a deploy in between → no install)
+    // the shell first, before anything is written: both its URLs must be the shell of these modules (a deploy in between, or
+    // a half-deployed site → no install; the active version and its caches stay as they are)
+    const shellUrls = ["./", "./index.html"];
+    const shells = await Promise.all(shellUrls.map(u => fetch(new Request(u, { cache: "reload" }))));
+    const texts = await Promise.all(shells.map(r => (r.ok ? r.clone().text() : "")));
+    if (texts.some(t => srcHashOf(t) !== SRC_HASH)) throw new Error("the shell is not the one of these modules");
+    // the game itself: all or nothing. A complete cache of this SRC_HASH already there (a sprite-only or three.js deploy) is
+    // kept and only gets the fresh shell (same SRC_HASH): no code is downloaded again
+    const existed = await caches.has(CACHE_SRC), complete = await isComplete(CACHE_SRC);
     const src = await caches.open(CACHE_SRC);
-    await src.addAll([...PRECACHE_LOCAL, ...PRECACHE_SRC].map(u => new Request(u, { cache: "reload" })));
-    const shell = await src.match(SCOPE_ROOT);
-    if (!shell || srcHashOf(await shell.text()) !== SRC_HASH) { await caches.delete(CACHE_SRC); throw new Error("the shell is not the one of these modules"); }
-    await src.put(INSTALLED, new Response("1"));
+    if (!complete) {
+      try {
+        await src.addAll([...PRECACHE_LOCAL.filter(u => !shellUrls.includes(u)), ...PRECACHE_SRC].map(u => new Request(u, { cache: "reload" })));
+      } catch (e) {
+        if (!existed) await caches.delete(CACHE_SRC);     // only a cache this install made (never a complete one)
+        throw e;
+      }
+    }
+    await Promise.all(shellUrls.map((u, i) => src.put(u, shells[i])));
+    if (!complete) await src.put(INSTALLED, new Response("1"));
     // three.js: only what this version's cache does not have yet
     const three = await caches.open(CACHE_THREE);
     const missing = [];
@@ -124,7 +139,11 @@ self.addEventListener("activate", event => {
     const mine = [CACHE_SRC, CACHE_ASSETS, CACHE_THREE];
     const names = (await caches.keys()).filter(n => n.startsWith(CACHE_PREFIX) && !mine.includes(n));   // in creation order
     const keep = new Set();
-    for (const kind of ["src", "assets", "three"]) names.filter(n => kindOf(n) === kind).slice(-(KEEP - 1)).forEach(n => keep.add(n));
+    // the previous src cache kept is a complete one (with its marker): an unfinished install's cache is useless to an old page
+    const complete = [];
+    for (const n of names.filter(x => kindOf(x) === "src")) if (await isComplete(n)) complete.push(n);
+    complete.slice(-(KEEP - 1)).forEach(n => keep.add(n));
+    for (const kind of ["assets", "three"]) names.filter(n => kindOf(n) === kind).slice(-(KEEP - 1)).forEach(n => keep.add(n));
     await Promise.all(names.filter(n => !keep.has(n)).map(n => caches.delete(n)));
     await self.clients.claim();
   })());

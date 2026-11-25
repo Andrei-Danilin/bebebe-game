@@ -55,6 +55,8 @@ function makeLittle(i, kind, botIndex, controls, look, upgrades) {
 // Большой. looks — виды от клиента: { players: [вид p1, вид p2], bots: [вид бота 0, 1, …], big: образ Большого } (игра их только
 // носит); upgrades — уровни улучшений игроков. Не чистая: тянет игровой rng() (те же вызовы в том же порядке, что раньше).
 // Тренировка (tutorialGame) строит свою карту и сценарий. В конце — hooks.rebuild (клиент строит 3D)
+// маленьких в команде (игроки + боты): 5; SPEC-029: в тренировке — игрок и бот (сценарий и спасение нужны хоть одному)
+export function teamSize() { return tutorialGame ? 1 + Math.max(1, CFG.TUTORIAL.bots) : 5; }
 export function buildGame(world, n, players, { looks, upgrades = progress.upgrades }) {
   curWorld = world; level = n; numPlayers = players;
   if (tutorialGame) applyTutorialMap(); else loadLevel(world, n);   // SPEC-029: тренировка — своя карта
@@ -65,7 +67,7 @@ export function buildGame(world, n, players, { looks, upgrades = progress.upgrad
   littles.push(makeLittle(0, "player", -1, p1, looks.players[0], upgrades));
   if (players === 2) littles.push(makeLittle(1, "player", -1, { up: ["ArrowUp"], down: ["ArrowDown"], left: ["ArrowLeft"], right: ["ArrowRight"] }, looks.players[1], upgrades));
   let bi = 0;
-  const team = tutorialGame ? 1 + Math.max(1, CFG.TUTORIAL.bots) : 5;   // SPEC-029: в тренировке — игрок и бот (сценарий и спасение нужны хоть одному)
+  const team = teamSize();
   while (littles.length < team) { littles.push(makeLittle(littles.length, "bot", bi, null, looks.bots[bi], upgrades)); bi++; }
   const maxHp = tutorialGame ? CFG.TUTORIAL["hearts" + tutorialGame] : difficulty(world, n).hearts;   // SPEC-029: тренировка — свои сердечки
   big = {

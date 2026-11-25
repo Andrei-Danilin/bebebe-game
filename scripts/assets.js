@@ -529,6 +529,9 @@ if (require.main === module) {
     const { ok } = report(rows, manifest);
     writeLists(manifest);
     console.log("src/client/art-names.js ART_NAMES and sw.js PRECACHE_ASSETS / ASSETS_HASH updated");
+    // SPEC-011 AC 9: art-names.js is a module — its hash in the import map and sw.js follows (npm run precache)
+    const pc = require("./precache.js").run();
+    console.log(`precache: SRC_HASH ${pc.srcHash}${pc.stale.length ? " — wrote " + pc.stale.join(", ") : " — up to date"}`);
     if (!ok) process.exitCode = 1;
   })().catch(e => { console.error(e.message || e); process.exit(1); });
 }

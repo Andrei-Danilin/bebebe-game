@@ -210,7 +210,7 @@ test("the import map pins every module to its hash", { tag: "@fast" }, () => {
   const map = JSON.parse(INDEX_SRC.match(/<script type="importmap">([\s\S]*?)<\/script>/)[1]).imports;
   const { modules, srcHash } = precache.lists();
   expect(Object.keys(map).sort()).toEqual(["three", ...modules.map(m => m.url)].sort());
-  for (const m of modules) expect(map[m.url], m.url).toBe(`${m.url}?v=${precache.hashOf(fs.readFileSync(path.join(ROOT, m.url)))}`);
+  for (const m of modules) expect(map[m.url], m.url).toBe(`${m.url}?v=${precache.fileHash(path.join(ROOT, m.url))}`);
   expect((INDEX_SRC.match(/<meta name="src-hash" content="([^"]+)">/) || [])[1], "index.html src-hash").toBe(srcHash);
   expect(SRC_HASH, "sw.js SRC_HASH").toBe(srcHash);
   expect(precache.run({ check: true }).stale, "run npm run precache").toEqual([]);
@@ -275,6 +275,35 @@ test("an offline launch after a half-installed update starts the old version", a
     await page.evaluate(() => { window.__bb.seedRandom(1); window.__bb.startGame(1); });
     await step(page, 2);
     expect(await page.evaluate(() => window.__bb.mode)).toBe("play");
+  });
+});
+
+// SPEC-011 review: a sprite-only deploy (same SRC_HASH, new ASSETS_HASH) keeps the complete code cache of the active version and
+// downloads no module; and an install whose shell check fails (a half-deployed site) writes and deletes nothing
+test("a sprite-only update keeps the code cache and downloads no module", async ({ page }) => {
+  test.slow();                       // installs another service worker
+  const ov = { fn: () => null }, asked = [];
+  const keys = () => page.evaluate(async () => (await caches.keys()).sort());
+  const srcState = () => page.evaluate(async n => { const c = await caches.open(n), k = await c.keys(); return { n: k.length, done: !!(await c.match("./__installed__")) }; }, CACHE_SRC);
+  const settled = () => page.evaluate(async () => { const r = await navigator.serviceWorker.getRegistration(); return !r.installing && !r.waiting; });
+  const update = () => page.evaluate(async () => { try { await (await navigator.serviceWorker.getRegistration()).update(); } catch (e) { /* a failed install */ } });
+  await withOwnServer(page, ov, async () => {
+    const before = await srcState(), names = await keys();
+    expect(before.done).toBe(true);
+    const next = SW_SRC.replace(`const ASSETS_HASH = "${ASSETS_HASH}";`, "const ASSETS_HASH = \"testart0001\";");
+    // 1. the site is half deployed: index.html belongs to another module set → the new worker does not install, nothing changes
+    const other = INDEX_SRC.replace(`<meta name="src-hash" content="${SRC_HASH}">`, "<meta name=\"src-hash\" content=\"someother9\">");
+    ov.fn = p => (p === "/sw.js" ? next : p === "/index.html" ? other : null);
+    await update();
+    await expect.poll(settled, { timeout: 30_000 }).toBe(true);
+    expect(await keys(), "no cache written or deleted").toEqual(names);
+    expect(await srcState()).toEqual(before);
+    // 2. the right shell → the new worker installs: a new sprite cache, the same complete code cache, no module downloaded
+    ov.fn = p => { if (p.startsWith("/src/")) asked.push(p); return p === "/sw.js" ? next : null; };
+    await update();
+    await expect.poll(keys, { timeout: 60_000 }).toEqual([...names, SW_VERSION + "-assets-testart0001"].sort());
+    expect(await srcState()).toEqual(before);
+    expect(asked, "modules downloaded by a sprite-only update").toEqual([]);
   });
 });
 

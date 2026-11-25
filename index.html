@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="BeBeBe">
 <meta name="theme-color" content="#faf4e2">
-<meta name="src-hash" content="a0c02b2d3f">
+<meta name="src-hash" content="a2b5fbb2c5">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -68,10 +68,10 @@
   "./src/core/autopilot.js": "./src/core/autopilot.js?v=f62807a252",
   "./src/core/big.js": "./src/core/big.js?v=f5caddcc69",
   "./src/core/bots.js": "./src/core/bots.js?v=3816176aa9",
-  "./src/core/config.js": "./src/core/config.js?v=3409a82f50",
+  "./src/core/config.js": "./src/core/config.js?v=518df17882",
   "./src/core/difficulty.js": "./src/core/difficulty.js?v=d289c6f89d",
   "./src/core/economy.js": "./src/core/economy.js?v=56dc2c8d89",
-  "./src/core/game.js": "./src/core/game.js?v=4b759de4d9",
+  "./src/core/game.js": "./src/core/game.js?v=03880750aa",
   "./src/core/hearing.js": "./src/core/hearing.js?v=d3484b3404",
   "./src/core/hooks.js": "./src/core/hooks.js?v=3d83dff9cc",
   "./src/core/index.js": "./src/core/index.js?v=1c5be51a5b",
@@ -104,7 +104,7 @@ import { RULE_ICONS, SCENE_IDS, STORY, TUTORIAL_SCENES } from "./src/story.js";
 import { autoMove, autoThink, autopilot } from "./src/core/autopilot.js";
 import { bigBoost, bigSpeeds, difficulty } from "./src/core/difficulty.js";
 import { gameInv, gloveOf, ledger, progress, saveProgress, setProgress, spendCoins } from "./src/core/economy.js";
-import { big, bonusStars, buildGame, curWorld, events, heardHintPi, heardHintT, items, kisses, kitHintPi, kitHintT, lastReward, level, littles, logEvent, mode, numPlayers, pendingWin, pushWaves, rewardDue, setEvents, setLastReward, setLevel, setMode, setPendingWin, setRewardDue, setWorld, simRun, stats, update, updateFx } from "./src/core/game.js";
+import { big, bonusStars, buildGame, curWorld, events, heardHintPi, heardHintT, items, kisses, kitHintPi, kitHintT, lastReward, level, littles, logEvent, mode, numPlayers, pendingWin, pushWaves, rewardDue, setEvents, setLastReward, setLevel, setMode, setPendingWin, setRewardDue, setWorld, simRun, stats, teamSize, update, updateFx } from "./src/core/game.js";
 import { audible, bigListens, bigMark, isRunning } from "./src/core/hearing.js";
 import { clearLevelCache, generateLevel, levelInfo } from "./src/core/level/build.js";
 import { levelType } from "./src/core/level/generate.js";
@@ -115,7 +115,6 @@ import { setTutorialGame, tut, tutorialGame, tutorialMapRect } from "./src/core/
 import { bonusUnlocked, fastTarget, hasFlatProgress, isOpen, loadProgress, payReward, worldComplete, worldOpen, worldProgress } from "./src/core/progress-rules.js";
 import { canUseKit, spawnItem, spawnStar, throwKiss, useRescueKit } from "./src/core/rules.js";
 import { blocked, blockedBig, bushes, canAct, dangerZone, decor, floors, flowers, inDanger, inSafe, moveGrid, moveGridBig, obstacles, reachable, safeZone, seeGrid, seeSolidAt, spawns, trees } from "./src/core/world.js";
-"use strict";
 
 // >>> client
 // SPEC-008 / SPEC-011 AC 8d: тесты включают строгую игровую случайность и задают зерно запуска (init-скрипт до игры)
@@ -589,7 +588,7 @@ function noteOpenedWorld(r) { if (r && r.worldOpened) openedWorld = r.worldOpene
 function resetWorld(n) {
   if (PHONE) n = 1;                  // на телефоне играет один (SPEC-005)
   texts = []; particles = []; shake = 0; sticks.clear(); resetArmed = false;
-  const looks = { players: [makeLook(skinSel.p1), makeLook(skinSel.p2)], bots: Array.from({ length: 5 }, (_, bi) => makeLook(botOutfit(bi))), big: BIG_SKINS[skinSel.big] };
+  const looks = { players: [makeLook(skinSel.p1), makeLook(skinSel.p2)], bots: Array.from({ length: teamSize() - n }, (_, bi) => makeLook(botOutfit(bi))), big: BIG_SKINS[skinSel.big] };
   buildGame(curWorld, level, n, { looks });
 }
 // Надпись в начале уровня: не мешает играть; при быстром перезапуске (< BANNER_REPEAT сек) не показывается снова

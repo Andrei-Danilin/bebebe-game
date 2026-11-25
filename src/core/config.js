@@ -1,7 +1,6 @@
 // SPEC-011: the game's numbers — rules, level generator, balance (CFG), the field grid, the shop, rewards, wardrobe tiers,
 // upgrades, the worlds and the bosses. Change them with the kids: docs/game-design.md lists them (npm run docs:numbers).
-// The look/UI numbers are in src/client/look.js. Core module: no DOM, no storage, no three.js.
-import { clamp } from "./util.js";
+// The look/UI numbers are in src/client/look.js. Core module: no DOM, no storage, no three.js; imports nothing (the data leaf).
 
 // =====================================================================
 //  НАСТРОЙКИ ИГРЫ — их удобно менять вместе с детьми
@@ -258,7 +257,7 @@ export const worldIndex = world => Math.max(0, WORLDS.indexOf(world));
 // индекс сложности мира (CFG.WORLD_DIFFICULTY): скорость и сердечки Большого, монетки, время третьей звезды; неизвестный мир → 0
 export const worldDifficulty = world => CFG.WORLD_DIFFICULTY[world] ?? 0;
 export const levelsPerWorld = () => CFG.WORLD_TYPES.length;
-export const levelPos = n => clamp(Math.floor(n) || 1, 1, levelsPerWorld()) - 1;
+export const levelPos = n => Math.max(1, Math.min(levelsPerWorld(), Math.floor(n) || 1)) - 1;   // = clamp(…, 1, levelsPerWorld()) − 1 (util's clamp, inline: config imports nothing)
 // SPEC-022: боссы — одна таблица (мир → босс последнего уровня): look — образ (BOSS_LOOKS), extraHp — ключ CFG с прибавкой злости,
 // power — особая сила ("wide" — широкий толчок, null — нет), cloud — ключ CFG.MOOD_LOOK с размером тёмного облачка.
 // Новый босс (например, бонусного мира) = строка здесь + образ + тексты (STORY boss, I18N bossNames, bossLine). У Пляжа и Зимы

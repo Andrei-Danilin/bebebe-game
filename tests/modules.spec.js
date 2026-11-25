@@ -314,6 +314,65 @@ test("core reaches the client only through hooks", { tag: "@fast" }, () => {
   expect(Object.keys(HOOKS).filter(h => !new RegExp(`\\bhooks\\.${h}\\(`).test(all)), "hooks the core never calls").toEqual([]);
 });
 
+// AC 2c: CFG is split by meaning — src/core/config.js holds the rules, generator and balance, src/client/look.js (LOOK) the look/UI
+// keys; key names did not change. No key in both; no look-named key in the core config except these (each with why); the core
+// never reads a LOOK key.
+const LOOK_NAME = /^(CAM_|PHONE_|MINIMAP_|ART$|PAPER|STORY_TEXT_|STORY_PIC$|TEXT_TEST_SCALE$|NAME_TAG$|BANNER_|PAD_|KISS_BTN$|STICK_ZONE$|ARROW_D$|OUTLINE_|SAFE_GLOW$|BOSS_SCALE$|STAR_BLINK$|DANGER_WARN$)|_LOOK$/;
+const CONFIG_LOOK_ALLOW = {
+  TUTORIAL_LOOK: "the practice game reads TUTORIAL_LOOK.dadStart (where Dad stands in practice 1): gameplay, so the whole table stays in core config",
+  HEAR_LOOK: "a rule, not a look: how many seconds the Big One keeps looking where he heard running feet (hearing.js)"
+};
+const importSrc = f => import(require("url").pathToFileURL(path.join(ROOT, f)).href);
+test("core config holds no look keys", { tag: "@fast" }, async () => {
+  const { CFG } = await importSrc("src/core/config.js"), { LOOK } = await importSrc("src/client/look.js");
+  expect(Object.keys(CFG).filter(k => Object.hasOwn(LOOK, k)), "keys in both objects").toEqual([]);
+  expect(Object.keys(CFG).filter(k => LOOK_NAME.test(k) && !CONFIG_LOOK_ALLOW[k]), "look keys in the core config").toEqual([]);
+  expect(Object.keys(CONFIG_LOOK_ALLOW).filter(k => !Object.hasOwn(CFG, k)), "allowed keys that are not there").toEqual([]);
+  expect(Object.keys(LOOK).filter(k => !LOOK_NAME.test(k)), "LOOK keys that do not look like look keys").toEqual([]);
+  expect(Object.keys(LOOK).length).toBeGreaterThan(50);
+  const reads = coreCode().flatMap(([f, t]) => [...codeOnly(t).matchAll(/\bCFG\.([A-Z][A-Z0-9_]*)/g)].filter(m => Object.hasOwn(LOOK, m[1])).map(m => `${f}: CFG.${m[1]}`));
+  expect(reads, "the core reads look keys").toEqual([]);
+});
+
+// AC 2c: __bb.CFG is one view over both objects: reading, writing and restoring any key through it (as tests do) reaches the real
+// object — seen in the modules themselves and in the game's behaviour; `in`, a new key and its delete, spread, JSON and the key
+// list (no duplicates) work as on a plain object; a getter keeps its `this`
+test("__bb.CFG writes reach config.js and look.js", async ({ page }) => {
+  const errors = await openGame(page, { sim: true });
+  const r = await page.evaluate(async () => {
+    const b = window.__bb, C = b.CFG, out = {};
+    const core = (await import("./src/core/config.js")).CFG, look = (await import("./src/client/look.js")).LOOK;   // the game's own instances (import map)
+    const hp0 = b.difficulty("park", 1).hearts, big0 = C.BIG_HP, story0 = C.STORY_TEXT_MIN;
+    C.BIG_HP = big0 + 3; C.STORY_TEXT_MIN = story0 + 5;
+    out.written = [core.BIG_HP === big0 + 3, look.STORY_TEXT_MIN === story0 + 5, !Object.hasOwn(core, "STORY_TEXT_MIN"), !Object.hasOwn(look, "BIG_HP")];
+    out.behaviour = [b.difficulty("park", 1).hearts - hp0, b.textFloors.story - story0];
+    C.BIG_HP = big0; C.STORY_TEXT_MIN = story0;
+    out.restored = [core.BIG_HP === big0, look.STORY_TEXT_MIN === story0, b.difficulty("park", 1).hearts === hp0];
+    out.in = ["BIG_HP" in C, "MENU_LOOK" in C, "NOPE_NOT_A_KEY" in C];
+    C.TEST_NEW_KEY = 1; out.added = [core.TEST_NEW_KEY === 1, "TEST_NEW_KEY" in C];
+    delete C.TEST_NEW_KEY; out.deleted = [Object.hasOwn(core, "TEST_NEW_KEY"), "TEST_NEW_KEY" in C];
+    const keys = Reflect.ownKeys(C), spread = { ...C }, json = JSON.parse(JSON.stringify(C));
+    out.keys = [keys.length, new Set(keys).size, Object.keys(core).length + Object.keys(look).length, Object.keys(spread).length];
+    out.json = [json.DOWN_TIME === core.DOWN_TIME, JSON.stringify(json.MENU_LOOK) === JSON.stringify(look.MENU_LOOK)];
+    const ps = C.PLAYER_SPEED, cap = C.BIG_CHASE_MAX; C.PLAYER_SPEED = ps * 2;
+    out.getter = [cap === core.BIG_CHASE_MAX * 0.5, C.BIG_CHASE_MAX === core.BIG_CHASE_MAX];
+    C.PLAYER_SPEED = ps;
+    return out;
+  });
+  expect(r.written).toEqual([true, true, true, true]);
+  expect(r.behaviour, "the game reads the written values").toEqual([3, 5]);
+  expect(r.restored).toEqual([true, true, true]);
+  expect(r.in).toEqual([true, true, false]);
+  expect(r.added).toEqual([true, true]);
+  expect(r.deleted).toEqual([false, false]);
+  expect(r.keys[0]).toBe(r.keys[1]);
+  expect(r.keys[0]).toBe(r.keys[2]);
+  expect(r.keys[3]).toBe(r.keys[2]);
+  expect(r.json).toEqual([true, true]);
+  expect(r.getter).toEqual([true, true]);
+  expect(errors).toEqual([]);
+});
+
 // AC 3: the dependency rule. src/core/** imports only src/core/**, src/i18n.js and src/story.js (relative paths; no bare names
 // such as "three", no dynamic import()), and never uses the browser's globals. Exceptions still needed are listed in
 // CORE_DOM_ALLOW as [file, name, why] — SPEC-012 must empty it (today it is empty: the client seeds the rng and sets the strict

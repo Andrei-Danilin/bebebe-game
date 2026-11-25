@@ -17,7 +17,9 @@ const ROOT = path.resolve(__dirname, "..");
 const INDEX = path.join(ROOT, "index.html"), SW = path.join(ROOT, "sw.js");
 const MARK = ["// precache:start", "// precache:end"];
 const NL = "\n";
-const hashOf = buf => crypto.createHash("sha256").update(buf).digest("hex").slice(0, 10);
+const hashOf = text => crypto.createHash("sha256").update(text).digest("hex").slice(0, 10);
+// a module's hash: of its text with LF line ends (a Windows checkout with CRLF gives the same hash as CI and Pages)
+const fileHash = f => hashOf(fs.readFileSync(f, "utf8").split("\r\n").join(NL));
 const walk = d => fs.readdirSync(d, { withFileTypes: true }).flatMap(e => e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)]);
 const rel = f => "./" + path.relative(ROOT, f).replace(/\\/g, "/");
 
@@ -31,10 +33,12 @@ function lists() {
     if (e === "sw.js" || e === "assets") continue;
     const files = fs.statSync(p).isDirectory() ? walk(p).sort() : [p];
     for (const f of files) {
-      if (e === "src") { if (f.endsWith(".js")) modules.push({ url: rel(f), hash: hashOf(fs.readFileSync(f)) }); }
+      if (e === "src") { if (f.endsWith(".js")) modules.push({ url: rel(f), hash: fileHash(f) }); }
       else shell.push(rel(f));
     }
   }
+  modules.sort((x, y) => (x.url < y.url ? -1 : x.url > y.url ? 1 : 0));   // by posix path, the same on every system
+  shell.sort((x, y) => (x === "./" ? -1 : y === "./" ? 1 : x < y ? -1 : x > y ? 1 : 0));
   const srcHash = hashOf(modules.map(m => `${m.url} ${m.hash}`).join(NL));
   return { shell, modules, srcHash };
 }
@@ -91,7 +95,7 @@ function run({ check = false } = {}) {
   return { stale, srcHash: e.lists.srcHash, modules: e.lists.modules.length };
 }
 
-module.exports = { lists, expected, run, writeIndex, writeSw, hashOf, MARK };
+module.exports = { lists, expected, run, writeIndex, writeSw, hashOf, fileHash, MARK };
 
 if (require.main === module) {
   const check = process.argv.includes("--check");
