@@ -4,7 +4,7 @@ const base = require("./pw");   // SPEC-023: @playwright/test + failure screensh
 const { expect } = base;
 const path = require("path");
 const fs = require("fs");
-const { LANGS, openGame, sharedPage, resetGame, frames, softly, ROOT } = require("./helpers");
+const { LANGS, openGame, sharedPage, resetGame, frames, softly, gameSource, ROOT } = require("./helpers");
 
 // SPEC-018: one game page for the file; resetGame() before each test, page errors and a changed CFG fail the test.
 // A test that does not ask for `page` (the source scan) opens no game page (the worker's browser still starts: the
@@ -80,7 +80,7 @@ function coinWrites(src) {
 }
 
 test("only the ledger writes coins", { tag: "@fast" }, () => {
-  const src = fs.readFileSync(INDEX, "utf8");
+  const src = gameSource();   // SPEC-011 AC 8c: index.html and src/** (addCoins / spendCoins live in src/core/economy.js)
   const r = coinWrites(src);
   expect(r.found, "addCoins and spendCoins exist").toEqual([true, true]);
   expect(r.inside, "addCoins and spendCoins change progress.coins").toBeGreaterThanOrEqual(2);

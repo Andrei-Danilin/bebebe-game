@@ -65,12 +65,26 @@
 import * as THREE from "three";
 import { ART_NAMES } from "./src/client/art-names.js";
 import { LOOK } from "./src/client/look.js";
-import { BONUS_WORLDS, BOSSES, CELL, CFG, COLS, FH, FINE, FW, GLOVES, H, KISSES, MAIN_WORLDS, RESCUE_KIT, REWARD, ROWS, TAU, UPGRADES, W, WARDROBE_TIERS, WORLDS, WORLD_SEED, levelPos, levelsPerWorld, upgTop, worldDifficulty, worldIndex } from "./src/core/config.js";
-import { hooks, setHooks } from "./src/core/hooks.js";
-import { angDiff, clamp, dist, mulberry32, noGameRng, normAng, rand, rng, rngDraws, seedRandom, setStrictRng, strictRng, turnToward, vrand } from "./src/core/util.js";
+import { BONUS_WORLDS, BOSSES, CELL, CFG, COLS, GLOVES, H, KISSES, MAIN_WORLDS, RESCUE_KIT, REWARD, ROWS, TAU, UPGRADES, W, WARDROBE_TIERS, WORLDS, WORLD_SEED, levelsPerWorld, upgTop, worldDifficulty, worldIndex } from "./src/core/config.js";
+import { setHooks } from "./src/core/hooks.js";
+import { clamp, mulberry32, noGameRng, rngDraws, seedRandom, setStrictRng, strictRng, vrand } from "./src/core/util.js";
 import { BIG_SKINS, HAIRS, HATS, JACKETS, PANTS, SLOTS } from "./src/core/wardrobe.js";
 import { HTML_LANG, I18N, L, LANGS, detectLang, lang, setCurrentLang } from "./src/i18n.js";
-import { RULE_ICONS, SCENE_IDS, SEEN_IDS, STORY, TUTORIAL_SCENES } from "./src/story.js";
+import { RULE_ICONS, SCENE_IDS, STORY, TUTORIAL_SCENES } from "./src/story.js";
+import { autoMove, autoThink, autopilot } from "./src/core/autopilot.js";
+import { bigBoost, bigSpeeds, difficulty } from "./src/core/difficulty.js";
+import { gameInv, gloveOf, ledger, progress, saveProgress, setProgress, spendCoins } from "./src/core/economy.js";
+import { big, bonusStars, buildGame, curWorld, events, heardHintPi, heardHintT, items, kisses, kitHintPi, kitHintT, lastReward, level, littles, logEvent, mode, numPlayers, pendingWin, pushWaves, rewardDue, setEvents, setLastReward, setLevel, setMode, setPendingWin, setRewardDue, setWorld, simRun, stats, update, updateFx } from "./src/core/game.js";
+import { audible, bigListens, bigMark, isRunning } from "./src/core/hearing.js";
+import { clearLevelCache, generateLevel, levelInfo } from "./src/core/level/build.js";
+import { levelType } from "./src/core/level/generate.js";
+import { levelReport } from "./src/core/level/validate.js";
+import { bigMood, bossFor } from "./src/core/mood.js";
+import { bigCalm, inBush, visionPoly } from "./src/core/path.js";
+import { setTutorialGame, tut, tutorialGame, tutorialMapRect } from "./src/core/practice.js";
+import { bonusUnlocked, fastTarget, hasFlatProgress, isOpen, loadProgress, payReward, worldComplete, worldOpen, worldProgress } from "./src/core/progress-rules.js";
+import { canUseKit, spawnItem, spawnStar, throwKiss, useRescueKit } from "./src/core/rules.js";
+import { blocked, blockedBig, bushes, canAct, dangerZone, decor, floors, flowers, inDanger, inSafe, moveGrid, moveGridBig, obstacles, reachable, safeZone, seeGrid, seeSolidAt, spawns, trees } from "./src/core/world.js";
 "use strict";
 
 // >>> client
@@ -279,1020 +293,6 @@ function fit() {
 window.addEventListener("resize", () => fit());
 window.addEventListener("orientationchange", () => requestAnimationFrame(() => fit()));   // iOS обновляет safe-area чуть позже
 
-// >>> src/core/world.js
-// =====================================================================
-//  МИР
-// =====================================================================
-let obstacles = [], bushes = [], floors = [], decor = [], trees = [], flowers = [];
-const blocked = new Uint8Array(COLS * ROWS), blockedBig = new Uint8Array(COLS * ROWS);
-let safeZone = null;   // домик маленьких — Большой туда не заходит
-let dangerZone = null; // пол дома Большого: маленьких там через DANGER_TIME выкидывают за дверь; exits — точки за дверями
-let reachable = new Uint8Array(COLS * ROWS);   // клетки, куда маленькие могут дойти из своего домика
-const moveGrid = new Uint8Array(FW * FH), seeGrid = new Uint8Array(FW * FH), moveGridBig = new Uint8Array(FW * FH);
-const inSafe = p => !!safeZone && p.x > safeZone.x && p.x < safeZone.x + safeZone.w && p.y > safeZone.y && p.y < safeZone.y + safeZone.h;
-const inDangerXY = (x, y) => !!dangerZone && x > dangerZone.x && x < dangerZone.x + dangerZone.w && y > dangerZone.y && y < dangerZone.y + dangerZone.h;
-const inDanger = p => inDangerXY(p.x, p.y);
-// Может действовать сам: стоит на ногах, не на плечах у Большого, голова не кружится
-const canAct = l => l.state === "ok" && l.hugAnim <= 0 && l.dizzy <= 0;
-let spawns = { small: [], big: { x: 0, y: 0 } };
-// всё состояние карты разом (levelReport возвращает его после пробной сборки)
-function setMapState(s) { ({ obstacles, bushes, floors, decor, trees, flowers, safeZone, dangerZone, spawns, reachable } = s); }
-
-function covers(o, x, y, sight) {
-  if (o.shape === "rect") return x >= o.x && x <= o.x + o.w && y >= o.y && y <= o.y + o.h;
-  return Math.hypot(x - o.x, y - o.y) < (sight ? o.sr : o.r);
-}
-// Сетки строятся «растеризацией»: каждое препятствие отмечает только клетки своего прямоугольника (быстро — уровень
-// строится до LEVEL_ATTEMPTS раз). Правила те же, что у covers(): мелкая сетка — по центрам клеток FINE, крупная — по пересечению.
-function buildGrids() {
-  moveGrid.fill(0); seeGrid.fill(0); blocked.fill(0);
-  for (const o of obstacles) {
-    if (!o.move && !o.sight) continue;
-    const ext = o.shape === "rect" ? 0 : Math.max(o.r, o.sr || 0);
-    const x0 = o.shape === "rect" ? o.x : o.x - ext, y0 = o.shape === "rect" ? o.y : o.y - ext;
-    const x1 = o.shape === "rect" ? o.x + o.w : o.x + ext, y1 = o.shape === "rect" ? o.y + o.h : o.y + ext;
-    const i0 = clamp(Math.floor(x0 / FINE) - 1, 0, FW - 1), i1 = clamp(Math.ceil(x1 / FINE) + 1, 0, FW - 1);
-    const j0 = clamp(Math.floor(y0 / FINE) - 1, 0, FH - 1), j1 = clamp(Math.ceil(y1 / FINE) + 1, 0, FH - 1);
-    for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
-      const x = (i + 0.5) * FINE, y = (j + 0.5) * FINE;
-      if (o.move && covers(o, x, y, false)) moveGrid[j * FW + i] = 1;
-      if (o.sight && covers(o, x, y, true)) seeGrid[j * FW + i] = 1;
-    }
-    if (!o.move) continue;
-    const c0 = clamp(Math.floor(x0 / CELL) - 1, 0, COLS - 1), c1 = clamp(Math.floor(x1 / CELL) + 1, 0, COLS - 1);
-    const r0 = clamp(Math.floor(y0 / CELL) - 1, 0, ROWS - 1), r1 = clamp(Math.floor(y1 / CELL) + 1, 0, ROWS - 1);
-    for (let cy = r0; cy <= r1; cy++) for (let cx = c0; cx <= c1; cx++) {
-      const px = cx * CELL, py = cy * CELL;
-      let hit;
-      if (o.shape === "rect") hit = px < o.x + o.w && px + CELL > o.x && py < o.y + o.h && py + CELL > o.y;
-      else { const nx = clamp(o.x, px, px + CELL), ny = clamp(o.y, py, py + CELL); hit = Math.hypot(o.x - nx, o.y - ny) < o.r - 2; }
-      if (hit) blocked[cy * COLS + cx] = 1;
-    }
-  }
-  const sz = safeZone;
-  for (let j = 0; j < FH; j++) for (let i = 0; i < FW; i++) {
-    const k = j * FW + i;
-    moveGridBig[k] = moveGrid[k] || (sz && covers(sz, (i + 0.5) * FINE, (j + 0.5) * FINE, false)) ? 1 : 0;
-  }
-  for (let cy = 0; cy < ROWS; cy++) for (let cx = 0; cx < COLS; cx++) {
-    const px = cx * CELL, py = cy * CELL;
-    blockedBig[cy * COLS + cx] = blocked[cy * COLS + cx] || (sz && px < sz.x + sz.w && px + CELL > sz.x && py < sz.y + sz.h && py + CELL > sz.y) ? 1 : 0;
-  }
-}
-const moveSolidAt = (x, y) => (x < 0 || y < 0 || x >= W || y >= H) ? true : moveGrid[((y / FINE) | 0) * FW + ((x / FINE) | 0)] === 1;
-const moveSolidBigAt = (x, y) => (x < 0 || y < 0 || x >= W || y >= H) ? true : moveGridBig[((y / FINE) | 0) * FW + ((x / FINE) | 0)] === 1;
-const seeSolidAt = (x, y) => (x < 0 || y < 0 || x >= W || y >= H) ? true : seeGrid[((y / FINE) | 0) * FW + ((x / FINE) | 0)] === 1;
-
-function los(x1, y1, x2, y2, solid) {
-  const d = Math.hypot(x2 - x1, y2 - y1), n = Math.ceil(d / 5);
-  for (let i = 1; i < n; i++) { const t = i / n; if (solid(x1 + (x2 - x1) * t, y1 + (y2 - y1) * t)) return false; }
-  return true;
-}
-function losWide(x1, y1, x2, y2, r, solid = moveSolidAt) {
-  const d = Math.hypot(x2 - x1, y2 - y1) || 1;
-  const nx = -(y2 - y1) / d * r, ny = (x2 - x1) / d * r;
-  return los(x1, y1, x2, y2, solid) && los(x1 + nx, y1 + ny, x2 + nx, y2 + ny, solid) && los(x1 - nx, y1 - ny, x2 - nx, y2 - ny, solid);
-}
-
-// >>> src/core/level/layouts.js
-// =====================================================================
-//  ГЕНЕРАТОР УРОВНЕЙ (по рисунку: домик маленьких, дом Большого,
-//  здание с комнатами, ёлки, камни, кусты, лужа)
-// =====================================================================
-// Стены клетками; gaps — начала дверей шириной 2 клетки
-const inGap = (v, gaps) => gaps.some(g => v >= g && v < g + 2);
-function hWallTo(items, x1, x2, y, kind, gaps = []) {
-  let run = null;
-  for (let x = x1; x <= x2 + 1; x++) {
-    const gap = x > x2 || inGap(x, gaps);
-    if (!gap) { if (run === null) run = x; }
-    else if (run !== null) { items.push({ t: "wall", x: run, y, w: x - run, h: 1, kind }); run = null; }
-  }
-}
-function vWallTo(items, x, y1, y2, kind, gaps = []) {
-  let run = null;
-  for (let y = y1; y <= y2 + 1; y++) {
-    const gap = y > y2 || inGap(y, gaps);
-    if (!gap) { if (run === null) run = y; }
-    else if (run !== null) { items.push({ t: "wall", x, y: run, w: 1, h: y - run, kind }); run = null; }
-  }
-}
-// Дом Большого 6×6 с левым верхним углом (x0, y0): стены, тёмный пол, кровать и опасная зона (= пол).
-// doors: [{ side: "top"|"bottom"|"left"|"right", at }] — дверь в 2 клетки, at — сдвиг от угла дома;
-// exits опасной зоны выводятся из тех же дверей: CFG.DANGER_EXIT клеток наружу.
-const BIG_HOUSE = 6;
-function bigHouse(items, x0, y0, doors) {
-  const S = BIG_HOUSE - 1, ex = CFG.DANGER_EXIT;
-  const gaps = side => doors.filter(d => d.side === side).map(d => (side === "top" || side === "bottom" ? x0 : y0) + d.at);
-  hWallTo(items, x0, x0 + S, y0, "bighome", gaps("top")); hWallTo(items, x0, x0 + S, y0 + S, "bighome", gaps("bottom"));
-  vWallTo(items, x0, y0 + 1, y0 + S - 1, "bighome", gaps("left")); vWallTo(items, x0 + S, y0 + 1, y0 + S - 1, "bighome", gaps("right"));
-  items.push({ t: "floor", x: x0 + 1, y: y0 + 1, w: S - 1, h: S - 1, kind: "dark" });
-  items.push({ t: "decor", kind: "bigbed", x: x0 + 1, y: y0 + 3, w: 2, h: 2 });
-  const exits = doors.map(d => d.side === "top" ? { x: x0 + d.at, y: y0 - ex, w: 2, h: 1 }
-    : d.side === "bottom" ? { x: x0 + d.at, y: y0 + S + ex, w: 2, h: 1 }
-    : d.side === "left" ? { x: x0 - ex, y: y0 + d.at, w: 1, h: 2 }
-    : { x: x0 + S + ex, y: y0 + d.at, w: 1, h: 2 });
-  items.push({ t: "danger", x: x0 + 1, y: y0 + 1, w: S - 1, h: S - 1, exits });
-}
-
-// >>> src/core/mood.js
-// босс уровня — последний уровень мира из BOSSES (его имя = мир); иначе null
-const bossFor = (world, n) => (Object.hasOwn(BOSSES, world) && Math.floor(n) === levelsPerWorld() ? world : null);
-const bossPower = boss => (boss && BOSSES[boss] ? BOSSES[boss].power : null);
-// >>> src/core/level/generate.js
-const levelKey = (world, n) => world + ":" + n;
-// Тип уровня — по списку CFG.WORLD_TYPES (одинаковый во всех мирах)
-const levelType = (world, n) => CFG.WORLD_TYPES[levelPos(n)];
-// tier — номер уровня внутри своего блока одного типа (0, 1, 2, 3): чем дальше, тем меньше укрытий
-function levelTier(world, n) {
-  const T = CFG.WORLD_TYPES, i = levelPos(n);
-  let t = 0;
-  for (let k = i; k > 0 && T[k - 1] === T[i]; k--) t++;
-  return t;
-}
-// Сид: 1-й уровень — рисунок детей, во всех мирах одна и та же раскладка (сид 1, как раньше у уровня 1);
-// дальше сид от (WORLD_SEED мира, n) — у каждого мира свои карты (неизвестный мир — как Парк)
-const levelSeed = (world, n) => n <= 1 ? 1 : (WORLD_SEED[world] ?? WORLD_SEED.park) * 100 + n;
-
-// Дверь дома (x0, y0, w×h) в виде проёма в клетках + направление наружу (dx, dy)
-function houseDoor(x0, y0, w, h, d) {
-  if (d.side === "top") return { x: x0 + d.at, y: y0, w: 2, h: 1, dx: 0, dy: -1 };
-  if (d.side === "bottom") return { x: x0 + d.at, y: y0 + h - 1, w: 2, h: 1, dx: 0, dy: 1 };
-  if (d.side === "left") return { x: x0, y: y0 + d.at, w: 1, h: 2, dx: -1, dy: 0 };
-  return { x: x0 + w - 1, y: y0 + d.at, w: 1, h: 2, dx: 1, dy: 0 };
-}
-// Домики (до зеркала): маленьких 7×6 слева вверху (двери справа и снизу, безопасная зона, кроватки, места);
-// дом Большого 6×6 через bigHouse() — слева внизу ("side", как на рисунке) или справа внизу ("diagonal").
-// Перед каждой дверью DOOR_APRON клеток заняты (reserve) — туда раскладка ничего не ставит.
-function placeHomes(lc, variant) {
-  const { items, reserve } = lc, A = CFG.DOOR_APRON;
-  placeSmallHome(lc);
-  reserve(0, 0, 7 + A, 6 + A);
-
-  const diag = variant === "diagonal", x0 = diag ? COLS - BIG_HOUSE : 0, y0 = ROWS - BIG_HOUSE;
-  const bigDoors = [{ side: "top", at: 2 }, { side: diag ? "left" : "right", at: 2 }];
-  bigHouse(items, x0, y0, bigDoors);
-  lc.bigPt = [x0 + 3, y0 + 2];
-  lc.doors.big = bigDoors.map(d => houseDoor(x0, y0, BIG_HOUSE, BIG_HOUSE, d));
-  reserve(diag ? x0 - A : x0, y0 - A, BIG_HOUSE + A, BIG_HOUSE + A);
-  lc.homes = { variant, small: { x: 0, y: 0, w: 7, h: 6 }, big: { x: x0, y: y0, w: BIG_HOUSE, h: BIG_HOUSE } };
-}
-// домик маленьких 7×6 слева вверху (двери справа и снизу, безопасная зона, кроватки, места) — и карта тренировок (SPEC-029)
-function placeSmallHome(lc) {
-  const { items, hWall, vWall } = lc;
-  hWall(0, 6, 0, "home"); hWall(0, 6, 5, "home", [2]); vWall(0, 1, 4, "home"); vWall(6, 1, 4, "home", [2]);
-  items.push({ t: "floor", x: 1, y: 1, w: 5, h: 4, kind: "wood" });
-  items.push({ t: "decor", kind: "bed", x: 1, y: 1, w: 1, h: 1, c: "#7cc6fe" });
-  items.push({ t: "decor", kind: "bed", x: 3, y: 1, w: 1, h: 1, c: "#ffb86b" });
-  items.push({ t: "decor", kind: "bed", x: 5, y: 1, w: 1, h: 1, c: "#c3a6ff" });
-  lc.small = [[1.5, 3.5], [2.5, 2.5], [3.5, 3.5], [4.5, 2.5], [5.5, 3.5]];
-  items.push({ t: "safe", x: 0, y: 0, w: 7, h: 6 });
-  lc.doors.small = [{ side: "right", at: 2 }, { side: "bottom", at: 2 }].map(d => houseDoor(0, 0, 7, 6, d));
-}
-// >>> src/core/practice.js
-// ---------- SPEC-029: карта тренировок обучения ----------
-// Своя, всегда одна и та же (без случайности): поляна в левом верхнем углу ≈ CFG.TUTORIAL.mapArea площади карты (21 × 14 клеток
-// из 30 × 20), за живой изгородью — деревья. Домик маленьких слева вверху (как везде), дом папы в правом нижнем углу поляны;
-// на поляне — кусты, пара деревьев, камень и лужа (места — CFG.TUTORIAL_LOOK). Уровень Парка 1 и остальные не меняются.
-function tutorialMapRect() {
-  const k = Math.sqrt(CFG.TUTORIAL.mapArea);
-  return { x: 0, y: 0, w: Math.round(COLS * k), h: Math.round(ROWS * k) };
-}
-function tutorialLevelGen() {
-  const items = [], R = tutorialMapRect(), T = CFG.TUTORIAL_LOOK;
-  const lc = { items, hWall: (x1, x2, y, kind, gaps = []) => hWallTo(items, x1, x2, y, kind, gaps), vWall: (x, y1, y2, kind, gaps = []) => vWallTo(items, x, y1, y2, kind, gaps),
-    small: null, doors: { small: [], big: [] } };
-  placeSmallHome(lc);
-  const x0 = R.w - BIG_HOUSE, y0 = R.h - BIG_HOUSE, bigDoors = [{ side: "top", at: 2 }, { side: "left", at: 2 }];
-  bigHouse(items, x0, y0, bigDoors);
-  hWallTo(items, 0, R.w, R.h, "hedge"); vWallTo(items, R.w, 0, R.h - 1, "hedge");   // изгородь по краю поляны
-  for (const [x, y] of T.bushes) items.push({ t: "bush", x, y });
-  for (const [x, y] of T.trees) items.push({ t: "tree", x, y, v: "round", s: 1 });
-  for (const [x, y] of T.rocks) items.push({ t: "rock", x, y, s: 1 });
-  for (const [x, y, w] of T.ponds) items.push({ t: "pond", x, y, w, h: 2 });
-  // за изгородью — деревья через одну клетку (просто вид: туда никто не ходит)
-  for (let y = 0; y < ROWS; y += T.outStep) for (let x = R.w + 2 + (y / T.outStep) % 2; x < COLS; x += T.outStep) items.push({ t: "tree", x, y, v: (x + y) % 3 ? "pine" : "round", s: 1 });
-  for (let y = R.h + 2; y < ROWS; y += T.outStep) for (let x = (y % 2); x < R.w + 2; x += T.outStep) items.push({ t: "tree", x, y, v: (x + y) % 3 ? "round" : "pine", s: 1 });
-  const fr = mulberry32(T.flowerSeed), fl = [];
-  for (let i = 0; i < T.flowers; i++) fl.push({ x: fr() * R.w * CELL, y: fr() * R.h * CELL, c: T.flowerColors[Math.floor(fr() * T.flowerColors.length)] });
-  return { type: "meadow", items, small: lc.small, big: [x0 + 3, y0 + 2], flowers: fl,
-    doors: { small: lc.doors.small, big: bigDoors.map(d => houseDoor(x0, y0, BIG_HOUSE, BIG_HOUSE, d)) }, meta: {} };
-}
-function applyTutorialMap() {
-  applyWorld(tutorialLevelGen());
-  reachable = connectivity().seen;
-  levelInfo = { world: curWorld, lv: level, type: "tutorial", attempt: 0, fallback: false, cached: false, ms: 0 };
-}
-
-// >>> src/core/level/layouts.js
-// ---------- Раскладки ----------
-// Раскладки по типам: получают lc с уже построенными домиками и раскладывают остальное (до зеркала)
-// 1-й уровень (рисунок детей): здание с комнатами справа, лужа, ёлки, камни, кусты
-function classicLayout(lc) {
-  const { lv, rng, ri, items, reserve, isFree, place, hWall, vWall } = lc;
-  // Здание с комнатами
-  const bw = ri(9, 11), bx = COLS - bw, by = ri(0, 2), bh = ri(13, ROWS - by), bb = by + bh - 1;
-  const hy = by + Math.floor(bh / 2) + ri(-1, 1);
-  const topDoor = by > 0 ? ri(bx + 2, COLS - 4) : -10;
-  const botDoor = bb < ROWS - 1 ? ri(bx + 2, COLS - 4) : -10;
-  hWall(bx, COLS - 1, by, "build", by > 0 ? [topDoor] : []);
-  hWall(bx, COLS - 1, bb, "build", bb < ROWS - 1 ? [botDoor] : []);
-  vWall(bx, by + 1, bb - 1, "build", [ri(by + 2, hy - 3), ri(hy + 2, bb - 3)]);
-  vWall(COLS - 1, by + 1, bb - 1, "build");
-  const hDoor = ri(bx + 2, COLS - 4);
-  hWall(bx + 1, COLS - 2, hy, "build", [hDoor]);
-  const tryV = (y1, y2, doorX) => {
-    if (rng() < 0.35 || y2 - y1 + 1 < 4) return;
-    const vx = ri(bx + 3, COLS - 4);
-    if ([doorX, doorX + 1, hDoor, hDoor + 1].includes(vx)) return;
-    vWall(vx, y1, y2, "build", [ri(y1, y2 - 1)]);
-  };
-  tryV(by + 1, hy - 1, topDoor);
-  tryV(hy + 1, bb - 1, botDoor);
-  items.push({ t: "floor", x: bx + 1, y: by + 1, w: bw - 2, h: bh - 2, kind: "tile" });
-  reserve(bx - 3, by - 2, bw + 3, bh + 4);
-
-  // Природа
-  if (rng() < 0.5 || lv % 3 === 0) {
-    for (let k = 0; k < 80; k++) {
-      const w = ri(3, 4), h = 2, x = ri(1, COLS - w - 1), y = ri(1, ROWS - h - 1);
-      if (isFree(x, y, w, h, 2)) { items.push({ t: "pond", x, y, w, h }); reserve(x, y, w, h); break; }
-    }
-  }
-  place(Math.min(15, 7 + lv), (x, y) => ({ t: "tree", x, y, v: rng() < 0.6 ? "pine" : "round", s: 0.9 + rng() * 0.25 }));
-  place(ri(2, 4), (x, y) => ({ t: "rock", x, y, s: 0.9 + rng() * 0.3 }));
-  place(ri(3, 5), (x, y) => ({ t: "bush", x, y }), 2, 2, 0);
-}
-// общие кусочки раскладок
-// Клетки стен (сетка COLS×ROWS) → прямоугольники-стены kind: сначала горизонтальные отрезки ≥ 2, остальное — вертикальными;
-// клетки стен занимаются в occ
-function emitWalls(items, occ, wall, kind) {
-  const used = new Uint8Array(COLS * ROWS);
-  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
-    if (!wall[y * COLS + x] || used[y * COLS + x]) continue;
-    let e = x; while (e + 1 < COLS && wall[y * COLS + e + 1]) e++;
-    if (e > x) { items.push({ t: "wall", x, y, w: e - x + 1, h: 1, kind }); for (let k = x; k <= e; k++) used[y * COLS + k] = 1; }
-  }
-  for (let x = 0; x < COLS; x++) for (let y = 0; y < ROWS; y++) {
-    if (!wall[y * COLS + x] || used[y * COLS + x]) continue;
-    let e = y; while (e + 1 < ROWS && wall[(e + 1) * COLS + x] && !used[(e + 1) * COLS + x]) e++;
-    items.push({ t: "wall", x, y, w: 1, h: e - y + 1, kind }); for (let k = y; k <= e; k++) used[k * COLS + x] = 1;
-  }
-  for (let k = 0; k < COLS * ROWS; k++) if (wall[k]) occ[k] = 1;
-}
-const shuffle = (rng, a) => { for (let k = a.length - 1; k > 0; k--) { const r = Math.floor(rng() * (k + 1)); [a[k], a[r]] = [a[r], a[k]]; } return a; };
-const genTree = rng => (x, y) => ({ t: "tree", x, y, v: rng() < 0.6 ? "pine" : "round", s: 0.9 + rng() * 0.25 });
-const genRock = rng => (x, y) => ({ t: "rock", x, y, s: 0.9 + rng() * 0.3 });
-const genBush = (x, y) => ({ t: "bush", x, y });
-const bushCount = (lc, [a, b]) => Math.max(CFG.BUSH_MIN[lc.type], lc.ri(a, b) - lc.tier);
-
-// Поляна: никаких зданий — кусты, деревья, камни и маленькие лужи
-function meadowLayout(lc) {
-  const { rng, ri, items, reserve, isFree, place } = lc, L = CFG.LAYOUT.meadow;
-  for (let n = ri(L.ponds[0], L.ponds[1]); n > 0; n--) for (let k = 0; k < 80; k++) {
-    const w = ri(L.pondW[0], L.pondW[1]), h = 2, x = ri(1, COLS - w - 1), y = ri(1, ROWS - h - 1);
-    if (isFree(x, y, w, h, 2)) { items.push({ t: "pond", x, y, w, h }); reserve(x, y, w, h); break; }
-  }
-  place(ri(L.trees[0], L.trees[1]), genTree(rng));
-  place(ri(L.rocks[0], L.rocks[1]), genRock(rng));
-  place(bushCount(lc, L.bushes), genBush, 2, 2, 1);
-}
-
-// Лабиринт из живой изгороди на сетке модулей 3×3 клетки: коридор 2 клетки + стена 1 клетка.
-// Модули, задевающие домики с площадками у дверей, — одна открытая «область дома». Сначала идеальный лабиринт
-// (Краскал), потом «плетение»: пробиваем стены у тупиков, пока их не останется ≤ MAZE_DEAD_ENDS; плюс 1–2 площади 5×5.
-function mazeLayout(lc) {
-  const { rng, ri, items, occ, reserve, place } = lc, L = CFG.LAYOUT.maze, M = L.module;
-  const MC = Math.floor(COLS / M), MR = Math.ceil(ROWS / M), N = MC * MR;   // 10 × 7; крайние модули доходят до края карты
-  const x0 = i => i * M, x1 = i => i === MC - 1 ? COLS - 1 : i * M + M - 2;
-  const y0 = j => j * M, y1 = j => j === MR - 1 ? ROWS - 1 : j * M + M - 2;
-  const id = (i, j) => j * MC + i;
-  // модуль (с его стенами справа и снизу) задевает домик или площадку у двери
-  const home = new Uint8Array(N);
-  for (let j = 0; j < MR; j++) for (let i = 0; i < MC; i++) {
-    for (let y = y0(j); y <= Math.min(ROWS - 1, y0(j) + M - 1); y++) for (let x = x0(i); x <= Math.min(COLS - 1, x0(i) + M - 1); x++) if (occ[y * COLS + x]) home[id(i, j)] = 1;
-  }
-  const edges = [];
-  for (let j = 0; j < MR; j++) for (let i = 0; i < MC; i++) {
-    if (i < MC - 1) edges.push({ a: id(i, j), b: id(i + 1, j), i, j, h: true, open: false });
-    if (j < MR - 1) edges.push({ a: id(i, j), b: id(i, j + 1), i, j, h: false, open: false });
-  }
-  const edgeOf = (a, b) => edges.find(e => (e.a === a && e.b === b) || (e.a === b && e.b === a));
-  const par = Array.from({ length: N }, (_, k) => k);
-  const find = a => { while (par[a] !== a) a = par[a] = par[par[a]]; return a; };
-  const dg = new Uint8Array(N);   // сколько проходов у модуля
-  const openE = e => { if (!e.open) { e.open = true; dg[e.a]++; dg[e.b]++; } };
-  const join = e => { const a = find(e.a), b = find(e.b); if (a === b) return false; par[a] = b; openE(e); return true; };
-  // области домов — открыты внутри
-  for (const e of edges) if (home[e.a] && home[e.b]) { join(e); openE(e); }
-  // площади: блок 2×2 модуля (5×5 клеток), не в широком крайнем столбце, не на доме и не рядом с другой площадью
-  const plaza = new Uint8Array(N), plazas = [];
-  const want = ri(L.plazas[0], L.plazas[1]);
-  for (let k = 0; k < 60 && plazas.length < want; k++) {
-    const i = ri(0, MC - 3), j = ri(0, MR - 2);
-    let ok = true;
-    for (let dj = -1; dj <= 2 && ok; dj++) for (let di = -1; di <= 2 && ok; di++) {
-      const a = i + di, b = j + dj;
-      if (a < 0 || b < 0 || a >= MC || b >= MR) continue;
-      const inside = di >= 0 && di <= 1 && dj >= 0 && dj <= 1;
-      if ((inside && home[id(a, b)]) || plaza[id(a, b)]) ok = false;
-    }
-    if (!ok) continue;
-    for (const [di, dj] of [[0, 0], [1, 0], [0, 1], [1, 1]]) plaza[id(i + di, j + dj)] = 1;
-    for (const [a, b] of [[id(i, j), id(i + 1, j)], [id(i, j + 1), id(i + 1, j + 1)], [id(i, j), id(i, j + 1)], [id(i + 1, j), id(i + 1, j + 1)]]) { const e = edgeOf(a, b); join(e); openE(e); }
-    plazas.push({ i, j, x: x0(i), y: y0(j), w: x1(i + 1) - x0(i) + 1, h: y1(j + 1) - y0(j) + 1 });
-  }
-  // идеальный лабиринт
-  const order = edges.filter(e => !e.open);
-  for (let k = order.length - 1; k > 0; k--) { const r = Math.floor(rng() * (k + 1)); [order[k], order[r]] = [order[r], order[k]]; }
-  for (const e of order) join(e);
-  // тупики: обычный модуль с одним проходом
-  const deg = m => dg[m];
-  const deadList = () => { const r = []; for (let m = 0; m < N; m++) if (!home[m] && !plaza[m] && deg(m) === 1) r.push(m); return r; };
-  const dead = deadList();
-  const before = dead.length, target = Math.floor(before * CFG.MAZE_DEAD_ENDS);
-  for (let k = dead.length - 1; k > 0; k--) { const r = Math.floor(rng() * (k + 1)); [dead[k], dead[r]] = [dead[r], dead[k]]; }
-  for (const m of dead) {
-    if (deadList().length <= target) break;
-    if (deg(m) !== 1) continue;
-    const closed = edges.filter(e => !e.open && (e.a === m || e.b === m));
-    if (!closed.length) continue;
-    const other = e => e.a === m ? e.b : e.a;
-    const pick = closed.find(e => !home[other(e)] && !plaza[other(e)] && deg(other(e)) === 1) || closed[Math.floor(rng() * closed.length)];
-    openE(pick);
-  }
-  lc.meta.deadEndsBefore = before;
-  lc.meta.deadEndsAfter = deadList().length;
-  // стены в клетки (кроме домиков и площадок у дверей)
-  const wall = new Uint8Array(COLS * ROWS);
-  const put = (x, y) => { if (x >= 0 && y >= 0 && x < COLS && y < ROWS && !occ[y * COLS + x]) wall[y * COLS + x] = 1; };
-  for (const e of edges) {
-    if (e.open) continue;
-    if (e.h) for (let y = y0(e.j); y <= y1(e.j); y++) put(x1(e.i) + 1, y);
-    else for (let x = x0(e.i); x <= x1(e.i); x++) put(x, y1(e.j) + 1);
-  }
-  for (let j = 0; j < MR - 1; j++) for (let i = 0; i < MC - 1; i++) {   // столбики на перекрёстках
-    const near = [edgeOf(id(i, j), id(i + 1, j)), edgeOf(id(i, j + 1), id(i + 1, j + 1)), edgeOf(id(i, j), id(i, j + 1)), edgeOf(id(i + 1, j), id(i + 1, j + 1))];
-    if (near.some(e => !e.open)) put(x1(i) + 1, y1(j) + 1);
-  }
-  emitWalls(items, occ, wall, "maze");
-  // деревья — в центрах площадей, кусты — по одному на площадь, остальные — в широких местах коридоров
-  const trees = Math.min(plazas.length, ri(L.trees[0], L.trees[1])), tree = genTree(rng);
-  for (let k = 0; k < trees; k++) { const q = plazas[k], cx = q.x + 2, cy = q.y + 2; items.push(tree(cx, cy)); reserve(cx, cy, 1, 1); }
-  let bushes = bushCount(lc, L.bushes);
-  for (const q of plazas) {
-    if (bushes <= 0) break;
-    const c = [[q.x, q.y], [q.x + q.w - 2, q.y], [q.x, q.y + q.h - 2], [q.x + q.w - 2, q.y + q.h - 2]][ri(0, 3)];
-    items.push(genBush(c[0], c[1])); reserve(c[0], c[1], 2, 2); bushes--;
-  }
-  place(bushes, genBush, 2, 2, 0);
-  lc.meta.areas = { plazas: plazas.map(q => ({ x: q.x, y: q.y, w: q.w, h: q.h })) };
-}
-
-// Деревня: 5–8 домиков-блоков с улицами ≥ 2 клеток вокруг, площадь с фонтаном в середине
-function villageLayout(lc) {
-  const { rng, ri, items, reserve, isFree, place } = lc, L = CFG.LAYOUT.village, S = L.street;
-  const sw = ri(L.squareW[0], L.squareW[1]), sh = ri(L.squareH[0], L.squareH[1]);
-  const sx = Math.floor((COLS - sw) / 2) + ri(-1, 1), sy = Math.floor((ROWS - sh) / 2) + ri(-1, 1);
-  items.push({ t: "floor", x: sx, y: sy, w: sw, h: sh, kind: "square" });
-  const F = L.fountain;
-  items.push({ t: "pond", x: sx + Math.floor((sw - F) / 2), y: sy + Math.floor((sh - F) / 2), w: F, h: F, fountain: true });
-  reserve(sx, sy, sw, sh);
-  const cottages = [], want = ri(L.cottages[0], L.cottages[1]);
-  for (let k = 0; k < 800 && cottages.length < want; k++) {
-    let w = ri(L.cottageA[0], L.cottageA[1]), h = ri(L.cottageB[0], L.cottageB[1]);
-    if (rng() < 0.5) [w, h] = [h, w];
-    const x = ri(S, COLS - w - S), y = ri(S, ROWS - h - S);
-    if (isFree(x, y, w, h, S)) { const c = { t: "cottage", x, y, w, h }; items.push(c); cottages.push(c); reserve(x, y, w, h); }
-  }
-  if (cottages.length < L.cottages[0]) lc.meta.bad = "cottages";
-  // кусты во дворах — вплотную к домикам
-  let bushes = bushCount(lc, L.bushes);
-  for (let k = 0; k < 400 && bushes > 0 && cottages.length; k++) {
-    const c = cottages[ri(0, cottages.length - 1)], side = ri(0, 3);
-    const x = side === 0 ? c.x - 2 : side === 1 ? c.x + c.w : ri(c.x - 1, c.x + c.w - 1);
-    const y = side === 2 ? c.y - 2 : side === 3 ? c.y + c.h : ri(c.y - 1, c.y + c.h - 1);
-    if (isFree(x, y, 2, 2, 0)) { items.push(genBush(x, y)); reserve(x, y, 2, 2); bushes--; }
-  }
-  place(bushes, genBush, 2, 2, 0);
-  place(ri(L.trees[0], L.trees[1]), genTree(rng));
-  place(ri(L.rocks[0], L.rocks[1]), genRock(rng));
-}
-
-// Река с мостиками: вода 2–3 клетки от края до края между домиками (горизонтально; при доме Большого по диагонали —
-// иногда вертикально), каждые 4–6 клеток сдвигается на ±1; 2–3 мостика шириной 2–3 клетки; кусты на обоих берегах
-function riverLayout(lc) {
-  const { rng, ri, items, reserve, place } = lc, L = CFG.LAYOUT.river, A = CFG.DOOR_APRON;
-  const diag = lc.homes.variant === "diagonal", vertical = diag && rng() < 0.5;
-  const along = vertical ? ROWS : COLS, w = ri(L.width[0], L.width[1]);
-  // полоса между домиками с их площадками у дверей
-  const lo = vertical ? lc.homes.small.w + A : lc.homes.small.h + A;
-  const hi = vertical ? lc.homes.big.x - A - 1 : lc.homes.big.y - A - 1;
-  const maxOff = hi - w + 1, top = new Array(along);
-  let off = ri(lo, maxOff);
-  for (let pos = 0; pos < along;) {
-    const seg = ri(L.bend[0], L.bend[1]);
-    for (let k = 0; k < seg && pos < along; k++) top[pos++] = off;
-    const d = rng() < 0.5 ? -1 : 1;
-    off = off + d >= lo && off + d <= maxOff ? off + d : off - d;
-  }
-  // мостики: по одному в каждой части реки, на прямом куске; при домах на одной стороне — не у самих домов
-  const nb = ri(L.bridges[0], L.bridges[1]), bridge = new Uint8Array(along), bridges = [];
-  const minS = !vertical && !diag ? lc.homes.small.w + A + 1 : 1;
-  for (let k = 0; k < nb; k++) {
-    const bw = ri(L.bridgeW[0], L.bridgeW[1]), p0 = Math.floor(k * along / nb), p1 = Math.floor((k + 1) * along / nb) - 1;
-    const cand = [];
-    for (let st = Math.max(p0, minS); st + bw - 1 <= Math.min(p1, along - 2); st++) {
-      let ok = true;
-      for (let q = st; q < st + bw; q++) if (top[q] !== top[st] || bridge[q]) ok = false;
-      if (ok && !bridge[st - 1] && !bridge[st + bw]) cand.push(st);
-    }
-    if (!cand.length) continue;
-    const st = cand[ri(0, cand.length - 1)];
-    for (let q = st; q < st + bw; q++) bridge[q] = 1;
-    bridges.push(vertical ? { x: top[st], y: st, w, h: bw } : { x: st, y: top[st], w: bw, h: w });
-  }
-  if (bridges.length < L.bridges[0]) lc.meta.bad = "bridges";
-  // вода — прямыми кусками без мостиков
-  for (let p = 0; p < along;) {
-    if (bridge[p]) { p++; continue; }
-    let e = p; while (e + 1 < along && !bridge[e + 1] && top[e + 1] === top[p]) e++;
-    const r = vertical ? { x: top[p], y: p, w, h: e - p + 1 } : { x: p, y: top[p], w: e - p + 1, h: w };
-    items.push({ t: "water", ...r }); reserve(r.x, r.y, r.w, r.h);
-    p = e + 1;
-  }
-  for (const b of bridges) { items.push({ t: "floor", kind: "bridge", ...b, across: vertical ? "x" : "y" }); reserve(b.x, b.y, b.w, b.h); }
-  // берег клетки: 0 — сторона домика маленьких, 1 — другая
-  const bank = (x, y) => vertical ? (x < top[y] ? 0 : 1) : (y < top[x] ? 0 : 1);
-  const nBush = bushCount(lc, L.bushes), half = Math.ceil(nBush / 2);
-  place(half, genBush, 2, 2, 0, (x, y) => bank(x, y) === 0);
-  place(nBush - half, genBush, 2, 2, 0, (x, y) => bank(x, y) === 1);
-  place(ri(L.trees[0], L.trees[1]), genTree(rng));
-  place(ri(L.rocks[0], L.rocks[1]), genRock(rng));
-  lc.meta.areas = { bridges: bridges.map(b => ({ ...b })) };
-  lc.meta.vertical = vertical;
-}
-
-// Дом с комнатами (дом Большого по диагонали): здание из двух крыльев вокруг двор(ов) домиков — A справа сверху,
-// B слева снизу, общая стена между ними. Каждое крыло делится пополам (BSP) на комнаты ≥ 4×4 внутри; в каждой
-// стене деления дверь (2 клетки), примерно в трети — вторая; 3–4 двери наружу, в оба двора.
-function roomsLayout(lc) {
-  const { rng, ri, items, occ, place } = lc, L = CFG.LAYOUT.rooms, A = CFG.DOOR_APRON, MR = L.minRoom;
-  if (lc.homes.variant !== "diagonal") { lc.meta.bad = "homes"; return; }   // крылья здания — только вокруг домов по диагонали
-  const sh = lc.homes.small, bh = lc.homes.big;
-  const ax0 = sh.x + sh.w + A, ay1 = bh.y - A - 1;            // крыло A: x ax0..COLS-1, y 0..ay1
-  const bx1 = bh.x - A - 1, by0 = ay1;                         // крыло B: x 0..bx1, y by0..ROWS-1 (общая стена y = ay1)
-  const wings = [{ x0: ax0, y0: 0, x1: COLS - 1, y1: ay1 }, { x0: 0, y0: by0, x1: bx1, y1: ROWS - 1 }];
-  const wall = new Uint8Array(COLS * ROWS), door = new Uint8Array(COLS * ROWS), doors = [];
-  const at = (x, y) => y * COLS + x;
-  for (const g of wings) {
-    for (let x = g.x0; x <= g.x1; x++) { wall[at(x, g.y0)] = 1; wall[at(x, g.y1)] = 1; }
-    for (let y = g.y0; y <= g.y1; y++) { wall[at(g.x0, y)] = 1; wall[at(g.x1, y)] = 1; }
-  }
-  // дверь: 2 клетки в стене; vert — стена вертикальная (дверь сверху вниз)
-  const addDoor = (x, y, vert, kind) => {
-    const c = vert ? [[x, y], [x, y + 1]] : [[x, y], [x + 1, y]];
-    for (const [cx, cy] of c) { wall[at(cx, cy)] = 0; door[at(cx, cy)] = 1; }
-    doors.push({ x, y, w: vert ? 1 : 2, h: vert ? 2 : 1, vert, kind });
-  };
-  const free2 = (vert, x, y, list) => list.every(([cx, cy]) => !door[at(cx, cy)]) && !door[at(vert ? x : x - 1, vert ? y - 1 : y)] && !door[at(vert ? x : x + 2, vert ? y + 2 : y)];
-  // двери наружу: стены крыльев, смотрящие во дворы (по 1–2 в каждый двор, всего 3–4)
-  const segs = {
-    small: [{ vert: true, x: ax0, a: 1, b: ay1 - 1 }, { vert: false, y: by0, a: 1, b: ax0 - 1 }],
-    big: [{ vert: false, y: ay1, a: bx1 + 1, b: COLS - 2 }, { vert: true, x: bx1, a: by0 + 1, b: ROWS - 2 }]
-  };
-  const total = ri(L.outsideDoors[0], L.outsideDoors[1]), perYard = { small: 1, big: 1 };
-  perYard[rng() < 0.5 ? "small" : "big"] += total - 2 > 0 ? 1 : 0;
-  if (total - 2 > 1) perYard[perYard.small > 1 ? "big" : "small"]++;
-  // первая дверь во двор маленьких — напротив правой стены их домика: иначе полоса между домиком и зданием —
-  // тупик для Большого (в домик ему нельзя)
-  addDoor(ax0, ri(1, sh.h - 2), true, "out:small"); perYard.small--;
-  for (const yard of ["small", "big"]) {
-    let left = perYard[yard];
-    for (let k = 0; k < 80 && left > 0; k++) {
-      const sg = segs[yard][ri(0, 1)], st = ri(sg.a, sg.b - 1);
-      const x = sg.vert ? sg.x : st, y = sg.vert ? st : sg.y;
-      const cells = sg.vert ? [[x, y], [x, y + 1]] : [[x, y], [x + 1, y]];
-      if (!free2(sg.vert, x, y, cells)) continue;
-      addDoor(x, y, sg.vert, "out:" + yard); left--;
-    }
-  }
-  // общая стена между крыльями: 1 дверь (иногда 2)
-  const sharedDoor = () => { for (let k = 0; k < 40; k++) { const x = ri(ax0 + 1, bx1 - 2); if (free2(false, x, ay1, [[x, ay1], [x + 1, ay1]])) { addDoor(x, ay1, false, "in"); return; } } };
-  sharedDoor(); if (rng() < L.secondDoor) sharedDoor();
-  // BSP: r — внутренность (без стен). Линия деления не упирается в дверь соседней стены.
-  const rooms = [];
-  const split = r => {
-    const w = r.x1 - r.x0 + 1, h = r.y1 - r.y0 + 1;
-    const canV = w >= 2 * MR + 1, canH = h >= 2 * MR + 1;
-    if ((!canV && !canH) || (w * h <= L.stopArea && rng() < 0.5)) { rooms.push(r); return; }
-    const vert = canV && (!canH || (w > h ? rng() < L.splitBias : rng() < 1 - L.splitBias));   // чаще делим длинную сторону
-    const opts = [];
-    if (vert) { for (let sx = r.x0 + MR; sx <= r.x1 - MR; sx++) if (!door[at(sx, r.y0 - 1)] && !door[at(sx, r.y1 + 1)]) opts.push(sx); }
-    else { for (let sy = r.y0 + MR; sy <= r.y1 - MR; sy++) if (!door[at(r.x0 - 1, sy)] && !door[at(r.x1 + 1, sy)]) opts.push(sy); }
-    if (!opts.length) { rooms.push(r); return; }
-    const sp = opts[ri(0, opts.length - 1)];
-    if (vert) for (let y = r.y0; y <= r.y1; y++) wall[at(sp, y)] = 1;
-    else for (let x = r.x0; x <= r.x1; x++) wall[at(x, sp)] = 1;
-    const a0 = vert ? r.y0 : r.x0, a1 = vert ? r.y1 : r.x1;
-    const d1 = ri(a0, a1 - 1);
-    if (vert) addDoor(sp, d1, true, "in"); else addDoor(d1, sp, false, "in");
-    if (rng() < L.secondDoor) {
-      const o = []; for (let d = a0; d <= a1 - 1; d++) if (d + 1 < d1 - 1 || d > d1 + 2) o.push(d);
-      if (o.length) { const d2 = o[ri(0, o.length - 1)]; if (vert) addDoor(sp, d2, true, "in"); else addDoor(d2, sp, false, "in"); }
-    }
-    if (vert) { split({ x0: r.x0, y0: r.y0, x1: sp - 1, y1: r.y1 }); split({ x0: sp + 1, y0: r.y0, x1: r.x1, y1: r.y1 }); }
-    else { split({ x0: r.x0, y0: r.y0, x1: r.x1, y1: sp - 1 }); split({ x0: r.x0, y0: sp + 1, x1: r.x1, y1: r.y1 }); }
-  };
-  for (const g of wings) {
-    split({ x0: g.x0 + 1, y0: g.y0 + 1, x1: g.x1 - 1, y1: g.y1 - 1 });
-    items.push({ t: "floor", x: g.x0 + 1, y: g.y0 + 1, w: g.x1 - g.x0 - 1, h: g.y1 - g.y0 - 1, kind: "tile" });
-  }
-  emitWalls(items, occ, wall, "build");
-  // кто за дверью: номер комнаты, "small"/"big" — двор
-  const roomAt = (x, y) => rooms.findIndex(r => x >= r.x0 && x <= r.x1 && y >= r.y0 && y <= r.y1);
-  const side = (x, y, d) => { const k = roomAt(x, y); return k >= 0 ? k : d.kind.startsWith("out:") ? d.kind.slice(4) : -1; };
-  const doorList = doors.map(d => ({ x: d.x, y: d.y, w: d.w, h: d.h,
-    a: d.vert ? side(d.x - 1, d.y, d) : side(d.x, d.y - 1, d), b: d.vert ? side(d.x + 1, d.y, d) : side(d.x, d.y + 1, d) }));
-  if (doors.filter(d => d.kind.startsWith("out:")).length < L.outsideDoors[0] || !doors.some(d => d.kind === "out:small") || !doors.some(d => d.kind === "out:big")) lc.meta.bad = "outsideDoors";
-  // растения в комнатах, камни-мебель в больших комнатах (не у стен и дверей)
-  const inRoom = (x, y, w, h) => rooms.some(r => x >= r.x0 && y >= r.y0 && x + w - 1 <= r.x1 && y + h - 1 <= r.y1);
-  const big = rooms.filter(r => (r.x1 - r.x0 + 1) * (r.y1 - r.y0 + 1) >= L.bigRoom);
-  place(bushCount(lc, L.bushes), genBush, 2, 2, 0, (x, y) => inRoom(x, y, 2, 2));
-  place(ri(L.rocks[0], L.rocks[1]), genRock(rng), 1, 1, 2, (x, y) => big.some(r => x >= r.x0 && x <= r.x1 && y >= r.y0 && y <= r.y1));
-  lc.meta.areas = { rooms: rooms.map(r => ({ x: r.x0, y: r.y0, w: r.x1 - r.x0 + 1, h: r.y1 - r.y0 + 1 })), doors: doorList };
-}
-
-// Арена: блок в середине, вокруг кольцо стен через 3 клетки с 3–4 проходами; у половины уровней ещё полукольцо
-// снаружи (в свободном углу) с 2 проходами. Кусты — в коридоре кольца, деревья и камни — снаружи.
-function arenaLayout(lc) {
-  const { rng, ri, items, occ, reserve, isFree, place } = lc, L = CFG.LAYOUT.arena, D = L.ring + 1, bh = L.blockH, HG = L.halfGap;
-  if (lc.homes.variant !== "diagonal") { lc.meta.bad = "homes"; return; }   // полукольцу нужны свободные углы (слева внизу / справа вверху)
-  let half = rng() < L.halfRing;
-  const corner = half ? (rng() < 0.5 ? "bl" : "tr") : null;
-  // при полукольце кольцо сдвинуто от того края, где ему нужно место (2 клетки коридор + стена + 2 клетки)
-  const by = corner === "bl" ? Math.floor((ROWS - bh) / 2) - 1 : corner === "tr" ? Math.floor((ROWS - bh) / 2) + 1 : Math.floor((ROWS - bh) / 2) + ri(-1, 1);
-  let bw = ri(L.blockW[0], L.blockW[1]), bx = -1;
-  for (; bw >= L.blockW[0] && bx < 0; bw--) {
-    const opts = [];
-    for (let x = D + 2; x + bw + D + 2 <= COLS; x++) if (isFree(x - D, by - D, bw + 2 * D, bh + 2 * D, 0)) opts.push(x);
-    if (opts.length) { bx = opts[ri(0, opts.length - 1)]; break; }
-  }
-  if (bx < 0) { lc.meta.bad = "arena"; return; }
-  const x0 = bx - D, y0 = by - D, x1 = bx + bw + D - 1, y1 = by + bh + D - 1;
-  const wall = new Uint8Array(COLS * ROWS), at = (x, y) => y * COLS + x;
-  const set = (x, y, v) => { if (x >= 0 && y >= 0 && x < COLS && y < ROWS) wall[at(x, y)] = v; };
-  for (let x = x0; x <= x1; x++) { set(x, y0, 1); set(x, y1, 1); }
-  for (let y = y0; y <= y1; y++) { set(x0, y, 1); set(x1, y, 1); }
-  // проходы в кольце: на разных сторонах, не у углов
-  const gaps = [], n = ri(L.gaps[0], L.gaps[1]);
-  for (const sd of shuffle(rng, ["top", "bottom", "left", "right"]).slice(0, n)) {
-    const gw = ri(L.gapW[0], L.gapW[1]), horiz = sd === "top" || sd === "bottom";
-    const st = horiz ? ri(x0 + 2, x1 - 1 - gw) : ri(y0 + 2, y1 - 1 - gw);
-    const g = horiz ? { x: st, y: sd === "top" ? y0 : y1, w: gw, h: 1 } : { x: sd === "left" ? x0 : x1, y: st, w: 1, h: gw };
-    for (let y = g.y; y < g.y + g.h; y++) for (let x = g.x; x < g.x + g.w; x++) set(x, y, 0);
-    gaps.push(g);
-  }
-  // полукольцо: две «руки» через HG клеток от кольца — по левой и нижней стороне (bl) или по верхней и правой (tr);
-  // снаружи от него тоже HG свободных клеток до края карты, и оно не задевает домики — иначе его нет
-  const halfGaps = [];
-  if (half) {
-    const hx = corner === "bl" ? x0 - HG - 1 : x1 + HG + 1, hy = corner === "bl" ? y1 + HG + 1 : y0 - HG - 1;
-    const mx = Math.floor((x0 + x1) / 2), my = Math.floor((y0 + y1) / 2);
-    const vy0 = Math.min(my, hy), vy1 = Math.max(my, hy), hx0 = Math.min(mx, hx), hx1 = Math.max(mx, hx);
-    const arm = [];
-    for (let y = vy0; y <= vy1; y++) arm.push([hx, y]);
-    for (let x = hx0; x <= hx1; x++) arm.push([x, hy]);
-    half = arm.every(([x, y]) => x >= HG && y >= HG && x < COLS - HG && y < ROWS - HG && !occ[at(x, y)]);
-    if (half) {
-      for (const [x, y] of arm) set(x, y, 1);
-      const gv = ri(L.gapW[0], L.gapW[1]), gvy = ri(vy0 + 1, vy1 - 1 - gv), gh = ri(L.gapW[0], L.gapW[1]), ghx = ri(hx0 + 1, hx1 - 1 - gh);
-      for (let y = gvy; y < gvy + gv; y++) set(hx, y, 0);
-      for (let x = ghx; x < ghx + gh; x++) set(x, hy, 0);
-      halfGaps.push({ x: hx, y: gvy, w: 1, h: gv }, { x: ghx, y: hy, w: gh, h: 1 });
-    }
-  }
-  emitWalls(items, occ, wall, "arena");
-  items.push({ t: "wall", x: bx, y: by, w: bw, h: bh, kind: "arena" }); reserve(bx, by, bw, bh);
-  // кусты — в коридоре внутри кольца; потом кольцо целиком занято, деревья и камни — снаружи
-  place(bushCount(lc, L.bushes), genBush, 2, 2, 0, (x, y) => x > x0 && y > y0 && x + 1 < x1 && y + 1 < y1);
-  reserve(x0, y0, x1 - x0 + 1, y1 - y0 + 1);
-  place(ri(L.trees[0], L.trees[1]), genTree(rng));
-  place(ri(L.rocks[0], L.rocks[1]), genRock(rng));
-  lc.meta.areas = { block: [{ x: bx, y: by, w: bw, h: bh }], ring: [{ x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 }], gaps, halfGaps };
-}
-
-const LAYOUTS = {
-  classic: classicLayout, meadow: meadowLayout, maze: mazeLayout, village: villageLayout,
-  river: riverLayout, rooms: roomsLayout, arena: arenaLayout
-};
-
-// >>> src/core/level/build.js
-// ---------- Сборка уровня ----------
-function generateLevel(world, lv, attempt) { return noGameRng("generateLevel", () => layoutLevel(world, lv, attempt)); }
-function layoutLevel(world, lv, attempt) {
-  const type = levelType(world, lv), tier = levelTier(world, lv);
-  const rng = mulberry32(levelSeed(world, lv) * 7919 + attempt * 104729 + 13);
-  const ri = (a, b) => a + Math.floor(rng() * (b - a + 1));
-  const items = [], occ = new Uint8Array(COLS * ROWS);
-  const inb = (x, y) => x >= 0 && y >= 0 && x < COLS && y < ROWS;
-  const reserve = (x, y, w, h) => { for (let yy = y; yy < y + h; yy++) for (let xx = x; xx < x + w; xx++) if (inb(xx, yy)) occ[yy * COLS + xx] = 1; };
-  const isFree = (x, y, w, h, m) => {
-    for (let yy = y; yy < y + h; yy++) for (let xx = x; xx < x + w; xx++) if (!inb(xx, yy)) return false;
-    for (let yy = y - m; yy < y + h + m; yy++) for (let xx = x - m; xx < x + w + m; xx++) if (inb(xx, yy) && occ[yy * COLS + xx]) return false;
-    return true;
-  };
-  const hWall = (x1, x2, y, kind, gaps = []) => hWallTo(items, x1, x2, y, kind, gaps);
-  const vWall = (x, y1, y2, kind, gaps = []) => vWallTo(items, x, y1, y2, kind, gaps);
-  // n штук make(x, y) в свободных местах w×h с отступом m клеток от занятого
-  const place = (n, make, w = 1, h = 1, m = 2, ok = null) => {
-    let placed = 0;
-    for (let k = 0; k < 500 && placed < n; k++) {
-      const x = ri(0, COLS - w), y = ri(0, ROWS - h);
-      if (isFree(x, y, w, h, m) && (!ok || ok(x, y))) { items.push(make(x, y)); reserve(x, y, w, h); placed++; }
-    }
-    return placed;
-  };
-  const lc = { lv, attempt, type, tier, rng, ri, items, occ, inb, reserve, isFree, hWall, vWall, place,
-    small: null, bigPt: null, doors: { small: [], big: [] }, homes: null, meta: {} };
-
-  // Домики: на 1-м уровне — как на рисунке (дом Большого слева внизу), иначе угол Большого выбирает сид
-  placeHomes(lc, type === "classic" ? "side" : CFG.LAYOUT[type].homes || (rng() < 0.5 ? "diagonal" : "side"));
-  LAYOUTS[type](lc);
-
-  // Зеркалим карту для разнообразия (1-й уровень — как на рисунке)
-  const fx = lv > 1 && rng() < 0.5, fy = lv > 1 && rng() < 0.5;
-  const tx = (x, w) => fx ? COLS - x - w : x, ty = (y, h) => fy ? ROWS - y - h : y;
-  for (const it of items) { const w = it.w || 1, h = it.h || 1; if (it.t === "bush") { it.x = tx(it.x, 2); it.y = ty(it.y, 2); } else { it.x = tx(it.x, w); it.y = ty(it.y, h); } }
-  for (const it of items) if (it.exits) for (const e of it.exits) { e.x = tx(e.x, e.w); e.y = ty(e.y, e.h); }
-  for (const list of Object.values(lc.meta.areas || {})) for (const r of list) { r.x = tx(r.x, r.w); r.y = ty(r.y, r.h); }
-  const tp = ([x, y]) => [fx ? COLS - x : x, fy ? ROWS - y : y];
-  // двери домиков (проём + направление наружу) — для правил честности
-  const md = d => ({ x: tx(d.x, d.w), y: ty(d.y, d.h), w: d.w, h: d.h, dx: fx ? -d.dx : d.dx, dy: fy ? -d.dy : d.dy });
-  const doors = { small: lc.doors.small.map(md), big: lc.doors.big.map(md) };
-  const fl = [];
-  for (let i = 0; i < 60; i++) fl.push({ x: rng() * W, y: rng() * H, c: ["#fff27a", "#ff9ecb", "#ffffff", "#b5e3ff"][ri(0, 3)] });
-  return { type, items, small: lc.small.map(tp), big: tp(lc.bigPt), flowers: fl, doors, meta: lc.meta };
-}
-
-// Новое состояние мира здесь → добавить его в список keep у levelReport (и в __bb.worldState)
-function applyWorld(gen) {
-  obstacles = []; bushes = []; floors = []; decor = []; trees = []; safeZone = null; dangerZone = null;
-  flowers = gen.flowers;
-  for (const it of gen.items) {
-    const px = it.x * CELL, py = it.y * CELL;
-    if (it.t === "wall") obstacles.push({ shape: "rect", x: px, y: py, w: it.w * CELL, h: it.h * CELL, move: true, sight: true, kind: it.kind });
-    else if (it.t === "cottage") obstacles.push({ shape: "rect", x: px, y: py, w: it.w * CELL, h: it.h * CELL, move: true, sight: true, kind: "cottage" });
-    else if (it.t === "water") obstacles.push({ shape: "rect", x: px, y: py, w: it.w * CELL, h: it.h * CELL, move: true, sight: false, kind: "water" });
-    else if (it.t === "pond") obstacles.push({ shape: "rect", x: px, y: py, w: it.w * CELL, h: it.h * CELL, move: true, sight: false, kind: "pond", fountain: !!it.fountain });
-    else if (it.t === "tree") { const t = { shape: "circle", x: px + 16, y: py + 16, r: 12, sr: 15, move: true, sight: true, kind: "tree", v: it.v, s: it.s }; obstacles.push(t); trees.push(t); }
-    else if (it.t === "rock") obstacles.push({ shape: "circle", x: px + 16, y: py + 16, r: 16, sr: 16, move: true, sight: true, kind: "rock", s: it.s });
-    else if (it.t === "bush") bushes.push({ x: px + CELL, y: py + CELL, r: 30 });
-    else if (it.t === "safe") safeZone = { shape: "rect", x: px, y: py, w: it.w * CELL, h: it.h * CELL };
-    else if (it.t === "danger") dangerZone = { x: px, y: py, w: it.w * CELL, h: it.h * CELL, exits: (it.exits || []).map(e => ({ x: (e.x + e.w / 2) * CELL, y: (e.y + e.h / 2) * CELL })) };
-    else if (it.t === "floor") floors.push({ x: px, y: py, w: it.w * CELL, h: it.h * CELL, kind: it.kind, across: it.across });
-    else if (it.t === "decor") decor.push({ x: px, y: py, w: it.w * CELL, h: it.h * CELL, kind: it.kind, c: it.c });
-  }
-  spawns = { small: gen.small.map(([x, y]) => ({ x: x * CELL, y: y * CELL })), big: { x: gen.big[0] * CELL, y: gen.big[1] * CELL } };
-  buildGrids();
-}
-
-function connectivity() {
-  const N = COLS * ROWS, seen = new Uint8Array(N);
-  const s = cellIdx(spawns.small[0].x, spawns.small[0].y);
-  if (blocked[s]) return { ok: false, seen };
-  const q = [s]; seen[s] = 1;
-  while (q.length) {
-    const i = q.pop(), cx = i % COLS, cy = (i / COLS) | 0;
-    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-      const nx = cx + dx, ny = cy + dy;
-      if (nx < 0 || ny < 0 || nx >= COLS || ny >= ROWS) continue;
-      const j = ny * COLS + nx;
-      if (!blocked[j] && !seen[j]) { seen[j] = 1; q.push(j); }
-    }
-  }
-  let ok = true;
-  for (let i = 0; i < N; i++) if (!blocked[i] && !seen[i]) { ok = false; break; }
-  return { ok, seen };
-}
-
-// Уровень для игры строится тем же циклом попыток, что проверяет levelReport (validateLevel, запасной вариант)
-let levelInfo = null;   // { world, lv, type, attempt, fallback, cached, ms } — какой уровень сейчас построен
-// уровень ("мир:n") → принятая попытка: перезапуск и стрелки в меню строят её сразу, без перебора попыток.
-// Если она вдруг не проходит проверку (поменяли CFG) — запись удаляется и уровень строится заново с попытки 0,
-// как в levelReport.
-const levelCache = new Map();
-const clearLevelCache = () => levelCache.clear();
-function loadLevel(world, lv) {
-  const t0 = performance.now(), type = levelType(world, lv), key = levelKey(world, lv), c = levelCache.get(key);
-  if (c !== undefined && c < CFG.LEVEL_ATTEMPTS) {
-    const gen = generateLevel(world, lv, c);
-    applyWorld(gen);
-    const rep = validateLevel(gen, type);
-    if (rep.ok) { reachable = rep.seen; levelInfo = { world, lv, type, attempt: c, fallback: false, cached: true, ms: performance.now() - t0 }; return; }
-  }
-  levelCache.delete(key);
-  const r = buildLevel(world, lv);
-  if (!r.fallback) levelCache.set(key, r.attempt);
-  levelInfo = { world, lv, type: r.type, attempt: r.attempt, fallback: r.fallback, cached: false, ms: r.ms };
-}
-
-// >>> src/core/level/validate.js
-// ---------- Честность уровня (SPEC-002) ----------
-// validateLevel проверяет уже применённый уровень (после applyWorld) по 7 правилам; ok — все выполнены.
-const N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-function floodCells(start, grid) {
-  const seen = new Uint8Array(COLS * ROWS);
-  if (grid[start]) return seen;
-  const q = [start]; seen[start] = 1;
-  while (q.length) {
-    const i = q.pop(), cx = i % COLS, cy = (i / COLS) | 0;
-    for (const [dx, dy] of N4) {
-      const nx = cx + dx, ny = cy + dy;
-      if (nx < 0 || ny < 0 || nx >= COLS || ny >= ROWS) continue;
-      const j = ny * COLS + nx;
-      if (!grid[j] && !seen[j]) { seen[j] = 1; q.push(j); }
-    }
-  }
-  return seen;
-}
-const allSeen = (grid, seen) => { for (let i = 0; i < COLS * ROWS; i++) if (!grid[i] && !seen[i]) return false; return true; };
-// клетки ряда k перед дверью (k = 1 — сразу за проёмом)
-const doorFront = (d, k) => { const c = []; for (let yy = 0; yy < d.h; yy++) for (let xx = 0; xx < d.w; xx++) c.push([d.x + xx + d.dx * k, d.y + yy + d.dy * k]); return c; };
-const cellFree = (grid, [x, y]) => x >= 0 && y >= 0 && x < COLS && y < ROWS && !grid[y * COLS + x];
-// Тупики на сетке Большого: узлы — «окна» 2×2 свободных клеток (там он помещается), соседи — сдвиг на клетку.
-// Листья обрезаем по одному: обрезанная цепочка — тупиковый коридор, её длина в клетках = окон + 1.
-// count — сколько концов тупиков, longest — самый длинный тупиковый коридор (клеток).
-function deadEndScan(skip = null) {
-  const WC = COLS - 1, WR = ROWS - 1, NW = WC * WR, ok = new Uint8Array(NW), deg = new Uint8Array(NW), len = new Uint16Array(NW), gone = new Uint8Array(NW);
-  const fr = (x, y) => !blockedBig[y * COLS + x];
-  for (let j = 0; j < WR; j++) for (let i = 0; i < WC; i++) ok[j * WC + i] = fr(i, j) && fr(i + 1, j) && fr(i, j + 1) && fr(i + 1, j + 1) ? 1 : 0;
-  const nb = w => {
-    const i = w % WC, j = (w / WC) | 0, r = [];
-    for (const [dx, dy] of N4) { const a = i + dx, b = j + dy; if (a >= 0 && b >= 0 && a < WC && b < WR && ok[b * WC + a]) r.push(b * WC + a); }
-    return r;
-  };
-  const q = [];
-  let count = 0, longest = 0;
-  for (let w = 0; w < NW; w++) if (ok[w]) { deg[w] = nb(w).length; if (deg[w] <= 1) { q.push(w); len[w] = 1; gone[w] = 1; if (!skip || !skip(w % WC, (w / WC) | 0)) count++; } }
-  for (let h = 0; h < q.length; h++) {
-    const w = q[h];
-    for (const u of nb(w)) {
-      if (gone[u]) continue;
-      len[u] = Math.max(len[u], len[w] + 1);
-      if (--deg[u] <= 1) { gone[u] = 1; q.push(u); }
-    }
-    longest = Math.max(longest, len[w] + 1);
-  }
-  return { count, longest };
-}
-function validateLevel(gen, type) {
-  const N = COLS * ROWS, fails = [];
-  // 1, 2: всё свободное достижимо — для маленьких от их домика, для Большого (вне домика маленьких) от его места
-  const small = connectivity(), smallReachAll = small.ok;
-  const bigReachAll = allSeen(blockedBig, floodCells(cellIdx(spawns.big.x, spawns.big.y), blockedBig));
-  // 4: свободные клетки вне обоих домиков
-  const sz = gen.items.find(it => it.t === "safe"), dz = gen.items.find(it => it.t === "danger");
-  const inRect = (x, y, r) => !!r && x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h;
-  const bigBox = dz && { x: dz.x - 1, y: dz.y - 1, w: dz.w + 2, h: dz.h + 2 };
-  let free = 0;
-  for (let i = 0; i < N; i++) { const x = i % COLS, y = (i / COLS) | 0; if (!blocked[i] && !inRect(x, y, sz) && !inRect(x, y, bigBox)) free++; }
-  const freeRatio = free / N;
-  // 5: перед каждой дверью DOOR_APRON свободных рядов на обеих сетках
-  const doors = gen.doors || { small: [], big: [] };
-  let doorClear = doors.small.length > 0 && doors.big.length > 0;
-  for (const d of [...doors.small, ...doors.big]) for (let k = 1; k <= CFG.DOOR_APRON; k++) for (const c of doorFront(d, k)) if (!cellFree(blocked, c) || !cellFree(blockedBig, c)) doorClear = false;
-  // 3: A* по сетке Большого от его двери до клетки перед дверью маленьких; кратчайшая пара дверей, диагональ = √2
-  let housePath = Infinity;
-  for (const bd of doors.big) for (const sd of doors.small) {
-    const s = { x: (bd.x + 0.5) * CELL, y: (bd.y + 0.5) * CELL }, [fx0, fy0] = doorFront(sd, 1)[0];
-    const pts = findPath(s.x, s.y, (fx0 + 0.5) * CELL, (fy0 + 0.5) * CELL, null, blockedBig);
-    if (!pts.length) continue;
-    let L = 0, px = s.x, py = s.y;
-    for (const p of pts) { L += Math.hypot(p.x - px, p.y - py) / CELL; px = p.x; py = p.y; }
-    housePath = Math.min(housePath, L);
-  }
-  housePath = isFinite(housePath) ? Math.round(housePath * 10) / 10 : -1;
-  // 6: тупики (в лабиринте — сколько концов осталось от тупиков идеального лабиринта)
-  // в лабиринте концы тупиков считаем только вне домиков с их площадками у дверей (там не лабиринт)
-  const A = CFG.DOOR_APRON, grow = r => r && { x: r.x - A, y: r.y - A, w: r.w + 2 * A, h: r.h + 2 * A };
-  const nearHome = (i, j) => [grow(sz), grow(bigBox)].some(r => r && i + 1 >= r.x && i < r.x + r.w && j + 1 >= r.y && j < r.y + r.h);
-  const de = deadEndScan(type === "maze" ? nearHome : null), before = gen.meta && gen.meta.deadEndsBefore != null ? gen.meta.deadEndsBefore : null;
-  const deadEnds = { count: de.count, longest: de.longest, before };
-  // 7: кусты
-  const bushes = gen.items.filter(it => it.t === "bush").length;
-  if (!smallReachAll) fails.push("smallReach");
-  if (!bigReachAll) fails.push("bigReach");
-  if (type !== "classic" && (housePath < CFG.HOUSE_PATH[0] || housePath > CFG.HOUSE_PATH[1])) fails.push("housePath");   // 1-й уровень — рисунок детей
-  if (freeRatio < CFG.FREE_MIN[type]) fails.push("free");
-  if (!doorClear) fails.push("doors");
-  if (type === "maze" ? !(before != null && de.count <= Math.floor(before * CFG.MAZE_DEAD_ENDS)) : de.longest > CFG.DEAD_END_MAX) fails.push("deadEnds");
-  if (bushes < CFG.BUSH_MIN[type]) fails.push("bushes");
-  if (gen.meta && gen.meta.bad) fails.push("layout:" + gen.meta.bad);
-  return { ok: fails.length === 0, fails, seen: small.seen, freeRatio, bigReachAll, smallReachAll, housePath, doorClear, deadEnds, bushes };
-}
-// Строит уровень: до LEVEL_ATTEMPTS попыток, пока validateLevel не пройдёт; иначе — запасной вариант (живая изгородь в «карманах»).
-// Попытки с 0 до LEVEL_ATTEMPTS-1, первая честная принимается. attempt — какая попытка построена.
-// Для запасного варианта — «лучшая» неудачная: меньше нарушенных правил, а нарушившие достижимость
-// (smallReach / bigReach) — в самом конце (их «карманы» пришлось бы закрывать).
-const failScore = fails => fails.length + (fails.includes("smallReach") || fails.includes("bigReach") ? 100 : 0);
-function buildLevel(world, lv) {
-  const type = levelType(world, lv), t0 = performance.now(), N = Math.max(1, CFG.LEVEL_ATTEMPTS);
-  let rep = null, attempt = 0, tries = 0, best = null;
-  const rejects = [];   // почему отброшены прежние попытки
-  for (; attempt < N; attempt++) {
-    const gen = generateLevel(world, lv, attempt);
-    applyWorld(gen); tries++;
-    rep = validateLevel(gen, type);
-    if (rep.ok) break;
-    rejects.push(rep.fails.join("/"));
-    if (!best || failScore(rep.fails) < best.score) best = { score: failScore(rep.fails), attempt };
-  }
-  const fallback = !rep.ok;
-  if (fallback) {
-    // запасной вариант: попытка с меньшим числом нарушенных правил; «карманы», куда не дойдут маленькие
-    // или (вне их домика) Большой, закрываем живой изгородью
-    attempt = best.attempt;
-    const gen = generateLevel(world, lv, attempt);
-    applyWorld(gen);
-    rep = validateLevel(gen, type);
-    const bigSeen = floodCells(cellIdx(spawns.big.x, spawns.big.y), blockedBig);
-    for (let i = 0; i < COLS * ROWS; i++) if (!blocked[i] && (!rep.seen[i] || (!blockedBig[i] && !bigSeen[i]))) {
-      obstacles.push({ shape: "rect", x: (i % COLS) * CELL, y: ((i / COLS) | 0) * CELL, w: CELL, h: CELL, move: true, sight: true, kind: "hedge" });
-    }
-    buildGrids();
-    rep.seen = connectivity().seen;
-    console.warn(`level ${levelKey(world, lv)} (${type}): no fair layout in ${N} attempts (kept attempt ${attempt}: ${rep.fails.join(", ")}), pockets filled`);
-  }
-  reachable = rep.seen;
-  const { seen, ok, ...report } = rep;
-  return { type, tier: levelTier(world, lv), attempt, attempts: tries, fallback, ...report, rejects, ms: performance.now() - t0 };
-}
-// Отчёт о честности уровня (для тестов): строит уровень и возвращает мир идущей игры как был
-function levelReport(world, lv) {
-  const keep = { obstacles, bushes, floors, decor, trees, flowers, safeZone, dangerZone, spawns, reachable };
-  const grids = [blocked, blockedBig, moveGrid, seeGrid, moveGridBig], copies = grids.map(g => g.slice());
-  try { return buildLevel(world, lv); }
-  finally {
-    setMapState(keep);
-    grids.forEach((g, k) => g.set(copies[k]));
-  }
-}
-
-// >>> src/core/path.js
-// ---------- Поиск пути (A*) ----------
-function cellIdx(x, y) { return clamp(Math.floor(y / CELL), 0, ROWS - 1) * COLS + clamp(Math.floor(x / CELL), 0, COLS - 1); }
-function nearestFree(idx, grid = blocked) {
-  if (!grid[idx]) return idx;
-  const seen = new Uint8Array(COLS * ROWS), q = [idx];
-  seen[idx] = 1;
-  for (let h = 0; h < q.length; h++) {
-    const i = q[h];
-    if (!grid[i]) return i;
-    const cx = i % COLS, cy = (i / COLS) | 0;
-    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-      const nx = cx + dx, ny = cy + dy;
-      if (nx < 0 || ny < 0 || nx >= COLS || ny >= ROWS) continue;
-      const j = ny * COLS + nx;
-      if (!seen[j]) { seen[j] = 1; q.push(j); }
-    }
-  }
-  return idx;
-}
-const DIRS = [[1, 0, 1], [-1, 0, 1], [0, 1, 1], [0, -1, 1], [1, 1, 1.414], [1, -1, 1.414], [-1, 1, 1.414], [-1, -1, 1.414]];
-function findPath(sx, sy, gx, gy, extraCost, grid = blocked) {
-  const N = COLS * ROWS;
-  const s = nearestFree(cellIdx(sx, sy), grid), g = nearestFree(cellIdx(gx, gy), grid);
-  const gs = new Float32Array(N).fill(Infinity), fs = new Float32Array(N).fill(Infinity);
-  const came = new Int32Array(N).fill(-1), closed = new Uint8Array(N);
-  const gcx = g % COLS, gcy = (g / COLS) | 0;
-  const h = i => { const dx = Math.abs(i % COLS - gcx), dy = Math.abs(((i / COLS) | 0) - gcy); return Math.max(dx, dy) + 0.414 * Math.min(dx, dy); };
-  const open = [s];
-  gs[s] = 0; fs[s] = h(s);
-  while (open.length) {
-    let bi = 0;
-    for (let k = 1; k < open.length; k++) if (fs[open[k]] < fs[open[bi]]) bi = k;
-    const cur = open[bi];
-    open[bi] = open[open.length - 1]; open.pop();
-    if (closed[cur]) continue;
-    if (cur === g) break;
-    closed[cur] = 1;
-    const cx = cur % COLS, cy = (cur / COLS) | 0;
-    for (const [dx, dy, c] of DIRS) {
-      const nx = cx + dx, ny = cy + dy;
-      if (nx < 0 || ny < 0 || nx >= COLS || ny >= ROWS) continue;
-      const j = ny * COLS + nx;
-      if (grid[j] || closed[j]) continue;
-      if (dx && dy && (grid[cy * COLS + nx] || grid[ny * COLS + cx])) continue;
-      const ng = gs[cur] + c + (extraCost ? extraCost((nx + 0.5) * CELL, (ny + 0.5) * CELL) : 0);
-      if (ng < gs[j]) { gs[j] = ng; came[j] = cur; fs[j] = ng + h(j); open.push(j); }
-    }
-  }
-  if (g !== s && came[g] === -1) return [];
-  const pts = [];
-  let c = g;
-  while (c !== s && c !== -1) { pts.push({ x: (c % COLS + 0.5) * CELL, y: (((c / COLS) | 0) + 0.5) * CELL }); c = came[c]; }
-  pts.reverse();
-  if (pts.length && !(grid === blockedBig ? moveSolidBigAt : moveSolidAt)(gx, gy)) pts[pts.length - 1] = { x: gx, y: gy };
-  return pts;
-}
-
-// ---------- Движение ----------
-function resolveWalls(e) {
-  for (const o of obstacles) {
-    if (!o.move) continue;
-    if (o.shape === "rect") {
-      const nx = clamp(e.x, o.x, o.x + o.w), ny = clamp(e.y, o.y, o.y + o.h);
-      const dx = e.x - nx, dy = e.y - ny, d2 = dx * dx + dy * dy;
-      if (d2 >= e.r * e.r) continue;
-      if (d2 > 1e-6) { const d = Math.sqrt(d2); e.x += dx / d * (e.r - d); e.y += dy / d * (e.r - d); }
-      else {
-        const l = e.x - o.x, r = o.x + o.w - e.x, t = e.y - o.y, b = o.y + o.h - e.y, m = Math.min(l, r, t, b);
-        if (m === l) e.x = o.x - e.r; else if (m === r) e.x = o.x + o.w + e.r; else if (m === t) e.y = o.y - e.r; else e.y = o.y + o.h + e.r;
-      }
-    } else {
-      const dx = e.x - o.x, dy = e.y - o.y, d = Math.hypot(dx, dy) || 0.01, min = e.r + o.r;
-      if (d < min) { e.x += dx / d * (min - d); e.y += dy / d * (min - d); }
-    }
-  }
-  if (e.isBig && safeZone) {
-    const o = safeZone, nx = clamp(e.x, o.x, o.x + o.w), ny = clamp(e.y, o.y, o.y + o.h);
-    const dx = e.x - nx, dy = e.y - ny, d2 = dx * dx + dy * dy;
-    if (d2 < e.r * e.r) {
-      if (d2 > 1e-6) { const d = Math.sqrt(d2); e.x += dx / d * (e.r - d); e.y += dy / d * (e.r - d); }
-      else {
-        const l = e.x - o.x, r = o.x + o.w - e.x, t = e.y - o.y, b = o.y + o.h - e.y, m = Math.min(l, r, t, b);
-        if (m === l) e.x = o.x - e.r; else if (m === r) e.x = o.x + o.w + e.r; else if (m === t) e.y = o.y - e.r; else e.y = o.y + o.h + e.r;
-      }
-    }
-  }
-  e.x = clamp(e.x, e.r, W - e.r);
-  e.y = clamp(e.y, e.r, H - e.r);
-}
-function moveEntity(e, vx, vy, dt) { e.x += vx * dt; e.y += vy * dt; resolveWalls(e); }
-
-// Большой «спокоен»: в шоке, отдыхает после толчка или краснеет — конус бледный (3D и мини-карта)
-const bigCalm = () => !!big.kind || big.stun > 0 || big.noPush > 0 || big.blush > 0;   // SPEC-022: подобревший идёт домой — луч спокойный
-// многоугольник взгляда Большого в px мира: [x0, y0 (он сам), x1, y1, …] — n + 1 лучей, обрезанных стенами
-function visionPoly(n, out = []) {
-  out.length = 2 * (n + 2); out[0] = big.x; out[1] = big.y;
-  const a0 = big.dir - CFG.VISION_HALF;
-  for (let i = 0; i <= n; i++) {
-    const a = a0 + i * (2 * CFG.VISION_HALF / n), cx = Math.cos(a), sy = Math.sin(a);
-    let r = 0;
-    while (r < CFG.VISION_RANGE) { r += 5; if (seeSolidAt(big.x + cx * r, big.y + sy * r)) { r -= 5; break; } }
-    out[2 * i + 2] = big.x + cx * r; out[2 * i + 3] = big.y + sy * r;
-  }
-  return out;
-}
-function inCone(x, y) {
-  const dx = x - big.x, dy = y - big.y, d = Math.hypot(dx, dy);
-  return d < CFG.VISION_RANGE + 25 && angDiff(big.dir, Math.atan2(dy, dx)) < CFG.VISION_HALF + 0.2;
-}
-function clearTo(e, x, y, avoidCone) {
-  if (!losWide(e.x, e.y, x, y, e.r - 1, e.isBig ? moveSolidBigAt : moveSolidAt)) return false;
-  if (avoidCone && big.stun <= 0 && big.blush <= 0) for (let t = 0.2; t <= 1.001; t += 0.2) if (inCone(e.x + (x - e.x) * t, e.y + (y - e.y) * t)) return false;
-  return true;
-}
-// Куда идти к цели (gx, gy): сама цель, если путь прямой, иначе следующая точка пути A*. e.path/e.repath — память пути;
-// repathIn — через сколько пересчитать (боты и Большой — случайно; автопилот — своё число, игровой rng() не трогает)
-function steerPoint(e, gx, gy, dt, avoidCone, repathIn = () => rand(0.3, 0.45)) {
-  e.repath -= dt;
-  let tx = gx, ty = gy;
-  if (!clearTo(e, gx, gy, avoidCone)) {
-    if (e.repath <= 0 || !e.path.length) {
-      const cost = e.isBig ? (avoidCone ? ((x, y) => (inCone(x, y) ? 20 : 0)) : null)
-        : (x, y) => (avoidCone && inCone(x, y) ? 20 : 0) + (inDangerXY(x, y) ? CFG.BOT_DANGER_COST : 0);   // дом Большого — «дорогой»
-      e.path = findPath(e.x, e.y, gx, gy, cost, e.isBig ? blockedBig : blocked);
-      e.repath = repathIn();
-    }
-    while (e.path.length && Math.hypot(e.path[0].x - e.x, e.path[0].y - e.y) < 8) e.path.shift();
-    while (e.path.length > 1 && clearTo(e, e.path[1].x, e.path[1].y, avoidCone)) e.path.shift();
-    if (e.path.length) { tx = e.path[0].x; ty = e.path[0].y; }
-  } else e.path = [];
-  return { tx, ty };
-}
-function steerTo(e, gx, gy, speed, dt, avoidCone) {
-  const { tx, ty } = steerPoint(e, gx, gy, dt, avoidCone);
-  const dx = tx - e.x, dy = ty - e.y, d = Math.hypot(dx, dy);
-  if (d < 1.5) return false;
-  const sp = Math.min(speed, d / dt);
-  moveEntity(e, dx / d * sp, dy / d * sp, dt);
-  e.moveDir = Math.atan2(dy, dx);
-  e.walk += dt * sp / 14;
-  return true;
-}
-function randomFreePoint() {
-  for (let k = 0; k < 300; k++) {
-    const cx = Math.floor(rng() * COLS), cy = Math.floor(rng() * ROWS);
-    if (blockedBig[cy * COLS + cx] || (tutorialGame && !reachable[cy * COLS + cx])) continue;   // SPEC-029: не за изгородь тренировки
-    const p = { x: (cx + 0.5) * CELL, y: (cy + 0.5) * CELL };
-    if (dist(p, big) > 150) return p;
-  }
-  return { x: W / 2, y: H / 2 };
-}
-const inBush = l => CFG.BUSH_HIDES && bushes.some(b => Math.hypot(l.x - b.x, l.y - b.y) < b.r - 6);
-
 // >>> client
 const P_COLORS = ["#3b82f6", "#22c55e"];        // цвет меток игрока 1 и 2
 function makeLook(o) {
@@ -1393,9 +393,6 @@ function fitOutfitsToOwned() {
 }
 // для тестов: стартовые виды, ничего не примерено
 function resetOutfits() { skinSel = cloneSkins(DEFAULT_SKINS); skinKeep = cloneSkins(DEFAULT_SKINS); buyArmed = null; tryingOn = false; saveSkins(); resetWorld(numPlayers); }
-// >>> src/core/game.js
-// ---------- Миры (SPEC-006): место уровня — его мир ----------
-let curWorld = WORLDS[0];
 // >>> client
 // SPEC-030: openedWorld — главный мир, который открыла победа и который карта ещё не показала (или null); worldBanner — плашка
 // «<мир> открыт!» на карте { world, t } (или null). Карта при входе (после экрана победы и заставки финала, если она есть) переходит
@@ -1405,9 +402,9 @@ let openedWorld = null, worldBanner = null;
 // SPEC-016/030: закрытый мир выбрать нельзя (__bb.world — без проверки, для тестов и отчёта баланса)
 function selectWorld(w) {
   if (!WORLDS.includes(w) || w === curWorld || !isOpen(w)) return;
-  curWorld = w; toast = null; worldBanner = null;   // SPEC-017: подсказка карты была про прошлый мир (SPEC-030: и плашка «открыт»)
+  setWorld(w); toast = null; worldBanner = null;   // SPEC-017: подсказка карты была про прошлый мир (SPEC-030: и плашка «открыт»)
   progress.lastWorld = curWorld; saveProgress();
-  level = worldProgress().unlocked;
+  setLevel(worldProgress().unlocked);
   resetWorld(numPlayers);
 }
 // ↑/↓: следующий открытый мир по сюжету (по кругу), закрытые пропускаются
@@ -1455,152 +452,15 @@ const nameOf = l => nameFor(slotOf(l));
 
 const botOutfit = i => ({ hair: (i * 3 + level) % HAIRS.length, hat: (i * 5 + level * 2 + 1) % HATS.length, jacket: (i * 3 + 2 + level) % JACKETS.length, pants: (i * 2 + level) % PANTS.length });
 
-// >>> src/core/game.js
-let littles = [], big = null;
-let botAttackCd = 0, prevToken = null;
-let mode = "home", numPlayers = 1, level = 1, attackToken = null;
 // >>> client
 let texts = [], particles = [], muted = false, shake = 0, buttons = [], resetArmed = false;
 // SPEC-029: обучение (подробно — у openTutorial): идёт ли, номер тренировки, её сценарий и подсказки, её запас поцелуев и спасалок
 let tutorial = null;
-// >>> src/core/practice.js
-let tutorialGame = 0, tut = { script: false, hint: 0, bothDown: 0 }, tutorialInv = { kisses: 0, rescues: 0, mittens: 0, mega: 0 };
-// >>> src/core/game.js
-let stats = { hugs: 0, time: 0 };
-let items = [], itemCd = 5, itemSeq = 0, pendingWin = 0, lastReward = null;
-// SPEC-008: журнал событий игры { t (сек игры), type, …данные } — для тестов, отчёта баланса и счёта монеток (SPEC-009).
-// Только простые данные; не длиннее CFG.EVENT_LOG_MAX (старые выпадают); очищается в начале уровня (startGame).
-let events = [];
-function logEvent(type, data) {
-  const e = { t: stats.time, type, ...data };
-  events.push(e);
-  if (events.length > CFG.EVENT_LOG_MAX) events.splice(0, events.length - CFG.EVENT_LOG_MAX);
-  if (tutorialGame === 2) tutorialNote(e);                 // SPEC-029: подсказки тренировки 2
-  return e;
-}
-let bonusStars = [], starCd = 10, starSeq = 0;   // бонусные звёздочки (отдельно от предметов)
-let kisses = [], kissSeq = 0;                      // летящие воздушные поцелуи
-let pushWaves = [];                                // SPEC-022: кольца широкого толчка { x, y, t, r } (растут WAVE_TIME сек)
-let kitHintT = 0, kitHintDone = false, kitHintPi = 0;   // подсказка «Нажми 🩹» (SPEC-007): раз за уровень
-let heardHintT = 0, heardHintDone = false, heardHintPi = 0;   // SPEC-019: «Папа услышал топот!» — раз за уровень
 // >>> client
 let kitHintRect = null, heardHintRect = null, tutorialHintRect = null;   // плашки подсказок этого кадра (рисование)
-// >>> src/core/progress-rules.js
-// ---------- Прогресс: миры (открытые уровни, звёзды), монетки, рукавицы (хранится в этом браузере) ----------
-// SPEC-006: progress.worlds = { [мир из WORLDS]: { unlocked, stars: { [n]: 1..3 } } }, lastWorld — мир в меню
-// (SPEC-016: шесть миров; в старом сохранении нет field/city — они приходят новыми)
-// SPEC-009: won = { [n]: true } — уровни, уже выигранные хоть раз (первая победа платит всю основу, повтор — половину)
-const freshWorld = () => ({ unlocked: 1, stars: {}, won: {} });
-// SPEC-022: seen = { [заставка из SCENE_IDS]: true, если уже показана } — все ключи всегда есть (SPEC-029: + tutorial)
-const freshProgress = () => ({ worlds: Object.fromEntries(WORLDS.map(w => [w, freshWorld()])), lastWorld: WORLDS[0],
-  coins: 0, inv: { mittens: 0, mega: 0, kisses: 0, rescues: 0 }, equip: ["none", "none"], owned: cleanOwned(null),
-  upgrades: cleanUpgrades(null), seen: cleanSeen(null) });
-// SPEC-022: показанные заставки из сохранения: только true у известных заставок; нет, испорчено или чужой ключ → не показана
-function cleanSeen(v) {
-  const ok = !!v && typeof v === "object" && !Array.isArray(v);
-  return Object.fromEntries(SEEN_IDS.map(id => [id, ok && v[id] === true]));
-}
-// SPEC-009: уровни улучшений { fastFeet, longItems, quickHelp } — целые 0…последний; нет или испорчено → 0
-function cleanUpgrades(v) {
-  const out = {};
-  for (const k of Object.keys(UPGRADES)) {
-    const n = Math.floor(Number(v && typeof v === "object" ? v[k] : 0));
-    out[k] = Number.isFinite(n) ? clamp(n, 0, upgTop(k)) : 0;
-  }
-  return out;
-}
-// SPEC-009: купленные наряды { hats, jackets, pants, big: [id] } — только id платных вещей своего списка, без повторов; испорченное → пусто
-function cleanOwned(v) {
-  const lists = { hats: HATS, jackets: JACKETS, pants: PANTS, big: BIG_SKINS }, out = { hats: [], jackets: [], pants: [], big: [] };
-  if (!v || typeof v !== "object") return out;
-  for (const [k, list] of Object.entries(lists)) if (Array.isArray(v[k])) for (const id of v[k]) {
-    const it = list.find(q => q.id === id);
-    if (it && it.price > 0 && !out[k].includes(id)) out[k].push(id);
-  }
-  return out;
-}
-// один мир из сохранения: испорченное → по умолчанию, уровни за пределами мира отбрасываются
-function cleanWorld(v) {
-  const max = levelsPerWorld(), out = freshWorld();
-  if (!v || typeof v !== "object") return out;
-  const u = Math.floor(Number(v.unlocked));
-  if (Number.isFinite(u)) out.unlocked = clamp(u, 1, max);
-  if (v.stars && typeof v.stars === "object") for (const [k, x] of Object.entries(v.stars)) {
-    const n = Number(k), st = Math.floor(Number(x));
-    if (Number.isInteger(n) && n >= 1 && n <= max && st > 0) out.stars[n] = Math.min(CFG.STARS_PER_LEVEL, st);
-  }
-  // won: только true для уровней 1…max; старые сохранения без won — уровень со звёздами считается выигранным
-  if (v.won && typeof v.won === "object" && !Array.isArray(v.won)) for (const [k, x] of Object.entries(v.won)) {
-    const n = Number(k);
-    if (Number.isInteger(n) && n >= 1 && n <= max && x === true) out.won[n] = true;
-  }
-  for (const n of Object.keys(out.stars)) out.won[n] = true;
-  return out;
-}
-// Сохранение → прогресс. Старое (до SPEC-006: unlocked и stars без миров) переезжает в Парк; если есть и worlds,
-// и старые поля (старая вкладка дописала их), они сливаются с Парком: больший unlocked, лучшие звёзды уровня.
-// Поля unlocked/stars из объекта убираются. Никогда не бросает.
-// монетки из сохранения: целое ≥ 0 (испорченное → 0, дробное → вниз); правильное число не меняется
-const wholeCoins = v => { const n = Number(v); return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0; };
-const hasFlatProgress = pv => !!pv && typeof pv === "object" && ("unlocked" in pv || "stars" in pv);
-function loadProgress(pv) {
-  const p = freshProgress();
-  if (!pv || typeof pv !== "object") return p;
-  const { unlocked, stars, worlds, lastWorld, ...rest } = pv;
-  const src = worlds && typeof worlds === "object" ? worlds : {};
-  const out = { ...p, ...rest, worlds: {}, lastWorld: WORLDS.includes(lastWorld) ? lastWorld : WORLDS[0],
-    inv: { ...p.inv, ...(pv.inv && typeof pv.inv === "object" ? pv.inv : {}) }, equip: Array.isArray(pv.equip) ? pv.equip : p.equip, owned: cleanOwned(pv.owned), upgrades: cleanUpgrades(pv.upgrades), coins: wholeCoins(pv.coins), seen: cleanSeen(pv.seen) };
-  for (const w of WORLDS) out.worlds[w] = cleanWorld(src[w]);
-  if (hasFlatProgress(pv)) {
-    const old = cleanWorld({ unlocked, stars }), park = out.worlds[WORLDS[0]];
-    park.unlocked = Math.max(park.unlocked, old.unlocked);
-    for (const [n, st] of Object.entries(old.stars)) park.stars[n] = Math.max(park.stars[n] || 0, st);
-    for (const n of Object.keys(old.won)) park.won[n] = true;
-  }
-  // старые сохранения без поцелуев и спасалок (или испорченные) → 0
-  for (const key of ["kisses", "rescues"]) { const k = Number(out.inv[key]); out.inv[key] = Number.isFinite(k) && k > 0 ? Math.floor(k) : 0; }
-  if (!isOpen(out.lastWorld, out)) out.lastWorld = WORLDS[0];   // SPEC-016/030: закрытый мир → меню открывается на Парке
-  return out;
-}
-// мир пройден: выиграны все его уровни (20-й, босс, открывается последним — значит, «20-й выигран»); p — прогресс, по умолчанию текущий
-// (сохранение может быть неполным — нет мира или полей: значит, не выиграно и прогресса нет)
-const worldComplete = (w = curWorld, p = progress) => { const won = p?.worlds?.[w]?.won ?? {}; for (let n = 1; n <= levelsPerWorld(); n++) if (won[n] !== true) return false; return true; };
-// SPEC-016: бонусные миры открываются, когда пройдены все главные миры
-const bonusUnlocked = (p = progress) => MAIN_WORLDS.every(w => worldComplete(w, p));
-// в мире есть прогресс: открыт дальше 1-го уровня или есть победа/звёзды
-const worldHasProgress = (w, p = progress) => { const v = p?.worlds?.[w]; return !!v && (v.unlocked > 1 || Object.keys(v.won ?? {}).length > 0 || Object.keys(v.stars ?? {}).length > 0); };
-// SPEC-030 (решение Андрея): единственное место, где решается «мир открыт». Главные — по порядку: Парк сразу («start»), следующий —
-// когда пройден предыдущий («previous»); бонусные — когда пройдены все главные («bonus»); мир, где уже есть прогресс, открыт всегда
-// («played»: старые сохранения времён «все миры открыты» ничего не теряют); иначе «locked» и needs — что пройти: главный мир перед
-// ним или null (бонусный — все главные; неизвестный мир). Сюда же — другая причина (и что для неё нужно), если появится
-function worldOpen(world, p = progress) {
-  const i = MAIN_WORLDS.indexOf(world);
-  if (i === 0) return { open: true, reason: "start" };
-  if (i > 0 && worldComplete(MAIN_WORLDS[i - 1], p)) return { open: true, reason: "previous" };
-  if (BONUS_WORLDS.includes(world) && bonusUnlocked(p)) return { open: true, reason: "bonus" };
-  if (WORLDS.includes(world) && worldHasProgress(world, p)) return { open: true, reason: "played" };
-  return { open: false, reason: "locked", needs: i > 0 ? MAIN_WORLDS[i - 1] : null };
-}
-const isOpen = (w, p = progress) => worldOpen(w, p).open;
 // >>> client
 // подсказка закрытого мира (по worldOpen): нужен главный мир — «Пройди <его>, чтобы открыть <этот>!», иначе — прежняя строка бонусных
 const lockedText = w => { const o = worldOpen(w); return o.needs ? L().lockedWorld(o.needs, w) : L().lockedBonus; };
-// >>> src/core/economy.js
-// SPEC-011 AC 2b: экономика игрока — единственный владелец progress (простые данные: миры, монетки, запас, рукавицы, наряды,
-// улучшения, заставки) и книги монеток ledger. Хранилище не трогает: сохраняет только через hooks.save; сохранение даёт клиент
-// (initSaves → setProgress). Менять progress.coins могут только addCoins / spendCoins (тест «only the ledger writes coins»).
-let progress = freshProgress();
-// SPEC-009: книга монеток — события coins с загрузки страницы (startGame её не чистит), тоже не длиннее EVENT_LOG_MAX.
-// logCoins зовут только addCoins / spendCoins (у прогресса, ниже).
-const ledger = [];
-function logCoins(reason, amount) {
-  ledger.push({ ...logEvent("coins", { reason, amount }) });
-  if (ledger.length > CFG.EVENT_LOG_MAX) ledger.splice(0, ledger.length - CFG.EVENT_LOG_MAX);
-}
-// прогресс изменился — клиент пишет его (hooks.save)
-const saveProgress = () => hooks.save();
-// сохранение (или null — новый прогресс) → прогресс игры (loadProgress: никогда не бросает); ничего не пишет
-function setProgress(save) { progress = loadProgress(save); }
 // >>> client
 // прогресс → localStorage (hooks.save)
 function writeProgress() { try { localStorage.setItem("bebebe-progress", JSON.stringify(progress)); } catch (e) { /* ok */ } }
@@ -1612,31 +472,6 @@ function adoptWorn() {
   own("big", skinSel.big);
   if (changed) saveProgress();
 }
-// >>> src/core/economy.js
-// SPEC-009: единственный код, который меняет progress.coins (тест «only the ledger writes coins» это проверяет).
-// Каждое изменение — событие coins (журнал и книга), потом сохранение. Ноль не пишем.
-function addCoins(reason, amount) {
-  if (tutorialGame) return 0;                               // SPEC-029: в тренировке монеток нет (и записей в книге)
-  amount = Math.max(amount, -progress.coins);              // копилка не уходит в минус (минус бывает только у отдыха, и он урезан);
-  // другой отрицательный amount — ошибка: покупки идут только через spendCoins
-  if (!amount) return 0;
-  progress.coins += amount;
-  logCoins(reason, amount); saveProgress();
-  return amount;
-}
-// покупка: хватает монеток → списать (событие buy:<item> с минусом) и true; не хватает → ничего не меняет, false
-function spendCoins(item, amount) {
-  if (progress.coins < amount) return false;
-  progress.coins -= amount;
-  logCoins("buy:" + item, -amount); saveProgress();
-  return true;
-}
-const gloveOf = pi => { const g = progress.equip[pi]; return !tutorialGame && g && g !== "none" && progress.inv[g] > 0 ? g : null; };   // SPEC-029: в тренировке без рукавиц
-// SPEC-029: запас поцелуев и спасалок идущей игры: в тренировке — свой (tutorialInv; настоящий не тратится), иначе — прогресс
-const gameInv = () => (tutorialGame ? tutorialInv : progress.inv);
-const saveInv = () => { if (!tutorialGame) saveProgress(); };
-// >>> src/core/progress-rules.js
-const worldProgress = (w = curWorld) => progress.worlds[w];
 // >>> client
 // SPEC-011 AC 5b: сохранения грузятся в одном месте и в одном порядке, до первой игры: язык (есть ли сохранённый прогресс) →
 // наряды → имена → прогресс (setProgress; старое плоское сохранение один раз переписывается) → adoptWorn / fitOutfitsToOwned →
@@ -1655,8 +490,8 @@ function initSaves() {
   } catch (e) { setProgress(null); }
   if (migrated) saveProgress();                            // переезд старого сохранения — один раз
   if (!hadOwned) adoptWorn(); else fitOutfitsToOwned();    // сохранение с owned: некупленное снимается, а не дарится
-  curWorld = progress.lastWorld;
-  level = worldProgress().unlocked;                        // меню открывается на последнем мире, на его новом уровне
+  setWorld(progress.lastWorld);
+  setLevel(worldProgress().unlocked);                        // меню открывается на последнем мире, на его новом уровне
 }
 // SPEC-011 AC 3b: сторона клиента в порту hooks (Phase C: src/client/main.js) — до загрузки сохранений и до первой игры
 setHooks({
@@ -1693,75 +528,24 @@ function buyUpgrade(k) {
   progress.upgrades[k] = lv + 1;
   saveProgress(); SFX.item();
 }
-// >>> src/core/rules.js
-// прибавка улучшения k для этого маленького: его уровень (взят при создании; у ботов нет) × step
-const playerBonus = (l, k) => (l.upg ? (l.upg[k] || 0) * UPGRADES[k].step : 0);
-// скорость маленького-игрока: обычная × «быстрые ноги» × сапоги (CFG.PLAYER_SPEED не меняется — предел Большого от неё)
-const moveSpeed = l => CFG.PLAYER_SPEED * (1 + playerBonus(l, "fastFeet")) * (l.fx.boots > 0 ? CFG.BOOTS_MULT : 1);
 // >>> client
 function setEquip(pi, kind) { progress.equip[pi] = kind; saveProgress(); resetWorld(numPlayers); }
 function resetProgress() {
   if (!resetArmed) { resetArmed = true; return; }
   resetArmed = false;
-  rewardDue = false;                         // прогресс заменён целиком: за брошенный уровень не платим
+  setRewardDue(false);                         // прогресс заменён целиком: за брошенный уровень не платим
   setProgress(null); openedWorld = null; worldBanner = null;   // новый прогресс
-  if (!isOpen(curWorld)) curWorld = WORLDS[0];   // SPEC-016/030: после сброса открыт только Парк
+  if (!isOpen(curWorld)) setWorld(WORLDS[0]);   // SPEC-016/030: после сброса открыт только Парк
   progress.lastWorld = curWorld;
   fitOutfitsToOwned();                       // SPEC-009: купленные наряды ушли вместе с прогрессом
-  saveProgress(); level = 1; resetWorld(numPlayers);
+  saveProgress(); setLevel(1); resetWorld(numPlayers);
 }
-// >>> src/core/progress-rules.js
-// SPEC-009: основа награды уровня n мира (SPEC-016: по индексу сложности мира, 0–4)
-const rewardBase = (world, n) => REWARD.BASE + REWARD.PER_LEVEL * n + REWARD.PER_WORLD * worldDifficulty(world);
-// SPEC-026: строка победы × REWARD.WIN_SCALE и округление (toFixed убирает хвост дробей: 45 × 0,7 = 31,4999… → 31,5 → 32)
-const winScale = v => Math.round(Number((v * REWARD.WIN_SCALE).toFixed(6)));
-// время третьей звезды уровня n мира (сек); его же берёт отчёт баланса (scripts/balance.js)
-const fastTarget = (world, n) => CFG.FAST_TIME(n) + worldDifficulty(world) * CFG.FAST_PER_WORLD;
-// >>> src/core/game.js
-// уровень начат и ещё не оплачен (startGame → true; награда, сброс или замена прогресса → false)
-let rewardDue = false;
 // >>> client
 // выход из идущего уровня до победы (пауза → Меню, перезапуск или другой уровень): платим только обнимашки.
 // Последнее сердечко уже снято (pendingWin идёт) — это победа: засчитываем её, как если бы досмотрели (правило детей: обнял — победил)
 function leaveLevel() {
   if (tutorialGame || !rewardDue || (mode !== "play" && mode !== "pause")) return;   // SPEC-029: тренировка не платит
-  if (pendingWin > 0) { pendingWin = 0; logEvent("win", {}); giveReward(true); } else giveReward(false);
-}
-// >>> src/core/progress-rules.js
-// Награда (SPEC-009). Строки по порядку экрана победы: первая победа / повтор, новые звёзды, бонусные звёздочки, обнимашки, отдых.
-// Каждая строка (кроме звёздочек — они уже в копилке с подбора) идёт в книгу через addCoins; нулевые не пишем.
-// → lastReward этого уровня или null (тренировка не платит). Клиент — giveReward (то же + мир, который открыла победа)
-function payReward(win) {
-  rewardDue = false;
-  if (tutorialGame) return null;                            // SPEC-029: тренировка не платит и ничего не открывает
-  const ph = stats.playerHugs;
-  const starCoins = stats.starCoins;        // монетки за звёздочки уже в копилке (начислены при подборе)
-  const partsOf = list => list.filter(([, a]) => a !== 0).map(([reason, amount]) => ({ reason, amount }));
-  const hugs = ph * REWARD.PER_HUG;
-  if (!win) {
-    const c = addCoins("hugs", hugs);
-    lastReward = { win: false, coins: c + starCoins, starCoins, parts: partsOf([["hugs", c], ["star", starCoins]]) };
-    return lastReward;
-  }
-  const wp = worldProgress(), n = clamp(level, 1, levelsPerWorld());
-  const rests = stats.rests, nobodyOut = rests === 0, target = fastTarget(curWorld, n), fast = stats.time <= target;
-  const stars = 1 + (nobodyOut ? 1 : 0) + (fast ? 1 : 0);
-  const first = !wp.won[n], base = rewardBase(curWorld, n);
-  const min = first ? REWARD.FIRST_MIN : REWARD.REPLAY_MIN;
-  const line = Math.max(winScale(first ? base : Math.floor(base / 2)), min);   // повтор — половина основы; SPEC-026: × WIN_SCALE
-  const restCut = Math.min(rests * CFG.COINS_PER_REST, line - min);   // отдых срезается до пола: строки всегда сходятся с итогом
-  const prevStars = wp.stars[n] || 0, newStars = Math.max(0, stars - prevStars), bonusBefore = bonusUnlocked(), openBefore = MAIN_WORLDS.filter(w => isOpen(w));
-  const parts = partsOf([[first ? "firstWin" : "replay", line], ["newStars", winScale(newStars * REWARD.NEW_STAR)], ["star", starCoins], ["hugs", hugs], ["rests", -restCut]]);
-  wp.stars[n] = Math.max(prevStars, stars);
-  wp.won[n] = true;
-  wp.unlocked = Math.max(wp.unlocked, Math.min(levelsPerWorld(), n + 1));   // только в этом мире
-  progress.lastWorld = curWorld;
-  for (const p of parts) if (p.reason !== "star") addCoins(p.reason, p.amount);   // по строке (каждая сохраняет): в книге те же строки, что в parts
-  lastReward = { win: true, coins: parts.reduce((a, p) => a + p.amount, 0), starCoins, stars, nobodyOut, fast, target, first, base, newStars,
-    newBest: stars > prevStars, world: curWorld, level: n, worldDone: n >= levelsPerWorld(), parts,
-    bonusUnlocked: !bonusBefore && bonusUnlocked(),   // SPEC-016: эта победа открыла бонусные миры — сказать один раз
-    worldOpened: MAIN_WORLDS.find(w => !openBefore.includes(w) && isOpen(w)) ?? null };   // SPEC-030: эта победа открыла следующий главный мир
-  return lastReward;
+  if (pendingWin > 0) { setPendingWin(0); logEvent("win", {}); giveReward(true); } else giveReward(false);
 }
 // >>> client
 // клиент: награда (payReward) и мир, который она открыла (hooks.onWin зовёт noteOpenedWorld сам)
@@ -1769,59 +553,6 @@ function giveReward(win) { noteOpenedWorld(payReward(win)); }
 // SPEC-030: победа открыла главный мир — карта переключится на него, когда откроется
 function noteOpenedWorld(r) { if (r && r.worldOpened) openedWorld = r.worldOpened; }
 
-// >>> src/core/game.js
-// маленький i: look — вид от клиента (игра его только носит), upgrades — уровни улучшений игроков (у ботов нет)
-function makeLittle(i, kind, botIndex, controls, look, upgrades) {
-  const sp = spawns.small[i];
-  return {
-    id: i, x: sp.x, y: sp.y, r: 11, kind, botIndex, look, controls,
-    state: "ok", downTimer: 0, rescue: 0, botWait: 0, invuln: 0, kx: 0, ky: 0, dangerT: 0, dizzy: 0,
-    path: [], repath: 0, dir: Math.PI / 2, moveDir: 0, walk: 0, moving: false, speedFrac: 0, hugCd: 0,
-    task: "idle", fleeT: 0, fleeGoal: null, fleeRe: 0, lurkT: rand(0, 2), offset: rand(-0.5, 0.5), tokenT: 0,
-    hugAnim: 0, kissCd: 0, fx: { boots: 0, cloak: 0, shield: 0 },
-    upg: kind === "player" ? { ...upgrades } : null          // SPEC-009: уровни улучшений этого игрока (у ботов нет)
-  };
-}
-// SPEC-011 AC 3c: новая игра из простых данных, без клиента: уровень n мира world, players (1–2) маленьких-игроков и боты,
-// Большой. looks — виды от клиента: { players: [вид p1, вид p2], bots: [вид бота 0, 1, …], big: образ Большого } (игра их только
-// носит); upgrades — уровни улучшений игроков. Не чистая: тянет игровой rng() (те же вызовы в том же порядке, что раньше).
-// Тренировка (tutorialGame) строит свою карту и сценарий. В конце — hooks.rebuild (клиент строит 3D)
-function buildGame(world, n, players, { looks, upgrades = progress.upgrades }) {
-  curWorld = world; level = n; numPlayers = players;
-  if (tutorialGame) applyTutorialMap(); else loadLevel(world, n);   // SPEC-029: тренировка — своя карта
-  littles = [];
-  const p1 = players === 1
-    ? { up: ["KeyW", "ArrowUp"], down: ["KeyS", "ArrowDown"], left: ["KeyA", "ArrowLeft"], right: ["KeyD", "ArrowRight"] }
-    : { up: ["KeyW"], down: ["KeyS"], left: ["KeyA"], right: ["KeyD"] };
-  littles.push(makeLittle(0, "player", -1, p1, looks.players[0], upgrades));
-  if (players === 2) littles.push(makeLittle(1, "player", -1, { up: ["ArrowUp"], down: ["ArrowDown"], left: ["ArrowLeft"], right: ["ArrowRight"] }, looks.players[1], upgrades));
-  let bi = 0;
-  const team = tutorialGame ? 1 + Math.max(1, CFG.TUTORIAL.bots) : 5;   // SPEC-029: в тренировке — игрок и бот (сценарий и спасение нужны хоть одному)
-  while (littles.length < team) { littles.push(makeLittle(littles.length, "bot", bi, null, looks.bots[bi], upgrades)); bi++; }
-  const maxHp = tutorialGame ? CFG.TUTORIAL["hearts" + tutorialGame] : difficulty(world, n).hearts;   // SPEC-029: тренировка — свои сердечки
-  big = {
-    isBig: true, x: spawns.big.x, y: spawns.big.y, r: 22, dir: -Math.PI / 2, hp: maxHp, maxHp,
-    state: "look", timer: 4, lookSign: 1, lastSeen: null, goal: null, patrolT: 0,
-    path: [], repath: 0, moveDir: 0, walk: 0, moving: false, stun: 0, stunFace: 0, stunTurn: 0, pushCd: 0, noPush: 0, hugCd: 0, flash: 0, slip: 0,
-    blush: 0, blushBy: 0,   // покраснел после поцелуя: сколько ещё сек и кто бросил (индекс игрока)
-    kind: false,            // SPEC-022: злость кончилась — подобрел и идёт домой (pendingWin — сколько ещё идёт)
-    boss: tutorialGame ? null : bossFor(world, n),         // SPEC-022: босс уровня (мир из BOSSES) или null; в тренировке — нет
-    // SPEC-019: шум топота, сек до того, как снова слышит; поворот на топот (куда, сколько ещё, скорость) и сколько ещё смотрит туда
-    noise: 0, hearCd: 0, hearFace: 0, hearTurnT: 0, hearRate: 0, hearLook: 0,
-    skin: looks.big
-  };
-  items = []; itemCd = rand(4, 7); pendingWin = 0; pushWaves = [];
-  bonusStars = []; starCd = rand(CFG.STAR_EVERY[0], CFG.STAR_EVERY[1]);
-  kisses = [];
-  kitHintT = 0; kitHintDone = false;
-  heardHintT = 0; heardHintDone = false;
-  attackToken = null; prevToken = null; botAttackCd = rand(3, 5);
-  stats = { hugs: 0, time: 0, playerHugs: 0, rests: 0, starCoins: 0 };
-  autoNavs = new Map(); autoMove = [];
-  lastReward = null;
-  if (tutorialGame) tutorialSetup();                       // SPEC-029: тренировка — папа на поляне, сценарий, подсказки, свой запас
-  hooks.rebuild();
-}
 // >>> client
 // новая игра мира и уровня меню (curWorld, level): правило телефона (играет один), виды из гардероба; надписи, частицы, тряска и
 // джойстики — с нуля. Игру строит buildGame (SPEC-011 AC 3c)
@@ -1845,9 +576,9 @@ function showBanner() {
 const bannerAlpha = () => !banner ? 0 : clamp(Math.min(banner.t, LOOK.BANNER_TIME - banner.t) / LOOK.BANNER_FADE, 0, 1);
 // camSnap: начало уровня — камера телефона сразу у героя (в resetWorld нельзя: он же открывает меню, где камера показывает всю карту)
 // SPEC-030: начатый уровень снимает плашку и несостоявшийся переход карты в открытый мир (не показывать их игрой позже)
-function startGame(n) { leaveLevel(); openedWorld = null; worldBanner = null; endTryOn(); events = []; resetWorld(n); mode = "play"; rewardDue = true; mapSel = null; showBanner(); camSnap(); }
+function startGame(n) { leaveLevel(); openedWorld = null; worldBanner = null; endTryOn(); setEvents([]); resetWorld(n); setMode("play"); setRewardDue(true); mapSel = null; showBanner(); camSnap(); }
 // следующий уровень того же мира; после последнего мир пройден — на карту уровней
-function nextLevel() { if (level >= levelsPerWorld()) { toMap(); return; } level++; withScene(sceneBefore(curWorld, level), () => startGame(numPlayers)); }
+function nextLevel() { if (level >= levelsPerWorld()) { toMap(); return; } setLevel(level + 1); withScene(sceneBefore(curWorld, level), () => startGame(numPlayers)); }
 // ---------- SPEC-017: экраны и переходы между ними ----------
 // home — главный экран; map — карта уровней (levelCard — карточка уровня поверх неё); story — история; shop — магазин с вкладками
 // SPEC-022: scene — заставка истории (комикс в начале, босс, бонусный мир, конец) поверх меню
@@ -1862,8 +593,8 @@ function setShopTab(k) { if (!SHOP_TABS.includes(k)) return; closeNameInput(true
 // ←/→ и крестовина: вкладки по кругу
 const switchShopTab = (d = 1) => setShopTab(SHOP_TABS[(SHOP_TABS.indexOf(shopTab) + d + SHOP_TABS.length) % SHOP_TABS.length]);
 // SPEC-026: tab — с какой вкладки: с главного (кнопка «Персонаж») — «Прогресс»; отовсюду ещё (победа, проигрыш) — «Вещи», как раньше
-function openShop(back = "home", tab = "items") { mode = "shop"; shopTab = SHOP_TABS.includes(tab) ? tab : "items"; wardrobePage = "looks"; shopBack = back; resetArmed = false; }
-function closeShop() { closeNameInput(true); if (shopBack === "map") { mapSel = null; mode = "map"; showOpenedWorld(); } else mode = "home"; }
+function openShop(back = "home", tab = "items") { setMode("shop"); shopTab = SHOP_TABS.includes(tab) ? tab : "items"; wardrobePage = "looks"; shopBack = back; resetArmed = false; }
+function closeShop() { closeNameInput(true); if (shopBack === "map") { mapSel = null; setMode("map"); showOpenedWorld(); } else setMode("home"); }
 function openFriends() { closeNameInput(true); wardrobePage = "friends"; }
 function backToWardrobe() { closeNameInput(true); wardrobePage = "looks"; }
 // ---------- SPEC-017: карта уровней ----------
@@ -1889,7 +620,7 @@ function mapStartWorld() {
   const lw = isOpen(progress.lastWorld) ? progress.lastWorld : WORLDS[0];
   return worldComplete(lw) ? WORLDS.find(w => isOpen(w) && !worldComplete(w)) ?? lw : lw;
 }
-function openMap() { selectWorld(mapStartWorld()); mapSel = null; mode = "map"; showOpenedWorld(); }
+function openMap() { selectWorld(mapStartWorld()); mapSel = null; setMode("map"); showOpenedWorld(); }
 const mapSelN = () => (mapSel && mapSel.world === curWorld ? mapSel.n : nextStop() || levelsPerWorld());
 function moveMapSel(d) { mapSel = { world: curWorld, n: clamp(mapSelN() + d, 1, levelsPerWorld()) }; }
 function showToast(text) { toast = { text, t: LOOK.MENU_LOOK.map.toastTime }; }
@@ -1902,18 +633,18 @@ function mapTick(dt) {
 function chooseStop(n) {
   mapSel = { world: curWorld, n };
   if (n > worldProgress().unlocked) { showToast(L().lockedLevel(n - 1)); return; }
-  cardLevel = n; mode = "levelCard";
+  cardLevel = n; setMode("levelCard");
 }
 // вкладка мира: закрытый мир не выбирается — только подсказка (SPEC-030: главный — какой мир пройти)
 function tapWorldTab(w) { if (isOpen(w)) selectWorld(w); else showToast(lockedText(w)); }
-const closeCard = () => { mode = "map"; };
+const closeCard = () => { setMode("map"); };
 // «Играть» на карточке: тот же startGame, что и раньше (resetWorld → loadLevel, надпись уровня, камера телефона)
-function playCard(players) { level = cardLevel; withScene(sceneBefore(curWorld, level), () => startGame(players)); }   // SPEC-022: сначала заставка, если пора
+function playCard(players) { setLevel(cardLevel); withScene(sceneBefore(curWorld, level), () => startGame(players)); }   // SPEC-022: сначала заставка, если пора
 // ---------- SPEC-017: история — главы по порядку и страница «Как играть» ----------
 // storyCh — глава на экране; storyBack — куда ведёт «назад» (главный экран или карточка уровня); storyPage — «chapters» или «rules»
 let storyCh = 0, storyBack = "home", storyPage = "chapters";
-function openStory(id = STORY[0].id, back = "home") { storyCh = Math.max(0, STORY.findIndex(c => c.id === id)); storyBack = back; storyPage = "chapters"; mode = "story"; }
-const closeStory = () => { mode = storyBack === "levelCard" ? "levelCard" : "home"; };
+function openStory(id = STORY[0].id, back = "home") { storyCh = Math.max(0, STORY.findIndex(c => c.id === id)); storyBack = back; storyPage = "chapters"; setMode("story"); }
+const closeStory = () => { setMode(storyBack === "levelCard" ? "levelCard" : "home"); };
 const storyStep = d => { storyCh = clamp(storyCh + d, 0, STORY.length - 1); };
 const storyBackKey = () => { if (storyPage === "rules") storyPage = "chapters"; else closeStory(); };
 // глава видна: начало — всегда; мир — когда он открыт (SPEC-030: worldOpen); конец — после 20-го уровня Школы
@@ -1942,14 +673,14 @@ function scenePages(id) {
 function openScene(id, then = null, opts = {}) {
   if (!SCENE_IDS.includes(id) && !TUTORIAL_SCENES.includes(id)) return false;
   storyScene = { id, page: 0, then, mark: opts.mark !== false && SCENE_IDS.includes(id), play: !!opts.play, skip: opts.skip || null };
-  mode = "scene";
+  setMode("scene");
   return true;
 }
 const scenePageCount = () => (storyScene ? scenePages(storyScene.id).length : 0);
 // заставка досмотрена (или пропущена): отметить показанной и — к тому, что дальше
 function sceneDone() {
   const sc = storyScene;
-  storyScene = null; mode = "home";                       // без заставки — просто на главный экран
+  storyScene = null; setMode("home");                       // без заставки — просто на главный экран
   if (!sc) return;
   if (sc.mark && !progress.seen[sc.id]) { progress.seen[sc.id] = true; saveProgress(); }   // показана — отмечаем, когда с неё ушли
   if (sc.then) sc.then();
@@ -1977,7 +708,7 @@ const chapterScene = c => (c.id === "began" ? "intro" : c.id === "ended" ? "endi
 function watchChapter() {
   const c = STORY[storyCh], ch = storyCh;
   if (!chapterOpen(c)) return;
-  openScene(chapterScene(c), () => { mode = "story"; storyCh = ch; storyPage = "chapters"; }, { mark: false });
+  openScene(chapterScene(c), () => { setMode("story"); storyCh = ch; storyPage = "chapters"; }, { mark: false });
 }
 // ---------- SPEC-029: обучение — страницы A → тренировка 1 → страницы B, C → тренировка 2 → «Ты готов!» → конец ----------
 // Решение Андрея: после комикса при самом первом запуске, с «Пропустить»; пересмотр — «Тренировка» на странице «Как играть».
@@ -2008,7 +739,7 @@ function openTutorial(back = "map", from = TUTORIAL_STEPS[0]) {
 function tutorialShow() {
   const s = tutorialStep();
   if (s.startsWith("game")) startTutorialGame(Number(s.slice(4)));
-  else { tutorialGame = 0; openScene("tutorial_" + s, tutorialNext, { mark: false, skip: tutorialSkip }); }
+  else { setTutorialGame(0); openScene("tutorial_" + s, tutorialNext, { mark: false, skip: tutorialSkip }); }
 }
 // следующий шаг (страницы досмотрены, тренировка выиграна); после последнего — конец
 function tutorialNext() {
@@ -2018,9 +749,9 @@ function tutorialNext() {
 }
 // тренировка g: своя карта (resetWorld → applyTutorialMap; ключи мира и уровня — Парк 1), один игрок, без надписи уровня и без награды
 function startTutorialGame(g) {
-  tutorialGame = g; curWorld = WORLDS[0]; level = 1;
+  setTutorialGame(g); setWorld(WORLDS[0]); setLevel(1);
   startGame(1);
-  rewardDue = false; banner = null;
+  setRewardDue(false); banner = null;
 }
 function restartTutorialGame() { startTutorialGame(tutorialGame); }   // пауза → «Ещё раз»
 function tutorialSkip() { tutorialEnd(); }                            // «Пропустить» на странице, в паузе, в углу тренировки
@@ -2028,71 +759,11 @@ function tutorialSkip() { tutorialEnd(); }                            // «Пр�
 function tutorialEnd() {
   const t = tutorial;
   if (!t) return;
-  tutorial = null; tutorialGame = 0; storyScene = null; rewardDue = false; pendingWin = 0;
+  tutorial = null; setTutorialGame(0); storyScene = null; setRewardDue(false); setPendingWin(0);
   if (!progress.seen.tutorial) { progress.seen.tutorial = true; saveProgress(); }
-  curWorld = t.keep.world; level = t.keep.level; resetWorld(t.keep.players);
-  if (t.back === "story") { mode = "story"; storyPage = "rules"; }
+  setWorld(t.keep.world); setLevel(t.keep.level); resetWorld(t.keep.players);
+  if (t.back === "story") { setMode("story"); storyPage = "rules"; }
   else openMap();
-}
-// >>> src/core/practice.js
-// тренировка построена (resetWorld): свой запас (тренировка 2 — поцелуи и спасалка из CFG.TUTORIAL), свои подсказки вместо
-// «Нажми 🩹» и «Папа услышал топот»; тренировка 1 — сценарий: папа стоит на поляне лицом к боту, бот бежит на него
-function tutorialSetup() {
-  const T = CFG.TUTORIAL, g2 = tutorialGame === 2;
-  tut = { script: tutorialGame === 1, scriptT: 0, hint: g2 ? 1 : 0, bothDown: 0, seq: 1, hintT: 0, fell: false, did: [false, false, false, false, false] };
-  tutorialInv = { kisses: g2 ? T.kisses : 0, rescues: g2 ? T.kits : 0, mittens: 0, mega: 0 };
-  kitHintDone = true; heardHintDone = true;
-  if (g2) itemCd = T.itemEvery;                            // первый предмет — через itemEvery сек
-  if (tutorialGame === 1) {
-    const [x, y] = CFG.TUTORIAL_LOOK.dadStart, b = littles[1];
-    Object.assign(big, { x: x * CELL, y: y * CELL, state: "look", timer: T.scriptMax, dir: Math.atan2(b.y - y * CELL, b.x - x * CELL) });
-  }
-}
-// каждый кадр тренировки: лежат оба — через bothDownStand сек встают в домике маленьких (проиграть нельзя);
-// тренировка 1: конец сценария (бот упал) и шаги подсказки — 1 «друг упал» → 2 «подкрадись сзади» → 3 «обними 3 раза»
-function updateTutorial(dt) {
-  const T = CFG.TUTORIAL;
-  if (littles.every(l => l.state === "down")) {
-    tut.bothDown += dt;
-    if (tut.bothDown >= T.bothDownStand) {
-      tut.bothDown = 0;
-      for (const l of littles) {
-        const sp = spawns.small[l.id];
-        Object.assign(l, { state: "ok", x: sp.x, y: sp.y, kx: 0, ky: 0, rescue: 0, path: [], moving: false, invuln: CFG.INVULN_AFTER_RESCUE });
-        hooks.pop(l.x, l.y - 40, L().back, "#7CFC9A");
-      }
-    }
-  } else tut.bothDown = 0;
-  if (tutorialGame === 2) { updateHints2(dt); return; }
-  const p = littles[0], bot = littles[1];
-  // сценарий кончается, когда бот упал, — или через scriptMax сек (бота так и не толкнули: сразу подсказка 2)
-  if (tut.script && bot.state !== "ok") tut.script = false;
-  else if (tut.script && (tut.scriptT += dt) >= T.scriptMax) { tut.script = false; if (!tut.hint) tut.hint = 2; }
-  if (tut.hint !== 1 && bot.state === "down") tut.hint = 1;   // друг упал (и снова) — подсказка 1; один шаг назад разрешён
-  else if (tut.hint === 1 && bot.state === "ok") tut.hint = 2;
-  else if (tut.hint === 2 && (stats.playerHugs > 0 || (p.state === "ok" && dist(p, big) < big.r + p.r + T.nearCells * CELL
-    && angDiff(big.dir, Math.atan2(p.y - big.y, p.x - big.x)) > CFG.BEHIND_ANGLE))) tut.hint = 3;
-}
-// тренировка 2: подсказки по одной — 1 «возьми предмет» → 2 «заведи папу на банан» → 3 «пошли поцелуй»; каждая — пока её не сделали
-// хоть раз или hintTimeout сек (сделанные раньше пропускаются); первое падение игрока — 4 «встань спасалкой» (вместо обычной
-// «Нажми 🩹»; пока лежит, не дольше hintTimeout), потом снова та, что прервали. tut.seq — следующая по порядку
-function updateHints2(dt) {
-  const p = littles[0], did = tut.did;                     // флаги ставит tutorialNote (по событиям) и throwKiss
-  const nextSeq = () => { while (tut.seq <= 3 && did[tut.seq]) tut.seq++; return tut.seq <= 3 ? tut.seq : 0; };
-  if (!tut.fell && p.state === "down") { tut.fell = true; if (!did[4]) { tut.hint = 4; tut.hintT = 0; } }
-  if (!tut.hint) return;
-  tut.hintT += dt;
-  if (did[tut.hint] || tut.hintT >= CFG.TUTORIAL.hintTimeout || (tut.hint === 4 && p.state !== "down")) {
-    if (tut.hint !== 4) tut.seq = tut.hint + 1;
-    tut.hint = nextSeq(); tut.hintT = 0;
-  }
-}
-// событие игры в тренировке 2 → флаг сделанного для подсказок: предмет взял игрок, папа поскользнулся, спасалка игрока
-function tutorialNote(e) {
-  const p = littles[0];
-  if (e.type === "item" && e.who === p.id) tut.did[1] = true;
-  else if (e.type === "slip") tut.did[2] = true;
-  else if (e.type === "kit" && e.who === p.id) tut.did[4] = true;
 }
 // >>> client
 // текст подсказки тренировки (или null); управление — по устройству, как на странице A4
@@ -2106,27 +777,27 @@ const tutorialHintOn = () => mode === "play" && pendingWin <= 0 && !big.kind && 
 // всё состояние экранов меню — как при запуске (тесты: resetGame); SPEC-029: и обучения нет
 function resetMenus() {
   closeNameInput(false); shopTab = "items"; wardrobePage = "looks"; shopBack = "home"; mapSel = null; toast = null; cardLevel = 1; mapSwipe = null; openedWorld = null; worldBanner = null;
-  storyCh = 0; storyBack = "home"; storyPage = "chapters"; storyScene = null; tutorial = null; tutorialGame = 0;
+  storyCh = 0; storyBack = "home"; storyPage = "chapters"; storyScene = null; tutorial = null; setTutorialGame(0);
 }
 function toMap() {
   leaveLevel();
   if (endingDue()) { openScene("ending", toMap); return; }   // SPEC-022: сначала финал истории
   const w = openedWorld;                                     // SPEC-030: победа открыла мир — карта переходит в него (selectWorld строит его уровень)
   if (!(w && w !== curWorld && isOpen(w))) resetWorld(numPlayers);
-  mapSel = null; mode = "map";                               // кольцо — снова на следующем уровне
+  mapSel = null; setMode("map");                               // кольцо — снова на следующем уровне
   showOpenedWorld();
 }
 function toHome() {
   leaveLevel();
   if (endingDue()) { openScene("ending", toHome); return; }  // SPEC-022: сначала финал истории
-  resetWorld(numPlayers); mode = "home"; worldBanner = null;
+  resetWorld(numPlayers); setMode("home"); worldBanner = null;
 }
-const resumeGame = () => { mode = "play"; };
+const resumeGame = () => { setMode("play"); };
 const retryLevel = () => startGame(numPlayers);
 // экран итогов → магазин; «Готово» в магазине ведёт на карту. После победы — уже следующий уровень (как «Дальше»)
 function shopAfterWin() {
   if (endingDue()) { openScene("ending", shopAfterWin); return; }   // SPEC-022: сначала финал истории
-  level = clamp(level + 1, 1, worldProgress().unlocked); resetWorld(numPlayers); openShop("map");
+  setLevel(clamp(level + 1, 1, worldProgress().unlocked)); resetWorld(numPlayers); openShop("map");
 }
 function shopAfterLose() { resetWorld(numPlayers); openShop("map"); }
 const nextLang = () => setLang(LANGS[(LANGS.indexOf(lang) + 1) % LANGS.length]);
@@ -2194,7 +865,7 @@ function onKey(code) {
     if (a) a.act();
   } else if (mode === "map") {
     // SPEC-017: ←/→ — миры, ↑/↓ — остановка с кольцом, Enter — её карточка (решено в ходе работы, проверить с Андреем)
-    if (back) mode = "home";
+    if (back) setMode("home");
     if (code === "ArrowLeft") cycleWorld(-1);
     if (code === "ArrowRight") cycleWorld(1);
     if (code === "ArrowUp") moveMapSel(-1);
@@ -2223,7 +894,7 @@ function onKey(code) {
     if (code === "ArrowRight") switchShopTab(1);
     if (code === "KeyR" && inWardrobe() && wardrobePage === "looks") randomOutfit("p1");
   } else if (mode === "play") {
-    if (code === "KeyP" || back) mode = "pause";
+    if (code === "KeyP" || back) setMode("pause");
     const kp = kissKeyPlayer(code);
     if (kp >= 0) throwKiss(kp);
     const rp = kitKeyPlayer(code);
@@ -2384,7 +1055,7 @@ function onPadButton(b, pad = 0) {
     if (b === 12) moveMapSel(-1);                  // крестовина ↑/↓ — остановки
     if (b === 13) moveMapSel(1);
     if (b === 0) chooseStop(mapSelN());
-    if (b === 1) mode = "home";
+    if (b === 1) setMode("home");
   } else if (mode === "levelCard") {
     if (b === 0 || b === 9) playCard(1);
     if (b === 2) playCard(2);                      // X — вдвоём (на телефоне startGame сам оставит одного игрока)
@@ -2413,7 +1084,7 @@ function onPadButton(b, pad = 0) {
       if (b === 3 && !PHONE) randomOutfit("p2");   // на телефоне игрока 2 нет
     }
   } else if (mode === "play") {
-    if (b === 9) mode = "pause";
+    if (b === 9) setMode("pause");
     if (b === LOOK.PAD_KISS && (numPlayers === 1 || pad < numPlayers)) throwKiss(numPlayers === 1 ? 0 : pad);
     if (b === LOOK.PAD_KIT && (numPlayers === 1 || pad < numPlayers)) useRescueKit(numPlayers === 1 ? 0 : pad);
   }
@@ -2456,852 +1127,12 @@ function deviceInput(l) {
 // =====================================================================
 //  ЛОГИКА
 // =====================================================================
-// >>> src/core/big.js
-function canSee(l) {
-  if (inSafe(l)) return false;          // в домике Большой не видит и не трогает
-  if (l.fx && l.fx.cloak > 0) return false;   // невидимка          // в домике Большой не видит и не трогает
-  const dx = l.x - big.x, dy = l.y - big.y, d = Math.hypot(dx, dy);
-  const diff = angDiff(big.dir, Math.atan2(dy, dx));
-  if (d < big.r + l.r + 22 && diff < 1.9) return true;
-  if (d > 45 && inBush(l)) return false;
-  return d < CFG.VISION_RANGE && diff < CFG.VISION_HALF && los(big.x, big.y, l.x, l.y, seeSolidAt);
-}
-// >>> src/core/rules.js
-const helps = (o, l) => o !== l && o.state === "ok" && dist(o, l) < o.r + l.r + 12;   // o стоит рядом с упавшим l и поднимает его
-// SPEC-022: толчок того, кого Большой поймал: самый злой папа (Школа 20) толкает широко — всех рядом перед собой
-function pushHit(t) { if (bossPower(big.boss) === "wide") widePush(t); else push(t); }
-// широкий толчок: все маленькие (ok, могут действовать, не неуязвимы, не невидимки, не в домике) ближе WIDE_PUSH_R клеток в угле
-// WIDE_PUSH_ARC перед ним (и тот, кого поймал) — каждому обычный толчок (щит спасает своего хозяина), одно «ВЖУХ!», кольцо; стоит дольше
-function widePush(t) {
-  const reach = CFG.WIDE_PUSH_R * CELL, half = CFG.WIDE_PUSH_ARC * Math.PI / 360;
-  const hit = littles.filter(l => l === t || (canAct(l) && l.invuln <= 0 && l.fx.cloak <= 0 && !inSafe(l)
-    && dist(l, big) <= reach + l.r && angDiff(big.dir, Math.atan2(l.y - big.y, l.x - big.x)) <= half));
-  for (const l of hit) push(l, true);
-  const down = hit.filter(l => l.state === "down").length;
-  if (!down) return;                                       // всех спас щит — как обычный толчок в щит (PUSH_STAND), без «ВЖУХ!»
-  logEvent("widePush", { n: down });
-  big.pushCd = CFG.WIDE_PUSH_STAND; big.noPush = CFG.PUSH_RECOVER;   // стоит дольше; передышка (правило детей) — как после любого толчка
-  pushWaves.push({ x: big.x, y: big.y, t: 0, r: reach });
-  hooks.pop(big.x + Math.cos(big.dir) * big.r * 2, big.y + Math.sin(big.dir) * big.r * 2 - big.r * 2, L().whoosh, "#fde047", "whoosh");
-  hooks.shake(CFG.WIDE_PUSH_SHAKE);
-  hooks.sfx("push");
-}
-// SPEC-029: передышка папы после толчка; в тренировке 2 он слабее — × TUTORIAL.pushCooldownMult
-const pushRecover = () => CFG.PUSH_RECOVER * (tutorialGame === 2 ? CFG.TUTORIAL.pushCooldownMult : 1);
-function push(t, wide = false) {
-  const a = Math.atan2(t.y - big.y, t.x - big.x);
-  for (const l of littles) if (l.state === "down" && helps(t, l)) l.rescue = 0;   // помощника толкнули — спасение сначала
-  if (t.fx.shield > 0) {                   // щит спасает от одного толчка
-    t.fx.shield = 0;
-    logEvent("push", { who: t.id, blocked: true });
-    t.kx = Math.cos(a) * 280; t.ky = Math.sin(a) * 280;
-    big.pushCd = CFG.PUSH_STAND; big.noPush = pushRecover();
-    hooks.pop(t.x, t.y - 40, L().blocked, "#7dd3fc");
-    hooks.burst(t.x, t.y, "star", "#7dd3fc", 14);
-    hooks.sfx("shield");
-    return;
-  }
-  t.state = "down"; t.downTimer = CFG.DOWN_TIME; t.rescue = 0; t.path = []; t.dangerT = 0;
-  logEvent("push", { who: t.id, blocked: false }); logEvent("down", { who: t.id, kind: t.kind });
-  t.botWait = rand(CFG.BOT_RESCUE_DELAY[0], CFG.BOT_RESCUE_DELAY[1]);   // боты пойдут спасать чуть позже
-  t.kx = Math.cos(a) * 360; t.ky = Math.sin(a) * 360;
-  if (attackToken === t) attackToken = null;
-  // первый раз за уровень упал игрок со спасалками — короткая подсказка «Нажми 🩹» (SPEC-007)
-  if (t.kind === "player" && !kitHintDone && gameInv().rescues > 0) { kitHintDone = true; kitHintT = CFG.KIT_HINT_TIME; kitHintPi = t.id; }
-  big.pushCd = CFG.PUSH_STAND;
-  big.noPush = pushRecover();             // передышка: какое-то время никого не толкает (SPEC-029: в тренировке 2 — дольше)
-  hooks.burst(t.x, t.y, "dust", "#e5d3a1", 10);
-  if (wide) return;                         // SPEC-022: широкий толчок — одно «ВЖУХ!» на всех (widePush)
-  hooks.shake(0.25);
-  hooks.pop(t.x, t.y - 40, L().bang, "#ffcc00", "bang");
-  hooks.sfx("push");
-}
-function hug(l, a) {
-  let power = 1;
-  big.blush = 0;                                         // обнимашка заканчивает смущение, дальше обычный шок
-  const gl = l.kind === "player" ? gloveOf(l.id) : null;
-  if (gl) { power = GLOVES[gl].power; progress.inv[gl]--; saveProgress(); }   // рукавицы: сразу 2–3 сердечка
-  big.hp = Math.max(0, big.hp - power); big.hugCd = CFG.HUG_STUN + 0.3; big.stun = CFG.HUG_STUN; big.stunFace = a; big.flash = 0.3;
-  big.stunTurn = Math.abs(normAng(a - big.dir)) / CFG.HUG_STUN;   // медленно поворачивается, пока в шоке
-  big.state = "chase"; big.lastSeen = { x: l.x, y: l.y };
-  big.slip = 0;
-  l.hugCd = 1.5 + CFG.HUG_ANIM; l.hugAnim = CFG.HUG_ANIM;   // запрыгивает на спину
-  l.path = [];
-  stats.hugs++;
-  if (l.kind === "player") stats.playerHugs++;
-  logEvent("hug", { power, who: l.id, kind: l.kind });
-  hooks.pop(big.x, big.y - 70, power > 1 ? L().megaHug(power) : L().hug, power > 1 ? "#facc15" : "#ff6fa8", power > 1 ? "mega" : "hug");
-  hooks.burst(big.x, big.y - 30, "heart", "#ff4d8d", 12 * power);
-  if (power > 1) hooks.shake(0.3);
-  hooks.sfx("hug");
-  if (l.kind === "bot") {
-    if (attackToken === l) attackToken = null;
-    l.lurkT = rand(3, 6); l.fleeT = 1.3; l.fleeGoal = null;
-  }
-  if (big.hp <= 0) winSoon();   // победа — после последней обнимашки
-}
-function winSoon() { pendingWin = CFG.HUG_ANIM; big.stun = 99; }
-// >>> src/core/mood.js
-// SPEC-022: настроение папы по доле злости (для вида: лицо, пар, сердечки — SPEC-022 часть B рисует по нему)
-function bigMood() {
-  const f = big && big.maxHp > 0 ? big.hp / big.maxHp : 0;
-  return f >= CFG.MOOD_ANGRY ? "angry" : f >= CFG.MOOD_MID ? "mid" : "kind";
-}
-// SPEC-022: последняя обнимашка доиграла (правило детей) — папа добреет: краснеет, сердечки, друзья кричат «Ура!», идёт к двери
-// своего дома (не дольше KIND_WALK; часы уровня стоят — звезда «быстро» как раньше). Дошёл или время вышло — экран победы
-function startKindWalk() {
-  Object.assign(big, { kind: true, stun: 0, slip: 0, pushCd: 0, blush: 0, path: [], state: "look", noise: 0, hearTurnT: 0, hearLook: 0 });   // своё состояние: ни шока, ни толчков, ни румянца-поцелуя
-  big.home = nearestExit(big);
-  pendingWin = CFG.KIND_WALK;
-  hooks.burst(big.x, big.y - 30, "heart", "#ff4d8d", CFG.KIND_HEARTS);
-  for (const l of littles) if (l.state === "ok") hooks.pop(l.x, l.y - 40, L().cheer, "#facc15");
-  hooks.sfx("mwah");
-}
-function updateKindWalk(dt) {
-  for (const l of littles) { l.moving = false; l.speedFrac = 0; if (l.state === "ok" && l.hugAnim <= 0) l.dir = turnToward(l.dir, Math.atan2(big.y - l.y, big.x - l.x), CFG.KIND_TURN * dt); }
-  const g = big.home;
-  big.moving = !!g && dist(big, g) > CFG.KIND_ARRIVE && steerTo(big, g.x, g.y, CFG.KIND_SPEED, dt, false);
-  if (big.moving) big.dir = turnToward(big.dir, big.moveDir, CFG.KIND_TURN * dt);
-  if (!big.moving) winNow();                               // у двери (или пути нет) — сразу победа
-}
-// >>> src/core/rules.js
-function winNow() {
-  pendingWin = 0;
-  if (mode !== "play") return;
-  if (tutorialGame) { hooks.onPracticeWin(); return; }     // SPEC-029: тренировка — без экрана победы и награды, дальше по обучению
-  mode = "win"; logEvent("win", {}); hooks.onWin(payReward(true)); hooks.sfx("win"); hooks.burst(big.x, big.y - 30, "heart", "#ff4d8d", 40);
-}
 // >>> client
 // SPEC-022: заголовок экрана победы: «<имя> снова добрый!» — босс уровня по имени босса, иначе набранное имя или «Папа»
 const winTitle = () => L().kindAgain(bossFor(curWorld, level) ? L().bossNames[curWorld] : nameFor("big"));
-// >>> src/core/rules.js
-// ---------- Воздушные поцелуи: летят прямо, полсердечка, Большой краснеет ----------
-function throwKiss(pi) {
-  const l = littles[pi];
-  if (mode !== "play" || pendingWin > 0 || !l || l.kind !== "player" || !canAct(l) || gameInv().kisses <= 0) return false;
-  if (inSafe(l)) { hooks.pop(l.x, l.y - 40, L().noKissHome, "#fca5a5"); return false; }   // из домика нельзя
-  if (l.kissCd > 0) return false;
-  gameInv().kisses--; saveInv();
-  if (tutorialGame === 2 && l.id === littles[0].id) tut.did[3] = true;   // SPEC-029: подсказка «пошли поцелуй» сделана
-  l.kissCd = CFG.KISS_COOLDOWN;
-  const dx = Math.cos(l.dir), dy = Math.sin(l.dir);
-  kisses.push({ id: ++kissSeq, owner: pi, x: l.x + dx * l.r, y: l.y + dy * l.r, dx, dy, travel: 0 });
-  hooks.sfx("kiss");
-  return true;
-}
-function kissHit(k) {
-  hooks.burst(big.x, big.y - 30, "heart", "#ff4d8d", 10);
-  const blush = !(pendingWin > 0 || big.stun > 0 || big.hugCd > 0 || big.blush > 0);   // SPEC-022: победа уже идёт — только сердечки
-  logEvent("kiss", { who: k.owner, result: "hit", blush });
-  if (!blush) return;   // в шоке (и 0.3 с после него) или уже красный — только сердечки
-  big.hp = Math.max(0, big.hp - CFG.KISS_DAMAGE);
-  big.blush = CFG.KISS_BLUSH; big.blushBy = k.owner;
-  big.pushCd = 0; big.path = []; big.moving = false; big.flash = 0.2;
-  hooks.pop(big.x, big.y - 40, L().kissHit, "#ff6fa8", "kiss");
-  hooks.pop(big.x, big.y - 112, L().blush, "#fda4af");   // выше имени Большого
-  hooks.sfx("mwah");
-  if (big.hp <= 0) winSoon();                            // последнее полсердечка — победа, как после обнимашки
-}
-function updateKisses(dt) {
-  for (const k of kisses) {
-    let left = CFG.KISS_SPEED * dt;
-    while (left > 0 && !k.done) {
-      const s = Math.min(CFG.KISS_STEP, left, CFG.KISS_RANGE - k.travel);
-      k.x += k.dx * s; k.y += k.dy * s; k.travel += s; left -= s;
-      if (seeSolidAt(k.x, k.y)) { k.done = true; logEvent("kiss", { who: k.owner, result: "miss" }); hooks.burst(k.x - k.dx * CFG.KISS_STEP, k.y - k.dy * CFG.KISS_STEP, "star", "#ff9ecb", 8); }   // стена, дерево, камень, край карты
-      else if (dist(k, big) < big.r + CFG.KISS_HIT_PAD && los(k.x, k.y, big.x, big.y, seeSolidAt)) { k.done = true; kissHit(k); }   // сквозь стену не попадает
-      else if (k.travel >= CFG.KISS_RANGE) { k.done = true; logEvent("kiss", { who: k.owner, result: "miss" }); hooks.burst(k.x, k.y, "star", "#ffd1e3", 5); }
-    }
-  }
-  kisses = kisses.filter(k => !k.done);
-}
 // >>> client
 // Сердечко i в полоске: 1 — целое, 0.5 — половинка, 0 — пустое
 const heartFill = (i, hp) => clamp(hp - i, 0, 1);
-// >>> src/core/difficulty.js
-// Сложность (SPEC-006): мир начинается с WORLD_SPEED_START[d] (d — индекс сложности мира, SPEC-016), каждый уровень мира
-// +SPEED_PER_LEVEL; злость — каждое ЦЕЛОЕ потерянное сердечко +BIG_SPEED_PER_HIT. Ни одна скорость не больше BIG_CHASE_MAX (вместе со злостью).
-const levelBoost = (world, n) => (CFG.WORLD_SPEED_START[worldDifficulty(world)] ?? CFG.WORLD_SPEED_START.at(-1)) + levelPos(n) * CFG.SPEED_PER_LEVEL;
-const bigHearts = (world, n) => Math.min(CFG.BIG_HP_MAX, CFG.BIG_HP + Math.floor(levelPos(n) / CFG.HP_LEVELS_PER_HEART) + worldDifficulty(world) * CFG.HP_PER_WORLD);
-const chaseCap = v => Math.min(CFG.BIG_CHASE_MAX, v);
-// Единственный источник чисел Большого: { chase, search, patrol, hearts, boost } уровня (мир, n);
-// lost — сколько сердечек уже отняли (злость), по умолчанию 0; boost — прибавка без потолка
-// SPEC-022: босс (bossFor): злости больше на BOSS_EXTRA_HP (самый злой папа — MAIN_BOSS_EXTRA_HP), каждая скорость + BOSS_SPEED (с потолком)
-function difficulty(world, n, lost = 0) {
-  const boost = levelBoost(world, n) + Math.floor(lost) * CFG.BIG_SPEED_PER_HIT, boss = bossFor(world, n), bs = boss ? CFG.BOSS_SPEED : 0;
-  const extra = boss ? CFG[BOSSES[boss].extraHp] : 0;
-  return { chase: chaseCap(CFG.BIG_CHASE_SPEED + boost + bs), search: chaseCap(CFG.BIG_CHASE_SPEED * 0.85 + boost + bs),
-    patrol: chaseCap(CFG.BIG_PATROL_SPEED + boost * 0.5 + bs), hearts: bigHearts(world, n) + extra, boost };
-}
-const bigDifficulty = () => difficulty(curWorld, level, big.maxHp - big.hp);
-const bigBoost = () => bigDifficulty().boost;                     // насколько Большой быстрее сейчас (без потолка)
-// SPEC-029: в тренировке — скорости Парка 1 × TUTORIAL.speedMult (без прибавки за злость), настоящие уровни как были
-function bigSpeeds() {
-  const d = tutorialGame ? difficulty(WORLDS[0], 1) : bigDifficulty(), m = tutorialGame ? CFG.TUTORIAL.speedMult : 1;
-  return { chase: d.chase * m, search: d.search * m, patrol: d.patrol * m };
-}
-// >>> src/core/rules.js
-function updateHugAnim(dt) {
-  for (const l of littles) {
-    if (l.hugAnim <= 0) continue;
-    l.hugAnim -= dt;
-    const back = big.dir + Math.PI;
-    l.x = big.x + Math.cos(back) * (big.r + l.r + 2);
-    l.y = big.y + Math.sin(back) * (big.r + l.r + 2);
-    l.dir = big.dir; l.moving = false;
-    if (vrand() < dt * 6) hooks.burst(big.x, big.y - 20, "heart", "#ff4d8d", 1);
-    if (l.hugAnim <= 0) {                  // спрыгивает назад
-      l.hugAnim = 0;
-      l.kx = Math.cos(back) * 230; l.ky = Math.sin(back) * 230;
-      resolveWalls(l);
-    }
-  }
-}
-// ---------- Предметы ----------
-function spawnItem() {
-  const r = rng(), T = CFG.TUTORIAL, o = (1 - T.bananaShare) / 3;
-  // SPEC-029: в тренировке — бананов bananaShare, остальное поровну (сапоги, плащ, щит); бананов меньше bananaMin — сразу банан
-  const kind = tutorialGame ? (r < T.bananaShare || items.filter(it => it.kind === "banana").length < T.bananaMin ? "banana" : r < T.bananaShare + o ? "boots" : r < T.bananaShare + 2 * o ? "cloak" : "shield")
-    : r < 0.3 ? "boots" : r < 0.55 ? "cloak" : r < 0.75 ? "shield" : "banana";
-  for (let k = 0; k < 80; k++) {
-    const cx = 1 + Math.floor(rng() * (COLS - 2)), cy = 1 + Math.floor(rng() * (ROWS - 2));
-    if (blocked[cy * COLS + cx] || (tutorialGame && !reachable[cy * COLS + cx])) continue;   // SPEC-029: не за изгородь тренировки
-    const p = { x: (cx + 0.5) * CELL, y: (cy + 0.5) * CELL };
-    if (inSafe(p) || dist(p, big) < 90 || littles.some(l => dist(l, p) < 50) || items.some(it => dist(it, p) < 64)) continue;
-    items.push({ id: ++itemSeq, kind, x: p.x, y: p.y, t: 0, life: kind === "banana" ? CFG.ITEM_LIFE + 8 : CFG.ITEM_LIFE });
-    return;
-  }
-}
-// ---------- Бонусные звёздочки: только игроки, +CFG.STAR_COINS монеток ----------
-function starSpotOk(cx, cy) {
-  const i = cy * COLS + cx;
-  if (blocked[i] || !reachable[i]) return false;
-  const p = { x: (cx + 0.5) * CELL, y: (cy + 0.5) * CELL };
-  if (inSafe(p) || inDanger(p)) return false;
-  if (dangerZone) {                                      // и не в стенах/дверях дома Большого, и не прямо перед ними
-    const m = CFG.STAR_HOUSE_MARGIN * CELL, z = dangerZone;
-    if (p.x > z.x - m && p.x < z.x + z.w + m && p.y > z.y - m && p.y < z.y + z.h + m) return false;
-  }
-  if (safeZone) {                                        // далеко от домика (от стен, значит и от любой двери)
-    const dx = Math.max(safeZone.x - p.x, 0, p.x - safeZone.x - safeZone.w), dy = Math.max(safeZone.y - p.y, 0, p.y - safeZone.y - safeZone.h);
-    if (Math.hypot(dx, dy) < CFG.STAR_MIN_FROM_HOME * CELL) return false;
-  }
-  return !items.some(it => cellIdx(it.x, it.y) === i) && !bonusStars.some(s => cellIdx(s.x, s.y) === i);
-}
-function spawnStar(x, y) {
-  let p = null;
-  if (typeof x === "number" && typeof y === "number") p = { x, y };   // для тестов: в заданной точке
-  else {
-    const spots = [];
-    for (let cy = 0; cy < ROWS; cy++) for (let cx = 0; cx < COLS; cx++) if (starSpotOk(cx, cy)) spots.push([cx, cy]);
-    if (!spots.length) return null;
-    const [cx, cy] = spots[Math.floor(rng() * spots.length)];
-    p = { x: (cx + 0.5) * CELL, y: (cy + 0.5) * CELL };
-  }
-  const s = { id: ++starSeq, x: p.x, y: p.y, t: 0, life: CFG.STAR_LIFE };
-  bonusStars.push(s);
-  return s;
-}
-function updateStars(dt) {
-  if (tutorialGame) return;                                // SPEC-029: в тренировках звёздочек нет
-  starCd -= dt;
-  if (starCd <= 0) { if (bonusStars.length < CFG.STAR_MAX) spawnStar(); starCd = rand(CFG.STAR_EVERY[0], CFG.STAR_EVERY[1]); }
-  for (const s of bonusStars) {
-    s.t += dt;
-    const l = littles.find(q => q.kind === "player" && canAct(q) && dist(q, s) < q.r + CFG.STAR_PICK);
-    if (!l) continue;
-    s.t = s.life;
-    stats.starCoins += CFG.STAR_COINS;
-    logEvent("star", { who: l.id });
-    addCoins("star", CFG.STAR_COINS);   // сразу в копилку: остаются, даже если уровень не выигран
-    hooks.pop(s.x, s.y - 30, "+" + CFG.STAR_COINS, "#fde047");
-    hooks.burst(s.x, s.y, "star", "#fde047", 16);
-    hooks.sfx("star");
-  }
-  bonusStars = bonusStars.filter(s => s.t < s.life);
-}
-
-function updateItems(dt) {
-  // SPEC-022: пока подобревший папа идёт домой, новых вещей нет; SPEC-029: в тренировке 1 их нет совсем, в тренировке 2 — часто
-  // (каждые TUTORIAL.itemEvery сек, пока их меньше TUTORIAL.itemMax)
-  if (!big.kind && tutorialGame !== 1) {
-    const T = CFG.TUTORIAL;
-    itemCd -= dt;
-    if (itemCd <= 0) { if (items.length < (tutorialGame ? T.itemMax : CFG.ITEM_MAX)) spawnItem(); itemCd = tutorialGame ? T.itemEvery : rand(CFG.ITEM_EVERY[0], CFG.ITEM_EVERY[1]); }
-  }
-  for (const l of littles) for (const k of ["boots", "cloak", "shield"]) l.fx[k] = Math.max(0, l.fx[k] - dt);
-  for (const it of items) {
-    it.t += dt;
-    if (it.kind === "banana") {
-      if (!big.kind && big.slip <= 0 && big.stun <= 0 && dist(big, it) < big.r + 8) {   // SPEC-022: по дороге домой не поскальзывается
-        it.t = 999;
-        big.slip = CFG.SLIP_STUN; big.path = []; big.flash = 0.2;
-        logEvent("slip", {});
-        hooks.pop(big.x, big.y - 70, L().slip, "#fde047");
-        hooks.burst(big.x, big.y, "star", "#fde047", 12);
-        hooks.shake(0.2);
-        hooks.sfx("slip");
-      }
-      continue;
-    }
-    const l = littles.find(q => q.state === "ok" && q.hugAnim <= 0 && dist(q, it) < q.r + 16);
-    if (l) {
-      it.t = 999;
-      logEvent("item", { kind: it.kind, who: l.id });
-      const base = it.kind === "boots" ? CFG.BOOTS_TIME : it.kind === "cloak" ? CFG.CLOAK_TIME : CFG.SHIELD_TIME;
-      l.fx[it.kind] = base * (1 + playerBonus(l, "longItems"));   // SPEC-009: игроку дольше («долгие вещи»)
-      hooks.pop(l.x, l.y - 40, L().items[it.kind], "#c4b5fd");
-      hooks.burst(l.x, l.y, "star", "#fde047", 10);
-      hooks.sfx("item");
-    }
-  }
-  items = items.filter(it => it.t < it.life);
-}
-
-// >>> src/core/game.js
-// чем рулит игрок l: ввод с устройств (hooks.inputFor) плюс «джойстик» автопилота (SPEC-008); длина не больше 1
-function inputFor(l) {
-  let { x, y } = hooks.inputFor(l);
-  const ap = autoMove[l.id];
-  if (ap) { x += ap.x; y += ap.y; }
-  const d = Math.hypot(x, y);
-  if (d > 1) { x /= d; y /= d; }
-  return { x, y };
-}
-function updatePlayers(dt) {
-  for (const l of littles) {
-    if (l.kind !== "player") continue;
-    l.moving = false; l.speedFrac = 0;
-    if (!canAct(l)) continue;
-    const v = inputFor(l), m = Math.hypot(v.x, v.y);
-    if (m > 0.05) {
-      const sp = moveSpeed(l);
-      moveEntity(l, v.x * sp, v.y * sp, dt);
-      l.dir = Math.atan2(v.y, v.x);
-      l.walk += dt * 12 * m;
-      l.moving = true;
-      l.speedFrac = m;                      // SPEC-019: доля своей скорости (≤ TIPTOE_MULT — на цыпочках, тихо)
-    }
-  }
-}
-
-// >>> src/core/bots.js
-function fleePoint(b) {
-  if (safeZone) {                        // домик рядом — бежим в домик
-    const home = { x: safeZone.x + safeZone.w / 2, y: safeZone.y + safeZone.h / 2 };
-    if (dist(b, home) < 260) return home;
-  }
-  const away = Math.atan2(b.y - big.y, b.x - big.x);
-  for (const k of [0, 0.6, -0.6, 1.2, -1.2, 1.8, -1.8]) {
-    const a = away + k;
-    const x = clamp(b.x + Math.cos(a) * 140, 20, W - 20), y = clamp(b.y + Math.sin(a) * 140, 20, H - 20);
-    if (!moveSolidAt(x, y) && reachable[cellIdx(x, y)] && !inCone(x, y) && !inDangerXY(x, y)) return { x, y };   // не за водой и не в «кармане»
-  }
-  return freePointNear({ x: clamp(b.x + Math.cos(away) * 140, 20, W - 20), y: clamp(b.y + Math.sin(away) * 140, 20, H - 20) });
-}
-
-// Боты: 1) спасают упавших (сначала игроков), 2) убегают, если их видят,
-//       3) по очереди подкрадываются сзади, остальные ждут неподалёку
-function updateBots(dt) {
-  const bots = littles.filter(l => l.kind === "bot" && canAct(l));
-  const downed = littles.filter(l => l.state === "down" && l.botWait <= 0)   // боты ждут BOT_RESCUE_DELAY после падения
-    .sort((a, b) => ((a.kind === "player" ? 0 : 1) - (b.kind === "player" ? 0 : 1)) || (a.downTimer - b.downTimer));
-  const free = new Set(bots), rescueTarget = new Map();
-  for (const d of downed) {
-    let best = null, bd = Infinity;
-    for (const b of free) { const dd = dist(b, d); if (dd < bd) { bd = dd; best = b; } }
-    if (best) { free.delete(best); rescueTarget.set(best, d); }
-  }
-  if (attackToken && (attackToken.state !== "ok" || !free.has(attackToken))) attackToken = null;
-
-  for (const l of littles) if (l.kind === "bot") { l.moving = false; l.speedFrac = 0; }
-  botAttackCd -= dt;
-  for (const b of bots) {
-    b.fleeT = Math.max(0, b.fleeT - dt);
-    b.lurkT = Math.max(0, b.lurkT - dt);
-    b.fleeRe -= dt;
-    const seen = big.stun <= 0 && big.slip <= 0 && big.noPush <= 0 && big.blush <= 0 && canSee(b);
-    const wide = wideDanger(b);                           // SPEC-022: перед самым злым папой, пока он может толкнуть — отойти
-    const speed = CFG.BOT_SPEED * (b.fx.boots > 0 ? CFG.BOOTS_MULT : 1);
-    // SPEC-019: подкрадываясь (ближе HEAR_RADIUS + TIPTOE_NEAR клеток) и выжидая там, где он слышит (HEAR_RADIUS), — на цыпочках;
-    // убегают и спасают — бегом
-    const db = dist(b, big), tiptoe = db <= (CFG.HEAR_RADIUS + CFG.TIPTOE_NEAR) * CELL, lurkTip = db <= CFG.HEAR_RADIUS * CELL;
-    let moved = false, frac = 1;
-
-    if (b.dangerT > CFG.BOT_DANGER_LEAVE && dangerZone) {   // засиделся в доме Большого — к ближайшей двери
-      b.task = "leave";
-      const ex = nearestExit(b);
-      moved = steerTo(b, ex.x, ex.y, speed, dt, false);
-    } else if (big.slip > 0 && !rescueTarget.has(b) && dist(b, big) < 320) {   // Большой упал — бежим обнимать!
-      b.task = "attack";
-      moved = steerTo(b, big.x, big.y, speed, dt, false);
-    } else if (rescueTarget.has(b) && !(seen && dist(b, big) < 90) && !wide && !wideDanger(rescueTarget.get(b), b)) {
-      const d = rescueTarget.get(b);
-      b.task = "rescue";
-      if (dist(b, d) > b.r + d.r + 4) moved = steerTo(b, d.x, d.y, speed, dt, false);
-    } else if (tutorialGame === 1 && tut.script && b === littles[1]) {   // SPEC-029: сценарий — бежит прямо на папу спереди (спасать — важнее)
-      b.task = "script";
-      moved = steerTo(b, big.x, big.y, speed, dt, false);
-    } else {
-      if ((seen || wide) && b.fleeT <= 0) { b.fleeT = 1.0; b.fleeGoal = null; }
-      if (seen || wide) b.fleeT = Math.max(b.fleeT, 0.6);
-      if (b.fleeT > 0) {
-        b.task = "flee";
-        if (attackToken === b) { attackToken = null; b.lurkT = rand(3, 6); }
-        if (!b.fleeGoal || b.fleeRe <= 0 || dist(b, b.fleeGoal) < 15) { b.fleeGoal = fleePoint(b); b.fleeRe = 0.5; }
-        moved = steerTo(b, b.fleeGoal.x, b.fleeGoal.y, speed, dt, false);
-      } else {
-        // SPEC-029: в тренировке 1 бот сам не обнимает (это делает игрок): убегает и ждёт рядом, как обычно, но не нападает
-        if (!attackToken && botAttackCd <= 0 && b.lurkT <= 0 && free.has(b) && tutorialGame !== 1) { attackToken = b; b.tokenT = 8; }
-        const back = big.dir + Math.PI;
-        if (attackToken === b) {
-          b.task = "attack";
-          b.tokenT -= dt;
-          if (b.tokenT <= 0) { attackToken = null; b.lurkT = rand(3, 6); }
-          const a = back + b.offset;
-          const rr = dist(b, big) > 95 ? 75 : big.r + b.r - 3;
-          if (tiptoe) frac = CFG.TIPTOE_MULT;
-          moved = steerTo(b, big.x + Math.cos(a) * rr, big.y + Math.sin(a) * rr, speed * frac, dt, true);
-        } else {
-          b.task = "lurk";
-          const g = lurkPoint(back + b.offset * 2.2);
-          frac = lurkTip ? CFG.TIPTOE_MULT : CFG.BOT_LURK_MULT;
-          if (Math.hypot(g.x - b.x, g.y - b.y) > 20) moved = steerTo(b, g.x, g.y, speed * frac, dt, true);
-        }
-      }
-    }
-    b.moving = moved;
-    b.speedFrac = moved ? frac : 0;                       // SPEC-019: доля своей скорости (на цыпочках — TIPTOE_MULT, тихо)
-    if (moved) b.dir = turnToward(b.dir, b.moveDir, 10 * dt);
-  }
-  // один бот за раз и с паузой между попытками — чтобы главными героями были игроки
-  if (prevToken && attackToken !== prevToken) botAttackCd = rand(CFG.BOT_ATTACK_PAUSE[0], CFG.BOT_ATTACK_PAUSE[1]);
-  prevToken = attackToken;
-}
-
-// SPEC-022: точка p (бот или упавший, к которому он идёт; o — бот рядом с ним) — перед самым злым папой ближе WIDE_PUSH_R + BOT_WIDE_KEEP
-// клеток, а он может толкнуть (не стоит после толчка, не в шоке, не лежит, не красный, не отдыхает)
-function wideDanger(p, o = null) {
-  if (bossPower(big.boss) !== "wide" || big.kind || big.pushCd > 0 || big.stun > 0 || big.slip > 0 || big.blush > 0 || big.noPush > 0) return false;
-  const keep = (CFG.WIDE_PUSH_R + CFG.BOT_WIDE_KEEP) * CELL + (o ? o.r * 2 : 0);
-  return dist(p, big) < keep && angDiff(big.dir, Math.atan2(p.y - big.y, p.x - big.x)) <= CFG.WIDE_PUSH_ARC * Math.PI / 360;
-}
-// Где ждать боту: в 170 px за Большим, но не в его доме; точка в стене или за водой — ближайшая свободная клетка
-function lurkPoint(a0) {
-  for (const k of [0, 0.5, -0.5, 1, -1, 1.5, -1.5, 2, -2, 2.5, -2.5, Math.PI]) {
-    const a = a0 + k, p = { x: clamp(big.x + Math.cos(a) * 170, 24, W - 24), y: clamp(big.y + Math.sin(a) * 170, 24, H - 24) };
-    if (!inDanger(p)) return freePointNear(p);
-  }
-  return nearestExit(big);
-}
-function freePointNear(p) {
-  const i = cellIdx(p.x, p.y);
-  if (!blocked[i] && reachable[i] && !moveSolidAt(p.x, p.y)) return p;
-  const c = freeCellNear(i);
-  return { x: (c % COLS + 0.5) * CELL, y: (((c / COLS) | 0) + 0.5) * CELL };
-}
-// Ближайшая точка за дверью дома Большого
-function nearestExit(p) {
-  let best = null, bd = Infinity;
-  for (const e of (dangerZone ? dangerZone.exits : [])) { const d = dist(p, e); if (d < bd) { bd = d; best = e; } }
-  if (best) return best;
-  const c = freeCellNear(cellIdx(p.x, p.y));             // дверей не знаем — ближайшая свободная клетка снаружи
-  return { x: (c % COLS + 0.5) * CELL, y: (((c / COLS) | 0) + 0.5) * CELL };
-}
-
-// >>> src/core/autopilot.js
-// =====================================================================
-//  АВТОПИЛОТ (SPEC-008): ведёт маленьких игроков для проверки баланса. Видит то же, что игрок, а действует только как
-//  игрок: «джойстик» autoMove, который читает inputFor(l), и кнопки 💋 throwKiss / 🩹 useRescueKit. Состояние Большого,
-//  ботов, самих маленьких, CFG и progress не трогает (тест «the autopilot plays only through the players' inputs»);
-//  своя память — autoNavs (путь к цели), путь ищет тем же steerPoint, что и боты.
-//  careful — к спине в обход взгляда (за стенами и кустами), вблизи перед ним обходит сбоку, обнимает сзади и сразу
-//            заходит за спину снова; спасает друзей; берёт звёздочки и предметы рядом, когда он туда не смотрит.
-//  reckless — бежит прямо обниматься, ни от кого не прячется и никого не спасает.
-// =====================================================================
-let autoOn = false, autoStyle = "careful", autoNavs = new Map(), autoMove = [];
-function autopilot(on, style) {
-  if (typeof on === "boolean") autoOn = on;
-  if (style === "careful" || style === "reckless") autoStyle = style;
-  if (!autoOn) autoMove = [];
-  return { on: autoOn, style: autoStyle };
-}
-const autoNav = l => {
-  if (!autoNavs.has(l.id)) autoNavs.set(l.id, { x: l.x, y: l.y, r: l.r, path: [], repath: 0 });
-  return autoNavs.get(l.id);
-};
-// Большой сейчас может толкнуть (не в шоке, не лежит, не краснеет, не отдыхает после толчка)
-const bigDangerous = () => big.stun <= 0 && big.slip <= 0 && big.blush <= 0 && big.pushCd <= 0 && big.noPush <= 0;
-// Точка у спины Большого: издалека — в backDist px за ним, вблизи — вплотную (обнимашка)
-const backPoint = (l, d) => {
-  const A = CFG.AUTOPILOT, a = big.dir + Math.PI, rr = d > A.backNear ? A.backDist : big.r + l.r - A.hugIn;
-  return { x: big.x + Math.cos(a) * rr, y: big.y + Math.sin(a) * rr };
-};
-// Цель careful-игрока: { x, y, avoid (обходить взгляд), stop (px — ближе не подходить) }
-function autoGoalCareful(l) {
-  const A = CFG.AUTOPILOT, danger = bigDangerous();
-  if (big.slip > 0) return { x: big.x, y: big.y, avoid: false, stop: 0 };   // лежит после банана — обнимать с любой стороны!
-  let down = null;                                       // упавший друг, которого ни один бот не поднимет быстрее
-  for (const d of littles) {
-    if (d.state !== "down" || d === l || (danger && dist(d, big) <= A.rescueSafe)) continue;
-    if (littles.some(o => o.kind === "bot" && o.state === "ok" && dist(o, d) < dist(l, d))) continue;
-    if (!down || dist(l, d) < dist(l, down)) down = d;
-  }
-  if (down) return { x: down.x, y: down.y, avoid: true, stop: l.r + down.r + A.arrive };
-  let pick = null;                                       // звёздочка или предмет рядом, пока он туда не смотрит
-  for (const s of [...bonusStars, ...items.filter(it => it.kind !== "banana")]) {
-    if (dist(l, s) < A.itemReach && (!danger || (dist(s, big) > A.pickSafe && !inCone(s.x, s.y))) && (!pick || dist(l, s) < dist(l, pick))) pick = s;
-  }
-  if (pick) return { x: pick.x, y: pick.y, avoid: true, stop: 0 };
-  // обнимашка: близко и перед ним, а он может толкнуть, — обходим сбоку к спине; иначе к спине, издалека — в обход взгляда
-  const d = dist(l, big), a = Math.atan2(l.y - big.y, l.x - big.x), side = normAng(a - big.dir);
-  if (danger && d < A.orbit && Math.abs(side) < CFG.BEHIND_ANGLE) {
-    const t = a + Math.sign(side || 1) * A.orbitStep, r = Math.max(A.orbitR, d);
-    return { x: big.x + Math.cos(t) * r, y: big.y + Math.sin(t) * r, avoid: false, stop: 0 };
-  }
-  return { ...backPoint(l, d), avoid: danger && d > A.sneakNear, stop: 0 };
-}
-// Цель reckless-игрока: прямо к спине Большого (или к нему, если лежит), не прячась и никого не спасая
-const autoGoalReckless = l => big.slip > 0 ? { x: big.x, y: big.y, avoid: false, stop: 0 } : { ...backPoint(l, dist(l, big)), avoid: false, stop: 0 };
-// SPEC-019: careful идёт на цыпочках, когда он рядом (HEAR_RADIUS + TIPTOE_NEAR клеток), сзади или сбоку от Большого (вне взгляда) и тот прислушивается
-const autoTiptoe = l => bigListens() && dist(l, big) <= (CFG.HEAR_RADIUS + CFG.TIPTOE_NEAR) * CELL &&
-  angDiff(big.dir, Math.atan2(l.y - big.y, l.x - big.x)) >= CFG.VISION_HALF;
-// Решение автопилота на этот шаг: autoMove[pi] = { x, y } (как стик, длина ≤ 1) и нажатия 💋 / 🩹
-function autoThink(dt) {
-  autoMove = [];
-  if (!autoOn || mode !== "play") return;
-  const A = CFG.AUTOPILOT;
-  for (const l of littles) {
-    if (l.kind !== "player") continue;
-    const n = autoNav(l);
-    n.x = l.x; n.y = l.y;
-    // 🩹: лежит долго и никто не поднимает (или уже хромает в домик, отдыхает)
-    if (autoStyle === "careful" && canUseKit(l) && (l.state !== "down" || (l.rescue <= 0 && l.downTimer < CFG.DOWN_TIME - A.kitWait))) { useRescueKit(l.id); continue; }
-    if (!canAct(l)) continue;
-    const goal = autoStyle === "reckless" ? autoGoalReckless(l) : autoGoalCareful(l);
-    if (Math.hypot(goal.x - l.x, goal.y - l.y) <= goal.stop) continue;
-    const { tx, ty } = steerPoint(n, goal.x, goal.y, dt, goal.avoid, () => A.repath);
-    const dx = tx - l.x, dy = ty - l.y, d = Math.hypot(dx, dy);
-    if (d < A.minStep) continue;
-    const sp = moveSpeed(l);
-    let m = Math.min(1, d / (sp * dt));                  // не проскочить точку
-    if (autoStyle === "careful" && autoTiptoe(l)) m = Math.min(m, CFG.TIPTOE_MULT);   // SPEC-019: рядом сзади/сбоку — на цыпочках
-    autoMove[l.id] = { x: dx / d * m, y: dy / d * m };
-    // 💋: смотрит на Большого, он близко, видно, и поцелуй сработает
-    if (autoStyle === "careful" && gameInv().kisses > 0 && l.kissCd <= 0 && !inSafe(l) && big.stun <= 0 && big.blush <= 0 && big.hugCd <= 0 &&
-      dist(l, big) < CFG.KISS_RANGE * A.kissReach && angDiff(l.dir, Math.atan2(big.y - l.y, big.x - l.x)) < A.kissAim &&
-      los(l.x, l.y, big.x, big.y, seeSolidAt)) throwKiss(l.id);
-  }
-}
-
-// >>> src/core/hearing.js
-// ---------- SPEC-019: Большой слышит топот ----------
-// Бежит (не на цыпочках): на ногах, идёт, доля скорости ≥ TIPTOE_MAX (на цыпочках — не больше TIPTOE_MULT)
-const isRunning = l => !!l && l.state === "ok" && l.moving && l.speedFrac >= CFG.TIPTOE_MAX;
-// Не слышит: в шоке (и при последней обнимашке), красный, лежит после банана, стоит после толчка, не идёт игра
-const bigDeaf = () => mode !== "play" || pendingWin > 0 || big.stun > 0 || big.blush > 0 || big.slip > 0 || big.pushCd > 0;
-const stopHearing = () => { big.noise = 0; big.hearTurnT = 0; big.hearLook = 0; };
-// Прислушивается: не в шоке, не красный, не лежит, не стоит после толчка. Пока видит кого-то и гонится — не слышит (ранний выход
-// в updateBig); ищет того, кого только что потерял, — слышит (решение прогона: баланс SPEC-019 AC 5)
-const bigListens = () => !bigDeaf();
-// Шум за кадр: каждый бегущий рядом (HEAR_RADIUS клеток) вне взгляда (по углу), не невидимка и не в домике, — NOISE_RATE
-// (через стену × HEAR_WALL); никто не шумит — шум тает. Набралось NOISE_TURN — поворачивается к самому громкому (при равных —
-// к ближнему) за HEAR_TURN_TIME, потом стоит и смотрит туда HEAR_LOOK сек; HEAR_COOLDOWN сек — снова не слышит.
-// насколько слышно бегущего l: 0 — не слышно; 1 — рядом и видно по прямой; HEAR_WALL — через стену (кулдаун и «не слышит» — не здесь)
-function audible(l) {
-  if (!isRunning(l) || l.fx.cloak > 0 || inSafe(l)) return 0;
-  const dx = l.x - big.x, dy = l.y - big.y;
-  if (Math.hypot(dx, dy) > CFG.HEAR_RADIUS * CELL || angDiff(big.dir, Math.atan2(dy, dx)) < CFG.VISION_HALF) return 0;
-  return los(big.x, big.y, l.x, l.y, seeSolidAt) ? 1 : CFG.HEAR_WALL;
-}
-function hearNoise(dt) {
-  let add = 0, loud = null, best = 0, bestD = Infinity;
-  if (big.hearCd <= 0 && bigListens()) for (const l of littles) {
-    const k = audible(l);
-    if (!k) continue;
-    const d = dist(l, big), c = CFG.NOISE_RATE * dt * k;
-    add += c;
-    if (c > best || (c === best && d < bestD)) { best = c; bestD = d; loud = l; }
-  }
-  big.noise = add > 0 ? big.noise + add : Math.max(0, big.noise - CFG.NOISE_DECAY * dt);
-  if (big.noise < CFG.NOISE_TURN || !loud) return;
-  const a = Math.atan2(loud.y - big.y, loud.x - big.x);
-  big.noise = 0; big.hearCd = CFG.HEAR_COOLDOWN;
-  big.hearFace = a; big.hearTurnT = CFG.HEAR_TURN_TIME; big.hearRate = Math.abs(normAng(a - big.dir)) / CFG.HEAR_TURN_TIME;
-  big.hearLook = rand(CFG.HEAR_LOOK[0], CFG.HEAR_LOOK[1]);
-  big.state = "look"; big.timer = Math.max(big.timer, CFG.HEAR_TURN_TIME + big.hearLook); big.goal = null; big.path = [];
-  logEvent("heard", { who: loud.id, kind: loud.kind });
-  if (loud.kind === "player" && !heardHintDone) { heardHintDone = true; heardHintT = CFG.HEAR_HINT_TIME; heardHintPi = loud.id; }
-}
-// значок над Большим (тот же порядок, что рисуется): 🍌💫, ?!, 💗, ❓ (обернулся на топот), 👂 (слышит), 💦, !
-function bigMark() {
-  if (big.kind) return "💗";                               // SPEC-022: подобрел — не «!» и не «👂»
-  if (big.slip > 0) return "🍌💫";
-  if (big.stun > 0) return "?!";
-  if (big.blush > 0) return "💗";
-  if (big.state === "look" && (big.hearTurnT > 0 || big.hearLook > 0)) return "❓";
-  if (big.noise >= CFG.NOISE_WARN) return "👂";
-  if (big.noPush > 0) return "💦";
-  if (big.state === "chase") return "!";
-  return "";
-}
-
-// >>> src/core/big.js
-function updateBig(dt) {
-  big.flash = Math.max(0, big.flash - dt);
-  big.hugCd = Math.max(0, big.hugCd - dt);
-  big.moving = false;
-  big.noPush = Math.max(0, big.noPush - dt);
-  big.hearCd = Math.max(0, big.hearCd - dt);
-  if (bigDeaf()) stopHearing();
-  if (big.blush > 0) {                                   // покраснел: время идёт и пока лежит после банана
-    big.blush = Math.max(0, big.blush - dt);
-    if (big.blush <= 0 && big.slip <= 0 && big.stun <= 0) {   // прошло — поворачивается к тому, кто бросил, и в погоню
-      const th = littles[big.blushBy] || littles[0];
-      big.state = "chase"; big.lastSeen = { x: th.x, y: th.y };
-      big.dir = Math.atan2(th.y - big.y, th.x - big.x); big.path = [];
-      return;
-    }
-  }
-  if (big.slip > 0) { big.slip -= dt; big.moving = false; if (big.slip <= 0) { big.state = "look"; big.timer = 0.8; } return; }
-  if (big.stun > 0) { big.stun -= dt; big.dir = turnToward(big.dir, big.stunFace, big.stunTurn * dt); return; }
-  if (big.blush > 0) return;                             // стоит красный и никого не толкает
-  if (big.pushCd > 0) {
-    big.pushCd -= dt;
-    if (big.pushCd <= 0) { big.state = "look"; big.timer = Math.max(0.5, big.noPush); big.lookSign = rng() < 0.5 ? -1 : 1; }
-    return;
-  }
-
-  if (tutorialGame === 1 && tut.script) {                // SPEC-029: сценарий тренировки 1 — стоит, поворачивается к боту и толкает его
-    const b = littles[1];
-    big.dir = turnToward(big.dir, Math.atan2(b.y - big.y, b.x - big.x), CFG.TUTORIAL.scriptTurn * dt);
-    if (b.state === "ok" && dist(big, b) < big.r + b.r + CFG.TUTORIAL.scriptPushPad) pushHit(b);
-    return;
-  }
-  const speed = bigSpeeds();
-  let target = null, td = Infinity;
-  for (const l of littles) {
-    if (big.noPush > 0) break;               // отдыхает — никого не ловит
-    if (l.state !== "ok" || l.invuln > 0 || l.dizzy > 0) continue;   // с кружащейся головой не трогает
-    if (canSee(l)) { const d = dist(big, l); if (d < td) { td = d; target = l; } }
-  }
-  if (target) {
-    big.hearTurnT = 0; big.hearLook = 0;                 // видит — топот уже не важен; шум тает
-    big.noise = Math.max(0, big.noise - CFG.NOISE_DECAY * dt);
-    if (big.state !== "chase") { hooks.pop(big.x, big.y - 75, "!", "#ff3b30"); hooks.sfx("alert"); }
-    big.state = "chase";
-    big.lastSeen = { x: target.x, y: target.y };
-    big.moving = steerTo(big, target.x, target.y, speed.chase, dt, false);
-    big.dir = turnToward(big.dir, Math.atan2(target.y - big.y, target.x - big.x), 7 * dt);
-    if (td < big.r + target.r + 8) pushHit(target);
-    return;
-  }
-  hearNoise(dt);
-  if (big.state === "chase" || big.state === "search") {
-    big.state = "search";
-    big.moving = steerTo(big, big.lastSeen.x, big.lastSeen.y, speed.search, dt, false);
-    if (big.moving) big.dir = turnToward(big.dir, big.moveDir, 6 * dt);
-    if (!big.moving || dist(big, big.lastSeen) < 10) { big.state = "look"; big.timer = rand(1.5, 2.5); big.lookSign = rng() < 0.5 ? -1 : 1; }
-    return;
-  }
-  if (big.state === "look") {
-    if (big.hearTurnT > 0) { big.hearTurnT -= dt; big.dir = turnToward(big.dir, big.hearFace, big.hearRate * dt); }   // на топот
-    else if (big.hearLook > 0) big.hearLook = Math.max(0, big.hearLook - dt);   // смотрит туда, не крутится
-    else big.dir += big.lookSign * 1.7 * dt;
-    big.timer -= dt;
-    if (big.timer <= 0) { big.state = "patrol"; big.goal = randomFreePoint(); big.path = []; big.repath = 0; big.patrolT = 10; }
-    return;
-  }
-  if (!big.goal) { big.goal = randomFreePoint(); big.patrolT = 10; }
-  big.patrolT -= dt;
-  big.moving = steerTo(big, big.goal.x, big.goal.y, speed.patrol, dt, false);
-  if (big.moving) big.dir = turnToward(big.dir, big.moveDir, 5 * dt);
-  if (!big.moving || dist(big, big.goal) < 12 || big.patrolT <= 0) {
-    big.state = "look"; big.timer = rand(1, 2.2); big.lookSign = rng() < 0.5 ? -1 : 1; big.goal = null;
-  }
-}
-
-// >>> src/core/rules.js
-function separate() {
-  const all = littles.filter(l => (l.state === "ok" || l.state === "down") && l.hugAnim <= 0);
-  for (let i = 0; i < all.length; i++) for (let j = i + 1; j < all.length; j++) {
-    const a = all[i], b = all[j];
-    const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 0.01, min = a.r + b.r;
-    if (d >= min) continue;
-    const am = a.state === "ok" ? 1 : 0, bm = b.state === "ok" ? 1 : 0, s = am + bm;
-    if (!s) continue;
-    const o = min - d;
-    a.x -= dx / d * o * am / s; a.y -= dy / d * o * am / s;
-    b.x += dx / d * o * bm / s; b.y += dy / d * o * bm / s;
-    resolveWalls(a); resolveWalls(b);
-  }
-  for (const l of all) {
-    const dx = l.x - big.x, dy = l.y - big.y, d = Math.hypot(dx, dy) || 0.01, min = l.r + big.r;
-    if (d >= min) continue;
-    if (l.state === "ok") { l.x += dx / d * (min - d); l.y += dy / d * (min - d); resolveWalls(l); }
-    else { big.x -= dx / d * (min - d); big.y -= dy / d * (min - d); resolveWalls(big); }
-  }
-}
-function checkContacts() {
-  if (pendingWin > 0) return;                              // SPEC-022: злость кончилась — ни обнимашек, ни толчков (он добреет)
-  for (const l of littles) {
-    if (mode !== "play") return;
-    if (!canAct(l)) continue;   // голова кружится: не обнимает, толкнуть нельзя
-    const dx = l.x - big.x, dy = l.y - big.y, d = Math.hypot(dx, dy);
-    if (d > big.r + l.r + 4) continue;
-    const a = Math.atan2(dy, dx), diff = angDiff(big.dir, a);
-    if (diff > CFG.BEHIND_ANGLE || big.slip > 0) {                   // сзади — или Большой лежит после банана
-      const wants = l.kind === "player" || l.task === "attack";   // боты обнимают только когда сами решили
-      if (wants && big.hugCd <= 0 && l.hugCd <= 0 && big.stun <= 0) hug(l, a);
-    }
-    else if (diff < 1.9 && big.stun <= 0 && big.slip <= 0 && big.blush <= 0 && big.pushCd <= 0 && big.noPush <= 0 && l.invuln <= 0 && l.fx.cloak <= 0 && !inSafe(l)) pushHit(l);
-  }
-}
-// ---------- Спасалка 🩹 (SPEC-007): игрок сразу встаёт там, где он есть — лёжа, по дороге в домик или отдыхая ----------
-const KIT_STATES = ["down", "home", "rest"];
-// одно правило для кнопки, подсказки и useRescueKit: идёт игра (не пауза, победа ещё не наступает), игрок лежит/хромает/отдыхает
-const canUseKit = l => mode === "play" && pendingWin <= 0 && !!l && l.kind === "player" && KIT_STATES.includes(l.state) && gameInv().rescues > 0;
-function useRescueKit(pi) {
-  const l = littles[pi];
-  if (!canUseKit(l)) return false;                       // боты, игрок на ногах, нет спасалок, пауза — ничего
-  gameInv().rescues--; saveInv();
-  logEvent("kit", { who: l.id });
-  if (kitHintPi === pi) kitHintT = 0;                   // встал — подсказка больше не нужна
-  // лёжа (таймер ещё не кончился) — это не отдых: stats.rests не растёт; дома — уже засчитанный отдых остаётся
-  l.state = "ok"; l.invuln = CFG.KIT_INVULN; l.rescue = 0; l.downTimer = 0; l.restTimer = 0; l.path = [];
-  l.kx = 0; l.ky = 0; l.moving = false; l.botWait = 0; l.fleeT = 0;
-  l.kissCd = Math.max(l.kissCd, CFG.KIT_SLOT_LOCK);      // второй тап по тому же месту (там уже 💋) не бросает поцелуй
-  hooks.pop(l.x, l.y - 40, L().kitUsed, "#7CFC9A");
-  hooks.burst(l.x, l.y - 10, "star", "#fde68a", 14);
-  hooks.sfx("rescue");
-  return true;
-}
-function updateDowned(dt) {
-  for (const l of littles) {
-    if (l.state !== "down") continue;
-    if (!tutorialGame) l.downTimer -= dt;                 // SPEC-029: в тренировке лежат без времени — пока не поднимут
-    l.botWait = Math.max(0, l.botWait - dt);
-    // SPEC-009: рядом игрок — он и поднимает (с «быстрой помощью» быстрее); бот — всегда за RESCUE_TIME
-    const helper = littles.find(o => o.kind === "player" && helps(o, l)) || littles.find(o => helps(o, l));
-    l.rescueNeed = CFG.RESCUE_TIME * (1 - (helper ? playerBonus(helper, "quickHelp") : 0));
-    l.rescue = helper ? l.rescue + dt : Math.max(0, l.rescue - CFG.RESCUE_DRAIN * dt);   // отошёл — прогресс тает
-    if (l.rescue >= l.rescueNeed) {
-      l.state = "ok"; l.invuln = CFG.INVULN_AFTER_RESCUE; l.rescue = 0;
-      logEvent("rescued", { who: l.id, by: helper.kind });
-      hooks.pop(l.x, l.y - 40, L().saved, "#7CFC9A");
-      hooks.burst(l.x, l.y - 10, "star", "#7CFC9A", 10);
-      hooks.sfx("rescue");
-    } else if (!tutorialGame && l.downTimer <= 0) {   // никто не помог — встаёт и хромает в домик отдыхать (SPEC-029: в тренировке — никогда)
-      l.state = "home"; l.path = []; l.rescue = 0;
-      l.restSpot = { ...spawns.small[l.id] };
-      stats.rests++;
-      logEvent("rest", { who: l.id });
-      if (attackToken === l) attackToken = null;
-      hooks.pop(l.x, l.y - 40, L().out, "#e5e7eb");
-      hooks.sfx("out");
-    }
-  }
-}
-// Дом Большого: кто в состоянии ok простоял внутри DANGER_TIME — вылетает за дверь, голова кружится (нога цела)
-function updateDanger(dt) {
-  for (const l of littles) {
-    if (l.state !== "ok" || !inDanger(l)) { l.dangerT = 0; continue; }
-    if (l.hugAnim > 0) continue;                            // на плечах у Большого — время стоит
-    l.dangerT += dt;
-    if (l.dangerT >= CFG.DANGER_TIME) throwOut(l);
-  }
-}
-function throwOut(l) {
-  const ex = nearestExit(l), c = freeCellNear(cellIdx(ex.x, ex.y));
-  const p = c === cellIdx(ex.x, ex.y) && !moveSolidAt(ex.x, ex.y) ? ex : { x: (c % COLS + 0.5) * CELL, y: (((c / COLS) | 0) + 0.5) * CELL };
-  l.x = p.x; l.y = p.y; l.kx = 0; l.ky = 0; l.path = []; l.fleeGoal = null;
-  l.dangerT = 0; l.dizzy = CFG.DIZZY_TIME; l.moving = false;
-  logEvent("thrownOut", { who: l.id });
-  if (attackToken === l) attackToken = null;
-  hooks.shake(0.2);
-  hooks.pop(l.x, l.y - 40, L().thrownOut, "#fca5a5", "out");
-  hooks.burst(l.x, l.y - 10, "star", "#fde047", 10);
-  hooks.sfx("thrown");
-}
-// Ближайшая свободная клетка (не стена и не дом Большого), поиск в ширину
-function freeCellNear(idx) {
-  const seen = new Uint8Array(COLS * ROWS), q = [idx];
-  seen[idx] = 1;
-  for (let h = 0; h < q.length; h++) {
-    const i = q[h], cx = i % COLS, cy = (i / COLS) | 0;
-    if (!blocked[i] && reachable[i] && !inDangerXY((cx + 0.5) * CELL, (cy + 0.5) * CELL)) return i;
-    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-      const nx = cx + dx, ny = cy + dy;
-      if (nx < 0 || ny < 0 || nx >= COLS || ny >= ROWS) continue;
-      const j = ny * COLS + nx;
-      if (!seen[j]) { seen[j] = 1; q.push(j); }
-    }
-  }
-  return idx;
-}
-function updateResting(dt) {
-  for (const l of littles) {
-    if (l.state === "home") {
-      l.moving = steerTo(l, l.restSpot.x, l.restSpot.y, CFG.HOME_SPEED, dt, false);
-      if (l.moving) l.dir = turnToward(l.dir, l.moveDir, 8 * dt);
-      if (!l.moving || dist(l, l.restSpot) < 6) { l.state = "rest"; l.restTimer = CFG.REST_TIME; l.moving = false; l.dir = Math.PI / 2; }
-    } else if (l.state === "rest") {
-      l.restTimer -= dt; l.moving = false;
-      if (l.restTimer <= 0) {
-        l.state = "ok"; l.invuln = 2; l.fleeT = 0;
-        logEvent("back", { who: l.id });
-        hooks.pop(l.x, l.y - 40, L().back, "#7CFC9A");
-        hooks.burst(l.x, l.y - 10, "star", "#7CFC9A", 10);
-        hooks.sfx("rescue");
-      }
-    }
-  }
-}
-// >>> src/core/game.js
-// эффекты: кольца широкого толчка (игра); летящие надписи, частицы и тряска — у клиента (hooks.fx)
-function updateFx(dt) {
-  for (const w of pushWaves) w.t += dt;
-  pushWaves = pushWaves.filter(w => w.t < CFG.WAVE_TIME);
-  hooks.fx(dt);
-}
-function update(dt) {
-  if (!big.kind) stats.time += dt;                         // SPEC-022: пока подобревший папа идёт домой, часы уровня стоят
-  hooks.banner(dt);                                        // надпись уровня гаснет (клиент)
-  for (const l of littles) {
-    l.invuln = Math.max(0, l.invuln - dt);
-    l.hugCd = Math.max(0, l.hugCd - dt);
-    l.dizzy = Math.max(0, l.dizzy - dt);
-    l.kissCd = Math.max(0, l.kissCd - dt);
-    if (l.hugAnim <= 0 && Math.abs(l.kx) + Math.abs(l.ky) > 5) {
-      moveEntity(l, l.kx, l.ky, dt);
-      const f = Math.exp(-7 * dt); l.kx *= f; l.ky *= f;
-    } else { l.kx = 0; l.ky = 0; }
-  }
-  kitHintT = Math.max(0, kitHintT - dt);
-  heardHintT = Math.max(0, heardHintT - dt);
-  if (big.kind) updateKindWalk(dt);                        // SPEC-022: идёт домой; маленькие стоят и радуются
-  else { autoThink(dt); updatePlayers(dt); updateBots(dt); updateBig(dt); }
-  updateHugAnim(dt);
-  updateKisses(dt);
-  separate();
-  checkContacts();
-  updateDowned(dt);
-  if (tutorialGame) updateTutorial(dt);                    // SPEC-029: оба лежат — встают; подсказки по шагам
-  updateDanger(dt);
-  updateResting(dt);
-  updateItems(dt);
-  updateStars(dt);
-  updateFx(dt);
-  // победа в два шага (SPEC-022): последняя обнимашка доигрывает (HUG_ANIM) → папа добреет и идёт домой (KIND_WALK) → экран победы
-  if (pendingWin > 0) { pendingWin -= dt; if (pendingWin <= 0 && mode === "play") { if (big.kind) winNow(); else startKindWalk(); } }
-  // проигрыша больше нет: кого не спасли — отдыхает в домике и возвращается (за это меньше монеток)
-}
-// SPEC-008: шагает игру пачкой (dt — сек игры за шаг), пока уровень идёт и не вышло seconds; → простые данные
-function simRun(seconds, dt = CFG.BALANCE.SIM_DT) {
-  const n = Math.round(seconds / dt);
-  for (let i = 0; mode === "play" && (i < n || pendingWin > 0); i++) update(dt);   // SPEC-022: начатая победа (обнимашка, дорога домой) доигрывается
-  return { ended: mode !== "play", win: mode === "win", time: stats.time };
-}
 // >>> client
 // sim(on): включить/выключить режим симуляции; без аргумента — только узнать. Выключили — 3D строится заново.
 function sim(on) {
@@ -3926,7 +1757,7 @@ function drawHUDPhone(t) {
   const gx = m + pw + Math.max(gap, (mm.x - gap - (m + pw) - gw) / 2);
   plate("timer", gx, top, tw, bh);
   noteText("main", fitText(timeTxt, gx + tw / 2, top + bh / 2 + 1, main, tw, "center", OUT, 900, main));
-  iconButton("phone_pause", gx + tw + gap, top, bh, bh, "II", "#64748b", () => { mode = "pause"; }, fz(main, "main"));
+  iconButton("phone_pause", gx + tw + gap, top, bh, bh, "II", "#64748b", () => { setMode("pause"); }, fz(main, "main"));
   if (!STANDALONE) iconButton("ui_fullscreen", gx + tw + gap + bh + gap, top, bh, bh, "⛶", "#64748b", toggleFullscreen, fz(main, "main"));
   // SPEC-029: в тренировке — кнопка ⏭ «Пропустить» (обучение целиком; то же со словом — в паузе) в ряду кнопок, после «во весь экран»
   if (tutorialGame && mode === "play") addButton(gx + tw + gap + (STANDALONE ? 1 : 2) * (bh + gap), top, bh, bh, "⏭", LOOK.MENU_LOOK.back, tutorialSkip, fz(main, "main")).id = "tutorial:skip";
@@ -4018,7 +1849,7 @@ function drawHUD(t) {
   }
   rr(UW / 2 - 95, 8, 110, 34, 14); fillStroke("rgba(255,255,255,.8)", 3);
   label(timerText(), UW / 2 - 40, 25, 14, OUT);
-  iconButton("round_pause", UW / 2 + 22, 8, 40, 34, "II", "#64748b", () => { mode = "pause"; }, 16);
+  iconButton("round_pause", UW / 2 + 22, 8, 40, 34, "II", "#64748b", () => { setMode("pause"); }, 16);
   if (!STANDALONE) iconButton("ui_fullscreen", UW / 2 + 68, 8, 40, 34, "⛶", "#64748b", toggleFullscreen, 18);   // на iPhone нет Fullscreen API
   // SPEC-029: в тренировке — маленькая «Пропустить» справа от кнопок (обучение целиком; то же есть в паузе)
   if (tutorialGame && mode === "play") fitButton(UW / 2 + (STANDALONE ? 68 : 114), 8, CFG.TUTORIAL_LOOK.skipW, 34, "⏭ " + L().sceneSkip, LOOK.MENU_LOOK.back, tutorialSkip, 16, 11).id = "tutorial:skip";
@@ -4614,7 +2445,7 @@ function drawMap(t) {
   menuFrame();
   const minMain = PHONE ? minPx("main") : 13;
   // верхний ряд: ◀ Главная, шесть вкладок, монетки
-  fitButton(G.X0, G.Y0, G.backW, G.tabH, G.backText, M.back, () => { mode = "home"; }, PHONE ? cpx(18) : 20, minMain).id = "back:home";
+  fitButton(G.X0, G.Y0, G.backW, G.tabH, G.backText, M.back, () => { setMode("home"); }, PHONE ? cpx(18) : 20, minMain).id = "back:home";
   coinPlate(G.X1 - G.coinsW, G.Y0 + 4 * k, G.coinsW, G.tabH - 8 * k);
   const tx0 = G.X0 + G.backW + G.g, tw = (G.X1 - G.coinsW - G.g - tx0 - (WORLDS.length - 1) * G.g) / WORLDS.length, tabs = [];
   WORLDS.forEach((wd, i) => {
@@ -8349,14 +6180,14 @@ window.__bb = {
     ...Object.values(WARDROBE_ART).flatMap(Object.values), ...Object.values(EMOJI_ART), ...Object.entries(ART_FALLBACK).flat(), ...Object.values(STORY_ART), ...tutorialArtNames(), ...HEART_ART, ...Object.values(FX_ART), ...Object.values(POP_ART),
     ...WORLDS.flatMap(w => [worldArt(w), mapBgArt(w)])], fxBurst: burst, popText,   // SPEC-020: частицы и всплывающие надписи (тест картинок эффектов)
   art, ART_NAMES, get artInfo() { return { total: ART_NAMES.length, ok: artCount.ok, bad: artCount.bad, done: artDone(), loadingShown: !!document.getElementById("loading") }; },
-  get mode() { return mode; }, set mode(v) { if (MODES.includes(v)) mode = v; },   // SPEC-017: только экраны из MODES
+  get mode() { return mode; }, set mode(v) { if (MODES.includes(v)) setMode(v); },   // SPEC-017: только экраны из MODES
   // SPEC-017: экраны меню; wardrobePage — «looks» (наряды) или «friends» (имена друзей) во вкладке «Гардероб»; resetMenus — как при запуске
   MODES, toMap, toHome, resetMenus, shopAfterWin, closeShop, get muted() { return muted; },   // SPEC-030: и магазин после победы → «Готово»
   get wardrobePage() { return wardrobePage; }, set wardrobePage(v) { if (v === "looks" || v === "friends") wardrobePage = v; },
   get littles() { return littles; }, get big() { return big; }, get stats() { return stats; },
-  get level() { return level; }, set level(v) { level = clamp(Math.floor(v) || 1, 1, levelsPerWorld()); },
+  get level() { return level; }, set level(v) { setLevel(clamp(Math.floor(v) || 1, 1, levelsPerWorld())); },
   // SPEC-006: world — мир идущего/выбранного уровня (не мир — игнорируется), level — номер в мире
-  get world() { return curWorld; }, set world(v) { if (WORLDS.includes(v)) curWorld = v; }, WORLDS, difficulty, bigSpeeds,
+  get world() { return curWorld; }, set world(v) { if (WORLDS.includes(v)) setWorld(v); }, WORLDS, difficulty, bigSpeeds,
   // SPEC-016: списки миров, сиды по имени, индекс сложности, время третьей звезды, бонусные миры (p — прогресс, по умолчанию текущий)
   MAIN_WORLDS, BONUS_WORLDS, WORLD_SEED, worldDifficulty, fastTarget, bonusUnlocked, worldOpen, chapterOpen, worldComplete,
   get bonusNote() { return bonusNote && { ...bonusNote }; },   // SPEC-016: плашка «Открылись бонусные миры!» этого кадра (или null)
@@ -8415,7 +6246,7 @@ window.__bb = {
   sim, simRun, get events() { return events.map(e => ({ ...e })); },   // SPEC-008: режим симуляции, журнал событий (копии)
   ledger: () => ledger.map(e => ({ ...e })),   // SPEC-009: события coins за сессию (с загрузки страницы), копии
   get rngDraws() { return rngDraws; },   // SPEC-008: сколько раз тянули игровую случайность
-  setProgress(save) { rewardDue = false; lastReward = null; openedWorld = null; worldBanner = null; setProgress(save); },   // SPEC-008 (баланс): прогресс из сохранения (null — новый), не записывает
+  setProgress(save) { setRewardDue(false); setLastReward(null); openedWorld = null; worldBanner = null; setProgress(save); },   // SPEC-008 (баланс): прогресс из сохранения (null — новый), не записывает
   levelsPerWorld,
   autopilot, autoThink,   // SPEC-008: autopilot(on, "careful"|"reckless") → { on, style }; autoThink(dt) — только решение (для теста)
   autoStick: i => autoMove[i] ? { x: autoMove[i].x, y: autoMove[i].y } : null,   // SPEC-019: «стик» автопилота игрока i после autoThink (копия)
