@@ -120,10 +120,10 @@ A phone is a touch screen whose short side is at most 500 CSS px. To force it: a
 
 | Folder | What | Needs internet |
 |---|---|---|
-| `index.html` | **v2 — 3D** (Three.js r187, toon shading, outlines, shadows) | the first time (three.js from jsDelivr); offline afterwards when opened from the web |
+| `index.html` + `src/` | **v2 — 3D** (Three.js r187, toon shading, outlines, shadows) | the first time (three.js from jsDelivr); offline afterwards when opened from the web |
 | `v1-2d/index.html` | v1 — 2D canvas version | no |
 
-Open the file in any modern browser — no build step. Works on desktop, tablet and phone.
+No build step. Works on desktop, tablet and phone. **How to play locally:** `npm run serve`, then open http://localhost:8123/ — the game is ES modules (`index.html` + `src/`) and needs http; opened from disk by double-click it only shows a notice saying so.
 
 ## Controls
 
@@ -343,12 +343,13 @@ npm run setup          # once: Playwright + three.js for the tests, Chromium, Cl
 npm run test:fast      # the @fast set while working (~1.5 min)
 npx playwright test tests/gameplay.spec.js   # one test file (-g "<name>" for one test)
 npx playwright test    # all tests (smoke, gameplay rules, levels, phone, i18n, PWA; over http — starts scripts/serve.js itself) — normally on CI, see below
-npm run serve          # the game over http on http://localhost:8123/ (service worker, manifest)
-npm run assets         # art/ → assets/*.webp sprites (+ the sprite lists in index.html and sw.js), prints sizes and the budget
+npm run serve          # the game over http on http://localhost:8123/ (service worker, manifest) — the way to play locally
+npm run precache       # after a change to src/: module hashes in the import map of index.html and in sw.js (SPEC-011)
+npm run assets         # art/ → assets/*.webp sprites (+ the sprite lists in src/client/art-names.js and sw.js), prints sizes and the budget
 npm run icons          # art/2_icon.webp → the PNG app icons and the icon.svg favicon
-npm run docs:numbers   # rewrite the generated numbers table in docs/game-design.md from index.html (-- --check: only check)
+npm run docs:numbers   # rewrite the generated numbers table in docs/game-design.md from src/core/config.js and src/client/look.js (-- --check: only check)
 npm run balance        # play every level with the autopilot in sim mode → reports/balance.md + reports/balance.json
-npm run lint           # ESLint over the game's module in index.html and scripts/ (also a job of every CI test run)
+npm run lint           # ESLint over src/, the client module in index.html and scripts/ (also a job of every CI test run)
 npm run site           # the site files (scripts/site.js, the one list) → _site/, what GitHub Pages publishes
 node scripts/perf.js   # frame times, master vs the working copy (phone + desktop viewports; --rounds N, --grain, --base <ref>)
 ```
@@ -362,9 +363,9 @@ node scripts/perf.js   # frame times, master vs the working copy (phone + deskto
    paints circles with the sheet green before keying, to drop a part glued to an object),
    `"size"` (`icon`, `button`, `logo`, `background`) and the sprite names (`"names"` in reading order, `null` skips a
    duplicate). `node scripts/assets.js --debug <file>` lists the pieces it finds on a sheet, so you can count and name them.
-3. Run `npm run assets`: it writes `assets/`, updates the sprite lists in `index.html` and `sw.js`, and prints the sizes
+3. Run `npm run assets`: it writes `assets/`, updates the sprite lists in `src/client/art-names.js` and `sw.js`, and prints the sizes
    (budget 4 MB, one background ≤ 250 KB). Look at the new sprites, then commit `art/`, `scripts/assets.json`, `assets/`,
-   `index.html` and `sw.js` together. Using a new sprite in the game is a spec's job (the code draws it with a fallback).
+   `src/client/art-names.js` and `sw.js` together. Using a new sprite in the game is a spec's job (the code draws it with a fallback).
 
 ### Local test runs: GPU and low priority (SPEC-023)
 
