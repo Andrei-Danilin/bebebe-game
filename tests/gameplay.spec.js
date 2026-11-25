@@ -905,7 +905,9 @@ test("kiss keys for one and two players", async ({ page }) => {
 
 test("the gamepad d-pad left/right and the shoulder buttons switch worlds on the map", async ({ page }) => {
   await page.evaluate(() => {
-    const b = window.__bb; b.mode = "map";
+    const b = window.__bb, all = () => Object.fromEntries(Array.from({ length: 20 }, (_, i) => [i + 1, true]));
+    for (const w of ["park", "field", "city"]) Object.assign(b.progress.worlds[w], { unlocked: 20, won: all() });   // SPEC-030: the four main worlds open
+    b.mode = "map";
     window.__press = k => { window.__pads = [{ index: 0, axes: [0, 0], buttons: Array.from({ length: 17 }, (_, i) => ({ pressed: i === k, value: 0 })) }]; };
     window.__press(-1);
     Object.defineProperty(navigator, "getGamepads", { configurable: true, value: () => window.__pads });

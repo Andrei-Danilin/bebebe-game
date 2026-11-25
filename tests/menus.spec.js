@@ -419,8 +419,11 @@ async function progressProblems(page, phone, size) {
       const h = d.hud.find(q => q.id === "progress:name:" + w);
       if (!h || h.text !== d.names[w]) fails.push(`${at}: world name ${w} "${h && h.text}"`);
     }
+    // SPEC-030: an open world's row has its stars, a locked one its padlock; a locked main world → the "finish … to open" line
     const need = ["progress:name", "progress:stars", "progress:worlds", "progress:bag", "progress:upgrades", "progress:wardrobe", "progress:clothes",
-      ...["park", "field", "city", "school"].map(w => "progress:stars:" + w), "progress:bag:rescues", "progress:upg:quickHelp"];
+      ...d.info.worlds.map(q => (q.open ? "progress:stars:" : "progress:lock:") + q.world), "progress:bag:rescues", "progress:upg:quickHelp",
+      ...(d.info.worlds.some(q => !q.open && ["park", "field", "city", "school"].includes(q.world)) ? ["progress:lockText"] : [])];
+    if (d.info.worlds.filter(q => q.open).length < (rich ? 4 : 1)) fails.push(`${at}: open worlds ${d.info.worlds.filter(q => q.open).map(q => q.world)}`);
     for (const id of need) if (!d.hud.some(h => h.id === id)) fails.push(`${at}: no ${id}`);
     if (phone) fails.push(...phoneProblems(at, d));
     else {
@@ -761,8 +764,8 @@ test("story chapters unlock with progress", async ({ page }) => {
     }
     return out;
   };
-  // fresh: the beginning and the four main worlds; the bonus worlds and the ending show 🔒
-  expect(await walk()).toEqual([["began", false], ["park", false], ["field", false], ["city", false], ["school", false], ["beach", true], ["winter", true], ["ended", true]]);
+  // fresh: the beginning and the Park (SPEC-030: the other worlds open in order); the later worlds and the ending show 🔒
+  expect(await walk()).toEqual([["began", false], ["park", false], ["field", true], ["city", true], ["school", true], ["beach", true], ["winter", true], ["ended", true]]);
   await frames(page);
   let s = await page.evaluate(() => window.__bb.storyInfo);
   expect(s.chapter, "→ on the last chapter stays there").toBe("ended");
@@ -773,6 +776,10 @@ test("story chapters unlock with progress", async ({ page }) => {
   await frames(page);
   s = await page.evaluate(() => window.__bb.storyInfo);
   expect([s.chapter, s.locked, s.text]).toEqual(["ended", false, await page.evaluate(() => window.__bb.STORY[7].text.en)]);
+  // SPEC-030: the Park finished — the Field's chapter opens with the Field; the City's waits for the Field
+  await page.evaluate(() => { const b = window.__bb; b.progress.worlds.school.won = {}; Object.assign(b.progress.worlds.park, { unlocked: 20, won: Object.fromEntries(Array.from({ length: 20 }, (_, i) => [i + 1, true])) }); });
+  for (let i = 0; i < 7; i++) await page.keyboard.press("ArrowLeft");
+  expect((await walk()).map(x => x[1])).toEqual([false, false, false, true, true, true, true, true]);
   // every main level won: the bonus chapters open
   await page.evaluate(() => { const b = window.__bb; for (const w of b.MAIN_WORLDS) Object.assign(b.progress.worlds[w], { unlocked: 20, won: Object.fromEntries(Array.from({ length: 20 }, (_, i) => [i + 1, true])) }); });
   for (let i = 0; i < 7; i++) await page.keyboard.press("ArrowLeft");
