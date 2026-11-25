@@ -1563,7 +1563,7 @@ function mazeLayout(lc) {
   // тупики: обычный модуль с одним проходом
   const deg = m => dg[m];
   const deadList = () => { const r = []; for (let m = 0; m < N; m++) if (!home[m] && !plaza[m] && deg(m) === 1) r.push(m); return r; };
-  let dead = deadList();
+  const dead = deadList();
   const before = dead.length, target = Math.floor(before * CFG.MAZE_DEAD_ENDS);
   for (let k = dead.length - 1; k > 0; k--) { const r = Math.floor(rng() * (k + 1)); [dead[k], dead[r]] = [dead[r], dead[k]]; }
   for (const m of dead) {
@@ -1691,7 +1691,7 @@ function riverLayout(lc) {
 // B слева снизу, общая стена между ними. Каждое крыло делится пополам (BSP) на комнаты ≥ 4×4 внутри; в каждой
 // стене деления дверь (2 клетки), примерно в трети — вторая; 3–4 двери наружу, в оба двора.
 function roomsLayout(lc) {
-  const { rng, ri, items, occ, reserve, isFree, place } = lc, L = CFG.LAYOUT.rooms, A = CFG.DOOR_APRON, MR = L.minRoom;
+  const { rng, ri, items, occ, place } = lc, L = CFG.LAYOUT.rooms, A = CFG.DOOR_APRON, MR = L.minRoom;
   if (lc.homes.variant !== "diagonal") { lc.meta.bad = "homes"; return; }   // крылья здания — только вокруг домов по диагонали
   const sh = lc.homes.small, bh = lc.homes.big;
   const ax0 = sh.x + sh.w + A, ay1 = bh.y - A - 1;            // крыло A: x ax0..COLS-1, y 0..ay1
@@ -4238,7 +4238,6 @@ function update(dt) {
   updateFx(dt);
   // победа в два шага (SPEC-022): последняя обнимашка доигрывает (HUG_ANIM) → папа добреет и идёт домой (KIND_WALK) → экран победы
   if (pendingWin > 0) { pendingWin -= dt; if (pendingWin <= 0 && mode === "play") { if (big.kind) winNow(); else startKindWalk(); } }
-  const players = littles.filter(p => p.kind === "player");
   // проигрыша больше нет: кого не спасли — отдыхает в домике и возвращается (за это меньше монеток)
 }
 // SPEC-008: шагает игру пачкой (dt — сек игры за шаг), пока уровень идёт и не вышло seconds; → простые данные
@@ -5456,7 +5455,7 @@ function drawStop(q, info, t, won) {
   ctx.globalAlpha = 1;
   if (!drawn) { circle(q.cx, cy, R); fillStroke(info.locked ? A.closed : info.next ? A.next : A.open, 3 * k); }
   let numY = cy + 1, numSz = R * 0.85;
-  let badge = drawn && (info.locked || q.boss);                          // SPEC-020: в середине картинки замок или лицо босса —
+  const badge = drawn && (info.locked || q.boss);                          // SPEC-020: в середине картинки замок или лицо босса —
   if (badge) numSz = R * 0.42;                                              // номер на белом кружке внизу
   if (q.boss) {                                                            // плашка «Босс» поперёк верха кружка
     const min = PHONE ? minPx("hint") : A.badgeMin, bh = R * 0.62, bw = q.w * 0.96;
@@ -5651,8 +5650,7 @@ function storyPlaceholder(r, locked, soon = true) {   // SPEC-029: soon = false 
 }
 function drawStory() {
   const M = CFG.MENU_LOOK, S = M.story, k = PHONE ? cpx(1) : 1, minMain = PHONE ? minPx("main") : 13, minHint = PHONE ? minPx("hint") : 12;
-  let X0, X1, Y0, Y1, g, B;
-  ({ X0, X1, Y0, Y1, g, B } = menuFrame());
+  const { X0, X1, Y0, Y1, g, B } = menuFrame();
   const c = STORY[storyCh], open = chapterOpen(c), rules = storyPage === "rules";
   // верхний ряд: ◀ назад, заголовок, «❓ Как играть» / «📖 История»
   const backText = PHONE ? "◀" : "◀ " + (storyBack === "levelCard" ? L().level + " " + cardLevel : L().home);
@@ -6381,7 +6379,7 @@ function progressGeom() {
 // страница этого кадра (тесты): числа, как нарисованы
 let progressInfo = null;
 function progressPage() {
-  const G = progressGeom(), { P, c, g, B, left, mid, right, preview: pv } = G, M = CFG.MENU_LOOK;
+  const G = progressGeom(), { P, c, B, left, mid, right, preview: pv } = G, M = CFG.MENU_LOOK;
   const min = PHONE ? minPx("main") : CFG.MENU_LOOK.progress.min, size = c(P.text), tsize = c(P.title);
   // одна строка: картинка слева (pic(x, cy, s) или null) и текст, сжимается до min (потом «…»); в hudRects — { id, text, textW }
   const line = (id, t, x, y, h, maxW, opts = {}) => {
@@ -6394,7 +6392,6 @@ function progressPage() {
     hudRects.push(r);
     return r;
   };
-  const art2 = (name, fallback) => (x, y, s) => drawArtFit(name, x, y, s) || fallback(x, y, s);
   const emoji = e => (x, y, s) => { ctx.font = `${s * 0.85}px system-ui, 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; fillT(e, x, y); };
   // ---- слева: окошко 3D-вида игрока 1 (как в гардеробе), под ним имя; на телефоне внизу — сброс прогресса ----
   rr(left.x - c(4), pv.y - c(4), left.w + c(8), pv.h + c(P.nameH) + c(12), c(14)); fillStroke(M.panel, 3);
@@ -6416,7 +6413,8 @@ function progressPage() {
   const nextLocked = MAIN_WORLDS.find(w => worldOpen(w).needs);
   const mainNote = nextLocked ? noteRows(lockedText(nextLocked), PHONE ? minPx("hint") : c(14), PHONE ? minPx("hint") : 12, mid.w, 3) : null;   // до трёх строк (шрифты CI шире)
   const noteH = [note, mainNote].reduce((a, n) => a + (n ? n.rows.length * n.sz * 1.2 + c(4) : 0), 0);
-  let sumH = c(P.sumH), rowH = c(P.rowH);
+  const sumH = c(P.sumH);
+  let rowH = c(P.rowH);
   const fixed = 2 * sumH + noteH, floor = min * 1.3;
   if (fixed + WORLDS.length * rowH > mid.h) rowH = Math.max(floor, (mid.h - fixed) / WORLDS.length);
   let y = mid.y;

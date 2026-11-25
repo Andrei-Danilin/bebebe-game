@@ -8,6 +8,7 @@
 // Prints the median of the round medians for A and B and the median of the paired B/A ratios. Not part of any test run.
 //   node scripts/perf.js [--base <git ref>] [--rounds N] [--grain] [--level N] [--wear id,id]   (--grain: paper grain on where the build
 // has it; --level: park level, default 2; --wear: player 1 owns and wears these jacket / pants ids where the build has them — SPEC-027)
+/* global window, document */   // initScript() and the evaluate bodies run in the page
 const path = require("path");
 const fs = require("fs");
 const os = require("os");

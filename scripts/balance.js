@@ -8,6 +8,7 @@
 // Settings and targets live in CFG.BALANCE (index.html). Not part of `npm test`: `npm run balance` (~30 s).
 // tests/balance.spec.js requires runLevel() for the CI sample, and the page is opened with the tests' openSim(), so the
 // report and the tests play a level the same way. SPEC-011 AC 8b: over http, from its own server (scripts/serve.js startServer).
+/* global window */   // runLevel() runs in the page (page.evaluate)
 const path = require("path");
 const fs = require("fs");
 
