@@ -391,8 +391,8 @@ PowerShell examples: `$env:PW_GPU = "0"; npx playwright test tests/smoke.spec.js
   context + failure screenshots: `-n test-results-<shard>`.
 - **Pages** (`.github/workflows/pages.yml`): every push to `master` runs the same sharded tests and, in parallel, builds the
   site with `npm run site` (`scripts/site.js`: `index.html`, `manifest.webmanifest`, `sw.js`, `icons/`, `assets/`, `v1-2d/`);
-  when both are green it publishes it to GitHub Pages (one automatic retry, then a check that the live site serves the commit).
-  A red deploy with green tests is recovered with `gh run rerun <id> --failed` (reruns only the failed `deploy` job; since SPEC-011 the site is uploaded once, by the `build` job) or a fresh `gh workflow run pages.yml --ref master`.
+  when both are green it publishes it to GitHub Pages (two deploy attempts, then a check that the live site serves the commit).
+  A red deploy with green tests is recovered with `gh run rerun <id> --failed` only when that run's `build` job was green and its commit is still the HEAD of `origin/master` (it reruns only `deploy`, which deploys the artifact `build` uploaded once); otherwise a fresh `gh workflow run pages.yml --ref master`.
 - **Balance** (`.github/workflows/balance.yml`): `gh workflow run balance.yml -f ref=<branch>` → `gh run list --workflow balance.yml --limit 5` (the run titled `Balance <branch>`,
   created after the dispatch)
   → `gh run watch <id> --exit-status` → `gh run download <id> -n balance -D reports` (writes `reports/balance.md` and
