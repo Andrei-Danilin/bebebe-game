@@ -299,7 +299,8 @@ players" (the gamepad is polled by the frame loop).
 - levels.spec.js:1027 "kisses stop at maze walls and cottages and fly over the river"
 - levels.spec.js:1089 "rooms and arena need diagonal houses even if the CFG pairing is removed"
 - names.spec.js:23 "names are saved, cleaned and survive a reload"
-# SPEC-011 phase A: every test over http (AC 8, 8b)
+
+## SPEC-011 phase A: every test over http (AC 8, 8b)
 
 The tests open the game from `scripts/serve.js` (`http://localhost:8123/index.html`) instead of `file://`, service workers
 are blocked outside `pwa.spec.js`, and every test game is seeded from the test title. Expected growth of the CI time per
@@ -323,4 +324,13 @@ The last 7 green Tests runs (`tests.yml`, 4 shards, `ubuntu-latest`) before phas
 
 ## After
 
-(added by the run after the phase A Tests run on CI)
+The Tests runs of the phase A branch (same columns; the `lint` job, ~15 s, runs in parallel with the shards):
+
+| run | commit | wall | shard 1 | shard 2 | shard 3 | shard 4 | shards together |
+|---|---|---|---|---|---|---|---|
+| 45555074702 | `e0a631a` (tests over http) | 848 | 290 | 451 | 783 | 825 | 2349 |
+| 45556873107 | `d2c4667` (+ import map, site, lint) | 983 | 307 | 570 | 962 | 818 | 2657 |
+
+Against the medians before: wall −11 % / +3 %, longest shard −8 % / +8 %, shards together −7 % / +5 % — within the
+≤ 10 % growth AC 8b allows (the spread between runs on the shared runners is larger than the change).
+
