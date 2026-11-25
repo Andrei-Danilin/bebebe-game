@@ -90,25 +90,29 @@ test("iOS home-screen metas are present", async ({ page }) => {
   expect(head.viewport).toContain("viewport-fit=cover");
 });
 
-test("game fills the viewport minus the safe-area padding", async ({ page }) => {
-  const errors = await openGame(page);
-  // the stylesheet pads body with the safe-area insets
-  const css = await page.evaluate(() => [...document.querySelectorAll("style")].map(s => s.textContent).join("\n"));
-  for (const side of ["top", "right", "bottom", "left"]) expect(css).toContain(`env(safe-area-inset-${side}`);
-  const box = () => page.evaluate(() => { const r = document.getElementById("wrap").getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height }; });
-  // desktop: insets are 0, size unchanged (960×640 viewport → 960×640 game)
-  expect(await box()).toMatchObject({ w: 960, h: 640 });
-  // emulate a notch + home indicator: top 40, right 30, bottom 20, left 50 → space 880×580
-  await page.evaluate(() => { document.body.style.padding = "40px 30px 20px 50px"; window.dispatchEvent(new Event("resize")); });
-  const b = await box();
-  const s = Math.min(880 / 960, 580 / 640);
-  expect(b.w).toBe(Math.floor(960 * s));
-  expect(b.h).toBe(Math.floor(640 * s));
-  expect(b.x).toBeGreaterThanOrEqual(50);
-  expect(b.y).toBeGreaterThanOrEqual(40);
-  expect(b.x + b.w).toBeLessThanOrEqual(960 - 30);
-  expect(b.y + b.h).toBeLessThanOrEqual(640 - 20);
-  expect(errors).toEqual([]);
+// a layout test, no service worker needed: blocked like in the other specs (SPEC-011 review)
+test.describe(() => {
+  test.use({ serviceWorkers: "block" });
+  test("game fills the viewport minus the safe-area padding", async ({ page }) => {
+    const errors = await openGame(page);
+    // the stylesheet pads body with the safe-area insets
+    const css = await page.evaluate(() => [...document.querySelectorAll("style")].map(s => s.textContent).join("\n"));
+    for (const side of ["top", "right", "bottom", "left"]) expect(css).toContain(`env(safe-area-inset-${side}`);
+    const box = () => page.evaluate(() => { const r = document.getElementById("wrap").getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height }; });
+    // desktop: insets are 0, size unchanged (960×640 viewport → 960×640 game)
+    expect(await box()).toMatchObject({ w: 960, h: 640 });
+    // emulate a notch + home indicator: top 40, right 30, bottom 20, left 50 → space 880×580
+    await page.evaluate(() => { document.body.style.padding = "40px 30px 20px 50px"; window.dispatchEvent(new Event("resize")); });
+    const b = await box();
+    const s = Math.min(880 / 960, 580 / 640);
+    expect(b.w).toBe(Math.floor(960 * s));
+    expect(b.h).toBe(Math.floor(640 * s));
+    expect(b.x).toBeGreaterThanOrEqual(50);
+    expect(b.y).toBeGreaterThanOrEqual(40);
+    expect(b.x + b.w).toBeLessThanOrEqual(960 - 30);
+    expect(b.y + b.h).toBeLessThanOrEqual(640 - 20);
+    expect(errors).toEqual([]);
+  });
 });
 
 test("service worker registers and controls the page over http", { tag: "@fast" }, async ({ page }) => {

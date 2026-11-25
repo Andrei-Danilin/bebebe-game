@@ -6,6 +6,7 @@
 // SPEC-011 AC 8b: startServer({ root }) → { base, close } listens on a free port — scripts/balance.js and scripts/perf.js
 // open the game over http with it.
 const http = require("http");
+const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
 
@@ -21,9 +22,15 @@ const TYPES = {
   ".webp": "image/webp"
 };
 
+// SPEC-011 review: every response says which tree it serves (X-Bebebe-Root: a short hash of the served folder), so the test
+// run can refuse a server it reuses on the port that serves another checkout (tests/global-setup.js)
+const rootIdOf = root => crypto.createHash("sha1").update(process.platform === "win32" ? path.resolve(root).toLowerCase() : path.resolve(root)).digest("hex").slice(0, 12);
+
 function makeServer({ override = null, root = ROOT } = {}) {
   root = path.resolve(root);
+  const rootId = rootIdOf(root);
   return http.createServer((req, res) => {
+    res.setHeader("X-Bebebe-Root", rootId);
     let rel;
     try { rel = decodeURIComponent(new URL(req.url, "http://localhost").pathname); } catch (e) { rel = "/"; }
     if (rel.endsWith("/")) rel += "index.html";
@@ -64,4 +71,4 @@ if (require.main === module) {
   makeServer().listen(PORT, () => console.log(`bebebe-game: http://localhost:${PORT}/`));
 }
 
-module.exports = { makeServer, startServer };
+module.exports = { makeServer, startServer, rootIdOf, ROOT };
