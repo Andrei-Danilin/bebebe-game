@@ -931,6 +931,7 @@ test("the gamepad d-pad left/right and the shoulder buttons switch worlds on the
     window.__press(-1);
     Object.defineProperty(navigator, "getGamepads", { configurable: true, value: () => window.__pads });
   });
+  await frames(page);                                               // SPEC-025 AC 7e: the pad is seen unpressed first (no edges on connect)
   const press = async k => { await page.evaluate(n => window.__press(n), k); await frames(page); await page.evaluate(() => window.__press(-1)); await frames(page); };
   // SPEC-016: worlds in the story order (park, field, city, school, then the bonus beach, winter), the locked bonus ones skipped
   // SPEC-017: d-pad ←/→ and the shoulder buttons (CFG.PAD_PREV_WORLD / PAD_NEXT_WORLD) switch worlds; ↑/↓ pick a level stop
