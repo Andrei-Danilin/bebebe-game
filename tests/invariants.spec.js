@@ -274,7 +274,7 @@ test("a whole old save starts the game: progress moves, outfits and names load, 
     // the game saves what it loaded: an outfit there and back, a name set to itself, a progress save
     b.cycleOutfit("p1", "hair", 1); b.cycleOutfit("p1", "hair", -1);
     b.setName("p1", b.names.p1);
-    b.selectWorld("school"); b.selectWorld("park");
+    b.world = "school"; b.selectWorld("park");   // SPEC-030: the School may be locked — the debug setter, then back to the (open) Park: a save
     out.outfits = ls("bebebe-outfits"); out.names = ls("bebebe-names"); out.saved = ls("bebebe-progress");
     return out;
   });

@@ -7,10 +7,11 @@ const path = require("path");
 const fs = require("fs");
 const { LANGS, openGame, frames, softly, sharedPage, resetGame } = require("./helpers");
 
-// one shared page per setup (sim, desktop, phone 667×375); resetGame() before each test; page errors and a changed CFG fail it
-const shared = sharedPage();
+// shared pages: one sim page, and one rendered page per setup (desktop, phone 667×375; one open at a time); resetGame() before each
+// test; page errors and a changed CFG fail it
+const shared = sharedPage(), sharedSim = sharedPage();
 const fixture = (key, ctx, opts) => async ({ browser }, use) => {
-  const s = await shared.get(browser, key, ctx, p => openGame(p, opts));
+  const s = await (opts.sim ? sharedSim : shared).get(browser, key, ctx, p => openGame(p, opts));
   await resetGame(s.page);
   const cfg = await s.page.evaluate(() => JSON.stringify(window.__bb.CFG));
   await use(s.page);
@@ -22,7 +23,7 @@ const test = base.test.extend({
   page: fixture("worlds-desktop", { viewport: { width: 960, height: 640 } }, {}),
   phonePage: fixture("worlds-phone", { viewport: { width: 667, height: 375 }, hasTouch: true, isMobile: true }, { query: "?phone=1" })
 });
-test.afterAll(async () => { await shared.close(); });
+test.afterAll(async () => { await shared.close(); await sharedSim.close(); });
 
 const WORLDS = ["park", "field", "city", "school", "beach", "winter"];
 const SAVES_DIR = path.join(__dirname, "fixtures", "saves");
@@ -45,8 +46,10 @@ test("worldOpen gives every reason: start, previous, bonus, played, locked", { t
     out.played = reasons(L({ worlds: { park: won(4), city: won(1), beach: { unlocked: 3 } } }));
     // level 20 of the Park is not enough while another Park level is not won (finished = every level won, level 20 is the last)
     out.notAll = b.worldOpen("field", L({ worlds: { park: { unlocked: 20, won: { 20: true } } } })).reason;
-    // open is the same as reason !== "locked"; the current progress is the default
-    out.shape = b.WORLDS.every(w => { const o = b.worldOpen(w); return Object.keys(o).sort().join() === "open,reason" && o.open === (o.reason !== "locked"); });
+    // open is the same as reason !== "locked"; a locked world says what it needs (the main world before it, or null); the current
+    // progress is the default
+    out.shape = b.WORLDS.every(w => { const o = b.worldOpen(w); return Object.keys(o).sort().join() === (o.open ? "open,reason" : "needs,open,reason") && o.open === (o.reason !== "locked"); });
+    out.needs = b.WORLDS.map(w => b.worldOpen(w, L(null)).needs ?? null);
     // partial or broken progress never throws; an unknown world is locked
     out.partial = [b.worldOpen("field", {}).reason, b.worldOpen("field", { worlds: { park: {} } }).reason, b.worldOpen("moon").reason, b.worldOpen("park", null).reason];
     out.noBonusOpen = typeof b.bonusOpen;
@@ -60,6 +63,7 @@ test("worldOpen gives every reason: start, previous, bonus, played, locked", { t
   expect(r.played).toEqual({ park: "start", field: "locked", city: "played", school: "locked", beach: "played", winter: "locked" });
   expect(r.notAll).toBe("locked");
   expect(r.shape).toBe(true);
+  expect(r.needs).toEqual([null, "park", "field", "city", null, null]);
   expect(r.partial).toEqual(["locked", "locked", "locked", "start"]);
   expect(r.noBonusOpen, "bonusOpen is replaced by worldOpen").toBe("undefined");
 });
@@ -196,9 +200,23 @@ test("locked world tabs: padlock and dimmed, a tap says which world to finish, a
   expect(ban.title, "the banner takes the title's place").toBe(false);
   expect(ban.banner.x >= 0 && ban.banner.x + ban.banner.w <= ban.ui.w, "inside the screen").toBe(true);
   // it goes away by itself (CFG.MENU_LOOK.map.openedTime), then the title is back
-  await page.waitForFunction(() => !window.__bb.worldBanner, null, { timeout: 15_000 });
+  // (advanced through the logic: CFG.MENU_LOOK.map.openedTime in game time would be ~70 software frames on CI)
+  expect(await page.evaluate(() => { const b = window.__bb; const t = b.worldBanner.t; b.mapTick(t - 0.05); const on = !!b.worldBanner; b.mapTick(0.1); return [on, b.worldBanner]; })).toEqual([true, null]);
   await frames(page);
-  expect(await page.evaluate(() => [window.__bb.worldBanner, window.__bb.hudRects.some(q => q.id === "map:title")])).toEqual([null, true]);
+  expect(await page.evaluate(() => window.__bb.hudRects.some(q => q.id === "map:title"))).toBe(true);
+  // switching to another world, going home or starting a level takes the banner (and a pending switch) away
+  const gone = await page.evaluate(() => {
+    const b = window.__bb, all = Object.fromEntries(Array.from({ length: 20 }, (_, i) => [i + 1, true])), out = [];
+    const open = () => { Object.assign(b.progress.worlds.city, { unlocked: 20, won: { ...all } }); delete b.progress.worlds.city.won[20];
+      b.world = "city"; b.level = 20; b.startGame(1); Object.assign(b.stats, { playerHugs: 0, rests: 0, time: 9999, starCoins: 0 }); b.giveReward(true); b.mode = "win"; };
+    open(); b.toMap(); out.push(b.world, !!b.worldBanner); b.selectWorld("park"); out.push(!!b.worldBanner);
+    b.setProgress({ worlds: { park: { unlocked: 20, won: { ...all } }, field: { unlocked: 20, won: { ...all } } } });
+    open(); b.toMap(); b.toHome(); out.push(!!b.worldBanner);
+    b.setProgress({ worlds: { park: { unlocked: 20, won: { ...all } }, field: { unlocked: 20, won: { ...all } } } });
+    open(); out.push(b.openedWorld); b.startGame(1); out.push(b.openedWorld);
+    return out;
+  });
+  expect(gone).toEqual(["school", true, false, false, "school", null]);
   await page.evaluate(() => { window.__bb.mode = "home"; });
 });
 

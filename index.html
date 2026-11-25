@@ -639,12 +639,8 @@ const ptPlural = (n, one, many) => (n === 1 ? one : many);
 //  ЯЗЫКИ: English (по умолчанию), Español (Argentina), Português (Brasil; SPEC-028), Русский
 //  Порядок ключей I18N = LANGS. Португальский — перевод Claude (você, простые слова для детей 6–10), проверить с носителем (BACKLOG)
 // =====================================================================
-// SPEC-030: имена миров с артиклем (es, pt) и винительный падеж (ru) — для «Пройди …, чтобы открыть …» и «… открыт!»
-const ES_THE = { park: "el Parque", field: "la Cancha", city: "la Ciudad", school: "la Escuela", beach: "la Playa", winter: "el Invierno" };
-const PT_THE = { park: "o Parque", field: "o Campo de futebol", city: "a Cidade", school: "a Escola", beach: "a Praia", winter: "o Inverno" };
-const FEM_ES = ["field", "city", "school", "beach"], FEM_PT = ["city", "school", "beach"];
-const RU_ACC = { school: "Школу", winter: "Зиму" };
-const cap = s => (typeof s === "string" && s ? s[0].toUpperCase() + s.slice(1) : String(s));
+// SPEC-030: первая буква строки — заглавная («the Park» → «The Park»; не строка → как есть)
+const capFirst = s => (typeof s === "string" && s ? s[0].toUpperCase() + s.slice(1) : String(s));
 const I18N = {
   en: {
     name: "English",
@@ -675,7 +671,9 @@ const I18N = {
     rotate: "Turn your device sideways ↻", me: "Me", botChip: "B", safe: "SAFE",
     player1: "Player 1", player2: "Player 2", ok: "OK",
     slots: { hair: "Hair", hat: "Hat", jacket: "Jacket", pants: "Pants", look: "Look" },
-    worlds: { park: "Park", field: "Football field", city: "City", school: "School", beach: "Beach", winter: "Winter" }, worldDone: (w, key) => `You finished the ${w}!`,
+    worlds: { park: "Park", field: "Football field", city: "City", school: "School", beach: "Beach", winter: "Winter" },
+    // SPEC-030: имя мира как дополнение — с артиклем (en, es, pt), в винительном падеже (ru): «Finish the Park…», «Пройди Школу…»
+    worldsObj: { park: "the Park", field: "the Football field", city: "the City", school: "the School", beach: "the Beach", winter: "the Winter" }, worldDone: (w, key) => `You finished the ${w}!`,
     bonus: "Bonus", bonusUnlocked: "Bonus worlds unlocked!",
     items: { boots: "Speed boots!", cloak: "Invisible!", shield: "Shield!" }, blocked: "Blocked!", slip: "Whoops!",
     shop: "Shop", character: "Character", progressTab: "Progress", bag: "Bag", clothes: (n, m) => `Clothes: ${n} / ${m}`, buy: "Buy", have: n => `You have: ${n} power ${n === 1 ? "hug" : "hugs"}`, wears: "wears", none: "None",
@@ -689,7 +687,7 @@ const I18N = {
     worldsDone: (n, max) => `Worlds finished: ${n} / ${max}`, comicSoon: "Comic coming soon",
     lockedLevel: n => `Win level ${n} first`, lockedBonus: "Win all levels of the main worlds to open", boss: "Boss",
     // SPEC-030: главные миры по порядку (аргументы — ключи миров; тексты — Claude)
-    lockedWorld: (prev, next) => `Finish the ${I18N.en.worlds[prev]} to open the ${I18N.en.worlds[next]}!`, worldOpened: w => `The ${I18N.en.worlds[w]} is open!`, done: "✔ Done!",   // SPEC-017: карта
+    lockedWorld: (prev, next) => `Finish ${I18N.en.worldsObj[prev]} to open ${I18N.en.worldsObj[next]}!`, worldOpened: w => `${capFirst(I18N.en.worldsObj[w])} is open!`, done: "✔ Done!",   // SPEC-017: карта
     // SPEC-017: карточка уровня — строка про тип уровня и про босса (уровень 20); история — главы, «Как играть»
     typeLines: { classic: "Our own drawing — the very first map!", meadow: "Open grass — hide in the bushes!", village: "Little houses — sneak around the corners!",
       river: "A river with bridges — choose your way across!", rooms: "A big house — peek through the doors!", arena: "A ring to run around — get behind him!",
@@ -757,7 +755,8 @@ const I18N = {
     rotate: "Girá el dispositivo ↻", me: "Yo", botChip: "B", safe: "ZONA SEGURA",
     player1: "Jugador 1", player2: "Jugador 2", ok: "Listo",
     slots: { hair: "Pelo", hat: "Gorro", jacket: "Campera", pants: "Pantalón", look: "Aspecto" },
-    worlds: { park: "Parque", field: "Cancha", city: "Ciudad", school: "Escuela", beach: "Playa", winter: "Invierno" }, worldDone: (w, key) => `¡Terminaste ${w}!`,
+    worlds: { park: "Parque", field: "Cancha", city: "Ciudad", school: "Escuela", beach: "Playa", winter: "Invierno" },
+    worldsObj: { park: "el Parque", field: "la Cancha", city: "la Ciudad", school: "la Escuela", beach: "la Playa", winter: "el Invierno" }, worldDone: (w, key) => `¡Terminaste ${w}!`,
     bonus: "Bonus", bonusUnlocked: "¡Se abrieron los mundos bonus!",
     items: { boots: "¡Zapatillas veloces!", cloak: "¡Invisible!", shield: "¡Escudo!" }, blocked: "¡Bloqueado!", slip: "¡Upa!",
     shop: "Tienda", character: "Personaje", progressTab: "Progreso", bag: "Mochila", clothes: (n, m) => `Ropa: ${n} / ${m}`, buy: "Comprar", have: n => `Tenés: ${n} ${n === 1 ? "abrazo potente" : "abrazos potentes"}`, wears: "usa", none: "Nada",
@@ -769,7 +768,8 @@ const I18N = {
     itemsTab: "Cosas", wardrobeTab: "Ropa", upgradesTab: "Mejoras", upgMax: "Máximo",
     worldsDone: (n, max) => `Mundos terminados: ${n} / ${max}`, comicSoon: "El cómic llega pronto",
     lockedLevel: n => `Primero ganá el nivel ${n}`, lockedBonus: "Ganá todos los niveles de los mundos principales para abrirlo", boss: "Jefe",
-    lockedWorld: (prev, next) => `¡Terminá ${ES_THE[prev]} para abrir ${ES_THE[next]}!`, worldOpened: w => `¡${cap(ES_THE[w])} está ${FEM_ES.includes(w) ? "abierta" : "abierto"}!`, done: "✔ ¡Listo!",
+    lockedWorld: (prev, next) => `¡Terminá ${I18N.es.worldsObj[prev]} para abrir ${I18N.es.worldsObj[next]}!`,
+    worldOpened: w => `¡${capFirst(I18N.es.worldsObj[w])} está ${["field", "city", "school", "beach"].includes(w) ? "abierta" : "abierto"}!`, done: "✔ ¡Listo!",   // род — по ключу мира
     typeLines: { classic: "¡Nuestro dibujo, el primer mapa de todos!", meadow: "Pasto abierto: ¡escondete en los arbustos!", village: "Casitas: ¡andá a escondidas por las esquinas!",
       river: "Un río con puentes: ¡elegí por dónde cruzar!", rooms: "Una casa grande: ¡espiá por las puertas!", arena: "Una pista en ronda: ¡ponete detrás de él!",
       maze: "Un laberinto: ¡buscá el camino entre las paredes!" },
@@ -834,6 +834,7 @@ const I18N = {
     player1: "Jogador 1", player2: "Jogador 2", ok: "OK",
     slots: { hair: "Cabelo", hat: "Chapéu", jacket: "Jaqueta", pants: "Calça", look: "Visual" },
     worlds: { park: "Parque", field: "Campo de futebol", city: "Cidade", school: "Escola", beach: "Praia", winter: "Inverno" },
+    worldsObj: { park: "o Parque", field: "o Campo de futebol", city: "a Cidade", school: "a Escola", beach: "a Praia", winter: "o Inverno" },
     // артикль по миру: a Cidade, a Escola, a Praia; o Parque, o Campo de futebol, o Inverno
     worldDone: (w, key) => `Você terminou ${key === "city" || key === "school" || key === "beach" ? "a" : "o"} ${w}!`,
     bonus: "Bônus", bonusUnlocked: "Mundos bônus liberados!",
@@ -847,7 +848,8 @@ const I18N = {
     itemsTab: "Itens", wardrobeTab: "Guarda-roupa", upgradesTab: "Melhorias", upgMax: "Máximo",
     worldsDone: (n, max) => `Mundos terminados: ${n} / ${max}`, comicSoon: "Quadrinho em breve",
     lockedLevel: n => `Primeiro vença a fase ${n}`, lockedBonus: "Vença todas as fases dos mundos principais para abrir", boss: "Chefe",
-    lockedWorld: (prev, next) => `Termine ${PT_THE[prev]} para abrir ${PT_THE[next]}!`, worldOpened: w => `${cap(PT_THE[w])} está ${FEM_PT.includes(w) ? "aberta" : "aberto"}!`, done: "✔ Feito!",
+    lockedWorld: (prev, next) => `Termine ${I18N.pt.worldsObj[prev]} para abrir ${I18N.pt.worldsObj[next]}!`,
+    worldOpened: w => `${capFirst(I18N.pt.worldsObj[w])} está ${["city", "school", "beach"].includes(w) ? "aberta" : "aberto"}!`, done: "✔ Feito!",
     typeLines: { classic: "Nosso desenho — o primeiro mapa de todos!", meadow: "Grama aberta — se esconda nos arbustos!", village: "Casinhas — chegue de fininho pelas esquinas!",
       river: "Um rio com pontes — escolha por onde passar!", rooms: "Uma casa grande — espie pelas portas!", arena: "Uma pista redonda — chegue por trás dele!",
       maze: "Um labirinto — ache a saída entre as paredes!" },
@@ -909,6 +911,7 @@ const I18N = {
     player1: "Игрок 1", player2: "Игрок 2", ok: "Готово",
     slots: { hair: "Причёска", hat: "Головной убор", jacket: "Куртка", pants: "Штаны", look: "Вид" },
     worlds: { park: "Парк", field: "Футбольное поле", city: "Город", school: "Школа", beach: "Пляж", winter: "Зима" },
+    worldsObj: { park: "Парк", field: "Футбольное поле", city: "Город", school: "Школу", beach: "Пляж", winter: "Зиму" },
     // род по миру: Футбольное поле пройдено, Школа/Зима пройдена, Парк/Город/Пляж пройден
     worldDone: (w, key) => `${w} ${key === "field" ? "пройдено" : key === "school" || key === "winter" ? "пройдена" : "пройден"}!`,
     bonus: "Бонус", bonusUnlocked: "Открылись бонусные миры!",
@@ -922,7 +925,7 @@ const I18N = {
     itemsTab: "Вещи", wardrobeTab: "Гардероб", upgradesTab: "Улучшения", upgMax: "Максимум",
     worldsDone: (n, max) => `Пройдено миров: ${n} / ${max}`, comicSoon: "Комикс скоро будет",
     lockedLevel: n => `Сначала пройди уровень ${n}`, lockedBonus: "Пройди все уровни основных миров, чтобы открыть", boss: "Босс",
-    lockedWorld: (prev, next) => `Пройди ${I18N.ru.worlds[prev]}, чтобы открыть ${RU_ACC[next] ?? I18N.ru.worlds[next]}!`,
+    lockedWorld: (prev, next) => `Пройди ${I18N.ru.worldsObj[prev]}, чтобы открыть ${I18N.ru.worldsObj[next]}!`,
     worldOpened: w => `${I18N.ru.worlds[w]} ${w === "field" ? "открыто" : w === "school" || w === "winter" ? "открыта" : "открыт"}!`, done: "✔ Пройдено!",
     typeLines: { classic: "Наш рисунок — самая первая карта!", meadow: "Открытая поляна — прячься в кустах!", village: "Домики — подкрадывайся из-за углов!",
       river: "Река с мостиками — выбирай, где перейти!", rooms: "Большой дом — заглядывай в двери!", arena: "Кольцо — обеги и зайди ему за спину!",
@@ -2405,11 +2408,15 @@ function fitOutfitsToOwned() {
 function resetOutfits() { skinSel = cloneSkins(DEFAULT_SKINS); skinKeep = cloneSkins(DEFAULT_SKINS); buyArmed = null; tryingOn = false; saveSkins(); resetWorld(numPlayers); }
 // ---------- Миры (SPEC-006): место уровня — его мир ----------
 let curWorld = WORLDS[0];
+// SPEC-030: openedWorld — главный мир, который открыла победа и который карта ещё не показала (или null); worldBanner — плашка
+// «<мир> открыт!» на карте { world, t } (или null). Карта при входе (после экрана победы и заставки финала, если она есть) переходит
+// в этот мир и показывает плашку — один раз (showOpenedWorld)
+let openedWorld = null, worldBanner = null;
 // выбор мира в меню (карточка, ↑/↓, крестовина геймпада): запоминается, показывается новый открытый уровень мира.
 // SPEC-016/030: закрытый мир выбрать нельзя (__bb.world — без проверки, для тестов и отчёта баланса)
 function selectWorld(w) {
   if (!WORLDS.includes(w) || w === curWorld || !isOpen(w)) return;
-  curWorld = w; toast = null;   // SPEC-017: подсказка карты была про прошлый мир
+  curWorld = w; toast = null; worldBanner = null;   // SPEC-017: подсказка карты была про прошлый мир (SPEC-030: и плашка «открыт»)
   progress.lastWorld = curWorld; saveProgress();
   level = worldProgress().unlocked;
   resetWorld(numPlayers);
@@ -2571,18 +2578,19 @@ const bonusUnlocked = (p = progress) => MAIN_WORLDS.every(w => worldComplete(w, 
 const worldHasProgress = (w, p = progress) => { const v = p?.worlds?.[w]; return !!v && (v.unlocked > 1 || Object.keys(v.won ?? {}).length > 0 || Object.keys(v.stars ?? {}).length > 0); };
 // SPEC-030 (решение Андрея): единственное место, где решается «мир открыт». Главные — по порядку: Парк сразу («start»), следующий —
 // когда пройден предыдущий («previous»); бонусные — когда пройдены все главные («bonus»); мир, где уже есть прогресс, открыт всегда
-// («played»: старые сохранения времён «все миры открыты» ничего не теряют); иначе «locked». Сюда же — другая причина, если появится
+// («played»: старые сохранения времён «все миры открыты» ничего не теряют); иначе «locked» и needs — что пройти: главный мир перед
+// ним или null (бонусный — все главные; неизвестный мир). Сюда же — другая причина (и что для неё нужно), если появится
 function worldOpen(world, p = progress) {
   const i = MAIN_WORLDS.indexOf(world);
   if (i === 0) return { open: true, reason: "start" };
   if (i > 0 && worldComplete(MAIN_WORLDS[i - 1], p)) return { open: true, reason: "previous" };
   if (BONUS_WORLDS.includes(world) && bonusUnlocked(p)) return { open: true, reason: "bonus" };
   if (WORLDS.includes(world) && worldHasProgress(world, p)) return { open: true, reason: "played" };
-  return { open: false, reason: "locked" };
+  return { open: false, reason: "locked", needs: i > 0 ? MAIN_WORLDS[i - 1] : null };
 }
 const isOpen = (w, p = progress) => worldOpen(w, p).open;
-// подсказка закрытого мира: главный — «Пройди <предыдущий>, чтобы открыть <этот>!», бонусный — прежняя строка
-const lockedText = w => (BONUS_WORLDS.includes(w) ? L().lockedBonus : L().lockedWorld(MAIN_WORLDS[MAIN_WORLDS.indexOf(w) - 1], w));
+// подсказка закрытого мира (по worldOpen): нужен главный мир — «Пройди <его>, чтобы открыть <этот>!», иначе — прежняя строка бонусных
+const lockedText = w => { const o = worldOpen(w); return o.needs ? L().lockedWorld(o.needs, w) : L().lockedBonus; };
 let progress = freshProgress(), migrated = false, hadOwned = false;
 try {
   const pv = JSON.parse(localStorage.getItem("bebebe-progress") || "null");
@@ -2780,7 +2788,8 @@ function showBanner() {
 }
 const bannerAlpha = () => !banner ? 0 : clamp(Math.min(banner.t, CFG.BANNER_TIME - banner.t) / CFG.BANNER_FADE, 0, 1);
 // camSnap: начало уровня — камера телефона сразу у героя (в resetWorld нельзя: он же открывает меню, где камера показывает всю карту)
-function startGame(n) { leaveLevel(); endTryOn(); events = []; resetWorld(n); mode = "play"; rewardDue = true; mapSel = null; worldBanner = null; showBanner(); camSnap(); }
+// SPEC-030: начатый уровень снимает плашку и несостоявшийся переход карты в открытый мир (не показывать их игрой позже)
+function startGame(n) { leaveLevel(); openedWorld = null; worldBanner = null; endTryOn(); events = []; resetWorld(n); mode = "play"; rewardDue = true; mapSel = null; showBanner(); camSnap(); }
 // следующий уровень того же мира; после последнего мир пройден — на карту уровней
 function nextLevel() { if (level >= levelsPerWorld()) { toMap(); return; } level++; withScene(sceneBefore(curWorld, level), () => startGame(numPlayers)); }
 // ---------- SPEC-017: экраны и переходы между ними ----------
@@ -2806,10 +2815,6 @@ function backToWardrobe() { closeNameInput(true); wardrobePage = "looks"; }
 // (клавиатура, геймпад) в этом мире, null — следующий уровень; toast — короткая подсказка внизу карты { text, t };
 // cardLevel — уровень открытой карточки; mapSwipe — палец/мышь, нажатые на карте (смена мира — на отпускании)
 let mapSel = null, toast = null, cardLevel = 1, mapSwipe = null;
-// SPEC-030: openedWorld — главный мир, который открыла победа и который карта ещё не показала (или null); worldBanner — плашка
-// «<мир> открыт!» на карте { world, t } (или null). Карта при входе (после экрана победы и заставки финала, если она есть) переходит
-// в этот мир и показывает плашку — один раз
-let openedWorld = null, worldBanner = null;
 function showOpenedWorld() {
   const w = openedWorld;
   openedWorld = null;
@@ -2832,6 +2837,11 @@ function openMap() { selectWorld(mapStartWorld()); mapSel = null; mode = "map"; 
 const mapSelN = () => (mapSel && mapSel.world === curWorld ? mapSel.n : nextStop() || levelsPerWorld());
 function moveMapSel(d) { mapSel = { world: curWorld, n: clamp(mapSelN() + d, 1, levelsPerWorld()) }; }
 function showToast(text) { toast = { text, t: CFG.MENU_LOOK.map.toastTime }; }
+// время подсказок карты (кадр меню; тесты шагают его __bb.mapTick): подсказка гаснет сама; SPEC-030: «<мир> открыт!» — тоже, пока видна карта
+function mapTick(dt) {
+  if (toast && (toast.t -= dt) <= 0) toast = null;
+  if (worldBanner && mode === "map" && (worldBanner.t -= dt) <= 0) worldBanner = null;
+}
 // остановка: открытая — карточка уровня, закрытая — «Сначала пройди уровень n − 1»
 function chooseStop(n) {
   mapSel = { world: curWorld, n };
@@ -3043,13 +3053,15 @@ function resetMenus() {
 function toMap() {
   leaveLevel();
   if (endingDue()) { openScene("ending", toMap); return; }   // SPEC-022: сначала финал истории
-  resetWorld(numPlayers); mapSel = null; mode = "map";       // кольцо — снова на следующем уровне
-  showOpenedWorld();                                         // SPEC-030: победа открыла мир — карта уже в нём
+  const w = openedWorld;                                     // SPEC-030: победа открыла мир — карта переходит в него (selectWorld строит его уровень)
+  if (!(w && w !== curWorld && isOpen(w))) resetWorld(numPlayers);
+  mapSel = null; mode = "map";                               // кольцо — снова на следующем уровне
+  showOpenedWorld();
 }
 function toHome() {
   leaveLevel();
   if (endingDue()) { openScene("ending", toHome); return; }  // SPEC-022: сначала финал истории
-  resetWorld(numPlayers); mode = "home";
+  resetWorld(numPlayers); mode = "home"; worldBanner = null;
 }
 const resumeGame = () => { mode = "play"; };
 const retryLevel = () => startGame(numPlayers);
@@ -6344,7 +6356,7 @@ function progressPage() {
   const lockedAny = BONUS_WORLDS.some(w => !isOpen(w));
   const note = lockedAny ? noteRows(L().lockedBonus, PHONE ? minPx("hint") : c(14), PHONE ? minPx("hint") : 12, mid.w, 2) : null;
   // SPEC-030: следующий закрытый главный мир — «Пройди <предыдущий>, чтобы открыть <этот>!» под строками миров (над строкой бонусных)
-  const nextLocked = MAIN_WORLDS.find(w => !isOpen(w));
+  const nextLocked = MAIN_WORLDS.find(w => worldOpen(w).needs);
   const mainNote = nextLocked ? noteRows(lockedText(nextLocked), PHONE ? minPx("hint") : c(14), PHONE ? minPx("hint") : 12, mid.w, 2) : null;
   const noteH = [note, mainNote].reduce((a, n) => a + (n ? n.rows.length * n.sz * 1.2 + c(4) : 0), 0);
   let sumH = c(P.sumH), rowH = c(P.rowH);
@@ -9160,8 +9172,7 @@ function frame(now) {
   pollPads();
   if (!inWardrobe() && endTryOn()) resetWorld(numPlayers);   // SPEC-009/017: ушли из вкладки «Гардероб» (друзья — её часть) — примерка кончилась
   const portrait = isTouch && window.innerHeight > window.innerWidth;
-  if (toast && (toast.t -= dt) <= 0) toast = null;   // SPEC-017: подсказка на карте гаснет сама
-  if (worldBanner && mode === "map" && (worldBanner.t -= dt) <= 0) worldBanner = null;   // SPEC-030: «<мир> открыт!» — тоже (только пока видна карта)
+  mapTick(dt);
   if (mode === "play" && !portrait) update(dt);
   else { updateFx(dt); if (inMenus()) big.dir += dt * 0.8; }
   noGameRng("render", () => {              // рисование не тянет игровую случайность (SPEC-008: тесты — ошибка, игра — vrand)
@@ -9208,7 +9219,7 @@ window.__bb = {
   // SPEC-017: карта этого кадра, подсказка, карточка уровня; tapButton(id) — нажать кнопку этого кадра (как пальцем)
   get mapInfo() { return mapState && JSON.parse(JSON.stringify(mapState)); }, get toast() { return toast && { ...toast }; },
   // SPEC-030: мир, который карта покажет при входе (или null); плашка «<мир> открыт!» { world, t, text } (или null)
-  get openedWorld() { return openedWorld; }, get worldBanner() { return worldBanner && { ...worldBanner, text: L().worldOpened(worldBanner.world) }; },
+  get openedWorld() { return openedWorld; }, mapTick, get worldBanner() { return worldBanner && { ...worldBanner, text: L().worldOpened(worldBanner.world) }; },
   get levelCard() { return cardInfo && { ...cardInfo }; }, openMap,
   RULE_ICONS, STORY, openStory, get storyInfo() { return storyInfo && { ...storyInfo }; },
   // SPEC-022: заставки (scene — логика: { id, page, pages } или null; sceneInfo — нарисованное в этом кадре), боссы уровней
