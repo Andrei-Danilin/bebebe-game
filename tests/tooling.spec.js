@@ -46,6 +46,10 @@ test("AC 9: type checks over src (basic) and the core (strict-ish); JSDoc types 
   expect(core.extends).toBe("./jsconfig.json");
   expect(core.compilerOptions.strict, "the core: strict-ish").toBe(true);
   expect(core.include).toContain("src/core/**/*.js");
+  // the core is checked without the DOM: ES2022 and only the globals Node and browsers share (the core/browser boundary)
+  expect(core.compilerOptions.lib).toEqual(["ES2022"]);
+  expect(core.include.filter(f => f.startsWith("types/"))).toEqual(["types/core-globals.d.ts"]);
+  expect(read("types/core-globals.d.ts").replace(/\/\/.*$/gm, ""), "no browser global").not.toMatch(/\b(document|window|localStorage|navigator|requestAnimationFrame)\b/);
   expect(PKG.scripts.typecheck).toBe("node scripts/typecheck.js");
   expect(read("scripts/typecheck.js")).toMatch(/--noEmit", "--checkJs"/);
   expect(PKG.devDependencies.typescript, "TypeScript: a dev dependency").toBeTruthy();
