@@ -78,6 +78,7 @@ function drawOverlay() {
 
 export function drawUI(t) {
   ui.draws++;
+  ui.buttonsGen = ui.btnGen;                                       // SPEC-025 AC 7d: this frame's buttons belong to the screen now
   ui.buttons = []; ui.homeInfo = null; ui.progressInfo = null; ui.mapState = null; ui.cardInfo = null; ui.cardRect = null; ui.storyInfo = null; ui.sceneInfo = null; ui.bonusNote = null; ui.winLine = ""; ui.mmShown = false; ui.edgeArrows = []; ui.hudRects = []; ui.textOverflows = []; ui.textSizes = {}; ui.bannerRect = null; ui.kitHintRect = null; ui.heardHintRect = null; ui.tutorialHintRect = null; ui.stickMarks = []; ui.shopLayout = null; ui.winPanel = null;
   if (!paperUI()) paperCache.length = 0;                           // SPEC-020: и листы бумажных панелей — вне бумажных экранов
   ctx.setTransform(VIEW, 0, 0, VIEW, 0, 0);

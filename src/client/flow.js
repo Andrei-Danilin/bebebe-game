@@ -169,7 +169,8 @@ export const bannerAlpha = () => !ui.banner ? 0 : clamp(Math.min(ui.banner.t, LO
 // SPEC-030: начатый уровень снимает плашку и несостоявшийся переход карты в открытый мир (не показывать их игрой позже)
 export function startGame(n) { leaveLevel(); ui.openedWorld = null; ui.worldBanner = null; endTryOn(); G.events = []; playWorld(n); setMode("play"); G.rewardDue = true; mapSel = null; showBanner(); camSnap(); }
 // следующий уровень того же мира; после последнего мир пройден — на карту уровней
-export function nextLevel() { if (G.level >= levelsPerWorld()) { toMap(); return; } G.level = G.level + 1; withScene(sceneBefore(G.world, G.level), () => startGame(G.players)); }
+// SPEC-025 AC 7d: never past the open level (a stale double tap, a test that set the level) — then the map
+export function nextLevel() { if (G.level >= levelsPerWorld() || G.level + 1 > worldProgress().unlocked) { toMap(); return; } G.level = G.level + 1; withScene(sceneBefore(G.world, G.level), () => startGame(G.players)); }
 // ---------- SPEC-017: экраны и переходы между ними ----------
 // home — главный экран; map — карта уровней (levelCard — карточка уровня поверх неё); story — история; shop — магазин с вкладками
 // SPEC-022: scene — заставка истории (комикс в начале, босс, бонусный мир, конец) поверх меню

@@ -3,10 +3,10 @@
 
 import { CFG } from "../core/config.js";
 import { L } from "../i18n.js";
-import { backToWardrobe, chooseStop, closeCard, closeShop, cycleWorld, inWardrobe, mapSelN, mode, moveMapSel, nextLang, nextLevel, openStory, playCard, pressKiss, pressKit, resumeGame, retryLevel, sceneNext, scenePrev, sceneSkip, setMode, storyBackKey, storyStep, switchShopTab, toggleSound, toMap, watchChapter } from "./flow.js";
+import { backToWardrobe, chooseStop, closeCard, closeShop, cycleWorld, inWardrobe, mapSelN, mode, moveMapSel, nextLang, nextLevel, openStory, playCard, pressKiss, pressKit, resumeGame, retryLevel, sceneNext, scenePrev, sceneSkip, setMode, storyBackKey, storyCh, storyStep, switchShopTab, toggleSound, toMap, watchChapter } from "./flow.js";
 import { LOOK } from "./look.js";
 import { cleanName, nameFor, setName } from "./names.js";
-import { randomOutfit } from "./outfits.js";
+import { buyArmed, randomOutfit } from "./outfits.js";
 import { canvas, CSS_W, PHONE, UH, UW, wrap } from "./screen.js";
 import { initAudio } from "./sound.js";
 import { ui } from "./state.js";
@@ -99,7 +99,19 @@ export function toGame(e) {
   const rect = canvas.getBoundingClientRect();
   return { x: (e.clientX - rect.left) * UW / rect.width, y: (e.clientY - rect.top) * UH / rect.height };
 }
-const hitButton = p => ui.buttons.find(b => p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h);
+// SPEC-025 AC 7d: a hit counts only in a button list drawn for the screen shown now (a second tap in the same frame, after the
+// first one changed the screen, finds an older generation and runs nothing)
+const hitButton = p => (ui.buttonsGen !== ui.btnGen ? null : ui.buttons.find(b => p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h));
+// what the drawn buttons belong to: the screen, its page or tab, an armed button, the world and level
+const screenKey = () => [mode, ui.shopTab, ui.wardrobePage, ui.storyPage, storyCh, ui.storyScene && ui.storyScene.id, ui.storyScene && ui.storyScene.page,
+  ui.resetArmed, buyArmed, G.world, G.level, !!nameInput].join("|");
+// a pointer handler: if it changed the screen, the button list of this frame is stale — a new generation
+function guardTap(fn) {
+  return e => {
+    const k = screenKey();
+    try { fn(e); } finally { if (screenKey() !== k) ui.btnGen++; }
+  };
+}
 let pendingUp = null;   // кнопка, которая срабатывает на отпускании (поле имени: iOS даёт фокус только в pointerup/click)
 
 const endStick = e => sticks.delete(e.pointerId);
@@ -135,24 +147,42 @@ export function closeNameInput(save) {
   el.remove();
 }
 
-// Геймпады
-let pads = [];
-const padPrev = [];
+// Геймпады. SPEC-025 AC 7e: by Gamepad.index; padSlots[n] — the pad of player n (players in the order the pads first connected):
+// { index, id, connected, prev, x, y }. A pad that comes back (maybe at another index) takes the free slot it had (same id),
+// else the first free one; its first poll fires no button edges; only pads with the standard mapping press buttons
+const padSlots = [];
+export function resetPads() { padSlots.length = 0; }
 // кнопки, у которых ловим нажатие: A, B, X, Y, Start, крестовина (+ поцелуй, спасалка и бамперы карты из CFG — читаем каждый раз)
 const padEdge = () => [...new Set([0, 1, 2, 3, 9, 12, 13, 14, 15, LOOK.PAD_KISS, LOOK.PAD_KIT, LOOK.PAD_PREV_WORLD, LOOK.PAD_NEXT_WORLD])];
 export function pollPads() {
-  const list = navigator.getGamepads ? Array.from(navigator.getGamepads()).filter(Boolean) : [];
-  const edge = padEdge();
-  pads = list.map((p, i) => {
-    const btn = p.buttons.map(b => b.pressed);
-    const prev = padPrev[i] || [];
-    for (const b of edge) if (btn[b] && !prev[b]) onPadButton(b, i);
-    padPrev[i] = btn;
+  let list = [];
+  try { list = navigator.getGamepads ? Array.from(navigator.getGamepads()) : []; } catch (e) { /* not allowed */ }
+  const edge = padEdge(), seen = new Set();
+  list.forEach((p, i) => {
+    if (!p || p.connected === false) return;
+    const index = Number.isInteger(p.index) ? p.index : i, standard = p.mapping === "standard";
+    const btn = standard ? p.buttons.map(b => !!(b && b.pressed)) : [];
+    seen.add(index);
+    let s = padSlots.find(q => q.connected && q.index === index);
+    if (!s) {
+      s = padSlots.find(q => !q.connected && q.id === p.id) || padSlots.find(q => !q.connected);
+      if (!s) { s = {}; padSlots.push(s); }
+      Object.assign(s, { index, id: p.id, connected: true, prev: btn });   // (re)connected: no edges on this poll
+    }
+    const pi = padSlots.indexOf(s);
+    for (const b of edge) if (btn[b] && !s.prev[b]) onPadButton(b, pi);
+    s.prev = btn;
     let x = p.axes[0] || 0, y = p.axes[1] || 0;
     if (Math.hypot(x, y) < 0.25) { x = 0; y = 0; }
     if (btn[14]) x = -1; if (btn[15]) x = 1; if (btn[12]) y = -1; if (btn[13]) y = 1;
-    return { x, y };
+    s.x = x; s.y = y;
   });
+  padSlots.forEach((s, pi) => { if (s.connected && !seen.has(s.index)) { s.connected = false; s.x = 0; s.y = 0; padLost(pi); } });
+}
+// a pad gone during play: pause if a player lost his controller (two players: the pad of player 1 or 2; one player: the last pad)
+function padLost(pi) {
+  if (mode !== "play") return;
+  if (G.players === 1 ? !padSlots.some(s => s.connected) : pi < G.players) setMode("pause");
 }
 function onPadButton(b, pad = 0) {
   if (nameInput) return;
@@ -224,7 +254,7 @@ export function deviceInput(l) {
   const c = controlsOf(l), pressed = arr => arr.some(k => keys.has(k));
   x += (pressed(c.right) ? 1 : 0) - (pressed(c.left) ? 1 : 0);
   y += (pressed(c.down) ? 1 : 0) - (pressed(c.up) ? 1 : 0);
-  pads.forEach((p, i) => { if (G.players === 1 || i === pi) { x += p.x; y += p.y; } });
+  padSlots.forEach((p, i) => { if (p.connected && (G.players === 1 || i === pi)) { x += p.x; y += p.y; } });
   for (const s of sticks.values()) {
     if (s.player !== pi) continue;
     const R = stickR(), dx = (s.x - s.ox) / R, dy = (s.y - s.oy) / R;
@@ -261,7 +291,7 @@ export function initInput() {
   window.addEventListener("keyup", e => keys.delete(e.code));
   window.addEventListener("blur", () => { keys.clear(); sticks.clear(); });
   window.addEventListener("contextmenu", e => e.preventDefault());
-  canvas.addEventListener("pointerdown", e => {
+  canvas.addEventListener("pointerdown", guardTap(e => {
     e.preventDefault();
     initAudio();
     if (nameInput) { closeNameInput(true); return; }   // тап мимо поля — имя сохраняется
@@ -284,7 +314,7 @@ export function initInput() {
       sticks.set(e.pointerId, { player, ox: p.x, oy: p.y, x: p.x, y: p.y });
       try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* ok */ }
     } else if (mode === "pause") resumeGame();
-  });
+  }));
   canvas.addEventListener("pointermove", e => {
     const s = sticks.get(e.pointerId);
     if (!s) return;
@@ -294,7 +324,7 @@ export function initInput() {
     const R = stickR();
     if (d > R * 1.6) { s.ox = s.x - dx / d * R * 1.6; s.oy = s.y - dy / d * R * 1.6; }  // джойстик «едет» за пальцем
   });
-  canvas.addEventListener("pointerup", e => {
+  canvas.addEventListener("pointerup", guardTap(e => {
     endStick(e);
     const sw = ui.mapSwipe;
     if (sw && sw.id === e.pointerId) {
@@ -313,6 +343,6 @@ export function initInput() {
     if (!pu || pu.pointerId !== e.pointerId) return;
     const hit = hitButton(toGame(e));
     if (hit && hit.id === pu.id) hit.act();              // тот же жест — фокус в поле, клавиатура на iOS открывается
-  });
+  }));
   canvas.addEventListener("pointercancel", e => { endStick(e); ui.mapSwipe = null; });
 }

@@ -141,7 +141,7 @@ test("home is minimal: the logo, language and sound, Play · Story · Character"
   await click(page, "home:sound");
   // the gamepad: A = Play
   await page.evaluate(() => {
-    window.__press = k => { window.__pads = [{ index: 0, axes: [0, 0], buttons: Array.from({ length: 17 }, (_, i) => ({ pressed: i === k, value: 0 })) }]; };
+    window.__press = k => { window.__pads = [{ index: 0, mapping: "standard", axes: [0, 0], buttons: Array.from({ length: 17 }, (_, i) => ({ pressed: i === k, value: 0 })) }]; };
     window.__press(-1);
     Object.defineProperty(navigator, "getGamepads", { configurable: true, value: () => window.__pads });
   });
@@ -556,7 +556,7 @@ test("a screen change in sim mode leaves the same state as in a rendered page", 
 // next, boss, sel, x, y, w, h, badge }] }; __bb.toast = { text } or null; __bb.levelCard = { world, n, title, type } on the card
 const mapInfo = page => page.evaluate(() => window.__bb.mapInfo);
 const padStub = page => page.evaluate(() => {
-  window.__press = k => { window.__pads = [{ index: 0, axes: [0, 0], buttons: Array.from({ length: 17 }, (_, i) => ({ pressed: i === k, value: 0 })) }]; };
+  window.__press = k => { window.__pads = [{ index: 0, mapping: "standard", axes: [0, 0], buttons: Array.from({ length: 17 }, (_, i) => ({ pressed: i === k, value: 0 })) }]; };
   window.__press(-1);
   Object.defineProperty(navigator, "getGamepads", { configurable: true, value: () => window.__pads });
 });

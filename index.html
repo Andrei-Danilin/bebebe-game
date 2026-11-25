@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="BeBeBe">
 <meta name="theme-color" content="#faf4e2">
-<meta name="src-hash" content="a472357f2d">
+<meta name="src-hash" content="b4ca5a9d40">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -30,6 +30,12 @@
   #loadbar { width: min(320px, 70%); height: 14px; border: 3px solid #2f3f8f; border-radius: 10px; overflow: hidden; }
   #loadbar i { display: block; height: 100%; width: 0; background: #ff6fa8; }
   #loading.art { pointer-events: none; }
+  /* SPEC-025 AC 7/7b/14c: the failed start's button and the cards over the game (Oops, context loss) — DOM, so they show even
+     when the canvas drawing is what fails */
+  #loading button, .bb-card button { font: 800 22px system-ui, sans-serif; min-height: 52px; padding: 10px 26px; border: 3px solid #3d2b1f; border-radius: 14px; background: #4ade80; color: #fff; cursor: pointer; }
+  .bb-card { position: absolute; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center; background: rgba(20,30,25,.55); }
+  .bb-card > div { display: flex; flex-direction: column; gap: 16px; align-items: center; max-width: 80%; padding: 22px 28px; border: 4px solid #3d2b1f; border-radius: 18px; background: #faf4e2; color: #2f3f8f; font: 800 26px system-ui, sans-serif; text-align: center; }
+  .bb-card .row { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
 </style>
 </head>
 <body>
@@ -39,26 +45,47 @@
   <div id="loading"><div>BeBeBe Atrapar 3D…</div><div id="loadbar"><i></i></div></div>
 </div>
 <script>
-  // Если 3D-движок не загрузился (нет интернета) — покажем подсказку
-  setTimeout(function () {
-    if (!window.__bbReady && location.protocol !== "file:") {
-      var el = document.getElementById("loading");
-      if (el) el.innerHTML = "The 3D engine (three.js) needs an internet connection to load.<br>El motor 3D necesita internet.<br>O motor 3D precisa de internet.<br>Для 3D-движка нужен интернет.";
-    }
-  }, 6000);
-  // SPEC-011 AC 6: the game is ES modules, which a page opened from disk (file:) cannot load — say how to open it, in the saved
-  // language or the browser's (not I18N: the modules do not load here)
-  if (location.protocol === "file:") {
-    const FILE_NOTICE = { en: "Open the game from the website or run npm run serve", es: "Abrí el juego desde la página o corré npm run serve",
-      pt: "Abra o jogo pelo site ou rode npm run serve", ru: "Откройте игру с сайта или запустите npm run serve" };
+  // SPEC-025 AC 7b: the start's own texts (the modules may not load at all, so not I18N): noWebGL, startFailed, tryAgain,
+  // needsInternet, the file:// notice (SPEC-011 AC 6) — in bebebe-save's lang, else bebebe-lang, else the browser's language
+  const BOOT_TEXT = {
+    en: ["This device can't show the 3D game", "Something went wrong while starting the game", "Try again", "The 3D engine (three.js) needs an internet connection to load.", "Open the game from the website or run npm run serve"],
+    es: ["Este dispositivo no puede mostrar el juego en 3D", "Algo salió mal al abrir el juego", "Probá de nuevo", "El motor 3D necesita internet.", "Abrí el juego desde la página o corré npm run serve"],
+    pt: ["Este aparelho não consegue mostrar o jogo em 3D", "Algo deu errado ao abrir o jogo", "Tentar de novo", "O motor 3D precisa de internet.", "Abra o jogo pelo site ou rode npm run serve"],
+    ru: ["Это устройство не может показать 3D-игру", "Что-то пошло не так при запуске игры", "Попробовать ещё раз", "Для 3D-движка нужен интернет.", "Откройте игру с сайта или запустите npm run serve"]
+  };
+  // window.__bbBoot: fail(kind) — the failed start's card in place of the progress bar; onError — set by src/client/errors.js
+  // (until then errors wait in early); the first error handlers, before any module runs (AC 7)
+  window.__bbBoot = (() => {
     let l = null;
-    try { l = localStorage.getItem("bebebe-lang"); } catch (e) { /* no storage: the browser's language */ }
-    if (!FILE_NOTICE[l]) l = (navigator.languages || [navigator.language]).map(x => String(x).slice(0, 2).toLowerCase()).find(x => FILE_NOTICE[x]) || "en";
+    try { l = (JSON.parse(localStorage.getItem("bebebe-save")) || {}).lang; } catch (e) { /* no save */ }
+    try { if (!BOOT_TEXT[l]) l = localStorage.getItem("bebebe-lang"); } catch (e) { /* no storage */ }
+    if (!BOOT_TEXT[l]) l = (navigator.languages || [navigator.language]).map(x => String(x).slice(0, 2).toLowerCase()).find(x => BOOT_TEXT[x]) || "en";
+    const [noWebGL, startFailed, tryAgain, needsInternet, fileNotice] = BOOT_TEXT[l], TEXT = { noWebGL, startFailed, needsInternet };
+    const B = { lang: l, failed: null, early: [], onError: null };
+    const add = (el, tag, id, text) => { const e = el.appendChild(document.createElement(tag)); e.id = id; e.textContent = text; return e; };
+    B.fail = kind => {
+      const el = document.getElementById("loading");
+      if (window.__bbReady || B.failed || !el || !TEXT[kind] || location.protocol === "file:") return;   // file:: its own notice
+      B.failed = kind; el.className = ""; el.textContent = "";
+      add(el, "div", "start-failed", TEXT[kind]);
+      if (kind === "startFailed") add(el, "button", "try-again", tryAgain).onclick = () => location.reload();
+    };
+    const report = (err, where) => { if (B.onError) B.onError(err, where); else B.early.push([err, where]); };
+    addEventListener("error", e => {
+      const t = e.target;
+      // a game file did not load (the module graph never runs): the internet only when the browser says it is offline
+      if (t && t.tagName === "SCRIPT") { if (!window.__bbReady) B.fail(navigator.onLine === false ? "needsInternet" : "startFailed"); return; }
+      if (t && t !== window) return;                         // an image or another resource: not an error of the game
+      if (!window.__bbReady) B.fail("startFailed");
+      report(e.error || new Error(e.message), "error");
+    }, true);
+    addEventListener("unhandledrejection", e => { if (e.reason && e.reason.benign) e.preventDefault(); else report(e.reason, "rejection"); });
     const el = document.getElementById("loading");
-    if (el) el.innerHTML = "<div id=\"file-notice\">" + FILE_NOTICE[l] + "</div>";
-  }
+    if (location.protocol === "file:" && el) { el.textContent = ""; add(el, "div", "file-notice", fileNotice); }
+    return B;
+  })();
 </script>
-<!-- SPEC-011 AC 1b: the one place that says where three.js comes from (the game imports the bare name "three"; sw.js THREE_BASE must match).
+<!-- SPEC-011 AC 1b: the one place that says where three.js comes from (the game imports the bare name "three"; SPEC-025: vendor/three/).
      AC 9: and the version of every module (./src/…/x.js → ?v=<hash of its bytes>) — written by npm run precache, do not edit by hand -->
 <script type="importmap">
 { "imports": {
@@ -66,19 +93,20 @@
   "three": "./vendor/three/three.module.js?v=49bfc58c40",
   "./src/client/art-names.js": "./src/client/art-names.js?v=7228f7f839",
   "./src/client/art.js": "./src/client/art.js?v=9447a553cf",
-  "./src/client/debug.js": "./src/client/debug.js?v=a51819be45",
-  "./src/client/flow.js": "./src/client/flow.js?v=125ed44e2e",
+  "./src/client/debug.js": "./src/client/debug.js?v=eed274543e",
+  "./src/client/errors.js": "./src/client/errors.js?v=5bc51754b2",
+  "./src/client/flow.js": "./src/client/flow.js?v=d7a488f1df",
   "./src/client/fx.js": "./src/client/fx.js?v=73f397efb4",
-  "./src/client/input.js": "./src/client/input.js?v=f38653c7bc",
+  "./src/client/input.js": "./src/client/input.js?v=79b6130699",
   "./src/client/look.js": "./src/client/look.js?v=6b3f0ae3e3",
-  "./src/client/main.js": "./src/client/main.js?v=44135f4206",
+  "./src/client/main.js": "./src/client/main.js?v=94e65ca7b4",
   "./src/client/names.js": "./src/client/names.js?v=53974b368f",
   "./src/client/outfits.js": "./src/client/outfits.js?v=3e76d2feee",
-  "./src/client/progress.js": "./src/client/progress.js?v=efd066f61c",
+  "./src/client/progress.js": "./src/client/progress.js?v=caa7c91cff",
   "./src/client/screen.js": "./src/client/screen.js?v=57a76e38b6",
   "./src/client/shop.js": "./src/client/shop.js?v=ebde4ad6de",
-  "./src/client/sound.js": "./src/client/sound.js?v=e9ddab15a9",
-  "./src/client/state.js": "./src/client/state.js?v=1b77f89a91",
+  "./src/client/sound.js": "./src/client/sound.js?v=222f2b4842",
+  "./src/client/state.js": "./src/client/state.js?v=f608d2df67",
   "./src/client/three/bosses.js": "./src/client/three/bosses.js?v=7814dfb8d4",
   "./src/client/three/camera.js": "./src/client/three/camera.js?v=39a889ad56",
   "./src/client/three/characters.js": "./src/client/three/characters.js?v=87a7d8775e",
@@ -87,7 +115,7 @@
   "./src/client/three/map3d.js": "./src/client/three/map3d.js?v=c3fed1392a",
   "./src/client/three/materials.js": "./src/client/three/materials.js?v=04f0b0550d",
   "./src/client/three/previews.js": "./src/client/three/previews.js?v=7d96688728",
-  "./src/client/three/setup.js": "./src/client/three/setup.js?v=a26d88fa4c",
+  "./src/client/three/setup.js": "./src/client/three/setup.js?v=f20369215b",
   "./src/client/three/sync.js": "./src/client/three/sync.js?v=402b0377a4",
   "./src/client/three/themes.js": "./src/client/three/themes.js?v=6f17def67f",
   "./src/client/tutorial.js": "./src/client/tutorial.js?v=acce35fa62",
@@ -96,14 +124,14 @@
   "./src/client/ui/character/tabs.js": "./src/client/ui/character/tabs.js?v=6d32ab672c",
   "./src/client/ui/character/upgrades.js": "./src/client/ui/character/upgrades.js?v=ee922fce9f",
   "./src/client/ui/character/wardrobe.js": "./src/client/ui/character/wardrobe.js?v=e3e931bd3a",
-  "./src/client/ui/draw.js": "./src/client/ui/draw.js?v=9d2e3f5d4e",
+  "./src/client/ui/draw.js": "./src/client/ui/draw.js?v=688e24ddbd",
   "./src/client/ui/home.js": "./src/client/ui/home.js?v=5df7db0c9e",
-  "./src/client/ui/hud.js": "./src/client/ui/hud.js?v=3003a76bf5",
+  "./src/client/ui/hud.js": "./src/client/ui/hud.js?v=33c5fb55d9",
   "./src/client/ui/map.js": "./src/client/ui/map.js?v=280a3d0f5f",
   "./src/client/ui/menu.js": "./src/client/ui/menu.js?v=3e64627b0a",
   "./src/client/ui/minimap.js": "./src/client/ui/minimap.js?v=afd7cc3057",
-  "./src/client/ui/phone.js": "./src/client/ui/phone.js?v=23dc7eff7a",
-  "./src/client/ui/screens.js": "./src/client/ui/screens.js?v=2cd1b81306",
+  "./src/client/ui/phone.js": "./src/client/ui/phone.js?v=e22828e53e",
+  "./src/client/ui/screens.js": "./src/client/ui/screens.js?v=f1fa1c5e4b",
   "./src/client/ui/story.js": "./src/client/ui/story.js?v=a09830a3ea",
   "./src/client/ui/text.js": "./src/client/ui/text.js?v=56db91f1d4",
   "./src/client/ui/win.js": "./src/client/ui/win.js?v=9b3f336da5",
@@ -111,7 +139,7 @@
   "./src/core/autopilot.js": "./src/core/autopilot.js?v=528edb53f9",
   "./src/core/big.js": "./src/core/big.js?v=745c03a759",
   "./src/core/bots.js": "./src/core/bots.js?v=fc04a520e3",
-  "./src/core/config.js": "./src/core/config.js?v=518df17882",
+  "./src/core/config.js": "./src/core/config.js?v=c8d5aba256",
   "./src/core/difficulty.js": "./src/core/difficulty.js?v=72aff2bd1e",
   "./src/core/economy.js": "./src/core/economy.js?v=6c6ac20714",
   "./src/core/game.js": "./src/core/game.js?v=2cc2a176fc",
@@ -130,10 +158,10 @@
   "./src/core/util.js": "./src/core/util.js?v=c7e01b9d3a",
   "./src/core/wardrobe.js": "./src/core/wardrobe.js?v=89c9230548",
   "./src/core/world.js": "./src/core/world.js?v=68fa838aaf",
-  "./src/i18n.js": "./src/i18n.js?v=a28c8e3da4",
+  "./src/i18n.js": "./src/i18n.js?v=653fce73b7",
   "./src/story.js": "./src/story.js?v=31072db672"
 } }
 </script>
-<script type="module" src="./src/client/main.js?v=44135f4206"></script>
+<script type="module" src="./src/client/main.js?v=94e65ca7b4"></script>
 </body>
 </html>

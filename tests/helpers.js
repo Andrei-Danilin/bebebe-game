@@ -214,7 +214,7 @@ async function resetGame(page) {
   await page.evaluate(seed => {
     const b = window.__bb;
     b.resetMenus();                                            // SPEC-029: no tutorial left running (resetWorld below builds a normal level)
-    delete navigator.getGamepads; window.__pads = [];          // gamepad stubs some tests leave behind
+    delete navigator.getGamepads; window.__pads = []; b.resetPads();   // gamepad stubs some tests leave behind (SPEC-025: and the pads' players)
     b.setLang("en"); b.clearLevelCache(); b.resetBannerTimer(); b.mode = "home"; b.seedRandom(seed); b.autopilot(false, "careful");   // SPEC-011 AC 8d: seeded; no autopilot, default style
     for (const s of ["p1", "p2", "big", "bot1", "bot2", "bot3", "bot4"]) b.setName(s, "");
     b.world = "park"; b.resetProgress(); b.resetProgress();   // two calls, like the button: fresh progress, level 1

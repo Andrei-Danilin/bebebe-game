@@ -262,8 +262,8 @@ test("file:// shows the notice", async ({ browser }) => {
     } finally { await ctx.close(); }
   }
   expect(got).toEqual(cases.map(([saved, locale, want]) => [saved, locale, want]));
-  // the notice is in the four languages of the spec, and the "needs internet" hint does not replace it on file:
-  expect(fs.readFileSync(INDEX, "utf8")).toContain("location.protocol !== \"file:\"");
+  // the notice is in the four languages of the spec, and the failed-start card (SPEC-025 AC 7b) does not replace it on file:
+  expect(fs.readFileSync(INDEX, "utf8")).toContain("location.protocol === \"file:\") return;");
 });
 
 // ---------- The core's code: the files of src/core/ (relative names with /)
@@ -581,7 +581,7 @@ test("live bindings: no module reassigns another module's let", async () => {
 // AC 5b: the saves are read in one place, before the first game: storage is read (getItem) only in initSaves and the two
 // helpers it calls (language, names) — in src/client/ (Phase C; before it, the inline client); the core never touches storage
 // (the dependency test above); initSaves runs once at the top level, initLang and initNames only from it.
-const SAVE_READERS = ["initSaves", "initLang", "initNames"];
+const SAVE_READERS = ["initSaves", "initLang", "initNames", "readErrorLog"];   // SPEC-025 AC 7: + the error log (read on the first error)
 test("the saves are read only by initSaves at start", { tag: "@fast" }, () => {
   const client = allSrc().filter(f => f.startsWith("src/client/")).map(f => [f, readRoot(f).replace(/\r\n/g, "\n")]);
   const bad = [];
@@ -595,8 +595,8 @@ test("the saves are read only by initSaves at start", { tag: "@fast" }, () => {
   }
   expect(bad, "storage read outside initSaves").toEqual([]);
   expect(readers, "initSaves reads progress, outfits, names and the language").toBeGreaterThanOrEqual(4);
-  const all = client.map(([, t]) => t).join("\n");
-  expect([...all.matchAll(/^initSaves\(\);$/gm)].length, "initSaves() once, at the top level").toBe(1);
+  const all = client.map(([, t]) => t).join("\n").replace(/^[ \t]+/gm, "");   // SPEC-025: the start steps are inside boot()
+  expect([...all.matchAll(/^initSaves\(\);$/gm)].length, "initSaves() once, in main.js's boot()").toBe(1);
   for (const h of ["initLang", "initNames"]) {
     const calls = [...all.matchAll(new RegExp(`(?<!function )\\b${h}\\(\\)`, "g"))].map(m => [...all.slice(0, m.index).matchAll(/^(?:export )?function (\w+)\(/gm)].pop()[1]);
     expect(calls, `${h}() only from initSaves`).toEqual(["initSaves"]);
@@ -617,7 +617,8 @@ test("index.html has no inline game code", { tag: "@fast" }, () => {
     .toEqual([[`type="module" src="${entry}"`, ""]]);
   expect(scripts.map(s => s.attrs.replace(/ src=.*/, "")).sort(), "the three scripts of the shell").toEqual(["", "type=\"importmap\"", "type=\"module\""]);
   const plain = scripts.find(s => s.attrs === "").body;
-  expect(plain.split("\n").length, "the non-module script stays small (offline hint, file:// notice)").toBeLessThan(30);
+  // SPEC-025 AC 7b: + the start's own texts in four languages, the failed-start card and the first error handlers
+  expect(plain.split("\n").length, "the non-module script stays small (start texts, failed start, error handlers, file:// notice)").toBeLessThan(45);
   expect(plain, "the non-module script imports nothing").not.toMatch(/\bimport\b/);
   const shell = scripts.reduce((h, s) => (s.attrs === "type=\"importmap\"" ? h.replace(s.all, "") : h), html);
   expect(shell.split("\n").length, "the shell without the import map is small").toBeLessThan(120);
@@ -639,7 +640,7 @@ test("only main.js starts the game", { tag: "@fast" }, () => {
     for (const n of ast.body) if (!OK.includes(n.type)) bad.push(`${f}:${n.loc.start.line} ${n.type}`);
   }
   expect(bad, "top-level statements other than declarations outside main.js").toEqual([]);
-  const main = readRoot(MAIN).replace(/\r\n/g, "\n");
+  const main = readRoot(MAIN).replace(/\r\n/g, "\n").replace(/^[ \t]+/gm, "");   // SPEC-025: the start steps are inside boot()
   const inits = client.flatMap(f => [...readRoot(f).replace(/\r\n/g, "\n").matchAll(/^\/\/ called once by main\.js.*\nexport function (\w+)\(\)/gm)].map(m => [f, m[1]]));
   expect(inits.map(([, n]) => n), "the init functions").toEqual(expect.arrayContaining(["initThree", "initScene", "initScreen", "initInput", "installDebug"]));
   for (const [f, n] of inits) {

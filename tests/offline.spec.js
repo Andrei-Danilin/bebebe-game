@@ -4,7 +4,8 @@
 // - a request audit walks the game (page load, the first-run comic, the menus, How to play, one level, the win screen) with every
 //   other host blocked from the start and no service worker (the packaged-app case: offline by packaging), and on the installed
 //   PWA with the network off after the service worker installed (playwright.config.js lets context routes see the worker's
-//   requests too). A request to any other host fails the test.
+//   requests too), plus one injected error (AC 7: the error card and the log never use the network). A request to any other host
+//   fails the test.
 const { test, expect } = require("./pw");   // SPEC-023: @playwright/test + failure screenshots
 const fs = require("fs");
 const os = require("os");
@@ -129,8 +130,14 @@ test("no request leaves the origin: network blocked from the start, no service w
   const errors = await openGame(page, { intro: true });
   expect(await walkGame(page)).toEqual(WALKED);
   expect(await page.evaluate(() => !!(navigator.serviceWorker && navigator.serviceWorker.controller)), "no service worker").toBe(false);
-  expect(remote).toEqual([]);
   expect(errors).toEqual([]);
+  // AC 7: an injected error — the card and the log, and still nothing sent anywhere
+  await page.evaluate(() => { setTimeout(() => { throw new Error("test: injected"); }); });
+  await page.waitForFunction(() => !!document.getElementById("oops"));
+  await page.click("#oops button >> nth=0");
+  await frames(page);
+  expect(await page.evaluate(() => window.__bb.errorLog.map(e => e.message))).toEqual(["test: injected"]);
+  expect(remote).toEqual([]);
 });
 
 test.describe("installed app", () => {

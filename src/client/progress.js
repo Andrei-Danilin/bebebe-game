@@ -37,6 +37,11 @@ export const saveProgress = writeProgress;
 // наряды (bebebe-outfits: { p1, p2, big, v }) и имена (bebebe-names) → localStorage — их зовут outfits.js и names.js
 export function writeOutfits(o) { try { localStorage.setItem("bebebe-outfits", JSON.stringify(o)); } catch (e) { /* ok */ } }
 export function writeNames(t) { try { localStorage.setItem("bebebe-names", JSON.stringify(t)); } catch (e) { /* ok */ } }
+// SPEC-025 AC 7: the error log (bebebe-errors: the last CFG.ERROR_LOG_MAX entries, kept on this device only; errors.js writes it)
+export function readErrorLog() {
+  try { const v = JSON.parse(localStorage.getItem("bebebe-errors") || "[]"); return Array.isArray(v) ? v.filter(e => e && typeof e === "object") : []; } catch (e) { return []; }
+}
+export function writeErrorLog(list) { try { localStorage.setItem("bebebe-errors", JSON.stringify(list)); } catch (e) { /* no storage: the log lives in memory */ } }
 // имена из bebebe-names (initSaves)
 function initNames() {
   try {

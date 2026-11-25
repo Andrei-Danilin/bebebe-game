@@ -21,6 +21,10 @@ export const ui = {
   kitHintT: 0, kitHintPi: 0, heardHintT: 0, heardHintPi: 0, waves: [],
   menuSpin: 0,   // SPEC-012 AC 1d: how far the Big One has turned in the menus (a view angle; the game's big.dir is untouched)
   buttons: [],
+  // SPEC-025 AC 7d: generations of the button list — btnGen goes up when a tap changes the screen (input.js); buttonsGen is the
+  // generation the list of this frame was drawn for (drawUI). A hit in a list of an older generation runs nothing
+  btnGen: 0,
+  buttonsGen: 0,
   resetArmed: false,
   kitHintRect: null,
   heardHintRect: null,

@@ -11,7 +11,7 @@ let actx = null;
 export function initAudio() {
   if (simMode) return;
   if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { actx = null; } }
-  else if (actx.state === "suspended") actx.resume();
+  else if (actx.state === "suspended") actx.resume().catch(() => { /* SPEC-025 AC 7c: not allowed yet — the next gesture tries again */ });
 }
 // звук можно играть? В sim — нет (и не считается); иначе считаем просьбу (тест sim) и смотрим, есть ли звук
 function soundOn() { if (simMode) return false; ui.sounds++; return !!actx && !ui.muted; }

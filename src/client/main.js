@@ -1,6 +1,8 @@
 // SPEC-011: the entry point and the one place that starts the game: the rng flags of the tests, the init functions in the
 // start order of the one-file game, setHooks (before initSaves), initSaves, the first resetWorld, the frame loop frame,
 // registerServiceWorker, installDebug. Client module (moved out of index.html in Phase C).
+// SPEC-025 AC 7 / 7b: the start is one guarded boot() (no WebGL2 → the loading screen says noWebGL; any other start error →
+// startFailed with Try again, index.html); the frame loop schedules the next frame first and runs inside a guard.
 
 import { progress } from "../core/economy.js";
 import { newGame, useGame } from "../core/game.js";
@@ -8,6 +10,7 @@ import { setHooks } from "../core/hooks.js";
 import { noGameRng, setStrictRng } from "../core/util.js";
 import { artGate, initArt } from "./art.js";
 import { installDebug } from "./debug.js";
+import { failStart, initErrors, reportError } from "./errors.js";
 import { inMenus, inWardrobe, mapTick, mode, openScene, redress, resetWorld, seedRandom, syncStock } from "./flow.js";
 import { drainEvents, stepGame, viewTick } from "./fx.js";
 import { initInput, pollPads } from "./input.js";
@@ -19,49 +22,64 @@ import { initCamera, updateCamera } from "./three/camera.js";
 import { initCharacters, rebuild3D } from "./three/characters.js";
 import { initMaterials } from "./three/materials.js";
 import { initPreviews } from "./three/previews.js";
-import { initScene, initThree } from "./three/setup.js";
+import { hasWebGL2, initScene, initThree } from "./three/setup.js";
 import { initSync, render3D } from "./three/sync.js";
 import { firstTutorial, openTutorial } from "./tutorial.js";
 import { updateMinimapFade } from "./ui/minimap.js";
 import { drawUI } from "./ui/screens.js";
 
-// SPEC-008 / SPEC-011 AC 8d: тесты включают строгую игровую случайность и задают зерно запуска (init-скрипт до игры)
-setStrictRng(window.__bbStrictRng === true);
-useGame(newGame());                         // SPEC-012: the local game (resetWorld builds it; the saves pick its world and level first)
-if (Number.isFinite(window.__bbSeed)) seedRandom(window.__bbSeed);
-initArt();
-initScreen();
-// SPEC-011 AC 3b: сторона клиента в порту hooks (Phase C: src/client/main.js) — до загрузки сохранений и до первой игры
-setHooks({ rebuild: rebuild3D });
-initSaves();
-initInput();
-initThree();
-fit();
-initScene();
-initCamera();
-initMaterials();
-initSync();
-initCharacters();
-initPreviews();
+let introDue = false, tutorialDue = false, last = 0;
+function boot() {
+  // SPEC-025 AC 7: errors are logged (and, once ready, shown) from here on
+  initErrors();
+  if (!hasWebGL2()) { failStart("noWebGL"); return; }   // SPEC-025 AC 7b: three.js r187 needs WebGL2
+  // SPEC-008 / SPEC-011 AC 8d: тесты включают строгую игровую случайность и задают зерно запуска (init-скрипт до игры)
+  setStrictRng(window.__bbStrictRng === true);
+  useGame(newGame());                         // SPEC-012: the local game (resetWorld builds it; the saves pick its world and level first)
+  if (Number.isFinite(window.__bbSeed)) seedRandom(window.__bbSeed);
+  initArt();
+  initScreen();
+  // SPEC-011 AC 3b: сторона клиента в порту hooks (Phase C: src/client/main.js) — до загрузки сохранений и до первой игры
+  setHooks({ rebuild: rebuild3D });
+  initSaves();
+  initInput();
+  initThree();
+  fit();
+  initScene();
+  initCamera();
+  initMaterials();
+  initSync();
+  initCharacters();
+  initPreviews();
+  fit();
+  resetWorld(1);
+  artGate();                                  // SPEC-020: экран загрузки ждёт картинки (недолго); игра уже готова
+  // SPEC-022: самый первый запуск (и старое сохранение без seen: история новая для всех) — комикс «Как всё началось» (под экраном
+  // загрузки, пока он есть). Тесты его пропускают: их init-скрипт ставит window.__bbNoIntro (кроме теста первого запуска)
+  introDue = !progress.seen.intro && window.__bbNoIntro !== true;   // открывается в frame(), когда экрана загрузки уже нет
+  // SPEC-029: после комикса — обучение (только настоящий первый запуск: firstTutorial); тесты пропускают его: window.__bbNoTutorial
+  tutorialDue = firstTutorial(progress) && window.__bbNoTutorial !== true;
+  window.__bbReady = true;
+  last = performance.now();
+  requestAnimationFrame(frame);
+  registerServiceWorker();
+  installDebug();
+}
+try { boot(); } catch (e) { failStart(e && e.noWebGL ? "noWebGL" : "startFailed", e); }   // SPEC-025 AC 7b
 
 // =====================================================================
 //  ГЛАВНЫЙ ЦИКЛ
 // =====================================================================
-fit();
-resetWorld(1);
-artGate();                                  // SPEC-020: экран загрузки ждёт картинки (недолго); игра уже готова
-// SPEC-022: самый первый запуск (и старое сохранение без seen: история новая для всех) — комикс «Как всё началось» (под экраном
-// загрузки, пока он есть). Тесты его пропускают: их init-скрипт ставит window.__bbNoIntro (кроме теста первого запуска)
-let introDue = !progress.seen.intro && window.__bbNoIntro !== true;   // открывается в frame(), когда экрана загрузки уже нет
-// SPEC-029: после комикса — обучение (только настоящий первый запуск: firstTutorial); тесты пропускают его: window.__bbNoTutorial
-const tutorialDue = firstTutorial(progress) && window.__bbNoTutorial !== true;
-window.__bbReady = true;
-let last = performance.now();
+// SPEC-025 AC 7: the next frame is asked for first, so an error in this one never stops the loop; the error → reportError
 function frame(now) {
+  requestAnimationFrame(frame);
+  try { tick(now); } catch (e) { reportError(e); }
+}
+function tick(now) {
   // первая метка rAF бывает раньше performance.now() при запуске: dt < 0 раскачивал тряску камеры (shake − dt) — не меньше 0
   const dt = Math.max(0, Math.min(0.05, (now - last) / 1000));
   last = now;
-  if (simMode) { requestAnimationFrame(frame); return; }   // sim: ни логики, ни рисования — игру шагает simRun
+  if (simMode) return;                       // sim: ни логики, ни рисования — игру шагает simRun
   if (introDue && mode === "home" && !document.getElementById("loading")) { introDue = false; openScene("intro", tutorialDue ? () => openTutorial("map") : null); }   // SPEC-022: первый запуск (SPEC-029: потом обучение)
   ui.T += dt;
   pollPads();
@@ -77,9 +95,7 @@ function frame(now) {
     render3D(ui.T);
     drawUI(ui.T);
   });
-  requestAnimationFrame(frame);
 }
-requestAnimationFrame(frame);
 
 // Офлайн-кэш (sw.js): только по http(s). С диска (file://) и на странице claude.ai — ничего не делаем и молчим.
 function registerServiceWorker() {
@@ -89,5 +105,3 @@ function registerServiceWorker() {
     }
   } catch (e) { /* нет доступа к serviceWorker */ }
 }
-registerServiceWorker();
-installDebug();
