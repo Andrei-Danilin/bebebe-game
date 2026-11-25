@@ -1,7 +1,7 @@
 // Gameplay rules decided by the kids (see docs/game-design.md). Each test pins one rule.
 const base = require("./pw");   // SPEC-023: @playwright/test + failure screenshots
 const { expect } = base;
-const { LANGS, openGame, step, setupHug, frames, sharedPage, resetGame, reloadGame, softly } = require("./helpers");
+const { LANGS, openGame, step, setupHug, frames, sharedPage, resetGame, reloadGame, softly, putOldSave, storedSave } = require("./helpers");
 
 // SPEC-018: the tests share one game page (one per context kind: the touch tests get their own) instead of a fresh page
 // each. Before every test resetGame() puts it back to a freshly opened game (storage, language, progress, names,
@@ -247,7 +247,7 @@ test("Dad's mood follows his anger: angry, mid, kind", async ({ simPage: page })
 
 test("worlds unlock their own levels", async ({ page }) => {
   // a real first load with no save (the shared page would only show resetProgress())
-  await page.evaluate(() => { for (const k of ["bebebe-progress", "bebebe-outfits", "bebebe-place"]) localStorage.removeItem(k); });
+  await putOldSave(page, { "bebebe-progress": null, "bebebe-outfits": null, "bebebe-place": null });   // SPEC-025: no bebebe-save either
   await reloadGame(page);                          // SPEC-011 AC 8d: seeded again after the reload
   expect(await page.evaluate(() => [window.__bb.mode, window.__bb.world, window.__bb.level])).toEqual(["home", "park", 1]);
   const start = await page.evaluate(() => JSON.parse(JSON.stringify(window.__bb.progress)));
@@ -678,7 +678,7 @@ test("buying air kisses", async ({ simPage: page }) => {
   await page.reload();
   await page.waitForFunction(() => window.__bbReady === true);
   expect(await page.evaluate(() => window.__bb.progress.inv.kisses)).toBe(10);
-  const after = await page.evaluate(() => { const b = window.__bb; b.resetProgress(); b.resetProgress(); return b.progress.inv; });
+  const after = await page.evaluate(() => { const b = window.__bb; b.resetProgress(); return b.progress.inv; });
   expect(after.kisses).toBe(0);
 });
 
@@ -688,7 +688,7 @@ const loadSave = (page, save) => page.evaluate(v => window.__bb.loadProgress(JSO
 
 test("old saves get 0 kisses", async ({ simPage: page }) => {
   const old = inv => ({ unlocked: 3, stars: { 1: 2 }, coins: 12, inv, equip: ["mittens", "none"] });
-  await page.evaluate(v => localStorage.setItem("bebebe-progress", JSON.stringify(v)), old({ mittens: 1, mega: 0 }));
+  await putOldSave(page, { "bebebe-progress": old({ mittens: 1, mega: 0 }) });
   await page.reload();
   await page.waitForFunction(() => window.__bbReady === true);
   const p = await page.evaluate(() => window.__bb.progress);
@@ -760,14 +760,14 @@ test("bonus worlds open after all main levels", async ({ page }) => {
   const reset = await page.evaluate(() => {
     const b = window.__bb; b.setProgress({ worlds: { beach: { unlocked: 3 } } }); b.mode = "map"; b.world = "park";
     b.selectWorld("beach"); const before = b.world;
-    b.resetProgress(); b.resetProgress();                  // two calls, like the button
+    b.resetProgress();                  // the reset itself (SPEC-025: the button arms, a separate confirm resets)
     return { before, after: b.world, last: b.progress.lastWorld };
   });
   expect(reset).toEqual({ before: "beach", after: "park", last: "park" });
   // a saved lastWorld that is a locked bonus world opens on the Park; one with progress there stays
   expect((await loadSave(page, { lastWorld: "winter" })).lastWorld).toBe("park");
   expect((await loadSave(page, { lastWorld: "beach", worlds: { beach: { unlocked: 3 } } })).lastWorld).toBe("beach");
-  await page.evaluate(() => { localStorage.setItem("bebebe-progress", JSON.stringify({ lastWorld: "winter", coins: 4 })); });
+  await putOldSave(page, { "bebebe-progress": { lastWorld: "winter", coins: 4 } });
   await page.reload();
   await page.waitForFunction(() => window.__bbReady === true);
   expect(await page.evaluate(() => [window.__bb.world, window.__bb.progress.lastWorld])).toEqual(["park", "park"]);
@@ -779,13 +779,12 @@ test("bonus worlds open after all main levels", async ({ page }) => {
 // SPEC-006 AC 7
 test("old saves move into the Park", { tag: "@fast" }, async ({ simPage: page }) => {
   const load = async save => {
-    await page.evaluate(v => localStorage.setItem("bebebe-progress", JSON.stringify(v)), save);
+    await putOldSave(page, { "bebebe-progress": save, "bebebe-names": { p1: "Mila" } });   // SPEC-025: the old keys of a device before bebebe-save
     await page.reload();
     await page.waitForFunction(() => window.__bbReady === true);
     return page.evaluate(() => JSON.parse(JSON.stringify(window.__bb.progress)));
   };
   const inv = { mittens: 2, mega: 1, kisses: 4 };
-  await page.evaluate(() => window.__bb.setName("p1", "Mila"));
   const p = await load({ unlocked: 23, stars: { 1: 3, 5: 2, 21: 1 }, coins: 140, inv, equip: ["mega", "mittens"] });
   expect(p.worlds.park).toEqual({ unlocked: 20, stars: { 1: 3, 5: 2 }, won: { 1: true, 5: true } });   // level 21 is dropped
   for (const w of ["field", "city", "school", "beach", "winter"]) expect(p.worlds[w], w).toEqual({ unlocked: 1, stars: {}, won: {} });
@@ -793,8 +792,8 @@ test("old saves move into the Park", { tag: "@fast" }, async ({ simPage: page })
   expect(p.inv).toEqual({ ...inv, rescues: 0 });      // SPEC-007: saves without rescue kits get 0
   expect(p.equip).toEqual(["mega", "mittens"]);
   expect(await page.evaluate(() => window.__bb.names.p1)).toBe("Mila");
-  // the migration happens once: the saved progress now has the worlds and loads the same again
-  const saved = JSON.parse(await page.evaluate(() => localStorage.getItem("bebebe-progress")));
+  // the migration happens once: the saved progress (SPEC-025: in bebebe-save) now has the worlds and loads the same again
+  const saved = (await storedSave(page)).progress;
   expect("unlocked" in saved || "stars" in saved, "the old flat fields are gone from the save").toBe(false);
   expect(saved.worlds).toEqual(p.worlds);
   const again = await loadSave(page, saved);
@@ -820,7 +819,7 @@ test("old saves move into the Park", { tag: "@fast" }, async ({ simPage: page })
   expect(both.worlds.park).toEqual({ unlocked: 6, stars: { 1: 3, 2: 3 }, won: { 1: true, 2: true } });
   expect(both.worlds.school).toEqual({ unlocked: 2, stars: {}, won: {} });
   expect(both.coins).toBe(9);
-  const bothSaved = JSON.parse(await page.evaluate(() => localStorage.getItem("bebebe-progress")));
+  const bothSaved = (await storedSave(page)).progress;
   expect("unlocked" in bothSaved || "stars" in bothSaved).toBe(false);
   expect(bothSaved.worlds.park).toEqual({ unlocked: 6, stars: { 1: 3, 2: 3 }, won: { 1: true, 2: true } });
   const lower = await loadSave(page, { worlds: { park: { unlocked: 9, stars: { 3: 3 } } }, unlocked: 2, stars: { 3: 1 } });
@@ -1292,13 +1291,13 @@ test("buying rescue kits", async ({ simPage: page }) => {
   await page.reload();
   await page.waitForFunction(() => window.__bbReady === true);
   expect(await page.evaluate(() => window.__bb.progress.inv.rescues)).toBe(6);
-  const after = await page.evaluate(() => { const b = window.__bb; b.resetProgress(); b.resetProgress(); return b.progress.inv; });
+  const after = await page.evaluate(() => { const b = window.__bb; b.resetProgress(); return b.progress.inv; });
   expect(after.rescues).toBe(0);
 });
 
 test("old saves get 0 kits", async ({ simPage: page }) => {
   const load = async save => {
-    await page.evaluate(v => localStorage.setItem("bebebe-progress", JSON.stringify(v)), save);
+    await putOldSave(page, { "bebebe-progress": save });
     await page.reload();
     await page.waitForFunction(() => window.__bbReady === true);
     return page.evaluate(() => JSON.parse(JSON.stringify(window.__bb.progress)));
@@ -1325,7 +1324,7 @@ test("a kit gets a downed player up at once", async ({ simPage: page }) => {
     out.ok = b.useRescueKit(0);
     out.l = { state: l.state, invuln: l.invuln, rescue: l.rescue, downTimer: l.downTimer, restTimer: l.restTimer, path: l.path.length, moved: Math.hypot(l.x - x0, l.y - y0) };
     out.left = b.progress.inv.rescues;
-    out.saved = JSON.parse(localStorage.getItem("bebebe-progress")).inv.rescues;
+    b.save.flush(); out.saved = JSON.parse(localStorage.getItem("bebebe-save")).progress.inv.rescues;
     out.texts = b.texts.map(q => q.text); out.want = b.I18N.en.kitUsed;
     out.kitInvuln = b.CFG.KIT_INVULN;
     out.again = b.useRescueKit(0);                       // already up: nothing happens, no kit spent

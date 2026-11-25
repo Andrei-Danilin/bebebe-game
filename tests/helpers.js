@@ -204,6 +204,18 @@ function sharedPage() {
   return { get, close };
 }
 
+// SPEC-025 phase 2: storage as a device had it before bebebe-save existed — every bebebe-save* key removed, the given old keys
+// written (an object as JSON, a string as is; null removes the key) — so the next reload migrates them like a first start of the
+// new build. The caller reloads (reloadGame).
+async function putOldSave(page, keys) {
+  await page.evaluate(k => {
+    for (const n of Object.keys(localStorage)) if (n.startsWith("bebebe-save")) localStorage.removeItem(n);
+    for (const [n, v] of Object.entries(k)) { if (v === null) localStorage.removeItem(n); else localStorage.setItem(n, typeof v === "string" ? v : JSON.stringify(v)); }
+  }, keys);
+}
+// SPEC-025 phase 2: the stored save (bebebe-save, parsed) after the pending writes
+const storedSave = page => page.evaluate(() => { window.__bb.save.flush(); return JSON.parse(localStorage.getItem("bebebe-save")); });
+
 // SPEC-018: puts a shared game page back to the state of a freshly opened one: localStorage as openGame leaves it
 // (only the language), English, fresh progress and names, no gamepad stubs, an empty level cache, Park 1 on the home screen,
 // the gameplay randomness seeded from the test's title (SPEC-011 AC 8d) and the autopilot off (SPEC-008), the skin picker back to the default looks (SPEC-009),
@@ -217,7 +229,7 @@ async function resetGame(page) {
     delete navigator.getGamepads; window.__pads = []; b.resetPads();   // gamepad stubs some tests leave behind (SPEC-025: and the pads' players)
     b.setLang("en"); b.clearLevelCache(); b.resetBannerTimer(); b.mode = "home"; b.seedRandom(seed); b.autopilot(false, "careful");   // SPEC-011 AC 8d: seeded; no autopilot, default style
     for (const s of ["p1", "p2", "big", "bot1", "bot2", "bot3", "bot4"]) b.setName(s, "");
-    b.world = "park"; b.resetProgress(); b.resetProgress();   // two calls, like the button: fresh progress, level 1
+    b.world = "park"; b.resetProgress();                      // fresh progress, level 1 (SPEC-025: the reset itself, no arming)
     b.resetOutfits();                                          // SPEC-009: default looks, nothing tried on
     b.world = "park"; b.level = 1; b.resetWorld(1); b.mode = "home"; b.resetMenus();   // SPEC-017: home, the menus' state as at start
     for (let i = 0; i < 60; i++) b.updateMinimapFade(1 / 60);    // phone: the mini-map fully back (no-op on desktop)
@@ -251,4 +263,4 @@ function textFloor(floors, cat) {
   return v;
 }
 
-module.exports = { gameSource, textFloor, LANGS, openGame, openSim, openGameHttp, frames, step, setupHug, softly, sharedPage, resetGame, seedGame, reloadGame, testSeed, titleSeed, HTTP_BASE, ROOT };
+module.exports = { putOldSave, storedSave, gameSource, textFloor, LANGS, openGame, openSim, openGameHttp, frames, step, setupHug, softly, sharedPage, resetGame, seedGame, reloadGame, testSeed, titleSeed, HTTP_BASE, ROOT };

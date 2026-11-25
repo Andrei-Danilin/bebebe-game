@@ -86,7 +86,7 @@ test("the last hug, then the page is hidden and the app killed: after a reload t
   await lastHug(page);
   await fire(page, "pagehide", { persisted: false });
   // already in storage when the page could be killed
-  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("bebebe-progress")));
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("bebebe-save")).progress);   // SPEC-025: no flush here — pagehide wrote it
   expect([saved.worlds.park.won["1"], saved.worlds.park.unlocked]).toEqual([true, 2]);
   await reloadGame(page);
   expect(await page.evaluate(() => [window.__bb.progress.worlds.park.won["1"], window.__bb.progress.worlds.park.unlocked])).toEqual([true, 2]);

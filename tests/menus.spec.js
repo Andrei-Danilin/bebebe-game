@@ -589,7 +589,7 @@ test("the map switches worlds", { tag: "@fast" }, async ({ page }) => {
   expect(m.tabs.every((t, i) => !i || t.x > m.tabs[i - 1].x), "tabs left to right").toBe(true);
   // a tab click selects the world (and remembers it); a locked bonus tab only says why
   await click(page, "maptab:park");
-  expect(await page.evaluate(() => [window.__bb.world, window.__bb.progress.lastWorld, JSON.parse(localStorage.getItem("bebebe-progress")).lastWorld])).toEqual(["park", "park", "park"]);
+  expect(await page.evaluate(() => [window.__bb.world, window.__bb.progress.lastWorld, (window.__bb.save.flush(), JSON.parse(localStorage.getItem("bebebe-save")).progress.lastWorld)])).toEqual(["park", "park", "park"]);
   await click(page, "maptab:beach");
   expect(await page.evaluate(() => [window.__bb.world, window.__bb.toast && window.__bb.toast.text])).toEqual(["park", "Win all levels of the main worlds to open"]);
   await click(page, "maptab:city");

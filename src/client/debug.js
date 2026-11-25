@@ -32,6 +32,7 @@ import { LOOK } from "./look.js";
 import { allNames, nameOf, setName } from "./names.js";
 import { BOSS_LOOKS, botOutfit, buyLook, cloneSkins, cycleBig, cycleOutfit, loadOutfits, LOOK_SLOTS, randomOutfit, resetOutfits, skinKeep, skinSel } from "./outfits.js";
 import { resetProgress, setLang } from "./progress.js";
+import { fingerprint, flushSaves, OLD_KEYS, outfitsOf, promptsForPersist, queueSave, readCode, SAVE_KEYS, SAVE_VERSION, saveCode, saveState, validSave } from "./save.js";
 import { CSS_H, CSS_W, isStandalone, PHONE, sim, simMode, UH, UW } from "./screen.js";
 import { buyGloves, buyKisses, buyRescueKit, buyUpgrade, setEquip } from "./shop.js";
 import { ui } from "./state.js";
@@ -123,6 +124,10 @@ export function installDebug() {
     get errorLog() { return errorLog(); }, reportError, nextLevel,
     // SPEC-025: forget every pad (AC 7e: the tests' gamepad stubs); the one "back" (AC 14d); the audio context (AC 14); restored (AC 14c)
     resetPads, goBack, audioContext, get glRestored() { return glRestored; },
+    // SPEC-025 phase 2: the save module — info (noSave, notes, copies, persist, pending writes), queue / flush the whole save, the
+    // parents' code (code(), readCode(text) → { ok, error }), the keys, the pure helpers (validSave, fingerprint, outfits by id ↔ indexes)
+    save: Object.freeze({ get info() { return saveState(); }, queue: queueSave, flush: flushSaves, code: saveCode, readCode: t => { const r = readCode(t); return { ok: r.ok, error: r.error || null }; },
+      KEYS: SAVE_KEYS, OLD_KEYS, VERSION: SAVE_VERSION, validSave, fingerprint, promptsForPersist, outfitsFromIds: v => outfitsOf(v), outfitsToIds: o => outfitsOf(o, true) }),
     // SPEC-012 AC 1f: the menus' state a screen change resets (logic state: the same in sim and rendered pages) and the actions
     // that set it up: the shop, its friends page, the name input of a slot, a map stop or world tab (a locked one shows a hint)
     get screenState() { return { mode, shopTab: ui.shopTab, wardrobePage: ui.wardrobePage, toast: ui.toast && ui.toast.text, mapBgCache: !!ui.mapBgCache, nameInput: !!nameInput }; },

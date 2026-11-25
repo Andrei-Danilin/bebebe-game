@@ -2,7 +2,7 @@
 // shadows, a paper grain over the picture. Rendered pages only (the 3D scene is not built in sim mode); the scene is read
 // through __bb.look3D() (drawn state, in SIM_DRAWN).
 const { test, expect } = require("./pw");   // SPEC-023: @playwright/test + failure screenshots
-const { openGame, frames } = require("./helpers");
+const { openGame, frames, putOldSave, storedSave } = require("./helpers");
 
 const play = (page, world, level) => page.evaluate(([w, n]) => { const b = window.__bb; b.world = w; b.level = n; b.startGame(1); }, [world, level]);
 
@@ -183,16 +183,16 @@ test("the dad is the Big One of a new save and of an old default save; other old
   });
   expect(shapes).toEqual(["dad", "ogre", "dad", "dad", "dad", "classic", "bear", "dad", "classic", "dad", "dad", "dad", "dad"]);
   // one real reload: an old default save starts with the dad
-  await page.evaluate(() => localStorage.setItem("bebebe-outfits", JSON.stringify({ p1: { hair: 0, hat: 1, jacket: 0, pants: 0 }, p2: { hair: 1, hat: 4, jacket: 1, pants: 3 }, big: 0 })));
+  await putOldSave(page, { "bebebe-outfits": { p1: { hair: 0, hat: 1, jacket: 0, pants: 0 }, p2: { hair: 1, hat: 4, jacket: 1, pants: 3 }, big: 0 } });   // SPEC-025: an old device
   await page.reload();
   await page.waitForFunction(() => window.__bbReady === true);
   expect(await ids()).toMatchObject({ shown: "dad", saved: "dad" });
-  // Classic chosen now is saved with v and stays Classic after a reload
-  await page.evaluate(() => { localStorage.removeItem("bebebe-outfits"); });
+  // Classic chosen now is saved (SPEC-025: by id in bebebe-save) and stays Classic after a reload
+  await putOldSave(page, { "bebebe-outfits": null });
   await page.reload();
   await page.waitForFunction(() => window.__bbReady === true);
   await page.evaluate(() => { const b = window.__bb; b.cycleBig(-b.outfits.shown.big); });
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("bebebe-outfits")))).toMatchObject({ big: 0, v: 2 });
+  expect((await storedSave(page)).outfits.big).toBe("classic");
   await page.reload();
   await page.waitForFunction(() => window.__bbReady === true);
   expect((await ids()).saved).toBe("classic");

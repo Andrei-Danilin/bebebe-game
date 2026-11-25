@@ -1,7 +1,7 @@
 // SPEC-025 AC 14 / 14b / 14c: the app's lifecycle. Hidden (visibilitychange, pagehide) or blurred (the notification shade,
 // the iOS Control Centre, a call) during play → pause, and the game stays paused when it comes back; audio is suspended until
 // the next gesture (sound.js). On hide a win that is already decided is recorded and saved first (settleDecidedWin; every other
-// change is already saved at once — Phase 2's save queue is flushed after it); a page back from the back/forward cache goes on.
+// change is already queued at once — the save queue is flushed after it, SPEC-025 AC 3b); a page back from the back/forward cache goes on.
 // WebGL context loss → pause and the "Tap to continue" card; restored → the 3D is rebuilt and a tap continues; no restore within
 // CFG.GL_RESTORE_WAIT s while the game is on screen → the decided win, save and reload. Client module.
 
@@ -10,18 +10,19 @@ import { L } from "../i18n.js";
 import { flushErrorLog, hideCard, showCard } from "./errors.js";
 import { mode, resumeGame, setMode, settleDecidedWin } from "./flow.js";
 import { saveProgress } from "./progress.js";
+import { flushSaves } from "./save.js";
 import { suspendAudio } from "./sound.js";
 import { rebuild3D } from "./three/characters.js";
 import { gradTex } from "./three/materials.js";
 import { scene } from "./three/setup.js";
 
 const pauseIfPlaying = () => { if (mode === "play") setMode("pause"); };
-// the app goes to the background: the decided win first (saved as it is paid), then pause and silence. Every other change is
-// already in storage (each change saves at once), so nothing else is written here — writing the whole progress again would
-// overwrite what another tab or an older build wrote meanwhile. Phase 2 flushes its save queue here, after the win
+// the app goes to the background: the decided win first (queued as it is paid), then the save queue is written (AC 3b: the
+// localStorage backend is synchronous, so it is stored before the page can be killed), then pause and silence
 function onHide() {
   settleDecidedWin();
   flushErrorLog();                          // a repeat count still waiting for its write
+  flushSaves();
   pauseIfPlaying();
   suspendAudio();
   clearTimeout(glWait);                     // the restore wait runs only while the game is seen (re-armed when visible)
@@ -34,7 +35,7 @@ let glWait = null, pausedByGl = false, glLost = false;
 function armGlWait() {
   clearTimeout(glWait);
   if (!glLost || document.visibilityState === "hidden") return;
-  glWait = setTimeout(() => { settleDecidedWin(); saveProgress(); flushErrorLog(); location.reload(); }, CFG.GL_RESTORE_WAIT * 1000);
+  glWait = setTimeout(() => { settleDecidedWin(); saveProgress(); flushErrorLog(); flushSaves(); location.reload(); }, CFG.GL_RESTORE_WAIT * 1000);
 }
 function onContextLost(e) {
   e.preventDefault();                       // the browser may restore the context

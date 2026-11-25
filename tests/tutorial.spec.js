@@ -5,7 +5,7 @@ const base = require("./pw");   // SPEC-023: @playwright/test + failure screensh
 const { expect } = base;
 const fs = require("fs");
 const path = require("path");
-const { openGame, frames, step, sharedPage, resetGame, softly } = require("./helpers");
+const { openGame, frames, step, sharedPage, resetGame, softly, putOldSave } = require("./helpers");
 
 // a shared sim page (logic) and a shared rendered page (desktop, then phone); order: sim and fresh-page tests first, the rendered
 // shared-page tests last (a rendered page left open slows every other test)
@@ -141,7 +141,7 @@ test("tutorial pages without their pictures: every panel draws a figure and its 
 // ---------- AC 2: an old save that has already seen the intro — the tutorial does not open by itself ----------
 test("an old save that has seen the intro does not open the tutorial by itself", async ({ page }) => {
   const errors = await openGame(page, { intro: true, tutorial: true });
-  await page.evaluate(() => { localStorage.setItem("bebebe-progress", JSON.stringify({ coins: 12, seen: { intro: true } })); });
+  await putOldSave(page, { "bebebe-progress": { coins: 12, seen: { intro: true } } });   // SPEC-025: an old device's save
   await page.reload();
   await page.waitForFunction(() => window.__bbReady === true && window.__bb.artInfo.done);
   await frames(page);
@@ -445,7 +445,7 @@ test("practice game 2: a new item every 3 s while fewer than 6, bananas 40 %, tw
 
 test("practice game 2: 5 kisses and 1 rescue kit for this game only — the real stock and the save do not change", async ({ simPage: page }) => {
   await page.evaluate(() => { const b = window.__bb; Object.assign(b.progress.inv, { kisses: 2, rescues: 3 }); });
-  const save0 = await page.evaluate(() => [JSON.stringify(window.__bb.progress.inv), localStorage.getItem("bebebe-progress")]);
+  const save0 = await page.evaluate(() => { window.__bb.save.flush(); return [JSON.stringify(window.__bb.progress.inv), localStorage.getItem("bebebe-save")]; });
   await game2(page);
   const r = await page.evaluate(() => {
     const b = window.__bb, l = b.littles[0], kiss = [];
@@ -453,7 +453,8 @@ test("practice game 2: 5 kisses and 1 rescue kit for this game only — the real
     for (let i = 0; i < 6; i++) { Object.assign(l, { state: "ok", kissCd: 0, x: 300, y: 300, dir: Math.PI }); kiss.push(b.throwKiss(0)); }
     const kit = [];
     for (let i = 0; i < 2; i++) { Object.assign(l, { state: "down" }); kit.push(b.useRescueKit(0)); }
-    return { kiss, kit, inv: JSON.stringify(b.progress.inv), stored: localStorage.getItem("bebebe-progress") };
+    b.save.flush();
+    return { kiss, kit, inv: JSON.stringify(b.progress.inv), stored: localStorage.getItem("bebebe-save") };
   });
   expect(r.kiss, "5 kisses, then none").toEqual([true, true, true, true, true, false]);
   expect(r.kit, "1 kit, then none").toEqual([true, false]);
@@ -536,7 +537,7 @@ test("AC 17: the whole tutorial changes nothing but seen.tutorial; a real Park 1
     if (b.mode === "play") win();
     b.sceneNext();
   });
-  const after = await page.evaluate(() => { const b = window.__bb; return { mode: b.mode, p: JSON.parse(JSON.stringify(b.progress)), ledger: b.ledger().length, stored: JSON.parse(localStorage.getItem("bebebe-progress")) }; });
+  const after = await page.evaluate(() => { const b = window.__bb; return { mode: b.mode, p: JSON.parse(JSON.stringify(b.progress)), ledger: b.ledger().length, stored: (b.save.flush(), JSON.parse(localStorage.getItem("bebebe-save")).progress) }; });
   expect(after.mode).toBe("map");
   expect(after.p.seen.tutorial).toBe(true);
   expect({ ...after.p, seen: { ...after.p.seen, tutorial: false } }, "the save is the same except seen.tutorial").toEqual(before.p);

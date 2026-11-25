@@ -148,6 +148,7 @@
  "rngDraws": "getter",
  "rotateShown": "getter",
  "safeZone": "getter",
+ "save": "value",
  "scene": "getter",
  "sceneInfo": "getter",
  "sceneNext": "function",

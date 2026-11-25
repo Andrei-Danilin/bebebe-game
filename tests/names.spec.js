@@ -2,7 +2,7 @@
 // Wardrobe tab (SPEC-017; the bot friends on its Friends page).
 const base = require("./pw");   // SPEC-023: @playwright/test + failure screenshots
 const { expect } = base;
-const { openGame, frames } = require("./helpers");
+const { openGame, frames, putOldSave, storedSave } = require("./helpers");
 
 // `page` = a fresh rendered game; SPEC-023: `simPage` = a fresh game in sim mode (logic only, nothing drawn). Page errors
 // fail the test.
@@ -50,17 +50,17 @@ test("names are saved, cleaned and survive a reload", async ({ simPage: page }) 
   await page.waitForFunction(() => window.__bbReady === true);
   n = await page.evaluate(() => window.__bb.names);
   expect(n).toEqual({ p1: "ABCDEFGHIJKL", p2: "\u{1F600}".repeat(12), big: "Papá", bots: ["Тёма", "Маша", "Rex", "Соня"] });
-  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("bebebe-names")));
+  const saved = (await storedSave(page)).names;   // SPEC-025: the names are in bebebe-save
   expect(Object.keys(saved).sort()).toEqual(["big", "bots", "p1", "p2"]);
   expect(saved.bots.length).toBe(4);
   // broken data → defaults, nothing throws
-  await page.evaluate(() => localStorage.setItem("bebebe-names", "{oops"));
+  await putOldSave(page, { "bebebe-names": "{oops", "bebebe-lang": "ru" });   // SPEC-025: an old device's keys, migrated at the next start
   await page.reload();
   await page.waitForFunction(() => window.__bbReady === true);
   n = await page.evaluate(() => window.__bb.names);
   expect(n).toEqual({ p1: "Игрок 1", p2: "Игрок 2", big: "Папа", bots: ["Тёма", "Маша", "Вася", "Соня"] });
   // partly wrong data → only the good fields are kept
-  await page.evaluate(() => localStorage.setItem("bebebe-names", JSON.stringify({ p1: "Ana", big: 42, bots: "x" })));
+  await putOldSave(page, { "bebebe-names": { p1: "Ana", big: 42, bots: "x" }, "bebebe-lang": "ru" });
   await page.reload();
   await page.waitForFunction(() => window.__bbReady === true);
   n = await page.evaluate(() => window.__bb.names);

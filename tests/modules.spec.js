@@ -214,7 +214,8 @@ function loadedState() {                       // runs in the page; plain data o
     const v = localStorage.getItem(k);
     try { stored[k] = JSON.parse(v); } catch (e) { stored[k] = v; }
   }
-  return { progress: plain(b.progress), outfits: plain(b.outfits), names: plain(b.names), lang: b.lang, world: b.world, level: b.level, mode: b.mode, stored };
+  const savedLoads = stored["bebebe-save"] && plain(b.loadProgress(stored["bebebe-save"].progress));   // SPEC-025: what bebebe-save loads into
+  return { progress: plain(b.progress), outfits: plain(b.outfits), names: plain(b.names), lang: b.lang, world: b.world, level: b.level, mode: b.mode, stored, savedLoads };
 }
 test("every save fixture loads the same after a real reload", async ({ page }) => {
   test.setTimeout(120_000);
@@ -238,7 +239,17 @@ test("every save fixture loads the same after a real reload", async ({ page }) =
   const ref = readJson(LOADED_FILE).saves;
   expect(Object.keys(got), "a loaded state recorded for every save fixture").toEqual(Object.keys(ref).sort());
   const soft = softly();
-  for (const [n, want] of Object.entries(ref)) for (const k of Object.keys(want)) soft(got[n][k], `${n}: ${k}`).toEqual(want[k]);
+  // SPEC-025 AC 3: the old keys are never written again (they stay exactly as the fixture stored them) and everything the start
+  // used to write back is in bebebe-save — so `stored` is checked that way; every other loaded field exactly as recorded
+  for (const [n, want] of Object.entries(ref)) for (const k of Object.keys(want).filter(q => q !== "stored")) soft(got[n][k], `${n}: ${k}`).toEqual(want[k]);
+  for (const f of files) {
+    const n = f.slice(0, -5), keys = readJson(path.join(SAVES_DIR, f)).keys, st = got[n].stored;
+    const parsed = Object.fromEntries(Object.entries(asStored(keys)).map(([k, v]) => { try { return [k, JSON.parse(v)]; } catch (e) { return [k, v]; } }));
+    for (const k of Object.keys(parsed).filter(q => !q.startsWith("bebebe-save"))) soft(st[k], `${n}: the old key ${k} is untouched`).toEqual(parsed[k]);
+    soft(Object.keys(st).filter(k => !(k in parsed) && !k.startsWith("bebebe-save")), `${n}: no other old key written`).toEqual([]);
+    soft(typeof (st["bebebe-save"] || {}).version, `${n}: bebebe-save written`).toBe("number");
+    soft(got[n].savedLoads, `${n}: bebebe-save loads into the same progress`).toEqual(got[n].progress);
+  }
   soft.done();
 });
 
@@ -578,29 +589,20 @@ test("live bindings: no module reassigns another module's let", async () => {
   expect(planted.messages.map(m => m.ruleId)).toContain("no-import-assign");
 });
 
-// AC 5b: the saves are read in one place, before the first game: storage is read (getItem) only in initSaves and the two
-// helpers it calls (language, names) — in src/client/ (Phase C; before it, the inline client); the core never touches storage
-// (the dependency test above); initSaves runs once at the top level, initLang and initNames only from it.
-const SAVE_READERS = ["initSaves", "initLang", "initNames", "readErrorLog"];   // SPEC-025 AC 7: + the error log (read on the first error)
-test("the saves are read only by initSaves at start", { tag: "@fast" }, () => {
-  const client = allSrc().filter(f => f.startsWith("src/client/")).map(f => [f, readRoot(f).replace(/\r\n/g, "\n")]);
-  const bad = [];
-  let readers = 0;
-  for (const [name, text] of client) {
-    const code = text;   // raw: the client has regex literals that confuse codeOnly; no comment names localStorage.getItem(
-    for (const m of code.matchAll(/\blocalStorage\.getItem\(/g)) {
-      const fn = [...code.slice(0, m.index).matchAll(/^(?:export )?function (\w+)\(/gm)].pop();
-      if (!fn || !SAVE_READERS.includes(fn[1])) bad.push(`${name}: getItem in ${fn ? fn[1] : "top level"}`); else readers++;
-    }
-  }
-  expect(bad, "storage read outside initSaves").toEqual([]);
-  expect(readers, "initSaves reads progress, outfits, names and the language").toBeGreaterThanOrEqual(4);
-  const all = client.map(([, t]) => t).join("\n").replace(/^[ \t]+/gm, "");   // SPEC-025: the start steps are inside boot()
-  expect([...all.matchAll(/^initSaves\(\);$/gm)].length, "initSaves() once, in main.js's boot()").toBe(1);
-  for (const h of ["initLang", "initNames"]) {
-    const calls = [...all.matchAll(new RegExp(`(?<!function )\\b${h}\\(\\)`, "g"))].map(m => [...all.slice(0, m.index).matchAll(/^(?:export )?function (\w+)\(/gm)].pop()[1]);
-    expect(calls, `${h}() only from initSaves`).toEqual(["initSaves"]);
-  }
+// AC 5b: the saves are read in one place, before the first game. SPEC-025 AC 3b: one save module owns storage — nothing in src/
+// touches localStorage but the storage backend (src/client/storage.js); the game boots with `await loadSave()` once, in boot().
+test("only the storage backend touches localStorage; loadSave once at start", { tag: "@fast" }, () => {
+  const strip = t => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:"'])\/\/.*$/gm, "$1");   // comments may name it
+  const uses = t => /\blocalStorage\b|\bsessionStorage\b/.test(strip(t));
+  const bad = allSrc().filter(f => f !== "src/client/storage.js" && uses(readRoot(f)));
+  expect(bad, "storage outside src/client/storage.js").toEqual([]);
+  expect(readRoot("src/client/storage.js"), "the backend is localStorage").toMatch(/localStorage\.setItem\(/);
+  // the scan sees a planted use (and ignores a comment)
+  expect(uses("// localStorage here\nconst a = 1;"), "a comment").toBe(false);
+  expect(uses("const a = localStorage.getItem(\"x\");"), "code").toBe(true);
+  const all = allSrc().filter(f => f.startsWith("src/client/")).map(f => readRoot(f).replace(/\r\n/g, "\n")).join("\n").replace(/^[ \t]+/gm, "");
+  expect([...all.matchAll(/^await loadSave\(\);$/gm)].length, "await loadSave() once, in main.js's boot()").toBe(1);
+  expect(/initSaves/.test(all.replace(/\/\/.*$/gm, "")), "initSaves is gone (replaced by loadSave)").toBe(false);
 });
 
 // AC 1 (Phase C): index.html is the shell — markup, CSS, the small non-module script (offline hint, file:// notice), the import
@@ -648,7 +650,7 @@ test("only main.js starts the game", { tag: "@fast" }, () => {
     const others = client.filter(x => x !== MAIN && new RegExp(`(?<!function )\\b${n}\\(`).test(readRoot(x).replace(/\/\/.*$/gm, "")));
     expect(others, `${n} is called only by main.js`).toEqual([]);
   }
-  const at = ["setStrictRng(window.__bbStrictRng", "seedRandom(window.__bbSeed)", "setHooks({", "initSaves();", "initThree();\nfit();\ninitScene();", "resetWorld(1);",
+  const at = ["setStrictRng(window.__bbStrictRng", "seedRandom(window.__bbSeed)", "setHooks({", "await loadSave();", "initThree();\nfit();\ninitScene();", "resetWorld(1);",
     "window.__bbReady = true;", "requestAnimationFrame(frame);", "registerServiceWorker();", "installDebug();"].map(t => [t, main.indexOf(t)]);
   expect(at.filter(([, i]) => i < 0).map(([t]) => t), "main.js runs every start step").toEqual([]);
   expect(at.map(([t]) => t), "in the start order").toEqual([...at].sort((x, y) => x[1] - y[1]).map(([t]) => t));

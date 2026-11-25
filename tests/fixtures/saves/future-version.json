@@ -1,0 +1,31 @@
+{
+  "about": "SPEC-025 AC 3: a save written by a newer version of the game (version 2): an extra world (moon), extra top-level (pets) and progress fields (gems, inv.rockets, upgrades.jump, owned.shoes, a world field best), a hat id (jetpack) and a seen scene (boss_moon) this version does not know, and one known field with a changed shape (progress.equip as an object). This version plays it and writes it back with version 2 and every field it had; equip stays byte-for-byte as it was (the default only in memory).",
+  "keys": {
+    "bebebe-save": {
+      "version": 2,
+      "progress": {
+        "worlds": {
+          "park": { "unlocked": 3, "stars": { "1": 3, "2": 1 }, "won": { "1": true, "2": true }, "best": { "1": 41 } },
+          "moon": { "unlocked": 2, "stars": { "1": 2 }, "won": { "1": true } }
+        },
+        "lastWorld": "park",
+        "coins": 250,
+        "inv": { "mittens": 1, "mega": 0, "kisses": 2, "rescues": 1, "rockets": 3 },
+        "equip": { "p1": "mittens", "p2": "none" },
+        "owned": { "hats": ["crown", "jetpack"], "jackets": [], "pants": [], "big": [], "shoes": ["boots"] },
+        "upgrades": { "fastFeet": 1, "longItems": 0, "quickHelp": 0, "jump": 2 },
+        "seen": { "intro": true, "tutorial": true, "boss_moon": true },
+        "gems": 7
+      },
+      "outfits": {
+        "p1": { "hair": "pink", "hat": "crown", "jacket": "hoodie", "pants": "jeans" },
+        "p2": { "hair": "black", "hat": "jetpack", "jacket": "tshirt", "pants": "shorts" },
+        "big": "dad"
+      },
+      "names": { "p1": "Mila", "p2": "", "big": "", "bots": ["", "", "", ""] },
+      "lang": "es",
+      "migrated": { "bebebe-progress": null, "bebebe-outfits": null, "bebebe-names": null, "bebebe-lang": null },
+      "pets": ["cat"]
+    }
+  }
+}
