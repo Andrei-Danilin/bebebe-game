@@ -21,6 +21,22 @@ Seven fixes from the kids' play session:
 6. **Win and lose screens** still say **Shop**: rename to **Character**.
 7. **Icons:** the Hugs row on the win screen uses an emoji (🤗). Every emoji still drawn on screen gets art in our style: existing art where we have it, a new small sheet (35) for the rest.
 
+## Redrawn art on master (Andrei, 2026-11-25; checked by Claude)
+Five pictures were regenerated and replaced under the same names (commits a9e25e8 and the one after it):
+- **`art/31_tutorial_a.webp`:**
+  - panel A4 is redrawn without the vertical line through Dad and without words; panels 1–3 are as before.
+  - New size 1200×896 (was 1024×765, the same 4:3 shape).
+  - **Remove the A4 `erase` circles from `scripts/assets.json`** (SPEC-029 measured them on the old picture; on the new one they would paint over the drawing), then rebuild.
+  - Check that the four panel crops (`MENU_LOOK.scene.panels`) still fit the new frame lines.
+- **`art/11_win.webp` (`story_win`):**
+  - redrawn without the empty frame and without letters;
+  - now **4:3 (1200×896) instead of 16:9**;
+  - re-measure every crop of `story_win` (the tutorial fallback figures of SPEC-029, the "You're ready!" page) and check the screenshots.
+- **`art/9_2_boss_field.webp` (`story_field`):** one field with exactly two goals, at the ends.
+- **`art/26_1_bonus_beach.webp` (`story_beach`)** and **`art/26_2_bonus_winter.webp` (`story_winter`):** four different, friendly grumpy dads, both houses, kids hiding; 16:9 as before.
+
+Run `npm run assets` in the first step of this spec and commit the rebuilt `assets/` (budget still ≤ 4 MB). Phone screenshots of the five new pictures in place (Story chapters Field, Beach, Winter; tutorial A4; the "You're ready!" page) go in the report.
+
 ## Context
 (Pre-flight against master: runs after SPEC-012 and SPEC-025; the code is in ES modules since SPEC-011 — match every name below to the files.)
 - **Hearing:** `src/core/hearing.js`:
