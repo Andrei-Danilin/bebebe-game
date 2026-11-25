@@ -1,6 +1,6 @@
 # SPEC-011 — Split index.html into ES modules (core / client)
 
-Status: in progress (phase A merged)
+Status: in progress (phase B merged)
 Complexity: L
 Branch: SPEC-011-modules
 Decided by: Andrei (2026-11-22): the game goes online (SPEC-012…015) and later to Google Play / App Store, so the game logic must run in the browser **and** on a Node server; `index.html` is split into modules, the game opens only over http (`npm run serve`, GitHub Pages, the installed app), opening by double-click from disk and publishing as one claude.ai page are dropped. Module layout, rules and checks: Claude (spec author).
