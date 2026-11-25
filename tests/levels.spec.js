@@ -153,8 +153,9 @@ test("the map shows six worlds and switches between them", async ({ page }) => {
   const d = await page.evaluate(() => ({ m: window.__bb.mapInfo, rects: window.__bb.buttonRects, names: window.__bb.buttonNames }));
   expect(d.m.tabs.map(t => t.world)).toEqual(WORLDS);
   expect(d.m.tabs.map(t => t.selected)).toEqual([true, false, false, false, false, false]);
-  // SPEC-016: Beach locked (🔒 on its tab), Winter open with progress
-  expect(d.m.tabs.map(t => t.locked)).toEqual([false, false, false, false, true, false]);
+  // SPEC-016: Beach locked (🔒 on its tab), Winter open with progress; SPEC-030: Field and City locked (the Park is not finished),
+  // the School open with progress
+  expect(d.m.tabs.map(t => t.locked)).toEqual([false, true, true, false, true, false]);
   expect(d.rects.find(q => q.id === "maptab:beach").text).toBe("🔒");
   expect(d.names).not.toContain("cyclePlace");                                      // the old place button is gone
   expect(await title()).toBe("🌳 Park  ⭐ 5/60");                                    // the world's stars in its title
@@ -175,14 +176,14 @@ test("the map shows six worlds and switches between them", async ({ page }) => {
     selected: window.__bb.mapInfo.tabs.map(c => c.selected), built: window.__bb.levelInfo.world }));
   expect(after).toEqual({ world: "school", level: 4, mode: "map", last: "school", selected: [false, false, false, true, false, false], built: "school" });
   expect(await title()).toBe("🏫 School  ⭐ 1/60");
-  // the keyboard: → next world, ← previous world in the story order (wraps around), the locked Beach skipped
+  // the keyboard: → next world, ← previous world in the story order (wraps around), the locked Field, City and Beach skipped
   const seq = [];
   for (const k of ["ArrowRight", "ArrowLeft", "ArrowLeft", "ArrowLeft", "ArrowLeft", "ArrowLeft"]) { await page.keyboard.press(k); seq.push(await page.evaluate(() => window.__bb.world)); }
-  expect(seq).toEqual(["winter", "school", "city", "field", "park", "winter"]);
+  expect(seq).toEqual(["winter", "school", "park", "winter", "school", "park"]);
   // the names and the star line in every language
   const I = await page.evaluate(() => window.__bb.LANGS.map(l => window.__bb.I18N[l].worldStars(7, 60)));
   expect(I).toEqual(LANGS.map(() => "⭐ 7/60"));
-  await page.evaluate(() => window.__bb.selectWorld("field"));
+  await page.evaluate(() => { window.__bb.world = "field"; });   // the debug setter (the Field is locked here)
   for (const [lang, want] of [["es", "⚽ Cancha  ⭐ 0/60"], ["pt", "⚽ Campo de futebol  ⭐ 0/60"], ["ru", "⚽ Футбольное поле  ⭐ 0/60"]]) {
     await page.evaluate(l => window.__bb.setLang(l), lang);
     await frames(page);

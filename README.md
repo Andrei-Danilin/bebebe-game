@@ -65,7 +65,7 @@ The **home screen** shows the logo and three big buttons in a column, each with 
 Character's **Progress** page.
 
 1. **Play** opens the **level map**: one page per world, the six worlds as tabs at the top (🌳 Park, ⚽ Football field,
-   🏙️ City, 🏫 School, then the bonus 🏖️ Beach and ❄️ Winter). Each page has 20 level stops on a winding dotted path:
+   🏙️ City, 🏫 School, then the bonus 🏖️ Beach and ❄️ Winter; the worlds open one after another, see "Worlds"). Each page has 20 level stops on a winding dotted path:
    number and stars on each stop, 🔒 on the locked ones, the next level to play bounces, level 20 is the big
    **Boss** stop. A finished world gets a "✔ Done!" stamp.
 2. Tap a stop: the **level card** shows the world and level, the level type, one line about it and your best stars.
@@ -149,7 +149,7 @@ Menus:
 | Screen | Keyboard | Gamepad | Touch |
 |---|---|---|---|
 | Home | `Enter` / `Space` — Play, `S` — Story, `B` — Character | A — Play, X — Story, Y — Character | tap the buttons |
-| Level map | `←` / `→` — world (locked bonus worlds are skipped), `↑` / `↓` — pick a stop, `Enter` — its level card, `Esc` — home | D-pad left/right or the shoulder buttons (LB / RB) — world, D-pad up/down — stop, A — card, B — home | tap a tab or a stop; swipe left/right — world |
+| Level map | `←` / `→` — world (locked worlds are skipped), `↑` / `↓` — pick a stop, `Enter` — its level card, `Esc` — home | D-pad left/right or the shoulder buttons (LB / RB) — world, D-pad up/down — stop, A — card, B — home | tap a tab or a stop; swipe left/right — world |
 | Level card | `Enter` or `1` — one player, `2` — two players, `S` — the world's story chapter, `Esc` — close | A — one player, X — two players, Y — story chapter, B — close | Play (computer: 1 / 2 players), ✕ or a tap outside — close |
 | Story | `←` / `→` — chapter, `V` — watch the chapter's scene again, `Esc` — back | D-pad or shoulders — chapter, X — watch the scene, Y — How to play, B — back | ◀ ▶ or swipe, ▶ on the picture — watch the scene |
 | Story scene | `Enter` / `Space` / `→` — next, `←` — back, `Esc` — skip | A — next, B — skip | tap — next, Skip |
@@ -201,7 +201,7 @@ Leaving a level before the win (pause → Map or Home) pays the hugs only; leavi
 **Character** (home screen; after a level the **Shop** button opens it on Items) has four tabs: **Progress** ·
 **Items** · **Wardrobe** (outfits and names, see below) · **Upgrades**. **Progress** (opened from home) shows player 1's
 look and name, the stars (out of 240) and finished worlds, one row per world (stars out of 60, levels won out of 20, a
-"done" stamp, a padlock on a locked bonus world), the bag (gloves, air kisses, rescue kits), the upgrade levels and how
+"done" stamp, a padlock on a locked world; under the rows, which world to finish next), the bag (gloves, air kisses, rescue kits), the upgrade levels and how
 many clothes you own — and the "Reset progress" button. **Items**: gloves, air kisses and rescue kits, bought with
 coins in packs.
 
@@ -236,11 +236,15 @@ Six worlds of 20 levels each, in the order of the story the kids made up:
 | World | Kind | What it looks like |
 |---|---|---|
 | Park | main, open from the start | grass, trees, ponds, hedges |
-| Football field | main, open from the start | striped grass with chalk lines, goals with nets, cones and kit bags, ad boards round the pitch, light masts |
-| City | main, open from the start | streets with crosswalks, parked cars, flower planters, a pool, lamp posts and hydrants |
-| School | main, open from the start | court lines, hopscotch, footballs, hedges, sandbox, school windows — it ends with the grumpiest dad |
+| Football field | main, opens when the Park is finished | striped grass with chalk lines, goals with nets, cones and kit bags, ad boards round the pitch, light masts |
+| City | main, opens when the Football field is finished | streets with crosswalks, parked cars, flower planters, a pool, lamp posts and hydrants |
+| School | main, opens when the City is finished | court lines, hopscotch, footballs, hedges, sandbox, school windows — it ends with the grumpiest dad |
 | Beach | **bonus** | palms, sandcastles, umbrellas, pool, sea |
 | Winter | **bonus** | snowy pines, snowmen, snowdrifts, frozen pond, snowfall |
+
+The **main worlds open one after another**: at first only the Park; win a world's level 20 (its boss) and the next
+one opens — the map switches to it with "🎉 The Football field is open!". A world you already played in an older
+version stays open. A locked world's tab shows a 🔒; a tap tells you which world to finish first.
 
 The **bonus worlds** open when you have won all 80 levels of the four main worlds; that win shows
 "🎁 Bonus worlds unlocked!". Beach is as hard as the School, Winter harder. A Beach or Winter you already played

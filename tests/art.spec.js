@@ -244,7 +244,7 @@ test("home, level map and level card are drawn with the art", async ({ page }) =
   use = await drawn(page, () => { const b = window.__bb; b.world = "park"; Object.assign(b.progress.worlds.park, { unlocked: 3, won: { 1: true, 2: true }, stars: { 1: 3, 2: 1 } }); b.toMap(); });
   expect(missing(use, ["map_bg_park", "stop_empty", "stop_current", "stop_locked", "stop_boss", "star_gold", "star_empty", "stamp_done",
     "world_park", "world_field", "world_city", "world_school", "world_beach", "world_winter", "padlock", "coin_badge", "btn_grey"])).toEqual([]);
-  use = await drawn(page, () => { const b = window.__bb; b.tapButton("maptab:field"); });
+  use = await drawn(page, () => { const b = window.__bb; b.progress.worlds.field.unlocked = 2; b.tapButton("maptab:field"); });   // SPEC-030: a played Field is open
   expect(missing(use, ["map_bg_field"])).toEqual([]);
   // level card: a paper panel (notebook paper), drawn stars, paper buttons
   use = await drawn(page, () => { const b = window.__bb; b.world = "park"; b.tapButton("stop:1"); });

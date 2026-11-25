@@ -17,11 +17,13 @@ const test = base.test.extend({
 });
 test.afterAll(async () => { await sharedSim.close(); });
 
-// In-page helper: start a level, everybody far away and pinned (bots as players without controls), the Big One calm at (x, y) facing dir
+// In-page helper: start a level, everybody far away and pinned (bots as players without controls), the Big One calm at (x, y) facing dir.
+// The game rng is seeded BEFORE startGame too: the bots take their random lurk time and approach side (makeLittle) there, and an
+// unseeded start made "the bot goes to help" fail on one Pages run (resetGame leaves the rng unseeded)
 async function scene(page, world, n) {
   await page.evaluate(([w, lv]) => {
     const b = window.__bb;
-    b.world = w; b.level = lv; b.startGame(1); b.seedRandom(7);
+    b.seedRandom(7); b.world = w; b.level = lv; b.startGame(1); b.seedRandom(7);
     window.__pin = () => b.littles.forEach((l, i) => { if (l.kind === "bot") { l.kind = "player"; l.controls = { up: [], down: [], left: [], right: [] }; } });
     window.__calm = (x, y, dir) => Object.assign(b.big, { x, y, dir, state: "look", timer: 999, lookSign: 0, stun: 0, slip: 0, blush: 0, pushCd: 0, noPush: 0, hugCd: 0, path: [], moving: false });
     window.__park = () => b.littles.forEach((l, i) => Object.assign(l, { x: 120 + i * 30, y: 90, state: "ok", invuln: 0, hugCd: 0, hugAnim: 0, dizzy: 0, kx: 0, ky: 0, fx: { boots: 0, cloak: 0, shield: 0 } }));
@@ -150,9 +152,10 @@ test("bots keep out of the grumpiest dad's front when he is not standing", async
     const inFront = () => { const dx = bot.x - b.big.x, dy = bot.y - b.big.y; return Math.hypot(dx, dy) < C.WIDE_PUSH_R * cell && Math.abs(Math.atan2(dy, dx)) < Math.PI / 2; };
     let inside = 0;
     for (let i = 0; i < 180; i++) { window.__calm(480, 330, 0); b.update(1 / 60); if (inFront()) inside++; }
-    // standing after a push: now it may come and help
+    // standing after a push: now it may come and help. Up to 10 s: with a far approach side (bot.offset) the bot walks round the
+    // long way — 60 start states took 1–7.6 s (300 frames were too short for 3 of them)
     let came = false;
-    for (let i = 0; i < 300 && !came; i++) { window.__calm(480, 330, 0); b.big.pushCd = 1; b.update(1 / 60); came = L[0].rescue > 0 || L[0].state === "ok"; }
+    for (let i = 0; i < 600 && !came; i++) { window.__calm(480, 330, 0); b.big.pushCd = 1; b.update(1 / 60); came = L[0].rescue > 0 || L[0].state === "ok"; }
     return { inside, state: bot.state, task: bot.task, came };
   });
   expect(r.state).toBe("ok");
@@ -164,7 +167,7 @@ test("bots still go after the bosses (no stuck bots on boss levels)", async ({ s
   const r = await page.evaluate(() => {
     const b = window.__bb, out = {};
     for (const w of ["park", "school"]) {
-      b.world = w; b.level = 20; b.startGame(1); b.seedRandom(11);
+      b.seedRandom(11); b.world = w; b.level = 20; b.startGame(1); b.seedRandom(11);   // seeded before the start too (the bots' random start values)
       const p = b.littles[0]; Object.assign(p, { x: 60, y: 60 }); p.controls = { up: [], down: [], left: [], right: [] };   // the player stays home
       let attacks = 0;
       const still = b.littles.map(() => 0), last = b.littles.map(l => ({ x: l.x, y: l.y })), maxStill = b.littles.map(() => 0);

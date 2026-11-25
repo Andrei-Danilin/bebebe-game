@@ -1,6 +1,6 @@
 # SPEC-030 — Worlds open one after another; home button icons on the left, labels centred
 
-Status: ready
+Status: done (merged by "Merge SPEC-030", see git log; AC 8–9 done in SPEC-027)
 Complexity: M
 Branch: SPEC-030-worlds-in-order
 Decided by: Andrei (2026-11-24, after SPEC-026):

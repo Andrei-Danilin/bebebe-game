@@ -349,8 +349,9 @@ test("SPEC-026: the Progress page shows the save: look and name, stars, worlds, 
   const i = d.info;
   expect(i, "progressInfo drawn").toBeTruthy();
   expect([i.stars, i.starsMax, i.worldsDone], "main-world stars / 240, worlds finished / 4").toEqual([60 + 6 + 2, 240, 1]);
+  // SPEC-030: the School waits for the City (not finished, never played); Winter for all four main worlds
   expect(i.worlds.map(q => [q.world, q.open, q.stars, q.max, q.levels, q.done])).toEqual(["park", "field", "city", "school", "beach", "winter"].map(w =>
-    [w, w !== "winter", stars(w), 60, won(w), won(w) === 20]));
+    [w, w !== "school" && w !== "winter", stars(w), 60, won(w), won(w) === 20]));
   expect(i.bag, "bag counts").toEqual(MIXED.inv);
   expect(i.upgrades, "upgrade levels").toEqual(MIXED.upgrades);
   expect(i.clothes, "clothes owned / all (free count as owned)").toEqual(d.clothes);
@@ -367,7 +368,8 @@ test("SPEC-026: the Progress page shows the save: look and name, stars, worlds, 
   expect(text("progress:bag")).toBe("Bag");
   const ids = d.hud.map(h => h.id);
   expect(ids.filter(id => id.startsWith("progress:done:")), "the done stamp: the Park only").toEqual(["progress:done:park"]);
-  expect(ids.filter(id => id.startsWith("progress:lock:")), "the padlock: locked Winter only").toEqual(["progress:lock:winter"]);
+  expect(ids.filter(id => id.startsWith("progress:lock:")), "the padlock: locked School and Winter").toEqual(["progress:lock:school", "progress:lock:winter"]);
+  expect(text("progress:lockText"), "SPEC-030: which world opens the School").toBe("Finish the City to open the School!");
   expect(text("progress:lockNote"), "the existing wording for a locked bonus world").toBe(d.I.lockedBonus);
   expect(d.previews.map(q => q.key), "the 3D look of player 1").toEqual(["p1"]);
   // read-only: only the tabs, OK and Reset are buttons
@@ -417,8 +419,11 @@ async function progressProblems(page, phone, size) {
       const h = d.hud.find(q => q.id === "progress:name:" + w);
       if (!h || h.text !== d.names[w]) fails.push(`${at}: world name ${w} "${h && h.text}"`);
     }
+    // SPEC-030: an open world's row has its stars, a locked one its padlock; a locked main world → the "finish … to open" line
     const need = ["progress:name", "progress:stars", "progress:worlds", "progress:bag", "progress:upgrades", "progress:wardrobe", "progress:clothes",
-      ...["park", "field", "city", "school"].map(w => "progress:stars:" + w), "progress:bag:rescues", "progress:upg:quickHelp"];
+      ...d.info.worlds.map(q => (q.open ? "progress:stars:" : "progress:lock:") + q.world), "progress:bag:rescues", "progress:upg:quickHelp",
+      ...(d.info.worlds.some(q => !q.open && ["park", "field", "city", "school"].includes(q.world)) ? ["progress:lockText"] : [])];
+    if (d.info.worlds.filter(q => q.open).length < (rich ? 4 : 1)) fails.push(`${at}: open worlds ${d.info.worlds.filter(q => q.open).map(q => q.world)}`);
     for (const id of need) if (!d.hud.some(h => h.id === id)) fails.push(`${at}: no ${id}`);
     if (phone) fails.push(...phoneProblems(at, d));
     else {
@@ -527,15 +532,16 @@ test("the map switches worlds", { tag: "@fast" }, async ({ page }) => {
   // opens on progress.lastWorld
   await page.evaluate(() => {
     const b = window.__bb, p = b.progress.worlds;
-    Object.assign(p.park, { unlocked: 3, won: { 1: true, 2: true }, stars: { 1: 3, 2: 2 } }); Object.assign(p.school, { unlocked: 4, won: { 1: true }, stars: { 1: 1 } });
+    // SPEC-030: the Park finished (the Field opens), the School played in "all worlds open" times (stays open), the City locked
+    Object.assign(p.park, { unlocked: 20, won: Object.fromEntries(Array.from({ length: 20 }, (_, i) => [i + 1, true])), stars: { 1: 3, 2: 2 } }); Object.assign(p.school, { unlocked: 4, won: { 1: true }, stars: { 1: 1 } });
     b.progress.lastWorld = "school";
   });
   await click(page, "home:play");
   let m = await mapInfo(page);
   expect(await page.evaluate(() => window.__bb.mode)).toBe("map");
   expect(m.world).toBe("school");
-  // six tabs in the story order, the bonus ones locked; the back button and the coins
-  expect(m.tabs.map(t => [t.world, t.locked])).toEqual([["park", false], ["field", false], ["city", false], ["school", false], ["beach", true], ["winter", true]]);
+  // six tabs in the story order, the City and the bonus ones locked; the back button and the coins
+  expect(m.tabs.map(t => [t.world, t.locked])).toEqual([["park", false], ["field", false], ["city", true], ["school", false], ["beach", true], ["winter", true]]);
   expect(m.tabs.map(t => t.selected)).toEqual([false, false, false, true, false, false]);
   let s = await screen(page);
   expect(s.ids).toEqual(expect.arrayContaining(["back:home", "maptab:park", "maptab:field", "maptab:city", "maptab:school", "maptab:beach", "maptab:winter"]));
@@ -547,19 +553,21 @@ test("the map switches worlds", { tag: "@fast" }, async ({ page }) => {
   expect(await page.evaluate(() => [window.__bb.world, window.__bb.progress.lastWorld, JSON.parse(localStorage.getItem("bebebe-progress")).lastWorld])).toEqual(["park", "park", "park"]);
   await click(page, "maptab:beach");
   expect(await page.evaluate(() => [window.__bb.world, window.__bb.toast && window.__bb.toast.text])).toEqual(["park", "Win all levels of the main worlds to open"]);
+  await click(page, "maptab:city");
+  expect(await page.evaluate(() => [window.__bb.world, window.__bb.toast && window.__bb.toast.text])).toEqual(["park", "Finish the Football field to open the City!"]);
   s = await screen(page);
   expect(s.hud.map(h => h.id)).toContain("toast");
-  // ←/→ walk the worlds in the story order (round), skipping the locked bonus ones
+  // ←/→ walk the worlds in the story order (round), skipping the locked ones
   const seq = [];
   for (const k of ["ArrowRight", "ArrowRight", "ArrowLeft", "ArrowLeft", "ArrowLeft"]) { await page.keyboard.press(k); seq.push(await page.evaluate(() => window.__bb.world)); }
-  expect(seq).toEqual(["field", "city", "field", "park", "school"]);
+  expect(seq).toEqual(["field", "school", "field", "park", "school"]);
   // the gamepad: D-pad ←/→ and the shoulder buttons (CFG.PAD_PREV_WORLD / PAD_NEXT_WORLD)
   const C = await page.evaluate(() => [window.__bb.CFG.PAD_PREV_WORLD, window.__bb.CFG.PAD_NEXT_WORLD]);
   expect(C).toEqual([4, 5]);
   await padStub(page);
   const ps = [];
   for (const k of [15, 14, C[1], C[0], C[0]]) { await pad(page, k); ps.push(await page.evaluate(() => window.__bb.world)); }
-  expect(ps).toEqual(["park", "school", "park", "school", "city"]);
+  expect(ps).toEqual(["park", "school", "park", "school", "field"]);
   // every main level won: the bonus tabs open, → from the School goes to the Beach
   await page.evaluate(() => { const b = window.__bb; for (const w of b.MAIN_WORLDS) Object.assign(b.progress.worlds[w], { unlocked: 20, won: Object.fromEntries(Array.from({ length: 20 }, (_, i) => [i + 1, true])) }); b.selectWorld("school"); });
   await frames(page);
@@ -684,7 +692,7 @@ test("the map fits a phone and swipes between worlds", async ({ phonePage: page 
     else if (st === "toast" && (th.text !== d.toast.text || (th.rows || [th.text]).length > 2)) fails.push(`${at}: toast ${JSON.stringify(th)}: the whole text in one or two rows`);
     if (st === "done" && !d.hud.some(h => h.id === "map:done")) fails.push(`${at}: no done stamp`);
   }
-  await page.evaluate(() => { const b = window.__bb; b.CFG.TEXT_TEST_SCALE = 1; b.setProgress(null); b.setLang("en"); b.resetMenus(); b.mode = "map"; b.world = "park"; });
+  await page.evaluate(() => { const b = window.__bb; b.CFG.TEXT_TEST_SCALE = 1; b.setProgress(null); b.setLang("en"); b.resetMenus(); b.mode = "map"; b.world = "park"; b.progress.worlds.field.unlocked = 9; });   // SPEC-030: a played Field is open
   expect(fails, fails.slice(0, 15).join("\n")).toEqual([]);
   // a swipe left goes to the next world, right to the previous one; a short move is a tap
   const swipe = async (x0, x1, y) => {
@@ -699,8 +707,9 @@ test("the map fits a phone and swipes between worlds", async ({ phonePage: page 
   const ui = await page.evaluate(() => window.__bb.uiSize);
   expect(await swipe(ui.w * 0.7, ui.w * 0.3, ui.h * 0.6)).toBe("field");
   expect(await swipe(ui.w * 0.3, ui.w * 0.7, ui.h * 0.6)).toBe("park");
-  expect(await swipe(ui.w * 0.3, ui.w * 0.7, ui.h * 0.6), "round, past the locked bonus worlds").toBe("school");
-  expect(await swipe(ui.w * 0.5, ui.w * 0.5 + 3, ui.h * 0.6)).toBe("school");
+  // SPEC-030: only the Park and the Field (played) are open — round, past the locked ones
+  expect(await swipe(ui.w * 0.3, ui.w * 0.7, ui.h * 0.6), "round, past the locked worlds").toBe("field");
+  expect(await swipe(ui.w * 0.5, ui.w * 0.5 + 3, ui.h * 0.6)).toBe("field");
 });
 
 // ---------- AC 6, 7, 2: the level card ----------
@@ -755,8 +764,8 @@ test("story chapters unlock with progress", async ({ page }) => {
     }
     return out;
   };
-  // fresh: the beginning and the four main worlds; the bonus worlds and the ending show 🔒
-  expect(await walk()).toEqual([["began", false], ["park", false], ["field", false], ["city", false], ["school", false], ["beach", true], ["winter", true], ["ended", true]]);
+  // fresh: the beginning and the Park (SPEC-030: the other worlds open in order); the later worlds and the ending show 🔒
+  expect(await walk()).toEqual([["began", false], ["park", false], ["field", true], ["city", true], ["school", true], ["beach", true], ["winter", true], ["ended", true]]);
   await frames(page);
   let s = await page.evaluate(() => window.__bb.storyInfo);
   expect(s.chapter, "→ on the last chapter stays there").toBe("ended");
@@ -767,6 +776,10 @@ test("story chapters unlock with progress", async ({ page }) => {
   await frames(page);
   s = await page.evaluate(() => window.__bb.storyInfo);
   expect([s.chapter, s.locked, s.text]).toEqual(["ended", false, await page.evaluate(() => window.__bb.STORY[7].text.en)]);
+  // SPEC-030: the Park finished — the Field's chapter opens with the Field; the City's waits for the Field
+  await page.evaluate(() => { const b = window.__bb; b.progress.worlds.school.won = {}; Object.assign(b.progress.worlds.park, { unlocked: 20, won: Object.fromEntries(Array.from({ length: 20 }, (_, i) => [i + 1, true])) }); });
+  for (let i = 0; i < 7; i++) await page.keyboard.press("ArrowLeft");
+  expect((await walk()).map(x => x[1])).toEqual([false, false, false, true, true, true, true, true]);
   // every main level won: the bonus chapters open
   await page.evaluate(() => { const b = window.__bb; for (const w of b.MAIN_WORLDS) Object.assign(b.progress.worlds[w], { unlocked: 20, won: Object.fromEntries(Array.from({ length: 20 }, (_, i) => [i + 1, true])) }); });
   for (let i = 0; i < 7; i++) await page.keyboard.press("ArrowLeft");
