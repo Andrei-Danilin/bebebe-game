@@ -53,7 +53,9 @@ test("an error on every frame: the loop goes on, one card, one log entry with a 
   expect(Object.keys(l[0]).sort()).toEqual(["count", "level", "message", "mode", "stack", "version"]);
   expect(l[0]).toMatchObject({ message: "test: a broken frame", mode: "play", level: "park 1" });
   expect(l[0].count, "the same error every frame: counted").toBeGreaterThan(1);
-  expect(l[0].version).toBe(await page.evaluate(() => document.querySelector("meta[name=src-hash]").content));
+  // SPEC-025 AC 12: the game version + the module set's hash
+  const pkgVersion = JSON.parse(require("fs").readFileSync(require("path").join(__dirname, "..", "package.json"), "utf8")).version;
+  expect(l[0].version).toBe(`${pkgVersion}+` + await page.evaluate(() => document.querySelector("meta[name=src-hash]").content));
   expect(l[0].stack.split("\n").length).toBeLessThanOrEqual(await page.evaluate(() => window.__bb.CFG.ERROR_STACK_LINES));
   // kept in local storage only
   expect(JSON.parse(await page.evaluate(() => localStorage.getItem("bebebe-errors")))).toEqual(l);

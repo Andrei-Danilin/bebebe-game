@@ -6,7 +6,7 @@
 // - icon-512-maskable.png: opaque, the picture shrunk to MASKABLE of the side on its own blue (median of the edge), so a round
 //   mask keeps the dad's face and the kid.
 // - icon.svg: the favicon (index.html links it, sw.js precaches it) — the 128 px rounded icon embedded as a PNG.
-// Bump SW_VERSION in sw.js after a new icon (hard rule 8).
+// Then run npm run precache: a changed icon gives sw.js the next SW_BUILD (SW_VERSION is derived, SPEC-025 AC 12; hard rule 8).
 const path = require("path");
 const fs = require("fs");
 const sharp = require("sharp");

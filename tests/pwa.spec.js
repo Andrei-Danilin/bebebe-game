@@ -122,7 +122,8 @@ test.describe(() => {
 test("service worker registers and controls the page over http", { tag: "@fast" }, async ({ page }) => {
   const errors = await openGameHttp(page);
   await waitForSW(page);
-  expect(SW_VERSION).toBe("bebebe-v6");   // SPEC-025 AC 1: the vendored three.js from this origin (a strategy change)
+  // SPEC-025 AC 12: derived by npm run precache — the game version + the build counter (tests/tooling.spec.js)
+  expect(SW_VERSION).toBe(`bebebe-${JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8")).version}-b${(SW_SRC.match(/const SW_BUILD = (\d+);/) || [])[1]}`);
   expect(ASSETS_HASH && SRC_HASH && THREE_VERSION).toBeTruthy();
   // SPEC-011 AC 9: exactly the three caches
   expect((await page.evaluate(() => caches.keys())).sort()).toEqual([CACHE_ASSETS, CACHE_SRC, CACHE_THREE].sort());

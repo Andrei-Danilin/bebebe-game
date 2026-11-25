@@ -30,9 +30,10 @@ import { localBackend, wrapBackend } from "./storage.js";
 
 // SPEC-025 AC 9: the save schema (JSDoc for `npm run typecheck`; the checks themselves: validSave, loadProgress). Fields are only
 // ever added; unknown fields are kept (AC 3), so the object is open.
+/** @import { Progress } from "../core/progress-rules.js" */
 /**
  * @typedef {{ hair?: string, hat?: string, jacket?: string, pants?: string, [slot: string]: any }} OutfitIds   one Little One's outfit by item id (AC 3c)
- * @typedef {{ version: number, progress: import("../core/progress-rules.js").Progress,
+ * @typedef {{ version: number, progress: Progress,
  *   outfits: { p1: OutfitIds, p2: OutfitIds, big: string }, names: { p1: string, p2: string, big: string, bots: string[] },
  *   lang: string, migrated: Record<string, string | null>, persist?: { asked: boolean, granted: boolean }, [field: string]: any }} Save   bebebe-save
  */

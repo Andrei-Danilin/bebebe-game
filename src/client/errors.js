@@ -9,6 +9,7 @@
 import { G } from "../core/active.js";
 import { CFG } from "../core/config.js";
 import { L } from "../i18n.js";
+import { VERSION } from "../version.js";
 import { mode, resumeGame, retryLevel, setMode, toHome } from "./flow.js";
 import { mergeLogs, readErrorLog, writeErrorLog } from "./save.js";
 import { restartTutorialGame } from "./tutorial.js";
@@ -16,8 +17,17 @@ import { restartTutorialGame } from "./tutorial.js";
 let log = null;                      // the error log (read on the first error; joined with the stored one by loadSave)
 let logDirty = false, logWrittenAt = 0;
 let pausedByOops = false, lastShown = null;   // the entry the last card showed (the same one again → also a reload button)
-const seen = { version: null };     // the module set's SRC_HASH, read once (an error repeating every frame stays cheap)
-const version = () => { if (seen.version === null) { try { seen.version = /** @type {HTMLMetaElement} */ (document.querySelector("meta[name=src-hash]")).content; } catch (e) { seen.version = "?"; } } return seen.version; };
+const seen = { version: null };     // the build's version, made once (an error repeating every frame stays cheap)
+// SPEC-025 AC 12: the game version + the module set's SRC_HASH (semver build metadata: "1.0.0-dev+ca4a5e9ae9") — the version
+// names the release, the hash the exact modules (a -dev version spans many deploys); the error log and the grown-ups page show it
+export function buildVersion() {
+  if (seen.version === null) {
+    let hash = "?";
+    try { hash = /** @type {HTMLMetaElement} */ (document.querySelector("meta[name=src-hash]")).content; } catch (e) { /* no shell meta */ }
+    seen.version = `${VERSION}+${hash}`;
+  }
+  return seen.version;
+}
 const levelOf = () => (G ? `${G.world} ${G.level}` : "-");
 // the message of anything thrown: an Error's message, a string or a number as text, any other value only as its type (never its
 // content: a rejected object may carry names or save data)
@@ -30,7 +40,7 @@ function messageOf(err) {
 }
 function entryOf(err) {
   const stack = err instanceof Error && err.stack ? String(err.stack).split("\n").slice(0, CFG.ERROR_STACK_LINES).join("\n") : "";
-  return { message: messageOf(err).slice(0, CFG.ERROR_MESSAGE_MAX), stack, version: version(), mode, level: levelOf(), count: 1 };
+  return { message: messageOf(err).slice(0, CFG.ERROR_MESSAGE_MAX), stack, version: buildVersion(), mode, level: levelOf(), count: 1 };
 }
 const sameEntry = (a, b) => !!a && !!b && a.message === b.message && a.stack === b.stack;
 // writes the log if a repeat count is waiting (at most every CFG.ERROR_LOG_WRITE_EVERY s; lifecycle.js on hide)

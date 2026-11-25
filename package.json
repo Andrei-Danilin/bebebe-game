@@ -1,5 +1,6 @@
 {
   "name": "bebebe-atrapar",
+  "version": "1.0.0-dev",
   "private": true,
   "description": "BeBeBe Atrapar — a top-down arcade game designed by kids. Tests only: the game itself needs no build.",
   "scripts": {
