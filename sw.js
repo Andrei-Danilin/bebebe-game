@@ -20,14 +20,14 @@ const NET_TIMEOUT_MS = 4000;             // weak signal: after this long, a cach
 const THREE_BASE = "https://cdn.jsdelivr.net/npm/three@0.187.0/build/";
 // SPEC-011: written by npm run precache (scripts/precache.js) — do not edit by hand
 // precache:start
-const SRC_HASH = "4f935f37ee";
+const SRC_HASH = "8f34ece7f9";
 const PRECACHE_LOCAL = [
   "./", "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512-maskable.png",
   "./icons/icon-512.png", "./icons/icon.svg", "./index.html", "./manifest.webmanifest"
 ];
 const PRECACHE_SRC = [
-  "./src/client/art-names.js?v=7228f7f839", "./src/client/art.js?v=9447a553cf", "./src/client/debug.js?v=0d6abeb92f",
-  "./src/client/flow.js?v=0d8889f665", "./src/client/fx.js?v=42d70d3481", "./src/client/input.js?v=f38653c7bc",
+  "./src/client/art-names.js?v=7228f7f839", "./src/client/art.js?v=9447a553cf", "./src/client/debug.js?v=a51819be45",
+  "./src/client/flow.js?v=7d13bd7d2a", "./src/client/fx.js?v=73f397efb4", "./src/client/input.js?v=f38653c7bc",
   "./src/client/look.js?v=6b3f0ae3e3", "./src/client/main.js?v=44135f4206", "./src/client/names.js?v=53974b368f",
   "./src/client/outfits.js?v=3e76d2feee", "./src/client/progress.js?v=efd066f61c",
   "./src/client/screen.js?v=57a76e38b6", "./src/client/shop.js?v=ebde4ad6de", "./src/client/sound.js?v=e9ddab15a9",
@@ -52,7 +52,7 @@ const PRECACHE_SRC = [
   "./src/core/level/generate.js?v=455b2ff4e4", "./src/core/level/layouts.js?v=068cdfd513",
   "./src/core/level/validate.js?v=3f3743eb46", "./src/core/mood.js?v=8dcad43e22", "./src/core/path.js?v=b05dfc5c4e",
   "./src/core/practice.js?v=44fe1505f4", "./src/core/progress-rules.js?v=9aa174b661",
-  "./src/core/rules.js?v=234923ca7d", "./src/core/util.js?v=c7e01b9d3a", "./src/core/wardrobe.js?v=89c9230548",
+  "./src/core/rules.js?v=f09e1fba51", "./src/core/util.js?v=c7e01b9d3a", "./src/core/wardrobe.js?v=89c9230548",
   "./src/core/world.js?v=68fa838aaf", "./src/i18n.js?v=a28c8e3da4", "./src/story.js?v=31072db672"
 ];
 // precache:end

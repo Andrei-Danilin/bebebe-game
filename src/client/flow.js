@@ -25,7 +25,7 @@ import { camSnap } from "./three/camera.js";
 import { practiceStep, setPracticeStep, setTutorial, tutorialNext, tutorialPages } from "./tutorial.js";
 import { lockedText } from "./ui/map.js";
 import { rebuild3D } from "./three/characters.js";
-import { drainEvents } from "./fx.js";
+import { runCore } from "./fx.js";
 
 // SPEC-012 AC 1c: the screen is the client's (the core has only the game's phase, G.phase). mode — one of MODES; lastReward — the
 // reward of the last level paid (payLevel's result: the win screen shows it), null after a new game is built
@@ -50,11 +50,13 @@ const press = (pi, k) => { const l = G.littles[pi]; if (mode !== "play" || !l ||
 export const pressKiss = pi => press(pi, "kiss");
 export const pressKit = pi => press(pi, "kit");
 // shims for the tests (__bb.throwKiss / useRescueKit): the rule at once, past the input slot
-export const kissNow = pi => { syncStock(); const r = mode === "play" && throwKiss(pi); drainEvents(); return r; };
-export const kitNow = pi => { syncStock(); const r = mode === "play" && useRescueKit(pi); drainEvents(); return r; };
+export const kissNow = pi => runCore(() => mode === "play" && throwKiss(pi));
+export const kitNow = pi => runCore(() => mode === "play" && useRescueKit(pi));
 // ---------- SPEC-012 AC 6 / 6b / 10: the client applies the game's events ----------
 // the local stock follows the saves (one pool for p1/p2; the shop and the tests change progress between steps), and each player
-// wears his saved glove — before every step and every frame; a practice game keeps its own stock
+// wears his saved glove — before every core call (runCore: a step, the shims), every frame and a re-dress; a practice game keeps
+// its own stock. Coupling: progress.inv / progress.equip are the truth between steps, G.stock / l.glove inside a step; the spent
+// events the client applies after the step bring progress down by what the step spent, so the two stay equal
 export function syncStock() {
   if (!G || !G.stock || G.tutorialGame) return;
   const s = G.stock, inv = progress.inv;
@@ -150,6 +152,7 @@ export function redress() {
   const looks = looksFor(G.players);
   for (const l of G.littles) l.look = l.kind === "player" ? looks.players[l.id] : looks.bots[l.botIndex];
   G.big.skin = looks.big;
+  syncStock();                                              // the saved glove of each player (and the stock's charges) before the models
   rebuild3D();
 }
 export function showBanner() {

@@ -313,3 +313,13 @@ One line each: what, where it came from. The spec author turns a line into a spe
 - (SPEC-011 review) For SPEC-013 (left by SPEC-012): an explicit named API in `src/core/index.js` (the server's surface: createGame, useGame, withGame, step, simRun, newInput, computeReward, levelResult, setProgress, CFG…) instead of `export *` from every core module.
 - (SPEC-011 review) The client's import cycle: a pure `ui/layout.js` for the HUD and menu geometry that `three/camera.js` and `three/previews.js` read (`minimapRect`, `teamRect`, `phoneTopBar`, `progressGeom`, `phoneSkinCols`); `KID_HEAD_R` to `look.js` or `three/setup.js`; the canvas helpers take a `ctx` argument instead of the `setCtx` swap; until then `paintGround`'s `setCtx` swap inside `try/finally`.
 - (SPEC-011 review) For SPEC-025: the error card for a failed start must be installed by the non-module script of `index.html` (a module graph that fails to load runs no module at all), and once `initSaves()` becomes `await loadSave()`, `window.__bbReady` must be set after `installDebug()` (tests read `__bb` as soon as it is ready).
+- (SPEC-012 review) For SPEC-013: an outbox of the events the client or server acts on, separate from the effects (`g.out`, always on; `fx: false` drops effects only) — or a monotonic `seq` on gameplay events — instead of the `{ type: "game" }` entries in `g.fx`.
+- (SPEC-012 review) For SPEC-013: per-slot stock when `stock.shared` is false (`gameInv(l)`, `gloveOf` with `l.gloveCharges`); today every game spends from the one `G.stock`.
+- (SPEC-012 review) For SPEC-013: a per-slot reward `computeReward(p, result, slot?)` (SPEC-013 AC 9) — SPEC-012's `perSlot` counts are display only.
+- (SPEC-012 review) For SPEC-013: the menu selection (`G.world` / `G.level` / `G.players`) and `rewardDue` out of the game object into client state.
+- (SPEC-012 review) For SPEC-013: drop the `rebuild` hook — `flow.js` `buildLocal` calls `rebuild3D` after `createGame`.
+- (SPEC-012 review) For SPEC-013: an allow-list for `createGame({ keep })` (today any field can be carried over).
+- (SPEC-012 review) For SPEC-013: abandoning / leaving a level as a server event (today the client's `leaveLevel` pays it).
+- (SPEC-012 review) For SPEC-013: `perSlotCounts` counted into the stats as events happen (today read back from the capped log at the win).
+- (SPEC-012 review) For SPEC-013: `npm run bench:core -- --players 5 --fx` (5 players, the effect queue on).
+- (SPEC-012 review) For SPEC-025: move `economy.js` to the client or make it an explicit profile object; pure progress-rules helpers (no `progress` / `G.world` defaults); a coalescing async save queue (`payLevel` saves once per reward line).

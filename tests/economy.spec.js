@@ -148,7 +148,7 @@ test("every coin change is in the ledger", async ({ simPage: page }) => {
     { type: "coins", reason: "buy:mittens", amount: -G.mittens },
     { type: "coins", reason: "buy:rescues", amount: -G.rescues }]);
   expect(r.afterStart).toEqual({ events: 0, ledger: 3 });
-  expect(r.all[3], "the bonus star at pickup").toEqual({ type: "coins", reason: "star", amount: r.star });
+  expect(r.all[3], "the bonus star at pickup (SPEC-012: with the slot that picked it)").toEqual({ type: "coins", slot: "p1", reason: "star", amount: r.star });
   expect(r.win.length).toBeGreaterThan(0);
   expect(r.win.map(({ reason, amount }) => ({ reason, amount })), "the win lines = lastReward.parts without the star (paid at pickup)")
     .toEqual(r.winParts.filter(p => p.reason !== "star"));

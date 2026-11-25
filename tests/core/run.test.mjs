@@ -20,12 +20,13 @@ test("Park 1 plays to a win: 1 autopilot player and 4 bots", () => {
   assert.equal(g.big.hp, 0);
 });
 
+// (stepped the whole 180 s, also after a win: stepping a won game is safe)
 test("a 5-player autopilot game on Winter 18 runs 180 s without errors", () => {
   setProgress(null);
   const g = autoGame({ world: "winter", n: 18, seed: 18, slots: ["p1", "p2", "p3", "p4", "p5"].map(slot => ({ slot, kind: "player" })) });
   let n = 0;
-  for (; n < steps(180) && g.phase !== "won"; n++) step(g, DT);
-  assert.ok(n > 0 && Number.isFinite(g.stats.time) && g.littles.every(l => Number.isFinite(l.x) && Number.isFinite(l.y)));
+  for (; n < steps(180); n++) step(g, DT);
+  assert.ok(n === steps(180) && Number.isFinite(g.stats.time) && g.littles.every(l => Number.isFinite(l.x) && Number.isFinite(l.y)));
   assert.ok(g.events.length > 10, "the game happened");
 });
 

@@ -157,6 +157,8 @@ const firstDiff = (want, got, name) => {
 };
 // SPEC-012: spent (a kiss, a kit, a glove charge), result (a level won) and practiceWin are new gameplay events (AC 6b, 6, 10)
 const NEW_EVENT_TYPES = ["spent", "result", "practiceWin"];
+// SPEC-012 AC 6b (review): the star's coins event now names the slot that picked the star — compared without that one new field
+const withoutStarSlot = e => { if (e.type !== "coins" || e.reason !== "star") return e; const { slot, ...rest } = e; return rest; };
 test("same seed, same game after the split", async ({ page }) => {
   test.setTimeout(180_000);
   const errors = await openGame(page, { sim: true });
@@ -187,7 +189,7 @@ test("same seed, same game after the split", async ({ page }) => {
   const bad = [];
   ref.runs.forEach((want, k) => {
     const got = runs[k], name = `${want.world} ${want.n} (${want.players}P)`;
-    const gotEvents = got.events.filter(e => !NEW_EVENT_TYPES.includes(e.type));
+    const gotEvents = got.events.filter(e => !NEW_EVENT_TYPES.includes(e.type)).map(withoutStarSlot);
     for (const d of [firstDiff(want.snaps, got.snaps, "state"), firstDiff(want.events, gotEvents, "event")]) if (d) bad.push(`${name}: ${d}`);
     const { snaps: s1, events: e1, ...wantHead } = want, { snaps: s2, events: e2, ...gotHead } = got;
     if (JSON.stringify(wantHead) !== JSON.stringify(gotHead)) bad.push(`${name}: want ${JSON.stringify(wantHead)}, got ${JSON.stringify(gotHead)}`);

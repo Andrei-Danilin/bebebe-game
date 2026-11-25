@@ -17,7 +17,8 @@ const state = g => { const { levelInfo, ...rest } = g; return JSON.stringify(res
 
 test("two games stepped interleaved equal the same games stepped alone", () => {
   const SEC = 60, specs = [["park", 1, 11], ["winter", 18, 22]];
-  // alone: one game after the other (fresh progress for each run: the win reward reads it)
+  // alone: one game after the other (fresh progress for each run, so both runs start alike; since SPEC-012 AC 6 the game never
+  // reads or writes progress during a level — the client pays the result)
   setProgress(null);
   const alone = specs.map(([w, n, s]) => { const g = newGame(w, n, s); for (let i = 0; i < steps(SEC); i++) step(g, DT); return state(g); });
   // interleaved: one step of each in turn

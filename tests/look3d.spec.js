@@ -383,3 +383,21 @@ test("the new clothes are built in 3D: rainbow bands, a coat hem, overalls, stri
   expect(old.every(n => n === 0)).toBe(true);
   expect(errors).toEqual([]);
 });
+
+// SPEC-012 review: a glove change re-dresses the shown game (no rebuild of the level) — the kid's 3D model wears the new mittens at
+// once: mittens red, mega pink, none — no glove parts
+test("equipping a glove re-dresses the kid in the menus", async ({ page }) => {
+  const errors = await openGame(page);
+  const gloves = async kind => page.evaluate(k => {
+    const b = window.__bb;
+    b.progress.inv.mittens = 3; b.progress.inv.mega = 3;
+    b.setEquip(0, k);
+    const m = b.model(0);
+    return { n: m.gloveParts.length, color: m.gloveParts[0] ? "#" + m.gloveParts[0].material.color.getHexString() : null, want: k === "none" ? null : b.GLOVES[k].color };
+  }, kind);
+  for (const k of ["mittens", "mega", "none"]) {
+    const g = await gloves(k);
+    expect([g.n > 0, g.color], k).toEqual(k === "none" ? [false, null] : [true, g.want]);   // mitten, cuff and thumb on each hand
+  }
+  expect(errors).toEqual([]);
+});

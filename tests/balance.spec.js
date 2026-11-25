@@ -265,7 +265,7 @@ test("the event log records gameplay and every coin change", async ({ page }) =>
   expect(r.kissMiss).toEqual([{ type: "spent", slot: "p1", kind: "kiss" }, { type: "kiss", who: 0, result: "miss" }]);
   expect(r.kitUsed).toBe(true);
   expect(r.kit).toEqual([{ type: "spent", slot: "p1", kind: "kit" }, { type: "kit", who: 0 }]);
-  expect(r.pick).toEqual([{ type: "item", kind: "boots", who: 0 }, { type: "star", who: 0 }, { type: "coins", reason: "star", amount: 3 }]);
+  expect(r.pick).toEqual([{ type: "item", kind: "boots", who: 0 }, { type: "star", who: 0 }, { type: "coins", slot: "p1", reason: "star", amount: 3 }]);
   expect(r.slip).toEqual([{ type: "slip" }]);
   expect(r.thrown).toEqual([{ type: "thrownOut", who: 0 }]);
   expect(r.capped).toEqual(["coins", "star", "coins"]);

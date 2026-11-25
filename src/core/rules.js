@@ -238,7 +238,7 @@ export function updateStars(dt) {
     s.t = s.life;
     G.stats.starCoins += CFG.STAR_COINS;
     logEvent("star", { who: l.id });
-    logEcon("coins", { reason: "star", amount: CFG.STAR_COINS });   // клиент кладёт их в копилку сразу: остаются, даже если уровень не выигран
+    logEcon("coins", { slot: l.slot, reason: "star", amount: CFG.STAR_COINS });   // клиент кладёт их в копилку сразу: остаются, даже если уровень не выигран
     emit("pop", { key: null, args: ["+" + CFG.STAR_COINS], x: s.x, y: s.y - 30, color: "#fde047" });
     emit("burst", { kind: "star", x: s.x, y: s.y, n: 16, color: "#fde047" });
     emit("sfx", { name: "star" });
