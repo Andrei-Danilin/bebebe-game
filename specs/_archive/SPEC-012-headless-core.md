@@ -1,6 +1,6 @@
 # SPEC-012 — Headless core: game instances, input slots, events
 
-Status: ready
+Status: done (merged by "Merge SPEC-012", see git log)
 Complexity: L
 Branch: SPEC-012-headless-core
 Decided by: Andrei (2026-11-22): the server computes the game (server-authoritative), many rooms on one server, up to 5 human Little Ones per game and a mode where a human plays the Big One. Everything below (API shape, slots, event list, what moves to the client): Claude (spec author).
