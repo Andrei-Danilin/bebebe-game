@@ -1,16 +1,19 @@
 // Shared helpers for the game tests.
-// - openGame(): opens index.html from disk, serves three.js from node_modules (no internet needed),
-//   collects page errors, waits until the game says it is ready (window.__bbReady).
+// - openGame(): opens index.html over http (scripts/serve.js, the webServer of playwright.config.js; SPEC-011 AC 8),
+//   serves three.js from node_modules (no internet needed), collects page errors, waits until the game says it is ready
+//   (window.__bbReady) and seeds the game rng from the test's title (SPEC-011 AC 8d, testSeed()).
 // - step(page, seconds): advances the game logic by N seconds at 60 fps, without waiting in real time.
-// - openGameHttp(): the same over http (scripts/serve.js), for the PWA tests (service worker, manifest).
+// - openGameHttp(): the same at the site root with three.js routed at context level, for the PWA tests (service worker, manifest).
 // The game exposes a debug object window.__bb (mode, littles, big, items, progress, update, startGame, ...).
 const path = require("path");
 const fs = require("fs");
-const { expect } = require("@playwright/test");
+const { expect, test } = require("@playwright/test");
 
 const ROOT = path.resolve(__dirname, "..");
-const GAME_URL = "file://" + path.join(ROOT, "index.html").replace(/\\/g, "/");
 const THREE_DIR = path.join(ROOT, "node_modules", "three", "build");
+// SPEC-011 AC 8: every test opens the game over http (the webServer of playwright.config.js serves the repo root here);
+// scripts outside the Playwright runner (balance.js) start their own makeServer() and pass `base`.
+const HTTP_BASE = `http://localhost:${Number(process.env.PORT) || 8123}/`;
 // SPEC-028: the game's languages in the globe's order (= __bb.LANGS); fit and coverage loops go over all of them
 const LANGS = ["en", "es", "pt", "ru"];
 
@@ -32,6 +35,8 @@ function clearOnce(l) {
 // SPEC-008 (init script): the level generator and the 3D build must not touch the gameplay rng(). In the tests that
 // throws (the game reads window.__bbStrictRng at start); in normal play the game falls back to visual randomness.
 function strictRng() { window.__bbStrictRng = true; }
+// SPEC-011 AC 8d (init script): the game seeds its rng from window.__bbSeed at start, so its start-up resetWorld is seeded too
+function bootSeed(seed) { window.__bbSeed = seed; }
 
 // `query` is appended to the URL (e.g. "?phone=1"). SPEC-023: `sim: true` opens the game in sim mode (adds sim=1 to the
 // query, so "?phone=1" + sim → "?phone=1&sim=1"): no 3D, no 2D drawing, no audio, the frame loop does not play — for tests
@@ -45,7 +50,38 @@ const withSim = (query, sim) => (sim ? query + (query.includes("?") ? "&" : "?")
 function noIntro() { window.__bbNoIntro = true; }
 // SPEC-029: the tutorial after the intro on the first launch — skipped the same way (window.__bbNoTutorial); `tutorial: true` = its own tests
 function noTutorial() { window.__bbNoTutorial = true; }
-async function openGame(page, { lang = "en", clearStorage = true, query = "", sim = false, intro = false, tutorial = false } = {}) {
+
+// SPEC-011 AC 8d: every test game is seeded before it starts. The seed is a stable hash (FNV-1a) of the test's file name and
+// title path, so a test plays the same game on every run and machine; openGame / openGameHttp / resetGame / reloadGame seed
+// with it (openGame / openGameHttp also before the boot: window.__bbSeed), and ./pw prints it when the test fails
+// (annotation "seed"). Outside a test (scripts) → null: the script seeds itself.
+function titleSeed(file, titles) {
+  let h = 0x811c9dc5;
+  for (const ch of [path.basename(file), ...titles].join(" › ")) { h ^= ch.codePointAt(0); h = Math.imul(h, 0x01000193) >>> 0; }
+  return h >>> 0;
+}
+function testSeed() {
+  let info;
+  try { info = test.info(); } catch (e) { return null; }
+  const seed = titleSeed(info.file, info.titlePath.slice(1));
+  if (!info.annotations.some(a => a.type === "seed")) info.annotations.push({ type: "seed", description: String(seed) });
+  return seed;
+}
+// Seeds the game rng of an open, ready page with the test's seed (no-op outside a test).
+async function seedGame(page) {
+  const seed = testSeed();
+  if (seed != null) await page.evaluate(s => { window.__bb.seedRandom(s); }, seed);
+  return seed;
+}
+// A reload starts the game again with an unseeded rng: reload, wait until it is ready, seed again.
+async function reloadGame(page) {
+  await page.reload();
+  await page.waitForFunction(() => window.__bbReady === true, null, { timeout: READY_MS });
+  return seedGame(page);
+}
+
+// `base` (SPEC-011 AC 8): the site URL with a trailing slash — HTTP_BASE by default; scripts pass their own server's.
+async function openGame(page, { lang = "en", clearStorage = true, query = "", sim = false, intro = false, tutorial = false, base = HTTP_BASE } = {}) {
   const errors = [];
   page.on("pageerror", e => errors.push(String(e)));
   page.on("console", m => { if (m.type() === "error") errors.push("console: " + m.text()); });
@@ -55,14 +91,16 @@ async function openGame(page, { lang = "en", clearStorage = true, query = "", si
     await route.fulfill({ path: file, contentType: "application/javascript", headers: { "Access-Control-Allow-Origin": "*" } });
   });
   await page.addInitScript(strictRng);
+  if (testSeed() != null) await page.addInitScript(bootSeed, testSeed());
   if (!intro) await page.addInitScript(noIntro);
   if (!tutorial) await page.addInitScript(noTutorial);
   if (clearStorage) {
     await page.addInitScript(clearOnce, lang);
   }
   if (sim) guardSim(page);
-  await page.goto(GAME_URL + withSim(query, sim));
+  await page.goto(base + "index.html" + withSim(query, sim));
   await page.waitForFunction(() => window.__bbReady === true, null, { timeout: READY_MS });
+  await seedGame(page);
   return errors;
 }
 
@@ -75,8 +113,6 @@ function guardSim(page) {
   page.screenshot = async () => { throw new Error("sim mode: nothing is drawn — a test that takes a screenshot needs a rendered page (openGame without sim)"); };
 }
 
-const HTTP_BASE = `http://localhost:${Number(process.env.PORT) || 8123}/`;
-
 // Serves jsDelivr's three.js from node_modules at CONTEXT level, so requests made by the
 // service worker are intercepted too (needs PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS=1, set in the config).
 async function routeThree(context) {
@@ -87,14 +123,17 @@ async function routeThree(context) {
   });
 }
 
-// Like openGame(), but over http from scripts/serve.js (the webServer in playwright.config.js),
-// so the service worker and the manifest work. `query` is appended to the URL (e.g. "?standalone=1").
+// Like openGame(), but at the site root (HTTP_BASE + query) with three.js routed at context level, so the service worker's
+// requests are served too. SPEC-011 AC 8b: Playwright blocks service workers by default (playwright.config.js); a spec
+// that needs the service worker allows it with test.use({ serviceWorkers: "allow" }) (pwa.spec.js does).
+// `query` is appended to the URL (e.g. "?standalone=1").
 async function openGameHttp(page, { lang = "en", query = "", clearStorage = true, intro = false, tutorial = false } = {}) {
   const errors = [];
   page.on("pageerror", e => errors.push(String(e)));
   page.on("console", m => { if (m.type() === "error") errors.push("console: " + m.text()); });
   await routeThree(page.context());
   await page.addInitScript(strictRng);
+  if (testSeed() != null) await page.addInitScript(bootSeed, testSeed());
   if (!intro) await page.addInitScript(noIntro);
   if (!tutorial) await page.addInitScript(noTutorial);
   if (clearStorage) {
@@ -102,6 +141,7 @@ async function openGameHttp(page, { lang = "en", query = "", clearStorage = true
   }
   await page.goto(HTTP_BASE + query);
   await page.waitForFunction(() => window.__bbReady === true, null, { timeout: READY_MS });
+  await seedGame(page);
   return errors;
 }
 
@@ -184,23 +224,24 @@ function sharedPage() {
 
 // SPEC-018: puts a shared game page back to the state of a freshly opened one: localStorage as openGame leaves it
 // (only the language), English, fresh progress and names, no gamepad stubs, an empty level cache, Park 1 on the home screen,
-// unseeded gameplay randomness and the autopilot off (SPEC-008), the skin picker back to the default looks (SPEC-009),
+// the gameplay randomness seeded from the test's title (SPEC-011 AC 8d) and the autopilot off (SPEC-008), the skin picker back to the default looks (SPEC-009),
 // the menu screens' own state as at start (SPEC-017 resetMenus: shop tab, wardrobe page, where the shop goes back to).
 // Tests still restore any CFG value they change (the fixtures check CFG is unchanged after each test). Not reset: held
 // gamepad buttons (a gamepad test releases its buttons at the end), mute and the phone camera zoom.
 async function resetGame(page) {
-  await page.evaluate(() => {
+  await page.evaluate(seed => {
     const b = window.__bb;
     b.resetMenus();                                            // SPEC-029: no tutorial left running (resetWorld below builds a normal level)
     delete navigator.getGamepads; window.__pads = [];          // gamepad stubs some tests leave behind
-    b.setLang("en"); b.clearLevelCache(); b.resetBannerTimer(); b.mode = "home"; b.seedRandom(); b.autopilot(false, "careful");   // SPEC-008: unseeded, no autopilot, default style
+    b.setLang("en"); b.clearLevelCache(); b.resetBannerTimer(); b.mode = "home"; b.seedRandom(seed); b.autopilot(false, "careful");   // SPEC-011 AC 8d: seeded; no autopilot, default style
     for (const s of ["p1", "p2", "big", "bot1", "bot2", "bot3", "bot4"]) b.setName(s, "");
     b.world = "park"; b.resetProgress(); b.resetProgress();   // two calls, like the button: fresh progress, level 1
     b.resetOutfits();                                          // SPEC-009: default looks, nothing tried on
     b.world = "park"; b.level = 1; b.resetWorld(1); b.mode = "home"; b.resetMenus();   // SPEC-017: home, the menus' state as at start
     for (let i = 0; i < 60; i++) b.updateMinimapFade(1 / 60);    // phone: the mini-map fully back (no-op on desktop)
+    b.seedRandom(seed);                                         // again: the test's first game starts from the seed itself
     try { localStorage.clear(); localStorage.setItem("bebebe-lang", "en"); localStorage.setItem("bb-test-init", "1"); } catch (e) { /* ok */ }
-  });
+  }, testSeed());
 }
 
 // Puts player 1 right behind a calm Big One so the next update() makes a hug.
@@ -220,4 +261,4 @@ function textFloor(floors, cat) {
   return v;
 }
 
-module.exports = { textFloor, LANGS, openGame, openSim, openGameHttp, routeThree, frames, step, setupHug, softly, sharedPage, resetGame, GAME_URL, HTTP_BASE, ROOT };
+module.exports = { textFloor, LANGS, openGame, openSim, openGameHttp, routeThree, frames, step, setupHug, softly, sharedPage, resetGame, seedGame, reloadGame, testSeed, titleSeed, HTTP_BASE, ROOT };

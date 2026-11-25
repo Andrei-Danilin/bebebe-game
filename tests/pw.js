@@ -4,6 +4,7 @@
 // - `page`: the test's own fresh page, before it closes;
 // - auto `failureShots`: every page still open in the worker's browser (the shared pages of a spec).
 // A sim page draws nothing: its screenshot throws and is skipped.
+// SPEC-011 AC 8d: a failed test also prints the seed its games were seeded with (tests/helpers.js testSeed(), annotation "seed").
 // Specs use it as `const base = require("./pw")` / `const { test, expect } = require("./pw")`.
 const pw = require("@playwright/test");
 
@@ -25,7 +26,10 @@ const test = pw.test.extend({
   },
   failureShots: [async ({ browser }, use, testInfo) => {
     await use();
-    if (failed(testInfo)) await shoot(browser.contexts().flatMap(c => c.pages()), testInfo, "failure-open-page");
+    if (!failed(testInfo)) return;
+    const seed = testInfo.annotations.find(a => a.type === "seed");
+    if (seed) console.log(`[seed] ${testInfo.titlePath.join(" › ")}: rng seed ${seed.description}`);
+    await shoot(browser.contexts().flatMap(c => c.pages()), testInfo, "failure-open-page");
   }, { auto: true }]
 });
 

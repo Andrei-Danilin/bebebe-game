@@ -1,7 +1,12 @@
-# Tests (the sharded jobs of tests.yml, SPEC-023), then publishes the game on GitHub Pages (SPEC-001).
-# A red deploy with green tests: start a fresh run (gh workflow run pages.yml --ref master), never gh run rerun --failed
-# (it uploads a second github-pages artifact).
-# Only the site files go to Pages: index.html, manifest.webmanifest, sw.js, icons/, assets/, v1-2d/.
+# Tests (the sharded jobs of tests.yml, SPEC-023) and the site build run in parallel; when both are green the game is
+# published on GitHub Pages (SPEC-001).
+# SPEC-011 AC 10c: the site is built and uploaded in its own `build` job (npm run site = scripts/site.js, the one list of
+# site files: index.html, manifest.webmanifest, sw.js, icons/, assets/, v1-2d/, later src/; stamped with the commit sha in
+# version.txt), so `deploy` only deploys: two deploy-pages attempts (30 s apart, 5 min each), then the live check decides —
+# the deployed version.txt must be this commit's sha.
+# A red deploy with green tests: `gh run rerun <id> --failed` only when that run's `build` job was green AND its commit is
+# still the HEAD of origin/master (the rerun deploys the artifact `build` uploaded once; it uploads nothing new); otherwise
+# a fresh `gh workflow run pages.yml --ref master`.
 name: Pages
 
 on:
@@ -17,30 +22,71 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # SPEC-023: the same 4 sharded test jobs as on spec branches (tests.yml), then the deploy
+  # SPEC-023: the same 4 sharded test jobs as on spec branches (tests.yml)
   test:
     uses: ./.github/workflows/tests.yml
 
-  deploy:
-    needs: test
+  # SPEC-011 AC 10c: build + upload, in parallel with the tests (Node built-ins only: no npm install)
+  build:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # configure-pages only reads the Pages settings; `write` is kept because `read` was not verified on this repo
+    permissions:
+      contents: read
+      pages: write
+    outputs:
+      base_url: ${{ steps.pages.outputs.base_url }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+      - name: Build the site (npm run site → _site/, version.txt = the commit sha)
+        run: npm run site -- --stamp "${GITHUB_SHA}"
+      - id: pages
+        uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+          retention-days: 7
+
+  deploy:
+    needs: [test, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read
       pages: write
       id-token: write
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: ${{ steps.deployment.outputs.page_url || steps.deployment-retry.outputs.page_url || needs.build.outputs.base_url }}
     steps:
-      - uses: actions/checkout@v7
-      - name: Collect the site files
-        run: |
-          mkdir _site
-          cp index.html manifest.webmanifest sw.js _site/
-          cp -r icons assets v1-2d _site/
-      - uses: actions/configure-pages@v6
-      - uses: actions/upload-pages-artifact@v5
-        with:
-          path: _site
+      # the deploy step failed in about 1 of 3 runs with green tests ("Fetching artifact metadata failed" and the like):
+      # two attempts; neither fails the job by itself — the live check below does
       - id: deployment
         uses: actions/deploy-pages@v5
+        continue-on-error: true
+        with:
+          timeout: 300000
+      - name: Wait before the second attempt
+        if: steps.deployment.outcome == 'failure'
+        run: sleep 30
+      - id: deployment-retry
+        if: steps.deployment.outcome == 'failure'
+        uses: actions/deploy-pages@v5
+        continue-on-error: true
+        with:
+          timeout: 300000
+      # the live site serves this commit: its version.txt is this sha (the Pages CDN may lag: up to ~5 min)
+      - name: Check the live site serves this commit
+        env:
+          PAGE_URL: ${{ steps.deployment.outputs.page_url || steps.deployment-retry.outputs.page_url || needs.build.outputs.base_url }}
+        run: |
+          test -n "$PAGE_URL" || { echo "no Pages URL"; exit 1; }
+          for i in $(seq 1 30); do
+            live=$(curl -fsSL -H "Cache-Control: no-cache" "${PAGE_URL%/}/version.txt?v=${GITHUB_SHA}-$i" || true)
+            if [ "$live" = "$GITHUB_SHA" ]; then echo "live site serves ${GITHUB_SHA} (attempt $i)"; exit 0; fi
+            echo "attempt $i: live version.txt is '${live}', not ${GITHUB_SHA} yet"; sleep 10
+          done
+          echo "the live site does not serve ${GITHUB_SHA} after 5 min (deploy attempts: ${{ steps.deployment.outcome }}, ${{ steps.deployment-retry.outcome }})"; exit 1

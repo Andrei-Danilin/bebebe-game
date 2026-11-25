@@ -6,3 +6,5 @@ test-results/
 playwright-report/
 .tmp-module.mjs
 .claude/
+_site/
+.lint-index.mjs

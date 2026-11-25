@@ -205,9 +205,10 @@ test("tutorial pages: four panels per sheet with captions in every language", { 
 });
 
 // ---------- SPEC-029 step 3: practice game 1 — rescue and hug (AC 8–12, 17) ----------
-// in-page: start practice game 1 (from the menu, optionally with two players set), seeded
+// in-page: start practice game 1 (from the menu, optionally with two players set), seeded (SPEC-011 AC 8d: before the
+// resetWorld too; the practice game itself still starts from seed 29)
 const game1 = (page, players = 1) => page.evaluate(n => {
-  const b = window.__bb; b.resetWorld(n); b.mode = "home"; b.seedRandom(29); b.openTutorial("map", "game1");
+  const b = window.__bb; b.seedRandom(29); b.resetWorld(n); b.mode = "home"; b.seedRandom(29); b.openTutorial("map", "game1");
 }, players);
 // in-page: step until cond() or the time runs out (sec of game time); → seconds used
 const stepUntil = (page, cond, max) => page.evaluate(([c, m]) => {
@@ -353,7 +354,7 @@ test("practice game 1: the friend falls again → hint 1 again; the bot does not
 
 test("AC 17: a real Park 1 after practice game 1 has its own numbers", async ({ simPage: page }) => {
   const park = () => page.evaluate(() => {
-    const b = window.__bb; b.world = "park"; b.level = 1; b.startGame(1); b.seedRandom(5);
+    const b = window.__bb; b.seedRandom(5); b.world = "park"; b.level = 1; b.startGame(1); b.seedRandom(5);   // SPEC-011 AC 8d: seeded before the start too
     const out = { speeds: b.bigSpeeds(), hp: b.big.maxHp, kinds: b.littles.map(l => l.kind), world: b.worldState(), type: b.levelInfo.type, label: b.timerText() };
     for (let i = 0; i < 20 * 60; i++) b.update(1 / 60);
     out.items = b.events.filter(e => e.type === "item" || e.type === "slip").length + b.items.length;
@@ -376,7 +377,7 @@ test("AC 17: a real Park 1 after practice game 1 has its own numbers", async ({ 
 });
 
 // ---------- SPEC-029 step 4: practice game 2 — items, banana, kisses, rescue kit (AC 13–16, 17) ----------
-const game2 = (page, seed = 31) => page.evaluate(s => { const b = window.__bb; b.resetWorld(1); b.mode = "home"; b.seedRandom(s); b.openTutorial("map", "game2"); }, seed);
+const game2 = (page, seed = 31) => page.evaluate(s => { const b = window.__bb; b.seedRandom(s); b.resetWorld(1); b.mode = "home"; b.seedRandom(s); b.openTutorial("map", "game2"); }, seed);
 // in-page: everybody still (the bot as a player without controls, the player in the house), Dad calm and standing
 const PIN = `(() => { const b = window.__bb;
   b.littles.forEach(l => { if (l.kind === "bot") { l.kind = "player"; l.controls = { up: [], down: [], left: [], right: [] }; } });
@@ -543,7 +544,7 @@ test("AC 17: the whole tutorial changes nothing but seen.tutorial; a real Park 1
   expect(after.ledger, "no economy entries").toBe(before.ledger);
   // a real Park 1: its own item rate and max, its own push cooldown
   const r = await page.evaluate(() => {
-    const b = window.__bb, C = b.CFG; b.world = "park"; b.level = 1; b.startGame(1); b.seedRandom(5);
+    const b = window.__bb, C = b.CFG; b.seedRandom(5); b.world = "park"; b.level = 1; b.startGame(1); b.seedRandom(5);   // SPEC-011 AC 8d: seeded before the start too
     const cd = [];
     let most = 0;
     b.littles.forEach(l => { if (l.kind === "bot") { l.kind = "player"; l.controls = { up: [], down: [], left: [], right: [] }; } });

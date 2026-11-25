@@ -1,4 +1,4 @@
-# Test times (SPEC-018, SPEC-023)
+# Test times (SPEC-018, SPEC-023, SPEC-011)
 
 How long the Playwright suite takes, before and after SPEC-018, and what was changed to make it faster without losing
 coverage. Durations come from `npx playwright test --reporter=json` (local) and from the Pages workflow log (CI).
@@ -299,3 +299,38 @@ players" (the gamepad is polled by the frame loop).
 - levels.spec.js:1027 "kisses stop at maze walls and cottages and fly over the river"
 - levels.spec.js:1089 "rooms and arena need diagonal houses even if the CFG pairing is removed"
 - names.spec.js:23 "names are saved, cleaned and survive a reload"
+
+## SPEC-011 phase A: every test over http (AC 8, 8b)
+
+The tests open the game from `scripts/serve.js` (`http://localhost:8123/index.html`) instead of `file://`, service workers
+are blocked outside `pwa.spec.js`, and every test game is seeded from the test title. Expected growth of the CI time per
+push: ≤ 10 %.
+
+## Before
+
+The last 7 green Tests runs (`tests.yml`, 4 shards, `ubuntu-latest`) before phase A, from `gh run view <id> --json jobs`
+(seconds; wall = run created → run finished, includes the queue and the merge-reports job):
+
+| run | commit | wall | shard 1 | shard 2 | shard 3 | shard 4 | shards together |
+|---|---|---|---|---|---|---|---|
+| 45549853445 | `96879aa` | 1284 | 372 | 557 | 549 | 586 | 2064 |
+| 45547344922 | `d3443a0` | 975 | 350 | 435 | 953 | 820 | 2558 |
+| 45535987930 | `98c9901` | 749 | 504 | 539 | 731 | 651 | 2425 |
+| 45530836647 | `b9466bd` | 957 | 366 | 315 | 936 | 815 | 2432 |
+| 45525827338 | `af4d29f` | 912 | 486 | 564 | 894 | 855 | 2799 |
+| 45523693201 | `2590342` | 977 | 378 | 424 | 952 | 777 | 2531 |
+| 45513805116 | `26527e3` | 888 | 544 | 540 | 778 | 848 | 2710 |
+| **median** | | **957 (16.0 min)** | | | | longest shard **894 (14.9 min)** | **2531 (42.2 min)** |
+
+## After
+
+The Tests runs of the phase A branch (same columns; the `lint` job, ~15 s, runs in parallel with the shards):
+
+| run | commit | wall | shard 1 | shard 2 | shard 3 | shard 4 | shards together |
+|---|---|---|---|---|---|---|---|
+| 45555074702 | `e0a631a` (tests over http) | 848 | 290 | 451 | 783 | 825 | 2349 |
+| 45556873107 | `d2c4667` (+ import map, site, lint) | 983 | 307 | 570 | 962 | 818 | 2657 |
+
+Against the medians before: wall −11 % / +3 %, longest shard −8 % / +8 %, shards together −7 % / +5 % — within the
+≤ 10 % growth AC 8b allows (the spread between runs on the shared runners is larger than the change).
+

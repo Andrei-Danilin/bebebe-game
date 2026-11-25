@@ -13,10 +13,14 @@
     "docs:numbers": "node scripts/docs-numbers.js",
     "balance": "node scripts/balance.js",
     "serve": "node scripts/serve.js",
+    "site": "node scripts/site.js",
+    "lint": "node scripts/lint.js",
     "setup": "npm install && npx playwright install chromium && node scripts/claude-sync.js"
   },
   "devDependencies": {
     "@playwright/test": "1.65.1",
+    "eslint": "10.14.0",
+    "globals": "17.14.0",
     "sharp": "0.35.5",
     "three": "0.187.0"
   }

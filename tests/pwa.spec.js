@@ -1,12 +1,16 @@
 // SPEC-001: installable PWA (manifest, icons, iOS metas, safe areas, service worker, offline,
 // standalone mode, install hint). Most tests run over http (scripts/serve.js, the webServer).
+// SPEC-011 AC 8b: playwright.config.js blocks service workers for every other spec; this one allows them.
 // Notes: jsDelivr is routed at context level (routeThree) so the service worker's requests are
 // intercepted too; that needs PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS=1 (set in playwright.config.js).
 const { test, expect } = require("./pw");   // SPEC-023: @playwright/test + failure screenshots
 const fs = require("fs");
 const path = require("path");
-const { openGame, openGameHttp, routeThree, frames, step, HTTP_BASE, ROOT } = require("./helpers");
+const { pathToFileURL } = require("url");
+const { openGame, openGameHttp, routeThree, frames, step, reloadGame, HTTP_BASE, ROOT } = require("./helpers");
 const { makeServer } = require("../scripts/serve");
+
+test.use({ serviceWorkers: "allow" });
 
 const IPHONE_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1";
 const SW_FILE = path.join(ROOT, "sw.js");
@@ -86,25 +90,29 @@ test("iOS home-screen metas are present", async ({ page }) => {
   expect(head.viewport).toContain("viewport-fit=cover");
 });
 
-test("game fills the viewport minus the safe-area padding", async ({ page }) => {
-  const errors = await openGame(page);
-  // the stylesheet pads body with the safe-area insets
-  const css = await page.evaluate(() => [...document.querySelectorAll("style")].map(s => s.textContent).join("\n"));
-  for (const side of ["top", "right", "bottom", "left"]) expect(css).toContain(`env(safe-area-inset-${side}`);
-  const box = () => page.evaluate(() => { const r = document.getElementById("wrap").getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height }; });
-  // desktop: insets are 0, size unchanged (960×640 viewport → 960×640 game)
-  expect(await box()).toMatchObject({ w: 960, h: 640 });
-  // emulate a notch + home indicator: top 40, right 30, bottom 20, left 50 → space 880×580
-  await page.evaluate(() => { document.body.style.padding = "40px 30px 20px 50px"; window.dispatchEvent(new Event("resize")); });
-  const b = await box();
-  const s = Math.min(880 / 960, 580 / 640);
-  expect(b.w).toBe(Math.floor(960 * s));
-  expect(b.h).toBe(Math.floor(640 * s));
-  expect(b.x).toBeGreaterThanOrEqual(50);
-  expect(b.y).toBeGreaterThanOrEqual(40);
-  expect(b.x + b.w).toBeLessThanOrEqual(960 - 30);
-  expect(b.y + b.h).toBeLessThanOrEqual(640 - 20);
-  expect(errors).toEqual([]);
+// a layout test, no service worker needed: blocked like in the other specs (SPEC-011 review)
+test.describe(() => {
+  test.use({ serviceWorkers: "block" });
+  test("game fills the viewport minus the safe-area padding", async ({ page }) => {
+    const errors = await openGame(page);
+    // the stylesheet pads body with the safe-area insets
+    const css = await page.evaluate(() => [...document.querySelectorAll("style")].map(s => s.textContent).join("\n"));
+    for (const side of ["top", "right", "bottom", "left"]) expect(css).toContain(`env(safe-area-inset-${side}`);
+    const box = () => page.evaluate(() => { const r = document.getElementById("wrap").getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height }; });
+    // desktop: insets are 0, size unchanged (960×640 viewport → 960×640 game)
+    expect(await box()).toMatchObject({ w: 960, h: 640 });
+    // emulate a notch + home indicator: top 40, right 30, bottom 20, left 50 → space 880×580
+    await page.evaluate(() => { document.body.style.padding = "40px 30px 20px 50px"; window.dispatchEvent(new Event("resize")); });
+    const b = await box();
+    const s = Math.min(880 / 960, 580 / 640);
+    expect(b.w).toBe(Math.floor(960 * s));
+    expect(b.h).toBe(Math.floor(640 * s));
+    expect(b.x).toBeGreaterThanOrEqual(50);
+    expect(b.y).toBeGreaterThanOrEqual(40);
+    expect(b.x + b.w).toBeLessThanOrEqual(960 - 30);
+    expect(b.y + b.h).toBeLessThanOrEqual(640 - 20);
+    expect(errors).toEqual([]);
+  });
 });
 
 test("service worker registers and controls the page over http", { tag: "@fast" }, async ({ page }) => {
@@ -141,8 +149,10 @@ async function withOwnServer(page, override, fn) {
 }
 const INDEX_SRC = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
 
+// SPEC-011 AC 1b: the version comes from the import map (the game imports the bare name "three")
 test("sw.js precaches the same three.js version index.html imports", async () => {
-  const imported = (INDEX_SRC.match(/cdn\.jsdelivr\.net\/npm\/three@([\d.]+)\/build\/three\.module\.js/) || [])[1];
+  const map = JSON.parse((INDEX_SRC.match(/<script type="importmap">([\s\S]*?)<\/script>/) || [])[1] || "{}");
+  const imported = (((map.imports || {}).three || "").match(/^https:\/\/cdn\.jsdelivr\.net\/npm\/three@([\d.]+)\/build\/three\.module\.js$/) || [])[1];
   const cached = (SW_SRC.match(/cdn\.jsdelivr\.net\/npm\/three@([\d.]+)\/build\//) || [])[1];
   expect(imported).toBeTruthy();
   expect(cached).toBe(imported);
@@ -187,8 +197,10 @@ test("a server error (404/503) still opens the cached game", async ({ page }) =>
   });
 });
 
+// SPEC-011 AC 8: the one test still on file:// (the other tests open the game over http); Phase B replaces it with the
+// file:// notice test (AC 6), once the game needs http
 test("no service worker and no errors on file://", async ({ page }) => {
-  const errors = await openGame(page);
+  const errors = await openGame(page, { base: pathToFileURL(ROOT).href + "/" });
   await page.waitForTimeout(500);
   const sw = await page.evaluate(async () => {
     try { return navigator.serviceWorker ? (await navigator.serviceWorker.getRegistrations()).length : 0; } catch (e) { return 0; }
@@ -214,8 +226,7 @@ test("the game starts offline after the first visit", async ({ page, context }) 
   await context.unrouteAll({ behavior: "ignoreErrors" });
   await context.route("https://cdn.jsdelivr.net/**", route => route.abort("internetdisconnected"));
   await context.setOffline(true);
-  await page.reload();
-  await page.waitForFunction(() => window.__bbReady === true, null, { timeout: 30_000 });
+  await reloadGame(page);                          // SPEC-011 AC 8d: seeded again after the reload
   await page.evaluate(() => window.__bb.startGame(1));
   await step(page, 5);
   expect(await page.evaluate(() => window.__bb.mode)).toBe("play");

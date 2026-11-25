@@ -1,6 +1,6 @@
 // Smoke tests: the game loads, every screen and place renders, nothing throws.
 const { test, expect } = require("./pw");   // SPEC-023: @playwright/test + failure screenshots
-const { LANGS, openGame, step, frames, ROOT } = require("./helpers");
+const { LANGS, openGame, step, frames, titleSeed, ROOT } = require("./helpers");
 const fs = require("fs");
 const path = require("path");
 
@@ -173,4 +173,99 @@ test("index.html has no regex lookbehind (older iPads)", { tag: "@fast" }, () =>
   const src = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
   expect(src.includes("(?<="), "(?<= in index.html").toBe(false);
   expect(src.includes("(?<!"), "(?<! in index.html").toBe(false);
+});
+
+// SPEC-011 AC 8d: every test game is seeded before it starts, so a test plays the same game on every run (an unseeded start
+// made "bots keep out of the grumpiest dad's front…" fail on one Pages run). openGame / openGameHttp / resetGame / reloadGame
+// seed from the test title (helpers.js testSeed()). This scan finds the ways around it in the test code: in the innermost
+// { } block of a startGame( / resetWorld( call
+// - the last seedRandom( before it is seedRandom() (unseeded), or
+// - there is no seedRandom( before it but a seeded one after it (the seed meant for this game came after the start), or
+// - a page.reload( / page.goto( comes before it with no seeded seedRandom( in between (the reloaded game is unseeded:
+//   use reloadGame(page)).
+// Strings, template literals, comments and regex literals are blanked first, so text about these calls is not code.
+function codeOnly(src) {
+  const out = src.split(""), blank = (a, b) => { for (let k = a; k < b; k++) if (out[k] !== "\n") out[k] = " "; };
+  let i = 0, prev = "";
+  while (i < src.length) {
+    const c = src[i], d = src[i + 1];
+    if (c === "/" && d === "/") { const e = src.indexOf("\n", i), j = e < 0 ? src.length : e; blank(i, j); i = j; continue; }
+    if (c === "/" && d === "*") { const e = src.indexOf("*/", i + 2), j = e < 0 ? src.length : e + 2; blank(i, j); i = j; continue; }
+    if (c === "\"" || c === "'" || c === "`" || (c === "/" && (prev === "" || /[(,=:[!&|?{};+\-*%<>~^]/.test(prev)))) {
+      let j = i + 1;
+      while (j < src.length && src[j] !== c) {
+        if (src[j] === "\\") j++;
+        else if (c === "/" && src[j] === "[") while (j < src.length && src[j] !== "]") { if (src[j] === "\\") j++; j++; }
+        j++;
+      }
+      blank(i + 1, j); prev = c; i = j + 1; continue;
+    }
+    if (!/\s/.test(c)) prev = c;
+    i++;
+  }
+  return out.join("");
+}
+function unseededStarts(src) {
+  const code = codeOnly(src), blocks = [], open = [], bad = [];
+  for (let i = 0; i < code.length; i++) { if (code[i] === "{") open.push(i); else if (code[i] === "}" && open.length) blocks.push([open.pop(), i]); }
+  const around = p => blocks.filter(([a, b]) => a < p && p < b);
+  const find = (re, a, b) => [...code.slice(a, b).matchAll(re)].map(m => ({ at: a + m.index, empty: m[1] === ")" }));
+  const seedsIn = (a, b) => find(/\bseedRandom\(\s*(\)?)/g, a, b);
+  const line = p => src.slice(0, p).split("\n").length;
+  for (const m of code.matchAll(/\b(?:startGame|resetWorld)\(/g)) {
+    const outer = around(m.index), [a, b] = outer.sort((x, y) => y[0] - x[0])[0] || [0, code.length];
+    const seeds = seedsIn(a, b), last = seeds.filter(s => s.at < m.index).pop();
+    if (last && last.empty) bad.push(`${line(m.index)}: starts after seedRandom() (unseeded)`);
+    else if (!last && seeds.some(s => s.at > m.index && !s.empty)) bad.push(`${line(m.index)}: seeds only after the start`);
+    for (const [x] of outer) for (const r of find(/\.(?:reload|goto)\(()/g, x, m.index)) {
+      if (!seedsIn(r.at, m.index).some(s => !s.empty)) bad.push(`${line(m.index)}: starts after the reload/goto at line ${line(r.at)} with no seed in between (reloadGame)`);
+    }
+  }
+  return [...new Set(bad)];
+}
+test("every test seeds before it starts a game", { tag: "@fast" }, () => {
+  const dir = path.join(ROOT, "tests"), bad = [];
+  for (const f of fs.readdirSync(dir).filter(n => n.endsWith(".js"))) {
+    for (const b of unseededStarts(fs.readFileSync(path.join(dir, f), "utf8"))) bad.push(`${f}:${b}`);
+  }
+  expect(bad, bad.join("\n")).toEqual([]);
+  // the helpers seed every page they open, reset or reload with the test's seed
+  const helpers = fs.readFileSync(path.join(dir, "helpers.js"), "utf8").replace(/\r\n/g, "\n");
+  for (const fn of ["openGame", "openGameHttp", "reloadGame"]) {
+    const body = helpers.slice(helpers.indexOf(`async function ${fn}(`), helpers.indexOf("\n}\n", helpers.indexOf(`async function ${fn}(`)));
+    expect(body, `${fn} seeds the page`).toContain("seedGame(page)");
+  }
+  const reset = helpers.slice(helpers.indexOf("async function resetGame("), helpers.indexOf("\n}\n", helpers.indexOf("async function resetGame(")));
+  expect(reset, "resetGame seeds from the test title").toContain("testSeed()");
+  expect(reset, "resetGame seeds from the test title").not.toContain("seedRandom()");
+  // the scan catches the bad forms and leaves the good ones alone
+  const s = "await page.ev" + "aluate(() => { const b = window.__bb; ";
+  expect(unseededStarts(s + "b.startGame(1); b.seedRandom(5); });")).toHaveLength(1);                  // seed after the start
+  expect(unseededStarts(s + "b.resetWorld(1); b.mode = \"home\"; b.seedRandom(29); });")).toHaveLength(1);
+  expect(unseededStarts(s + "b.seedRandom(); b.startGame(1); });")).toHaveLength(1);                     // unseeded
+  const t = (...bodies) => bodies.map(x => "test(\"x\", async () => { " + x + " });").join("\n");   // the scan sees tests as blocks
+  const reload = "await page.rel" + "oad();\n", ev = "await page.ev" + "aluate(() => { ";
+  expect(unseededStarts(t(reload + ev + "window.__bb.startGame(1); });"))).toHaveLength(1);                 // a reloaded game is unseeded
+  expect(unseededStarts(s + "b.seedRandom(5); b.startGame(1); b.seedRandom(5); });")).toEqual([]);      // seeded before and after
+  expect(unseededStarts(s + "b.startGame(1); for (;;) b.update(1 / 60); });")).toEqual([]);             // the page's seed (openGame)
+  expect(unseededStarts(s + "b.startGame(1); b.seedRandom(); });")).toEqual([]);                         // unseeding after a game
+  expect(unseededStarts(t(reload + ev + "window.__bb.seedRandom(3); window.__bb.startGame(1); });"))).toEqual([]);
+  expect(unseededStarts(t(reload, ev + "window.__bb.startGame(1); });"))).toEqual([]);                      // another test's reload
+  expect(unseededStarts(s + "const t = \"startGame(1) seedRandom(5)\"; /* startGame( */ });")).toEqual([]);   // text, not code
+});
+
+// SPEC-011 AC 8d: openGame seeds the page with the test's seed (the same game as seedRandom(seed) + the same start)
+test("openGame seeds the game rng from the test title", async ({ page }) => {
+  const errors = await openGame(page, { sim: true });
+  const info = test.info(), seed = titleSeed(info.file, info.titlePath.slice(1));
+  expect(info.annotations.find(a => a.type === "seed"), "the seed is recorded for the failure print").toEqual({ type: "seed", description: String(seed) });
+  const r = await page.evaluate(s => {
+    const b = window.__bb, start = () => { b.world = "park"; b.level = 1; b.startGame(1); return JSON.stringify(b.littles.map(l => Object.entries(l).filter(([, v]) => typeof v === "number"))); };
+    const first = start();
+    b.seedRandom(s);
+    return { first, again: start() };
+  }, seed);
+  expect(r.first, "the first game after openGame = a game started from seedRandom(seed)").toBe(r.again);
+  expect(await page.evaluate(() => window.__bbSeed), "the boot is seeded too (init script)").toBe(seed);
+  expect(errors).toEqual([]);
 });

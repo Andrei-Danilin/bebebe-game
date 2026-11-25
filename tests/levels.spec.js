@@ -5,7 +5,7 @@ const base = require("./pw");   // SPEC-023: @playwright/test + failure screensh
 const { expect } = base;
 const path = require("path");
 const fs = require("fs");
-const { LANGS, openGame, frames, softly } = require("./helpers");
+const { LANGS, openGame, frames, softly, reloadGame } = require("./helpers");
 
 const LEVEL1 = JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures", "level1.json"), "utf8"));
 // SPEC-006: worlds and the types inside every world; SPEC-016: the story order — main worlds, then the bonus ones
@@ -84,8 +84,7 @@ test("every world goes from the drawing to the maze", async ({ page }) => {
   expect(r.cyclePlace).toBe(false);
   // an old saved place is ignored
   await page.evaluate(() => localStorage.setItem("bebebe-place", "winter"));
-  await page.reload();
-  await page.waitForFunction(() => window.__bbReady === true);
+  await reloadGame(page);                          // SPEC-011 AC 8d: seeded again after the reload
   expect(await page.evaluate(() => { const b = window.__bb; b.startGame(1); return { world: b.world, built: b.levelInfo.world }; })).toEqual({ world: "park", built: "park" });
 });
 

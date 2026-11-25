@@ -9,6 +9,7 @@ description: Use after every change to bebebe-game's index.html or tests, before
 ```bash
 node -e "const s=require('fs').readFileSync('index.html','utf8');const a=s.indexOf('<script type=\"module\">')+22;const b=s.indexOf('</script>',a);require('fs').writeFileSync('.tmp-module.mjs',s.slice(a,b));" && node --check .tmp-module.mjs && echo SYNTAX_OK; rm -f .tmp-module.mjs
 ```
+Then `npm run lint` (ESLint, SPEC-011 AC 11b: undefined names, unused variables, `var`, `let` never reassigned, broken imports — in the inline module, `scripts/` and later `src/`): zero errors; every Tests run on CI runs it too.
 
 ## 2. Tests
 - **Locally**: `npm run test:fast` (~1.5 min) + the test files of what changed: `npx playwright test tests/<file>` or `-g "<name>"`; phone layouts at 667×375 only. Locally the browser uses the GPU at below-normal priority (`PW_GPU=0` → SwiftShader, then also `PW_NICE=0` on a busy machine; `PW_NICE=0` → normal priority). Never the whole suite locally unless the spec asks for it.

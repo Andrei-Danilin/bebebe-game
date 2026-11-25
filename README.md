@@ -342,12 +342,14 @@ Rules for Claude Code: [`CLAUDE.md`](CLAUDE.md). Game rules: [`docs/game-design.
 npm run setup          # once: Playwright + three.js for the tests, Chromium, Claude Code agents
 npm run test:fast      # the @fast set while working (~1.5 min)
 npx playwright test tests/gameplay.spec.js   # one test file (-g "<name>" for one test)
-npx playwright test    # all tests (smoke, gameplay rules, levels, phone, i18n, PWA; starts scripts/serve.js itself) — normally on CI, see below
+npx playwright test    # all tests (smoke, gameplay rules, levels, phone, i18n, PWA; over http — starts scripts/serve.js itself) — normally on CI, see below
 npm run serve          # the game over http on http://localhost:8123/ (service worker, manifest)
 npm run assets         # art/ → assets/*.webp sprites (+ the sprite lists in index.html and sw.js), prints sizes and the budget
 npm run icons          # art/2_icon.webp → the PNG app icons and the icon.svg favicon
 npm run docs:numbers   # rewrite the generated numbers table in docs/game-design.md from index.html (-- --check: only check)
 npm run balance        # play every level with the autopilot in sim mode → reports/balance.md + reports/balance.json
+npm run lint           # ESLint over the game's module in index.html and scripts/ (also a job of every CI test run)
+npm run site           # the site files (scripts/site.js, the one list) → _site/, what GitHub Pages publishes
 node scripts/perf.js   # frame times, master vs the working copy (phone + desktop viewports; --rounds N, --grain, --base <ref>)
 ```
 
@@ -385,13 +387,14 @@ PowerShell examples: `$env:PW_GPU = "0"; npx playwright test tests/smoke.spec.js
 ### CI on GitHub
 
 - **Tests** (`.github/workflows/tests.yml`): every push of a `SPEC-*` branch (and manual dispatch) runs the whole suite
-  in **4 parallel shards**; a merge job joins them into one HTML report. The spec is merged only when this run is green.
+  in **4 parallel shards** plus a `lint` job; a merge job joins the shards into one HTML report. The spec is merged only when this run is green.
   `gh run list --workflow tests.yml --commit $(git rev-parse HEAD) --limit 1` (the run of the pushed commit; retry until it
   appears) → `gh run watch <id> --exit-status`; reports: `gh run download <id> -n html-report` (open `index.html`), error
   context + failure screenshots: `-n test-results-<shard>`.
-- **Pages** (`.github/workflows/pages.yml`): every push to `master` runs the same sharded tests, then publishes the site
-  (`index.html`, `manifest.webmanifest`, `sw.js`, `icons/`, `v1-2d/`) to GitHub Pages. A red deploy with green tests is
-  recovered with a fresh `gh workflow run pages.yml --ref master` (never `gh run rerun --failed`).
+- **Pages** (`.github/workflows/pages.yml`): every push to `master` runs the same sharded tests and, in parallel, builds the
+  site with `npm run site` (`scripts/site.js`: `index.html`, `manifest.webmanifest`, `sw.js`, `icons/`, `assets/`, `v1-2d/`);
+  when both are green it publishes it to GitHub Pages (two deploy attempts, then a check that the live site serves the commit).
+  A red deploy with green tests is recovered with `gh run rerun <id> --failed` only when that run's `build` job was green and its commit is still the HEAD of `origin/master` (it reruns only `deploy`, which deploys the artifact `build` uploaded once); otherwise a fresh `gh workflow run pages.yml --ref master`.
 - **Balance** (`.github/workflows/balance.yml`): `gh workflow run balance.yml -f ref=<branch>` → `gh run list --workflow balance.yml --limit 5` (the run titled `Balance <branch>`,
   created after the dispatch)
   → `gh run watch <id> --exit-status` → `gh run download <id> -n balance -D reports` (writes `reports/balance.md` and
