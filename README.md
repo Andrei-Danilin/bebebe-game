@@ -187,6 +187,7 @@ There you can:
   replaces anything, and the old progress is kept as a copy.
 - **Bring back erased progress** after "Reset progress", and **Restore an older copy** (each copy shows its date,
   stars and coins). If a save ever gets broken, the game loads the newest good copy by itself and says so.
+- See the game's **version** (like `1.0.0-dev+<code>`; the code after `+` names the exact build).
 - Read the **Error log** (kept only on this device, never sent).
 - **Erase all data on this device** — the game starts as on a new device.
 
@@ -362,6 +363,7 @@ The shell `index.html` and the ES modules of `src/` (no build step):
 Work is spec-driven: Claude (in the claude.ai project "BeBeBe Atrapar") writes a spec with Andrei and the kids
 into `specs/`, Claude Code implements it on a branch with tests first, reviews, merges into `master`.
 Rules for Claude Code: [`CLAUDE.md`](CLAUDE.md). Game rules: [`docs/game-design.md`](docs/game-design.md).
+What changed: [`CHANGELOG.md`](CHANGELOG.md). Releases, version numbers and rolling back a bad deploy: [`docs/release.md`](docs/release.md).
 
 ```bash
 npm run setup          # once: Playwright + three.js for the tests, Chromium, Claude Code agents
@@ -377,9 +379,13 @@ npm run assets         # art/ → assets/*.webp sprites (+ the sprite lists in s
 npm run icons          # art/2_icon.webp → the PNG app icons and the icon.svg favicon
 npm run docs:numbers   # rewrite the generated numbers table in docs/game-design.md from src/core/config.js and src/client/look.js (-- --check: only check)
 npm run balance        # play every level with the autopilot in sim mode → reports/balance.md + reports/balance.json
-npm run lint           # ESLint over src/ and scripts/ (also a job of every CI test run)
+npm run lint           # ESLint over src/, scripts/ and tests/, then the Prettier check of workflows, configs and release docs (also a CI job)
+npm run format         # let Prettier rewrite the files it owns (workflows, configs, CHANGELOG.md, docs/release.md)
+npm run typecheck      # type checks from JSDoc (tsc --checkJs; jsconfig.json = src/, jsconfig.core.json = the core, stricter; also a CI job)
+npm run release -- 1.2.0   # set the version, move the CHANGELOG Unreleased lines, run precache (--dry first; see docs/release.md)
 npm run site           # the site files (scripts/site.js, the one list) → _site/, what GitHub Pages publishes
 node scripts/perf.js   # frame times, master vs the working copy (phone + desktop viewports; --rounds N, --grain, --base <ref>)
+# on a device: open the game with ?perf=1 for a small fps / draw-call overlay (or __bb.perf() in the console)
 ```
 
 ### Adding or changing a picture (SPEC-020)
@@ -415,19 +421,23 @@ PowerShell examples: `$env:PW_GPU = "0"; npx playwright test tests/smoke.spec.js
 
 ### CI on GitHub
 
-- **Tests** (`.github/workflows/tests.yml`): every push of a `SPEC-*` branch (and manual dispatch) runs the whole suite
-  in **4 parallel shards** plus a `lint` job; a merge job joins the shards into one HTML report. The spec is merged only when this run is green.
+- **Tests** (`.github/workflows/tests.yml`): every push of a `SPEC-*` branch, every pull request into `master` (Dependabot's;
+  spec branches get no PRs) and a manual dispatch run the whole suite in **4 parallel shards** plus `lint`, `typecheck` and
+  `core` (Node) jobs; actions are pinned by commit SHA, Node is major 24; a merge job joins the shards into one HTML report. The spec is merged only when this run is green.
   `gh run list --workflow tests.yml --commit $(git rev-parse HEAD) --limit 1` (the run of the pushed commit; retry until it
   appears) → `gh run watch <id> --exit-status`; reports: `gh run download <id> -n html-report` (open `index.html`), error
   context + failure screenshots: `-n test-results-<shard>`.
 - **Pages** (`.github/workflows/pages.yml`): every push to `master` runs the same sharded tests and, in parallel, builds the
   site with `npm run site` (`scripts/site.js`: `index.html`, `manifest.webmanifest`, `sw.js`, `icons/`, `assets/`, `src/`, `vendor/`, `v1-2d/`);
   when both are green it publishes it to GitHub Pages (two deploy attempts, then a check that the live site serves the commit).
+  A rollback redeploys a known-good tag: `gh workflow run pages.yml --ref master -f ref=vX.Y.Z` (`docs/release.md`).
   A red deploy with green tests is recovered with `gh run rerun <id> --failed` only when that run's `build` job was green and its commit is still the HEAD of `origin/master` (it reruns only `deploy`, which deploys the artifact `build` uploaded once); otherwise a fresh `gh workflow run pages.yml --ref master`.
 - **Balance** (`.github/workflows/balance.yml`): `gh workflow run balance.yml -f ref=<branch>` → `gh run list --workflow balance.yml --limit 5` (the run titled `Balance <branch>`,
   created after the dispatch)
   → `gh run watch <id> --exit-status` → `gh run download <id> -n balance -D reports` (writes `reports/balance.md` and
   `reports/balance.json`), then commit them on the branch.
+- **Dependabot** (`.github/dependabot.yml`): weekly grouped PRs for the dev tools and the actions (never three.js);
+  merged by hand when the PR's Tests run is green (`CLAUDE.md`).
 
 A spec that changes gameplay numbers or rules gets its balance report from the Balance workflow before the merge and
 commits the updated `reports/balance.*`; the numbers table in `docs/game-design.md` is generated (`npm run docs:numbers`), never edited by hand.

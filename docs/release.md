@@ -56,8 +56,11 @@ unchanged ones. three.js has its own cache and is not downloaded again. (BACKLOG
   `master` until it has finished.
 - Watch it: `gh run list --workflow pages.yml --limit 1`, then `gh run watch <id> --exit-status`.
 - This is temporary. The next push to `master` deploys `master` again. Follow it with a revert (3) or a fix.
-- The ref must be a commit from SPEC-025 phase 3 or later. Older commits have no `npm run typecheck`, so the reused Tests
-  workflow fails on them. For those, use a revert.
+- The workflow files are always `master`'s (`--ref master`; `tests.yml` is reused from the same commit). Only the code is
+  the ref's. So a commit from before SPEC-025 phase 3 works too, given as a sha (tags start with the first release): it has
+  no `npm run typecheck`, and the typecheck job skips it (`--if-present`). The ref still needs `npm run lint`,
+  `npm run test:core` and `npm run site`, so nothing older than SPEC-012. For older commits, use a revert (3). A pre-phase-3
+  redeploy has not been tried on CI yet.
 
 ### 3. Revert (the lasting fix)
 

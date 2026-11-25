@@ -9,6 +9,8 @@ The version is `package.json` `version` (shown on the "For grown-ups" page); how
 
 ### Added
 
+- The game works offline from the very first launch, shows a calm "Oops" card instead of freezing, keeps
+  safer saves with backups, and has a "For grown-ups" page with the progress code and the game's version (SPEC-025).
 - Code checks on every push: ESLint over the game, the scripts and the tests, Prettier for the configs and docs, and type
   checks from JSDoc comments (`npm run lint`, `npm run typecheck`) (SPEC-025).
 - A game version (`1.0.0-dev`) on the "For grown-ups" page and in the error log; the offline cache version follows it by

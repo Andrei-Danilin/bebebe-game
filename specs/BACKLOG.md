@@ -334,3 +334,4 @@ One line each: what, where it came from. The spec author turns a line into a spe
 - (SPEC-025 phase 3 review) Name the src and assets caches by `b<SW_BUILD>` without the semver (e.g. `bebebe-b7-src-<SRC_HASH>`), so a release does not make installed apps download unchanged modules and sprites again (today `SW_VERSION` carries the version).
 - (SPEC-025 phase 3 review) Packaging: derive the store wrapper's versionCode / CFBundleVersion from the semver in `package.json` (one number source).
 - (SPEC-025 phase 3 review) Watch the memory test's heap bound (`tests/perf.spec.js`, ≤ +10 % from a snapshot without compiled code) on CI: if it flakes, find out what grows before widening it.
+- (SPEC-025 phase 3 review) Candidate flake: `tests/lifecycle.spec.js` "… no dt jump" checks `t2 - t1 < 0.2` s of game time over a few rendered frames, so it depends on how long those frames take (slow SwiftShader frames on CI); if it goes red, bound it by the dt cap per frame instead.
