@@ -1,15 +1,16 @@
 // SPEC-019 / SPEC-011: the Big One hears running feet. Core module.
 import { CELL, CFG } from "./config.js";
 import { angDiff, dist, normAng, rand } from "./util.js";
-import { big, heardHintDone, littles, logEvent, mode, pendingWin, setHeardHintDone, setHeardHintPi, setHeardHintT } from "./game.js";
+import { logEvent, mode } from "./game.js";
 import { inSafe, los, seeSolidAt } from "./world.js";
+import { G } from "./active.js";
 
 // ---------- SPEC-019: Большой слышит топот ----------
 // Бежит (не на цыпочках): на ногах, идёт, доля скорости ≥ TIPTOE_MAX (на цыпочках — не больше TIPTOE_MULT)
 export const isRunning = l => !!l && l.state === "ok" && l.moving && l.speedFrac >= CFG.TIPTOE_MAX;
 // Не слышит: в шоке (и при последней обнимашке), красный, лежит после банана, стоит после толчка, не идёт игра
-export const bigDeaf = () => mode !== "play" || pendingWin > 0 || big.stun > 0 || big.blush > 0 || big.slip > 0 || big.pushCd > 0;
-export const stopHearing = () => { big.noise = 0; big.hearTurnT = 0; big.hearLook = 0; };
+export const bigDeaf = () => mode !== "play" || G.pendingWin > 0 || G.big.stun > 0 || G.big.blush > 0 || G.big.slip > 0 || G.big.pushCd > 0;
+export const stopHearing = () => { G.big.noise = 0; G.big.hearTurnT = 0; G.big.hearLook = 0; };
 // Прислушивается: не в шоке, не красный, не лежит, не стоит после толчка. Пока видит кого-то и гонится — не слышит (ранний выход
 // в updateBig); ищет того, кого только что потерял, — слышит (решение прогона: баланс SPEC-019 AC 5)
 export const bigListens = () => !bigDeaf();
@@ -19,38 +20,38 @@ export const bigListens = () => !bigDeaf();
 // насколько слышно бегущего l: 0 — не слышно; 1 — рядом и видно по прямой; HEAR_WALL — через стену (кулдаун и «не слышит» — не здесь)
 export function audible(l) {
   if (!isRunning(l) || l.fx.cloak > 0 || inSafe(l)) return 0;
-  const dx = l.x - big.x, dy = l.y - big.y;
-  if (Math.hypot(dx, dy) > CFG.HEAR_RADIUS * CELL || angDiff(big.dir, Math.atan2(dy, dx)) < CFG.VISION_HALF) return 0;
-  return los(big.x, big.y, l.x, l.y, seeSolidAt) ? 1 : CFG.HEAR_WALL;
+  const dx = l.x - G.big.x, dy = l.y - G.big.y;
+  if (Math.hypot(dx, dy) > CFG.HEAR_RADIUS * CELL || angDiff(G.big.dir, Math.atan2(dy, dx)) < CFG.VISION_HALF) return 0;
+  return los(G.big.x, G.big.y, l.x, l.y, seeSolidAt) ? 1 : CFG.HEAR_WALL;
 }
 export function hearNoise(dt) {
   let add = 0, loud = null, best = 0, bestD = Infinity;
-  if (big.hearCd <= 0 && bigListens()) for (const l of littles) {
+  if (G.big.hearCd <= 0 && bigListens()) for (const l of G.littles) {
     const k = audible(l);
     if (!k) continue;
-    const d = dist(l, big), c = CFG.NOISE_RATE * dt * k;
+    const d = dist(l, G.big), c = CFG.NOISE_RATE * dt * k;
     add += c;
     if (c > best || (c === best && d < bestD)) { best = c; bestD = d; loud = l; }
   }
-  big.noise = add > 0 ? big.noise + add : Math.max(0, big.noise - CFG.NOISE_DECAY * dt);
-  if (big.noise < CFG.NOISE_TURN || !loud) return;
-  const a = Math.atan2(loud.y - big.y, loud.x - big.x);
-  big.noise = 0; big.hearCd = CFG.HEAR_COOLDOWN;
-  big.hearFace = a; big.hearTurnT = CFG.HEAR_TURN_TIME; big.hearRate = Math.abs(normAng(a - big.dir)) / CFG.HEAR_TURN_TIME;
-  big.hearLook = rand(CFG.HEAR_LOOK[0], CFG.HEAR_LOOK[1]);
-  big.state = "look"; big.timer = Math.max(big.timer, CFG.HEAR_TURN_TIME + big.hearLook); big.goal = null; big.path = [];
+  G.big.noise = add > 0 ? G.big.noise + add : Math.max(0, G.big.noise - CFG.NOISE_DECAY * dt);
+  if (G.big.noise < CFG.NOISE_TURN || !loud) return;
+  const a = Math.atan2(loud.y - G.big.y, loud.x - G.big.x);
+  G.big.noise = 0; G.big.hearCd = CFG.HEAR_COOLDOWN;
+  G.big.hearFace = a; G.big.hearTurnT = CFG.HEAR_TURN_TIME; G.big.hearRate = Math.abs(normAng(a - G.big.dir)) / CFG.HEAR_TURN_TIME;
+  G.big.hearLook = rand(CFG.HEAR_LOOK[0], CFG.HEAR_LOOK[1]);
+  G.big.state = "look"; G.big.timer = Math.max(G.big.timer, CFG.HEAR_TURN_TIME + G.big.hearLook); G.big.goal = null; G.big.path = [];
   logEvent("heard", { who: loud.id, kind: loud.kind });
-  if (loud.kind === "player" && !heardHintDone) { setHeardHintDone(true); setHeardHintT(CFG.HEAR_HINT_TIME); setHeardHintPi(loud.id); }
+  if (loud.kind === "player" && !G.heardHintDone) { G.heardHintDone = true; G.heardHintT = CFG.HEAR_HINT_TIME; G.heardHintPi = loud.id; }
 }
 // значок над Большим (тот же порядок, что рисуется): 🍌💫, ?!, 💗, ❓ (обернулся на топот), 👂 (слышит), 💦, !
 export function bigMark() {
-  if (big.kind) return "💗";                               // SPEC-022: подобрел — не «!» и не «👂»
-  if (big.slip > 0) return "🍌💫";
-  if (big.stun > 0) return "?!";
-  if (big.blush > 0) return "💗";
-  if (big.state === "look" && (big.hearTurnT > 0 || big.hearLook > 0)) return "❓";
-  if (big.noise >= CFG.NOISE_WARN) return "👂";
-  if (big.noPush > 0) return "💦";
-  if (big.state === "chase") return "!";
+  if (G.big.kind) return "💗";                               // SPEC-022: подобрел — не «!» и не «👂»
+  if (G.big.slip > 0) return "🍌💫";
+  if (G.big.stun > 0) return "?!";
+  if (G.big.blush > 0) return "💗";
+  if (G.big.state === "look" && (G.big.hearTurnT > 0 || G.big.hearLook > 0)) return "❓";
+  if (G.big.noise >= CFG.NOISE_WARN) return "👂";
+  if (G.big.noPush > 0) return "💦";
+  if (G.big.state === "chase") return "!";
   return "";
 }

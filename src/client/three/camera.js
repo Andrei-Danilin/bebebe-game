@@ -3,7 +3,7 @@
 
 import * as THREE from "three";
 import { CELL, COLS, H, ROWS, W } from "../../core/config.js";
-import { littles, mode } from "../../core/game.js";
+import { mode } from "../../core/game.js";
 import { clamp } from "../../core/util.js";
 import { LOOK } from "../look.js";
 import { CSS_H, CSS_W, onFit, PHONE, setOnFit, UH, UW } from "../screen.js";
@@ -11,6 +11,7 @@ import { camBase, camera, camTarget, P, sun, U, WALL_H } from "./setup.js";
 import { minimapRect, showMinimap } from "../ui/minimap.js";
 import { phoneTopBar, teamRect } from "../ui/phone.js";
 import { cpx } from "../ui/text.js";
+import { G } from "../../core/active.js";
 
 // Камера: наклон сверху, вся карта помещается в кадр
 const CAM_EL = 63 * Math.PI / 180, camDir = new THREE.Vector3(0, Math.sin(CAM_EL), Math.cos(CAM_EL));   // камера всегда смотрит под этим углом
@@ -53,7 +54,7 @@ export function camRect() {
 // zoom: 0 — за героем, 1 — вся карта (меню, победа); dFollow/dFull — расстояния для этих двух видов.
 export let cam;   // set by initCamera()
 
-export const camHero = () => littles.find(l => l.kind === "player") || null;
+export const camHero = () => G.littles.find(l => l.kind === "player") || null;
 // оси камеры тени (как в three.js: смотрит от солнца на цель, «верх» — +y); смещение солнца от цели постоянно
 let sunOff;   // set by initCamera()
 let LZ, LX, LY;   // set by initCamera()

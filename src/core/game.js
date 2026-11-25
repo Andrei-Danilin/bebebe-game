@@ -1,9 +1,9 @@
-// SPEC-011: the running game — its state (Little Ones, the Big One, items, stars, kisses, the event log, mode), buildGame,
+// SPEC-011 / SPEC-012: the running game — newGame / createGame and the active game (useGame, withGame, step), buildGame,
 // update, simRun. Core module.
-import { CFG, WORLDS } from "./config.js";
+import { CFG, COLS, FH, FW, ROWS, WORLDS } from "./config.js";
 import { hooks } from "./hooks.js";
-import { rand } from "./util.js";
-import { autoMove, autoThink, setAutoMove, setAutoNavs } from "./autopilot.js";
+import { newRng, rand } from "./util.js";
+import { autoThink } from "./autopilot.js";
 import { updateBig } from "./big.js";
 import { updateBots } from "./bots.js";
 import { difficulty } from "./difficulty.js";
@@ -11,37 +11,59 @@ import { progress } from "./economy.js";
 import { loadLevel } from "./level/build.js";
 import { bossFor, startKindWalk, updateKindWalk } from "./mood.js";
 import { moveEntity } from "./path.js";
-import { applyTutorialMap, tutorialGame, tutorialNote, tutorialSetup, updateTutorial } from "./practice.js";
+import { applyTutorialMap, tutorialNote, tutorialSetup, updateTutorial } from "./practice.js";
 import { checkContacts, moveSpeed, separate, updateDanger, updateDowned, updateHugAnim, updateItems, updateKisses, updateResting, updateStars, winNow } from "./rules.js";
-import { canAct, spawns } from "./world.js";
+import { canAct } from "./world.js";
+import { G, setActiveGame } from "./active.js";
 
-// ---------- Миры (SPEC-006): место уровня — его мир ----------
-export let curWorld = WORLDS[0];
-export let littles = [], big = null;
-export let botAttackCd = 0, prevToken = null;
-export let mode = "home", numPlayers = 1, level = 1, attackToken = null;
-export let stats = { hugs: 0, time: 0 };
-export let items = [], itemCd = 5, itemSeq = 0, pendingWin = 0, lastReward = null;
-// SPEC-008: журнал событий игры { t (сек игры), type, …данные } — для тестов, отчёта баланса и счёта монеток (SPEC-009).
-// Только простые данные; не длиннее CFG.EVENT_LOG_MAX (старые выпадают); очищается в начале уровня (startGame).
-export let events = [];
+// SPEC-011: the running game (mode, lastReward until SPEC-012 step 1b); SPEC-012 AC 1: every other piece of a game's state
+// lives in its game object — newGame(opts) makes it, createGame(opts) builds it, useGame / withGame / step make it the active game G.
+export let mode = "home", lastReward = null;
+const N_CELLS = COLS * ROWS, N_FINE = FW * FH;
+// SPEC-012 AC 1: the state of one game — plain data (the grids are typed arrays), nothing of the client. opts: world, n (level),
+// players, rng (a stream { s, draws } to continue) or seed. Not built yet: createGame builds it.
+export function newGame(opts = {}) {
+  return {
+    world: opts.world ?? WORLDS[0], level: opts.n ?? 1, players: opts.players ?? 1,
+    littles: [], big: null, botAttackCd: 0, prevToken: null, attackToken: null,
+    stats: { hugs: 0, time: 0 }, items: [], itemCd: 5, itemSeq: 0, pendingWin: 0,
+    // SPEC-008: журнал событий игры { t (сек игры), type, …данные } — для тестов, отчёта баланса и счёта монеток (SPEC-009).
+    // Только простые данные; не длиннее CFG.EVENT_LOG_MAX (старые выпадают); очищается в начале уровня (startGame).
+    events: [],
+    bonusStars: [], starCd: 10, starSeq: 0,                  // бонусные звёздочки (отдельно от предметов)
+    kisses: [], kissSeq: 0,                                  // летящие воздушные поцелуи
+    pushWaves: [],                                           // SPEC-022: кольца широкого толчка { x, y, t, r } (растут WAVE_TIME сек)
+    kitHintT: 0, kitHintDone: false, kitHintPi: 0,           // подсказка «Нажми 🩹» (SPEC-007): раз за уровень
+    heardHintT: 0, heardHintDone: false, heardHintPi: 0,     // SPEC-019: «Папа услышал топот!» — раз за уровень
+    rewardDue: false,                                        // уровень начат и ещё не оплачен (startGame → true; награда, сброс или замена прогресса → false)
+    // карта уровня (world.js): препятствия, кусты, домики, сетки движения и взгляда; levelInfo — какой уровень построен (build.js)
+    obstacles: [], bushes: [], floors: [], decor: [], trees: [], flowers: [],
+    blocked: new Uint8Array(N_CELLS), blockedBig: new Uint8Array(N_CELLS), reachable: new Uint8Array(N_CELLS),
+    moveGrid: new Uint8Array(N_FINE), seeGrid: new Uint8Array(N_FINE), moveGridBig: new Uint8Array(N_FINE),
+    safeZone: null, dangerZone: null, spawns: { small: [], big: { x: 0, y: 0 } }, levelInfo: null,
+    // SPEC-029: тренировка (practice.js): её номер (0 — обычный уровень), сценарий и подсказки, свой запас
+    tutorialGame: 0, tut: { script: false, hint: 0, bothDown: 0 }, tutorialInv: { kisses: 0, rescues: 0, mittens: 0, mega: 0 },
+    // SPEC-008: автопилот (autopilot.js): включён ли, стиль, память пути, «стик» этого шага
+    autoOn: false, autoStyle: "careful", autoNavs: new Map(), autoMove: [],
+    // SPEC-008 / SPEC-012: игровая случайность этой игры (mulberry32: состояние s, сколько раз тянули)
+    rng: opts.rng ?? newRng(opts.seed)
+  };
+}
+// SPEC-012 AC 1: the active game. useGame(g) — one assignment (the server calls it before stepping a room);
+// withGame(g, fn) — fn on g, then the game that was active before (also when fn throws); step(g, dt) — g one step of dt s
+export function useGame(g) { setActiveGame(g); return g; }
+export function withGame(g, fn) { const prev = setActiveGame(g); try { return fn(); } finally { setActiveGame(prev); } }
+export function step(g, dt) { useGame(g); update(dt); }
 export function logEvent(type, data) {
-  const e = { t: stats.time, type, ...data };
-  events.push(e);
-  if (events.length > CFG.EVENT_LOG_MAX) events.splice(0, events.length - CFG.EVENT_LOG_MAX);
-  if (tutorialGame === 2) tutorialNote(e);                 // SPEC-029: подсказки тренировки 2
+  const e = { t: G.stats.time, type, ...data };
+  G.events.push(e);
+  if (G.events.length > CFG.EVENT_LOG_MAX) G.events.splice(0, G.events.length - CFG.EVENT_LOG_MAX);
+  if (G.tutorialGame === 2) tutorialNote(e);                 // SPEC-029: подсказки тренировки 2
   return e;
 }
-export let bonusStars = [], starCd = 10, starSeq = 0;   // бонусные звёздочки (отдельно от предметов)
-export let kisses = [], kissSeq = 0;                      // летящие воздушные поцелуи
-export let pushWaves = [];                                // SPEC-022: кольца широкого толчка { x, y, t, r } (растут WAVE_TIME сек)
-export let kitHintT = 0, kitHintDone = false, kitHintPi = 0;   // подсказка «Нажми 🩹» (SPEC-007): раз за уровень
-export let heardHintT = 0, heardHintDone = false, heardHintPi = 0;   // SPEC-019: «Папа услышал топот!» — раз за уровень
-// уровень начат и ещё не оплачен (startGame → true; награда, сброс или замена прогресса → false)
-export let rewardDue = false;
 // маленький i: look — вид от клиента (игра его только носит), upgrades — уровни улучшений игроков (у ботов нет)
 function makeLittle(i, kind, botIndex, controls, look, upgrades) {
-  const sp = spawns.small[i];
+  const sp = G.spawns.small[i];
   return {
     id: i, x: sp.x, y: sp.y, r: 11, kind, botIndex, look, controls,
     state: "ok", downTimer: 0, rescue: 0, botWait: 0, invuln: 0, kx: 0, ky: 0, dangerT: 0, dizzy: 0,
@@ -56,54 +78,63 @@ function makeLittle(i, kind, botIndex, controls, look, upgrades) {
 // носит); upgrades — уровни улучшений игроков. Не чистая: тянет игровой rng() (те же вызовы в том же порядке, что раньше).
 // Тренировка (tutorialGame) строит свою карту и сценарий. В конце — hooks.rebuild (клиент строит 3D)
 // маленьких в команде (игроки + боты): 5; SPEC-029: в тренировке — игрок и бот (сценарий и спасение нужны хоть одному)
-export function teamSize() { return tutorialGame ? 1 + Math.max(1, CFG.TUTORIAL.bots) : 5; }
+export function teamSize() { return G.tutorialGame ? 1 + Math.max(1, CFG.TUTORIAL.bots) : 5; }
 export function buildGame(world, n, players, { looks, upgrades = progress.upgrades }) {
-  curWorld = world; level = n; numPlayers = players;
-  if (tutorialGame) applyTutorialMap(); else loadLevel(world, n);   // SPEC-029: тренировка — своя карта
-  littles = [];
+  G.world = world; G.level = n; G.players = players;
+  if (G.tutorialGame) applyTutorialMap(); else loadLevel(world, n);   // SPEC-029: тренировка — своя карта
+  G.littles = [];
   const p1 = players === 1
     ? { up: ["KeyW", "ArrowUp"], down: ["KeyS", "ArrowDown"], left: ["KeyA", "ArrowLeft"], right: ["KeyD", "ArrowRight"] }
     : { up: ["KeyW"], down: ["KeyS"], left: ["KeyA"], right: ["KeyD"] };
-  littles.push(makeLittle(0, "player", -1, p1, looks.players[0], upgrades));
-  if (players === 2) littles.push(makeLittle(1, "player", -1, { up: ["ArrowUp"], down: ["ArrowDown"], left: ["ArrowLeft"], right: ["ArrowRight"] }, looks.players[1], upgrades));
+  G.littles.push(makeLittle(0, "player", -1, p1, looks.players[0], upgrades));
+  if (players === 2) G.littles.push(makeLittle(1, "player", -1, { up: ["ArrowUp"], down: ["ArrowDown"], left: ["ArrowLeft"], right: ["ArrowRight"] }, looks.players[1], upgrades));
   let bi = 0;
   const team = teamSize();
-  while (littles.length < team) { littles.push(makeLittle(littles.length, "bot", bi, null, looks.bots[bi], upgrades)); bi++; }
-  const maxHp = tutorialGame ? CFG.TUTORIAL["hearts" + tutorialGame] : difficulty(world, n).hearts;   // SPEC-029: тренировка — свои сердечки
-  big = {
-    isBig: true, x: spawns.big.x, y: spawns.big.y, r: 22, dir: -Math.PI / 2, hp: maxHp, maxHp,
+  while (G.littles.length < team) { G.littles.push(makeLittle(G.littles.length, "bot", bi, null, looks.bots[bi], upgrades)); bi++; }
+  const maxHp = G.tutorialGame ? CFG.TUTORIAL["hearts" + G.tutorialGame] : difficulty(world, n).hearts;   // SPEC-029: тренировка — свои сердечки
+  G.big = {
+    isBig: true, x: G.spawns.big.x, y: G.spawns.big.y, r: 22, dir: -Math.PI / 2, hp: maxHp, maxHp,
     state: "look", timer: 4, lookSign: 1, lastSeen: null, goal: null, patrolT: 0,
     path: [], repath: 0, moveDir: 0, walk: 0, moving: false, stun: 0, stunFace: 0, stunTurn: 0, pushCd: 0, noPush: 0, hugCd: 0, flash: 0, slip: 0,
     blush: 0, blushBy: 0,   // покраснел после поцелуя: сколько ещё сек и кто бросил (индекс игрока)
     kind: false,            // SPEC-022: злость кончилась — подобрел и идёт домой (pendingWin — сколько ещё идёт)
-    boss: tutorialGame ? null : bossFor(world, n),         // SPEC-022: босс уровня (мир из BOSSES) или null; в тренировке — нет
+    boss: G.tutorialGame ? null : bossFor(world, n),         // SPEC-022: босс уровня (мир из BOSSES) или null; в тренировке — нет
     // SPEC-019: шум топота, сек до того, как снова слышит; поворот на топот (куда, сколько ещё, скорость) и сколько ещё смотрит туда
     noise: 0, hearCd: 0, hearFace: 0, hearTurnT: 0, hearRate: 0, hearLook: 0,
     skin: looks.big
   };
-  items = []; itemCd = rand(4, 7); pendingWin = 0; pushWaves = [];
-  bonusStars = []; starCd = rand(CFG.STAR_EVERY[0], CFG.STAR_EVERY[1]);
-  kisses = [];
-  kitHintT = 0; kitHintDone = false;
-  heardHintT = 0; heardHintDone = false;
-  attackToken = null; prevToken = null; botAttackCd = rand(3, 5);
-  stats = { hugs: 0, time: 0, playerHugs: 0, rests: 0, starCoins: 0 };
-  setAutoNavs(new Map()); setAutoMove([]);
+  G.items = []; G.itemCd = rand(4, 7); G.pendingWin = 0; G.pushWaves = [];
+  G.bonusStars = []; G.starCd = rand(CFG.STAR_EVERY[0], CFG.STAR_EVERY[1]);
+  G.kisses = [];
+  G.kitHintT = 0; G.kitHintDone = false;
+  G.heardHintT = 0; G.heardHintDone = false;
+  G.attackToken = null; G.prevToken = null; G.botAttackCd = rand(3, 5);
+  G.stats = { hugs: 0, time: 0, playerHugs: 0, rests: 0, starCoins: 0 };
+  G.autoNavs = new Map(); G.autoMove = [];
   lastReward = null;
-  if (tutorialGame) tutorialSetup();                       // SPEC-029: тренировка — папа на поляне, сценарий, подсказки, свой запас
+  if (G.tutorialGame) tutorialSetup();                       // SPEC-029: тренировка — папа на поляне, сценарий, подсказки, свой запас
   hooks.rebuild();
+}
+const NO_LOOKS = Object.freeze({ players: [], bots: [], big: null });
+// SPEC-012 AC 1: a new game, built: newGame(opts) + buildGame on it (the active game is restored afterwards). opts: world, n,
+// players, looks, upgrades, practice (the practice game's number, SPEC-029), rng / seed. → the game (not made active)
+export function createGame(opts = {}) {
+  const g = newGame(opts);
+  g.tutorialGame = opts.practice || 0;
+  withGame(g, () => buildGame(g.world, g.level, g.players, { looks: opts.looks || NO_LOOKS, upgrades: opts.upgrades }));
+  return g;
 }
 // чем рулит игрок l: ввод с устройств (hooks.inputFor) плюс «джойстик» автопилота (SPEC-008); длина не больше 1
 function inputFor(l) {
   let { x, y } = hooks.inputFor(l);
-  const ap = autoMove[l.id];
+  const ap = G.autoMove[l.id];
   if (ap) { x += ap.x; y += ap.y; }
   const d = Math.hypot(x, y);
   if (d > 1) { x /= d; y /= d; }
   return { x, y };
 }
 function updatePlayers(dt) {
-  for (const l of littles) {
+  for (const l of G.littles) {
     if (l.kind !== "player") continue;
     l.moving = false; l.speedFrac = 0;
     if (!canAct(l)) continue;
@@ -121,14 +152,14 @@ function updatePlayers(dt) {
 
 // эффекты: кольца широкого толчка (игра); летящие надписи, частицы и тряска — у клиента (hooks.fx)
 export function updateFx(dt) {
-  for (const w of pushWaves) w.t += dt;
-  pushWaves = pushWaves.filter(w => w.t < CFG.WAVE_TIME);
+  for (const w of G.pushWaves) w.t += dt;
+  G.pushWaves = G.pushWaves.filter(w => w.t < CFG.WAVE_TIME);
   hooks.fx(dt);
 }
 export function update(dt) {
-  if (!big.kind) stats.time += dt;                         // SPEC-022: пока подобревший папа идёт домой, часы уровня стоят
+  if (!G.big.kind) G.stats.time += dt;                         // SPEC-022: пока подобревший папа идёт домой, часы уровня стоят
   hooks.banner(dt);                                        // надпись уровня гаснет (клиент)
-  for (const l of littles) {
+  for (const l of G.littles) {
     l.invuln = Math.max(0, l.invuln - dt);
     l.hugCd = Math.max(0, l.hugCd - dt);
     l.dizzy = Math.max(0, l.dizzy - dt);
@@ -138,53 +169,32 @@ export function update(dt) {
       const f = Math.exp(-7 * dt); l.kx *= f; l.ky *= f;
     } else { l.kx = 0; l.ky = 0; }
   }
-  kitHintT = Math.max(0, kitHintT - dt);
-  heardHintT = Math.max(0, heardHintT - dt);
-  if (big.kind) updateKindWalk(dt);                        // SPEC-022: идёт домой; маленькие стоят и радуются
+  G.kitHintT = Math.max(0, G.kitHintT - dt);
+  G.heardHintT = Math.max(0, G.heardHintT - dt);
+  if (G.big.kind) updateKindWalk(dt);                        // SPEC-022: идёт домой; маленькие стоят и радуются
   else { autoThink(dt); updatePlayers(dt); updateBots(dt); updateBig(dt); }
   updateHugAnim(dt);
   updateKisses(dt);
   separate();
   checkContacts();
   updateDowned(dt);
-  if (tutorialGame) updateTutorial(dt);                    // SPEC-029: оба лежат — встают; подсказки по шагам
+  if (G.tutorialGame) updateTutorial(dt);                    // SPEC-029: оба лежат — встают; подсказки по шагам
   updateDanger(dt);
   updateResting(dt);
   updateItems(dt);
   updateStars(dt);
   updateFx(dt);
   // победа в два шага (SPEC-022): последняя обнимашка доигрывает (HUG_ANIM) → папа добреет и идёт домой (KIND_WALK) → экран победы
-  if (pendingWin > 0) { pendingWin -= dt; if (pendingWin <= 0 && mode === "play") { if (big.kind) winNow(); else startKindWalk(); } }
+  if (G.pendingWin > 0) { G.pendingWin -= dt; if (G.pendingWin <= 0 && mode === "play") { if (G.big.kind) winNow(); else startKindWalk(); } }
   // проигрыша больше нет: кого не спасли — отдыхает в домике и возвращается (за это меньше монеток)
 }
 // SPEC-008: шагает игру пачкой (dt — сек игры за шаг), пока уровень идёт и не вышло seconds; → простые данные
 export function simRun(seconds, dt = CFG.BALANCE.SIM_DT) {
   const n = Math.round(seconds / dt);
-  for (let i = 0; mode === "play" && (i < n || pendingWin > 0); i++) update(dt);   // SPEC-022: начатая победа (обнимашка, дорога домой) доигрывается
-  return { ended: mode !== "play", win: mode === "win", time: stats.time };
+  for (let i = 0; mode === "play" && (i < n || G.pendingWin > 0); i++) update(dt);   // SPEC-022: начатая победа (обнимашка, дорога домой) доигрывается
+  return { ended: mode !== "play", win: mode === "win", time: G.stats.time };
 }
-// SPEC-011 AC 5: other modules change this module's state only through these setters (live bindings are read-only there)
-export function setWorld(v) { return (curWorld = v); }
-export function setLevel(v) { return (level = v); }
-export function setRewardDue(v) { return (rewardDue = v); }
-export function setPendingWin(v) { return (pendingWin = v); }
-export function setEvents(v) { return (events = v); }
+// SPEC-011 AC 5: other modules change this module's state only through these setters (live bindings are read-only there);
+// a game's own fields are written through G.<field>
 export function setMode(v) { return (mode = v); }
 export function setLastReward(v) { return (lastReward = v); }
-export function setKitHintDone(v) { return (kitHintDone = v); }
-export function setHeardHintDone(v) { return (heardHintDone = v); }
-export function setItemCd(v) { return (itemCd = v); }
-export function setAttackToken(v) { return (attackToken = v); }
-export function setKitHintT(v) { return (kitHintT = v); }
-export function setKitHintPi(v) { return (kitHintPi = v); }
-export function setKissSeq(v) { return (kissSeq = v); }
-export function setKisses(v) { return (kisses = v); }
-export function setItemSeq(v) { return (itemSeq = v); }
-export function setStarSeq(v) { return (starSeq = v); }
-export function setStarCd(v) { return (starCd = v); }
-export function setBonusStars(v) { return (bonusStars = v); }
-export function setItems(v) { return (items = v); }
-export function setBotAttackCd(v) { return (botAttackCd = v); }
-export function setPrevToken(v) { return (prevToken = v); }
-export function setHeardHintT(v) { return (heardHintT = v); }
-export function setHeardHintPi(v) { return (heardHintPi = v); }

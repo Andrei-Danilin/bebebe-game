@@ -3,13 +3,13 @@
 
 import { WORLDS } from "../core/config.js";
 import { progress, saveProgress, setProgress } from "../core/economy.js";
-import { curWorld, numPlayers, setLevel, setRewardDue, setWorld } from "../core/game.js";
 import { hasFlatProgress, isOpen, worldProgress } from "../core/progress-rules.js";
 import { detectLang, HTML_LANG, lang, LANGS, setCurrentLang } from "../i18n.js";
 import { resetWorld } from "./flow.js";
 import { namesFrom, setNamesTyped } from "./names.js";
 import { adoptWorn, cloneSkins, fitOutfitsToOwned, loadOutfits, setSkinKeep, setSkinSel, skinSel } from "./outfits.js";
 import { ui } from "./state.js";
+import { G } from "../core/active.js";
 
 // язык при запуске (initSaves — первым: ему нужно знать, есть ли сохранённый прогресс)
 function initLang() {
@@ -59,17 +59,17 @@ export function initSaves() {
   } catch (e) { setProgress(null); }
   if (migrated) saveProgress();                            // переезд старого сохранения — один раз
   if (!hadOwned) adoptWorn(); else fitOutfitsToOwned();    // сохранение с owned: некупленное снимается, а не дарится
-  setWorld(progress.lastWorld);
-  setLevel(worldProgress().unlocked);                        // меню открывается на последнем мире, на его новом уровне
+  G.world = progress.lastWorld;
+  G.level = worldProgress().unlocked;                        // меню открывается на последнем мире, на его новом уровне
 }
 
 export function resetProgress() {
   if (!ui.resetArmed) { ui.resetArmed = true; return; }
   ui.resetArmed = false;
-  setRewardDue(false);                         // прогресс заменён целиком: за брошенный уровень не платим
+  G.rewardDue = false;                         // прогресс заменён целиком: за брошенный уровень не платим
   setProgress(null); ui.openedWorld = null; ui.worldBanner = null;   // новый прогресс
-  if (!isOpen(curWorld)) setWorld(WORLDS[0]);   // SPEC-016/030: после сброса открыт только Парк
-  progress.lastWorld = curWorld;
+  if (!isOpen(G.world)) G.world = WORLDS[0];   // SPEC-016/030: после сброса открыт только Парк
+  progress.lastWorld = G.world;
   fitOutfitsToOwned();                       // SPEC-009: купленные наряды ушли вместе с прогрессом
-  saveProgress(); setLevel(1); resetWorld(numPlayers);
+  saveProgress(); G.level = 1; resetWorld(G.players);
 }

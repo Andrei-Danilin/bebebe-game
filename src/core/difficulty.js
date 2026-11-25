@@ -1,8 +1,7 @@
 // SPEC-006 / SPEC-011: the Big One's numbers per world and level (speed, hearts, anger). Core module.
 import { BOSSES, CFG, WORLDS, levelPos, worldDifficulty } from "./config.js";
-import { big, curWorld, level } from "./game.js";
 import { bossFor } from "./mood.js";
-import { tutorialGame } from "./practice.js";
+import { G } from "./active.js";
 
 // Сложность (SPEC-006): мир начинается с WORLD_SPEED_START[d] (d — индекс сложности мира, SPEC-016), каждый уровень мира
 // +SPEED_PER_LEVEL; злость — каждое ЦЕЛОЕ потерянное сердечко +BIG_SPEED_PER_HIT. Ни одна скорость не больше BIG_CHASE_MAX (вместе со злостью).
@@ -18,10 +17,10 @@ export function difficulty(world, n, lost = 0) {
   return { chase: chaseCap(CFG.BIG_CHASE_SPEED + boost + bs), search: chaseCap(CFG.BIG_CHASE_SPEED * 0.85 + boost + bs),
     patrol: chaseCap(CFG.BIG_PATROL_SPEED + boost * 0.5 + bs), hearts: bigHearts(world, n) + extra, boost };
 }
-const bigDifficulty = () => difficulty(curWorld, level, big.maxHp - big.hp);
+const bigDifficulty = () => difficulty(G.world, G.level, G.big.maxHp - G.big.hp);
 export const bigBoost = () => bigDifficulty().boost;                     // насколько Большой быстрее сейчас (без потолка)
 // SPEC-029: в тренировке — скорости Парка 1 × TUTORIAL.speedMult (без прибавки за злость), настоящие уровни как были
 export function bigSpeeds() {
-  const d = tutorialGame ? difficulty(WORLDS[0], 1) : bigDifficulty(), m = tutorialGame ? CFG.TUTORIAL.speedMult : 1;
+  const d = G.tutorialGame ? difficulty(WORLDS[0], 1) : bigDifficulty(), m = G.tutorialGame ? CFG.TUTORIAL.speedMult : 1;
   return { chase: d.chase * m, search: d.search * m, patrol: d.patrol * m };
 }

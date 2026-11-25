@@ -1,11 +1,9 @@
 // SPEC-011: the phone mini-map and the edge arrows (SPEC-005, SPEC-010). Client module (moved out of index.html in Phase C).
 
 import { H, TAU, W } from "../../core/config.js";
-import { big, bonusStars, curWorld, items, littles, mode } from "../../core/game.js";
-import { levelInfo } from "../../core/level/build.js";
+import { mode } from "../../core/game.js";
 import { bigCalm } from "../../core/path.js";
 import { clamp } from "../../core/util.js";
-import { bushes, dangerZone, obstacles, safeZone } from "../../core/world.js";
 import { LOOK } from "../look.js";
 import { P_COLORS } from "../outfits.js";
 import { ctx, PHONE, UH, UW, VIEW } from "../screen.js";
@@ -16,6 +14,7 @@ import { THEMES } from "../three/themes.js";
 import { circle, drawHeart, fillStroke, rr } from "./draw.js";
 import { phoneOccluders } from "./phone.js";
 import { cpx, label } from "./text.js";
+import { G } from "../../core/active.js";
 
 // ---------- Мини-карта и стрелки у края (SPEC-005, только телефон) ----------
 // mmState — один объект на все кадры; маркеры — переиспользуемые объекты (mmCount штук нарисовано в этом кадре)
@@ -39,10 +38,10 @@ function mixHex(a, b, f) {
 // Рисуется один раз на уровень (номер и попытку из levelInfo), место и размер; перезапуск того же уровня ничего не перерисовывает
 const MM_DARK = "#1e293b", MM_WATER = "#38bdf8", MM_BUSH = "#2e8b3e";
 function minimapBase(r) {
-  const li = levelInfo || {}, key = [li.world, li.lv, li.attempt, li.fallback, r.w, VIEW].join(":");
+  const li = G.levelInfo || {}, key = [li.world, li.lv, li.attempt, li.fallback, r.w, VIEW].join(":");
   if (mmBase && key === mmKey) return mmBase;
   mmKey = key; mmDraws++;
-  const th = THEMES[li.world || curWorld], L = LOOK.MINIMAP_LOOK, c = mmBase || (mmBase = document.createElement("canvas"));
+  const th = THEMES[li.world || G.world], L = LOOK.MINIMAP_LOOK, c = mmBase || (mmBase = document.createElement("canvas"));
   c.width = Math.max(1, Math.round(r.w * VIEW)); c.height = Math.max(1, Math.round(r.h * VIEW));   // новый размер — холст чистый
   const g = c.getContext("2d"), ui = W / r.w;                    // px карты на UI px
   g.setTransform(c.width / W, 0, 0, c.height / H, 0, 0);          // рисуем в px карты
@@ -53,8 +52,8 @@ function minimapBase(r) {
     g.globalAlpha = L.zone; g.fillStyle = col; g.fillRect(z.x, z.y, z.w, z.h); g.globalAlpha = 1;
     g.lineWidth = lw; g.strokeStyle = col; g.strokeRect(z.x + lw / 2, z.y + lw / 2, z.w - lw, z.h - lw);
   };
-  zone(safeZone, th.walls.home[0]); zone(dangerZone, th.walls.bighome[0]);
-  for (const o of obstacles) {
+  zone(G.safeZone, th.walls.home[0]); zone(G.dangerZone, th.walls.bighome[0]);
+  for (const o of G.obstacles) {
     // SPEC-016: у места с воротами (deco.goal — Поле) пруд — это ворота: рисуются цветом рамки, не водой
     if (o.kind === "water" || o.kind === "pond") { g.fillStyle = o.kind === "pond" && !o.fountain && th.deco?.goal ? th.deco.goal : MM_WATER; g.fillRect(o.x, o.y, o.w, o.h); continue; }
     if (o.kind === "tree" || o.kind === "rock") {
@@ -69,7 +68,7 @@ function minimapBase(r) {
     else g.fillRect(o.x, o.y, o.w, o.h);
   }
   g.fillStyle = dark(MM_BUSH);
-  for (const b of bushes) { g.beginPath(); g.arc(b.x, b.y, b.r * L.bush, 0, TAU); g.fill(); }
+  for (const b of G.bushes) { g.beginPath(); g.arc(b.x, b.y, b.r * L.bush, 0, TAU); g.fill(); }
   return c;
 }
 function mark(kind, x, y, r = 0) {
@@ -80,7 +79,7 @@ function mark(kind, x, y, r = 0) {
 export let mmAlpha = 1;
 function minimapUnder() {
   const r = minimapRect(), p = LOOK.MINIMAP_UNDER_PAD;
-  return [camHero(), big].some(o => {
+  return [camHero(), G.big].some(o => {
     if (!o) return false;
     const s = toScreen(o.x, o.y);
     return s.x > r.x - p && s.x < r.x + r.w + p && s.y > r.y - p && s.y < r.y + r.h + p;
@@ -114,18 +113,18 @@ export function drawMinimap(t) {
   ctx.beginPath(); ctx.moveTo(X(vp[0]), Y(vp[1]));
   for (let i = 2; i < vp.length; i += 2) ctx.lineTo(X(vp[i]), Y(vp[i + 1]));
   ctx.closePath(); ctx.globalAlpha = A * (calm ? L.coneCalm : L.cone); ctx.fillStyle = calm ? "#fff" : "#facc15"; ctx.fill();
-  mark("cone", X(big.x), Y(big.y));
+  mark("cone", X(G.big.x), Y(G.big.y));
   ctx.globalAlpha = A;
-  for (const s of bonusStars) dot("star", s.x, s.y, L.dots.star, "#facc15");
-  for (const it of items) dot("item", it.x, it.y, L.dots.item, "#fb923c");
+  for (const s of G.bonusStars) dot("star", s.x, s.y, L.dots.star, "#facc15");
+  for (const it of G.items) dot("item", it.x, it.y, L.dots.item, "#fb923c");
   const hero = camHero(), blink = Math.sin(t * 10) > 0;
-  for (const l of littles) {
+  for (const l of G.littles) {
     if (l === hero) continue;
     if (l.state === "down") { dot("downed", l.x, l.y, L.dots.downed, blink ? "#22c55e" : "#fff"); continue; }
     ctx.globalAlpha = A * (l.state === "home" || l.state === "rest" ? L.rest : 1);
     dot("bot", l.x, l.y, L.dots.bot, "#fff"); ctx.globalAlpha = A;
   }
-  dot("big", big.x, big.y, L.dots.big, "#ef4444");
+  dot("big", G.big.x, G.big.y, L.dots.big, "#ef4444");
   if (hero) dot("hero", hero.x, hero.y, L.dots.hero, hero.state === "down" && blink ? "#fff" : P_COLORS[0], "#fff");
   const v = camRect();
   ctx.globalAlpha = A * L.frameShade; ctx.lineWidth = L.frameShadeW; ctx.strokeStyle = MM_DARK; ctx.strokeRect(X(v.x), Y(v.y), v.w * sx, v.h * sy);
@@ -159,7 +158,7 @@ export function drawEdgeArrows() {
     if (s < Wd) { px = x0 + s; py = y0; } else if (s < Wd + Ht) { px = x1; py = y0 + s - Wd; }
     else if (s < 2 * Wd + Ht) { px = x1 - (s - Wd - Ht); py = y1; } else { px = x0; py = y1 - (s - 2 * Wd - Ht); }
   };
-  const targets = [{ kind: "big", o: big }, ...littles.filter(l => l !== hero && l.state === "down").map(o => ({ kind: "downed", o }))];
+  const targets = [{ kind: "big", o: G.big }, ...G.littles.filter(l => l !== hero && l.state === "down").map(o => ({ kind: "downed", o }))];
   for (const { kind, o } of targets) {
     const ts = toScreen(o.x, o.y);
     const onScreen = ts.x >= 0 && ts.x <= UW && ts.y >= 0 && ts.y <= UH;

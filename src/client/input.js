@@ -2,8 +2,7 @@
 // inputFor hook). Client module (moved out of index.html in Phase C).
 
 import { CFG } from "../core/config.js";
-import { curWorld, mode, numPlayers, setMode } from "../core/game.js";
-import { tutorialGame } from "../core/practice.js";
+import { mode, setMode } from "../core/game.js";
 import { throwKiss, useRescueKit } from "../core/rules.js";
 import { L } from "../i18n.js";
 import { backToWardrobe, chooseStop, closeCard, closeShop, cycleWorld, inWardrobe, mapSelN, moveMapSel, nextLang, nextLevel, openStory, playCard, resumeGame, retryLevel, sceneNext, scenePrev, sceneSkip, storyBackKey, storyStep, switchShopTab, toggleSound, toMap, watchChapter } from "./flow.js";
@@ -16,6 +15,7 @@ import { ui } from "./state.js";
 import { openTutorial, tutorialSkip } from "./tutorial.js";
 import { homeActions } from "./ui/home.js";
 import { cpx } from "./ui/text.js";
+import { G } from "../core/active.js";
 
 // =====================================================================
 //  УПРАВЛЕНИЕ: клавиатура, касания (джойстики), геймпад
@@ -41,7 +41,7 @@ function onKey(code) {
     if (back) closeCard();
     if (code === "Enter" || code === "NumpadEnter" || code === "Space" || code === "Digit1" || code === "Numpad1") playCard(1);
     if (code === "Digit2" || code === "Numpad2") playCard(2);
-    if (code === "KeyS") openStory(curWorld, "levelCard");
+    if (code === "KeyS") openStory(G.world, "levelCard");
   } else if (mode === "story") {
     if (back) storyBackKey();
     if (ui.storyPage === "chapters" && code === "ArrowLeft") storyStep(-1);
@@ -67,7 +67,7 @@ function onKey(code) {
     if (rp >= 0) useRescueKit(rp);
   } else if (mode === "pause") {
     if (code === "KeyP" || back) resumeGame();
-    if (code === "KeyQ") (tutorialGame ? tutorialSkip : toMap)();   // SPEC-029: в тренировке Q — пропустить обучение
+    if (code === "KeyQ") (G.tutorialGame ? tutorialSkip : toMap)();   // SPEC-029: в тренировке Q — пропустить обучение
   } else if (mode === "win") {
     if (code === "Enter" || code === "Space") nextLevel();
     if (back || code === "KeyQ") toMap();
@@ -80,19 +80,19 @@ function onKey(code) {
 // Воздушный поцелуй: один игрок — E или пробел; двое — игрок 1 E, игрок 2 Enter
 function kissKeyPlayer(code) {
   if (code === "KeyE") return 0;
-  if (numPlayers === 1) return code === "Space" ? 0 : -1;
+  if (G.players === 1) return code === "Space" ? 0 : -1;
   return code === "Enter" || code === "NumpadEnter" ? 1 : -1;
 }
 
 // Спасалка 🩹 (SPEC-007): один игрок — Q; двое — игрок 1 Q, игрок 2 правый Shift
 function kitKeyPlayer(code) {
   if (code === "KeyQ") return 0;
-  return numPlayers === 2 && code === "ShiftRight" ? 1 : -1;
+  return G.players === 2 && code === "ShiftRight" ? 1 : -1;
 }
 
 // Касания: левая половина — игрок 1, правая — игрок 2 (в игре на одного — весь экран)
 export const sticks = new Map();
-export const chipName = l => numPlayers === 1 ? L().me : String(l.id + 1);   // короткая метка игрока в кружке HUD
+export const chipName = l => G.players === 1 ? L().me : String(l.id + 1);   // короткая метка игрока в кружке HUD
 const STICK_R = 55;
 // радиус джойстика в UI px: на телефоне — PHONE_STICK_R в CSS px (под палец), иначе как было
 export const stickR = () => PHONE ? LOOK.PHONE_STICK_R * UW / CSS_W : STICK_R;
@@ -171,7 +171,7 @@ function onPadButton(b, pad = 0) {
   } else if (mode === "levelCard") {
     if (b === 0 || b === 9) playCard(1);
     if (b === 2) playCard(2);                      // X — вдвоём (на телефоне startGame сам оставит одного игрока)
-    if (b === 3) openStory(curWorld, "levelCard"); // Y — 📖 глава мира
+    if (b === 3) openStory(G.world, "levelCard"); // Y — 📖 глава мира
     if (b === 1) closeCard();
   } else if (mode === "story") {
     if (b === 1) storyBackKey();
@@ -197,10 +197,10 @@ function onPadButton(b, pad = 0) {
     }
   } else if (mode === "play") {
     if (b === 9) setMode("pause");
-    if (b === LOOK.PAD_KISS && (numPlayers === 1 || pad < numPlayers)) throwKiss(numPlayers === 1 ? 0 : pad);
-    if (b === LOOK.PAD_KIT && (numPlayers === 1 || pad < numPlayers)) useRescueKit(numPlayers === 1 ? 0 : pad);
+    if (b === LOOK.PAD_KISS && (G.players === 1 || pad < G.players)) throwKiss(G.players === 1 ? 0 : pad);
+    if (b === LOOK.PAD_KIT && (G.players === 1 || pad < G.players)) useRescueKit(G.players === 1 ? 0 : pad);
   }
-  else if (mode === "pause") { if (b === 9 || b === 0) resumeGame(); if (b === 1) (tutorialGame ? tutorialSkip : toMap)(); }
+  else if (mode === "pause") { if (b === 9 || b === 0) resumeGame(); if (b === 1) (G.tutorialGame ? tutorialSkip : toMap)(); }
   else if (mode === "win") { if (b === 0 || b === 9) nextLevel(); if (b === 1) toMap(); }
   else if (mode === "lose") { if (b === 0 || b === 9) retryLevel(); if (b === 1) toMap(); }
 }
@@ -209,7 +209,7 @@ function onPadButton(b, pad = 0) {
 // двое — игрок 1 левый Shift, игрок 2 «/» (клавиша слева от правого Shift; на русской раскладке «.»). Не Ctrl: с ним клавиши
 // игрока 1 — сочетания браузера (Ctrl+W закрывает вкладку). Правый Shift остаётся спасалкой игрока 2.
 const TIPTOE_KEYS = [["ShiftLeft", "ShiftRight"], ["ShiftLeft"], ["Slash"]];
-const tiptoeKey = pi => (numPlayers === 1 ? TIPTOE_KEYS[0] : TIPTOE_KEYS[pi + 1] || []).some(k => keys.has(k));
+const tiptoeKey = pi => (G.players === 1 ? TIPTOE_KEYS[0] : TIPTOE_KEYS[pi + 1] || []).some(k => keys.has(k));
 // Длина вектора — доля скорости. Стик/геймпад: наклон t < TIPTOE_MAX — на цыпочках (до TIPTOE_MULT), больше — бегом (t);
 // Shift — не быстрее TIPTOE_MULT. Автопилот — как есть (его длина и есть доля скорости).
 // SPEC-011 AC 3b: ввод игрока l с устройств (клавиши, Shift — на цыпочках; геймпады; джойстики касаний) — hooks.inputFor;
@@ -220,7 +220,7 @@ export function deviceInput(l) {
   const c = l.controls, pressed = arr => arr.some(k => keys.has(k));
   x += (pressed(c.right) ? 1 : 0) - (pressed(c.left) ? 1 : 0);
   y += (pressed(c.down) ? 1 : 0) - (pressed(c.up) ? 1 : 0);
-  pads.forEach((p, i) => { if (numPlayers === 1 || i === pi) { x += p.x; y += p.y; } });
+  pads.forEach((p, i) => { if (G.players === 1 || i === pi) { x += p.x; y += p.y; } });
   for (const s of sticks.values()) {
     if (s.player !== pi) continue;
     const R = stickR(), dx = (s.x - s.ox) / R, dy = (s.y - s.oy) / R;
@@ -267,7 +267,7 @@ export function initInput() {
     if (mode === "scene") { sceneNext(); return; }      // SPEC-022: тап по заставке — дальше
     if (mode === "play" && e.pointerType !== "mouse") {
       if (PHONE && p.x > UW * LOOK.STICK_ZONE) return;   // телефон: справа — только кнопки
-      const player = numPlayers === 2 && p.x > UW / 2 ? 1 : 0;
+      const player = G.players === 2 && p.x > UW / 2 ? 1 : 0;
       for (const [id, s] of sticks) if (s.player === player) sticks.delete(id);
       sticks.set(e.pointerId, { player, ox: p.x, oy: p.y, x: p.x, y: p.y });
       try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* ok */ }

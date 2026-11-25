@@ -5,8 +5,8 @@ import { clamp } from "./util.js";
 import { BIG_SKINS, HATS, JACKETS, PANTS } from "./wardrobe.js";
 import { SEEN_IDS } from "../story.js";
 import { addCoins, progress } from "./economy.js";
-import { curWorld, lastReward, level, setLastReward, setRewardDue, stats } from "./game.js";
-import { tutorialGame } from "./practice.js";
+import { lastReward, setLastReward } from "./game.js";
+import { G } from "./active.js";
 
 // ---------- Прогресс: миры (открытые уровни, звёзды), монетки, рукавицы (хранится в этом браузере) ----------
 // SPEC-006: progress.worlds = { [мир из WORLDS]: { unlocked, stars: { [n]: 1..3 } } }, lastWorld — мир в меню
@@ -90,7 +90,7 @@ export function loadProgress(pv) {
 }
 // мир пройден: выиграны все его уровни (20-й, босс, открывается последним — значит, «20-й выигран»); p — прогресс, по умолчанию текущий
 // (сохранение может быть неполным — нет мира или полей: значит, не выиграно и прогресса нет)
-export const worldComplete = (w = curWorld, p = progress) => { const won = p?.worlds?.[w]?.won ?? {}; for (let n = 1; n <= levelsPerWorld(); n++) if (won[n] !== true) return false; return true; };
+export const worldComplete = (w = G.world, p = progress) => { const won = p?.worlds?.[w]?.won ?? {}; for (let n = 1; n <= levelsPerWorld(); n++) if (won[n] !== true) return false; return true; };
 // SPEC-016: бонусные миры открываются, когда пройдены все главные миры
 export const bonusUnlocked = (p = progress) => MAIN_WORLDS.every(w => worldComplete(w, p));
 // в мире есть прогресс: открыт дальше 1-го уровня или есть победа/звёзды
@@ -108,7 +108,7 @@ export function worldOpen(world, p = progress) {
   return { open: false, reason: "locked", needs: i > 0 ? MAIN_WORLDS[i - 1] : null };
 }
 export const isOpen = (w, p = progress) => worldOpen(w, p).open;
-export const worldProgress = (w = curWorld) => progress.worlds[w];
+export const worldProgress = (w = G.world) => progress.worlds[w];
 // SPEC-009: основа награды уровня n мира (SPEC-016: по индексу сложности мира, 0–4)
 const rewardBase = (world, n) => REWARD.BASE + REWARD.PER_LEVEL * n + REWARD.PER_WORLD * worldDifficulty(world);
 // SPEC-026: строка победы × REWARD.WIN_SCALE и округление (toFixed убирает хвост дробей: 45 × 0,7 = 31,4999… → 31,5 → 32)
@@ -119,10 +119,10 @@ export const fastTarget = (world, n) => CFG.FAST_TIME(n) + worldDifficulty(world
 // Каждая строка (кроме звёздочек — они уже в копилке с подбора) идёт в книгу через addCoins; нулевые не пишем.
 // → lastReward этого уровня или null (тренировка не платит). Клиент — giveReward (то же + мир, который открыла победа)
 export function payReward(win) {
-  setRewardDue(false);
-  if (tutorialGame) return null;                            // SPEC-029: тренировка не платит и ничего не открывает
-  const ph = stats.playerHugs;
-  const starCoins = stats.starCoins;        // монетки за звёздочки уже в копилке (начислены при подборе)
+  G.rewardDue = false;
+  if (G.tutorialGame) return null;                            // SPEC-029: тренировка не платит и ничего не открывает
+  const ph = G.stats.playerHugs;
+  const starCoins = G.stats.starCoins;        // монетки за звёздочки уже в копилке (начислены при подборе)
   const partsOf = list => list.filter(([, a]) => a !== 0).map(([reason, amount]) => ({ reason, amount }));
   const hugs = ph * REWARD.PER_HUG;
   if (!win) {
@@ -130,10 +130,10 @@ export function payReward(win) {
     setLastReward({ win: false, coins: c + starCoins, starCoins, parts: partsOf([["hugs", c], ["star", starCoins]]) });
     return lastReward;
   }
-  const wp = worldProgress(), n = clamp(level, 1, levelsPerWorld());
-  const rests = stats.rests, nobodyOut = rests === 0, target = fastTarget(curWorld, n), fast = stats.time <= target;
+  const wp = worldProgress(), n = clamp(G.level, 1, levelsPerWorld());
+  const rests = G.stats.rests, nobodyOut = rests === 0, target = fastTarget(G.world, n), fast = G.stats.time <= target;
   const stars = 1 + (nobodyOut ? 1 : 0) + (fast ? 1 : 0);
-  const first = !wp.won[n], base = rewardBase(curWorld, n);
+  const first = !wp.won[n], base = rewardBase(G.world, n);
   const min = first ? REWARD.FIRST_MIN : REWARD.REPLAY_MIN;
   const line = Math.max(winScale(first ? base : Math.floor(base / 2)), min);   // повтор — половина основы; SPEC-026: × WIN_SCALE
   const restCut = Math.min(rests * CFG.COINS_PER_REST, line - min);   // отдых срезается до пола: строки всегда сходятся с итогом
@@ -142,10 +142,10 @@ export function payReward(win) {
   wp.stars[n] = Math.max(prevStars, stars);
   wp.won[n] = true;
   wp.unlocked = Math.max(wp.unlocked, Math.min(levelsPerWorld(), n + 1));   // только в этом мире
-  progress.lastWorld = curWorld;
+  progress.lastWorld = G.world;
   for (const p of parts) if (p.reason !== "star") addCoins(p.reason, p.amount);   // по строке (каждая сохраняет): в книге те же строки, что в parts
   setLastReward({ win: true, coins: parts.reduce((a, p) => a + p.amount, 0), starCoins, stars, nobodyOut, fast, target, first, base, newStars,
-    newBest: stars > prevStars, world: curWorld, level: n, worldDone: n >= levelsPerWorld(), parts,
+    newBest: stars > prevStars, world: G.world, level: n, worldDone: n >= levelsPerWorld(), parts,
     bonusUnlocked: !bonusBefore && bonusUnlocked(),   // SPEC-016: эта победа открыла бонусные миры — сказать один раз
     worldOpened: MAIN_WORLDS.find(w => !openBefore.includes(w) && isOpen(w)) ?? null });   // SPEC-030: эта победа открыла следующий главный мир
   return lastReward;

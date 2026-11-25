@@ -5,7 +5,8 @@ import { levelKey, levelSeed, levelTier, levelType, placeHomes } from "./generat
 import { LAYOUTS, hWallTo, vWallTo } from "./layouts.js";
 import { buildLevel, validateLevel } from "./validate.js";
 import { cellIdx } from "../path.js";
-import { blocked, buildGrids, bushes, decor, floors, obstacles, setBushes, setDangerZone, setDecor, setFloors, setFlowers, setObstacles, setReachable, setSafeZone, setSpawns, setTrees, spawns, trees } from "../world.js";
+import { buildGrids } from "../world.js";
+import { G } from "../active.js";
 
 // ---------- Сборка уровня ----------
 export function generateLevel(world, lv, attempt) { return noGameRng("generateLevel", () => layoutLevel(world, lv, attempt)); }
@@ -56,30 +57,30 @@ function layoutLevel(world, lv, attempt) {
 
 // Новое состояние мира здесь → добавить его в список keep у levelReport (и в __bb.worldState)
 export function applyWorld(gen) {
-  setObstacles([]); setBushes([]); setFloors([]); setDecor([]); setTrees([]); setSafeZone(null); setDangerZone(null);
-  setFlowers(gen.flowers);
+  G.obstacles = []; G.bushes = []; G.floors = []; G.decor = []; G.trees = []; G.safeZone = null; G.dangerZone = null;
+  G.flowers = gen.flowers;
   for (const it of gen.items) {
     const px = it.x * CELL, py = it.y * CELL;
-    if (it.t === "wall") obstacles.push({ shape: "rect", x: px, y: py, w: it.w * CELL, h: it.h * CELL, move: true, sight: true, kind: it.kind });
-    else if (it.t === "cottage") obstacles.push({ shape: "rect", x: px, y: py, w: it.w * CELL, h: it.h * CELL, move: true, sight: true, kind: "cottage" });
-    else if (it.t === "water") obstacles.push({ shape: "rect", x: px, y: py, w: it.w * CELL, h: it.h * CELL, move: true, sight: false, kind: "water" });
-    else if (it.t === "pond") obstacles.push({ shape: "rect", x: px, y: py, w: it.w * CELL, h: it.h * CELL, move: true, sight: false, kind: "pond", fountain: !!it.fountain });
-    else if (it.t === "tree") { const t = { shape: "circle", x: px + 16, y: py + 16, r: 12, sr: 15, move: true, sight: true, kind: "tree", v: it.v, s: it.s }; obstacles.push(t); trees.push(t); }
-    else if (it.t === "rock") obstacles.push({ shape: "circle", x: px + 16, y: py + 16, r: 16, sr: 16, move: true, sight: true, kind: "rock", s: it.s });
-    else if (it.t === "bush") bushes.push({ x: px + CELL, y: py + CELL, r: 30 });
-    else if (it.t === "safe") setSafeZone({ shape: "rect", x: px, y: py, w: it.w * CELL, h: it.h * CELL });
-    else if (it.t === "danger") setDangerZone({ x: px, y: py, w: it.w * CELL, h: it.h * CELL, exits: (it.exits || []).map(e => ({ x: (e.x + e.w / 2) * CELL, y: (e.y + e.h / 2) * CELL })) });
-    else if (it.t === "floor") floors.push({ x: px, y: py, w: it.w * CELL, h: it.h * CELL, kind: it.kind, across: it.across });
-    else if (it.t === "decor") decor.push({ x: px, y: py, w: it.w * CELL, h: it.h * CELL, kind: it.kind, c: it.c });
+    if (it.t === "wall") G.obstacles.push({ shape: "rect", x: px, y: py, w: it.w * CELL, h: it.h * CELL, move: true, sight: true, kind: it.kind });
+    else if (it.t === "cottage") G.obstacles.push({ shape: "rect", x: px, y: py, w: it.w * CELL, h: it.h * CELL, move: true, sight: true, kind: "cottage" });
+    else if (it.t === "water") G.obstacles.push({ shape: "rect", x: px, y: py, w: it.w * CELL, h: it.h * CELL, move: true, sight: false, kind: "water" });
+    else if (it.t === "pond") G.obstacles.push({ shape: "rect", x: px, y: py, w: it.w * CELL, h: it.h * CELL, move: true, sight: false, kind: "pond", fountain: !!it.fountain });
+    else if (it.t === "tree") { const t = { shape: "circle", x: px + 16, y: py + 16, r: 12, sr: 15, move: true, sight: true, kind: "tree", v: it.v, s: it.s }; G.obstacles.push(t); G.trees.push(t); }
+    else if (it.t === "rock") G.obstacles.push({ shape: "circle", x: px + 16, y: py + 16, r: 16, sr: 16, move: true, sight: true, kind: "rock", s: it.s });
+    else if (it.t === "bush") G.bushes.push({ x: px + CELL, y: py + CELL, r: 30 });
+    else if (it.t === "safe") G.safeZone = { shape: "rect", x: px, y: py, w: it.w * CELL, h: it.h * CELL };
+    else if (it.t === "danger") G.dangerZone = { x: px, y: py, w: it.w * CELL, h: it.h * CELL, exits: (it.exits || []).map(e => ({ x: (e.x + e.w / 2) * CELL, y: (e.y + e.h / 2) * CELL })) };
+    else if (it.t === "floor") G.floors.push({ x: px, y: py, w: it.w * CELL, h: it.h * CELL, kind: it.kind, across: it.across });
+    else if (it.t === "decor") G.decor.push({ x: px, y: py, w: it.w * CELL, h: it.h * CELL, kind: it.kind, c: it.c });
   }
-  setSpawns({ small: gen.small.map(([x, y]) => ({ x: x * CELL, y: y * CELL })), big: { x: gen.big[0] * CELL, y: gen.big[1] * CELL } });
+  G.spawns = { small: gen.small.map(([x, y]) => ({ x: x * CELL, y: y * CELL })), big: { x: gen.big[0] * CELL, y: gen.big[1] * CELL } };
   buildGrids();
 }
 
 export function connectivity() {
   const N = COLS * ROWS, seen = new Uint8Array(N);
-  const s = cellIdx(spawns.small[0].x, spawns.small[0].y);
-  if (blocked[s]) return { ok: false, seen };
+  const s = cellIdx(G.spawns.small[0].x, G.spawns.small[0].y);
+  if (G.blocked[s]) return { ok: false, seen };
   const q = [s]; seen[s] = 1;
   while (q.length) {
     const i = q.pop(), cx = i % COLS, cy = (i / COLS) | 0;
@@ -87,16 +88,16 @@ export function connectivity() {
       const nx = cx + dx, ny = cy + dy;
       if (nx < 0 || ny < 0 || nx >= COLS || ny >= ROWS) continue;
       const j = ny * COLS + nx;
-      if (!blocked[j] && !seen[j]) { seen[j] = 1; q.push(j); }
+      if (!G.blocked[j] && !seen[j]) { seen[j] = 1; q.push(j); }
     }
   }
   let ok = true;
-  for (let i = 0; i < N; i++) if (!blocked[i] && !seen[i]) { ok = false; break; }
+  for (let i = 0; i < N; i++) if (!G.blocked[i] && !seen[i]) { ok = false; break; }
   return { ok, seen };
 }
 
 // Уровень для игры строится тем же циклом попыток, что проверяет levelReport (validateLevel, запасной вариант)
-export let levelInfo = null;   // { world, lv, type, attempt, fallback, cached, ms } — какой уровень сейчас построен
+// G.levelInfo = { world, lv, type, attempt, fallback, cached, ms } — какой уровень сейчас построен (SPEC-012: в игре)
 // уровень ("мир:n") → принятая попытка: перезапуск и стрелки в меню строят её сразу, без перебора попыток.
 // Если она вдруг не проходит проверку (поменяли CFG) — запись удаляется и уровень строится заново с попытки 0,
 // как в levelReport.
@@ -108,12 +109,10 @@ export function loadLevel(world, lv) {
     const gen = generateLevel(world, lv, c);
     applyWorld(gen);
     const rep = validateLevel(gen, type);
-    if (rep.ok) { setReachable(rep.seen); levelInfo = { world, lv, type, attempt: c, fallback: false, cached: true, ms: performance.now() - t0 }; return; }
+    if (rep.ok) { G.reachable = rep.seen; G.levelInfo = { world, lv, type, attempt: c, fallback: false, cached: true, ms: performance.now() - t0 }; return; }
   }
   levelCache.delete(key);
   const r = buildLevel(world, lv);
   if (!r.fallback) levelCache.set(key, r.attempt);
-  levelInfo = { world, lv, type: r.type, attempt: r.attempt, fallback: r.fallback, cached: false, ms: r.ms };
+  G.levelInfo = { world, lv, type: r.type, attempt: r.attempt, fallback: r.fallback, cached: false, ms: r.ms };
 }
-// SPEC-011 AC 5: other modules change this module's state only through these setters (live bindings are read-only there)
-export function setLevelInfo(v) { return (levelInfo = v); }

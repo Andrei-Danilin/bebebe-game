@@ -27,12 +27,12 @@ test.afterAll(async () => { await shared.close(); });
 
 // ---------- AC 1: all gameplay randomness goes through one seeded rng() ----------
 test("same seed, same game", { tag: "@fast" }, async ({ page }) => {
-  // Math.random only in the helpers: the unseeded seed of rng() and the visual helper vrand()
+  // Math.random only in the visual helper vrand() (SPEC-012: an unseeded game's rng stream takes its seed from vrand too)
   const src = gameSource();   // SPEC-011 AC 8c: src/** (rng() and vrand() live in src/core/util.js)
   const uses = src.split("\n").map((s, i) => [i + 1, s]).filter(([, s]) => s.includes("Math.random") && !s.trim().startsWith("//"));
-  const bad = uses.filter(([, s]) => !/^\s*(export )?(let rngNext = mulberry32\(|const vrand = )/.test(s)).map(([n, s]) => `game code line ${n}: ${s.trim()}`);
+  const bad = uses.filter(([, s]) => !/^\s*(export )?const vrand = /.test(s)).map(([n, s]) => `game code line ${n}: ${s.trim()}`);
   expect(bad, "Math.random outside rng()/vrand():\n" + bad.join("\n")).toEqual([]);
-  expect(uses.length).toBe(2);
+  expect(uses.length).toBe(1);
   // the tests run with the strict guard (openGame): level/3D code that used the gameplay rng() throws here;
   // in normal play it falls back to vrand(), so a missed call never breaks a player's level start
   expect(await page.evaluate(() => window.__bb.strictRng)).toBe(true);

@@ -2,9 +2,8 @@
 // a phone and a computer. Client module (moved out of index.html in Phase C).
 
 import { CFG, levelsPerWorld } from "../../core/config.js";
-import { big, curWorld, lastReward, level, mode } from "../../core/game.js";
+import { lastReward, mode } from "../../core/game.js";
 import { bossFor } from "../../core/mood.js";
-import { tutorialGame } from "../../core/practice.js";
 import { L } from "../../i18n.js";
 import { art, paperPanel, paperUI } from "../art.js";
 import { nextLevel, resumeGame, retryLevel, shopAfterLose, shopAfterWin, toHome, toMap } from "../flow.js";
@@ -17,12 +16,13 @@ import { fitButton } from "./character/wardrobe.js";
 import { addButton, coinIcon, drawStarArt, fillStroke, rr } from "./draw.js";
 import { pButton, phoneFrame } from "./menu.js";
 import { cpx, fitText, fmtHearts, fmtTime, hudFont, label, labelFit, lastFit, noteText, pLabel, pRows, pWrap, scaledW } from "./text.js";
+import { G } from "../../core/active.js";
 
 // =====================================================================
 //  ЛОГИКА
 // =====================================================================
 // SPEC-022: заголовок экрана победы: «<имя> снова добрый!» — босс уровня по имени босса, иначе набранное имя или «Папа»
-export const winTitle = () => L().kindAgain(bossFor(curWorld, level) ? L().bossNames[curWorld] : nameFor("big"));
+export const winTitle = () => L().kindAgain(bossFor(G.world, G.level) ? L().bossNames[G.world] : nameFor("big"));
 // Ширина текста меряется с LOOK.TEXT_TEST_SCALE (тесты изображают более широкие шрифты CI и iPhone): плашка всегда шире текста
 function drawBonusNote(cx, cy, maxW, h, css) {
   if (!lastReward || !lastReward.bonusUnlocked) return;
@@ -82,14 +82,14 @@ function endActions(m) {
   const M = LOOK.MENU_LOOK, map = ["🗺 " + L().map, M.back, toMap];
   if (m === "win") {
     const shop = ["🛒 " + L().shop, M.shop, shopAfterWin];
-    if (level >= levelsPerWorld()) return [["🗺 " + L().map, M.ok, toMap], shop];   // мир пройден: дальше — карта
-    return [[L().next(level + 1), M.ok, nextLevel], map, shop];
+    if (G.level >= levelsPerWorld()) return [["🗺 " + L().map, M.ok, toMap], shop];   // мир пройден: дальше — карта
+    return [[L().next(G.level + 1), M.ok, nextLevel], map, shop];
   }
   return [[L().again, M.shop, retryLevel], ["🛒 " + L().shop, M.shop, shopAfterLose], map];
 }
 // пауза (SPEC-017): Продолжить · Карта · Главная
 // SPEC-029: в тренировке — Продолжить · Ещё раз · Пропустить (обучение)
-const pauseActions = () => (tutorialGame ? [[L().resume, LOOK.MENU_LOOK.ok, resumeGame], ["🔁 " + L().again, LOOK.MENU_LOOK.back, restartTutorialGame], ["⏭ " + L().sceneSkip, LOOK.MENU_LOOK.back, tutorialSkip]]
+const pauseActions = () => (G.tutorialGame ? [[L().resume, LOOK.MENU_LOOK.ok, resumeGame], ["🔁 " + L().again, LOOK.MENU_LOOK.back, restartTutorialGame], ["⏭ " + L().sceneSkip, LOOK.MENU_LOOK.back, tutorialSkip]]
   : [[L().resume, LOOK.MENU_LOOK.ok, resumeGame], ["🗺 " + L().map, LOOK.MENU_LOOK.back, toMap], ["🏠 " + L().home, LOOK.MENU_LOOK.back, toHome]]);
 // SPEC-017: пауза на телефоне — Продолжить · Карта · Главная (в тренировке — Продолжить · Ещё раз · Пропустить)
 export function pausePhone() {
@@ -125,7 +125,7 @@ export function endPhone() {
     drawBonusNote(UW / 2, Math.min(Y0 + c(262), Y1 - bh - g - c(15)), X1 - X0 - 2 * g, c(28), 15);
   } else {
     pLabel(L().lose, lx, Y0 + c(40), "title", 36, "#fca5a5", "center", colW);
-    pWrap(L().loseSub(fmtHearts(big.maxHp - big.hp), big.maxHp), lx, Y0 + c(70), "main", 17, colW, 3, endInk("text", "#fff"), 900);
+    pWrap(L().loseSub(fmtHearts(G.big.maxHp - G.big.hp), G.big.maxHp), lx, Y0 + c(70), "main", 17, colW, 3, endInk("text", "#fff"), 900);
     const sc = lastReward ? lastReward.starCoins || 0 : 0, hugCoins = lastReward ? lastReward.coins - sc : 0;
     if (hugCoins > 0) { coinIcon(rx - c(70), Y0 + c(60), c(12)); pLabel(L().forHugs(hugCoins), rx - c(50), Y0 + c(60), "main", 18, endInk("gold", "#fde047"), "left", colW - c(30)); }
     if (sc > 0) pLabel("✨ " + L().starCoins(sc), rx, Y0 + c(90), "main", 16, endInk("gold", "#fde047"), "center", colW);
@@ -170,7 +170,7 @@ export function winDesktop() {
 export function loseDesktop() {
   endPaper(LOOK.PAPER.loseBox);
   label(L().lose, UW / 2, UH / 2 - 100, 58, "#fca5a5");
-  label(L().loseSub(fmtHearts(big.maxHp - big.hp), big.maxHp), UW / 2, UH / 2 - 35, 24, endInk("text", "#fff"));
+  label(L().loseSub(fmtHearts(G.big.maxHp - G.big.hp), G.big.maxHp), UW / 2, UH / 2 - 35, 24, endInk("text", "#fff"));
   const sc = lastReward ? lastReward.starCoins || 0 : 0, hugCoins = lastReward ? lastReward.coins - sc : 0;
   if (hugCoins > 0) { coinIcon(UW / 2 - 70, UH / 2 - 2, 13); label(L().forHugs(hugCoins), UW / 2 - 50, UH / 2 - 2, 20, endInk("gold", "#fde047"), "left"); }
   if (sc > 0) label("✨ " + L().starCoins(sc), UW / 2, UH / 2 + (hugCoins > 0 ? 22 : 0), 16, endInk("gold", "#fde047"));

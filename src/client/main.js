@@ -3,7 +3,7 @@
 // registerServiceWorker, installDebug. Client module (moved out of index.html in Phase C).
 
 import { progress } from "../core/economy.js";
-import { big, mode, numPlayers, update, updateFx } from "../core/game.js";
+import { mode, newGame, update, updateFx, useGame } from "../core/game.js";
 import { setHooks } from "../core/hooks.js";
 import { noGameRng, seedRandom, setStrictRng } from "../core/util.js";
 import { artGate, initArt } from "./art.js";
@@ -25,9 +25,11 @@ import { initSync, render3D } from "./three/sync.js";
 import { firstTutorial, openTutorial, tutorialNext } from "./tutorial.js";
 import { updateMinimapFade } from "./ui/minimap.js";
 import { drawUI } from "./ui/screens.js";
+import { G } from "../core/active.js";
 
 // SPEC-008 / SPEC-011 AC 8d: тесты включают строгую игровую случайность и задают зерно запуска (init-скрипт до игры)
 setStrictRng(window.__bbStrictRng === true);
+useGame(newGame());                         // SPEC-012: the local game (resetWorld builds it; the saves pick its world and level first)
 if (Number.isFinite(window.__bbSeed)) seedRandom(window.__bbSeed);
 initArt();
 initScreen();
@@ -68,11 +70,11 @@ function frame(now) {
   if (introDue && mode === "home" && !document.getElementById("loading")) { introDue = false; openScene("intro", tutorialDue ? () => openTutorial("map") : null); }   // SPEC-022: первый запуск (SPEC-029: потом обучение)
   ui.T += dt;
   pollPads();
-  if (!inWardrobe() && endTryOn()) resetWorld(numPlayers);   // SPEC-009/017: ушли из вкладки «Гардероб» (друзья — её часть) — примерка кончилась
+  if (!inWardrobe() && endTryOn()) resetWorld(G.players);   // SPEC-009/017: ушли из вкладки «Гардероб» (друзья — её часть) — примерка кончилась
   const portrait = isTouch && window.innerHeight > window.innerWidth;
   mapTick(dt);
   if (mode === "play" && !portrait) update(dt);
-  else { updateFx(dt); if (inMenus()) big.dir += dt * 0.8; }
+  else { updateFx(dt); if (inMenus()) G.big.dir += dt * 0.8; }
   noGameRng("render", () => {              // рисование не тянет игровую случайность (SPEC-008: тесты — ошибка, игра — vrand)
     updateCamera(dt);                       // телефон: камера за героем (3D-слой, не логика)
     updateMinimapFade(dt);                  // телефон: мини-карта бледнеет, когда под ней герой или Большой (SPEC-010)

@@ -23,28 +23,29 @@ The game is ES modules served over http. `src/core/` is the game itself and runs
 <!-- modules:start -->
 | File | Owns | State it owns (module-level `let`) | Setters (other modules change that state only through them) |
 |---|---|---|---|
-| `src/core/autopilot.js` | the autopilot (plays the Little Ones through their inputs) | `autoOn`, `autoStyle`, `autoNavs`, `autoMove` | `setAutoNavs`, `setAutoMove` |
+| `src/core/active.js` | the active game `G` (SPEC-012 AC 1): the one pointer every core and client read goes through; `setActiveGame` (only `useGame` / `withGame` call it) | `G` | `setActiveGame` |
+| `src/core/autopilot.js` | the autopilot (plays the Little Ones through their inputs); its state is in the game (`G.autoOn`, `G.autoStyle`, `G.autoNavs`, `G.autoMove`) | — | — |
 | `src/core/big.js` | the Big One: what he sees (`canSee`), look / chase / search / patrol (`updateBig`) | — | — |
 | `src/core/bots.js` | the bots: rescue, flee, sneak up one at a time, wait nearby | — | — |
 | `src/core/config.js` | the game's numbers: `CFG` (rules, generator, balance; also `TUTORIAL_LOOK` — the practice game reads `dadStart`), the grid (`W`, `H`, `CELL`, `COLS`, `ROWS`, `FINE`, `FW`, `FH`, `TAU`), `GLOVES`, `KISSES`, `RESCUE_KIT`, `REWARD`, `WARDROBE_TIERS`/`tierPrice`, `UPGRADES`/`upgTop`, the world lists, `WORLD_SEED`, the `BOSSES` table (data: story.js builds `SCENE_IDS` from it at import) | — | — |
 | `src/core/difficulty.js` | the Big One's speeds and hearts per world and level | — | — |
 | `src/core/economy.js` | the one owner of the player's economy: `progress`, the coin book `ledger`, `addCoins`, `spendCoins`, `gloveOf`, `gameInv`; saves only through `hooks.save`; the client gives the save with `setProgress` | `progress` | `setProgress` |
-| `src/core/game.js` | the running game: `buildGame` (client-free, AC 3c), `makeLittle`, `inputFor` (device input hook + autopilot), `update`, `updateFx`, `simRun`, `logEvent` | `curWorld`, `littles`, `big`, `botAttackCd`, `prevToken`, `mode`, `numPlayers`, `level`, `attackToken`, `stats`, `items`, `itemCd`, `itemSeq`, `pendingWin`, `lastReward`, `events`, `bonusStars`, `starCd`, `starSeq`, `kisses`, `kissSeq`, `pushWaves`, `kitHintT`, `kitHintDone`, `kitHintPi`, `heardHintT`, `heardHintDone`, `heardHintPi`, `rewardDue` | `setWorld`, `setLevel`, `setRewardDue`, `setPendingWin`, `setEvents`, `setMode`, `setLastReward`, `setKitHintDone`, `setHeardHintDone`, `setItemCd`, `setAttackToken`, `setKitHintT`, `setKitHintPi`, `setKissSeq`, `setKisses`, `setItemSeq`, `setStarSeq`, `setStarCd`, `setBonusStars`, `setItems`, `setBotAttackCd`, `setPrevToken`, `setHeardHintT`, `setHeardHintPi` |
+| `src/core/game.js` | the running game: `newGame` (one game's state: plain data), `createGame`, the active game (`useGame`, `withGame`, `step`), `buildGame` (client-free, AC 3c), `makeLittle`, `inputFor` (device input hook + autopilot), `update`, `updateFx`, `simRun`, `logEvent` | `mode`, `lastReward` | `setMode`, `setLastReward` |
 | `src/core/hearing.js` | the Big One hears running feet; `bigMark` | — | — |
 | `src/core/hooks.js` | the one port to the client: `HOOK_DEFAULTS` (no-ops), `setHooks`, `hooks` (AC 3b) | — | `setHooks` |
 | `src/core/index.js` | the public surface of the core: re-exports every core module (what SPEC-012/013's server imports) | — | — |
-| `src/core/level/build.js` | building a level into the map; the level cache (`loadLevel`, `generateLevel`, `clearLevelCache`) | `levelInfo` | `setLevelInfo` |
+| `src/core/level/build.js` | building a level into the active game's map (`G.levelInfo`); the level cache (`loadLevel`, `generateLevel`, `clearLevelCache`) | — | — |
 | `src/core/level/generate.js` | a level's type, tier and seed; the homes | — | — |
 | `src/core/level/layouts.js` | walls, the Big One's house, the layout of each level type | — | — |
-| `src/core/level/validate.js` | is a level fair (SPEC-002); `levelReport` | — | — |
+| `src/core/level/validate.js` | is a level fair (SPEC-002); `levelReport` (builds on a scratch game: the running game is untouched) | — | — |
 | `src/core/mood.js` | `bossFor`, `bossPower`, the anger `bigMood`, the kind walk home | — | — |
 | `src/core/path.js` | A*, movement, collisions, the Big One's view cone | — | — |
-| `src/core/practice.js` | the practice games of the tutorial: map, setup, scripted bot and Big One, hint state, `tutorialNote` | `tutorialGame`, `tut`, `tutorialInv` | `setTutorialGame` |
+| `src/core/practice.js` | the practice games of the tutorial: map, setup, scripted bot and Big One, hint state, `tutorialNote`; their state is in the game (`G.tutorialGame`, `G.tut`, `G.tutorialInv`) | — | — |
 | `src/core/progress-rules.js` | the save shape (`freshProgress`, `loadProgress`, clean*), which worlds are open (`worldOpen`, `isOpen`, `bonusUnlocked`, `worldComplete`), `rewardBase`, `fastTarget`, `payReward` | — | — |
 | `src/core/rules.js` | push / wide push, hug, `winNow`, kisses, items, bonus stars, contacts, the rescue kit, downed, danger, resting, `playerBonus`, `moveSpeed` | — | — |
-| `src/core/util.js` | `dist`, `clamp`, angles, `mulberry32`; the gameplay randomness `rng`/`rand`/`seedRandom`/`noGameRng` and the visual `vrand` | `rngNext`, `rngOff`, `strictRng`, `rngDraws` | `setStrictRng` |
+| `src/core/util.js` | `dist`, `clamp`, angles, `mulberry32`; the gameplay randomness `rng`/`rand`/`seedRandom`/`newRng`/`noGameRng` (each game's stream is `G.rng`) and the visual `vrand` | `rngOff`, `strictRng` | `setStrictRng` |
 | `src/core/wardrobe.js` | the clothes and the Big One's looks (`HAIRS`, `HATS`, `JACKETS`, `PANTS`, `SLOTS`, `BIG_SKINS`, `Nm`): data the progress rules check owned ids against | — | — |
-| `src/core/world.js` | the map of the running level: obstacles, bushes, homes, zones, spawns, reachability, the move/see grids and what blocks what | `obstacles`, `bushes`, `floors`, `decor`, `trees`, `flowers`, `safeZone`, `dangerZone`, `reachable`, `spawns` | `setMapState`, `setReachable`, `setObstacles`, `setBushes`, `setFloors`, `setDecor`, `setTrees`, `setSafeZone`, `setDangerZone`, `setFlowers`, `setSpawns` |
+| `src/core/world.js` | the map rules of the running level: zones (`inSafe`, `inDanger`), `buildGrids`, what blocks what (`moveSolidAt`, `seeSolidAt`, `los`); the map itself is in the game (`G.obstacles`, `G.bushes`, `G.floors`, `G.decor`, `G.trees`, `G.flowers`, `G.safeZone`, `G.dangerZone`, `G.reachable`, `G.spawns`, the grids) | — | — |
 | `src/i18n.js` | every text in en/es/pt/ru (`I18N`), plurals, `capFirst`, `LANGS`, `HTML_LANG`, the pure `detectLang`, the current language and `L()` (shared) | `lang` | `setCurrentLang` |
 | `src/story.js` | the story chapters and scenes in four languages, `RULE_ICONS`, `SCENE_IDS`, `TUTORIAL_SCENES`, `SEEN_IDS` (shared data) | — | — |
 | `src/client/art-names.js` | `ART_NAMES`, written by `npm run assets` | — | — |

@@ -2,24 +2,20 @@
 // Core module (the level generator fills it).
 import { CELL, COLS, FH, FINE, FW, H, ROWS, W } from "./config.js";
 import { clamp } from "./util.js";
+import { G } from "./active.js";
 
 // =====================================================================
 //  МИР
 // =====================================================================
-export let obstacles = [], bushes = [], floors = [], decor = [], trees = [], flowers = [];
-export const blocked = new Uint8Array(COLS * ROWS), blockedBig = new Uint8Array(COLS * ROWS);
-export let safeZone = null;   // домик маленьких — Большой туда не заходит
-export let dangerZone = null; // пол дома Большого: маленьких там через DANGER_TIME выкидывают за дверь; exits — точки за дверями
-export let reachable = new Uint8Array(COLS * ROWS);   // клетки, куда маленькие могут дойти из своего домика
-export const moveGrid = new Uint8Array(FW * FH), seeGrid = new Uint8Array(FW * FH), moveGridBig = new Uint8Array(FW * FH);
-export const inSafe = p => !!safeZone && p.x > safeZone.x && p.x < safeZone.x + safeZone.w && p.y > safeZone.y && p.y < safeZone.y + safeZone.h;
-export const inDangerXY = (x, y) => !!dangerZone && x > dangerZone.x && x < dangerZone.x + dangerZone.w && y > dangerZone.y && y < dangerZone.y + dangerZone.h;
+// SPEC-012: the map of a game lives in its game object (newGame): G.obstacles, G.bushes, G.floors, G.decor, G.trees, G.flowers,
+// G.safeZone (домик маленьких — Большой туда не заходит), G.dangerZone (пол дома Большого: маленьких там через DANGER_TIME
+// выкидывают за дверь; exits — точки за дверями), G.reachable (клетки, куда маленькие могут дойти из своего домика), G.spawns,
+// the grids G.blocked / G.blockedBig (cells) and G.moveGrid / G.seeGrid / G.moveGridBig (FINE cells)
+export const inSafe = p => !!G.safeZone && p.x > G.safeZone.x && p.x < G.safeZone.x + G.safeZone.w && p.y > G.safeZone.y && p.y < G.safeZone.y + G.safeZone.h;
+export const inDangerXY = (x, y) => !!G.dangerZone && x > G.dangerZone.x && x < G.dangerZone.x + G.dangerZone.w && y > G.dangerZone.y && y < G.dangerZone.y + G.dangerZone.h;
 export const inDanger = p => inDangerXY(p.x, p.y);
 // Может действовать сам: стоит на ногах, не на плечах у Большого, голова не кружится
 export const canAct = l => l.state === "ok" && l.hugAnim <= 0 && l.dizzy <= 0;
-export let spawns = { small: [], big: { x: 0, y: 0 } };
-// всё состояние карты разом (levelReport возвращает его после пробной сборки)
-export function setMapState(s) { ({ obstacles, bushes, floors, decor, trees, flowers, safeZone, dangerZone, spawns, reachable } = s); }
 
 function covers(o, x, y, sight) {
   if (o.shape === "rect") return x >= o.x && x <= o.x + o.w && y >= o.y && y <= o.y + o.h;
@@ -28,8 +24,8 @@ function covers(o, x, y, sight) {
 // Сетки строятся «растеризацией»: каждое препятствие отмечает только клетки своего прямоугольника (быстро — уровень
 // строится до LEVEL_ATTEMPTS раз). Правила те же, что у covers(): мелкая сетка — по центрам клеток FINE, крупная — по пересечению.
 export function buildGrids() {
-  moveGrid.fill(0); seeGrid.fill(0); blocked.fill(0);
-  for (const o of obstacles) {
+  G.moveGrid.fill(0); G.seeGrid.fill(0); G.blocked.fill(0);
+  for (const o of G.obstacles) {
     if (!o.move && !o.sight) continue;
     const ext = o.shape === "rect" ? 0 : Math.max(o.r, o.sr || 0);
     const x0 = o.shape === "rect" ? o.x : o.x - ext, y0 = o.shape === "rect" ? o.y : o.y - ext;
@@ -38,8 +34,8 @@ export function buildGrids() {
     const j0 = clamp(Math.floor(y0 / FINE) - 1, 0, FH - 1), j1 = clamp(Math.ceil(y1 / FINE) + 1, 0, FH - 1);
     for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
       const x = (i + 0.5) * FINE, y = (j + 0.5) * FINE;
-      if (o.move && covers(o, x, y, false)) moveGrid[j * FW + i] = 1;
-      if (o.sight && covers(o, x, y, true)) seeGrid[j * FW + i] = 1;
+      if (o.move && covers(o, x, y, false)) G.moveGrid[j * FW + i] = 1;
+      if (o.sight && covers(o, x, y, true)) G.seeGrid[j * FW + i] = 1;
     }
     if (!o.move) continue;
     const c0 = clamp(Math.floor(x0 / CELL) - 1, 0, COLS - 1), c1 = clamp(Math.floor(x1 / CELL) + 1, 0, COLS - 1);
@@ -49,22 +45,22 @@ export function buildGrids() {
       let hit;
       if (o.shape === "rect") hit = px < o.x + o.w && px + CELL > o.x && py < o.y + o.h && py + CELL > o.y;
       else { const nx = clamp(o.x, px, px + CELL), ny = clamp(o.y, py, py + CELL); hit = Math.hypot(o.x - nx, o.y - ny) < o.r - 2; }
-      if (hit) blocked[cy * COLS + cx] = 1;
+      if (hit) G.blocked[cy * COLS + cx] = 1;
     }
   }
-  const sz = safeZone;
+  const sz = G.safeZone;
   for (let j = 0; j < FH; j++) for (let i = 0; i < FW; i++) {
     const k = j * FW + i;
-    moveGridBig[k] = moveGrid[k] || (sz && covers(sz, (i + 0.5) * FINE, (j + 0.5) * FINE, false)) ? 1 : 0;
+    G.moveGridBig[k] = G.moveGrid[k] || (sz && covers(sz, (i + 0.5) * FINE, (j + 0.5) * FINE, false)) ? 1 : 0;
   }
   for (let cy = 0; cy < ROWS; cy++) for (let cx = 0; cx < COLS; cx++) {
     const px = cx * CELL, py = cy * CELL;
-    blockedBig[cy * COLS + cx] = blocked[cy * COLS + cx] || (sz && px < sz.x + sz.w && px + CELL > sz.x && py < sz.y + sz.h && py + CELL > sz.y) ? 1 : 0;
+    G.blockedBig[cy * COLS + cx] = G.blocked[cy * COLS + cx] || (sz && px < sz.x + sz.w && px + CELL > sz.x && py < sz.y + sz.h && py + CELL > sz.y) ? 1 : 0;
   }
 }
-export const moveSolidAt = (x, y) => (x < 0 || y < 0 || x >= W || y >= H) ? true : moveGrid[((y / FINE) | 0) * FW + ((x / FINE) | 0)] === 1;
-export const moveSolidBigAt = (x, y) => (x < 0 || y < 0 || x >= W || y >= H) ? true : moveGridBig[((y / FINE) | 0) * FW + ((x / FINE) | 0)] === 1;
-export const seeSolidAt = (x, y) => (x < 0 || y < 0 || x >= W || y >= H) ? true : seeGrid[((y / FINE) | 0) * FW + ((x / FINE) | 0)] === 1;
+export const moveSolidAt = (x, y) => (x < 0 || y < 0 || x >= W || y >= H) ? true : G.moveGrid[((y / FINE) | 0) * FW + ((x / FINE) | 0)] === 1;
+export const moveSolidBigAt = (x, y) => (x < 0 || y < 0 || x >= W || y >= H) ? true : G.moveGridBig[((y / FINE) | 0) * FW + ((x / FINE) | 0)] === 1;
+export const seeSolidAt = (x, y) => (x < 0 || y < 0 || x >= W || y >= H) ? true : G.seeGrid[((y / FINE) | 0) * FW + ((x / FINE) | 0)] === 1;
 
 export function los(x1, y1, x2, y2, solid) {
   const d = Math.hypot(x2 - x1, y2 - y1), n = Math.ceil(d / 5);
@@ -76,14 +72,3 @@ export function losWide(x1, y1, x2, y2, r, solid = moveSolidAt) {
   const nx = -(y2 - y1) / d * r, ny = (x2 - x1) / d * r;
   return los(x1, y1, x2, y2, solid) && los(x1 + nx, y1 + ny, x2 + nx, y2 + ny, solid) && los(x1 - nx, y1 - ny, x2 - nx, y2 - ny, solid);
 }
-// SPEC-011 AC 5: other modules change this module's state only through these setters (live bindings are read-only there)
-export function setReachable(v) { return (reachable = v); }
-export function setObstacles(v) { return (obstacles = v); }
-export function setBushes(v) { return (bushes = v); }
-export function setFloors(v) { return (floors = v); }
-export function setDecor(v) { return (decor = v); }
-export function setTrees(v) { return (trees = v); }
-export function setSafeZone(v) { return (safeZone = v); }
-export function setDangerZone(v) { return (dangerZone = v); }
-export function setFlowers(v) { return (flowers = v); }
-export function setSpawns(v) { return (spawns = v); }

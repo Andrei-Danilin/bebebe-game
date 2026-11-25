@@ -3,14 +3,13 @@
 
 import * as THREE from "three";
 import { CELL, COLS, ROWS, TAU } from "../../core/config.js";
-import { big, items, level, littles } from "../../core/game.js";
 import { mulberry32 } from "../../core/util.js";
-import { obstacles } from "../../core/world.js";
 import { LOOK } from "../look.js";
 import { mapGroup } from "./map3d.js";
 import { INK3, ownMat, part, sphere, toon } from "./materials.js";
 import { WALL_H } from "./setup.js";
 import { tag, THEMES } from "./themes.js";
+import { G } from "../../core/active.js";
 
 // ---------- SPEC-021: домики (art/15_houses) ----------
 // Оба дома строятся из стен уровня (home / bighome) — их места, размеры и двери не меняются; здесь только вид: крыша (гаснет,
@@ -21,12 +20,12 @@ export let houseInfo = null;           // что построено (тест lo
 // рамка дома в клетках по его стенам (или null)
 function houseRect(kind) {
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-  for (const o of obstacles) if (o.kind === kind && o.shape === "rect") { x0 = Math.min(x0, o.x); y0 = Math.min(y0, o.y); x1 = Math.max(x1, o.x + o.w); y1 = Math.max(y1, o.y + o.h); }
+  for (const o of G.obstacles) if (o.kind === kind && o.shape === "rect") { x0 = Math.min(x0, o.x); y0 = Math.min(y0, o.y); x1 = Math.max(x1, o.x + o.w); y1 = Math.max(y1, o.y + o.h); }
   return x0 === Infinity ? null : { x: x0 / CELL, y: y0 / CELL, w: (x1 - x0) / CELL, h: (y1 - y0) / CELL };
 }
 // двери — пропуски в стенах по краю рамки: сторона, середина пропуска на линии стены (клетки), ширина, наружу (nx, nz), вдоль (tx, tz)
 function houseDoors(kind, R) {
-  const wallAt = (cx, cy) => obstacles.some(o => o.kind === kind && (cx + 0.5) * CELL > o.x && (cx + 0.5) * CELL < o.x + o.w && (cy + 0.5) * CELL > o.y && (cy + 0.5) * CELL < o.y + o.h);
+  const wallAt = (cx, cy) => G.obstacles.some(o => o.kind === kind && (cx + 0.5) * CELL > o.x && (cx + 0.5) * CELL < o.x + o.w && (cy + 0.5) * CELL > o.y && (cy + 0.5) * CELL < o.y + o.h);
   const doors = [];
   for (const side of ["top", "bottom", "left", "right"]) {
     const horiz = side === "top" || side === "bottom", n = horiz ? R.w : R.h;
@@ -102,7 +101,7 @@ function heartGeo(s) {
 }
 const faceTo = (m, d) => { m.rotation.y = Math.atan2(d.nx, d.nz); return m; };
 export function dressHouses(place) {
-  const H = LOOK.HOUSE_LOOK, rnd = mulberry32(LOOK.GROUND_LOOK.seed + 77 + level), info = { kid: null, big: null, snow: 0 };
+  const H = LOOK.HOUSE_LOOK, rnd = mulberry32(LOOK.GROUND_LOOK.seed + 77 + G.level), info = { kid: null, big: null, snow: 0 };
   // домик маленьких: голубой, синяя крыша с трубой, створки дверей с сердечком, цветы у стены
   const KR = houseRect("home");
   if (KR) {
@@ -193,7 +192,7 @@ export function dressHouses(place) {
     doors.sort((p, q) => Math.abs(q.nx) - Math.abs(p.nx) || q.nz - p.nz);   // сначала боковая дверь (её видно), потом нижняя, верхняя
     const d0 = doors[0], d1 = doors[1] || doors[0], at = (d, off, out) => ({ x: d.x + d.tx * off + d.nx * out, z: d.z + d.tz * off + d.nz * out });
     const items = { bin: false, stink: 0, pizza: 0, toys: 0, laundry: [] }, props = [];
-    const free = q => q.x > 0.3 && q.z > 0.3 && q.x < COLS - 0.3 && q.z < ROWS - 0.3 && !obstacles.some(o => o.shape === "circle"   // не на занятой клетке и в карте
+    const free = q => q.x > 0.3 && q.z > 0.3 && q.x < COLS - 0.3 && q.z < ROWS - 0.3 && !G.obstacles.some(o => o.shape === "circle"   // не на занятой клетке и в карте
       ? Math.hypot(o.x - q.x * CELL, o.y - q.z * CELL) < (o.r || 0) + 8 : q.x * CELL > o.x - 6 && q.x * CELL < o.x + o.w + 6 && q.z * CELL > o.y - 6 && q.z * CELL < o.y + o.h + 6);
     if (d0) {
       const p = at(d0, d0.len / 2 + 0.75, 0.95);
@@ -272,9 +271,9 @@ const roofGlow = new THREE.Color(LOOK.HOUSE_LOOK.kid.glow);
 // кто-то (или предмет на полу) в доме — крыша гаснет
 function roofInside(hr) {
   const near = LOOK.HOUSE_LOOK.near * CELL;
-  if (big && inHouse(big, hr, 0)) return true;
-  for (const l of littles) if (inHouse(l, hr, l.kind === "player" ? near : 0)) return true;
-  for (const it of items) if (inHouse(it, hr, 0)) return true;
+  if (G.big && inHouse(G.big, hr, 0)) return true;
+  for (const l of G.littles) if (inHouse(l, hr, l.kind === "player" ? near : 0)) return true;
+  for (const it of G.items) if (inHouse(it, hr, 0)) return true;
   return false;
 }
 export function fadeRoofs(dt, t) {

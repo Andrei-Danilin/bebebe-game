@@ -2,6 +2,7 @@
 // The core imports only src/core/**, src/i18n.js and src/story.js; it never touches the DOM, storage or three.js.
 export * from "./config.js";
 export * from "./util.js";
+export * from "./active.js";
 export * from "./hooks.js";
 export * from "./world.js";
 export * from "./wardrobe.js";

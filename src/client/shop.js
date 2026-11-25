@@ -3,9 +3,9 @@
 
 import { GLOVES, KISSES, RESCUE_KIT, UPGRADES } from "../core/config.js";
 import { progress, saveProgress, spendCoins } from "../core/economy.js";
-import { numPlayers } from "../core/game.js";
 import { resetWorld } from "./flow.js";
 import { SFX } from "./sound.js";
+import { G } from "../core/active.js";
 
 export function buyGloves(kind) {
   const g = GLOVES[kind];
@@ -34,4 +34,4 @@ export function buyUpgrade(k) {
   progress.upgrades[k] = lv + 1;
   saveProgress(); SFX.item();
 }
-export function setEquip(pi, kind) { progress.equip[pi] = kind; saveProgress(); resetWorld(numPlayers); }
+export function setEquip(pi, kind) { progress.equip[pi] = kind; saveProgress(); resetWorld(G.players); }

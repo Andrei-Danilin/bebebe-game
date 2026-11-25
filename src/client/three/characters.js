@@ -4,7 +4,6 @@
 import * as THREE from "three";
 import { GLOVES, TAU } from "../../core/config.js";
 import { gloveOf } from "../../core/economy.js";
-import { big, littles } from "../../core/game.js";
 import { noGameRng } from "../../core/util.js";
 import { BIG_SKINS } from "../../core/wardrobe.js";
 import { LOOK } from "../look.js";
@@ -16,6 +15,7 @@ import { capsule, disposeTree, gradTex, INK3, ownMat, part, sphere, toon, wobble
 import { BIG_SCALE, LITTLE_SCALE, scene } from "./setup.js";
 import { clearItemMeshes, clearKissMeshes, clearStarMeshes } from "./sync.js";
 import { KID_HEAD_R } from "../ui/draw.js";
+import { G } from "../../core/active.js";
 
 // ---------- Персонажи ----------
 // SPEC-021: лицо. Маленькие (art/6_personas): глаза-точки, румянец, простая улыбка (KID_LOOK). Большой: глаза с белками и брови;
@@ -343,16 +343,16 @@ function buildCharacters() {
   scene.remove(charGroup); disposeTree(charGroup);
   charGroup = new THREE.Group(); scene.add(charGroup);
   wobbleSeed(1);                         // SPEC-021: контуры героев дрожат одинаково при каждой постройке
-  for (const l of littles) {
+  for (const l of G.littles) {
     l.model = buildLittleModel(l.look, l.kind === "player", l.id, l.kind === "player" ? gloveOf(l.id) : null);
     l.model.rig.scale.setScalar(LITTLE_SCALE); l.model.ghost.scale.setScalar(LITTLE_SCALE);
     charGroup.add(l.model.root, l.model.ghost);
   }
   // SPEC-022: босс уровня — папа в образе босса (BOSS_LOOKS), крупнее (bossScale)
-  big.model = buildBigModel(big.boss ? BIG_SKINS.find(s => s.id === "dad") : big.skin);
-  if (big.boss) dressBoss(big.model, big.boss);
-  big.model.rig.scale.setScalar(BIG_SCALE * bossScale(big));
-  charGroup.add(big.model.root);
+  G.big.model = buildBigModel(G.big.boss ? BIG_SKINS.find(s => s.id === "dad") : G.big.skin);
+  if (G.big.boss) dressBoss(G.big.model, G.big.boss);
+  G.big.model.rig.scale.setScalar(BIG_SCALE * bossScale(G.big));
+  charGroup.add(G.big.model.root);
 }
 export function rebuild3D() {
   if (simMode) return;                   // sim: 3D не нужен; sim(false) построит заново

@@ -3,10 +3,7 @@
 
 import * as THREE from "three";
 import { CELL, COLS, H, ROWS, TAU, W, WORLD_SEED } from "../../core/config.js";
-import { curWorld, level } from "../../core/game.js";
-import { levelInfo } from "../../core/level/build.js";
 import { mulberry32, vrand } from "../../core/util.js";
-import { bushes, dangerZone, decor, floors, flowers, obstacles, safeZone } from "../../core/world.js";
 import { LOOK } from "../look.js";
 import { ctx, setCtx } from "../screen.js";
 import { dressHouses, houseRoofs, setHouseInfo } from "./houses.js";
@@ -14,9 +11,10 @@ import { disposeTree, gradTex, groundCanvas, groundTex, ownMat, part, toon, toon
 import { P, scene, WALL_H } from "./setup.js";
 import { adBoards, HEDGE_COLORS, makeBushFor, makeCottage, makeFountain, makePondFor, makeRockFor, makeStreetThing, makeTreeFor, makeWaterFor, mazeDeco, paintPitch, paintStreets, riverBanks, tag, THEMES } from "./themes.js";
 import { circle, fillStroke, rr } from "../ui/draw.js";
+import { G } from "../../core/active.js";
 
 export let mapGroup = null, builtKey = "";
-export const mapKey = () => { const li = levelInfo || {}; return [li.world, li.lv, li.type === "tutorial" ? "tutorial" : "", li.attempt, li.fallback].join(":"); };   // какой уровень построен в 3D (SPEC-029: карта тренировок — свой ключ)
+export const mapKey = () => { const li = G.levelInfo || {}; return [li.world, li.lv, li.type === "tutorial" ? "tutorial" : "", li.attempt, li.fallback].join(":"); };   // какой уровень построен в 3D (SPEC-029: карта тренировок — свой ключ)
 export const fadeTrees = [], fadeBushes = [], waves = [];
 export let safeGlow = null, snow = null;
 export const bigHomeMats = [];   // материалы стен дома Большого — мигают красным при обратном отсчёте
@@ -24,30 +22,30 @@ export const bigHomeMats = [];   // материалы стен дома Бол�
 // SPEC-021: штрихи фломастера по земле — диагональные, своя случайность с зерна уровня (не игровая rng()). Штрихи собраны в
 // несколько путей (цвет × прозрачность): несколько stroke() на всю землю, а не тысячи. rect — где рисовать (по умолчанию вся земля)
 function markerStrokes(rnd, colors, rect = null) {
-  const G = LOOK.GROUND_LOOK, a = G.angle * Math.PI / 180, dx = Math.cos(a), dy = -Math.sin(a), nx = -dy, ny = dx;
+  const GL = LOOK.GROUND_LOOK, a = GL.angle * Math.PI / 180, dx = Math.cos(a), dy = -Math.sin(a), nx = -dy, ny = dx;
   const x0 = rect ? rect.x : 0, y0 = rect ? rect.y : 0, x1 = rect ? rect.x + rect.w : W, y1 = rect ? rect.y + rect.h : H;
   const corners = [[x0, y0], [x1, y0], [x0, y1], [x1, y1]], ns = corners.map(([x, y]) => x * nx + y * ny), ts = corners.map(([x, y]) => x * dx + y * dy);
   const n0 = Math.min(...ns), n1 = Math.max(...ns), t0 = Math.min(...ts), t1 = Math.max(...ts);
-  const paths = colors.map(() => G.alpha.map(() => new Path2D()));
-  for (let n = n0; n < n1; n += G.gap * (0.8 + rnd() * 0.4)) {
-    for (let t = t0 + rnd() * G.len[1]; t < t1;) {
-      const len = G.len[0] + rnd() * (G.len[1] - G.len[0]), ci = Math.floor(rnd() * colors.length), ai = Math.floor(rnd() * G.alpha.length);
-      const p = paths[ci][ai], wob = (rnd() - 0.5) * G.wobble;
+  const paths = colors.map(() => GL.alpha.map(() => new Path2D()));
+  for (let n = n0; n < n1; n += GL.gap * (0.8 + rnd() * 0.4)) {
+    for (let t = t0 + rnd() * GL.len[1]; t < t1;) {
+      const len = GL.len[0] + rnd() * (GL.len[1] - GL.len[0]), ci = Math.floor(rnd() * colors.length), ai = Math.floor(rnd() * GL.alpha.length);
+      const p = paths[ci][ai], wob = (rnd() - 0.5) * GL.wobble;
       p.moveTo(n * nx + t * dx, n * ny + t * dy);
       p.quadraticCurveTo(n * nx + (t + len / 2) * dx + wob * nx, n * ny + (t + len / 2) * dy + wob * ny, n * nx + (t + len) * dx, n * ny + (t + len) * dy);
-      t += len + G.skip[0] + rnd() * (G.skip[1] - G.skip[0]);
+      t += len + GL.skip[0] + rnd() * (GL.skip[1] - GL.skip[0]);
     }
   }
   ctx.save();
   if (rect) { ctx.beginPath(); ctx.rect(x0, y0, x1 - x0, y1 - y0); ctx.clip(); }
-  ctx.lineCap = "round"; ctx.lineWidth = G.width;
-  colors.forEach((c, ci) => G.alpha.forEach((al, ai) => { ctx.globalAlpha = al; ctx.strokeStyle = c; ctx.stroke(paths[ci][ai]); }));
+  ctx.lineCap = "round"; ctx.lineWidth = GL.width;
+  colors.forEach((c, ci) => GL.alpha.forEach((al, ai) => { ctx.globalAlpha = al; ctx.strokeStyle = c; ctx.stroke(paths[ci][ai]); }));
   ctx.restore();
 }
 // SPEC-021: мелкие рисунки по земле своего мира (одним путём на вид): травинки, крапинки асфальта, точки песка, синие тени на
 // снегу, меловые каракули. Цвета — THEMES[place].marker / doodle
 function groundDoodles(place, th, rnd, streets) {
-  const G = LOOK.GROUND_LOOK, D = G.doodle, [dark, light] = th.marker, path = new Path2D(), dots = (n, r, c, a, rect = null) => {
+  const GL = LOOK.GROUND_LOOK, D = GL.doodle, [dark, light] = th.marker, path = new Path2D(), dots = (n, r, c, a, rect = null) => {
     const q = new Path2D();
     for (let i = 0; i < n; i++) {
       const x = rect ? rect.x + rnd() * rect.w : rnd() * W, y = rect ? rect.y + rnd() * rect.h : rnd() * H, rr2 = r * (0.5 + rnd());
@@ -57,25 +55,25 @@ function groundDoodles(place, th, rnd, streets) {
   };
   ctx.save(); ctx.lineCap = "round"; ctx.lineJoin = "round";
   if (place === "park" || place === "field") {           // травинки: «v» из трёх штрихов
-    for (let i = 0, n = place === "park" ? G.tufts : G.tufts / 2; i < n; i++) {
+    for (let i = 0, n = place === "park" ? GL.tufts : GL.tufts / 2; i < n; i++) {
       const x = rnd() * W, y = rnd() * H, s = D.tuft[0] + rnd() * D.tuft[1];
       for (const k of [-1, 0, 1]) { path.moveTo(x + k * 2, y); path.lineTo(x + k * s * 0.7, y - s * (k ? 0.8 : 1.1)); }
     }
     ctx.globalAlpha = D.tuftA; ctx.strokeStyle = th.doodle; ctx.lineWidth = D.tuftW; ctx.stroke(path);
   } else if (place === "beach") {                        // песок в точку
-    dots(G.dots, 1.3, dark, D.sandA[0]); dots(G.dots / 2, 1.2, light, D.sandA[1]);
+    dots(GL.dots, 1.3, dark, D.sandA[0]); dots(GL.dots / 2, 1.2, light, D.sandA[1]);
   } else if (place === "winter") {                       // голубые тени сугробов — длинные мягкие волны
-    for (let i = 0; i < G.drifts; i++) {
+    for (let i = 0; i < GL.drifts; i++) {
       const x = rnd() * W, y = rnd() * H, len = D.drift[0] + rnd() * D.drift[1], h = D.drift[2] + rnd() * D.drift[3];
       path.moveTo(x, y); path.bezierCurveTo(x + len * 0.3, y - h, x + len * 0.7, y + h, x + len, y - h * 0.3);
     }
     ctx.globalAlpha = D.driftA; ctx.strokeStyle = th.doodle; ctx.lineWidth = D.driftW; ctx.stroke(path);
-    dots(G.dots / 3, 1, dark, D.snowA);
+    dots(GL.dots / 3, 1, dark, D.snowA);
   } else if (place === "city") {                         // крапинки на асфальте улиц, штрихи по асфальту
-    for (const r of streets) { markerStrokes(rnd, th.asphaltMarker, r); dots(G.specks / 2, 1, th.asphaltMarker[0], D.streetA[0], r); dots(G.specks / 4, 0.9, th.asphaltMarker[1], D.streetA[1], r); }
+    for (const r of streets) { markerStrokes(rnd, th.asphaltMarker, r); dots(GL.specks / 2, 1, th.asphaltMarker[0], D.streetA[0], r); dots(GL.specks / 4, 0.9, th.asphaltMarker[1], D.streetA[1], r); }
   } else if (place === "school") {                       // асфальт двора в крапинку и меловые каракули: звёздочки, сердечки, спирали
-    dots(G.specks, 1, dark, D.yardA[0]); dots(G.specks / 2, 0.9, light, D.yardA[1]);
-    for (let i = 0; i < G.chalk; i++) {
+    dots(GL.specks, 1, dark, D.yardA[0]); dots(GL.specks / 2, 0.9, light, D.yardA[1]);
+    for (let i = 0; i < GL.chalk; i++) {
       const x = CELL + rnd() * (W - 2 * CELL), y = CELL + rnd() * (H - 2 * CELL), s = D.chalkS[0] + rnd() * D.chalkS[1], kind = i % 3;
       if (kind === 0) for (let k = 0; k <= 5; k++) { const a = -Math.PI / 2 + k * 4 * Math.PI / 5; k ? path.lineTo(x + Math.cos(a) * s, y + Math.sin(a) * s) : path.moveTo(x + Math.cos(a) * s, y + Math.sin(a) * s); }
       else if (kind === 1) { path.moveTo(x, y + s * 0.8); path.bezierCurveTo(x - s * 1.4, y - s * 0.2, x - s * 0.4, y - s, x, y - s * 0.3); path.bezierCurveTo(x + s * 0.4, y - s, x + s * 1.4, y - s * 0.2, x, y + s * 0.8); }
@@ -86,7 +84,7 @@ function groundDoodles(place, th, rnd, streets) {
   ctx.restore();
 }
 function paintGround(place) {
-  const th = THEMES[place], saved = ctx, rnd = mulberry32(LOOK.GROUND_LOOK.seed + WORLD_SEED[place] * 101 + level * 7);   // SPEC-021: своя случайность
+  const th = THEMES[place], saved = ctx, rnd = mulberry32(LOOK.GROUND_LOOK.seed + WORLD_SEED[place] * 101 + G.level * 7);   // SPEC-021: своя случайность
   setCtx(groundCanvas.getContext("2d"));
   ctx.setTransform(2, 0, 0, 2, 0, 0);
   ctx.fillStyle = th.g1; ctx.fillRect(0, 0, W, H);
@@ -111,7 +109,7 @@ function paintGround(place) {
       ctx.fillStyle = "#475569"; ctx.font = "bold 14px system-ui"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(String(k + 1), x + 12, y + 13);
     }
   } else {
-    flowers.forEach((f, i) => {
+    G.flowers.forEach((f, i) => {
       const c = th.dots[i % th.dots.length];
       if (place === "beach") {                           // ракушки и звёздочки
         ctx.fillStyle = c;
@@ -126,8 +124,8 @@ function paintGround(place) {
       }
     });
   }
-  if (dangerZone) {                                      // SPEC-021: грязь на земле вокруг дома папы (до полов: пол поверх, если клякса залезла)
-    const B = LOOK.HOUSE_LOOK.big, x0 = dangerZone.x - CELL, y0 = dangerZone.y - CELL, x1 = dangerZone.x + dangerZone.w + CELL, y1 = dangerZone.y + dangerZone.h + CELL, m = CELL * 1.2;
+  if (G.dangerZone) {                                      // SPEC-021: грязь на земле вокруг дома папы (до полов: пол поверх, если клякса залезла)
+    const B = LOOK.HOUSE_LOOK.big, x0 = G.dangerZone.x - CELL, y0 = G.dangerZone.y - CELL, x1 = G.dangerZone.x + G.dangerZone.w + CELL, y1 = G.dangerZone.y + G.dangerZone.h + CELL, m = CELL * 1.2;
     ctx.fillStyle = B.ground;
     for (let i = 0; i < B.groundN; i++) {
       const x = x0 - m + rnd() * (x1 - x0 + 2 * m), y = y0 - m + rnd() * (y1 - y0 + 2 * m);
@@ -135,7 +133,7 @@ function paintGround(place) {
       ctx.beginPath(); ctx.ellipse(x, y, 5 + rnd() * 9, 3 + rnd() * 5, rnd() * 3, 0, TAU); ctx.fill();
     }
   }
-  for (const f of floors) {
+  for (const f of G.floors) {
     if (f.kind === "bridge") {                           // доски поперёк пути через реку
       const [plank, gap] = th.bridge;
       ctx.fillStyle = plank; ctx.fillRect(f.x, f.y, f.w, f.h);
@@ -163,7 +161,7 @@ function paintGround(place) {
       for (let y = f.y + 16; y < f.y + f.h; y += 16) { ctx.beginPath(); ctx.moveTo(f.x, y); ctx.lineTo(f.x + f.w, y); ctx.stroke(); }
     }
   }
-  for (const d of decor) {
+  for (const d of G.decor) {
     if (d.kind === "bed") {
       rr(d.x + 4, d.y + 3, d.w - 8, d.h - 6, 6); fillStroke(d.c, 2.5);
       rr(d.x + 7, d.y + 5, d.w - 14, 9, 4); fillStroke("#fff", 2);
@@ -179,7 +177,7 @@ function paintGround(place) {
 }
 
 export function buildMap3D() {
-  const place = (levelInfo && levelInfo.world) || curWorld, th = THEMES[place];   // место — мир построенного уровня
+  const place = (G.levelInfo && G.levelInfo.world) || G.world, th = THEMES[place];   // место — мир построенного уровня
   if (mapGroup) { scene.remove(mapGroup); disposeTree(mapGroup); }
   mapGroup = new THREE.Group(); scene.add(mapGroup);
   fadeTrees.length = 0; fadeBushes.length = 0; waves.length = 0; snow = null; bigHomeMats.length = 0; houseRoofs.length = 0; setHouseInfo(null);
@@ -218,7 +216,7 @@ export function buildMap3D() {
   }
 
   const mazeWalls = [];
-  for (const o of obstacles) {
+  for (const o of G.obstacles) {
     if (o.kind === "cottage") mapGroup.add(makeCottage(place, o));
     else if (o.kind === "water") makeWaterFor(place, o);
     else if (o.kind === "pond" && o.fountain) makeFountain(place, o);
@@ -256,12 +254,12 @@ export function buildMap3D() {
   mazeDeco(place, mazeWalls);
   riverBanks(place);
   dressHouses(place);                    // SPEC-021: крыши, двери с сердечком, грязный дом папы
-  for (const b of bushes) {
+  for (const b of G.bushes) {
     const k = makeBushFor(place); k.g.position.set(P(b.x), 0, P(b.y)); mapGroup.add(k.g);
     fadeBushes.push({ b, mats: k.mats, a: 1 });
   }
   // декорации за забором
-  const rng = mulberry32(level * 31 + 7);
+  const rng = mulberry32(G.level * 31 + 7);
   for (let i = 0, made = 0; i < 400 && made < 46; i++) {
     const x = -7 + rng() * (COLS + 14), z = -6 + rng() * (ROWS + 12);
     if (x > -1.2 && x < COLS + 1.2 && z > -1.2 && z < ROWS + 1.2) continue;
@@ -283,8 +281,8 @@ export function buildMap3D() {
     for (const [x, z] of [[COLS / 2 - 2.4, ROWS + 1.0], [COLS / 2 + 5.7, ROWS + 1.2], [COLS / 2 + 1.5, -1.0]]) add("ball", x, z);
   }
   safeGlow = null;
-  if (safeZone) {
-    const f = floors.find(fl => fl.x >= safeZone.x && fl.y >= safeZone.y && fl.x < safeZone.x + safeZone.w && fl.y < safeZone.y + safeZone.h);
+  if (G.safeZone) {
+    const f = G.floors.find(fl => fl.x >= G.safeZone.x && fl.y >= G.safeZone.y && fl.x < G.safeZone.x + G.safeZone.w && fl.y < G.safeZone.y + G.safeZone.h);
     if (f) {
       const m = new THREE.MeshBasicMaterial({ color: LOOK.SAFE_GLOW.color, transparent: true, opacity: LOOK.SAFE_GLOW.alpha, depthWrite: false }); m.userData.own = true;
       safeGlow = new THREE.Mesh(new THREE.PlaneGeometry(P(f.w) - 0.1, P(f.h) - 0.1), m);

@@ -4,10 +4,9 @@
 
 import { BONUS_WORLDS, BOSSES, levelsPerWorld, MAIN_WORLDS, worldIndex, WORLDS } from "../core/config.js";
 import { progress, saveProgress } from "../core/economy.js";
-import { buildGame, curWorld, lastReward, level, logEvent, mode, numPlayers, pendingWin, rewardDue, setEvents, setLevel, setMode, setPendingWin, setRewardDue, setWorld, teamSize } from "../core/game.js";
+import { buildGame, lastReward, logEvent, mode, setMode, teamSize } from "../core/game.js";
 import { levelType } from "../core/level/generate.js";
 import { bossFor } from "../core/mood.js";
-import { setTutorialGame, tutorialGame } from "../core/practice.js";
 import { isOpen, payReward, worldComplete, worldProgress } from "../core/progress-rules.js";
 import { clamp } from "../core/util.js";
 import { BIG_SKINS } from "../core/wardrobe.js";
@@ -23,26 +22,27 @@ import { ui } from "./state.js";
 import { camSnap } from "./three/camera.js";
 import { setTutorial, tutorialPages } from "./tutorial.js";
 import { lockedText } from "./ui/map.js";
+import { G } from "../core/active.js";
 
 // выбор мира в меню (карточка, ↑/↓, крестовина геймпада): запоминается, показывается новый открытый уровень мира.
 // SPEC-016/030: закрытый мир выбрать нельзя (__bb.world — без проверки, для тестов и отчёта баланса)
 export function selectWorld(w) {
-  if (!WORLDS.includes(w) || w === curWorld || !isOpen(w)) return;
-  setWorld(w); ui.toast = null; ui.worldBanner = null;   // SPEC-017: подсказка карты была про прошлый мир (SPEC-030: и плашка «открыт»)
-  progress.lastWorld = curWorld; saveProgress();
-  setLevel(worldProgress().unlocked);
-  resetWorld(numPlayers);
+  if (!WORLDS.includes(w) || w === G.world || !isOpen(w)) return;
+  G.world = w; ui.toast = null; ui.worldBanner = null;   // SPEC-017: подсказка карты была про прошлый мир (SPEC-030: и плашка «открыт»)
+  progress.lastWorld = G.world; saveProgress();
+  G.level = worldProgress().unlocked;
+  resetWorld(G.players);
 }
 // ↑/↓: следующий открытый мир по сюжету (по кругу), закрытые пропускаются
 export function cycleWorld(d) {
   const n = WORLDS.length;
-  for (let k = 1; k < n; k++) { const w = WORLDS[(worldIndex(curWorld) + d * k + n * n) % n]; if (isOpen(w)) { selectWorld(w); return; } }
+  for (let k = 1; k < n; k++) { const w = WORLDS[(worldIndex(G.world) + d * k + n * n) % n]; if (isOpen(w)) { selectWorld(w); return; } }
 }
 // выход из идущего уровня до победы (пауза → Меню, перезапуск или другой уровень): платим только обнимашки.
 // Последнее сердечко уже снято (pendingWin идёт) — это победа: засчитываем её, как если бы досмотрели (правило детей: обнял — победил)
 function leaveLevel() {
-  if (tutorialGame || !rewardDue || (mode !== "play" && mode !== "pause")) return;   // SPEC-029: тренировка не платит
-  if (pendingWin > 0) { setPendingWin(0); logEvent("win", {}); giveReward(true); } else giveReward(false);
+  if (G.tutorialGame || !G.rewardDue || (mode !== "play" && mode !== "pause")) return;   // SPEC-029: тренировка не платит
+  if (G.pendingWin > 0) { G.pendingWin = 0; logEvent("win", {}); giveReward(true); } else giveReward(false);
 }
 // клиент: награда (payReward) и мир, который она открыла (hooks.onWin зовёт noteOpenedWorld сам)
 export function giveReward(win) { noteOpenedWorld(payReward(win)); }
@@ -55,23 +55,23 @@ export function resetWorld(n) {
   if (PHONE) n = 1;                  // на телефоне играет один (SPEC-005)
   ui.texts = []; ui.particles = []; ui.shake = 0; sticks.clear(); ui.resetArmed = false;
   const looks = { players: [makeLook(skinSel.p1), makeLook(skinSel.p2)], bots: Array.from({ length: teamSize() - n }, (_, bi) => makeLook(botOutfit(bi))), big: BIG_SKINS[skinSel.big] };
-  buildGame(curWorld, level, n, { looks });
+  buildGame(G.world, G.level, n, { looks });
 }
 export function showBanner() {
   const now = performance.now() / 1000;
   if (now - ui.bannerShownAt < LOOK.BANNER_REPEAT) { ui.banner = null; return; }
   ui.bannerShownAt = now;
-  const wn = L().worlds[curWorld], tn = L().types[levelType(curWorld, level)];
+  const wn = L().worlds[G.world], tn = L().types[levelType(G.world, G.level)];
   // short — короткий вариант для телефона, если полный не влез (SPEC-006 AC 13); tiny — самый короткий, без мира (SPEC-016: с длинным
   // именем мира — «Футбольное поле» — и широким шрифтом не влезал и короткий); place — место на телефоне, выбирается при первом показе
-  ui.banner = { text: L().levelIntro(wn, level, tn), short: L().levelIntroShort(wn, level, tn), tiny: L().levelIntroTiny(wn, level, tn), t: 0, place: null };
+  ui.banner = { text: L().levelIntro(wn, G.level, tn), short: L().levelIntroShort(wn, G.level, tn), tiny: L().levelIntroTiny(wn, G.level, tn), t: 0, place: null };
 }
 export const bannerAlpha = () => !ui.banner ? 0 : clamp(Math.min(ui.banner.t, LOOK.BANNER_TIME - ui.banner.t) / LOOK.BANNER_FADE, 0, 1);
 // camSnap: начало уровня — камера телефона сразу у героя (в resetWorld нельзя: он же открывает меню, где камера показывает всю карту)
 // SPEC-030: начатый уровень снимает плашку и несостоявшийся переход карты в открытый мир (не показывать их игрой позже)
-export function startGame(n) { leaveLevel(); ui.openedWorld = null; ui.worldBanner = null; endTryOn(); setEvents([]); resetWorld(n); setMode("play"); setRewardDue(true); mapSel = null; showBanner(); camSnap(); }
+export function startGame(n) { leaveLevel(); ui.openedWorld = null; ui.worldBanner = null; endTryOn(); G.events = []; resetWorld(n); setMode("play"); G.rewardDue = true; mapSel = null; showBanner(); camSnap(); }
 // следующий уровень того же мира; после последнего мир пройден — на карту уровней
-export function nextLevel() { if (level >= levelsPerWorld()) { toMap(); return; } setLevel(level + 1); withScene(sceneBefore(curWorld, level), () => startGame(numPlayers)); }
+export function nextLevel() { if (G.level >= levelsPerWorld()) { toMap(); return; } G.level = G.level + 1; withScene(sceneBefore(G.world, G.level), () => startGame(G.players)); }
 // ---------- SPEC-017: экраны и переходы между ними ----------
 // home — главный экран; map — карта уровней (levelCard — карточка уровня поверх неё); story — история; shop — магазин с вкладками
 // SPEC-022: scene — заставка истории (комикс в начале, босс, бонусный мир, конец) поверх меню
@@ -103,7 +103,7 @@ function showOpenedWorld() {
   ui.worldBanner = { world: w, t: LOOK.MENU_LOOK.map.openedTime };
 }
 // следующий уровень мира: первый открытый, ещё не выигранный (0 — такого нет)
-export function nextStop(w = curWorld) {
+export function nextStop(w = G.world) {
   const p = progress.worlds[w];
   for (let n = 1; n <= Math.min(p.unlocked, levelsPerWorld()); n++) if (!p.won[n]) return n;
   return 0;
@@ -114,8 +114,8 @@ function mapStartWorld() {
   return worldComplete(lw) ? WORLDS.find(w => isOpen(w) && !worldComplete(w)) ?? lw : lw;
 }
 export function openMap() { selectWorld(mapStartWorld()); mapSel = null; setMode("map"); showOpenedWorld(); }
-export const mapSelN = () => (mapSel && mapSel.world === curWorld ? mapSel.n : nextStop() || levelsPerWorld());
-export function moveMapSel(d) { mapSel = { world: curWorld, n: clamp(mapSelN() + d, 1, levelsPerWorld()) }; }
+export const mapSelN = () => (mapSel && mapSel.world === G.world ? mapSel.n : nextStop() || levelsPerWorld());
+export function moveMapSel(d) { mapSel = { world: G.world, n: clamp(mapSelN() + d, 1, levelsPerWorld()) }; }
 function showToast(text) { ui.toast = { text, t: LOOK.MENU_LOOK.map.toastTime }; }
 // время подсказок карты (кадр меню; тесты шагают его __bb.mapTick): подсказка гаснет сама; SPEC-030: «<мир> открыт!» — тоже, пока видна карта
 export function mapTick(dt) {
@@ -124,7 +124,7 @@ export function mapTick(dt) {
 }
 // остановка: открытая — карточка уровня, закрытая — «Сначала пройди уровень n − 1»
 export function chooseStop(n) {
-  mapSel = { world: curWorld, n };
+  mapSel = { world: G.world, n };
   if (n > worldProgress().unlocked) { showToast(L().lockedLevel(n - 1)); return; }
   cardLevel = n; setMode("levelCard");
 }
@@ -132,7 +132,7 @@ export function chooseStop(n) {
 export function tapWorldTab(w) { if (isOpen(w)) selectWorld(w); else showToast(lockedText(w)); }
 export const closeCard = () => { setMode("map"); };
 // «Играть» на карточке: тот же startGame, что и раньше (resetWorld → loadLevel, надпись уровня, камера телефона)
-export function playCard(players) { setLevel(cardLevel); withScene(sceneBefore(curWorld, level), () => startGame(players)); }   // SPEC-022: сначала заставка, если пора
+export function playCard(players) { G.level = cardLevel; withScene(sceneBefore(G.world, G.level), () => startGame(players)); }   // SPEC-022: сначала заставка, если пора
 // ---------- SPEC-017: история — главы по порядку и страница «Как играть» ----------
 // storyCh — глава на экране; storyBack — куда ведёт «назад» (главный экран или карточка уровня); storyPage — «chapters» или «rules»
 export let storyCh = 0, storyBack = "home";
@@ -201,28 +201,28 @@ export function watchChapter() {
 // всё состояние экранов меню — как при запуске (тесты: resetGame); SPEC-029: и обучения нет
 export function resetMenus() {
   closeNameInput(false); ui.shopTab = "items"; ui.wardrobePage = "looks"; shopBack = "home"; mapSel = null; ui.toast = null; cardLevel = 1; ui.mapSwipe = null; ui.openedWorld = null; ui.worldBanner = null;
-  storyCh = 0; storyBack = "home"; ui.storyPage = "chapters"; ui.storyScene = null; setTutorial(null); setTutorialGame(0);
+  storyCh = 0; storyBack = "home"; ui.storyPage = "chapters"; ui.storyScene = null; setTutorial(null); G.tutorialGame = 0;
 }
 export function toMap() {
   leaveLevel();
   if (endingDue()) { openScene("ending", toMap); return; }   // SPEC-022: сначала финал истории
   const w = ui.openedWorld;                                     // SPEC-030: победа открыла мир — карта переходит в него (selectWorld строит его уровень)
-  if (!(w && w !== curWorld && isOpen(w))) resetWorld(numPlayers);
+  if (!(w && w !== G.world && isOpen(w))) resetWorld(G.players);
   mapSel = null; setMode("map");                               // кольцо — снова на следующем уровне
   showOpenedWorld();
 }
 export function toHome() {
   leaveLevel();
   if (endingDue()) { openScene("ending", toHome); return; }  // SPEC-022: сначала финал истории
-  resetWorld(numPlayers); setMode("home"); ui.worldBanner = null;
+  resetWorld(G.players); setMode("home"); ui.worldBanner = null;
 }
 export const resumeGame = () => { setMode("play"); };
-export const retryLevel = () => startGame(numPlayers);
+export const retryLevel = () => startGame(G.players);
 // экран итогов → магазин; «Готово» в магазине ведёт на карту. После победы — уже следующий уровень (как «Дальше»)
 export function shopAfterWin() {
   if (endingDue()) { openScene("ending", shopAfterWin); return; }   // SPEC-022: сначала финал истории
-  setLevel(clamp(level + 1, 1, worldProgress().unlocked)); resetWorld(numPlayers); openShop("map");
+  G.level = clamp(G.level + 1, 1, worldProgress().unlocked); resetWorld(G.players); openShop("map");
 }
-export function shopAfterLose() { resetWorld(numPlayers); openShop("map"); }
+export function shopAfterLose() { resetWorld(G.players); openShop("map"); }
 export const nextLang = () => setLang(LANGS[(LANGS.indexOf(lang) + 1) % LANGS.length]);
 export const toggleSound = () => { ui.muted = !ui.muted; };

@@ -3,13 +3,13 @@
 
 import { CFG, WORLDS } from "../core/config.js";
 import { progress, saveProgress } from "../core/economy.js";
-import { big, curWorld, level, mode, numPlayers, pendingWin, setLevel, setMode, setPendingWin, setRewardDue, setWorld } from "../core/game.js";
-import { setTutorialGame, tut, tutorialGame } from "../core/practice.js";
+import { mode, setMode } from "../core/game.js";
 import { L } from "../i18n.js";
 import { openMap, openScene, resetWorld, startGame } from "./flow.js";
 import { LOOK } from "./look.js";
 import { isTouch, PHONE } from "./screen.js";
 import { ui } from "./state.js";
+import { G } from "../core/active.js";
 
 // SPEC-029: обучение (подробно — у openTutorial): идёт ли, номер тренировки, её сценарий и подсказки, её запас поцелуев и спасалок
 export let tutorial = null;
@@ -35,14 +35,14 @@ export function tutorialPages(sh) {
 export const tutorialArtNames = () => [...["a", "b", "c"].map(s => "tutorial_" + s), "story_win", ...Object.values(CFG.TUTORIAL_LOOK.figures).map(f => f[0]),
   ...Object.values(CFG.TUTORIAL_LOOK.pages).flat(2).filter(n => !Object.hasOwn(CFG.TUTORIAL_LOOK.figures, n))];
 export function openTutorial(back = "map", from = TUTORIAL_STEPS[0]) {
-  if (!tutorial) tutorial = { i: 0, back: back === "story" ? "story" : "map", keep: { world: curWorld, level, players: numPlayers } };
+  if (!tutorial) tutorial = { i: 0, back: back === "story" ? "story" : "map", keep: { world: G.world, level: G.level, players: G.players } };
   tutorial.i = Math.max(0, TUTORIAL_STEPS.indexOf(from));
   tutorialShow();
 }
 function tutorialShow() {
   const s = tutorialStep();
   if (s.startsWith("game")) startTutorialGame(Number(s.slice(4)));
-  else { setTutorialGame(0); openScene("tutorial_" + s, tutorialNext, { mark: false, skip: tutorialSkip }); }
+  else { G.tutorialGame = 0; openScene("tutorial_" + s, tutorialNext, { mark: false, skip: tutorialSkip }); }
 }
 // следующий шаг (страницы досмотрены, тренировка выиграна); после последнего — конец
 export function tutorialNext() {
@@ -52,30 +52,30 @@ export function tutorialNext() {
 }
 // тренировка g: своя карта (resetWorld → applyTutorialMap; ключи мира и уровня — Парк 1), один игрок, без надписи уровня и без награды
 function startTutorialGame(g) {
-  setTutorialGame(g); setWorld(WORLDS[0]); setLevel(1);
+  G.tutorialGame = g; G.world = WORLDS[0]; G.level = 1;
   startGame(1);
-  setRewardDue(false); ui.banner = null;
+  G.rewardDue = false; ui.banner = null;
 }
-export function restartTutorialGame() { startTutorialGame(tutorialGame); }   // пауза → «Ещё раз»
+export function restartTutorialGame() { startTutorialGame(G.tutorialGame); }   // пауза → «Ещё раз»
 export function tutorialSkip() { tutorialEnd(); }                            // «Пропустить» на странице, в паузе, в углу тренировки
 // конец (досмотрели или пропустили): seen.tutorial, мир меню как был; первый запуск — карта уровней (Парк, уровень 1 ждёт), пересмотр — «Как играть»
 function tutorialEnd() {
   const t = tutorial;
   if (!t) return;
-  tutorial = null; setTutorialGame(0); ui.storyScene = null; setRewardDue(false); setPendingWin(0);
+  tutorial = null; G.tutorialGame = 0; ui.storyScene = null; G.rewardDue = false; G.pendingWin = 0;
   if (!progress.seen.tutorial) { progress.seen.tutorial = true; saveProgress(); }
-  setWorld(t.keep.world); setLevel(t.keep.level); resetWorld(t.keep.players);
+  G.world = t.keep.world; G.level = t.keep.level; resetWorld(t.keep.players);
   if (t.back === "story") { setMode("story"); ui.storyPage = "rules"; }
   else openMap();
 }
 // текст подсказки тренировки (или null); управление — по устройству, как на странице A4
 export function tutorialHintText() {
   const T = L().tut, touch = PHONE || isTouch;
-  if (tutorialGame === 2) return [null, T.g2item, T.g2banana, T.g2kiss(touch ? T.kissTouch : T.kissKey), T.g2kit(touch ? T.kitTouch : T.kitKey)][tut.hint] || null;
-  if (tutorialGame !== 1) return null;
-  return tut.hint === 1 ? T.g1rescue : tut.hint === 2 ? T.g1sneak(touch ? T.tiptoeTouch : T.tiptoeKey) : tut.hint === 3 ? T.g1hug : null;
+  if (G.tutorialGame === 2) return [null, T.g2item, T.g2banana, T.g2kiss(touch ? T.kissTouch : T.kissKey), T.g2kit(touch ? T.kitTouch : T.kitKey)][G.tut.hint] || null;
+  if (G.tutorialGame !== 1) return null;
+  return G.tut.hint === 1 ? T.g1rescue : G.tut.hint === 2 ? T.g1sneak(touch ? T.tiptoeTouch : T.tiptoeKey) : G.tut.hint === 3 ? T.g1hug : null;
 }
-export const tutorialHintOn = () => mode === "play" && pendingWin <= 0 && !big.kind && !!tutorialHintText();
+export const tutorialHintOn = () => mode === "play" && G.pendingWin <= 0 && !G.big.kind && !!tutorialHintText();
 
 // setters (SPEC-011 AC 5: other modules change this module's state only through them)
 export function setTutorial(v) { tutorial = v; }
