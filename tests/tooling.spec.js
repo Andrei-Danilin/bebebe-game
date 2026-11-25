@@ -152,3 +152,18 @@ test("AC 13: CHANGELOG, the release doc with the rollback runbook, pages.yml ref
   for (const t of ["RUN_S.md", "RUN_M.md", "RUN_L.md"]) expect(read("docs/process/run-templates/" + t), `${t}: the changelog line at the close`).toMatch(/CHANGELOG\.md/);
   expect(exists("THIRD_PARTY_LICENSES.md")).toBe(true);
 });
+
+test("AC 13: npm run release — moveUnreleased, and nothing written for a bad version or a dirty tree", { tag: "@fast" }, () => {
+  const { moveUnreleased, release } = require(path.join(ROOT, "scripts", "release.js"));
+  const log = "# Changelog\n\nintro\n\n## [Unreleased]\n\n### Added\n\n- a thing\n\n## [1.0.0] - 2026-01-01\n\n- old\n";
+  expect(moveUnreleased(log, "1.1.0", "2026-12-01")).toBe("# Changelog\n\nintro\n\n## [Unreleased]\n\n## [1.1.0] - 2026-12-01\n\n### Added\n\n- a thing\n\n## [1.0.0] - 2026-01-01\n\n- old\n");
+  expect(moveUnreleased("## [Unreleased]\n\n- only\n", "2.0.0", "2026-12-01"), "the last section").toBe("## [Unreleased]\n\n## [2.0.0] - 2026-12-01\n\n- only\n");
+  expect(() => moveUnreleased("## [Unreleased]\n\n## [1.0.0] - x\n", "1.1.0", "d"), "nothing to release").toThrow(/nothing under Unreleased/);
+  expect(() => moveUnreleased("# no heading\n", "1.1.0", "d")).toThrow(/no "## \[Unreleased\]"/);
+  const before = [read("package.json"), read("CHANGELOG.md")];
+  for (const bad of ["1.0", "v1.0.0", "1.0.0.0", "", undefined]) expect(() => release(bad, { dry: true }), `"${bad}"`).toThrow(/not a semver version/);
+  expect(() => release("9.9.9", { status: () => " M src/client/main.js\n" }), "a dirty tree").toThrow(/not clean/);
+  expect(release("9.9.9", { dry: true })).toMatchObject({ to: "9.9.9", changelog: true });
+  expect(release("9.9.9-dev", { dry: true }), "a pre-release leaves the changelog alone").toMatchObject({ changelog: false });
+  expect([read("package.json"), read("CHANGELOG.md")], "nothing written").toEqual(before);
+});

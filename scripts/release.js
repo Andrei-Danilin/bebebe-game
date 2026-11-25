@@ -3,9 +3,11 @@
 // the CHANGELOG.md "Unreleased" entries under "## [<version>] - <today>" with a fresh empty "Unreleased" above. Committing,
 // merging, tagging (`git tag -a v<version>`) and pushing the tag stay manual steps of the release run (docs/release.md).
 // A pre-release version (e.g. 1.1.0-dev, the version after a release) only sets the version.
+// It refuses an invalid version or a dirty working tree before writing anything.
 //   node scripts/release.js <version> [--dry]
 const fs = require("fs");
 const path = require("path");
+const { execFileSync } = require("child_process");
 
 const ROOT = path.resolve(__dirname, "..");
 const PKG = path.join(ROOT, "package.json"), LOG = path.join(ROOT, "CHANGELOG.md");
@@ -22,16 +24,24 @@ function moveUnreleased(log, version, date) {
   return log.slice(0, i) + `${UNRELEASED}\n\n## [${version}] - ${date}\n\n${body}\n` + (next < 0 ? "" : log.slice(next));
 }
 
-function release(version, { dry = false, date = new Date().toISOString().slice(0, 10) } = {}) {
+// the working tree's changes to tracked files (git status --porcelain): a release starts from a clean tree, so its commit holds
+// only the release. Untracked files are not counted (a run's own untracked run-state file, specs/SPEC-NNN_RUN_STATE.md).
+const gitStatus = () => execFileSync("git", ["status", "--porcelain", "--untracked-files=no"], { cwd: ROOT, encoding: "utf8" });
+
+// Everything is checked before anything is written: the version (semver), a clean tree (not for --dry), the changelog. Then
+// package.json is written and npm run precache runs; if precache fails, package.json is put back and the changelog is left
+// alone — the changelog is written last, only after precache succeeded.
+function release(version, { dry = false, date = new Date().toISOString().slice(0, 10), status = gitStatus } = {}) {
   if (!SEMVER.test(version || "")) throw new Error(`"${version}" is not a semver version (X.Y.Z or X.Y.Z-pre)`);
-  const pkg = JSON.parse(fs.readFileSync(PKG, "utf8"));
+  if (!dry) { const dirty = status().trim(); if (dirty) throw new Error(`the working tree is not clean — commit or stash first:\n${dirty}`); }
+  const pkgText = fs.readFileSync(PKG, "utf8"), pkg = JSON.parse(pkgText);
   const log = version.includes("-") ? null : moveUnreleased(fs.readFileSync(LOG, "utf8").split("\r\n").join("\n"), version, date);
   const from = pkg.version;
   if (dry) return { from, to: version, changelog: !!log };
-  pkg.version = version;
-  fs.writeFileSync(PKG, JSON.stringify(pkg, null, 2) + "\n");
+  fs.writeFileSync(PKG, JSON.stringify({ ...pkg, version }, null, 2) + "\n");
+  let r;
+  try { r = require("./precache.js").run(); } catch (e) { fs.writeFileSync(PKG, pkgText); throw e; }
   if (log) fs.writeFileSync(LOG, log);
-  const r = require("./precache.js").run();
   return { from, to: version, changelog: !!log, wrote: r.stale };
 }
 
