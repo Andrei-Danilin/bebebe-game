@@ -4,7 +4,7 @@
 import { CFG, WORLDS } from "../core/config.js";
 import { progress, saveProgress } from "../core/economy.js";
 import { L } from "../i18n.js";
-import { mode, openMap, openScene, resetWorld, setMode, startGame } from "./flow.js";
+import { mode, openMap, openScene, playWorld, setMode, startGame } from "./flow.js";
 import { LOOK } from "./look.js";
 import { isTouch, PHONE } from "./screen.js";
 import { ui } from "./state.js";
@@ -63,7 +63,7 @@ function tutorialEnd() {
   if (!t) return;
   tutorial = null; G.tutorialGame = 0; ui.storyScene = null; G.rewardDue = false; G.pendingWin = 0;
   if (!progress.seen.tutorial) { progress.seen.tutorial = true; saveProgress(); }
-  G.world = t.keep.world; G.level = t.keep.level; resetWorld(t.keep.players);
+  G.world = t.keep.world; G.level = t.keep.level; playWorld(t.keep.players);
   if (t.back === "story") { setMode("story"); ui.storyPage = "rules"; }
   else openMap();
 }

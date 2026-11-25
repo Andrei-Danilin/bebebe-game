@@ -98,9 +98,10 @@ export function moveEntity(e, vx, vy, dt) { e.x += vx * dt; e.y += vy * dt; reso
 // Большой «спокоен»: в шоке, отдыхает после толчка или краснеет — конус бледный (3D и мини-карта)
 export const bigCalm = () => !!G.big.kind || G.big.stun > 0 || G.big.noPush > 0 || G.big.blush > 0;   // SPEC-022: подобревший идёт домой — луч спокойный
 // многоугольник взгляда Большого в px мира: [x0, y0 (он сам), x1, y1, …] — n + 1 лучей, обрезанных стенами
-export function visionPoly(n, out = []) {
+// dir — куда он смотрит (по умолчанию G.big.dir; клиент в меню добавляет свой угол поворота)
+export function visionPoly(n, out = [], dir = G.big.dir) {
   out.length = 2 * (n + 2); out[0] = G.big.x; out[1] = G.big.y;
-  const a0 = G.big.dir - CFG.VISION_HALF;
+  const a0 = dir - CFG.VISION_HALF;
   for (let i = 0; i <= n; i++) {
     const a = a0 + i * (2 * CFG.VISION_HALF / n), cx = Math.cos(a), sy = Math.sin(a);
     let r = 0;

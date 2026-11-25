@@ -17,6 +17,7 @@ export const ui = {
   particles: [],
   muted: false,
   shake: 0,
+  menuSpin: 0,   // SPEC-012 AC 1d: how far the Big One has turned in the menus (a view angle; the game's big.dir is untouched)
   buttons: [],
   resetArmed: false,
   kitHintRect: null,

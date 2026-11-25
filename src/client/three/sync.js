@@ -20,6 +20,8 @@ import { progressTab, renderPreviews } from "./previews.js";
 import { BIG_SCALE, camBase, camera, LITTLE_SCALE, P, renderer, scene } from "./setup.js";
 import { G } from "../../core/active.js";
 
+// SPEC-012 AC 1d: where the Big One faces on screen — his dir, plus the client's menu spin while a menu is shown
+const bigFacing = () => G.big.dir + (inMenus() ? ui.menuSpin : 0);
 // ---------- Конус обзора и «зона обнимашек» ----------
 export const CONE_N = 48, coneBuf = [];
 const coneGeo = new THREE.BufferGeometry();
@@ -28,7 +30,7 @@ const coneIdx = [];
 const coneMat = new THREE.MeshBasicMaterial({ color: LOOK.CONE_LOOK.look, transparent: true, opacity: LOOK.CONE_LOOK.lookA, depthWrite: false, side: THREE.DoubleSide });
 const coneMesh = new THREE.Mesh(coneGeo, coneMat);
 function updateCone() {
-  const pos = coneGeo.attributes.position.array, vp = visionPoly(CONE_N, coneBuf);
+  const pos = coneGeo.attributes.position.array, vp = visionPoly(CONE_N, coneBuf, bigFacing());
   for (let i = 0; i <= CONE_N + 1; i++) { pos[i * 3] = P(vp[2 * i]); pos[i * 3 + 1] = 0.05; pos[i * 3 + 2] = P(vp[2 * i + 1]); }
   coneGeo.attributes.position.needsUpdate = true;
   const calm = bigCalm();
@@ -249,7 +251,7 @@ function syncBig(b, t) {
     m.mood = mood; setBigFace(m, m.moodFace ? LOOK.MOOD_LOOK.face[mood] ?? null : null);
   }
   m.root.position.set(P(b.x), 0, P(b.y));
-  m.root.rotation.y = Math.PI / 2 - b.dir;
+  m.root.rotation.y = Math.PI / 2 - bigFacing();
   const slipped = b.slip > 0, shocked = b.stun > 0 || slipped, resting = b.noPush > 0 && !shocked;
   const hugged = G.littles.some(l => l.hugAnim > 0);
   if (slipped) {                                         // упал на спину после банана

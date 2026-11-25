@@ -15,16 +15,16 @@ import { bigCalm } from "../core/path.js";
 import { tutorialMapRect } from "../core/practice.js";
 import { bonusUnlocked, fastTarget, loadProgress, worldComplete, worldOpen } from "../core/progress-rules.js";
 import { spawnItem, spawnStar } from "../core/rules.js";
-import { clamp, seedRandom, setStrictRng, strictRng } from "../core/util.js";
+import { clamp, setStrictRng, strictRng } from "../core/util.js";
 import { BIG_SKINS, HAIRS, HATS, JACKETS, PANTS, SLOTS } from "../core/wardrobe.js";
 import { inDanger, inSafe, seeSolidAt } from "../core/world.js";
 import { detectLang, I18N, L, lang, LANGS } from "../i18n.js";
 import { RULE_ICONS, SCENE_IDS, STORY, TUTORIAL_SCENES } from "../story.js";
 import { ART_NAMES } from "./art-names.js";
 import { art, ART_FALLBACK, artCount, artDone, artVersion, EMOJI_ART, FX_ART, HEART_ART, ITEM_ART, mapBgArt, PAPER_BTN, POP_ART, SHOP_TAB_ART, STORY_ART, UPG_ART, WARDROBE_ART, worldArt } from "./art.js";
-import { bannerAlpha, chapterOpen, closeShop, giveReward, kissNow, kitNow, lastReward, mapTick, mode, MODES, openMap, openScene, openStory, resetMenus, resetWorld, sceneNext, scenePageCount, scenePages, sceneSkip, selectWorld, setLastReward, setMode, setShopTab, shopAfterWin, showBanner, startGame, toHome, toMap } from "./flow.js";
+import { bannerAlpha, chapterOpen, chooseStop, closeShop, giveReward, kissNow, kitNow, lastReward, mapTick, mode, MODES, openFriends, openMap, openScene, openShop, openStory, resetMenus, resetWorld, rngDraws, sceneNext, scenePageCount, scenePages, sceneSkip, seedRandom, selectWorld, setLastReward, setMode, setShopTab, shopAfterWin, showBanner, startGame, tapWorldTab, toHome, toMap } from "./flow.js";
 import { burst, popText } from "./fx.js";
-import { stickR, sticks, toGame } from "./input.js";
+import { nameInput, openNameInput, stickR, sticks, toGame } from "./input.js";
 import { LOOK } from "./look.js";
 import { allNames, nameOf, setName } from "./names.js";
 import { BOSS_LOOKS, botOutfit, buyLook, cloneSkins, cycleBig, cycleOutfit, loadOutfits, LOOK_SLOTS, randomOutfit, resetOutfits, skinKeep, skinSel } from "./outfits.js";
@@ -116,6 +116,10 @@ export function installDebug() {
     // SPEC-012 AC 1b: the 3D model of Little One i or of the Big One ("big") — models are kept by the client, not on the entities
     model: who => modelOf(who === "big" ? G.big : G.littles[who]) || null,
     get game() { return G; },   // SPEC-012: the active game (plain data)
+    // SPEC-012 AC 1f: the menus' state a screen change resets (logic state: the same in sim and rendered pages) and the actions
+    // that set it up: the shop, its friends page, the name input of a slot, a map stop or world tab (a locked one shows a hint)
+    get screenState() { return { mode, shopTab: ui.shopTab, wardrobePage: ui.wardrobePage, toast: ui.toast && ui.toast.text, mapBgCache: !!ui.mapBgCache, nameInput: !!nameInput }; },
+    openShop, openFriends, chooseStop, tapWorldTab, openNameInput: slot => openNameInput({ x: 0, y: 0, w: 100, h: 30 }, slot),
     tapButton(id) { const q = ui.buttons.find(r => (r.id || r.act.name) === id); if (q) q.act(); return !!q; },
     LANGS, detectLang, get lang() { return lang; },   // SPEC-028: языки по порядку значка 🌐, язык при запуске (чистая), текущий язык
     update, inSafe, I18N, startGame, resetWorld, cycleOutfit, randomOutfit, cycleBig, setLang, toScreen,
@@ -147,10 +151,10 @@ export function installDebug() {
     // SPEC-028: все имена-объекты одежды и образов Большого по спискам (копии): { hair, hat, jacket, pants, big: [{ en, es, pt, ru }] }
     itemNames: () => Object.fromEntries(Object.entries({ hair: HAIRS, hat: HATS, jacket: JACKETS, pants: PANTS, big: BIG_SKINS }).map(([k, l]) => [k, l.map(q => ({ ...q.name }))])),
     REWARD, get winPanel() { return ui.winPanel && { ...ui.winPanel }; },   // SPEC-009: числа награды; рамка строк награды на экране победы
-    seedRandom: n => seedRandom(n),     // SPEC-008: seedRandom(n) — игровая случайность rng() с зерна n; seedRandom() — снова случайно
+    seedRandom,     // SPEC-008: seedRandom(n) — игровая случайность rng() с зерна n; seedRandom() — снова случайно
     sim, simRun, get events() { return G.events.map(e => ({ ...e })); },   // SPEC-008: режим симуляции, журнал событий (копии)
     ledger: () => ledger.map(e => ({ ...e })),   // SPEC-009: события coins за сессию (с загрузки страницы), копии
-    get rngDraws() { return G.rng.draws; },   // SPEC-008: сколько раз тянули игровую случайность
+    get rngDraws() { return rngDraws(); },   // SPEC-008: сколько раз тянули игровую случайность
     setProgress(save) { G.rewardDue = false; setLastReward(null); ui.openedWorld = null; ui.worldBanner = null; setProgress(save); },   // SPEC-008 (баланс): прогресс из сохранения (null — новый), не записывает
     levelsPerWorld,
     autopilot, autoThink,   // SPEC-008: autopilot(on, "careful"|"reckless") → { on, style }; autoThink(dt) — только решение (для теста)

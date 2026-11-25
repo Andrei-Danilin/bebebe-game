@@ -117,10 +117,12 @@ export function buildGame(world, n, players, { looks, upgrades = progress.upgrad
 }
 const NO_LOOKS = Object.freeze({ players: [], bots: [], big: null });
 // SPEC-012 AC 1: a new game, built: newGame(opts) + buildGame on it (the active game is restored afterwards). opts: world, n,
-// players, looks, upgrades, practice (the practice game's number, SPEC-029), rng / seed. → the game (not made active)
+// players, looks, upgrades, practice (the practice game's number, SPEC-029), rng (a stream to continue) / seed, keep (fields
+// carried over from the client's previous game before the build: its event log, ids, autopilot…). → the game (not made active)
 export function createGame(opts = {}) {
   const g = newGame(opts);
-  g.tutorialGame = opts.practice || 0;
+  if (opts.keep) Object.assign(g, opts.keep);
+  if (opts.practice !== undefined) g.tutorialGame = opts.practice;
   withGame(g, () => buildGame(g.world, g.level, g.players, { looks: opts.looks || NO_LOOKS, upgrades: opts.upgrades }));
   return g;
 }

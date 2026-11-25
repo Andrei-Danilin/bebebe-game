@@ -5,10 +5,10 @@
 import { progress } from "../core/economy.js";
 import { newGame, update, updateFx, useGame } from "../core/game.js";
 import { setHooks } from "../core/hooks.js";
-import { noGameRng, seedRandom, setStrictRng } from "../core/util.js";
+import { noGameRng, setStrictRng } from "../core/util.js";
 import { artGate, initArt } from "./art.js";
 import { installDebug } from "./debug.js";
-import { inMenus, inWardrobe, mapTick, mode, onWin, openScene, resetWorld } from "./flow.js";
+import { inMenus, inWardrobe, mapTick, mode, onWin, openScene, redress, resetWorld, seedRandom } from "./flow.js";
 import { bannerTick, burst, clientFx, popText } from "./fx.js";
 import { deviceInput, initInput, pollPads } from "./input.js";
 import { endTryOn } from "./outfits.js";
@@ -25,7 +25,6 @@ import { initSync, render3D } from "./three/sync.js";
 import { firstTutorial, openTutorial, tutorialNext } from "./tutorial.js";
 import { updateMinimapFade } from "./ui/minimap.js";
 import { drawUI } from "./ui/screens.js";
-import { G } from "../core/active.js";
 
 // SPEC-008 / SPEC-011 AC 8d: тесты включают строгую игровую случайность и задают зерно запуска (init-скрипт до игры)
 setStrictRng(window.__bbStrictRng === true);
@@ -70,11 +69,11 @@ function frame(now) {
   if (introDue && mode === "home" && !document.getElementById("loading")) { introDue = false; openScene("intro", tutorialDue ? () => openTutorial("map") : null); }   // SPEC-022: первый запуск (SPEC-029: потом обучение)
   ui.T += dt;
   pollPads();
-  if (!inWardrobe() && endTryOn()) resetWorld(G.players);   // SPEC-009/017: ушли из вкладки «Гардероб» (друзья — её часть) — примерка кончилась
+  if (!inWardrobe() && endTryOn()) redress();   // SPEC-009/017: ушли из вкладки «Гардероб» (друзья — её часть) — примерка кончилась
   const portrait = isTouch && window.innerHeight > window.innerWidth;
   mapTick(dt);
   if (mode === "play" && !portrait) update(dt);
-  else { updateFx(dt); if (inMenus()) G.big.dir += dt * 0.8; }
+  else { updateFx(dt); if (inMenus()) ui.menuSpin += dt * 0.8; }   // SPEC-012 AC 1d: the Big One turns in the menus — a view angle, not game state
   noGameRng("render", () => {              // рисование не тянет игровую случайность (SPEC-008: тесты — ошибка, игра — vrand)
     updateCamera(dt);                       // телефон: камера за героем (3D-слой, не логика)
     updateMinimapFade(dt);                  // телефон: мини-карта бледнеет, когда под ней герой или Большой (SPEC-010)

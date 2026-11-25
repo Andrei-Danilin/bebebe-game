@@ -5,17 +5,17 @@
 import { G } from "../core/active.js";
 import { BONUS_WORLDS, BOSSES, levelsPerWorld, MAIN_WORLDS, worldIndex, WORLDS } from "../core/config.js";
 import { progress, saveProgress } from "../core/economy.js";
-import { buildGame, logEvent, teamSize } from "../core/game.js";
+import { createGame, logEvent, teamSize, useGame } from "../core/game.js";
 import { levelType } from "../core/level/generate.js";
 import { bossFor } from "../core/mood.js";
 import { isOpen, payReward, worldComplete, worldProgress } from "../core/progress-rules.js";
 import { canUseKit, throwKiss, useRescueKit } from "../core/rules.js";
-import { clamp } from "../core/util.js";
+import { clamp, newRng, seedRandom as seedStream } from "../core/util.js";
 import { BIG_SKINS } from "../core/wardrobe.js";
 import { L, lang, LANGS } from "../i18n.js";
 import { SCENE_IDS, STORY, TUTORIAL_SCENES } from "../story.js";
 import { STORY_ART } from "./art.js";
-import { closeNameInput, sticks } from "./input.js";
+import { closeNameInput, nameInput, sticks } from "./input.js";
 import { LOOK } from "./look.js";
 import { botOutfit, endTryOn, makeLook, skinSel } from "./outfits.js";
 import { setLang } from "./progress.js";
@@ -24,18 +24,29 @@ import { ui } from "./state.js";
 import { camSnap } from "./three/camera.js";
 import { setTutorial, tutorialPages } from "./tutorial.js";
 import { lockedText } from "./ui/map.js";
+import { rebuild3D } from "./three/characters.js";
 
 // SPEC-012 AC 1c: the screen is the client's (the core has only the game's phase, G.phase). mode — one of MODES; lastReward — the
 // reward of the last level paid (payReward's result: the win screen shows it), null after a new game is built
 export let mode = "home", lastReward = null;
-export function setMode(v) { return (mode = v); }
+// SPEC-012 AC 1f: a screen change resets the menus' state that belongs to the screen left (drawing changes no state): the shop
+// tab and wardrobe page outside the shop, the map's hint outside the map, the world page's background outside the map and its
+// card, the name input outside the wardrobe
+export function setMode(v) {
+  mode = v;
+  if (mode !== "shop") { ui.shopTab = "items"; ui.wardrobePage = "looks"; }
+  if (mode !== "map") ui.toast = null;   // SPEC-017: подсказка карты — только пока карта на экране
+  if (mode !== "map" && mode !== "levelCard") ui.mapBgCache = null;   // фон страницы мира не держим в памяти вне карты
+  if (nameInput && !inWardrobe()) closeNameInput(false);
+  return mode;
+}
 export function setLastReward(v) { return (lastReward = v); }
 // a kiss or a kit needs the play screen too (pause: the client does not step the game, and the buttons do nothing)
 export const canKitNow = l => mode === "play" && canUseKit(l);
 export const kissNow = pi => mode === "play" && throwKiss(pi);
 export const kitNow = pi => mode === "play" && useRescueKit(pi);
 // a level won (the core's onWin hook, after payReward): the win screen and the world the win opened
-export function onWin(r) { lastReward = r; mode = "win"; noteOpenedWorld(r); }
+export function onWin(r) { lastReward = r; setMode("win"); noteOpenedWorld(r); }
 
 // выбор мира в меню (карточка, ↑/↓, крестовина геймпада): запоминается, показывается новый открытый уровень мира.
 // SPEC-016/030: закрытый мир выбрать нельзя (__bb.world — без проверки, для тестов и отчёта баланса)
@@ -44,7 +55,7 @@ export function selectWorld(w) {
   G.world = w; ui.toast = null; ui.worldBanner = null;   // SPEC-017: подсказка карты была про прошлый мир (SPEC-030: и плашка «открыт»)
   progress.lastWorld = G.world; saveProgress();
   G.level = worldProgress().unlocked;
-  resetWorld(G.players);
+  playWorld(G.players);
 }
 // ↑/↓: следующий открытый мир по сюжету (по кругу), закрытые пропускаются
 export function cycleWorld(d) {
@@ -62,14 +73,39 @@ export function giveReward(win) { lastReward = payReward(win); noteOpenedWorld(l
 // SPEC-030: победа открыла главный мир — карта переключится на него, когда откроется
 export function noteOpenedWorld(r) { if (r && r.worldOpened) ui.openedWorld = r.worldOpened; }
 
-// новая игра мира и уровня меню (curWorld, level): правило телефона (играет один), виды из гардероба; надписи, частицы, тряска и
-// джойстики — с нуля. Игру строит buildGame (SPEC-011 AC 3c)
-export function resetWorld(n) {
+// ---------- SPEC-012 AC 1d: the client's games ----------
+// Every build makes a new game object (createGame) and makes it the active game G (what the scene shows and __bb reads). A
+// playable game (startGame, selectWorld, the end of a practice game) draws the local rng stream localRng — one stream for
+// all local games, seeded by seedRandom (window.__bbSeed, __bb.seedRandom); any other build (the menus' backdrop: the
+// showcase, made by resetWorld) takes a copy of that stream's state, so it never draws it. The new game carries over what
+// the session keeps from game to game (KEEP: the event log until the next level starts, the ids, the practice game and
+// the autopilot switches). Wardrobe, glove and try-on changes re-dress the shown game (redress) instead of a build.
+const localRng = newRng();
+export function seedRandom(n) { seedStream(n, localRng); }
+export const rngDraws = () => localRng.draws;
+const KEEP = Object.freeze(["events", "rewardDue", "itemSeq", "starSeq", "kissSeq", "kitHintPi", "heardHintPi", "tutorialGame", "tut", "tutorialInv", "autoOn", "autoStyle"]);
+// the looks of n players, the bots and the Big One from the wardrobe (the game only carries them)
+const looksFor = n => ({ players: [makeLook(skinSel.p1), makeLook(skinSel.p2)], bots: Array.from({ length: teamSize() - n }, (_, bi) => makeLook(botOutfit(bi))), big: BIG_SKINS[skinSel.big] });
+// the client's per-game view state from scratch: texts, particles, shake, sticks, the reset button, the menu spin of the Big One
+function clearView() { ui.texts = []; ui.particles = []; ui.shake = 0; sticks.clear(); ui.resetArmed = false; ui.menuSpin = 0; }
+function buildLocal(n, playable) {
   if (PHONE) n = 1;                  // на телефоне играет один (SPEC-005)
-  ui.texts = []; ui.particles = []; ui.shake = 0; sticks.clear(); ui.resetArmed = false;
-  const looks = { players: [makeLook(skinSel.p1), makeLook(skinSel.p2)], bots: Array.from({ length: teamSize() - n }, (_, bi) => makeLook(botOutfit(bi))), big: BIG_SKINS[skinSel.big] };
+  clearView();
+  const keep = Object.fromEntries(KEEP.map(k => [k, G[k]]));
   lastReward = null;
-  buildGame(G.world, G.level, n, { looks });
+  useGame(createGame({ world: G.world, n: G.level, players: n, looks: looksFor(n), rng: playable ? localRng : { s: localRng.s, draws: 0 }, keep }));
+}
+// новая игра мира и уровня меню (G.world, G.level): правило телефона (играет один), виды из гардероба; надписи, частицы, тряска и
+// джойстики — с нуля. resetWorld — витрина меню (showcase), playWorld — игра, в которую играют
+export function resetWorld(n) { buildLocal(n, false); }
+export function playWorld(n) { buildLocal(n, true); }
+// SPEC-012 AC 1d: the wardrobe, a glove or a try-on changed — the shown game wears the new looks (models rebuilt), nothing else changes
+export function redress() {
+  clearView();
+  const looks = looksFor(G.players);
+  for (const l of G.littles) l.look = l.kind === "player" ? looks.players[l.id] : looks.bots[l.botIndex];
+  G.big.skin = looks.big;
+  rebuild3D();
 }
 export function showBanner() {
   const now = performance.now() / 1000;
@@ -83,7 +119,7 @@ export function showBanner() {
 export const bannerAlpha = () => !ui.banner ? 0 : clamp(Math.min(ui.banner.t, LOOK.BANNER_TIME - ui.banner.t) / LOOK.BANNER_FADE, 0, 1);
 // camSnap: начало уровня — камера телефона сразу у героя (в resetWorld нельзя: он же открывает меню, где камера показывает всю карту)
 // SPEC-030: начатый уровень снимает плашку и несостоявшийся переход карты в открытый мир (не показывать их игрой позже)
-export function startGame(n) { leaveLevel(); ui.openedWorld = null; ui.worldBanner = null; endTryOn(); G.events = []; resetWorld(n); setMode("play"); G.rewardDue = true; mapSel = null; showBanner(); camSnap(); }
+export function startGame(n) { leaveLevel(); ui.openedWorld = null; ui.worldBanner = null; endTryOn(); G.events = []; playWorld(n); setMode("play"); G.rewardDue = true; mapSel = null; showBanner(); camSnap(); }
 // следующий уровень того же мира; после последнего мир пройден — на карту уровней
 export function nextLevel() { if (G.level >= levelsPerWorld()) { toMap(); return; } G.level = G.level + 1; withScene(sceneBefore(G.world, G.level), () => startGame(G.players)); }
 // ---------- SPEC-017: экраны и переходы между ними ----------
