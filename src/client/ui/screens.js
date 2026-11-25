@@ -1,10 +1,9 @@
 // SPEC-011: the 2D pass of a frame (drawUI) and the per-mode dispatch (drawOverlay, drawOverlayPhone). Client module (moved
 // out of index.html in Phase C).
 
-import { mode } from "../../core/game.js";
 import { L } from "../../i18n.js";
 import { paperCache, paperUI } from "../art.js";
-import { backToWardrobe, closeShop, inMenus, inWardrobe, openFriends } from "../flow.js";
+import { backToWardrobe, closeShop, inMenus, inWardrobe, mode, openFriends } from "../flow.js";
 import { closeNameInput, nameInput, placeNameInput } from "../input.js";
 import { LOOK } from "../look.js";
 import { resetProgress } from "../progress.js";

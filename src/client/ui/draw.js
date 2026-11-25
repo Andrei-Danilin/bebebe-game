@@ -20,6 +20,7 @@ import { BIG_SCALE, LITTLE_SCALE } from "../three/setup.js";
 import { moodOf } from "../three/sync.js";
 import { cpx, fitText, fmtTime, fz, hudFont, label, labelStroke, minPx, noteText } from "./text.js";
 import { G } from "../../core/active.js";
+import { mode } from "../flow.js";
 
 // =====================================================================
 //  2D-СЛОЙ: меню, HUD, подписи (поверх 3D)
@@ -209,7 +210,7 @@ export function playerNameTag(l) {
 export let tapLines = [];
 function drawTapLines() {
   tapLines = [];
-  if (!bigListens()) return;
+  if (mode !== "play" || !bigListens()) return;   // SPEC-012: in pause and on other screens he hears nothing (the client steps no game)
   const T = LOOK.TIPTOE_LOOK, len = PHONE ? cpx(T.tap) : T.tap;
   for (const l of G.littles) {
     if (!audible(l)) continue;

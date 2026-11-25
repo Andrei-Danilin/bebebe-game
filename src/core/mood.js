@@ -21,7 +21,7 @@ export function bigMood() {
 export function startKindWalk() {
   Object.assign(G.big, { kind: true, stun: 0, slip: 0, pushCd: 0, blush: 0, path: [], state: "look", noise: 0, hearTurnT: 0, hearLook: 0 });   // своё состояние: ни шока, ни толчков, ни румянца-поцелуя
   G.big.home = nearestExit(G.big);
-  G.pendingWin = CFG.KIND_WALK;
+  G.pendingWin = CFG.KIND_WALK; G.phase = "kindWalk";
   hooks.burst(G.big.x, G.big.y - 30, "heart", "#ff4d8d", CFG.KIND_HEARTS);
   for (const l of G.littles) if (l.state === "ok") hooks.pop(l.x, l.y - 40, L().cheer, "#facc15");
   hooks.sfx("mwah");

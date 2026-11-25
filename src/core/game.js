@@ -16,15 +16,16 @@ import { checkContacts, moveSpeed, separate, updateDanger, updateDowned, updateH
 import { canAct } from "./world.js";
 import { G, setActiveGame } from "./active.js";
 
-// SPEC-011: the running game (mode, lastReward until SPEC-012 step 1b); SPEC-012 AC 1: every other piece of a game's state
-// lives in its game object — newGame(opts) makes it, createGame(opts) builds it, useGame / withGame / step make it the active game G.
-export let mode = "home", lastReward = null;
+// SPEC-012 AC 1: every piece of a game's state lives in its game object — newGame(opts) makes it, createGame(opts) builds it,
+// useGame / withGame / step make it the active game G. The screen (mode) and the last reward are the client's (src/client/flow.js).
 const N_CELLS = COLS * ROWS, N_FINE = FW * FH;
 // SPEC-012 AC 1: the state of one game — plain data (the grids are typed arrays), nothing of the client. opts: world, n (level),
 // players, rng (a stream { s, draws } to continue) or seed. Not built yet: createGame builds it.
 export function newGame(opts = {}) {
   return {
     world: opts.world ?? WORLDS[0], level: opts.n ?? 1, players: opts.players ?? 1,
+    // SPEC-012 AC 1c: the game's phase, set only by the core: "play" → (the last hug) "hugEnd" (CFG.HUG_ANIM) → "kindWalk" → "won"
+    phase: "play",
     littles: [], big: null, botAttackCd: 0, prevToken: null, attackToken: null,
     stats: { hugs: 0, time: 0 }, items: [], itemCd: 5, itemSeq: 0, pendingWin: 0,
     // SPEC-008: журнал событий игры { t (сек игры), type, …данные } — для тестов, отчёта баланса и счёта монеток (SPEC-009).
@@ -80,7 +81,7 @@ function makeLittle(i, kind, botIndex, controls, look, upgrades) {
 // маленьких в команде (игроки + боты): 5; SPEC-029: в тренировке — игрок и бот (сценарий и спасение нужны хоть одному)
 export function teamSize() { return G.tutorialGame ? 1 + Math.max(1, CFG.TUTORIAL.bots) : 5; }
 export function buildGame(world, n, players, { looks, upgrades = progress.upgrades }) {
-  G.world = world; G.level = n; G.players = players;
+  G.world = world; G.level = n; G.players = players; G.phase = "play";
   if (G.tutorialGame) applyTutorialMap(); else loadLevel(world, n);   // SPEC-029: тренировка — своя карта
   G.littles = [];
   const p1 = players === 1
@@ -111,7 +112,6 @@ export function buildGame(world, n, players, { looks, upgrades = progress.upgrad
   G.attackToken = null; G.prevToken = null; G.botAttackCd = rand(3, 5);
   G.stats = { hugs: 0, time: 0, playerHugs: 0, rests: 0, starCoins: 0 };
   G.autoNavs = new Map(); G.autoMove = [];
-  lastReward = null;
   if (G.tutorialGame) tutorialSetup();                       // SPEC-029: тренировка — папа на поляне, сценарий, подсказки, свой запас
   hooks.rebuild();
 }
@@ -185,16 +185,12 @@ export function update(dt) {
   updateStars(dt);
   updateFx(dt);
   // победа в два шага (SPEC-022): последняя обнимашка доигрывает (HUG_ANIM) → папа добреет и идёт домой (KIND_WALK) → экран победы
-  if (G.pendingWin > 0) { G.pendingWin -= dt; if (G.pendingWin <= 0 && mode === "play") { if (G.big.kind) winNow(); else startKindWalk(); } }
+  if (G.pendingWin > 0) { G.pendingWin -= dt; if (G.pendingWin <= 0 && G.phase !== "won") { if (G.big.kind) winNow(); else startKindWalk(); } }
   // проигрыша больше нет: кого не спасли — отдыхает в домике и возвращается (за это меньше монеток)
 }
 // SPEC-008: шагает игру пачкой (dt — сек игры за шаг), пока уровень идёт и не вышло seconds; → простые данные
 export function simRun(seconds, dt = CFG.BALANCE.SIM_DT) {
   const n = Math.round(seconds / dt);
-  for (let i = 0; mode === "play" && (i < n || G.pendingWin > 0); i++) update(dt);   // SPEC-022: начатая победа (обнимашка, дорога домой) доигрывается
-  return { ended: mode !== "play", win: mode === "win", time: G.stats.time };
+  for (let i = 0; G.phase !== "won" && (i < n || G.pendingWin > 0); i++) update(dt);   // SPEC-022: начатая победа (обнимашка, дорога домой) доигрывается
+  return { ended: G.phase === "won", win: G.phase === "won" && !G.tutorialGame, time: G.stats.time };   // SPEC-029: a practice game ends without a win screen
 }
-// SPEC-011 AC 5: other modules change this module's state only through these setters (live bindings are read-only there);
-// a game's own fields are written through G.<field>
-export function setMode(v) { return (mode = v); }
-export function setLastReward(v) { return (lastReward = v); }

@@ -2,11 +2,10 @@
 // a phone and a computer. Client module (moved out of index.html in Phase C).
 
 import { CFG, levelsPerWorld } from "../../core/config.js";
-import { lastReward, mode } from "../../core/game.js";
 import { bossFor } from "../../core/mood.js";
 import { L } from "../../i18n.js";
 import { art, paperPanel, paperUI } from "../art.js";
-import { nextLevel, resumeGame, retryLevel, shopAfterLose, shopAfterWin, toHome, toMap } from "../flow.js";
+import { lastReward, mode, nextLevel, resumeGame, retryLevel, shopAfterLose, shopAfterWin, toHome, toMap } from "../flow.js";
 import { LOOK } from "../look.js";
 import { nameFor } from "../names.js";
 import { ctx, OUT, PHONE, UH, UW } from "../screen.js";

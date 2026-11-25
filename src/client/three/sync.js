@@ -4,11 +4,10 @@
 import * as THREE from "three";
 import { CFG } from "../../core/config.js";
 import { gloveOf } from "../../core/economy.js";
-import { mode } from "../../core/game.js";
 import { bigMood } from "../../core/mood.js";
 import { bigCalm, visionPoly } from "../../core/path.js";
 import { vrand } from "../../core/util.js";
-import { inMenus, inWardrobe } from "../flow.js";
+import { inMenus, inWardrobe, mode } from "../flow.js";
 import { LOOK } from "../look.js";
 import { CSS_H, CSS_W, PHONE } from "../screen.js";
 import { ui } from "../state.js";

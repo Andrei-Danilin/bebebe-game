@@ -5,7 +5,7 @@ import { autopilot, autoThink } from "../core/autopilot.js";
 import { BONUS_WORLDS, BOSSES, CELL, CFG, COLS, GLOVES, KISSES, levelsPerWorld, MAIN_WORLDS, RESCUE_KIT, REWARD, ROWS, UPGRADES, WARDROBE_TIERS, WORLD_SEED, worldDifficulty, WORLDS } from "../core/config.js";
 import { bigBoost, bigSpeeds, difficulty } from "../core/difficulty.js";
 import { ledger, progress, setProgress } from "../core/economy.js";
-import { lastReward, mode, setLastReward, setMode, simRun, update } from "../core/game.js";
+import { simRun, update } from "../core/game.js";
 import { bigMark, isRunning } from "../core/hearing.js";
 import { clearLevelCache, generateLevel } from "../core/level/build.js";
 import { levelType } from "../core/level/generate.js";
@@ -14,7 +14,7 @@ import { bigMood, bossFor } from "../core/mood.js";
 import { bigCalm } from "../core/path.js";
 import { tutorialMapRect } from "../core/practice.js";
 import { bonusUnlocked, fastTarget, loadProgress, worldComplete, worldOpen } from "../core/progress-rules.js";
-import { spawnItem, spawnStar, throwKiss, useRescueKit } from "../core/rules.js";
+import { spawnItem, spawnStar } from "../core/rules.js";
 import { clamp, seedRandom, setStrictRng, strictRng } from "../core/util.js";
 import { BIG_SKINS, HAIRS, HATS, JACKETS, PANTS, SLOTS } from "../core/wardrobe.js";
 import { inDanger, inSafe, seeSolidAt } from "../core/world.js";
@@ -22,7 +22,7 @@ import { detectLang, I18N, L, lang, LANGS } from "../i18n.js";
 import { RULE_ICONS, SCENE_IDS, STORY, TUTORIAL_SCENES } from "../story.js";
 import { ART_NAMES } from "./art-names.js";
 import { art, ART_FALLBACK, artCount, artDone, artVersion, EMOJI_ART, FX_ART, HEART_ART, ITEM_ART, mapBgArt, PAPER_BTN, POP_ART, SHOP_TAB_ART, STORY_ART, UPG_ART, WARDROBE_ART, worldArt } from "./art.js";
-import { bannerAlpha, chapterOpen, closeShop, giveReward, mapTick, MODES, openMap, openScene, openStory, resetMenus, resetWorld, sceneNext, scenePageCount, scenePages, sceneSkip, selectWorld, setShopTab, shopAfterWin, showBanner, startGame, toHome, toMap } from "./flow.js";
+import { bannerAlpha, chapterOpen, closeShop, giveReward, kissNow, kitNow, lastReward, mapTick, mode, MODES, openMap, openScene, openStory, resetMenus, resetWorld, sceneNext, scenePageCount, scenePages, sceneSkip, selectWorld, setLastReward, setMode, setShopTab, shopAfterWin, showBanner, startGame, toHome, toMap } from "./flow.js";
 import { burst, popText } from "./fx.js";
 import { stickR, sticks, toGame } from "./input.js";
 import { LOOK } from "./look.js";
@@ -180,8 +180,8 @@ export function installDebug() {
     // сетка карты (до SPEC-006 называлась world)
     grid: { COLS, ROWS, CELL, get blocked() { return Array.from(G.blocked); }, get blockedBig() { return Array.from(G.blockedBig); }, seeSolid: seeSolidAt, get bushes() { return G.bushes.map(q => ({ ...q })); },
       get obstacles() { return G.obstacles.map(o => ({ kind: o.kind, shape: o.shape, x: o.x, y: o.y, w: o.w, h: o.h, r: o.r, move: o.move, sight: o.sight })); } },
-    get kisses() { return G.kisses; }, throwKiss, buyKisses, resetProgress, heartFill, bigBoost, fmtHearts,
-    RESCUE_KIT, buyRescueKit, useRescueKit, get kitHint() { return ui.kitHintRect; },   // SPEC-007
+    get kisses() { return G.kisses; }, throwKiss: kissNow, buyKisses, resetProgress, heartFill, bigBoost, fmtHearts,
+    RESCUE_KIT, buyRescueKit, useRescueKit: kitNow, get kitHint() { return ui.kitHintRect; },   // SPEC-007
     // SPEC-019: бежит ли маленький i (true/false); значок над Большим; подсказка «услышал топот» (текст, чья, плашка этого кадра) или null;
     // джойстики этого кадра с кольцом «на цыпочках»
     isRunning: i => isRunning(G.littles[i]), get bigMark() { return bigMark(); },

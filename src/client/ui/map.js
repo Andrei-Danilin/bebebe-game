@@ -2,14 +2,13 @@
 // index.html in Phase C).
 
 import { CFG, levelsPerWorld, TAU, WORLD_SEED, WORLDS } from "../../core/config.js";
-import { setMode } from "../../core/game.js";
 import { levelType } from "../../core/level/generate.js";
 import { bossFor } from "../../core/mood.js";
 import { isOpen, worldComplete, worldOpen, worldProgress } from "../../core/progress-rules.js";
 import { mulberry32 } from "../../core/util.js";
 import { L } from "../../i18n.js";
 import { art, mapBgArt, paperPanel, worldArt } from "../art.js";
-import { cardLevel, chooseStop, closeCard, mapSelN, nextStop, openStory, playCard, tapWorldTab } from "../flow.js";
+import { cardLevel, chooseStop, closeCard, mapSelN, nextStop, openStory, playCard, setMode, tapWorldTab } from "../flow.js";
 import { LOOK } from "../look.js";
 import { ctx, OUT, PHONE, UH, UW, VIEW } from "../screen.js";
 import { ui } from "../state.js";

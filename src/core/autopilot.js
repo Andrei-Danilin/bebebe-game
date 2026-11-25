@@ -2,7 +2,6 @@
 import { CELL, CFG } from "./config.js";
 import { angDiff, dist, normAng } from "./util.js";
 import { gameInv } from "./economy.js";
-import { mode } from "./game.js";
 import { bigListens } from "./hearing.js";
 import { inCone, steerPoint } from "./path.js";
 import { canUseKit, moveSpeed, throwKiss, useRescueKit } from "./rules.js";
@@ -68,7 +67,7 @@ const autoTiptoe = l => bigListens() && dist(l, G.big) <= (CFG.HEAR_RADIUS + CFG
 // Решение автопилота на этот шаг: autoMove[pi] = { x, y } (как стик, длина ≤ 1) и нажатия 💋 / 🩹
 export function autoThink(dt) {
   G.autoMove = [];
-  if (!G.autoOn || mode !== "play") return;
+  if (!G.autoOn || G.phase === "won") return;
   const A = CFG.AUTOPILOT;
   for (const l of G.littles) {
     if (l.kind !== "player") continue;

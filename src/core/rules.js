@@ -6,7 +6,7 @@ import { angDiff, dist, normAng, rand, rng, turnToward, vrand } from "./util.js"
 import { L } from "../i18n.js";
 import { nearestExit } from "./bots.js";
 import { addCoins, gameInv, gloveOf, progress, saveInv, saveProgress } from "./economy.js";
-import { logEvent, mode, setMode } from "./game.js";
+import { logEvent } from "./game.js";
 import { bossPower } from "./mood.js";
 import { cellIdx, resolveWalls, steerTo } from "./path.js";
 import { payReward } from "./progress-rules.js";
@@ -90,17 +90,19 @@ function hug(l, a) {
   }
   if (G.big.hp <= 0) winSoon();   // победа — после последней обнимашки
 }
-function winSoon() { G.pendingWin = CFG.HUG_ANIM; G.big.stun = 99; }
+function winSoon() { G.pendingWin = CFG.HUG_ANIM; G.big.stun = 99; G.phase = "hugEnd"; }
+// SPEC-012 AC 1c: the game is won (phase "won"); the client shows the win screen (hooks.onWin)
 export function winNow() {
   G.pendingWin = 0;
-  if (mode !== "play") return;
+  if (G.phase === "won") return;
+  G.phase = "won";
   if (G.tutorialGame) { hooks.onPracticeWin(); return; }     // SPEC-029: тренировка — без экрана победы и награды, дальше по обучению
-  setMode("win"); logEvent("win", {}); hooks.onWin(payReward(true)); hooks.sfx("win"); hooks.burst(G.big.x, G.big.y - 30, "heart", "#ff4d8d", 40);
+  logEvent("win", {}); hooks.onWin(payReward(true)); hooks.sfx("win"); hooks.burst(G.big.x, G.big.y - 30, "heart", "#ff4d8d", 40);
 }
 // ---------- Воздушные поцелуи: летят прямо, полсердечка, Большой краснеет ----------
 export function throwKiss(pi) {
   const l = G.littles[pi];
-  if (mode !== "play" || G.pendingWin > 0 || !l || l.kind !== "player" || !canAct(l) || gameInv().kisses <= 0) return false;
+  if (G.phase === "won" || G.pendingWin > 0 || !l || l.kind !== "player" || !canAct(l) || gameInv().kisses <= 0) return false;
   if (inSafe(l)) { hooks.pop(l.x, l.y - 40, L().noKissHome, "#fca5a5"); return false; }   // из домика нельзя
   if (l.kissCd > 0) return false;
   gameInv().kisses--; saveInv();
@@ -277,7 +279,7 @@ export function separate() {
 export function checkContacts() {
   if (G.pendingWin > 0) return;                              // SPEC-022: злость кончилась — ни обнимашек, ни толчков (он добреет)
   for (const l of G.littles) {
-    if (mode !== "play") return;
+    if (G.phase === "won") return;
     if (!canAct(l)) continue;   // голова кружится: не обнимает, толкнуть нельзя
     const dx = l.x - G.big.x, dy = l.y - G.big.y, d = Math.hypot(dx, dy);
     if (d > G.big.r + l.r + 4) continue;
@@ -291,8 +293,9 @@ export function checkContacts() {
 }
 // ---------- Спасалка 🩹 (SPEC-007): игрок сразу встаёт там, где он есть — лёжа, по дороге в домик или отдыхая ----------
 const KIT_STATES = ["down", "home", "rest"];
-// одно правило для кнопки, подсказки и useRescueKit: идёт игра (не пауза, победа ещё не наступает), игрок лежит/хромает/отдыхает
-export const canUseKit = l => mode === "play" && G.pendingWin <= 0 && !!l && l.kind === "player" && KIT_STATES.includes(l.state) && gameInv().rescues > 0;
+// одно правило для кнопки, подсказки и useRescueKit: идёт игра (победа ещё не наступает), игрок лежит/хромает/отдыхает;
+// пауза — у клиента (SPEC-012: canKitNow, kitNow в flow.js)
+export const canUseKit = l => G.phase !== "won" && G.pendingWin <= 0 && !!l && l.kind === "player" && KIT_STATES.includes(l.state) && gameInv().rescues > 0;
 export function useRescueKit(pi) {
   const l = G.littles[pi];
   if (!canUseKit(l)) return false;                       // боты, игрок на ногах, нет спасалок, пауза — ничего

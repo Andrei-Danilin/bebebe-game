@@ -1,12 +1,12 @@
 // SPEC-011: the art loader (art, artFile, artLoad, artGate, artVersion), the sprite tables (ITEM_ART, POP_ART, EMOJI_ART,
 // …), the paper panels (paperUI, paperCache, paperPanel). Client module (moved out of index.html in Phase C).
 
-import { mode } from "../core/game.js";
 import { ART_NAMES } from "./art-names.js";
 import { LOOK } from "./look.js";
 import { ctx, OUT, PHONE, simMode, VIEW } from "./screen.js";
 import { noteArt, rr } from "./ui/draw.js";
 import { cpx } from "./ui/text.js";
+import { mode } from "./flow.js";
 
 // =====================================================================
 //  SPEC-020: КАРТИНКИ (assets/*.webp — их делает npm run assets из рисунков в art/)

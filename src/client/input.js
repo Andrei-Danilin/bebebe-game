@@ -2,10 +2,8 @@
 // inputFor hook). Client module (moved out of index.html in Phase C).
 
 import { CFG } from "../core/config.js";
-import { mode, setMode } from "../core/game.js";
-import { throwKiss, useRescueKit } from "../core/rules.js";
 import { L } from "../i18n.js";
-import { backToWardrobe, chooseStop, closeCard, closeShop, cycleWorld, inWardrobe, mapSelN, moveMapSel, nextLang, nextLevel, openStory, playCard, resumeGame, retryLevel, sceneNext, scenePrev, sceneSkip, storyBackKey, storyStep, switchShopTab, toggleSound, toMap, watchChapter } from "./flow.js";
+import { backToWardrobe, chooseStop, closeCard, closeShop, cycleWorld, inWardrobe, kissNow, kitNow, mapSelN, mode, moveMapSel, nextLang, nextLevel, openStory, playCard, resumeGame, retryLevel, sceneNext, scenePrev, sceneSkip, setMode, storyBackKey, storyStep, switchShopTab, toggleSound, toMap, watchChapter } from "./flow.js";
 import { LOOK } from "./look.js";
 import { cleanName, nameFor, setName } from "./names.js";
 import { randomOutfit } from "./outfits.js";
@@ -62,9 +60,9 @@ function onKey(code) {
   } else if (mode === "play") {
     if (code === "KeyP" || back) setMode("pause");
     const kp = kissKeyPlayer(code);
-    if (kp >= 0) throwKiss(kp);
+    if (kp >= 0) kissNow(kp);
     const rp = kitKeyPlayer(code);
-    if (rp >= 0) useRescueKit(rp);
+    if (rp >= 0) kitNow(rp);
   } else if (mode === "pause") {
     if (code === "KeyP" || back) resumeGame();
     if (code === "KeyQ") (G.tutorialGame ? tutorialSkip : toMap)();   // SPEC-029: в тренировке Q — пропустить обучение
@@ -197,8 +195,8 @@ function onPadButton(b, pad = 0) {
     }
   } else if (mode === "play") {
     if (b === 9) setMode("pause");
-    if (b === LOOK.PAD_KISS && (G.players === 1 || pad < G.players)) throwKiss(G.players === 1 ? 0 : pad);
-    if (b === LOOK.PAD_KIT && (G.players === 1 || pad < G.players)) useRescueKit(G.players === 1 ? 0 : pad);
+    if (b === LOOK.PAD_KISS && (G.players === 1 || pad < G.players)) kissNow(G.players === 1 ? 0 : pad);
+    if (b === LOOK.PAD_KIT && (G.players === 1 || pad < G.players)) kitNow(G.players === 1 ? 0 : pad);
   }
   else if (mode === "pause") { if (b === 9 || b === 0) resumeGame(); if (b === 1) (G.tutorialGame ? tutorialSkip : toMap)(); }
   else if (mode === "win") { if (b === 0 || b === 9) nextLevel(); if (b === 1) toMap(); }

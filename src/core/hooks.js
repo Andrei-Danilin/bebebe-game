@@ -15,7 +15,7 @@ const HOOK_DEFAULTS = Object.freeze({
   banner: dt => {},                         // the level banner's clock (it runs while the level plays)
   save: () => {},                           // write progress to storage (economy.js saves only through this)
   rebuild: () => {},                        // rebuild the 3D scene for the game buildGame just built
-  onWin: reward => {},                      // a level was won and paid (lastReward): the client's flow
+  onWin: reward => {},                      // a level was won (G.phase "won") and paid: the client shows the win screen
   onPracticeWin: () => {},                  // a practice game was won: the next tutorial step
   inputFor: l => ({ x: 0, y: 0 })           // player l's device input (held keys, Shift = tiptoe; touch sticks; gamepads), shaped
 });

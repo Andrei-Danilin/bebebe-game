@@ -3,12 +3,12 @@
 // registerServiceWorker, installDebug. Client module (moved out of index.html in Phase C).
 
 import { progress } from "../core/economy.js";
-import { mode, newGame, update, updateFx, useGame } from "../core/game.js";
+import { newGame, update, updateFx, useGame } from "../core/game.js";
 import { setHooks } from "../core/hooks.js";
 import { noGameRng, seedRandom, setStrictRng } from "../core/util.js";
 import { artGate, initArt } from "./art.js";
 import { installDebug } from "./debug.js";
-import { inMenus, inWardrobe, mapTick, noteOpenedWorld, openScene, resetWorld } from "./flow.js";
+import { inMenus, inWardrobe, mapTick, mode, onWin, openScene, resetWorld } from "./flow.js";
 import { bannerTick, burst, clientFx, popText } from "./fx.js";
 import { deviceInput, initInput, pollPads } from "./input.js";
 import { endTryOn } from "./outfits.js";
@@ -36,7 +36,7 @@ initScreen();
 // SPEC-011 AC 3b: сторона клиента в порту hooks (Phase C: src/client/main.js) — до загрузки сохранений и до первой игры
 setHooks({
   sfx: name => SFX[name](), burst, pop: popText, shake: v => { ui.shake = v; }, fx: clientFx, banner: bannerTick, rebuild: rebuild3D, save: writeProgress,
-  onWin: noteOpenedWorld, onPracticeWin: () => tutorialNext(), inputFor: deviceInput
+  onWin, onPracticeWin: () => tutorialNext(), inputFor: deviceInput
 });
 initSaves();
 initInput();

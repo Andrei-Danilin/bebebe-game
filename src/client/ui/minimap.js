@@ -1,7 +1,6 @@
 // SPEC-011: the phone mini-map and the edge arrows (SPEC-005, SPEC-010). Client module (moved out of index.html in Phase C).
 
 import { H, TAU, W } from "../../core/config.js";
-import { mode } from "../../core/game.js";
 import { bigCalm } from "../../core/path.js";
 import { clamp } from "../../core/util.js";
 import { LOOK } from "../look.js";
@@ -15,6 +14,7 @@ import { circle, drawHeart, fillStroke, rr } from "./draw.js";
 import { phoneOccluders } from "./phone.js";
 import { cpx, label } from "./text.js";
 import { G } from "../../core/active.js";
+import { mode } from "../flow.js";
 
 // ---------- Мини-карта и стрелки у края (SPEC-005, только телефон) ----------
 // mmState — один объект на все кадры; маркеры — переиспользуемые объекты (mmCount штук нарисовано в этом кадре)

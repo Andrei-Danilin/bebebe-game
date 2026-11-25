@@ -3,7 +3,6 @@
 
 import * as THREE from "three";
 import { CELL, COLS, H, ROWS, W } from "../../core/config.js";
-import { mode } from "../../core/game.js";
 import { clamp } from "../../core/util.js";
 import { LOOK } from "../look.js";
 import { CSS_H, CSS_W, onFit, PHONE, setOnFit, UH, UW } from "../screen.js";
@@ -12,6 +11,7 @@ import { minimapRect, showMinimap } from "../ui/minimap.js";
 import { phoneTopBar, teamRect } from "../ui/phone.js";
 import { cpx } from "../ui/text.js";
 import { G } from "../../core/active.js";
+import { mode } from "../flow.js";
 
 // Камера: наклон сверху, вся карта помещается в кадр
 const CAM_EL = 63 * Math.PI / 180, camDir = new THREE.Vector3(0, Math.sin(CAM_EL), Math.cos(CAM_EL));   // камера всегда смотрит под этим углом

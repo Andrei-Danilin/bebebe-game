@@ -2,8 +2,6 @@
 // out of index.html in Phase C).
 
 import { gameInv, gloveOf, progress } from "../../core/economy.js";
-import { mode, setMode } from "../../core/game.js";
-import { canUseKit } from "../../core/rules.js";
 import { L, lang } from "../../i18n.js";
 import { ITEM_ART } from "../art.js";
 import { LOOK } from "../look.js";
@@ -15,6 +13,7 @@ import { angerLabel, chipText, drawHeardHint, drawKitHint, heardHintOn, heartFil
 import { drawEdgeArrows, drawMinimap, minimapRect, showMinimap } from "./minimap.js";
 import { cpx, fitText, fz, hudFont, labelFit, lastFit, minPx, noteText, scaledW } from "./text.js";
 import { G } from "../../core/active.js";
+import { canKitNow, mode, setMode } from "../flow.js";
 
 // геометрия верхней полосы и кружков команды телефона (их же обходят камера и стрелки)
 export const phoneTopBar = () => cpx(6) + cpx(LOOK.PHONE_BTN_MIN);
@@ -89,7 +88,7 @@ export function drawHUDPhone(t) {
     noteText("hint", labelFit(chipText(l), cx, cy, hint, tr.cd - cpx(4), l.state === "down" ? "#fecaca" : "#fff", "center", hint));
   });
   // внизу справа: 💋 (или 🩹, пока герой лежит, хромает домой или отдыхает — SPEC-007) и рукавицы рядом
-  const kitOn = canUseKit(G.littles[0]), kissOn = mode === "play" && !kitOn && gameInv().kisses > 0;
+  const kitOn = canKitNow(G.littles[0]), kissOn = mode === "play" && !kitOn && gameInv().kisses > 0;
   if (kitOn) kitButton(0, t); else if (kissOn) kissButton(0);
   const kr = kissBtnRect(0), gl = gloveOf(0), gh = cpx(44), gEach = cpx(80);
   let rightEdge = kitOn || kissOn ? kr.x - gap : UW - m;

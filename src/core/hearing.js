@@ -1,15 +1,15 @@
 // SPEC-019 / SPEC-011: the Big One hears running feet. Core module.
 import { CELL, CFG } from "./config.js";
 import { angDiff, dist, normAng, rand } from "./util.js";
-import { logEvent, mode } from "./game.js";
+import { logEvent } from "./game.js";
 import { inSafe, los, seeSolidAt } from "./world.js";
 import { G } from "./active.js";
 
 // ---------- SPEC-019: Большой слышит топот ----------
 // Бежит (не на цыпочках): на ногах, идёт, доля скорости ≥ TIPTOE_MAX (на цыпочках — не больше TIPTOE_MULT)
 export const isRunning = l => !!l && l.state === "ok" && l.moving && l.speedFrac >= CFG.TIPTOE_MAX;
-// Не слышит: в шоке (и при последней обнимашке), красный, лежит после банана, стоит после толчка, не идёт игра
-export const bigDeaf = () => mode !== "play" || G.pendingWin > 0 || G.big.stun > 0 || G.big.blush > 0 || G.big.slip > 0 || G.big.pushCd > 0;
+// Не слышит: в шоке (и при последней обнимашке), красный, лежит после банана, стоит после толчка, уровень выигран
+export const bigDeaf = () => G.phase === "won" || G.pendingWin > 0 || G.big.stun > 0 || G.big.blush > 0 || G.big.slip > 0 || G.big.pushCd > 0;
 export const stopHearing = () => { G.big.noise = 0; G.big.hearTurnT = 0; G.big.hearLook = 0; };
 // Прислушивается: не в шоке, не красный, не лежит, не стоит после толчка. Пока видит кого-то и гонится — не слышит (ранний выход
 // в updateBig); ищет того, кого только что потерял, — слышит (решение прогона: баланс SPEC-019 AC 5)

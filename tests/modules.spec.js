@@ -314,6 +314,17 @@ test("core reaches the client only through hooks", { tag: "@fast" }, () => {
   expect(Object.keys(HOOKS).filter(h => !new RegExp(`\\bhooks\\.${h}\\(`).test(all)), "hooks the core never calls").toEqual([]);
 });
 
+// SPEC-012 AC 1c: the core never reads or writes the client's screen — no `mode` identifier in src/core/ (code, not comments or
+// texts); the game has its own phase G.phase ("play" | "hugEnd" | "kindWalk" | "won"), set only by the core
+test("no `mode` identifier in src/core/", { tag: "@fast" }, () => {
+  const MODE = /(?<![.\w$])mode\b/;
+  expect(coreCode().filter(([, t]) => MODE.test(codeOnly(t))).map(([f]) => f), "src/core/ files that name `mode`").toEqual([]);
+  expect(MODE.test(codeOnly("if (mode === \"play\") x();")), "the scan sees a planted use").toBe(true);
+  const sets = [...coreCode().map(([, t]) => t).join("\n").matchAll(/G\.phase = "(\w+)"/g)].map(m => m[1]);
+  expect([...new Set(sets)].sort(), "the phases the core sets").toEqual(["hugEnd", "kindWalk", "play", "won"]);
+  expect(allSrc().filter(f => f.startsWith("src/client/") && /G\.phase\s*=[^=]/.test(readRoot(f))), "the client never sets the phase").toEqual([]);
+});
+
 // AC 2c: CFG is split by meaning — src/core/config.js holds the rules, generator and balance, src/client/look.js (LOOK) the look/UI
 // keys; key names did not change. No key in both; no look-named key in the core config except these (each with why); the core
 // never reads a LOOK key.

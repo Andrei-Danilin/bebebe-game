@@ -2,12 +2,14 @@
 // level banner, startGame, nextLevel, the modes, the shop tabs, the map and level card, the story and its scenes,
 // resetMenus, toMap, toHome. Client module (moved out of index.html in Phase C).
 
+import { G } from "../core/active.js";
 import { BONUS_WORLDS, BOSSES, levelsPerWorld, MAIN_WORLDS, worldIndex, WORLDS } from "../core/config.js";
 import { progress, saveProgress } from "../core/economy.js";
-import { buildGame, lastReward, logEvent, mode, setMode, teamSize } from "../core/game.js";
+import { buildGame, logEvent, teamSize } from "../core/game.js";
 import { levelType } from "../core/level/generate.js";
 import { bossFor } from "../core/mood.js";
 import { isOpen, payReward, worldComplete, worldProgress } from "../core/progress-rules.js";
+import { canUseKit, throwKiss, useRescueKit } from "../core/rules.js";
 import { clamp } from "../core/util.js";
 import { BIG_SKINS } from "../core/wardrobe.js";
 import { L, lang, LANGS } from "../i18n.js";
@@ -22,7 +24,18 @@ import { ui } from "./state.js";
 import { camSnap } from "./three/camera.js";
 import { setTutorial, tutorialPages } from "./tutorial.js";
 import { lockedText } from "./ui/map.js";
-import { G } from "../core/active.js";
+
+// SPEC-012 AC 1c: the screen is the client's (the core has only the game's phase, G.phase). mode — one of MODES; lastReward — the
+// reward of the last level paid (payReward's result: the win screen shows it), null after a new game is built
+export let mode = "home", lastReward = null;
+export function setMode(v) { return (mode = v); }
+export function setLastReward(v) { return (lastReward = v); }
+// a kiss or a kit needs the play screen too (pause: the client does not step the game, and the buttons do nothing)
+export const canKitNow = l => mode === "play" && canUseKit(l);
+export const kissNow = pi => mode === "play" && throwKiss(pi);
+export const kitNow = pi => mode === "play" && useRescueKit(pi);
+// a level won (the core's onWin hook, after payReward): the win screen and the world the win opened
+export function onWin(r) { lastReward = r; mode = "win"; noteOpenedWorld(r); }
 
 // выбор мира в меню (карточка, ↑/↓, крестовина геймпада): запоминается, показывается новый открытый уровень мира.
 // SPEC-016/030: закрытый мир выбрать нельзя (__bb.world — без проверки, для тестов и отчёта баланса)
@@ -45,7 +58,7 @@ function leaveLevel() {
   if (G.pendingWin > 0) { G.pendingWin = 0; logEvent("win", {}); giveReward(true); } else giveReward(false);
 }
 // клиент: награда (payReward) и мир, который она открыла (hooks.onWin зовёт noteOpenedWorld сам)
-export function giveReward(win) { noteOpenedWorld(payReward(win)); }
+export function giveReward(win) { lastReward = payReward(win); noteOpenedWorld(lastReward); }
 // SPEC-030: победа открыла главный мир — карта переключится на него, когда откроется
 export function noteOpenedWorld(r) { if (r && r.worldOpened) ui.openedWorld = r.worldOpened; }
 
@@ -55,6 +68,7 @@ export function resetWorld(n) {
   if (PHONE) n = 1;                  // на телефоне играет один (SPEC-005)
   ui.texts = []; ui.particles = []; ui.shake = 0; sticks.clear(); ui.resetArmed = false;
   const looks = { players: [makeLook(skinSel.p1), makeLook(skinSel.p2)], bots: Array.from({ length: teamSize() - n }, (_, bi) => makeLook(botOutfit(bi))), big: BIG_SKINS[skinSel.big] };
+  lastReward = null;
   buildGame(G.world, G.level, n, { looks });
 }
 export function showBanner() {
