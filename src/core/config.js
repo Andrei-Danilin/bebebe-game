@@ -76,7 +76,8 @@ export const CFG = {
     fallbackFig: 0.55, fallbackIcon: 0.85, fallbackPad: 8,   // запасная страница: доля ширины под фигурку, размер значка (доля места), поля (px)
     // SPEC-029 AC 6: страница без своей картинки — лист бумаги: слева фигурка (кусок картинки истории [x, y, w, h] — доли), справа
     // значки вещей и эффектов. pages — по клетке: [фигурка, значки…]; ready — последняя страница (её картинка — story_win)
-    figures: { dad: ["story_start", [0.088, 0.131, 0.156, 0.242]], kids: ["story_win", [0.195, 0.594, 0.317, 0.332]], kindDad: ["story_win", [0.518, 0.55, 0.142, 0.29]] },
+    // SPEC-032: story_win перерисована (4:3, 1200×896) — куски kids / kindDad промерены заново
+    figures: { dad: ["story_start", [0.088, 0.131, 0.156, 0.242]], kids: ["story_win", [0.195, 0.395, 0.37, 0.275]], kindDad: ["story_win", [0.572, 0.31, 0.198, 0.355]] },
     pages: {
       a: [["dad", "icon_angry_heart", "fx_hearts"], ["dad", "fx_burst_yellow", "fx_dust"], ["kids", "fx_hearts", "fx_sparkle"], ["dad", "ui_ear", "fx_speed"]],
       b: [["kids", "item_boots", "fx_speed"], ["kids", "item_cape", "fx_sparkle"], ["kids", "icon_shield", "fx_burst_yellow"], ["dad", "item_banana", "fx_dizzy"]],

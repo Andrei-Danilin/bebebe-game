@@ -21,7 +21,8 @@ export const ART_NAMES = [
   "jacket_tshirt", "jacket_orange_stripes", "jacket_purple_zip", "jacket_pink_hoodie", "jacket_teal_zip",
   "jacket_hero_cape", "jacket_ninja", "jacket_sailor", "jacket_raincoat", "hat_ninja", "pants_black", "pants_red",
   "pants_green", "pants_pink_shorts", "pants_purple", "ui_friends", "ui_dice", "ui_question", "ui_pencil", "ui_pack",
-  "ui_ear", "ui_map", "ui_check", "ui_cross", "item_boots", "item_cape", "item_banana", "item_mittens",
-  "item_mega_mittens", "item_kiss", "item_star", "item_coin", "heart_full", "heart_half", "heart_empty"
+  "ui_ear", "ui_map", "ui_check", "ui_cross", "ui_hug", "ui_sleep", "ui_alert", "ui_flag", "ui_eyes", "ui_timer",
+  "ui_tiptoe", "item_boots", "item_cape", "item_banana", "item_mittens", "item_mega_mittens", "item_kiss", "item_star",
+  "item_coin", "heart_full", "heart_half", "heart_empty"
 ];
 // art:end

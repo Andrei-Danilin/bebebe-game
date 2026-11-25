@@ -25,13 +25,13 @@ const NET_TIMEOUT_MS = 4000;             // weak signal: after this long, a cach
 const SW_BUILD = 7;
 const SW_STRATEGY = "463855aec6";
 const SW_VERSION = "bebebe-1.0.0-dev-b7";
-const SRC_HASH = "2e65097d7e";
+const SRC_HASH = "8e11c7ed37";
 const PRECACHE_LOCAL = [
   "./", "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512-maskable.png",
   "./icons/icon-512.png", "./icons/icon.svg", "./index.html", "./manifest.webmanifest"
 ];
 const PRECACHE_SRC = [
-  "./src/client/art-names.js?v=7228f7f839", "./src/client/art.js?v=00f3229cf4", "./src/client/debug.js?v=8f03b34c76",
+  "./src/client/art-names.js?v=7b82d7a775", "./src/client/art.js?v=00f3229cf4", "./src/client/debug.js?v=8f03b34c76",
   "./src/client/errors.js?v=d36934cb61", "./src/client/flow.js?v=86fbc5a5b1", "./src/client/fx.js?v=73f397efb4",
   "./src/client/input.js?v=4f52e8309e", "./src/client/lifecycle.js?v=3a42079abe", "./src/client/look.js?v=c8031e12d0",
   "./src/client/main.js?v=3cd19acf5a", "./src/client/names.js?v=dff85cded6", "./src/client/outfits.js?v=8564eaee23",
@@ -53,7 +53,7 @@ const PRECACHE_SRC = [
   "./src/client/ui/screens.js?v=e1bed2f499", "./src/client/ui/story.js?v=978a3b81ca",
   "./src/client/ui/text.js?v=e96306db7a", "./src/client/ui/win.js?v=9b3f336da5", "./src/core/active.js?v=70aa836ebd",
   "./src/core/autopilot.js?v=528edb53f9", "./src/core/big.js?v=745c03a759", "./src/core/bots.js?v=fc04a520e3",
-  "./src/core/config.js?v=6f327714ee", "./src/core/difficulty.js?v=72aff2bd1e", "./src/core/economy.js?v=6c6ac20714",
+  "./src/core/config.js?v=39dbec73ca", "./src/core/difficulty.js?v=72aff2bd1e", "./src/core/economy.js?v=6c6ac20714",
   "./src/core/game.js?v=a99ba230de", "./src/core/hearing.js?v=3b691efd0b", "./src/core/hooks.js?v=5ceea54c61",
   "./src/core/index.js?v=2ac6418608", "./src/core/level/build.js?v=fc9509a62b",
   "./src/core/level/generate.js?v=455b2ff4e4", "./src/core/level/layouts.js?v=07d6472d8e",
@@ -70,7 +70,7 @@ const PRECACHE_THREE = [
 // precache:end
 // SPEC-020: written by npm run assets (scripts/assets.js) — do not edit by hand
 // assets:start
-const ASSETS_HASH = "df50cb2e11c5";
+const ASSETS_HASH = "841214fdba0f";
 const PRECACHE_ASSETS = [
   "./assets/main_tile.webp", "./assets/menu_bg.webp", "./assets/map_bg_park.webp", "./assets/map_bg_field.webp",
   "./assets/map_bg_city.webp", "./assets/map_bg_school.webp", "./assets/map_bg_beach.webp",
@@ -111,10 +111,12 @@ const PRECACHE_ASSETS = [
   "./assets/hat_ninja.webp", "./assets/pants_black.webp", "./assets/pants_red.webp", "./assets/pants_green.webp",
   "./assets/pants_pink_shorts.webp", "./assets/pants_purple.webp", "./assets/ui_friends.webp", "./assets/ui_dice.webp",
   "./assets/ui_question.webp", "./assets/ui_pencil.webp", "./assets/ui_pack.webp", "./assets/ui_ear.webp",
-  "./assets/ui_map.webp", "./assets/ui_check.webp", "./assets/ui_cross.webp", "./assets/item_boots.webp",
-  "./assets/item_cape.webp", "./assets/item_banana.webp", "./assets/item_mittens.webp",
-  "./assets/item_mega_mittens.webp", "./assets/item_kiss.webp", "./assets/item_star.webp", "./assets/item_coin.webp",
-  "./assets/heart_full.webp", "./assets/heart_half.webp", "./assets/heart_empty.webp"
+  "./assets/ui_map.webp", "./assets/ui_check.webp", "./assets/ui_cross.webp", "./assets/ui_hug.webp",
+  "./assets/ui_sleep.webp", "./assets/ui_alert.webp", "./assets/ui_flag.webp", "./assets/ui_eyes.webp",
+  "./assets/ui_timer.webp", "./assets/ui_tiptoe.webp", "./assets/item_boots.webp", "./assets/item_cape.webp",
+  "./assets/item_banana.webp", "./assets/item_mittens.webp", "./assets/item_mega_mittens.webp",
+  "./assets/item_kiss.webp", "./assets/item_star.webp", "./assets/item_coin.webp", "./assets/heart_full.webp",
+  "./assets/heart_half.webp", "./assets/heart_empty.webp"
 ];
 // assets:end
 const CACHE_SRC = SW_VERSION + "-src-" + SRC_HASH;
