@@ -1,7 +1,7 @@
 # Tests (the sharded jobs of tests.yml, SPEC-023) and the site build run in parallel; when both are green the game is
 # published on GitHub Pages (SPEC-001).
 # SPEC-011 AC 10c: the site is built and uploaded in its own `build` job (npm run site = scripts/site.js, the one list of
-# site files: index.html, manifest.webmanifest, sw.js, icons/, assets/, v1-2d/, later src/; stamped with the commit sha in
+# site files: index.html, manifest.webmanifest, sw.js, icons/, assets/, src/, v1-2d/; stamped with the commit sha in
 # version.txt), so `deploy` only deploys: two deploy-pages attempts (30 s apart, 5 min each), then the live check decides —
 # the deployed version.txt must be this commit's sha.
 # A red deploy with green tests: `gh run rerun <id> --failed` only when that run's `build` job was green AND its commit is
