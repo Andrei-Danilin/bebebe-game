@@ -866,7 +866,7 @@ test("story, rules and the level card fit a phone, also with wider fonts", async
 // review fix: an object literal keeps only the last of two equal keys, silently (MENU_LOOK had a colour `story` and the
 // story-screen sizes `story`: the buttons got an object for a colour). No key twice on any level of CFG.MENU_LOOK.
 test("CFG.MENU_LOOK has no key twice", () => {
-  const src = fs.readFileSync(path.join(ROOT, "index.html"), "utf8"), at = src.indexOf("MENU_LOOK: {");
+  const src = fs.readFileSync(path.join(ROOT, "src", "client", "look.js"), "utf8"), at = src.indexOf("MENU_LOOK: {");   // SPEC-011 AC 2c
   expect(at).toBeGreaterThan(0);
   const dups = [], stack = [new Set()];
   let i = src.indexOf("{", at) + 1, expectKey = true;

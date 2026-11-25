@@ -6,7 +6,6 @@
 const { test, expect } = require("./pw");   // SPEC-023: @playwright/test + failure screenshots
 const fs = require("fs");
 const path = require("path");
-const { pathToFileURL } = require("url");
 const { openGame, openGameHttp, routeThree, frames, step, reloadGame, HTTP_BASE, ROOT } = require("./helpers");
 const { makeServer } = require("../scripts/serve");
 
@@ -197,17 +196,7 @@ test("a server error (404/503) still opens the cached game", async ({ page }) =>
   });
 });
 
-// SPEC-011 AC 8: the one test still on file:// (the other tests open the game over http); Phase B replaces it with the
-// file:// notice test (AC 6), once the game needs http
-test("no service worker and no errors on file://", async ({ page }) => {
-  const errors = await openGame(page, { base: pathToFileURL(ROOT).href + "/" });
-  await page.waitForTimeout(500);
-  const sw = await page.evaluate(async () => {
-    try { return navigator.serviceWorker ? (await navigator.serviceWorker.getRegistrations()).length : 0; } catch (e) { return 0; }
-  });
-  expect(sw).toBe(0);
-  expect(errors).toEqual([]);
-});
+// SPEC-011 AC 6: the game needs http now (ES modules); the old file:// test is replaced by tests/modules.spec.js "file:// shows the notice"
 
 test("a refused registration (like the claude.ai page) is silent", async ({ page }) => {
   await page.addInitScript(() => {

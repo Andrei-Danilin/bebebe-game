@@ -462,9 +462,9 @@ async function debug(src, manifest = loadManifest()) {
   groups.forEach((g, i) => console.log(`${String(i).padStart(3)} [${g.x0},${g.y0} ${g.x1 - g.x0 + 1}×${g.y1 - g.y0 + 1}] area ${g.area} parts ${g.ids.length}  ${(s.names || [])[i] ?? ""}`));
 }
 // ---------- the lists other files keep (written between markers, so nobody edits them by hand) ----------
-// index.html: ART_NAMES (the sprites the game loads); sw.js: PRECACHE_ASSETS + ASSETS_HASH (a hash of their bytes: a redrawn
+// src/client/art-names.js: ART_NAMES (the sprites the game loads; SPEC-011 AC 8c — was in index.html); sw.js: PRECACHE_ASSETS + ASSETS_HASH (a hash of their bytes: a redrawn
 // sprite changes sw.js, so the installed app fetches it again).
-const INDEX = path.join(ROOT, "index.html"), SW = path.join(ROOT, "sw.js");
+const ART_FILE = path.join(ROOT, "src", "client", "art-names.js"), SW = path.join(ROOT, "sw.js");
 const MARK = { index: ["// art:start", "// art:end"], sw: ["// assets:start", "// assets:end"] };
 const NL = "\n";
 
@@ -489,7 +489,7 @@ function arrayLines(items, indent) {
 function listBlocks(manifest = loadManifest(), dir = path.join(ROOT, "assets")) {
   const names = spriteNames(manifest);
   return {
-    index: ["const ART_NAMES = [", arrayLines(names, "  "), "];"].join(NL),
+    index: ["export const ART_NAMES = [", arrayLines(names, "  "), "];"].join(NL),
     sw: [`const ASSETS_HASH = "${assetsHash(names, dir)}";`, "const PRECACHE_ASSETS = [",
       arrayLines(names.map(n => "./assets/" + n + ".webp"), "  "), "];"].join(NL)
   };
@@ -504,7 +504,7 @@ function between(text, [a, b]) {
 
 function writeLists(manifest = loadManifest()) {
   const blocks = listBlocks(manifest);
-  for (const [file, key] of [[INDEX, "index"], [SW, "sw"]]) {
+  for (const [file, key] of [[ART_FILE, "index"], [SW, "sw"]]) {
     const text = fs.readFileSync(file, "utf8"), [a, b] = MARK[key];
     if (between(text, MARK[key]) === null) throw new Error(`${path.basename(file)}: markers ${a} … ${b} not found`);
     const eol = text.includes("\r\n") ? "\r\n" : NL;           // a Windows checkout (autocrlf) keeps its CRLF
@@ -514,7 +514,7 @@ function writeLists(manifest = loadManifest()) {
   }
 }
 
-module.exports = { run, report, spriteNames, loadManifest, keyGreen, keyPaper, regionsOf, listBlocks, between, writeLists, MARK, INDEX, SW, MANIFEST, ROOT };
+module.exports = { run, report, spriteNames, loadManifest, keyGreen, keyPaper, regionsOf, listBlocks, between, writeLists, MARK, ART_FILE, SW, MANIFEST, ROOT };
 
 if (require.main === module) {
   (async () => {
@@ -528,7 +528,7 @@ if (require.main === module) {
     const rows = await run({ outDir, manifest });
     const { ok } = report(rows, manifest);
     writeLists(manifest);
-    console.log("index.html ART_NAMES and sw.js PRECACHE_ASSETS / ASSETS_HASH updated");
+    console.log("src/client/art-names.js ART_NAMES and sw.js PRECACHE_ASSETS / ASSETS_HASH updated");
     if (!ok) process.exitCode = 1;
   })().catch(e => { console.error(e.message || e); process.exit(1); });
 }

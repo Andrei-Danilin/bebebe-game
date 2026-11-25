@@ -8,7 +8,7 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 const sharp = require("sharp");
-const { run, spriteNames, loadManifest, listBlocks, between, MARK, INDEX, SW, ROOT } = require("../scripts/assets");
+const { run, spriteNames, loadManifest, listBlocks, between, MARK, ART_FILE, SW, ROOT } = require("../scripts/assets");
 
 const ASSETS = path.join(ROOT, "assets");
 const manifest = loadManifest();
@@ -123,11 +123,11 @@ test("the pipeline is deterministic (two runs → identical files)", async () =>
   }
 });
 
-// SPEC-020 step 2: the game's sprite list (index.html ART_NAMES) and the offline cache list (sw.js PRECACHE_ASSETS + the hash
+// SPEC-020 step 2: the game's sprite list (src/client/art-names.js ART_NAMES; SPEC-011 AC 8c) and the offline cache list (sw.js PRECACHE_ASSETS + the hash
 // of the sprites' bytes) are written by npm run assets; stale lists mean somebody forgot to run it.
-test("index.html and sw.js list every sprite (npm run assets keeps them in step) @fast", async () => {
+test("art-names.js and sw.js list every sprite (npm run assets keeps them in step) @fast", async () => {
   const want = listBlocks(manifest);
-  expect(between(fs.readFileSync(INDEX, "utf8"), MARK.index), "index.html ART_NAMES: run npm run assets").toBe(want.index);
+  expect(between(fs.readFileSync(ART_FILE, "utf8"), MARK.index), "src/client/art-names.js ART_NAMES: run npm run assets").toBe(want.index);
   expect(between(fs.readFileSync(SW, "utf8"), MARK.sw), "sw.js PRECACHE_ASSETS / ASSETS_HASH: run npm run assets").toBe(want.sw);
   // and sw.js really precaches them, cache-first like the icons
   const sw = fs.readFileSync(SW, "utf8");

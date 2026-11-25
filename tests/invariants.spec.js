@@ -328,7 +328,7 @@ test("every shop item has a price, a pack, a picture, texts in every language, a
 
 // ---------- AC 11: the numbers section of game-design.md is generated ----------
 test("the numbers in game-design.md are generated from the code and up to date", { tag: "@fast" }, () => {
-  const src = fs.readFileSync(INDEX, "utf8"), doc = fs.readFileSync(DOC, "utf8");
+  const src = docsNumbers.source(), doc = fs.readFileSync(DOC, "utf8");   // SPEC-011: src/core/config.js + src/client/look.js
   const section = docsNumbers.section(doc);
   expect(section, "markers <!-- numbers:start --> / <!-- numbers:end --> in docs/game-design.md").not.toBeNull();
   expect(section, "out of date: run npm run docs:numbers").toBe(docsNumbers.render(src));

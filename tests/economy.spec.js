@@ -32,6 +32,7 @@ const test = base.test.extend({
 test.afterAll(async () => { await shared.close(); await sharedSim.close(); });
 
 const INDEX = path.join(ROOT, "index.html");
+const CONFIG = path.join(ROOT, "src", "core", "config.js");   // SPEC-011: the core numbers
 
 // ---------- AC 6: the ledger ----------
 // Finds every write to the coins in the game's source. Allowed only inside the bodies of addCoins and spendCoins;
@@ -901,7 +902,7 @@ test("every upgrade text is in every language", async ({ simPage: page }) => {
 test("the time-trend target can be set per world and compares the unrounded ρ", { tag: "@fast" }, () => {
   const { analyse, spearman } = require("../scripts/balance.js");
   const { readValue } = require("../scripts/docs-numbers.js");
-  const B = readValue(fs.readFileSync(INDEX, "utf8"), "CFG").BALANCE;
+  const B = readValue(fs.readFileSync(CONFIG, "utf8"), "CFG").BALANCE;
   expect([B.TREND_RHO, B.TREND_RHO_WORLD]).toEqual([0.5, { city: 0.475 }]);   // SPEC-029: Andrei, one heart fewer everywhere (measured 0.4752)
   // City's median times on the SPEC-029 balance run (ρ 0.4752) — the same times in the Park
   const times = [79.07, 123.87, 47.57, 27.13, 79.13, 64.03, 37.8, 50.23, 72.63, 95.53, 43.3, 45.57, 64.43, 124.27, 110.77, 95.37, 64.73, 317.23, 109.8, 207.9];
@@ -922,7 +923,7 @@ test("the time-trend target can be set per world and compares the unrounded ρ",
 test("the balance report's economy targets are computed from the runs' coins", { tag: "@fast" }, () => {
   const { analyseEconomy } = require("../scripts/balance.js");
   const { readValue } = require("../scripts/docs-numbers.js");
-  const B = readValue(fs.readFileSync(INDEX, "utf8"), "CFG").BALANCE, E = B.ECONOMY;
+  const B = readValue(fs.readFileSync(CONFIG, "utf8"), "CFG").BALANCE, E = B.ECONOMY;
   const worlds = ["park", "school", "beach", "winter"], perWorld = 6, prices = { cheapest: 15, mega: 60, top: 150, upgrades: 1800 };
   // careful runs: 3 seeds per level; Park pays 40 / 50 / 60 → median 50; the other worlds 100 each; one lost run of 3 coins
   const runs = [];

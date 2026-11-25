@@ -9,7 +9,10 @@ const NET_TIMEOUT_MS = 4000;             // weak signal: after this long, a cach
 const THREE_BASE = "https://cdn.jsdelivr.net/npm/three@0.187.0/build/";
 const PRECACHE_LOCAL = [
   "./", "./index.html", "./manifest.webmanifest",
-  "./icons/icon.svg", "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512.png", "./icons/icon-512-maskable.png"
+  "./icons/icon.svg", "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512.png", "./icons/icon-512-maskable.png",
+  // SPEC-011: the game's ES modules (phase B stopgap; npm run precache writes this list with content hashes, AC 9)
+  "./src/client/art-names.js", "./src/client/look.js", "./src/core/config.js", "./src/core/hooks.js",
+  "./src/core/util.js", "./src/core/wardrobe.js", "./src/i18n.js", "./src/story.js"
 ];
 // SPEC-020: written by npm run assets (scripts/assets.js) — do not edit by hand
 // assets:start

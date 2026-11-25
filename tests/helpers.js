@@ -244,6 +244,14 @@ async function resetGame(page) {
   }, testSeed());
 }
 
+// SPEC-011 AC 8c: the game's code as one text — index.html (its inline module, until Phase C empties the shell) and every
+// src/**/*.js file — for the tests that scan the source (art names, Math.random, lookbehind, …).
+function gameSource() {
+  const walk = d => !fs.existsSync(d) ? [] : fs.readdirSync(d, { withFileTypes: true })
+    .flatMap(e => e.isDirectory() ? walk(path.join(d, e.name)) : e.name.endsWith(".js") ? [path.join(d, e.name)] : []);
+  return [path.join(ROOT, "index.html"), ...walk(path.join(ROOT, "src")).sort()].map(f => fs.readFileSync(f, "utf8")).join("\n");
+}
+
 // Puts player 1 right behind a calm Big One so the next update() makes a hug.
 async function setupHug(page) {
   await page.evaluate(() => {
@@ -261,4 +269,4 @@ function textFloor(floors, cat) {
   return v;
 }
 
-module.exports = { textFloor, LANGS, openGame, openSim, openGameHttp, routeThree, frames, step, setupHug, softly, sharedPage, resetGame, seedGame, reloadGame, testSeed, titleSeed, HTTP_BASE, ROOT };
+module.exports = { gameSource, textFloor, LANGS, openGame, openSim, openGameHttp, routeThree, frames, step, setupHug, softly, sharedPage, resetGame, seedGame, reloadGame, testSeed, titleSeed, HTTP_BASE, ROOT };

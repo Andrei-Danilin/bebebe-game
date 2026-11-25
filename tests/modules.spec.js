@@ -232,12 +232,35 @@ test("every save fixture loads the same after a real reload", async ({ page }) =
   soft.done();
 });
 
+// AC 6: opened from disk (file:), the game's modules cannot load: instead of a black page the small non-module script shows
+// how to open it, in the saved language (bebebe-lang) or else the browser's, English when neither is one of ours
+const FILE_NOTICE = { en: "Open the game from the website or run npm run serve", es: "Abrí el juego desde la página o corré npm run serve",
+  pt: "Abra o jogo pelo site ou rode npm run serve", ru: "Откройте игру с сайта или запустите npm run serve" };
+test("file:// shows the notice", async ({ browser }) => {
+  const url = require("url").pathToFileURL(INDEX).href;
+  const cases = [["en", "en-US", "en"], ["es", "en-US", "es"], ["pt", "en-US", "pt"], ["ru", "en-US", "ru"],
+    [null, "es-AR", "es"], [null, "pt-BR", "pt"], [null, "ru-RU", "ru"], [null, "de-DE", "en"], ["xx", "de-DE", "en"]];
+  const got = [];
+  for (const [saved, locale, want] of cases) {
+    const ctx = await browser.newContext({ locale });
+    try {
+      const page = await ctx.newPage();
+      if (saved) await page.addInitScript(l => { try { localStorage.setItem("bebebe-lang", l); } catch (e) { /* ok */ } }, saved);
+      await page.goto(url);
+      const text = await page.locator("#file-notice").textContent({ timeout: 10_000 });
+      got.push([saved, locale, text === FILE_NOTICE[want] ? want : text]);
+    } finally { await ctx.close(); }
+  }
+  expect(got).toEqual(cases.map(([saved, locale, want]) => [saved, locale, want]));
+  // the notice is in the four languages of the spec, and the "needs internet" hint does not replace it on file:
+  expect(fs.readFileSync(INDEX, "utf8")).toContain("location.protocol !== \"file:\"");
+});
+
 // ---------- The core's code: src/core/**, or — while it is still inline (Phase B steps B2–B3) — the chunks of the inline
 // module that start with a marker line `// >>> src/core/<file>` (a chunk runs to the next `// >>> …` marker)
 const coreCode = () => {
-  const dir = path.join(ROOT, "src", "core");
-  if (fs.existsSync(dir)) return srcFiles(dir).map(f => [path.relative(ROOT, f).replace(/\\/g, "/"), fs.readFileSync(f, "utf8")]);
-  const parts = fs.readFileSync(INDEX, "utf8").replace(/\r\n/g, "\n").split(/^\/\/ >>> (\S+).*$/m), out = [];
+  const out = srcFiles(path.join(ROOT, "src", "core")).map(f => [path.relative(ROOT, f).replace(/\\/g, "/"), fs.readFileSync(f, "utf8")]);
+  const parts = fs.readFileSync(INDEX, "utf8").replace(/\r\n/g, "\n").split(/^\/\/ >>> (\S+).*$/m);
   for (let i = 1; i < parts.length; i += 2) if (parts[i].startsWith("src/core/")) out.push([parts[i], parts[i + 1]]);
   return out;
 };

@@ -10,10 +10,10 @@ const path = require("path");
 
 const ROOT = path.resolve(__dirname, "..");
 // the game itself: shell, PWA files, icons, the art sprites
-const SITE = ["index.html", "manifest.webmanifest", "sw.js", "icons", "assets"];
-// Hook for the module split: SPEC-011 phase B adds "src" (the ES modules), SPEC-025 "vendor" (three.js). Entries here are
+const SITE = ["index.html", "manifest.webmanifest", "sw.js", "icons", "assets", "src"];
+// Hook for later folders: SPEC-025 adds "vendor" (three.js; SPEC-011 phase B moved "src", the ES modules, into SITE). Entries here are
 // copied only when they exist, so the list can name them before the folder is there; move them into SITE once they must exist.
-const SITE_LATER = ["src", "vendor"];
+const SITE_LATER = ["vendor"];
 // published on Pages next to the game, not part of the installed app
 const PAGES_ONLY = ["v1-2d"];
 

@@ -1,6 +1,6 @@
 // Smoke tests: the game loads, every screen and place renders, nothing throws.
 const { test, expect } = require("./pw");   // SPEC-023: @playwright/test + failure screenshots
-const { LANGS, openGame, step, frames, titleSeed, ROOT } = require("./helpers");
+const { LANGS, openGame, step, frames, titleSeed, gameSource, ROOT } = require("./helpers");
 const fs = require("fs");
 const path = require("path");
 
@@ -168,11 +168,11 @@ test("every spec file uses ./pw (or is a listed Node-only exception)", { tag: "@
 });
 
 // Safari before iOS 16.4 cannot parse a regex lookbehind: the whole module fails with a SyntaxError and the game does
-// not start at all (older iPads). Keep (?<= and (?<! out of index.html.
-test("index.html has no regex lookbehind (older iPads)", { tag: "@fast" }, () => {
-  const src = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
-  expect(src.includes("(?<="), "(?<= in index.html").toBe(false);
-  expect(src.includes("(?<!"), "(?<! in index.html").toBe(false);
+// not start at all (older iPads). Keep (?<= and (?<! out of the game code (SPEC-011 AC 8c: index.html and src/**).
+test("the game code has no regex lookbehind (older iPads)", { tag: "@fast" }, () => {
+  const src = gameSource();
+  expect(src.includes("(?<="), "(?<= in the game code").toBe(false);
+  expect(src.includes("(?<!"), "(?<! in the game code").toBe(false);
 });
 
 // SPEC-011 AC 8d: every test game is seeded before it starts, so a test plays the same game on every run (an unseeded start
