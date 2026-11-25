@@ -1,7 +1,11 @@
-# SPEC-023: the whole Playwright suite in 4 parallel shards (SPEC-011: plus one lint job; SPEC-012: plus one Node core job).
+# SPEC-023: the whole Playwright suite in 4 parallel shards (SPEC-011: plus one lint job; SPEC-012: plus one Node core job;
+# SPEC-025 AC 10: plus one typecheck job — every job must be green).
 # - on every push of a spec branch (SPEC-*): the orchestrator merges only when this run is green;
+# - on pull requests into master (SPEC-025 AC 11: Dependabot's PRs; CLAUDE.md "Dependabot");
 # - by hand (workflow_dispatch);
-# - from pages.yml (workflow_call) before every deploy of master.
+# - from pages.yml (workflow_call) before every deploy of master, or of the `ref` a rollback redeploys (SPEC-025 AC 13).
+# SPEC-025 AC 10: Node is a pinned major and every action is pinned by commit SHA (the tag in the comment; Dependabot keeps them
+# current). `retries` stays 0 (one CI retry is decision D-15).
 # Each shard writes a blob report; the `report` job merges them into one HTML report (artifact `html-report`) and fails
 # when a shard failed. A failing shard also uploads its test-results/ (error context, failure screenshots) as
 # `test-results-<shard>` (error context + failure screenshots; no traces are recorded). On CI the browser draws with SwiftShader (tests/test-env.js: process.env.CI).
@@ -10,8 +14,16 @@ name: Tests
 on:
   push:
     branches: ["SPEC-*"]
+  pull_request:
+    branches: [master]
   workflow_dispatch:
   workflow_call:
+    inputs:
+      ref:
+        description: "Branch, tag or commit to test (empty: the caller's commit)"
+        type: string
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -21,7 +33,7 @@ permissions:
 # cancelled here (pages.yml has its own `pages` group).
 concurrency:
   group: ${{ github.workflow == 'Tests' && format('tests-{0}', github.ref) || format('tests-call-{0}', github.run_id) }}
-  cancel-in-progress: ${{ github.workflow == 'Tests' && github.event_name == 'push' }}
+  cancel-in-progress: ${{ github.workflow == 'Tests' && (github.event_name == 'push' || github.event_name == 'pull_request') }}
 
 jobs:
   # SPEC-011 AC 11b: ESLint (npm run lint = scripts/lint.js) once per run, beside the shards; a lint error fails the run
@@ -31,13 +43,32 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          node-version: lts/*
+          ref: ${{ inputs.ref || '' }}
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
           cache: npm
       - run: npm ci
       - run: npm run lint
+
+  # SPEC-025 AC 9 / 10: type checks (npm run typecheck = scripts/typecheck.js: tsc --noEmit --checkJs over src/, the core
+  # strict-ish) once per run, beside the shards; a type error fails the run (and, called from pages.yml, blocks the deploy)
+  typecheck:
+    name: typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref || '' }}
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
 
   # SPEC-012 AC 7: the headless core in plain Node (npm run test:core = node --test tests/core/*.test.mjs: whole games,
   # determinism at the fixed step, slots, inputs, results, practice) once per run; it needs no dependency (no npm ci). A red
@@ -47,10 +78,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          node-version: lts/*
+          ref: ${{ inputs.ref || '' }}
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
       - run: npm run test:core
 
   test:
@@ -62,10 +95,12 @@ jobs:
       matrix:
         shard: [1, 2, 3, 4]
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          node-version: lts/*
+          ref: ${{ inputs.ref || '' }}
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
           cache: npm
       - run: npm ci
       - name: Playwright version
@@ -73,7 +108,7 @@ jobs:
         run: echo "version=$(node -p 'require("@playwright/test/package.json").version')" >> "$GITHUB_OUTPUT"
       - name: Cache the Playwright browsers
         id: pw-cache
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
@@ -85,14 +120,14 @@ jobs:
         run: npx playwright install-deps chromium
       - name: Run shard ${{ matrix.shard }}/4
         run: npx playwright test --shard ${{ matrix.shard }}/4 --reporter=blob,dot
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ !cancelled() }}
         with:
           name: blob-report-${{ matrix.shard }}
           path: blob-report/
           retention-days: 3
           overwrite: true
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: failure()
         with:
           name: test-results-${{ matrix.shard }}
@@ -107,24 +142,34 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          node-version: lts/*
+          ref: ${{ inputs.ref || '' }}
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
           cache: npm
       - run: npm ci
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           path: all-blob-reports
           pattern: blob-report-*
           merge-multiple: true
       - name: Merge into one HTML report
         run: npx playwright merge-reports --reporter=html,github ./all-blob-reports
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: html-report
           path: playwright-report/
           retention-days: 14
+      # RR-83: a shard whose blob report is missing (an upload that failed, a shard that never ran) must not pass as a complete
+      # report: the job fails unless all 4 were downloaded (what was there is still merged and uploaded above)
+      - name: Check all 4 blob reports were merged
+        if: ${{ always() }}
+        run: |
+          n=$(find all-blob-reports -maxdepth 1 -name '*.zip' | wc -l)
+          if [ "$n" -ne 4 ]; then echo "expected 4 blob reports, got $n"; ls -la all-blob-reports || true; exit 1; fi
+          echo "4 blob reports"
       - name: Fail when a shard failed
         if: ${{ needs.test.result != 'success' }}
         run: |

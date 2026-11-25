@@ -7,12 +7,20 @@
 # A red deploy with green tests: `gh run rerun <id> --failed` only when that run's `build` job was green AND its commit is
 # still the HEAD of origin/master (the rerun deploys the artifact `build` uploaded once; it uploads nothing new); otherwise
 # a fresh `gh workflow run pages.yml --ref master`.
+# SPEC-025 AC 13: a rollback redeploys a known-good tag — `gh workflow run pages.yml --ref master -f ref=vX.Y.Z` (docs/release.md
+# "Rollback"): the tests run on that ref first, then its site is built and deployed; version.txt is the ref's commit sha.
 name: Pages
 
 on:
   push:
     branches: [master]
   workflow_dispatch:
+    inputs:
+      ref:
+        description: "Tag, branch or commit to test and deploy (empty: the commit the run starts on — master)"
+        type: string
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -25,6 +33,8 @@ jobs:
   # SPEC-023: the same 4 sharded test jobs as on spec branches (tests.yml)
   test:
     uses: ./.github/workflows/tests.yml
+    with:
+      ref: ${{ inputs.ref || '' }}
 
   # SPEC-011 AC 10c: build + upload, in parallel with the tests (Node built-ins only: no npm install)
   build:
@@ -36,16 +46,22 @@ jobs:
       pages: write
     outputs:
       base_url: ${{ steps.pages.outputs.base_url }}
+      sha: ${{ steps.sha.outputs.sha }}
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          node-version: lts/*
+          ref: ${{ inputs.ref || '' }}
+      # the commit being deployed (the pushed one, or the commit of the `ref` input)
+      - id: sha
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
       - name: Build the site (npm run site → _site/, version.txt = the commit sha)
-        run: npm run site -- --stamp "${GITHUB_SHA}"
+        run: npm run site -- --stamp "${{ steps.sha.outputs.sha }}"
       - id: pages
-        uses: actions/configure-pages@v6
-      - uses: actions/upload-pages-artifact@v5
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: _site
           retention-days: 7
@@ -65,7 +81,7 @@ jobs:
       # the deploy step failed in about 1 of 3 runs with green tests ("Fetching artifact metadata failed" and the like):
       # two attempts; neither fails the job by itself — the live check below does
       - id: deployment
-        uses: actions/deploy-pages@v5
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
         continue-on-error: true
         with:
           timeout: 300000
@@ -74,7 +90,7 @@ jobs:
         run: sleep 30
       - id: deployment-retry
         if: steps.deployment.outcome == 'failure'
-        uses: actions/deploy-pages@v5
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
         continue-on-error: true
         with:
           timeout: 300000
@@ -82,11 +98,13 @@ jobs:
       - name: Check the live site serves this commit
         env:
           PAGE_URL: ${{ steps.deployment.outputs.page_url || steps.deployment-retry.outputs.page_url || needs.build.outputs.base_url }}
+          SHA: ${{ needs.build.outputs.sha }}
         run: |
           test -n "$PAGE_URL" || { echo "no Pages URL"; exit 1; }
+          test -n "$SHA" || { echo "no commit sha from the build job"; exit 1; }
           for i in $(seq 1 30); do
-            live=$(curl -fsSL -H "Cache-Control: no-cache" "${PAGE_URL%/}/version.txt?v=${GITHUB_SHA}-$i" || true)
-            if [ "$live" = "$GITHUB_SHA" ]; then echo "live site serves ${GITHUB_SHA} (attempt $i)"; exit 0; fi
-            echo "attempt $i: live version.txt is '${live}', not ${GITHUB_SHA} yet"; sleep 10
+            live=$(curl -fsSL -H "Cache-Control: no-cache" "${PAGE_URL%/}/version.txt?v=${SHA}-$i" || true)
+            if [ "$live" = "$SHA" ]; then echo "live site serves ${SHA} (attempt $i)"; exit 0; fi
+            echo "attempt $i: live version.txt is '${live}', not ${SHA} yet"; sleep 10
           done
-          echo "the live site does not serve ${GITHUB_SHA} after 5 min (deploy attempts: ${{ steps.deployment.outcome }}, ${{ steps.deployment-retry.outcome }})"; exit 1
+          echo "the live site does not serve ${SHA} after 5 min (deploy attempts: ${{ steps.deployment.outcome }}, ${{ steps.deployment-retry.outcome }})"; exit 1
