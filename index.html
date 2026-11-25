@@ -46,8 +46,12 @@
     }
   }, 6000);
 </script>
+<!-- SPEC-011 AC 1b: the one place that says where three.js comes from (the game imports the bare name "three"; sw.js THREE_BASE must match) -->
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.js" } }
+</script>
 <script type="module">
-import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.js";
+import * as THREE from "three";
 "use strict";
 
 // =====================================================================

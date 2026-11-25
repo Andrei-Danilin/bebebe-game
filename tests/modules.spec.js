@@ -30,3 +30,26 @@ test("service workers are blocked outside the PWA tests", async ({ page, browser
     expect([...errors, ...more]).toEqual([]);
   } finally { await ctx.close(); }
 });
+
+// AC 1b: the game imports the bare name "three"; one <script type="importmap"> in index.html says where it comes from (today
+// jsDelivr, the same URL as sw.js THREE_BASE; SPEC-025 points it at vendor/three/). No game code names the CDN URL.
+const INDEX = path.join(ROOT, "index.html");
+const srcFiles = dir => !fs.existsSync(dir) ? [] : fs.readdirSync(dir, { withFileTypes: true })
+  .flatMap(e => e.isDirectory() ? srcFiles(path.join(dir, e.name)) : e.name.endsWith(".js") ? [path.join(dir, e.name)] : []);
+test("three.js comes from the import map only", { tag: "@fast" }, () => {
+  const html = fs.readFileSync(INDEX, "utf8"), sw = fs.readFileSync(path.join(ROOT, "sw.js"), "utf8");
+  const maps = [...html.matchAll(/<script type="importmap">([\s\S]*?)<\/script>/g)];
+  expect(maps.length, "one import map").toBe(1);
+  const map = JSON.parse(maps[0][1]), base = (sw.match(/const THREE_BASE\s*=\s*"([^"]+)"/) || [])[1];
+  expect(map.imports.three, "the import map's three = sw.js THREE_BASE + three.module.js").toBe(base + "three.module.js");
+  expect(html.indexOf("<script type=\"importmap\">"), "the import map comes before the module script").toBeLessThan(html.indexOf("<script type=\"module\""));
+  // every piece of game code without the import map: the inline module(s) and, from Phase B on, src/**
+  const code = [["index.html", html.replace(maps[0][0], "")], ...srcFiles(path.join(ROOT, "src")).map(f => [path.relative(ROOT, f), fs.readFileSync(f, "utf8")])];
+  const bad = [];
+  for (const [name, text] of code) {
+    if (text.includes("cdn.jsdelivr.net")) bad.push(`${name}: names cdn.jsdelivr.net`);
+    for (const m of text.matchAll(/\bfrom\s+["']([^"']+)["']/g)) if (/^https?:/.test(m[1]) || /(^|\/)three(\.module)?\.js$/.test(m[1])) bad.push(`${name}: imports ${m[1]}`);
+  }
+  expect(bad).toEqual([]);
+  expect(/\bimport \* as THREE from "three";/.test(html), "the game imports the bare name").toBe(true);
+});

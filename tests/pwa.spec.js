@@ -145,8 +145,10 @@ async function withOwnServer(page, override, fn) {
 }
 const INDEX_SRC = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
 
+// SPEC-011 AC 1b: the version comes from the import map (the game imports the bare name "three")
 test("sw.js precaches the same three.js version index.html imports", async () => {
-  const imported = (INDEX_SRC.match(/cdn\.jsdelivr\.net\/npm\/three@([\d.]+)\/build\/three\.module\.js/) || [])[1];
+  const map = JSON.parse((INDEX_SRC.match(/<script type="importmap">([\s\S]*?)<\/script>/) || [])[1] || "{}");
+  const imported = (((map.imports || {}).three || "").match(/^https:\/\/cdn\.jsdelivr\.net\/npm\/three@([\d.]+)\/build\/three\.module\.js$/) || [])[1];
   const cached = (SW_SRC.match(/cdn\.jsdelivr\.net\/npm\/three@([\d.]+)\/build\//) || [])[1];
   expect(imported).toBeTruthy();
   expect(cached).toBe(imported);
