@@ -278,7 +278,7 @@ test("phone 667: lock toasts, the opened banner and the Progress lines fit in ev
     }
     for (const [cat, px] of Object.entries(d.texts)) if (px * s < (cat === "drawn" ? d.min.hint : d.min[cat]) - 0.01) fails.push(`${at}: smallest ${cat} text ${px * s} CSS px`);
   };
-  const grab = want => page.evaluate(w => { const b = window.__bb; return { hud: b.hudRects, buttons: b.buttonRects, ui: b.uiSize, texts: b.textSizes, min: b.CFG.PHONE_TEXT, want: w }; }, want);
+  const grab = want => page.evaluate(w => { const b = window.__bb; return { hud: b.hudRects, buttons: b.buttonRects, ui: b.uiSize, texts: b.textSizes, min: { ...b.CFG.PHONE_TEXT, story: b.CFG.STORY_TEXT_MIN }, want: w }; }, want);
   for (const lang of LANGS) {
     // the toasts of the three locked main worlds (fresh progress) and the banner of each opened world
     for (const w of ["field", "city", "school"]) {

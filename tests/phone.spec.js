@@ -977,7 +977,7 @@ for (const [vw, vh] of PHONE_SIZES) {
 
     // SPEC-016 AC 8: six worlds, the bonus ones locked and open (SPEC-017: the level map's tabs, ≥ 44 CSS px, 🔒 on a locked one)
     test(`the world tabs and the bonus note fit at ${vw}×${vh}`, async ({ phonePage: page }) => {
-      const minText = await page.evaluate(() => window.__bb.CFG.PHONE_TEXT);
+      const minText = await page.evaluate(() => ({ ...window.__bb.CFG.PHONE_TEXT, story: window.__bb.CFG.STORY_TEXT_MIN }));   // SPEC-031: the story text has its own floor
       const fails = [];
       for (const open of [false, true]) {
         await page.evaluate(o => {
@@ -1029,7 +1029,7 @@ for (const [vw, vh] of PHONE_SIZES) {
     test(`every phone button is big enough at ${vw}×${vh}`, { tag: vw === 844 ? "@fast" : [] }, async ({ phonePage: page }) => {
       test.slow();
       const errors = page.sharedErrors;
-      const minText = await page.evaluate(() => window.__bb.CFG.PHONE_TEXT);
+      const minText = await page.evaluate(() => ({ ...window.__bb.CFG.PHONE_TEXT, story: window.__bb.CFG.STORY_TEXT_MIN }));   // SPEC-031: the story text has its own floor
       const fails = [];
       for (const [name0, setup] of (vw === 667 ? LANGS : ["en"]).flatMap(lg => Object.entries(PHONE_SCENES).map(([n, f]) => [lg + " " + n, async pg => { await pg.evaluate(l => window.__bb.setLang(l), lg); await f(pg); }]))) {
         const name = name0.split(" ")[1], label = name0;
@@ -1438,7 +1438,7 @@ for (const [vw, vh] of PHONE_SIZES) {
               // which cards cannot be bought: from the real prices
               const prices = [b.GLOVES.mittens.price, b.GLOVES.mega.price, b.KISSES.price, b.RESCUE_KIT.price], L = b.I18N[lg];
               const fullPacks = [L.pack(b.GLOVES.mittens.charges), L.pack(b.GLOVES.mega.charges), L.kissPack(b.KISSES.pack), L.kitPack(b.RESCUE_KIT.pack)];
-              return { ui: b.uiSize, hud: b.hudRects, buttons: b.buttonRects, texts: b.textSizes, min: b.CFG.PHONE_TEXT, mode: b.mode,
+              return { ui: b.uiSize, hud: b.hudRects, buttons: b.buttonRects, texts: b.textSizes, min: { ...b.CFG.PHONE_TEXT, story: b.CFG.STORY_TEXT_MIN }, mode: b.mode,
                 layout: b.shopLayout, poor: prices.map(p => cn < p), fullPacks };
             }, [lang, coins, fontScale]);
             const label = `${vw}×${vh} ${lang} ${coins} coins font ×${fontScale}`;
@@ -1476,7 +1476,7 @@ test.describe("phone heard hint 667×375", () => {
   test.use({ ...PHONE_CTX, viewport: { width: 667, height: 375 } });
 
   test("the heard hint fits a phone in every language", async ({ phonePage: page }) => {
-    const minText = await page.evaluate(() => window.__bb.CFG.PHONE_TEXT);
+    const minText = await page.evaluate(() => ({ ...window.__bb.CFG.PHONE_TEXT, story: window.__bb.CFG.STORY_TEXT_MIN }));   // SPEC-031: the story text has its own floor
     const fails = [];
     for (const lang of LANGS) for (const fs of [1, 1.15]) {
       const d = await page.evaluate(async ([lg, f]) => {
