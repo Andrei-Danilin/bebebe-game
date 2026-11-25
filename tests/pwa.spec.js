@@ -265,6 +265,36 @@ test("a new shell never loads an old module", async ({ page }) => {
   });
 });
 
+// SPEC-025 AC 13 (the rollback runbook relies on it): the installed app (worker active) gets a broken deploy — a shell whose
+// module throws at load: that launch shows the failed-start card, never a frozen screen. Then the fix (or a redeployed good
+// tag) goes live: the next online launch runs the fixed version, not a cached broken one (index.html is network-first, a
+// broken shell is never cached: its modules are not the worker's)
+test("a broken shell is replaced on the next online launch", async ({ page }) => {
+  test.slow();                       // serves three versions to an installed app
+  const ov = { fn: () => null };
+  await withOwnServer(page, ov, async () => {
+    const map = JSON.parse(INDEX_SRC.match(/<script type="importmap">([\s\S]*?)<\/script>/)[1]).imports;
+    const broken = {
+      html: INDEX_SRC.replace(map[ART_URL], ART_URL + "?v=testbad001").replace(`<meta name="src-hash" content="${SRC_HASH}">`, "<meta name=\"src-hash\" content=\"testbad999\">"),
+      art: fs.readFileSync(path.join(ROOT, ART_FILE), "utf8") + "\nthrow new Error(\"test: a broken build\");\n"
+    };
+    ov.fn = p => (p === "/index.html" || p === "/" ? broken.html : p === ART_FILE ? broken.art : null);
+    await page.reload();
+    await page.waitForSelector("#start-failed", { timeout: 30_000 });
+    expect(await page.evaluate(() => [document.querySelector("meta[name=src-hash]").content, window.__bbReady === true]), "the broken deploy").toEqual(["testbad999", false]);
+    // the fix is deployed: the next online launch runs it
+    const fixed = newVersion("fixed");
+    ov.fn = p => (p === "/index.html" || p === "/" ? fixed.html : p === ART_FILE ? fixed.art : null);
+    await page.reload();
+    await page.waitForFunction(() => window.__bbReady === true, null, { timeout: 30_000 });
+    expect(await page.evaluate(() => [document.querySelector("meta[name=src-hash]").content, window.__bbModuleVersion, !!document.getElementById("start-failed")]),
+      "the fixed version runs").toEqual(["testnew999", "fixed", false]);
+    await page.evaluate(() => { window.__bb.seedRandom(1); window.__bb.startGame(1); });
+    await step(page, 1);
+    expect(await page.evaluate(() => window.__bb.mode)).toBe("play");
+  });
+});
+
 // SPEC-011 AC 9 (check of the fix round): the old worker is active; a new shell and a changed module are deployed, the new shell
 // is fetched once online, and the phone goes offline before the new worker has installed (here its install cannot finish: one
 // file of its list is missing). The fetched new shell was shown but not cached (no complete cache of its SRC_HASH), so the next

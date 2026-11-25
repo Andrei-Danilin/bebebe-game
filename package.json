@@ -22,7 +22,8 @@
     "precache": "node scripts/precache.js",
     "vendor:three": "node scripts/vendor-three.js",
     "typecheck": "node scripts/typecheck.js",
-    "format": "node scripts/lint.js --format"
+    "format": "node scripts/lint.js --format",
+    "release": "node scripts/release.js"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
