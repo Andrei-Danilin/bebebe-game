@@ -8,7 +8,7 @@ One line each: what, where it came from. The spec author turns a line into a spe
 - Hug visibility when the Big One faces the camera (the Little One on his shoulders is partly hidden).
 - The lose screen code is unreachable since "no game over" — remove it or reuse it for a "Give up" button.
 - Progress between Safari and the installed iPhone app (separate storage on iOS) — out of scope in SPEC-001.
-- `navigator.storage.persist()` once, so iOS is less likely to clear the home-screen app's progress when the phone is low on space (SPEC-001 architect review).
+- ~~`navigator.storage.persist()` once, so iOS is less likely to clear the home-screen app's progress when the phone is low on space (SPEC-001 architect review).~~ — done in SPEC-025 phase 2 (AC 5: asked once where it never prompts; the answer is kept in `bebebe-save.persist`).
 - An "update available" hint in the installed app (today a new version shows on the next launch, because `index.html` is network-first) — SPEC-001 run.
 - SPEC-003 run, open point: a Little One knocked down **inside** the Big One's house can only be rescued by a player (bots leave the house after 2 s, a rescue takes 3 s).
 - SPEC-003 run, open point: the menu rules do not mention the bonus stars and the dangerous Big One's house yet (the six rule lines are full).
@@ -323,3 +323,9 @@ One line each: what, where it came from. The spec author turns a line into a spe
 - (SPEC-012 review) For SPEC-013: `npm run bench:core -- --players 5 --fx` (5 players, the effect queue on).
 - (SPEC-012 review) For SPEC-025: move `economy.js` to the client or make it an explicit profile object; pure progress-rules helpers (no `progress` / `G.world` defaults); a coalescing async save queue (`payLevel` saves once per reward line).
 - (SPEC-012 review) `buyGloves` (`src/client/shop.js`) does not re-dress the menu kid after a first purchase or refill of the worn glove (as on master); call `redress()` there.
+- (SPEC-025 phase 2, architect review) Async save backend for a store wrapper: timeouts on the probe and the reads of `loadSave`, and a `setBackend()` that `main.js` calls before `loadSave` instead of the `window.__bbSaveBackend` test hook.
+- (SPEC-025 phase 2, architect review) Move the `holdProgress` / known-field knowledge out of `src/client/save.js` into `src/core/progress-rules.js`: one schema source, testable in Node.
+- (SPEC-025 phase 2) Two tabs of the new build: the last writer wins for the whole `bebebe-save` — listen to `storage` events and merge or reload.
+- (SPEC-025 phase 2) A held field (a newer version's shape of a known field, e.g. `inv`) silently drops this build's changes to it — note it in the rollback runbook (phase 3, AC 13).
+- (SPEC-025 phase 2) `CFG.GATE_*` and `CFG.RESET_CONFIRM_DELAY` are UI numbers in the core `CFG` — move them to `LOOK` at a config tidy-up.
+- (SPEC-025 phase 2) AC 6d, the factual "Privacy" section of the grown-ups page (`privacyTitle`, `privacyText`): skipped until Andrei decides D-13; else the release spec.

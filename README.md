@@ -170,12 +170,30 @@ Items pop up on the map every 7–11 s (max 3, they vanish after 20 s):
 
 ## Progress, coins and the shop
 
-Progress is saved in the browser (`localStorage`, key `bebebe-progress`): unlocked levels and best stars in each
+Progress is saved on this device (`localStorage`, one key `bebebe-save`, with backup copies): unlocked levels and best stars in each
 world, which levels you have already won, the last world you picked, coins, gloves, air kisses, rescue kits, bought
 clothes and upgrades. Win a level to unlock the next one in that world.
 Saves from before the worlds move into the Park (levels above 20 are dropped; coins, gloves, kisses and names stay).
 Older saves get the Football field and the City fresh; a Beach or Winter you already played stays open.
 In saves from before the wardrobe, a level with stars counts as already won.
+Older saves (the separate `bebebe-progress`, `-outfits`, `-names`, `-lang` keys) move into `bebebe-save` once, on the
+first start of the new version; nothing is lost and the old keys are left alone.
+
+**For grown-ups.** On **❓ How to play** a "For grown-ups" button opens a page behind a small grown-up question
+(a multiplication written in words, like "seven times four"; a wrong answer gets a new question after a short wait).
+There you can:
+- **Copy my progress code** / **Paste a code** — the whole save (progress, outfits, names, language) as one line of
+  text. Use it to move progress to another device or browser, or later into the store app. Pasting asks before it
+  replaces anything, and the old progress is kept as a copy.
+- **Bring back erased progress** after "Reset progress", and **Restore an older copy** (each copy shows its date,
+  stars and coins). If a save ever gets broken, the game loads the newest good copy by itself and says so.
+- Read the **Error log** (kept only on this device, never sent).
+- **Erase all data on this device** — the game starts as on a new device.
+
+"Reset progress" (Character → Progress) can't happen by accident any more: the first tap shows "No, keep it", and a
+separate "Yes, erase everything" button appears elsewhere and works only after a moment.
+If the browser can't store anything (private mode, full storage), the game still plays and the menu says once that
+this device isn't keeping progress.
 
 In the table, `n` is the level number in its world (1–20) and `w` the world's difficulty: Park 0, Football field 1, City 2,
 School 3, Beach 3, Winter 4.
@@ -271,7 +289,7 @@ Player 1, Player 2, the Big One and the four bot friends have names. In the shop
 a character (✏️) and type a new one — up to 12 characters, emoji welcome; Enter or a tap outside saves, Escape
 cancels. **👥 Friends** opens the bot names. Names float above heads in the game, and the Big One's name starts
 the hearts bar — call him "Papá"! Untouched names follow the language (e.g. bots Bo, Mia, Tom, Lulu in English);
-typed names are kept. Saved in the browser (`localStorage`, key `bebebe-names`).
+typed names are kept. Saved on this device with the rest of the save (`bebebe-save`).
 
 ## Levels
 
