@@ -17,7 +17,7 @@
 // Client module.
 
 import { G } from "../core/active.js";
-import { CFG, WORLDS } from "../core/config.js";
+import { CFG, levelsPerWorld, WORLDS } from "../core/config.js";
 import { progress, setProgress } from "../core/economy.js";
 import { badProgressFields, loadProgress, worldProgress } from "../core/progress-rules.js";
 import { BIG_SKINS, HATS, JACKETS, PANTS, SLOTS } from "../core/wardrobe.js";
@@ -30,9 +30,9 @@ import { localBackend, wrapBackend } from "./storage.js";
 
 export const SAVE_VERSION = 1;              // the shape of bebebe-save (a schema id, not a tunable number)
 export const SAVE_KEYS = Object.freeze({ save: "bebebe-save", backup: "bebebe-save-backup", broken: "bebebe-save-broken", session: "bebebe-save-session",
-  migration: "bebebe-save-before-migration", reset: "bebebe-save-before-reset", import: "bebebe-save-before-import", errors: "bebebe-errors", probe: "bebebe-probe" });
+  migration: "bebebe-save-before-migration", reset: "bebebe-save-before-reset", import: "bebebe-save-before-import", restore: "bebebe-save-before-restore", errors: "bebebe-errors", probe: "bebebe-probe" });
 export const OLD_KEYS = Object.freeze(["bebebe-progress", "bebebe-outfits", "bebebe-names", "bebebe-lang"]);
-export const COPY_NAMES = Object.freeze(["backup", "session", "migration", "reset", "import"]);   // backup → session → snapshots (newest first)
+export const COPY_NAMES = Object.freeze(["backup", "session", "migration", "reset", "import", "restore"]);   // backup → session → snapshots (newest first)
 const KNOWN_TOP = ["version", "progress", "outfits", "names", "lang", "migrated", "persist"];
 const OWN_LISTS = { hats: HATS, jackets: JACKETS, pants: PANTS, big: BIG_SKINS };
 const WORLD_FIELDS = ["unlocked", "stars", "won"];
@@ -48,7 +48,9 @@ let migrated = {};                         // old key → the fingerprint of its
 let persist = null;                        // { asked, granted } — navigator.storage.persist() (AC 5)
 let errCache = null;                       // the stored error log (read by loadSave)
 // what the grown-ups page and the tests read: storage failed (noSave), the notes due / shown, the copies stored
-export const saveInfo = { noSave: false, notes: [], shown: [], copies: {}, recovered: null };
+// saveOff (review fix): the probe failed or the stored save could not be read — this session never writes bebebe-save or a copy
+// (a nearly full storage could take a fresh save over the real one)
+export const saveInfo = { noSave: false, notes: [], shown: [], copies: {}, recovered: null, saveOff: false };
 
 const plainObj = v => !!v && typeof v === "object" && !Array.isArray(v);
 const parse = t => { if (typeof t !== "string") return undefined; try { return JSON.parse(t); } catch (e) { return undefined; } };
@@ -64,14 +66,25 @@ export const validSave = s => plainObj(s) && Number.isInteger(s.version) && s.ve
 const TOP_VALID = { version: v => Number.isInteger(v) && v >= 1, progress: plainObj, outfits: plainObj, names: plainObj, lang: v => LANGS.includes(v), migrated: plainObj, persist: plainObj };
 const navLangs = () => (navigator.languages && navigator.languages.length ? [...navigator.languages] : [navigator.language]);
 function applyLang(l) { setCurrentLang(l); document.documentElement.lang = HTML_LANG[l] || l; }
-function emptyHeld() { return { top: {}, progress: {}, worlds: {}, worldFields: {}, owned: {}, ownedKeys: {}, upgrades: {}, seen: {}, outfits: [] }; }
+function emptyHeld() { return { top: {}, progress: {}, worlds: {}, worldFields: {}, worldOver: {}, owned: {}, ownedKeys: {}, upgrades: {}, seen: {}, outfits: [] }; }
 // AC 3: what a stored progress has that this version does not know (worlds, world fields, ids, keys) — kept and written back;
 // in a newer version's save also its known fields that fail this version's schema (unchanged)
 function holdProgress(h, pv, fut) {
   if (!plainObj(pv)) return;
   if (plainObj(pv.worlds)) for (const [w, v] of Object.entries(pv.worlds)) {
     if (!WORLDS.includes(w)) h.worlds[w] = v;
-    else if (plainObj(v)) { const extra = Object.fromEntries(Object.entries(v).filter(([k]) => !WORLD_FIELDS.includes(k))); if (Object.keys(extra).length) h.worldFields[w] = extra; }
+    else if (plainObj(v)) {
+      const extra = Object.fromEntries(Object.entries(v).filter(([k]) => !WORLD_FIELDS.includes(k)));
+      if (Object.keys(extra).length) h.worldFields[w] = extra;
+      // review fix (AC 3): a newer version's levels past this build's last one — unlocked, stars and won entries out of range,
+      // written back unchanged (this build cannot play those levels; unlocked only while this build has not changed it)
+      if (fut) {
+        const max = levelsPerWorld(), over = { stars: {}, won: {} }, beyond = o => (plainObj(o) ? Object.fromEntries(Object.entries(o).filter(([n]) => Number(n) > max)) : {});
+        over.stars = beyond(v.stars); over.won = beyond(v.won);
+        if (Number(v.unlocked) > max) { over.unlocked = v.unlocked; over.unlockedLoaded = max; }
+        if (Object.keys(over.stars).length || Object.keys(over.won).length || "unlocked" in over) h.worldOver[w] = over;
+      }
+    }
   }
   if (plainObj(pv.owned)) for (const [k, v] of Object.entries(pv.owned)) {
     if (!OWN_LISTS[k]) h.ownedKeys[k] = v;
@@ -100,6 +113,11 @@ function saveObject() {
   const p = JSON.parse(JSON.stringify(progress));
   p.worlds = { ...held.worlds, ...p.worlds };
   for (const [w, f] of Object.entries(held.worldFields)) if (p.worlds[w]) p.worlds[w] = { ...f, ...p.worlds[w] };
+  for (const [w, o] of Object.entries(held.worldOver)) if (p.worlds[w]) {
+    const q = p.worlds[w];
+    q.stars = { ...q.stars, ...o.stars }; q.won = { ...q.won, ...o.won };
+    if ("unlocked" in o && q.unlocked === o.unlockedLoaded) q.unlocked = o.unlocked;
+  }
   if (plainObj(p.owned)) {
     for (const [k, ids] of Object.entries(held.owned)) if (Array.isArray(p.owned[k])) p.owned[k] = [...p.owned[k], ...ids.filter(id => !p.owned[k].includes(id))];
     p.owned = { ...held.ownedKeys, ...p.owned };
@@ -123,18 +141,21 @@ function storageFailed() {
   noteDue("noSave");
 }
 function noteDue(key) { if (!saveInfo.notes.includes(key) && !saveInfo.shown.includes(key)) saveInfo.notes.push(key); }
+// review fix: writes are applied in call order — a sync backend writes inside the call, any other one after the previous write
+// answered; with saveOff (a failed probe or an unreadable save at the start) nothing of the save or its copies is written
 function write(key, text) {
-  if (erased) return;
+  if (erased || (saveInfo.saveOff && key.startsWith(SAVE_KEYS.save))) return Promise.resolve(false);
   if (key in COPY_KEY_NAME) saveInfo.copies[COPY_KEY_NAME[key]] = true;
-  lastWrite = backend.set(key, text).then(ok => { if (!ok) storageFailed(); return ok; });
+  const go = () => backend.set(key, text).then(ok => { if (!ok) storageFailed(); return ok; });
+  lastWrite = backend.sync ? go() : lastWrite.then(go);
+  return lastWrite;
 }
 const COPY_KEY_NAME = Object.fromEntries(COPY_NAMES.map(n => [SAVE_KEYS[n], n]));
-function remove(key) { if (key in COPY_KEY_NAME) saveInfo.copies[COPY_KEY_NAME[key]] = false; return backend.remove(key); }
+function remove(key) { if (saveInfo.saveOff && key.startsWith(SAVE_KEYS.save)) return Promise.resolve(false); if (key in COPY_KEY_NAME) saveInfo.copies[COPY_KEY_NAME[key]] = false; return backend.remove(key); }
 function writeMain(text) {
   // written even when unchanged (storage may have been cleared behind the game's back); the backup only when it differs
   if (lastText !== null && text !== lastText) write(SAVE_KEYS.backup, wrapCopy(lastText));
-  write(SAVE_KEYS.save, text);
-  lastText = text;
+  write(SAVE_KEYS.save, text).then(ok => { if (ok) lastText = text; });   // review fix: only a stored text is the next backup
 }
 
 // ---------- the write queue (AC 3b) ----------
@@ -234,7 +255,9 @@ function validCopies(raw) {
   return [...head, ...snaps];
 }
 const dayOf = ms => Math.floor((ms - new Date(ms).getTimezoneOffset() * 60000) / 86400000);
-// the session copy: the save as loaded at the start of a session, rotated at most once per CFG.SAVE_SESSION_DAYS (local days)
+// The session copy, the rule: it is replaced only when the copy stored is from an earlier local day (CFG.SAVE_SESSION_DAYS or more
+// days ago) — then it becomes the save as loaded at this start. Every later start of the same day keeps it, so a bug that breaks
+// the save during the day (later sessions included) never reaches it: it is always the first start of a day
 function rotateSession(sessionText, text) {
   const c = parse(sessionText), now = Date.now();
   if (plainObj(c) && Number.isFinite(c.at) && dayOf(now) - dayOf(c.at) < CFG.SAVE_SESSION_DAYS) return;
@@ -247,10 +270,13 @@ export async function loadSave() {
   loading = true;
   saveInfo.noSave = false;
   const ok = await probe();
-  if (!ok) storageFailed();
+  // review fix: the stored keys are read even when the probe failed (a nearly full storage refuses a new key but would take a
+  // fresh save over the real one); a failed probe or an unreadable save → no save writes this session, play from memory (noSave)
   const keys = [...Object.values(SAVE_KEYS).filter(k => k !== SAVE_KEYS.probe), ...OLD_KEYS];
-  const got = ok ? await Promise.all(keys.map(k => backend.get(k))) : keys.map(() => null);
-  const raw = Object.fromEntries(keys.map((k, i) => [k, got[i]]));
+  const got = await Promise.all(keys.map(k => backend.get(k)));
+  const raw = Object.fromEntries(keys.map((k, i) => [k, got[i] === undefined ? null : got[i]]));
+  saveInfo.saveOff = !ok || got[keys.indexOf(SAVE_KEYS.save)] === undefined;
+  if (saveInfo.saveOff) storageFailed();
   for (const n of COPY_NAMES) saveInfo.copies[n] = raw[SAVE_KEYS[n]] !== null;
   errCache = parseLog(raw[SAVE_KEYS.errors]);
   const old = Object.fromEntries(OLD_KEYS.map(k => [k, raw[k]]));
@@ -273,13 +299,13 @@ export async function loadSave() {
   try { adoptErrorLog(errCache); } catch (e) { /* the log never stops the start */ }
   G.world = progress.lastWorld;
   G.level = worldProgress().unlocked;                         // меню открывается на последнем мире, на его новом уровне
-  if (dirty && ok) {
+  if (dirty && !saveInfo.saveOff) {
     queueSave(); flushSaves();
     await lastWrite;
     // AC 3 (3): written, read back and validated — the migration record counts only when this worked
     if ((await backend.get(SAVE_KEYS.save)) !== lastText) storageFailed();
   }
-  if (ok) requestPersist();
+  if (!saveInfo.saveOff) requestPersist();
 }
 
 // ---------- AC 5: persistent storage, asked once and only where it never prompts ----------
@@ -323,25 +349,38 @@ function replaceWith(s) {
 // a grown-up restored or reset: the broken copy is no longer needed
 const clearBroken = () => remove(SAVE_KEYS.broken);
 // restoreCopy (AC 4): → true when the copy was valid and is the save now (the save before it becomes the backup)
+// review fix: the save before a restore is kept first as bebebe-save-before-restore (the page can restore it back)
 export async function restoreCopy(name) {
   const s = await copySave(name);
   if (!s) return false;
+  flushSaves();
+  write(SAVE_KEYS.restore, wrapCopy(JSON.stringify(saveObject())));
   replaceWith(s); clearBroken();
   if (name === "reset") await remove(SAVE_KEYS.reset);       // undoReset: the progress is back, the copy is used
   queueSave(); flushSaves();
   return true;
 }
-// AC 6b: before a reset wipes the progress, the save as it is now is stored as bebebe-save-before-reset
+// what a save holds, to compare two copies: the stars, the owned items, the coins
+function holding(save) {
+  const p = loadProgress(save && save.progress);
+  return [Object.values(p.worlds).reduce((a, w) => a + Object.values(w.stars).reduce((x, y) => x + y, 0), 0), Object.values(p.owned).reduce((a, l) => a + l.length, 0), p.coins];
+}
+// a holds less than b: fewer stars, or as many and fewer owned items, or as many of both and fewer coins (Claude's order)
+const holdsLess = (a, b) => { const x = holding(a), y = holding(b); for (let i = 0; i < x.length; i++) if (x[i] !== y[i]) return x[i] < y[i]; return false; };
+// AC 6b: before a reset wipes the progress, the save as it is now is stored as bebebe-save-before-reset. Review fix: that copy stays
+// until it is undone or restored — a later reset never replaces it with a save that holds less (a second reset after a little play)
 export function snapshotBeforeReset() {
   flushSaves();
-  write(SAVE_KEYS.reset, wrapCopy(JSON.stringify(saveObject())));
+  const now = saveObject(), text = JSON.stringify(now);
   clearBroken();
+  return copySave("reset").then(old => { if (!old || !holdsLess(now, old)) return write(SAVE_KEYS.reset, wrapCopy(text)); return false; });
 }
 // a reset (fresh progress): what the stored progress held for newer versions goes too; the migration record stays (AC 6b)
 export function forgetHeldProgress() { const top = held.top; held = emptyHeld(); held.top = top; }
 // AC 6b: "Erase all data on this device" — every bebebe-* key, the old keys included (the one exception); nothing is written after
 export async function eraseAll() {
   erased = true; pending.clear();
+  await lastWrite;                         // review fix: the writes already started finish first (call order), then everything goes
   const keys = new Set([...(await backend.keys()), ...Object.values(SAVE_KEYS), ...OLD_KEYS, "bebebe-place", "bebebe-skins"]);
   await Promise.all([...keys].map(k => backend.remove(k)));
 }
@@ -381,7 +420,7 @@ export function importSave(s) {
 export const outfitsOf = (v, toIds = false) => (toIds ? outfitsToIds(v) : outfitsFromIds(v));
 // for the tests (__bb.save.info): the save module's state as plain data
 export const saveState = () => ({ version: SAVE_VERSION, loaded, noSave: saveInfo.noSave, notes: [...saveInfo.notes], shown: [...saveInfo.shown],
-  copies: { ...saveInfo.copies }, recovered: saveInfo.recovered, future, persist: persistState(), pending: pending.size, erased });
+  copies: { ...saveInfo.copies }, recovered: saveInfo.recovered, future, persist: persistState(), pending: pending.size, erased, saveOff: saveInfo.saveOff });
 // the next note due (and it is shown now: once per session) or null — the grown-ups module shows it in the menus
 export function takeNote() {
   const n = saveInfo.notes.shift();

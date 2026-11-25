@@ -84,7 +84,7 @@ test("a save from a newer version: played, saved, reloaded — nothing lost but 
   expect(loaded.lang).toBe("es");
   expect(loaded.p.equip, "the changed shape: the default in memory").toEqual(["none", "none"]);
   expect(loaded.W.hat[loaded.o.p1.hat].id).toBe("crown");
-  expect(loaded.p.worlds.park.unlocked).toBe(3);
+  expect(loaded.p.worlds.park.unlocked, "unlocked 25 of a newer version: 20 here").toBe(20);
   await winLevel(page, "park", 3);
   await reloadGame(page);
   const s = await storedSave(page);
@@ -96,6 +96,7 @@ test("a save from a newer version: played, saved, reloaded — nothing lost but 
   keep(s.progress.gems, "an extra progress field").toBe(7);
   keep(s.progress.worlds.moon, "an extra world").toEqual(orig.progress.worlds.moon);
   keep(s.progress.worlds.park.best, "an extra field of a known world").toEqual({ 1: 41 });
+  keep([s.progress.worlds.park.unlocked, s.progress.worlds.park.stars["25"], s.progress.worlds.park.won["25"]], "a level past this build's last (review fix)").toEqual([25, 2, true]);
   keep(s.progress.owned.hats, "an unknown hat id").toEqual(["crown", "jetpack"]);
   keep(s.progress.owned.shoes, "an unknown owned list").toEqual(["boots"]);
   keep(s.progress.inv.rockets, "an unknown stock key").toBe(3);
@@ -264,9 +265,10 @@ test("a truncated save wearing paid clothes: its raw text stays in bebebe-save-b
 
 test("every write keeps the previous save as bebebe-save-backup; the session copy rotates at most once a day", { tag: "@fast" }, async ({ page }) => {
   const errors = await openGame(page, { sim: true });
+  // two writes, each confirmed by storage before the next (a stored text becomes the backup only once storage said it is stored)
+  await page.evaluate(() => { const b = window.__bb; b.progress.coins = 10; b.save.queue(); b.save.flush(); });
   const r = await page.evaluate(() => {
     const b = window.__bb, get = k => JSON.parse(localStorage.getItem(k));
-    b.progress.coins = 10; b.save.queue(); b.save.flush();
     b.progress.coins = 20; b.save.queue(); b.save.flush();
     return { save: get("bebebe-save").progress.coins, backup: get("bebebe-save-backup").save.progress.coins, days: b.CFG.SAVE_SESSION_DAYS };
   });
@@ -349,4 +351,56 @@ test.describe("Firefox", () => {
       "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0"].map(ua => window.__bb.save.promptsForPersist(ua)))).toEqual([false, true]);
     expect(errors).toEqual([]);
   });
+});
+
+// ---------- review fixes ----------
+// storage nearly full: a new key (the probe) is refused, replacing an existing key would work — the session plays from memory
+// and never writes the save, so the real save and its backup survive
+test("a failed probe never overwrites the real save: play from memory, the old progress intact after a reload", async ({ page }) => {
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem("almost-full") !== "1") return;
+    const set = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (k, v) { if (this.getItem(k) === null) throw new DOMException("full", "QuotaExceededError"); return set.call(this, k, v); };
+  });
+  const errors = await openGame(page, { sim: true });
+  await winLevel(page, "park", 1);
+  await winLevel(page, "park", 2);
+  const before = { save: await rawKey(page, "bebebe-save"), backup: await rawKey(page, "bebebe-save-backup") };
+  await page.evaluate(() => sessionStorage.setItem("almost-full", "1"));
+  await reloadGame(page);
+  const r = await page.evaluate(() => ({ won: window.__bb.progress.worlds.park.won, info: window.__bb.save.info }));
+  expect(r.won, "the stored progress was read").toEqual({ 1: true, 2: true });
+  expect([r.info.noSave, r.info.saveOff, r.info.notes]).toEqual([true, true, ["noSave"]]);
+  await winLevel(page, "park", 3);                                  // played from memory
+  await page.evaluate(() => { window.__bb.save.queue(); window.__bb.save.flush(); });
+  expect({ save: await rawKey(page, "bebebe-save"), backup: await rawKey(page, "bebebe-save-backup") }, "nothing of the save written").toEqual(before);
+  await reloadGame(page);
+  expect(await page.evaluate(() => window.__bb.progress.worlds.park.won), "the old progress intact").toEqual({ 1: true, 2: true });
+  expect(errors).toEqual([]);
+});
+
+// an async backend whose answers come back in a different order: the writes are still applied in call order
+test("writes reach an async backend in call order", async ({ page }) => {
+  await page.addInitScript(() => {
+    const store = {}, log = [];
+    let n = 0;
+    window.__setLog = log;
+    window.__bbSaveBackend = {
+      get: k => Promise.resolve(k in store ? store[k] : null),
+      set: (k, v) => new Promise(r => setTimeout(() => { store[k] = v; if (k === "bebebe-save") log.push(JSON.parse(v).progress.coins); r(true); }, (n++ % 2) ? 5 : 40)),
+      remove: k => { delete store[k]; return Promise.resolve(true); },
+      keys: () => Promise.resolve(Object.keys(store))
+    };
+  });
+  const errors = await openGame(page, { sim: true });
+  const log = await page.evaluate(async () => {
+    const b = window.__bb;
+    await new Promise(r => setTimeout(r, 300));                      // the start's own writes answered
+    window.__setLog.length = 0;
+    for (const c of [11, 22, 33, 44]) { b.progress.coins = c; b.save.queue(); b.save.flush(); }
+    await new Promise(r => setTimeout(r, 400));
+    return window.__setLog;
+  });
+  expect(log).toEqual([11, 22, 33, 44]);
+  expect(errors).toEqual([]);
 });
