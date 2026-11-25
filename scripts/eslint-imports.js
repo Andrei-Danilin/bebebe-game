@@ -1,52 +1,87 @@
 // SPEC-011 AC 11b: a tiny local ESLint plugin instead of eslint-plugin-import (no extra dependencies): rule "imports" reports
-// - a relative import whose file does not exist (unresolved), and
-// - a named / default import the target module does not export (missing named import),
-// - a bare specifier that the import map does not name (BARE: today only "three").
-// The target is parsed with espree (ESLint's own parser). A target with `export * from` may re-export anything: its names
-// are not checked. Used by eslint.config.js for src/** (and the extracted inline module).
+// - a relative import whose file does not exist (unresolved),
+// - a named / default import the target module does not export (missing named import; `export * from` is followed, with
+//   a visited set against cycles),
+// - a bare specifier that the import map of index.html does not name (a key ending in "/" matches as a prefix).
+// The target is parsed with espree (ESLint's own parser). Used by eslint.config.js for src/** and the extracted inline module.
 const fs = require("fs");
 const path = require("path");
 const espree = require(require.resolve("espree", { paths: [path.dirname(require.resolve("eslint"))] }));
 
-const BARE = ["three"];          // the import map in index.html (AC 1b)
-const cache = new Map();         // file → { mtime, names: Set | null (anything) }
+const INDEX = path.resolve(__dirname, "..", "index.html");
+const cache = new Map();         // file → { mtime, own: Set, stars: [file], bad: [message] }
 
-function exportsOf(file) {
+// the keys of the <script type="importmap"> in index.html (AC 1b)
+let mapCache = null;
+function importMapKeys() {
+  const mtime = fs.existsSync(INDEX) ? fs.statSync(INDEX).mtimeMs : 0;
+  if (mapCache && mapCache.mtime === mtime) return mapCache.keys;
+  let keys = [];
+  if (mtime) {
+    const m = fs.readFileSync(INDEX, "utf8").match(/<script type="importmap">([\s\S]*?)<\/script>/);
+    if (m) keys = Object.keys(JSON.parse(m[1]).imports || {});
+  }
+  mapCache = { mtime, keys };
+  return keys;
+}
+const inImportMap = src => importMapKeys().some(k => (k.endsWith("/") ? src.startsWith(k) : src === k));
+
+// one module's own exports and the files it re-exports with `export * from`
+function parseModule(file) {
   const mtime = fs.statSync(file).mtimeMs, hit = cache.get(file);
-  if (hit && hit.mtime === mtime) return hit.names;
+  if (hit && hit.mtime === mtime) return hit;
   const ast = espree.parse(fs.readFileSync(file, "utf8"), { ecmaVersion: "latest", sourceType: "module" });
-  let names = new Set();
-  const id = n => n.type === "Identifier" ? n.name : n.value;       // `export { a as "b" }` → "b"
+  const own = new Set(), stars = [], bad = [];
+  const id = n => (n.type === "Identifier" ? n.name : n.value);      // `export { a as "b" }` → "b"
   const pattern = p => {
     if (!p) return;
-    if (p.type === "Identifier") names.add(p.name);
+    if (p.type === "Identifier") own.add(p.name);
     else if (p.type === "ObjectPattern") p.properties.forEach(q => pattern(q.type === "RestElement" ? q.argument : q.value));
     else if (p.type === "ArrayPattern") p.elements.forEach(e => pattern(e && e.type === "RestElement" ? e.argument : e));
     else if (p.type === "AssignmentPattern") pattern(p.left);
   };
   for (const n of ast.body) {
-    if (n.type === "ExportDefaultDeclaration") names.add("default");
-    else if (n.type === "ExportAllDeclaration") { if (n.exported) names.add(id(n.exported)); else { names = null; break; } }
-    else if (n.type === "ExportNamedDeclaration") {
+    if (n.type === "ExportDefaultDeclaration") own.add("default");
+    else if (n.type === "ExportAllDeclaration") {
+      if (n.exported) own.add(id(n.exported));                        // export * as ns from "…"
+      else if (/^\.\.?\//.test(n.source.value)) stars.push(path.resolve(path.dirname(file), n.source.value));
+      else bad.push(n.source.value);                                   // export * from a bare name: names unknown
+    } else if (n.type === "ExportNamedDeclaration") {
       const d = n.declaration;
       if (d && d.declarations) d.declarations.forEach(v => pattern(v.id));
-      else if (d && d.id) names.add(d.id.name);
-      for (const s of n.specifiers) names.add(id(s.exported));
+      else if (d && d.id) own.add(d.id.name);
+      for (const s of n.specifiers) own.add(id(s.exported));
     }
   }
-  cache.set(file, { mtime, names });
+  const out = { mtime, own, stars, bad };
+  cache.set(file, out);
+  return out;
+}
+// every name a module exports, following `export * from` (which never re-exports "default"); null = cannot tell
+function exportsOf(file, seen = new Set()) {
+  if (seen.has(file)) return new Set();
+  seen.add(file);
+  const m = parseModule(file);
+  if (m.bad.length) return null;
+  const names = new Set(m.own);
+  for (const f of m.stars) {
+    if (!fs.existsSync(f)) return null;
+    const more = exportsOf(f, seen);
+    if (!more) return null;
+    for (const n of more) if (n !== "default") names.add(n);
+  }
   return names;
 }
 
 const rule = {
   meta: { type: "problem", docs: { description: "relative imports resolve and their named imports exist; bare imports are in the import map" }, schema: [] },
   create(context) {
-    const here = path.dirname(context.filename || context.getFilename());
+    const here = path.dirname(context.filename);
     const check = (node, specifiers) => {
       const src = node.source && node.source.value;
       if (typeof src !== "string") return;
       if (!src.startsWith("./") && !src.startsWith("../")) {
-        if (!BARE.includes(src)) context.report({ node: node.source, message: `"${src}" is not in the import map (only ${BARE.join(", ")})` });
+        if (!inImportMap(src)) context.report({ node: node.source, message: `"${src}" is not in the import map of index.html (${importMapKeys().join(", ") || "none"})` });
         return;
       }
       const file = path.resolve(here, src);
@@ -69,4 +104,4 @@ const rule = {
   }
 };
 
-module.exports = { meta: { name: "bebebe-local" }, rules: { imports: rule } };
+module.exports = { meta: { name: "bebebe-local" }, rules: { imports: rule }, importMapKeys };

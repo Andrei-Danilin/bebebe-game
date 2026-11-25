@@ -6,14 +6,28 @@ const fs = require("fs");
 const path = require("path");
 const { openGame, ROOT } = require("./helpers");
 
-// AC 5c: the key list of window.__bb recorded on master before any code moved (tests/fixtures/bb-keys.json). Tests drive the
-// game through __bb (hard rule 6): a key may be added, none may disappear. A spec that adds keys may append them to the list.
+// AC 5c: the keys of window.__bb and their kind (getter / getter+setter / function / value, from the property descriptor),
+// recorded before any code moved (tests/fixtures/bb-keys.json). Tests drive the game through __bb (hard rule 6) and write
+// through its setters (`__bb.mode = x`): a key may be added, none may disappear, a getter must not become a copied value,
+// a getter+setter must keep its setter, a function stays a function (a value may become a getter: a live binding).
+// A spec that adds keys may add them to the fixture.
 const BB_KEYS = JSON.parse(fs.readFileSync(path.join(ROOT, "tests", "fixtures", "bb-keys.json"), "utf8"));
+const bbKinds = () => {                       // runs in the page: descriptors only, no getter runs (sim throws on drawn state)
+  const b = window.__bb, out = {};
+  for (const k of Object.keys(b)) {
+    const d = Object.getOwnPropertyDescriptor(b, k);
+    out[k] = d.get ? (d.set ? "getter+setter" : "getter") : typeof d.value === "function" ? "function" : "value";
+  }
+  return out;
+};
+// what a recorded kind may be now
+const KIND_OK = { "getter+setter": ["getter+setter"], getter: ["getter", "getter+setter"], function: ["function"], value: ["value", "getter", "getter+setter"] };
 test("the __bb surface is unchanged", { tag: "@fast" }, async ({ page }) => {
   const errors = await openGame(page, { sim: true });
-  const keys = await page.evaluate(() => Object.keys(window.__bb));   // names only: no getter runs (sim throws on drawn state)
-  expect(BB_KEYS.length, "the recorded list is not empty").toBeGreaterThan(150);
-  expect(BB_KEYS.filter(k => !keys.includes(k)), "__bb keys removed since the recorded list").toEqual([]);
+  const now = await page.evaluate(bbKinds);
+  expect(Object.keys(BB_KEYS).length, "the recorded list is not empty").toBeGreaterThan(150);
+  const bad = Object.entries(BB_KEYS).filter(([k, kind]) => !KIND_OK[kind].includes(now[k])).map(([k, kind]) => `${k}: was ${kind}, now ${now[k] || "gone"}`);
+  expect(bad, "__bb keys removed or weakened since the recorded list").toEqual([]);
   expect(errors).toEqual([]);
 });
 
@@ -52,20 +66,26 @@ test("three.js comes from the import map only", { tag: "@fast" }, () => {
     for (const m of text.matchAll(/\bfrom\s+["']([^"']+)["']/g)) if (/^https?:/.test(m[1]) || /(^|\/)three(\.module)?\.js$/.test(m[1])) bad.push(`${name}: imports ${m[1]}`);
   }
   expect(bad).toEqual([]);
-  expect(/\bimport \* as THREE from "three";/.test(html), "the game imports the bare name").toBe(true);
+  expect(code.some(([, text]) => /\bimport \* as THREE from "three";/.test(text)), "the game imports the bare name (index.html or src/**)").toBe(true);
 });
 
-// AC 11b: `npm run lint` (scripts/lint.js, eslint.config.js) — the minimal rule set on every block, no globals for the core
-// (it runs in Node), browser globals for the client and the inline module, the local imports check for module code, and
-// a lint job in every Tests run
+// AC 11b: `npm run lint` (scripts/lint.js, eslint.config.js) — the minimal rule set on every block, no browser-only globals
+// for the core (it runs in Node; AC 3), browser globals for the client and the inline module, the local imports check for
+// module code, and a lint job in every Tests run
+const BROWSER_ONLY = ["document", "window", "localStorage", "navigator", "requestAnimationFrame", "Audio", "AudioContext", "globalThis"];
 test("lint config covers src/", { tag: "@fast" }, () => {
   const config = require(path.join(ROOT, "eslint.config.js"));
   const block = file => config.find(c => (c.files || []).includes(file));
   const core = block("src/core/**/*.js"), client = block("src/client/**/*.js");
   expect(!!core && !!client, "a src/core and a src/client block").toBe(true);
   for (const f of ["src/i18n.js", "src/story.js"]) expect(block(f), `${f} is linted like the core`).toBe(core);
-  expect(client.files, "the inline module is linted like the client").toContain(".lint-index.mjs");
-  expect(Object.keys(core.languageOptions.globals), "the core gets no globals").toEqual([]);
+  // the inline module is linted like the client while index.html still has one (Phase C empties the shell)
+  if (/<script type="module">/.test(fs.readFileSync(INDEX, "utf8"))) expect(client.files, "the inline module is linted like the client").toContain(".lint-index.mjs");
+  expect(BROWSER_ONLY.filter(g => g in core.languageOptions.globals), "browser-only globals allowed in the core").toEqual([]);
+  // globalThis is an ES built-in ESLint always knows: no-restricted-globals bans it (and the rest) in the core
+  const banned = (core.rules["no-restricted-globals"] || []).slice(1).map(g => (typeof g === "string" ? g : g.name));
+  expect(BROWSER_ONLY.filter(g => !banned.includes(g)), "browser-only globals not banned in the core").toEqual([]);
+  expect(core.languageOptions.globals.console, "the core may log (globals Node and browsers share)").toBeDefined();
   expect(client.languageOptions.globals.document, "the client gets browser globals").toBeDefined();
   for (const c of [core, client]) {
     expect(c.languageOptions.sourceType).toBe("module");
