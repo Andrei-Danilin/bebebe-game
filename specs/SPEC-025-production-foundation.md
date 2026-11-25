@@ -1,6 +1,6 @@
 # SPEC-025 — Production foundation: offline, safe saves, friendly errors, code checks, versions
 
-Status: ready
+Status: in progress (phase 1 merged)
 Complexity: L
 Branch: SPEC-025-production-foundation
 Decided by: Andrei (2026-11-23): prepare the game for normal, long-term production work and support (store releases later: free kids' game, no ads, no purchases, nothing collected, offline). The list of foundations, tools and numbers: Claude (spec author). SPEC-024 (release-readiness review) may add acceptance criteria here, marked "(from review)".
