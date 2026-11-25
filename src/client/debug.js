@@ -22,7 +22,7 @@ import { detectLang, I18N, L, lang, LANGS } from "../i18n.js";
 import { RULE_ICONS, SCENE_IDS, STORY, TUTORIAL_SCENES } from "../story.js";
 import { ART_NAMES } from "./art-names.js";
 import { art, ART_FALLBACK, artCount, artDone, artVersion, EMOJI_ART, FX_ART, HEART_ART, ITEM_ART, mapBgArt, PAPER_BTN, POP_ART, SHOP_TAB_ART, STORY_ART, UPG_ART, WARDROBE_ART, worldArt } from "./art.js";
-import { bannerAlpha, chapterOpen, closeShop, giveReward, mapTick, MODES, openMap, openScene, openStory, resetMenus, resetWorld, sceneNext, scenePageCount, scenePages, sceneSkip, selectWorld, SHOP_TABS, shopAfterWin, showBanner, startGame, toHome, toMap } from "./flow.js";
+import { bannerAlpha, chapterOpen, closeShop, giveReward, mapTick, MODES, openMap, openScene, openStory, resetMenus, resetWorld, sceneNext, scenePageCount, scenePages, sceneSkip, selectWorld, setShopTab, shopAfterWin, showBanner, startGame, toHome, toMap } from "./flow.js";
 import { burst, popText } from "./fx.js";
 import { stickR, sticks, toGame } from "./input.js";
 import { LOOK } from "./look.js";
@@ -116,7 +116,7 @@ export function installDebug() {
     LANGS, detectLang, get lang() { return lang; },   // SPEC-028: языки по порядку значка 🌐, язык при запуске (чистая), текущий язык
     update, inSafe, I18N, startGame, resetWorld, cycleOutfit, randomOutfit, cycleBig, setLang, toScreen,
     get items() { return items; }, get progress() { return progress; }, buyGloves, setEquip, get lastReward() { return lastReward; }, spawnItem,
-    UPGRADES, buyUpgrade, get upgrades() { return { ...progress.upgrades }; }, get shopTab() { return ui.shopTab; }, set shopTab(v) { if (SHOP_TABS.includes(v)) { ui.shopTab = v; ui.wardrobePage = "looks"; } },   // SPEC-009 (SPEC-017: + «wardrobe»)
+    UPGRADES, buyUpgrade, get upgrades() { return { ...progress.upgrades }; }, get shopTab() { return ui.shopTab; }, set shopTab(v) { setShopTab(v); },   // SPEC-009 (SPEC-017: + «wardrobe»)
     WARDROBE_TIERS, buyLook, resetOutfits, loadOutfits,   // SPEC-021: loadOutfits(save) — чистое «сохранение → наряды»
     get outfits() { return { shown: cloneSkins(skinSel), saved: cloneSkins(skinKeep) }; },   // SPEC-009: гардероб
     // SPEC-027: новые детали одежды модели: who — номер маленького или «p1» / «p2» (превью гардероба) → [{ piece, color }]

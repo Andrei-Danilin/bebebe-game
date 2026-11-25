@@ -6,6 +6,7 @@ import { level, numPlayers } from "../core/game.js";
 import { clamp, vrand } from "../core/util.js";
 import { BIG_SKINS, HAIRS, HATS, JACKETS, PANTS, SLOTS } from "../core/wardrobe.js";
 import { resetWorld } from "./flow.js";
+import { writeOutfits } from "./progress.js";
 import { SFX } from "./sound.js";
 
 export const P_COLORS = ["#3b82f6", "#22c55e"];        // цвет меток игрока 1 и 2
@@ -43,7 +44,7 @@ export function loadOutfits(sv) {
 }
 export let skinSel = cloneSkins(DEFAULT_SKINS);   // из bebebe-outfits — initSaves
 export let skinKeep = cloneSkins(skinSel);
-const saveSkins = () => { try { localStorage.setItem("bebebe-outfits", JSON.stringify({ ...skinKeep, v: OUTFITS_V })); } catch (e) { /* ok */ } };
+const saveSkins = () => writeOutfits({ ...skinKeep, v: OUTFITS_V });   // хранилище — progress.js
 // гардероб (SPEC-009): купленное — в progress.owned по id; ключ списка для слота; бесплатное (price 0, причёски) — всегда своё
 const OWN_KEY = { hat: "hats", jacket: "jackets", pants: "pants", big: "big" };
 export const LOOK_SLOTS = ["hat", "jacket", "pants"];   // платные слоты маленьких (причёски бесплатные)

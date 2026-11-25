@@ -1,12 +1,11 @@
-// SPEC-011: the renderer (created by initThree), the scene, the lights, the base camera, U/P, WALL_H. Client module (moved
-// out of index.html in Phase C).
+// SPEC-011: the renderer (created by initThree), the scene and the lights (set up by initScene), the base camera, U/P,
+// WALL_H. A leaf of the client (imports no client module). Client module (moved out of index.html in Phase C).
 
 import * as THREE from "three";
 import { CELL, COLS, H, ROWS, W } from "../../core/config.js";
 import { LOOK } from "../look.js";
-import { fit } from "../screen.js";
 
-export let renderer = null;           // создаётся в разделе 3D
+export let renderer = null;           // создаёт initThree()
 
 // =====================================================================
 //  3D (Three.js): мультяшный стиль — toon-освещение + чёрный контур
@@ -32,7 +31,10 @@ export function initThree() {
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFShadowMap;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
-  fit();
+}
+// called once by main.js, in the start order of the one-file game (after fit(): main.js calls it, so this module imports no
+// client module — a leaf, no evaluation-order risk)
+export function initScene() {
   scene.background = new THREE.Color("#6fb24f");
   scene.fog = new THREE.Fog("#6fb24f", 40, 75);
   scene.add(new THREE.HemisphereLight(0xffffff, 0x5d7f45, LOOK.TOON_LOOK.sky));

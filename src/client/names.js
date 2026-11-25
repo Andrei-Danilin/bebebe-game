@@ -1,8 +1,10 @@
-// SPEC-011: the players', the Big One's and the bots' names (bebebe-names): cleanName, initNames, nameFor, setName, nameOf.
+// SPEC-011: the players', the Big One's and the bots' names (bebebe-names, read and written by progress.js):
+// cleanName, namesFrom, nameFor, setName, nameOf.
 // Client module (moved out of index.html in Phase C).
 
 import { CFG } from "../core/config.js";
 import { L } from "../i18n.js";
+import { writeNames } from "./progress.js";
 
 // ---------- Имена: игроки, Большой, боты (localStorage bebebe-names; "" = имя по умолчанию на текущем языке) ----------
 const NAME_SLOTS = ["p1", "p2", "big", "bot1", "bot2", "bot3", "bot4"];
@@ -13,17 +15,14 @@ export function cleanName(s) {
   return Array.from(s).slice(0, CFG.NAME_MAX).join("").trim();      // длина — по кодовым точкам (эмодзи = 1)
 }
 let namesTyped = { p1: "", p2: "", big: "", bots: ["", "", "", ""] };
-// имена из bebebe-names (initSaves)
-export function initNames() {
-  try {
-    const nv = JSON.parse(localStorage.getItem("bebebe-names") || "null");
-    if (nv && typeof nv === "object") {
-      const bots = Array.isArray(nv.bots) ? nv.bots : [];
-      namesTyped = { p1: cleanName(nv.p1), p2: cleanName(nv.p2), big: cleanName(nv.big), bots: Array.from({ length: BOT_SLOTS }, (_, i) => cleanName(bots[i])) };
-    }
-  } catch (e) { /* сломанные данные — имена по умолчанию */ }
+// сохранённые имена (разобранный bebebe-names) → очищенные имена; не объект — null (остаются имена по умолчанию).
+// Хранилище читает и пишет progress.js (initNames, writeNames)
+export function namesFrom(nv) {
+  if (!nv || typeof nv !== "object") return null;
+  const bots = Array.isArray(nv.bots) ? nv.bots : [];
+  return { p1: cleanName(nv.p1), p2: cleanName(nv.p2), big: cleanName(nv.big), bots: Array.from({ length: BOT_SLOTS }, (_, i) => cleanName(bots[i])) };
 }
-const saveNames = () => { try { localStorage.setItem("bebebe-names", JSON.stringify(namesTyped)); } catch (e) { /* ok */ } };
+const saveNames = () => writeNames(namesTyped);
 export const typedName = slot => slot.startsWith("bot") ? namesTyped.bots[Number(slot.slice(3)) - 1] : namesTyped[slot];
 function defaultName(slot) {
   if (slot === "p1") return L().player1;
@@ -41,3 +40,6 @@ export function setName(slot, text) {
 export const allNames = () => ({ p1: nameFor("p1"), p2: nameFor("p2"), big: nameFor("big"), bots: [1, 2, 3, 4].map(i => nameFor("bot" + i)) });
 const slotOf = l => l.isBig ? "big" : l.kind === "player" && l.id < 2 ? "p" + (l.id + 1) : "bot" + (Math.max(0, l.botIndex) % BOT_SLOTS + 1);
 export const nameOf = l => nameFor(slotOf(l));
+
+// setters (SPEC-011 AC 5: other modules change this module's state only through them)
+export function setNamesTyped(v) { namesTyped = v; }

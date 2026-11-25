@@ -108,7 +108,7 @@ async function openGame(page, { lang = "en", clearStorage = true, query = "", si
 const openSim = (page, opts = {}) => openGame(page, { ...opts, sim: true });
 
 // SPEC-023 AC 5: a page opened in sim mode draws nothing, so a screenshot of it tests nothing — it throws instead.
-// (frames() and the drawn state of __bb check the page itself; see frames() and SIM_DRAWN in index.html.)
+// (frames() and the drawn state of __bb check the page itself; see frames() and SIM_DRAWN in src/client/debug.js.)
 function guardSim(page) {
   page.screenshot = async () => { throw new Error("sim mode: nothing is drawn — a test that takes a screenshot needs a rendered page (openGame without sim)"); };
 }

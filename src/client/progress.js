@@ -7,7 +7,7 @@ import { curWorld, numPlayers, setLevel, setRewardDue, setWorld } from "../core/
 import { hasFlatProgress, isOpen, worldProgress } from "../core/progress-rules.js";
 import { detectLang, HTML_LANG, lang, LANGS, setCurrentLang } from "../i18n.js";
 import { resetWorld } from "./flow.js";
-import { initNames } from "./names.js";
+import { namesFrom, setNamesTyped } from "./names.js";
 import { adoptWorn, cloneSkins, fitOutfitsToOwned, loadOutfits, setSkinKeep, setSkinSel, skinSel } from "./outfits.js";
 import { ui } from "./state.js";
 
@@ -29,8 +29,19 @@ export function setLang(l) {
   document.documentElement.lang = HTML_LANG[l] || l;
   try { localStorage.setItem("bebebe-lang", l); } catch (e) { /* ok */ }
 }
+// SPEC-011 review: every storage key of the client is read and written here — progress (hooks.save), language, outfits, names
 // прогресс → localStorage (hooks.save)
 export function writeProgress() { try { localStorage.setItem("bebebe-progress", JSON.stringify(progress)); } catch (e) { /* ok */ } }
+// наряды (bebebe-outfits: { p1, p2, big, v }) и имена (bebebe-names) → localStorage — их зовут outfits.js и names.js
+export function writeOutfits(o) { try { localStorage.setItem("bebebe-outfits", JSON.stringify(o)); } catch (e) { /* ok */ } }
+export function writeNames(t) { try { localStorage.setItem("bebebe-names", JSON.stringify(t)); } catch (e) { /* ok */ } }
+// имена из bebebe-names (initSaves)
+function initNames() {
+  try {
+    const t = namesFrom(JSON.parse(localStorage.getItem("bebebe-names") || "null"));
+    if (t) setNamesTyped(t);
+  } catch (e) { /* сломанные данные — имена по умолчанию */ }
+}
 // SPEC-011 AC 5b: сохранения грузятся в одном месте и в одном порядке, до первой игры: язык (есть ли сохранённый прогресс) →
 // наряды → имена → прогресс (setProgress; старое плоское сохранение один раз переписывается) → adoptWorn / fitOutfitsToOwned →
 // мир и уровень, на которых открывается меню. Форма сохранений не меняется (старые грузятся как раньше)

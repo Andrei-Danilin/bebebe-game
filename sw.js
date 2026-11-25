@@ -20,22 +20,22 @@ const NET_TIMEOUT_MS = 4000;             // weak signal: after this long, a cach
 const THREE_BASE = "https://cdn.jsdelivr.net/npm/three@0.187.0/build/";
 // SPEC-011: written by npm run precache (scripts/precache.js) — do not edit by hand
 // precache:start
-const SRC_HASH = "9d573bebf2";
+const SRC_HASH = "06f249f053";
 const PRECACHE_LOCAL = [
   "./", "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512-maskable.png",
   "./icons/icon-512.png", "./icons/icon.svg", "./index.html", "./manifest.webmanifest"
 ];
 const PRECACHE_SRC = [
-  "./src/client/art-names.js?v=7228f7f839", "./src/client/art.js?v=b7eb2eb143", "./src/client/debug.js?v=3dda677281",
+  "./src/client/art-names.js?v=7228f7f839", "./src/client/art.js?v=b7eb2eb143", "./src/client/debug.js?v=792b6acc9c",
   "./src/client/flow.js?v=aefd7355fa", "./src/client/fx.js?v=02df1e9940", "./src/client/input.js?v=c47e2ca5ed",
-  "./src/client/look.js?v=6b3f0ae3e3", "./src/client/main.js?v=2b9a2ef18d", "./src/client/names.js?v=2c33ce4064",
-  "./src/client/outfits.js?v=e37c62a0be", "./src/client/progress.js?v=c3e9cc60c0",
+  "./src/client/look.js?v=6b3f0ae3e3", "./src/client/main.js?v=e69a01ba3d", "./src/client/names.js?v=53974b368f",
+  "./src/client/outfits.js?v=14f0f56617", "./src/client/progress.js?v=4b67bae837",
   "./src/client/screen.js?v=57a76e38b6", "./src/client/shop.js?v=dd1bd5d1e3", "./src/client/sound.js?v=e9ddab15a9",
   "./src/client/state.js?v=90ca060a86", "./src/client/three/bosses.js?v=7814dfb8d4",
   "./src/client/three/camera.js?v=8933a2a902", "./src/client/three/characters.js?v=9043e46291",
   "./src/client/three/houses.js?v=f13b17c251", "./src/client/three/look3d.js?v=bc91f12374",
   "./src/client/three/map3d.js?v=c7e5cf1a4b", "./src/client/three/materials.js?v=04f0b0550d",
-  "./src/client/three/previews.js?v=3ec7d7da4e", "./src/client/three/setup.js?v=5f68a732a9",
+  "./src/client/three/previews.js?v=3ec7d7da4e", "./src/client/three/setup.js?v=76bc0369f3",
   "./src/client/three/sync.js?v=6a3198e926", "./src/client/three/themes.js?v=2dde3ea836",
   "./src/client/tutorial.js?v=e7f38fd969", "./src/client/ui/character/items.js?v=0580594792",
   "./src/client/ui/character/progress.js?v=e7feab8586", "./src/client/ui/character/tabs.js?v=6d32ab672c",

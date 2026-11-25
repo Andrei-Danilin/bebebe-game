@@ -20,7 +20,7 @@ import { initCamera, updateCamera } from "./three/camera.js";
 import { initCharacters, rebuild3D } from "./three/characters.js";
 import { initMaterials } from "./three/materials.js";
 import { initPreviews } from "./three/previews.js";
-import { initThree } from "./three/setup.js";
+import { initScene, initThree } from "./three/setup.js";
 import { initSync, render3D } from "./three/sync.js";
 import { firstTutorial, openTutorial, tutorialNext } from "./tutorial.js";
 import { updateMinimapFade } from "./ui/minimap.js";
@@ -39,6 +39,8 @@ setHooks({
 initSaves();
 initInput();
 initThree();
+fit();
+initScene();
 initCamera();
 initMaterials();
 initSync();

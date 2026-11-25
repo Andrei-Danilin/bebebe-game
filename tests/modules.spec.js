@@ -447,21 +447,36 @@ const SPEC_CLIENT = ["main", "state", "debug", "screen", "input", "sound", "prog
   "ui/character/progress", "ui/character/items", "ui/character/wardrobe", "ui/character/upgrades",
   "three/setup", "three/camera", "three/themes", "three/map3d", "three/characters", "three/sync", "three/houses", "three/materials",
   "three/bosses", "three/previews"].map(n => `src/client/${n}.js`);
-test("every module listed in architecture.md exists", { tag: "@fast" }, () => {
-  const doc = fs.readFileSync(ARCH, "utf8").replace(/\r\n/g, "\n");
+// the rows of the module table: file → the rest of its row
+function moduleTable() {
+  const doc = fs.readFileSync(ARCH, "utf8").split("\r\n").join("\n");
   const a = doc.indexOf("<!-- modules:start -->"), b = doc.indexOf("<!-- modules:end -->");
   expect(a > 0 && b > a, "the module table markers").toBe(true);
-  const rows = Object.fromEntries([...doc.slice(a, b).matchAll(/^\| `(src\/[^`]+)` \|(.*)$/gm)].map(m => [m[1], m[2]]));
-  const listed = Object.keys(rows);
-  expect(listed.filter(f => !fs.existsSync(path.join(ROOT, f))), "listed but missing").toEqual([]);
-  expect(allSrc().filter(f => !listed.includes(f)), "in src/ but not in the table").toEqual([]);
-  expect([...SPEC_CORE, ...SHARED, "src/client/look.js", "src/client/art-names.js", ...SPEC_CLIENT].filter(f => !listed.includes(f)), "the spec's modules").toEqual([]);
+  return Object.fromEntries([...doc.slice(a, b).matchAll(/^\| `(src\/[^`]+)` \|(.*)$/gm)].map(m => [m[1], m[2]]));
+}
+// every listed file exists, the table names every module-level let of the files of `files`
+function tableCovers(rows, files) {
   const missing = [];
-  for (const f of listed) {
+  for (const f of files) {
     const lets = [...readRoot(f).matchAll(/^(?:export )?let (.+)$/gm)].flatMap(m => [...m[1].matchAll(/(?:^|,\s*)([A-Za-z_$][\w$]*)\s*=/g)].map(x => x[1]));
     for (const l of lets) if (!rows[f].includes("`" + l + "`")) missing.push(`${f}: ${l}`);
   }
   expect(missing, "module-level lets the table does not name").toEqual([]);
+}
+test("every core module listed in architecture.md exists", { tag: "@fast" }, () => {
+  const rows = moduleTable(), listed = Object.keys(rows);
+  expect(listed.filter(f => !fs.existsSync(path.join(ROOT, f))), "listed but missing").toEqual([]);
+  const core = allSrc().filter(f => !f.startsWith("src/client/"));
+  expect(core.filter(f => !listed.includes(f)), "core and shared files not in the table").toEqual([]);
+  expect([...SPEC_CORE, ...SHARED].filter(f => !listed.includes(f)), "the spec's core modules").toEqual([]);
+  tableCovers(rows, core);
+});
+test("every module listed in architecture.md exists", { tag: "@fast" }, () => {
+  const rows = moduleTable(), listed = Object.keys(rows);
+  expect(listed.filter(f => !fs.existsSync(path.join(ROOT, f))), "listed but missing").toEqual([]);
+  expect(allSrc().filter(f => !listed.includes(f)), "in src/ but not in the table").toEqual([]);
+  expect(["src/client/look.js", "src/client/art-names.js", ...SPEC_CLIENT].filter(f => !listed.includes(f)), "the spec's client modules").toEqual([]);
+  tableCovers(rows, allSrc().filter(f => f.startsWith("src/client/")));
 });
 
 // AC 5: the live-bindings rule — a module's `let` is reassigned only in that module; others call its setter. ESLint's
@@ -551,13 +566,75 @@ test("only main.js starts the game", { tag: "@fast" }, () => {
     const others = client.filter(x => x !== MAIN && new RegExp(`(?<!function )\\b${n}\\(`).test(readRoot(x).replace(/\/\/.*$/gm, "")));
     expect(others, `${n} is called only by main.js`).toEqual([]);
   }
-  const at = ["setStrictRng(window.__bbStrictRng", "seedRandom(window.__bbSeed)", "setHooks({", "initSaves();", "initThree();", "resetWorld(1);",
+  const at = ["setStrictRng(window.__bbStrictRng", "seedRandom(window.__bbSeed)", "setHooks({", "initSaves();", "initThree();\nfit();\ninitScene();", "resetWorld(1);",
     "window.__bbReady = true;", "requestAnimationFrame(frame);", "registerServiceWorker();", "installDebug();"].map(t => [t, main.indexOf(t)]);
   expect(at.filter(([, i]) => i < 0).map(([t]) => t), "main.js runs every start step").toEqual([]);
   expect(at.map(([t]) => t), "in the start order").toEqual([...at].sort((x, y) => x[1] - y[1]).map(([t]) => t));
   for (const f of client.filter(x => x.startsWith("src/client/three/"))) {
     if (/\bTHREE\./.test(readRoot(f))) expect(readRoot(f), `${f} imports three by its bare name`).toMatch(/^import \* as THREE from "three";$/m);
   }
+});
+
+// The review of Phase C: the client's imports form cycles, and inside a cycle a module may be evaluated before a module it
+// imports. A declaration initialiser at the top level (evaluated at load, outside any function) that reads an imported binding
+// of a module in the same import cycle which is evaluated later would throw (TDZ) or read a half-built value. Evaluation order
+// as the browser does it: depth-first from src/client/main.js, imports in source order, a module after its imports.
+test("no top-level read of a module evaluated later in the same import cycle", { tag: "@fast" }, () => {
+  const espree = require("espree");
+  const files = allSrc(), info = {};
+  for (const f of files) {
+    const ast = espree.parse(readRoot(f), { ecmaVersion: "latest", sourceType: "module", loc: true });
+    const imported = new Map(), deps = [];
+    for (const n of ast.body) {
+      if (n.type !== "ImportDeclaration" || !n.source.value.startsWith(".")) continue;
+      const to = path.posix.normalize(path.posix.join(path.posix.dirname(f), n.source.value));
+      deps.push(to);
+      for (const s of n.specifiers) imported.set(s.local.name, to);
+    }
+    // identifiers read while the module evaluates: in declaration initialisers, outside function bodies
+    const reads = [];
+    const visit = (node, key) => {
+      if (!node || typeof node.type !== "string" || /Function/.test(node.type)) return;
+      if (node.type === "Identifier" && imported.has(node.name) && key !== "skip") reads.push([node.name, node.loc.start.line]);
+      for (const k of Object.keys(node)) {
+        if (k === "loc" || k === "range") continue;
+        const skip = ((node.type === "Property" || node.type === "PropertyDefinition") && k === "key" && !node.computed) || (node.type === "MemberExpression" && k === "property" && !node.computed);
+        const v = node[k];
+        if (Array.isArray(v)) v.forEach(x => visit(x, skip ? "skip" : k)); else if (v && typeof v.type === "string") visit(v, skip ? "skip" : k);
+      }
+    };
+    for (const n of ast.body) {
+      const d = n.type === "ExportNamedDeclaration" ? n.declaration : n;
+      if (d && (d.type === "VariableDeclaration" || d.type === "ClassDeclaration")) visit(d);
+    }
+    info[f] = { imported, deps, reads };
+  }
+  // evaluation order and the import cycles (Tarjan's strongly connected components)
+  const order = [], seen = new Set();
+  const post = f => { if (seen.has(f) || !info[f]) return; seen.add(f); info[f].deps.forEach(post); order.push(f); };
+  post("src/client/main.js");
+  const pos = new Map(order.map((f, i) => [f, i]));
+  let idx = 0;
+  const st = [], on = new Set(), I = {}, low = {}, comp = {};
+  const sc = v => {
+    I[v] = low[v] = idx++; st.push(v); on.add(v);
+    for (const w of info[v].deps.filter(x => info[x])) {
+      if (!(w in I)) { sc(w); low[v] = Math.min(low[v], low[w]); } else if (on.has(w)) low[v] = Math.min(low[v], I[w]);
+    }
+    if (low[v] === I[v]) { let w; do { w = st.pop(); on.delete(w); comp[w] = v; } while (w !== v); }
+  };
+  files.forEach(f => { if (!(f in I)) sc(f); });
+  const bad = [];
+  let reads = 0;
+  for (const f of files) for (const [name, line] of info[f].reads) {
+    reads++;
+    const from = info[f].imported.get(name);
+    if (comp[from] === comp[f] && pos.has(from) && pos.has(f) && pos.get(from) > pos.get(f)) bad.push(`${f}:${line} reads ${name} of ${from}, evaluated later in the same cycle`);
+  }
+  expect(order.length, "main.js reaches the client and the core").toBeGreaterThan(60);
+  expect(reads, "the scan sees top-level reads (LOOK, CFG, …)").toBeGreaterThan(20);
+  expect(bad).toEqual([]);
+  expect(info["src/client/three/setup.js"].deps.filter(d => d.startsWith("src/client/") && !/\/(look|art-names)\.js$/.test(d)), "three/setup.js is a leaf of the client").toEqual([]);
 });
 
 // AC 8c: no script or test reads game code from index.html. The files that still read index.html read the shell (since Phase C
