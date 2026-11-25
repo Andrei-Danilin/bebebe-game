@@ -32,8 +32,9 @@ export function initThree() {
   renderer.shadowMap.type = THREE.PCFShadowMap;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
 }
-// called once by main.js, in the start order of the one-file game (after fit(): main.js calls it, so this module imports no
-// client module — a leaf, no evaluation-order risk)
+// In the start order of the one-file game (after fit(): main.js calls it, so this module imports no client module except
+// the data leaf look.js — no evaluation-order risk).
+// called once by main.js
 export function initScene() {
   scene.background = new THREE.Color("#6fb24f");
   scene.fog = new THREE.Fog("#6fb24f", 40, 75);

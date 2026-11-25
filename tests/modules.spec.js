@@ -560,7 +560,7 @@ test("only main.js starts the game", { tag: "@fast" }, () => {
   expect(bad, "top-level statements other than declarations outside main.js").toEqual([]);
   const main = readRoot(MAIN).replace(/\r\n/g, "\n");
   const inits = client.flatMap(f => [...readRoot(f).replace(/\r\n/g, "\n").matchAll(/^\/\/ called once by main\.js.*\nexport function (\w+)\(\)/gm)].map(m => [f, m[1]]));
-  expect(inits.map(([, n]) => n), "the init functions").toEqual(expect.arrayContaining(["initThree", "initScreen", "initInput", "installDebug"]));
+  expect(inits.map(([, n]) => n), "the init functions").toEqual(expect.arrayContaining(["initThree", "initScene", "initScreen", "initInput", "installDebug"]));
   for (const [f, n] of inits) {
     expect([...main.matchAll(new RegExp(`^${n}\\(\\);$`, "gm"))].length, `${n} (${f}) is called once by main.js`).toBe(1);
     const others = client.filter(x => x !== MAIN && new RegExp(`(?<!function )\\b${n}\\(`).test(readRoot(x).replace(/\/\/.*$/gm, "")));

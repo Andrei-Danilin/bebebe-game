@@ -20,7 +20,7 @@ const NET_TIMEOUT_MS = 4000;             // weak signal: after this long, a cach
 const THREE_BASE = "https://cdn.jsdelivr.net/npm/three@0.187.0/build/";
 // SPEC-011: written by npm run precache (scripts/precache.js) — do not edit by hand
 // precache:start
-const SRC_HASH = "06f249f053";
+const SRC_HASH = "74ff548438";
 const PRECACHE_LOCAL = [
   "./", "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512-maskable.png",
   "./icons/icon-512.png", "./icons/icon.svg", "./index.html", "./manifest.webmanifest"
@@ -35,7 +35,7 @@ const PRECACHE_SRC = [
   "./src/client/three/camera.js?v=8933a2a902", "./src/client/three/characters.js?v=9043e46291",
   "./src/client/three/houses.js?v=f13b17c251", "./src/client/three/look3d.js?v=bc91f12374",
   "./src/client/three/map3d.js?v=c7e5cf1a4b", "./src/client/three/materials.js?v=04f0b0550d",
-  "./src/client/three/previews.js?v=3ec7d7da4e", "./src/client/three/setup.js?v=76bc0369f3",
+  "./src/client/three/previews.js?v=3ec7d7da4e", "./src/client/three/setup.js?v=a26d88fa4c",
   "./src/client/three/sync.js?v=6a3198e926", "./src/client/three/themes.js?v=2dde3ea836",
   "./src/client/tutorial.js?v=e7f38fd969", "./src/client/ui/character/items.js?v=0580594792",
   "./src/client/ui/character/progress.js?v=e7feab8586", "./src/client/ui/character/tabs.js?v=6d32ab672c",
