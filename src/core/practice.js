@@ -1,12 +1,11 @@
 // SPEC-029 / SPEC-011: the practice games of the tutorial — their map, setup, scripted bot and Big One, hint state. Core module.
 import { CELL, CFG, COLS, ROWS } from "./config.js";
-import { hooks } from "./hooks.js";
 import { angDiff, dist, mulberry32 } from "./util.js";
-import { L } from "../i18n.js";
 import { applyWorld, connectivity } from "./level/build.js";
 import { houseDoor, placeSmallHome } from "./level/generate.js";
 import { BIG_HOUSE, bigHouse, hWallTo, vWallTo } from "./level/layouts.js";
 import { G } from "./active.js";
+import { emit } from "./game.js";
 
 // ---------- SPEC-029: карта тренировок обучения ----------
 // Своя, всегда одна и та же (без случайности): поляна в левом верхнем углу ≈ CFG.TUTORIAL.mapArea площади карты (21 × 14 клеток
@@ -67,7 +66,7 @@ export function updateTutorial(dt) {
       for (const l of G.littles) {
         const sp = G.spawns.small[l.id];
         Object.assign(l, { state: "ok", x: sp.x, y: sp.y, kx: 0, ky: 0, rescue: 0, path: [], moving: false, invuln: CFG.INVULN_AFTER_RESCUE });
-        hooks.pop(l.x, l.y - 40, L().back, "#7CFC9A");
+        emit("pop", { key: "back", args: [], x: l.x, y: l.y - 40, color: "#7CFC9A" });
       }
     }
   } else G.tut.bothDown = 0;

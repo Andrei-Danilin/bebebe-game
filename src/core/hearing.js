@@ -1,7 +1,7 @@
 // SPEC-019 / SPEC-011: the Big One hears running feet. Core module.
 import { CELL, CFG } from "./config.js";
 import { angDiff, dist, normAng, rand } from "./util.js";
-import { logEvent } from "./game.js";
+import { emit, logEvent } from "./game.js";
 import { inSafe, los, seeSolidAt } from "./world.js";
 import { G } from "./active.js";
 
@@ -41,7 +41,7 @@ export function hearNoise(dt) {
   G.big.hearLook = rand(CFG.HEAR_LOOK[0], CFG.HEAR_LOOK[1]);
   G.big.state = "look"; G.big.timer = Math.max(G.big.timer, CFG.HEAR_TURN_TIME + G.big.hearLook); G.big.goal = null; G.big.path = [];
   logEvent("heard", { who: loud.id, kind: loud.kind });
-  if (loud.kind === "player" && !G.heardHintDone) { G.heardHintDone = true; G.heardHintT = CFG.HEAR_HINT_TIME; G.heardHintPi = loud.id; }
+  if (loud.kind === "player" && !G.heardHintDone) { G.heardHintDone = true; emit("hint", { kind: "heard", slot: loud.slot }); }
 }
 // значок над Большим (тот же порядок, что рисуется): 🍌💫, ?!, 💗, ❓ (обернулся на топот), 👂 (слышит), 💦, !
 export function bigMark() {

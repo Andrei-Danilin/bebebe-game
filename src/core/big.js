@@ -1,6 +1,5 @@
 // SPEC-011: the Big One — what he sees, how he looks, chases, searches and patrols. Core module.
 import { CFG } from "./config.js";
-import { hooks } from "./hooks.js";
 import { angDiff, dist, rand, rng, turnToward } from "./util.js";
 import { bigSpeeds } from "./difficulty.js";
 import { bigDeaf, hearNoise, stopHearing } from "./hearing.js";
@@ -8,6 +7,7 @@ import { inBush, moveEntity, randomFreePoint, steerTo } from "./path.js";
 import { pushHit } from "./rules.js";
 import { inSafe, los, seeSolidAt } from "./world.js";
 import { G } from "./active.js";
+import { emit } from "./game.js";
 
 export function canSee(l) {
   if (inSafe(l)) return false;          // в домике Большой не видит и не трогает
@@ -77,7 +77,7 @@ export function updateBig(dt) {
   if (target) {
     G.big.hearTurnT = 0; G.big.hearLook = 0;                 // видит — топот уже не важен; шум тает
     G.big.noise = Math.max(0, G.big.noise - CFG.NOISE_DECAY * dt);
-    if (G.big.state !== "chase") { hooks.pop(G.big.x, G.big.y - 75, "!", "#ff3b30"); hooks.sfx("alert"); }
+    if (G.big.state !== "chase") { emit("pop", { key: null, args: ["!"], x: G.big.x, y: G.big.y - 75, color: "#ff3b30" }); emit("sfx", { name: "alert" }); }
     G.big.state = "chase";
     G.big.lastSeen = { x: target.x, y: target.y };
     G.big.moving = steerTo(G.big, target.x, target.y, speed.chase, dt, false);

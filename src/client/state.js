@@ -17,6 +17,8 @@ export const ui = {
   particles: [],
   muted: false,
   shake: 0,
+  // SPEC-012 AC 5: the client's timers of the core's hints (who, how long still) and the wide-push rings { x, y, t, r }
+  kitHintT: 0, kitHintPi: 0, heardHintT: 0, heardHintPi: 0, waves: [],
   menuSpin: 0,   // SPEC-012 AC 1d: how far the Big One has turned in the menus (a view angle; the game's big.dir is untouched)
   buttons: [],
   resetArmed: false,

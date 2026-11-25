@@ -334,7 +334,7 @@ const FX_SIZE = { heart: "fxHeart", star: "fxStar", dust: "fxDust" };
 const fxA = { x: 0, y: 0 }, fxB = { x: 0, y: 0 };
 export function drawFx() {
   const P = LOOK.PAPER;
-  for (const w of G.pushWaves) {                             // SPEC-022: кольцо широкого толчка — на земле, расходится и гаснет
+  for (const w of ui.waves) {                             // SPEC-022: кольцо широкого толчка — на земле, расходится и гаснет
     const k = w.t / CFG.WAVE_TIME, rr0 = w.r * (0.35 + 0.65 * k);
     ctx.beginPath();
     for (let i = 0; i <= 32; i++) { toScreenTo(fxA, w.x + Math.cos(i / 32 * TAU) * rr0, w.y + Math.sin(i / 32 * TAU) * rr0, 2); if (i) ctx.lineTo(fxA.x, fxA.y); else ctx.moveTo(fxA.x, fxA.y); }

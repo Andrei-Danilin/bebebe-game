@@ -266,27 +266,25 @@ const codeOnly = s => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|\s)\/\/.*$/
   .replace(/"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|`(?:[^`\\]|\\.)*`/g, "\"\"");
 
 // AC 3b: the core reaches the client only through one port, src/core/hooks.js: setHooks({ … }) with no-op defaults (the Node
-// import works without a client). Every hook, and what replaces it (SPEC-012 turns sfx, burst, pop, shake and save into events
-// and removes them here; inputFor became the input slots G.inputs, AC 3):
+// import works without a client). SPEC-012 AC 5: the effects (sfx, burst, pop, shake, fx, banner) became events in G.fx and the
+// input hook became the input slots G.inputs (AC 3); the hooks left, each with why ("core hook list"):
 const HOOKS = {
-  sfx: "a sound by its SFX name (SPEC-012: an event)",
-  burst: "particles (SPEC-012: an event)",
-  pop: "a flying text over the game; the core gives the text (SPEC-012: an event)",
-  shake: "camera shake (SPEC-012: an event)",
-  fx: "the client's own effects step inside update() (and in the menus): flying texts, particles, shake",
-  banner: "the level banner's clock: it runs while the level plays (update)",
-  save: "write progress to storage — economy.js saves only through it (SPEC-012: an event)",
+  // the client writes progress to storage after every change of economy.js (SPEC-012 step 5 turns the changes into events the
+  // client applies and saves, and removes this hook)
+  save: "write progress to storage — economy.js saves only through it (SPEC-012 step 5: events)",
+  // the 3D scene must be rebuilt at once, inside the build, for the game just built (its map and characters)
   rebuild: "rebuild the 3D scene for the game buildGame just built",
+  // the win screen and the world the win opened (SPEC-012 step 5: the result event)
   onWin: "a level was won and paid: the client's flow (the map shows a world the win opened)",
   // the one hook in HOOKS_REENTER: it starts the next practice game, whose buildGame draws the gameplay rng() — so it runs
-  // without the noGameRng guard every other hook has
+  // without the noGameRng guard every other hook has (SPEC-012 step 5: the practiceWin event)
   onPracticeWin: "a practice game was won: the next tutorial step (re-enters the core)"
 };
 // client code the logic called directly before SPEC-011 (RR-01) and client state it wrote: none of it in the core
 const CLIENT_NAMES = ["SFX", "burst", "popText", "texts", "particles", "shake", "banner", "showBanner", "camSnap", "rebuild3D", "sticks",
   "keys", "pads", "deviceInput", "stickR", "tiptoeKey", "PHONE", "isTouch", "skinSel", "skinKeep", "makeLook", "botOutfit",
   "tutorialNext", "openedWorld", "worldBanner", "writeProgress", "localStorage", "document", "simMode", "renderer", "camera", "ctx"];
-test("core reaches the client only through hooks", { tag: "@fast" }, () => {
+test("core hook list", { tag: "@fast" }, () => {
   const core = coreCode();
   expect(core.map(([f]) => f), "the core and the hooks port exist").toEqual(expect.arrayContaining(["src/core/hooks.js", "src/core/economy.js", "src/core/game.js"]));
   const bad = [];
@@ -302,6 +300,8 @@ test("core reaches the client only through hooks", { tag: "@fast" }, () => {
   const defaults = port.match(/HOOK_DEFAULTS\s*=\s*Object\.freeze\(\{([\s\S]*?)\n\}\)/);
   expect(!!defaults, "HOOK_DEFAULTS in hooks.js").toBe(true);
   expect([...defaults[1].matchAll(/^\s*(\w+):/gm)].map(m => m[1])).toEqual(Object.keys(HOOKS));
+  const raw = readRoot("src/core/hooks.js").replace(/\r\n/g, "\n").match(/HOOK_DEFAULTS\s*=\s*Object\.freeze\(\{\n([\s\S]*?)\n\}\)/)[1].split("\n");
+  expect(raw.filter(l => !l.includes("//")), "every hook says why it is still a hook").toEqual([]);
   expect(port).toMatch(/noGameRng\(""\s*\+\s*k\b/);
   expect(port).toMatch(/function setHooks\(/);
   expect(readRoot("src/core/hooks.js"), "only onPracticeWin runs without the rng guard").toMatch(/HOOKS_REENTER = Object\.freeze\(\["onPracticeWin"\]\)/);
@@ -363,6 +363,23 @@ test("no mutable module-level containers in core", { tag: "@fast" }, () => {
   // the scan sees what it is for: a typed array, a Map, an array, a let, a call — and not a frozen table or a function
   const planted = coreModuleState([["x.js", "export const a = new Uint8Array(4), b = new Map(), c = [];\nlet d = 0;\nconst e = make(), f = Object.freeze([1]), g = () => 1, h = 3;"]]);
   expect(planted).toEqual(["x.js:a", "x.js:b", "x.js:c", "x.js:d", "x.js:e"]);
+});
+
+// SPEC-012 AC 5: the core never translates — a pop text is an I18N key and its arguments (emit("pop", { key, args, … })), each
+// client says it in its own language; no L(), I18N or import of src/i18n.js in src/core/
+test("no `L()` / `I18N` use in src/core/", { tag: "@fast" }, () => {
+  const bad = [];
+  for (const [f, text] of coreCode()) {
+    if (/from\s*["'][^"']*i18n\.js["']/.test(text)) bad.push(`${f}: imports i18n.js`);
+    const code = codeOnly(text);
+    if (/(?<![.\w$])L\(\)/.test(code)) bad.push(`${f}: calls L()`);
+    if (/(?<![.\w$])I18N\b/.test(code)) bad.push(`${f}: uses I18N`);
+  }
+  expect(bad).toEqual([]);
+  // and the effect events are the core's way to the client: every pop names a key (or a null key with the text itself)
+  const pops = coreCode().flatMap(([f, t]) => [...t.matchAll(/emit\("pop", \{ key: ([^,]+),/g)].map(m => m[1]));
+  expect(pops.length, "the core emits pop texts").toBeGreaterThan(15);
+  expect(pops.filter(k => !/^("\w+"|null|power > 1 \? "megaHug" : "hug")$/.test(k)), "pop keys that are not a key or null").toEqual([]);
 });
 
 // AC 2c: CFG is split by meaning — src/core/config.js holds the rules, generator and balance, src/client/look.js (LOOK) the look/UI

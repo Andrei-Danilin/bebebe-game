@@ -94,8 +94,8 @@ export function drawHUD(t) {
 
 // Подсказка «Нажми 🩹» (SPEC-007): видна KIT_HINT_TIME сек, пока упавший игрок может встать спасалкой.
 // Без сенсорного экрана — ещё и клавиша этого игрока: Q (игрок 2 вдвоём — Shift справа)
-export const kitHintOn = () => mode === "play" && G.kitHintT > 0 && canKitNow(G.littles[G.kitHintPi]);
-const kitHintText = () => L().kitHint + (PHONE || isTouch ? "" : ` (${G.players === 2 && G.kitHintPi === 1 ? L().kitKey2 : L().kitKey1})`);
+export const kitHintOn = () => mode === "play" && ui.kitHintT > 0 && canKitNow(G.littles[ui.kitHintPi]);
+const kitHintText = () => L().kitHint + (PHONE || isTouch ? "" : ` (${G.players === 2 && ui.kitHintPi === 1 ? L().kitKey2 : L().kitKey1})`);
 export function drawKitHint(x, y, w, h, r, note, size, min) {
   const text = kitHintText();
   rr(x, y, w, h, r); fillStroke("rgba(255,250,235,.95)", 3);
@@ -106,8 +106,8 @@ export function drawKitHint(x, y, w, h, r, note, size, min) {
 
 // Подсказка «Папа услышал топот!» (SPEC-019): видна HEAR_HINT_TIME сек после первого за уровень поворота на топот игрока.
 // Без сенсорного экрана — клавиша этого игрока (левый Shift; вдвоём у игрока 2 — «/»), иначе — про джойстик
-export const heardHintOn = () => mode === "play" && G.heardHintT > 0;
-const heardKey = () => G.players === 2 && G.heardHintPi === 1 ? L().heardKey2 : L().heardKey1;
+export const heardHintOn = () => mode === "play" && ui.heardHintT > 0;
+const heardKey = () => G.players === 2 && ui.heardHintPi === 1 ? L().heardKey2 : L().heardKey1;
 export const heardHintText = () => PHONE || isTouch ? L().heardHintTouch : L().heardHint(heardKey());
 // плашка нижним краем на bottom, до двух строк (мерка с LOOK.TEXT_TEST_SCALE, не мельче min); → кегль
 export function drawHeardHint(x, bottom, w, size, min, pad) {

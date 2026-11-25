@@ -25,6 +25,7 @@ import { camSnap } from "./three/camera.js";
 import { setTutorial, tutorialPages } from "./tutorial.js";
 import { lockedText } from "./ui/map.js";
 import { rebuild3D } from "./three/characters.js";
+import { drainEvents } from "./fx.js";
 
 // SPEC-012 AC 1c: the screen is the client's (the core has only the game's phase, G.phase). mode — one of MODES; lastReward — the
 // reward of the last level paid (payReward's result: the win screen shows it), null after a new game is built
@@ -33,6 +34,7 @@ export let mode = "home", lastReward = null;
 // tab and wardrobe page outside the shop, the map's hint outside the map, the world page's background outside the map and its
 // card, the name input outside the wardrobe
 export function setMode(v) {
+  if (v !== "play") for (const inp of Object.values(G.inputs || {})) { inp.kiss = false; inp.kit = false; inp.act = false; }   // a press never fires after the game left play
   mode = v;
   if (mode !== "shop") { ui.shopTab = "items"; ui.wardrobePage = "looks"; }
   if (mode !== "map") ui.toast = null;   // SPEC-017: подсказка карты — только пока карта на экране
@@ -48,8 +50,8 @@ const press = (pi, k) => { const l = G.littles[pi]; if (mode !== "play" || !l ||
 export const pressKiss = pi => press(pi, "kiss");
 export const pressKit = pi => press(pi, "kit");
 // shims for the tests (__bb.throwKiss / useRescueKit): the rule at once, past the input slot
-export const kissNow = pi => mode === "play" && throwKiss(pi);
-export const kitNow = pi => mode === "play" && useRescueKit(pi);
+export const kissNow = pi => { const r = mode === "play" && throwKiss(pi); drainEvents(); return r; };
+export const kitNow = pi => { const r = mode === "play" && useRescueKit(pi); drainEvents(); return r; };
 // a level won (the core's onWin hook, after payReward): the win screen and the world the win opened
 export function onWin(r) { lastReward = r; setMode("win"); noteOpenedWorld(r); }
 
@@ -88,7 +90,7 @@ export function noteOpenedWorld(r) { if (r && r.worldOpened) ui.openedWorld = r.
 const localRng = newRng();
 export function seedRandom(n) { seedStream(n, localRng); }
 export const rngDraws = () => localRng.draws;
-const KEEP = Object.freeze(["events", "rewardDue", "itemSeq", "starSeq", "kissSeq", "kitHintPi", "heardHintPi", "tutorialGame", "tut", "tutorialInv", "autoOn", "autoStyle"]);
+const KEEP = Object.freeze(["events", "rewardDue", "itemSeq", "starSeq", "kissSeq", "tutorialGame", "tut", "tutorialInv", "autoOn", "autoStyle"]);
 // the looks of n players, the bots and the Big One from the wardrobe (the game only carries them)
 const looksFor = n => ({ players: [makeLook(skinSel.p1), makeLook(skinSel.p2)], bots: Array.from({ length: teamSize() - n }, (_, bi) => makeLook(botOutfit(bi))), big: BIG_SKINS[skinSel.big] });
 // SPEC-012 AC 2: the slots of a local game — n players p1…pn (look, glove, upgrades from the saves), the bots with their looks,
@@ -100,7 +102,7 @@ function localSlots(n) {
 }
 const localStock = () => ({ shared: true, kisses: progress.inv.kisses, kits: progress.inv.rescues, gloves: { mittens: progress.inv.mittens, mega: progress.inv.mega } });
 // the client's per-game view state from scratch: texts, particles, shake, sticks, the reset button, the menu spin of the Big One
-function clearView() { ui.texts = []; ui.particles = []; ui.shake = 0; sticks.clear(); ui.resetArmed = false; ui.menuSpin = 0; }
+function clearView() { ui.texts = []; ui.particles = []; ui.shake = 0; sticks.clear(); ui.resetArmed = false; ui.menuSpin = 0; ui.waves = []; ui.kitHintT = 0; ui.heardHintT = 0; }
 function buildLocal(n, playable) {
   if (PHONE) n = 1;                  // на телефоне играет один (SPEC-005)
   clearView();

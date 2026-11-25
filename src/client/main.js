@@ -3,18 +3,17 @@
 // registerServiceWorker, installDebug. Client module (moved out of index.html in Phase C).
 
 import { progress } from "../core/economy.js";
-import { newGame, update, updateFx, useGame } from "../core/game.js";
+import { newGame, useGame } from "../core/game.js";
 import { setHooks } from "../core/hooks.js";
 import { noGameRng, setStrictRng } from "../core/util.js";
 import { artGate, initArt } from "./art.js";
 import { installDebug } from "./debug.js";
 import { inMenus, inWardrobe, mapTick, mode, onWin, openScene, redress, resetWorld, seedRandom } from "./flow.js";
-import { bannerTick, burst, clientFx, popText } from "./fx.js";
-import { fillInputs, initInput, pollPads } from "./input.js";
+import { drainEvents, stepGame, viewTick } from "./fx.js";
+import { initInput, pollPads } from "./input.js";
 import { endTryOn } from "./outfits.js";
 import { initSaves, writeProgress } from "./progress.js";
 import { fit, initScreen, isTouch, simMode } from "./screen.js";
-import { SFX } from "./sound.js";
 import { ui } from "./state.js";
 import { initCamera, updateCamera } from "./three/camera.js";
 import { initCharacters, rebuild3D } from "./three/characters.js";
@@ -34,7 +33,7 @@ initArt();
 initScreen();
 // SPEC-011 AC 3b: сторона клиента в порту hooks (Phase C: src/client/main.js) — до загрузки сохранений и до первой игры
 setHooks({
-  sfx: name => SFX[name](), burst, pop: popText, shake: v => { ui.shake = v; }, fx: clientFx, banner: bannerTick, rebuild: rebuild3D, save: writeProgress,
+  rebuild: rebuild3D, save: writeProgress,
   onWin, onPracticeWin: () => tutorialNext()
 });
 initSaves();
@@ -72,8 +71,8 @@ function frame(now) {
   if (!inWardrobe() && endTryOn()) redress();   // SPEC-009/017: ушли из вкладки «Гардероб» (друзья — её часть) — примерка кончилась
   const portrait = isTouch && window.innerHeight > window.innerWidth;
   mapTick(dt);
-  if (mode === "play" && !portrait) { fillInputs(); update(dt); }   // SPEC-012 AC 3: the players' sticks into their slots, then one step
-  else { updateFx(dt); if (inMenus()) ui.menuSpin += dt * 0.8; }   // SPEC-012 AC 1d: the Big One turns in the menus — a view angle, not game state
+  if (mode === "play" && !portrait) stepGame(dt);           // SPEC-012: devices → one step → its effects (AC 3, AC 5)
+  else { drainEvents(); viewTick(dt); if (inMenus()) ui.menuSpin += dt * 0.8; }   // SPEC-012 AC 1d: the Big One turns in the menus — a view angle, not game state
   noGameRng("render", () => {              // рисование не тянет игровую случайность (SPEC-008: тесты — ошибка, игра — vrand)
     updateCamera(dt);                       // телефон: камера за героем (3D-слой, не логика)
     updateMinimapFade(dt);                  // телефон: мини-карта бледнеет, когда под ней герой или Большой (SPEC-010)

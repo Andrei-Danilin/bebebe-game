@@ -37,9 +37,11 @@ export function newGame(opts = {}) {
     events: [],
     bonusStars: [], starCd: 10, starSeq: 0,                  // бонусные звёздочки (отдельно от предметов)
     kisses: [], kissSeq: 0,                                  // летящие воздушные поцелуи
-    pushWaves: [],                                           // SPEC-022: кольца широкого толчка { x, y, t, r } (растут WAVE_TIME сек)
-    kitHintT: 0, kitHintDone: false, kitHintPi: 0,           // подсказка «Нажми 🩹» (SPEC-007): раз за уровень
-    heardHintT: 0, heardHintDone: false, heardHintPi: 0,     // SPEC-019: «Папа услышал топот!» — раз за уровень
+    kitHintDone: false,                                      // подсказка «Нажми 🩹» (SPEC-007): раз за уровень (её время — у клиента)
+    heardHintDone: false,                                    // SPEC-019: «Папа услышал топот!» — раз за уровень (её время — у клиента)
+    // SPEC-012 AC 5: the effect events of the steps not yet drained by the client — { type: "sfx" | "burst" | "pop" | "shake" |
+    // "wave" | "hint" | "mood", … } (see emit); not capped, never mixed with the gameplay log events; null (opts.fx false): none kept
+    fx: opts.fx === false ? null : [],
     rewardDue: false,                                        // уровень начат и ещё не оплачен (startGame → true; награда, сброс или замена прогресса → false)
     // карта уровня (world.js): препятствия, кусты, домики, сетки движения и взгляда; levelInfo — какой уровень построен (build.js)
     obstacles: [], bushes: [], floors: [], decor: [], trees: [], flowers: [],
@@ -59,6 +61,10 @@ export function newGame(opts = {}) {
 export function useGame(g) { setActiveGame(g); return g; }
 export function withGame(g, fn) { const prev = setActiveGame(g); try { return fn(); } finally { setActiveGame(prev); } }
 export function step(g, dt) { useGame(g); update(dt); }
+// SPEC-012 AC 5: an effect for the client (it plays it as today): sfx { name }, burst { kind, x, y, n, color }, pop { key, args, x,
+// y, color, meaning } (an I18N key and its arguments — key null: args[0] is the text itself, a number or a sign), shake { t },
+// wave { x, y, r } (a wide push ring), hint { kind: "kit" | "kitOff" | "heard" | "practice", slot, step }, mood { level }
+export function emit(type, data) { if (G.fx) G.fx.push({ type, ...data }); }
 export function logEvent(type, data) {
   const e = { t: G.stats.time, type, ...data };
   G.events.push(e);
@@ -120,11 +126,10 @@ export function buildGame(world, n, slots) {
     skin: bs.skin ?? null, name: bs.name ?? null,
     player: bs.kind === "player"   // SPEC-012 AC 4: a player moves him (G.inputs.big), his AI does not run
   };
-  G.items = []; G.itemCd = rand(4, 7); G.pendingWin = 0; G.pushWaves = [];
+  G.items = []; G.itemCd = rand(4, 7); G.pendingWin = 0;
   G.bonusStars = []; G.starCd = rand(CFG.STAR_EVERY[0], CFG.STAR_EVERY[1]);
   G.kisses = [];
-  G.kitHintT = 0; G.kitHintDone = false;
-  G.heardHintT = 0; G.heardHintDone = false;
+  G.kitHintDone = false; G.heardHintDone = false;
   G.attackToken = null; G.prevToken = null; G.botAttackCd = rand(3, 5);
   G.stats = { hugs: 0, time: 0, playerHugs: 0, rests: 0, starCoins: 0 };
   G.autoNavs = {}; G.autoMove = [];
@@ -183,15 +188,8 @@ function updatePlayers(dt) {
   }
 }
 
-// эффекты: кольца широкого толчка (игра); летящие надписи, частицы и тряска — у клиента (hooks.fx)
-export function updateFx(dt) {
-  for (const w of G.pushWaves) w.t += dt;
-  G.pushWaves = G.pushWaves.filter(w => w.t < CFG.WAVE_TIME);
-  hooks.fx(dt);
-}
 export function update(dt) {
   if (!G.big.kind) G.stats.time += dt;                         // SPEC-022: пока подобревший папа идёт домой, часы уровня стоят
-  hooks.banner(dt);                                        // надпись уровня гаснет (клиент)
   for (const l of G.littles) {
     l.invuln = Math.max(0, l.invuln - dt);
     l.hugCd = Math.max(0, l.hugCd - dt);
@@ -202,8 +200,6 @@ export function update(dt) {
       const f = Math.exp(-7 * dt); l.kx *= f; l.ky *= f;
     } else { l.kx = 0; l.ky = 0; }
   }
-  G.kitHintT = Math.max(0, G.kitHintT - dt);
-  G.heardHintT = Math.max(0, G.heardHintT - dt);
   if (G.big.kind) updateKindWalk(dt);                        // SPEC-022: идёт домой; маленькие стоят и радуются
   else { readInputs(dt); updatePlayers(dt); updateBots(dt); if (G.big.player) updateBigPlayer(dt); else updateBig(dt); }
   updateHugAnim(dt);
@@ -211,19 +207,23 @@ export function update(dt) {
   separate();
   checkContacts();
   updateDowned(dt);
-  if (G.tutorialGame) updateTutorial(dt);                    // SPEC-029: оба лежат — встают; подсказки по шагам
+  if (G.tutorialGame) {                                     // SPEC-029: оба лежат — встают; подсказки по шагам
+    const h0 = G.tut.hint;
+    updateTutorial(dt);
+    if (G.tut.hint !== h0) emit("hint", { kind: "practice", slot: G.littles[0].slot, step: G.tut.hint });
+  }
   updateDanger(dt);
   updateResting(dt);
   updateItems(dt);
   updateStars(dt);
-  updateFx(dt);
   // победа в два шага (SPEC-022): последняя обнимашка доигрывает (HUG_ANIM) → папа добреет и идёт домой (KIND_WALK) → экран победы
   if (G.pendingWin > 0) { G.pendingWin -= dt; if (G.pendingWin <= 0 && G.phase !== "won") { if (G.big.kind) winNow(); else startKindWalk(); } }
   // проигрыша больше нет: кого не спасли — отдыхает в домике и возвращается (за это меньше монеток)
 }
-// SPEC-008: шагает игру пачкой (dt — сек игры за шаг), пока уровень идёт и не вышло seconds; → простые данные
-export function simRun(seconds, dt = CFG.BALANCE.SIM_DT) {
+// SPEC-008: шагает игру пачкой (dt — сек игры за шаг), пока уровень идёт и не вышло seconds; → простые данные.
+// stepFn — один шаг (по умолчанию update; клиент даёт свой stepGame: ввод, эффекты и их таймеры — как в игре)
+export function simRun(seconds, dt = CFG.BALANCE.SIM_DT, stepFn = update) {
   const n = Math.round(seconds / dt);
-  for (let i = 0; G.phase !== "won" && (i < n || G.pendingWin > 0); i++) update(dt);   // SPEC-022: начатая победа (обнимашка, дорога домой) доигрывается
+  for (let i = 0; G.phase !== "won" && (i < n || G.pendingWin > 0); i++) stepFn(dt);   // SPEC-022: начатая победа (обнимашка, дорога домой) доигрывается
   return { ended: G.phase === "won", win: G.phase === "won" && !G.tutorialGame, time: G.stats.time };   // SPEC-029: a practice game ends without a win screen
 }

@@ -864,6 +864,24 @@ test("throwing spends a kiss and has a cooldown", async ({ simPage: page }) => {
   expect(r.none).toBe(false);
 });
 
+// SPEC-012 AC 3: a key press waits in the player's input slot for the next step; when the game leaves play first (pause, win,
+// another screen) the press is dropped — it never fires later
+test("a press pending when the game leaves play never fires", async ({ simPage: page }) => {
+  await installTestHelpers(page);
+  const r = await page.evaluate(spot => {
+    const b = window.__bb, t = window.__t;
+    b.progress.inv.kisses = 5; t.calm(); b.big.noPush = 999; t.pin([0]);
+    Object.assign(b.littles[0], { x: spot.x, y: spot.y, dir: 0, kissCd: 0 });
+    t.key("KeyE", true); t.key("KeyE", false);
+    b.mode = "pause"; b.mode = "play"; b.update(1 / 60);
+    const dropped = [b.kisses.length, b.progress.inv.kisses];
+    t.key("KeyE", true); t.key("KeyE", false); b.update(1 / 60);   // the same press in play fires at the next step
+    return { dropped, fired: [b.kisses.length, b.progress.inv.kisses] };
+  }, KISS_SPOT);
+  expect(r.dropped, "paused before the step: no kiss").toEqual([0, 5]);
+  expect(r.fired).toEqual([1, 4]);
+});
+
 test("kiss keys for one and two players", async ({ page }) => {
   await installTestHelpers(page);
   const r = await page.evaluate(spot => {
