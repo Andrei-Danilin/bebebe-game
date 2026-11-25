@@ -16,6 +16,7 @@ import { drainEvents, stepGame, viewTick } from "./fx.js";
 import { initInput, pollPads } from "./input.js";
 import { initLifecycle } from "./lifecycle.js";
 import { endTryOn } from "./outfits.js";
+import { initPerf, noteFrame } from "./perf.js";
 import { loadSave } from "./save.js";
 import { fit, initScreen, isTouch, simMode } from "./screen.js";
 import { ui } from "./state.js";
@@ -56,6 +57,8 @@ async function boot() {
   initPreviews();
   // SPEC-025 AC 14 / 14c: hide, blur, WebGL context loss
   initLifecycle();
+  // SPEC-025 AC 15b: ?perf=1 — the perf overlay (__bb.perf)
+  initPerf();
   fit();
   resetWorld(1);
   artGate();                                  // SPEC-020: экран загрузки ждёт картинки (недолго); игра уже готова
@@ -82,8 +85,9 @@ function frame(now) {
 }
 function tick(now) {
   // первая метка rAF бывает раньше performance.now() при запуске: dt < 0 раскачивал тряску камеры (shake − dt) — не меньше 0
-  const dt = Math.max(0, Math.min(0.05, (now - last) / 1000));
+  const real = (now - last) / 1000, dt = Math.max(0, Math.min(0.05, real));
   last = now;
+  noteFrame(Math.max(0, real), dt);          // SPEC-025 AC 15b: __bb.perf()
   if (simMode) return;                       // sim: ни логики, ни рисования — игру шагает simRun
   if (introDue && mode === "home" && !document.getElementById("loading")) { introDue = false; openScene("intro", tutorialDue ? () => openTutorial("map") : null); }   // SPEC-022: первый запуск (SPEC-029: потом обучение)
   if (inMenus() && !document.getElementById("loading")) showDueNote(now);   // SPEC-025 AC 4 / 4b: a save note, once, in the menus

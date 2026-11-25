@@ -22,3 +22,6 @@ interface Document {
 interface HTMLElement {
   webkitRequestFullscreen?: () => Promise<void> | void;
 }
+interface Performance {
+  memory?: { usedJSHeapSize: number; totalJSHeapSize: number; jsHeapSizeLimit: number };   // Chrome only (__bb.perf)
+}

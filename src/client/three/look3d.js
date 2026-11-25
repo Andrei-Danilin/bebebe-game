@@ -6,7 +6,7 @@ import { CELL, COLS, ROWS, W } from "../../core/config.js";
 import { charGroup, modelOf } from "./characters.js";
 import { houseInfo, houseRoofs } from "./houses.js";
 import { mapGroup } from "./map3d.js";
-import { gradTex, groundCanvas, paperMade, paperMat, paperMesh, paperU } from "./materials.js";
+import { disposeTree, gradTex, groundCanvas, groundTex, ownMat, paperMade, paperMat, paperMesh, paperU } from "./materials.js";
 import { camera, renderer, scene, sun } from "./setup.js";
 import { HATCHED } from "./themes.js";
 import { G } from "../../core/active.js";
@@ -89,6 +89,19 @@ const LOOK_PARTS = {
     }) }),
   memory: () => ({ memory: { ...renderer.info.memory } })
 };
+// SPEC-025 AC 15 (tests): disposeTree on a test group — an own material with its own texture map, an own material on the shared
+// ground texture (and the shared toon gradient): which of them were freed (three.js "dispose" events)
+export function disposeCheck() {
+  const freed = new Set(), watch = (o, k) => { o.addEventListener("dispose", () => freed.add(k)); return o; };
+  const own = watch(new THREE.CanvasTexture(document.createElement("canvas")), "ownMap");
+  const a = watch(ownMat("#ffffff"), "material"); a.map = own;
+  const b = ownMat("#ffffff"); b.map = groundTex;
+  watch(groundTex, "sharedMap"); watch(gradTex, "gradient");
+  const g = new THREE.Group();
+  g.add(new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), a), new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), b));
+  disposeTree(g);
+  return { ownMap: freed.has("ownMap"), sharedMap: freed.has("sharedMap"), gradient: freed.has("gradient"), material: freed.has("material") };
+}
 export function look3D(only) {
   if (only) return LOOK_PARTS[only] ? LOOK_PARTS[only]() : null;
   return Object.assign({}, ...Object.values(LOOK_PARTS).map(f => f()));

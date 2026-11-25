@@ -23,6 +23,7 @@ const pSun = new THREE.DirectionalLight(0xffffff, 2.2);
 const pGround = new THREE.Mesh(new THREE.CircleGeometry(1.6, 32), toon("#86cf5c"));
 const previewCam = new THREE.PerspectiveCamera(30, 1, 0.1, 50);
 const previewCache = new Map();
+export const previewCount = () => previewCache.size;   // SPEC-025 AC 15 / 15b: the cache size (memory test, __bb.perf)
 function previewModel(key, build) {
   let m = previewCache.get(key);
   if (!m) {

@@ -38,7 +38,8 @@ import { buyGloves, buyKisses, buyRescueKit, buyUpgrade, setEquip } from "./shop
 import { ui } from "./state.js";
 import { cam, camDist, camLook, camRect, camSnap, toScreen, updateCamera } from "./three/camera.js";
 import { modelOf, setBigFace } from "./three/characters.js";
-import { look3D } from "./three/look3d.js";
+import { disposeCheck, look3D } from "./three/look3d.js";
+import { perfReport } from "./perf.js";
 import { mapGroup } from "./three/map3d.js";
 import { groundCanvas, OUTLINE } from "./three/materials.js";
 import { outfitModel, skinPanels } from "./three/previews.js";
@@ -210,7 +211,7 @@ export function installDebug() {
     get heardHint() { return heardHintOn() ? { text: heardHintText(), pi: ui.heardHintPi, rect: ui.heardHintRect && { ...ui.heardHintRect, rows: [...ui.heardHintRect.rows] } } : null; },
     get stickMarks() { return ui.stickMarks.map(q => ({ ...q })); }, get tapLines() { return [...tapLines]; },
     GLOVES, KISSES, get shopLayout() { return ui.shopLayout; },                         // SPEC-007 AC 10
-    levelType, levelReport, get levelInfo() { return G.levelInfo; }, clearLevelCache, CFG: CFG_ALL, THEMES, look3D, setBigFace,   // SPEC-021: look3D() — как нарисована 3D-сцена
+    levelType, levelReport, get levelInfo() { return G.levelInfo; }, clearLevelCache, CFG: CFG_ALL, THEMES, look3D, disposeCheck, perf: perfReport, setBigFace,   // SPEC-021: look3D() — как нарисована 3D-сцена
     get banner() { return ui.banner; }, bannerAlpha,
     // всё состояние мира, которое levelReport сохраняет и возвращает (для теста «не трогает идущую игру»)
     worldState() { return JSON.stringify({ obstacles: G.obstacles, bushes: G.bushes, floors: G.floors, decor: G.decor, trees: G.trees, flowers: G.flowers, safeZone: G.safeZone, dangerZone: G.dangerZone, spawns: G.spawns, reachable: Array.from(G.reachable).join(""), grids: [G.blocked, G.blockedBig, G.moveGrid, G.seeGrid, G.moveGridBig].map(g => g.join("")) }); },
