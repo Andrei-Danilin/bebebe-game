@@ -97,6 +97,11 @@ test("reset: two taps 50 ms apart and two pointers in one frame change nothing; 
   await frames(page);
   await page.evaluate(() => window.__bb.tapButton("home:shop"));
   await frames(page);
+  // the shipped delay; the delay is wall clock (performance.now() since the arming tap, progress.js resetConfirmReady). On a
+  // software-rendered CI page arm → frames → rects → 50 ms → click took longer than 0.8 s, so the taps "within the delay" run
+  // with a long delay, and the real reset below with the shipped one again
+  expect(await page.evaluate(() => window.__bb.CFG.RESET_CONFIRM_DELAY)).toBe(0.8);
+  await page.evaluate(() => { window.__bb.CFG.RESET_CONFIRM_DELAY = 60; });
   // a double tap: the reset button, then 50 ms later where the confirm appears
   await clickButton(page, "progress:reset");
   await frames(page);
@@ -121,8 +126,8 @@ test("reset: two taps 50 ms apart and two pointers in one frame change nothing; 
   await frames(page);
   expect(await page.evaluate(() => [window.__bb.progress.coins, window.__bb.progress.worlds.park.unlocked]), "two pointers in one frame").toEqual([345, 5]);
   // the real reset: armed, then the confirm after CFG.RESET_CONFIRM_DELAY
+  await page.evaluate(() => { window.__bb.CFG.RESET_CONFIRM_DELAY = 0.8; });
   if (!(await page.evaluate(() => window.__bb.buttonRects.some(r => r.id === "progress:confirm")))) { await clickButton(page, "progress:reset"); await frames(page); }
-  expect(await page.evaluate(() => window.__bb.CFG.RESET_CONFIRM_DELAY)).toBe(0.8);
   await page.waitForTimeout(850);
   await frames(page);
   await clickButton(page, "progress:confirm");
