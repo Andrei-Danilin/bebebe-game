@@ -61,7 +61,7 @@ export const errorLog = () => { flushErrorLog(true); return (log || readErrorLog
 export const cardOpen = () => !!document.querySelector(".bb-card");
 // Keyboard and gamepad on an open card: ←/→ (D-pad, stick) move the highlight between its buttons (it starts on the first);
 // Enter / Space / pad A press the highlighted one — or the button the player focused with Tab — or the card itself (no buttons)
-const cardButtons = el => [...el.querySelectorAll("button")];
+const cardButtons = el => [...el.querySelectorAll("button")].filter(b => !b.disabled);   // a disabled button (the gate's wait) is skipped
 function highlighted(el) {
   const bs = cardButtons(el), f = bs.indexOf(document.activeElement);
   return f >= 0 ? f : Math.max(0, bs.findIndex(b => b.classList.contains("hl")));

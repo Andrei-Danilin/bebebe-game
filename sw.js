@@ -21,17 +21,17 @@ const CACHE_PREFIX = "bebebe-";          // all Pages projects of the account sh
 const NET_TIMEOUT_MS = 4000;             // weak signal: after this long, a cached copy wins over a slow network
 // SPEC-011: written by npm run precache (scripts/precache.js) — do not edit by hand
 // precache:start
-const SRC_HASH = "3d23bc0fdb";
+const SRC_HASH = "5b389ae1c4";
 const PRECACHE_LOCAL = [
   "./", "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512-maskable.png",
   "./icons/icon-512.png", "./icons/icon.svg", "./index.html", "./manifest.webmanifest"
 ];
 const PRECACHE_SRC = [
   "./src/client/art-names.js?v=7228f7f839", "./src/client/art.js?v=9447a553cf", "./src/client/debug.js?v=1333fa9374",
-  "./src/client/errors.js?v=2b89703ed6", "./src/client/flow.js?v=86fbc5a5b1", "./src/client/fx.js?v=73f397efb4",
+  "./src/client/errors.js?v=31a18019a6", "./src/client/flow.js?v=86fbc5a5b1", "./src/client/fx.js?v=73f397efb4",
   "./src/client/input.js?v=4f52e8309e", "./src/client/lifecycle.js?v=3a42079abe", "./src/client/look.js?v=53a7026ec3",
   "./src/client/main.js?v=881de31d15", "./src/client/names.js?v=a351db74fc", "./src/client/outfits.js?v=8564eaee23",
-  "./src/client/progress.js?v=0713011f0e", "./src/client/save.js?v=1c05ee6128", "./src/client/screen.js?v=57a76e38b6",
+  "./src/client/progress.js?v=0713011f0e", "./src/client/save.js?v=bddef332c5", "./src/client/screen.js?v=57a76e38b6",
   "./src/client/shop.js?v=ebde4ad6de", "./src/client/sound.js?v=57a594910c", "./src/client/state.js?v=a1d3245082",
   "./src/client/storage.js?v=686b11f06c", "./src/client/three/bosses.js?v=7814dfb8d4",
   "./src/client/three/camera.js?v=39a889ad56", "./src/client/three/characters.js?v=87a7d8775e",

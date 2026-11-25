@@ -30,9 +30,9 @@ import { localBackend, wrapBackend } from "./storage.js";
 
 export const SAVE_VERSION = 1;              // the shape of bebebe-save (a schema id, not a tunable number)
 export const SAVE_KEYS = Object.freeze({ save: "bebebe-save", backup: "bebebe-save-backup", broken: "bebebe-save-broken", session: "bebebe-save-session",
-  migration: "bebebe-save-before-migration", reset: "bebebe-save-before-reset", import: "bebebe-save-before-import", restore: "bebebe-save-before-restore", errors: "bebebe-errors", probe: "bebebe-probe" });
+  migration: "bebebe-save-before-migration", reset: "bebebe-save-before-reset", reset2: "bebebe-save-before-reset-2", import: "bebebe-save-before-import", restore: "bebebe-save-before-restore", errors: "bebebe-errors", probe: "bebebe-probe" });
 export const OLD_KEYS = Object.freeze(["bebebe-progress", "bebebe-outfits", "bebebe-names", "bebebe-lang"]);
-export const COPY_NAMES = Object.freeze(["backup", "session", "migration", "reset", "import", "restore"]);   // backup → session → snapshots (newest first)
+export const COPY_NAMES = Object.freeze(["backup", "session", "migration", "reset", "reset2", "import", "restore"]);   // backup → session → snapshots (newest first)
 const KNOWN_TOP = ["version", "progress", "outfits", "names", "lang", "migrated", "persist"];
 const OWN_LISTS = { hats: HATS, jackets: JACKETS, pants: PANTS, big: BIG_SKINS };
 const WORLD_FIELDS = ["unlocked", "stars", "won"];
@@ -367,13 +367,25 @@ function holding(save) {
 }
 // a holds less than b: fewer stars, or as many and fewer owned items, or as many of both and fewer coins (Claude's order)
 const holdsLess = (a, b) => { const x = holding(a), y = holding(b); for (let i = 0; i < x.length; i++) if (x[i] !== y[i]) return x[i] < y[i]; return false; };
-// AC 6b: before a reset wipes the progress, the save as it is now is stored as bebebe-save-before-reset. Review fix: that copy stays
-// until it is undone or restored — a later reset never replaces it with a save that holds less (a second reset after a little play)
-export function snapshotBeforeReset() {
+// AC 6b: before a reset wipes the progress, the save as it is now is kept. Review fix: two reset copies — bebebe-save-before-reset
+// (undo) and -before-reset-2. The save of this reset is always kept; of the older reset copies the one that holds more stays with
+// it (the weakest of the three goes); of the pair, the one that holds more is before-reset (undo), the other -2. Both are listed
+// under Restore a copy
+export async function snapshotBeforeReset() {
   flushSaves();
   const now = saveObject(), text = JSON.stringify(now);
   clearBroken();
-  return copySave("reset").then(old => { if (!old || !holdsLess(now, old)) return write(SAVE_KEYS.reset, wrapCopy(text)); return false; });
+  const olds = (await Promise.all([copyText("reset"), copyText("reset2")])).filter(Boolean);
+  const other = olds.sort((a, b) => (holdsLess(a.save, b.save) ? 1 : holdsLess(b.save, a.save) ? -1 : 0))[0];
+  if (!other) return write(SAVE_KEYS.reset, wrapCopy(text));
+  const [first, second] = holdsLess(now, other.save) ? [other.text, wrapCopy(text)] : [wrapCopy(text), other.text];
+  write(SAVE_KEYS.reset, first);
+  return write(SAVE_KEYS.reset2, second);
+}
+// a copy's stored text and its save (or null)
+async function copyText(name) {
+  const t = await backend.get(SAVE_KEYS[name]), c = parse(t);
+  return plainObj(c) && validSave(c.save) ? { text: t, save: c.save } : null;
 }
 // a reset (fresh progress): what the stored progress held for newer versions goes too; the migration record stays (AC 6b)
 export function forgetHeldProgress() { const top = held.top; held = emptyHeld(); held.top = top; }

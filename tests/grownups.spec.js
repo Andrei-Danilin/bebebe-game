@@ -41,12 +41,15 @@ test("the gate: a multiplication in words, four answers; wrong → a new questio
   expect(new Set(g1.g.answers).size, "four different answers").toBe(4);
   expect(g1.text).toContain(`Para adultos: ¿cuánto es ${g1.words[g1.g.a - 3]} por ${g1.words[g1.g.b - 3]}?`);
   expect(await page.evaluate(() => !!document.getElementById("grownups")), "no page before the answer").toBe(false);
+  // the wait after a wrong answer is short here (the guessing test has the real 3 s); restored below
+  const wait0 = await page.evaluate(() => { const w = window.__bb.CFG.GATE_WRONG_WAIT; window.__bb.CFG.GATE_WRONG_WAIT = 0.05; return w; });
   await answer(page, false);
   const g2 = await page.evaluate(() => ({ g: window.__bb.grownUps.gate, text: document.querySelector("#gate").textContent }));
   expect(g2.text, "the wrong-answer note").toContain("No es así. Probá con esta otra");
   expect(g2.g, "a new question object").not.toBe(null);
   expect(await page.evaluate(() => !!document.getElementById("grownups"))).toBe(false);
-  await page.waitForTimeout(3100);                                  // review fix: CFG.GATE_WRONG_WAIT s after a wrong answer
+  await page.waitForFunction(() => [...document.querySelectorAll("#gate button[data-act=answer]")].every(b => !b.disabled));
+  await page.evaluate(w => { window.__bb.CFG.GATE_WRONG_WAIT = w; }, wait0);
   await answer(page, true);
   expect(await page.evaluate(() => [!!document.getElementById("grownups"), window.__bb.grownUps.gate])).toEqual([true, null]);
   // ✕ closes a gate without opening anything
@@ -77,7 +80,7 @@ test("every adult action calls the gate", { tag: "@fast" }, () => {
   expect(made.filter(([how, name]) => how !== "act" && name !== "close"), "page actions not behind the gate").toEqual([]);
   expect(made.map(([, n]) => n).sort()).toEqual(["close", "copyCode", "errorLog", "pasteCode", "restoreCopy", "undoReset"].sort());
   // review fix: erasing everything asks the gate again even with the page open (askGate, not the page's pass)
-  expect(body).toContain("button(row, L().eraseAll, () => { closePage(); askGate(confirmErase, false, () => showPage()); }, \"eraseAll\");");
+  expect(body).toMatch(/button\(\s*row,\s*L\(\)\.eraseAll,[^\n]*\baskGate\(\s*confirmErase\b[^\n]*"eraseAll"\s*\)/);
   expect(body).toMatch(/const act = \(label, name, fn\) => button\(row, label, \(\) => parentGate\(fn\), name\);/);
   expect(src, "the page itself is behind the gate").toMatch(/export function openGrownUps\(\) \{ parentGate\(showPage\); \}/);
   expect(src, "no long-press or tap-count gate").not.toMatch(/pointerdown[^\n]*setTimeout|longPress|tapCount/);
@@ -347,4 +350,43 @@ test("numberWords cover every gate factor in all four languages", { tag: "@fast"
   await openGame(page, { sim: true });
   const r = await page.evaluate(() => { const b = window.__bb, n = b.CFG.GATE_MAX - b.CFG.GATE_MIN + 1; return b.LANGS.map(l => [l, b.I18N[l].numberWords.length === n && b.I18N[l].numberWords.every(w => typeof w === "string" && w.length > 0)]); });
   expect(r).toEqual([["en", true], ["es", true], ["pt", true], ["ru", true]]);
+});
+
+test("two reset copies: a 60-star reset, play to 30 stars, reset again — both can be restored", async ({ page }) => {
+  const errors = await openGame(page);
+  const stars = n => Object.fromEntries(Array.from({ length: n }, (_, i) => [i + 1, 3]));
+  await page.evaluate(s => { const b = window.__bb, w = b.progress.worlds.park; w.unlocked = 20; w.stars = s; w.won = Object.fromEntries(Object.keys(s).map(k => [k, true])); b.save.queue(); }, stars(20));
+  await page.evaluate(() => window.__bb.resetProgress());
+  await page.waitForTimeout(100);
+  await page.evaluate(s => { const b = window.__bb, w = b.progress.worlds.park; w.unlocked = 11; w.stars = s; w.won = Object.fromEntries(Object.keys(s).map(k => [k, true])); b.save.queue(); }, stars(10));
+  await page.evaluate(() => window.__bb.resetProgress());
+  await page.waitForTimeout(100);
+  const starsOf = k => page.evaluate(n => Object.values(JSON.parse(localStorage.getItem(n)).save.progress.worlds.park.stars).reduce((a, b) => a + b, 0), k);
+  expect([await starsOf("bebebe-save-before-reset"), await starsOf("bebebe-save-before-reset-2")], "undo = the bigger, -2 = this reset").toEqual([60, 30]);
+  const parkStars = () => page.evaluate(() => Object.values(window.__bb.progress.worlds.park.stars).reduce((a, b) => a + b, 0));
+  await page.evaluate(() => { window.__bb.mode = "story"; });
+  await openPage(page);
+  await pageAct(page, "restoreCopy");
+  await page.waitForSelector("#grownups [data-act='copy:reset2']");
+  await page.click("#grownups [data-act='copy:reset2']");
+  await page.waitForFunction(() => window.__bb.progress.worlds.park.unlocked === 11);
+  expect(await parkStars()).toBe(30);
+  await pageAct(page, "restoreCopy");
+  await page.click("#grownups [data-act='copy:reset']");
+  await page.waitForFunction(() => window.__bb.progress.worlds.park.unlocked === 20);
+  expect(await parkStars()).toBe(60);
+  expect(errors).toEqual([]);
+});
+
+test("during the gate's wait, ←/→ and the highlight skip the disabled answers: Enter only closes", async ({ page }) => {
+  const errors = await openGame(page);
+  await page.evaluate(() => { window.__bb.mode = "story"; window.__bb.grownUps.open(); });
+  await answer(page, false);
+  for (const k of ["ArrowLeft", "ArrowRight", "ArrowRight", "ArrowLeft", "ArrowRight"]) {
+    await page.keyboard.press(k);
+    expect(await page.evaluate(() => { const h = document.querySelector("#gate button.hl"); return h && h.dataset.act; }), k).toBe("close");
+  }
+  await page.keyboard.press("Enter");
+  expect(await page.evaluate(() => [!!document.getElementById("gate"), !!document.getElementById("grownups")])).toEqual([false, false]);
+  expect(errors).toEqual([]);
 });
