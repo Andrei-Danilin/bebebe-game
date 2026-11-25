@@ -54,6 +54,7 @@
 import * as THREE from "three";
 "use strict";
 
+// >>> src/core/config.js   (B3: the look/UI keys of CFG go to src/client/look.js, AC 2c)
 // =====================================================================
 //  НАСТРОЙКИ ИГРЫ — их удобно менять вместе с детьми
 // =====================================================================
@@ -466,12 +467,14 @@ const CFG = {
   }
 };
 
+// >>> client
 // =====================================================================
 //  SPEC-020: КАРТИНКИ (assets/*.webp — их делает npm run assets из рисунков в art/)
 // =====================================================================
 // Каждая картинка грузится и декодируется один раз, сразу при старте. art(name) — готовая картинка или null; рисуем так:
 // const img = art("logo"); if (img) ctx.drawImage(img, …); else <рисунок кодом, как раньше>. Нет папки assets/ (страница
 // claude.ai) или файл не загрузился — игра работает и без картинок. Список между метками пишет scripts/assets.js.
+// >>> src/client/art-names.js   (written by npm run assets, AC 8c)
 // art:start
 const ART_NAMES = [
   "main_tile", "menu_bg", "map_bg_park", "map_bg_field", "map_bg_city", "map_bg_school", "map_bg_beach",
@@ -497,6 +500,7 @@ const ART_NAMES = [
   "item_mega_mittens", "item_kiss", "item_star", "item_coin", "heart_full", "heart_half", "heart_empty"
 ];
 // art:end
+// >>> client
 // имя или свой путь → { img, state: "loading" | "ok" | "bad", own } (own — картинка по своему пути, в счёт загрузки не входит)
 const artImgs = new Map();
 const artCount = { ok: 0, bad: 0 };
@@ -603,6 +607,7 @@ function artGate() {
   artProgress();
   setTimeout(() => el.remove(), CFG.ART.waitMs);
 }
+// >>> src/core/config.js
 
 // Рукавицы из магазина: сколько сердечек забирает одна обнимашка, цена и сколько сильных обнимашек в наборе
 const GLOVES = {
@@ -643,6 +648,7 @@ const UPGRADES = {
   quickHelp: { step: 0.1, prices: [150, 300, 450] }     // игрок поднимает друга быстрее: −10 % времени за уровень (3 → 2,1 с)
 };
 const upgTop = k => UPGRADES[k].prices.length;   // последний уровень
+// >>> src/i18n.js
 // Русское множественное число: ruPlural(n, ["поцелуй", "поцелуя", "поцелуев"])
 const ruPlural = (n, f) => f[n % 10 === 1 && n % 100 !== 11 ? 0 : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 1 : 2];
 // SPEC-028: португальское множественное: 1 — единственное, всё остальное (и 0) — множественное
@@ -975,6 +981,7 @@ const I18N = {
     levelIntro: (w, n, t) => `${w} · Уровень ${n}: ${t}`, levelIntroShort: (w, n, t) => `${w} · ${n}: ${t}`, levelIntroTiny: (w, n, t) => `${n}: ${t}`, worldStars: (n, max) => `⭐ ${n}/${max}`
   }
 };
+// >>> src/story.js
 // =====================================================================
 //  ИСТОРИЯ (SPEC-017; SPEC-022: тексты — из истории Кости, docs/story.md): главы по порядку — начало, миры, бонусные миры, конец.
 //  Русский — словами Кости (сокращено, только где не влезало), английский, испанский (voseo) и португальский (você, SPEC-028) — простой перевод.
@@ -1070,6 +1077,7 @@ const STORY = [
 ];
 // значки строк правил (I18N.*.rules) — по одному на строку, в том же порядке; тест i18n сверяет число (SPEC-019 добавит строку — и значок)
 const RULE_ICONS = ["❤", "👀", "🤝", "⏱", "🏠", "🍌", "👣"];
+// >>> src/i18n.js
 const LANGS = ["en", "es", "pt", "ru"];   // SPEC-028: + português (Brasil); порядок — как переключает значок 🌐
 const HTML_LANG = { pt: "pt-BR" };        // <html lang>: португальский — бразильский
 // SPEC-028: язык при запуске — сохранённый (bebebe-lang: старые en/es/ru, новый pt); если его нет и это самый первый запуск
@@ -1085,16 +1093,20 @@ function detectLang(saved, navLangs, hasProgress = false) {
   }
   return "en";
 }
+// >>> client   (B3: the current language and L() are shared with the core's flying texts)
 let lang = "en";
-try {
-  let saved = null, played = false;
-  try { saved = localStorage.getItem("bebebe-lang"); played = localStorage.getItem("bebebe-progress") !== null; } catch (e) { /* без хранилища — по браузеру */ }
-  lang = detectLang(saved, navigator.languages && navigator.languages.length ? [...navigator.languages] : [navigator.language], played);
-  // самый первый запуск: язык браузера сохраняется сразу — первая же игра пишет bebebe-progress, и без этого со второго запуска
-  // был бы английский (у игрока с прогрессом без сохранённого языка — английский, как раньше; его не трогаем)
-  if (!LANGS.includes(saved) && !played) { try { localStorage.setItem("bebebe-lang", lang); } catch (e) { /* без хранилища — ok */ } }
-} catch (e) { /* ok — английский */ }
-document.documentElement.lang = HTML_LANG[lang] || lang;
+// язык при запуске (initSaves — первым: ему нужно знать, есть ли сохранённый прогресс)
+function initLang() {
+  try {
+    let saved = null, played = false;
+    try { saved = localStorage.getItem("bebebe-lang"); played = localStorage.getItem("bebebe-progress") !== null; } catch (e) { /* без хранилища — по браузеру */ }
+    lang = detectLang(saved, navigator.languages && navigator.languages.length ? [...navigator.languages] : [navigator.language], played);
+    // самый первый запуск: язык браузера сохраняется сразу — первая же игра пишет bebebe-progress, и без этого со второго запуска
+    // был бы английский (у игрока с прогрессом без сохранённого языка — английский, как раньше; его не трогаем)
+    if (!LANGS.includes(saved) && !played) { try { localStorage.setItem("bebebe-lang", lang); } catch (e) { /* без хранилища — ok */ } }
+  } catch (e) { /* ok — английский */ }
+  document.documentElement.lang = HTML_LANG[lang] || lang;
+}
 const L = () => I18N[lang];
 function setLang(l) {
   if (!LANGS.includes(l)) return;
@@ -1103,6 +1115,7 @@ function setLang(l) {
   try { localStorage.setItem("bebebe-lang", l); } catch (e) { /* ok */ }
 }
 
+// >>> client
 // =====================================================================
 //  ЭКРАН: снизу 3D-холст (Three.js), сверху прозрачный 2D-слой для меню и подписей
 // =====================================================================
@@ -1173,6 +1186,7 @@ function fit() {
 window.addEventListener("resize", () => fit());
 window.addEventListener("orientationchange", () => requestAnimationFrame(() => fit()));   // iOS обновляет safe-area чуть позже
 
+// >>> src/core/util.js   (B4: window.__bbSeed / __bbStrictRng read by the client, setStrictRng)
 // =====================================================================
 //  ПОМОЩНИКИ
 // =====================================================================
@@ -1210,6 +1224,38 @@ function mulberry32(a) {
   };
 }
 
+// >>> src/core/hooks.js
+// SPEC-011 AC 3b: the one port from the core to the client. The core calls hooks.<name>(…); the client registers the real
+// functions with setHooks({ … }) before the first game (Phase B: the inline client; Phase C: src/client/main.js). Without a
+// client (Node, the server of SPEC-012/013) every hook is a no-op. A hook is client code: it runs under noGameRng (it must not
+// draw the gameplay rng()), except onPracticeWin — it starts the next practice game, whose buildGame draws rng() on purpose.
+// SPEC-012 turns sfx, burst, pop, shake, save and inputFor into events and input slots. tests/modules.spec.js lists them.
+const HOOK_DEFAULTS = Object.freeze({
+  sfx: name => {},                          // a sound: SFX[name]
+  burst: (x, y, kind, color, n) => {},      // particles at a world point
+  pop: (x, y, text, color, meaning) => {},  // a flying text (the core gives the text, in the current language)
+  shake: v => {},                           // camera shake: set to v
+  fx: dt => {},                             // the client's effects step inside update(): flying texts, particles, shake
+  banner: dt => {},                         // the level banner's clock (it runs while the level plays)
+  save: () => {},                           // write progress to storage (economy.js saves only through this)
+  rebuild: () => {},                        // rebuild the 3D scene for the game buildGame just built
+  onWin: reward => {},                      // a level was won and paid (lastReward): the client's flow
+  onPracticeWin: () => {},                  // a practice game was won: the next tutorial step
+  inputFor: l => ({ x: 0, y: 0 })           // player l's device input (held keys, Shift = tiptoe; touch sticks; gamepads), shaped
+});
+const HOOKS_REENTER = Object.freeze(["onPracticeWin"]);   // they hand control back to the core: no rng guard
+const hookImpl = { ...HOOK_DEFAULTS };
+function setHooks(h) {
+  for (const [k, f] of Object.entries(h)) {
+    if (!Object.hasOwn(HOOK_DEFAULTS, k) || typeof f !== "function") throw new Error(`setHooks: unknown hook or not a function: ${k}`);
+    hookImpl[k] = f;
+  }
+}
+const hooks = Object.freeze(Object.fromEntries(Object.keys(HOOK_DEFAULTS).map(k => [k, HOOKS_REENTER.includes(k)
+  ? (...a) => hookImpl[k](...a)
+  : (...a) => noGameRng("hook:" + k, () => hookImpl[k](...a))])));
+
+// >>> src/core/world.js
 // =====================================================================
 //  МИР
 // =====================================================================
@@ -1282,6 +1328,7 @@ function losWide(x1, y1, x2, y2, r, solid = moveSolidAt) {
   return los(x1, y1, x2, y2, solid) && los(x1 + nx, y1 + ny, x2 + nx, y2 + ny, solid) && los(x1 - nx, y1 - ny, x2 - nx, y2 - ny, solid);
 }
 
+// >>> src/core/level/layouts.js
 // =====================================================================
 //  ГЕНЕРАТОР УРОВНЕЙ (по рисунку: домик маленьких, дом Большого,
 //  здание с комнатами, ёлки, камни, кусты, лужа)
@@ -1322,6 +1369,7 @@ function bigHouse(items, x0, y0, doors) {
   items.push({ t: "danger", x: x0 + 1, y: y0 + 1, w: S - 1, h: S - 1, exits });
 }
 
+// >>> src/core/config.js   (the world lists and their numbers)
 // ---------- Тип уровня и домики ----------
 // lc — контекст раскладки (уровень, сид, занятые клетки, домики…), не путать с ctx (2D-холст)
 // Уровень — (мир, n) (SPEC-006): миры по CFG.WORLD_TYPES.length уровней; место (тема) уровня — его мир.
@@ -1339,6 +1387,7 @@ const worldIndex = world => Math.max(0, WORLDS.indexOf(world));
 const worldDifficulty = world => CFG.WORLD_DIFFICULTY[world] ?? 0;
 const levelsPerWorld = () => CFG.WORLD_TYPES.length;
 const levelPos = n => clamp(Math.floor(n) || 1, 1, levelsPerWorld()) - 1;
+// >>> src/core/mood.js
 // SPEC-022: боссы — одна таблица (мир → босс последнего уровня): look — образ (BOSS_LOOKS), extraHp — ключ CFG с прибавкой злости,
 // power — особая сила ("wide" — широкий толчок, null — нет), cloud — ключ CFG.MOOD_LOOK с размером тёмного облачка.
 // Новый босс (например, бонусного мира) = строка здесь + образ + тексты (STORY boss, I18N bossNames, bossLine). У Пляжа и Зимы
@@ -1352,12 +1401,14 @@ const BOSSES = Object.freeze({
 // босс уровня — последний уровень мира из BOSSES (его имя = мир); иначе null
 const bossFor = (world, n) => (Object.hasOwn(BOSSES, world) && Math.floor(n) === levelsPerWorld() ? world : null);
 const bossPower = boss => (boss && BOSSES[boss] ? BOSSES[boss].power : null);
+// >>> src/story.js
 // SPEC-022: заставки истории: комикс в начале, босс каждого мира из BOSSES, первый уровень бонусного мира, конец
 const SCENE_IDS = Object.freeze(["intro", ...Object.keys(BOSSES).map(w => "boss_" + w), ...BONUS_WORLDS.map(w => "bonus_" + w), "ending"]);
 // SPEC-029: страницы обучения — тоже заставки (тот же экран), но не глава истории и не отмечаются в progress.seen по отдельности;
 // в seen — одно «tutorial»: обучение закончили или пропустили
 const TUTORIAL_SCENES = Object.freeze(["tutorial_a", "tutorial_b", "tutorial_c", "tutorial_ready"]);
 const SEEN_IDS = Object.freeze([...SCENE_IDS, "tutorial"]);
+// >>> src/core/level/generate.js
 const levelKey = (world, n) => world + ":" + n;
 // Тип уровня — по списку CFG.WORLD_TYPES (одинаковый во всех мирах)
 const levelType = (world, n) => CFG.WORLD_TYPES[levelPos(n)];
@@ -1407,6 +1458,7 @@ function placeSmallHome(lc) {
   items.push({ t: "safe", x: 0, y: 0, w: 7, h: 6 });
   lc.doors.small = [{ side: "right", at: 2 }, { side: "bottom", at: 2 }].map(d => houseDoor(0, 0, 7, 6, d));
 }
+// >>> src/core/practice.js
 // ---------- SPEC-029: карта тренировок обучения ----------
 // Своя, всегда одна и та же (без случайности): поляна в левом верхнем углу ≈ CFG.TUTORIAL.mapArea площади карты (21 × 14 клеток
 // из 30 × 20), за живой изгородью — деревья. Домик маленьких слева вверху (как везде), дом папы в правом нижнем углу поляны;
@@ -1441,6 +1493,7 @@ function applyTutorialMap() {
   levelInfo = { world: curWorld, lv: level, type: "tutorial", attempt: 0, fallback: false, cached: false, ms: 0 };
 }
 
+// >>> src/core/level/layouts.js
 // ---------- Раскладки ----------
 // Раскладки по типам: получают lc с уже построенными домиками и раскладывают остальное (до зеркала)
 // 1-й уровень (рисунок детей): здание с комнатами справа, лужа, ёлки, камни, кусты
@@ -1843,6 +1896,7 @@ const LAYOUTS = {
   river: riverLayout, rooms: roomsLayout, arena: arenaLayout
 };
 
+// >>> src/core/level/build.js
 // ---------- Сборка уровня ----------
 function generateLevel(world, lv, attempt) { return noGameRng("generateLevel", () => layoutLevel(world, lv, attempt)); }
 function layoutLevel(world, lv, attempt) {
@@ -1952,6 +2006,7 @@ function loadLevel(world, lv) {
   levelInfo = { world, lv, type: r.type, attempt: r.attempt, fallback: r.fallback, cached: false, ms: r.ms };
 }
 
+// >>> src/core/level/validate.js
 // ---------- Честность уровня (SPEC-002) ----------
 // validateLevel проверяет уже применённый уровень (после applyWorld) по 7 правилам; ok — все выполнены.
 const N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
@@ -2093,6 +2148,7 @@ function levelReport(world, lv) {
   }
 }
 
+// >>> src/core/path.js
 // ---------- Поиск пути (A*) ----------
 function cellIdx(x, y) { return clamp(Math.floor(y / CELL), 0, ROWS - 1) * COLS + clamp(Math.floor(x / CELL), 0, COLS - 1); }
 function nearestFree(idx, grid = blocked) {
@@ -2246,6 +2302,7 @@ function randomFreePoint() {
 }
 const inBush = l => CFG.BUSH_HIDES && bushes.some(b => Math.hypot(l.x - b.x, l.y - b.y) < b.r - 6);
 
+// >>> src/core/wardrobe.js   (the clothes and looks lists: data the core's progress rules check owned ids against)
 // =====================================================================
 //  ПЕРСОНАЖИ
 // =====================================================================
@@ -2309,12 +2366,14 @@ const PANTS = [
   { id: "striped", price: tierPrice(1), color: "#d84838", shorts: false, stripes: "#facc15", name: Nm("Striped pants", "Pantalón rayado", "Calça listrada", "Полосатые штаны") }
 ];
 const SLOTS = { hair: HAIRS, hat: HATS, jacket: JACKETS, pants: PANTS };
+// >>> client
 const P_COLORS = ["#3b82f6", "#22c55e"];        // цвет меток игрока 1 и 2
 function makeLook(o) {
   const h = HAIRS[o.hair], hat = HATS[o.hat], j = JACKETS[o.jacket], pn = PANTS[o.pants];
   return { skin: h.skin, hair: h.hair, style: h.style, acc: hat.id, shirt: j.color, pattern: j.pattern, trim: j.trim, pants: pn.color, shorts: pn.shorts,
     bands: j.bands || null, long: !!j.long, overalls: !!pn.overalls, pantStripes: pn.stripes || null };   // SPEC-027: радуга, полы плаща, комбинезон, полоски
 }
+// >>> src/core/wardrobe.js
 // ---------- Скины Большого ----------
 const BIG_SKINS = [
   // mood: true — лицо человека: краснеет / розовеет по злости (SPEC-022); у огра, робота и медведя лицо остаётся своим
@@ -2328,6 +2387,7 @@ const BIG_SKINS = [
   { id: "dad", price: tierPrice(0), shirt: "#eb3e42", skin: "#f4b183", hair: "#3a2418", top: "dad", pants: "#3b6db5", shoes: "#5b3a29", sole: "#f5f5f4", stubble: 0.8,
     name: { en: "Dad", es: "Papá", pt: "Papai", ru: "Папа" }, mood: true }
 ];
+// >>> client
 // SPEC-022: образы боссов (Андрей: свой образ у каждого; вид придумал Claude по art/4_papas_bosses, 4_papas_bosses_new,
 // 5_papas_main_boss). Строятся на папе (образ "dad", точки m.anchors и свои материалы m.mats): цвета футболки, штанов, обуви
 // (legs: "skin" — голые ноги, шорты отдельной деталью) и список деталей (BOSS_PARTS); крупнее на CFG.BOSS_SCALE (bossScale).
@@ -2355,9 +2415,8 @@ function loadOutfits(sv) {
   out.big = (Number(sv.v) || 0) < DAD_SINCE_V && big === 0 ? DEFAULT_SKINS.big : clamp(big | 0, 0, BIG_SKINS.length - 1);
   return out;
 }
-let skinSel = cloneSkins(DEFAULT_SKINS);
-try { skinSel = loadOutfits(JSON.parse(localStorage.getItem("bebebe-outfits") || "null")); } catch (e) { /* ok */ }   // старый ключ bebebe-place больше не читается (SPEC-006)
-let skinKeep = cloneSkins(skinSel);   // после загрузки прогресса надетое становится своим (adoptWorn)
+let skinSel = cloneSkins(DEFAULT_SKINS);   // из bebebe-outfits — initSaves
+let skinKeep = cloneSkins(skinSel);
 const saveSkins = () => { try { localStorage.setItem("bebebe-outfits", JSON.stringify({ ...skinKeep, v: OUTFITS_V })); } catch (e) { /* ok */ } };
 // гардероб (SPEC-009): купленное — в progress.owned по id; ключ списка для слота; бесплатное (price 0, причёски) — всегда своё
 const OWN_KEY = { hat: "hats", jacket: "jackets", pants: "pants", big: "big" };
@@ -2421,8 +2480,10 @@ function fitOutfitsToOwned() {
 }
 // для тестов: стартовые виды, ничего не примерено
 function resetOutfits() { skinSel = cloneSkins(DEFAULT_SKINS); skinKeep = cloneSkins(DEFAULT_SKINS); buyArmed = null; tryingOn = false; saveSkins(); resetWorld(numPlayers); }
+// >>> src/core/game.js
 // ---------- Миры (SPEC-006): место уровня — его мир ----------
 let curWorld = WORLDS[0];
+// >>> client
 // SPEC-030: openedWorld — главный мир, который открыла победа и который карта ещё не показала (или null); worldBanner — плашка
 // «<мир> открыт!» на карте { world, t } (или null). Карта при входе (после экрана победы и заставки финала, если она есть) переходит
 // в этот мир и показывает плашку — один раз (showOpenedWorld)
@@ -2450,13 +2511,16 @@ function cleanName(s) {
   return Array.from(s).slice(0, CFG.NAME_MAX).join("").trim();      // длина — по кодовым точкам (эмодзи = 1)
 }
 let namesTyped = { p1: "", p2: "", big: "", bots: ["", "", "", ""] };
-try {
-  const nv = JSON.parse(localStorage.getItem("bebebe-names") || "null");
-  if (nv && typeof nv === "object") {
-    const bots = Array.isArray(nv.bots) ? nv.bots : [];
-    namesTyped = { p1: cleanName(nv.p1), p2: cleanName(nv.p2), big: cleanName(nv.big), bots: Array.from({ length: BOT_SLOTS }, (_, i) => cleanName(bots[i])) };
-  }
-} catch (e) { /* сломанные данные — имена по умолчанию */ }
+// имена из bebebe-names (initSaves)
+function initNames() {
+  try {
+    const nv = JSON.parse(localStorage.getItem("bebebe-names") || "null");
+    if (nv && typeof nv === "object") {
+      const bots = Array.isArray(nv.bots) ? nv.bots : [];
+      namesTyped = { p1: cleanName(nv.p1), p2: cleanName(nv.p2), big: cleanName(nv.big), bots: Array.from({ length: BOT_SLOTS }, (_, i) => cleanName(bots[i])) };
+    }
+  } catch (e) { /* сломанные данные — имена по умолчанию */ }
+}
 const saveNames = () => { try { localStorage.setItem("bebebe-names", JSON.stringify(namesTyped)); } catch (e) { /* ok */ } };
 const typedName = slot => slot.startsWith("bot") ? namesTyped.bots[Number(slot.slice(3)) - 1] : namesTyped[slot];
 function defaultName(slot) {
@@ -2478,14 +2542,19 @@ const nameOf = l => nameFor(slotOf(l));
 
 const botOutfit = i => ({ hair: (i * 3 + level) % HAIRS.length, hat: (i * 5 + level * 2 + 1) % HATS.length, jacket: (i * 3 + 2 + level) % JACKETS.length, pants: (i * 2 + level) % PANTS.length });
 
-let littles = [], big = null, texts = [], particles = [];
+// >>> src/core/game.js
+let littles = [], big = null;
 let botAttackCd = 0, prevToken = null;
-let mode = "home", numPlayers = 1, level = 1, attackToken = null, muted = false, shake = 0;
+let mode = "home", numPlayers = 1, level = 1, attackToken = null;
+// >>> client
+let texts = [], particles = [], muted = false, shake = 0, buttons = [], resetArmed = false;
 // SPEC-029: обучение (подробно — у openTutorial): идёт ли, номер тренировки, её сценарий и подсказки, её запас поцелуев и спасалок
-let tutorial = null, tutorialGame = 0, tut = { script: false, hint: 0, bothDown: 0 }, tutorialInv = { kisses: 0, rescues: 0, mittens: 0, mega: 0 };
+let tutorial = null;
+// >>> src/core/practice.js
+let tutorialGame = 0, tut = { script: false, hint: 0, bothDown: 0 }, tutorialInv = { kisses: 0, rescues: 0, mittens: 0, mega: 0 };
+// >>> src/core/game.js
 let stats = { hugs: 0, time: 0 };
-let buttons = [];
-let items = [], itemCd = 5, itemSeq = 0, pendingWin = 0, lastReward = null, resetArmed = false;
+let items = [], itemCd = 5, itemSeq = 0, pendingWin = 0, lastReward = null;
 // SPEC-008: журнал событий игры { t (сек игры), type, …данные } — для тестов, отчёта баланса и счёта монеток (SPEC-009).
 // Только простые данные; не длиннее CFG.EVENT_LOG_MAX (старые выпадают); очищается в начале уровня (startGame).
 let events = [];
@@ -2496,18 +2565,14 @@ function logEvent(type, data) {
   if (tutorialGame === 2) tutorialNote(e);                 // SPEC-029: подсказки тренировки 2
   return e;
 }
-// SPEC-009: книга монеток — события coins с загрузки страницы (startGame её не чистит), тоже не длиннее EVENT_LOG_MAX.
-// logCoins зовут только addCoins / spendCoins (у прогресса, ниже).
-const ledger = [];
-function logCoins(reason, amount) {
-  ledger.push({ ...logEvent("coins", { reason, amount }) });
-  if (ledger.length > CFG.EVENT_LOG_MAX) ledger.splice(0, ledger.length - CFG.EVENT_LOG_MAX);
-}
 let bonusStars = [], starCd = 10, starSeq = 0;   // бонусные звёздочки (отдельно от предметов)
 let kisses = [], kissSeq = 0;                      // летящие воздушные поцелуи
 let pushWaves = [];                                // SPEC-022: кольца широкого толчка { x, y, t, r } (растут WAVE_TIME сек)
-let kitHintT = 0, kitHintDone = false, kitHintPi = 0, kitHintRect = null;   // подсказка «Нажми 🩹» (SPEC-007): раз за уровень
-let heardHintT = 0, heardHintDone = false, heardHintPi = 0, heardHintRect = null, tutorialHintRect = null;   // SPEC-019: «Папа услышал топот!» — раз за уровень
+let kitHintT = 0, kitHintDone = false, kitHintPi = 0;   // подсказка «Нажми 🩹» (SPEC-007): раз за уровень
+let heardHintT = 0, heardHintDone = false, heardHintPi = 0;   // SPEC-019: «Папа услышал топот!» — раз за уровень
+// >>> client
+let kitHintRect = null, heardHintRect = null, tutorialHintRect = null;   // плашки подсказок этого кадра (рисование)
+// >>> src/core/progress-rules.js
 // ---------- Прогресс: миры (открытые уровни, звёзды), монетки, рукавицы (хранится в этом браузере) ----------
 // SPEC-006: progress.worlds = { [мир из WORLDS]: { unlocked, stars: { [n]: 1..3 } } }, lastWorld — мир в меню
 // (SPEC-016: шесть миров; в старом сохранении нет field/city — они приходят новыми)
@@ -2604,17 +2669,28 @@ function worldOpen(world, p = progress) {
   return { open: false, reason: "locked", needs: i > 0 ? MAIN_WORLDS[i - 1] : null };
 }
 const isOpen = (w, p = progress) => worldOpen(w, p).open;
+// >>> client
 // подсказка закрытого мира (по worldOpen): нужен главный мир — «Пройди <его>, чтобы открыть <этот>!», иначе — прежняя строка бонусных
 const lockedText = w => { const o = worldOpen(w); return o.needs ? L().lockedWorld(o.needs, w) : L().lockedBonus; };
-let progress = freshProgress(), migrated = false, hadOwned = false;
-try {
-  const pv = JSON.parse(localStorage.getItem("bebebe-progress") || "null");
-  progress = loadProgress(pv);
-  migrated = hasFlatProgress(pv);
-  hadOwned = !!pv && typeof pv === "object" && "owned" in pv;   // SPEC-009: сохранение уже знает про купленные наряды
-} catch (e) { progress = freshProgress(); }
-const saveProgress = () => { try { localStorage.setItem("bebebe-progress", JSON.stringify(progress)); } catch (e) { /* ok */ } };
-if (migrated) saveProgress();                              // переезд старого сохранения — один раз
+// >>> src/core/economy.js
+// SPEC-011 AC 2b: экономика игрока — единственный владелец progress (простые данные: миры, монетки, запас, рукавицы, наряды,
+// улучшения, заставки) и книги монеток ledger. Хранилище не трогает: сохраняет только через hooks.save; сохранение даёт клиент
+// (initSaves → setProgress). Менять progress.coins могут только addCoins / spendCoins (тест «only the ledger writes coins»).
+let progress = freshProgress();
+// SPEC-009: книга монеток — события coins с загрузки страницы (startGame её не чистит), тоже не длиннее EVENT_LOG_MAX.
+// logCoins зовут только addCoins / spendCoins (у прогресса, ниже).
+const ledger = [];
+function logCoins(reason, amount) {
+  ledger.push({ ...logEvent("coins", { reason, amount }) });
+  if (ledger.length > CFG.EVENT_LOG_MAX) ledger.splice(0, ledger.length - CFG.EVENT_LOG_MAX);
+}
+// прогресс изменился — клиент пишет его (hooks.save)
+const saveProgress = () => hooks.save();
+// сохранение (или null — новый прогресс) → прогресс игры (loadProgress: никогда не бросает); ничего не пишет
+function setProgress(save) { progress = loadProgress(save); }
+// >>> client
+// прогресс → localStorage (hooks.save)
+function writeProgress() { try { localStorage.setItem("bebebe-progress", JSON.stringify(progress)); } catch (e) { /* ok */ } }
 // SPEC-009: надетое в bebebe-outfits становится своим — только для сохранений без owned (до SPEC-009 всё было бесплатно), один раз
 function adoptWorn() {
   let changed = false;
@@ -2623,7 +2699,7 @@ function adoptWorn() {
   own("big", skinSel.big);
   if (changed) saveProgress();
 }
-if (!hadOwned) adoptWorn(); else fitOutfitsToOwned();   // сохранение с owned: некупленное снимается, а не дарится
+// >>> src/core/economy.js
 // SPEC-009: единственный код, который меняет progress.coins (тест «only the ledger writes coins» это проверяет).
 // Каждое изменение — событие coins (журнал и книга), потом сохранение. Ноль не пишем.
 function addCoins(reason, amount) {
@@ -2642,15 +2718,41 @@ function spendCoins(item, amount) {
   logCoins("buy:" + item, -amount); saveProgress();
   return true;
 }
-const worldProgress = (w = curWorld) => progress.worlds[w];
-curWorld = progress.lastWorld;
-level = worldProgress().unlocked;                          // меню открывается на последнем мире, на его новом уровне
-const fmtHearts = n => (Math.floor(n) || (n % 1 ? "" : "0")) + (n % 1 ? "½" : "");   // 2.5 → «2½», 0.5 → «½»
-const fmtTime = sec => `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, "0")}`;
 const gloveOf = pi => { const g = progress.equip[pi]; return !tutorialGame && g && g !== "none" && progress.inv[g] > 0 ? g : null; };   // SPEC-029: в тренировке без рукавиц
 // SPEC-029: запас поцелуев и спасалок идущей игры: в тренировке — свой (tutorialInv; настоящий не тратится), иначе — прогресс
 const gameInv = () => (tutorialGame ? tutorialInv : progress.inv);
 const saveInv = () => { if (!tutorialGame) saveProgress(); };
+// >>> src/core/progress-rules.js
+const worldProgress = (w = curWorld) => progress.worlds[w];
+// >>> client
+// SPEC-011 AC 5b: сохранения грузятся в одном месте и в одном порядке, до первой игры: язык (есть ли сохранённый прогресс) →
+// наряды → имена → прогресс (setProgress; старое плоское сохранение один раз переписывается) → adoptWorn / fitOutfitsToOwned →
+// мир и уровень, на которых открывается меню. Форма сохранений не меняется (старые грузятся как раньше)
+function initSaves() {
+  initLang();
+  try { skinSel = loadOutfits(JSON.parse(localStorage.getItem("bebebe-outfits") || "null")); } catch (e) { /* ok */ }   // старый ключ bebebe-place больше не читается (SPEC-006)
+  skinKeep = cloneSkins(skinSel);                          // после загрузки прогресса надетое становится своим (adoptWorn)
+  initNames();
+  let migrated = false, hadOwned = false;
+  try {
+    const pv = JSON.parse(localStorage.getItem("bebebe-progress") || "null");
+    setProgress(pv);
+    migrated = hasFlatProgress(pv);
+    hadOwned = !!pv && typeof pv === "object" && "owned" in pv;   // SPEC-009: сохранение уже знает про купленные наряды
+  } catch (e) { setProgress(null); }
+  if (migrated) saveProgress();                            // переезд старого сохранения — один раз
+  if (!hadOwned) adoptWorn(); else fitOutfitsToOwned();    // сохранение с owned: некупленное снимается, а не дарится
+  curWorld = progress.lastWorld;
+  level = worldProgress().unlocked;                        // меню открывается на последнем мире, на его новом уровне
+}
+// SPEC-011 AC 3b: сторона клиента в порту hooks (Phase C: src/client/main.js) — до загрузки сохранений и до первой игры
+setHooks({
+  sfx: name => SFX[name](), burst, pop: popText, shake: v => { shake = v; }, fx: clientFx, banner: bannerTick, rebuild: rebuild3D, save: writeProgress,
+  onWin: noteOpenedWorld, onPracticeWin: () => tutorialNext(), inputFor: deviceInput
+});
+initSaves();
+const fmtHearts = n => (Math.floor(n) || (n % 1 ? "" : "0")) + (n % 1 ? "½" : "");   // 2.5 → «2½», 0.5 → «½»
+const fmtTime = sec => `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, "0")}`;
 function buyGloves(kind) {
   const g = GLOVES[kind];
   if (!spendCoins(kind, g.price)) { SFX.out(); return; }
@@ -2678,40 +2780,47 @@ function buyUpgrade(k) {
   progress.upgrades[k] = lv + 1;
   saveProgress(); SFX.item();
 }
+// >>> src/core/rules.js
 // прибавка улучшения k для этого маленького: его уровень (взят при создании; у ботов нет) × step
 const playerBonus = (l, k) => (l.upg ? (l.upg[k] || 0) * UPGRADES[k].step : 0);
 // скорость маленького-игрока: обычная × «быстрые ноги» × сапоги (CFG.PLAYER_SPEED не меняется — предел Большого от неё)
 const moveSpeed = l => CFG.PLAYER_SPEED * (1 + playerBonus(l, "fastFeet")) * (l.fx.boots > 0 ? CFG.BOOTS_MULT : 1);
+// >>> client
 function setEquip(pi, kind) { progress.equip[pi] = kind; saveProgress(); resetWorld(numPlayers); }
 function resetProgress() {
   if (!resetArmed) { resetArmed = true; return; }
   resetArmed = false;
   rewardDue = false;                         // прогресс заменён целиком: за брошенный уровень не платим
-  progress = freshProgress(); openedWorld = null; worldBanner = null;
+  setProgress(null); openedWorld = null; worldBanner = null;   // новый прогресс
   if (!isOpen(curWorld)) curWorld = WORLDS[0];   // SPEC-016/030: после сброса открыт только Парк
   progress.lastWorld = curWorld;
   fitOutfitsToOwned();                       // SPEC-009: купленные наряды ушли вместе с прогрессом
   saveProgress(); level = 1; resetWorld(numPlayers);
 }
+// >>> src/core/progress-rules.js
 // SPEC-009: основа награды уровня n мира (SPEC-016: по индексу сложности мира, 0–4)
 const rewardBase = (world, n) => REWARD.BASE + REWARD.PER_LEVEL * n + REWARD.PER_WORLD * worldDifficulty(world);
 // SPEC-026: строка победы × REWARD.WIN_SCALE и округление (toFixed убирает хвост дробей: 45 × 0,7 = 31,4999… → 31,5 → 32)
 const winScale = v => Math.round(Number((v * REWARD.WIN_SCALE).toFixed(6)));
 // время третьей звезды уровня n мира (сек); его же берёт отчёт баланса (scripts/balance.js)
 const fastTarget = (world, n) => CFG.FAST_TIME(n) + worldDifficulty(world) * CFG.FAST_PER_WORLD;
+// >>> src/core/game.js
 // уровень начат и ещё не оплачен (startGame → true; награда, сброс или замена прогресса → false)
 let rewardDue = false;
+// >>> client
 // выход из идущего уровня до победы (пауза → Меню, перезапуск или другой уровень): платим только обнимашки.
 // Последнее сердечко уже снято (pendingWin идёт) — это победа: засчитываем её, как если бы досмотрели (правило детей: обнял — победил)
 function leaveLevel() {
   if (tutorialGame || !rewardDue || (mode !== "play" && mode !== "pause")) return;   // SPEC-029: тренировка не платит
   if (pendingWin > 0) { pendingWin = 0; logEvent("win", {}); giveReward(true); } else giveReward(false);
 }
+// >>> src/core/progress-rules.js
 // Награда (SPEC-009). Строки по порядку экрана победы: первая победа / повтор, новые звёзды, бонусные звёздочки, обнимашки, отдых.
 // Каждая строка (кроме звёздочек — они уже в копилке с подбора) идёт в книгу через addCoins; нулевые не пишем.
-function giveReward(win) {
+// → lastReward этого уровня или null (тренировка не платит). Клиент — giveReward (то же + мир, который открыла победа)
+function payReward(win) {
   rewardDue = false;
-  if (tutorialGame) return;                                 // SPEC-029: тренировка не платит и ничего не открывает
+  if (tutorialGame) return null;                            // SPEC-029: тренировка не платит и ничего не открывает
   const ph = stats.playerHugs;
   const starCoins = stats.starCoins;        // монетки за звёздочки уже в копилке (начислены при подборе)
   const partsOf = list => list.filter(([, a]) => a !== 0).map(([reason, amount]) => ({ reason, amount }));
@@ -2719,7 +2828,7 @@ function giveReward(win) {
   if (!win) {
     const c = addCoins("hugs", hugs);
     lastReward = { win: false, coins: c + starCoins, starCoins, parts: partsOf([["hugs", c], ["star", starCoins]]) };
-    return;
+    return lastReward;
   }
   const wp = worldProgress(), n = clamp(level, 1, levelsPerWorld());
   const rests = stats.rests, nobodyOut = rests === 0, target = fastTarget(curWorld, n), fast = stats.time <= target;
@@ -2739,10 +2848,17 @@ function giveReward(win) {
     newBest: stars > prevStars, world: curWorld, level: n, worldDone: n >= levelsPerWorld(), parts,
     bonusUnlocked: !bonusBefore && bonusUnlocked(),   // SPEC-016: эта победа открыла бонусные миры — сказать один раз
     worldOpened: MAIN_WORLDS.find(w => !openBefore.includes(w) && isOpen(w)) ?? null };   // SPEC-030: эта победа открыла следующий главный мир
-  if (lastReward.worldOpened) openedWorld = lastReward.worldOpened;   // карта переключится на него, когда откроется
+  return lastReward;
 }
+// >>> client
+// клиент: награда (payReward) и мир, который она открыла (hooks.onWin зовёт noteOpenedWorld сам)
+function giveReward(win) { noteOpenedWorld(payReward(win)); }
+// SPEC-030: победа открыла главный мир — карта переключится на него, когда откроется
+function noteOpenedWorld(r) { if (r && r.worldOpened) openedWorld = r.worldOpened; }
 
-function makeLittle(i, kind, botIndex, controls, look) {
+// >>> src/core/game.js
+// маленький i: look — вид от клиента (игра его только носит), upgrades — уровни улучшений игроков (у ботов нет)
+function makeLittle(i, kind, botIndex, controls, look, upgrades) {
   const sp = spawns.small[i];
   return {
     id: i, x: sp.x, y: sp.y, r: 11, kind, botIndex, look, controls,
@@ -2750,45 +2866,57 @@ function makeLittle(i, kind, botIndex, controls, look) {
     path: [], repath: 0, dir: Math.PI / 2, moveDir: 0, walk: 0, moving: false, speedFrac: 0, hugCd: 0,
     task: "idle", fleeT: 0, fleeGoal: null, fleeRe: 0, lurkT: rand(0, 2), offset: rand(-0.5, 0.5), tokenT: 0,
     hugAnim: 0, kissCd: 0, fx: { boots: 0, cloak: 0, shield: 0 },
-    upg: kind === "player" ? { ...progress.upgrades } : null   // SPEC-009: уровни улучшений этого игрока (у ботов нет)
+    upg: kind === "player" ? { ...upgrades } : null          // SPEC-009: уровни улучшений этого игрока (у ботов нет)
   };
 }
-function resetWorld(n) {
-  if (PHONE) n = 1;                  // на телефоне играет один (SPEC-005)
-  numPlayers = n;
-  if (tutorialGame) applyTutorialMap(); else loadLevel(curWorld, level);   // SPEC-029: тренировка — своя карта
+// SPEC-011 AC 3c: новая игра из простых данных, без клиента: уровень n мира world, players (1–2) маленьких-игроков и боты,
+// Большой. looks — виды от клиента: { players: [вид p1, вид p2], bots: [вид бота 0, 1, …], big: образ Большого } (игра их только
+// носит); upgrades — уровни улучшений игроков. Не чистая: тянет игровой rng() (те же вызовы в том же порядке, что раньше).
+// Тренировка (tutorialGame) строит свою карту и сценарий. В конце — hooks.rebuild (клиент строит 3D)
+function buildGame(world, n, players, { looks, upgrades = progress.upgrades }) {
+  curWorld = world; level = n; numPlayers = players;
+  if (tutorialGame) applyTutorialMap(); else loadLevel(world, n);   // SPEC-029: тренировка — своя карта
   littles = [];
-  const p1 = n === 1
+  const p1 = players === 1
     ? { up: ["KeyW", "ArrowUp"], down: ["KeyS", "ArrowDown"], left: ["KeyA", "ArrowLeft"], right: ["KeyD", "ArrowRight"] }
     : { up: ["KeyW"], down: ["KeyS"], left: ["KeyA"], right: ["KeyD"] };
-  littles.push(makeLittle(0, "player", -1, p1, makeLook(skinSel.p1)));
-  if (n === 2) littles.push(makeLittle(1, "player", -1, { up: ["ArrowUp"], down: ["ArrowDown"], left: ["ArrowLeft"], right: ["ArrowRight"] }, makeLook(skinSel.p2)));
+  littles.push(makeLittle(0, "player", -1, p1, looks.players[0], upgrades));
+  if (players === 2) littles.push(makeLittle(1, "player", -1, { up: ["ArrowUp"], down: ["ArrowDown"], left: ["ArrowLeft"], right: ["ArrowRight"] }, looks.players[1], upgrades));
   let bi = 0;
   const team = tutorialGame ? 1 + Math.max(1, CFG.TUTORIAL.bots) : 5;   // SPEC-029: в тренировке — игрок и бот (сценарий и спасение нужны хоть одному)
-  while (littles.length < team) { littles.push(makeLittle(littles.length, "bot", bi, null, makeLook(botOutfit(bi)))); bi++; }
-  const maxHp = tutorialGame ? CFG.TUTORIAL["hearts" + tutorialGame] : difficulty(curWorld, level).hearts;   // SPEC-029: тренировка — свои сердечки
+  while (littles.length < team) { littles.push(makeLittle(littles.length, "bot", bi, null, looks.bots[bi], upgrades)); bi++; }
+  const maxHp = tutorialGame ? CFG.TUTORIAL["hearts" + tutorialGame] : difficulty(world, n).hearts;   // SPEC-029: тренировка — свои сердечки
   big = {
     isBig: true, x: spawns.big.x, y: spawns.big.y, r: 22, dir: -Math.PI / 2, hp: maxHp, maxHp,
     state: "look", timer: 4, lookSign: 1, lastSeen: null, goal: null, patrolT: 0,
     path: [], repath: 0, moveDir: 0, walk: 0, moving: false, stun: 0, stunFace: 0, stunTurn: 0, pushCd: 0, noPush: 0, hugCd: 0, flash: 0, slip: 0,
     blush: 0, blushBy: 0,   // покраснел после поцелуя: сколько ещё сек и кто бросил (индекс игрока)
     kind: false,            // SPEC-022: злость кончилась — подобрел и идёт домой (pendingWin — сколько ещё идёт)
-    boss: tutorialGame ? null : bossFor(curWorld, level),   // SPEC-022: босс уровня (мир из BOSSES) или null; в тренировке — нет
+    boss: tutorialGame ? null : bossFor(world, n),         // SPEC-022: босс уровня (мир из BOSSES) или null; в тренировке — нет
     // SPEC-019: шум топота, сек до того, как снова слышит; поворот на топот (куда, сколько ещё, скорость) и сколько ещё смотрит туда
     noise: 0, hearCd: 0, hearFace: 0, hearTurnT: 0, hearRate: 0, hearLook: 0,
-    skin: BIG_SKINS[skinSel.big]
+    skin: looks.big
   };
   items = []; itemCd = rand(4, 7); pendingWin = 0; pushWaves = [];
   bonusStars = []; starCd = rand(CFG.STAR_EVERY[0], CFG.STAR_EVERY[1]);
   kisses = [];
   kitHintT = 0; kitHintDone = false;
   heardHintT = 0; heardHintDone = false;
-  texts = []; particles = []; attackToken = null; prevToken = null; botAttackCd = rand(3, 5); shake = 0; sticks.clear();
+  attackToken = null; prevToken = null; botAttackCd = rand(3, 5);
   stats = { hugs: 0, time: 0, playerHugs: 0, rests: 0, starCoins: 0 };
   autoNavs = new Map(); autoMove = [];
-  lastReward = null; resetArmed = false;
+  lastReward = null;
   if (tutorialGame) tutorialSetup();                       // SPEC-029: тренировка — папа на поляне, сценарий, подсказки, свой запас
-  rebuild3D();
+  hooks.rebuild();
+}
+// >>> client
+// новая игра мира и уровня меню (curWorld, level): правило телефона (играет один), виды из гардероба; надписи, частицы, тряска и
+// джойстики — с нуля. Игру строит buildGame (SPEC-011 AC 3c)
+function resetWorld(n) {
+  if (PHONE) n = 1;                  // на телефоне играет один (SPEC-005)
+  texts = []; particles = []; shake = 0; sticks.clear(); resetArmed = false;
+  const looks = { players: [makeLook(skinSel.p1), makeLook(skinSel.p2)], bots: Array.from({ length: 5 }, (_, bi) => makeLook(botOutfit(bi))), big: BIG_SKINS[skinSel.big] };
+  buildGame(curWorld, level, n, { looks });
 }
 // Надпись в начале уровня: не мешает играть; при быстром перезапуске (< BANNER_REPEAT сек) не показывается снова
 let banner = null, bannerShownAt = -Infinity;
@@ -2993,6 +3121,7 @@ function tutorialEnd() {
   if (t.back === "story") { mode = "story"; storyPage = "rules"; }
   else openMap();
 }
+// >>> src/core/practice.js
 // тренировка построена (resetWorld): свой запас (тренировка 2 — поцелуи и спасалка из CFG.TUTORIAL), свои подсказки вместо
 // «Нажми 🩹» и «Папа услышал топот»; тренировка 1 — сценарий: папа стоит на поляне лицом к боту, бот бежит на него
 function tutorialSetup() {
@@ -3017,7 +3146,7 @@ function updateTutorial(dt) {
       for (const l of littles) {
         const sp = spawns.small[l.id];
         Object.assign(l, { state: "ok", x: sp.x, y: sp.y, kx: 0, ky: 0, rescue: 0, path: [], moving: false, invuln: CFG.INVULN_AFTER_RESCUE });
-        popText(l.x, l.y - 40, L().back, "#7CFC9A");
+        hooks.pop(l.x, l.y - 40, L().back, "#7CFC9A");
       }
     }
   } else tut.bothDown = 0;
@@ -3052,6 +3181,7 @@ function tutorialNote(e) {
   else if (e.type === "slip") tut.did[2] = true;
   else if (e.type === "kit" && e.who === p.id) tut.did[4] = true;
 }
+// >>> client
 // текст подсказки тренировки (или null); управление — по устройству, как на странице A4
 function tutorialHintText() {
   const T = L().tut, touch = PHONE || isTouch;
@@ -3386,7 +3516,9 @@ const TIPTOE_KEYS = [["ShiftLeft", "ShiftRight"], ["ShiftLeft"], ["Slash"]];
 const tiptoeKey = pi => (numPlayers === 1 ? TIPTOE_KEYS[0] : TIPTOE_KEYS[pi + 1] || []).some(k => keys.has(k));
 // Длина вектора — доля скорости. Стик/геймпад: наклон t < TIPTOE_MAX — на цыпочках (до TIPTOE_MULT), больше — бегом (t);
 // Shift — не быстрее TIPTOE_MULT. Автопилот — как есть (его длина и есть доля скорости).
-function inputFor(l) {
+// SPEC-011 AC 3b: ввод игрока l с устройств (клавиши, Shift — на цыпочках; геймпады; джойстики касаний) — hooks.inputFor;
+// автопилот добавляет игра (inputFor в логике)
+function deviceInput(l) {
   const pi = l.id;
   let x = 0, y = 0;
   const c = l.controls, pressed = arr => arr.some(k => keys.has(k));
@@ -3405,25 +3537,13 @@ function inputFor(l) {
     const k = f / Math.hypot(x, y);
     x *= k; y *= k;
   }
-  const ap = autoMove[pi];                     // SPEC-008: автопилот — как ещё один джойстик этого игрока
-  if (ap) { x += ap.x; y += ap.y; }
-  const d = Math.hypot(x, y);
-  if (d > 1) { x /= d; y /= d; }
   return { x, y };
 }
 
 // =====================================================================
 //  ЛОГИКА
 // =====================================================================
-// meaning — что случилось (SPEC-020: "bang" | "hug" | "mega" | "kiss" | "out"): под надписью рисуется свой взрыв (POP_ART), необязательно
-function popText(x, y, text, color, meaning) { texts.push({ x, y, text, color, t: 0, meaning, w: undefined }); }
-function burst(x, y, kind, color, n) {
-  if (simMode) return;                   // в sim частиц нет (vrand, игровой rng() не трогают)
-  for (let i = 0; i < n; i++) {
-    const a = vrand(0, TAU), s = vrand(40, 140);
-    particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - (kind === "heart" ? 60 : 0), t: 0, life: vrand(0.6, 1.1), kind, color });
-  }
-}
+// >>> src/core/big.js
 function canSee(l) {
   if (inSafe(l)) return false;          // в домике Большой не видит и не трогает
   if (l.fx && l.fx.cloak > 0) return false;   // невидимка          // в домике Большой не видит и не трогает
@@ -3433,6 +3553,7 @@ function canSee(l) {
   if (d > 45 && inBush(l)) return false;
   return d < CFG.VISION_RANGE && diff < CFG.VISION_HALF && los(big.x, big.y, l.x, l.y, seeSolidAt);
 }
+// >>> src/core/rules.js
 const helps = (o, l) => o !== l && o.state === "ok" && dist(o, l) < o.r + l.r + 12;   // o стоит рядом с упавшим l и поднимает его
 // SPEC-022: толчок того, кого Большой поймал: самый злой папа (Школа 20) толкает широко — всех рядом перед собой
 function pushHit(t) { if (bossPower(big.boss) === "wide") widePush(t); else push(t); }
@@ -3448,9 +3569,9 @@ function widePush(t) {
   logEvent("widePush", { n: down });
   big.pushCd = CFG.WIDE_PUSH_STAND; big.noPush = CFG.PUSH_RECOVER;   // стоит дольше; передышка (правило детей) — как после любого толчка
   pushWaves.push({ x: big.x, y: big.y, t: 0, r: reach });
-  popText(big.x + Math.cos(big.dir) * big.r * 2, big.y + Math.sin(big.dir) * big.r * 2 - big.r * 2, L().whoosh, "#fde047", "whoosh");
-  shake = CFG.WIDE_PUSH_SHAKE;
-  SFX.push();
+  hooks.pop(big.x + Math.cos(big.dir) * big.r * 2, big.y + Math.sin(big.dir) * big.r * 2 - big.r * 2, L().whoosh, "#fde047", "whoosh");
+  hooks.shake(CFG.WIDE_PUSH_SHAKE);
+  hooks.sfx("push");
 }
 // SPEC-029: передышка папы после толчка; в тренировке 2 он слабее — × TUTORIAL.pushCooldownMult
 const pushRecover = () => CFG.PUSH_RECOVER * (tutorialGame === 2 ? CFG.TUTORIAL.pushCooldownMult : 1);
@@ -3462,9 +3583,9 @@ function push(t, wide = false) {
     logEvent("push", { who: t.id, blocked: true });
     t.kx = Math.cos(a) * 280; t.ky = Math.sin(a) * 280;
     big.pushCd = CFG.PUSH_STAND; big.noPush = pushRecover();
-    popText(t.x, t.y - 40, L().blocked, "#7dd3fc");
-    burst(t.x, t.y, "star", "#7dd3fc", 14);
-    SFX.shield();
+    hooks.pop(t.x, t.y - 40, L().blocked, "#7dd3fc");
+    hooks.burst(t.x, t.y, "star", "#7dd3fc", 14);
+    hooks.sfx("shield");
     return;
   }
   t.state = "down"; t.downTimer = CFG.DOWN_TIME; t.rescue = 0; t.path = []; t.dangerT = 0;
@@ -3476,11 +3597,11 @@ function push(t, wide = false) {
   if (t.kind === "player" && !kitHintDone && gameInv().rescues > 0) { kitHintDone = true; kitHintT = CFG.KIT_HINT_TIME; kitHintPi = t.id; }
   big.pushCd = CFG.PUSH_STAND;
   big.noPush = pushRecover();             // передышка: какое-то время никого не толкает (SPEC-029: в тренировке 2 — дольше)
-  burst(t.x, t.y, "dust", "#e5d3a1", 10);
+  hooks.burst(t.x, t.y, "dust", "#e5d3a1", 10);
   if (wide) return;                         // SPEC-022: широкий толчок — одно «ВЖУХ!» на всех (widePush)
-  shake = 0.25;
-  popText(t.x, t.y - 40, L().bang, "#ffcc00", "bang");
-  SFX.push();
+  hooks.shake(0.25);
+  hooks.pop(t.x, t.y - 40, L().bang, "#ffcc00", "bang");
+  hooks.sfx("push");
 }
 function hug(l, a) {
   let power = 1;
@@ -3496,10 +3617,10 @@ function hug(l, a) {
   stats.hugs++;
   if (l.kind === "player") stats.playerHugs++;
   logEvent("hug", { power, who: l.id, kind: l.kind });
-  popText(big.x, big.y - 70, power > 1 ? L().megaHug(power) : L().hug, power > 1 ? "#facc15" : "#ff6fa8", power > 1 ? "mega" : "hug");
-  burst(big.x, big.y - 30, "heart", "#ff4d8d", 12 * power);
-  if (power > 1) shake = 0.3;
-  SFX.hug();
+  hooks.pop(big.x, big.y - 70, power > 1 ? L().megaHug(power) : L().hug, power > 1 ? "#facc15" : "#ff6fa8", power > 1 ? "mega" : "hug");
+  hooks.burst(big.x, big.y - 30, "heart", "#ff4d8d", 12 * power);
+  if (power > 1) hooks.shake(0.3);
+  hooks.sfx("hug");
   if (l.kind === "bot") {
     if (attackToken === l) attackToken = null;
     l.lurkT = rand(3, 6); l.fleeT = 1.3; l.fleeGoal = null;
@@ -3507,6 +3628,7 @@ function hug(l, a) {
   if (big.hp <= 0) winSoon();   // победа — после последней обнимашки
 }
 function winSoon() { pendingWin = CFG.HUG_ANIM; big.stun = 99; }
+// >>> src/core/mood.js
 // SPEC-022: настроение папы по доле злости (для вида: лицо, пар, сердечки — SPEC-022 часть B рисует по нему)
 function bigMood() {
   const f = big && big.maxHp > 0 ? big.hp / big.maxHp : 0;
@@ -3518,9 +3640,9 @@ function startKindWalk() {
   Object.assign(big, { kind: true, stun: 0, slip: 0, pushCd: 0, blush: 0, path: [], state: "look", noise: 0, hearTurnT: 0, hearLook: 0 });   // своё состояние: ни шока, ни толчков, ни румянца-поцелуя
   big.home = nearestExit(big);
   pendingWin = CFG.KIND_WALK;
-  burst(big.x, big.y - 30, "heart", "#ff4d8d", CFG.KIND_HEARTS);
-  for (const l of littles) if (l.state === "ok") popText(l.x, l.y - 40, L().cheer, "#facc15");
-  SFX.mwah();
+  hooks.burst(big.x, big.y - 30, "heart", "#ff4d8d", CFG.KIND_HEARTS);
+  for (const l of littles) if (l.state === "ok") hooks.pop(l.x, l.y - 40, L().cheer, "#facc15");
+  hooks.sfx("mwah");
 }
 function updateKindWalk(dt) {
   for (const l of littles) { l.moving = false; l.speedFrac = 0; if (l.state === "ok" && l.hugAnim <= 0) l.dir = turnToward(l.dir, Math.atan2(big.y - l.y, big.x - l.x), CFG.KIND_TURN * dt); }
@@ -3529,39 +3651,42 @@ function updateKindWalk(dt) {
   if (big.moving) big.dir = turnToward(big.dir, big.moveDir, CFG.KIND_TURN * dt);
   if (!big.moving) winNow();                               // у двери (или пути нет) — сразу победа
 }
+// >>> src/core/rules.js
 function winNow() {
   pendingWin = 0;
   if (mode !== "play") return;
-  if (tutorialGame) { tutorialNext(); return; }            // SPEC-029: тренировка — без экрана победы и награды, дальше по обучению
-  mode = "win"; logEvent("win", {}); giveReward(true); SFX.win(); burst(big.x, big.y - 30, "heart", "#ff4d8d", 40);
+  if (tutorialGame) { hooks.onPracticeWin(); return; }     // SPEC-029: тренировка — без экрана победы и награды, дальше по обучению
+  mode = "win"; logEvent("win", {}); hooks.onWin(payReward(true)); hooks.sfx("win"); hooks.burst(big.x, big.y - 30, "heart", "#ff4d8d", 40);
 }
+// >>> client
 // SPEC-022: заголовок экрана победы: «<имя> снова добрый!» — босс уровня по имени босса, иначе набранное имя или «Папа»
 const winTitle = () => L().kindAgain(bossFor(curWorld, level) ? L().bossNames[curWorld] : nameFor("big"));
+// >>> src/core/rules.js
 // ---------- Воздушные поцелуи: летят прямо, полсердечка, Большой краснеет ----------
 function throwKiss(pi) {
   const l = littles[pi];
   if (mode !== "play" || pendingWin > 0 || !l || l.kind !== "player" || !canAct(l) || gameInv().kisses <= 0) return false;
-  if (inSafe(l)) { popText(l.x, l.y - 40, L().noKissHome, "#fca5a5"); return false; }   // из домика нельзя
+  if (inSafe(l)) { hooks.pop(l.x, l.y - 40, L().noKissHome, "#fca5a5"); return false; }   // из домика нельзя
   if (l.kissCd > 0) return false;
   gameInv().kisses--; saveInv();
   if (tutorialGame === 2 && l.id === littles[0].id) tut.did[3] = true;   // SPEC-029: подсказка «пошли поцелуй» сделана
   l.kissCd = CFG.KISS_COOLDOWN;
   const dx = Math.cos(l.dir), dy = Math.sin(l.dir);
   kisses.push({ id: ++kissSeq, owner: pi, x: l.x + dx * l.r, y: l.y + dy * l.r, dx, dy, travel: 0 });
-  SFX.kiss();
+  hooks.sfx("kiss");
   return true;
 }
 function kissHit(k) {
-  burst(big.x, big.y - 30, "heart", "#ff4d8d", 10);
+  hooks.burst(big.x, big.y - 30, "heart", "#ff4d8d", 10);
   const blush = !(pendingWin > 0 || big.stun > 0 || big.hugCd > 0 || big.blush > 0);   // SPEC-022: победа уже идёт — только сердечки
   logEvent("kiss", { who: k.owner, result: "hit", blush });
   if (!blush) return;   // в шоке (и 0.3 с после него) или уже красный — только сердечки
   big.hp = Math.max(0, big.hp - CFG.KISS_DAMAGE);
   big.blush = CFG.KISS_BLUSH; big.blushBy = k.owner;
   big.pushCd = 0; big.path = []; big.moving = false; big.flash = 0.2;
-  popText(big.x, big.y - 40, L().kissHit, "#ff6fa8", "kiss");
-  popText(big.x, big.y - 112, L().blush, "#fda4af");   // выше имени Большого
-  SFX.mwah();
+  hooks.pop(big.x, big.y - 40, L().kissHit, "#ff6fa8", "kiss");
+  hooks.pop(big.x, big.y - 112, L().blush, "#fda4af");   // выше имени Большого
+  hooks.sfx("mwah");
   if (big.hp <= 0) winSoon();                            // последнее полсердечка — победа, как после обнимашки
 }
 function updateKisses(dt) {
@@ -3570,15 +3695,17 @@ function updateKisses(dt) {
     while (left > 0 && !k.done) {
       const s = Math.min(CFG.KISS_STEP, left, CFG.KISS_RANGE - k.travel);
       k.x += k.dx * s; k.y += k.dy * s; k.travel += s; left -= s;
-      if (seeSolidAt(k.x, k.y)) { k.done = true; logEvent("kiss", { who: k.owner, result: "miss" }); burst(k.x - k.dx * CFG.KISS_STEP, k.y - k.dy * CFG.KISS_STEP, "star", "#ff9ecb", 8); }   // стена, дерево, камень, край карты
+      if (seeSolidAt(k.x, k.y)) { k.done = true; logEvent("kiss", { who: k.owner, result: "miss" }); hooks.burst(k.x - k.dx * CFG.KISS_STEP, k.y - k.dy * CFG.KISS_STEP, "star", "#ff9ecb", 8); }   // стена, дерево, камень, край карты
       else if (dist(k, big) < big.r + CFG.KISS_HIT_PAD && los(k.x, k.y, big.x, big.y, seeSolidAt)) { k.done = true; kissHit(k); }   // сквозь стену не попадает
-      else if (k.travel >= CFG.KISS_RANGE) { k.done = true; logEvent("kiss", { who: k.owner, result: "miss" }); burst(k.x, k.y, "star", "#ffd1e3", 5); }
+      else if (k.travel >= CFG.KISS_RANGE) { k.done = true; logEvent("kiss", { who: k.owner, result: "miss" }); hooks.burst(k.x, k.y, "star", "#ffd1e3", 5); }
     }
   }
   kisses = kisses.filter(k => !k.done);
 }
+// >>> client
 // Сердечко i в полоске: 1 — целое, 0.5 — половинка, 0 — пустое
 const heartFill = (i, hp) => clamp(hp - i, 0, 1);
+// >>> src/core/difficulty.js
 // Сложность (SPEC-006): мир начинается с WORLD_SPEED_START[d] (d — индекс сложности мира, SPEC-016), каждый уровень мира
 // +SPEED_PER_LEVEL; злость — каждое ЦЕЛОЕ потерянное сердечко +BIG_SPEED_PER_HIT. Ни одна скорость не больше BIG_CHASE_MAX (вместе со злостью).
 const levelBoost = (world, n) => (CFG.WORLD_SPEED_START[worldDifficulty(world)] ?? CFG.WORLD_SPEED_START.at(-1)) + levelPos(n) * CFG.SPEED_PER_LEVEL;
@@ -3600,6 +3727,7 @@ function bigSpeeds() {
   const d = tutorialGame ? difficulty(WORLDS[0], 1) : bigDifficulty(), m = tutorialGame ? CFG.TUTORIAL.speedMult : 1;
   return { chase: d.chase * m, search: d.search * m, patrol: d.patrol * m };
 }
+// >>> src/core/rules.js
 function updateHugAnim(dt) {
   for (const l of littles) {
     if (l.hugAnim <= 0) continue;
@@ -3608,7 +3736,7 @@ function updateHugAnim(dt) {
     l.x = big.x + Math.cos(back) * (big.r + l.r + 2);
     l.y = big.y + Math.sin(back) * (big.r + l.r + 2);
     l.dir = big.dir; l.moving = false;
-    if (vrand() < dt * 6) burst(big.x, big.y - 20, "heart", "#ff4d8d", 1);
+    if (vrand() < dt * 6) hooks.burst(big.x, big.y - 20, "heart", "#ff4d8d", 1);
     if (l.hugAnim <= 0) {                  // спрыгивает назад
       l.hugAnim = 0;
       l.kx = Math.cos(back) * 230; l.ky = Math.sin(back) * 230;
@@ -3673,9 +3801,9 @@ function updateStars(dt) {
     stats.starCoins += CFG.STAR_COINS;
     logEvent("star", { who: l.id });
     addCoins("star", CFG.STAR_COINS);   // сразу в копилку: остаются, даже если уровень не выигран
-    popText(s.x, s.y - 30, "+" + CFG.STAR_COINS, "#fde047");
-    burst(s.x, s.y, "star", "#fde047", 16);
-    SFX.star();
+    hooks.pop(s.x, s.y - 30, "+" + CFG.STAR_COINS, "#fde047");
+    hooks.burst(s.x, s.y, "star", "#fde047", 16);
+    hooks.sfx("star");
   }
   bonusStars = bonusStars.filter(s => s.t < s.life);
 }
@@ -3696,10 +3824,10 @@ function updateItems(dt) {
         it.t = 999;
         big.slip = CFG.SLIP_STUN; big.path = []; big.flash = 0.2;
         logEvent("slip", {});
-        popText(big.x, big.y - 70, L().slip, "#fde047");
-        burst(big.x, big.y, "star", "#fde047", 12);
-        shake = 0.2;
-        SFX.slip();
+        hooks.pop(big.x, big.y - 70, L().slip, "#fde047");
+        hooks.burst(big.x, big.y, "star", "#fde047", 12);
+        hooks.shake(0.2);
+        hooks.sfx("slip");
       }
       continue;
     }
@@ -3709,14 +3837,24 @@ function updateItems(dt) {
       logEvent("item", { kind: it.kind, who: l.id });
       const base = it.kind === "boots" ? CFG.BOOTS_TIME : it.kind === "cloak" ? CFG.CLOAK_TIME : CFG.SHIELD_TIME;
       l.fx[it.kind] = base * (1 + playerBonus(l, "longItems"));   // SPEC-009: игроку дольше («долгие вещи»)
-      popText(l.x, l.y - 40, L().items[it.kind], "#c4b5fd");
-      burst(l.x, l.y, "star", "#fde047", 10);
-      SFX.item();
+      hooks.pop(l.x, l.y - 40, L().items[it.kind], "#c4b5fd");
+      hooks.burst(l.x, l.y, "star", "#fde047", 10);
+      hooks.sfx("item");
     }
   }
   items = items.filter(it => it.t < it.life);
 }
 
+// >>> src/core/game.js
+// чем рулит игрок l: ввод с устройств (hooks.inputFor) плюс «джойстик» автопилота (SPEC-008); длина не больше 1
+function inputFor(l) {
+  let { x, y } = hooks.inputFor(l);
+  const ap = autoMove[l.id];
+  if (ap) { x += ap.x; y += ap.y; }
+  const d = Math.hypot(x, y);
+  if (d > 1) { x /= d; y /= d; }
+  return { x, y };
+}
 function updatePlayers(dt) {
   for (const l of littles) {
     if (l.kind !== "player") continue;
@@ -3734,6 +3872,7 @@ function updatePlayers(dt) {
   }
 }
 
+// >>> src/core/bots.js
 function fleePoint(b) {
   if (safeZone) {                        // домик рядом — бежим в домик
     const home = { x: safeZone.x + safeZone.w / 2, y: safeZone.y + safeZone.h / 2 };
@@ -3857,6 +3996,7 @@ function nearestExit(p) {
   return { x: (c % COLS + 0.5) * CELL, y: (((c / COLS) | 0) + 0.5) * CELL };
 }
 
+// >>> src/core/autopilot.js
 // =====================================================================
 //  АВТОПИЛОТ (SPEC-008): ведёт маленьких игроков для проверки баланса. Видит то же, что игрок, а действует только как
 //  игрок: «джойстик» autoMove, который читает inputFor(l), и кнопки 💋 throwKiss / 🩹 useRescueKit. Состояние Большого,
@@ -3941,6 +4081,7 @@ function autoThink(dt) {
   }
 }
 
+// >>> src/core/hearing.js
 // ---------- SPEC-019: Большой слышит топот ----------
 // Бежит (не на цыпочках): на ногах, идёт, доля скорости ≥ TIPTOE_MAX (на цыпочках — не больше TIPTOE_MULT)
 const isRunning = l => !!l && l.state === "ok" && l.moving && l.speedFrac >= CFG.TIPTOE_MAX;
@@ -3992,6 +4133,7 @@ function bigMark() {
   return "";
 }
 
+// >>> src/core/big.js
 function updateBig(dt) {
   big.flash = Math.max(0, big.flash - dt);
   big.hugCd = Math.max(0, big.hugCd - dt);
@@ -4033,7 +4175,7 @@ function updateBig(dt) {
   if (target) {
     big.hearTurnT = 0; big.hearLook = 0;                 // видит — топот уже не важен; шум тает
     big.noise = Math.max(0, big.noise - CFG.NOISE_DECAY * dt);
-    if (big.state !== "chase") { popText(big.x, big.y - 75, "!", "#ff3b30"); SFX.alert(); }
+    if (big.state !== "chase") { hooks.pop(big.x, big.y - 75, "!", "#ff3b30"); hooks.sfx("alert"); }
     big.state = "chase";
     big.lastSeen = { x: target.x, y: target.y };
     big.moving = steerTo(big, target.x, target.y, speed.chase, dt, false);
@@ -4066,6 +4208,7 @@ function updateBig(dt) {
   }
 }
 
+// >>> src/core/rules.js
 function separate() {
   const all = littles.filter(l => (l.state === "ok" || l.state === "down") && l.hugAnim <= 0);
   for (let i = 0; i < all.length; i++) for (let j = i + 1; j < all.length; j++) {
@@ -4115,9 +4258,9 @@ function useRescueKit(pi) {
   l.state = "ok"; l.invuln = CFG.KIT_INVULN; l.rescue = 0; l.downTimer = 0; l.restTimer = 0; l.path = [];
   l.kx = 0; l.ky = 0; l.moving = false; l.botWait = 0; l.fleeT = 0;
   l.kissCd = Math.max(l.kissCd, CFG.KIT_SLOT_LOCK);      // второй тап по тому же месту (там уже 💋) не бросает поцелуй
-  popText(l.x, l.y - 40, L().kitUsed, "#7CFC9A");
-  burst(l.x, l.y - 10, "star", "#fde68a", 14);
-  SFX.rescue();
+  hooks.pop(l.x, l.y - 40, L().kitUsed, "#7CFC9A");
+  hooks.burst(l.x, l.y - 10, "star", "#fde68a", 14);
+  hooks.sfx("rescue");
   return true;
 }
 function updateDowned(dt) {
@@ -4132,17 +4275,17 @@ function updateDowned(dt) {
     if (l.rescue >= l.rescueNeed) {
       l.state = "ok"; l.invuln = CFG.INVULN_AFTER_RESCUE; l.rescue = 0;
       logEvent("rescued", { who: l.id, by: helper.kind });
-      popText(l.x, l.y - 40, L().saved, "#7CFC9A");
-      burst(l.x, l.y - 10, "star", "#7CFC9A", 10);
-      SFX.rescue();
+      hooks.pop(l.x, l.y - 40, L().saved, "#7CFC9A");
+      hooks.burst(l.x, l.y - 10, "star", "#7CFC9A", 10);
+      hooks.sfx("rescue");
     } else if (!tutorialGame && l.downTimer <= 0) {   // никто не помог — встаёт и хромает в домик отдыхать (SPEC-029: в тренировке — никогда)
       l.state = "home"; l.path = []; l.rescue = 0;
       l.restSpot = { ...spawns.small[l.id] };
       stats.rests++;
       logEvent("rest", { who: l.id });
       if (attackToken === l) attackToken = null;
-      popText(l.x, l.y - 40, L().out, "#e5e7eb");
-      SFX.out();
+      hooks.pop(l.x, l.y - 40, L().out, "#e5e7eb");
+      hooks.sfx("out");
     }
   }
 }
@@ -4162,10 +4305,10 @@ function throwOut(l) {
   l.dangerT = 0; l.dizzy = CFG.DIZZY_TIME; l.moving = false;
   logEvent("thrownOut", { who: l.id });
   if (attackToken === l) attackToken = null;
-  shake = 0.2;
-  popText(l.x, l.y - 40, L().thrownOut, "#fca5a5", "out");
-  burst(l.x, l.y - 10, "star", "#fde047", 10);
-  SFX.thrown();
+  hooks.shake(0.2);
+  hooks.pop(l.x, l.y - 40, L().thrownOut, "#fca5a5", "out");
+  hooks.burst(l.x, l.y - 10, "star", "#fde047", 10);
+  hooks.sfx("thrown");
 }
 // Ближайшая свободная клетка (не стена и не дом Большого), поиск в ширину
 function freeCellNear(idx) {
@@ -4194,25 +4337,23 @@ function updateResting(dt) {
       if (l.restTimer <= 0) {
         l.state = "ok"; l.invuln = 2; l.fleeT = 0;
         logEvent("back", { who: l.id });
-        popText(l.x, l.y - 40, L().back, "#7CFC9A");
-        burst(l.x, l.y - 10, "star", "#7CFC9A", 10);
-        SFX.rescue();
+        hooks.pop(l.x, l.y - 40, L().back, "#7CFC9A");
+        hooks.burst(l.x, l.y - 10, "star", "#7CFC9A", 10);
+        hooks.sfx("rescue");
       }
     }
   }
 }
+// >>> src/core/game.js
+// эффекты: кольца широкого толчка (игра); летящие надписи, частицы и тряска — у клиента (hooks.fx)
 function updateFx(dt) {
-  for (const t of texts) { t.t += dt; t.y -= 30 * dt; }
-  texts = texts.filter(t => t.t < 1.2);
-  for (const p of particles) { p.t += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.96; p.vy *= 0.96; }
-  particles = particles.filter(p => p.t < p.life);
   for (const w of pushWaves) w.t += dt;
   pushWaves = pushWaves.filter(w => w.t < CFG.WAVE_TIME);
-  shake = Math.max(0, shake - dt);
+  hooks.fx(dt);
 }
 function update(dt) {
   if (!big.kind) stats.time += dt;                         // SPEC-022: пока подобревший папа идёт домой, часы уровня стоят
-  if (banner && (banner.t += dt) >= CFG.BANNER_TIME) banner = null;
+  hooks.banner(dt);                                        // надпись уровня гаснет (клиент)
   for (const l of littles) {
     l.invuln = Math.max(0, l.invuln - dt);
     l.hugCd = Math.max(0, l.hugCd - dt);
@@ -4248,11 +4389,32 @@ function simRun(seconds, dt = CFG.BALANCE.SIM_DT) {
   for (let i = 0; mode === "play" && (i < n || pendingWin > 0); i++) update(dt);   // SPEC-022: начатая победа (обнимашка, дорога домой) доигрывается
   return { ended: mode !== "play", win: mode === "win", time: stats.time };
 }
+// >>> client
 // sim(on): включить/выключить режим симуляции; без аргумента — только узнать. Выключили — 3D строится заново.
 function sim(on) {
   if (typeof on === "boolean" && on !== simMode) { simMode = on; if (!on) { rebuild3D(); artLoad(); } }
   return { on: simMode, renders, draws, sounds };
 }
+// ---------- Эффекты клиента (SPEC-011 AC 3b: логика зовёт их через hooks.pop / burst / shake / fx / banner) ----------
+// meaning — что случилось (SPEC-020: "bang" | "hug" | "mega" | "kiss" | "out"): под надписью рисуется свой взрыв (POP_ART), необязательно
+function popText(x, y, text, color, meaning) { texts.push({ x, y, text, color, t: 0, meaning, w: undefined }); }
+function burst(x, y, kind, color, n) {
+  if (simMode) return;                   // в sim частиц нет (vrand, игровой rng() не трогают)
+  for (let i = 0; i < n; i++) {
+    const a = vrand(0, TAU), s = vrand(40, 140);
+    particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - (kind === "heart" ? 60 : 0), t: 0, life: vrand(0.6, 1.1), kind, color });
+  }
+}
+// летящие надписи, частицы, тряска (hooks.fx — из updateFx: в игре и в меню)
+function clientFx(dt) {
+  for (const t of texts) { t.t += dt; t.y -= 30 * dt; }
+  texts = texts.filter(t => t.t < 1.2);
+  for (const p of particles) { p.t += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.96; p.vy *= 0.96; }
+  particles = particles.filter(p => p.t < p.life);
+  shake = Math.max(0, shake - dt);
+}
+// надпись уровня гаснет, пока уровень идёт (hooks.banner — из update)
+function bannerTick(dt) { if (banner && (banner.t += dt) >= CFG.BANNER_TIME) banner = null; }
 
 // =====================================================================
 //  2D-СЛОЙ: меню, HUD, подписи (поверх 3D)
@@ -9326,7 +9488,7 @@ window.__bb = {
   sim, simRun, get events() { return events.map(e => ({ ...e })); },   // SPEC-008: режим симуляции, журнал событий (копии)
   ledger: () => ledger.map(e => ({ ...e })),   // SPEC-009: события coins за сессию (с загрузки страницы), копии
   get rngDraws() { return rngDraws; },   // SPEC-008: сколько раз тянули игровую случайность
-  setProgress(save) { rewardDue = false; lastReward = null; openedWorld = null; worldBanner = null; progress = loadProgress(save); },   // SPEC-008 (баланс): прогресс из сохранения (null — новый), не записывает
+  setProgress(save) { rewardDue = false; lastReward = null; openedWorld = null; worldBanner = null; setProgress(save); },   // SPEC-008 (баланс): прогресс из сохранения (null — новый), не записывает
   levelsPerWorld,
   autopilot, autoThink,   // SPEC-008: autopilot(on, "careful"|"reckless") → { on, style }; autoThink(dt) — только решение (для теста)
   autoStick: i => autoMove[i] ? { x: autoMove[i].x, y: autoMove[i].y } : null,   // SPEC-019: «стик» автопилота игрока i после autoThink (копия)

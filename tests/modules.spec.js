@@ -231,3 +231,59 @@ test("every save fixture loads the same after a real reload", async ({ page }) =
   for (const [n, want] of Object.entries(ref)) for (const k of Object.keys(want)) soft(got[n][k], `${n}: ${k}`).toEqual(want[k]);
   soft.done();
 });
+
+// ---------- The core's code: src/core/**, or — while it is still inline (Phase B steps B2–B3) — the chunks of the inline
+// module that start with a marker line `// >>> src/core/<file>` (a chunk runs to the next `// >>> …` marker)
+const coreCode = () => {
+  const dir = path.join(ROOT, "src", "core");
+  if (fs.existsSync(dir)) return srcFiles(dir).map(f => [path.relative(ROOT, f).replace(/\\/g, "/"), fs.readFileSync(f, "utf8")]);
+  const parts = fs.readFileSync(INDEX, "utf8").replace(/\r\n/g, "\n").split(/^\/\/ >>> (\S+).*$/m), out = [];
+  for (let i = 1; i < parts.length; i += 2) if (parts[i].startsWith("src/core/")) out.push([parts[i], parts[i + 1]]);
+  return out;
+};
+// code without comments and string contents (a comment or a text may name anything)
+const codeOnly = s => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|\s)\/\/.*$/gm, "$1")
+  .replace(/"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|`(?:[^`\\]|\\.)*`/g, "\"\"");
+
+// AC 3b: the core reaches the client only through one port, src/core/hooks.js: setHooks({ … }) with no-op defaults (the Node
+// import works without a client). Every hook, and what replaces it (SPEC-012 turns sfx, burst, pop, shake, save and inputFor
+// into events and input slots and removes them here):
+const HOOKS = {
+  sfx: "a sound by its SFX name (SPEC-012: an event)",
+  burst: "particles (SPEC-012: an event)",
+  pop: "a flying text over the game; the core gives the text (SPEC-012: an event)",
+  shake: "camera shake (SPEC-012: an event)",
+  fx: "the client's own effects step inside update() (and in the menus): flying texts, particles, shake",
+  banner: "the level banner's clock: it runs while the level plays (update)",
+  save: "write progress to storage — economy.js saves only through it (SPEC-012: an event)",
+  rebuild: "rebuild the 3D scene for the game buildGame just built",
+  onWin: "a level was won and paid: the client's flow (the map shows a world the win opened)",
+  onPracticeWin: "a practice game was won: the next tutorial step (starts the next practice game, so it re-enters the core)",
+  inputFor: "a player's device input: held keys (Shift = tiptoe), touch sticks, gamepads, shaped (SPEC-012: input slots)"
+};
+// client code the logic called directly before SPEC-011 (RR-01) and client state it wrote: none of it in the core
+const CLIENT_NAMES = ["SFX", "burst", "popText", "texts", "particles", "shake", "banner", "showBanner", "camSnap", "rebuild3D", "sticks",
+  "keys", "pads", "deviceInput", "stickR", "tiptoeKey", "PHONE", "isTouch", "skinSel", "skinKeep", "makeLook", "botOutfit",
+  "tutorialNext", "openedWorld", "worldBanner", "writeProgress", "localStorage", "document", "simMode", "renderer", "camera", "ctx"];
+test("core reaches the client only through hooks", { tag: "@fast" }, () => {
+  const core = coreCode();
+  expect(core.map(([f]) => f), "the core and the hooks port exist").toEqual(expect.arrayContaining(["src/core/hooks.js", "src/core/economy.js", "src/core/game.js"]));
+  const bad = [];
+  for (const [file, text] of core) {
+    if (/\bimport\b[^;]*?from\s*["'][^"']*client\//.test(text)) bad.push(`${file}: imports src/client/`);
+    const code = codeOnly(text);
+    for (const name of CLIENT_NAMES) if (new RegExp(`(?<![.\\w$])${name}\\b(?!\\s*:)`).test(code)) bad.push(`${file}: uses ${name}`);
+  }
+  expect(bad, "client names in the core (call hooks.<name>() instead)").toEqual([]);
+  // the port: exactly the listed hooks, each a no-op by default, each but onPracticeWin under the game-rng guard (a hook is client
+  // code: it must not draw the gameplay rng()); onPracticeWin starts the next practice game, whose buildGame draws rng() on purpose
+  const port = codeOnly(core.find(([f]) => f === "src/core/hooks.js")[1]);
+  const defaults = port.match(/HOOK_DEFAULTS\s*=\s*Object\.freeze\(\{([\s\S]*?)\n\}\)/);
+  expect(!!defaults, "HOOK_DEFAULTS in hooks.js").toBe(true);
+  expect([...defaults[1].matchAll(/^\s*(\w+):/gm)].map(m => m[1])).toEqual(Object.keys(HOOKS));
+  expect(port).toMatch(/noGameRng\(""\s*\+\s*k\b/);
+  expect(port).toMatch(/function setHooks\(/);
+  // and the core uses the port: every hook is called somewhere in the core
+  const all = core.map(([, t]) => codeOnly(t)).join("\n");
+  expect(Object.keys(HOOKS).filter(h => !new RegExp(`\\bhooks\\.${h}\\(`).test(all)), "hooks the core never calls").toEqual([]);
+});
