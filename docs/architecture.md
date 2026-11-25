@@ -48,7 +48,48 @@ The game is ES modules served over http. `src/core/` is the game itself and runs
 | `src/i18n.js` | every text in en/es/pt/ru (`I18N`), plurals, `capFirst`, `LANGS`, `HTML_LANG`, the pure `detectLang`, the current language and `L()` (shared) | `lang` | `setCurrentLang` |
 | `src/story.js` | the story chapters and scenes in four languages, `RULE_ICONS`, `SCENE_IDS`, `TUTORIAL_SCENES`, `SEEN_IDS` (shared data) | — | — |
 | `src/client/art-names.js` | `ART_NAMES`, written by `npm run assets` | — | — |
+| `src/client/art.js` | the art loader (`art`, `artFile`, `artLoad`, `artGate`, `artVersion`), the sprite tables (`ITEM_ART`, `POP_ART`, `EMOJI_ART`, …), the paper panels (`paperUI`, `paperCache`, `paperPanel`) | `artVersion`, `artStarted` | — |
+| `src/client/debug.js` | `window.__bb` for the tests (getters and setters over the modules' live state, never copies), `CFG_ALL` (the `__bb.CFG` Proxy over `CFG` and `LOOK`), `SIM_DRAWN` | — | — |
+| `src/client/flow.js` | screens and transitions: world choice, `leaveLevel`, `giveReward`, `resetWorld` (the client wrapper of `buildGame`), the level banner, `startGame`, `nextLevel`, the modes, the shop tabs, the map and level card, the story and its scenes, `resetMenus`, `toMap`, `toHome` | `shopBack`, `mapSel`, `cardLevel`, `storyCh`, `storyBack` | — |
+| `src/client/fx.js` | the client's effects the core asks for: `popText`, `burst`, `clientFx` (the `fx` hook), `bannerTick` (the `banner` hook) | — | — |
+| `src/client/input.js` | keyboard, touch sticks, pointer buttons, the name input overlay, gamepads, tiptoe keys, `deviceInput` (the `inputFor` hook) | `pendingUp`, `nameInput`, `pads` | — |
 | `src/client/look.js` | `LOOK`: the look/UI numbers (camera, phone layout, mini-map, art, paper, outlines, colours, menus, banners, text tests); `__bb.CFG` shows `CFG` and `LOOK` as one | — | — |
+| `src/client/main.js` | the entry point and the one place that starts the game: the rng flags of the tests, the init functions in the start order of the one-file game, `setHooks` (before `initSaves`), `initSaves`, the first `resetWorld`, the frame loop `frame`, `registerServiceWorker`, `installDebug` | `introDue`, `last` | — |
+| `src/client/names.js` | the players', the Big One's and the bots' names (`bebebe-names`): `cleanName`, `initNames`, `nameFor`, `setName`, `nameOf` | `namesTyped` | — |
+| `src/client/outfits.js` | the wardrobe state and looks: `makeLook`, `BOSS_LOOKS`, `skinSel`/`skinKeep`, try-on (`tryingOn`, `endTryOn`), `buyLook`, `adoptWorn`, `fitOutfitsToOwned`, `botOutfit` | `skinSel`, `skinKeep`, `tryingOn`, `buyArmed` | `setSkinSel`, `setSkinKeep` |
+| `src/client/progress.js` | the saves: language (`initLang`, `setLang`), `writeProgress` (the `save` hook), `initSaves()` (AC 5b order), `resetProgress` | — | — |
+| `src/client/screen.js` | the two canvases, `fit()` (letterbox / phone full screen, DPR), `UW`/`UH`, `isTouch`, `STANDALONE`, `PHONE`, sim mode (`simMode`, `sim()`) | `ctx`, `VIEW`, `CSS_W`, `CSS_H`, `DPR`, `UW`, `UH`, `simMode`, `onFit` | `setOnFit`, `setCtx` |
+| `src/client/shop.js` | the Character screen's buy actions: gloves, kisses, the rescue kit, upgrades (`buyUpgrade`, `upgLevel`), `setEquip` | — | — |
+| `src/client/sound.js` | Web Audio beeps: `initAudio`, `soundOn`, `beep`, `SFX` (the `sfx` hook) | `actx` | — |
+| `src/client/state.js` | `ui`: the client state several modules write — flying texts and particles, shake, the banner, the shop tab and wardrobe page, the story page and scene, the map toast and swipe, the opened world, the per-frame drawn state the tests read (buttons, hudRects, …), the draw counters, the frame clock `T` | — (`ui` is one `const` object: its properties are the state, written in place) | — |
+| `src/client/three/bosses.js` | the bosses' clothes (`BOSS_PARTS`, `dressBoss`) | — | — |
+| `src/client/three/camera.js` | fitting the camera to the map, the phone camera that follows the hero (`camSnap`, `updateCamera`), the moving shadow box, `toScreen` | `camDist`, `camCorners`, `camOff`, `cam`, `sunOff`, `LZ`, `LX`, `LY`, `SHADOW_FULL`, `shadowBox` | — |
+| `src/client/three/characters.js` | the Little Ones' and the Big One's models, faces, hair, the cloak, `buildCharacters`, `rebuild3D` (the `rebuild` hook) | `charGroup` | — |
+| `src/client/three/houses.js` | the houses (SPEC-021): roofs, doors, `dressHouses`, fading roofs | `houseInfo` | `setHouseInfo` |
+| `src/client/three/look3d.js` | `look3D(part)`: how the 3D scene is drawn, for the tests (SPEC-021) | — | — |
+| `src/client/three/map3d.js` | the 3D map: `mapKey`, `buildMap3D`, the painted ground (`paintGround`, marker strokes, doodles), fading trees and bushes | `mapGroup`, `builtKey`, `safeGlow`, `snow` | — |
+| `src/client/three/materials.js` | toon materials, outlines, hatching, wobble, `part()`, the ground texture, the paper grain (`syncPaper`) | `hatchSun`, `wobRng`, `groundCanvas`, `groundTex`, `paperMade`, `paperOn`, `paperPR` | — |
+| `src/client/three/previews.js` | the wardrobe previews (`skinPanels`, `previewCache`, `renderPreviews`), `outfitModel` | — | — |
+| `src/client/three/setup.js` | the renderer (created by `initThree`), the scene, the lights, the base camera, `U`/`P`, `WALL_H` | `renderer`, `glCanvas` | — |
+| `src/client/three/sync.js` | the view cone and hug zone, items / stars / kisses in 3D, the per-frame copy of the game into the scene (`syncScene`), `render3D` | `itemGroup`, `starGroup`, `kissGroup`, `lastSyncT` | — |
+| `src/client/three/themes.js` | `THEMES` (colours of the six places) and the place objects: trees, palms, rocks, bushes, ponds, goals, street things, cottages, water, fountains, maze decor | — | — |
+| `src/client/tutorial.js` | the tutorial step machine (SPEC-029): `TUTORIAL_STEPS`, pages, `openTutorial`, `tutorialNext` (the `onPracticeWin` hook), `tutorialEnd`, hint texts | `tutorial` | `setTutorial` |
+| `src/client/ui/character/items.js` | Character → Items: the four cards (`shopCards`, `shopPicture`) and who wears what, on a phone and a computer | — | — |
+| `src/client/ui/character/progress.js` | Character → Progress (SPEC-026): `progressGeom`, `progressPage` | — | — |
+| `src/client/ui/character/tabs.js` | the Character screen's tabs and top bar (`shopTabs`, `phoneShopBar`) | — | — |
+| `src/client/ui/character/upgrades.js` | Character → Upgrades (SPEC-009): the upgrade cards on a phone and a computer | — | — |
+| `src/client/ui/character/wardrobe.js` | Character → Wardrobe: locks, Buy, captions, the looks columns and the friends page, the name labels (SPEC-009/017) | — | — |
+| `src/client/ui/draw.js` | 2D drawing helpers: shapes, art on the canvas (`drawArt*`, `artUse`), buttons (`addButton`, `iconButton`), hearts, coins, kisses, the rescue kit, name tags, tap lines, the Big One's mood, markers, particles and texts, touch sticks | `tapLines` | — |
+| `src/client/ui/home.js` | the home screen (SPEC-017/026): title, language and sound, Play · Story · Character | — | — |
+| `src/client/ui/hud.js` | the in-game HUD on a computer (`drawHUD`), the shared HUD texts, the rescue-kit and heard hints, the kiss and kit buttons, the level banner (`drawBanner`, `placePhoneBanner`) | — | — |
+| `src/client/ui/map.js` | the level map (world tabs, the 20 stops) and the level card (SPEC-017), `lockedText` | — | — |
+| `src/client/ui/menu.js` | menu building blocks: `pButton`, `menuFrame`, `phoneFrame`, `phoneSkinCols`, `worldPicture` | — | — |
+| `src/client/ui/minimap.js` | the phone mini-map and the edge arrows (SPEC-005, SPEC-010) | `mmBase`, `mmKey`, `mmDraws`, `mmCount`, `mmAlpha` | — |
+| `src/client/ui/phone.js` | the phone HUD (SPEC-005): `phoneTopBar`, team chips, `teamRect`, `phoneOccluders`, `drawHUDPhone` | `chipCache` | — |
+| `src/client/ui/screens.js` | the 2D pass of a frame (`drawUI`) and the per-mode dispatch (`drawOverlay`, `drawOverlayPhone`) | — | — |
+| `src/client/ui/story.js` | the story screen (chapters, How to play), the comic bubbles (SPEC-026), the story scenes (SPEC-022) | — | — |
+| `src/client/ui/text.js` | text drawing and fitting: `label`, `fitText`, `wrapText`, `labelFit`, `noteRows`, `sideFit`, the phone text sizes (`cpx`, `minPx`, `fz`, `hudFont`), the menu text helpers (`pLabel`, `pRows`, `pWrap`), `fmtTime`, `fmtHearts` | `lastFit` | — |
+| `src/client/ui/win.js` | the end screens: win title and lines, bonus note, reward lines, the end and pause buttons, pause / win / lose on a phone and a computer | — | — |
 <!-- modules:end -->
 
 

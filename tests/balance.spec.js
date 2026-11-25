@@ -28,7 +28,7 @@ test.afterAll(async () => { await shared.close(); });
 // ---------- AC 1: all gameplay randomness goes through one seeded rng() ----------
 test("same seed, same game", { tag: "@fast" }, async ({ page }) => {
   // Math.random only in the helpers: the unseeded seed of rng() and the visual helper vrand()
-  const src = gameSource();   // SPEC-011 AC 8c: index.html and src/** (rng() and vrand() live in src/core/util.js)
+  const src = gameSource();   // SPEC-011 AC 8c: src/** (rng() and vrand() live in src/core/util.js)
   const uses = src.split("\n").map((s, i) => [i + 1, s]).filter(([, s]) => s.includes("Math.random") && !s.trim().startsWith("//"));
   const bad = uses.filter(([, s]) => !/^\s*(export )?(let rngNext = mulberry32\(|const vrand = )/.test(s)).map(([n, s]) => `game code line ${n}: ${s.trim()}`);
   expect(bad, "Math.random outside rng()/vrand():\n" + bad.join("\n")).toEqual([]);

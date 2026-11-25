@@ -168,7 +168,7 @@ test("every spec file uses ./pw (or is a listed Node-only exception)", { tag: "@
 });
 
 // Safari before iOS 16.4 cannot parse a regex lookbehind: the whole module fails with a SyntaxError and the game does
-// not start at all (older iPads). Keep (?<= and (?<! out of the game code (SPEC-011 AC 8c: index.html and src/**).
+// not start at all (older iPads). Keep (?<= and (?<! out of the game code (SPEC-011 AC 8c: src/**).
 test("the game code has no regex lookbehind (older iPads)", { tag: "@fast" }, () => {
   const src = gameSource();
   expect(src.includes("(?<="), "(?<= in the game code").toBe(false);

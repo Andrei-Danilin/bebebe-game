@@ -4,6 +4,8 @@
 //   index.html: the import map — every module URL "./src/…/x.js" → "./src/…/x.js?v=<hash of its bytes>" (and "three"), so a
 //               shell only ever asks for its own module versions (import maps remap the modules' relative imports too);
 //               <meta name="src-hash" content="<SRC_HASH>"> — the version of the whole module set;
+//               the entry script <script type="module" src="./src/client/main.js?v=<hash>"> — an entry script's src is not
+//               remapped by the import map, so its version is written into the tag itself (Phase C);
 //   sw.js:      between // precache:start / // precache:end — SRC_HASH, the shell files (PRECACHE_LOCAL) and the versioned
 //               module URLs (PRECACHE_SRC) the service worker installs into its "src" cache.
 // A test (tests/pwa.spec.js) fails when the committed hashes, import map or SRC_HASH do not match the files: rerun this.
@@ -17,6 +19,8 @@ const ROOT = path.resolve(__dirname, "..");
 const INDEX = path.join(ROOT, "index.html"), SW = path.join(ROOT, "sw.js");
 const MARK = ["// precache:start", "// precache:end"];
 const NL = "\n";
+const ENTRY = "./src/client/main.js";
+const ENTRY_RE = /<script type="module" src="\.\/src\/client\/main\.js(?:\?v=[0-9a-f]*)?"><\/script>/;
 const hashOf = text => crypto.createHash("sha256").update(text).digest("hex").slice(0, 10);
 // a module's hash: of its text with LF line ends (a Windows checkout with CRLF gives the same hash as CI and Pages)
 const fileHash = f => hashOf(fs.readFileSync(f, "utf8").split("\r\n").join(NL));
@@ -64,6 +68,11 @@ function writeIndex(html, { modules, srcHash }) {
   const map = "<script type=\"importmap\">" + NL + "{ \"imports\": {" + NL +
     entries.map(([k, v], i) => `  ${JSON.stringify(k)}: ${JSON.stringify(v)}${i < entries.length - 1 ? "," : ""}`).join(NL) + NL + "} }" + NL + "</script>";
   html = html.replace(re, map);
+  const entry = modules.find(x => x.url === ENTRY);
+  if (entry) {
+    if (!ENTRY_RE.test(html)) throw new Error(`index.html: no <script type="module" src="${ENTRY}"> entry script`);
+    html = html.replace(ENTRY_RE, `<script type="module" src="${ENTRY}?v=${entry.hash}"></script>`);
+  }
   const meta = `<meta name="src-hash" content="${srcHash}">`;
   if (/<meta name="src-hash" content="[^"]*">/.test(html)) html = html.replace(/<meta name="src-hash" content="[^"]*">/, meta);
   else html = html.replace(/(<meta name="theme-color"[^>]*>)/, `$1${NL}${meta}`);
@@ -95,7 +104,7 @@ function run({ check = false } = {}) {
   return { stale, srcHash: e.lists.srcHash, modules: e.lists.modules.length };
 }
 
-module.exports = { lists, expected, run, writeIndex, writeSw, hashOf, fileHash, MARK };
+module.exports = { lists, expected, run, writeIndex, writeSw, hashOf, fileHash, MARK, ENTRY };
 
 if (require.main === module) {
   const check = process.argv.includes("--check");
