@@ -266,5 +266,6 @@ test("openGame seeds the game rng from the test title", async ({ page }) => {
     return { first, again: start() };
   }, seed);
   expect(r.first, "the first game after openGame = a game started from seedRandom(seed)").toBe(r.again);
+  expect(await page.evaluate(() => window.__bbSeed), "the boot is seeded too (init script)").toBe(seed);
   expect(errors).toEqual([]);
 });

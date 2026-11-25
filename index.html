@@ -1181,7 +1181,9 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 // SPEC-008: случайность. Игровая — только rng() (mulberry32): __bb.seedRandom(n) задаёт зерно, без зерна — случайное
 // (игра как раньше). rand() — игровой. Визуальная — vrand() на Math.random: частицы burst, сердечки при обнимашках,
 // тряска камеры, снег, randomOutfit; она не трогает rng(), поэтому sim (без частиц) тянет тот же ряд, что и игра.
-let rngNext = mulberry32((Math.random() * 4294967296) >>> 0);
+// SPEC-011 AC 8d: tests set window.__bbSeed (init script, like __bbStrictRng) so the start-up resetWorld is seeded too; without
+// it — a random seed, as always. A rendered page keeps drawing rng() in its frames, so only a sim page is reproducible from it.
+let rngNext = mulberry32(Number.isFinite(window.__bbSeed) ? window.__bbSeed >>> 0 : (Math.random() * 4294967296) >>> 0);
 // rngOff — имя кода, которому игровая случайность запрещена (генератор уровней, 3D, рисование): у него свой сид (lc.rng, mulberry32).
 // Забыл взять свой rng: в тестах (strictRng, его включает openGame) — громкая ошибка; в игре — визуальная vrand(),
 // чтобы начало уровня у игрока не сломалось, а посев игры остался цел.

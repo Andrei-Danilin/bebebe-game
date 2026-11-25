@@ -35,6 +35,8 @@ function clearOnce(l) {
 // SPEC-008 (init script): the level generator and the 3D build must not touch the gameplay rng(). In the tests that
 // throws (the game reads window.__bbStrictRng at start); in normal play the game falls back to visual randomness.
 function strictRng() { window.__bbStrictRng = true; }
+// SPEC-011 AC 8d (init script): the game seeds its rng from window.__bbSeed at start, so its start-up resetWorld is seeded too
+function bootSeed(seed) { window.__bbSeed = seed; }
 
 // `query` is appended to the URL (e.g. "?phone=1"). SPEC-023: `sim: true` opens the game in sim mode (adds sim=1 to the
 // query, so "?phone=1" + sim → "?phone=1&sim=1"): no 3D, no 2D drawing, no audio, the frame loop does not play — for tests
@@ -51,7 +53,8 @@ function noTutorial() { window.__bbNoTutorial = true; }
 
 // SPEC-011 AC 8d: every test game is seeded before it starts. The seed is a stable hash (FNV-1a) of the test's file name and
 // title path, so a test plays the same game on every run and machine; openGame / openGameHttp / resetGame / reloadGame seed
-// with it, and ./pw prints it when the test fails (annotation "seed"). Outside a test (scripts) → null: the script seeds itself.
+// with it (openGame / openGameHttp also before the boot: window.__bbSeed), and ./pw prints it when the test fails
+// (annotation "seed"). Outside a test (scripts) → null: the script seeds itself.
 function titleSeed(file, titles) {
   let h = 0x811c9dc5;
   for (const ch of [path.basename(file), ...titles].join(" › ")) { h ^= ch.codePointAt(0); h = Math.imul(h, 0x01000193) >>> 0; }
@@ -88,6 +91,7 @@ async function openGame(page, { lang = "en", clearStorage = true, query = "", si
     await route.fulfill({ path: file, contentType: "application/javascript", headers: { "Access-Control-Allow-Origin": "*" } });
   });
   await page.addInitScript(strictRng);
+  if (testSeed() != null) await page.addInitScript(bootSeed, testSeed());
   if (!intro) await page.addInitScript(noIntro);
   if (!tutorial) await page.addInitScript(noTutorial);
   if (clearStorage) {
@@ -129,6 +133,7 @@ async function openGameHttp(page, { lang = "en", query = "", clearStorage = true
   page.on("console", m => { if (m.type() === "error") errors.push("console: " + m.text()); });
   await routeThree(page.context());
   await page.addInitScript(strictRng);
+  if (testSeed() != null) await page.addInitScript(bootSeed, testSeed());
   if (!intro) await page.addInitScript(noIntro);
   if (!tutorial) await page.addInitScript(noTutorial);
   if (clearStorage) {
