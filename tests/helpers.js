@@ -212,4 +212,12 @@ async function setupHug(page) {
   });
 }
 
-module.exports = { LANGS, openGame, openSim, openGameHttp, routeThree, frames, step, setupHug, softly, sharedPage, resetGame, GAME_URL, HTTP_BASE, ROOT };
+// SPEC-031: the floor (CSS px) of a textSizes kind on the phone; floors = __bb.textFloors (CFG.PHONE_TEXT + story = STORY_TEXT_MIN);
+// "drawn" (label/fitText) counts against the hint floor. A kind with no floor throws, so a new kind cannot slip past the checks.
+function textFloor(floors, cat) {
+  const v = cat === "drawn" ? floors.hint : floors[cat];
+  if (typeof v !== "number") throw new Error(`no phone text floor for the kind "${cat}" (add it to __bb.textFloors)`);
+  return v;
+}
+
+module.exports = { textFloor, LANGS, openGame, openSim, openGameHttp, routeThree, frames, step, setupHug, softly, sharedPage, resetGame, GAME_URL, HTTP_BASE, ROOT };
