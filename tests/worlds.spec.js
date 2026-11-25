@@ -5,7 +5,7 @@ const base = require("./pw");   // SPEC-023: @playwright/test + failure screensh
 const { expect } = base;
 const path = require("path");
 const fs = require("fs");
-const { LANGS, openGame, frames, softly, sharedPage, resetGame } = require("./helpers");
+const { textFloor, LANGS, openGame, frames, softly, sharedPage, resetGame } = require("./helpers");
 
 // shared pages: one sim page, and one rendered page per setup (desktop, phone 667×375; one open at a time); resetGame() before each
 // test; page errors and a changed CFG fail it
@@ -276,9 +276,9 @@ test("phone 667: lock toasts, the opened banner and the Progress lines fit in ev
       if (h.textW !== undefined && h.textW > h.w + 0.5) fails.push(`${at}: ${id} text ${h.textW} wider than ${h.w}`);
       for (const b of d.buttons) if (h.x < b.x + b.w - 0.01 && h.x + h.w > b.x + 0.01 && h.y < b.y + b.h - 0.01 && h.y + h.h > b.y + 0.01) fails.push(`${at}: ${id} on button ${b.id || b.text}`);
     }
-    for (const [cat, px] of Object.entries(d.texts)) if (px * s < (cat === "drawn" ? d.min.hint : d.min[cat]) - 0.01) fails.push(`${at}: smallest ${cat} text ${px * s} CSS px`);
+    for (const [cat, px] of Object.entries(d.texts)) if (px * s < textFloor(d.min, cat) - 0.01) fails.push(`${at}: smallest ${cat} text ${px * s} CSS px`);
   };
-  const grab = want => page.evaluate(w => { const b = window.__bb; return { hud: b.hudRects, buttons: b.buttonRects, ui: b.uiSize, texts: b.textSizes, min: b.CFG.PHONE_TEXT, want: w }; }, want);
+  const grab = want => page.evaluate(w => { const b = window.__bb; return { hud: b.hudRects, buttons: b.buttonRects, ui: b.uiSize, texts: b.textSizes, min: b.textFloors, want: w }; }, want);
   for (const lang of LANGS) {
     // the toasts of the three locked main worlds (fresh progress) and the banner of each opened world
     for (const w of ["field", "city", "school"]) {

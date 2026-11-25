@@ -2,7 +2,7 @@
 // the shop with the Wardrobe tab, the end-screen flows; desktop and phone 667×375 (fonts ×1 and ×1.15).
 const base = require("./pw");   // SPEC-023: @playwright/test + failure screenshots
 const { expect } = base;
-const { LANGS, openGame, frames, sharedPage, resetGame, ROOT } = require("./helpers");
+const { textFloor, LANGS, openGame, frames, sharedPage, resetGame, ROOT } = require("./helpers");
 const fs = require("fs");
 const path = require("path");
 
@@ -58,7 +58,7 @@ function phoneProblems(at, d) {
     if (/…/.test(a.text || "")) out.push(`${at}: ${a.id} text cut "${a.text}"`);
     d.hud.slice(i + 1).forEach(b => { if (overlaps(a, b)) out.push(`${at}: ${a.id} on ${b.id}`); });
   });
-  for (const [cat, px] of Object.entries(d.texts)) if (px * s < (cat === "drawn" ? d.min.hint : d.min[cat]) - 0.01) out.push(`${at}: smallest ${cat} text ${px * s} CSS px`);
+  for (const [cat, px] of Object.entries(d.texts)) if (px * s < textFloor(d.min, cat) - 0.01) out.push(`${at}: smallest ${cat} text ${px * s} CSS px`);
   return out;
 }
 
@@ -193,7 +193,7 @@ test("home fits a phone in every language, also with wider fonts", async ({ phon
   for (const lang of LANGS) for (const scale of [1, 1.15]) {
     await page.evaluate(([l, s]) => { const b = window.__bb; b.setProgress(null); b.setLang(l); b.CFG.TEXT_TEST_SCALE = s; b.mode = "home"; }, [lang, scale]);
     await frames(page);
-    const d = await page.evaluate(() => { const b = window.__bb; return { mode: b.mode, buttons: b.buttonRects, hud: b.hudRects, ui: b.uiSize, texts: b.textSizes, min: b.CFG.PHONE_TEXT }; });
+    const d = await page.evaluate(() => { const b = window.__bb; return { mode: b.mode, buttons: b.buttonRects, hud: b.hudRects, ui: b.uiSize, texts: b.textSizes, min: b.textFloors }; });
     const at = `${lang} ×${scale}`;
     if ([...d.buttons.map(q => q.id)].sort().join() !== HOME_BUTTONS.join()) fails.push(`${at}: buttons ${d.buttons.map(q => q.id)}`);
     fails.push(...phoneProblems(at, d));
@@ -290,7 +290,7 @@ test("the wardrobe tab works and fits on a phone, also with wider fonts", async 
       if (state === "armed") b.buyLook("p1");
     }, [lang, scale, st]);
     await frames(page);
-    const d = await page.evaluate(() => { const b = window.__bb; return { buttons: b.buttonRects, hud: b.hudRects, ui: b.uiSize, texts: b.textSizes, min: b.CFG.PHONE_TEXT, previews: b.skinPanels(), page: b.wardrobePage }; });
+    const d = await page.evaluate(() => { const b = window.__bb; return { buttons: b.buttonRects, hud: b.hudRects, ui: b.uiSize, texts: b.textSizes, min: b.textFloors, previews: b.skinPanels(), page: b.wardrobePage }; });
     const at = `${lang} ×${scale} ${st}`;
     fails.push(...phoneProblems(at, d));
     if (st !== "friends") {
@@ -412,7 +412,7 @@ async function progressProblems(page, phone, size) {
       b.mode = "shop"; b.shopTab = "progress";
     }, [lang, scale, rich, MIXED]);
     await frames(page);
-    const d = await page.evaluate(() => { const b = window.__bb; return { buttons: b.buttonRects, hud: b.hudRects, ui: b.uiSize, texts: b.textSizes, min: b.CFG.PHONE_TEXT, previews: b.skinPanels(), info: b.progressInfo, names: b.I18N[b.lang].worlds }; });
+    const d = await page.evaluate(() => { const b = window.__bb; return { buttons: b.buttonRects, hud: b.hudRects, ui: b.uiSize, texts: b.textSizes, min: b.textFloors, previews: b.skinPanels(), info: b.progressInfo, names: b.I18N[b.lang].worlds }; });
     const at = `${size} ${lang} ×${scale} ${rich ? "rich" : "fresh"}`;
     if (!d.info) { fails.push(`${at}: no Progress page`); continue; }
     if (!phone) for (const w of ["park", "field", "city", "school", "beach", "winter"]) {   // the world names are shown whole (up to two lines)
@@ -678,7 +678,7 @@ test("the map fits a phone and swipes between worlds", async ({ phonePage: page 
     if (st === "toast") await page.evaluate(() => window.__bb.tapButton("maptab:winter"));
     if (st === "card") await page.evaluate(() => window.__bb.tapButton("stop:2"));
     await frames(page);
-    const d = await page.evaluate(() => { const b = window.__bb; return { mode: b.mode, buttons: b.buttonRects, hud: b.hudRects, ui: b.uiSize, texts: b.textSizes, min: b.CFG.PHONE_TEXT, m: b.mapInfo, toast: b.toast }; });
+    const d = await page.evaluate(() => { const b = window.__bb; return { mode: b.mode, buttons: b.buttonRects, hud: b.hudRects, ui: b.uiSize, texts: b.textSizes, min: b.textFloors, m: b.mapInfo, toast: b.toast }; });
     const at = `${lang} ×${scale} ${st}`;
     fails.push(...phoneProblems(at, d));
     if (st === "card") { if (d.mode !== "levelCard" || !d.buttons.some(q => q.id === "card:play") || d.buttons.some(q => q.id === "card:2")) fails.push(`${at}: the phone card has one Play button`); continue; }
@@ -831,7 +831,7 @@ test("story, rules and the level card fit a phone, also with wider fonts", async
     if (st === "rules") await page.evaluate(() => window.__bb.tapButton("story:rules"));
     if (st.startsWith("card")) await page.evaluate(n => window.__bb.tapButton("stop:" + n), st.slice(4));
     await frames(page);
-    const d = await page.evaluate(() => { const b = window.__bb; return { mode: b.mode, buttons: b.buttonRects, hud: b.hudRects, ui: b.uiSize, texts: b.textSizes, min: b.CFG.PHONE_TEXT, info: b.storyInfo, card: b.levelCard, rules: b.I18N[b.lang].rules(b.CFG.DOWN_TIME).length }; });
+    const d = await page.evaluate(() => { const b = window.__bb; return { mode: b.mode, buttons: b.buttonRects, hud: b.hudRects, ui: b.uiSize, texts: b.textSizes, min: b.textFloors, info: b.storyInfo, card: b.levelCard, rules: b.I18N[b.lang].rules(b.CFG.DOWN_TIME).length }; });
     const at = `${lang} ×${scale} ${st}`;
     fails.push(...phoneProblems(at, d));
     if (st.startsWith("card")) {

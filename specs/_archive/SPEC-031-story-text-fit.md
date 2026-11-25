@@ -1,6 +1,6 @@
 # SPEC-031 — Story and comic text fits every screen: the font scales down, never covers the picture
 
-Status: ready
+Status: done (merged by "Merge SPEC-031", see git log)
 Complexity: M
 Branch: SPEC-031-story-text-fit
 Decided by: Andrei (2026-11-24): on small screens the story text takes more and more room and covers the picture; the font must get smaller as the screen gets smaller. The scale formula and the sizes are Claude's.

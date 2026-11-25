@@ -2,7 +2,7 @@
 // Phone tests run at 844×390 with touch + isMobile and ?phone=1; the desktop test checks that nothing changed.
 const base = require("./pw");   // SPEC-023: @playwright/test + failure screenshots
 const { expect } = base;
-const { LANGS, openGame, step, frames, sharedPage, resetGame } = require("./helpers");
+const { textFloor, LANGS, openGame, step, frames, sharedPage, resetGame } = require("./helpers");
 
 // SPEC-018: the ?phone=1 tests share one game page per screen setup (fixture `phonePage`: viewport, touch, mobile)
 // instead of a fresh page each. Before every test the page gets its viewport back, a name input left open is closed
@@ -965,7 +965,7 @@ function phoneScreenProblems(name, d, minText) {
     if (d.mm) check(!overlaps(a, d.mm), `${a.id} on the mini-map`);
     d.hud.slice(i + 1).forEach(b => check(!overlaps(a, b), `${a.id} on ${b.id}`));
   });
-  for (const [cat, px] of Object.entries(d.texts)) check(px * s >= (cat === "drawn" ? minText.hint : minText[cat]) - 0.01, `smallest ${cat} text ${px * s} CSS px`);
+  for (const [cat, px] of Object.entries(d.texts)) check(px * s >= textFloor(minText, cat) - 0.01, `smallest ${cat} text ${px * s} CSS px`);
   if (d.texts.main || d.texts.title) check(!!d.texts.drawn, "drawn text sizes recorded");
   return out;
 }
@@ -977,7 +977,7 @@ for (const [vw, vh] of PHONE_SIZES) {
 
     // SPEC-016 AC 8: six worlds, the bonus ones locked and open (SPEC-017: the level map's tabs, ≥ 44 CSS px, 🔒 on a locked one)
     test(`the world tabs and the bonus note fit at ${vw}×${vh}`, async ({ phonePage: page }) => {
-      const minText = await page.evaluate(() => window.__bb.CFG.PHONE_TEXT);
+      const minText = await page.evaluate(() => window.__bb.textFloors);   // SPEC-031: + the story text floor
       const fails = [];
       for (const open of [false, true]) {
         await page.evaluate(o => {
@@ -1029,7 +1029,7 @@ for (const [vw, vh] of PHONE_SIZES) {
     test(`every phone button is big enough at ${vw}×${vh}`, { tag: vw === 844 ? "@fast" : [] }, async ({ phonePage: page }) => {
       test.slow();
       const errors = page.sharedErrors;
-      const minText = await page.evaluate(() => window.__bb.CFG.PHONE_TEXT);
+      const minText = await page.evaluate(() => window.__bb.textFloors);   // SPEC-031: + the story text floor
       const fails = [];
       for (const [name0, setup] of (vw === 667 ? LANGS : ["en"]).flatMap(lg => Object.entries(PHONE_SCENES).map(([n, f]) => [lg + " " + n, async pg => { await pg.evaluate(l => window.__bb.setLang(l), lg); await f(pg); }]))) {
         const name = name0.split(" ")[1], label = name0;
@@ -1438,7 +1438,7 @@ for (const [vw, vh] of PHONE_SIZES) {
               // which cards cannot be bought: from the real prices
               const prices = [b.GLOVES.mittens.price, b.GLOVES.mega.price, b.KISSES.price, b.RESCUE_KIT.price], L = b.I18N[lg];
               const fullPacks = [L.pack(b.GLOVES.mittens.charges), L.pack(b.GLOVES.mega.charges), L.kissPack(b.KISSES.pack), L.kitPack(b.RESCUE_KIT.pack)];
-              return { ui: b.uiSize, hud: b.hudRects, buttons: b.buttonRects, texts: b.textSizes, min: b.CFG.PHONE_TEXT, mode: b.mode,
+              return { ui: b.uiSize, hud: b.hudRects, buttons: b.buttonRects, texts: b.textSizes, min: b.textFloors, mode: b.mode,
                 layout: b.shopLayout, poor: prices.map(p => cn < p), fullPacks };
             }, [lang, coins, fontScale]);
             const label = `${vw}×${vh} ${lang} ${coins} coins font ×${fontScale}`;
@@ -1476,7 +1476,7 @@ test.describe("phone heard hint 667×375", () => {
   test.use({ ...PHONE_CTX, viewport: { width: 667, height: 375 } });
 
   test("the heard hint fits a phone in every language", async ({ phonePage: page }) => {
-    const minText = await page.evaluate(() => window.__bb.CFG.PHONE_TEXT);
+    const minText = await page.evaluate(() => window.__bb.textFloors);   // SPEC-031: + the story text floor
     const fails = [];
     for (const lang of LANGS) for (const fs of [1, 1.15]) {
       const d = await page.evaluate(async ([lg, f]) => {

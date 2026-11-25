@@ -90,7 +90,8 @@ test("SPEC-026: Dad's bubble lines (4 per language, Andrei's Russian in docs/sto
   expect(errors).toEqual([]);
 });
 
-// every intro page writes its line into its bubble, the text box inside the panel, never smaller than the captions' smallest size;
+// every intro page writes its line into its bubble, the text box inside the panel, never smaller than the captions' smallest size
+// (SPEC-031: on the phone CFG.STORY_TEXT_MIN);
 // the Story's "How it began" (the whole page) writes all four
 async function bubbleProblems(page, phone) {
   const fails = [];
@@ -99,7 +100,7 @@ async function bubbleProblems(page, phone) {
     for (let i = 0; i < 4; i++) {
       await page.evaluate(k => { const b = window.__bb; b.openScene("intro"); for (let j = 0; j < k; j++) b.sceneNext(); }, i);
       await frames(page);
-      const d = await page.evaluate(() => ({ info: window.__bb.sceneInfo, min: window.__bb.CFG.PHONE_TEXT.main, ui: window.__bb.uiSize, hud: window.__bb.hudRects }));
+      const d = await page.evaluate(() => ({ info: window.__bb.sceneInfo, min: window.__bb.CFG.STORY_TEXT_MIN, ui: window.__bb.uiSize, hud: window.__bb.hudRects }));
       const at = `${lang} ×${scale} intro page ${i + 1}`, q = d.info && d.info.bubble;
       if (!q) { fails.push(`${at}: no bubble`); continue; }
       if (q.text !== BUBBLES[lang][i]) fails.push(`${at}: bubble "${q.text}"`);

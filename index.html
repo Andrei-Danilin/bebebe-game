@@ -245,6 +245,14 @@ const CFG = {
   PHONE_HEART_MIN: 9,        // CSS px — шаг облачек злости на телефоне не меньше (SPEC-022: сначала теснятся облачка, подпись — целиком)
   PHONE_BTN_GAP: 8,          // CSS px — между соседними кнопками
   PHONE_TEXT: { title: 24, main: 15, hint: 13, input: 16 },   // CSS px — самый мелкий текст на телефоне
+  // SPEC-031 (Андрей: на маленьком экране текст истории мельче; числа — Claude): текст глав «Истории», подписи заставок, слова папы
+  // в облачках и заголовок главы на телефоне — кегль × масштаб экрана min(ширина / ref[0], высота / ref[1]) (CSS px; 844×390 —
+  // средний телефон лёжа), в пределах min…max; компьютер — ×1 (его холст и так растёт с окном)
+  STORY_TEXT_SCALE: { ref: [844, 390], min: 0.72, max: 1.1 },
+  STORY_TEXT_MIN: 12,        // CSS px — самый мелкий текст глав, подписей заставок и облачков на телефоне (остальное — PHONE_TEXT)
+  // SPEC-031: картинка рядом с текстом (глава «Истории»; заставка на телефоне): текст не влез и самым мелким — картинка уже на step
+  // доли ширины, но не уже min доли; заставка на компьютере (подпись под картинкой): картинка не ниже minH доли высоты
+  STORY_PIC: { min: 0.4, step: 0.02, minH: 0.4 },
   PHONE_CHIP_FONT: 1.3,      // SPEC-029: кружок команды на телефоне — под метку шрифтом до 30 % шире (CI, iPhone)
   // карточки магазина на телефоне (SPEC-007 AC 10), CSS px: картинка (обычная, самая маленькая, насколько может вырасти),
   // ширина картинки в её высотах, радиус кружка «у вас», поля, промежуток, отступ кружка от картинки, поле текста сбоку; строк не больше
@@ -374,8 +382,9 @@ const CFG = {
     // телефоне (картинка слева, подпись справа), ширина кнопок на компьютере, кегль «Спасибо!».
     // SPEC-026: облачка комикса для слов папы (STORY[0].bubbles) — [x, y, w, h, кончик хвостика x, y], доли всей картинки 8_start
     // (1024×765; белое внутри облачка без хвостика, промерено по картинке), по клетке; какая часть облачка под текстом (ширина, высота:
-    // облачко круглое), строк не больше, шаг строк (в кеглях), самый мелкий текст на компьютере (как у подписи; телефон — PHONE_TEXT.main), цвет букв;
-    // своё облачко, когда слова не влезли: какая его часть под текстом (ширина, высота), во сколько раз больше нарисованного
+    // облачко круглое), строк не больше, шаг строк (в кеглях), самый мелкий текст на компьютере (как у подписи; телефон — STORY_TEXT_MIN, SPEC-031), цвет букв;
+    // своё облачко, когда слова не влезли: SPEC-031 — кегль слов в нём на телефоне (CSS px до масштаба экрана; самый мелкий — STORY_TEXT_MIN),
+    // какая его часть под текстом (ширина, высота), во сколько раз больше нарисованного
     // облачка самое меньшее (закрывает его), не шире доли клетки, отступ от края клетки (UI px компьютера), длина хвостика (доля
     // высоты облачка), неровность контура (доля радиуса), «квадратность» (степень суперэллипса: 2 — эллипс, больше — ближе к
     // прямоугольнику со скруглёнными углами, слова влезают лучше) и толщина контура (UI px компьютера)
@@ -383,7 +392,7 @@ const CFG = {
       phonePic: 0.6, btnW: 220, thanks: 46, phoneThanks: 30, madeBy: 24, phoneMadeBy: 18, cupcake: 0.42,
       bubbles: [[255 / 1024, 28 / 765, 177 / 1024, 87 / 765, 270 / 1024, 136 / 765], [785 / 1024, 43 / 765, 155 / 1024, 87 / 765, 867 / 1024, 150 / 765],
         [132 / 1024, 412 / 765, 113 / 1024, 78 / 765, 241 / 1024, 502 / 765], [633 / 1024, 396 / 765, 176 / 1024, 84 / 765, 664 / 1024, 516 / 765]],
-      bubbleIn: [0.84, 0.72], bubbleLines: 2, bubbleLh: 1.15, bubbleMin: 14, bubbleInk: "#1b1b1b", ownIn: [0.86, 0.7], ownCover: 1.08, ownMax: 1, ownEdge: 4, ownTail: 0.42, ownWobble: 0.03, ownRound: 3, ownLine: 3 },
+      bubbleIn: [0.84, 0.72], bubbleLines: 2, bubbleLh: 1.15, bubbleMin: 14, bubbleInk: "#1b1b1b", phoneOwn: 15, ownIn: [0.86, 0.7], ownCover: 1.08, ownMax: 1, ownEdge: 4, ownTail: 0.42, ownWobble: 0.03, ownRound: 3, ownLine: 3 },
     story: { pic: 0.47, text: 22, phoneText: 18, rule: 17, phoneRule: 15, dot: 6, paper: "#fffdf5", pencil: "#94a3b8", heart: "#f9a8d4", backW: 170, icon: 30 } },
   // типы уровней внутри каждого мира (SPEC-006): 1 — рисунок детей, 2–4 поляна, 5–7 деревня, 8–10 река,
   // 11–13 дом с комнатами, 14–16 арена, 17–20 лабиринт; число записей = уровней в мире
@@ -4760,6 +4769,14 @@ const restText = l => "💤 " + L().resting(nameOf(l), fmtTime(Math.max(0, l.sta
 // CSS px → UI px: на телефоне кнопки и шрифты задаются в CSS px (под палец), рисуем в UI px
 const cpx = n => n * UW / CSS_W;
 const minPx = cat => cpx(CFG.PHONE_TEXT[cat]);   // самый мелкий текст этого вида в UI px
+// SPEC-031: масштаб текста истории (главы, подписи заставок, облачка, заголовок главы) от размера экрана — CFG.STORY_TEXT_SCALE
+function textScale() {
+  if (!PHONE) return 1;
+  const T = CFG.STORY_TEXT_SCALE;
+  return clamp(Math.min(CSS_W / T.ref[0], CSS_H / T.ref[1]), T.min, T.max);
+}
+const storyPx = css => cpx(css) * textScale();                       // кегль текста истории на телефоне (CSS px → UI px × масштаб)
+const storyMin = desk => (PHONE ? cpx(CFG.STORY_TEXT_MIN) : desk);   // его самый мелкий (компьютер — как был: desk)
 // самый мелкий шрифт за кадр (UI px): по видам (title/main/hint) и всего нарисованного (drawn); где была надпись уровня
 let textSizes = {}, bannerRect = null, rotateShown = false, shopLayout = null;   // shopLayout — шаг раскладки магазина телефона (тесты)
 const noteText = (cat, s) => { if (!(s >= textSizes[cat])) textSizes[cat] = s; };
@@ -5642,7 +5659,7 @@ function drawStory() {
   const tw = Math.max(B, Math.min((X1 - X0) * 0.36, scaledW(rules ? tText : "❓ " + L().howToPlay) + 26 * k));
   fitButton(X1 - tw, Y0, tw, B, rules ? "📖 " + L().story : "❓ " + L().howToPlay, M.storyBtn, () => { storyPage = rules ? "chapters" : "rules"; }, PHONE ? cpx(16) : 19, minMain).id = rules ? "story:chapters" : "story:rules";
   const title = rules ? "❓ " + L().howToPlay : (open ? "" : "🔒 ") + chapterTitle(c);
-  const tx0 = X0 + bw + g, tmax = X1 - tw - g - tx0, tf = fitLine(title, PHONE ? cpx(20) : 26, minMain, tmax);
+  const tx0 = X0 + bw + g, tmax = X1 - tw - g - tx0, tf = fitLine(title, PHONE ? Math.max(minMain, storyPx(20)) : 26, minMain, tmax);   // SPEC-031: × масштаб экрана
   label(tf.text, tx0 + tmax / 2, Y0 + B / 2, tf.sz, rules ? M.storyBtn : M.title, "center");
   if (PHONE) noteText("main", tf.sz);
   hudRects.push({ id: "story:title", x: tx0 + tmax / 2 - tf.w / 2, y: Y0 + B / 2 - tf.sz * 0.6, w: tf.w, h: tf.sz * 1.2, text: tf.text });
@@ -5694,15 +5711,20 @@ function drawStory() {
   const dr = S.dot * k, step = dr * 3.4, dx0 = (X0 + X1) / 2 - step * (STORY.length - 1) / 2;
   STORY.forEach((q, i) => { circle(dx0 + i * step, by + B / 2, i === storyCh ? dr * 1.5 : dr); fillStroke(i === storyCh ? M.title : chapterOpen(q) ? M.panel : M.locked, 2 * k); });
   hudRects.push({ id: "story:dots", x: dx0 - dr * 1.5, y: by + B / 2 - dr * 1.5, w: step * (STORY.length - 1) + dr * 3, h: dr * 3 });
-  // посередине: картинка слева, текст справа (закрытая глава — 🔒 и что для неё надо пройти)
-  const mh = by - g - top, pw = Math.min((X1 - X0) * S.pic, mh * 1.4), pic = { x: X0, y: top, w: pw, h: mh };
+  // посередине: картинка слева, текст справа (закрытая глава — 🔒 и что для неё надо пройти).
+  // SPEC-031: сначала текст — кегль × масштаб экрана, мельче до самого мелкого, потом картинка уже (sideFit); картинка — на остальном
+  const text = open ? c.text[lang] : WORLDS.includes(c.id) ? lockedText(c.id) : L().endedLocked;
+  const mh = by - g - top, size = PHONE ? storyPx(S.phoneText) : S.text, min = storyMin(14);
+  const { pw, tW, b } = sideFit(text, X1 - X0, mh, 2 * g, S.pic, p => Math.min((X1 - X0) * p, mh * 1.4), size, min), picShare = pw / (X1 - X0);
+  const pic = { x: X0, y: top, w: pw, h: mh };
   // SPEC-020: картинка главы — свой путь (c.image) или комикс из art/ (STORY_ART); нет — заглушка
   const own = open && c.image ? storyPicture(c) : null, artName = open && !c.image ? STORY_ART[c.id] : null, img = own || (artName && art(artName));
-  let imgRect = null;
+  let imgRect = null, picBox = pic;
   if (img) {
     const fr = 5 * k, sc = Math.min((pic.w - 2 * fr) / img.width, (pic.h - 2 * fr) / img.height), iw = img.width * sc, ih = img.height * sc;
     const ix = pic.x + (pic.w - iw) / 2, iy = pic.y + (pic.h - ih) / 2;
     imgRect = [ix, iy, iw, ih];
+    picBox = { x: ix - fr - 1.5 * k, y: iy - fr - 1.5 * k, w: iw + 2 * fr + 3 * k, h: ih + 2 * fr + 3 * k };   // SPEC-031: с рамкой (и половиной её линии)
     rr(ix - fr, iy - fr, iw + 2 * fr, ih + 2 * fr, 6 * k); fillStroke(S.paper, 3 * k);   // бумажная рамка
     ctx.drawImage(img, ix, iy, iw, ih);
     if (artName) noteArt(artName);
@@ -5716,14 +5738,12 @@ function drawStory() {
     if (!drawArtFit("round_play", bx + r / 2, byy + r / 2, r * 1.15)) { circle(bx + r / 2, byy + r / 2, r / 2); fillStroke(M.play, 3 * k); label("▶", bx + r / 2 + 2 * k, byy + r / 2, r * 0.45, "#fff"); }
     regButton(bx, byy, r, r, "▶", watchChapter, "story:scene", r);
   }
-  const text = open ? c.text[lang] : WORLDS.includes(c.id) ? lockedText(c.id) : L().endedLocked;
-  const tx = X0 + pw + 2 * g, tW = X1 - tx, size = PHONE ? cpx(S.phoneText) : S.text, min = PHONE ? minMain : 14;
-  const b = noteRows(text, size, min, tW, Math.max(1, Math.floor(mh / (min * 1.2))));
-  const th = b.rows.length * b.sz * 1.2;
+  const tx = X0 + pw + 2 * g, th = b.rows.length * b.sz * 1.2;
   rowsAt(open ? "story:text" : "story:locked", b, tx + tW / 2, top + Math.max(0, (mh - th) / 2), open ? M.ink : M.lockedInk);
   hudRects[hudRects.length - 1].text = text;
-  if (PHONE) noteText("main", b.sz);
-  storyInfo = { chapter: c.id, index: storyCh, locked: !open, page: "chapters", title, text, art: !open ? "locked" : img ? "image" : "placeholder", load: storyLoad(c), pic, bubbles };
+  if (PHONE) noteText("story", b.sz);   // SPEC-031: свой вид — свой самый мелкий (STORY_TEXT_MIN)
+  // SPEC-031: picBox — картинка с рамкой (или заглушка), fit — весь текст влез в своё место, picShare — доля ширины под картинку
+  storyInfo = { chapter: c.id, index: storyCh, locked: !open, page: "chapters", title, text, art: !open ? "locked" : img ? "image" : "placeholder", load: storyLoad(c), pic, bubbles, picBox, fit: b.fit, picShare };
 }
 // ---------- SPEC-026: слова папы в пустых облачках комикса 8_start (заставка «Как всё началось» и глава в «Истории») ----------
 // строки текста облачка: кегль от size до min (шаг 0,5), не больше lines строк, не шире maxW и не выше maxH (× TEXT_TEST_SCALE);
@@ -5758,7 +5778,7 @@ function wobblyBubble(cx, cy, rx, ry, wob, n) {
 // чёрный контур, хвостик в ту же сторону), внутри клетки, по размеру слов.
 // → [{ i, text, x, y, w, h (рамка строк), size, rows, own, bubble (своё облачко или null), panel (клетка на экране) }]
 function drawBubbles(list, cr, ix, iy, iw, ih) {
-  const S = CFG.MENU_LOOK.scene, k = PHONE ? cpx(1) : 1, min = PHONE ? minPx("main") : S.bubbleMin, max = Math.max(min, PHONE ? cpx(S.phoneText) : S.text);
+  const S = CFG.MENU_LOOK.scene, k = PHONE ? cpx(1) : 1, min = storyMin(S.bubbleMin), max = Math.max(min, PHONE ? storyPx(S.phoneText) : S.text);   // SPEC-031: масштаб и самый мелкий — как у подписи
   const X = f => ix + (f - cr[0]) / cr[2] * iw, Y = f => iy + (f - cr[1]) / cr[3] * ih, [inW, inH] = S.bubbleIn;
   const out = [];
   for (const { i, text } of list) {
@@ -5768,10 +5788,14 @@ function drawBubbles(list, cr, ix, iy, iw, ih) {
     panel.w = Math.min(ix + iw, X(px + pw)) - panel.x; panel.h = Math.min(iy + ih, Y(py + ph)) - panel.y;
     let b = bubbleRows(text, box.w * inW, box.h * inH, max, min, S.bubbleLines), cx = box.x + box.w / 2, cy = box.y + box.h / 2, bubble = null;
     if (!b.fit) {
-      // своё облачко: слова самым мелким, ширина строки растёт, пока строк не больше lines (но облачко не шире ownMax клетки)
+      // своё облачко: слова кеглем своего облачка (SPEC-031: на телефоне phoneOwn × масштаб экрана, не мельче min; компьютер — min),
+      // ширина строки растёт, пока строк не больше lines (но облачко не шире ownMax клетки); не влезло и так — самым мелким
       const m = S.ownEdge * k, [oW, oH] = S.ownIn, wMax = (panel.w * S.ownMax - 2 * m) * oW;
-      let w = box.w * inW;
-      do { b = bubbleRows(text, w, Infinity, min, min, S.bubbleLines); w *= 1.12; } while (b.rows.length > S.bubbleLines && w < wMax * 1.12);
+      for (const sz of PHONE && storyPx(S.phoneOwn) > min ? [storyPx(S.phoneOwn), min] : [min]) {
+        let w = box.w * inW;
+        do { b = bubbleRows(text, w, Infinity, sz, sz, S.bubbleLines); w *= 1.12; } while (b.rows.length > S.bubbleLines && w < wMax * 1.12);
+        if (b.rows.length <= S.bubbleLines && b.w <= wMax) break;
+      }
       // не меньше нарисованного облачка: пустого облачка не видно (SPEC-026: ни одной клетки с пустым облачком)
       const ow = Math.min(panel.w - 2 * m, Math.max(box.w * S.ownCover, b.w / oW)), oh = Math.min(panel.h - 2 * m, Math.max(box.h * S.ownCover, b.h / oH));
       cx = clamp(cx, panel.x + m + ow / 2, panel.x + panel.w - m - ow / 2); cy = clamp(cy, panel.y + m + oh / 2, panel.y + panel.h - m - oh / 2);
@@ -5794,7 +5818,7 @@ function drawBubbles(list, cr, ix, iy, iw, ih) {
     ctx.font = `800 ${b.sz}px system-ui, "Segoe UI", sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = S.bubbleInk;
     b.rows.forEach((r, j) => fillT(r, cx, top + lh * (j + 0.5)));
     ctx.restore();
-    if (PHONE) noteText("main", b.sz);
+    if (PHONE) noteText("story", b.sz);
     out.push({ i, text, x: cx - b.w / 2, y: top, w: b.w, h: b.h, size: b.sz, rows: b.rows.length, own: !!bubble, bubble, panel });
   }
   return out;
@@ -5835,21 +5859,26 @@ function drawScene() {
   }
   const img = art(pg.art), cr = pg.crop || [0, 0, 1, 1];
   const aspect = img ? (img.width * cr[2]) / (img.height * cr[3]) : 16 / 9;
-  const size = PHONE ? cpx(S.phoneText) : S.text, min = minMain;
-  let pic, tx, tW, ty, b, bubbles = [], panel = null, pieces = null;
+  // SPEC-031: подпись меряется первой (кегль × масштаб экрана, мельче до самого мелкого), картинка — на остальном месте
+  const size = PHONE ? storyPx(S.phoneText) : S.text, min = storyMin(14);
+  let pic, tx, tW, ty, b, bubbles = [], panel = null, pieces = null, fit, picShare;
   if (PHONE) {                                                // картинка слева, подпись справа (по высоте — посередине)
-    const pw = Math.min(area.w * S.phonePic, area.h * aspect);
-    pic = { x: area.x, y: area.y, w: pw, h: area.h };
-    tx = area.x + pw + 2 * g; tW = X1 - tx;
-    b = noteRows(pg.text, size, min, tW, Math.max(1, Math.floor(area.h / (min * 1.2))));
+    const f = sideFit(pg.text, area.w, area.h, 2 * g, S.phonePic, p => Math.min(area.w * p, area.h * aspect), size, min);
+    pic = { x: area.x, y: area.y, w: f.pw, h: area.h };
+    tx = area.x + f.pw + 2 * g; tW = f.tW; b = f.b; fit = b.fit; picShare = f.pw / area.w;
     ty = area.y + Math.max(0, (area.h - b.rows.length * b.sz * 1.2) / 2);
-  } else {                                                    // подпись внизу, картинка над ней на всё остальное место
+  } else {                                                    // подпись внизу (до S.lines строк), картинка над ней на всё остальное место
     tx = area.x; tW = area.w;
-    b = noteRows(pg.text, size, min, tW, S.lines);
-    const th = b.rows.length * b.sz * 1.2;
-    pic = { x: area.x, y: area.y, w: area.w, h: area.h - th - g };
+    b = noteRows(pg.text, size, min, tW, S.lines, { keep: true });
+    // SPEC-031: не влезла в S.lines строк и самым мелким — строк больше (ничего не обрезаем); картинка не ниже STORY_PIC.minH высоты
+    const th = b.rows.length * b.sz * 1.2, maxH = area.h * (1 - CFG.STORY_PIC.minH) - g;
+    fit = th <= maxH + 0.01;
+    if (!fit) noteUnfit(pg.text, b, tW, maxH);
+    pic = { x: area.x, y: area.y, w: area.w, h: Math.max(area.h * CFG.STORY_PIC.minH, area.h - th - g) };
+    picShare = pic.h / area.h;
     ty = pic.y + pic.h + g;
   }
+  let picBox = pic;
   if (img) {
     const fr = 5 * k, sw = img.width * cr[2], sh = img.height * cr[3];
     const sc = Math.min((pic.w - 2 * fr) / sw, (pic.h - 2 * fr) / sh), iw = sw * sc, ih = sh * sc, ix = pic.x + (pic.w - iw) / 2, iy = pic.y + (pic.h - ih) / 2;
@@ -5859,13 +5888,14 @@ function drawScene() {
     tape(ix + 6 * k, iy + 2 * k, -0.7, k * 0.8); tape(ix + iw - 6 * k, iy + 2 * k, 0.7, k * 0.8);
     if (pg.bubbles) bubbles = drawBubbles(pg.bubbles, cr, ix, iy, iw, ih);   // SPEC-026: слова папы в облачке клетки
     panel = { x: ix, y: iy, w: iw, h: ih };
+    picBox = { x: ix - fr - 1.5 * k, y: iy - fr - 1.5 * k, w: iw + 2 * fr + 3 * k, h: ih + 2 * fr + 3 * k };   // SPEC-031: с рамкой
   } else if (pg.fallback) pieces = drawTutorialFallback(pic, pg.fallback);   // SPEC-029: обучение без своей картинки — из других картинок
   else storyPlaceholder(pic, false);
   rowsAt("scene:caption", b, tx + tW / 2, ty, M.ink);
   hudRects[hudRects.length - 1].text = pg.text;
-  if (PHONE) noteText("main", b.sz);
+  if (PHONE) noteText("story", b.sz);   // SPEC-031: свой вид — свой самый мелкий (STORY_TEXT_MIN)
   sceneInfo = { id: storyScene.id, page: storyScene.page, pages: n, art: img ? "image" : pieces ? "fallback" : "placeholder", caption: pg.text, crop: pg.crop,
-    bubble: bubbles[0] || null, panel, pieces };   // SPEC-029: pieces — что нарисовано на запасной странице обучения (иначе null)   // SPEC-026: облачко клетки (рамка строк, кегль, своё ли облачко) и где нарисована клетка
+    bubble: bubbles[0] || null, panel, pieces, picBox, fit, picShare };   // SPEC-031: picBox — картинка с рамкой (или её место), fit — подпись влезла, picShare — доля места под картинку (телефон — ширины, компьютер — высоты)   // SPEC-029: pieces — что нарисовано на запасной странице обучения (иначе null)   // SPEC-026: облачко клетки (рамка строк, кегль, своё ли облачко) и где нарисована клетка
 }
 // SPEC-029 AC 6: запасная страница обучения (нет картинки листа): бумажный лист, слева фигурка (кусок картинки истории; нет и её —
 // карандашные человечки), справа значки вещей и эффектов; → имена нарисованного («figure» — человечки)
@@ -5964,19 +5994,42 @@ function coinPlate(x, y, w, h) {
   if (PHONE) noteText("main", f.sz);
   hudRects.push({ id: "coins", x, y, w, h });
 }
-// строки текста не шире maxW (× TEXT_TEST_SCALE), не больше lines; не влезает — мельче, но не меньше min
-function noteRows(text, size, min, maxW, lines) {
-  let sz = size, rows = [];
+// строки текста не шире maxW (× TEXT_TEST_SCALE), не больше lines и не выше opts.maxH (шаг строк — 1,2 кегля); не влезает — мельче,
+// но не меньше min; fit = false — не влезло и самым мелким. SPEC-031: текст истории (opts.keep) получает все строки — раскладку меняет
+// вызывающий; остальные экраны — как раньше, лишние строки отрезаются, но обрезанное попадает в textOverflows (noteUnfit)
+function noteRows(text, size, min, maxW, lines, { maxH = Infinity, keep = false } = {}) {
+  let sz = size, rows = [], fit = false;
   for (;;) {
     ctx.font = `800 ${sz}px system-ui, "Segoe UI", sans-serif`;
     rows = [];
     let cur = "";
     for (const wd of text.split(" ")) { const t = cur ? cur + " " + wd : wd; if (scaledW(t) > maxW && cur) { rows.push(cur); cur = wd; } else cur = t; }
     rows.push(cur);
-    if ((rows.length <= lines && rows.every(q => scaledW(q) <= maxW)) || sz <= min) break;
+    fit = rows.length <= lines && rows.length * sz * 1.2 <= maxH + 0.01 && rows.every(q => scaledW(q) <= maxW);
+    if (fit || sz <= min) break;
     sz = Math.max(min, sz - 0.5);
   }
-  return { rows: rows.slice(0, lines), sz, w: Math.min(maxW, Math.max(...rows.map(scaledW))) };
+  const b = { rows, sz, w: Math.min(maxW, Math.max(...rows.map(scaledW))), fit };
+  if (!keep && rows.length > lines) { noteUnfit(text, b, maxW, lines * sz * 1.2); b.rows = rows.slice(0, lines); }
+  return b;
+}
+// SPEC-031: картинка слева, текст справа (глава «Истории», заставка на телефоне) — сначала мерим текст: кегль от size до min, пока
+// весь текст не влезет в высоту h; не влез и самым мелким — место картинки уже (доля ширины w от share вниз на CFG.STORY_PIC.step,
+// но не меньше CFG.STORY_PIC.min), текст шире. picW(доля) — ширина места картинки, gap — от картинки до текста.
+// → { pw — ширина места картинки, tW — ширина текста, b — строки noteRows (b.fit = false: не влезло и так — в textOverflows) }
+function sideFit(text, w, h, gap, share, picW, size, min) {
+  const P = CFG.STORY_PIC;
+  for (let p = share; ; p = Math.max(P.min, p - P.step)) {
+    const pw = picW(p), tW = w - pw - gap, b = noteRows(text, size, min, tW, Infinity, { maxH: h, keep: true });
+    if (b.fit || p <= P.min) {
+      if (!b.fit) noteUnfit(text, b, tW, h);
+      return { pw, tW, b };
+    }
+  }
+}
+// SPEC-031: текст истории не влез в своё место и самым мелким — в textOverflows этого кадра (ширина и высота строк, место)
+function noteUnfit(text, b, maxW, maxH) {
+  if (textOverflows.length < 50) textOverflows.push({ text, w: Math.round(b.w), maxW: Math.round(maxW), h: Math.round(b.rows.length * b.sz * 1.2), maxH: Math.round(maxH) });
 }
 // подпись «не хватает монеток» / «нажми ещё раз» (hudRects «look-note:<колонка>»): box = { x, y, w, lines } — y верх плашки,
 // или низ, если bottom (компьютер: поверх низа превью); телефон — под превью или под строкой «Вид», чтобы не закрывать примерку
@@ -6014,7 +6067,7 @@ function rowsAt(id, b, cx, y, color, weight = 800) {
   const lh = b.sz * 1.2;
   ctx.font = `${weight} ${b.sz}px system-ui, "Segoe UI", sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = color;
   b.rows.forEach((q, i) => fillT(q, cx, y + lh * (i + 0.5)));
-  hudRects.push({ id, x: cx - b.w / 2, y, w: b.w, h: b.rows.length * lh, text: b.rows.join(" ") });
+  hudRects.push({ id, x: cx - b.w / 2, y, w: b.w, h: b.rows.length * lh, text: b.rows.join(" "), rows: b.rows.slice(), size: b.sz });
   return b.rows.length * lh;
 }
 // ---------- SPEC-009: вкладки и улучшения в магазине ----------
@@ -9229,7 +9282,8 @@ window.__bb = {
   openTutorial, tutorialSkip, firstTutorial,
   // SPEC-029: клетки поляны тренировок { x, y, w, h }; подпись времени в HUD; подсказка тренировки этого кадра (плашка) или null
   get tutorialMapRect() { return tutorialMapRect(); }, timerText, get tutorialHint() { return tutorialHintRect && { ...tutorialHintRect, rows: [...tutorialHintRect.rows] }; }, winTitle, get pushWaves() { return pushWaves.map(w => ({ ...w })); }, get scene() { return storyScene && { id: storyScene.id, page: storyScene.page, pages: scenePageCount() }; },
-  get sceneInfo() { return sceneInfo && { ...sceneInfo }; }, bossFor, BOSSES, BOSS_LOOKS, bigCalm, KID_HEAD_R, LITTLE_SCALE,   // SPEC-021 размеры героев (тест look3d)
+  get sceneInfo() { return sceneInfo && { ...sceneInfo }; }, drawNow() { drawUI(T); }, bossFor,   // SPEC-031: drawNow — нарисовать слой интерфейса сейчас (тест раскладки рисует много экранов за один evaluate)
+  BOSSES, BOSS_LOOKS, bigCalm, KID_HEAD_R, LITTLE_SCALE,   // SPEC-021 размеры героев (тест look3d)
   // SPEC-022: вид Большого в 3D (для тестов): образ, босс и его детали, масштаб, цвета футболки и штанов
   bigLook() { const m = big && big.model; return m ? { look: m.look, boss: m.boss || null, parts: Object.keys(m.bossParts || {}), scale: m.rig.scale.x,
     shirt: "#" + m.mats.shirt.color.getHexString(), pants: "#" + m.mats.pants.color.getHexString() } : null; }, get moodInfo() { return moodInfo && { ...moodInfo, sprites: [...moodInfo.sprites] }; },   // SPEC-017: главы истории (живой список), экран истории этого кадра
@@ -9288,7 +9342,8 @@ window.__bb = {
   get buttonRects() { return buttons.map(b => ({ id: b.id || b.act.name, x: b.x, y: b.y, w: b.w, h: b.h, text: b.text, textW: b.textW })); },
   nameTagH,   // SPEC-021: высота точки имени над ногами (px мира)
   updateCamera, camSnap, stickR, updateMinimapFade, get minimapAlpha() { return mmAlpha; }, skinPanels, resetBannerTimer() { bannerShownAt = -Infinity; }, showBanner,
-  get textSizes() { return { ...textSizes }; }, get textOverflows() { return textOverflows.map(q => ({ ...q })); }, get rotateShown() { return rotateShown; }, get bannerRect() { return bannerRect && { ...bannerRect }; },
+  // SPEC-031: textFloors — самый мелкий текст телефона по видам textSizes (CSS px)
+  get textSizes() { return { ...textSizes }; }, get textFloors() { return { ...CFG.PHONE_TEXT, story: CFG.STORY_TEXT_MIN }; }, get textOverflows() { return textOverflows.map(q => ({ ...q })); }, get rotateShown() { return rotateShown; }, get bannerRect() { return bannerRect && { ...bannerRect }; },
   get minimap() { return mmShown ? { x: mmState.x, y: mmState.y, w: mmState.w, h: mmState.h, alpha: mmState.alpha, baseDraws: mmDraws, markers: mmState.markers.slice(0, mmCount).map(m => ({ ...m })) } : null; },
   get edgeArrows() { return edgeArrows.map(a => ({ ...a })); }, get hudRects() { return hudRects.map(r => ({ ...r })); },
   get sticks() { return [...sticks].map(([id, s]) => ({ id, ...s })); },
@@ -9319,7 +9374,7 @@ window.__bb = {
 // ошибку, чтобы визуальный тест, открытый в sim, падал громко, а не проверял пустоту.
 const SIM_DRAWN = ["buttonRects", "buttonNames", "tapButton", "hudRects", "mapInfo", "levelCard", "storyInfo", "textSizes", "minimap",
   "bannerRect", "rotateShown", "winPanel", "winLine", "bonusNote", "shopLayout", "kitHint", "heardHint", "edgeArrows", "stickMarks",
-  "tapLines", "textOverflows", "tutorialHint", "homeInfo", "progressInfo", "outfit3D", "bibClear", "mapPieces", "groundColorAt", "camera", "minimapAlpha", "artUse", "sceneInfo", "moodInfo", "bigLook", "look3D"];
+  "tapLines", "textOverflows", "tutorialHint", "homeInfo", "progressInfo", "outfit3D", "bibClear", "mapPieces", "groundColorAt", "camera", "minimapAlpha", "artUse", "sceneInfo", "moodInfo", "bigLook", "look3D", "drawNow"];
 window.__bb.SIM_DRAWN = SIM_DRAWN;
 window.__bb = new Proxy(window.__bb, {
   get(t, k, r) {
