@@ -131,6 +131,12 @@ test("AC 13: CHANGELOG, the release doc with the rollback runbook, pages.yml ref
   for (const s of [/npm run release/, /git tag -a v/, /## Rollback/, /version\.txt/, /workflow_dispatch|gh workflow run pages\.yml/, /-f ref=v/, /git revert/, /D-7/, /before Phase 2|before phase 2/i, /coins/]) expect(rel).toMatch(s);
   const pages = read(".github/workflows/pages.yml");
   expect(pages).toMatch(/workflow_dispatch:\n\s+inputs:\n\s+ref:/);
+  // the ref is resolved to one sha once (a job of its own); tests, build and the live check use that sha only
+  expect(pages).toMatch(/\n {2}resolve:\n[\s\S]*?ref: \$\{\{ inputs\.ref \|\| github\.sha \}\}[\s\S]*?git rev-parse HEAD/);
+  expect(pages.split("${{ needs.resolve.outputs.sha }}").length - 1, "test, build checkout, stamp, outputs, live check").toBeGreaterThanOrEqual(5);
+  expect(pages.match(/\$\{\{ inputs\.ref/g) || [], "inputs.ref is read only by the resolve job").toHaveLength(1);
+  expect(pages).toMatch(/\n {2}test:\n {4}needs: resolve\n[\s\S]*?ref: \$\{\{ needs\.resolve\.outputs\.sha \}\}/);
+  expect(read(".github/workflows/tests.yml"), "a rollback ref from before phase 3 still runs").toMatch(/run: npm run typecheck --if-present/);
   expect(read(".github/workflows/tests.yml"), "tests.yml takes the ref from pages.yml").toMatch(/workflow_call:\n\s+inputs:\n\s+ref:/);
   expect(PKG.scripts.release).toBe("node scripts/release.js");
   for (const t of ["RUN_S.md", "RUN_M.md", "RUN_L.md"]) expect(read("docs/process/run-templates/" + t), `${t}: the changelog line at the close`).toMatch(/CHANGELOG\.md/);

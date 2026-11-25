@@ -20,7 +20,7 @@ on:
   workflow_call:
     inputs:
       ref:
-        description: "Branch, tag or commit to test (empty: the caller's commit)"
+        description: "Commit (pages.yml passes the sha it resolved once), branch or tag to test (empty: the caller's commit)"
         type: string
         required: false
         default: ""
@@ -68,7 +68,8 @@ jobs:
           node-version: "24"
           cache: npm
       - run: npm ci
-      - run: npm run typecheck
+      # --if-present: a rollback ref from before SPEC-025 phase 3 has no typecheck script (pages.yml `ref`, docs/release.md)
+      - run: npm run typecheck --if-present
 
   # SPEC-012 AC 7: the headless core in plain Node (npm run test:core = node --test tests/core/*.test.mjs: whole games,
   # determinism at the fixed step, slots, inputs, results, practice) once per run; it needs no dependency (no npm ci). A red

@@ -30,14 +30,30 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # SPEC-023: the same 4 sharded test jobs as on spec branches (tests.yml)
+  # SPEC-025 AC 13 (review): the commit of this run, resolved once — the pushed sha, or the commit the `ref` input names at the
+  # start. Tests, build and the live check all use this sha, so a branch or tag that moves mid-run cannot deploy an untested commit
+  resolve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      sha: ${{ steps.sha.outputs.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+      - id: sha
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+  # SPEC-023: the same 4 sharded test jobs as on spec branches (tests.yml), on the resolved commit
   test:
+    needs: resolve
     uses: ./.github/workflows/tests.yml
     with:
-      ref: ${{ inputs.ref || '' }}
+      ref: ${{ needs.resolve.outputs.sha }}
 
   # SPEC-011 AC 10c: build + upload, in parallel with the tests (Node built-ins only: no npm install)
   build:
+    needs: resolve
     runs-on: ubuntu-latest
     timeout-minutes: 10
     # configure-pages only reads the Pages settings; `write` is kept because `read` was not verified on this repo
@@ -46,19 +62,16 @@ jobs:
       pages: write
     outputs:
       base_url: ${{ steps.pages.outputs.base_url }}
-      sha: ${{ steps.sha.outputs.sha }}
+      sha: ${{ needs.resolve.outputs.sha }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref || '' }}
-      # the commit being deployed (the pushed one, or the commit of the `ref` input)
-      - id: sha
-        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          ref: ${{ needs.resolve.outputs.sha }}
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "24"
       - name: Build the site (npm run site → _site/, version.txt = the commit sha)
-        run: npm run site -- --stamp "${{ steps.sha.outputs.sha }}"
+        run: npm run site -- --stamp "${{ needs.resolve.outputs.sha }}"
       - id: pages
         uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
@@ -67,7 +80,7 @@ jobs:
           retention-days: 7
 
   deploy:
-    needs: [test, build]
+    needs: [resolve, test, build]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -98,7 +111,7 @@ jobs:
       - name: Check the live site serves this commit
         env:
           PAGE_URL: ${{ steps.deployment.outputs.page_url || steps.deployment-retry.outputs.page_url || needs.build.outputs.base_url }}
-          SHA: ${{ needs.build.outputs.sha }}
+          SHA: ${{ needs.resolve.outputs.sha }}
         run: |
           test -n "$PAGE_URL" || { echo "no Pages URL"; exit 1; }
           test -n "$SHA" || { echo "no commit sha from the build job"; exit 1; }
