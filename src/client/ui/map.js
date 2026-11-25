@@ -8,7 +8,7 @@ import { isOpen, worldComplete, worldOpen, worldProgress } from "../../core/prog
 import { mulberry32 } from "../../core/util.js";
 import { L } from "../../i18n.js";
 import { art, mapBgArt, paperPanel, worldArt } from "../art.js";
-import { cardLevel, chooseStop, closeCard, mapSelN, nextStop, openStory, playCard, setMode, tapWorldTab } from "../flow.js";
+import { cardLevel, chooseStop, goBack, mapSelN, nextStop, openStory, playCard, tapWorldTab } from "../flow.js";
 import { LOOK } from "../look.js";
 import { ctx, OUT, PHONE, UH, UW, VIEW } from "../screen.js";
 import { ui } from "../state.js";
@@ -225,7 +225,7 @@ export function drawMap(t) {
   menuFrame();
   const minMain = PHONE ? minPx("main") : 13;
   // верхний ряд: ◀ Главная, шесть вкладок, монетки
-  fitButton(MG.X0, MG.Y0, MG.backW, MG.tabH, MG.backText, M.back, () => { setMode("home"); }, PHONE ? cpx(18) : 20, minMain).id = "back:home";
+  fitButton(MG.X0, MG.Y0, MG.backW, MG.tabH, MG.backText, M.back, goBack, PHONE ? cpx(18) : 20, minMain).id = "back:home";
   coinPlate(MG.X1 - MG.coinsW, MG.Y0 + 4 * k, MG.coinsW, MG.tabH - 8 * k);
   const tx0 = MG.X0 + MG.backW + MG.g, tw = (MG.X1 - MG.coinsW - MG.g - tx0 - (WORLDS.length - 1) * MG.g) / WORLDS.length, tabs = [];
   WORLDS.forEach((wd, i) => {
@@ -274,7 +274,7 @@ export function drawLevelCard() {
   ctx.fillStyle = M.dim; ctx.fillRect(0, 0, UW, UH);
   if (!paperPanel(x, y, cw, ch, A.cardR * k)) { rr(x, y, cw, ch, A.cardR * k); fillStroke(M.card, M.cardLine); }   // SPEC-020: бумага тетради
   ui.cardRect = { x, y, w: cw, h: ch };
-  fitButton(x + cw - pad - B, y + pad, B, B, "✕", M.back, closeCard, PHONE ? cpx(18) : 20, minMain).id = "card:close";
+  fitButton(x + cw - pad - B, y + pad, B, B, "✕", M.back, goBack, PHONE ? cpx(18) : 20, minMain).id = "card:close";
   label(f1.text, x + pad, y + pad + B / 2, f1.sz, M.title, "left");
   if (PHONE) noteText("main", f1.sz);
   ui.hudRects.push({ id: "card:title", x: x + pad, y: y + pad + B / 2 - f1.sz * 0.6, w: f1.w, h: f1.sz * 1.2, text: f1.text });

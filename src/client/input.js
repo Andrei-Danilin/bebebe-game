@@ -3,7 +3,7 @@
 
 import { CFG } from "../core/config.js";
 import { L } from "../i18n.js";
-import { backToWardrobe, chooseStop, closeCard, closeShop, cycleWorld, inWardrobe, mapSelN, mode, moveMapSel, nextLang, nextLevel, openStory, playCard, pressKiss, pressKit, resumeGame, retryLevel, sceneNext, scenePrev, sceneSkip, setMode, storyBackKey, storyCh, storyStep, switchShopTab, toggleSound, toMap, watchChapter } from "./flow.js";
+import { backToWardrobe, chooseStop, closeCard, goBack, closeShop, cycleWorld, inWardrobe, mapSelN, mode, moveMapSel, nextLang, nextLevel, openStory, playCard, pressKiss, pressKit, resumeGame, retryLevel, sceneNext, scenePrev, sceneSkip, setMode, storyBackKey, storyCh, storyStep, switchShopTab, toggleSound, toMap, watchChapter } from "./flow.js";
 import { LOOK } from "./look.js";
 import { cleanName, nameFor, setName } from "./names.js";
 import { buyArmed, randomOutfit } from "./outfits.js";
@@ -24,55 +24,50 @@ const keys = new Set();
 function onKey(code) {
   if (code === "KeyM") { toggleSound(); return; }
   if (code === "KeyL") { nextLang(); return; }
-  const back = code === "Escape";
+  if (code === "Escape") { goBack(); return; }                // SPEC-025 AC 14d: the one "back" (flow.js)
   if (mode === "home") {
     const a = homeActions().find(q => q.keys.includes(code));   // SPEC-017: Enter = «Играть», S — история, B — магазин
     if (a) a.act();
   } else if (mode === "map") {
     // SPEC-017: ←/→ — миры, ↑/↓ — остановка с кольцом, Enter — её карточка (решено в ходе работы, проверить с Андреем)
-    if (back) setMode("home");
     if (code === "ArrowLeft") cycleWorld(-1);
     if (code === "ArrowRight") cycleWorld(1);
     if (code === "ArrowUp") moveMapSel(-1);
     if (code === "ArrowDown") moveMapSel(1);
     if (code === "Enter" || code === "NumpadEnter" || code === "Space") chooseStop(mapSelN());
   } else if (mode === "levelCard") {
-    if (back) closeCard();
     if (code === "Enter" || code === "NumpadEnter" || code === "Space" || code === "Digit1" || code === "Numpad1") playCard(1);
     if (code === "Digit2" || code === "Numpad2") playCard(2);
     if (code === "KeyS") openStory(G.world, "levelCard");
   } else if (mode === "story") {
-    if (back) storyBackKey();
     if (ui.storyPage === "chapters" && code === "ArrowLeft") storyStep(-1);
     if (ui.storyPage === "chapters" && code === "KeyV") watchChapter();   // SPEC-022: V — посмотреть заставку главы
     if (ui.storyPage === "chapters" && (code === "ArrowRight" || code === "Enter" || code === "Space")) storyStep(1);
     else if (ui.storyPage === "rules" && (code === "Enter" || code === "NumpadEnter" || code === "Space")) openTutorial("story");   // SPEC-029: «Тренировка»
   } else if (mode === "scene") {
     // SPEC-022: заставка — Enter / пробел / → дальше, ← назад, Escape пропустить
-    if (back) sceneSkip();
-    else if (code === "ArrowLeft") scenePrev();
+    if (code === "ArrowLeft") scenePrev();
     else if (code === "Enter" || code === "NumpadEnter" || code === "Space" || code === "ArrowRight") sceneNext();
   } else if (mode === "shop") {
-    if (back && inWardrobe() && ui.wardrobePage === "friends") backToWardrobe();   // имена друзей → наряды
-    else if (back || code === "Enter" || code === "Space") closeShop();
+    if (code === "Enter" || code === "Space") closeShop();
     if (code === "ArrowLeft") switchShopTab(-1);
     if (code === "ArrowRight") switchShopTab(1);
     if (code === "KeyR" && inWardrobe() && ui.wardrobePage === "looks") randomOutfit("p1");
   } else if (mode === "play") {
-    if (code === "KeyP" || back) setMode("pause");
+    if (code === "KeyP") setMode("pause");
     const kp = kissKeyPlayer(code);
     if (kp >= 0) pressKiss(kp);
     const rp = kitKeyPlayer(code);
     if (rp >= 0) pressKit(rp);
   } else if (mode === "pause") {
-    if (code === "KeyP" || back) resumeGame();
+    if (code === "KeyP") resumeGame();
     if (code === "KeyQ") (G.tutorialGame ? tutorialSkip : toMap)();   // SPEC-029: в тренировке Q — пропустить обучение
   } else if (mode === "win") {
     if (code === "Enter" || code === "Space") nextLevel();
-    if (back || code === "KeyQ") toMap();
+    if (code === "KeyQ") toMap();
   } else if (mode === "lose") {
     if (code === "Enter" || code === "Space") retryLevel();
-    if (back || code === "KeyQ") toMap();
+    if (code === "KeyQ") toMap();
   }
 }
 
@@ -325,6 +320,7 @@ export function initInput() {
     if (d > R * 1.6) { s.ox = s.x - dx / d * R * 1.6; s.oy = s.y - dy / d * R * 1.6; }  // джойстик «едет» за пальцем
   });
   canvas.addEventListener("pointerup", guardTap(e => {
+    initAudio();                                       // SPEC-025 AC 14: WebKit unlocks audio on the release
     endStick(e);
     const sw = ui.mapSwipe;
     if (sw && sw.id === e.pointerId) {

@@ -6,7 +6,7 @@ import { clamp } from "../../core/util.js";
 import { L, lang } from "../../i18n.js";
 import { RULE_ICONS, STORY, TUTORIAL_SCENES } from "../../story.js";
 import { art, artFile, artImgs, STORY_ART, tape } from "../art.js";
-import { cardLevel, chapterOpen, sceneNext, scenePages, sceneSkip, storyBack, storyBackKey, storyCh, storyStep, watchChapter } from "../flow.js";
+import { cardLevel, chapterOpen, sceneNext, scenePages, sceneSkip, storyBack, goBack, storyCh, storyStep, watchChapter } from "../flow.js";
 import { LOOK } from "../look.js";
 import { ctx, PHONE } from "../screen.js";
 import { ui } from "../state.js";
@@ -59,7 +59,7 @@ export function drawStory() {
   // верхний ряд: ◀ назад, заголовок, «❓ Как играть» / «📖 История»
   const backText = PHONE ? "◀" : "◀ " + (storyBack === "levelCard" ? L().level + " " + cardLevel : L().home);
   const bw = PHONE ? B : S.backW;
-  fitButton(X0, Y0, bw, B, backText, M.back, storyBackKey, PHONE ? cpx(18) : 20, minMain).id = "back:story";
+  fitButton(X0, Y0, bw, B, backText, M.back, goBack, PHONE ? cpx(18) : 20, minMain).id = "back:story";
   const tText = rules ? "❓ " + L().howToPlay : "📖 " + L().story;
   ctx.font = hudFont(PHONE ? cpx(16) : 19);
   const tw = Math.max(B, Math.min((X1 - X0) * 0.36, scaledW(rules ? tText : "❓ " + L().howToPlay) + 26 * k));

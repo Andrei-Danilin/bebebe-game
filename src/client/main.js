@@ -14,6 +14,7 @@ import { failStart, initErrors, reportError } from "./errors.js";
 import { inMenus, inWardrobe, mapTick, mode, openScene, redress, resetWorld, seedRandom, syncStock } from "./flow.js";
 import { drainEvents, stepGame, viewTick } from "./fx.js";
 import { initInput, pollPads } from "./input.js";
+import { initLifecycle } from "./lifecycle.js";
 import { endTryOn } from "./outfits.js";
 import { initSaves } from "./progress.js";
 import { fit, initScreen, isTouch, simMode } from "./screen.js";
@@ -51,6 +52,8 @@ function boot() {
   initSync();
   initCharacters();
   initPreviews();
+  // SPEC-025 AC 14 / 14c: hide, blur, WebGL context loss
+  initLifecycle();
   fit();
   resetWorld(1);
   artGate();                                  // SPEC-020: экран загрузки ждёт картинки (недолго); игра уже готова

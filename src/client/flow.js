@@ -83,6 +83,7 @@ function payLevel(result) {
 export function applyGameEvent(e) {
   if (e.type === "coins") { addCoins(e.reason, e.amount, e); saveProgress(); }
   else if (e.type === "spent") { const k = e.kind === "glove" ? e.glove : INV_KEY[e.kind]; progress.inv[k]--; saveProgress(); }
+  else if (e.type === "result" && settledGame === G) setMode("win");   // SPEC-025 AC 14b: paid when the app was hidden — not again
   else if (e.type === "result") { lastReward = payLevel(e); setMode("win"); noteOpenedWorld(lastReward); }
   else if (e.type === "practiceWin") tutorialNext();
 }
@@ -106,6 +107,28 @@ export function cycleWorld(d) {
 function leaveLevel() {
   if (G.tutorialGame || !G.rewardDue || (mode !== "play" && mode !== "pause")) return;   // SPEC-029: тренировка не платит
   if (G.pendingWin > 0) { G.pendingWin = 0; logEvent("win", {}); giveReward(true); } else giveReward(false);
+}
+// SPEC-025 AC 14b: the app is hidden while the win is already decided (the Big One's hearts at 0, the hug end or the kind walk
+// running): the win is recorded and saved now, as leaving the level records it (its full reward, hugs line included); the level
+// goes on when the app comes back, and its result event then pays nothing (settledGame). Nothing else is settled on hide
+let settledGame = null;
+export function settleDecidedWin() {
+  if (G.tutorialGame || !G.rewardDue || (mode !== "play" && mode !== "pause") || !(G.pendingWin > 0) || G.big.hp > 0) return false;
+  settledGame = G;
+  giveReward(true);
+  return true;
+}
+// SPEC-025 AC 14d: the one "back" (Escape, the back buttons, __bb.goBack; later the system Back of a native wrapper) — today's
+// Escape per screen: play → pause, pause → play, a menu → its parent, win / lose → the map; the home screen: nothing (D-14)
+export function goBack() {
+  if (mode === "map") setMode("home");
+  else if (mode === "levelCard") closeCard();
+  else if (mode === "story") storyBackKey();
+  else if (mode === "scene") sceneSkip();
+  else if (mode === "shop") { if (inWardrobe() && ui.wardrobePage === "friends") backToWardrobe(); else closeShop(); }
+  else if (mode === "play") setMode("pause");
+  else if (mode === "pause") resumeGame();
+  else if (mode === "win" || mode === "lose") toMap();
 }
 // клиент: награда уровня (payLevel по levelResult) и мир, который она открыла
 export function giveReward(win) { lastReward = payLevel(levelResult(win)); noteOpenedWorld(lastReward); }
