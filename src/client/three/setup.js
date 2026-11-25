@@ -24,10 +24,22 @@ export const camBase = new THREE.Vector3();
 
 export const sun = new THREE.DirectionalLight(0xfff1dc, 2.0);
 
+// SPEC-025 AC 7b: three.js r187 needs WebGL2 — a probe on a canvas of its own (the game's canvas keeps its context attributes
+// free for the renderer); the probe's context is released at once
+export function hasWebGL2() {
+  try {
+    const gl = document.createElement("canvas").getContext("webgl2");
+    if (!gl) return false;
+    const x = gl.getExtension("WEBGL_lose_context");
+    if (x) x.loseContext();
+    return true;
+  } catch (e) { return false; }
+}
 // called once by main.js, in the start order of the one-file game
 export function initThree() {
   glCanvas = document.getElementById("gl");
-  renderer = new THREE.WebGLRenderer({ canvas: glCanvas, antialias: true });
+  try { renderer = new THREE.WebGLRenderer({ canvas: glCanvas, antialias: true }); }
+  catch (e) { throw Object.assign(new Error("the WebGL renderer cannot be created: " + (e && e.message)), { noWebGL: true }); }   // SPEC-025 AC 7b
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFShadowMap;
   renderer.outputColorSpace = THREE.SRGBColorSpace;

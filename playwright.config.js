@@ -1,12 +1,12 @@
 // Playwright config for BeBeBe Atrapar.
-// SPEC-011 AC 8: every test opens the game over http from scripts/serve.js (started as the webServer); three.js is served
-// from node_modules instead of the CDN (see tests/helpers.js), so the tests run offline.
+// SPEC-011 AC 8: every test opens the game over http from scripts/serve.js (started as the webServer); three.js is vendored
+// (vendor/three/, SPEC-025 AC 1), so the tests run offline and test exactly the files players get.
 // SPEC-011 AC 8b: service workers are blocked by default; only the PWA tests (tests/pwa.spec.js) allow them.
 // SPEC-023: GPU locally, SwiftShader on CI (PW_GPU=auto|0|1), below-normal priority (PW_NICE=0: off) — tests/test-env.js.
 const { defineConfig } = require("@playwright/test");
 const { browserArgs } = require("./tests/test-env");
 
-// Lets context.route() see the requests a service worker makes (the PWA tests route jsDelivr that way).
+// Lets context.route() see the requests a service worker makes (SPEC-025: the request audit records the worker's requests too).
 process.env.PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS = "1";
 
 const PORT = Number(process.env.PORT) || 8123;

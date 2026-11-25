@@ -911,10 +911,13 @@ test("kiss keys for one and two players", async ({ page }) => {
   await page.evaluate(() => {
     const b = window.__bb; b.big.noPush = 999;
     b.littles.forEach(l => { l.kissCd = 0; });
-    const pad = (i, on) => ({ index: i, axes: [0, 0], buttons: Array.from({ length: 17 }, (_, k) => ({ pressed: on && k === 2, value: 0 })) });
-    window.__pads = [pad(0, false), pad(1, true)];
+    const pad = (i, on) => ({ index: i, mapping: "standard", axes: [0, 0], buttons: Array.from({ length: 17 }, (_, k) => ({ pressed: on && k === 2, value: 0 })) });
+    window.__pads = [pad(0, false), pad(1, false)];             // SPEC-025 AC 7e: a pad's first poll fires no buttons
     Object.defineProperty(navigator, "getGamepads", { configurable: true, value: () => window.__pads });
+    window.__padOn = () => { window.__pads = [pad(0, false), pad(1, true)]; };
   });
+  await frames(page);
+  await page.evaluate(() => window.__padOn());
   await page.waitForFunction(() => window.__bb.progress.inv.kisses === 14);
   expect(await page.evaluate(() => window.__bb.littles[1].kissCd > 0 && window.__bb.littles[0].kissCd === 0)).toBe(true);
 });
@@ -924,10 +927,11 @@ test("the gamepad d-pad left/right and the shoulder buttons switch worlds on the
     const b = window.__bb, all = () => Object.fromEntries(Array.from({ length: 20 }, (_, i) => [i + 1, true]));
     for (const w of ["park", "field", "city"]) Object.assign(b.progress.worlds[w], { unlocked: 20, won: all() });   // SPEC-030: the four main worlds open
     b.mode = "map";
-    window.__press = k => { window.__pads = [{ index: 0, axes: [0, 0], buttons: Array.from({ length: 17 }, (_, i) => ({ pressed: i === k, value: 0 })) }]; };
+    window.__press = k => { window.__pads = [{ index: 0, mapping: "standard", axes: [0, 0], buttons: Array.from({ length: 17 }, (_, i) => ({ pressed: i === k, value: 0 })) }]; };
     window.__press(-1);
     Object.defineProperty(navigator, "getGamepads", { configurable: true, value: () => window.__pads });
   });
+  await frames(page);                                               // SPEC-025 AC 7e: the pad is seen unpressed first (no edges on connect)
   const press = async k => { await page.evaluate(n => window.__press(n), k); await frames(page); await page.evaluate(() => window.__press(-1)); await frames(page); };
   // SPEC-016: worlds in the story order (park, field, city, school, then the bonus beach, winter), the locked bonus ones skipped
   // SPEC-017: d-pad ←/→ and the shoulder buttons (CFG.PAD_PREV_WORLD / PAD_NEXT_WORLD) switch worlds; ↑/↓ pick a level stop
@@ -1431,20 +1435,23 @@ test("kit keys for one and two players", async ({ page }) => {
   expect(r.left).toBe(17);
   // gamepad: button 3 (Y on Xbox, triangle on PlayStation); the second pad is player 2 in a two-player game
   await page.evaluate(() => {
-    const pad = (i, on) => ({ index: i, axes: [0, 0], buttons: Array.from({ length: 17 }, (_, k) => ({ pressed: on && k === 3, value: 0 })) });
-    window.__pads = [pad(0, false), pad(1, true)];
+    const pad = (i, on) => ({ index: i, mapping: "standard", axes: [0, 0], buttons: Array.from({ length: 17 }, (_, k) => ({ pressed: on && k === 3, value: 0 })) });
+    window.__pads = [pad(0, false), pad(1, false)];             // SPEC-025 AC 7e: a pad's first poll fires no buttons
     Object.defineProperty(navigator, "getGamepads", { configurable: true, value: () => window.__pads });
+    window.__padOn = () => { window.__pads = [pad(0, false), pad(1, true)]; };
   });
+  await frames(page);
+  await page.evaluate(() => window.__padOn());
   await page.waitForFunction(() => window.__bb.progress.inv.rescues === 16);
   expect(await page.evaluate(() => window.__bb.littles.slice(0, 2).map(l => l.state))).toEqual(["down", "ok"]);
   // one player: the first pad
   await page.evaluate(() => {
-    const b = window.__bb; window.__pads = [];
+    const b = window.__bb; window.__pads = [window.__pads[0]];   // SPEC-025 AC 7e: pad 0 stays (losing every pad in play pauses)
     b.startGame(1); window.__t.calm(); window.__t.pin([0]);
     Object.assign(b.littles[0], { state: "down", downTimer: 10 });
   });
   await frames(page);
-  await page.evaluate(() => { window.__pads = [{ index: 0, axes: [0, 0], buttons: Array.from({ length: 17 }, (_, k) => ({ pressed: k === 3, value: 0 })) }]; });
+  await page.evaluate(() => { window.__pads = [{ index: 0, mapping: "standard", axes: [0, 0], buttons: Array.from({ length: 17 }, (_, k) => ({ pressed: k === 3, value: 0 })) }]; });
   await page.waitForFunction(() => window.__bb.progress.inv.rescues === 15);
   expect(await page.evaluate(() => window.__bb.littles[0].state)).toBe("ok");
   await page.evaluate(() => { window.__pads[0].buttons.forEach(btn => { btn.pressed = false; }); });   // shared page: release the pad
@@ -1695,7 +1702,7 @@ test("tiptoe with Shift, stick tilt and gamepad", { tag: "@fast" }, async ({ pag
   const pad = async ax => {
     await page.evaluate(a => {
       const b = window.__bb; b.startGame(1); window.__h.calm({ x: 900, y: 600 }); b.big.noPush = 999; b.big.stun = 999; window.__t.pin([0]);
-      window.__pads = [{ index: 0, axes: [a, 0], buttons: Array.from({ length: 17 }, () => ({ pressed: false, value: 0 })) }];
+      window.__pads = [{ index: 0, mapping: "standard", axes: [a, 0], buttons: Array.from({ length: 17 }, () => ({ pressed: false, value: 0 })) }];
       Object.defineProperty(navigator, "getGamepads", { configurable: true, value: () => window.__pads });
     }, ax);
     await frames(page);

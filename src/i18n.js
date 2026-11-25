@@ -33,6 +33,7 @@ export const I18N = {
     controls1: "Keyboard: Player 1 — W A S D, Player 2 — arrows  •  P — pause  •  M — sound  •  L — language",
     controls2: "Tablet/phone: drag your finger  •  Gamepad: stick, A — choose, B — back, LB/RB — worlds",
     pause: "Paused", play: "Play", resume: "Continue", story: "Story", map: "Map", home: "Home",   // SPEC-017: экраны меню
+    glLost: "Tap to continue", oops: "Oops! Something went wrong", restartLevel: "Restart level",   // SPEC-025 AC 7: карточка ошибки (Продолжить — resume)
     win: "YOU WIN!", winSub: "You hugged him lots of times, and he went home!", next: n => `Level ${n} ▶`,
     // SPEC-022: заголовок победы — папа (босс, набранное имя) снова добрый; «Ура!» друзей, пока он идёт домой; имена боссов
     kindAgain: n => `${n} is kind again!`, cheer: "Yay!", whoosh: "WHOOSH!",
@@ -118,6 +119,7 @@ export const I18N = {
     controls1: "Teclado: Jugador 1 — W A S D, Jugador 2 — flechas  •  P — pausa  •  M — sonido  •  L — idioma",
     controls2: "Tablet/celu: deslizá el dedo  •  Joystick: palanca, A — elegir, B — volver, LB/RB — mundos",
     pause: "Pausa", play: "Jugar", resume: "Seguir", story: "Historia", map: "Mapa", home: "Inicio",
+    glLost: "Tocá para seguir", oops: "¡Uy! Algo salió mal", restartLevel: "Reiniciar nivel",   // SPEC-025 AC 7: карточка ошибки (Продолжить — resume)
     win: "¡GANARON!", winSub: "¡Lo abrazaron muchas veces y se fue a su casa!", next: n => `Nivel ${n} ▶`,
     kindAgain: n => `¡${n} volvió a ser bueno!`, cheer: "¡Bien!", whoosh: "¡FIUUU!",
     bossNames: { park: "El jefe del parque", field: "El entrenador", city: "El albañil", school: "El papá más enojado" },
@@ -196,6 +198,7 @@ export const I18N = {
     controls1: "Teclado: Jogador 1 — W A S D, Jogador 2 — setas  •  P — pausa  •  M — som  •  L — idioma",
     controls2: "Tablet/celular: arraste o dedo  •  Controle: analógico, A — escolher, B — voltar, LB/RB — mundos",
     pause: "Pausa", play: "Jogar", resume: "Continuar", story: "História", map: "Mapa", home: "Início",
+    glLost: "Toque para continuar", oops: "Ops! Algo deu errado", restartLevel: "Recomeçar a fase",   // SPEC-025 AC 7: карточка ошибки (Продолжить — resume)
     win: "VOCÊS GANHARAM!", winSub: "Vocês deram muitos abraços nele, e ele foi para casa!", next: n => `Fase ${n} ▶`,
     kindAgain: n => `${n} ficou bonzinho!`, cheer: "Eba!", whoosh: "VUUUSH!",   // SPEC-028: kindAgain без «de novo» — длинное имя босса не влезало (шрифты CI)
     bossNames: { park: "O chefe do parque", field: "O treinador", city: "O construtor", school: "O papai mais bravo" },
@@ -273,6 +276,7 @@ export const I18N = {
     controls1: "Клавиатура: Игрок 1 — W A S D, Игрок 2 — стрелки  •  P — пауза  •  M — звук  •  L — язык",
     controls2: "Планшет/телефон: водите пальцем  •  Геймпад: стик, A — выбрать, B — назад, LB/RB — миры",
     pause: "Пауза", play: "Играть", resume: "Продолжить", story: "История", map: "Карта", home: "Главная",
+    glLost: "Нажми, чтобы продолжить", oops: "Ой! Что-то пошло не так", restartLevel: "Начать уровень заново",   // SPEC-025 AC 7: карточка ошибки (Продолжить — resume)
     win: "ПОБЕДА!", winSub: "Его обняли много раз, и он ушёл домой!", next: n => `Уровень ${n} ▶`,
     kindAgain: n => `${n} снова добрый!`, cheer: "Ура!", whoosh: "ВЖУХ!",
     bossNames: { park: "Босс парка", field: "Тренер", city: "Строитель", school: "Самый злой папа" },

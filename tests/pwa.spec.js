@@ -1,12 +1,11 @@
 // SPEC-001: installable PWA (manifest, icons, iOS metas, safe areas, service worker, offline,
 // standalone mode, install hint). Most tests run over http (scripts/serve.js, the webServer).
 // SPEC-011 AC 8b: playwright.config.js blocks service workers for every other spec; this one allows them.
-// Notes: jsDelivr is routed at context level (routeThree) so the service worker's requests are
-// intercepted too; that needs PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS=1 (set in playwright.config.js).
+// SPEC-025 AC 1: three.js is vendored (vendor/three/), so nothing is routed: the tests load exactly the files players get.
 const { test, expect } = require("./pw");   // SPEC-023: @playwright/test + failure screenshots
 const fs = require("fs");
 const path = require("path");
-const { openGame, openGameHttp, routeThree, frames, step, reloadGame, HTTP_BASE, ROOT } = require("./helpers");
+const { openGame, openGameHttp, frames, step, reloadGame, HTTP_BASE, ROOT } = require("./helpers");
 const { makeServer } = require("../scripts/serve");
 
 test.use({ serviceWorkers: "allow" });
@@ -18,7 +17,7 @@ const SW_VERSION = (SW_SRC.match(/const SW_VERSION\s*=\s*"([^"]+)"/) || [])[1];
 // SPEC-020: the hash of the art sprites (npm run assets); SPEC-011 AC 9: the hash of the module set (npm run precache)
 const ASSETS_HASH = (SW_SRC.match(/const ASSETS_HASH\s*=\s*"([^"]+)"/) || [])[1];
 const SRC_HASH = (SW_SRC.match(/const SRC_HASH\s*=\s*"([^"]+)"/) || [])[1];
-const THREE_VERSION = (SW_SRC.match(/cdn\.jsdelivr\.net\/npm\/three@([\d.]+)\/build\//) || [])[1];
+const THREE_VERSION = (SW_SRC.match(/const THREE_VERSION\s*=\s*"([^"]+)"/) || [])[1];
 // SPEC-011 AC 9: three caches — the shell + modules by SRC_HASH, the sprites by ASSETS_HASH, three.js by its version
 const CACHE_SRC = SW_VERSION + "-src-" + SRC_HASH, CACHE_ASSETS = SW_VERSION + "-assets-" + ASSETS_HASH, CACHE_THREE = "bebebe-three-" + THREE_VERSION;
 // the string items of a `const NAME = [ … ];` list in sw.js
@@ -123,7 +122,7 @@ test.describe(() => {
 test("service worker registers and controls the page over http", { tag: "@fast" }, async ({ page }) => {
   const errors = await openGameHttp(page);
   await waitForSW(page);
-  expect(SW_VERSION).toBe("bebebe-v5");   // SPEC-011 Phase C: unversioned src/ URLs network-only (a strategy change)
+  expect(SW_VERSION).toBe("bebebe-v6");   // SPEC-025 AC 1: the vendored three.js from this origin (a strategy change)
   expect(ASSETS_HASH && SRC_HASH && THREE_VERSION).toBeTruthy();
   // SPEC-011 AC 9: exactly the three caches
   expect((await page.evaluate(() => caches.keys())).sort()).toEqual([CACHE_ASSETS, CACHE_SRC, CACHE_THREE].sort());
@@ -135,7 +134,8 @@ test("service worker registers and controls the page over http", { tag: "@fast" 
   expect(swList("PRECACHE_SRC").length).toBeGreaterThan(20);
   expect(swList("PRECACHE_SRC").filter(u => !src.includes(HTTP_BASE + u.slice(2))), "modules not in the src cache").toEqual([]);
   expect(src).toContain(HTTP_BASE + "__installed__");
-  expect(three.sort()).toEqual([`https://cdn.jsdelivr.net/npm/three@${THREE_VERSION}/build/three.core.js`, `https://cdn.jsdelivr.net/npm/three@${THREE_VERSION}/build/three.module.js`]);
+  expect(three.sort()).toEqual(swList("PRECACHE_THREE").map(u => HTTP_BASE + u.slice(2)).sort());   // SPEC-025: the vendored files
+  expect(three.map(u => u.replace(/\?v=[0-9a-f]{10}$/, "")).sort()).toEqual([HTTP_BASE + "vendor/three/three.core.js", HTTP_BASE + "vendor/three/three.module.js"]);
   // SPEC-020: every art sprite is precached too (the list npm run assets writes into sw.js)
   const sprites = await page.evaluate(() => window.__bb.ART_NAMES);
   expect(sprites.filter(n => !art.includes(HTTP_BASE + "assets/" + n + ".webp"))).toEqual([]);
@@ -149,7 +149,6 @@ async function withOwnServer(page, override, fn) {
   await new Promise(r => server.listen(0, r));
   try {
     const base = `http://localhost:${server.address().port}/`;
-    await routeThree(page.context());
     await page.goto(base);
     await page.waitForFunction(() => window.__bbReady === true, null, { timeout: 30_000 });
     await waitForSW(page);
@@ -160,13 +159,27 @@ async function withOwnServer(page, override, fn) {
 }
 const INDEX_SRC = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
 
-// SPEC-011 AC 1b: the version comes from the import map (the game imports the bare name "three")
-test("sw.js precaches the same three.js version index.html imports", async () => {
-  const map = JSON.parse((INDEX_SRC.match(/<script type="importmap">([\s\S]*?)<\/script>/) || [])[1] || "{}");
-  const imported = (((map.imports || {}).three || "").match(/^https:\/\/cdn\.jsdelivr\.net\/npm\/three@([\d.]+)\/build\/three\.module\.js$/) || [])[1];
-  const cached = (SW_SRC.match(/cdn\.jsdelivr\.net\/npm\/three@([\d.]+)\/build\//) || [])[1];
-  expect(imported).toBeTruthy();
-  expect(cached).toBe(imported);
+// SPEC-025 AC 1 (replaces SPEC-011's "sw.js precaches the same three.js version index.html imports"): the game imports the
+// vendored three.js through the import map, the service worker caches exactly those files under the vendored version, and the
+// vendored build is the version of package.json / node_modules (same REVISION, same exports) — Dependabot cannot bump one alone
+test("the vendored three.js is the version of package.json and the service worker", { tag: "@fast" }, async () => {
+  const map = JSON.parse((INDEX_SRC.match(/<script type="importmap">([\s\S]*?)<\/script>/) || [])[1] || "{}").imports || {};
+  expect(map.three, "the import map's three is the vendored module").toMatch(/^\.\/vendor\/three\/three\.module\.js\?v=[0-9a-f]{10}$/);
+  expect(map["./vendor/three/three.core.js"], "the core file the module imports, versioned too").toMatch(/^\.\/vendor\/three\/three\.core\.js\?v=[0-9a-f]{10}$/);
+  expect(swList("PRECACHE_THREE").sort(), "sw.js caches exactly the imported files").toEqual([map.three, map["./vendor/three/three.core.js"]].sort());
+  const rev = (fs.readFileSync(path.join(ROOT, "vendor", "three", "three.core.js"), "utf8").match(/\bREVISION\s*=\s*"(\d+)"/) || [])[1];
+  const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8")).devDependencies.three;
+  const installed = JSON.parse(fs.readFileSync(path.join(ROOT, "node_modules", "three", "package.json"), "utf8")).version;
+  expect(THREE_VERSION, "sw.js THREE_VERSION = r<REVISION> of the vendored build").toBe("r" + rev);
+  expect(pkg, "package.json pins three exactly").toMatch(/^\d+\.\d+\.\d+$/);
+  expect(installed, "node_modules/three = package.json").toBe(pkg);
+  expect(pkg.split(".")[1], "the vendored REVISION = the minor of three in package.json").toBe(rev);
+  // the same build: the vendored minified module exports exactly what node_modules' three.module.js exports
+  const imp = f => import(require("url").pathToFileURL(f).href);
+  const [vendored, npm] = await Promise.all([imp(path.join(ROOT, "vendor", "three", "three.module.js")), imp(path.join(ROOT, "node_modules", "three", "build", "three.module.js"))]);
+  expect(Object.keys(vendored).sort()).toEqual(Object.keys(npm).sort());
+  expect(vendored.REVISION).toBe(npm.REVISION);
+  expect(fs.existsSync(path.join(ROOT, "vendor", "three", "LICENSE")), "the MIT licence ships with it").toBe(true);
 });
 
 // SPEC-011 AC 9: the cache rotation with three kinds of caches. A new version keeps the caches of the version before (a page of
@@ -180,7 +193,8 @@ test("old caches are removed on a new SW_VERSION", async ({ page }) => {
   const update = () => page.evaluate(async () => (await navigator.serviceWorker.getRegistration()).update());
   await withOwnServer(page, ov, async () => {
     expect(await keys()).toEqual([CACHE_ASSETS, CACHE_SRC, CACHE_THREE].sort());
-    await page.evaluate(() => Promise.all([caches.open("bebebe-v0"), caches.open("other-pages-app")]));   // an old-style name + another app
+    // an old-style name, the old jsDelivr three.js cache (SPEC-025: removed) + another app
+    await page.evaluate(() => Promise.all([caches.open("bebebe-v0"), caches.open("bebebe-three-0.187.0"), caches.open("other-pages-app")]));
     ov.fn = p => (p === "/sw.js" ? version("bebebe-test-v2") : null);
     await update();
     const v2 = ["bebebe-test-v2-assets-" + ASSETS_HASH, "bebebe-test-v2-src-" + SRC_HASH];
@@ -209,7 +223,8 @@ test("precache lists every module", { tag: "@fast" }, () => {
 test("the import map pins every module to its hash", { tag: "@fast" }, () => {
   const map = JSON.parse(INDEX_SRC.match(/<script type="importmap">([\s\S]*?)<\/script>/)[1]).imports;
   const { modules, srcHash } = precache.lists();
-  expect(Object.keys(map).sort()).toEqual(["three", ...modules.map(m => m.url)].sort());
+  expect(Object.keys(map).sort()).toEqual(["three", "./vendor/three/three.core.js", ...modules.map(m => m.url)].sort());   // SPEC-025: + the vendored core
+  for (const t of precache.lists().three) expect(map[t.url === precache.THREE_ENTRY ? "three" : t.url], t.url).toBe(`${t.url}?v=${t.hash}`);
   for (const m of modules) expect(map[m.url], m.url).toBe(`${m.url}?v=${precache.fileHash(path.join(ROOT, m.url))}`);
   expect((INDEX_SRC.match(/<meta name="src-hash" content="([^"]+)">/) || [])[1], "index.html src-hash").toBe(srcHash);
   expect(SRC_HASH, "sw.js SRC_HASH").toBe(srcHash);
@@ -266,7 +281,6 @@ test("an offline launch after a half-installed update starts the old version", a
     await page.evaluate(async () => { try { await (await navigator.serviceWorker.getRegistration()).update(); } catch (e) { /* the install fails */ } });
     expect(await page.evaluate(async () => (await caches.keys()).filter(n => n.includes("testnew999")).length
       ? !!(await (await caches.open((await caches.keys()).find(n => n.includes("testnew999")))).match("./__installed__")) : false), "no complete cache of the new version").toBe(false);
-    await context.route("https://cdn.jsdelivr.net/**", route => route.abort("internetdisconnected"));
     await context.setOffline(true);
     await page.reload();
     await page.waitForFunction(() => window.__bbReady === true, null, { timeout: 30_000 });
@@ -315,7 +329,6 @@ test("index.html is network-first: a new version shows up online and stays offli
     await page.reload();
     await page.waitForFunction(() => window.__bbReady === true, null, { timeout: 30_000 });
     expect(await page.title()).toBe("BeBeBe updated");
-    await context.route("https://cdn.jsdelivr.net/**", route => route.abort("internetdisconnected"));
     await context.setOffline(true);
     await page.reload();
     await page.waitForFunction(() => window.__bbReady === true, null, { timeout: 30_000 });
@@ -348,9 +361,7 @@ test("a refused registration (like the claude.ai page) is silent", async ({ page
 test("the game starts offline after the first visit", async ({ page, context }) => {
   const errors = await openGameHttp(page);
   await waitForSW(page);
-  // network gone: the browser is offline and jsDelivr does not answer either
-  await context.unrouteAll({ behavior: "ignoreErrors" });
-  await context.route("https://cdn.jsdelivr.net/**", route => route.abort("internetdisconnected"));
+  // network gone: the browser is offline
   await context.setOffline(true);
   await reloadGame(page);                          // SPEC-011 AC 8d: seeded again after the reload
   await page.evaluate(() => window.__bb.startGame(1));

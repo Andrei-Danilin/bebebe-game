@@ -13,7 +13,7 @@ test("loads to the home screen without errors", { tag: "@fast" }, async ({ page 
 // SPEC-023 AC 5: every getter of window.__bb is either drawn state (in __bb.SIM_DRAWN: throws in sim mode) or on this
 // list of logic state that a sim test may read. A new getter must be put in one of the two, so a drawn one can't slip past
 // the sim guard.
-const LOGIC_GETTERS = ["mode", "muted", "wardrobePage", "littles", "big", "stats", "level", "world", "toast", "openedWorld", "worldBanner", "items", "progress",
+const LOGIC_GETTERS = ["errorLog", "glRestored", "mode", "muted", "wardrobePage", "littles", "big", "stats", "level", "world", "toast", "openedWorld", "worldBanner", "items", "progress",
   "lastReward", "upgrades", "shopTab", "outfits", "events", "rngDraws", "strictRng", "shake", "sticks", "uiSize", "names", "stars",
   "dangerZone", "safeZone", "texts", "kisses", "bigMark", "levelInfo", "banner", "artInfo", "artVersion", "scene", "pushWaves", "lang",   // SPEC-028: lang
   "tutorial", "tutorialMapRect",    // SPEC-029: the tutorial state, the practice map

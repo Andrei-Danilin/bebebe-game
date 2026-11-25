@@ -3,11 +3,12 @@
 
 import { CFG } from "../core/config.js";
 import { L } from "../i18n.js";
-import { backToWardrobe, chooseStop, closeCard, closeShop, cycleWorld, inWardrobe, mapSelN, mode, moveMapSel, nextLang, nextLevel, openStory, playCard, pressKiss, pressKit, resumeGame, retryLevel, sceneNext, scenePrev, sceneSkip, setMode, storyBackKey, storyStep, switchShopTab, toggleSound, toMap, watchChapter } from "./flow.js";
+import { backToWardrobe, chooseStop, closeCard, goBack, closeShop, cycleWorld, inWardrobe, mapSelN, mode, moveMapSel, nextLang, nextLevel, openStory, playCard, pressKiss, pressKit, resumeGame, retryLevel, sceneNext, scenePrev, sceneSkip, setMode, setStoryPage, storyBackKey, storyStep, switchShopTab, toggleSound, toMap, watchChapter } from "./flow.js";
 import { LOOK } from "./look.js";
 import { cleanName, nameFor, setName } from "./names.js";
 import { randomOutfit } from "./outfits.js";
 import { canvas, CSS_W, PHONE, UH, UW, wrap } from "./screen.js";
+import { cardOpen, moveCardFocus, pressCard } from "./errors.js";
 import { initAudio } from "./sound.js";
 import { ui } from "./state.js";
 import { openTutorial, tutorialSkip } from "./tutorial.js";
@@ -24,55 +25,50 @@ const keys = new Set();
 function onKey(code) {
   if (code === "KeyM") { toggleSound(); return; }
   if (code === "KeyL") { nextLang(); return; }
-  const back = code === "Escape";
+  if (code === "Escape") { goBack(); return; }                // SPEC-025 AC 14d: the one "back" (flow.js)
   if (mode === "home") {
     const a = homeActions().find(q => q.keys.includes(code));   // SPEC-017: Enter = «Играть», S — история, B — магазин
     if (a) a.act();
   } else if (mode === "map") {
     // SPEC-017: ←/→ — миры, ↑/↓ — остановка с кольцом, Enter — её карточка (решено в ходе работы, проверить с Андреем)
-    if (back) setMode("home");
     if (code === "ArrowLeft") cycleWorld(-1);
     if (code === "ArrowRight") cycleWorld(1);
     if (code === "ArrowUp") moveMapSel(-1);
     if (code === "ArrowDown") moveMapSel(1);
     if (code === "Enter" || code === "NumpadEnter" || code === "Space") chooseStop(mapSelN());
   } else if (mode === "levelCard") {
-    if (back) closeCard();
     if (code === "Enter" || code === "NumpadEnter" || code === "Space" || code === "Digit1" || code === "Numpad1") playCard(1);
     if (code === "Digit2" || code === "Numpad2") playCard(2);
     if (code === "KeyS") openStory(G.world, "levelCard");
   } else if (mode === "story") {
-    if (back) storyBackKey();
     if (ui.storyPage === "chapters" && code === "ArrowLeft") storyStep(-1);
     if (ui.storyPage === "chapters" && code === "KeyV") watchChapter();   // SPEC-022: V — посмотреть заставку главы
     if (ui.storyPage === "chapters" && (code === "ArrowRight" || code === "Enter" || code === "Space")) storyStep(1);
     else if (ui.storyPage === "rules" && (code === "Enter" || code === "NumpadEnter" || code === "Space")) openTutorial("story");   // SPEC-029: «Тренировка»
   } else if (mode === "scene") {
     // SPEC-022: заставка — Enter / пробел / → дальше, ← назад, Escape пропустить
-    if (back) sceneSkip();
-    else if (code === "ArrowLeft") scenePrev();
+    if (code === "ArrowLeft") scenePrev();
     else if (code === "Enter" || code === "NumpadEnter" || code === "Space" || code === "ArrowRight") sceneNext();
   } else if (mode === "shop") {
-    if (back && inWardrobe() && ui.wardrobePage === "friends") backToWardrobe();   // имена друзей → наряды
-    else if (back || code === "Enter" || code === "Space") closeShop();
+    if (code === "Enter" || code === "Space") closeShop();
     if (code === "ArrowLeft") switchShopTab(-1);
     if (code === "ArrowRight") switchShopTab(1);
     if (code === "KeyR" && inWardrobe() && ui.wardrobePage === "looks") randomOutfit("p1");
   } else if (mode === "play") {
-    if (code === "KeyP" || back) setMode("pause");
+    if (code === "KeyP") setMode("pause");
     const kp = kissKeyPlayer(code);
     if (kp >= 0) pressKiss(kp);
     const rp = kitKeyPlayer(code);
     if (rp >= 0) pressKit(rp);
   } else if (mode === "pause") {
-    if (code === "KeyP" || back) resumeGame();
+    if (code === "KeyP") resumeGame();
     if (code === "KeyQ") (G.tutorialGame ? tutorialSkip : toMap)();   // SPEC-029: в тренировке Q — пропустить обучение
   } else if (mode === "win") {
     if (code === "Enter" || code === "Space") nextLevel();
-    if (back || code === "KeyQ") toMap();
+    if (code === "KeyQ") toMap();
   } else if (mode === "lose") {
     if (code === "Enter" || code === "Space") retryLevel();
-    if (back || code === "KeyQ") toMap();
+    if (code === "KeyQ") toMap();
   }
 }
 
@@ -99,6 +95,9 @@ export function toGame(e) {
   const rect = canvas.getBoundingClientRect();
   return { x: (e.clientX - rect.left) * UW / rect.width, y: (e.clientY - rect.top) * UH / rect.height };
 }
+// SPEC-025 AC 7d: this frame's buttons belong to an older screen (a tap, key or pad press changed it since it was drawn: state.js
+// screenChanged) — a pointer then does nothing until the next frame draws the screen shown now
+const staleButtons = () => ui.buttonsGen !== ui.screenSeq;
 const hitButton = p => ui.buttons.find(b => p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h);
 let pendingUp = null;   // кнопка, которая срабатывает на отпускании (поле имени: iOS даёт фокус только в pointerup/click)
 
@@ -135,27 +134,54 @@ export function closeNameInput(save) {
   el.remove();
 }
 
-// Геймпады
-let pads = [];
-const padPrev = [];
+// Геймпады. SPEC-025 AC 7e: by Gamepad.index; padSlots[n] — the pad of player n (players in the order the pads first connected):
+// { index, id, connected, prev, x, y }. A pad that comes back (maybe at another index) takes the free slot it had (same id),
+// else the first free one; its first poll fires no button edges; only pads with the standard mapping press buttons
+const padSlots = [];
+export function resetPads() { padSlots.length = 0; }
 // кнопки, у которых ловим нажатие: A, B, X, Y, Start, крестовина (+ поцелуй, спасалка и бамперы карты из CFG — читаем каждый раз)
 const padEdge = () => [...new Set([0, 1, 2, 3, 9, 12, 13, 14, 15, LOOK.PAD_KISS, LOOK.PAD_KIT, LOOK.PAD_PREV_WORLD, LOOK.PAD_NEXT_WORLD])];
 export function pollPads() {
-  const list = navigator.getGamepads ? Array.from(navigator.getGamepads()).filter(Boolean) : [];
-  const edge = padEdge();
-  pads = list.map((p, i) => {
-    const btn = p.buttons.map(b => b.pressed);
-    const prev = padPrev[i] || [];
-    for (const b of edge) if (btn[b] && !prev[b]) onPadButton(b, i);
-    padPrev[i] = btn;
+  let list = [];
+  try { list = navigator.getGamepads ? Array.from(navigator.getGamepads()) : []; } catch (e) { /* not allowed */ }
+  const edge = padEdge(), seen = new Set();
+  list.forEach((p, i) => {
+    if (!p || p.connected === false) return;
+    const index = Number.isInteger(p.index) ? p.index : i, standard = p.mapping === "standard";
+    const btn = standard ? p.buttons.map(b => !!(b && b.pressed)) : [];
+    seen.add(index);
+    let s = padSlots.find(q => q.connected && q.index === index);
+    if (!s) {
+      s = padSlots.find(q => !q.connected && q.id === p.id) || padSlots.find(q => !q.connected);
+      if (!s) { s = {}; padSlots.push(s); }
+      Object.assign(s, { index, id: p.id, connected: true, prev: btn });   // (re)connected: no edges on this poll
+    }
+    const pi = padSlots.indexOf(s);
+    for (const b of edge) if (btn[b] && !s.prev[b]) onPadButton(b, pi);
+    s.prev = btn;
     let x = p.axes[0] || 0, y = p.axes[1] || 0;
     if (Math.hypot(x, y) < 0.25) { x = 0; y = 0; }
     if (btn[14]) x = -1; if (btn[15]) x = 1; if (btn[12]) y = -1; if (btn[13]) y = 1;
-    return { x, y };
+    // SPEC-025: the stick (not the D-pad: its buttons do it above) pushed half-way left / right also moves a card's highlight
+    const side = Math.sign(Math.round(p.axes[0] || 0));
+    if (side && side !== s.side && cardOpen()) moveCardFocus(side);
+    s.side = side;
+    s.x = x; s.y = y;
   });
+  padSlots.forEach((s, pi) => { if (s.connected && !seen.has(s.index)) { s.connected = false; s.x = 0; s.y = 0; padLost(pi); } });
+}
+// a pad gone during play: pause if a player lost his controller (two players: the pad of player 1 or 2; one player: the last pad)
+function padLost(pi) {
+  if (mode !== "play") return;
+  if (G.players === 1 ? !padSlots.some(s => s.connected) : pi < G.players) setMode("pause");
 }
 function onPadButton(b, pad = 0) {
   if (nameInput) return;
+  if (cardOpen()) {                         // SPEC-025: a card over the game — D-pad ←/→ pick its button, A / Start press it, nothing else
+    if (b === 14 || b === 15) moveCardFocus(b === 14 ? -1 : 1);
+    else if (b === 0 || b === 9) pressCard();
+    return;
+  }
   initAudio();
   if (mode === "home") {
     const a = homeActions().find(q => q.pad.includes(b));   // SPEC-017: A — «Играть», X — история, Y — магазин
@@ -174,7 +200,7 @@ function onPadButton(b, pad = 0) {
     if (b === 1) closeCard();
   } else if (mode === "story") {
     if (b === 1) storyBackKey();
-    if (b === 3) ui.storyPage = ui.storyPage === "rules" ? "chapters" : "rules";   // Y — «Как играть»
+    if (b === 3) setStoryPage(ui.storyPage === "rules" ? "chapters" : "rules");   // Y — «Как играть»
     if (b === 2 && ui.storyPage === "chapters") watchChapter();               // SPEC-022: X — посмотреть заставку главы
     if (ui.storyPage === "chapters") {
       if (b === 14 || b === LOOK.PAD_PREV_WORLD) storyStep(-1);
@@ -224,7 +250,7 @@ export function deviceInput(l) {
   const c = controlsOf(l), pressed = arr => arr.some(k => keys.has(k));
   x += (pressed(c.right) ? 1 : 0) - (pressed(c.left) ? 1 : 0);
   y += (pressed(c.down) ? 1 : 0) - (pressed(c.up) ? 1 : 0);
-  pads.forEach((p, i) => { if (G.players === 1 || i === pi) { x += p.x; y += p.y; } });
+  padSlots.forEach((p, i) => { if (p.connected && (G.players === 1 || i === pi)) { x += p.x; y += p.y; } });
   for (const s of sticks.values()) {
     if (s.player !== pi) continue;
     const R = stickR(), dx = (s.x - s.ox) / R, dy = (s.y - s.oy) / R;
@@ -252,6 +278,12 @@ export function fillInputs() {
 export function initInput() {
   window.addEventListener("keydown", e => {
     if (nameInput) return;                     // печатают имя: игровые клавиши (WASD, M, L, Esc…) не трогаем
+    if (cardOpen()) {                          // SPEC-025: a card over the game — keys do not reach the game; Enter / Space press the card
+      if (e.code === "ArrowLeft" || e.code === "ArrowRight") { e.preventDefault(); moveCardFocus(e.code === "ArrowLeft" ? -1 : 1); }
+      else if (e.code === "Enter" || e.code === "NumpadEnter" || e.code === "Space") { e.preventDefault(); if (!keys.has(e.code)) pressCard(); }   // the highlighted (or Tab-focused) button
+      keys.add(e.code);
+      return;
+    }
     if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"].includes(e.code)) e.preventDefault();
     if (e.code === "Slash" && mode === "play") e.preventDefault();   // SPEC-019: «/» — на цыпочках игрока 2 (в Firefox «/» — быстрый поиск)
     initAudio();
@@ -265,14 +297,18 @@ export function initInput() {
     e.preventDefault();
     initAudio();
     if (nameInput) { closeNameInput(true); return; }   // тап мимо поля — имя сохраняется
+    // SPEC-025 AC 7d: in the frame that changed the screen the drawn buttons (and the screen-wide taps: next comic page, resume,
+    // close the card) belong to the old screen — they do nothing; a stick, a swipe or a drag still starts
+    const stale = staleButtons();
     const p = toGame(e);
-    const hit = hitButton(p);
+    const hit = stale ? null : hitButton(p);
     // SPEC-017: на карте и в главах истории кнопки срабатывают на отпускании — палец, сдвинутый вбок, листает миры / главы
     if (mode === "map" || mode === "story" && ui.storyPage === "chapters") {
       ui.mapSwipe = { id: e.pointerId, x: p.x, y: p.y, hit: hit ? hit.id : null, mode };
       try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* ok */ }   // отпускание за краем холста — тоже наше
       return;
     }
+    if (stale && mode !== "play") return;
     if (mode === "levelCard" && !hit && ui.cardRect && !(p.x >= ui.cardRect.x && p.x <= ui.cardRect.x + ui.cardRect.w && p.y >= ui.cardRect.y && p.y <= ui.cardRect.y + ui.cardRect.h)) { closeCard(); return; }
     if (hit && hit.onUp) { pendingUp = { id: hit.id, pointerId: e.pointerId }; return; }
     if (hit) { hit.act(); return; }
@@ -295,7 +331,9 @@ export function initInput() {
     if (d > R * 1.6) { s.ox = s.x - dx / d * R * 1.6; s.oy = s.y - dy / d * R * 1.6; }  // джойстик «едет» за пальцем
   });
   canvas.addEventListener("pointerup", e => {
+    initAudio();                                       // SPEC-025 AC 14: WebKit unlocks audio on the release
     endStick(e);
+    const stale = staleButtons();                      // SPEC-025 AC 7d: a swipe still works; a button of an older screen does not
     const sw = ui.mapSwipe;
     if (sw && sw.id === e.pointerId) {
       ui.mapSwipe = null;
@@ -305,12 +343,12 @@ export function initInput() {
         if (mode === "map") cycleWorld(dx < 0 ? 1 : -1); else storyStep(dx < 0 ? 1 : -1);
         return;
       }
-      const h = hitButton(p);
+      const h = stale ? null : hitButton(p);
       if (h && sw.hit && h.id === sw.hit) h.act();
       return;
     }
     const pu = pendingUp; pendingUp = null;
-    if (!pu || pu.pointerId !== e.pointerId) return;
+    if (!pu || pu.pointerId !== e.pointerId || stale) return;
     const hit = hitButton(toGame(e));
     if (hit && hit.id === pu.id) hit.act();              // тот же жест — фокус в поле, клавиатура на iOS открывается
   });

@@ -8,11 +8,21 @@ import { ui } from "./state.js";
 //  ЗВУК
 // =====================================================================
 let actx = null;
+// a gesture (key, tap — pointerdown and pointerup —, pad button): the audio context starts, or resumes from any state but
+// running (SPEC-025 AC 14: "suspended" after a hide, iOS "interrupted" after a call)
 export function initAudio() {
   if (simMode) return;
   if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { actx = null; } }
-  else if (actx.state === "suspended") actx.resume();
+  else if (actx.state !== "running" && actx.state !== "closed") {
+    try { const p = actx.resume(); if (p && p.catch) p.catch(() => { /* SPEC-025 AC 7c: not allowed yet — the next gesture tries again */ }); } catch (e) { /* ok */ }
+  }
 }
+// SPEC-025 AC 14: the app went to the background — silence until the next gesture
+export function suspendAudio() {
+  if (!actx || actx.state !== "running") return;
+  try { const p = actx.suspend(); if (p && p.catch) p.catch(() => {}); } catch (e) { /* ok */ }
+}
+export const audioContext = () => actx;   // for the tests (__bb.audioContext)
 // звук можно играть? В sim — нет (и не считается); иначе считаем просьбу (тест sim) и смотрим, есть ли звук
 function soundOn() { if (simMode) return false; ui.sounds++; return !!actx && !ui.muted; }
 function beep(f, dur, type = "square", vol = 0.06, delay = 0) {

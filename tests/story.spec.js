@@ -236,7 +236,7 @@ test("a bonus world shows its picture before its first level; gamepad A goes on"
   const s = await sceneOf(page);
   expect([s.mode, s.scene.id, s.info.caption]).toEqual(["scene", "bonus_winter", await page.evaluate(() => window.__bb.STORY.find(c => c.id === "winter").text.en)]);
   await page.evaluate(() => {
-    window.__press = k => { window.__pads = [{ index: 0, axes: [0, 0], buttons: Array.from({ length: 17 }, (_, i) => ({ pressed: i === k, value: 0 })) }]; };
+    window.__press = k => { window.__pads = [{ index: 0, mapping: "standard", axes: [0, 0], buttons: Array.from({ length: 17 }, (_, i) => ({ pressed: i === k, value: 0 })) }]; };
     window.__press(-1);
     Object.defineProperty(navigator, "getGamepads", { configurable: true, value: () => window.__pads });
   });

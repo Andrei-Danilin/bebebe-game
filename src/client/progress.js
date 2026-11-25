@@ -8,7 +8,7 @@ import { detectLang, HTML_LANG, lang, LANGS, setCurrentLang } from "../i18n.js";
 import { resetWorld } from "./flow.js";
 import { namesFrom, setNamesTyped } from "./names.js";
 import { adoptWorn, cloneSkins, fitOutfitsToOwned, loadOutfits, setSkinKeep, setSkinSel, skinSel } from "./outfits.js";
-import { ui } from "./state.js";
+import { screenChanged, ui } from "./state.js";
 import { G } from "../core/active.js";
 
 // язык при запуске (initSaves — первым: ему нужно знать, есть ли сохранённый прогресс)
@@ -37,6 +37,11 @@ export const saveProgress = writeProgress;
 // наряды (bebebe-outfits: { p1, p2, big, v }) и имена (bebebe-names) → localStorage — их зовут outfits.js и names.js
 export function writeOutfits(o) { try { localStorage.setItem("bebebe-outfits", JSON.stringify(o)); } catch (e) { /* ok */ } }
 export function writeNames(t) { try { localStorage.setItem("bebebe-names", JSON.stringify(t)); } catch (e) { /* ok */ } }
+// SPEC-025 AC 7: the error log (bebebe-errors: the last CFG.ERROR_LOG_MAX entries, kept on this device only; errors.js writes it)
+export function readErrorLog() {
+  try { const v = JSON.parse(localStorage.getItem("bebebe-errors") || "[]"); return Array.isArray(v) ? v.filter(e => e && typeof e === "object") : []; } catch (e) { return []; }
+}
+export function writeErrorLog(list) { try { localStorage.setItem("bebebe-errors", JSON.stringify(list)); } catch (e) { /* no storage: the log lives in memory */ } }
 // имена из bebebe-names (initSaves)
 function initNames() {
   try {
@@ -66,8 +71,8 @@ export function initSaves() {
 }
 
 export function resetProgress() {
-  if (!ui.resetArmed) { ui.resetArmed = true; return; }
-  ui.resetArmed = false;
+  if (!ui.resetArmed) { ui.resetArmed = true; screenChanged(); return; }   // SPEC-025 AC 7d: the armed button is another button
+  ui.resetArmed = false; screenChanged();
   G.rewardDue = false;                         // прогресс заменён целиком: за брошенный уровень не платим
   setProgress(null); ui.openedWorld = null; ui.worldBanner = null;   // новый прогресс
   if (!isOpen(G.world)) G.world = WORLDS[0];   // SPEC-016/030: после сброса открыт только Парк

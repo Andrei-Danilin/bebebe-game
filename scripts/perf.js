@@ -8,6 +8,10 @@
 // Prints the median of the round medians for A and B and the median of the paired B/A ratios. Not part of any test run.
 //   node scripts/perf.js [--base <git ref>] [--rounds N] [--grain] [--level N] [--wear id,id]   (--grain: paper grain on where the build
 // has it; --level: park level, default 2; --wear: player 1 owns and wears these jacket / pants ids where the build has them — SPEC-027)
+// SPEC-025 AC 1b: --start measures start times instead, on the phone view of the CI runs (667×375, ?phone=1, touch): per round a
+// cold start (a new browser context: empty HTTP cache, no service worker) and a warm one (a second page of that context) of A and B —
+// first paint, window.__bbReady and the home screen interactive (the first frame with the home screen's buttons and no loading
+// screen), ms from navigation start. A ref from before SPEC-025 loads three.js from jsDelivr over the real network (as players did).
 /* global window, document */   // initScript() and the evaluate bodies run in the page
 const path = require("path");
 const fs = require("fs");
@@ -18,11 +22,12 @@ const { browserArgs } = require("../tests/test-env");
 const { startServer } = require("./serve");
 
 const ROOT = path.resolve(__dirname, "..");
-const THREE_DIR = path.join(ROOT, "node_modules", "three", "build");
+const THREE_DIR = path.join(ROOT, "node_modules", "three", "build");   // a ref from before SPEC-025 loads three.js from jsDelivr
 const arg = (name, def) => { const i = process.argv.indexOf(name); return i < 0 ? def : process.argv[i + 1]; };
 const baseRef = arg("--base", "master"), rounds = Number(arg("--rounds", 4)), grain = process.argv.includes("--grain");
 const level = Number(arg("--level", 2)), wear = (arg("--wear", "") || "").split(",").filter(Boolean);
 const FRAMES = 240;
+const startMode = process.argv.includes("--start");
 
 // Runs in the page before the game: wraps requestAnimationFrame to time the game's callback
 function initScript() {
@@ -69,6 +74,38 @@ async function measure(browser, base, vw, vh, query) {
   return out;
 }
 
+// SPEC-025 AC 1b: the start marks of a page (init script): __bbReady (a setter on window) and the home screen interactive (rAF)
+function startScript() {
+  try { if (!sessionStorage.getItem("perf")) { localStorage.clear(); localStorage.setItem("bebebe-lang", "en"); sessionStorage.setItem("perf", "1"); } } catch (e) { /* ok */ }
+  window.__bbNoIntro = true; window.__bbNoTutorial = true;
+  const t = window.__st = { ready: null, home: null };
+  let ready = false;
+  Object.defineProperty(window, "__bbReady", { configurable: true, get: () => ready, set: v => { ready = v; if (v && t.ready == null) t.ready = performance.now(); } });
+  const raf = window.requestAnimationFrame.bind(window);
+  const poll = () => {
+    try { if (t.ready != null && !document.getElementById("loading") && window.__bb && window.__bb.mode === "home" && window.__bb.buttonRects.length) { t.home = performance.now(); return; } } catch (e) { /* not yet */ }
+    raf(poll);
+  };
+  raf(poll);
+}
+async function startTimes(browser, base) {
+  const ctx = await browser.newContext({ viewport: { width: 667, height: 375 }, hasTouch: true, serviceWorkers: "block" });
+  await ctx.addInitScript(startScript);
+  // one start in a new page of the context (warm: the second page, with the HTTP cache of the first)
+  const one = async () => {
+    const page = await ctx.newPage();
+    await page.goto(base + "index.html?phone=1");
+    await page.waitForFunction(() => window.__st && window.__st.home != null, null, { timeout: 120_000 });
+    const r = await page.evaluate(() => ({ paint: (performance.getEntriesByName("first-paint")[0] || {}).startTime ?? null, ready: window.__st.ready, home: window.__st.home }));
+    await page.close();
+    return r;
+  };
+  const cold = await one();
+  const warm = await one();
+  await ctx.close();
+  return { cold, warm };
+}
+
 (async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bebebe-perf-"));
   // SPEC-011 AC 8b: the whole tree of the ref (index.html, sw.js, icons/, its own assets/ — SPEC-027: so it draws with art —
@@ -78,6 +115,19 @@ async function measure(browser, base, vw, vh, query) {
   const siteA = await startServer({ root: dir }), siteB = await startServer();
   const A = siteA.base, B = siteB.base;
   const browser = await chromium.launch({ args: browserArgs() });
+  if (startMode) {
+    console.log(`start times: A = ${baseRef}, B = working copy, ${rounds} rounds, phone 667x375 ?phone=1 (ms from navigation start, median)`);
+    const res = { A: [], B: [] };
+    for (let k = 0; k < rounds; k++) { res.A.push(await startTimes(browser, A)); res.B.push(await startTimes(browser, B)); }
+    const f = x => (x == null ? "–" : Math.round(x));
+    for (const kind of ["cold", "warm"]) for (const side of ["A", "B"]) {
+      const m = key => f(median(res[side].map(r => r[kind][key]).filter(v => v != null)));
+      console.log(`${kind} ${side}: first paint ${m("paint")}, __bbReady ${m("ready")}, home interactive ${m("home")}`);
+    }
+    await browser.close(); await siteA.close(); await siteB.close();
+    fs.rmSync(dir, { recursive: true, force: true });
+    return;
+  }
   console.log(`A = ${baseRef}, B = working copy, ${rounds} rounds, paper grain ${grain ? "on" : "off"}, park ${level}${wear.length ? ", player 1 wears " + wear : ""}`);
   for (const [name, vw, vh, q] of [["phone 844x390", 844, 390, "?phone=1"], ["desktop 960x640", 960, 640, ""]]) {
     const ra = [], rb = [];

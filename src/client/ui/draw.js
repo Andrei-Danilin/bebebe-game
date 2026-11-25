@@ -382,8 +382,9 @@ export function addButton(x, y, w, h, text, color, act, size = 24) {
 export function toggleFullscreen() {
   const d = document;
   try {
-    if (!d.fullscreenElement && !d.webkitFullscreenElement) (d.documentElement.requestFullscreen || d.documentElement.webkitRequestFullscreen).call(d.documentElement);
-    else (d.exitFullscreen || d.webkitExitFullscreen).call(d);
+    const p = !d.fullscreenElement && !d.webkitFullscreenElement ? (d.documentElement.requestFullscreen || d.documentElement.webkitRequestFullscreen).call(d.documentElement)
+      : (d.exitFullscreen || d.webkitExitFullscreen).call(d);
+    if (p && p.catch) p.catch(() => { /* SPEC-025 AC 7c: refused (no user activation, not allowed) — no unhandled rejection */ });
   } catch (e) { /* не везде поддерживается */ }
 }
 

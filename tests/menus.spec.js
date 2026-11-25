@@ -141,7 +141,7 @@ test("home is minimal: the logo, language and sound, Play · Story · Character"
   await click(page, "home:sound");
   // the gamepad: A = Play
   await page.evaluate(() => {
-    window.__press = k => { window.__pads = [{ index: 0, axes: [0, 0], buttons: Array.from({ length: 17 }, (_, i) => ({ pressed: i === k, value: 0 })) }]; };
+    window.__press = k => { window.__pads = [{ index: 0, mapping: "standard", axes: [0, 0], buttons: Array.from({ length: 17 }, (_, i) => ({ pressed: i === k, value: 0 })) }]; };
     window.__press(-1);
     Object.defineProperty(navigator, "getGamepads", { configurable: true, value: () => window.__pads });
   });
@@ -555,11 +555,16 @@ test("a screen change in sim mode leaves the same state as in a rendered page", 
 // __bb.mapInfo (drawn this frame) = { world, sel, done, tabs: [{ world, locked, selected, x, y, w, h }], stops: [{ n, stars, locked,
 // next, boss, sel, x, y, w, h, badge }] }; __bb.toast = { text } or null; __bb.levelCard = { world, n, title, type } on the card
 const mapInfo = page => page.evaluate(() => window.__bb.mapInfo);
-const padStub = page => page.evaluate(() => {
-  window.__press = k => { window.__pads = [{ index: 0, axes: [0, 0], buttons: Array.from({ length: 17 }, (_, i) => ({ pressed: i === k, value: 0 })) }]; };
-  window.__press(-1);
-  Object.defineProperty(navigator, "getGamepads", { configurable: true, value: () => window.__pads });
-});
+// SPEC-025 AC 7e: the game must see the pad once with nothing pressed (a button held when a pad connects fires nothing), so a
+// frame passes before the first press — on CI a frame can be slower than the next evaluate
+const padStub = async page => {
+  await page.evaluate(() => {
+    window.__press = k => { window.__pads = [{ index: 0, mapping: "standard", axes: [0, 0], buttons: Array.from({ length: 17 }, (_, i) => ({ pressed: i === k, value: 0 })) }]; };
+    window.__press(-1);
+    Object.defineProperty(navigator, "getGamepads", { configurable: true, value: () => window.__pads });
+  });
+  await frames(page);
+};
 const pad = async (page, k) => { await page.evaluate(n => window.__press(n), k); await frames(page); await page.evaluate(() => window.__press(-1)); await frames(page); };
 
 test("the map switches worlds", { tag: "@fast" }, async ({ page }) => {
