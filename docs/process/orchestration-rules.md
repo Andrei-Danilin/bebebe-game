@@ -27,7 +27,7 @@ All roles use `model: "opus"`. Start every run with `claude --model opus`; the f
 
 ## 3. Context and output discipline
 - Brief agents with **paths**, not pasted documents: the spec path, `CLAUDE.md`, `game-design.md`, `architecture.md`, the diff.
-- Read only the code you need: `architecture.md` names the module (`src/core/…`, `src/i18n.js`, `src/story.js`, `src/client/…`) or the inline client part of `index.html` (by header comment and symbol) for each area; never the whole of `index.html`.
+- Read only the code you need: `architecture.md` names the module (`src/core/…`, `src/i18n.js`, `src/story.js`, `src/client/…`) and the symbol for each area (the module table); never a whole directory. `index.html` is only the shell.
 - A change in `src/` is followed by `npm run precache` (module hashes in the import map and `sw.js`; `tests/pwa.spec.js` fails on stale ones), also after merging `master` into the branch.
 - Reports are tables and short lines: AC → test, counts, findings by severity, open points.
 

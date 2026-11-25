@@ -8,7 +8,6 @@ One line each: what, where it came from. The spec author turns a line into a spe
 - More items: trampoline, snowballs (winter), water pistol (beach) — Claude's suggestions, not asked yet.
 - Hug visibility when the Big One faces the camera (the Little One on his shoulders is partly hidden).
 - The lose screen code is unreachable since "no game over" — remove it or reuse it for a "Give up" button.
-- `index.html` is ~4,700 lines: consider splitting into modules (needs a decision: it breaks "opens by double-click" from file://).
 - Progress between Safari and the installed iPhone app (separate storage on iOS) — out of scope in SPEC-001.
 - `navigator.storage.persist()` once, so iOS is less likely to clear the home-screen app's progress when the phone is low on space (SPEC-001 architect review).
 - An "update available" hint in the installed app (today a new version shows on the next launch, because `index.html` is network-first) — SPEC-001 run.
@@ -41,11 +40,9 @@ One line each: what, where it came from. The spec author turns a line into a spe
 - SPEC-002 decided during the run, check with Andrei: the river runs top to bottom only when the houses are on the diagonal (otherwise both houses would be on one bank); with houses on the same side its bridges are not next to the houses (so the Big One's way to the Little Ones' door stays ≥ 18 cells).
 - Mini-map preview of the selected level in the menu (SPEC-002, out of scope).
 - Kids' level editor: the kids draw their own levels (SPEC-002, out of scope).
-- Split the pure level generator (generateLevel, LAYOUTS, validateLevel) into its own module so it can be tested without the browser — needs a spec: hard rule 1 (one file, opens by double-click) (SPEC-002 architect review).
 - SPEC-002 decided during the run, check with Andrei: when no fair layout is found in 40 attempts, the game keeps the attempt that broke the fewest rules (attempts where somebody can't reach every cell come last) and closes with hedges every free cell the Little Ones, or the Big One outside their house, can't reach.
 - Two players on a tablet with split controls (SPEC-005, out of scope).
 - Camera options toggle: full map / follow the hero, chosen in the menu (SPEC-005, out of scope).
-- Split the 2D layer (~935 lines now) into screen modules with shared content helpers and separate desktop/phone geometry; still one file unless a spec says otherwise (SPEC-005 architect review).
 - At 932×430 the phone layouts leave spare space: they are sized for 667×375 and not stretched (SPEC-005 run).
 - SPEC-005 decided during the run, check with the kids: the phone shows about 10 rows × 22 columns at 844×390.
 - SPEC-005 decided during the run, check with the kids: the camera may go up to 4 cells past the map edge so the hero is never hidden under the mini-map, the team chips or the top bar.
@@ -317,3 +314,6 @@ One line each: what, where it came from. The spec author turns a line into a spe
 - (release review, RR-81) CI time (379 tests, 12–15 min per push): tag structural tests `@fast` (getter list, i18n coverage, three/SW version checks, `docs:numbers --check`), 6 or weighted shards, record CI time at each close in `reports/test-times.md`; target at most 10 min per push.
 - (release review, RR-74) After SPEC-011's `pages.yml` fix: watch the next 10 `master` deploys; if a deploy step still fails, collect the logs here.
 - (release review) SPEC-012 AC 8 bench (optional there): if SPEC-012 skips it, `npm run bench:core` (100 games side by side, ms per step median/p95, target p95 <= 1 ms on Andrei's laptop, result in `docs/architecture.md`) before SPEC-013 sizes the server.
+- (SPEC-011 review) Split `src/core/path.js` into a pure `grid.js` + `vision.js` and make `progress-rules.js` a stateless leaf module: removes the 14-module import cycle of the core (start of SPEC-012).
+- (SPEC-011 review) For SPEC-012: where the `fx` and `banner` hooks go (events the client consumes, like `sfx`/`burst`/`pop`), and queue a won practice game for the client instead of `onPracticeWin` re-entering the core (the next practice `buildGame`) from inside `update`.
+- (SPEC-011 review) For SPEC-012: an explicit named API in `src/core/index.js` (the server's surface) instead of `export *` from every core module.
