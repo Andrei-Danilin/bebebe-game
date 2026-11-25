@@ -92,7 +92,13 @@ test("AC 11 / 11b: Dependabot (npm + actions, weekly, grouped, never three) and 
   expect(rs.enforcement).toBe("active");
   expect(rs.conditions.ref_name.include).toEqual(["refs/heads/master"]);
   expect(rs.rules.map(r => r.type).sort(), "no force-push, no deletion — and no required checks (the direct merge flow works)").toEqual(["deletion", "non_fast_forward"]);
+  expect((dep.match(/update-types: \["minor", "patch"\]/g) || []).length, "groups take minor + patch; a major comes alone").toBe(2);
+  const tags = JSON.parse(read(".github/rulesets/tags.json"));
+  expect([tags.target, tags.enforcement, tags.conditions.ref_name.include]).toEqual(["tag", "active", ["refs/tags/v*"]]);
+  expect(tags.rules.map(r => r.type).sort(), "release tags: no deletion, no move").toEqual(["deletion", "non_fast_forward", "update"]);
+  expect(read("docs/release.md")).toMatch(/\.github\/rulesets\/tags\.json/);
   const claude = read("CLAUDE.md");
+  expect(claude).toMatch(/\.github\/rulesets\/tags\.json/);
   expect(claude).toMatch(/Dependabot/);
   expect(claude).toMatch(/deps:/);
   expect(claude).toMatch(/\.github\/rulesets\/master\.json/);
@@ -132,7 +138,7 @@ test("AC 13: CHANGELOG, the release doc with the rollback runbook, pages.yml ref
   expect(log).toMatch(/^## \[Unreleased\]/m);
   expect(log.length, "what is in the game today, in plain words").toBeGreaterThan(1500);
   const rel = read("docs/release.md");
-  for (const s of [/npm run release/, /git tag -a v/, /## Rollback/, /version\.txt/, /workflow_dispatch|gh workflow run pages\.yml/, /-f ref=v/, /git revert/, /D-7/, /before Phase 2|before phase 2/i, /coins/]) expect(rel).toMatch(s);
+  for (const s of [/npm run release/, /git tag -a v/, /## Rollback/, /version\.txt/, /workflow_dispatch|gh workflow run pages\.yml/, /-f ref=v/, /git revert/, /D-7/, /before Phase 2|before phase 2/i, /coins/, /only one pending run/, /push nothing to\s+`master`/, /download all the modules and all the sprites/]) expect(rel).toMatch(s);
   const pages = read(".github/workflows/pages.yml");
   expect(pages).toMatch(/workflow_dispatch:\n\s+inputs:\n\s+ref:/);
   // the ref is resolved to one sha once (a job of its own); tests, build and the live check use that sha only

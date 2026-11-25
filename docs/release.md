@@ -26,12 +26,14 @@ A release runs on its own spec branch, like any other change (CLAUDE.md "Workflo
 3. Commit (`package.json`, `CHANGELOG.md`, `src/version.js`, `index.html`, `sw.js`), push the branch, and wait for a green
    Tests run. Then merge into `master` as usual. The Pages run deploys it.
 4. When the Pages run is green, tag the merge commit and push the tag (a tag only, never a branch):
-   `git tag -a vX.Y.Z -m "vX.Y.Z" <merge sha>`, then `git push origin vX.Y.Z`.
+   `git tag -a vX.Y.Z -m "vX.Y.Z" <merge sha>`, then `git push origin vX.Y.Z`. A release tag is never moved or deleted: the
+   ruleset `.github/rulesets/tags.json` blocks that once Andrei has applied it (next to the `master` ruleset; CLAUDE.md).
 5. Start the next pre-release on the next spec: `npm run release -- X.Y.(Z+1)-dev`. A pre-release version only changes the
    version and leaves the changelog alone.
 
-Note: a new version changes `SW_VERSION`, so installed apps download the code and the sprites once more after a release.
-three.js has its own cache and is not downloaded again.
+Note: a new version changes `SW_VERSION`, which names the src and assets caches (`<SW_VERSION>-src-…`,
+`<SW_VERSION>-assets-…`). So after every release, installed apps download all the modules and all the sprites once more, even the
+unchanged ones. three.js has its own cache and is not downloaded again. (BACKLOG: name those caches by the build counter only.)
 
 ## Rollback
 
@@ -46,8 +48,12 @@ three.js has its own cache and is not downloaded again.
 
 `gh workflow run pages.yml --ref master -f ref=vX.Y.Z`
 
-- The workflow comes from `master`. The `ref` input (SPEC-025 AC 13) makes it test, build and deploy that tag: the
-  sharded tests run on the tag first, then its site is built, deployed and checked (`version.txt` = the tag's commit sha).
+- The workflow comes from `master`. The `ref` input (SPEC-025 AC 13) makes it test, build and deploy that tag. The first job
+  resolves the tag to its commit sha once. The sharded tests run on that sha, then its site is built, deployed and checked
+  (`version.txt` = that sha).
+- Pages runs share one concurrency group that keeps only one pending run: a push to `master` while the rollback run waits
+  replaces it. Check that the rollback run really starts (`gh run list --workflow pages.yml --limit 3`), and push nothing to
+  `master` until it has finished.
 - Watch it: `gh run list --workflow pages.yml --limit 1`, then `gh run watch <id> --exit-status`.
 - This is temporary. The next push to `master` deploys `master` again. Follow it with a revert (3) or a fix.
 - The ref must be a commit from SPEC-025 phase 3 or later. Older commits have no `npm run typecheck`, so the reused Tests

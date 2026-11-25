@@ -1,6 +1,6 @@
 // SPEC-011 AC 11b: ESLint — `npm run lint` (scripts/lint.js). SPEC-025 AC 8: ESLint's recommended rules plus the project's
 // own (hard rule 4: no `var`, `prefer-const`; no unused vars; no implicit globals; the live-bindings rule), over src/, scripts/
-// and tests/. Formatting is Prettier's (.prettierrc.json, `npm run format:check`).
+// and tests/. Formatting is Prettier's (.prettierrc.json): `npm run lint` also checks it, `npm run format` writes it.
 // - src/core/** (+ the shared src/i18n.js, src/story.js, src/version.js): only the globals Node and browsers share (console,
 //   performance, …) without the browser-only ones (CORE_FORBIDDEN, also banned by no-restricted-globals) — the core runs in
 //   Node too (SPEC-011 AC 3);
