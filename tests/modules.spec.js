@@ -309,6 +309,16 @@ test("core hook list", { tag: "@fast" }, () => {
   expect(Object.keys(HOOKS).filter(h => !new RegExp(`\\bhooks\\.${h}\\(`).test(all)), "hooks the core never calls").toEqual([]);
 });
 
+// SPEC-012 AC 7: the headless core's Node tests (tests/core/*.test.mjs) run with node --test (npm run test:core) as their own job of
+// every Tests run (spec branches and, through pages.yml, every deploy), and Playwright never loads them
+test("core tests run in Node on every Tests run", { tag: "@fast" }, () => {
+  expect(JSON.parse(readRoot("package.json")).scripts["test:core"]).toBe("node --test \"tests/core/*.test.mjs\"");
+  expect(readRoot(".github/workflows/tests.yml"), "a core job runs npm run test:core").toMatch(/\n {2}core:\n[\s\S]*?run: npm run test:core/);
+  expect(require(path.join(ROOT, "playwright.config.js")).testMatch, "Playwright runs *.spec.js only").toBe("**/*.spec.js");
+  const files = fs.readdirSync(path.join(ROOT, "tests", "core")).filter(f => f.endsWith(".test.mjs")).sort();
+  expect(files).toEqual(expect.arrayContaining(["inputs.test.mjs", "instances.test.mjs", "practice.test.mjs", "result.test.mjs", "run.test.mjs"]));
+});
+
 // SPEC-012 AC 1c: the core never reads or writes the client's screen — no `mode` identifier in src/core/ (code, not comments or
 // texts); the game has its own phase G.phase ("play" | "hugEnd" | "kindWalk" | "won"), set only by the core
 test("no `mode` identifier in src/core/", { tag: "@fast" }, () => {
