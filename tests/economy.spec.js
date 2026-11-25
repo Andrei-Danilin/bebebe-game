@@ -31,7 +31,6 @@ const test = base.test.extend({
 });
 test.afterAll(async () => { await shared.close(); await sharedSim.close(); });
 
-const INDEX = path.join(ROOT, "index.html");
 const CONFIG = path.join(ROOT, "src", "core", "config.js");   // SPEC-011: the core numbers
 
 // ---------- AC 6: the ledger ----------

@@ -5,7 +5,7 @@
 // SPEC-009 adds the economy: two more passes (replays of a few levels; every 5th level with all upgrades maxed) and the
 // pace targets of CFG.BALANCE.ECONOMY, in an "Economy" section (balance.json: economy, replayRuns, upgradeRuns); SPEC-026: + the pace
 // at today's prices (levels per pack in the Park, levels per upgrade level), economy.pace.
-// Settings and targets live in CFG.BALANCE (index.html). Not part of `npm test`: `npm run balance` (~30 s).
+// Settings and targets live in CFG.BALANCE (src/core/config.js). Not part of `npm test`: `npm run balance` (~30 s).
 // tests/balance.spec.js requires runLevel() for the CI sample, and the page is opened with the tests' openSim(), so the
 // report and the tests play a level the same way. SPEC-011 AC 8b: over http, from its own server (scripts/serve.js startServer).
 /* global window */   // runLevel() runs in the page (page.evaluate)
@@ -228,7 +228,7 @@ function markdown(rep) {
     `Every level of every world, ${B.SEEDS} seeds × the \`careful\` autopilot, 1 player + 4 bots, from fresh progress (nothing bought), ` +
     `game-time limit ${B.TIME_LIMIT} s, sim step ${fmt(B.SIM_DT, 4)} s; \`reckless\`: 1 seed, every ${B.RECKLESS_EVERY}th level. ` +
     `Times are game seconds: the median of a level's runs, a run that did not win counts as ${B.TIME_LIMIT} s. ` +
-    `Targets and settings: \`CFG.BALANCE\` in \`index.html\`; raw runs: \`reports/balance.json\`.`, "",
+    `Targets and settings: \`CFG.BALANCE\` in \`src/core/config.js\`; raw runs: \`reports/balance.json\`.`, "",
     `## Targets — ${greens} green, ${targets.length - greens} red`, "", "| Target | Value | Want | Result | Detail |", "|---|---|---|---|---|");
   for (const t of targets) L.push(`| ${t.name} | ${t.value} | ${t.want} | ${t.ok ? "🟢 green" : "🔴 red"} | ${t.detail} |`);
   L.push("", "## Worlds", "", `Trend: median time per level 1→${rep.perWorld}, \`${TREND}\` from fast to ${fmt(maxT)} s.`, "",

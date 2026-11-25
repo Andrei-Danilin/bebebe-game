@@ -7,7 +7,42 @@ One `index.html` (+ PWA files, see below): a small non-module script (offline hi
 2. **3D** — builds meshes from the world (`buildMap3D`, `buildCharacters`) and copies state into them every frame (`syncScene` → `syncLittle`, `syncBig`, `syncItems`, `syncStars`, `syncKisses`, `updateCone`). Only reads game state.
 3. **2D UI** — menu screens (home, level map + level card, story, Character — the old shop: Progress, Items, Wardrobe and Upgrades tabs; SPEC-017, SPEC-026), HUD, name tags, timers, mini-map; positions of world things via `toScreen(x, y, heightPx)`. Buttons are registered each frame in `buttons[]` and hit-tested on `pointerdown` (on the map and the story chapters: on `pointerup`, see Screens and menus). Draws in **UI space** `UW × UH` (see Phone mode), never in world `W × H`.
 
-## Sections of index.html (~8,600 lines; approximate lines, search the header comment)
+## Modules (SPEC-011)
+
+The game is ES modules served over http. `src/core/` is the game itself and runs in Node too: it imports only `src/core/**`, `src/i18n.js` and `src/story.js`, never three.js or `src/client/`, never touches the DOM or storage, and reaches the client only through the hooks of `src/core/hooks.js` (sound, particles, flying texts, shake, effects, banner, save, 3D rebuild, win / practice win, device input — one `inputFor` hook covers the held keys, Shift for tiptoe, the touch sticks and the gamepads). Its files hold only declarations at top level. Live bindings rule (AC 5): a module-level `let` is reassigned only in its own module; others call its setter (ESLint `no-import-assign`). Until Phase C the client is the inline module of `index.html`, which imports these files. `tests/modules.spec.js` reads this table.
+
+<!-- modules:start -->
+| File | Owns | State it owns (module-level `let`) | Setters (other modules change that state only through them) |
+|---|---|---|---|
+| `src/core/autopilot.js` | the autopilot (plays the Little Ones through their inputs) | `autoOn`, `autoStyle`, `autoNavs`, `autoMove` | `setAutoNavs`, `setAutoMove` |
+| `src/core/big.js` | the Big One: what he sees (`canSee`), look / chase / search / patrol (`updateBig`) | — | — |
+| `src/core/bots.js` | the bots: rescue, flee, sneak up one at a time, wait nearby | — | — |
+| `src/core/config.js` | the game's numbers: `CFG` (rules, generator, balance; also `TUTORIAL_LOOK` — the practice game reads `dadStart`), the grid (`W`, `H`, `CELL`, `COLS`, `ROWS`, `FINE`, `FW`, `FH`, `TAU`), `GLOVES`, `KISSES`, `RESCUE_KIT`, `REWARD`, `WARDROBE_TIERS`/`tierPrice`, `UPGRADES`/`upgTop`, the world lists, `WORLD_SEED`, the `BOSSES` table (data: story.js builds `SCENE_IDS` from it at import) | — | — |
+| `src/core/difficulty.js` | the Big One's speeds and hearts per world and level | — | — |
+| `src/core/economy.js` | the one owner of the player's economy: `progress`, the coin book `ledger`, `addCoins`, `spendCoins`, `gloveOf`, `gameInv`; saves only through `hooks.save`; the client gives the save with `setProgress` | `progress` | `setProgress` |
+| `src/core/game.js` | the running game: `buildGame` (client-free, AC 3c), `makeLittle`, `inputFor` (device input hook + autopilot), `update`, `updateFx`, `simRun`, `logEvent` | `curWorld`, `littles`, `big`, `botAttackCd`, `prevToken`, `mode`, `numPlayers`, `level`, `attackToken`, `stats`, `items`, `itemCd`, `itemSeq`, `pendingWin`, `lastReward`, `events`, `bonusStars`, `starCd`, `starSeq`, `kisses`, `kissSeq`, `pushWaves`, `kitHintT`, `kitHintDone`, `kitHintPi`, `heardHintT`, `heardHintDone`, `heardHintPi`, `rewardDue` | `setWorld`, `setLevel`, `setRewardDue`, `setPendingWin`, `setEvents`, `setMode`, `setLastReward`, `setKitHintDone`, `setHeardHintDone`, `setItemCd`, `setAttackToken`, `setKitHintT`, `setKitHintPi`, `setKissSeq`, `setKisses`, `setItemSeq`, `setStarSeq`, `setStarCd`, `setBonusStars`, `setItems`, `setBotAttackCd`, `setPrevToken`, `setHeardHintT`, `setHeardHintPi` |
+| `src/core/hearing.js` | the Big One hears running feet; `bigMark` | — | — |
+| `src/core/hooks.js` | the one port to the client: `HOOK_DEFAULTS` (no-ops), `setHooks`, `hooks` (AC 3b) | — | `setHooks` |
+| `src/core/index.js` | the public surface of the core: re-exports every core module (what SPEC-012/013's server imports) | — | — |
+| `src/core/level/build.js` | building a level into the map; the level cache (`loadLevel`, `generateLevel`, `clearLevelCache`) | `levelInfo` | `setLevelInfo` |
+| `src/core/level/generate.js` | a level's type, tier and seed; the homes | — | — |
+| `src/core/level/layouts.js` | walls, the Big One's house, the layout of each level type | — | — |
+| `src/core/level/validate.js` | is a level fair (SPEC-002); `levelReport` | — | — |
+| `src/core/mood.js` | `bossFor`, `bossPower`, the anger `bigMood`, the kind walk home | — | — |
+| `src/core/path.js` | A*, movement, collisions, the Big One's view cone | — | — |
+| `src/core/practice.js` | the practice games of the tutorial: map, setup, scripted bot and Big One, hint state, `tutorialNote` | `tutorialGame`, `tut`, `tutorialInv` | `setTutorialGame` |
+| `src/core/progress-rules.js` | the save shape (`freshProgress`, `loadProgress`, clean*), which worlds are open (`worldOpen`, `isOpen`, `bonusUnlocked`, `worldComplete`), `rewardBase`, `fastTarget`, `payReward` | — | — |
+| `src/core/rules.js` | push / wide push, hug, `winNow`, kisses, items, bonus stars, contacts, the rescue kit, downed, danger, resting, `playerBonus`, `moveSpeed` | — | — |
+| `src/core/util.js` | `dist`, `clamp`, angles, `mulberry32`; the gameplay randomness `rng`/`rand`/`seedRandom`/`noGameRng` and the visual `vrand` | `rngNext`, `rngOff`, `strictRng`, `rngDraws` | `setStrictRng` |
+| `src/core/wardrobe.js` | the clothes and the Big One's looks (`HAIRS`, `HATS`, `JACKETS`, `PANTS`, `SLOTS`, `BIG_SKINS`, `Nm`): data the progress rules check owned ids against | — | — |
+| `src/core/world.js` | the map of the running level: obstacles, bushes, homes, zones, spawns, reachability, the move/see grids and what blocks what | `obstacles`, `bushes`, `floors`, `decor`, `trees`, `flowers`, `safeZone`, `dangerZone`, `reachable`, `spawns`, `big:` | `setMapState`, `setReachable`, `setObstacles`, `setBushes`, `setFloors`, `setDecor`, `setTrees`, `setSafeZone`, `setDangerZone`, `setFlowers`, `setSpawns` |
+| `src/i18n.js` | every text in en/es/pt/ru (`I18N`), plurals, `capFirst`, `LANGS`, `HTML_LANG`, the pure `detectLang`, the current language and `L()` (shared) | `lang` | `setCurrentLang` |
+| `src/story.js` | the story chapters and scenes in four languages, `RULE_ICONS`, `SCENE_IDS`, `TUTORIAL_SCENES`, `SEEN_IDS` (shared data) | — | — |
+| `src/client/art-names.js` | `ART_NAMES`, written by `npm run assets` | — | — |
+| `src/client/look.js` | `LOOK`: the look/UI numbers (camera, phone layout, mini-map, art, paper, outlines, colours, menus, banners, text tests); `__bb.CFG` shows `CFG` and `LOOK` as one | — | — |
+<!-- modules:end -->
+
+ (~8,600 lines; approximate lines, search the header comment)
 | Lines | Section |
 |---|---|
 | 49–332 | `CFG` (all game numbers; values must be self-contained — Node reads them, see Balance checks; SPEC-002: `BANNER_*`, `LEVEL_ATTEMPTS`, fairness limits, `LAYOUT`; SPEC-005: `PHONE_*`, `CAM_*`, `MINIMAP_*`, `ARROW_D`, `STICK_ZONE`; SPEC-006: `WORLD_TYPES`, `WORLD_SPEED_START`, `SPEED_PER_LEVEL`, `CHASE_MAX_SHARE` + getter `BIG_CHASE_MAX`, `HP_LEVELS_PER_HEART`, `HP_PER_WORLD`, `FAST_PER_WORLD`, `STARS_PER_LEVEL`; SPEC-007: `REST_TIME` 30, `KIT_INVULN`, `KIT_SLOT_LOCK`, `PAD_KIT`, `KIT_HINT_TIME`; SPEC-010: `MINIMAP_BASE_ALPHA`, `MINIMAP_BG_ALPHA`, `MINIMAP_UNDER_*`, `MINIMAP_FADE_TIME`, `MINIMAP_LOOK`; SPEC-008: `PUSH_STAND`, `EVENT_LOG_MAX`, `BALANCE`, `AUTOPILOT`; SPEC-009: the `COINS_*` keys are gone except `COINS_PER_REST`, new `BALANCE.ECONOMY`; SPEC-016: **`WORLD_DIFFICULTY`** (difficulty index per world name), `WORLD_SPEED_START` by that index (5 entries), `BALANCE.CI_LEVELS` 12 entries; SPEC-017: `PAD_PREV_WORLD`/`PAD_NEXT_WORLD` (4/5, shoulders), **`MENU_LOOK`** — see Screens and menus; SPEC-019: `BOT_LURK_MULT`, `TIPTOE_MAX`, `TIPTOE_MULT`, `HEAR_RADIUS`, `NOISE_RATE`, `NOISE_DECAY`, `NOISE_TURN`, `NOISE_WARN`, `HEAR_WALL`, `HEAR_TURN_TIME`, `HEAR_COOLDOWN`, `HEAR_LOOK`, `TIPTOE_NEAR`, `HEAR_HINT_TIME`, **`TIPTOE_LOOK`** — see Tiptoe and hearing), `GLOVES`, `KISSES`, **`RESCUE_KIT`**, SPEC-009: **`REWARD`** (reward numbers), **`WARDROBE_TIERS`** (three outfit prices) + `tierPrice(t)` (0 → free), **`UPGRADES`** (`{ step, prices }` per upgrade) + `upgTop(k)` (top level = number of prices), `ruPlural` (Russian plural forms) |

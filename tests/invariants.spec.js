@@ -26,7 +26,6 @@ test.afterAll(async () => { await shared.close(); await sharedSim.close(); });
 const WORLDS = ["park", "field", "city", "school", "beach", "winter"];
 const DIFFICULTY = { park: 0, field: 1, city: 2, school: 3, beach: 3, winter: 4 };
 const DOC = path.join(ROOT, "docs", "game-design.md");
-const INDEX = path.join(ROOT, "index.html");
 
 // ---------- AC 5: speeds ----------
 test("the Big One never outruns a player, patrols slower than he chases, bots outrun his search", async ({ simPage: page }) => {

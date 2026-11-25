@@ -13,10 +13,11 @@ const PRECACHE_LOCAL = [
   // SPEC-011: the game's ES modules (phase B stopgap; npm run precache writes this list with content hashes, AC 9)
   "./src/client/art-names.js", "./src/client/look.js", "./src/core/autopilot.js", "./src/core/big.js",
   "./src/core/bots.js", "./src/core/config.js", "./src/core/difficulty.js", "./src/core/economy.js",
-  "./src/core/game.js", "./src/core/hearing.js", "./src/core/hooks.js", "./src/core/level/build.js",
-  "./src/core/level/generate.js", "./src/core/level/layouts.js", "./src/core/level/validate.js", "./src/core/mood.js",
-  "./src/core/path.js", "./src/core/practice.js", "./src/core/progress-rules.js", "./src/core/rules.js",
-  "./src/core/util.js", "./src/core/wardrobe.js", "./src/core/world.js", "./src/i18n.js", "./src/story.js"
+  "./src/core/game.js", "./src/core/hearing.js", "./src/core/hooks.js", "./src/core/index.js",
+  "./src/core/level/build.js", "./src/core/level/generate.js", "./src/core/level/layouts.js",
+  "./src/core/level/validate.js", "./src/core/mood.js", "./src/core/path.js", "./src/core/practice.js",
+  "./src/core/progress-rules.js", "./src/core/rules.js", "./src/core/util.js", "./src/core/wardrobe.js",
+  "./src/core/world.js", "./src/i18n.js", "./src/story.js"
 ];
 // SPEC-020: written by npm run assets (scripts/assets.js) — do not edit by hand
 // assets:start

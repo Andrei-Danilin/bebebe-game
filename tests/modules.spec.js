@@ -256,14 +256,11 @@ test("file:// shows the notice", async ({ browser }) => {
   expect(fs.readFileSync(INDEX, "utf8")).toContain("location.protocol !== \"file:\"");
 });
 
-// ---------- The core's code: src/core/**, or — while it is still inline (Phase B steps B2–B3) — the chunks of the inline
-// module that start with a marker line `// >>> src/core/<file>` (a chunk runs to the next `// >>> …` marker)
-const coreCode = () => {
-  const out = srcFiles(path.join(ROOT, "src", "core")).map(f => [path.relative(ROOT, f).replace(/\\/g, "/"), fs.readFileSync(f, "utf8")]);
-  const parts = fs.readFileSync(INDEX, "utf8").replace(/\r\n/g, "\n").split(/^\/\/ >>> (\S+).*$/m);
-  for (let i = 1; i < parts.length; i += 2) if (parts[i].startsWith("src/core/")) out.push([parts[i], parts[i + 1]]);
-  return out;
-};
+// ---------- The core's code: the files of src/core/ (relative names with /)
+const relName = f => path.relative(ROOT, f).replace(/\\/g, "/");
+const coreCode = () => srcFiles(path.join(ROOT, "src", "core")).map(f => [relName(f), fs.readFileSync(f, "utf8")]);
+const allSrc = () => srcFiles(path.join(ROOT, "src")).map(relName).sort();
+const readRoot = f => fs.readFileSync(path.join(ROOT, f), "utf8");
 // code without comments and string contents (a comment or a text may name anything)
 const codeOnly = s => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|\s)\/\/.*$/gm, "$1")
   .replace(/"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|`(?:[^`\\]|\\.)*`/g, "\"\"");
@@ -281,7 +278,12 @@ const HOOKS = {
   save: "write progress to storage — economy.js saves only through it (SPEC-012: an event)",
   rebuild: "rebuild the 3D scene for the game buildGame just built",
   onWin: "a level was won and paid: the client's flow (the map shows a world the win opened)",
-  onPracticeWin: "a practice game was won: the next tutorial step (starts the next practice game, so it re-enters the core)",
+  // the one hook in HOOKS_REENTER: it starts the next practice game, whose buildGame draws the gameplay rng() — so it runs
+  // without the noGameRng guard every other hook has
+  onPracticeWin: "a practice game was won: the next tutorial step (re-enters the core)",
+  // one hook for all device input instead of separate keys / sticks / pads hooks (approved in B2): the client's deviceInput(l)
+  // reads the held keys (Shift = tiptoe), the touch sticks and the gamepads and shapes the vector; the core's inputFor adds the
+  // autopilot's stick
   inputFor: "a player's device input: held keys (Shift = tiptoe), touch sticks, gamepads, shaped (SPEC-012: input slots)"
 };
 // client code the logic called directly before SPEC-011 (RR-01) and client state it wrote: none of it in the core
@@ -306,7 +308,158 @@ test("core reaches the client only through hooks", { tag: "@fast" }, () => {
   expect([...defaults[1].matchAll(/^\s*(\w+):/gm)].map(m => m[1])).toEqual(Object.keys(HOOKS));
   expect(port).toMatch(/noGameRng\(""\s*\+\s*k\b/);
   expect(port).toMatch(/function setHooks\(/);
+  expect(readRoot("src/core/hooks.js"), "only onPracticeWin runs without the rng guard").toMatch(/HOOKS_REENTER = Object\.freeze\(\["onPracticeWin"\]\)/);
   // and the core uses the port: every hook is called somewhere in the core
   const all = core.map(([, t]) => codeOnly(t)).join("\n");
   expect(Object.keys(HOOKS).filter(h => !new RegExp(`\\bhooks\\.${h}\\(`).test(all)), "hooks the core never calls").toEqual([]);
+});
+
+// AC 3: the dependency rule. src/core/** imports only src/core/**, src/i18n.js and src/story.js (relative paths; no bare names
+// such as "three", no dynamic import()), and never uses the browser's globals. Exceptions still needed are listed in
+// CORE_DOM_ALLOW as [file, name, why] — SPEC-012 must empty it (today it is empty: the client seeds the rng and sets the strict
+// guard from window, and every storage access is the client's).
+const SHARED = ["src/i18n.js", "src/story.js"];
+const CORE_FORBIDDEN = ["document", "window", "globalThis", "self", "localStorage", "sessionStorage", "navigator", "requestAnimationFrame", "Audio", "AudioContext"];
+const CORE_DOM_ALLOW = [];
+test("core does not depend on the client", { tag: "@fast" }, () => {
+  const bad = [];
+  for (const f of [...coreCode().map(([f]) => f), ...SHARED]) {
+    const text = readRoot(f), code = codeOnly(text);
+    for (const m of text.matchAll(/^\s*(?:import|export)\b[^;]*?\bfrom\s*["']([^"']+)["']/gm)) {
+      const target = m[1].startsWith(".") ? path.posix.normalize(path.posix.join(path.posix.dirname(f), m[1])) : m[1];
+      if (!(target.startsWith("src/core/") || SHARED.includes(target))) bad.push(`${f}: imports ${m[1]}`);
+    }
+    if (/\bimport\s*\(/.test(code)) bad.push(`${f}: dynamic import()`);
+    for (const name of CORE_FORBIDDEN) {
+      if (new RegExp(`(?<![.\\w$])${name}\\b`).test(code) && !CORE_DOM_ALLOW.some(([af, an]) => af === f && an === name)) bad.push(`${f}: uses ${name}`);
+    }
+  }
+  expect(bad, "the core depends on the client or the browser").toEqual([]);
+  expect(CORE_DOM_ALLOW, "exceptions left (SPEC-012 empties the list)").toEqual([]);
+  // the scan catches what it is for
+  const planted = codeOnly("const a = window.innerWidth; localStorage.getItem(\"x\");");
+  expect(CORE_FORBIDDEN.filter(n => new RegExp(`(?<![.\\w$])${n}\\b`).test(planted))).toEqual(["window", "localStorage"]);
+});
+
+// AC 4 / 4b: the core, the shared data and the client files that scripts import run in plain Node: they load without a DOM, and
+// their top level holds only imports, exports and declarations (no storage, no DOM, no window read at import). src/package.json
+// says "type": "module", so Node loads them as ES modules without a warning.
+const NODE_FILES = ["src/core/index.js", "src/i18n.js", "src/story.js", "src/client/look.js", "src/client/art-names.js"];
+test("core loads in Node", { tag: "@fast" }, () => {
+  const { spawnSync } = require("child_process");
+  const script = `Promise.all(${JSON.stringify(NODE_FILES.map(f => "./" + f))}.map(f => import(f)))` +
+    ".then(ms => console.log(JSON.stringify(ms.map(m => Object.keys(m).length))), e => { console.error(e.stack || e); process.exit(1); })";
+  const r = spawnSync(process.execPath, ["-e", script], { cwd: ROOT, encoding: "utf8" });
+  expect(r.stderr, "Node prints nothing to stderr (no error, no warning)").toBe("");
+  expect(r.status).toBe(0);
+  const counts = JSON.parse(r.stdout);
+  expect(counts[0], "src/core/index.js exports the core").toBeGreaterThan(150);
+  expect(counts.every(n => n > 0)).toBe(true);
+  // index.js re-exports every core module
+  const index = readRoot("src/core/index.js");
+  expect(coreCode().map(([f]) => f).filter(f => f !== "src/core/index.js" && !index.includes(`"./${f.slice("src/core/".length)}"`)), "core modules index.js misses").toEqual([]);
+  expect(JSON.parse(readRoot("src/package.json")).type).toBe("module");
+  // AC 4b: only declarations at the top level
+  const espree = require("espree");
+  const OK = ["ImportDeclaration", "ExportNamedDeclaration", "ExportAllDeclaration", "VariableDeclaration", "FunctionDeclaration", "ClassDeclaration"];
+  const bad = [];
+  for (const f of [...coreCode().map(([f]) => f), ...NODE_FILES.slice(1)]) {
+    const ast = espree.parse(readRoot(f), { ecmaVersion: "latest", sourceType: "module", loc: true });
+    for (const n of ast.body) if (!OK.includes(n.type)) bad.push(`${f}:${n.loc.start.line} ${n.type}`);
+  }
+  expect(bad, "top-level statements other than declarations").toEqual([]);
+});
+
+// AC 2d: no module over 900 lines (a file that grows past it is split, as the big sections of index.html were)
+test("no module over 900 lines", { tag: "@fast" }, () => {
+  const big = allSrc().map(f => [f, readRoot(f).replace(/\r?\n$/, "").split(/\r?\n/).length]).filter(([, n]) => n > 900);
+  expect(big).toEqual([]);
+});
+
+// AC 2 / 2b: docs/architecture.md has the module table (between <!-- modules:start --> and <!-- modules:end -->): every file of
+// src/ is listed, every listed file exists, the spec's core tree is there, and the state column names every module-level let
+const ARCH = path.join(ROOT, "docs", "architecture.md");
+const SPEC_CORE = ["index", "config", "util", "hooks", "world", "level/layouts", "level/generate", "level/build", "level/validate", "path",
+  "difficulty", "rules", "bots", "big", "game", "mood", "hearing", "autopilot", "practice", "progress-rules", "economy"].map(n => `src/core/${n}.js`);
+test("every core module listed in architecture.md exists", { tag: "@fast" }, () => {
+  const doc = fs.readFileSync(ARCH, "utf8").replace(/\r\n/g, "\n");
+  const a = doc.indexOf("<!-- modules:start -->"), b = doc.indexOf("<!-- modules:end -->");
+  expect(a > 0 && b > a, "the module table markers").toBe(true);
+  const rows = Object.fromEntries([...doc.slice(a, b).matchAll(/^\| `(src\/[^`]+)` \|(.*)$/gm)].map(m => [m[1], m[2]]));
+  const listed = Object.keys(rows);
+  expect(listed.filter(f => !fs.existsSync(path.join(ROOT, f))), "listed but missing").toEqual([]);
+  expect(allSrc().filter(f => !listed.includes(f)), "in src/ but not in the table").toEqual([]);
+  expect([...SPEC_CORE, ...SHARED, "src/client/look.js", "src/client/art-names.js"].filter(f => !listed.includes(f)), "the spec's modules").toEqual([]);
+  const missing = [];
+  for (const f of listed) {
+    const lets = [...readRoot(f).matchAll(/^(?:export )?let (.+)$/gm)].flatMap(m => [...m[1].matchAll(/(?:^|,\s*)([A-Za-z_$][\w$]*)\s*=/g)].map(x => x[1]));
+    for (const l of lets) if (!rows[f].includes("`" + l + "`")) missing.push(`${f}: ${l}`);
+  }
+  expect(missing, "module-level lets the table does not name").toEqual([]);
+});
+
+// AC 5: the live-bindings rule — a module's `let` is reassigned only in that module; others call its setter. ESLint's
+// no-import-assign enforces it for src/** (and for the inline module, linted by npm run lint): the config has it, no src file
+// breaks it, and it really fires on a planted write
+test("live bindings: no module reassigns another module's let", async () => {
+  test.setTimeout(60_000);
+  const { ESLint } = require("eslint");
+  const eslint = new ESLint({ cwd: ROOT });
+  for (const f of ["src/core/game.js", "src/client/look.js", "src/i18n.js"]) {
+    const cfg = await eslint.calculateConfigForFile(path.join(ROOT, f));
+    expect(cfg.rules["no-import-assign"], f).toEqual([2]);
+  }
+  const results = await eslint.lintFiles(["src"]);
+  const hits = results.flatMap(r => r.messages.filter(m => m.ruleId === "no-import-assign").map(m => `${relName(r.filePath)}:${m.line} ${m.message}`));
+  expect(hits).toEqual([]);
+  const [planted] = await eslint.lintText("import { mode } from \"./game.js\";\nmode = \"play\";\n", { filePath: path.join(ROOT, "src", "core", "planted.js") });
+  expect(planted.messages.map(m => m.ruleId)).toContain("no-import-assign");
+});
+
+// AC 5b: the saves are read in one place, before the first game: storage is read (getItem) only in initSaves and the two
+// helpers it calls (language, names) — today in the inline client, from Phase C in src/client/; the core never touches storage
+// (the dependency test above); initSaves runs once at the top level, initLang and initNames only from it.
+const SAVE_READERS = ["initSaves", "initLang", "initNames"];
+test("the saves are read only by initSaves at start", { tag: "@fast" }, () => {
+  const html = fs.readFileSync(INDEX, "utf8").replace(/\r\n/g, "\n"), open = "<script type=\"module\">\n";
+  const inline = html.slice(html.indexOf(open) + open.length, html.indexOf("</script>", html.indexOf(open)));
+  const client = [["index.html (module)", inline], ...allSrc().filter(f => f.startsWith("src/client/")).map(f => [f, readRoot(f).replace(/\r\n/g, "\n")])];
+  const bad = [];
+  let readers = 0;
+  for (const [name, text] of client) {
+    const code = text;   // raw: the client has regex literals that confuse codeOnly; no comment names localStorage.getItem(
+    for (const m of code.matchAll(/\blocalStorage\.getItem\(/g)) {
+      const fn = [...code.slice(0, m.index).matchAll(/^(?:export )?function (\w+)\(/gm)].pop();
+      if (!fn || !SAVE_READERS.includes(fn[1])) bad.push(`${name}: getItem in ${fn ? fn[1] : "top level"}`); else readers++;
+    }
+  }
+  expect(bad, "storage read outside initSaves").toEqual([]);
+  expect(readers, "initSaves reads progress, outfits, names and the language").toBeGreaterThanOrEqual(4);
+  const all = client.map(([, t]) => t).join("\n");
+  expect([...all.matchAll(/^initSaves\(\);$/gm)].length, "initSaves() once, at the top level").toBe(1);
+  for (const h of ["initLang", "initNames"]) {
+    const calls = [...all.matchAll(new RegExp(`(?<!function )\\b${h}\\(\\)`, "g"))].map(m => [...all.slice(0, m.index).matchAll(/^(?:export )?function (\w+)\(/gm)].pop()[1]);
+    expect(calls, `${h}() only from initSaves`).toEqual(["initSaves"]);
+  }
+});
+
+// AC 8c: no script or test reads game code from index.html. The files that still read index.html read the shell, or (until
+// Phase C empties it) the inline client module for linting and source scans — each named here with why; a new reader fails.
+const INDEX_READERS = {
+  "scripts/lint.js": "lints the inline client module (until Phase C)",
+  "scripts/eslint-imports.js": "the import map (shell): which bare names resolve",
+  "tests/helpers.js": "gameSource(): the inline client module next to src/** for the source scans (until Phase C)",
+  "tests/modules.spec.js": "the shell: the import map, the file:// notice, the inline module (lint config, saves check)",
+  "tests/pwa.spec.js": "the shell: the import map (three.js version) and the page the network-first test serves"
+};
+test("no script or test reads game code from index.html", { tag: "@fast" }, () => {
+  const found = [];
+  for (const dir of ["scripts", "tests"]) for (const f of fs.readdirSync(path.join(ROOT, dir)).filter(n => n.endsWith(".js"))) {
+    const text = fs.readFileSync(path.join(ROOT, dir, f), "utf8");
+    if (/readFileSync/.test(text) && /path\.(?:join|resolve)\(\s*(?:ROOT|__dirname)[^)]*["']index\.html["']/.test(text)) found.push(`${dir}/${f}`);
+  }
+  expect(found.sort()).toEqual(Object.keys(INDEX_READERS).sort());
+  // the numbers, the art names and the menus' look come from src/ (AC 8c)
+  expect(readRoot("scripts/docs-numbers.js")).toContain("\"src\", \"core\", \"config.js\"");
+  expect(readRoot("scripts/assets.js")).toContain("\"src\", \"client\", \"art-names.js\"");
 });
