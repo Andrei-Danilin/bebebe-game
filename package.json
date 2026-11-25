@@ -13,6 +13,7 @@
     "docs:numbers": "node scripts/docs-numbers.js",
     "balance": "node scripts/balance.js",
     "serve": "node scripts/serve.js",
+    "site": "node scripts/site.js",
     "setup": "npm install && npx playwright install chromium && node scripts/claude-sync.js"
   },
   "devDependencies": {
