@@ -123,7 +123,7 @@ test.describe(() => {
 test("service worker registers and controls the page over http", { tag: "@fast" }, async ({ page }) => {
   const errors = await openGameHttp(page);
   await waitForSW(page);
-  expect(SW_VERSION).toBe("bebebe-v4");
+  expect(SW_VERSION).toBe("bebebe-v5");   // SPEC-011 Phase C: unversioned src/ URLs network-only (a strategy change)
   expect(ASSETS_HASH && SRC_HASH && THREE_VERSION).toBeTruthy();
   // SPEC-011 AC 9: exactly the three caches
   expect((await page.evaluate(() => caches.keys())).sort()).toEqual([CACHE_ASSETS, CACHE_SRC, CACHE_THREE].sort());
@@ -357,6 +357,20 @@ test("the game starts offline after the first visit", async ({ page, context }) 
   await step(page, 5);
   expect(await page.evaluate(() => window.__bb.mode)).toBe("play");
   expect(errors.filter(e => !e.includes("Failed to load resource"))).toEqual([]);
+});
+
+// SPEC-011 Phase C (review of Phase B): the shell only asks for versioned module URLs (the import map); an unversioned one is
+// answered by the network only — offline it fails instead of getting a cached copy of some version (no ignoreSearch fallback)
+test("an unversioned module URL is network-only", async ({ page, context }) => {
+  const errors = await openGameHttp(page);
+  await waitForSW(page);
+  const versioned = swList("PRECACHE_SRC").find(u => u.startsWith("./src/core/util.js?v="));
+  const get = u => page.evaluate(async x => { try { const r = await fetch(x); return r.ok ? "ok" : "status " + r.status; } catch (e) { return "failed"; } }, u);
+  expect(await get("./src/core/util.js"), "online: from the network").toBe("ok");
+  await context.setOffline(true);
+  expect(await get(versioned), "offline: the versioned URL from the src cache").toBe("ok");
+  expect(await get("./src/core/util.js"), "offline: the unversioned URL is not served from a cache").toBe("failed");
+  expect(errors.filter(e => !e.includes("Failed to load resource") && !e.includes("Failed to fetch")), "only the refused offline fetch").toEqual([]);
 });
 
 test("fullscreen button is hidden in standalone mode", async ({ page }) => {

@@ -7,13 +7,14 @@
 //   bebebe-three-<version>          three.js from jsDelivr, by its version.
 // The module URLs are versioned (./src/…/x.js?v=<hash of its bytes>: the import map of index.html, written by npm run precache
 // with SRC_HASH and the lists below), so a shell only ever asks for its own module versions; they are served cache-first.
+// An unversioned module URL is never answered from a cache (network only; Phase C, the review of Phase B).
 // index.html stays network-first: an online launch gets the new version at once. A network-fetched shell is stored only into
 // the complete src cache of its own SRC_HASH (its <meta name="src-hash">); if there is none yet (the new worker has not
 // finished installing), it is shown but not cached — so the cached shell always has its modules.
 // A module change needs no SW_VERSION bump: rerun npm run precache (SRC_HASH changes). Bump SW_VERSION when a cache strategy,
 // the three.js version (THREE_BASE = the import map's) or an icon's content changes. Old caches: the last 2 of each kind stay
 // (a page of the previous version may still be open), older ones are deleted on activate.
-const SW_VERSION = "bebebe-v4";
+const SW_VERSION = "bebebe-v5";
 const CACHE_PREFIX = "bebebe-";          // all Pages projects of the account share one origin: touch only our caches
 const NET_TIMEOUT_MS = 4000;             // weak signal: after this long, a cached copy wins over a slow network
 const THREE_BASE = "https://cdn.jsdelivr.net/npm/three@0.187.0/build/";
@@ -217,6 +218,10 @@ self.addEventListener("fetch", event => {
   } else if (local && url.pathname.includes("/src/") && url.searchParams.has("v")) {
     // a versioned module: the exact URL (its hash) from any of our caches, else the network — never written at runtime
     event.respondWith(cacheFirst(event, req, null, { ignoreVary: true }));
+  } else if (local && url.pathname.includes("/src/")) {
+    // an unversioned module URL (no ?v=; the shell never asks for one): the network only — never a cached copy of some other
+    // version (no ignoreSearch fallback across caches), so a page cannot mix module versions
+    return;
   } else if (url.href.startsWith(THREE_BASE)) {
     event.respondWith(cacheFirst(event, req, CACHE_THREE));
   } else if (local && url.pathname.includes("/assets/")) {
