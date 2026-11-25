@@ -87,7 +87,7 @@ menu offers Continue, Map and Home.
 2. Tap **Share** ⬆️ → **Add to Home Screen** → **Add**.
 3. Start **BeBeBe** from the home screen: full screen, no browser bar. Turn the phone sideways.
 
-- After the first open it works **offline** (airplane mode too).
+- It works **offline** from the very first launch (airplane mode too): everything, three.js included, comes from the game's own site.
 - The home-screen app keeps its **own progress**, separate from Safari (coins, stars and outfits from Safari do not carry over).
 - The ring/silent switch mutes the sound; sound starts after the first tap.
 
@@ -120,7 +120,7 @@ A phone is a touch screen whose short side is at most 500 CSS px. To force it: a
 
 | Folder | What | Needs internet |
 |---|---|---|
-| `index.html` + `src/` | **v2 — 3D** (Three.js r187, toon shading, outlines, shadows) | the first time (three.js from jsDelivr); offline afterwards when opened from the web |
+| `index.html` + `src/` | **v2 — 3D** (Three.js r187, toon shading, outlines, shadows) | no (three.js is in the repo, `vendor/three/`); needs http (`npm run serve`, the website or the installed app) |
 | `v1-2d/index.html` | v1 — 2D canvas version | no |
 
 No build step. Works on desktop, tablet and phone. **How to play locally:** `npm run serve`, then open http://localhost:8123/ — the game is ES modules (`index.html` + `src/`) and needs http; opened from disk by double-click it only shows a notice saying so.
@@ -309,7 +309,7 @@ without boots, even when angry. His hearts:
 
 ## How v2 is built
 
-One HTML file, one ES module:
+The shell `index.html` and the ES modules of `src/` (no build step):
 
 - **Game logic** (rules, bots, A* pathfinding, level generator, input) is shared with v1 and works in the
   same 960×640 "logic pixels" (32 px = 1 cell = 1 unit in 3D).
@@ -321,6 +321,13 @@ One HTML file, one ES module:
   with scissor viewports.
 - **Art** (`art/` → `assets/`): the menus, map, HUD, effects and phone buttons use the kids' felt-tip notebook
   pictures; every picture has a drawn-by-code fallback, so the game also runs without them (e.g. as a single page).
+- **Three.js** is vendored in `vendor/three/` (the minified r187 build, MIT licence; see `THIRD_PARTY_LICENSES.md`): nothing is
+  loaded from another site.
+- **When something goes wrong**: the game never freezes. An error pauses it and shows a friendly "Oops" card (Continue,
+  Restart level or Home); errors are kept on the device only (`bebebe-errors`, never sent). A device without WebGL2 says so
+  on the loading screen; a failed start offers Try again.
+- **Switching away**: hiding the app (home button, another app, the notification shade) pauses the game and silences it;
+  a win already decided at that moment is saved at once. If the graphics are lost, a "Tap to continue" card waits for them.
 - **3D look** (SPEC-021): the 3D world is drawn like the pictures — thick wobbly black outlines, two flat tones per colour,
   felt-tip strokes and doodles on the ground, hatched walls, a light paper grain (desktop), round-headed kids, the Dad,
   the blue kids' house and the dad's messy house (their roofs fade while someone is inside). All in code, no image files.
@@ -347,6 +354,7 @@ npx playwright test tests/gameplay.spec.js   # one test file (-g "<name>" for on
 npx playwright test    # all tests (smoke, gameplay rules, levels, phone, i18n, PWA; over http — starts scripts/serve.js itself) — normally on CI, see below
 npm run serve          # the game over http on http://localhost:8123/ (service worker, manifest) — the way to play locally
 npm run precache       # after a change to src/: module hashes in the import map of index.html and in sw.js (SPEC-011)
+npm run vendor:three   # re-create vendor/three/ from the three.js version pinned in package.json (then runs precache)
 npm run assets         # art/ → assets/*.webp sprites (+ the sprite lists in src/client/art-names.js and sw.js), prints sizes and the budget
 npm run icons          # art/2_icon.webp → the PNG app icons and the icon.svg favicon
 npm run docs:numbers   # rewrite the generated numbers table in docs/game-design.md from src/core/config.js and src/client/look.js (-- --check: only check)
@@ -395,7 +403,7 @@ PowerShell examples: `$env:PW_GPU = "0"; npx playwright test tests/smoke.spec.js
   appears) → `gh run watch <id> --exit-status`; reports: `gh run download <id> -n html-report` (open `index.html`), error
   context + failure screenshots: `-n test-results-<shard>`.
 - **Pages** (`.github/workflows/pages.yml`): every push to `master` runs the same sharded tests and, in parallel, builds the
-  site with `npm run site` (`scripts/site.js`: `index.html`, `manifest.webmanifest`, `sw.js`, `icons/`, `assets/`, `v1-2d/`);
+  site with `npm run site` (`scripts/site.js`: `index.html`, `manifest.webmanifest`, `sw.js`, `icons/`, `assets/`, `src/`, `vendor/`, `v1-2d/`);
   when both are green it publishes it to GitHub Pages (two deploy attempts, then a check that the live site serves the commit).
   A red deploy with green tests is recovered with `gh run rerun <id> --failed` only when that run's `build` job was green and its commit is still the HEAD of `origin/master` (it reruns only `deploy`, which deploys the artifact `build` uploaded once); otherwise a fresh `gh workflow run pages.yml --ref master`.
 - **Balance** (`.github/workflows/balance.yml`): `gh workflow run balance.yml -f ref=<branch>` → `gh run list --workflow balance.yml --limit 5` (the run titled `Balance <branch>`,
