@@ -3,11 +3,11 @@
 // the next gesture (sound.js). On hide a win that is already decided is recorded and saved first (settleDecidedWin; every other
 // change is already saved at once — Phase 2's save queue is flushed after it); a page back from the back/forward cache goes on.
 // WebGL context loss → pause and the "Tap to continue" card; restored → the 3D is rebuilt and a tap continues; no restore within
-// CFG.GL_RESTORE_WAIT s → save and reload. Client module.
+// CFG.GL_RESTORE_WAIT s while the game is on screen → the decided win, save and reload. Client module.
 
 import { CFG } from "../core/config.js";
 import { L } from "../i18n.js";
-import { hideCard, showCard } from "./errors.js";
+import { flushErrorLog, hideCard, showCard } from "./errors.js";
 import { mode, resumeGame, setMode, settleDecidedWin } from "./flow.js";
 import { saveProgress } from "./progress.js";
 import { suspendAudio } from "./sound.js";
@@ -21,20 +21,27 @@ const pauseIfPlaying = () => { if (mode === "play") setMode("pause"); };
 // overwrite what another tab or an older build wrote meanwhile. Phase 2 flushes its save queue here, after the win
 function onHide() {
   settleDecidedWin();
+  flushErrorLog();                          // a repeat count still waiting for its write
   pauseIfPlaying();
   suspendAudio();
+  clearTimeout(glWait);                     // the restore wait runs only while the game is seen (re-armed when visible)
 }
 
 // ---------- WebGL context loss ----------
 export let glRestored = false;            // the last loss is restored (the card's tap continues)
-let glWait = null, pausedByGl = false;
+let glWait = null, pausedByGl = false, glLost = false;
+// no restore within CFG.GL_RESTORE_WAIT s while the game is on screen: the decided win, save, reload
+function armGlWait() {
+  clearTimeout(glWait);
+  if (!glLost || document.visibilityState === "hidden") return;
+  glWait = setTimeout(() => { settleDecidedWin(); saveProgress(); flushErrorLog(); location.reload(); }, CFG.GL_RESTORE_WAIT * 1000);
+}
 function onContextLost(e) {
   e.preventDefault();                       // the browser may restore the context
-  glRestored = false;
+  glRestored = false; glLost = true;
   pausedByGl = mode === "play";
   pauseIfPlaying();
-  clearTimeout(glWait);
-  glWait = setTimeout(() => { saveProgress(); location.reload(); }, CFG.GL_RESTORE_WAIT * 1000);
+  armGlWait();
   showCard("gl-lost", L().glLost, [], () => {
     if (!glRestored) return;                // not back yet: the card stays
     hideCard("gl-lost");
@@ -44,6 +51,7 @@ function onContextLost(e) {
 // every texture is uploaded again (three.js made a new context: the ground canvas, the gradient and grain textures, the
 // previews), the level's characters are built again
 function onContextRestored() {
+  glLost = false;
   clearTimeout(glWait);
   gradTex.needsUpdate = true;
   scene.traverse(o => {
@@ -55,7 +63,7 @@ function onContextRestored() {
 
 // called once by main.js, in the start order of the one-file game
 export function initLifecycle() {
-  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") onHide(); });
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") onHide(); else armGlWait(); });
   window.addEventListener("pagehide", onHide);
   window.addEventListener("blur", pauseIfPlaying);
   const gl = document.getElementById("gl");

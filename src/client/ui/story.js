@@ -6,7 +6,7 @@ import { clamp } from "../../core/util.js";
 import { L, lang } from "../../i18n.js";
 import { RULE_ICONS, STORY, TUTORIAL_SCENES } from "../../story.js";
 import { art, artFile, artImgs, STORY_ART, tape } from "../art.js";
-import { cardLevel, chapterOpen, sceneNext, scenePages, sceneSkip, storyBack, goBack, storyCh, storyStep, watchChapter } from "../flow.js";
+import { cardLevel, chapterOpen, sceneNext, setStoryPage, scenePages, sceneSkip, storyBack, goBack, storyCh, storyStep, watchChapter } from "../flow.js";
 import { LOOK } from "../look.js";
 import { ctx, PHONE } from "../screen.js";
 import { ui } from "../state.js";
@@ -63,7 +63,7 @@ export function drawStory() {
   const tText = rules ? "❓ " + L().howToPlay : "📖 " + L().story;
   ctx.font = hudFont(PHONE ? cpx(16) : 19);
   const tw = Math.max(B, Math.min((X1 - X0) * 0.36, scaledW(rules ? tText : "❓ " + L().howToPlay) + 26 * k));
-  fitButton(X1 - tw, Y0, tw, B, rules ? "📖 " + L().story : "❓ " + L().howToPlay, M.storyBtn, () => { ui.storyPage = rules ? "chapters" : "rules"; }, PHONE ? cpx(16) : 19, minMain).id = rules ? "story:chapters" : "story:rules";
+  fitButton(X1 - tw, Y0, tw, B, rules ? "📖 " + L().story : "❓ " + L().howToPlay, M.storyBtn, () => { setStoryPage(rules ? "chapters" : "rules"); }, PHONE ? cpx(16) : 19, minMain).id = rules ? "story:chapters" : "story:rules";
   const title = rules ? "❓ " + L().howToPlay : (open ? "" : "🔒 ") + chapterTitle(c);
   const tx0 = X0 + bw + g, tmax = X1 - tw - g - tx0, tf = fitLine(title, PHONE ? Math.max(minMain, storyPx(20)) : 26, minMain, tmax);   // SPEC-031: × масштаб экрана
   label(tf.text, tx0 + tmax / 2, Y0 + B / 2, tf.sz, rules ? M.storyBtn : M.title, "center");

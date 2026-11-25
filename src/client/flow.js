@@ -20,7 +20,7 @@ import { LOOK } from "./look.js";
 import { botOutfit, endTryOn, makeLook, skinSel } from "./outfits.js";
 import { saveProgress, setLang } from "./progress.js";
 import { PHONE } from "./screen.js";
-import { ui } from "./state.js";
+import { screenChanged, ui } from "./state.js";
 import { camSnap } from "./three/camera.js";
 import { practiceStep, setPracticeStep, setTutorial, tutorialNext, tutorialPages } from "./tutorial.js";
 import { lockedText } from "./ui/map.js";
@@ -36,6 +36,7 @@ export let mode = "home", lastReward = null;
 export function setMode(v) {
   if (v !== "play") for (const inp of Object.values(G.inputs || {})) { inp.kiss = false; inp.kit = false; inp.act = false; }   // a press never fires after the game left play
   mode = v;
+  screenChanged();                                          // SPEC-025 AC 7d
   if (mode !== "shop") { ui.shopTab = "items"; ui.wardrobePage = "looks"; }
   if (mode !== "map") ui.toast = null;   // SPEC-017: подсказка карты — только пока карта на экране
   if (mode !== "map" && mode !== "levelCard") ui.mapBgCache = null;   // фон страницы мира не держим в памяти вне карты
@@ -92,7 +93,7 @@ export function applyGameEvent(e) {
 // SPEC-016/030: закрытый мир выбрать нельзя (__bb.world — без проверки, для тестов и отчёта баланса)
 export function selectWorld(w) {
   if (!WORLDS.includes(w) || w === G.world || !isOpen(w)) return;
-  G.world = w; ui.toast = null; ui.worldBanner = null;   // SPEC-017: подсказка карты была про прошлый мир (SPEC-030: и плашка «открыт»)
+  G.world = w; ui.toast = null; ui.worldBanner = null; screenChanged();   // SPEC-017: подсказка карты была про прошлый мир (SPEC-030: и плашка «открыт»)
   progress.lastWorld = G.world; saveProgress();
   G.level = worldProgress().unlocked;
   playWorld(G.players);
@@ -204,14 +205,14 @@ export const inMenus = () => MENU_MODES.includes(mode);
 export const SHOP_TABS = Object.freeze(["progress", "items", "wardrobe", "upgrades"]);   // SPEC-026: «Прогресс» персонажа — первая
 let shopBack = "home";
 export const inWardrobe = () => mode === "shop" && ui.shopTab === "wardrobe";
-export function setShopTab(k) { if (!SHOP_TABS.includes(k)) return; closeNameInput(true); ui.shopTab = k; ui.wardrobePage = "looks"; ui.resetArmed = false; }
+export function setShopTab(k) { if (!SHOP_TABS.includes(k)) return; closeNameInput(true); screenChanged(); ui.shopTab = k; ui.wardrobePage = "looks"; ui.resetArmed = false; }
 // ←/→ и крестовина: вкладки по кругу
 export const switchShopTab = (d = 1) => setShopTab(SHOP_TABS[(SHOP_TABS.indexOf(ui.shopTab) + d + SHOP_TABS.length) % SHOP_TABS.length]);
 // SPEC-026: tab — с какой вкладки: с главного (кнопка «Персонаж») — «Прогресс»; отовсюду ещё (победа, проигрыш) — «Вещи», как раньше
 export function openShop(back = "home", tab = "items") { setMode("shop"); ui.shopTab = SHOP_TABS.includes(tab) ? tab : "items"; ui.wardrobePage = "looks"; shopBack = back; ui.resetArmed = false; }
 export function closeShop() { closeNameInput(true); if (shopBack === "map") { mapSel = null; setMode("map"); showOpenedWorld(); } else setMode("home"); }
-export function openFriends() { closeNameInput(true); ui.wardrobePage = "friends"; }
-export function backToWardrobe() { closeNameInput(true); ui.wardrobePage = "looks"; }
+export function openFriends() { closeNameInput(true); ui.wardrobePage = "friends"; screenChanged(); }
+export function backToWardrobe() { closeNameInput(true); ui.wardrobePage = "looks"; screenChanged(); }
 // ---------- SPEC-017: карта уровней ----------
 // мир карты — G.world (выбор мира — selectWorld, он же запоминает progress.lastWorld); mapSel — остановка с кольцом выбора
 // (клавиатура, геймпад) в этом мире, null — следующий уровень; toast — короткая подсказка внизу карты { text, t };
@@ -260,8 +261,10 @@ export function playCard(players) { G.level = cardLevel; withScene(sceneBefore(G
 export let storyCh = 0, storyBack = "home";
 export function openStory(id = STORY[0].id, back = "home") { storyCh = Math.max(0, STORY.findIndex(c => c.id === id)); storyBack = back; ui.storyPage = "chapters"; setMode("story"); }
 const closeStory = () => { setMode(storyBack === "levelCard" ? "levelCard" : "home"); };
-export const storyStep = d => { storyCh = clamp(storyCh + d, 0, STORY.length - 1); };
-export const storyBackKey = () => { if (ui.storyPage === "rules") ui.storyPage = "chapters"; else closeStory(); };
+export const storyStep = d => { storyCh = clamp(storyCh + d, 0, STORY.length - 1); screenChanged(); };
+// the story's page: "chapters" or "rules" (How to play)
+export function setStoryPage(p) { ui.storyPage = p; screenChanged(); }
+export const storyBackKey = () => { if (ui.storyPage === "rules") setStoryPage("chapters"); else closeStory(); };
 // глава видна: начало — всегда; мир — когда он открыт (SPEC-030: worldOpen); конец — после 20-го уровня Школы
 export function chapterOpen(c) {
   if (WORLDS.includes(c.id)) return isOpen(c.id);
@@ -301,8 +304,8 @@ export function sceneSkip() {
   if (sc && sc.skip) { ui.storyScene = null; sc.skip(); } else sceneDone();
 }
 // дальше (Enter, пробел, A, тап, «Дальше» / «Играть» / «Готово»): следующая страница, после последней — к тому, что дальше
-export function sceneNext() { if (ui.storyScene && ui.storyScene.page < scenePageCount() - 1) ui.storyScene.page++; else sceneDone(); }
-export function scenePrev() { if (ui.storyScene && ui.storyScene.page > 0) ui.storyScene.page--; }
+export function sceneNext() { if (ui.storyScene && ui.storyScene.page < scenePageCount() - 1) { ui.storyScene.page++; screenChanged(); } else sceneDone(); }
+export function scenePrev() { if (ui.storyScene && ui.storyScene.page > 0) { ui.storyScene.page--; screenChanged(); } }
 // заставка перед уровнем (мир, n), если её ещё не показывали: босс — перед 20-м уровнем основного мира, бонусный мир — перед
 // любым своим уровнем (первый раз это его первый уровень)
 function sceneBefore(world, n) {

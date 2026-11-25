@@ -80,7 +80,7 @@ test("Restart level after an error starts the level again", async ({ page }) => 
 
 test("the window handlers: an error and a rejection show the card; a benign rejection is ignored; texts in every language", async ({ page }) => {
   await openGame(page, { lang: "ru" });
-  // in the menus: the card with Continue only (no level to restart), the screen stays
+  // in the menus: Continue and Home (no level to restart), the screen stays
   await page.evaluate(() => { Promise.reject(Object.assign(new Error("benign"), { benign: true })); });
   await page.waitForTimeout(300);
   expect(await card(page), "a benign rejection: no card").toBeNull();
@@ -89,9 +89,9 @@ test("the window handlers: an error and a rejection show the card; a benign reje
   await expect.poll(() => card(page)).not.toBeNull();
   const c = await card(page);
   expect(c.text).toContain(OOPS.ru);
-  expect(c.buttons).toEqual(["Продолжить"]);
+  expect(c.buttons).toEqual(["Продолжить", "Главная"]);
   expect(await page.evaluate(() => window.__bb.mode)).toBe("home");
-  await page.click("#oops button");
+  await page.click("#oops button >> nth=0");
   for (const l of ["en", "es", "pt", "ru"]) {
     const t = await page.evaluate(k => ({ oops: window.__bb.I18N[k].oops, restart: window.__bb.I18N[k].restartLevel }), l);
     expect(t).toEqual({ oops: OOPS[l], restart: RESTART[l] });
@@ -112,6 +112,78 @@ test("the log keeps the last entries, no names or save content", async ({ page }
   const text = JSON.stringify(l);
   expect(text).not.toContain("Zoltanix");
   expect(text).not.toContain("4242");
+});
+
+// review fix: a rejected object is logged by its type only (never its content); the message is cut at CFG.ERROR_MESSAGE_MAX
+test("rejected values: an object by its type, a long message cut", async ({ page }) => {
+  await openGame(page, { sim: true });
+  await page.evaluate(() => {
+    const b = window.__bb;
+    b.reportError({ name: "Zoltanix", coins: 4242 });
+    b.reportError("x".repeat(1000));
+  });
+  const l = await log(page), max = await page.evaluate(() => window.__bb.CFG.ERROR_MESSAGE_MAX);
+  expect(l.map(e => e.message.length <= max)).toEqual([true, true]);
+  expect(l[0].message).toBe("(object Object)");
+  expect(JSON.stringify(l)).not.toMatch(/Zoltanix|4242/);
+});
+
+// review fix: a repeat is counted in memory and written at most every CFG.ERROR_LOG_WRITE_EVERY s (a new entry at once; on hide)
+test("the log is not rewritten on every repeat", async ({ page }) => {
+  await openGame(page, { sim: true });
+  const writes = await page.evaluate(() => {
+    let n = 0;
+    const set = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (k, v) { if (k === "bebebe-errors") n++; return set.call(this, k, v); };
+    const err = new Error("test: repeat");
+    for (let i = 0; i < 50; i++) window.__bb.reportError(err);
+    Storage.prototype.setItem = set;
+    return n;
+  });
+  expect(writes, "one write for the new entry, the repeats wait").toBe(1);
+  const l = await log(page);                                     // reading flushes the count
+  expect(l[0].count).toBe(50);
+  expect(JSON.parse(await page.evaluate(() => localStorage.getItem("bebebe-errors")))[0].count).toBe(50);
+});
+
+// review fix: an error that repeats on a menu screen must not trap the child — Home leaves it; the same error again offers a reload
+test("an error on every frame of a menu: Home leads out, the same error again offers Try again", async ({ page }) => {
+  await openGame(page);
+  await page.evaluate(() => {
+    const P = CanvasRenderingContext2D.prototype; window.__clearRect = P.clearRect; window.__breakOn = ["map"];
+    P.clearRect = function (...a) { if (window.__breakOn.includes(window.__bb.mode)) throw new Error("test: a broken menu"); return window.__clearRect.apply(this, a); };
+    window.__bb.openMap();
+  });
+  await expect.poll(() => card(page)).not.toBeNull();
+  expect((await card(page)).buttons).toEqual(["Continue", "Home"]);
+  await page.click("#oops button:has-text('Home')");
+  await frames(page); await frames(page);
+  expect([await page.evaluate(() => window.__bb.mode), await card(page)], "a working screen").toEqual(["home", null]);
+  // broken at home too: Continue → the same error opens the card again, now with Try again (reload)
+  await page.evaluate(() => { window.__breakOn = ["home", "map"]; });
+  await expect.poll(() => card(page)).not.toBeNull();
+  await page.click("#oops button >> nth=0");
+  await expect.poll(() => card(page)).not.toBeNull();
+  expect((await card(page)).buttons).toEqual(["Continue", "Home", START.tryAgain.en]);
+  await page.click(`#oops button:has-text("${START.tryAgain.en}")`);
+  await page.waitForFunction(() => window.__bbReady === true && !window.__breakOn, null, { timeout: 60_000 });
+  await frames(page);
+  expect([await page.evaluate(() => window.__bb.mode), await card(page)]).toEqual(["home", null]);
+});
+
+// review fix: while a card is open, keys and pad buttons do not act on the game under it; Enter presses the card
+test("an open card takes the keys: Escape and P do nothing, Enter presses Continue", async ({ page }) => {
+  await openGame(page);
+  await page.evaluate(() => { window.__bb.startGame(1); });
+  await frames(page);
+  await page.evaluate(() => { setTimeout(() => { throw new Error("test: card keys"); }); });
+  await expect.poll(() => card(page)).not.toBeNull();
+  for (const k of ["Escape", "KeyP", "KeyQ"]) await page.keyboard.press(k);
+  await frames(page);
+  expect([await page.evaluate(() => window.__bb.mode), !!(await card(page))]).toEqual(["pause", true]);
+  await page.keyboard.press("Enter");
+  await frames(page);
+  expect([await page.evaluate(() => window.__bb.mode), await card(page)]).toEqual(["play", null]);
 });
 
 // ---------- AC 7b: the start ----------

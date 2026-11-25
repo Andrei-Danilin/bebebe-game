@@ -21,9 +21,10 @@ export const ui = {
   kitHintT: 0, kitHintPi: 0, heardHintT: 0, heardHintPi: 0, waves: [],
   menuSpin: 0,   // SPEC-012 AC 1d: how far the Big One has turned in the menus (a view angle; the game's big.dir is untouched)
   buttons: [],
-  // SPEC-025 AC 7d: generations of the button list — btnGen goes up when a tap changes the screen (input.js); buttonsGen is the
-  // generation the list of this frame was drawn for (drawUI). A hit in a list of an older generation runs nothing
-  btnGen: 0,
+  // SPEC-025 AC 7d: generations of the button list — screenSeq goes up whenever the screen changes (screenChanged(): the mode,
+  // a page, a tab, a scene page, the world, an armed button); buttonsGen is the screenSeq the list of this frame was drawn for
+  // (drawUI). A tap on a list of an older generation runs nothing (input.js)
+  screenSeq: 0,
   buttonsGen: 0,
   resetArmed: false,
   kitHintRect: null,
@@ -92,3 +93,5 @@ export const ui = {
   progressInfo: null,
   T: 0
 };
+// SPEC-025 AC 7d: the screen changed — the button list drawn before is stale until the next frame draws it again
+export function screenChanged() { ui.screenSeq++; }

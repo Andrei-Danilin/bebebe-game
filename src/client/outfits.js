@@ -6,6 +6,7 @@ import { clamp, vrand } from "../core/util.js";
 import { BIG_SKINS, HAIRS, HATS, JACKETS, PANTS, SLOTS } from "../core/wardrobe.js";
 import { saveProgress, writeOutfits } from "./progress.js";
 import { SFX } from "./sound.js";
+import { screenChanged } from "./state.js";
 import { G } from "../core/active.js";
 import { redress } from "./flow.js";
 
@@ -54,6 +55,8 @@ export const ownsItem = (slot, idx) => {
 };
 let tryingOn = false;  // на экране нарядов примерено некупленное (skinSel ≠ skinKeep)
 const updateTryOn = () => { tryingOn = ["p1", "p2", "big"].some(k => lockedItems(k).length > 0); };
+// SPEC-025 AC 7d: arming or disarming «Купить» makes it another button — the screen changed (setBuyArmed)
+function setBuyArmed(v) { if (v !== buyArmed) { buyArmed = v; screenChanged(); } }
 export let buyArmed = null;   // колонка («p1» | «p2» | «big»), где кнопку «Купить» уже нажали раз: второе нажатие покупает
 // примеренные некупленные вещи колонки: [{ slot, idx, id, price }]
 export function lockedItems(key) {
@@ -66,7 +69,7 @@ export function cycleOutfit(pk, slot, d) {
   const n = SLOTS[slot].length;
   skinSel[pk][slot] = (skinSel[pk][slot] + d + n) % n;
   if (ownsItem(slot, skinSel[pk][slot])) skinKeep[pk][slot] = skinSel[pk][slot];   // своё — сразу запоминается; чужое — только примерка
-  buyArmed = null; updateTryOn(); saveSkins(); redress();
+  setBuyArmed(null); updateTryOn(); saveSkins(); redress();
 }
 // случайный вид — только из своего
 export function randomOutfit(pk) {
@@ -74,27 +77,27 @@ export function randomOutfit(pk) {
     const mine = SLOTS[k].map((_, i) => i).filter(i => ownsItem(k, i));
     skinSel[pk][k] = skinKeep[pk][k] = mine[Math.floor(vrand() * mine.length)];
   }
-  buyArmed = null; updateTryOn(); saveSkins(); redress();
+  setBuyArmed(null); updateTryOn(); saveSkins(); redress();
 }
 export function cycleBig(d) {
   skinSel.big = (skinSel.big + d + BIG_SKINS.length) % BIG_SKINS.length;
   if (ownsItem("big", skinSel.big)) skinKeep.big = skinSel.big;
-  buyArmed = null; updateTryOn(); saveSkins(); redress();
+  setBuyArmed(null); updateTryOn(); saveSkins(); redress();
 }
 // кнопка «Купить N» колонки: не хватает монеток — звук «нет»; первое нажатие только спрашивает, второе покупает всё примеренное
 export function buyLook(key) {
   const items = lockedItems(key), total = lockedPrice(key);
   if (!items.length) return;
-  if (progress.coins < total) { buyArmed = null; SFX.out(); return; }
-  if (buyArmed !== key) { buyArmed = key; return; }
-  buyArmed = null;
+  if (progress.coins < total) { setBuyArmed(null); SFX.out(); return; }
+  if (buyArmed !== key) { setBuyArmed(key); return; }
+  setBuyArmed(null);
   for (const it of items) if (spendCoins(it.slot + ":" + it.id, it.price)) progress.owned[OWN_KEY[it.slot]].push(it.id);
   for (const it of items) if (ownsItem(it.slot, it.idx)) { if (key === "big") skinKeep.big = it.idx; else skinKeep[key][it.slot] = it.idx; }
   updateTryOn(); saveProgress(); saveSkins(); SFX.item();
 }
 // конец примерки (ушли с экрана нарядов, началась игра): снова последний свой вид. true — что-то поменялось
 export function endTryOn() {
-  buyArmed = null;
+  setBuyArmed(null);
   if (!tryingOn) return false;
   skinSel = cloneSkins(skinKeep); tryingOn = false;
   return true;
@@ -103,10 +106,10 @@ export function endTryOn() {
 export function fitOutfitsToOwned() {
   for (const pk of ["p1", "p2"]) for (const sl of LOOK_SLOTS) if (!ownsItem(sl, skinKeep[pk][sl])) skinKeep[pk][sl] = DEFAULT_SKINS[pk][sl];
   if (!ownsItem("big", skinKeep.big)) skinKeep.big = DEFAULT_SKINS.big;
-  skinSel = cloneSkins(skinKeep); buyArmed = null; tryingOn = false; saveSkins();
+  skinSel = cloneSkins(skinKeep); setBuyArmed(null); tryingOn = false; saveSkins();
 }
 // для тестов: стартовые виды, ничего не примерено
-export function resetOutfits() { skinSel = cloneSkins(DEFAULT_SKINS); skinKeep = cloneSkins(DEFAULT_SKINS); buyArmed = null; tryingOn = false; saveSkins(); redress(); }
+export function resetOutfits() { skinSel = cloneSkins(DEFAULT_SKINS); skinKeep = cloneSkins(DEFAULT_SKINS); setBuyArmed(null); tryingOn = false; saveSkins(); redress(); }
 
 export const botOutfit = i => ({ hair: (i * 3 + G.level) % HAIRS.length, hat: (i * 5 + G.level * 2 + 1) % HATS.length, jacket: (i * 3 + 2 + G.level) % JACKETS.length, pants: (i * 2 + G.level) % PANTS.length });
 // SPEC-009: надетое в bebebe-outfits становится своим — только для сохранений без owned (до SPEC-009 всё было бесплатно), один раз

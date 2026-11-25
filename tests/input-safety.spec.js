@@ -51,6 +51,43 @@ test("two taps in one frame on a wardrobe price arm it, they do not buy", async 
   expect(await page.evaluate(() => window.__bb.hudRects.map(h => h.id))).toContain("look-note:p1");   // "Tap again to buy"
 });
 
+// review fix: two fingers on the pause screen in one frame — the first (on the background) resumes, the second (where the pause
+// menu's Home button was) must not run the stale Home
+test("two fingers on the pause screen in one frame: the level resumes, the stale Home button does nothing", async ({ page }) => {
+  await openGame(page);
+  await page.evaluate(() => { window.__bb.startGame(1); window.__bb.mode = "pause"; });
+  await frames(page);
+  const home = await page.evaluate(() => { const q = window.__bb.buttonRects.find(r => /Home/.test(r.text || "")); return q && q.id; });
+  expect(home, "the pause menu's Home button").toBeTruthy();
+  const h = await centre(page, home), bg = await page.evaluate(() => { const c = document.getElementById("game").getBoundingClientRect(); return { x: c.left + 20, y: c.bottom - 20 }; });
+  await page.evaluate(([a, b]) => {
+    const cv = document.getElementById("game");
+    cv.dispatchEvent(new PointerEvent("pointerdown", { pointerId: 21, clientX: a.x, clientY: a.y, bubbles: true, cancelable: true, pointerType: "mouse", isPrimary: true }));
+    cv.dispatchEvent(new PointerEvent("pointerdown", { pointerId: 22, clientX: b.x, clientY: b.y, bubbles: true, cancelable: true, pointerType: "mouse" }));
+  }, [bg, h]);
+  expect(await page.evaluate(() => window.__bb.mode)).toBe("play");
+});
+
+// review fix: a double tap on a boss comic (one page, "▶ Play"): the level starts once, the second tap does nothing
+test("a double tap on a boss comic starts the boss level once", async ({ page }) => {
+  await openGame(page);
+  await page.evaluate(() => { const b = window.__bb; b.progress.worlds.park.unlocked = 20; b.world = "park"; b.openMap(); });
+  await frames(page);
+  await page.evaluate(() => { window.__bb.tapButton("stop:20"); });
+  await frames(page);
+  await page.evaluate(() => { window.__bb.tapButton("card:1"); });
+  await frames(page);
+  expect(await page.evaluate(() => window.__bb.scene && window.__bb.scene.id)).toBe("boss_park");
+  const bg = await page.evaluate(() => { const c = document.getElementById("game").getBoundingClientRect(); return { x: c.left + c.width / 2, y: c.top + 30 }; });
+  const ev = (type, id) => page.evaluate(([t, i, p]) => { document.getElementById("game").dispatchEvent(new PointerEvent(t, { pointerId: i, clientX: p.x, clientY: p.y, bubbles: true, cancelable: true, pointerType: "touch", isPrimary: i === 31 })); }, [type, id, bg]);
+  await page.evaluate(([p]) => {   // both fingers down in one task (one frame)
+    const cv = document.getElementById("game");
+    for (const i of [31, 32]) cv.dispatchEvent(new PointerEvent("pointerdown", { pointerId: i, clientX: p.x, clientY: p.y, bubbles: true, cancelable: true, pointerType: "touch", isPrimary: i === 31 }));
+  }, [bg]);
+  expect(await page.evaluate(() => [window.__bb.mode, window.__bb.level, window.__bb.sticks.length]), "the second finger did not act in the level").toEqual(["play", 20, 0]);
+  await ev("pointerup", 31); await ev("pointerup", 32);
+});
+
 test.describe("on a touch screen", () => {
   test.use({ hasTouch: true });
 

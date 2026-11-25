@@ -21,18 +21,18 @@ const CACHE_PREFIX = "bebebe-";          // all Pages projects of the account sh
 const NET_TIMEOUT_MS = 4000;             // weak signal: after this long, a cached copy wins over a slow network
 // SPEC-011: written by npm run precache (scripts/precache.js) — do not edit by hand
 // precache:start
-const SRC_HASH = "61078c4348";
+const SRC_HASH = "496138e5c1";
 const PRECACHE_LOCAL = [
   "./", "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512-maskable.png",
   "./icons/icon-512.png", "./icons/icon.svg", "./index.html", "./manifest.webmanifest"
 ];
 const PRECACHE_SRC = [
-  "./src/client/art-names.js?v=7228f7f839", "./src/client/art.js?v=9447a553cf", "./src/client/debug.js?v=be6d8af7ce",
-  "./src/client/errors.js?v=5bc51754b2", "./src/client/flow.js?v=9a60ede2e2", "./src/client/fx.js?v=73f397efb4",
-  "./src/client/input.js?v=732ab85617", "./src/client/lifecycle.js?v=f003d7462c", "./src/client/look.js?v=6b3f0ae3e3",
-  "./src/client/main.js?v=4ff543b772", "./src/client/names.js?v=53974b368f", "./src/client/outfits.js?v=3e76d2feee",
-  "./src/client/progress.js?v=caa7c91cff", "./src/client/screen.js?v=57a76e38b6", "./src/client/shop.js?v=ebde4ad6de",
-  "./src/client/sound.js?v=57a594910c", "./src/client/state.js?v=f608d2df67",
+  "./src/client/art-names.js?v=7228f7f839", "./src/client/art.js?v=9447a553cf", "./src/client/debug.js?v=6adc5bcbf8",
+  "./src/client/errors.js?v=56c17c26fb", "./src/client/flow.js?v=86fbc5a5b1", "./src/client/fx.js?v=73f397efb4",
+  "./src/client/input.js?v=1b96af49be", "./src/client/lifecycle.js?v=11ae5cc857", "./src/client/look.js?v=6b3f0ae3e3",
+  "./src/client/main.js?v=4ff543b772", "./src/client/names.js?v=53974b368f", "./src/client/outfits.js?v=5939f4a835",
+  "./src/client/progress.js?v=d965a217a9", "./src/client/screen.js?v=57a76e38b6", "./src/client/shop.js?v=ebde4ad6de",
+  "./src/client/sound.js?v=57a594910c", "./src/client/state.js?v=a1d3245082",
   "./src/client/three/bosses.js?v=7814dfb8d4", "./src/client/three/camera.js?v=39a889ad56",
   "./src/client/three/characters.js?v=87a7d8775e", "./src/client/three/houses.js?v=c9bc94bc94",
   "./src/client/three/look3d.js?v=468f721ef8", "./src/client/three/map3d.js?v=c3fed1392a",
@@ -44,10 +44,10 @@ const PRECACHE_SRC = [
   "./src/client/ui/character/wardrobe.js?v=e3e931bd3a", "./src/client/ui/draw.js?v=688e24ddbd",
   "./src/client/ui/home.js?v=5df7db0c9e", "./src/client/ui/hud.js?v=33c5fb55d9", "./src/client/ui/map.js?v=4634784c68",
   "./src/client/ui/menu.js?v=3e64627b0a", "./src/client/ui/minimap.js?v=afd7cc3057",
-  "./src/client/ui/phone.js?v=e22828e53e", "./src/client/ui/screens.js?v=f1fa1c5e4b",
-  "./src/client/ui/story.js?v=78170fa6d5", "./src/client/ui/text.js?v=56db91f1d4",
+  "./src/client/ui/phone.js?v=e22828e53e", "./src/client/ui/screens.js?v=ae864d2c8c",
+  "./src/client/ui/story.js?v=a8bffb987f", "./src/client/ui/text.js?v=56db91f1d4",
   "./src/client/ui/win.js?v=9b3f336da5", "./src/core/active.js?v=70aa836ebd", "./src/core/autopilot.js?v=528edb53f9",
-  "./src/core/big.js?v=745c03a759", "./src/core/bots.js?v=fc04a520e3", "./src/core/config.js?v=513505a04f",
+  "./src/core/big.js?v=745c03a759", "./src/core/bots.js?v=fc04a520e3", "./src/core/config.js?v=c13e518f42",
   "./src/core/difficulty.js?v=72aff2bd1e", "./src/core/economy.js?v=6c6ac20714", "./src/core/game.js?v=2cc2a176fc",
   "./src/core/hearing.js?v=3b691efd0b", "./src/core/hooks.js?v=5ceea54c61", "./src/core/index.js?v=2ac6418608",
   "./src/core/level/build.js?v=fc9509a62b", "./src/core/level/generate.js?v=455b2ff4e4",
@@ -169,7 +169,9 @@ self.addEventListener("activate", event => {
     const complete = [];
     for (const n of names.filter(x => kindOf(x) === "src")) if (await isComplete(n)) complete.push(n);
     complete.slice(-(KEEP - 1)).forEach(n => keep.add(n));
-    for (const kind of ["assets", "three"]) names.filter(n => kindOf(n) === kind).slice(-(KEEP - 1)).forEach(n => keep.add(n));
+    names.filter(n => kindOf(n) === "assets").slice(-(KEEP - 1)).forEach(n => keep.add(n));
+    // three.js: only the vendored caches (bebebe-three-r<REVISION>, SPEC-025) are kept; the old jsDelivr one goes
+    names.filter(n => kindOf(n) === "three" && n.startsWith(CACHE_PREFIX + "three-r")).slice(-(KEEP - 1)).forEach(n => keep.add(n));
     await Promise.all(names.filter(n => !keep.has(n)).map(n => caches.delete(n)));
     await self.clients.claim();
   })());
@@ -248,8 +250,9 @@ self.addEventListener("fetch", event => {
     // version (no ignoreSearch fallback across caches), so a page cannot mix module versions
     return;
   } else if (local && url.pathname.includes("/vendor/")) {
-    // the vendored three.js (versioned URLs from the import map): its own cache, cache-first
-    event.respondWith(cacheFirst(event, req, CACHE_THREE));
+    // the vendored three.js (versioned URLs from the import map): cache-first from the cache the install filled; never written
+    // at runtime (a URL the install did not cache comes from the network)
+    event.respondWith(cacheFirst(event, req, null));
   } else if (local && url.pathname.includes("/assets/")) {
     event.respondWith(cacheFirst(event, req, CACHE_ASSETS));
   } else if (local && url.pathname.includes("/icons/")) {

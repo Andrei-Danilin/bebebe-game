@@ -5,7 +5,7 @@ game is written for it. Dev-only tools (Playwright, ESLint, sharp, …) are not 
 
 | Component | Version | Files | Licence | Source |
 |---|---|---|---|---|
-| three.js | r187 (`three@0.187.0`) | `vendor/three/three.module.js`, `vendor/three/three.core.js` | MIT — `vendor/three/LICENSE` (copyright 2010–2026 three.js authors) | the npm package `three@0.187.0`, files `build/three.module.js` and `build/three.core.js` |
+| three.js | r187 (`three@0.187.0`) | `vendor/three/three.module.js`, `vendor/three/three.core.js` | MIT — `vendor/three/LICENSE` (copyright 2010–2026 three.js authors) | jsDelivr's minified copies (`three.module.min.js`, `three.core.min.js`) of the npm package `three@0.187.0` build files `build/three.module.js` and `build/three.core.js`, written by `npm run vendor:three` |
 
 ## three.js
 
@@ -14,7 +14,8 @@ game is written for it. Dev-only tools (Playwright, ESLint, sharp, …) are not 
 - **Which files:** the npm package of r187 ships no minified build, so the vendored files are the minified copies of the two
   build files that jsDelivr generates with Terser (`three.module.min.js`, `three.core.min.js` of `three@0.187.0`), stored
   under the original names because the minified module imports `./three.core.js`. Their headers are kept: jsDelivr's note
-  and three.js's `@license` header (MIT, SPDX identifier). Nothing else is changed. `vendor/three/package.json` only tells
+  and three.js's `@license` header (MIT, SPDX identifier). Nothing else is changed. `npm run vendor:three`
+  (`scripts/vendor-three.js`) re-creates them from the version `package.json` pins and runs `npm run precache`. `vendor/three/package.json` only tells
   Node the files are ES modules (as `src/package.json` does).
 - **Licence:** MIT, full text in `vendor/three/LICENSE` (copied from the npm package).
 - **Version check:** `tests/pwa.spec.js` "the vendored three.js is the version of package.json and the service worker" — the

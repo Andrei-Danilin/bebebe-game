@@ -3,11 +3,12 @@
 
 import { CFG } from "../core/config.js";
 import { L } from "../i18n.js";
-import { backToWardrobe, chooseStop, closeCard, goBack, closeShop, cycleWorld, inWardrobe, mapSelN, mode, moveMapSel, nextLang, nextLevel, openStory, playCard, pressKiss, pressKit, resumeGame, retryLevel, sceneNext, scenePrev, sceneSkip, setMode, storyBackKey, storyCh, storyStep, switchShopTab, toggleSound, toMap, watchChapter } from "./flow.js";
+import { backToWardrobe, chooseStop, closeCard, goBack, closeShop, cycleWorld, inWardrobe, mapSelN, mode, moveMapSel, nextLang, nextLevel, openStory, playCard, pressKiss, pressKit, resumeGame, retryLevel, sceneNext, scenePrev, sceneSkip, setMode, setStoryPage, storyBackKey, storyStep, switchShopTab, toggleSound, toMap, watchChapter } from "./flow.js";
 import { LOOK } from "./look.js";
 import { cleanName, nameFor, setName } from "./names.js";
-import { buyArmed, randomOutfit } from "./outfits.js";
+import { randomOutfit } from "./outfits.js";
 import { canvas, CSS_W, PHONE, UH, UW, wrap } from "./screen.js";
+import { cardOpen, pressCard } from "./errors.js";
 import { initAudio } from "./sound.js";
 import { ui } from "./state.js";
 import { openTutorial, tutorialSkip } from "./tutorial.js";
@@ -94,19 +95,10 @@ export function toGame(e) {
   const rect = canvas.getBoundingClientRect();
   return { x: (e.clientX - rect.left) * UW / rect.width, y: (e.clientY - rect.top) * UH / rect.height };
 }
-// SPEC-025 AC 7d: a hit counts only in a button list drawn for the screen shown now (a second tap in the same frame, after the
-// first one changed the screen, finds an older generation and runs nothing)
-const hitButton = p => (ui.buttonsGen !== ui.btnGen ? null : ui.buttons.find(b => p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h));
-// what the drawn buttons belong to: the screen, its page or tab, an armed button, the world and level
-const screenKey = () => [mode, ui.shopTab, ui.wardrobePage, ui.storyPage, storyCh, ui.storyScene && ui.storyScene.id, ui.storyScene && ui.storyScene.page,
-  ui.resetArmed, buyArmed, G.world, G.level, !!nameInput].join("|");
-// a pointer handler: if it changed the screen, the button list of this frame is stale — a new generation
-function guardTap(fn) {
-  return e => {
-    const k = screenKey();
-    try { fn(e); } finally { if (screenKey() !== k) ui.btnGen++; }
-  };
-}
+// SPEC-025 AC 7d: this frame's buttons belong to an older screen (a tap, key or pad press changed it since it was drawn: state.js
+// screenChanged) — a pointer then does nothing until the next frame draws the screen shown now
+const staleButtons = () => ui.buttonsGen !== ui.screenSeq;
+const hitButton = p => ui.buttons.find(b => p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h);
 let pendingUp = null;   // кнопка, которая срабатывает на отпускании (поле имени: iOS даёт фокус только в pointerup/click)
 
 const endStick = e => sticks.delete(e.pointerId);
@@ -181,6 +173,7 @@ function padLost(pi) {
 }
 function onPadButton(b, pad = 0) {
   if (nameInput) return;
+  if (cardOpen()) { if (b === 0 || b === 9) pressCard(); return; }   // SPEC-025: a card over the game — A / Start press it, nothing else
   initAudio();
   if (mode === "home") {
     const a = homeActions().find(q => q.pad.includes(b));   // SPEC-017: A — «Играть», X — история, Y — магазин
@@ -199,7 +192,7 @@ function onPadButton(b, pad = 0) {
     if (b === 1) closeCard();
   } else if (mode === "story") {
     if (b === 1) storyBackKey();
-    if (b === 3) ui.storyPage = ui.storyPage === "rules" ? "chapters" : "rules";   // Y — «Как играть»
+    if (b === 3) setStoryPage(ui.storyPage === "rules" ? "chapters" : "rules");   // Y — «Как играть»
     if (b === 2 && ui.storyPage === "chapters") watchChapter();               // SPEC-022: X — посмотреть заставку главы
     if (ui.storyPage === "chapters") {
       if (b === 14 || b === LOOK.PAD_PREV_WORLD) storyStep(-1);
@@ -277,6 +270,11 @@ export function fillInputs() {
 export function initInput() {
   window.addEventListener("keydown", e => {
     if (nameInput) return;                     // печатают имя: игровые клавиши (WASD, M, L, Esc…) не трогаем
+    if (cardOpen()) {                          // SPEC-025: a card over the game — keys do not reach the game; Enter / Space press the card
+      if (e.code === "Enter" || e.code === "NumpadEnter" || e.code === "Space") { e.preventDefault(); if (!keys.has(e.code)) pressCard(); }
+      keys.add(e.code);
+      return;
+    }
     if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"].includes(e.code)) e.preventDefault();
     if (e.code === "Slash" && mode === "play") e.preventDefault();   // SPEC-019: «/» — на цыпочках игрока 2 (в Firefox «/» — быстрый поиск)
     initAudio();
@@ -286,10 +284,11 @@ export function initInput() {
   window.addEventListener("keyup", e => keys.delete(e.code));
   window.addEventListener("blur", () => { keys.clear(); sticks.clear(); });
   window.addEventListener("contextmenu", e => e.preventDefault());
-  canvas.addEventListener("pointerdown", guardTap(e => {
+  canvas.addEventListener("pointerdown", e => {
     e.preventDefault();
     initAudio();
     if (nameInput) { closeNameInput(true); return; }   // тап мимо поля — имя сохраняется
+    if (staleButtons()) return;                         // SPEC-025 AC 7d: a second finger in the frame that changed the screen
     const p = toGame(e);
     const hit = hitButton(p);
     // SPEC-017: на карте и в главах истории кнопки срабатывают на отпускании — палец, сдвинутый вбок, листает миры / главы
@@ -309,7 +308,7 @@ export function initInput() {
       sticks.set(e.pointerId, { player, ox: p.x, oy: p.y, x: p.x, y: p.y });
       try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* ok */ }
     } else if (mode === "pause") resumeGame();
-  }));
+  });
   canvas.addEventListener("pointermove", e => {
     const s = sticks.get(e.pointerId);
     if (!s) return;
@@ -319,9 +318,10 @@ export function initInput() {
     const R = stickR();
     if (d > R * 1.6) { s.ox = s.x - dx / d * R * 1.6; s.oy = s.y - dy / d * R * 1.6; }  // джойстик «едет» за пальцем
   });
-  canvas.addEventListener("pointerup", guardTap(e => {
+  canvas.addEventListener("pointerup", e => {
     initAudio();                                       // SPEC-025 AC 14: WebKit unlocks audio on the release
     endStick(e);
+    if (staleButtons()) { ui.mapSwipe = null; pendingUp = null; return; }   // SPEC-025 AC 7d: the screen changed since the press
     const sw = ui.mapSwipe;
     if (sw && sw.id === e.pointerId) {
       ui.mapSwipe = null;
@@ -339,6 +339,6 @@ export function initInput() {
     if (!pu || pu.pointerId !== e.pointerId) return;
     const hit = hitButton(toGame(e));
     if (hit && hit.id === pu.id) hit.act();              // тот же жест — фокус в поле, клавиатура на iOS открывается
-  }));
+  });
   canvas.addEventListener("pointercancel", e => { endStick(e); ui.mapSwipe = null; });
 }

@@ -18,7 +18,8 @@
     "site": "node scripts/site.js",
     "lint": "node scripts/lint.js",
     "setup": "npm install && npx playwright install chromium && node scripts/claude-sync.js",
-    "precache": "node scripts/precache.js"
+    "precache": "node scripts/precache.js",
+    "vendor:three": "node scripts/vendor-three.js"
   },
   "devDependencies": {
     "@playwright/test": "1.65.1",

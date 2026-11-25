@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="BeBeBe">
 <meta name="theme-color" content="#faf4e2">
-<meta name="src-hash" content="61078c4348">
+<meta name="src-hash" content="496138e5c1">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -61,7 +61,7 @@
     try { if (!BOOT_TEXT[l]) l = localStorage.getItem("bebebe-lang"); } catch (e) { /* no storage */ }
     if (!BOOT_TEXT[l]) l = (navigator.languages || [navigator.language]).map(x => String(x).slice(0, 2).toLowerCase()).find(x => BOOT_TEXT[x]) || "en";
     const [noWebGL, startFailed, tryAgain, needsInternet, fileNotice] = BOOT_TEXT[l], TEXT = { noWebGL, startFailed, needsInternet };
-    const B = { lang: l, failed: null, early: [], onError: null };
+    const B = { lang: l, failed: null, early: [], onError: null, tryAgain };
     const add = (el, tag, id, text) => { const e = el.appendChild(document.createElement(tag)); e.id = id; e.textContent = text; return e; };
     B.fail = kind => {
       const el = document.getElementById("loading");
@@ -79,7 +79,10 @@
       if (!window.__bbReady) B.fail("startFailed");
       report(e.error || new Error(e.message), "error");
     }, true);
+    // a rejection whose reason carries benign: true (a refused optional browser feature) is no error of the game (AC 7c)
     addEventListener("unhandledrejection", e => { if (e.reason && e.reason.benign) e.preventDefault(); else report(e.reason, "rejection"); });
+    // three.js r187 needs WebGL2: probed here at once (a probe canvas, released), before the game's files load (boot() checks too)
+    try { const g = document.createElement("canvas").getContext("webgl2"); if (!g) B.fail("noWebGL"); else { const x = g.getExtension("WEBGL_lose_context"); if (x) x.loseContext(); } } catch (e) { B.fail("noWebGL"); }
     const el = document.getElementById("loading");
     if (location.protocol === "file:" && el) { el.textContent = ""; add(el, "div", "file-notice", fileNotice); }
     return B;
@@ -93,21 +96,21 @@
   "three": "./vendor/three/three.module.js?v=49bfc58c40",
   "./src/client/art-names.js": "./src/client/art-names.js?v=7228f7f839",
   "./src/client/art.js": "./src/client/art.js?v=9447a553cf",
-  "./src/client/debug.js": "./src/client/debug.js?v=be6d8af7ce",
-  "./src/client/errors.js": "./src/client/errors.js?v=5bc51754b2",
-  "./src/client/flow.js": "./src/client/flow.js?v=9a60ede2e2",
+  "./src/client/debug.js": "./src/client/debug.js?v=6adc5bcbf8",
+  "./src/client/errors.js": "./src/client/errors.js?v=56c17c26fb",
+  "./src/client/flow.js": "./src/client/flow.js?v=86fbc5a5b1",
   "./src/client/fx.js": "./src/client/fx.js?v=73f397efb4",
-  "./src/client/input.js": "./src/client/input.js?v=732ab85617",
-  "./src/client/lifecycle.js": "./src/client/lifecycle.js?v=f003d7462c",
+  "./src/client/input.js": "./src/client/input.js?v=1b96af49be",
+  "./src/client/lifecycle.js": "./src/client/lifecycle.js?v=11ae5cc857",
   "./src/client/look.js": "./src/client/look.js?v=6b3f0ae3e3",
   "./src/client/main.js": "./src/client/main.js?v=4ff543b772",
   "./src/client/names.js": "./src/client/names.js?v=53974b368f",
-  "./src/client/outfits.js": "./src/client/outfits.js?v=3e76d2feee",
-  "./src/client/progress.js": "./src/client/progress.js?v=caa7c91cff",
+  "./src/client/outfits.js": "./src/client/outfits.js?v=5939f4a835",
+  "./src/client/progress.js": "./src/client/progress.js?v=d965a217a9",
   "./src/client/screen.js": "./src/client/screen.js?v=57a76e38b6",
   "./src/client/shop.js": "./src/client/shop.js?v=ebde4ad6de",
   "./src/client/sound.js": "./src/client/sound.js?v=57a594910c",
-  "./src/client/state.js": "./src/client/state.js?v=f608d2df67",
+  "./src/client/state.js": "./src/client/state.js?v=a1d3245082",
   "./src/client/three/bosses.js": "./src/client/three/bosses.js?v=7814dfb8d4",
   "./src/client/three/camera.js": "./src/client/three/camera.js?v=39a889ad56",
   "./src/client/three/characters.js": "./src/client/three/characters.js?v=87a7d8775e",
@@ -132,15 +135,15 @@
   "./src/client/ui/menu.js": "./src/client/ui/menu.js?v=3e64627b0a",
   "./src/client/ui/minimap.js": "./src/client/ui/minimap.js?v=afd7cc3057",
   "./src/client/ui/phone.js": "./src/client/ui/phone.js?v=e22828e53e",
-  "./src/client/ui/screens.js": "./src/client/ui/screens.js?v=f1fa1c5e4b",
-  "./src/client/ui/story.js": "./src/client/ui/story.js?v=78170fa6d5",
+  "./src/client/ui/screens.js": "./src/client/ui/screens.js?v=ae864d2c8c",
+  "./src/client/ui/story.js": "./src/client/ui/story.js?v=a8bffb987f",
   "./src/client/ui/text.js": "./src/client/ui/text.js?v=56db91f1d4",
   "./src/client/ui/win.js": "./src/client/ui/win.js?v=9b3f336da5",
   "./src/core/active.js": "./src/core/active.js?v=70aa836ebd",
   "./src/core/autopilot.js": "./src/core/autopilot.js?v=528edb53f9",
   "./src/core/big.js": "./src/core/big.js?v=745c03a759",
   "./src/core/bots.js": "./src/core/bots.js?v=fc04a520e3",
-  "./src/core/config.js": "./src/core/config.js?v=513505a04f",
+  "./src/core/config.js": "./src/core/config.js?v=c13e518f42",
   "./src/core/difficulty.js": "./src/core/difficulty.js?v=72aff2bd1e",
   "./src/core/economy.js": "./src/core/economy.js?v=6c6ac20714",
   "./src/core/game.js": "./src/core/game.js?v=2cc2a176fc",

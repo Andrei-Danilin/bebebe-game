@@ -161,39 +161,59 @@ test("a lost WebGL context that never comes back: the game saves and reloads", a
 });
 
 // ---------- AC 14d: goBack() ----------
-// each screen as a function that opens it; Escape and goBack() from it must land on the same screen state
-const SCREENS = {
-  home: "b.mode = 'home'",
-  map: "b.openMap()",
-  levelCard: "b.openMap(); b.chooseStop(1)",
-  story: "b.openStory()",
-  rules: "b.openStory(); b.tapButton('story:rules')",
-  scene: "b.openScene('intro')",
-  shop: "b.openShop('home', 'items')",
-  friends: "b.openShop('home', 'wardrobe'); b.openFriends()",
-  play: "b.startGame(1)",
-  pause: "b.startGame(1); b.mode = 'pause'",
-  win: "b.startGame(1); b.mode = 'win'"
-};
-const where = page => page.evaluate(() => { const b = window.__bb; return { mode: b.mode, page: b.storyInfo ? b.storyInfo.page : null, ward: b.wardrobePage }; });
-test("goBack() lands where Escape lands, from every screen", async ({ page }) => {
+// Where Escape landed before SPEC-025 (master's onKey, checked by hand): each screen as the code that opens it and where "back"
+// goes from it — { mode, page (the story's page, drawn), ward (the wardrobe page) }. Escape, __bb.goBack() and the back buttons
+// must all land there; the home screen stays (decision D-14).
+const BACK = [
+  ["home", "b.mode = 'home'", { mode: "home" }],
+  ["map", "b.openMap()", { mode: "home" }],
+  ["levelCard", "b.openMap(); b.chooseStop(1)", { mode: "map" }],
+  ["story from home", "b.openStory()", { mode: "home" }],
+  ["story from the level card", "b.openMap(); b.chooseStop(1); b.openStory(b.world, 'levelCard')", { mode: "levelCard" }],
+  ["How to play", "b.openStory() | b.tapButton('story:rules')", { mode: "story", page: "chapters" }],
+  ["scene", "b.openScene('intro')", { mode: "home" }],
+  ["shop", "b.openShop('home', 'items')", { mode: "home" }],
+  ["friends", "b.openShop('home', 'wardrobe'); b.openFriends()", { mode: "shop", ward: "looks" }],
+  ["play", "b.startGame(1)", { mode: "pause" }],
+  ["pause", "b.startGame(1); b.mode = 'pause'", { mode: "play" }],
+  ["win", "b.startGame(1); b.mode = 'win'", { mode: "map" }]
+];
+const where = page => page.evaluate(() => { const b = window.__bb; return { mode: b.mode, page: b.mode === "story" && b.storyInfo ? b.storyInfo.page : undefined, ward: b.mode === "shop" ? b.wardrobePage : undefined }; });
+test("goBack() and Escape land where Escape landed before, from every screen", async ({ page }) => {
   await openGame(page);
   const fails = [];
-  for (const [name, open] of Object.entries(SCREENS)) {
-    const got = {};
+  for (const [name, open, want] of BACK) {
     for (const how of ["Escape", "goBack"]) {
-      await page.evaluate(`(() => { const b = window.__bb; b.toHome(); ${open}; })()`);
-      await frames(page);
+      for (const [k, step] of ["b.toHome()", ...open.split(" | ")].entries()) {   // " | ": a frame between (a tap needs the drawn screen)
+        await page.evaluate(`(() => { const b = window.__bb; ${step}; })()`);
+        if (k) await frames(page);
+      }
       if (how === "Escape") await page.keyboard.press("Escape"); else await page.evaluate(() => { window.__bb.goBack(); });
       await frames(page);
-      got[how] = await where(page);
+      const norm = o => JSON.stringify(Object.keys(o).filter(k => o[k] !== undefined).sort().map(k => [k, o[k]]));
+      const got = await where(page), exp = want;
+      if (norm(got) !== norm(exp)) fails.push(`${name} (${how}): ${JSON.stringify(got)}, want ${JSON.stringify(exp)}`);
     }
-    if (JSON.stringify(got.Escape) !== JSON.stringify(got.goBack)) fails.push(`${name}: Escape ${JSON.stringify(got.Escape)}, goBack ${JSON.stringify(got.goBack)}`);
-    if (name === "home" && got.goBack.mode !== "home") fails.push("home: goBack does nothing (D-14)");
   }
   expect(fails).toEqual([]);
   // the back buttons are goBack too
-  await page.evaluate(() => { window.__bb.openMap(); });
-  await frames(page);
-  expect(await page.evaluate(() => { window.__bb.tapButton("back:home"); return window.__bb.mode; })).toBe("home");
+  for (const [open, id, want] of [["b.openMap()", "back:home", "home"], ["b.openMap(); b.chooseStop(1)", "card:close", "map"], ["b.openStory()", "back:story", "home"]]) {
+    await page.evaluate(`(() => { const b = window.__bb; b.toHome(); ${open}; })()`);
+    await frames(page);
+    expect(await page.evaluate(k => { window.__bb.tapButton(k); return window.__bb.mode; }, id), id).toBe(want);
+  }
+});
+
+// review fix (AC 14c): the restore wait runs only while the game is on screen — lost while hidden, nothing reloads until it is back
+test("a context lost while hidden waits until the game is visible again", async ({ page }) => {
+  await openGame(page);
+  await page.evaluate(() => { window.__bb.CFG.GL_RESTORE_WAIT = 0.5; window.__notReloaded = true; });
+  await hide(page);
+  await page.evaluate(`${glExt}.loseContext()`);
+  await page.waitForTimeout(1500);
+  expect(await page.evaluate(() => window.__notReloaded), "no reload while hidden").toBe(true);
+  await show(page);
+  await page.waitForFunction(() => window.__notReloaded !== true, null, { timeout: 15_000 }).catch(() => {});
+  await page.waitForFunction(() => window.__bbReady === true, null, { timeout: 60_000 });
+  expect(await page.evaluate(() => window.__notReloaded), "reloaded once visible").toBeUndefined();
 });

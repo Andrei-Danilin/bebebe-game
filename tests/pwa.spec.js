@@ -193,7 +193,8 @@ test("old caches are removed on a new SW_VERSION", async ({ page }) => {
   const update = () => page.evaluate(async () => (await navigator.serviceWorker.getRegistration()).update());
   await withOwnServer(page, ov, async () => {
     expect(await keys()).toEqual([CACHE_ASSETS, CACHE_SRC, CACHE_THREE].sort());
-    await page.evaluate(() => Promise.all([caches.open("bebebe-v0"), caches.open("other-pages-app")]));   // an old-style name + another app
+    // an old-style name, the old jsDelivr three.js cache (SPEC-025: removed) + another app
+    await page.evaluate(() => Promise.all([caches.open("bebebe-v0"), caches.open("bebebe-three-0.187.0"), caches.open("other-pages-app")]));
     ov.fn = p => (p === "/sw.js" ? version("bebebe-test-v2") : null);
     await update();
     const v2 = ["bebebe-test-v2-assets-" + ASSETS_HASH, "bebebe-test-v2-src-" + SRC_HASH];
