@@ -11,6 +11,7 @@ import { LOOK } from "../look.js";
 import { ctx, PHONE } from "../screen.js";
 import { ui } from "../state.js";
 import { openTutorial } from "../tutorial.js";
+import { openGrownUps } from "./grownups.js";
 import { fitButton, rowsAt } from "./character/wardrobe.js";
 import { circle, drawArtFit, fillStroke, fillT, heartPath, noteArt, regButton, rr } from "./draw.js";
 import { lockedText, WORLD_ICONS } from "./map.js";
@@ -79,6 +80,12 @@ export function drawStory() {
     ctx.font = hudFont(PHONE ? cpx(18) : 20);
     const pw = Math.min((X1 - X0) * 0.45, Math.max(B * 2.5, scaledW(pt) + 30 * k));
     fitButton(X1 - pw, by, pw, B, pt, M.ok, () => openTutorial("story"), PHONE ? cpx(18) : 20, minMain).id = "story:practice";
+    // SPEC-025 AC 6: «Для взрослых» — слева в нижнем ряду (за вопросом для взрослых: сохранение, копии, журнал ошибок)
+    const gt = L().forGrownUps;
+    ctx.font = hudFont(PHONE ? cpx(16) : 17);
+    const gw = Math.min((X1 - X0) * 0.3, Math.max(B * 2, scaledW(gt) + 26 * k));
+    fitButton(X0, by, gw, B, gt, M.back, openGrownUps, PHONE ? cpx(16) : 17, minMain).id = "story:grownups";
+    const rowX = X0 + gw + g, rowW = X1 - X0 - pw - gw - 2 * g;   // the bottom row between the two buttons
     const rulesH = sz => lines.reduce((h, r) => { const b = noteRows(r, sz, minHint, maxW, 3); return h + b.rows.length * b.sz * 1.2 + 5 * k; }, 0);
     let size = PHONE ? cpx(S.phoneRule) : S.rule;
     if (PHONE) while (size > minHint && rulesH(size) > by - g - (top + 4 * k)) size = Math.max(minHint, size - 0.5);
@@ -95,15 +102,15 @@ export function drawStory() {
     });
     y += 6 * k;
     if (PHONE) {                                           // про палец — в нижнем ряду, левее «Тренировки», по середине ряда
-      const t = L().touch1, cw = X1 - X0 - pw - g, b = noteRows(t, cpx(S.phoneRule), minHint, cw, 2);
-      rowsAt("controls:touch", b, X0 + cw / 2, by + (B - b.rows.length * b.sz * 1.2) / 2, M.soft);
+      const t = L().touch1, cw = rowW, b = noteRows(t, cpx(S.phoneRule), minHint, cw, 2);
+      rowsAt("controls:touch", b, rowX + cw / 2, by + (B - b.rows.length * b.sz * 1.2) / 2, M.soft);
       ui.hudRects[ui.hudRects.length - 1].text = t;
       noteText("hint", b.sz);
     } else for (const [id, t] of [["controls:0", L().controls1], ["controls:1", L().controls2]]) {
-      // строка, которая дошла бы до нижнего ряда, — левее кнопки «Тренировка»
-      const cw = y + 2 * 15 * 1.2 > by - g ? X1 - X0 - pw - g : X1 - X0;
+      // строка, которая дошла бы до нижнего ряда, — между кнопками «Для взрослых» и «Тренировка»
+      const low = y + 2 * 15 * 1.2 > by - g, cw = low ? rowW : X1 - X0;
       const b = noteRows(t, 15, minHint, cw, 2);
-      y += rowsAt(id, b, X0 + cw / 2, y, M.soft) + 2 * k;
+      y += rowsAt(id, b, (low ? rowX : X0) + cw / 2, y, M.soft) + 2 * k;
       ui.hudRects[ui.hudRects.length - 1].text = t;
     }
     ui.storyInfo = { chapter: c.id, index: storyCh, locked: !open, page: "rules", title, text: "", art: null };

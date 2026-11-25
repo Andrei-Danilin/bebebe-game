@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="BeBeBe">
 <meta name="theme-color" content="#faf4e2">
-<meta name="src-hash" content="5bae2ad108">
+<meta name="src-hash" content="5b389ae1c4">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -37,6 +37,12 @@
   .bb-card > div { display: flex; flex-direction: column; gap: 16px; align-items: center; max-width: 80%; padding: 22px 28px; border: 4px solid #3d2b1f; border-radius: 18px; background: #faf4e2; color: #2f3f8f; font: 800 26px system-ui, sans-serif; text-align: center; }
   .bb-card .row { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
   .bb-card button.hl, .bb-card button:focus-visible { outline: 5px solid #2f3f8f; outline-offset: 3px; }   /* keyboard / gamepad highlight */
+  /* SPEC-025 phase 2: the parents' gate, the grown-ups page (scrolls; the code as selectable text) and the save notes */
+  .bb-card.page > div { max-width: 90%; max-height: 90%; overflow-y: auto; gap: 10px; padding: 16px 20px; font-size: 19px; }
+  .bb-card.page button { font-size: 18px; min-height: 48px; padding: 8px 16px; }
+  .bb-card .title { font-size: 26px; } .bb-card .small { font-size: 15px; font-weight: 600; } .bb-card .note { color: #b45309; }
+  .bb-card textarea { box-sizing: border-box; width: min(560px, 100%); font: 14px ui-monospace, monospace; -webkit-user-select: text; user-select: text; }
+  .bb-note { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 9; pointer-events: none; max-width: 80%; padding: 10px 18px; border: 3px solid #3d2b1f; border-radius: 14px; background: #faf4e2; color: #2f3f8f; font: 800 18px system-ui, sans-serif; text-align: center; }
 </style>
 </head>
 <body>
@@ -97,21 +103,23 @@
   "three": "./vendor/three/three.module.js?v=49bfc58c40",
   "./src/client/art-names.js": "./src/client/art-names.js?v=7228f7f839",
   "./src/client/art.js": "./src/client/art.js?v=9447a553cf",
-  "./src/client/debug.js": "./src/client/debug.js?v=47c0b4baaf",
-  "./src/client/errors.js": "./src/client/errors.js?v=aed7e90fe6",
+  "./src/client/debug.js": "./src/client/debug.js?v=1333fa9374",
+  "./src/client/errors.js": "./src/client/errors.js?v=31a18019a6",
   "./src/client/flow.js": "./src/client/flow.js?v=86fbc5a5b1",
   "./src/client/fx.js": "./src/client/fx.js?v=73f397efb4",
   "./src/client/input.js": "./src/client/input.js?v=4f52e8309e",
-  "./src/client/lifecycle.js": "./src/client/lifecycle.js?v=11ae5cc857",
-  "./src/client/look.js": "./src/client/look.js?v=6b3f0ae3e3",
-  "./src/client/main.js": "./src/client/main.js?v=4ff543b772",
-  "./src/client/names.js": "./src/client/names.js?v=53974b368f",
-  "./src/client/outfits.js": "./src/client/outfits.js?v=5939f4a835",
-  "./src/client/progress.js": "./src/client/progress.js?v=d965a217a9",
+  "./src/client/lifecycle.js": "./src/client/lifecycle.js?v=3a42079abe",
+  "./src/client/look.js": "./src/client/look.js?v=53a7026ec3",
+  "./src/client/main.js": "./src/client/main.js?v=881de31d15",
+  "./src/client/names.js": "./src/client/names.js?v=a351db74fc",
+  "./src/client/outfits.js": "./src/client/outfits.js?v=8564eaee23",
+  "./src/client/progress.js": "./src/client/progress.js?v=0713011f0e",
+  "./src/client/save.js": "./src/client/save.js?v=bddef332c5",
   "./src/client/screen.js": "./src/client/screen.js?v=57a76e38b6",
   "./src/client/shop.js": "./src/client/shop.js?v=ebde4ad6de",
   "./src/client/sound.js": "./src/client/sound.js?v=57a594910c",
   "./src/client/state.js": "./src/client/state.js?v=a1d3245082",
+  "./src/client/storage.js": "./src/client/storage.js?v=686b11f06c",
   "./src/client/three/bosses.js": "./src/client/three/bosses.js?v=7814dfb8d4",
   "./src/client/three/camera.js": "./src/client/three/camera.js?v=39a889ad56",
   "./src/client/three/characters.js": "./src/client/three/characters.js?v=87a7d8775e",
@@ -125,26 +133,27 @@
   "./src/client/three/themes.js": "./src/client/three/themes.js?v=6f17def67f",
   "./src/client/tutorial.js": "./src/client/tutorial.js?v=acce35fa62",
   "./src/client/ui/character/items.js": "./src/client/ui/character/items.js?v=0580594792",
-  "./src/client/ui/character/progress.js": "./src/client/ui/character/progress.js?v=e7feab8586",
+  "./src/client/ui/character/progress.js": "./src/client/ui/character/progress.js?v=33eab7a02a",
   "./src/client/ui/character/tabs.js": "./src/client/ui/character/tabs.js?v=6d32ab672c",
   "./src/client/ui/character/upgrades.js": "./src/client/ui/character/upgrades.js?v=ee922fce9f",
   "./src/client/ui/character/wardrobe.js": "./src/client/ui/character/wardrobe.js?v=e3e931bd3a",
   "./src/client/ui/draw.js": "./src/client/ui/draw.js?v=688e24ddbd",
+  "./src/client/ui/grownups.js": "./src/client/ui/grownups.js?v=7082193da3",
   "./src/client/ui/home.js": "./src/client/ui/home.js?v=5df7db0c9e",
   "./src/client/ui/hud.js": "./src/client/ui/hud.js?v=33c5fb55d9",
   "./src/client/ui/map.js": "./src/client/ui/map.js?v=4634784c68",
   "./src/client/ui/menu.js": "./src/client/ui/menu.js?v=3e64627b0a",
   "./src/client/ui/minimap.js": "./src/client/ui/minimap.js?v=afd7cc3057",
   "./src/client/ui/phone.js": "./src/client/ui/phone.js?v=e22828e53e",
-  "./src/client/ui/screens.js": "./src/client/ui/screens.js?v=ae864d2c8c",
-  "./src/client/ui/story.js": "./src/client/ui/story.js?v=a8bffb987f",
+  "./src/client/ui/screens.js": "./src/client/ui/screens.js?v=e1bed2f499",
+  "./src/client/ui/story.js": "./src/client/ui/story.js?v=cb52afd632",
   "./src/client/ui/text.js": "./src/client/ui/text.js?v=56db91f1d4",
   "./src/client/ui/win.js": "./src/client/ui/win.js?v=9b3f336da5",
   "./src/core/active.js": "./src/core/active.js?v=70aa836ebd",
   "./src/core/autopilot.js": "./src/core/autopilot.js?v=528edb53f9",
   "./src/core/big.js": "./src/core/big.js?v=745c03a759",
   "./src/core/bots.js": "./src/core/bots.js?v=fc04a520e3",
-  "./src/core/config.js": "./src/core/config.js?v=c13e518f42",
+  "./src/core/config.js": "./src/core/config.js?v=6f327714ee",
   "./src/core/difficulty.js": "./src/core/difficulty.js?v=72aff2bd1e",
   "./src/core/economy.js": "./src/core/economy.js?v=6c6ac20714",
   "./src/core/game.js": "./src/core/game.js?v=2cc2a176fc",
@@ -158,15 +167,15 @@
   "./src/core/mood.js": "./src/core/mood.js?v=8dcad43e22",
   "./src/core/path.js": "./src/core/path.js?v=b05dfc5c4e",
   "./src/core/practice.js": "./src/core/practice.js?v=44fe1505f4",
-  "./src/core/progress-rules.js": "./src/core/progress-rules.js?v=9aa174b661",
+  "./src/core/progress-rules.js": "./src/core/progress-rules.js?v=7e0dd8e21a",
   "./src/core/rules.js": "./src/core/rules.js?v=f09e1fba51",
   "./src/core/util.js": "./src/core/util.js?v=c7e01b9d3a",
-  "./src/core/wardrobe.js": "./src/core/wardrobe.js?v=89c9230548",
+  "./src/core/wardrobe.js": "./src/core/wardrobe.js?v=011be2182f",
   "./src/core/world.js": "./src/core/world.js?v=68fa838aaf",
-  "./src/i18n.js": "./src/i18n.js?v=fec4f8194d",
+  "./src/i18n.js": "./src/i18n.js?v=c52fd1f201",
   "./src/story.js": "./src/story.js?v=31072db672"
 } }
 </script>
-<script type="module" src="./src/client/main.js?v=4ff543b772"></script>
+<script type="module" src="./src/client/main.js?v=881de31d15"></script>
 </body>
 </html>

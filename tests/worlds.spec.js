@@ -5,7 +5,7 @@ const base = require("./pw");   // SPEC-023: @playwright/test + failure screensh
 const { expect } = base;
 const path = require("path");
 const fs = require("fs");
-const { textFloor, LANGS, openGame, frames, softly, sharedPage, resetGame } = require("./helpers");
+const { textFloor, LANGS, openGame, frames, softly, sharedPage, resetGame, putOldSave } = require("./helpers");
 
 // shared pages: one sim page, and one rendered page per setup (desktop, phone 667×375; one open at a time); resetGame() before each
 // test; page errors and a changed CFG fail it
@@ -87,7 +87,7 @@ test("old saves keep every world they played; the Park 3 / Field 5 / City 1 save
   soft.done();
   // the spec's save loaded from localStorage at start: the menu is on the Park (the saved School is locked)
   const f = save("pre-spec-030");
-  await page.evaluate(s => { localStorage.setItem("bebebe-progress", JSON.stringify(s)); }, f.keys["bebebe-progress"]);
+  await putOldSave(page, { "bebebe-progress": f.keys["bebebe-progress"] });   // SPEC-025: an old device's save
   await page.reload();
   await page.waitForFunction(() => window.__bbReady === true);
   const start = await page.evaluate(() => ({ world: window.__bb.world, last: window.__bb.progress.lastWorld,
@@ -111,7 +111,7 @@ test("locked worlds cannot be chosen; Play opens an open world; Reset leaves onl
     // Reset: everything was open, the City selected → only the Park, the menu on it
     b.setProgress({ worlds: { park: won(20), field: won(20), city: won(20), school: won(20), beach: won(2) } });
     b.mode = "map"; b.selectWorld("city"); out.before = b.world;
-    b.resetProgress(); b.resetProgress();
+    b.resetProgress();
     out.reset = { world: b.world, last: b.progress.lastWorld, open: b.WORLDS.filter(w => b.worldOpen(w).open), chapters: chapters() };
     b.mode = "home";
     return out;

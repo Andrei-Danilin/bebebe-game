@@ -153,7 +153,8 @@ test("the language on first launch: a saved one, else the browser's (pt, es, ru)
 });
 
 // a fresh browser context (nothing saved; `progress` = a bebebe-progress saved before the page loads, no language); a true first
-// launch saves the language it picked (bebebe-lang), a returning player without a saved language saves nothing
+// launch saves the language it picked, a returning player without a saved language gets English (SPEC-025: the language is saved
+// in bebebe-save in both cases; the old key bebebe-lang is never written)
 for (const [locale, progress, want, html] of [["pt-BR", false, "pt", "pt-BR"], ["es-AR", false, "es", "es"], ["fr-FR", false, "en", "en"], ["pt-BR", true, "en", "en"]]) {
   test(`a ${progress ? "returning player (progress, no saved language)" : "first launch"} in a ${locale} browser starts in ${want}`, async ({ browser }) => {
     const context = await browser.newContext({ locale });
@@ -161,7 +162,7 @@ for (const [locale, progress, want, html] of [["pt-BR", false, "pt", "pt-BR"], [
       if (progress) await context.addInitScript(() => { try { if (!localStorage.getItem("bebebe-progress")) localStorage.setItem("bebebe-progress", JSON.stringify({ coins: 5 })); } catch (e) { /* ok */ } });
       const page = await context.newPage();
       const errors = await openGame(page, { sim: true, clearStorage: false });
-      expect(await page.evaluate(() => [localStorage.getItem("bebebe-lang"), window.__bb.lang, document.documentElement.lang])).toEqual([progress ? null : want, want, html]);
+      expect(await page.evaluate(() => [JSON.parse(localStorage.getItem("bebebe-save")).lang, localStorage.getItem("bebebe-lang"), window.__bb.lang, document.documentElement.lang])).toEqual([want, null, want, html]);
       expect(errors).toEqual([]);
     } finally {
       await context.close();
@@ -179,7 +180,7 @@ test("a first launch in a pt-BR browser stays Portuguese after the intro and a r
     await page.waitForFunction(() => window.__bb.mode === "scene", null, { timeout: 15_000 });
     await page.evaluate(() => { window.__bb.sceneSkip(); });
     await frames(page);
-    expect(await page.evaluate(() => [window.__bb.lang, window.__bb.mode, localStorage.getItem("bebebe-progress") !== null, localStorage.getItem("bebebe-lang")])).toEqual(["pt", "home", true, "pt"]);
+    expect(await page.evaluate(() => { const s = JSON.parse(localStorage.getItem("bebebe-save")); return [window.__bb.lang, window.__bb.mode, s.progress.seen.intro, s.lang]; })).toEqual(["pt", "home", true, "pt"]);
     await page.reload();
     await page.waitForFunction(() => window.__bbReady === true);
     expect(await page.evaluate(() => [window.__bb.lang, document.documentElement.lang])).toEqual(["pt", "pt-BR"]);
@@ -200,7 +201,7 @@ test("the globe cycles through the four languages; pt is pt-BR and is saved", as
   for (let i = 0; i < 4; i++) {
     await page.evaluate(() => { window.__bb.tapButton("home:lang"); });
     await frames(page);
-    seen.push(await page.evaluate(() => [window.__bb.lang, document.documentElement.lang, localStorage.getItem("bebebe-lang"), window.__bb.buttonRects.find(q => q.id === "home:lang").text]));
+    seen.push(await page.evaluate(() => [window.__bb.lang, document.documentElement.lang, JSON.parse(localStorage.getItem("bebebe-save")).lang, window.__bb.buttonRects.find(q => q.id === "home:lang").text]));
   }
   expect(seen).toEqual([["ru", "ru", "ru", "🌐 RU"], ["en", "en", "en", "🌐 EN"], ["es", "es", "es", "🌐 ES"], ["pt", "pt-BR", "pt", "🌐 PT"]]);
   await page.reload();

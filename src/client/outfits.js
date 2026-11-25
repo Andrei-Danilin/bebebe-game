@@ -30,10 +30,10 @@ export const BOSS_LOOKS = Object.freeze({
 // свой вид (только купленное или бесплатное): его сохраняет bebebe-outfits (форма — индексы, как раньше) и с ним начинается игра
 const DEFAULT_SKINS = { p1: { hair: 0, hat: 1, jacket: 0, pants: 0 }, p2: { hair: 1, hat: 4, jacket: 1, pants: 3 }, big: BIG_SKINS.findIndex(q => q.id === "dad") };   // SPEC-021: папа
 export const cloneSkins = o => ({ p1: { ...o.p1 }, p2: { ...o.p2 }, big: o.big });
-// SPEC-021: v — версия формы bebebe-outfits (пишем OUTFITS_V). В сохранении без неё или с v < DAD_SINCE_V (до SPEC-021) big: 0 —
+// SPEC-021: v — версия формы bebebe-outfits (писали 2; SPEC-025: ключ только читается). В сохранении без неё или с v < DAD_SINCE_V (до SPEC-021) big: 0 —
 // почти всегда «не выбирал» (Классика была образом по умолчанию), поэтому такой Большой становится папой (решение координатора,
 // BACKLOG: проверить с Андреем); другие номера остаются. Классика, выбранная после этого, сохраняется с v и остаётся Классикой.
-const OUTFITS_V = 2, DAD_SINCE_V = 2;
+const DAD_SINCE_V = 2;   // SPEC-025: the old key is only read now (bebebe-save stores ids)
 // чистая функция «сохранение → наряды» (то же при запуске; тесты проверяют формы через __bb.loadOutfits); никогда не бросает
 export function loadOutfits(sv) {
   const out = cloneSkins(DEFAULT_SKINS);
@@ -43,9 +43,22 @@ export function loadOutfits(sv) {
   out.big = (Number(sv.v) || 0) < DAD_SINCE_V && big === 0 ? DEFAULT_SKINS.big : clamp(big | 0, 0, BIG_SKINS.length - 1);
   return out;
 }
-export let skinSel = cloneSkins(DEFAULT_SKINS);   // из bebebe-outfits — initSaves
+// SPEC-025 AC 3c: in bebebe-save the outfits are stored by item id — { p1: { hair, hat, jacket, pants }, p2: {…}, big } — so a list
+// may change its order; an unknown id (or a broken shape) falls back to that slot's default. Pure, never throw
+const BIG_SLOT = BIG_SKINS;
+export const outfitsToIds = o => ({ p1: Object.fromEntries(Object.keys(SLOTS).map(k => [k, SLOTS[k][o.p1[k]].id])),
+  p2: Object.fromEntries(Object.keys(SLOTS).map(k => [k, SLOTS[k][o.p2[k]].id])), big: BIG_SLOT[o.big].id });
+export function outfitsFromIds(v) {
+  const out = cloneSkins(DEFAULT_SKINS), at = (list, id, d) => { const i = list.findIndex(q => q.id === id); return i >= 0 ? i : d; };
+  if (!v || typeof v !== "object") return out;
+  for (const pk of ["p1", "p2"]) if (v[pk] && typeof v[pk] === "object") for (const k of Object.keys(SLOTS)) out[pk][k] = at(SLOTS[k], v[pk][k], out[pk][k]);
+  out.big = at(BIG_SLOT, v.big, out.big);
+  return out;
+}
+export let skinSel = cloneSkins(DEFAULT_SKINS);   // из сохранения — loadSave (save.js)
 export let skinKeep = cloneSkins(skinSel);
-const saveSkins = () => writeOutfits({ ...skinKeep, v: OUTFITS_V });   // хранилище — progress.js
+// SPEC-025: the whole save is written by the save module (save.js reads skinKeep, stored by id)
+const saveSkins = () => writeOutfits();
 // гардероб (SPEC-009): купленное — в progress.owned по id; ключ списка для слота; бесплатное (price 0, причёски) — всегда своё
 const OWN_KEY = { hat: "hats", jacket: "jackets", pants: "pants", big: "big" };
 export const LOOK_SLOTS = ["hat", "jacket", "pants"];   // платные слоты маленьких (причёски бесплатные)

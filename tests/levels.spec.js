@@ -171,7 +171,7 @@ test("the map shows six worlds and switches between them", async ({ page }) => {
   });
   await page.mouse.click(at.x, at.y);
   await frames(page);
-  const after = await page.evaluate(() => ({ world: window.__bb.world, level: window.__bb.level, mode: window.__bb.mode, last: JSON.parse(localStorage.getItem("bebebe-progress")).lastWorld,
+  const after = await page.evaluate(() => ({ world: window.__bb.world, level: window.__bb.level, mode: window.__bb.mode, last: JSON.parse(localStorage.getItem("bebebe-save")).progress.lastWorld,
     selected: window.__bb.mapInfo.tabs.map(c => c.selected), built: window.__bb.levelInfo.world }));
   expect(after).toEqual({ world: "school", level: 4, mode: "map", last: "school", selected: [false, false, false, true, false, false], built: "school" });
   expect(await title()).toBe("🏫 School  ⭐ 1/60");

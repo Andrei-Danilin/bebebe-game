@@ -1,4 +1,4 @@
-// SPEC-011: the players', the Big One's and the bots' names (bebebe-names, read and written by progress.js):
+// SPEC-011: the players', the Big One's and the bots' names (stored in bebebe-save by save.js; SPEC-025):
 // cleanName, namesFrom, nameFor, setName, nameOf.
 // Client module (moved out of index.html in Phase C).
 
@@ -6,7 +6,7 @@ import { CFG } from "../core/config.js";
 import { L } from "../i18n.js";
 import { writeNames } from "./progress.js";
 
-// ---------- Имена: игроки, Большой, боты (localStorage bebebe-names; "" = имя по умолчанию на текущем языке) ----------
+// ---------- Имена: игроки, Большой, боты (bebebe-save; "" = имя по умолчанию на текущем языке) ----------
 const NAME_SLOTS = ["p1", "p2", "big", "bot1", "bot2", "bot3", "bot4"];
 export const BOT_SLOTS = 4;
 export function cleanName(s) {
@@ -15,8 +15,8 @@ export function cleanName(s) {
   return Array.from(s).slice(0, CFG.NAME_MAX).join("").trim();      // длина — по кодовым точкам (эмодзи = 1)
 }
 let namesTyped = { p1: "", p2: "", big: "", bots: ["", "", "", ""] };
-// сохранённые имена (разобранный bebebe-names) → очищенные имена; не объект — null (остаются имена по умолчанию).
-// Хранилище читает и пишет progress.js (initNames, writeNames)
+// сохранённые имена (names из bebebe-save или старый bebebe-names) → очищенные имена; не объект — null (имена по умолчанию).
+// Хранилище читает и пишет save.js (SPEC-025)
 export function namesFrom(nv) {
   if (!nv || typeof nv !== "object") return null;
   const bots = Array.isArray(nv.bots) ? nv.bots : [];
@@ -40,6 +40,10 @@ export function setName(slot, text) {
 export const allNames = () => ({ p1: nameFor("p1"), p2: nameFor("p2"), big: nameFor("big"), bots: [1, 2, 3, 4].map(i => nameFor("bot" + i)) });
 const slotOf = l => l.isBig ? "big" : l.kind === "player" && l.id < 2 ? "p" + (l.id + 1) : "bot" + (Math.max(0, l.botIndex) % BOT_SLOTS + 1);
 export const nameOf = l => nameFor(slotOf(l));
+
+// SPEC-025: the typed names as the save stores them (a copy); no names typed
+export const typedNames = () => ({ ...namesTyped, bots: [...namesTyped.bots] });
+export const noNames = () => ({ p1: "", p2: "", big: "", bots: Array.from({ length: BOT_SLOTS }, () => "") });
 
 // setters (SPEC-011 AC 5: other modules change this module's state only through them)
 export function setNamesTyped(v) { namesTyped = v; }

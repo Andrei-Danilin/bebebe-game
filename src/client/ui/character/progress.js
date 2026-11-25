@@ -9,7 +9,7 @@ import { ITEM_ART, UPG_ART, worldArt } from "../../art.js";
 import { LOOK } from "../../look.js";
 import { nameFor } from "../../names.js";
 import { LOOK_SLOTS, ownsItem, P_COLORS } from "../../outfits.js";
-import { resetProgress } from "../../progress.js";
+import { armReset, confirmReset, resetConfirmReady } from "../../progress.js";
 import { ctx, OUT, PHONE } from "../../screen.js";
 import { upgLevel } from "../../shop.js";
 import { ui } from "../../state.js";
@@ -44,6 +44,13 @@ export function progressGeom() {
   return { P, c, g, B, left: { x: x0, y: y0, w: lw, h }, mid: { x: x0 + lw + g, y: y0, w: mw, h }, right: { x: x0 + lw + 2 * g + mw, y: y0, w: rest - mw, h },
     preview: { x: x0 + (lw - pv) / 2, y: y0, w: pv, h: pv } };
 }
+// SPEC-025 AC 6b: the separate confirm of a reset ("Yes, erase everything"), faded while it still ignores taps
+// (CFG.RESET_CONFIRM_DELAY s after the first tap)
+export function resetConfirmButton(x, y, w, h, size, min) {
+  ctx.globalAlpha = resetConfirmReady() ? 1 : 0.5;
+  fitButton(x, y, w, h, L().resetConfirm, LOOK.MENU_LOOK.armed, confirmReset, size, min).id = "progress:confirm";
+  ctx.globalAlpha = 1;
+}
 export function progressPage() {
   const G = progressGeom(), { P, c, B, left, mid, right, preview: pv } = G, M = LOOK.MENU_LOOK;
   const min = PHONE ? minPx("main") : LOOK.MENU_LOOK.progress.min, size = c(P.text), tsize = c(P.title);
@@ -66,10 +73,13 @@ export function progressPage() {
   const name = nameFor("p1");
   line("progress:name", name, left.x, pv.y + pv.h + c(4), c(P.nameH), left.w, { center: true, color: P_COLORS[0] });
   if (PHONE) {
-    const texts = ui.resetArmed ? [L().sure, L().sureShort] : [L().reset, L().resetShort], rsz = c(15);
+    // SPEC-025 AC 6b: armed, the button says "No, keep it" (a tap cancels) and the confirm is a separate button at the bottom of the
+    // right column (another place, the widest free spot)
+    const texts = ui.resetArmed ? [L().resetCancel, L().resetCancelShort] : [L().reset, L().resetShort], rsz = c(15);
     ctx.font = hudFont(rsz);
     const t = texts.find(q => scaledW(q) * LOOK.PHONE_SHOP.RESET_FIT + c(20) <= left.w) ?? texts.at(-1);
-    fitButton(left.x, left.y + left.h - B, left.w, B, t, ui.resetArmed ? M.armed : M.reset, resetProgress, rsz, min).id = "progress:reset";
+    fitButton(left.x, left.y + left.h - B, left.w, B, t, ui.resetArmed ? M.ok : M.reset, armReset, rsz, min).id = "progress:reset";
+    if (ui.resetArmed) resetConfirmButton(right.x, right.y + right.h - B, right.w, B, rsz, min);
   }
   // ---- посередине: звёзды основных миров и пройденные миры, по строке на мир ----
   const starMax = CFG.STARS_PER_LEVEL * levelsPerWorld() * MAIN_WORLDS.length, wmax = CFG.STARS_PER_LEVEL * levelsPerWorld();

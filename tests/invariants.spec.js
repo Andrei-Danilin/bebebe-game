@@ -94,7 +94,7 @@ test("a friend can always arrive in time, and a Little One just stood up is not 
 test("rewards add up, coins never go negative, inventory stays whole", async ({ simPage: page }) => {
   const r = await page.evaluate(() => {
     const b = window.__bb, C = b.CFG, out = { runs: [], buys: [], inv: [] };
-    const fresh = () => { b.resetProgress(); b.resetProgress(); };
+    const fresh = () => { b.resetProgress(); };
     // prev = the level's stars before (SPEC-009: > 0 → won before, a replay)
     const run = (name, world, n, st, win = true, prev = 0) => {
       fresh(); b.world = world; b.level = n;
@@ -268,20 +268,20 @@ test("a whole old save starts the game: progress moves, outfits and names load, 
   await page.reload();
   await page.waitForFunction(() => window.__bbReady === true);
   const r = await page.evaluate(() => {
-    const b = window.__bb, ls = k => JSON.parse(localStorage.getItem(k) || "null");
-    const out = { progress: JSON.parse(JSON.stringify(b.progress)), written: ls("bebebe-progress"), shown: b.names };
+    const b = window.__bb, sv = () => { b.save.flush(); return JSON.parse(localStorage.getItem("bebebe-save") || "null"); };   // SPEC-025: one key
+    const out = { progress: JSON.parse(JSON.stringify(b.progress)), written: sv().progress, shown: b.names };
     // the game saves what it loaded: an outfit there and back, a name set to itself, a progress save
     b.cycleOutfit("p1", "hair", 1); b.cycleOutfit("p1", "hair", -1);
     b.setName("p1", b.names.p1);
     b.world = "school"; b.selectWorld("park");   // SPEC-030: the School may be locked — the debug setter, then back to the (open) Park: a save
-    out.outfits = ls("bebebe-outfits"); out.names = ls("bebebe-names"); out.saved = ls("bebebe-progress");
+    out.outfits = b.save.outfitsFromIds(sv().outfits); out.names = sv().names; out.saved = sv().progress;
     return out;
   });
   expect(r.progress).toMatchObject(f.expect.progress);
   expect(r.progress.owned, "SPEC-009: the worn crown and Robot are owned").toEqual(f.expect.owned);
   expect(r.written, "the migration wrote the new shape back").toMatchObject(f.expect.progress);
   expect([r.shown.p1, r.shown.p2, r.shown.big]).toEqual([f.expect.names.p1, f.expect.names.p2, f.expect.names.big]);
-  expect(r.outfits).toEqual({ ...f.expect.outfits, v: 2 });   // SPEC-021: the outfits shape carries its version
+  expect(r.outfits).toEqual(f.expect.outfits);   // SPEC-025: stored by id, read back as the same indexes
   expect(r.names).toEqual(f.expect.names);
   expect(r.saved).toEqual(r.progress);
 });

@@ -1,5 +1,5 @@
 // SPEC-011: the entry point and the one place that starts the game: the rng flags of the tests, the init functions in the
-// start order of the one-file game, setHooks (before initSaves), initSaves, the first resetWorld, the frame loop frame,
+// start order of the one-file game, setHooks (before the saves), await loadSave() (SPEC-025), the first resetWorld, the frame loop frame,
 // registerServiceWorker, installDebug. Client module (moved out of index.html in Phase C).
 // SPEC-025 AC 7 / 7b: the start is one guarded boot() (no WebGL2 → the loading screen says noWebGL; any other start error →
 // startFailed with Try again, index.html); the frame loop schedules the next frame first and runs inside a guard.
@@ -16,7 +16,7 @@ import { drainEvents, stepGame, viewTick } from "./fx.js";
 import { initInput, pollPads } from "./input.js";
 import { initLifecycle } from "./lifecycle.js";
 import { endTryOn } from "./outfits.js";
-import { initSaves } from "./progress.js";
+import { loadSave } from "./save.js";
 import { fit, initScreen, isTouch, simMode } from "./screen.js";
 import { ui } from "./state.js";
 import { initCamera, updateCamera } from "./three/camera.js";
@@ -26,11 +26,12 @@ import { initPreviews } from "./three/previews.js";
 import { hasWebGL2, initScene, initThree } from "./three/setup.js";
 import { initSync, render3D } from "./three/sync.js";
 import { firstTutorial, openTutorial } from "./tutorial.js";
+import { showDueNote } from "./ui/grownups.js";
 import { updateMinimapFade } from "./ui/minimap.js";
 import { drawUI } from "./ui/screens.js";
 
 let introDue = false, tutorialDue = false, last = 0;
-function boot() {
+async function boot() {
   // SPEC-025 AC 7: errors are logged (and, once ready, shown) from here on
   initErrors();
   if (!hasWebGL2()) { failStart("noWebGL"); return; }   // SPEC-025 AC 7b: three.js r187 needs WebGL2
@@ -42,7 +43,8 @@ function boot() {
   initScreen();
   // SPEC-011 AC 3b: сторона клиента в порту hooks (Phase C: src/client/main.js) — до загрузки сохранений и до первой игры
   setHooks({ rebuild: rebuild3D });
-  initSaves();
+  // SPEC-025 AC 3b: the save module loads (and migrates, recovers) the save before the first level is built (storage is async)
+  await loadSave();
   initInput();
   initThree();
   fit();
@@ -68,7 +70,7 @@ function boot() {
   registerServiceWorker();
   installDebug();
 }
-try { boot(); } catch (e) { failStart(e && e.noWebGL ? "noWebGL" : "startFailed", e); }   // SPEC-025 AC 7b
+boot().catch(e => failStart(e && e.noWebGL ? "noWebGL" : "startFailed", e));   // SPEC-025 AC 7b
 
 // =====================================================================
 //  ГЛАВНЫЙ ЦИКЛ
@@ -84,6 +86,7 @@ function tick(now) {
   last = now;
   if (simMode) return;                       // sim: ни логики, ни рисования — игру шагает simRun
   if (introDue && mode === "home" && !document.getElementById("loading")) { introDue = false; openScene("intro", tutorialDue ? () => openTutorial("map") : null); }   // SPEC-022: первый запуск (SPEC-029: потом обучение)
+  if (inMenus() && !document.getElementById("loading")) showDueNote(now);   // SPEC-025 AC 4 / 4b: a save note, once, in the menus
   ui.T += dt;
   pollPads();
   syncStock();                              // SPEC-012: the local stock follows the saves (shop, tests)

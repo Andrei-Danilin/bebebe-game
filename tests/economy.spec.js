@@ -4,7 +4,7 @@ const base = require("./pw");   // SPEC-023: @playwright/test + failure screensh
 const { expect } = base;
 const path = require("path");
 const fs = require("fs");
-const { LANGS, openGame, sharedPage, resetGame, frames, softly, gameSource, ROOT } = require("./helpers");
+const { LANGS, openGame, sharedPage, resetGame, frames, softly, gameSource, ROOT, putOldSave, storedSave } = require("./helpers");
 
 // SPEC-018: one game page for the file; resetGame() before each test, page errors and a changed CFG fail the test.
 // A test that does not ask for `page` (the source scan) opens no game page (the worker's browser still starts: the
@@ -458,9 +458,9 @@ test("every win-screen text is in every language", async ({ simPage: page }) => 
 
 // ---------- AC 3: the wardrobe ----------
 // __bb.wardrobe() = { hat|jacket|pants|big: [{ id, price }], hairs } (plain data); __bb.outfits = { shown, saved } (indexes;
-// shown = what the wardrobe tab shows, saved = the last owned look, the one bebebe-outfits stores); __bb.buyLook(key) = a tap
-// on that column's Buy button. resetGame() puts the skin picker back to the defaults.
-const outfitsSaved = page => page.evaluate(() => JSON.parse(localStorage.getItem("bebebe-outfits") || "null"));
+// shown = what the wardrobe tab shows, saved = the last owned look, the one the save stores — SPEC-025: bebebe-save, by id, read
+// back as indexes); __bb.buyLook(key) = a tap on that column's Buy button. resetGame() puts the skin picker back to the defaults.
+const outfitsSaved = page => page.evaluate(() => { const b = window.__bb; b.save.flush(); return b.save.outfitsFromIds(JSON.parse(localStorage.getItem("bebebe-save")).outfits); });
 
 test("every wardrobe item has an id and a price; the basic ones and every default look are free", { tag: "@fast" }, async ({ simPage: page }) => {
   const r = await page.evaluate(() => ({ w: window.__bb.wardrobe(), tiers: window.__bb.WARDROBE_TIERS, def: window.__bb.outfits.shown }));
@@ -491,7 +491,7 @@ test("locked clothes can be tried on and bought", async ({ page }) => {
   let d = await page.evaluate(() => ({ o: window.__bb.outfits, ids: window.__bb.buttonRects.map(q => q.id), hud: window.__bb.hudRects.map(h => h.id), snd: window.__bb.sim().sounds }));
   expect(d.o.shown.p1.hat).toBe(crown);
   expect(d.o.saved.p1.hat).toBe(cap);
-  expect((await outfitsSaved(page)).p1.hat, "bebebe-outfits never stores a locked item").toBe(cap);
+  expect((await outfitsSaved(page)).p1.hat, "the save never stores a locked item").toBe(cap);
   expect(d.ids).toContain("buy-look:p1");
   expect(d.ids, "the name label makes room for the Buy button").not.toContain("name:p1");
   expect(d.hud).toEqual(expect.arrayContaining(["coins", "look-note:p1"]));   // "not enough coins" on the preview
@@ -524,7 +524,7 @@ test("locked clothes can be tried on and bought", async ({ page }) => {
   expect(d.o.saved.p1.hat).toBe(crown);
   expect((await outfitsSaved(page)).p1.hat).toBe(crown);
   expect(d.ids).toContain("name:p1");                                        // bought: the name label is back
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("bebebe-progress")).owned.hats)).toEqual(["crown"]);
+  expect((await storedSave(page)).progress.owned.hats).toEqual(["crown"]);
   // two locked pieces at once: one button buys both; a tap in between and another change disarm it
   const cape = idx("jacket", "cape"), green = idx("pants", "green");
   const r = await page.evaluate(([cp, gr]) => {
@@ -602,9 +602,9 @@ test("old saves keep their outfits", async ({ page }) => {
   await page.reload();
   await page.waitForFunction(() => window.__bbReady === true);
   const r = await page.evaluate(() => ({ owned: window.__bb.progress.owned, o: window.__bb.outfits, coins: window.__bb.progress.coins, inv: window.__bb.progress.inv,
-    stored: JSON.parse(localStorage.getItem("bebebe-progress")), storedOutfits: JSON.parse(localStorage.getItem("bebebe-outfits")) }));
+    stored: JSON.parse(localStorage.getItem("bebebe-save")).progress, storedOutfits: window.__bb.save.outfitsFromIds(JSON.parse(localStorage.getItem("bebebe-save")).outfits) }));
   expect(r.owned).toEqual({ hats: ["crown"], jackets: ["cape"], pants: [], big: ["bear"] });
-  expect(r.stored.owned, "written back once").toEqual(r.owned);
+  expect(r.stored.owned, "written once (SPEC-025: into bebebe-save)").toEqual(r.owned);
   expect(r.o.shown).toEqual(outfits);
   expect(r.o.saved).toEqual(outfits);
   expect(r.storedOutfits).toEqual(outfits);
@@ -618,7 +618,7 @@ test("old saves keep their outfits", async ({ page }) => {
   expect(c[0]).toEqual({ hats: ["crown"], jackets: [], pants: ["green"], big: ["robot"] });
   for (const e of c.slice(1)) expect(e).toEqual({ hats: [], jackets: [], pants: [], big: [] });
   // a progress reset takes the bought clothes away and puts free ones on (so a reload does not give them back)
-  const reset = await page.evaluate(() => { const b = window.__bb; b.resetProgress(); b.resetProgress(); return { o: b.outfits.saved, W: b.wardrobe() }; });
+  const reset = await page.evaluate(() => { const b = window.__bb; b.resetProgress(); return { o: b.outfits.saved, W: b.wardrobe() }; });
   for (const pk of ["p1", "p2"]) for (const k of ["hat", "jacket", "pants"]) expect(reset.W[k][reset.o[pk][k]].price, `${pk} ${k} free after a reset`).toBe(0);
   expect(reset.W.big[reset.o.big].price).toBe(0);
 });
@@ -784,7 +784,7 @@ test("upgrades are saved, merged with defaults and cleaned", async ({ simPage: p
   await page.reload();
   await page.waitForFunction(() => window.__bbReady === true);
   expect(await page.evaluate(() => [window.__bb.upgrades, window.__bb.progress.coins])).toEqual([{ fastFeet: 0, longItems: 0, quickHelp: 2 }, 0]);
-  expect(await page.evaluate(() => { const b = window.__bb; b.resetProgress(); b.resetProgress(); return b.upgrades; })).toEqual({ fastFeet: 0, longItems: 0, quickHelp: 0 });
+  expect(await page.evaluate(() => { const b = window.__bb; b.resetProgress(); return b.upgrades; })).toEqual({ fastFeet: 0, longItems: 0, quickHelp: 0 });
 });
 
 test("the shop has an Items tab and an Upgrades tab", async ({ page }) => {
@@ -840,7 +840,7 @@ async function upgradeTabProblems(page, phone) {
       Object.assign(b.progress.upgrades, { fastFeet: 0, longItems: 2, quickHelp: 3 }); b.mode = "shop"; b.shopTab = "upgrades";
     }, [lang, scale, coins]);
     await frames(page);
-    const d = await page.evaluate(() => { const b = window.__bb, resets = b.LANGS.flatMap(l => ["reset", "resetShort", "sure", "sureShort"].map(k => b.I18N[l][k]));
+    const d = await page.evaluate(() => { const b = window.__bb, resets = b.LANGS.flatMap(l => ["reset", "resetShort", "resetCancel", "resetCancelShort", "resetConfirm"].map(k => b.I18N[l][k]));
       return { buttons: b.buttonRects, hud: b.hudRects, ui: b.uiSize, texts: b.textSizes, min: b.CFG.PHONE_TEXT, tab: b.shopTab, resets }; });
     if (d.tab !== "upgrades") { fails.push(`${at}: tab ${d.tab}`); continue; }
     // SPEC-026: Reset progress moved to the Character's Progress page — not on the Upgrades tab
@@ -967,13 +967,11 @@ test("the Friends screen keeps a try-on; a save that knows owned clothes does no
   await frames(page);
   expect(await page.evaluate(() => window.__bb.outfits.shown.p1.hat), "the home screen ends it").not.toBe(r);
   // a SPEC-009 save (it has owned) wearing a crown it never bought: the crown is taken off, not given
-  await page.evaluate(c => {
-    localStorage.setItem("bebebe-progress", JSON.stringify({ coins: 5, owned: { hats: [], jackets: [], pants: [], big: [] } }));
-    localStorage.setItem("bebebe-outfits", JSON.stringify({ p1: { hair: 0, hat: c, jacket: 0, pants: 0 }, p2: { hair: 1, hat: 4, jacket: 1, pants: 3 }, big: 0 }));
-  }, r);
+  await putOldSave(page, { "bebebe-progress": { coins: 5, owned: { hats: [], jackets: [], pants: [], big: [] } },
+    "bebebe-outfits": { p1: { hair: 0, hat: r, jacket: 0, pants: 0 }, p2: { hair: 1, hat: 4, jacket: 1, pants: 3 }, big: 0 } });
   await page.reload();
   await page.waitForFunction(() => window.__bbReady === true);
-  const after = await page.evaluate(() => ({ owned: window.__bb.progress.owned.hats, hat: window.__bb.outfits.saved.p1.hat, stored: JSON.parse(localStorage.getItem("bebebe-outfits")).p1.hat }));
+  const after = await page.evaluate(() => ({ owned: window.__bb.progress.owned.hats, hat: window.__bb.outfits.saved.p1.hat, stored: window.__bb.save.outfitsFromIds(JSON.parse(localStorage.getItem("bebebe-save")).outfits).p1.hat }));
   expect(after).toEqual({ owned: [], hat: 1, stored: 1 });   // back to the free default cap
 });
 
@@ -1005,7 +1003,7 @@ test("a pause during the final hug and Map still counts the win; coins load as a
 // mittens, a star picked up, a kiss and a kit pressed in the player's input slot, each step by __bb.update
 test("quitting mid-level keeps star coins and spent charges", { tag: "@fast" }, async ({ simPage: page }) => {
   const r = await page.evaluate(() => {
-    const b = window.__bb, saved = () => JSON.parse(localStorage.getItem("bebebe-progress"));
+    const b = window.__bb, saved = () => { b.save.flush(); return JSON.parse(localStorage.getItem("bebebe-save")).progress; };   // SPEC-025: the queued write, stored
     b.progress.inv.kisses = 3; b.progress.inv.rescues = 2; b.progress.inv.mittens = 2; b.progress.coins = 10;
     b.world = "park"; b.level = 1; b.startGame(1); b.setEquip(0, "mittens");
     const L = b.littles, p1 = L[0];

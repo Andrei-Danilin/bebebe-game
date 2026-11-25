@@ -1,6 +1,6 @@
 // SPEC-011 AC 2b: the progress rules — the save shape (fresh, clean, load), which worlds are open, the reward of a level.
 // Core module.
-import { BONUS_WORLDS, CFG, MAIN_WORLDS, REWARD, UPGRADES, WORLDS, levelsPerWorld, upgTop, worldDifficulty } from "./config.js";
+import { BONUS_WORLDS, CFG, GLOVES, MAIN_WORLDS, REWARD, UPGRADES, WORLDS, levelsPerWorld, upgTop, worldDifficulty } from "./config.js";
 import { clamp } from "./util.js";
 import { BIG_SKINS, HATS, JACKETS, PANTS } from "./wardrobe.js";
 import { SEEN_IDS } from "../story.js";
@@ -65,16 +65,42 @@ function cleanWorld(v) {
 // Сохранение → прогресс. Старое (до SPEC-006: unlocked и stars без миров) переезжает в Парк; если есть и worlds,
 // и старые поля (старая вкладка дописала их), они сливаются с Парком: больший unlocked, лучшие звёзды уровня.
 // Поля unlocked/stars из объекта убираются. Никогда не бросает.
-// монетки из сохранения: целое ≥ 0 (испорченное → 0, дробное → вниз); правильное число не меняется
-const wholeCoins = v => { const n = Number(v); return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0; };
+// монетки из сохранения: целое 0…CFG.SAVE_MAX_COINS (испорченное → 0, дробное → вниз, больше — обрезается); правильное число не меняется
+const wholeCoins = v => { const n = Number(v); return Number.isFinite(n) && n > 0 ? Math.min(CFG.SAVE_MAX_COINS, Math.floor(n)) : 0; };
+// SPEC-025 AC 3d: заряды запаса — целые 0…CFG.SAVE_MAX_CHARGES (испорченное → 0)
+const wholeCharges = v => { const n = Number(v); return Number.isFinite(n) && n > 0 ? Math.min(CFG.SAVE_MAX_CHARGES, Math.floor(n)) : 0; };
+const INV_KEYS = Object.freeze(["mittens", "mega", "kisses", "rescues"]);
+// SPEC-025 AC 3d: надетые рукавицы — два значения из none / id рукавиц; не список → обе none, чужое значение → none
+const EQUIP_IDS = () => ["none", ...Object.keys(GLOVES)];
+function cleanEquip(v) {
+  if (!Array.isArray(v)) return ["none", "none"];
+  return [0, 1].map(i => (EQUIP_IDS().includes(v[i]) ? v[i] : "none"));
+}
+const plainObj = v => !!v && typeof v === "object" && !Array.isArray(v);
+const wholeIn = (v, max) => Number.isInteger(v) && v >= 0 && v <= max;
+// SPEC-025 AC 3 / 3d: known fields of a stored progress that fail this version's schema (type and range) → their names. loadProgress
+// defaults them; the save module writes them back unchanged in a save from a newer version (its own shape of that field)
+export function badProgressFields(pv) {
+  if (!plainObj(pv)) return [];
+  const bad = [], has = k => Object.hasOwn(pv, k);
+  if (has("worlds") && !plainObj(pv.worlds)) bad.push("worlds");
+  if (has("lastWorld") && typeof pv.lastWorld !== "string") bad.push("lastWorld");
+  if (has("coins") && !wholeIn(pv.coins, CFG.SAVE_MAX_COINS)) bad.push("coins");
+  if (has("inv") && (!plainObj(pv.inv) || INV_KEYS.some(k => Object.hasOwn(pv.inv, k) && !wholeIn(pv.inv[k], CFG.SAVE_MAX_CHARGES)))) bad.push("inv");
+  if (has("equip") && !(Array.isArray(pv.equip) && pv.equip.length === 2 && pv.equip.every(q => EQUIP_IDS().includes(q)))) bad.push("equip");
+  if (has("owned") && (!plainObj(pv.owned) || ["hats", "jackets", "pants", "big"].some(k => Object.hasOwn(pv.owned, k) && !Array.isArray(pv.owned[k])))) bad.push("owned");
+  if (has("upgrades") && !plainObj(pv.upgrades)) bad.push("upgrades");
+  if (has("seen") && !plainObj(pv.seen)) bad.push("seen");
+  return bad;
+}
 export const hasFlatProgress = pv => !!pv && typeof pv === "object" && ("unlocked" in pv || "stars" in pv);
 export function loadProgress(pv) {
   const p = freshProgress();
-  if (!pv || typeof pv !== "object") return p;
+  if (!pv || typeof pv !== "object" || Array.isArray(pv)) return p;   // SPEC-025 AC 3d: the root must be a plain object
   const { unlocked, stars, worlds, lastWorld, ...rest } = pv;
   const src = worlds && typeof worlds === "object" ? worlds : {};
   const out = { ...p, ...rest, worlds: {}, lastWorld: WORLDS.includes(lastWorld) ? lastWorld : WORLDS[0],
-    inv: { ...p.inv, ...(pv.inv && typeof pv.inv === "object" ? pv.inv : {}) }, equip: Array.isArray(pv.equip) ? pv.equip : p.equip, owned: cleanOwned(pv.owned), upgrades: cleanUpgrades(pv.upgrades), coins: wholeCoins(pv.coins), seen: cleanSeen(pv.seen) };
+    inv: { ...p.inv, ...(pv.inv && typeof pv.inv === "object" ? pv.inv : {}) }, equip: cleanEquip(pv.equip), owned: cleanOwned(pv.owned), upgrades: cleanUpgrades(pv.upgrades), coins: wholeCoins(pv.coins), seen: cleanSeen(pv.seen) };
   for (const w of WORLDS) out.worlds[w] = cleanWorld(src[w]);
   if (hasFlatProgress(pv)) {
     const old = cleanWorld({ unlocked, stars }), park = out.worlds[WORLDS[0]];
@@ -82,8 +108,8 @@ export function loadProgress(pv) {
     for (const [n, st] of Object.entries(old.stars)) park.stars[n] = Math.max(park.stars[n] || 0, st);
     for (const n of Object.keys(old.won)) park.won[n] = true;
   }
-  // старые сохранения без поцелуев и спасалок (или испорченные) → 0
-  for (const key of ["kisses", "rescues"]) { const k = Number(out.inv[key]); out.inv[key] = Number.isFinite(k) && k > 0 ? Math.floor(k) : 0; }
+  // старые сохранения без поцелуев и спасалок (или испорченные) → 0; SPEC-025 AC 3d: каждый заряд — целый 0…SAVE_MAX_CHARGES
+  for (const key of INV_KEYS) out.inv[key] = wholeCharges(out.inv[key]);
   if (!isOpen(out.lastWorld, out)) out.lastWorld = WORLDS[0];   // SPEC-016/030: закрытый мир → меню открывается на Парке
   return out;
 }

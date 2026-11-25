@@ -7,15 +7,16 @@ import { tierPrice } from "./config.js";
 // =====================================================================
 // ---------- Наряды маленьких: причёска, головной убор, куртка, штаны ----------
 const Nm = (en, es, pt, ru) => ({ en, es, pt, ru });   // SPEC-028: имя вещи на четырёх языках (было N3; N4 — соседи клетки)
+// SPEC-025 AC 3c: id — the hair in bebebe-save (outfits are stored by id, so the order of a list may change)
 export const HAIRS = [
-  { skin: "#ffd8b5", hair: "#6b3e1f", style: "short", name: Nm("Brown", "Castaño", "Castanho", "Каштановые") },
-  { skin: "#ffe0c2", hair: "#f2c14e", style: "long",  name: Nm("Blonde", "Rubia", "Loiro", "Светлые") },
-  { skin: "#c68642", hair: "#2b2b2b", style: "short", name: Nm("Black", "Negro", "Preto", "Чёрные") },
-  { skin: "#f1c27d", hair: "#c2410c", style: "spiky", name: Nm("Ginger", "Colorado", "Ruivo", "Рыжие") },
-  { skin: "#8d5524", hair: "#3b2a20", style: "bun",   name: Nm("Bun", "Rodete", "Coque", "Пучок") },
-  { skin: "#ffd8b5", hair: "#6b3e1f", style: "none",  name: Nm("Bald", "Pelado", "Careca", "Лысый") },
-  { skin: "#ffe0c2", hair: "#f472b6", style: "long",  name: Nm("Pink", "Rosa", "Rosa", "Розовые") },
-  { skin: "#c68642", hair: "#3b82f6", style: "spiky", name: Nm("Blue punk", "Punk azul", "Moicano azul", "Синий ирокез") }
+  { id: "brown", skin: "#ffd8b5", hair: "#6b3e1f", style: "short", name: Nm("Brown", "Castaño", "Castanho", "Каштановые") },
+  { id: "blonde", skin: "#ffe0c2", hair: "#f2c14e", style: "long",  name: Nm("Blonde", "Rubia", "Loiro", "Светлые") },
+  { id: "black", skin: "#c68642", hair: "#2b2b2b", style: "short", name: Nm("Black", "Negro", "Preto", "Чёрные") },
+  { id: "ginger", skin: "#f1c27d", hair: "#c2410c", style: "spiky", name: Nm("Ginger", "Colorado", "Ruivo", "Рыжие") },
+  { id: "bun", skin: "#8d5524", hair: "#3b2a20", style: "bun",   name: Nm("Bun", "Rodete", "Coque", "Пучок") },
+  { id: "bald", skin: "#ffd8b5", hair: "#6b3e1f", style: "none",  name: Nm("Bald", "Pelado", "Careca", "Лысый") },
+  { id: "pink", skin: "#ffe0c2", hair: "#f472b6", style: "long",  name: Nm("Pink", "Rosa", "Rosa", "Розовые") },
+  { id: "bluepunk", skin: "#c68642", hair: "#3b82f6", style: "spiky", name: Nm("Blue punk", "Punk azul", "Moicano azul", "Синий ирокез") }
 ];
 export const HATS = [
   { id: "none",     price: tierPrice(0), name: Nm("None", "Nada", "Nada", "Ничего") },

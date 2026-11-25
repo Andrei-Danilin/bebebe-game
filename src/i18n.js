@@ -34,6 +34,12 @@ export const I18N = {
     controls2: "Tablet/phone: drag your finger  •  Gamepad: stick, A — choose, B — back, LB/RB — worlds",
     pause: "Paused", play: "Play", resume: "Continue", story: "Story", map: "Map", home: "Home",   // SPEC-017: экраны меню
     glLost: "Tap to continue", oops: "Oops! Something went wrong", restartLevel: "Restart level",   // SPEC-025 AC 7: карточка ошибки (Продолжить — resume)
+    // SPEC-025 phase 2: the save notes, the parents' gate and the grown-ups page (the reset's armed texts sure / sureShort are retired)
+    saveRecovered: "We fixed your save from a backup", freshStart: "We couldn't read your save, so we started a new game", noSave: "This device isn't keeping progress",
+    parentsGate: (a, b) => `For grown-ups: what is ${a} times ${b}?`, numberWords: ["three", "four", "five", "six", "seven", "eight", "nine"], gateWrong: "Not quite. Here is another one",
+    forGrownUps: "For grown-ups", copyCode: "Copy my progress code", pasteCode: "Paste a code", codeCopied: "Code copied",
+    importConfirm: "Replace the progress on this device with the code?", codeTooNew: "This code is from a newer version of the game", codeBad: "This code doesn't work. Check it and try again",
+    undoReset: "Bring back erased progress", restoreCopy: "Restore an older copy", eraseAll: "Erase all data on this device", errorLog: "Error log", copy: "Copy", version: "Version",
     win: "YOU WIN!", winSub: "You hugged him lots of times, and he went home!", next: n => `Level ${n} ▶`,
     // SPEC-022: заголовок победы — папа (босс, набранное имя) снова добрый; «Ура!» друзей, пока он идёт домой; имена боссов
     kindAgain: n => `${n} is kind again!`, cheer: "Yay!", whoosh: "WHOOSH!",
@@ -51,7 +57,7 @@ export const I18N = {
     items: { boots: "Speed boots!", cloak: "Invisible!", shield: "Shield!" }, blocked: "Blocked!", slip: "Whoops!",
     shop: "Shop", character: "Character", progressTab: "Progress", bag: "Bag", clothes: (n, m) => `Clothes: ${n} / ${m}`, buy: "Buy", have: n => `You have: ${n} power ${n === 1 ? "hug" : "hugs"}`, wears: "wears", none: "None",
     gloves: { mittens: "Warm mittens", mega: "Mega hug mittens" }, gloveDesc: p => `Each hug takes ${p} hearts`,
-    pack: n => `Pack: ${n} power hugs`, notEnough: "Not enough coins", reset: "Reset progress", sure: "Sure? Tap again", resetShort: "Reset", sureShort: "Sure?",
+    pack: n => `Pack: ${n} power hugs`, notEnough: "Not enough coins", reset: "Reset progress", resetCancel: "No, keep it", resetCancelShort: "Keep it", resetShort: "Reset", resetConfirm: "Yes, erase everything",
     victory: "Victory", nobodyOut: "Nobody had to rest", fast: t => `Fast: under ${t}`, forHugs: n => `+${n} for hugs`,
     megaHug: p => `Power hug! -${p}`, coinsWord: "coins",
     // SPEC-009: строки награды на экране победы
@@ -120,6 +126,12 @@ export const I18N = {
     controls2: "Tablet/celu: deslizá el dedo  •  Joystick: palanca, A — elegir, B — volver, LB/RB — mundos",
     pause: "Pausa", play: "Jugar", resume: "Seguir", story: "Historia", map: "Mapa", home: "Inicio",
     glLost: "Tocá para seguir", oops: "¡Uy! Algo salió mal", restartLevel: "Reiniciar nivel",   // SPEC-025 AC 7: карточка ошибки (Продолжить — resume)
+    // SPEC-025 phase 2: las notas del guardado, la pregunta para adultos y la página para adultos
+    saveRecovered: "Arreglamos tu partida con una copia", freshStart: "No pudimos leer tu partida, así que empezamos una nueva", noSave: "Este dispositivo no está guardando el progreso",
+    parentsGate: (a, b) => `Para adultos: ¿cuánto es ${a} por ${b}?`, numberWords: ["tres", "cuatro", "cinco", "seis", "siete", "ocho", "nueve"], gateWrong: "No es así. Probá con esta otra",
+    forGrownUps: "Para adultos", copyCode: "Copiar mi código", pasteCode: "Pegar un código", codeCopied: "Código copiado",
+    importConfirm: "¿Reemplazar el progreso de este dispositivo con el código?", codeTooNew: "Este código es de una versión más nueva del juego", codeBad: "Este código no funciona. Revisalo y probá de nuevo",
+    undoReset: "Recuperar el progreso borrado", restoreCopy: "Volver a una copia anterior", eraseAll: "Borrar todos los datos de este dispositivo", errorLog: "Registro de errores", copy: "Copiar", version: "Versión",
     win: "¡GANARON!", winSub: "¡Lo abrazaron muchas veces y se fue a su casa!", next: n => `Nivel ${n} ▶`,
     kindAgain: n => `¡${n} volvió a ser bueno!`, cheer: "¡Bien!", whoosh: "¡FIUUU!",
     bossNames: { park: "El jefe del parque", field: "El entrenador", city: "El albañil", school: "El papá más enojado" },
@@ -135,7 +147,7 @@ export const I18N = {
     items: { boots: "¡Zapatillas veloces!", cloak: "¡Invisible!", shield: "¡Escudo!" }, blocked: "¡Bloqueado!", slip: "¡Upa!",
     shop: "Tienda", character: "Personaje", progressTab: "Progreso", bag: "Mochila", clothes: (n, m) => `Ropa: ${n} / ${m}`, buy: "Comprar", have: n => `Tenés: ${n} ${n === 1 ? "abrazo potente" : "abrazos potentes"}`, wears: "usa", none: "Nada",
     gloves: { mittens: "Mitones abrigados", mega: "Mitones del abrazo gigante" }, gloveDesc: p => `Cada abrazo saca ${p} corazones`,
-    pack: n => `Paquete: ${n} abrazos potentes`, notEnough: "No te alcanzan las monedas", reset: "Borrar progreso", sure: "¿Seguro? Tocá otra vez", resetShort: "Borrar", sureShort: "¿Seguro?",
+    pack: n => `Paquete: ${n} abrazos potentes`, notEnough: "No te alcanzan las monedas", reset: "Borrar progreso", resetCancel: "No, dejalo", resetCancelShort: "Dejalo", resetShort: "Borrar", resetConfirm: "Sí, borrar todo",
     victory: "Victoria", nobodyOut: "Nadie tuvo que descansar", fast: t => `Rápido: menos de ${t}`, forHugs: n => `+${n} por los abrazos`,
     megaHug: p => `¡Abrazo potente! -${p}`, coinsWord: "monedas",
     buyFor: n => `Comprar por ${n}`, tapAgain: "Tocá otra vez para comprar",
@@ -199,6 +211,12 @@ export const I18N = {
     controls2: "Tablet/celular: arraste o dedo  •  Controle: analógico, A — escolher, B — voltar, LB/RB — mundos",
     pause: "Pausa", play: "Jogar", resume: "Continuar", story: "História", map: "Mapa", home: "Início",
     glLost: "Toque para continuar", oops: "Ops! Algo deu errado", restartLevel: "Recomeçar a fase",   // SPEC-025 AC 7: карточка ошибки (Продолжить — resume)
+    // SPEC-025 phase 2: os avisos do progresso salvo, a pergunta para adultos e a página para adultos
+    saveRecovered: "Recuperamos seu progresso de uma cópia", freshStart: "Não conseguimos ler seu progresso, então começamos um jogo novo", noSave: "Este aparelho não está salvando o progresso",
+    parentsGate: (a, b) => `Para adultos: quanto é ${a} vezes ${b}?`, numberWords: ["três", "quatro", "cinco", "seis", "sete", "oito", "nove"], gateWrong: "Não é bem isso. Tente esta aqui",
+    forGrownUps: "Para adultos", copyCode: "Copiar meu código de progresso", pasteCode: "Colar um código", codeCopied: "Código copiado",
+    importConfirm: "Substituir o progresso deste aparelho pelo do código?", codeTooNew: "Este código é de uma versão mais nova do jogo", codeBad: "Este código não funciona. Confira e tente de novo",
+    undoReset: "Recuperar o progresso apagado", restoreCopy: "Voltar para uma cópia anterior", eraseAll: "Apagar todos os dados deste aparelho", errorLog: "Registro de erros", copy: "Copiar", version: "Versão",
     win: "VOCÊS GANHARAM!", winSub: "Vocês deram muitos abraços nele, e ele foi para casa!", next: n => `Fase ${n} ▶`,
     kindAgain: n => `${n} ficou bonzinho!`, cheer: "Eba!", whoosh: "VUUUSH!",   // SPEC-028: kindAgain без «de novo» — длинное имя босса не влезало (шрифты CI)
     bossNames: { park: "O chefe do parque", field: "O treinador", city: "O construtor", school: "O papai mais bravo" },
@@ -216,7 +234,7 @@ export const I18N = {
     items: { boots: "Botas rápidas!", cloak: "Invisível!", shield: "Escudo!" }, blocked: "Bloqueado!", slip: "Opa!",
     shop: "Loja", character: "Personagem", progressTab: "Progresso", bag: "Mochila", clothes: (n, m) => `Roupas: ${n} / ${m}`, buy: "Comprar", have: n => `Você tem: ${n} ${ptPlural(n, "superabraço", "superabraços")}`, wears: "usa", none: "Nada",
     gloves: { mittens: "Luvas quentinhas", mega: "Luvas gigantes" }, gloveDesc: p => `Cada abraço tira ${p} corações`,
-    pack: n => `Pacote: ${n} ${ptPlural(n, "superabraço", "superabraços")}`, notEnough: "Faltam moedas", reset: "Apagar progresso", sure: "Certeza? Toque de novo", resetShort: "Apagar", sureShort: "Certeza?",
+    pack: n => `Pacote: ${n} ${ptPlural(n, "superabraço", "superabraços")}`, notEnough: "Faltam moedas", reset: "Apagar progresso", resetCancel: "Não, deixe como está", resetCancelShort: "Deixe", resetShort: "Apagar", resetConfirm: "Sim, apagar tudo",
     victory: "Vitória", nobodyOut: "Ninguém descansou", fast: t => `Rápido: menos de ${t}`, forHugs: n => `+${n} pelos abraços`,
     megaHug: p => `Superabraço! -${p}`, coinsWord: "moedas",
     buyFor: n => `Comprar por ${n}`, tapAgain: "Toque de novo para comprar",
@@ -277,6 +295,12 @@ export const I18N = {
     controls2: "Планшет/телефон: водите пальцем  •  Геймпад: стик, A — выбрать, B — назад, LB/RB — миры",
     pause: "Пауза", play: "Играть", resume: "Продолжить", story: "История", map: "Карта", home: "Главная",
     glLost: "Нажми, чтобы продолжить", oops: "Ой! Что-то пошло не так", restartLevel: "Начать уровень заново",   // SPEC-025 AC 7: карточка ошибки (Продолжить — resume)
+    // SPEC-025 phase 2: заметки о сохранении, вопрос для взрослых и страница для взрослых
+    saveRecovered: "Мы восстановили сохранение из копии", freshStart: "Не получилось прочитать сохранение, поэтому начали новую игру", noSave: "Это устройство не сохраняет прогресс",
+    parentsGate: (a, b) => `Для взрослых: сколько будет ${a} умножить на ${b}?`, numberWords: ["три", "четыре", "пять", "шесть", "семь", "восемь", "девять"], gateWrong: "Не совсем. Вот другой пример",
+    forGrownUps: "Для взрослых", copyCode: "Скопировать код прогресса", pasteCode: "Вставить код", codeCopied: "Код скопирован",
+    importConfirm: "Заменить прогресс на этом устройстве прогрессом из кода?", codeTooNew: "Этот код из более новой версии игры", codeBad: "Этот код не подходит. Проверьте его и попробуйте ещё раз",
+    undoReset: "Вернуть стёртый прогресс", restoreCopy: "Вернуть более старую копию", eraseAll: "Стереть все данные на этом устройстве", errorLog: "Журнал ошибок", copy: "Копировать", version: "Версия",
     win: "ПОБЕДА!", winSub: "Его обняли много раз, и он ушёл домой!", next: n => `Уровень ${n} ▶`,
     kindAgain: n => `${n} снова добрый!`, cheer: "Ура!", whoosh: "ВЖУХ!",
     bossNames: { park: "Босс парка", field: "Тренер", city: "Строитель", school: "Самый злой папа" },
@@ -294,7 +318,7 @@ export const I18N = {
     items: { boots: "Сапоги-скороходы!", cloak: "Невидимка!", shield: "Щит!" }, blocked: "Щит спас!", slip: "Поскользнулся!",
     shop: "Магазин", character: "Персонаж", progressTab: "Прогресс", bag: "Рюкзак", clothes: (n, m) => `Одежда: ${n} / ${m}`, buy: "Купить", have: n => `У вас: ${n} ${["сильная обнимашка", "сильные обнимашки", "сильных обнимашек"][n % 10 === 1 && n % 100 !== 11 ? 0 : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 1 : 2]}`, wears: "носит", none: "Ничего",
     gloves: { mittens: "Тёплые рукавицы", mega: "Мега-рукавицы" }, gloveDesc: p => `Каждая обнимашка забирает ${p} сердечка`,
-    pack: n => `В наборе: ${n} сильные обнимашки`, notEnough: "Не хватает монеток", reset: "Сбросить прогресс", sure: "Точно? Нажми ещё раз", resetShort: "Сброс", sureShort: "Точно?",
+    pack: n => `В наборе: ${n} сильные обнимашки`, notEnough: "Не хватает монеток", reset: "Сбросить прогресс", resetCancel: "Нет, оставить", resetCancelShort: "Оставить", resetShort: "Сброс", resetConfirm: "Да, стереть всё",
     victory: "Победа", nobodyOut: "Никто не ушёл отдыхать", fast: t => `Быстро: меньше ${t}`, forHugs: n => `+${n} за обнимашки`,
     megaHug: p => `Сильная обнимашка! -${p}`, coinsWord: "монетки",
     buyFor: n => `Купить за ${n}`, tapAgain: "Нажми ещё раз, чтобы купить",

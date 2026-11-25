@@ -10,10 +10,10 @@ import { G } from "../core/active.js";
 import { CFG } from "../core/config.js";
 import { L } from "../i18n.js";
 import { mode, resumeGame, retryLevel, setMode, toHome } from "./flow.js";
-import { readErrorLog, writeErrorLog } from "./progress.js";
+import { mergeLogs, readErrorLog, writeErrorLog } from "./save.js";
 import { restartTutorialGame } from "./tutorial.js";
 
-let log = null;                      // the error log (read on the first error)
+let log = null;                      // the error log (read on the first error; joined with the stored one by loadSave)
 let logDirty = false, logWrittenAt = 0;
 let pausedByOops = false, lastShown = null;   // the entry the last card showed (the same one again → also a reload button)
 const seen = { version: null };     // the module set's SRC_HASH, read once (an error repeating every frame stays cheap)
@@ -54,12 +54,14 @@ export function logError(err) {
     return e;
   } catch (e) { return null; /* the log must never throw */ }
 }
+// SPEC-025 phase 2: the stored log arrives with loadSave (async storage) — errors logged before it are joined to it
+export function adoptErrorLog(stored) { if (log) log = mergeLogs(stored, log); }
 export const errorLog = () => { flushErrorLog(true); return (log || readErrorLog()).map(e => ({ ...e })); };
 // a card is over the game (Oops, context loss): keys and pad buttons do not reach the game under it (input.js)
 export const cardOpen = () => !!document.querySelector(".bb-card");
 // Keyboard and gamepad on an open card: ←/→ (D-pad, stick) move the highlight between its buttons (it starts on the first);
 // Enter / Space / pad A press the highlighted one — or the button the player focused with Tab — or the card itself (no buttons)
-const cardButtons = el => [...el.querySelectorAll("button")];
+const cardButtons = el => [...el.querySelectorAll("button")].filter(b => !b.disabled);   // a disabled button (the gate's wait) is skipped
 function highlighted(el) {
   const bs = cardButtons(el), f = bs.indexOf(document.activeElement);
   return f >= 0 ? f : Math.max(0, bs.findIndex(b => b.classList.contains("hl")));
