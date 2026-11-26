@@ -189,8 +189,9 @@ export const CFG = {
     // улучшения 2700 = 114 % дохода первых 60 уровней); цены под цели не подгоняются
     // SPEC-029: Andrei, one heart fewer everywhere (measured: Парк 31,5 = 1,575 × 20; улучшения 2700 = 115,3 % от 2342) —
     // PARK_PACKS 1,6 → 1,575 и UPGRADE_SHARE 1,15 → 1,16: на измеренное
+    // SPEC-032: Dad hears less (kids) — UPG_TIME 0,7 → 0,696 (measured: Зима 17–20 с улучшениями 133 с против 191,5 с = 69,6 %): на измеренное
     ECONOMY: { PARK_PACKS: [1.575, 4], STREAK: 4, STREAK_PACKS: 2, WORLD_PACKS: 10, UPGRADE_WORLDS: 3, UPGRADE_SHARE: 1.16,
-      REPLAY: [["park", 1, 5], ["beach", 1, 5]], REPLAY_SHARE: 0.6, UPG_EVERY: 5, UPG_EXTRA: ["winter", 17, 20], UPG_TIME: 0.7 } },
+      REPLAY: [["park", 1, 5], ["beach", 1, 5]], REPLAY_SHARE: 0.6, UPG_EVERY: 5, UPG_EXTRA: ["winter", 17, 20], UPG_TIME: 0.696 } },
   // SPEC-008: автопилот игроков (только для проверки баланса), px и сек. repath — пересчёт пути; звёздочки и предметы
   // берёт не дальше itemReach и если они дальше pickSafe от Большого и не под его взглядом; спасает друга, которого никакой
   // бот не поднимет быстрее и до которого Большой дальше rescueSafe; издалека (дальше sneakNear) идёт к спине в обход
