@@ -414,6 +414,58 @@ async function winTitles(page) {
 }
 test("the win title: Dad is kind again (desktop)", async ({ desk: page }) => winTitles(page));
 
+// ---------- SPEC-033 AC 12: on the win screen the title and the line under it never touch — a gap of at least a quarter of the line's size ----------
+// Runs in the page (hooks: hudRects "win:title" and "win:sub", { text, size }): every language, the longest titles (a typed name, a boss, the
+// grumpiest dad), font scales 1 / 1.15 (CI) / 1.3 (margin), the world-done line too (the School)
+function winRoomCases([langs, scales]) {
+  const b = window.__bb, ui = b.uiSize, out = [];
+  const ov = (p, q) => p.x < q.x + q.w - 0.5 && p.x + p.w > q.x + 0.5 && p.y < q.y + q.h - 0.5 && p.y + p.h > q.y + 0.5;
+  for (const lang of langs) for (const sc of scales) for (const [world, n, typed] of [["park", 3, ""], ["city", 5, "Maximiliano"], ["park", 20, ""], ["school", 20, "Max"], ["winter", 20, ""]]) {
+    const at = `${lang} ×${sc} ${world} ${n}${typed ? " " + typed : ""}`;
+    b.setLang(lang); b.CFG.TEXT_TEST_SCALE = sc; b.setName("big", typed); b.progress.seen.ending = true; b.world = world; b.progress.worlds[world].unlocked = 20; b.level = n; b.startGame(1);
+    b.big.hp = 0; b.giveReward(true); b.mode = "win"; b.drawNow();
+    const t = b.hudRects.find(h => h.id === "win:title"), sub = b.hudRects.find(h => h.id === "win:sub");
+    if (!t || !sub) { out.push(`${at}: no title / line (${!!t} ${!!sub})`); continue; }
+    if (ov(t, sub)) out.push(`${at}: title ${JSON.stringify([t.y, t.h].map(Math.round))} over the line ${JSON.stringify([sub.y, sub.h].map(Math.round))}`);
+    const gap = sub.y - (t.y + t.h);
+    if (!(gap >= 0.25 * sub.size - 0.01)) out.push(`${at}: gap ${gap.toFixed(1)} < 0.25 × ${sub.size.toFixed(1)}`);
+    for (const [name, r] of [["title", t], ["line", sub]]) if (r.x < -0.5 || r.y < -0.5 || r.x + r.w > ui.w + 0.5 || r.y + r.h > ui.h + 0.5) out.push(`${at}: ${name} off the screen`);
+    for (const q of b.buttonRects) if (ov(t, q) || ov(sub, q)) out.push(`${at}: title or line on button ${q.id}`);
+    const own = b.textOverflows.filter(q => t.text.includes(q.text) || sub.text.includes(q.text) || q.text.includes(t.text) || q.text.includes(sub.text));   // the status lines below are not this test's
+    if (own.length) out.push(`${at}: overflows ${JSON.stringify(own).slice(0, 120)}`);
+  }
+  b.CFG.TEXT_TEST_SCALE = 1; b.setName("big", ""); b.setLang("en"); b.mode = "home";
+  return out;
+}
+async function winRoomAt(browser, phone, sizes) {
+  const ctx = await browser.newContext({ viewport: { width: sizes[0][0], height: sizes[0][1] }, hasTouch: phone, isMobile: phone });
+  const fails = [];
+  try {
+    const page = await ctx.newPage();
+    const errors = await openGame(page, phone ? { query: "?phone=1" } : {});
+    await page.waitForFunction(() => window.__bb.artInfo.done);
+    for (const sz of sizes) {
+      await page.setViewportSize({ width: sz[0], height: sz[1] });
+      await page.waitForFunction(([w, h]) => window.innerWidth === w && window.innerHeight === h, sz);
+      await frames(page);
+      fails.push(...(await page.evaluate(winRoomCases, [LANGS, [1, 1.15, 1.3]])).map(f => `${sz.join("×")} ${f}`));
+    }
+    expect(errors).toEqual([]);
+  } finally { await ctx.close(); }
+  return fails;
+}
+test("SPEC-033: the win title keeps its room from the line under it — phones 568×320 and 667×375", async ({ browser }) => {
+  test.slow();
+  const fails = await winRoomAt(browser, true, [[568, 320], [667, 375]]);
+  expect(fails, fails.slice(0, 20).join("\n")).toEqual([]);
+});
+test("SPEC-033: the win title keeps its room from the line under it — desktop 1280×720", async ({ browser }) => {
+  test.slow();
+  const fails = await winRoomAt(browser, false, [[1280, 720]]);
+  expect(fails, fails.slice(0, 20).join("\n")).toEqual([]);
+});
+
+
 // ---------- AC 3: Dad's mood on his face and over his head ----------
 // __bb.moodInfo (drawn) = { mood, face (the head colour), sprites (drawn this frame), cloud (its size) }
 test("Dad's mood shows: angry red with steam and a dark cloud, mid orange-pink with less steam, kind pink with hearts", async ({ desk: page }) => {

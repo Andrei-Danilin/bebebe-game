@@ -479,6 +479,7 @@
 | CFG | `LANG_SCREEN` | { w: 0.34, maxW: 300, h: 76, gap: 22, size: 30, ring: 5, glow: "#facc15", ringR: 0.4, min: 0.6 } | SPEC-032 AC 13 (Claude): the language screen — button width (share of the screen, at most maxW), height, gap, font size (UI px on a computer, CSS px on a phone), the glow ring of the highlighted butt… |
 | CFG | `BUBBLE_MIN` | { phone: 8, desk: 9 } | SPEC-032 AC 10 (придумал Claude): самый мелкий текст в облачках комикса — CSS px на телефоне, px на компьютере |
 | CFG | `STORY_TEXT_MIN` | 12 | CSS px — самый мелкий текст глав, подписей заставок и облачков на телефоне (остальное — PHONE_TEXT) |
+| CFG | `WIN_GAP` | 0.3 | SPEC-033 AC 12: зазор между заголовком победы и строкой под ним — доля кегля строки (не меньше 0,25; запас) |
 | CFG | `PHONE_PRICE_FIT` | 1.15 | SPEC-033: запас ширины для подписи цены «Взять за 🪙 N» (шрифты CI и iPhone шире наших): не влезла — короче (priceLabel) |
 | CFG | `STORY_PIC` | { min: 0.4, step: 0.02, minH: 0.4 } |  |
 | CFG | `PHONE_CHIP_FONT` | 1.3 | SPEC-029: кружок команды на телефоне — под метку шрифтом до 30 % шире (CI, iPhone) |
