@@ -130,6 +130,7 @@ export function goBack() {
   else if (mode === "play") setMode("pause");
   else if (mode === "pause") resumeGame();
   else if (mode === "win" || mode === "lose") toMap();
+  else if (mode === "lang") setMode("home");   // SPEC-032: Escape on the language screen keeps English (already on: the default)
 }
 // клиент: награда уровня (payLevel по levelResult) и мир, который она открыла
 export function giveReward(win) { lastReward = payLevel(levelResult(win)); noteOpenedWorld(lastReward); }
@@ -199,8 +200,9 @@ export function nextLevel() { if (G.level >= levelsPerWorld() || G.level + 1 > w
 // ---------- SPEC-017: экраны и переходы между ними ----------
 // home — главный экран; map — карта уровней (levelCard — карточка уровня поверх неё); story — история; shop — магазин с вкладками
 // SPEC-022: scene — заставка истории (комикс в начале, босс, бонусный мир, конец) поверх меню
-export const MODES = Object.freeze(["home", "map", "levelCard", "story", "shop", "play", "pause", "win", "lose", "scene"]);
-const MENU_MODES = Object.freeze(["home", "map", "levelCard", "story", "shop", "scene"]);
+// SPEC-032: lang — the language screen of the very first launch (ui/lang.js)
+export const MODES = Object.freeze(["home", "map", "levelCard", "story", "shop", "play", "pause", "win", "lose", "scene", "lang"]);
+const MENU_MODES = Object.freeze(["home", "map", "levelCard", "story", "shop", "scene", "lang"]);
 export const inMenus = () => MENU_MODES.includes(mode);
 // магазин: вкладка (вне магазина снова «items»), страница гардероба (наряды или имена друзей), куда ведёт «Готово»
 export const SHOP_TABS = Object.freeze(["progress", "items", "wardrobe", "upgrades"]);   // SPEC-026: «Прогресс» персонажа — первая

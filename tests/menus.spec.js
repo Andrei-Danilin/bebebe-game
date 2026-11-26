@@ -84,7 +84,7 @@ test("home is minimal: the logo, language and sound, Play · Story · Character"
   expect(d.hint, "the install hint is gone (Andrei: remove it completely)").toEqual([false, false, false, false]);
   expect(d.hintShown, "no installHintShown in __bb").toBe(false);
   expect(d.texts.some(t => /Skins|🎨/.test(t)), "no Skins button").toBe(false);
-  expect(d.modes, "no skins / names modes").toEqual(["home", "map", "levelCard", "story", "shop", "play", "pause", "win", "lose", "scene"]);   // SPEC-022: + the story scenes
+  expect(d.modes, "no skins / names modes").toEqual(["home", "map", "levelCard", "story", "shop", "play", "pause", "win", "lose", "scene", "lang"]);   // SPEC-022: + the story scenes; SPEC-032: + the language screen
   // one centred column, in this order: Play (green), Story (pink), Character (orange); Play the biggest
   const btn = id => d.rects.find(q => q.id === id), col = ["home:play", "home:story", "home:shop"].map(btn);
   for (const q of col) {

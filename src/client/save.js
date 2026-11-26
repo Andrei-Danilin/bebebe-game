@@ -59,7 +59,8 @@ let errCache = null;                       // the stored error log (read by load
 // what the grown-ups page and the tests read: storage failed (noSave), the notes due / shown, the copies stored
 // saveOff (review fix): the probe failed or the stored save could not be read — this session never writes bebebe-save or a copy
 // (a nearly full storage could take a fresh save over the real one)
-export const saveInfo = { noSave: false, notes: [], shown: [], copies: {}, recovered: null, saveOff: false };
+// SPEC-032 AC 13: firstLaunch — nothing was stored at all (no bebebe-save, no old key): the language screen opens before the intro
+export const saveInfo = { noSave: false, notes: [], shown: [], copies: {}, recovered: null, saveOff: false, firstLaunch: false };
 
 const plainObj = v => !!v && typeof v === "object" && !Array.isArray(v);
 const parse = t => { if (typeof t !== "string") return undefined; try { return JSON.parse(t); } catch (e) { return undefined; } };
@@ -224,7 +225,7 @@ function useSave(s) {
 }
 // AC 3: the old keys → the game, in order: the key-presence facts first (a first launch picks the browser's language; a save without
 // owned adopts what is worn — gifts, only on a real migration; a flat save moves into the Park; outfits v < 2 with big 0 → Dad)
-function migrateOld(old, gifts) {
+function migrateOld(old, gifts, first = false) {
   const pv = parse(old["bebebe-progress"]) ?? null, hadOwned = plainObj(pv) && "owned" in pv, played = old["bebebe-progress"] !== null;
   future = false; futureVersion = SAVE_VERSION; persist = null;
   held = emptyHeld();
@@ -233,7 +234,9 @@ function migrateOld(old, gifts) {
   const o = loadOutfits(parse(old["bebebe-outfits"]) ?? null);
   setSkinSel(o); setSkinKeep(cloneSkins(o));
   setNamesTyped(namesFrom(parse(old["bebebe-names"])) || noNames());
-  applyLang(detectLang(old["bebebe-lang"], navLangs(), played));
+  // SPEC-032 AC 14: the very first launch (nothing stored) starts in English and asks on the language screen — no detection;
+  // an old device (any old key) keeps SPEC-028's rule (its saved language, else English for a player with progress)
+  applyLang(first ? "en" : detectLang(old["bebebe-lang"], navLangs(), played));
   if (gifts && !hadOwned) adoptWorn(); else fitOutfitsToOwned();
   migrated = Object.fromEntries(OLD_KEYS.map(k => [k, fingerprint(old[k])]));
 }
@@ -292,7 +295,8 @@ export async function loadSave() {
   const old = Object.fromEntries(OLD_KEYS.map(k => [k, raw[k]]));
   const stored = raw[SAVE_KEYS.save], s = parse(stored);
   let dirty = true;
-  if (stored === null) migrateOld(old, true);                // no bebebe-save yet: the one migration (or a first launch)
+  saveInfo.firstLaunch = stored === null && OLD_KEYS.every(k => old[k] === null);   // SPEC-032 AC 13
+  if (stored === null) migrateOld(old, true, saveInfo.firstLaunch);   // no bebebe-save yet: the one migration (or a first launch)
   else if (validSave(s)) {
     useSave(s); lastText = stored;
     dirty = mergeStale(old);

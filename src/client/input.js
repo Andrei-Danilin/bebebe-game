@@ -13,6 +13,7 @@ import { initAudio } from "./sound.js";
 import { ui } from "./state.js";
 import { openPictures, openPractice, tutorialSkip } from "./tutorial.js";
 import { homeActions } from "./ui/home.js";
+import { chooseLang, moveLangSel } from "./ui/lang.js";
 import { cpx } from "./ui/text.js";
 import { G } from "../core/active.js";
 import { newInput } from "../core/game.js";
@@ -24,9 +25,14 @@ const keys = new Set();
 
 function onKey(code) {
   if (code === "KeyM") { toggleSound(); return; }
-  if (code === "KeyL") { nextLang(); return; }
+  if (code === "KeyL") { if (mode !== "lang") nextLang(); return; }   // SPEC-032: not under the language screen
   if (code === "Escape") { goBack(); return; }                // SPEC-025 AC 14d: the one "back" (flow.js)
-  if (mode === "home") {
+  if (mode === "lang") {                                      // SPEC-032: the language screen — arrows move, Enter / Space pick
+    if (code === "ArrowLeft") moveLangSel(-1);
+    if (code === "ArrowRight") moveLangSel(1);
+    if (code === "ArrowUp" || code === "ArrowDown") moveLangSel(2);
+    if (code === "Enter" || code === "NumpadEnter" || code === "Space") chooseLang();
+  } else if (mode === "home") {
     const a = homeActions().find(q => q.keys.includes(code));   // SPEC-017: Enter = «Играть», S — история, B — магазин
     if (a) a.act();
   } else if (mode === "map") {
@@ -184,7 +190,12 @@ function onPadButton(b, pad = 0) {
     return;
   }
   initAudio();
-  if (mode === "home") {
+  if (mode === "lang") {                                      // SPEC-032: the language screen — the cross moves, A / Start pick
+    if (b === 14) moveLangSel(-1);
+    if (b === 15) moveLangSel(1);
+    if (b === 12 || b === 13) moveLangSel(2);
+    if (b === 0 || b === 9) chooseLang();
+  } else if (mode === "home") {
     const a = homeActions().find(q => q.pad.includes(b));   // SPEC-017: A — «Играть», X — история, Y — магазин
     if (a) a.act();
   } else if (mode === "map") {

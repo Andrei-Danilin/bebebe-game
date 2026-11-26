@@ -137,7 +137,8 @@ test("the tiptoe rule and the heard hints are in every language", async ({ page 
 
 // SPEC-028 AC 2: a true first launch (no saved language and no progress) follows the browser: pt*, es*, ru* → that language,
 // anything else English; a saved language always wins (old saves: en / es / ru; new: pt); a player with progress but no saved
-// language keeps English, as before SPEC-028; a broken save → the same rules
+// language keeps English, as before SPEC-028; a broken save → the same rules. SPEC-032 AC 14: the pure rule stays (old devices'
+// saves, a save without a language), but the very first launch no longer calls it — it starts in English on the language screen
 test("the language on first launch: a saved one, else the browser's (pt, es, ru) on a first launch, else English", { tag: "@fast" }, async ({ page }) => {
   await openGame(page, { sim: true });
   const cases = [
@@ -152,10 +153,10 @@ test("the language on first launch: a saved one, else the browser's (pt, es, ru)
   expect(got).toEqual(cases.map(c => c[3]));
 });
 
-// a fresh browser context (nothing saved; `progress` = a bebebe-progress saved before the page loads, no language); a true first
-// launch saves the language it picked, a returning player without a saved language gets English (SPEC-025: the language is saved
-// in bebebe-save in both cases; the old key bebebe-lang is never written)
-for (const [locale, progress, want, html] of [["pt-BR", false, "pt", "pt-BR"], ["es-AR", false, "es", "es"], ["fr-FR", false, "en", "en"], ["pt-BR", true, "en", "en"]]) {
+// a fresh browser context (nothing saved; `progress` = a bebebe-progress saved before the page loads, no language). SPEC-032 AC 14:
+// the very first launch starts in English (no detection: the language screen asks); a returning player without a saved language
+// gets English (SPEC-028); the language is saved in bebebe-save in both cases (the old key bebebe-lang is never written)
+for (const [locale, progress, want, html] of [["pt-BR", false, "en", "en"], ["es-AR", false, "en", "en"], ["fr-FR", false, "en", "en"], ["pt-BR", true, "en", "en"]]) {
   test(`a ${progress ? "returning player (progress, no saved language)" : "first launch"} in a ${locale} browser starts in ${want}`, async ({ browser }) => {
     const context = await browser.newContext({ locale });
     try {
@@ -170,23 +171,82 @@ for (const [locale, progress, want, html] of [["pt-BR", false, "pt", "pt-BR"], [
   });
 }
 
-// SPEC-028 (fix-check): a pt-BR kid's first launch — the start comic is watched (that saves bebebe-progress), the game is opened
-// again: still Portuguese (the language picked on the first launch was saved)
-test("a first launch in a pt-BR browser stays Portuguese after the intro and a reload", async ({ browser }) => {
-  const context = await browser.newContext({ locale: "pt-BR" });
+// ---------- SPEC-032 AC 13–16: the language screen of the very first launch ----------
+// a true first launch: a fresh context, nothing stored (not even the language the test helpers write), the intro and the tutorial on
+async function firstLaunch(browser, locale) {
+  const context = await browser.newContext({ locale, viewport: { width: 960, height: 640 } });
+  const page = await context.newPage();
+  const errors = await openGame(page, { clearStorage: false, intro: true, tutorial: true });
+  await page.waitForFunction(() => window.__bb.artInfo.done && window.__bb.mode === "lang", null, { timeout: 15_000 });
+  await frames(page);
+  return { context, page, errors };
+}
+test("first launch: the language screen, English highlighted (Enter picks it), then the intro, the tutorial and the map", async ({ browser }) => {
+  const { context, page, errors } = await firstLaunch(browser, "pt-BR");   // a Portuguese browser: still English (no detection)
   try {
-    const page = await context.newPage();
-    const errors = await openGame(page, { clearStorage: false, intro: true });
-    await page.waitForFunction(() => window.__bb.mode === "scene", null, { timeout: 15_000 });
-    await page.evaluate(() => { window.__bb.sceneSkip(); });
+    const d = await page.evaluate(() => { const b = window.__bb; return { lang: b.lang, buttons: b.buttonRects.filter(q => q.id.startsWith("lang:")), all: b.buttonRects.length, sel: b.langSel, names: b.LANG_NAMES }; });
+    expect(d.lang).toBe("en");
+    expect(d.buttons.map(q => q.id)).toEqual(["lang:en", "lang:es", "lang:pt", "lang:ru"]);
+    expect(d.buttons.map(q => q.text)).toEqual(["English", "Español", "Português", "Русский"]);
+    expect(d.names).toEqual({ en: "English", es: "Español", pt: "Português", ru: "Русский" });
+    expect(d.buttons.map(q => q.on), "English is highlighted").toEqual([true, false, false, false]);
+    expect(d.all, "nothing else to tap: the four languages").toBe(4);
+    for (const q of d.buttons) expect(q.h, "big buttons").toBeGreaterThanOrEqual(60);
+    // Enter picks the highlighted English → the intro comic
+    await page.keyboard.press("Enter");
+    await page.waitForFunction(() => window.__bb.mode === "scene");
+    let s = await page.evaluate(() => ({ lang: window.__bb.lang, scene: window.__bb.scene, saved: JSON.parse(localStorage.getItem("bebebe-save")).lang }));
+    expect([s.lang, s.scene.id, s.saved]).toEqual(["en", "intro", "en"]);
+    // the intro skipped → the tutorial (page A), skipped → the Park map
+    await page.keyboard.press("Escape");
     await frames(page);
-    expect(await page.evaluate(() => { const s = JSON.parse(localStorage.getItem("bebebe-save")); return [window.__bb.lang, window.__bb.mode, s.progress.seen.intro, s.lang]; })).toEqual(["pt", "home", true, "pt"]);
+    s = await page.evaluate(() => ({ mode: window.__bb.mode, scene: window.__bb.scene, tutorial: window.__bb.tutorial }));
+    expect([s.mode, s.scene && s.scene.id, s.tutorial && s.tutorial.step]).toEqual(["scene", "tutorial_a", "a"]);
+    await page.keyboard.press("Escape");
+    await frames(page);
+    expect(await page.evaluate(() => window.__bb.mode)).toBe("map");
+    // the next launch has a save: no language screen
     await page.reload();
-    await page.waitForFunction(() => window.__bbReady === true);
-    expect(await page.evaluate(() => [window.__bb.lang, document.documentElement.lang])).toEqual(["pt", "pt-BR"]);
+    await page.waitForFunction(() => window.__bbReady === true && window.__bb.artInfo.done);
+    await frames(page); await frames(page);
+    expect(await page.evaluate(() => [window.__bb.mode, window.__bb.lang])).toEqual(["home", "en"]);
     expect(errors).toEqual([]);
-  } finally {
-    await context.close();
+  } finally { await context.close(); }
+});
+test("first launch: tapping Português gives Portuguese everywhere (saved, the intro, after a reload)", async ({ browser }) => {
+  const { context, page, errors } = await firstLaunch(browser, "en-US");
+  try {
+    const q = await page.evaluate(() => window.__bb.buttonRects.find(r => r.id === "lang:pt"));
+    const box = await page.locator("#game").boundingBox(), sc = await page.evaluate(() => window.__bb.uiSize.scale);
+    await page.mouse.click(box.x + (q.x + q.w / 2) * sc, box.y + (q.y + q.h / 2) * sc);   // a real tap on the button
+    await page.waitForFunction(() => window.__bb.mode === "scene");
+    await frames(page);
+    const s = await page.evaluate(() => ({ lang: window.__bb.lang, html: document.documentElement.lang, saved: JSON.parse(localStorage.getItem("bebebe-save")).lang,
+      caption: window.__bb.sceneInfo.caption, want: window.__bb.STORY[0].captions.pt[0] }));
+    expect([s.lang, s.html, s.saved, s.caption]).toEqual(["pt", "pt-BR", "pt", s.want]);
+    await page.keyboard.press("Escape");   // the intro
+    await page.keyboard.press("Escape");   // the tutorial
+    await page.reload();
+    await page.waitForFunction(() => window.__bbReady === true && window.__bb.artInfo.done);
+    await frames(page); await frames(page);
+    expect(await page.evaluate(() => [window.__bb.mode, window.__bb.lang, document.documentElement.lang])).toEqual(["home", "pt", "pt-BR"]);
+    expect(errors).toEqual([]);
+  } finally { await context.close(); }
+});
+test("an old save never sees the language screen (an old key, or the language the globe saved)", async ({ browser }) => {
+  for (const keys of [{ "bebebe-progress": JSON.stringify({ coins: 5 }) }, { "bebebe-lang": "ru" }]) {
+    const context = await browser.newContext({ locale: "pt-BR" });
+    try {
+      await context.addInitScript(k => { try { if (!localStorage.getItem("bb-k")) { for (const [n, v] of Object.entries(k)) localStorage.setItem(n, v); localStorage.setItem("bb-k", "1"); } } catch (e) { /* ok */ } }, keys);
+      const page = await context.newPage();
+      const errors = await openGame(page, { clearStorage: false, intro: true });
+      await page.waitForFunction(() => window.__bb.artInfo.done);
+      await frames(page); await frames(page);
+      const r = await page.evaluate(() => [window.__bb.mode, window.__bb.lang]);
+      expect(r[0], JSON.stringify(keys)).not.toBe("lang");
+      expect(r[1]).toBe(keys["bebebe-lang"] || "en");
+      expect(errors).toEqual([]);
+    } finally { await context.close(); }
   }
 });
 

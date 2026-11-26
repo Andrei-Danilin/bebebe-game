@@ -18,7 +18,7 @@ import { spawnItem, spawnStar } from "../core/rules.js";
 import { clamp, setStrictRng, strictRng } from "../core/util.js";
 import { BIG_SKINS, HAIRS, HATS, JACKETS, PANTS, SLOTS } from "../core/wardrobe.js";
 import { inDanger, inSafe, seeSolidAt } from "../core/world.js";
-import { detectLang, I18N, L, lang, LANGS } from "../i18n.js";
+import { detectLang, I18N, L, lang, LANG_NAMES, LANGS } from "../i18n.js";
 import { RULE_ICONS, SCENE_IDS, STORY, TUTORIAL_SCENES } from "../story.js";
 import { ART_NAMES } from "./art-names.js";
 import { art, ART_FALLBACK, artCount, artDone, artVersion, EMOJI_ART, FX_ART, HEART_ART, ITEM_ART, mapBgArt, PAPER_BTN, POP_ART, SHOP_TAB_ART, STORY_ART, UPG_ART, WARDROBE_ART, worldArt } from "./art.js";
@@ -49,6 +49,7 @@ import { firstTutorial, openPictures, openPractice, openTutorial, tutorial, TUTO
 import { SHOP_PICTURES, shopCards } from "./ui/character/items.js";
 import { clothesCount } from "./ui/character/progress.js";
 import { artUse, KID_HEAD_R, nameTagH, resetArtUse, tapLines } from "./ui/draw.js";
+import { chooseLang, openLangScreen } from "./ui/lang.js";
 import { heardHintOn, heardHintText, heartFill, timerText } from "./ui/hud.js";
 import { mmAlpha, mmCount, mmDraws, mmState, updateMinimapFade } from "./ui/minimap.js";
 import { gateState, openGrownUps, parentGate } from "./ui/grownups.js";
@@ -214,6 +215,8 @@ export function installDebug() {
     isRunning: i => isRunning(G.littles[i]), get bigMark() { return bigMark(); },
     // SPEC-032 AC 1: кнопки 👣 игроков (включено ли «на цыпочках»); текст подсказки «услышал топот» по устройству; страницы листа обучения
     get tiptoe() { return [...ui.tiptoe]; }, heardHintText, tutorialPages,
+    // SPEC-032 AC 13: the language screen of the first launch (open it, pick a language or the highlighted one), its names and highlight
+    openLangScreen, chooseLang, LANG_NAMES, get langSel() { return ui.langSel; },
     get heardHint() { return heardHintOn() ? { text: heardHintText(), pi: ui.heardHintPi, rect: ui.heardHintRect && { ...ui.heardHintRect, rows: [...ui.heardHintRect.rows] } } : null; },
     get stickMarks() { return ui.stickMarks.map(q => ({ ...q })); }, get tapLines() { return [...tapLines]; },
     GLOVES, KISSES, get shopLayout() { return ui.shopLayout; },                         // SPEC-007 AC 10

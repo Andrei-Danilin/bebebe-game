@@ -63,6 +63,9 @@ export const LOOK = {
   // в облачках и заголовок главы на телефоне — кегль × масштаб экрана min(ширина / ref[0], высота / ref[1]) (CSS px; 844×390 —
   // средний телефон лёжа), в пределах min…max; компьютер — ×1 (его холст и так растёт с окном)
   STORY_TEXT_SCALE: { ref: [844, 390], min: 0.72, max: 1.1 },
+  // SPEC-032 AC 13 (Claude): the language screen — button width (share of the screen, at most maxW), height, gap, font size
+  // (UI px on a computer, CSS px on a phone), the glow ring of the highlighted button (width, colour)
+  LANG_SCREEN: { w: 0.34, maxW: 300, h: 76, gap: 22, size: 30, ring: 5, glow: "#facc15" },
   BUBBLE_MIN: { phone: 8, desk: 9 },   // SPEC-032 AC 10 (придумал Claude): самый мелкий текст в облачках комикса — CSS px на телефоне, px на компьютере
   STORY_TEXT_MIN: 12,        // CSS px — самый мелкий текст глав, подписей заставок и облачков на телефоне (остальное — PHONE_TEXT)
   // SPEC-031: картинка рядом с текстом (глава «Истории»; заставка на телефоне): текст не влез и самым мелким — картинка уже на step

@@ -17,7 +17,8 @@ import { initInput, pollPads } from "./input.js";
 import { initLifecycle } from "./lifecycle.js";
 import { endTryOn } from "./outfits.js";
 import { initPerf, noteFrame } from "./perf.js";
-import { loadSave } from "./save.js";
+import { loadSave, saveInfo } from "./save.js";
+import { openLangScreen } from "./ui/lang.js";
 import { fit, initScreen, isTouch, simMode } from "./screen.js";
 import { ui } from "./state.js";
 import { initCamera, updateCamera } from "./three/camera.js";
@@ -31,7 +32,7 @@ import { showDueNote } from "./ui/grownups.js";
 import { updateMinimapFade } from "./ui/minimap.js";
 import { drawUI } from "./ui/screens.js";
 
-let introDue = false, tutorialDue = false, last = 0;
+let langDue = false, introDue = false, tutorialDue = false, last = 0;
 async function boot() {
   // SPEC-025 AC 7: errors are logged (and, once ready, shown) from here on
   initErrors();
@@ -65,6 +66,8 @@ async function boot() {
   // SPEC-022: самый первый запуск (и старое сохранение без seen: история новая для всех) — комикс «Как всё началось» (под экраном
   // загрузки, пока он есть). Тесты его пропускают: их init-скрипт ставит window.__bbNoIntro (кроме теста первого запуска)
   introDue = !progress.seen.intro && window.__bbNoIntro !== true;   // открывается в frame(), когда экрана загрузки уже нет
+  // SPEC-032 AC 13: самый первый запуск (ничего не сохранено) — сначала экран языка (тесты пропускают его вместе с комиксом)
+  langDue = saveInfo.firstLaunch && window.__bbNoIntro !== true;
   // SPEC-029: после комикса — обучение (только настоящий первый запуск: firstTutorial); тесты пропускают его: window.__bbNoTutorial
   tutorialDue = firstTutorial(progress) && window.__bbNoTutorial !== true;
   window.__bbReady = true;
@@ -89,6 +92,7 @@ function tick(now) {
   last = now;
   noteFrame(Math.max(0, real), dt);          // SPEC-025 AC 15b: __bb.perf()
   if (simMode) return;                       // sim: ни логики, ни рисования — игру шагает simRun
+  if (langDue && mode === "home" && !document.getElementById("loading")) { langDue = false; openLangScreen(); }   // SPEC-032: язык — до комикса
   if (introDue && mode === "home" && !document.getElementById("loading")) { introDue = false; openScene("intro", tutorialDue ? () => openTutorial("map") : null); }   // SPEC-022: первый запуск (SPEC-029: потом обучение)
   if (inMenus() && !document.getElementById("loading")) showDueNote(now);   // SPEC-025 AC 4 / 4b: a save note, once, in the menus
   ui.T += dt;

@@ -366,6 +366,8 @@ export const I18N = {
     levelIntro: (w, n, t) => `${w} · Уровень ${n}: ${t}`, levelIntroShort: (w, n, t) => `${w} · ${n}: ${t}`, levelIntroTiny: (w, n, t) => `${n}: ${t}`, worldStars: (n, max) => `⭐ ${n}/${max}`
   }
 };
+// SPEC-032 AC 13: the language screen of the first launch — each language named in itself
+export const LANG_NAMES = Object.freeze({ en: "English", es: "Español", pt: "Português", ru: "Русский" });
 export const LANGS = ["en", "es", "pt", "ru"];   // SPEC-028: + português (Brasil); порядок — как переключает значок 🌐
 export const HTML_LANG = { pt: "pt-BR" };        // <html lang>: португальский — бразильский
 // SPEC-028: язык при запуске — сохранённый (bebebe-lang: старые en/es/ru, новый pt); если его нет и это самый первый запуск
