@@ -11,8 +11,8 @@ A top-down arcade game designed by kids: the **Little Ones** team against the **
   If nobody helps within 18 seconds, you limp home and rest there for 30 seconds, then come back.
   There is no game over — but every rest costs coins (−3 from the win line).
 - **Near Dad — tiptoe!** If you run close to the Big One where he can't see you, he hears you: an 👂 pops up
-  over his head, then a ❓ and he turns round to look. Tiptoe (hold `Shift`, or push the stick just a little)
-  and he hears nothing — tiptoeing is only a bit slower. Little "tap-tap" lines at your feet mean he can hear you.
+  over his head, then a ❓ and he turns round to look — but not every time: sometimes he misses it. Tiptoe (hold
+  `Shift`, tap the 👣 button on a touch screen, or push the stick just a little) and he hears nothing — tiptoeing is only a bit slower. Little "tap-tap" lines at your feet mean he can hear you.
   After turning round he can't hear for a few seconds; he never hears while you are invisible or in your house.
 - After a push the Big One rests for 2.5 s (pale vision cone) and pushes nobody.
 - After a hug he is shocked for 2.5 s: he can't move or push, and he can't be hugged again yet.
@@ -55,10 +55,15 @@ with 3 hearts: the bot gets pushed, you help it up, sneak behind Dad and hug him
 the items, the banana, air kisses, the rescue kit and the mittens → **practice game 2** (lots of items and bananas,
 5 air kisses and 1 rescue kit just for this game, Dad with 5 hearts) → "You're ready!" and the level map with
 level 1 waiting. You can't lose a practice game, and nothing you do there changes your coins, stars, levels or
-things. **▶ Practice** on the Story's **❓ How to play** page plays the whole tutorial again.
+things. On the Story's **❓ How to play** page, **Pictures** shows the tutorial's picture pages again and
+**Practice** plays the two practice games again.
 Since SPEC-029 Dad starts with **5 hearts** on Park 1 (one fewer on every level).
 
 ## Starting a level
+
+On the very first launch the game asks for the **language** first: four big buttons (English, Español, Português,
+Русский), English already highlighted. After that come the comic and the tutorial. Players who already had a save
+never see this screen; the 🌐 icon still changes the language any time.
 
 The **home screen** shows the logo and three big buttons in a column, each with a drawn icon: **Play**, **Story**, **Character**. The small
 🌐 and 🔊 icons in the corner switch the language and the sound. Your stars, worlds, coins and things are on the
@@ -75,10 +80,11 @@ So from opening the game to playing is three taps: Play → the bouncing stop �
 
 **Story** — the comic of the whole adventure, chapter by chapter: How it began (Dad's own words in the comic's speech
 bubbles), one chapter per world, How it ended (after the School's boss). A world's chapter opens with the world; until the comic pictures are drawn, a
-pencil sketch says "Comic coming soon". **❓ How to play** on the story screen lists the rules and the controls,
-and its **▶ Practice** button plays the tutorial again.
+pencil sketch says "Comic coming soon". **❓ How to play** on the story screen shows the rules with
+pictures, the tutorial's first picture sheet and the controls; its **Pictures** button pages through all the tutorial
+pictures, and **Practice** plays the two practice games.
 
-After a level: the win screen offers the next level, the **Map** and the **Shop** (the Character's Items tab); the pause
+After a level: the win screen offers the next level, the **Map** and **Character** (its Items tab; the lose screen too); the pause
 menu offers Continue, Map and Home.
 
 ## Install on iPhone
@@ -108,7 +114,8 @@ On a phone (held sideways) the game switches to **phone mode**; iPads and comput
   (red with a heart = the Big One, green with ❗ = a friend who needs help).
 - Put a finger anywhere on the **left part** of the screen: the joystick appears right there. The right part is
   for buttons; the 💋 button is bottom right (while you are down, limping or resting, the 🩹 button takes its place).
-  Push the joystick just a little — inside its dashed inner ring — to tiptoe near the Big One.
+  Tap the round 👣 button next to 💋 to tiptoe near the Big One (it glows while it's on; tap again to run; it is off
+  at the start of every level). Pushing the joystick just a little — inside its dashed inner ring — tiptoes too.
 - Big buttons and texts; menus laid out for a wide, short screen. On the level map swipe left/right to change
   the world.
 - **One player** only (bots fill the team).
@@ -139,10 +146,10 @@ No build step. Works on desktop, tablet and phone. **How to play locally:** `npm
 | Rescue kit 🩹 — touch | 🩹 button in the 💋 button's place (shows only while you are down, limping home or resting, and have kits) | 🩹 button in the 💋 button's place |
 | Rescue kit 🩹 — gamepad | Y (Xbox) / △ (PlayStation) | Y / △ on pad 2 |
 | Tiptoe 👣 — keyboard | hold `Shift` (one player: either Shift) / `Left Shift` (two players) | hold `/` (the key left of Right Shift) |
-| Tiptoe 👣 — touch | push the joystick only a little (inside the dashed inner ring) | the same |
+| Tiptoe 👣 — touch | tap the 👣 button next to 💋 (on / off), or push the joystick only a little (inside the dashed inner ring) | the same |
 | Tiptoe 👣 — gamepad | tilt the stick only part of the way | the same on pad 2 |
 
-`P` — pause, `M` — sound, `L` — language (English / Español (AR) / Português (BR) / Русский). On the first launch the game picks the browser's language if it is one of these (otherwise English).
+`P` — pause, `M` — sound, `L` — language (English / Español (AR) / Português (BR) / Русский). On the very first launch a language screen asks first (English highlighted: arrows / D-pad move, `Enter` / A / a tap picks, `Esc` keeps English).
 
 Menus:
 
@@ -153,7 +160,7 @@ Menus:
 | Level card | `Enter` or `1` — one player, `2` — two players, `S` — the world's story chapter, `Esc` — close | A — one player, X — two players, Y — story chapter, B — close | Play (computer: 1 / 2 players), ✕ or a tap outside — close |
 | Story | `←` / `→` — chapter, `V` — watch the chapter's scene again, `Esc` — back | D-pad or shoulders — chapter, X — watch the scene, Y — How to play, B — back | ◀ ▶ or swipe, ▶ on the picture — watch the scene |
 | Story scene | `Enter` / `Space` / `→` — next, `←` — back, `Esc` — skip | A — next, B — skip | tap — next, Skip |
-| How to play | `Enter` / `Space` — Practice (the tutorial), `Esc` — back to the chapters | A — Practice, Y / B — back | ▶ Practice |
+| How to play | `Enter` / `Space` — Practice (the two practice games), `V` — Pictures, `Esc` — back to the chapters | A — Practice, X — Pictures, Y / B — back | Pictures, Practice |
 | Tutorial | pages as a story scene (`Esc` — skip the whole tutorial); in a practice game `P` / `Esc` — pause (Continue · Try again · Skip), `Q` in the pause — skip | Start — pause, B in the pause — skip | Skip on every page, ⏭ in the corner of a practice game |
 | Character | `←` / `→` — tab, `Enter` / `Esc` — done; `R` — random outfit in the Wardrobe | D-pad left/right — tab, X — random outfit (Y — Player 2) | tap the tabs |
 
@@ -217,7 +224,7 @@ Coins (the win screen shows one line for each):
 
 Leaving a level before the win (pause → Map or Home) pays the hugs only; leaving during the final hug still counts as the win.
 
-**Character** (home screen; after a level the **Shop** button opens it on Items) has four tabs: **Progress** ·
+**Character** (home screen; after a level the **Character** button opens it on Items) has four tabs: **Progress** ·
 **Items** · **Wardrobe** (outfits and names, see below) · **Upgrades**. **Progress** (opened from home) shows player 1's
 look and name, the stars (out of 240) and finished worlds, one row per world (stars out of 60, levels won out of 20, a
 "done" stamp, a padlock on a locked world; under the rows, which world to finish next), the bag (gloves, air kisses, rescue kits), the upgrade levels and how
@@ -272,7 +279,7 @@ inside each world. After level 20 the win screen says the world is done and offe
 
 ## Outfits
 
-Shop → **Wardrobe** tab: each player builds an outfit from 4 parts — hair (8), hat (12), jacket (15, incl. hoodies,
+Character → **Wardrobe** tab: each player builds an outfit from 4 parts — hair (8), hat (12), jacket (15, incl. hoodies,
 superhero cape, ninja, rainbow, magic cape, detective coat) and pants (10, incl. shorts, overalls, striped pants); every
 piece has its own drawing next to the 3D preview; 🎲 picks a random outfit. The Big One has 6 looks
 (Classic, Ogre, Robot, Captain, Bear and the **Dad** from the story — bald, stubble, red t-shirt, jeans — the look of a

@@ -16,6 +16,7 @@ const fixture = (pages, sim) => async ({ browser, hasTouch }, use) => {
   const cfg = await s.page.evaluate(() => JSON.stringify(window.__bb.CFG));
   await s.page.evaluate(() => { window.__bb.world = "park"; window.__bb.level = 1; window.__bb.startGame(1); });   // Park 1 is running
   await use(s.page);
+  await s.page.evaluate(() => { const r = window.__cfgRestore; delete window.__cfgRestore; if (r) r(); });   // SPEC-032: a helper's CFG change (installHearHelpers)
   expect(s.errors.splice(0)).toEqual([]);
   expect(await s.page.evaluate(() => JSON.stringify(window.__bb.CFG)), "the test restores every CFG value it changed").toBe(cfg);
 };
@@ -1606,6 +1607,10 @@ async function installHearHelpers(page) {
   await installTestHelpers(page);
   await page.evaluate(() => {
     const b = window.__bb, t = window.__t, g = b.grid, C = b.CFG;
+    // SPEC-032: these SPEC-019 tests pin how he turns once he hears — he hears every time here (HEAR_CHANCE 1, no rng draw);
+    // the chance itself is tests/core/hearing.test.mjs. The fixture calls __cfgRestore after the test.
+    if (!window.__cfgRestore) { const keep = C.HEAR_CHANCE; window.__cfgRestore = () => { C.HEAR_CHANCE = keep; }; }
+    C.HEAR_CHANCE = 1;
     b.level = 2; b.startGame(1);                                   // Park 2 (meadow): open ground 150 px around a spot
     const CODES = ["KeyD", "KeyS", "KeyA", "KeyW", "ArrowRight", "ArrowDown", "ShiftLeft", "ShiftRight", "ControlRight", "ControlLeft"];
     const free = (x, y) => !g.seeSolid(x, y) && !g.blocked[((y / g.CELL) | 0) * g.COLS + ((x / g.CELL) | 0)] && !b.inSafe({ x, y }) && !b.inDanger({ x, y });

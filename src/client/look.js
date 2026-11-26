@@ -50,6 +50,10 @@ export const LOOK = {
     ringW: 1.5, frame: 0.6, frameW: 1, frameShade: 0.25, frameShadeW: 3, border: 0.35, borderW: 1, radius: 8 },
   ARROW_D: 30,               // CSS px — кружок стрелки у края экрана (диаметр)
   PHONE_KISS_BTN: 80,        // CSS px — кнопка 💋 на телефоне
+  // SPEC-032 AC 1: кнопка 👣 (на цыпочках, переключатель; придумал Claude): диаметр на телефоне (CSS px) и на сенсорном компьютере (px),
+  // отступ от кнопки 💋 (доля её диаметра), значок на рамке phone_stick_base (доля диаметра), свечение включённой (цвет, толщина — доля диаметра);
+  // пульс свечения: прозрачность pulseMin…pulseMin + pulseAmp, pulseSpeed рад/с, ореол за краем — glowOut × glowW диаметра; эмодзи — emoji × значка
+  TIPTOE_BTN: { phone: 64, desk: 56, gap: 0.1, icon: 0.62, glow: "#facc15", glowW: 0.09, pulseMin: 0.55, pulseAmp: 0.35, pulseSpeed: 4, glowOut: 0.6, emoji: 0.8 },
   STICK_ZONE: 0.55,          // доля ширины слева, где касание создаёт джойстик
   PHONE_STICK_R: 60,         // CSS px — радиус джойстика на телефоне
   PHONE_BTN_MIN: 44,         // CSS px — кнопка на телефоне не меньше
@@ -60,6 +64,11 @@ export const LOOK = {
   // в облачках и заголовок главы на телефоне — кегль × масштаб экрана min(ширина / ref[0], высота / ref[1]) (CSS px; 844×390 —
   // средний телефон лёжа), в пределах min…max; компьютер — ×1 (его холст и так растёт с окном)
   STORY_TEXT_SCALE: { ref: [844, 390], min: 0.72, max: 1.1 },
+  // SPEC-032 AC 13 (Claude): the language screen — button width (share of the screen, at most maxW), height, gap, font size
+  // (UI px on a computer, CSS px on a phone), the glow ring of the highlighted button (width, colour, corner radius × button height),
+  // the smallest font on a computer (× size)
+  LANG_SCREEN: { w: 0.34, maxW: 300, h: 76, gap: 22, size: 30, ring: 5, glow: "#facc15", ringR: 0.4, min: 0.6 },
+  BUBBLE_MIN: { phone: 8, desk: 9 },   // SPEC-032 AC 10 (придумал Claude): самый мелкий текст в облачках комикса — CSS px на телефоне, px на компьютере
   STORY_TEXT_MIN: 12,        // CSS px — самый мелкий текст глав, подписей заставок и облачков на телефоне (остальное — PHONE_TEXT)
   // SPEC-031: картинка рядом с текстом (глава «Истории»; заставка на телефоне): текст не влез и самым мелким — картинка уже на step
   // доли ширины, но не уже min доли; заставка на компьютере (подпись под картинкой): картинка не ниже minH доли высоты
@@ -86,6 +95,7 @@ export const LOOK = {
   // (текст, «да», «нет», монетки, минус, черта итога). Надписи label(): заливка темнее darkInk (яркость 0..1) — не тёмная обводка OUT
   // (тёмное на тёмном — пятно), а тонкий светлый ореол halo толщиной haloW кегля (на светлой плашке его не видно)
   PAPER: { logoH: 132, phoneLogoH: 92, sheet: [0.3, 0.22, 0.45, 0.55], tapeW: 64, tapeH: 20, tape: "rgba(255,255,255,.62)", tapeLine: "rgba(120,120,120,.45)",
+    insetAlpha: 128,   // SPEC-032 AC 6: пиксель с непрозрачностью больше этой (0–255) — уже нарисованная наклейка (artInset)
     btnCorner: 0.34, offBtn: "#a3a3a3", cache: 3, heart: 1.3, hudIcon: 1.12, stickRing: "rgba(61,43,31,.6)", stickBase: 0.9, knob: 24,
     ink: { text: "#2e2116", good: "#15803d", off: "#64748b", gold: "#b45309", bad: "#b91c1c", line: "rgba(61,43,31,.45)" },
     fxHeart: 0.55, fxStar: 0.45, fxDust: 0.6, popBurst: 1.7, popH: 2.4, winBox: [800, 34, 500], loseBox: [780, 160, 290], pauseBox: [700, 190, 220], stop: 1.12, glow: 1.25, stamp: 0.62, pen: "rgba(40,60,160,.85)", coinLeft: 0.36, coinRight: 0.08,
@@ -174,7 +184,7 @@ export const LOOK = {
     frame: { w: 880, y: 26, h: 590, r: 30, padX: 15, padY: 14, g: 10, B: 50, tabsW: 655 },
     home: { w: 660, y: 40, h: 560, r: 30, titleSize: 54, pad: 14, gap: 12, col: 0.4, colW: 320, top: 24, logoGap: 26, btnGap: 14, logoW: 1.4, logoBand: 0.5,
       playH: 84, playSize: 34, subH: 62, subSize: 26, iconW: 56, langW: 92, iconH: 44, iconSize: 18, iconPad: 16,
-      btnIconGap: 0.12, btnIcon: 0.82, btnPad: 14 },   // SPEC-030 AC 8 (в SPEC-027): значок — от левого края на btnIconGap × высоты, размер btnIcon × высоты (высота — общая, у «Истории»/«Персонажа»: значки в один столбик); btnPad — поля надписи (px; телефон — cpx)
+      btnIconGap: 0.3, btnIcon: 0.8, btnLabelGap: 0.1, btnPad: 14 },   // SPEC-032 AC 6 (придумал Claude): значок — от видимого левого края нарисованной кнопки на btnIconGap × её высоты, размер btnIcon × её высоты; надпись — не ближе btnLabelGap × высоты к значку; btnPad — поля надписи (px; телефон — cpx)
     phoneHome: { col: 0.4, colMax: 300, titleSize: 30, pad: 12, logoGap: 10, logoMin: 56, playH: 64, playSize: 26, subH: 52, subSize: 20, langW: 76 },
     wardrobe: { preview: 110, colBottom: 548, rowY: 558, rowH: 46 },
     // SPEC-026: страница «Прогресс» персонажа (раскладка — Claude, проверить с детьми). Компьютер (UI px): верх и низ страницы (под вкладками,
@@ -193,18 +203,22 @@ export const LOOK = {
     // телефоне (картинка слева, подпись справа), ширина кнопок на компьютере, кегль «Спасибо!».
     // SPEC-026: облачка комикса для слов папы (STORY[0].bubbles) — [x, y, w, h, кончик хвостика x, y], доли всей картинки 8_start
     // (1024×765; белое внутри облачка без хвостика, промерено по картинке), по клетке; какая часть облачка под текстом (ширина, высота:
-    // облачко круглое), строк не больше, шаг строк (в кеглях), самый мелкий текст на компьютере (как у подписи; телефон — STORY_TEXT_MIN, SPEC-031), цвет букв;
-    // своё облачко, когда слова не влезли: SPEC-031 — кегль слов в нём на телефоне (CSS px до масштаба экрана; самый мелкий — STORY_TEXT_MIN),
-    // какая его часть под текстом (ширина, высота), во сколько раз больше нарисованного
-    // облачка самое меньшее (закрывает его), не шире доли клетки, отступ от края клетки (UI px компьютера), длина хвостика (доля
-    // высоты облачка), неровность контура (доля радиуса), «квадратность» (степень суперэллипса: 2 — эллипс, больше — ближе к
-    // прямоугольнику со скруглёнными углами, слова влезают лучше) и толщина контура (UI px компьютера)
+    // облачко круглое), строк не больше, шаг строк (в кеглях), кегль букв — доля прежнего (SPEC-032 AC 10: 0,75 от кегля подписи;
+    // самый мелкий — LOOK.BUBBLE_MIN), цвет букв. SPEC-032 AC 9: своего облачка поверх нарисованного больше нет — только буквы
     scene: { panels: [[0, 0, 0.5, 0.5], [0.5, 0, 0.5, 0.5], [0, 0.5, 0.5, 0.5], [0.5, 0.5, 0.5, 0.5]], text: 22, phoneText: 17, lines: 3,
       phonePic: 0.6, btnW: 220, thanks: 46, phoneThanks: 30, madeBy: 24, phoneMadeBy: 18, cupcake: 0.42,
       bubbles: [[255 / 1024, 28 / 765, 177 / 1024, 87 / 765, 270 / 1024, 136 / 765], [785 / 1024, 43 / 765, 155 / 1024, 87 / 765, 867 / 1024, 150 / 765],
         [132 / 1024, 412 / 765, 113 / 1024, 78 / 765, 241 / 1024, 502 / 765], [633 / 1024, 396 / 765, 176 / 1024, 84 / 765, 664 / 1024, 516 / 765]],
-      bubbleIn: [0.84, 0.72], bubbleLines: 2, bubbleLh: 1.15, bubbleMin: 14, bubbleInk: "#1b1b1b", phoneOwn: 15, ownIn: [0.86, 0.7], ownCover: 1.08, ownMax: 1, ownEdge: 4, ownTail: 0.42, ownWobble: 0.03, ownRound: 3, ownLine: 3 },
-    story: { pic: 0.47, text: 22, phoneText: 18, rule: 17, phoneRule: 15, dot: 6, paper: "#fffdf5", pencil: "#94a3b8", heart: "#f9a8d4", backW: 170, icon: 30 } },
+      bubbleIn: [0.92, 0.86], bubbleLines: 3, bubbleLh: 1.15, bubbleScale: 0.75, bubbleInk: "#1b1b1b" },
+    // SPEC-032 AC 7 (придумал Claude): «Как играть» — доля ширины под правила (компьютер / телефон; справа лист A), значок правила × кегль
+    // (самый мелкий кегль и всё равно тесно — до iconMin ×), шаг строк правила на телефоне (в кеглях; компьютер — 1.2),
+    // отступ значка от текста × кегль, шаг строк правил (px компьютера), кегль управления × кегль правил, отступ управления от правил,
+    // ширина значка в кнопках «Картинки» / «Тренировка» × высота кнопки (запас ширины под значок); бумажная рамка листа A (поле, радиус
+    // углов, отступ скотча — px компьютера × cpx), «Для взрослых» — не шире grownW ширины, кнопки — не уже btnMinW × высоты, поля
+    // надписи btnPad (px × cpx); запасное эмодзи правила — emoji × кегль
+    story: { pic: 0.47, text: 22, phoneText: 18, rule: 17, phoneRule: 15, dot: 6, paper: "#fffdf5", pencil: "#94a3b8", heart: "#f9a8d4", backW: 170,
+      rules: { share: 0.55, phoneShare: 0.64, icon: 1.6, iconMin: 1.3, iconGap: 0.35, rowGap: 4, phoneRowGap: 1.5, phoneLh: 1.1, ctl: 0.85, ctlGap: 6, btnIcon: 1.4,
+        frame: 5, frameR: 6, tapeIn: 6, grownW: 0.3, btnMinW: 2.2, btnPad: 30, emoji: 1.3 } } },
   BANNER_TIME: 2,            // сек — надпись «Уровень N: тип» в начале уровня появляется и исчезает
   BANNER_FADE: 0.4,          // сек — появление и исчезание
   BANNER_REPEAT: 1,          // сек — перезапуск раньше этого после прошлой надписи её не показывает

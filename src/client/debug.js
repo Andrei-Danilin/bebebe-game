@@ -18,7 +18,7 @@ import { spawnItem, spawnStar } from "../core/rules.js";
 import { clamp, setStrictRng, strictRng } from "../core/util.js";
 import { BIG_SKINS, HAIRS, HATS, JACKETS, PANTS, SLOTS } from "../core/wardrobe.js";
 import { inDanger, inSafe, seeSolidAt } from "../core/world.js";
-import { detectLang, I18N, L, lang, LANGS } from "../i18n.js";
+import { detectLang, I18N, L, lang, LANG_NAMES, LANGS } from "../i18n.js";
 import { RULE_ICONS, SCENE_IDS, STORY, TUTORIAL_SCENES } from "../story.js";
 import { ART_NAMES } from "./art-names.js";
 import { art, ART_FALLBACK, artCount, artDone, artVersion, EMOJI_ART, FX_ART, HEART_ART, ITEM_ART, mapBgArt, PAPER_BTN, POP_ART, SHOP_TAB_ART, STORY_ART, UPG_ART, WARDROBE_ART, worldArt } from "./art.js";
@@ -45,15 +45,16 @@ import { groundCanvas, OUTLINE } from "./three/materials.js";
 import { outfitModel, skinPanels } from "./three/previews.js";
 import { camera, LITTLE_SCALE } from "./three/setup.js";
 import { THEMES } from "./three/themes.js";
-import { firstTutorial, openTutorial, tutorial, TUTORIAL_STEPS, tutorialArtNames, tutorialSkip, tutorialStep } from "./tutorial.js";
+import { firstTutorial, openPictures, openPractice, openTutorial, tutorial, TUTORIAL_STEPS, tutorialArtNames, tutorialPages, tutorialSkip, tutorialStep } from "./tutorial.js";
 import { SHOP_PICTURES, shopCards } from "./ui/character/items.js";
 import { clothesCount } from "./ui/character/progress.js";
 import { artUse, KID_HEAD_R, nameTagH, resetArtUse, tapLines } from "./ui/draw.js";
+import { chooseLang, openLangScreen } from "./ui/lang.js";
 import { heardHintOn, heardHintText, heartFill, timerText } from "./ui/hud.js";
 import { mmAlpha, mmCount, mmDraws, mmState, updateMinimapFade } from "./ui/minimap.js";
 import { gateState, openGrownUps, parentGate } from "./ui/grownups.js";
 import { drawUI } from "./ui/screens.js";
-import { fmtHearts } from "./ui/text.js";
+import { fmtHearts, storyPx } from "./ui/text.js";
 import { winTitle } from "./ui/win.js";
 import { G } from "../core/active.js";
 
@@ -112,7 +113,7 @@ export function installDebug() {
     // SPEC-029: обучение — шаги, идёт ли ({ step, page — страница листа, game — 1 / 2 в тренировке, иначе 0, back } или null), начать
     // (back «map» / «story», с шага from), пропустить; firstTutorial(p) — откроется ли само после комикса (чистая)
     TUTORIAL_STEPS, get tutorial() { const s = tutorialStep(); return s && { step: s, page: ui.storyScene && TUTORIAL_SCENES.includes(ui.storyScene.id) ? ui.storyScene.page : 0, game: s.startsWith("game") ? Number(s.slice(4)) : 0, hint: G.tutorialGame ? G.tut.hint : 0, back: tutorial.back }; },
-    openTutorial, tutorialSkip, firstTutorial,
+    openTutorial, tutorialSkip, firstTutorial, openPictures, openPractice,   // SPEC-032 AC 8: «Картинки» и «Тренировка» на «Как играть»
     // SPEC-029: клетки поляны тренировок { x, y, w, h }; подпись времени в HUD; подсказка тренировки этого кадра (плашка) или null
     get tutorialMapRect() { return tutorialMapRect(); }, timerText, get tutorialHint() { return ui.tutorialHintRect && { ...ui.tutorialHintRect, rows: [...ui.tutorialHintRect.rows] }; }, winTitle, get pushWaves() { return ui.waves.map(w => ({ ...w })); }, get scene() { return ui.storyScene && { id: ui.storyScene.id, page: ui.storyScene.page, pages: scenePageCount() }; },
     get sceneInfo() { return ui.sceneInfo && { ...ui.sceneInfo }; }, drawNow() { drawUI(ui.T); }, bossFor,   // SPEC-031: drawNow — нарисовать слой интерфейса сейчас (тест раскладки рисует много экранов за один evaluate)
@@ -189,11 +190,14 @@ export function installDebug() {
         rect: camRect(), zoom: PHONE ? cam.zoom : 1, dist: camDist, ahead: { x: cam.lax, y: cam.lay } };
     },
     isStandalone, get homeInfo() { return ui.homeInfo && JSON.parse(JSON.stringify(ui.homeInfo)); }, get progressInfo() { return ui.progressInfo && JSON.parse(JSON.stringify(ui.progressInfo)); }, clothesCount, get buttonNames() { return ui.buttons.map(b => b.act.name); },
-    get buttonRects() { return ui.buttons.map(b => ({ id: b.id || b.act.name, x: b.x, y: b.y, w: b.w, h: b.h, text: b.text, textW: b.textW })); },
+    get buttonRects() { return ui.buttons.map(b => ({ id: b.id || b.act.name, x: b.x, y: b.y, w: b.w, h: b.h, text: b.text, textW: b.textW, on: b.on })); },
     nameTagH,   // SPEC-021: высота точки имени над ногами (px мира)
     updateCamera, camSnap, stickR, updateMinimapFade, get minimapAlpha() { return mmAlpha; }, skinPanels, resetBannerTimer() { ui.bannerShownAt = -Infinity; }, showBanner,
     // SPEC-031: textFloors — самый мелкий текст телефона по видам textSizes (CSS px)
-    get textSizes() { return { ...ui.textSizes }; }, get textFloors() { return { ...LOOK.PHONE_TEXT, story: LOOK.STORY_TEXT_MIN }; }, get textOverflows() { return ui.textOverflows.map(q => ({ ...q })); }, get rotateShown() { return ui.rotateShown; }, get bannerRect() { return ui.bannerRect && { ...ui.bannerRect }; },
+    get textSizes() { return { ...ui.textSizes }; }, get textFloors() { return { ...LOOK.PHONE_TEXT, story: LOOK.STORY_TEXT_MIN, bubble: LOOK.BUBBLE_MIN.phone }; },
+    // SPEC-032 AC 12: облачка без букв (кадр сравнивается с обычным); кегль текста истории на телефоне
+    get bubbleTextOff() { return ui.bubbleTextOff; }, set bubbleTextOff(v) { ui.bubbleTextOff = !!v; }, storyPx,
+    get textOverflows() { return ui.textOverflows.map(q => ({ ...q })); }, get rotateShown() { return ui.rotateShown; }, get bannerRect() { return ui.bannerRect && { ...ui.bannerRect }; },
     get minimap() { return ui.mmShown ? { x: mmState.x, y: mmState.y, w: mmState.w, h: mmState.h, alpha: mmState.alpha, baseDraws: mmDraws, markers: mmState.markers.slice(0, mmCount).map(m => ({ ...m })) } : null; },
     get edgeArrows() { return ui.edgeArrows.map(a => ({ ...a })); }, get hudRects() { return ui.hudRects.map(r => ({ ...r })); },
     get sticks() { return [...sticks].map(([id, s]) => ({ id, ...s })); },
@@ -209,6 +213,10 @@ export function installDebug() {
     // SPEC-019: бежит ли маленький i (true/false); значок над Большим; подсказка «услышал топот» (текст, чья, плашка этого кадра) или null;
     // джойстики этого кадра с кольцом «на цыпочках»
     isRunning: i => isRunning(G.littles[i]), get bigMark() { return bigMark(); },
+    // SPEC-032 AC 1: кнопки 👣 игроков (включено ли «на цыпочках»); текст подсказки «услышал топот» по устройству; страницы листа обучения
+    get tiptoe() { return [...ui.tiptoe]; }, heardHintText, tutorialPages,
+    // SPEC-032 AC 13: the language screen of the first launch (open it, pick a language or the highlighted one), its names and highlight
+    openLangScreen, chooseLang, LANG_NAMES, get langSel() { return ui.langSel; },
     get heardHint() { return heardHintOn() ? { text: heardHintText(), pi: ui.heardHintPi, rect: ui.heardHintRect && { ...ui.heardHintRect, rows: [...ui.heardHintRect.rows] } } : null; },
     get stickMarks() { return ui.stickMarks.map(q => ({ ...q })); }, get tapLines() { return [...tapLines]; },
     GLOVES, KISSES, get shopLayout() { return ui.shopLayout; },                         // SPEC-007 AC 10

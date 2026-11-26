@@ -17,6 +17,9 @@ The version is `package.json` `version` (shown on the "For grown-ups" page); how
   itself, so no update is ever stuck on an old cache (SPEC-025).
 - This changelog, a release guide with a rollback plan, Dependabot for the tools, and a rule that `master` can't be
   force-pushed or deleted (SPEC-025).
+- Kids' feedback, round 2: a 👣 tiptoe button on touch screens and a Dad who doesn't hear every step, a new How to play
+  page with Pictures and Practice, comic words written inside the drawn bubbles, a language screen on the very first
+  launch, "Character" on the win and lose screens, and our own drawn icons instead of emoji (SPEC-032).
 
 ## [1.0.0-dev] - what is in the game today
 

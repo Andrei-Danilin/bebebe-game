@@ -2,7 +2,7 @@
 // the shop with the Wardrobe tab, the end-screen flows; desktop and phone 667×375 (fonts ×1 and ×1.15).
 const base = require("./pw");   // SPEC-023: @playwright/test + failure screenshots
 const { expect } = base;
-const { textFloor, LANGS, openGame, frames, sharedPage, resetGame, ROOT } = require("./helpers");
+const { textFloor, LANGS, openGame, frames, sharedPage, resetGame, ROOT, gameSource } = require("./helpers");
 const fs = require("fs");
 const path = require("path");
 
@@ -84,7 +84,7 @@ test("home is minimal: the logo, language and sound, Play · Story · Character"
   expect(d.hint, "the install hint is gone (Andrei: remove it completely)").toEqual([false, false, false, false]);
   expect(d.hintShown, "no installHintShown in __bb").toBe(false);
   expect(d.texts.some(t => /Skins|🎨/.test(t)), "no Skins button").toBe(false);
-  expect(d.modes, "no skins / names modes").toEqual(["home", "map", "levelCard", "story", "shop", "play", "pause", "win", "lose", "scene"]);   // SPEC-022: + the story scenes
+  expect(d.modes, "no skins / names modes").toEqual(["home", "map", "levelCard", "story", "shop", "play", "pause", "win", "lose", "scene", "lang"]);   // SPEC-022: + the story scenes; SPEC-032: + the language screen
   // one centred column, in this order: Play (green), Story (pink), Character (orange); Play the biggest
   const btn = id => d.rects.find(q => q.id === id), col = ["home:play", "home:story", "home:shop"].map(btn);
   for (const q of col) {
@@ -475,15 +475,16 @@ test("win, lose and pause lead to the map, the shop and home", async ({ page }) 
   };
   // win in the middle of a world: Next level · Map · Shop
   let e = await end(() => { const b = window.__bb; b.world = "city"; b.level = 3; b.startGame(1); b.giveReward(true); b.mode = "win"; });
-  const I = await page.evaluate(() => { const L = window.__bb.I18N.en; return { next4: L.next(4), map: L.map, shop: L.shop, again: L.again, resume: L.resume, home: L.home }; });
+  // SPEC-032 AC 17: the button reads Character (with the 🎒 → menu_character icon), not Shop
+  const I = await page.evaluate(() => { const L = window.__bb.I18N.en; return { next4: L.next(4), map: L.map, character: L.character, again: L.again, resume: L.resume, home: L.home }; });
   expect(e.names).toEqual(["nextLevel", "toMap", "shopAfterWin"]);
-  expect(e.texts).toEqual([I.next4, "🗺 " + I.map, "🛒 " + I.shop]);
+  expect(e.texts).toEqual([I.next4, "🗺 " + I.map, "🎒 " + I.character]);
   await click(page, "toMap");
   expect(await page.evaluate(() => [window.__bb.mode, window.__bb.world])).toEqual(["map", "city"]);
   // win → Shop: the next level is picked, the shop's OK goes back to the map
   await end(() => { const b = window.__bb; b.world = "city"; b.level = 3; b.startGame(1); b.giveReward(true); b.mode = "win"; });
   await click(page, "shopAfterWin");
-  expect(await page.evaluate(() => [window.__bb.mode, window.__bb.level])).toEqual(["shop", 4]);
+  expect(await page.evaluate(() => [window.__bb.mode, window.__bb.level, window.__bb.shopTab])).toEqual(["shop", 4, "items"]);   // the Character screen, Items tab
   await page.keyboard.press("Escape");
   expect(await page.evaluate(() => window.__bb.mode), "back from the shop to the map").toBe("map");
   // the last level of a world: Map · Shop (no next level); Enter = Map
@@ -494,7 +495,7 @@ test("win, lose and pause lead to the map, the shop and home", async ({ page }) 
   // lose: Try again · Shop · Map; Escape = Map
   e = await end(() => { const b = window.__bb; b.world = "park"; b.level = 2; b.startGame(1); b.giveReward(false); b.mode = "lose"; });
   expect(e.names).toEqual(["retryLevel", "shopAfterLose", "toMap"]);
-  expect(e.texts).toEqual([I.again, "🛒 " + I.shop, "🗺 " + I.map]);
+  expect(e.texts).toEqual([I.again, "🎒 " + I.character, "🗺 " + I.map]);
   await page.keyboard.press("Escape");
   expect(await page.evaluate(() => window.__bb.mode)).toBe("map");
   await end(() => { const b = window.__bb; b.world = "park"; b.level = 2; b.startGame(1); b.giveReward(false); b.mode = "lose"; });
@@ -932,4 +933,13 @@ test("CFG.MENU_LOOK has no key twice", () => {
     }
   }
   expect(dups).toEqual([]);
+});
+
+// SPEC-032 AC 17: no player-visible "Shop" is left — no L().shop and no 🛒 + text in the client code (the Items tab's 🛒 is its
+// shop_items picture), and I18N has no `shop` string any more
+test("no Shop left: the client never writes L().shop or a 🛒 button, I18N has no shop string", { tag: "@fast" }, async ({ page }) => {
+  const src = gameSource();
+  expect(src.match(/L\(\)\.shop\b/g), "L().shop in the client").toBe(null);
+  expect((src.match(/"🛒 " \+/g) || []).length, "a 🛒 + text button").toBe(0);
+  expect(await page.evaluate(() => Object.keys(window.__bb.I18N).filter(l => "shop" in window.__bb.I18N[l]))).toEqual([]);
 });

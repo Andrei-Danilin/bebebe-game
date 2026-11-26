@@ -2,15 +2,15 @@
 // module (moved out of index.html in Phase C).
 
 import { BONUS_WORLDS, CFG, WORLDS } from "../../core/config.js";
-import { clamp } from "../../core/util.js";
 import { L, lang } from "../../i18n.js";
 import { RULE_ICONS, STORY, TUTORIAL_SCENES } from "../../story.js";
 import { art, artFile, artImgs, STORY_ART, tape } from "../art.js";
-import { cardLevel, chapterOpen, sceneNext, setStoryPage, scenePages, sceneSkip, storyBack, goBack, storyCh, storyStep, watchChapter } from "../flow.js";
+import { cardLevel, chapterOpen, sceneBack, sceneNext, setStoryPage, scenePages, sceneSkip, storyBack, goBack, storyCh, storyStep, watchChapter } from "../flow.js";
 import { LOOK } from "../look.js";
 import { ctx, PHONE } from "../screen.js";
 import { ui } from "../state.js";
-import { openTutorial } from "../tutorial.js";
+import { openPictures, openPractice } from "../tutorial.js";
+import { homeButton } from "./home.js";
 import { openGrownUps } from "./grownups.js";
 import { fitButton, rowsAt } from "./character/wardrobe.js";
 import { circle, drawArtFit, fillStroke, fillT, heartPath, noteArt, regButton, rr } from "./draw.js";
@@ -19,6 +19,8 @@ import { menuFrame } from "./menu.js";
 import { cpx, hudFont, label, minPx, noteRows, noteText, noteUnfit, plainText, scaledW, sideFit, storyMin, storyPx } from "./text.js";
 import { fitLine } from "./win.js";
 
+// SPEC-032 AC 7: значки правил «Как играть» — картинки по порядку RULE_ICONS (❤ 👀 🤝 ⏱ 🏠 🍌 👣); нет картинки — эмодзи
+const RULE_ART = ["heart_full", "ui_eyes", "shop_quick_help", "ui_timer", "house_kids", "item_banana", "ui_tiptoe"];
 // картинка главы по своему пути c.image (SPEC-020: тем же загрузчиком artFile); нет пути, грузится или ошибка — null
 const storyPicture = c => (c.image ? artFile(c.image) : null);
 const storyLoad = c => !c.image ? "none" : (artImgs.get(c.image) || { state: "loading" }).state;
@@ -72,48 +74,7 @@ export function drawStory() {
   ui.hudRects.push({ id: "story:title", x: tx0 + tmax / 2 - tf.w / 2, y: Y0 + B / 2 - tf.sz * 0.6, w: tf.w, h: tf.sz * 1.2, text: tf.text });
   const top = Y0 + B + g;
   if (rules) {
-    // правила (как было в меню) — значок слева, строка до двух-трёх рядов; ниже управление (телефон — только про палец)
-    // SPEC-029: нижний ряд — свой: справа «▶ Тренировка» (обучение ещё раз; в конце — снова сюда), на телефоне слева от неё —
-    // строка управления; правила — над рядом (на телефоне не влезают — мельче, не мельче подсказок)
-    const iw = S.icon * k, maxW = X1 - X0 - iw, by = Y1 - B, lines = L().rules(CFG.DOWN_TIME);
-    const pt = "▶ " + L().tut.practice;
-    ctx.font = hudFont(PHONE ? cpx(18) : 20);
-    const pw = Math.min((X1 - X0) * 0.45, Math.max(B * 2.5, scaledW(pt) + 30 * k));
-    fitButton(X1 - pw, by, pw, B, pt, M.ok, () => openTutorial("story"), PHONE ? cpx(18) : 20, minMain).id = "story:practice";
-    // SPEC-025 AC 6: «Для взрослых» — слева в нижнем ряду (за вопросом для взрослых: сохранение, копии, журнал ошибок)
-    const gt = L().forGrownUps;
-    ctx.font = hudFont(PHONE ? cpx(16) : 17);
-    const gw = Math.min((X1 - X0) * 0.3, Math.max(B * 2, scaledW(gt) + 26 * k));
-    fitButton(X0, by, gw, B, gt, M.back, openGrownUps, PHONE ? cpx(16) : 17, minMain).id = "story:grownups";
-    const rowX = X0 + gw + g, rowW = X1 - X0 - pw - gw - 2 * g;   // the bottom row between the two buttons
-    const rulesH = sz => lines.reduce((h, r) => { const b = noteRows(r, sz, minHint, maxW, 3); return h + b.rows.length * b.sz * 1.2 + 5 * k; }, 0);
-    let size = PHONE ? cpx(S.phoneRule) : S.rule;
-    if (PHONE) while (size > minHint && rulesH(size) > by - g - (top + 4 * k)) size = Math.max(minHint, size - 0.5);
-    let y = top + 4 * k;
-    lines.forEach((r, i) => {
-      const b = noteRows(r, size, minHint, maxW, 3), lh = b.sz * 1.2;
-      ctx.font = `${size}px system-ui, 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-      fillT(RULE_ICONS[i] || "•", X0 + iw / 2, y + lh / 2);
-      ctx.font = `800 ${b.sz}px system-ui, "Segoe UI", sans-serif`; ctx.textAlign = "left"; ctx.fillStyle = M.ink;
-      b.rows.forEach((q, j) => fillT(q, X0 + iw, y + lh * (j + 0.5)));
-      if (PHONE) noteText("hint", b.sz);
-      ui.hudRects.push({ id: "rules:" + i, x: X0 + iw, y, w: b.w, h: b.rows.length * lh, text: r });
-      y += b.rows.length * lh + 5 * k;
-    });
-    y += 6 * k;
-    if (PHONE) {                                           // про палец — в нижнем ряду, левее «Тренировки», по середине ряда
-      const t = L().touch1, cw = rowW, b = noteRows(t, cpx(S.phoneRule), minHint, cw, 2);
-      rowsAt("controls:touch", b, rowX + cw / 2, by + (B - b.rows.length * b.sz * 1.2) / 2, M.soft);
-      ui.hudRects[ui.hudRects.length - 1].text = t;
-      noteText("hint", b.sz);
-    } else for (const [id, t] of [["controls:0", L().controls1], ["controls:1", L().controls2]]) {
-      // строка, которая дошла бы до нижнего ряда, — между кнопками «Для взрослых» и «Тренировка»
-      const low = y + 2 * 15 * 1.2 > by - g, cw = low ? rowW : X1 - X0;
-      const b = noteRows(t, 15, minHint, cw, 2);
-      y += rowsAt(id, b, (low ? rowX : X0) + cw / 2, y, M.soft) + 2 * k;
-      ui.hudRects[ui.hudRects.length - 1].text = t;
-    }
-    ui.storyInfo = { chapter: c.id, index: storyCh, locked: !open, page: "rules", title, text: "", art: null };
+    drawRulesPage(c, open, title, top, { X0, X1, Y1, g, B }, minMain, minHint);
     return;
   }
   // нижний ряд: ◀ ▶ между главами, посередине точки глав (текущая — крупнее, закрытые — серые)
@@ -143,7 +104,8 @@ export function drawStory() {
     if (artName) noteArt(artName);
     tape(ix + 6 * k, iy + 2 * k, -0.7, k * 0.8); tape(ix + iw - 6 * k, iy + 2 * k, 0.7, k * 0.8);
   } else storyPlaceholder(pic, !open);
-  // SPEC-026: «Как всё началось» — комикс целиком: слова папы во всех четырёх облачках
+  // SPEC-026: «Как всё началось» — комикс целиком: слова папы во всех четырёх облачках (SPEC-032: облачка тут крошечные — не влезшее
+  // и самым мелким пишется самым мелким поверх края облачка; ▶ показывает комикс по клеткам, там влезают все)
   const bubbles = img && artName && c.bubbles ? drawBubbles(c.bubbles[lang].map((text, i) => ({ i, text })), [0, 0, 1, 1], ...imgRect) : [];
   if (open) {                                                // SPEC-022: ▶ в углу картинки — посмотреть заставку главы ещё раз
     // SPEC-026: в правом нижнем углу картинки (в правом верхнем — облачко второй клетки комикса)
@@ -158,81 +120,137 @@ export function drawStory() {
   // SPEC-031: picBox — картинка с рамкой (или заглушка), fit — весь текст влез в своё место, picShare — доля ширины под картинку
   ui.storyInfo = { chapter: c.id, index: storyCh, locked: !open, page: "chapters", title, text, art: !open ? "locked" : img ? "image" : "placeholder", load: storyLoad(c), pic, bubbles, picBox, fit: b.fit, picShare };
 }
+// ---------- SPEC-032 AC 7–8: «Как играть» — слева правила со значками-картинками (~1.6 × кегля; эмодзи — только запасной вид), справа
+// лист обучения A (tutorial_a, все четыре клетки) в бумажной рамке, как картинки «Истории»; под правилами — управление (телефон —
+// только про палец). Нижний ряд: «Для взрослых» слева (SPEC-025 AC 6), справа «Картинки» (страницы A1…C4) и «Тренировка» (только игры).
+// Всё влезает: кегль правил и управления мельчает вместе (не мельче подсказок), строка правила — до трёх рядов
+function drawRulesPage(c, open, title, top, { X0, X1, Y1, g, B }, minMain, minHint) {
+  const M = LOOK.MENU_LOOK, S = M.story, R = S.rules, k = PHONE ? cpx(1) : 1, by = Y1 - B, lines = L().rules(CFG.DOWN_TIME);
+  // нижний ряд: справа «Тренировка», левее «Картинки» (бумажные кнопки со значком, как на главном), слева «Для взрослых»
+  const bsz = PHONE ? cpx(18) : 20, gt = L().forGrownUps;
+  ctx.font = hudFont(PHONE ? cpx(16) : 17);
+  const gw = Math.min((X1 - X0) * R.grownW, Math.max(B * 2, scaledW(gt) + 26 * k));
+  fitButton(X0, by, gw, B, gt, M.back, openGrownUps, PHONE ? cpx(16) : 17, minMain).id = "story:grownups";
+  const acts = [{ id: "story:pictures", icon: "menu_story", emoji: "📖 ", text: L().pictures, color: M.storyBtn, act: openPictures },
+    { id: "story:practice", icon: "menu_play", emoji: "▶ ", text: L().tut.practice, color: M.ok, act: openPractice }];
+  ctx.font = hudFont(bsz);
+  const room = (X1 - X0 - gw - 3 * g) / 2, bws = acts.map(a => Math.min(room, Math.max(B * R.btnMinW, scaledW(a.text) + B * R.btnIcon + R.btnPad * k)));
+  let bx = X1;
+  for (let i = acts.length - 1; i >= 0; i--) {
+    bx -= bws[i];
+    if (!homeButton(bx, by, bws[i], B, acts[i], bsz, minMain)) fitButton(bx, by, bws[i], B, acts[i].emoji + acts[i].text, acts[i].color, acts[i].act, bsz, minMain).id = acts[i].id;
+    bx -= g;
+  }
+  // управление: на компьютере — под правилами (слева), на телефоне — под картинкой (справа: слева правилам нужна вся высота)
+  const mh = by - g - top, lw = (X1 - X0) * (PHONE ? R.phoneShare : R.share), px = X0 + lw + 2 * g, rw = X1 - px;
+  const ctl = PHONE ? [["controls:touch", L().touch1]] : [["controls:0", L().controls1], ["controls:1", L().controls2]];
+  const ctlRows = (sz, w) => ctl.map(([, t]) => noteRows(t, Math.max(minHint, sz * R.ctl), minHint, w, 2, { keep: true }));
+  const ctlH = cb => cb.reduce((a, b) => a + b.rows.length * b.sz * 1.2 + 2 * k, 0) + R.ctlGap * k;
+  const phoneCtl = PHONE ? ctlRows(cpx(S.phoneRule), rw) : null;
+  // справа — лист A целиком (без картинки — запасная страница первой клетки)
+  const pic = { x: px, y: top, w: rw, h: mh - (phoneCtl ? ctlH(phoneCtl) : 0) };
+  const img = art("tutorial_a");
+  let picBox = pic;
+  if (img) {
+    const fr = R.frame * k, sc = Math.min((pic.w - 2 * fr) / img.width, (pic.h - 2 * fr) / img.height), iw = img.width * sc, ih = img.height * sc;
+    const ix = pic.x + (pic.w - iw) / 2, iy = pic.y + (pic.h - ih) / 2;
+    rr(ix - fr, iy - fr, iw + 2 * fr, ih + 2 * fr, R.frameR * k); fillStroke(S.paper, 3 * k);   // бумажная рамка, как в «Истории»
+    ctx.drawImage(img, ix, iy, iw, ih);
+    noteArt("tutorial_a");
+    tape(ix + R.tapeIn * k, iy + 2 * k, -0.7, k * 0.8); tape(ix + iw - R.tapeIn * k, iy + 2 * k, 0.7, k * 0.8);
+    picBox = { x: ix - fr - 1.5 * k, y: iy - fr - 1.5 * k, w: iw + 2 * fr + 3 * k, h: ih + 2 * fr + 3 * k };
+  } else storyPlaceholder(pic, false, false);
+  // слева — правила (и на компьютере под ними управление); кегль один на всё (мельче, пока не влезет по высоте)
+  let iconK = R.icon;
+  const iconOf = sz => sz * iconK, colW = sz => lw - iconOf(sz) - sz * R.iconGap, rowGap = (PHONE ? R.phoneRowGap : R.rowGap) * k, rlh = PHONE ? R.phoneLh : 1.2;
+  const lay = sz => {
+    const rows = lines.map(r => noteRows(r, sz, minHint, colW(sz), 3, { keep: true })), cb = phoneCtl ? [] : ctlRows(sz, lw);
+    const h = rows.reduce((a, b) => a + Math.max(b.rows.length * b.sz * rlh, iconOf(b.sz)) + rowGap, 0) + (cb.length ? ctlH(cb) : 0);
+    return { rows, cb, h, fit: rows.every(b => b.fit) && cb.every(b => b.fit) };
+  };
+  let size = PHONE ? cpx(S.phoneRule) : S.rule, L1 = lay(size);
+  while (size > minHint && (L1.h > mh || !L1.fit)) { size = Math.max(minHint, size - 0.5); L1 = lay(size); }
+  while (iconK > R.iconMin && (L1.h > mh || !L1.fit)) { iconK = Math.max(R.iconMin, iconK - 0.05); L1 = lay(size); }   // самый мелкий кегль и всё равно тесно — значки чуть меньше
+  let y = top + Math.max(0, (mh - L1.h) / 2);
+  const drawnIcons = [];
+  L1.rows.forEach((b, i) => {
+    const lh = b.sz * rlh, ic = iconOf(b.sz), rowH = Math.max(b.rows.length * lh, ic), tx = X0 + ic + b.sz * R.iconGap;
+    const name = RULE_ART[i], cy = y + rowH / 2;
+    if (!(name && drawArtFit(name, X0 + ic / 2, cy, ic))) {   // нет картинки — эмодзи, как раньше
+      ctx.font = `${b.sz * R.emoji}px system-ui, 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(RULE_ICONS[i] || "•", X0 + ic / 2, cy);
+    } else drawnIcons.push(name);
+    ui.hudRects.push({ id: "rulesIcon:" + i, x: X0, y: cy - ic / 2, w: ic, h: ic });
+    ctx.font = `800 ${b.sz}px system-ui, "Segoe UI", sans-serif`; ctx.textAlign = "left"; ctx.fillStyle = M.ink;
+    const ty = cy - b.rows.length * lh / 2;
+    b.rows.forEach((q, j) => fillT(q, tx, ty + lh * (j + 0.5)));
+    if (PHONE) noteText("hint", b.sz);
+    ui.hudRects.push({ id: "rules:" + i, x: tx, y: ty, w: b.w, h: b.rows.length * lh, text: lines[i], size: b.sz });
+    if (!b.fit) noteUnfit(lines[i], b, colW(b.sz), 3 * b.sz * 1.2);
+    y += rowH + rowGap;
+  });
+  let cy = phoneCtl ? picBox.y + picBox.h + R.ctlGap * k : y + R.ctlGap * k;
+  const cx = phoneCtl ? px + rw / 2 : X0 + lw / 2;
+  ctl.forEach(([id, t], i) => {
+    const b = (phoneCtl || L1.cb)[i];
+    cy += rowsAt(id, b, cx, cy, M.soft) + 2 * k;
+    ui.hudRects[ui.hudRects.length - 1].text = t;
+    if (PHONE) noteText("hint", b.sz);
+  });
+  ui.storyInfo = { chapter: c.id, index: storyCh, locked: !open, page: "rules", title, text: "", art: img ? "tutorial_a" : "placeholder", picBox, icons: drawnIcons };
+}
 // ---------- SPEC-026: слова папы в пустых облачках комикса 8_start (заставка «Как всё началось» и глава в «Истории») ----------
 // строки текста облачка: кегль от size до min (шаг 0,5), не больше lines строк, не шире maxW и не выше maxH (× TEXT_TEST_SCALE);
-// → { rows, sz, w, h, fit } (fit = false: не влезло и самым мелким — тогда строки самым мелким, их может быть больше lines)
+// → { rows, sz, w, h, fit } (fit = false: не влезло и самым мелким — тогда самым мелким, всё равно не больше lines строк: шире облачка)
 function bubbleRows(text, maxW, maxH, size, min, lines) {
   const lh = LOOK.MENU_LOOK.scene.bubbleLh;
-  for (let sz = size; ; sz = Math.max(min, sz - 0.5)) {
-    ctx.font = `800 ${sz}px system-ui, "Segoe UI", sans-serif`;
+  const wrap = mw => {
     const rows = [];
     let cur = "";
-    for (const wd of text.split(" ")) { const t = cur ? cur + " " + wd : wd; if (scaledW(t) > maxW && cur) { rows.push(cur); cur = wd; } else cur = t; }
+    for (const wd of text.split(" ")) { const t = cur ? cur + " " + wd : wd; if (scaledW(t) > mw && cur) { rows.push(cur); cur = wd; } else cur = t; }
     rows.push(cur);
-    const w = Math.max(...rows.map(scaledW)), h = rows.length * sz * lh;
-    const fit = rows.length <= lines && w <= maxW && h <= maxH;
-    if (fit || sz <= min) return { rows, sz, w, h, fit, lh };
+    return rows;
+  };
+  for (let sz = size; ; sz = Math.max(min, sz - 0.5)) {
+    ctx.font = `800 ${sz}px system-ui, "Segoe UI", sans-serif`;
+    let rows = wrap(maxW);
+    const fit = rows.length <= lines && Math.max(...rows.map(scaledW)) <= maxW && rows.length * sz * lh <= maxH;
+    if (fit || sz <= min) {
+      // SPEC-032 (ревью): не влезло и самым мелким — всё равно пишется (пустых облачков не бывает), не больше lines строк
+      for (let mw = maxW; rows.length > lines; mw += sz / 2) rows = wrap(mw);
+      return { rows, sz, w: Math.max(...rows.map(scaledW)), h: rows.length * sz * lh, fit, lh };
+    }
   }
-}
-// неровный контур облачка (как фломастером): суперэллипс степени n с центром cx, cy, полуосями rx, ry; неровность — синусы, без случайности
-function wobblyBubble(cx, cy, rx, ry, wob, n) {
-  const sp = (v, e) => Math.sign(v) * Math.abs(v) ** e;
-  ctx.beginPath();
-  for (let j = 0; j <= 48; j++) {
-    const a = j / 48 * Math.PI * 2, f = 1 + wob * (Math.sin(a * 5 + 0.7) + 0.6 * Math.sin(a * 9 + 2.1)) / 1.6;
-    const x = cx + sp(Math.cos(a), 2 / n) * rx * f, y = cy + sp(Math.sin(a), 2 / n) * ry * f;
-    if (j) ctx.lineTo(x, y); else ctx.moveTo(x, y);
-  }
-  ctx.closePath();
 }
 // list — [{ i, text }] (облачко i = клетка i), cr — какая часть картинки нарисована (доли [x, y, w, h]), ix…ih — где она на экране.
-// Слова — по центру облачка, тёмные, жирные,
-// до двух строк, мельче — до самого мелкого текста подписи; не влезли и так — своё облачко поверх нарисованного (белое, неровный
-// чёрный контур, хвостик в ту же сторону), внутри клетки, по размеру слов.
-// → [{ i, text, x, y, w, h (рамка строк), size, rows, own, bubble (своё облачко или null), panel (клетка на экране) }]
+// SPEC-032 AC 9–10: только буквы — внутри белого нарисованного облачка (без своей заливки и контура поверх картинки): тёмные, жирные,
+// по центру облачка, кегль bubbleScale × прежнего (SPEC-031: × масштаб экрана), мельче — до LOOK.BUBBLE_MIN, до bubbleLines строк;
+// не влезли и самым мелким — всё равно пишутся самым мелким, по центру облачка, до bubbleLines строк (fit = false; пустых облачков
+// не бывает — правило Андрея SPEC-026; такие случаи — только из списка tests/bubble-overflow.js: картинка главы «Истории» мала).
+// → [{ i, text, x, y, w, h (рамка строк), size, rows, fit, box (белое внутри облачка на экране), panel (клетка на экране), img / crop (где картинка) }]
 function drawBubbles(list, cr, ix, iy, iw, ih) {
-  const S = LOOK.MENU_LOOK.scene, k = PHONE ? cpx(1) : 1, min = storyMin(S.bubbleMin), max = Math.max(min, PHONE ? storyPx(S.phoneText) : S.text);   // SPEC-031: масштаб и самый мелкий — как у подписи
+  const S = LOOK.MENU_LOOK.scene, min = PHONE ? cpx(LOOK.BUBBLE_MIN.phone) : LOOK.BUBBLE_MIN.desk;
+  const max = Math.max(min, (PHONE ? storyPx(S.phoneText) : S.text) * S.bubbleScale);
   const X = f => ix + (f - cr[0]) / cr[2] * iw, Y = f => iy + (f - cr[1]) / cr[3] * ih, [inW, inH] = S.bubbleIn;
   const out = [];
   for (const { i, text } of list) {
-    const [bx, by, bw, bh, tx, ty] = S.bubbles[i], [px, py, pw, ph] = S.panels[i];
+    const [bx, by, bw, bh] = S.bubbles[i], [px, py, pw, ph] = S.panels[i];
     const box = { x: X(bx), y: Y(by), w: X(bx + bw) - X(bx), h: Y(by + bh) - Y(by) };
     const panel = { x: Math.max(ix, X(px)), y: Math.max(iy, Y(py)) };
     panel.w = Math.min(ix + iw, X(px + pw)) - panel.x; panel.h = Math.min(iy + ih, Y(py + ph)) - panel.y;
-    let b = bubbleRows(text, box.w * inW, box.h * inH, max, min, S.bubbleLines), cx = box.x + box.w / 2, cy = box.y + box.h / 2, bubble = null;
-    if (!b.fit) {
-      // своё облачко: слова кеглем своего облачка (SPEC-031: на телефоне phoneOwn × масштаб экрана, не мельче min; компьютер — min),
-      // ширина строки растёт, пока строк не больше lines (но облачко не шире ownMax клетки); не влезло и так — самым мелким
-      const m = S.ownEdge * k, [oW, oH] = S.ownIn, wMax = (panel.w * S.ownMax - 2 * m) * oW;
-      for (const sz of PHONE && storyPx(S.phoneOwn) > min ? [storyPx(S.phoneOwn), min] : [min]) {
-        let w = box.w * inW;
-        do { b = bubbleRows(text, w, Infinity, sz, sz, S.bubbleLines); w *= 1.12; } while (b.rows.length > S.bubbleLines && w < wMax * 1.12);
-        if (b.rows.length <= S.bubbleLines && b.w <= wMax) break;
-      }
-      // не меньше нарисованного облачка: пустого облачка не видно (SPEC-026: ни одной клетки с пустым облачком)
-      const ow = Math.min(panel.w - 2 * m, Math.max(box.w * S.ownCover, b.w / oW)), oh = Math.min(panel.h - 2 * m, Math.max(box.h * S.ownCover, b.h / oH));
-      cx = clamp(cx, panel.x + m + ow / 2, panel.x + panel.w - m - ow / 2); cy = clamp(cy, panel.y + m + oh / 2, panel.y + panel.h - m - oh / 2);
-      bubble = { x: cx - ow / 2, y: cy - oh / 2, w: ow, h: oh };
-      // хвостик — туда же, куда у нарисованного облачка (к его кончику), не дальше края клетки
-      const a = Math.atan2(Y(ty) - (box.y + box.h / 2), X(tx) - (box.x + box.w / 2)), len = oh * S.ownTail;
-      const tipX = clamp(cx + Math.cos(a) * (ow / 2 + len), panel.x + m, panel.x + panel.w - m), tipY = clamp(cy + Math.sin(a) * (oh / 2 + len), panel.y + m, panel.y + panel.h - m);
+    const b = bubbleRows(text, box.w * inW, box.h * inH, max, min, S.bubbleLines);
+    // по центру облачка; не влезшее (шире / выше облачка) сдвигается ровно настолько, чтобы остаться в своей клетке
+    const into = (c, half, lo, len) => Math.min(Math.max(c, lo + half), lo + len - half);
+    const cx = into(box.x + box.w / 2, b.w / 2, panel.x, panel.w), cy = into(box.y + box.h / 2, b.h / 2, panel.y, panel.h);
+    const lh = b.sz * b.lh, top = cy - b.h / 2;
+    if (!ui.bubbleTextOff) {                                  // SPEC-032 AC 12: тест сравнивает кадр с буквами и без них
       ctx.save();
-      ctx.lineWidth = S.ownLine * k; ctx.strokeStyle = S.bubbleInk; ctx.fillStyle = "#ffffff"; ctx.lineJoin = "round";
-      ctx.beginPath();
-      ctx.moveTo(cx + Math.cos(a - 0.3) * ow * 0.42, cy + Math.sin(a - 0.3) * oh * 0.42); ctx.lineTo(tipX, tipY);
-      ctx.lineTo(cx + Math.cos(a + 0.3) * ow * 0.42, cy + Math.sin(a + 0.3) * oh * 0.42); ctx.closePath();
-      ctx.fill(); ctx.stroke();
-      wobblyBubble(cx, cy, ow / 2, oh / 2, S.ownWobble, S.ownRound); ctx.fill(); ctx.stroke();
+      ctx.font = `800 ${b.sz}px system-ui, "Segoe UI", sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = S.bubbleInk;
+      b.rows.forEach((r, j) => fillT(r, cx, top + lh * (j + 0.5)));
       ctx.restore();
     }
-    // строки по центру облачка
-    const lh = b.sz * b.lh, top = cy - b.h / 2;
-    ctx.save();
-    ctx.font = `800 ${b.sz}px system-ui, "Segoe UI", sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = S.bubbleInk;
-    b.rows.forEach((r, j) => fillT(r, cx, top + lh * (j + 0.5)));
-    ctx.restore();
-    if (PHONE) noteText("story", b.sz);
-    out.push({ i, text, x: cx - b.w / 2, y: top, w: b.w, h: b.h, size: b.sz, rows: b.rows.length, own: !!bubble, bubble, panel });
+    if (PHONE) noteText("bubble", b.sz);
+    out.push({ i, text, x: cx - b.w / 2, y: top, w: b.w, h: b.h, size: b.sz, rows: b.rows.length, fit: b.fit, box, panel, img: { x: ix, y: iy, w: iw, h: ih }, crop: cr });
   }
   return out;
 }
@@ -244,9 +262,11 @@ export function drawScene() {
   const before = ui.storyScene.play;                           // перед уровнем: на последней странице «Играть»
   // нижний ряд: «Пропустить» слева (на последней странице длинной заставки её нет), точки страниц, справа «Дальше» / «Играть» / «Готово»
   const by = Y1 - B, bw = PHONE ? Math.min((X1 - X0) * 0.36, Math.max(B * 2.8, cpx(150))) : S.btnW, bsz = PHONE ? cpx(20) : 24;
-  const goOn = !!ui.storyScene.skip && ui.storyScene.id !== TUTORIAL_SCENES.at(-1);   // SPEC-029: лист обучения — и на последней «Дальше» (дальше тренировка)
+  const viewer = ui.storyScene.back;                           // SPEC-032 AC 8: листалка «Картинки» — «◀ Назад» вместо «Пропустить»
+  const goOn = !!ui.storyScene.skip && !viewer && ui.storyScene.id !== TUTORIAL_SCENES.at(-1);   // SPEC-029: лист обучения — и на последней «Дальше» (дальше тренировка)
   fitButton(X1 - bw, by, bw, B, last && !goOn ? (before ? "▶ " + L().play : L().ok) : L().sceneNext + " ▶", M.ok, sceneNext, bsz, minMain).id = "scene:next";
-  if (!last || n === 1 || ui.storyScene.skip) fitButton(X0, by, bw, B, L().sceneSkip, M.back, sceneSkip, bsz, minMain).id = "scene:skip";   // SPEC-029: обучение — на каждой
+  if (viewer) fitButton(X0, by, bw, B, "◀ " + L().sceneBack, M.back, sceneBack, bsz, minMain).id = "scene:back";
+  else if (!last || n === 1 || ui.storyScene.skip) fitButton(X0, by, bw, B, L().sceneSkip, M.back, sceneSkip, bsz, minMain).id = "scene:skip";   // SPEC-029: обучение — на каждой
   if (n > 1) {
     const dr = M.story.dot * k, step = dr * 3.4, dx0 = (X0 + X1) / 2 - step * (n - 1) / 2;
     for (let i = 0; i < n; i++) { circle(dx0 + i * step, by + B / 2, i === ui.storyScene.page ? dr * 1.5 : dr); fillStroke(i === ui.storyScene.page ? M.title : M.panel, 2 * k); }

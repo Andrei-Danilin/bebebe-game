@@ -6,7 +6,7 @@ import { BOSSES, CELL, CFG, GLOVES, TAU } from "../../core/config.js";
 import { audible, bigListens, bigMark } from "../../core/hearing.js";
 import { inBush } from "../../core/path.js";
 import { L } from "../../i18n.js";
-import { art, artPick, EMOJI_ART, EMOJI_RE, FX_ART, HEART_ART, PAPER_BTN, paperUI, POP_ART } from "../art.js";
+import { art, artInset, artPick, EMOJI_ART, EMOJI_RE, FX_ART, HEART_ART, PAPER_BTN, paperUI, POP_ART } from "../art.js";
 import { stickR, sticks } from "../input.js";
 import { LOOK } from "../look.js";
 import { nameFor, nameOf } from "../names.js";
@@ -97,7 +97,14 @@ export function drawArtCover(name, x, y, w, h, fx = 0, fy = 0, fw = 1, fh = 1) {
   return true;
 }
 // бумажная кнопка «девятью кусками»: углы картинки (доля cut) — в размер c без искажения, края и середина тянутся
-export function drawArt9(name, x, y, w, h, c, cut = 0.3) {
+// SPEC-032 AC 6: доля картинки в углах «девятки» (видимый край кнопки считается по ней: поле картинки l → l × c / ART9_CUT на экране)
+export const ART9_CUT = 0.3;
+// SPEC-032 AC 6: видимая часть кнопки drawArt9(name, x, y, w, h, c) на экране (без прозрачного поля картинки)
+export function art9Visible(name, x, y, w, h, c) {
+  const q = artInset(name), k = Math.min(c, w / 2, h / 2) / ART9_CUT;
+  return { x: x + q.l * k, y: y + q.t * k, w: w - (q.l + q.r) * k, h: h - (q.t + q.b) * k };
+}
+export function drawArt9(name, x, y, w, h, c, cut = ART9_CUT) {
   const img = art(name);
   if (!img) return false;
   const iw = img.naturalWidth, ih = img.naturalHeight, sx = iw * cut, sy = ih * cut;

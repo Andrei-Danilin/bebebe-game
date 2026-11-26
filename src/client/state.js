@@ -21,6 +21,9 @@ export const ui = {
   shake: 0,
   // SPEC-012 AC 5: the client's timers of the core's hints (who, how long still) and the wide-push rings { x, y, t, r }
   kitHintT: 0, kitHintPi: 0, heardHintT: 0, heardHintPi: 0, waves: [],
+  tiptoe: [false, false],   // SPEC-032 AC 1: кнопка 👣 каждого игрока (касания) — на цыпочках включено; в начале уровня — выключено
+  bubbleTextOff: false,     // SPEC-032 AC 12 (тесты): облачка меряются, но букв не рисуют — кадр без них сравнивается с обычным
+  langSel: 0,               // SPEC-032 AC 13: the highlighted button of the language screen (index in LANGS; English at start)
   menuSpin: 0,   // SPEC-012 AC 1d: how far the Big One has turned in the menus (a view angle; the game's big.dir is untouched)
   buttons: [],
   // SPEC-025 AC 7d: generations of the button list — screenSeq goes up whenever the screen changes (screenChanged(): the mode,

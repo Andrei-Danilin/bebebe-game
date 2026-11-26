@@ -51,10 +51,11 @@ test("SPEC-029: the tutorial pictures and sheet 30 replace v1/staff @fast", asyn
     const s = by(src);
     expect([s?.mode, s?.size, s?.name], src).toEqual(["paper", "background", name]);
     const m = await sharp(path.join(ASSETS, name + ".webp")).metadata();
-    expect([m.width, m.height], `${name}: the whole 2×2 sheet`).toEqual([1024, 765]);
+    // SPEC-032: sheet A was redrawn at 1200×896 (the same 4:3 shape)
+    expect([m.width, m.height], `${name}: the whole 2×2 sheet`).toEqual(name === "tutorial_a" ? [1200, 896] : [1024, 765]);
   }
-  expect(by("31_tutorial_a.webp").erase.length, "A4: BONK!, turn and shh erased").toBeGreaterThan(5);
-  for (const [x, y] of by("31_tutorial_a.webp").erase) expect(x > 512 && y > 383, "the erase stays in panel A4").toBe(true);
+  // SPEC-032: A4 is redrawn without the line and the words — SPEC-029's erase circles (measured on the old picture) are gone
+  expect(by("31_tutorial_a.webp").erase, "A4: nothing to erase on the redrawn sheet").toBe(undefined);
   expect(by("30_items.webp")).toMatchObject({ mode: "sheet", size: "icon", names: ["item_boots", "item_cape", "item_banana", "item_mittens", "item_mega_mittens",
     "item_kiss", "item_star", "item_coin", "heart_full", "heart_half", "heart_empty"] });
 });

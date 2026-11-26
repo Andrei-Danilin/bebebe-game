@@ -19,6 +19,7 @@ import { closeNameInput, nameInput, sticks } from "./input.js";
 import { LOOK } from "./look.js";
 import { botOutfit, endTryOn, makeLook, skinSel } from "./outfits.js";
 import { saveProgress, setLang } from "./progress.js";
+import { answerLang } from "./save.js";
 import { PHONE } from "./screen.js";
 import { screenChanged, ui } from "./state.js";
 import { camSnap } from "./three/camera.js";
@@ -130,6 +131,7 @@ export function goBack() {
   else if (mode === "play") setMode("pause");
   else if (mode === "pause") resumeGame();
   else if (mode === "win" || mode === "lose") toMap();
+  else if (mode === "lang") { answerLang(); setMode("home"); }   // SPEC-032: Escape on the language screen keeps English (the default) — answered
 }
 // клиент: награда уровня (payLevel по levelResult) и мир, который она открыла
 export function giveReward(win) { lastReward = payLevel(levelResult(win)); noteOpenedWorld(lastReward); }
@@ -162,6 +164,7 @@ function clearView() { ui.texts = []; ui.particles = []; ui.shake = 0; sticks.cl
 function buildLocal(n, playable) {
   if (PHONE) n = 1;                  // на телефоне играет один (SPEC-005)
   clearView();
+  ui.tiptoe = [false, false];        // SPEC-032 AC 1: кнопка 👣 — выключена в начале каждого уровня
   const keep = Object.fromEntries(KEEP.map(k => [k, G[k]]));
   lastReward = null;
   useGame(createGame({ world: G.world, n: G.level, mode: "local", slots: localSlots(n), stock: localStock(), practice: practiceStep, rng: playable ? localRng : { s: localRng.s, draws: 0 }, keep }));
@@ -198,8 +201,9 @@ export function nextLevel() { if (G.level >= levelsPerWorld() || G.level + 1 > w
 // ---------- SPEC-017: экраны и переходы между ними ----------
 // home — главный экран; map — карта уровней (levelCard — карточка уровня поверх неё); story — история; shop — магазин с вкладками
 // SPEC-022: scene — заставка истории (комикс в начале, босс, бонусный мир, конец) поверх меню
-export const MODES = Object.freeze(["home", "map", "levelCard", "story", "shop", "play", "pause", "win", "lose", "scene"]);
-const MENU_MODES = Object.freeze(["home", "map", "levelCard", "story", "shop", "scene"]);
+// SPEC-032: lang — the language screen of the very first launch (ui/lang.js)
+export const MODES = Object.freeze(["home", "map", "levelCard", "story", "shop", "play", "pause", "win", "lose", "scene", "lang"]);
+const MENU_MODES = Object.freeze(["home", "map", "levelCard", "story", "shop", "scene", "lang"]);
 export const inMenus = () => MENU_MODES.includes(mode);
 // магазин: вкладка (вне магазина снова «items»), страница гардероба (наряды или имена друзей), куда ведёт «Готово»
 export const SHOP_TABS = Object.freeze(["progress", "items", "wardrobe", "upgrades"]);   // SPEC-026: «Прогресс» персонажа — первая
@@ -285,7 +289,7 @@ export function scenePages(id) {
 // SPEC-029: opts.skip — своё «Пропустить» (обучение: сразу в конец; кнопка на каждой странице), а «Дальше» после последней — then
 export function openScene(id, then = null, opts = {}) {
   if (!SCENE_IDS.includes(id) && !TUTORIAL_SCENES.includes(id)) return false;
-  ui.storyScene = { id, page: 0, then, mark: opts.mark !== false && SCENE_IDS.includes(id), play: !!opts.play, skip: opts.skip || null };
+  ui.storyScene = { id, page: 0, then, mark: opts.mark !== false && SCENE_IDS.includes(id), play: !!opts.play, skip: opts.skip || null, back: !!opts.back };
   setMode("scene");
   return true;
 }
@@ -306,6 +310,8 @@ export function sceneSkip() {
 // дальше (Enter, пробел, A, тап, «Дальше» / «Играть» / «Готово»): следующая страница, после последней — к тому, что дальше
 export function sceneNext() { if (ui.storyScene && ui.storyScene.page < scenePageCount() - 1) { ui.storyScene.page++; screenChanged(); } else sceneDone(); }
 export function scenePrev() { if (ui.storyScene && ui.storyScene.page > 0) { ui.storyScene.page--; screenChanged(); } }
+// SPEC-032 AC 8: «◀ Назад» листалки (opts.back): страница назад, на первой — выход (как «Пропустить»)
+export function sceneBack() { if (ui.storyScene && ui.storyScene.page > 0) scenePrev(); else sceneSkip(); }
 // заставка перед уровнем (мир, n), если её ещё не показывали: босс — перед 20-м уровнем основного мира, бонусный мир — перед
 // любым своим уровнем (первый раз это его первый уровень)
 function sceneBefore(world, n) {

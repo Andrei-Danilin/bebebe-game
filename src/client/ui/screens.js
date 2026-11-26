@@ -16,6 +16,7 @@ import { upgradeCardsDesktop, upgradeCardsPhone } from "./character/upgrades.js"
 import { coinPlate, fitButton, wardrobeDesktop, wardrobePhone } from "./character/wardrobe.js";
 import { addButton, drawFx, drawMarkers, drawMood } from "./draw.js";
 import { drawHome } from "./home.js";
+import { drawLangScreen } from "./lang.js";
 import { drawBanner, drawHUD } from "./hud.js";
 import { drawLevelCard, drawMap } from "./map.js";
 import { menuFrame, phoneFrame } from "./menu.js";
@@ -26,6 +27,7 @@ import { endPhone, loseDesktop, pauseDesktop, pausePhone, winDesktop } from "./w
 function drawOverlayPhone() {
   const c = cpx;
   if (mode === "home") drawHome();
+  else if (mode === "lang") drawLangScreen();   // SPEC-032
   else if (mode === "story") drawStory();
   else if (mode === "scene") drawScene();
   else if (mode === "map" || mode === "levelCard") {
@@ -47,6 +49,7 @@ function drawOverlay() {
   ctx.fillStyle = "rgba(20,30,25,.55)"; ctx.fillRect(0, 0, UW, UH);
   if (PHONE) { drawOverlayPhone(); return; }
   if (mode === "home") drawHome();
+  else if (mode === "lang") drawLangScreen();   // SPEC-032
   else if (mode === "story") drawStory();
   else if (mode === "scene") drawScene();
   else if (mode === "map" || mode === "levelCard") {

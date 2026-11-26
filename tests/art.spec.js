@@ -226,6 +226,70 @@ test.describe("on a phone", () => {
   });
 });
 
+// SPEC-032 AC 18–20: with the art loaded no screen draws an emoji as text — every one has its picture (EMOJI_ART: the older art
+// and sheet 35). Home, map (also the world tabs and a locked world), level card, Character (every tab, the friends page), Story,
+// How to play, Pictures, win, lose, pause, the HUD with Dad's marks, the phone controls. Allow-list: each entry says why.
+const EMOJI_OK = {
+  "▶": "the Play / Next / ▶ arrow is a navigation glyph drawn in the button's ink (font text, not a picture)",
+  "◀": "the Back / previous arrow, the same navigation glyph as ▶",
+  "⏭": "the practice's Skip button (SPEC-029): a navigation glyph like ▶; no skip picture in our sheets yet (BACKLOG: draw one)"
+};
+const ANY_EMOJI = /\p{Extended_Pictographic}/gu;
+async function anyEmojiLeft(page, phone) {
+  const screens = [
+    ["home", () => { window.__bb.toHome(); }],
+    ["home muted", () => { window.__bb.tapButton("home:sound"); }],
+    ["home sound", () => { window.__bb.tapButton("home:sound"); }],
+    ["map", () => { const b = window.__bb; Object.assign(b.progress.worlds.park, { unlocked: 3, won: { 1: true, 2: true }, stars: { 1: 3, 2: 1 } }); b.toMap(); }],
+    ["map bonus world", () => { const b = window.__bb; for (const w of b.WORLDS) b.progress.worlds[w].unlocked = Math.max(1, b.progress.worlds[w].unlocked); b.world = "beach"; b.toMap(); }],
+    ["level card", () => { const b = window.__bb; b.world = "park"; b.toMap(); b.mode = "levelCard"; }],
+    ["progress", () => { const b = window.__bb; b.mode = "shop"; b.shopTab = "progress"; }],
+    ["items", () => { const b = window.__bb; b.mode = "shop"; b.shopTab = "items"; b.progress.inv.kisses = 3; }],
+    ["wardrobe", () => { const b = window.__bb; b.mode = "shop"; b.shopTab = "wardrobe"; }],
+    ["friends", () => { const b = window.__bb; b.mode = "shop"; b.shopTab = "wardrobe"; b.wardrobePage = "friends"; }],
+    ["upgrades", () => { const b = window.__bb; b.wardrobePage = "looks"; b.mode = "shop"; b.shopTab = "upgrades"; }],
+    ["story began", () => { window.__bb.openStory("began", "home"); }],
+    ["story park", () => { window.__bb.openStory("park", "home"); }],
+    ["story ended", () => { window.__bb.openStory("ended", "home"); }],
+    ["how to play", () => { window.__bb.tapButton("story:rules"); }],
+    ["pictures", () => { window.__bb.openPictures(); }],
+    ["win", () => { const b = window.__bb; b.startGame(1); Object.assign(b.stats, { playerHugs: 2, rests: 1 }); b.giveReward(true); b.mode = "win"; }],
+    ["win replay", () => { const b = window.__bb; b.startGame(1); Object.assign(b.stats, { playerHugs: 2, rests: 1 }); b.giveReward(true); b.mode = "win"; }],
+    ["lose", () => { const b = window.__bb; b.startGame(1); b.giveReward(false); b.mode = "lose"; }],
+    ["pause", () => { const b = window.__bb; b.startGame(1); b.mode = "pause"; }],
+    ["play", () => { const b = window.__bb; b.startGame(1); b.progress.inv.kisses = 3; b.progress.inv.rescues = 1; }],
+    ["play: rest", () => { const b = window.__bb; Object.assign(b.littles[0], { state: "rest", restTimer: 9 }); }],
+    ["play: kind dad", () => { const b = window.__bb; b.littles[0].state = "ok"; b.big.kind = true; }],
+    ["play: slipping dad", () => { const b = window.__bb; Object.assign(b.big, { kind: false, slip: 2 }); }],
+    ["play: blushing dad", () => { const b = window.__bb; Object.assign(b.big, { slip: 0, blush: 2 }); }],
+    ["play: resting dad", () => { const b = window.__bb; Object.assign(b.big, { blush: 0, noPush: 5 }); }],
+    ["play: chasing dad", () => { const b = window.__bb; Object.assign(b.big, { noPush: 0, state: "chase" }); }],
+    ["play: a friend down", () => { const b = window.__bb; Object.assign(b.littles[1], { state: "down", downTimer: 15 }); Object.assign(b.big, { state: "look", timer: 999 }); }],
+    ["play: tutorial", () => { const b = window.__bb; b.openTutorial("map", "game1"); }],
+    ["world banner", () => { const b = window.__bb; b.resetMenus(); b.world = "park"; b.progress.worlds.park.unlocked = 20; b.level = 20; b.startGame(1); b.giveReward(true); b.toMap(); }],
+    ["bonus unlocked", () => { const b = window.__bb; b.resetMenus(); b.world = "park"; b.level = 1; b.startGame(1); b.giveReward(true); b.mode = "win"; }]
+  ];
+  const left = [];
+  for (const [name, fn] of screens) for (const t of await drawnTexts(page, fn)) for (const e of t.match(ANY_EMOJI) || []) if (!EMOJI_OK[e]) left.push(`${name}: ${e} in "${t}"`);
+  await page.evaluate(() => { const b = window.__bb; b.resetMenus(); b.resetOutfits(); b.toHome(); });
+  return [...new Set(left)];
+}
+test("SPEC-032: with the art loaded no screen draws an emoji as text (allow-list with reasons)", async ({ page }) => {
+  const errors = await openGame(page);
+  await page.waitForFunction(() => window.__bb.artInfo.done, null, { timeout: 15_000 });
+  expect(await anyEmojiLeft(page, false)).toEqual([]);
+  expect(errors).toEqual([]);
+});
+test.describe("on a phone (SPEC-032)", () => {
+  test.use({ viewport: { width: 667, height: 375 }, hasTouch: true, isMobile: true });
+  test("SPEC-032: with the art loaded no phone screen draws an emoji as text (667)", async ({ page }) => {
+    const errors = await openGame(page, { query: "?phone=1" });
+    await page.waitForFunction(() => window.__bb.artInfo.done, null, { timeout: 15_000 });
+    expect(await anyEmojiLeft(page, true)).toEqual([]);
+    expect(errors).toEqual([]);
+  });
+});
+
 test("home, level map and level card are drawn with the art", async ({ page }) => {
   const errors = await openGame(page, { lang: "ru" });
   await page.waitForFunction(() => window.__bb.artInfo.done, null, { timeout: 15_000 });
@@ -387,9 +451,11 @@ test("the loading screen shows within 1 s on a cold cache @fast", async ({ page 
   expect(fp).toBeLessThan(1000);
 });
 
-// SPEC-030 AC 8–9 (done in SPEC-027): each home button — the icon at the left, CFG.MENU_LOOK.home.btnIconGap × the button height
-// (one height for all three: Story's / Character's, so the icons line up) from its left edge, vertically centred; the label centred in the whole button, or (a long label, after shrinking) shifted right
-// just enough to clear the icon plus the gap. Every language of I18N, phone 667×375 and desktop 1280×720
+// SPEC-030 AC 8–9 (done in SPEC-027), SPEC-032 AC 6: each home button — the icon fully inside the painted button, its left edge
+// btnIconGap (0.3) × the button height from the button art's *visible* left edge (the painted sticker, not its transparent margin;
+// homeInfo.buttons[].vis), icon height btnIcon (0.8) × the button height, vertically centred; the label centred in the whole button,
+// or (a long label, after shrinking) shifted right just enough to clear the icon plus btnLabelGap × the height. Every language of I18N
+// (the spec asks en and pt), phone 667×375 and desktop 1280×720
 for (const [name, ctx] of [["667×375 phone", { viewport: { width: 667, height: 375 }, hasTouch: true, isMobile: true, query: "?phone=1" }],
   ["1280×720 desktop", { viewport: { width: 1280, height: 720 }, query: "" }]]) {
   test.describe(name, () => {
@@ -403,20 +469,21 @@ for (const [name, ctx] of [["667×375 phone", { viewport: { width: 667, height: 
       for (const lang of langs) {
         await page.evaluate(l => { const b = window.__bb; b.setLang(l); b.toHome(); }, lang);
         await frames(page);
-        const r = await page.evaluate(() => ({ info: window.__bb.homeInfo, k: window.__bb.CFG.MENU_LOOK.home.btnIconGap }));
-        const btns = r.info.buttons;
+        const r = await page.evaluate(() => ({ info: window.__bb.homeInfo, D: window.__bb.CFG.MENU_LOOK.home }));
+        const btns = r.info.buttons, D = r.D;
         if (btns.map(b => b.id).join() !== "home:play,home:story,home:shop") bad.push(`${lang}: buttons ${btns.map(b => b.id)}`);
         for (const b of btns) {
-          const at = `${lang} ${b.id}`, gap = btns[1].h * r.k, near = (p, q) => Math.abs(p - q) < 0.5;   // review: one height — Story's
-          if (!near(b.gap, gap) || !near(b.icon.x, b.x + gap)) bad.push(`${at}: icon left ${b.icon.x} ≠ ${b.x} + ${gap}`);
-          if (!near(b.icon.y + b.icon.h / 2, b.y + b.h / 2)) bad.push(`${at}: icon not vertically centred`);
+          const at = `${lang} ${b.id}`, near = (p, q) => Math.abs(p - q) < 0.5, v = b.vis, ic = b.icon;
+          if (!v || v.x < b.x - 0.01 || v.x > b.x + b.h * 0.2) { bad.push(`${at}: no visible box ${JSON.stringify(v)}`); continue; }
+          if (ic.x < v.x || ic.y < v.y || ic.x + ic.w > v.x + v.w || ic.y + ic.h > v.y + v.h) bad.push(`${at}: icon ${JSON.stringify(ic)} not inside the painted button ${JSON.stringify(v)}`);
+          if (ic.x - v.x < D.btnIconGap * b.h - 0.5 || !near(ic.x - v.x, D.btnIconGap * b.h)) bad.push(`${at}: gap ${(ic.x - v.x).toFixed(1)} ≠ ${D.btnIconGap} × ${b.h}`);
+          if (!near(ic.h, D.btnIcon * b.h)) bad.push(`${at}: icon height ${ic.h} ≠ ${D.btnIcon} × ${b.h}`);
+          if (!near(ic.y + ic.h / 2, b.y + b.h / 2)) bad.push(`${at}: icon not vertically centred`);
           if (!b.label.shifted && !near(b.label.cx, b.x + b.w / 2)) bad.push(`${at}: label centre ${b.label.cx} ≠ ${b.x + b.w / 2}`);
-          if (b.label.x < b.icon.x + b.icon.w + gap - 0.5) bad.push(`${at}: label on the icon`);
-          if (b.label.shifted && !near(b.label.x, b.icon.x + b.icon.w + gap)) bad.push(`${at}: shifted further than needed`);
-          if (b.label.x + b.label.w > b.x + b.w + 0.5) bad.push(`${at}: label out of the button`);
+          if (b.label.x < ic.x + ic.w - 0.5) bad.push(`${at}: label on the icon`);
+          if (b.label.shifted && !near(b.label.x, ic.x + ic.w + D.btnLabelGap * b.h)) bad.push(`${at}: shifted further than needed`);
+          if (b.label.x + b.label.w > v.x + v.w + 0.5) bad.push(`${at}: label out of the button`);
         }
-        const xs = btns.map(b => b.icon.x), ws = btns.map(b => b.icon.w);
-        if (Math.max(...xs) - Math.min(...xs) > 0.5 || Math.max(...ws) - Math.min(...ws) > 0.5) bad.push(`${lang}: icons not one column of one size`);
       }
       expect(bad).toEqual([]);
       expect(errors).toEqual([]);

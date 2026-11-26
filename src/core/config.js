@@ -40,7 +40,9 @@ export const CFG = {
   NOISE_TURN: 0.3,           // шума — и Большой оборачивается на топот (~0.3 с бега; SPEC-019 баланс: 0.6 → 0.3)
   NOISE_WARN: 0.15,          // шума — над Большим 👂 (пора идти тише); ниже NOISE_TURN (SPEC-019 баланс: 0.3 → 0.15)
   HEAR_WALL: 0.5,            // через стену шум считается с этой долей
-  HEAR_TURN_TIME: 0.15,      // сек — поворачивается на топот за это время (❓; SPEC-019 баланс: 0.3 → 0.15)
+  HEAR_TURN_TIME: 0.35,      // сек — поворачивается на топот за это время (❓; SPEC-019 баланс: 0.3 → 0.15; SPEC-032: 0.35 — не рывком, придумал Claude)
+  HEAR_CHANCE: 0.6,          // SPEC-032: шум дошёл до NOISE_TURN — оборачивается только с этой вероятностью (игровой rng; 1 — всегда и без броска, как до SPEC-032; придумал Claude)
+  HEAR_MISS_COOLDOWN: 1.5,   // SPEC-032: сек — «не расслышал»: шум сброшен, столько сек снова не слышит (без поворота; придумал Claude)
   HEAR_COOLDOWN: 4.5,        // сек после поворота на топот (от начала поворота) — снова не слышит (SPEC-019 баланс: 3 → 4.5)
   HEAR_LOOK: [1, 1.5],       // сек — после поворота стоит и смотрит туда (не крутится)
   TIPTOE_NEAR: 1,            // клеток сверх HEAR_RADIUS — ближе этого подкрадывающиеся боты и осторожный автопилот идут на цыпочках
@@ -76,7 +78,8 @@ export const CFG = {
     fallbackFig: 0.55, fallbackIcon: 0.85, fallbackPad: 8,   // запасная страница: доля ширины под фигурку, размер значка (доля места), поля (px)
     // SPEC-029 AC 6: страница без своей картинки — лист бумаги: слева фигурка (кусок картинки истории [x, y, w, h] — доли), справа
     // значки вещей и эффектов. pages — по клетке: [фигурка, значки…]; ready — последняя страница (её картинка — story_win)
-    figures: { dad: ["story_start", [0.088, 0.131, 0.156, 0.242]], kids: ["story_win", [0.195, 0.594, 0.317, 0.332]], kindDad: ["story_win", [0.518, 0.55, 0.142, 0.29]] },
+    // SPEC-032: story_win перерисована (4:3, 1200×896) — куски kids / kindDad промерены заново
+    figures: { dad: ["story_start", [0.088, 0.131, 0.156, 0.242]], kids: ["story_win", [0.195, 0.395, 0.37, 0.275]], kindDad: ["story_win", [0.572, 0.31, 0.198, 0.355]] },
     pages: {
       a: [["dad", "icon_angry_heart", "fx_hearts"], ["dad", "fx_burst_yellow", "fx_dust"], ["kids", "fx_hearts", "fx_sparkle"], ["dad", "ui_ear", "fx_speed"]],
       b: [["kids", "item_boots", "fx_speed"], ["kids", "item_cape", "fx_sparkle"], ["kids", "icon_shield", "fx_burst_yellow"], ["dad", "item_banana", "fx_dizzy"]],
@@ -85,6 +88,7 @@ export const CFG = {
     } },
   TUTORIAL: {                // SPEC-029: обучение — тренировки 1 и 2 (только они; придумал Claude в спеке, проверить с детьми)
     hearts1: 3, hearts2: 5,    // сердечек у папы в тренировке 1 и в тренировке 2
+    hearChance: 1,             // SPEC-032 AC 4: тренировка 1 — папа слышит топот всегда (урок «на цыпочках» понятен); тренировка 2 — HEAR_CHANCE
     speedMult: 0.6,            // скорости папы (прогулка, погоня) — × от Парка 1
     pushCooldownMult: 2,       // тренировка 2: пауза папы между толчками × столько
     itemEvery: 3, itemMax: 6,  // тренировка 2: новый предмет каждые 3 сек, пока их на карте меньше 6
@@ -170,7 +174,8 @@ export const CFG = {
   // лабиринт (MAZE) — самый долгий блок; Парк EARLY — не дольше времени третьей звезды; Зима MAZE ≥ LATE_VS_EARLY × Парк EARLY;
   // спасают RESCUE_RATE падений; отдыхов на уровень (медиана) ≤ RESTS_MAX. CI_LEVELS — 12 уровней выборки (ранний и лабиринт в каждом мире)
   // SPEC-029: Andrei, one heart fewer everywhere (measured 0.4752) — TREND_RHO_WORLD: своя цель мира вместо TREND_RHO (Город 0,475)
-  BALANCE: { SIM_DT: 1 / 30, SEEDS: 3, TIME_LIMIT: 480, WIN_SEEDS: 2, TREND_RHO: 0.5, TREND_RHO_WORLD: { city: 0.475 }, LATE_VS_EARLY: 1.5, RESCUE_RATE: [0.5, 0.9],
+  // SPEC-032: Dad hears less (kids) — measured school 0.4286 → TREND_RHO_WORLD.school 0.428 (на измеренное; правила под цель не подгоняются)
+  BALANCE: { SIM_DT: 1 / 30, SEEDS: 3, TIME_LIMIT: 480, WIN_SEEDS: 2, TREND_RHO: 0.5, TREND_RHO_WORLD: { city: 0.475, school: 0.428 }, LATE_VS_EARLY: 1.5, RESCUE_RATE: [0.5, 0.9],
     RESTS_MAX: 2, RECKLESS_EVERY: 5, EARLY: [1, 5], MAZE: [17, 20],
     CI_LEVELS: [["park", 3], ["park", 18], ["field", 4], ["field", 19], ["city", 2], ["city", 18], ["school", 2], ["school", 19], ["beach", 4], ["beach", 17],
       ["winter", 5], ["winter", 20]],
@@ -184,8 +189,9 @@ export const CFG = {
     // улучшения 2700 = 114 % дохода первых 60 уровней); цены под цели не подгоняются
     // SPEC-029: Andrei, one heart fewer everywhere (measured: Парк 31,5 = 1,575 × 20; улучшения 2700 = 115,3 % от 2342) —
     // PARK_PACKS 1,6 → 1,575 и UPGRADE_SHARE 1,15 → 1,16: на измеренное
+    // SPEC-032: Dad hears less (kids) — UPG_TIME 0,7 → 0,696 (measured: Зима 17–20 с улучшениями 133 с против 191,5 с = 69,6 %): на измеренное
     ECONOMY: { PARK_PACKS: [1.575, 4], STREAK: 4, STREAK_PACKS: 2, WORLD_PACKS: 10, UPGRADE_WORLDS: 3, UPGRADE_SHARE: 1.16,
-      REPLAY: [["park", 1, 5], ["beach", 1, 5]], REPLAY_SHARE: 0.6, UPG_EVERY: 5, UPG_EXTRA: ["winter", 17, 20], UPG_TIME: 0.7 } },
+      REPLAY: [["park", 1, 5], ["beach", 1, 5]], REPLAY_SHARE: 0.6, UPG_EVERY: 5, UPG_EXTRA: ["winter", 17, 20], UPG_TIME: 0.696 } },
   // SPEC-008: автопилот игроков (только для проверки баланса), px и сек. repath — пересчёт пути; звёздочки и предметы
   // берёт не дальше itemReach и если они дальше pickSafe от Большого и не под его взглядом; спасает друга, которого никакой
   // бот не поднимет быстрее и до которого Большой дальше rescueSafe; издалека (дальше sneakNear) идёт к спине в обход

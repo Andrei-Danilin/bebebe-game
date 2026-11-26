@@ -100,5 +100,5 @@ export const RULE_ICONS = ["❤", "👀", "🤝", "⏱", "🏠", "🍌", "👣"]
 export const SCENE_IDS = Object.freeze(["intro", ...Object.keys(BOSSES).map(w => "boss_" + w), ...BONUS_WORLDS.map(w => "bonus_" + w), "ending"]);
 // SPEC-029: страницы обучения — тоже заставки (тот же экран), но не глава истории и не отмечаются в progress.seen по отдельности;
 // в seen — одно «tutorial»: обучение закончили или пропустили
-export const TUTORIAL_SCENES = Object.freeze(["tutorial_a", "tutorial_b", "tutorial_c", "tutorial_ready"]);
+export const TUTORIAL_SCENES = Object.freeze(["tutorial_a", "tutorial_b", "tutorial_c", "tutorial_pics", "tutorial_ready"]);   // SPEC-032: tutorial_pics — «Картинки» (A1…C4)
 export const SEEN_IDS = Object.freeze([...SCENE_IDS, "tutorial"]);

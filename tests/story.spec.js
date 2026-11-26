@@ -6,6 +6,7 @@ const { expect } = base;
 const fs = require("fs");
 const path = require("path");
 const { LANGS, openGame, frames, softly, sharedPage, resetGame, ROOT } = require("./helpers");
+const { overflowKeys } = require("./bubble-overflow");   // SPEC-032 AC 11: the bubbles allowed to overflow at BUBBLE_MIN, listed
 
 // one rendered game page for the scene tests (resetGame before each); the fresh-page tests come first in the file
 const shared = sharedPage();
@@ -93,40 +94,46 @@ test("SPEC-026: Dad's bubble lines (4 per language, Andrei's Russian in docs/sto
   expect(errors).toEqual([]);
 });
 
-// every intro page writes its line into its bubble, the text box inside the panel, never smaller than the captions' smallest size
-// (SPEC-031: on the phone CFG.STORY_TEXT_MIN);
-// the Story's "How it began" (the whole page) writes all four
+// every intro page writes its line into its bubble, the text box inside the panel, never smaller than the bubbles' smallest size
+// (SPEC-032 AC 10: CFG.BUBBLE_MIN, up to 3 lines, no own bubble);
+// the Story's "How it began" (the whole page, small bubbles) writes all four too — never an empty bubble (Andrei, SPEC-026); a line
+// that does not fit there even at BUBBLE_MIN is written at BUBBLE_MIN only if tests/bubble-overflow.js lists it (checked at ×1;
+// at ×1.15 — the CI fonts' margin — it may overflow, but is still written, ≤ 3 rows, at the minimum, inside its panel)
 async function bubbleProblems(page, phone) {
-  const fails = [];
+  const fails = [], size = phone ? "667×375" : "960×640", ok = overflowKeys("story began", size);
   for (const lang of LANGS) for (const scale of [1, 1.15]) {
     await page.evaluate(([l, s]) => { const b = window.__bb; b.setLang(l); b.CFG.TEXT_TEST_SCALE = s; }, [lang, scale]);
     for (let i = 0; i < 4; i++) {
       await page.evaluate(k => { const b = window.__bb; b.openScene("intro"); for (let j = 0; j < k; j++) b.sceneNext(); }, i);
       await frames(page);
-      const d = await page.evaluate(() => ({ info: window.__bb.sceneInfo, min: window.__bb.CFG.STORY_TEXT_MIN, ui: window.__bb.uiSize, hud: window.__bb.hudRects }));
+      const d = await page.evaluate(() => ({ info: window.__bb.sceneInfo, min: window.__bb.CFG.BUBBLE_MIN, ui: window.__bb.uiSize, hud: window.__bb.hudRects }));
       const at = `${lang} ×${scale} intro page ${i + 1}`, q = d.info && d.info.bubble;
       if (!q) { fails.push(`${at}: no bubble`); continue; }
       if (q.text !== BUBBLES[lang][i]) fails.push(`${at}: bubble "${q.text}"`);
       const P = d.info.panel;
       if (!(q.x >= P.x - 0.5 && q.y >= P.y - 0.5 && q.x + q.w <= P.x + P.w + 0.5 && q.y + q.h <= P.y + P.h + 0.5)) fails.push(`${at}: text box ${JSON.stringify(q)} leaves the panel ${JSON.stringify(P)}`);
-      if (q.rows > 2) fails.push(`${at}: ${q.rows} lines`);
-      if (phone ? q.size * d.ui.scale < d.min - 0.01 : q.size < 14 - 0.01) fails.push(`${at}: text ${q.size} below the captions' smallest size`);
-      if (q.own && !(q.bubble.x >= P.x - 0.5 && q.bubble.y >= P.y - 0.5 && q.bubble.x + q.bubble.w <= P.x + P.w + 0.5 && q.bubble.y + q.bubble.h <= P.y + P.h + 0.5))
-        fails.push(`${at}: its own bubble leaves the panel`);
+      if (q.rows > 3) fails.push(`${at}: ${q.rows} lines`);
+      if (q.skipped || !q.fit) fails.push(`${at}: "${q.text}" does not fit its bubble`);
+      if (phone ? q.size * d.ui.scale < d.min.phone - 0.01 : q.size < d.min.desk - 0.01) fails.push(`${at}: text ${q.size} below BUBBLE_MIN`);
+      if ("own" in q || "bubble" in q) fails.push(`${at}: an own bubble`);
       const cap = d.hud.find(h => h.id === "scene:caption");
       if (cap && q.x < cap.x + cap.w && q.x + q.w > cap.x && q.y < cap.y + cap.h && q.y + q.h > cap.y) fails.push(`${at}: bubble on the caption`);
     }
     await page.evaluate(() => { const b = window.__bb; b.sceneSkip(); b.openStory("began", "home"); });
     await frames(page);
-    const st = await page.evaluate(() => ({ info: window.__bb.storyInfo, buttons: window.__bb.buttonRects }));
+    const st = await page.evaluate(() => ({ info: window.__bb.storyInfo, buttons: window.__bb.buttonRects, min: window.__bb.CFG.BUBBLE_MIN, ui: window.__bb.uiSize }));
     const bs = (st.info && st.info.bubbles) || [], at = `${lang} ×${scale} Story "How it began"`;
     if (bs.map(q => q.text).join("|") !== BUBBLES[lang].join("|")) fails.push(`${at}: bubbles ${JSON.stringify(bs.map(q => q.text))}`);
     for (const q of bs) {
-      const P = q.panel, pic = st.info.pic;
+      if (q.skipped || !(q.rows >= 1) || !(q.w > 0)) { fails.push(`${at}: "${q.text}" left empty`); continue; }
+      const P = q.panel, pic = st.info.pic, min = phone ? st.min.phone / st.ui.scale : st.min.desk;
+      if (!(q.size >= min - 0.01)) fails.push(`${at}: "${q.text}" ${q.size} below BUBBLE_MIN`);
+      if (!q.fit && q.size > min + 0.01) fails.push(`${at}: "${q.text}" does not fit, yet not at BUBBLE_MIN`);
+      if (!q.fit && scale === 1 && !ok.includes(`${lang}|${q.i}`)) fails.push(`${at}: "${q.text}" does not fit at BUBBLE_MIN and is not in tests/bubble-overflow.js (${size})`);
       if (!(q.x >= P.x - 0.5 && q.y >= P.y - 0.5 && q.x + q.w <= P.x + P.w + 0.5 && q.y + q.h <= P.y + P.h + 0.5)) fails.push(`${at}: "${q.text}" leaves its panel`);
-      if (q.rows > 2) fails.push(`${at}: "${q.text}" in ${q.rows} lines`);
+      if (q.rows > 3) fails.push(`${at}: "${q.text}" in ${q.rows} lines`);
       if (!(P.x >= pic.x - 0.5 && P.y >= pic.y - 0.5 && P.x + P.w <= pic.x + pic.w + 0.5 && P.y + P.h <= pic.y + pic.h + 0.5)) fails.push(`${at}: panel outside the picture`);
-      for (const b of st.buttons) { const r = q.own ? q.bubble : q; if (r.x < b.x + b.w && r.x + r.w > b.x && r.y < b.y + b.h && r.y + r.h > b.y) fails.push(`${at}: "${q.text}" under button ${b.id}`); }
+      for (const b of st.buttons) if (q.x < b.x + b.w && q.x + q.w > b.x && q.y < b.y + b.h && q.y + q.h > b.y) fails.push(`${at}: "${q.text}" under button ${b.id}`);
     }
   }
   await page.evaluate(() => { const b = window.__bb; b.CFG.TEXT_TEST_SCALE = 1; b.setLang("en"); b.mode = "home"; });

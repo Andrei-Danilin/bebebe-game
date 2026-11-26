@@ -50,6 +50,31 @@ export function artLoad() {
   });
 }
 export const art = name => { const a = artImgs.get(name); return a && a.state === "ok" ? a.img : null; };
+// SPEC-032 AC 6: прозрачные поля картинки (доли её ширины / высоты): l, r — по средней трети строк, t, b — по средней трети столбцов
+// (видимый край нарисованной наклейки, не прозрачное поле вокруг); меряется один раз на картинку; нет картинки — нули
+const insetCache = new Map();
+export function artInset(name) {
+  const img = art(name);
+  if (!img) return { l: 0, r: 0, t: 0, b: 0 };
+  if (insetCache.get(name)?.img === img) return insetCache.get(name).v;
+  const W = img.naturalWidth, H = img.naturalHeight, cv = document.createElement("canvas");
+  cv.width = W; cv.height = H;
+  const g = cv.getContext("2d");
+  let v = { l: 0, r: 0, t: 0, b: 0 };
+  try {
+    g.drawImage(img, 0, 0);
+    const d = g.getImageData(0, 0, W, H).data, A = LOOK.PAPER.insetAlpha;
+    let l = W, r = -1, t = H, b = -1;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      if (d[(y * W + x) * 4 + 3] <= A) continue;
+      if (y > H / 3 && y < 2 * H / 3) { l = Math.min(l, x); r = Math.max(r, x); }
+      if (x > W / 3 && x < 2 * W / 3) { t = Math.min(t, y); b = Math.max(b, y); }
+    }
+    if (r >= l && b >= t) v = { l: l / W, r: (W - 1 - r) / W, t: t / H, b: (H - 1 - b) / H };
+  } catch (e) { /* холст недоступен (file://) — поля не известны */ }
+  insetCache.set(name, { img, v });
+  return v;
+}
 // картинка по своему пути (глава истории с c.image): грузится один раз при первом запросе, той же таблицей
 export function artFile(path) {
   let a = artImgs.get(path);
@@ -82,7 +107,12 @@ export const WARDROBE_ART = {
 export const EMOJI_ART = { "👥": "ui_friends", "🎲": "ui_dice", "❓": "ui_question", "✏": "ui_pencil", "📦": "ui_pack", "👂": "ui_ear", "🗺": "ui_map",
   "✔": "ui_check", "✘": "ui_cross", "✕": "ui_cross", "🔒": "padlock", "🩹": "icon_bandaid", "💋": "item_kiss", "⭐": "star_gold", "🪙": "item_coin",
   "📖": "menu_story", "🏆": "tab_progress", "🎒": "menu_character", "🏠": "ui_home", "🛒": "shop_items", "👕": "shop_wardrobe",
-  "🛡": "icon_shield", "🍌": "item_banana", "👟": "item_boots", "👻": "item_cape", "❤": "heart_full", "🤝": "shop_quick_help" };
+  "🛡": "icon_shield", "🍌": "item_banana", "👟": "item_boots", "👻": "item_cape", "❤": "heart_full", "🤝": "shop_quick_help",
+  // SPEC-032 AC 18: emoji still drawn as text → art we already had; AC 19: the new sheet 35_icons_more (ui_hug … ui_tiptoe)
+  "🎁": "ui_gift", "🌐": "ui_globe", "🔊": "ui_sound_on", "🔇": "ui_sound_off", "⛶": "ui_fullscreen", "✨": "fx_sparkle", "🎉": "fx_confetti",
+  "💗": "fx_hearts", "💫": "fx_dizzy", "💦": "fx_steam_left", "🔁": "round_restart",
+  "🌳": "world_park", "⚽": "world_field", "🏙": "world_city", "🏫": "world_school", "🏖": "world_beach", "❄": "world_winter",
+  "🤗": "ui_hug", "😴": "ui_sleep", "💤": "ui_sleep", "❗": "ui_alert", "🏁": "ui_flag", "👀": "ui_eyes", "⏱": "ui_timer", "👣": "ui_tiptoe" };
 // SPEC-027: новая картинка не загрузилась — прежняя (а нет и её — рисунок кодом или эмодзи, как у всякой картинки SPEC-020)
 export const ART_FALLBACK = { menu_play: "ui_play", menu_story: "ui_story", menu_character: "ui_bag", tab_progress: "star_gold" };
 // первая загруженная картинка из name и его запасных (ART_FALLBACK) или null

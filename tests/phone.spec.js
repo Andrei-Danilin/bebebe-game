@@ -530,6 +530,62 @@ test.describe("phone controls", () => {
   });
 });
 
+// SPEC-032 AC 1: the 👣 button next to 💋 / 🩹 is a toggle (Claude): tap = tiptoe on (it glows; full tilt walks at TIPTOE_MULT,
+// silent), tap again = off; off again at each level start; a light tilt still tiptoes as before
+test.describe("phone tiptoe button 667×375", () => {
+  test.use({ ...PHONE_CTX, viewport: { width: 667, height: 375 } });
+
+  test("the 👣 button toggles tiptoe: full tilt is silent at TIPTOE_MULT; off at the next level (667)", async ({ phonePage: page }) => {
+    const errors = await phonePlay(page);
+    await page.evaluate(() => { window.__bb.progress.inv.kisses = 5; });
+    await placeHero(page, 300, 300);
+    await frames(page);
+    const ui = await page.evaluate(() => window.__bb.uiSize);
+    const rects = await page.evaluate(() => window.__bb.buttonRects);
+    const tip = rects.find(r => r.id === "tiptoe:0"), kiss = rects.find(r => r.id === "kiss:0");
+    expect(tip, "the 👣 button").toBeTruthy();
+    expect(tip.text).toBe("👣");
+    expect(tip.x + tip.w).toBeLessThanOrEqual(kiss.x);                      // next to 💋, left of it, not over it
+    expect(tip.y + tip.h).toBeCloseTo(kiss.y + kiss.h, 0);                  // the same bottom line
+    expect(tip.x).toBeGreaterThan(ui.w * (await page.evaluate(() => window.__bb.CFG.STICK_ZONE)));   // in the buttons' half: no stick there
+    expect(tip.on).toBe(false);
+    const tap = async (id) => { await touch(page, "pointerdown", tip.x + tip.w / 2, tip.y + tip.h / 2, id); await touch(page, "pointerup", tip.x + tip.w / 2, tip.y + tip.h / 2, id); };
+    // the speed share and running flag at full tilt of the touch stick (one evaluate: no frame steps in between)
+    const R = await page.evaluate(() => window.__bb.stickR());
+    const fullTilt = async () => {
+      await placeHero(page, 300, 300);
+      await touch(page, "pointerdown", 120, 300, 21);
+      await touch(page, "pointermove", 120 + R, 300, 21);
+      const r = await page.evaluate(() => {
+        const b = window.__bb, l = b.littles[0], x0 = l.x, y0 = l.y;
+        for (let i = 0; i < 6; i++) b.update(1 / 60);
+        return { share: +(Math.hypot(l.x - x0, l.y - y0) / (b.CFG.PLAYER_SPEED * 6 / 60)).toFixed(3), run: b.isRunning(0) };
+      });
+      await touch(page, "pointerup", 120 + R, 300, 21);
+      return r;
+    };
+    const mult = await page.evaluate(() => window.__bb.CFG.TIPTOE_MULT);
+    expect(await fullTilt()).toEqual({ share: 1, run: true });               // off: full tilt runs
+    await tap(22);
+    expect(await page.evaluate(() => window.__bb.tiptoe)).toEqual([true, false]);
+    await frames(page);
+    expect((await page.evaluate(() => window.__bb.buttonRects)).find(r => r.id === "tiptoe:0").on, "it glows").toBe(true);
+    expect(await fullTilt()).toEqual({ share: mult, run: false });           // on: PLAYER_SPEED × TIPTOE_MULT, silent
+    await tap(23);
+    expect(await page.evaluate(() => window.__bb.tiptoe)).toEqual([false, false]);
+    expect(await fullTilt()).toEqual({ share: 1, run: true });
+    await tap(24);
+    expect(await page.evaluate(() => { const b = window.__bb; const on = b.tiptoe[0]; b.startGame(1); return [on, b.tiptoe[0]]; })).toEqual([true, false]);   // a new level: off
+    // the hints on the phone: "tap 👣 to tiptoe" (A4 caption, practice 1, the heard hint)
+    const t = await page.evaluate(() => { const b = window.__bb, I = b.I18N.en; return { a4: b.tutorialPages("a")[3].text, heard: b.heardHintText(), tap: I.tiptoeTap, tut: I.tut.tiptoeTouch }; });
+    expect(t.tap).toBe("Tap 👣 to tiptoe");
+    expect(t.a4).toContain(t.tut);
+    expect(t.tut).toContain("👣");
+    expect(t.heard).toContain(t.tap);
+    expect(errors).toEqual([]);
+  });
+});
+
 test.describe("desktop touch", () => {
   test.use({ hasTouch: true });
 
@@ -1476,11 +1532,13 @@ test.describe("phone heard hint 667×375", () => {
 
   test("the heard hint fits a phone in every language", async ({ phonePage: page }) => {
     const minText = await page.evaluate(() => window.__bb.textFloors);   // SPEC-031: + the story text floor
+    const hearChance = await page.evaluate(() => window.__bb.CFG.HEAR_CHANCE);
     const fails = [];
     for (const lang of LANGS) for (const fs of [1, 1.15]) {
       const d = await page.evaluate(async ([lg, f]) => {
         const b = window.__bb, g = b.grid;
         b.setLang(lg); b.CFG.TEXT_TEST_SCALE = f;
+        b.CFG.HEAR_CHANCE = 1;                                       // SPEC-032: he hears every time here (restored below)
         Object.assign(b.progress.inv, { kisses: 5, mittens: 3, rescues: 3 }); b.progress.equip[0] = "mittens";
         b.startGame(1);
         const big = b.big;
@@ -1510,7 +1568,7 @@ test.describe("phone heard hint 667×375", () => {
         const hint = b.heardHint, c = document.createElement("canvas").getContext("2d");
         let rowsW = [];
         if (hint && hint.rect) { c.font = `800 ${hint.rect.size}px system-ui, "Segoe UI", sans-serif`; rowsW = hint.rect.rows.map(q => c.measureText(q).width * f); }
-        return { heard, down: l.state, hint, rowsW, want: b.I18N[lg].heardHintTouch, ui: b.uiSize, buttons: b.buttonRects, hud: b.hudRects, mm: b.minimap, texts: b.textSizes };
+        return { heard, down: l.state, hint, rowsW, want: b.I18N[lg].heardHintTouch(b.I18N[lg].tiptoeTap), ui: b.uiSize, buttons: b.buttonRects, hud: b.hudRects, mm: b.minimap, texts: b.textSizes };
       }, [lang, fs]);
       const label = `${lang} ×${fs}`;
       if (!d.heard || d.down !== "down") { fails.push(`${label}: setup heard ${d.heard}, hero ${d.down}`); continue; }
@@ -1524,7 +1582,7 @@ test.describe("phone heard hint 667×375", () => {
       for (const id of ["heardHint", "kitHint", "hint"]) if (!d.hud.some(h => h.id === id)) fails.push(`${label}: no ${id} plate`);
       fails.push(...phoneScreenProblems(label, d, minText));
     }
-    await page.evaluate(() => { const b = window.__bb; b.CFG.TEXT_TEST_SCALE = 1; b.setLang("en"); });
+    await page.evaluate(c => { const b = window.__bb; b.CFG.TEXT_TEST_SCALE = 1; b.CFG.HEAR_CHANCE = c; b.setLang("en"); }, hearChance);
     expect(fails, fails.slice(0, 12).join("\n")).toEqual([]);
   });
 });

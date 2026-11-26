@@ -11,8 +11,9 @@ import { canvas, CSS_W, PHONE, UH, UW, wrap } from "./screen.js";
 import { cardOpen, moveCardFocus, pressCard } from "./errors.js";
 import { initAudio } from "./sound.js";
 import { ui } from "./state.js";
-import { openTutorial, tutorialSkip } from "./tutorial.js";
+import { openPictures, openPractice, tutorialSkip } from "./tutorial.js";
 import { homeActions } from "./ui/home.js";
+import { chooseLang, moveLangSel } from "./ui/lang.js";
 import { cpx } from "./ui/text.js";
 import { G } from "../core/active.js";
 import { newInput } from "../core/game.js";
@@ -24,9 +25,14 @@ const keys = new Set();
 
 function onKey(code) {
   if (code === "KeyM") { toggleSound(); return; }
-  if (code === "KeyL") { nextLang(); return; }
+  if (code === "KeyL") { if (mode !== "lang") nextLang(); return; }   // SPEC-032: not under the language screen
   if (code === "Escape") { goBack(); return; }                // SPEC-025 AC 14d: the one "back" (flow.js)
-  if (mode === "home") {
+  if (mode === "lang") {                                      // SPEC-032: the language screen — arrows move, Enter / Space pick
+    if (code === "ArrowLeft") moveLangSel(-1);
+    if (code === "ArrowRight") moveLangSel(1);
+    if (code === "ArrowUp" || code === "ArrowDown") moveLangSel(2);
+    if (code === "Enter" || code === "NumpadEnter" || code === "Space") chooseLang();
+  } else if (mode === "home") {
     const a = homeActions().find(q => q.keys.includes(code));   // SPEC-017: Enter = «Играть», S — история, B — магазин
     if (a) a.act();
   } else if (mode === "map") {
@@ -44,7 +50,8 @@ function onKey(code) {
     if (ui.storyPage === "chapters" && code === "ArrowLeft") storyStep(-1);
     if (ui.storyPage === "chapters" && code === "KeyV") watchChapter();   // SPEC-022: V — посмотреть заставку главы
     if (ui.storyPage === "chapters" && (code === "ArrowRight" || code === "Enter" || code === "Space")) storyStep(1);
-    else if (ui.storyPage === "rules" && (code === "Enter" || code === "NumpadEnter" || code === "Space")) openTutorial("story");   // SPEC-029: «Тренировка»
+    else if (ui.storyPage === "rules" && (code === "Enter" || code === "NumpadEnter" || code === "Space")) openPractice();   // SPEC-029/032: «Тренировка» (только игры)
+    else if (ui.storyPage === "rules" && code === "KeyV") openPictures();   // SPEC-032: V — «Картинки» (как «посмотреть» у глав)
   } else if (mode === "scene") {
     // SPEC-022: заставка — Enter / пробел / → дальше, ← назад, Escape пропустить
     if (code === "ArrowLeft") scenePrev();
@@ -183,7 +190,12 @@ function onPadButton(b, pad = 0) {
     return;
   }
   initAudio();
-  if (mode === "home") {
+  if (mode === "lang") {                                      // SPEC-032: the language screen — the cross moves, A / Start pick
+    if (b === 14) moveLangSel(-1);
+    if (b === 15) moveLangSel(1);
+    if (b === 12 || b === 13) moveLangSel(2);
+    if (b === 0 || b === 9) chooseLang();
+  } else if (mode === "home") {
     const a = homeActions().find(q => q.pad.includes(b));   // SPEC-017: A — «Играть», X — история, Y — магазин
     if (a) a.act();
   } else if (mode === "map") {
@@ -205,7 +217,8 @@ function onPadButton(b, pad = 0) {
     if (ui.storyPage === "chapters") {
       if (b === 14 || b === LOOK.PAD_PREV_WORLD) storyStep(-1);
       if (b === 15 || b === LOOK.PAD_NEXT_WORLD || b === 0) storyStep(1);
-    } else if (b === 0) openTutorial("story");     // SPEC-029: A на «Как играть» — «Тренировка»
+    } else if (b === 0) openPractice();            // SPEC-029/032: A на «Как играть» — «Тренировка» (только игры)
+    else if (b === 2) openPictures();              // SPEC-032: X — «Картинки»
   } else if (mode === "scene") {
     if (b === 0 || b === 9 || b === 15) sceneNext();   // SPEC-022: A / Start / крестовина → — дальше, ← — назад, B — пропустить
     if (b === 14) scenePrev();
@@ -271,6 +284,7 @@ export function fillInputs() {
     if (l.kind !== "player") continue;
     const inp = G.inputs[l.slot] || (G.inputs[l.slot] = newInput()), v = deviceInput(l);
     inp.mx = v.x; inp.my = v.y;
+    inp.tiptoe = !!ui.tiptoe[l.id];          // SPEC-032 AC 1: кнопка 👣 включена — не быстрее TIPTOE_MULT (ядро режет стик), тихо
   }
 }
 

@@ -199,7 +199,7 @@ test("tutorial pages: four panels per sheet with captions in every language", { 
   }
   soft(r.out.en.tutorial_a.texts[0], "A1").toBe("Sneak up behind Dad and hug him! Every hug takes away one angry heart.");
   soft(r.out.en.tutorial_a.texts[3], "A4 on the keyboard").toBe("Dad hears running behind him. Close to him, tiptoe! (hold Shift)");
-  soft(r.I.a4touch, "A4 on the phone").toBe("Dad hears running behind him. Close to him, tiptoe! (push the stick just a little)");
+  soft(r.I.a4touch, "A4 on the phone").toBe("Dad hears running behind him. Close to him, tiptoe! (tap 👣)");   // SPEC-032 AC 1: the 👣 button
   soft(r.out.en.tutorial_c.texts[3], "C4").toBe("Win levels, get coins, and buy all this in Character!");
   soft.done();
 });
@@ -630,8 +630,8 @@ test("Skip from every tutorial step goes to the Park map and sets seen.tutorial"
   soft.done();
 });
 
-// ---------- AC 4: Practice on the "How to play" page replays the whole tutorial and ends back on the Story ----------
-test("Practice on the How-to-play page replays the tutorial and ends back on the Story", async ({ desk: page }) => {
+// ---------- AC 4 (SPEC-032 AC 8): Practice on the "How to play" page runs only the two practice games, back on the Story ----------
+test("Practice on the How-to-play page runs only the two practice games and ends back on the Story", async ({ desk: page }) => {
   const before = await page.evaluate(() => {
     const b = window.__bb; b.progress.seen.tutorial = true; b.progress.coins = 40; b.progress.inv.kisses = 2;
     b.world = "city"; b.level = 3; b.resetWorld(2); b.openStory("began", "home");
@@ -645,16 +645,11 @@ test("Practice on the How-to-play page replays the tutorial and ends back on the
   await page.evaluate(() => window.__bb.tapButton("story:practice"));
   await frames(page);
   let s = await state(page);
-  expect([s.mode, s.scene && s.scene.id, s.tutorial]).toEqual(["scene", "tutorial_a", { step: "a", page: 0, game: 0, hint: 0, back: "story" }]);
-  for (let i = 0; i < 4; i++) await page.evaluate(() => window.__bb.sceneNext());
+  expect([s.mode, s.scene, s.tutorial.game, s.tutorial.back, s.players], "game 1 at once, one player, also with two players set").toEqual(["play", null, 1, "story", 1]);
+  await winPractice(page);
   s = await state(page);
-  expect([s.mode, s.tutorial.game, s.players], "one player, also with two players set").toEqual(["play", 1, 1]);
+  expect([s.mode, s.scene, s.tutorial.game], "game 2 at once: no picture pages in between").toEqual(["play", null, 2]);
   await winPractice(page);
-  for (let i = 0; i < 8; i++) await page.evaluate(() => window.__bb.sceneNext());
-  expect((await state(page)).tutorial.game).toBe(2);
-  await winPractice(page);
-  expect((await state(page)).tutorial.step).toBe("ready");
-  await page.evaluate(() => window.__bb.sceneNext());
   await frames(page);
   const after = await page.evaluate(() => {
     const b = window.__bb;
@@ -665,12 +660,100 @@ test("Practice on the How-to-play page replays the tutorial and ends back on the
   expect(after.progress, "AC 17: no coins, stars, levels or stock changed").toBe(before.progress);
   expect(after.ledger, "AC 17: no economy entries").toBe(before.ledger);
   expect([after.world, after.level, after.players], "the menu's world, level and players are back").toEqual([before.world, before.level, 2]);
-  // Skip on a replay: the same, back on the Story
+  // Skip works as today: from the game's corner button, back on the Story
   await page.evaluate(() => window.__bb.tapButton("story:practice"));
   await frames(page);
-  await page.evaluate(() => window.__bb.tapButton("scene:skip"));
+  expect((await state(page)).tutorial.game).toBe(1);
+  await page.evaluate(() => window.__bb.tapButton("tutorial:skip"));
   await frames(page);
   expect(await page.evaluate(() => [window.__bb.mode, window.__bb.storyInfo.page, window.__bb.tutorial])).toEqual(["story", "rules", null]);
+});
+
+// ---------- SPEC-032 AC 8: Pictures — the tutorial picture pages A1…C4 as a viewer (Next / Back / dots), back to How to play ----------
+test("Pictures shows the 12 tutorial pages with Next and Back, then returns to How to play", async ({ desk: page }) => {
+  await page.evaluate(() => { const b = window.__bb; b.progress.seen.tutorial = true; b.openStory("began", "home"); });
+  await frames(page);
+  await page.evaluate(() => window.__bb.tapButton("story:rules"));
+  await frames(page);
+  const btn = await page.evaluate(() => window.__bb.buttonRects.find(q => q.id === "story:pictures"));
+  expect(btn && btn.text).toContain(await page.evaluate(() => window.__bb.I18N.en.pictures));
+  await page.evaluate(() => window.__bb.tapButton("story:pictures"));
+  await frames(page);
+  const s = await state(page);
+  expect([s.mode, s.scene, s.tutorial]).toEqual(["scene", { id: "tutorial_pics", page: 0, pages: 12 }, null]);
+  // the pages are the sheets' panels in order: A1…A4, B1…B4, C1…C4 (the captions of the first launch)
+  const want = await page.evaluate(() => ["a", "b", "c"].flatMap(sh => window.__bb.tutorialPages(sh).map(p => p.text)));
+  const seen = [], drawn = [];
+  for (let i = 0; i < 12; i++) {
+    await frames(page);
+    const d = await page.evaluate(() => ({ info: window.__bb.sceneInfo, ids: window.__bb.buttonRects.map(q => q.id) }));
+    seen.push(d.info.caption); drawn.push(d.ids.includes("scene:back") && d.ids.includes("scene:next") && !d.ids.includes("scene:skip"));
+    if (i < 11) await page.evaluate(() => window.__bb.tapButton("scene:next"));
+  }
+  expect(seen).toEqual(want);
+  expect(drawn.every(Boolean), "Back and Next on every page, no Skip").toBe(true);
+  // Back: the page before; on the first page it returns to How to play
+  await page.evaluate(() => window.__bb.tapButton("scene:back"));
+  expect((await state(page)).scene.page).toBe(10);
+  await frames(page);
+  await page.evaluate(() => window.__bb.tapButton("scene:next"));
+  await frames(page);
+  await page.evaluate(() => window.__bb.tapButton("scene:next"));   // the last page's Next: back to How to play
+  await frames(page);
+  expect(await page.evaluate(() => [window.__bb.mode, window.__bb.storyInfo.page, window.__bb.scene])).toEqual(["story", "rules", null]);
+  await page.evaluate(() => window.__bb.tapButton("story:pictures"));
+  await frames(page);
+  await page.evaluate(() => window.__bb.tapButton("scene:back"));
+  await frames(page);
+  expect(await page.evaluate(() => [window.__bb.mode, window.__bb.storyInfo.page])).toEqual(["story", "rules"]);
+  // Escape returns too
+  await page.evaluate(() => window.__bb.tapButton("story:pictures"));
+  await frames(page);
+  await page.keyboard.press("Escape");
+  await frames(page);
+  expect(await page.evaluate(() => [window.__bb.mode, window.__bb.storyInfo.page])).toEqual(["story", "rules"]);
+});
+
+// ---------- SPEC-032 AC 7: the How to play page — rules with art icons on the left, tutorial_a on the right, controls under them ----------
+async function rulesLayout(page, phone) {
+  const soft = softly();
+  for (const l of ["en", "es", "pt", "ru"]) for (const scale of [1, 1.15]) {
+    await page.evaluate(([lang, sc]) => { const b = window.__bb; b.setLang(lang); b.CFG.TEXT_TEST_SCALE = sc; b.openStory("began", "home"); }, [l, scale]);
+    await frames(page);
+    await page.evaluate(() => window.__bb.tapButton("story:rules"));
+    await frames(page);
+    await page.evaluate(() => window.__bb.resetArtUse());
+    await frames(page);
+    const d = await page.evaluate(() => { const b = window.__bb; return { info: b.storyInfo, hud: b.hudRects, buttons: b.buttonRects, use: b.artUse, over: b.textOverflows, ui: b.uiSize, n: b.I18N[b.lang].rules(b.CFG.DOWN_TIME).length, iconMin: b.CFG.MENU_LOOK.story.rules.iconMin }; });
+    const at = `${l} ×${scale}`, hit = (a, q) => a.x < q.x + q.w - 0.5 && q.x < a.x + a.w - 0.5 && a.y < q.y + q.h - 0.5 && q.y < a.y + a.h - 0.5;
+    const rules = d.hud.filter(h => /^rules:\d+$/.test(h.id)), icons = d.hud.filter(h => h.id.startsWith("rulesIcon:")), pic = d.info.picBox;
+    soft([rules.length, icons.length], `${at}: every rule with its icon`).toEqual([d.n, d.n]);
+    for (const n of ["heart_full", "ui_eyes", "shop_quick_help", "ui_timer", "house_kids", "item_banana", "ui_tiptoe", "tutorial_a"]) soft(!!d.use[n], `${at}: ${n} drawn`).toBe(true);
+    soft(d.info.art, `${at}: the picture`).toBe("tutorial_a");
+    for (const ic of icons) {
+      const r = rules.find(q => q.id === "rules:" + ic.id.split(":")[1]);
+      // about 1.6 × the text; at the text floor (wide fonts, a phone) it may shrink to CFG.MENU_LOOK.story.rules.iconMin
+      soft(ic.h / r.size < 1.65 && (ic.h / r.size > 1.55 || ic.h / r.size >= d.iconMin - 0.01), `${at}: ${ic.id} ${ic.h.toFixed(1)} ≈ 1.6 × ${r.size}`).toBe(true);
+      soft(ic.x + ic.w <= r.x + 0.5, `${at}: ${ic.id} left of its text`).toBe(true);
+    }
+    for (const r of [...rules, ...icons]) soft(r.x + r.w <= pic.x + 0.5, `${at}: ${r.id} left of the picture`).toBe(true);
+    const ctl = d.hud.filter(h => h.id.startsWith("controls:"));
+    soft(ctl.map(h => h.id), `${at}: controls`).toEqual(phone ? ["controls:touch"] : ["controls:0", "controls:1"]);
+    const lastRule = rules.at(-1);
+    for (const c of ctl) soft(c.y >= Math.min(lastRule.y + lastRule.h, pic.y + pic.h) - 0.5, `${at}: ${c.id} under the rules or the picture`).toBe(true);
+    const pics = d.buttons.find(q => q.id === "story:pictures"), prac = d.buttons.find(q => q.id === "story:practice");
+    soft(!!pics && !!prac && pics.x + pics.w <= prac.x + 0.5 && prac.x + prac.w > d.ui.w * 0.75, `${at}: Pictures, Practice at the bottom right`).toBe(true);
+    const boxes = [...rules, ...icons, ...ctl, { id: "picture", ...pic }, ...d.buttons.filter(q => q.id.startsWith("story:"))];
+    for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) soft(hit(boxes[i], boxes[j]), `${at}: ${boxes[i].id} over ${boxes[j].id}`).toBe(false);
+    for (const q of boxes) soft(q.x >= -0.5 && q.y >= -0.5 && q.x + q.w <= d.ui.w + 0.5 && q.y + q.h <= d.ui.h + 0.5, `${at}: ${q.id} on screen`).toBe(true);
+    soft(d.over, `${at}: every text fits`).toEqual([]);
+  }
+  await page.evaluate(() => { const b = window.__bb; b.CFG.TEXT_TEST_SCALE = 1; b.setLang("en"); });
+  soft.done();
+}
+test("How to play: rules with art icons, the tutorial picture, controls, Pictures and Practice (desktop)", async ({ desk: page }) => {
+  await page.waitForFunction(() => window.__bb.artInfo.done, null, { timeout: 15_000 });
+  await rulesLayout(page, false);
 });
 
 // the hint banner: drawn (desktop and phone 667×375), the device's controls, not on the corner Skip; the HUD label
@@ -718,12 +801,17 @@ async function hintBanner(page, touch) {
   await page.evaluate(s => { const b = window.__bb; b.CFG.TEXT_TEST_SCALE = s; b.setLang("en"); b.littles[1].state = "ok"; b.update(1 / 60); }, scale0);
   await frames(page);
   soft(await page.evaluate(() => window.__bb.tutorialHint && window.__bb.tutorialHint.text), "hint 2 with the device's controls")
-    .toBe(`Now sneak behind Dad — tiptoe close to him! (${touch ? "push the stick just a little" : "hold Shift"})`);
+    .toBe(`Now sneak behind Dad — tiptoe close to him! (${touch ? "tap 👣" : "hold Shift"})`);
   await page.evaluate(() => window.__bb.tutorialSkip());
   soft.done();
 }
 test("practice hint banners on the desktop: hint style, they fit, clear of the buttons", async ({ desk: page }) => { await hintBanner(page, false); });
 test("practice hint banners on the phone 667×375: they fit, clear of the buttons", async ({ phone: page }) => { await hintBanner(page, true); });
+// SPEC-032 AC 7: the How to play page fits the phone 667×375 (touch line only, no keyboard line)
+test("How to play fits the phone 667×375: rules with art icons, the picture, the touch line, Pictures and Practice", async ({ phone: page }) => {
+  await page.waitForFunction(() => window.__bb.artInfo.done, null, { timeout: 15_000 });
+  await rulesLayout(page, true);
+});
 
 // CI fonts are wider: the team chips leave room for labels ("Me", "B", 1, 2, a count, z, !) up to CFG.PHONE_CHIP_FONT (1.3) wider
 test("team chips fit their labels with wide fonts (phone 667×375, a level and the practice)", async ({ phone: page }) => {

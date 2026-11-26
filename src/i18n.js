@@ -28,7 +28,7 @@ export const I18N = {
     // SPEC-019: на цыпочках; подсказка, когда Большой впервые обернулся на топот игрока (клавиша — отдельно, как у спасалки)
     ruleTiptoe: "Run near Dad and he hears you — tiptoe!",
     heardHint: k => `Dad heard you running! Tiptoe near him: hold ${k}`, heardKey1: "⇦ Shift", heardKey2: "/",
-    heardHintTouch: "Dad heard you running! Push the stick just a little to tiptoe",
+    heardHintTouch: t => `Dad heard you running! ${t}`, tiptoeTap: "Tap 👣 to tiptoe",
     level: "Level", lvShort: "Lv.", onePlayer: "1 player", twoPlayers: "2 players",
     controls1: "Keyboard: Player 1 — W A S D, Player 2 — arrows  •  P — pause  •  M — sound  •  L — language",
     controls2: "Tablet/phone: drag your finger  •  Gamepad: stick, A — choose, B — back, LB/RB — worlds",
@@ -55,7 +55,7 @@ export const I18N = {
     worldsObj: { park: "the Park", field: "the Football field", city: "the City", school: "the School", beach: "the Beach", winter: "the Winter" }, worldDone: (w, key) => `You finished the ${w}!`,
     bonus: "Bonus", bonusUnlocked: "Bonus worlds unlocked!",
     items: { boots: "Speed boots!", cloak: "Invisible!", shield: "Shield!" }, blocked: "Blocked!", slip: "Whoops!",
-    shop: "Shop", character: "Character", progressTab: "Progress", bag: "Bag", clothes: (n, m) => `Clothes: ${n} / ${m}`, buy: "Buy", have: n => `You have: ${n} power ${n === 1 ? "hug" : "hugs"}`, wears: "wears", none: "None",
+    character: "Character", progressTab: "Progress", bag: "Bag", clothes: (n, m) => `Clothes: ${n} / ${m}`, buy: "Buy", have: n => `You have: ${n} power ${n === 1 ? "hug" : "hugs"}`, wears: "wears", none: "None",
     gloves: { mittens: "Warm mittens", mega: "Mega hug mittens" }, gloveDesc: p => `Each hug takes ${p} hearts`,
     pack: n => `Pack: ${n} power hugs`, notEnough: "Not enough coins", reset: "Reset progress", resetCancel: "No, keep it", resetCancelShort: "Keep it", resetShort: "Reset", resetConfirm: "Yes, erase everything",
     victory: "Victory", nobodyOut: "Nobody had to rest", fast: t => `Fast: under ${t}`, forHugs: n => `+${n} for hugs`,
@@ -80,7 +80,7 @@ export const I18N = {
     tut: {
       a: k => ["Sneak up behind Dad and hug him! Every hug takes away one angry heart.", "If Dad sees you, he pushes — and you fall down!",
         "A friend fell? Stand next to them to help them up. Friends help you too!", `Dad hears running behind him. Close to him, tiptoe! (${k})`],
-      tiptoeKey: "hold Shift", tiptoeTouch: "push the stick just a little",
+      tiptoeKey: "hold Shift", tiptoeTouch: "tap 👣",
       b: ["Speed boots: you run faster!", "Invisibility cloak: Dad can't see you!", "Shield: Dad can't push you!",
         "Banana! Lead Dad onto it — he slips, and you can hug him from any side!"],
       c: ["Air kisses 💋: send one from far away. Dad loses half a heart and blushes!", "Rescue kit 🩹: fell down? Get up at once!",
@@ -93,6 +93,7 @@ export const I18N = {
       g2item: "Grab an item!", g2banana: "Lead Dad onto a banana!", g2kiss: k => `Send an air kiss 💋 (${k})`, g2kit: k => `Use the rescue kit 🩹 to get up! (${k})`,
       kissKey: "press E", kissTouch: "tap the 💋 button", kitKey: "press Q", kitTouch: "tap 🩹"
     },
+    pictures: "Pictures", sceneBack: "Back",   // SPEC-032 AC 8: «Картинки» на «Как играть»; «◀ Назад» листалки
     chapters: { began: "How it began", ended: "How it ended" }, endedLocked: "Win level 20 at the School to read the ending", howToPlay: "How to play",
     upg: { fastFeet: { name: "Fast feet", desc: p => `+${p}% speed` }, longItems: { name: "Long items", desc: () => "Items last longer" },
       quickHelp: { name: "Quick help", desc: () => "Lift friends faster" } },
@@ -120,7 +121,7 @@ export const I18N = {
     ],
     ruleTiptoe: "Si corrés cerca de papá, te escucha: ¡andá en puntitas de pie!",
     heardHint: k => `¡Papá te escuchó correr! Cerca de él andá en puntitas: mantené ${k}`, heardKey1: "⇦ Shift", heardKey2: "/",
-    heardHintTouch: "¡Papá te escuchó correr! Mové el joystick apenas para ir en puntitas",
+    heardHintTouch: t => `¡Papá te escuchó correr! ${t}`, tiptoeTap: "Tocá 👣 para ir en puntitas",
     level: "Nivel", lvShort: "Niv.", onePlayer: "1 jugador", twoPlayers: "2 jugadores",
     controls1: "Teclado: Jugador 1 — W A S D, Jugador 2 — flechas  •  P — pausa  •  M — sonido  •  L — idioma",
     controls2: "Tablet/celu: deslizá el dedo  •  Joystick: palanca, A — elegir, B — volver, LB/RB — mundos",
@@ -145,7 +146,7 @@ export const I18N = {
     worldsObj: { park: "el Parque", field: "la Cancha", city: "la Ciudad", school: "la Escuela", beach: "la Playa", winter: "el Invierno" }, worldDone: (w, key) => `¡Terminaste ${w}!`,
     bonus: "Bonus", bonusUnlocked: "¡Se abrieron los mundos bonus!",
     items: { boots: "¡Zapatillas veloces!", cloak: "¡Invisible!", shield: "¡Escudo!" }, blocked: "¡Bloqueado!", slip: "¡Upa!",
-    shop: "Tienda", character: "Personaje", progressTab: "Progreso", bag: "Mochila", clothes: (n, m) => `Ropa: ${n} / ${m}`, buy: "Comprar", have: n => `Tenés: ${n} ${n === 1 ? "abrazo potente" : "abrazos potentes"}`, wears: "usa", none: "Nada",
+    character: "Personaje", progressTab: "Progreso", bag: "Mochila", clothes: (n, m) => `Ropa: ${n} / ${m}`, buy: "Comprar", have: n => `Tenés: ${n} ${n === 1 ? "abrazo potente" : "abrazos potentes"}`, wears: "usa", none: "Nada",
     gloves: { mittens: "Mitones abrigados", mega: "Mitones del abrazo gigante" }, gloveDesc: p => `Cada abrazo saca ${p} corazones`,
     pack: n => `Paquete: ${n} abrazos potentes`, notEnough: "No te alcanzan las monedas", reset: "Borrar progreso", resetCancel: "No, dejalo", resetCancelShort: "Dejalo", resetShort: "Borrar", resetConfirm: "Sí, borrar todo",
     victory: "Victoria", nobodyOut: "Nadie tuvo que descansar", fast: t => `Rápido: menos de ${t}`, forHugs: n => `+${n} por los abrazos`,
@@ -165,7 +166,7 @@ export const I18N = {
     tut: {
       a: k => ["¡Acercate a Papá por detrás y abrazalo! Cada abrazo le saca un corazón enojado.", "Si Papá te ve, te empuja… ¡y te caés!",
         "¿Se cayó un amigo? Parate al lado para ayudarlo a levantarse. ¡Tus amigos también te ayudan!", `Papá escucha si corrés detrás de él. Cerca de él, ¡andá en puntitas! (${k})`],
-      tiptoeKey: "mantené Shift", tiptoeTouch: "mové el joystick apenas",
+      tiptoeKey: "mantené Shift", tiptoeTouch: "tocá 👣",
       b: ["Zapatillas veloces: ¡corrés más rápido!", "Capa de invisibilidad: ¡Papá no te ve!", "Escudo: ¡Papá no te puede empujar!",
         "¡Banana! Llevá a Papá hasta ella: se resbala, ¡y lo podés abrazar de cualquier lado!"],
       c: ["Besitos voladores 💋: mandá uno de lejos. ¡Papá pierde medio corazón y se pone colorado!", "Curita mágica 🩹: ¿te caíste? ¡Levantate al toque!",
@@ -176,6 +177,7 @@ export const I18N = {
       g2item: "¡Agarrá un objeto!", g2banana: "¡Llevá a Papá hasta una banana!", g2kiss: k => `Mandá un besito volador 💋 (${k})`, g2kit: k => `¡Usá la curita mágica 🩹 para levantarte! (${k})`,
       kissKey: "apretá E", kissTouch: "tocá el botón 💋", kitKey: "apretá Q", kitTouch: "tocá 🩹"
     },
+    pictures: "Dibujos", sceneBack: "Atrás",
     chapters: { began: "Cómo empezó", ended: "Cómo terminó" }, endedLocked: "Ganá el nivel 20 de la Escuela para leer el final", howToPlay: "Cómo se juega",
     upg: { fastFeet: { name: "Pies rápidos", desc: p => `+${p}% velocidad` }, longItems: { name: "Cosas duraderas", desc: () => "Duran más" },
       quickHelp: { name: "Ayuda rápida", desc: () => "Levantás más rápido" } },
@@ -205,7 +207,7 @@ export const I18N = {
     ruleTiptoe: "Correu perto do Papai? Ele escuta — ande na ponta dos pés!",
     // SPEC-028: на бразильской клавиатуре (ABNT2) на клавише «/» американской раскладки написано «;»
     heardHint: k => `O Papai ouviu você correr! Perto dele, ande na ponta dos pés: segure ${k}`, heardKey1: "⇦ Shift", heardKey2: "/ (;)",
-    heardHintTouch: "O Papai ouviu você correr! Mexa o joystick só um pouquinho para andar na ponta dos pés",
+    heardHintTouch: t => `O Papai ouviu você correr! ${t}`, tiptoeTap: "Toque 👣 para andar na ponta dos pés",
     level: "Fase", lvShort: "Fase", onePlayer: "1 jogador", twoPlayers: "2 jogadores",
     controls1: "Teclado: Jogador 1 — W A S D, Jogador 2 — setas  •  P — pausa  •  M — som  •  L — idioma",
     controls2: "Tablet/celular: arraste o dedo  •  Controle: analógico, A — escolher, B — voltar, LB/RB — mundos",
@@ -232,7 +234,7 @@ export const I18N = {
     worldDone: (w, key) => `Você terminou ${key === "city" || key === "school" || key === "beach" ? "a" : "o"} ${w}!`,
     bonus: "Bônus", bonusUnlocked: "Mundos bônus liberados!",
     items: { boots: "Botas rápidas!", cloak: "Invisível!", shield: "Escudo!" }, blocked: "Bloqueado!", slip: "Opa!",
-    shop: "Loja", character: "Personagem", progressTab: "Progresso", bag: "Mochila", clothes: (n, m) => `Roupas: ${n} / ${m}`, buy: "Comprar", have: n => `Você tem: ${n} ${ptPlural(n, "superabraço", "superabraços")}`, wears: "usa", none: "Nada",
+    character: "Personagem", progressTab: "Progresso", bag: "Mochila", clothes: (n, m) => `Roupas: ${n} / ${m}`, buy: "Comprar", have: n => `Você tem: ${n} ${ptPlural(n, "superabraço", "superabraços")}`, wears: "usa", none: "Nada",
     gloves: { mittens: "Luvas quentinhas", mega: "Luvas gigantes" }, gloveDesc: p => `Cada abraço tira ${p} corações`,
     pack: n => `Pacote: ${n} ${ptPlural(n, "superabraço", "superabraços")}`, notEnough: "Faltam moedas", reset: "Apagar progresso", resetCancel: "Não, deixe como está", resetCancelShort: "Deixe", resetShort: "Apagar", resetConfirm: "Sim, apagar tudo",
     victory: "Vitória", nobodyOut: "Ninguém descansou", fast: t => `Rápido: menos de ${t}`, forHugs: n => `+${n} pelos abraços`,
@@ -252,7 +254,7 @@ export const I18N = {
     tut: {
       a: k => ["Chegue por trás do Papai e dê um abraço! Cada abraço tira um coração bravo.", "Se o Papai te vê, ele empurra — e você cai!",
         "Um amigo caiu? Fique pertinho dele para ajudar a levantar. Os amigos também te ajudam!", `O Papai ouve quem corre atrás dele. Perto dele, ande na ponta dos pés! (${k})`],
-      tiptoeKey: "segure Shift", tiptoeTouch: "mexa o joystick só um pouquinho",
+      tiptoeKey: "segure Shift", tiptoeTouch: "toque 👣",
       b: ["Botas rápidas: você corre mais rápido!", "Capa de invisibilidade: o Papai não te vê!", "Escudo: o Papai não consegue te empurrar!",
         "Banana! Leve o Papai até ela — ele escorrega, e você pode abraçar de qualquer lado!"],
       c: ["Beijinhos 💋: mande um de longe. O Papai perde meio coração e fica vermelho!", "Kit de resgate 🩹: caiu? Levante na hora!",
@@ -263,6 +265,7 @@ export const I18N = {
       g2item: "Pegue um item!", g2banana: "Leve o Papai até uma banana!", g2kiss: k => `Mande um beijinho 💋 (${k})`, g2kit: k => `Use o kit de resgate 🩹 para levantar! (${k})`,
       kissKey: "aperte E", kissTouch: "toque no botão 💋", kitKey: "aperte Q", kitTouch: "toque em 🩹"
     },
+    pictures: "Figuras", sceneBack: "Voltar",
     chapters: { began: "Como tudo começou", ended: "Como tudo terminou" }, endedLocked: "Vença a fase 20 da Escola para ler o final", howToPlay: "Como jogar",
     upg: { fastFeet: { name: "Pés rápidos", desc: p => `+${p}% de velocidade` }, longItems: { name: "Itens duradouros", desc: () => "Duram mais" },
       quickHelp: { name: "Ajuda rápida", desc: () => "Levante os amigos mais rápido" } },
@@ -289,7 +292,7 @@ export const I18N = {
     ],
     ruleTiptoe: "Бежишь рядом с папой — он слышит. Иди на цыпочках!",
     heardHint: k => `Папа услышал топот! Рядом с ним иди на цыпочках: держи ${k}`, heardKey1: "⇦ Shift", heardKey2: "/ (.)",
-    heardHintTouch: "Папа услышал топот! Чуть-чуть наклони джойстик — пойдёшь на цыпочках",
+    heardHintTouch: t => `Папа услышал топот! ${t}`, tiptoeTap: "Нажми 👣, чтобы идти на цыпочках",
     level: "Уровень", lvShort: "Ур.", onePlayer: "1 игрок", twoPlayers: "2 игрока",
     controls1: "Клавиатура: Игрок 1 — W A S D, Игрок 2 — стрелки  •  P — пауза  •  M — звук  •  L — язык",
     controls2: "Планшет/телефон: водите пальцем  •  Геймпад: стик, A — выбрать, B — назад, LB/RB — миры",
@@ -316,7 +319,7 @@ export const I18N = {
     worldDone: (w, key) => `${w} ${key === "field" ? "пройдено" : key === "school" || key === "winter" ? "пройдена" : "пройден"}!`,
     bonus: "Бонус", bonusUnlocked: "Открылись бонусные миры!",
     items: { boots: "Сапоги-скороходы!", cloak: "Невидимка!", shield: "Щит!" }, blocked: "Щит спас!", slip: "Поскользнулся!",
-    shop: "Магазин", character: "Персонаж", progressTab: "Прогресс", bag: "Рюкзак", clothes: (n, m) => `Одежда: ${n} / ${m}`, buy: "Купить", have: n => `У вас: ${n} ${["сильная обнимашка", "сильные обнимашки", "сильных обнимашек"][n % 10 === 1 && n % 100 !== 11 ? 0 : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 1 : 2]}`, wears: "носит", none: "Ничего",
+    character: "Персонаж", progressTab: "Прогресс", bag: "Рюкзак", clothes: (n, m) => `Одежда: ${n} / ${m}`, buy: "Купить", have: n => `У вас: ${n} ${["сильная обнимашка", "сильные обнимашки", "сильных обнимашек"][n % 10 === 1 && n % 100 !== 11 ? 0 : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 1 : 2]}`, wears: "носит", none: "Ничего",
     gloves: { mittens: "Тёплые рукавицы", mega: "Мега-рукавицы" }, gloveDesc: p => `Каждая обнимашка забирает ${p} сердечка`,
     pack: n => `В наборе: ${n} сильные обнимашки`, notEnough: "Не хватает монеток", reset: "Сбросить прогресс", resetCancel: "Нет, оставить", resetCancelShort: "Оставить", resetShort: "Сброс", resetConfirm: "Да, стереть всё",
     victory: "Победа", nobodyOut: "Никто не ушёл отдыхать", fast: t => `Быстро: меньше ${t}`, forHugs: n => `+${n} за обнимашки`,
@@ -336,7 +339,7 @@ export const I18N = {
     tut: {
       a: k => ["Подкрадись к папе сзади и обними! Каждая обнимашка забирает одно злое сердечко.", "Если папа тебя увидит — толкнёт, и ты упадёшь!",
         "Друг упал? Встань рядом — поможешь ему подняться. Друзья помогут и тебе!", `Папа слышит топот за спиной. Рядом с ним иди на цыпочках! (${k})`],
-      tiptoeKey: "держи Shift", tiptoeTouch: "чуть-чуть наклони джойстик",
+      tiptoeKey: "держи Shift", tiptoeTouch: "нажми 👣",
       b: ["Сапоги-скороходы: бегаешь быстрее!", "Плащ-невидимка: папа тебя не видит!", "Щит: папа не может тебя толкнуть!",
         "Банан! Заведи папу на него — он поскользнётся, и его можно обнять с любой стороны!"],
       c: ["Воздушный поцелуй 💋: пошли издалека. Папа теряет полсердечка и краснеет!", "Спасалка 🩹: упал? Сразу вставай!",
@@ -347,6 +350,7 @@ export const I18N = {
       g2item: "Возьми предмет!", g2banana: "Заведи папу на банан!", g2kiss: k => `Пошли воздушный поцелуй 💋 (${k})`, g2kit: k => `Встань спасалкой 🩹! (${k})`,
       kissKey: "нажми E", kissTouch: "нажми кнопку 💋", kitKey: "нажми Q", kitTouch: "нажми 🩹"
     },
+    pictures: "Картинки", sceneBack: "Назад",
     chapters: { began: "Как всё началось", ended: "Как всё закончилось" }, endedLocked: "Пройди 20-й уровень в Школе, чтобы прочитать конец", howToPlay: "Как играть",
     upg: { fastFeet: { name: "Быстрые ноги", desc: p => `+${p}% скорости` }, longItems: { name: "Долгие вещи", desc: () => "Действуют дольше" },
       quickHelp: { name: "Быстрая помощь", desc: () => "Поднимаешь быстрее" } },
@@ -362,6 +366,8 @@ export const I18N = {
     levelIntro: (w, n, t) => `${w} · Уровень ${n}: ${t}`, levelIntroShort: (w, n, t) => `${w} · ${n}: ${t}`, levelIntroTiny: (w, n, t) => `${n}: ${t}`, worldStars: (n, max) => `⭐ ${n}/${max}`
   }
 };
+// SPEC-032 AC 13: the language screen of the first launch — each language named in itself
+export const LANG_NAMES = Object.freeze({ en: "English", es: "Español", pt: "Português", ru: "Русский" });
 export const LANGS = ["en", "es", "pt", "ru"];   // SPEC-028: + português (Brasil); порядок — как переключает значок 🌐
 export const HTML_LANG = { pt: "pt-BR" };        // <html lang>: португальский — бразильский
 // SPEC-028: язык при запуске — сохранённый (bebebe-lang: старые en/es/ru, новый pt); если его нет и это самый первый запуск
