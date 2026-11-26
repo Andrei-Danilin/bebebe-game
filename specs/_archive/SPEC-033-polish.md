@@ -1,6 +1,6 @@
 # SPEC-033 — Polish after the review: a "How to play" card after the intro, one big panel in Story, softer rules, "Get for 🪙", reset behind the parents' gate, win title room
 
-Status: ready (art `art/36_howto_card.webp` is on master, checked by Claude 2026-11-26: a kid teacher at an easel showing "sneak behind Dad → heart", five kids watching; it has a row of six colour blobs along the bottom — crop them off (keep the picture above them) if the paper pipeline can crop, else keep them)
+Status: done (merged by "Merge SPEC-033", see git log)
 Complexity: L
 Branch: SPEC-033-polish
 Decided by: Andrei (2026-11-26):

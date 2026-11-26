@@ -14,6 +14,7 @@
     { "src": "18_map_bg_winter.webp", "mode": "paper", "size": "background", "name": "map_bg_winter" },
     { "src": "8_start.webp", "mode": "paper", "size": "background", "name": "story_start" },
     { "src": "31_tutorial_a.webp", "mode": "paper", "size": "background", "name": "tutorial_a" },
+    { "src": "36_howto_card.webp", "mode": "paper", "size": "background", "name": "howto_card", "crop": [0, 0, 1200, 735] },
     { "src": "32_tutorial_b.webp", "mode": "paper", "size": "background", "name": "tutorial_b" },
     { "src": "33_tutorial_c.webp", "mode": "paper", "size": "background", "name": "tutorial_c" },
     { "src": "9_1_boss_park.webp", "mode": "paper", "size": "background", "name": "story_park" },

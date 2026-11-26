@@ -14,6 +14,7 @@ import { failStart, initErrors, reportError } from "./errors.js";
 import { inMenus, inWardrobe, mapTick, mode, openScene, redress, resetWorld, seedRandom, syncStock } from "./flow.js";
 import { drainEvents, stepGame, viewTick } from "./fx.js";
 import { initInput, pollPads } from "./input.js";
+import { initBack } from "./back.js";
 import { initLifecycle } from "./lifecycle.js";
 import { endTryOn } from "./outfits.js";
 import { initPerf, noteFrame } from "./perf.js";
@@ -27,7 +28,7 @@ import { initMaterials } from "./three/materials.js";
 import { initPreviews } from "./three/previews.js";
 import { hasWebGL2, initScene, initThree } from "./three/setup.js";
 import { initSync, render3D } from "./three/sync.js";
-import { firstTutorial, openTutorial } from "./tutorial.js";
+import { firstTutorial, openFirstTutorial } from "./tutorial.js";
 import { showDueNote } from "./ui/grownups.js";
 import { updateMinimapFade } from "./ui/minimap.js";
 import { drawUI } from "./ui/screens.js";
@@ -58,6 +59,8 @@ async function boot() {
   initPreviews();
   // SPEC-025 AC 14 / 14c: hide, blur, WebGL context loss
   initLifecycle();
+  // SPEC-033 AC 13: the system Back / Escape on home ask "Leave the game?" (a guard history entry)
+  initBack();
   // SPEC-025 AC 15b: ?perf=1 — the perf overlay (__bb.perf)
   initPerf();
   fit();
@@ -94,7 +97,7 @@ function tick(now) {
   noteFrame(Math.max(0, real), dt);          // SPEC-025 AC 15b: __bb.perf()
   if (simMode) return;                       // sim: ни логики, ни рисования — игру шагает simRun
   if (langDue && mode === "home" && !document.getElementById("loading")) { langDue = false; openLangScreen(); }   // SPEC-032: язык — до комикса
-  if (introDue && mode === "home" && !document.getElementById("loading")) { introDue = false; openScene("intro", tutorialDue ? () => openTutorial("map") : null); }   // SPEC-022: первый запуск (SPEC-029: потом обучение)
+  if (introDue && mode === "home" && !document.getElementById("loading")) { introDue = false; openScene("intro", tutorialDue ? openFirstTutorial : null); }   // SPEC-022: первый запуск (SPEC-029: потом обучение; SPEC-033: сначала карточка «Как играть»)
   if (inMenus() && !document.getElementById("loading")) showDueNote(now);   // SPEC-025 AC 4 / 4b: a save note, once, in the menus
   ui.T += dt;
   pollPads();

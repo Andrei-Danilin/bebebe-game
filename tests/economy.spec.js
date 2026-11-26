@@ -677,7 +677,7 @@ test("the wardrobe tab with locked items fits (phone 667×375)", async ({ phoneP
 
 test("every wardrobe text is in every language", async ({ simPage: page }) => {
   const I = await page.evaluate(() => { const I = window.__bb.I18N; return window.__bb.LANGS.map(l => [I[l].buyFor(150), I[l].tapAgain]); });
-  expect(I).toEqual([["Buy for 150", "Tap again to buy"], ["Comprar por 150", "Tocá otra vez para comprar"], ["Comprar por 150", "Toque de novo para comprar"], ["Купить за 150", "Нажми ещё раз, чтобы купить"]]);
+  expect(I).toEqual([["Get for 🪙 150", "Tap again to get it"], ["Conseguir por 🪙 150", "Tocá otra vez para conseguirlo"], ["Pegar por 🪙 150", "Toque de novo para pegar"], ["Взять за 🪙 150", "Нажми ещё раз, чтобы взять"]]);   // SPEC-033 D-8
 });
 
 // ---------- AC 5: upgrades ----------
@@ -840,7 +840,7 @@ async function upgradeTabProblems(page, phone) {
       Object.assign(b.progress.upgrades, { fastFeet: 0, longItems: 2, quickHelp: 3 }); b.mode = "shop"; b.shopTab = "upgrades";
     }, [lang, scale, coins]);
     await frames(page);
-    const d = await page.evaluate(() => { const b = window.__bb, resets = b.LANGS.flatMap(l => ["reset", "resetShort", "resetCancel", "resetCancelShort", "resetConfirm"].map(k => b.I18N[l][k]));
+    const d = await page.evaluate(() => { const b = window.__bb, resets = b.LANGS.flatMap(l => ["reset", "resetCancel", "resetConfirm"].map(k => b.I18N[l][k]));
       return { buttons: b.buttonRects, hud: b.hudRects, ui: b.uiSize, texts: b.textSizes, min: b.CFG.PHONE_TEXT, tab: b.shopTab, resets }; });
     if (d.tab !== "upgrades") { fails.push(`${at}: tab ${d.tab}`); continue; }
     // SPEC-026: Reset progress moved to the Character's Progress page — not on the Upgrades tab

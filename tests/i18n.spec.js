@@ -36,6 +36,66 @@ test("es, pt and ru have every key that en has, with the same type and function 
   expect(missing).toEqual([]);
 });
 
+// SPEC-033: every text of the game, as the player can read it: I18N with its functions called, the clothes and look names (Kostya's
+// STORY texts are his own and are not reworded: they are not part of this walk)
+function allTexts(langs) {
+  const b = window.__bb, out = {};
+  const texts = (v, acc, path) => {
+    if (typeof v === "string") acc.push([path, v]);
+    else if (Array.isArray(v)) v.forEach((x, i) => texts(x, acc, `${path}[${i}]`));
+    else if (typeof v === "function") for (const n of [1, 2]) { try { texts(v(n, n, n), acc, `${path}(${n})`); } catch (e) { /* not a text function */ } }
+    else if (v && typeof v === "object") for (const [k, x] of Object.entries(v)) texts(x, acc, path ? `${path}.${k}` : k);
+    return acc;
+  };
+  for (const l of langs) {
+    const acc = texts(b.I18N[l], [], l);
+    for (const [kind, list] of Object.entries(b.itemNames())) list.forEach((nm, i) => acc.push([`${l}.${kind}[${i}]`, nm[l]]));
+    out[l] = acc;
+  }
+  return out;
+}
+
+// SPEC-033 AC 6–7 (D-1): nothing the player reads talks about a broken leg, limping or an injury — the Big One pushes, you fall down
+// and go home to rest. The same walk, with the words of all four languages (word boundaries: "legend", "limpar" are fine).
+test("no text speaks of a broken leg, limping or injury (en, es, pt, ru)", { tag: "@fast" }, async ({ page }) => {
+  await openGame(page, { sim: true });
+  const hits = await page.evaluate(([langs, src, fn]) => {
+    const re = new RegExp(src, "iu"), all = new Function("return " + fn)()(langs), out = [];
+    for (const l of langs) for (const [path, t] of all[l]) if (re.test(t)) out.push(`${path}: ${t}`);
+    return out;
+  }, [LANGS, String.raw`\bleg(s)?\b|\blimp(s|ed|ing)?\b|\bbroke(n)?\b|\bbreaks\b|\binjur|pierna|\bperna|cojea|\bmanca\b|rompés|\brompe\b|quebra|ногу|хрома|хромает|сломае|сломан`, allTexts.toString()]);
+  expect(hits).toEqual([]);
+});
+// the How to play lines say it the new way (the numbers still come from the code)
+test("the How to play rules: he pushes you and you fall down; no help → you go home to rest", { tag: "@fast" }, async ({ page }) => {
+  await openGame(page, { sim: true });
+  const r = await page.evaluate(() => { const b = window.__bb, out = {}; for (const l of b.LANGS) out[l] = [b.I18N[l].rules(15)[1], b.I18N[l].rules(15)[3]]; return { out, rest: b.CFG.REST_TIME }; });
+  expect(r.rest).toBe(30);
+  expect(r.out.en).toEqual(["If he SEES you (yellow beam), he pushes you and you fall down", "If nobody helps you up within 15 s, you go home to rest for 30 s"]);
+  expect(r.out.es).toEqual(["Si te VE (rayo amarillo), te empuja y te caés", "Si nadie te ayuda a levantarte en 15 segundos, te vas a casa a descansar 30 segundos"]);
+  expect(r.out.pt).toEqual(["Se ele te VÊ (raio amarelo), ele te empurra e você cai", "Se ninguém te ajudar a levantar em 15 s, você vai para casa descansar 30 s"]);
+  expect(r.out.ru).toEqual(["Увидит тебя (жёлтый луч) — толкнёт, и ты упадёшь", "Никто не помог встать за 15 сек — идёшь домой отдыхать 30 сек"]);
+});
+
+// SPEC-033 AC 8 (D-8): there are no money purchases, only coins — "Get for 🪙 N" in four languages
+test("prices say Get for 🪙 N: buyFor, buy, tapAgain and the tutorial C4 line (en, es, pt, ru)", { tag: "@fast" }, async ({ page }) => {
+  await openGame(page, { sim: true });
+  const r = await page.evaluate(() => Object.fromEntries(window.__bb.LANGS.map(l => { const I = window.__bb.I18N[l]; return [l, [I.buyFor(150), I.buy, I.tapAgain, I.tut.c[3]]]; })));
+  expect(r.en).toEqual(["Get for 🪙 150", "Get", "Tap again to get it", "Win levels, get coins, and pick all this up in Character!"]);
+  expect(r.es).toEqual(["Conseguir por 🪙 150", "Conseguir", "Tocá otra vez para conseguirlo", "¡Ganá niveles, juntá monedas y conseguí todo esto en Personaje!"]);
+  expect(r.pt).toEqual(["Pegar por 🪙 150", "Pegar", "Toque de novo para pegar", "Vença fases, ganhe moedas e pegue tudo isso em Personagem!"]);
+  expect(r.ru).toEqual(["Взять за 🪙 150", "Взять", "Нажми ещё раз, чтобы взять", "Выигрывай уровни, собирай монетки и бери всё это в «Персонаже»!"]);
+});
+test("no text says Buy, Comprar, Купить or shows a 🛒 (en, es, pt, ru)", { tag: "@fast" }, async ({ page }) => {
+  await openGame(page, { sim: true });
+  const hits = await page.evaluate(([langs, src, fn]) => {
+    const re = new RegExp(src, "iu"), all = new Function("return " + fn)()(langs), out = [];
+    for (const l of langs) for (const [path, t] of all[l]) if (re.test(t)) out.push(`${path}: ${t}`);
+    return out;
+  }, [LANGS, String.raw`\bbuy|\bbought|compr(ar|á|e|a|o)\b|купи|покуп|🛒`, allTexts.toString()]);
+  expect(hits).toEqual([]);
+});
+
 // SPEC-017: every story chapter has its text in every language; SPEC-028: captions, boss lines and bubbles too
 test("every STORY text is in every language", { tag: "@fast" }, async ({ page }) => {
   await openGame(page, { sim: true });   // SPEC-023: texts only, nothing drawn
@@ -197,11 +257,11 @@ test("first launch: the language screen, English highlighted (Enter picks it), t
     await page.waitForFunction(() => window.__bb.mode === "scene");
     let s = await page.evaluate(() => ({ lang: window.__bb.lang, scene: window.__bb.scene, saved: JSON.parse(localStorage.getItem("bebebe-save")).lang }));
     expect([s.lang, s.scene.id, s.saved]).toEqual(["en", "intro", "en"]);
-    // the intro skipped → the tutorial (page A), skipped → the Park map
+    // the intro skipped → the tutorial (SPEC-033: first the How to play card), skipped → the Park map
     await page.keyboard.press("Escape");
     await frames(page);
     s = await page.evaluate(() => ({ mode: window.__bb.mode, scene: window.__bb.scene, tutorial: window.__bb.tutorial }));
-    expect([s.mode, s.scene && s.scene.id, s.tutorial && s.tutorial.step]).toEqual(["scene", "tutorial_a", "a"]);
+    expect([s.mode, s.scene && s.scene.id, s.tutorial && s.tutorial.step]).toEqual(["scene", "tutorial_intro", "intro"]);
     await page.keyboard.press("Escape");
     await frames(page);
     expect(await page.evaluate(() => window.__bb.mode)).toBe("map");

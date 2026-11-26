@@ -6,12 +6,12 @@ import { progress } from "../../../core/economy.js";
 import { L } from "../../../i18n.js";
 import { paperUI, UPG_ART } from "../../art.js";
 import { LOOK } from "../../look.js";
-import { ctx, OUT, UW } from "../../screen.js";
+import { ctx, OUT, PHONE, UW } from "../../screen.js";
 import { buyUpgrade, upgLevel } from "../../shop.js";
 import { ui } from "../../state.js";
 import { fitButton, rowsAt } from "./wardrobe.js";
-import { circle, coinIcon, drawArtFit, fillStroke, fillT, rr } from "../draw.js";
-import { clipRows, cpx, hudFont, minPx, noteRows, pDraw, pRows } from "../text.js";
+import { circle, drawArtFit, fillStroke, fillT, rr } from "../draw.js";
+import { clipRows, cpx, minPx, noteRows, pDraw, priceLabel, pRows } from "../text.js";
 
 // ---------- SPEC-009: вкладки и улучшения в магазине ----------
 const UPG_ICONS = { fastFeet: "👟", longItems: "⏳", quickHelp: "🤝" };
@@ -34,14 +34,9 @@ function upgDots(cd, cx, cy, r) {
 // кнопка «Купить N 🪙» (или «✔ Максимум») карточки улучшения
 function upgButton(cd, x, y, w, h, size, min) {
   const max = cd.lv >= cd.top, ok = !max && progress.coins >= cd.price;
-  const txt = max ? "✔ " + L().upgMax : `${L().buy}  ${cd.price}      `;
+  const txt = max ? "✔ " + L().upgMax : priceLabel(cd.price, w - (PHONE ? cpx(14) : 14), min);   // SPEC-033: «Взять за 🪙 N», короче, если не влезает
   const b = fitButton(x, y, w, h, txt, max ? "#a3a3a3" : ok ? "#22c55e" : "#cbd5e1", () => buyUpgrade(cd.k), size, min);
   b.id = "upg:" + cd.k;
-  if (!max) {
-    ctx.font = hudFont(b.size);
-    const vis = ctx.measureText(`${L().buy}  ${cd.price}`).width, full = ctx.measureText(b.text).width;
-    coinIcon(x + w / 2 - full / 2 + vis + b.size * 0.8, y + h / 2, b.size * 0.5);   // монетка после цены
-  }
   return b;
 }
 // телефон: три карточки улучшений в полосе y0…Y1. Как карточки вещей: сначала мерка (pRows), потом рисуем; не влезает — картинка

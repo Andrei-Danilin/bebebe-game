@@ -8,6 +8,7 @@
 const path = require("path");
 const fs = require("fs");
 const { expect, test } = require("@playwright/test");
+const { installCiFont, ciFontReady } = require("./ci-font");   // SPEC-033 AC 14
 
 const ROOT = path.resolve(__dirname, "..");
 // SPEC-011 AC 8: every test opens the game over http (the webServer of playwright.config.js serves the repo root here);
@@ -85,6 +86,7 @@ async function openGame(page, { lang = "en", clearStorage = true, query = "", si
   page.on("pageerror", e => errors.push(String(e)));
   page.on("console", m => { if (m.type() === "error") errors.push("console: " + m.text()); });
   await page.addInitScript(strictRng);
+  await installCiFont(page);   // SPEC-033 AC 14: PW_FONT=ci — the CI runner's font
   if (testSeed() != null) await page.addInitScript(bootSeed, testSeed());
   if (!intro) await page.addInitScript(noIntro);
   if (!tutorial) await page.addInitScript(noTutorial);
@@ -94,6 +96,7 @@ async function openGame(page, { lang = "en", clearStorage = true, query = "", si
   if (sim) guardSim(page);
   await page.goto(base + "index.html" + withSim(query, sim));
   await page.waitForFunction(() => window.__bbReady === true, null, { timeout: READY_MS });
+  await ciFontReady(page);
   await seedGame(page);
   return errors;
 }
@@ -115,6 +118,7 @@ async function openGameHttp(page, { lang = "en", query = "", clearStorage = true
   page.on("pageerror", e => errors.push(String(e)));
   page.on("console", m => { if (m.type() === "error") errors.push("console: " + m.text()); });
   await page.addInitScript(strictRng);
+  await installCiFont(page);   // SPEC-033 AC 14
   if (testSeed() != null) await page.addInitScript(bootSeed, testSeed());
   if (!intro) await page.addInitScript(noIntro);
   if (!tutorial) await page.addInitScript(noTutorial);
@@ -123,6 +127,7 @@ async function openGameHttp(page, { lang = "en", query = "", clearStorage = true
   }
   await page.goto(HTTP_BASE + query);
   await page.waitForFunction(() => window.__bbReady === true, null, { timeout: READY_MS });
+  await ciFontReady(page);
   await seedGame(page);
   return errors;
 }
@@ -225,6 +230,7 @@ const storedSave = page => page.evaluate(() => { window.__bb.save.flush(); retur
 async function resetGame(page) {
   await page.evaluate(seed => {
     const b = window.__bb;
+    document.querySelectorAll(".bb-card").forEach(e => e.remove());   // SPEC-033: no card (the Leave dialog…) left over from the test before
     b.resetMenus();                                            // SPEC-029: no tutorial left running (resetWorld below builds a normal level)
     delete navigator.getGamepads; window.__pads = []; b.resetPads();   // gamepad stubs some tests leave behind (SPEC-025: and the pads' players)
     b.setLang("en"); b.clearLevelCache(); b.resetBannerTimer(); b.mode = "home"; b.seedRandom(seed); b.autopilot(false, "careful");   // SPEC-011 AC 8d: seeded; no autopilot, default style

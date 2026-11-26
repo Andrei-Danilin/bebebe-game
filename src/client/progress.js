@@ -1,9 +1,9 @@
 // SPEC-011: the language (setLang), the save calls of the game (saveProgress — after every change of progress, writeOutfits,
-// writeNames) and the reset of the Character screen's Progress page. Client module (moved out of index.html in Phase C).
+// writeNames) and the reset of the progress (SPEC-033: its buttons are on the grown-ups page, behind the gate). Client module.
 // SPEC-025 phase 2: storage belongs to the save module (save.js: one key bebebe-save, loaded by loadSave() at start); these
 // calls queue the whole save there. The reset (AC 6b): the first tap arms it (the button shows resetCancel — a tap there
 // cancels) and a separate resetConfirm button appears at another place, which ignores taps for CFG.RESET_CONFIRM_DELAY s;
-// before wiping, the save is kept as bebebe-save-before-reset (undo on the grown-ups page).
+// before wiping, the save is kept as bebebe-save-before-reset (undo on the grown-ups page, next to the reset).
 
 import { CFG, WORLDS } from "../core/config.js";
 import { progress, setProgress } from "../core/economy.js";
@@ -39,19 +39,21 @@ export function armReset() {
 // the confirm button: taps in the first CFG.RESET_CONFIRM_DELAY s are ignored (a double tap or two fingers never reset)
 export const resetConfirmReady = () => ui.resetArmed && performance.now() - armedAt >= CFG.RESET_CONFIRM_DELAY * 1000;
 export function confirmReset() {
-  if (!resetConfirmReady()) return;
-  resetProgress();
+  if (!resetConfirmReady()) return null;
+  return resetProgress();
 }
 // the reset itself (the confirm button; __bb.resetProgress for the tests): the save is kept as bebebe-save-before-reset first
+// → the promise of the copy being written (the grown-ups page shows the undo when it is done)
 export function resetProgress() {
   setArmed(false);
-  snapshotBeforeReset();
+  const copy = snapshotBeforeReset();
   G.rewardDue = false;                         // прогресс заменён целиком: за брошенный уровень не платим
   setProgress(null); forgetHeldProgress(); ui.openedWorld = null; ui.worldBanner = null;   // новый прогресс
   if (!isOpen(G.world)) G.world = WORLDS[0];   // SPEC-016/030: после сброса открыт только Парк
   progress.lastWorld = G.world;
   fitOutfitsToOwned();                       // SPEC-009: купленные наряды ушли вместе с прогрессом
   saveProgress(); G.level = 1; resetWorld(G.players);
+  return copy;
 }
 // a whole save replaced the progress (restore a copy, undo a reset, import a code): the menu as after a start
 export function progressReplaced() {

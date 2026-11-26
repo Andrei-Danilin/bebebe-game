@@ -106,7 +106,7 @@ export const WARDROBE_ART = {
 // SPEC-027: эмодзи в надписях → картинка (34_small_icons и уже нарисованные). fillT / strokeT рисуют её на месте эмодзи, нет картинки — эмодзи
 export const EMOJI_ART = { "👥": "ui_friends", "🎲": "ui_dice", "❓": "ui_question", "✏": "ui_pencil", "📦": "ui_pack", "👂": "ui_ear", "🗺": "ui_map",
   "✔": "ui_check", "✘": "ui_cross", "✕": "ui_cross", "🔒": "padlock", "🩹": "icon_bandaid", "💋": "item_kiss", "⭐": "star_gold", "🪙": "item_coin",
-  "📖": "menu_story", "🏆": "tab_progress", "🎒": "menu_character", "🏠": "ui_home", "🛒": "shop_items", "👕": "shop_wardrobe",
+  "📖": "menu_story", "🏆": "tab_progress", "🎒": "menu_character", "🏠": "ui_home", "👕": "shop_wardrobe",
   "🛡": "icon_shield", "🍌": "item_banana", "👟": "item_boots", "👻": "item_cape", "❤": "heart_full", "🤝": "shop_quick_help",
   // SPEC-032 AC 18: emoji still drawn as text → art we already had; AC 19: the new sheet 35_icons_more (ui_hug … ui_tiptoe)
   "🎁": "ui_gift", "🌐": "ui_globe", "🔊": "ui_sound_on", "🔇": "ui_sound_off", "⛶": "ui_fullscreen", "✨": "fx_sparkle", "🎉": "fx_confetti",

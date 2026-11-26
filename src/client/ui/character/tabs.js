@@ -15,7 +15,7 @@ import { fitLine } from "../win.js";
 
 // компьютер: вкладки «Прогресс» · «Вещи» · «Гардероб» · «Улучшения» (SPEC-017, SPEC-026) от x, y, высота h, в ширину maxW (не влезают —
 // все уже поровну); возвращает правый край
-const SHOP_TAB_ICONS = { progress: "🏆 ", items: "🛒 ", wardrobe: "👕 ", upgrades: "⭐ " };
+const SHOP_TAB_ICONS = { progress: "🏆 ", items: "📦 ", wardrobe: "👕 ", upgrades: "⭐ " };
 const shopTabText = (k, icons) => (icons ? SHOP_TAB_ICONS[k] : "") + L()[k + "Tab"];
 export function shopTabs(x, y, h, size, min, gap, icons, maxW = Infinity) {
   ctx.font = hudFont(size);

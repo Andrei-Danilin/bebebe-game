@@ -15,7 +15,7 @@ import { skinCx, skinPanels } from "../../three/previews.js";
 import { iconOnlyButton } from "./tabs.js";
 import { addButton, circle, drawArtFit, drawCoin, fillStroke, fillT, noteArt, rr } from "../draw.js";
 import { phoneSkinCols } from "../menu.js";
-import { cpx, fitText, fz, label, noteRows, noteText, pLabel, plainText, pText, pWrap } from "../text.js";
+import { cpx, fitText, fz, label, noteRows, noteText, pLabel, plainText, pText, priceLabel, pWrap } from "../text.js";
 import { fitLine } from "../win.js";
 
 // ---------- SPEC-009: гардероб — замки, «Купить», подписи (вкладка «Гардероб» магазина, компьютер и телефон) ----------
@@ -59,7 +59,7 @@ function previewNote(key, box, text, color) {
 function lookBuy(key, r, note) {
   const total = lockedPrice(key), poor = progress.coins < total, armed = buyArmed === key;
   const min = PHONE ? cpx(LOOK.PHONE_TEXT.main) : 10;
-  const f = fitLine((armed ? "✔ " : "🔒 ") + L().buyFor(total), PHONE ? cpx(18) : 18, min, r.w - (PHONE ? cpx(14) : 16));
+  const pad = PHONE ? cpx(14) : 16, f = fitLine(priceLabel(total, r.w - pad, min, armed ? "✔ " : "🔒 "), PHONE ? cpx(18) : 18, min, r.w - pad);   // SPEC-033: «Взять за 🪙 N» / короче, если не влезает
   const b = addButton(r.x, r.y, r.w, r.h, f.text, poor ? "#94a3b8" : armed ? "#ef4444" : "#f59e0b", () => buyLook(key), f.sz);
   b.id = "buy-look:" + key; b.textW = f.w;
   if (poor) previewNote(key, note, L().notEnough, "#fecaca");

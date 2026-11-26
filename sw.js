@@ -25,34 +25,34 @@ const NET_TIMEOUT_MS = 4000;             // weak signal: after this long, a cach
 const SW_BUILD = 7;
 const SW_STRATEGY = "463855aec6";
 const SW_VERSION = "bebebe-1.0.0-dev-b7";
-const SRC_HASH = "9e949b39a6";
+const SRC_HASH = "78a7cf8ea3";
 const PRECACHE_LOCAL = [
   "./", "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512-maskable.png",
   "./icons/icon-512.png", "./icons/icon.svg", "./index.html", "./manifest.webmanifest"
 ];
 const PRECACHE_SRC = [
-  "./src/client/art-names.js?v=7b82d7a775", "./src/client/art.js?v=ab587a742e", "./src/client/debug.js?v=435a120459",
-  "./src/client/errors.js?v=d36934cb61", "./src/client/flow.js?v=1312e415c3", "./src/client/fx.js?v=73f397efb4",
-  "./src/client/input.js?v=e93ae6f296", "./src/client/lifecycle.js?v=3a42079abe", "./src/client/look.js?v=dade5424fa",
-  "./src/client/main.js?v=2bc449a4ed", "./src/client/names.js?v=dff85cded6", "./src/client/outfits.js?v=8564eaee23",
-  "./src/client/perf.js?v=1b8537ee9d", "./src/client/progress.js?v=0713011f0e", "./src/client/save.js?v=be42450a76",
-  "./src/client/screen.js?v=94ffe40171", "./src/client/shop.js?v=ebde4ad6de", "./src/client/sound.js?v=57a594910c",
-  "./src/client/state.js?v=f6aaa903c6", "./src/client/storage.js?v=686b11f06c",
+  "./src/client/art-names.js?v=20ca23d7bd", "./src/client/art.js?v=68d5388c7e", "./src/client/back.js?v=31643bda5c",
+  "./src/client/debug.js?v=786d53753a", "./src/client/errors.js?v=d36934cb61", "./src/client/flow.js?v=1abbbf3b49",
+  "./src/client/fx.js?v=73f397efb4", "./src/client/input.js?v=9dd01ce6c3", "./src/client/lifecycle.js?v=3a42079abe",
+  "./src/client/look.js?v=ee28987827", "./src/client/main.js?v=292f034a7c", "./src/client/names.js?v=dff85cded6",
+  "./src/client/outfits.js?v=8564eaee23", "./src/client/perf.js?v=1b8537ee9d", "./src/client/progress.js?v=ae2e521ad9",
+  "./src/client/save.js?v=be42450a76", "./src/client/screen.js?v=94ffe40171", "./src/client/shop.js?v=ebde4ad6de",
+  "./src/client/sound.js?v=57a594910c", "./src/client/state.js?v=b714a3dc53", "./src/client/storage.js?v=686b11f06c",
   "./src/client/three/bosses.js?v=7814dfb8d4", "./src/client/three/camera.js?v=39a889ad56",
   "./src/client/three/characters.js?v=87a7d8775e", "./src/client/three/houses.js?v=c9bc94bc94",
   "./src/client/three/look3d.js?v=6620453fc3", "./src/client/three/map3d.js?v=c3fed1392a",
   "./src/client/three/materials.js?v=bf7b1c0f0f", "./src/client/three/previews.js?v=0cdeff7116",
   "./src/client/three/setup.js?v=f20369215b", "./src/client/three/sync.js?v=4461a2e27a",
-  "./src/client/three/themes.js?v=6f17def67f", "./src/client/tutorial.js?v=00bf700caf",
-  "./src/client/ui/character/items.js?v=0580594792", "./src/client/ui/character/progress.js?v=33eab7a02a",
-  "./src/client/ui/character/tabs.js?v=6d32ab672c", "./src/client/ui/character/upgrades.js?v=ee922fce9f",
-  "./src/client/ui/character/wardrobe.js?v=815e77221d", "./src/client/ui/draw.js?v=4c6110e06c",
-  "./src/client/ui/grownups.js?v=91d8fff16a", "./src/client/ui/home.js?v=d456be2d53",
+  "./src/client/three/themes.js?v=6f17def67f", "./src/client/tutorial.js?v=79c53ff666",
+  "./src/client/ui/character/items.js?v=9f6dd754dd", "./src/client/ui/character/progress.js?v=4a8d1be0da",
+  "./src/client/ui/character/tabs.js?v=736bd98233", "./src/client/ui/character/upgrades.js?v=ec89bfa2d2",
+  "./src/client/ui/character/wardrobe.js?v=9b68107cfe", "./src/client/ui/draw.js?v=4c6110e06c",
+  "./src/client/ui/grownups.js?v=be5b41506c", "./src/client/ui/home.js?v=d456be2d53",
   "./src/client/ui/hud.js?v=138cb93a26", "./src/client/ui/lang.js?v=6f01f96074", "./src/client/ui/map.js?v=4634784c68",
   "./src/client/ui/menu.js?v=df7bd8b63c", "./src/client/ui/minimap.js?v=afd7cc3057",
-  "./src/client/ui/phone.js?v=7c25c8ed3d", "./src/client/ui/screens.js?v=ca2adf910b",
-  "./src/client/ui/story.js?v=bae331fb4f", "./src/client/ui/text.js?v=e96306db7a",
-  "./src/client/ui/win.js?v=b86d53a0e5", "./src/core/active.js?v=70aa836ebd", "./src/core/autopilot.js?v=528edb53f9",
+  "./src/client/ui/phone.js?v=7c25c8ed3d", "./src/client/ui/screens.js?v=1b61c919f8",
+  "./src/client/ui/story.js?v=15c8a394f7", "./src/client/ui/text.js?v=9282c2557e",
+  "./src/client/ui/win.js?v=00c39c253d", "./src/core/active.js?v=70aa836ebd", "./src/core/autopilot.js?v=528edb53f9",
   "./src/core/big.js?v=745c03a759", "./src/core/bots.js?v=fc04a520e3", "./src/core/config.js?v=110ef6a252",
   "./src/core/difficulty.js?v=72aff2bd1e", "./src/core/economy.js?v=6c6ac20714", "./src/core/game.js?v=a99ba230de",
   "./src/core/hearing.js?v=02c8023238", "./src/core/hooks.js?v=5ceea54c61", "./src/core/index.js?v=2ac6418608",
@@ -60,8 +60,8 @@ const PRECACHE_SRC = [
   "./src/core/level/layouts.js?v=07d6472d8e", "./src/core/level/validate.js?v=3f3743eb46",
   "./src/core/mood.js?v=8dcad43e22", "./src/core/path.js?v=b05dfc5c4e", "./src/core/practice.js?v=44fe1505f4",
   "./src/core/progress-rules.js?v=a9deff0bda", "./src/core/rules.js?v=c4f51cf496", "./src/core/util.js?v=c7e01b9d3a",
-  "./src/core/wardrobe.js?v=011be2182f", "./src/core/world.js?v=68fa838aaf", "./src/i18n.js?v=9ee2c9b795",
-  "./src/story.js?v=1848ece4be", "./src/version.js?v=6d0844555e"
+  "./src/core/wardrobe.js?v=011be2182f", "./src/core/world.js?v=68fa838aaf", "./src/i18n.js?v=3fda941c10",
+  "./src/story.js?v=0cd3381a6e", "./src/version.js?v=6d0844555e"
 ];
 const THREE_VERSION = "r187";
 const PRECACHE_THREE = [
@@ -70,27 +70,27 @@ const PRECACHE_THREE = [
 // precache:end
 // SPEC-020: written by npm run assets (scripts/assets.js) — do not edit by hand
 // assets:start
-const ASSETS_HASH = "841214fdba0f";
+const ASSETS_HASH = "5db9b0b635c5";
 const PRECACHE_ASSETS = [
   "./assets/main_tile.webp", "./assets/menu_bg.webp", "./assets/map_bg_park.webp", "./assets/map_bg_field.webp",
   "./assets/map_bg_city.webp", "./assets/map_bg_school.webp", "./assets/map_bg_beach.webp",
-  "./assets/map_bg_winter.webp", "./assets/story_start.webp", "./assets/tutorial_a.webp", "./assets/tutorial_b.webp",
-  "./assets/tutorial_c.webp", "./assets/story_park.webp", "./assets/story_field.webp", "./assets/story_city.webp",
-  "./assets/story_school.webp", "./assets/story_beach.webp", "./assets/story_winter.webp", "./assets/story_end.webp",
-  "./assets/story_win.webp", "./assets/logo.webp", "./assets/icon_shield.webp", "./assets/icon_bandaid.webp",
-  "./assets/icon_cupcake.webp", "./assets/icon_angry_heart.webp", "./assets/icon_pause.webp",
-  "./assets/icon_sound.webp", "./assets/btn_green.webp", "./assets/btn_pink.webp", "./assets/btn_orange.webp",
-  "./assets/btn_grey.webp", "./assets/round_play.webp", "./assets/round_pause.webp", "./assets/round_sound.webp",
-  "./assets/round_restart.webp", "./assets/cloud_heart_full.webp", "./assets/cloud_heart_half.webp",
-  "./assets/cloud_heart_fading.webp", "./assets/cloud_heart_empty.webp", "./assets/coin_badge.webp",
-  "./assets/ribbon_star.webp", "./assets/house_messy.webp", "./assets/house_kids.webp", "./assets/stop_empty.webp",
-  "./assets/stop_current.webp", "./assets/stop_locked.webp", "./assets/stop_boss.webp", "./assets/star_gold.webp",
-  "./assets/star_empty.webp", "./assets/stamp_done.webp", "./assets/padlock.webp", "./assets/world_park.webp",
-  "./assets/world_field.webp", "./assets/world_city.webp", "./assets/world_school.webp", "./assets/world_beach.webp",
-  "./assets/world_winter.webp", "./assets/ui_play.webp", "./assets/ui_back.webp", "./assets/ui_home.webp",
-  "./assets/ui_story.webp", "./assets/ui_bag.webp", "./assets/ui_gear.webp", "./assets/ui_sound_on.webp",
-  "./assets/ui_sound_off.webp", "./assets/ui_fullscreen.webp", "./assets/ui_globe.webp", "./assets/ui_coin.webp",
-  "./assets/ui_gift.webp", "./assets/shop_fast_feet.webp", "./assets/shop_long_items.webp",
+  "./assets/map_bg_winter.webp", "./assets/story_start.webp", "./assets/tutorial_a.webp", "./assets/howto_card.webp",
+  "./assets/tutorial_b.webp", "./assets/tutorial_c.webp", "./assets/story_park.webp", "./assets/story_field.webp",
+  "./assets/story_city.webp", "./assets/story_school.webp", "./assets/story_beach.webp", "./assets/story_winter.webp",
+  "./assets/story_end.webp", "./assets/story_win.webp", "./assets/logo.webp", "./assets/icon_shield.webp",
+  "./assets/icon_bandaid.webp", "./assets/icon_cupcake.webp", "./assets/icon_angry_heart.webp",
+  "./assets/icon_pause.webp", "./assets/icon_sound.webp", "./assets/btn_green.webp", "./assets/btn_pink.webp",
+  "./assets/btn_orange.webp", "./assets/btn_grey.webp", "./assets/round_play.webp", "./assets/round_pause.webp",
+  "./assets/round_sound.webp", "./assets/round_restart.webp", "./assets/cloud_heart_full.webp",
+  "./assets/cloud_heart_half.webp", "./assets/cloud_heart_fading.webp", "./assets/cloud_heart_empty.webp",
+  "./assets/coin_badge.webp", "./assets/ribbon_star.webp", "./assets/house_messy.webp", "./assets/house_kids.webp",
+  "./assets/stop_empty.webp", "./assets/stop_current.webp", "./assets/stop_locked.webp", "./assets/stop_boss.webp",
+  "./assets/star_gold.webp", "./assets/star_empty.webp", "./assets/stamp_done.webp", "./assets/padlock.webp",
+  "./assets/world_park.webp", "./assets/world_field.webp", "./assets/world_city.webp", "./assets/world_school.webp",
+  "./assets/world_beach.webp", "./assets/world_winter.webp", "./assets/ui_play.webp", "./assets/ui_back.webp",
+  "./assets/ui_home.webp", "./assets/ui_story.webp", "./assets/ui_bag.webp", "./assets/ui_gear.webp",
+  "./assets/ui_sound_on.webp", "./assets/ui_sound_off.webp", "./assets/ui_fullscreen.webp", "./assets/ui_globe.webp",
+  "./assets/ui_coin.webp", "./assets/ui_gift.webp", "./assets/shop_fast_feet.webp", "./assets/shop_long_items.webp",
   "./assets/shop_quick_help.webp", "./assets/shop_wardrobe.webp", "./assets/shop_items.webp",
   "./assets/shop_upgrades.webp", "./assets/hat_cap.webp", "./assets/hat_beanie.webp", "./assets/hat_crown.webp",
   "./assets/hat_bow.webp", "./assets/hat_flower.webp", "./assets/hat_ears.webp", "./assets/hat_headband.webp",

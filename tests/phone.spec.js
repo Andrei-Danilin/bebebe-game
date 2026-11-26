@@ -974,7 +974,7 @@ const PHONE_SCENES = {
   },
   // 10 coins: "not enough coins" under all four cards (SPEC-007: the tightest card layout)
   shop: async page => { await page.evaluate(() => { const b = window.__bb; b.progress.coins = 10; b.mode = "shop"; }); },
-  // SPEC-026: Character → Progress with everything counted (items, upgrades, a bonus world open, a long coin number) and its Reset armed
+  // SPEC-026: Character → Progress with everything counted (items, upgrades, a bonus world open, a long coin number); SPEC-033: no Reset on it any more
   progress: async page => {
     await page.evaluate(() => {
       const b = window.__bb; b.mode = "home";
@@ -984,7 +984,6 @@ const PHONE_SCENES = {
     await frames(page);
     await page.evaluate(() => window.__bb.tapButton("home:shop"));     // the real button: Character opens on Progress
     await frames(page);
-    await page.evaluate(() => window.__bb.tapButton("progress:reset"));
   },
   win: async page => {
     await page.evaluate(() => {
@@ -1111,9 +1110,9 @@ for (const [vw, vh] of PHONE_SIZES) {
         if (name === "shop") expect(d.buttons.map(q => q.id)).toEqual(expect.arrayContaining(["buy:mittens", "buy:mega", "buy:kisses", "buy:rescues"]));
         if (name === "wardrobe") expect(d.buttons.map(q => q.id)).toEqual(expect.arrayContaining(["tab:wardrobe", "buy-look:p1", "name:big", "random:p1", "openFriends"]));
         if (name === "friends") expect(d.buttons.filter(q => String(q.id).startsWith("name:bot")).length).toBe(4);
-        if (name === "progress") {   // SPEC-026: four tabs, Reset (armed) on the page, the numbers drawn, the 3D look free
+        if (name === "progress") {   // SPEC-026: four tabs, the numbers drawn, the 3D look free; SPEC-033: no Reset on the page
           expect(d.buttons.map(q => q.id).filter(id => String(id).startsWith("tab:")), label).toEqual(["tab:progress", "tab:items", "tab:wardrobe", "tab:upgrades"]);
-          expect(d.buttons.map(q => q.id), label).toEqual(expect.arrayContaining(["progress:reset", "progress:confirm"]));   // SPEC-025 AC 6b: armed — and the separate confirm
+          expect(d.buttons.map(q => q.id).filter(id => /^progress:(reset|confirm)$/.test(String(id))), `${label}: reset is on the grown-ups page`).toEqual([]);
           expect(d.hud.map(h => h.id), label).toEqual(expect.arrayContaining(["progress:stars", "progress:worlds", "progress:bag:rescues", "progress:upg:fastFeet", "progress:clothes", "coins"]));
         }
         if (name === "home") expect(d.buttons.map(q => q.id).sort()).toEqual(["home:lang", "home:play", "home:shop", "home:sound", "home:story"]);

@@ -70,6 +70,14 @@ export const LOOK = {
   LANG_SCREEN: { w: 0.34, maxW: 300, h: 76, gap: 22, size: 30, ring: 5, glow: "#facc15", ringR: 0.4, min: 0.6 },
   BUBBLE_MIN: { phone: 8, desk: 9 },   // SPEC-032 AC 10 (придумал Claude): самый мелкий текст в облачках комикса — CSS px на телефоне, px на компьютере
   STORY_TEXT_MIN: 12,        // CSS px — самый мелкий текст глав, подписей заставок и облачков на телефоне (остальное — PHONE_TEXT)
+  // SPEC-033: экран победы (заголовок и строка под ним не слипаются)
+  WIN_GAP: 0.3,                            // зазор между заголовком и строкой под ним — доля кегля строки (не меньше 0,25; запас)
+  WIN_STARS: { y: 138, r: 21, gap: 3 },    // ряд звёзд телефона, CSS px: центр по y от верха рамки, радиус, зазор от низа заголовка до верха звёзд
+  WIN_TITLE_DESK: { size: 30, min: 20 },   // заголовок на компьютере: кегль до size, самый мелкий min (мельче — две строки)
+  // SPEC-033: запас ширины для подписи цены «Взять за 🪙 N» (шрифты CI и iPhone шире наших): не влезла — короче (priceLabel, text.js); компьютер и телефон
+  PRICE_FIT_MARGIN: 1.15,
+  // SPEC-033 AC 13: сек — «Да» в «Выйти из игры?» закрывает окно; не закрылось — игра сходит с защитной записи (следующее «Назад» выходит)
+  BACK_CLOSE_WAIT: 0.6,
   // SPEC-031: картинка рядом с текстом (глава «Истории»; заставка на телефоне): текст не влез и самым мелким — картинка уже на step
   // доли ширины, но не уже min доли; заставка на компьютере (подпись под картинкой): картинка не ниже minH доли высоты
   STORY_PIC: { min: 0.4, step: 0.02, minH: 0.4 },
@@ -80,7 +88,7 @@ export const LOOK = {
   // scan — шаг подбора размера картинки, eps — допуск сравнения (UI px)
   PHONE_SHOP: { pic: 30, picMin: 18, picGrow: 16, picW: 1.3, picBox: 1.1, badge: 11, badgeMin: 9, pad: 6, sp: 3, gap: 2, side: 5,
     nameLines: 2, descLines: 4, packLines: 2, shortLines: 1, haveLines: 2, noLines: 2, scan: 1, eps: 0.01,
-    RESET_FIT: 1.15 },        // запас для надписи «Сбросить прогресс»: не влезает с ним — короткая «Сброс» (SPEC-009, шрифты CI шире)
+    RESET_FIT: 1.15 },        // запас для надписи средней кнопки вкладки Персонажа (tabs.js: шрифты CI и iPhone шире наших)
   // SPEC-020: картинки из папки dir (их делает npm run assets из art/); экран загрузки ждёт их не дольше waitMs мс, остальные
   // появятся, когда догрузятся (до тех пор и при ошибке — рисунок кодом, как раньше)
   ART: { dir: "assets/", waitMs: 5000 },
@@ -180,7 +188,7 @@ export const LOOK = {
   MENU_LOOK: { card: "rgba(255,250,235,.96)", cardLine: 5, title: "#ffcf33", pill: "#ffffff", pillLine: 3, ink: "#3d2b1f",
     locked: "#e5e7eb", lockedInk: "#64748b", lockedVeil: "rgba(226,232,240,.7)", play: "#16a34a", storyBtn: "#ec4899", shop: "#f59e0b", icon: "#cbd5e1", back: "#64748b",
     nav: "#94a3b8", ok: "#22c55e", alt: "#22c55e", tabOn: "#f59e0b", tabOff: "#cbd5e1", type: "#7c3aed", dim: "rgba(20,30,25,.45)", panel: "#ffffff",
-    friends: "#a78bfa", friendsTitle: "#8b5cf6", dice: "#fbbf24", reset: "#94a3b8", armed: "#ef4444", note: "#64748b", lockNote: "#b45309", soft: "#475569", bigInk: "#9b2c3a",
+    friends: "#a78bfa", friendsTitle: "#8b5cf6", dice: "#fbbf24", note: "#64748b", lockNote: "#b45309", soft: "#475569", bigInk: "#9b2c3a",
     frame: { w: 880, y: 26, h: 590, r: 30, padX: 15, padY: 14, g: 10, B: 50, tabsW: 655 },
     home: { w: 660, y: 40, h: 560, r: 30, titleSize: 54, pad: 14, gap: 12, col: 0.4, colW: 320, top: 24, logoGap: 26, btnGap: 14, logoW: 1.4, logoBand: 0.5,
       playH: 84, playSize: 34, subH: 62, subSize: 26, iconW: 56, langW: 92, iconH: 44, iconSize: 18, iconPad: 16,
@@ -209,14 +217,19 @@ export const LOOK = {
       phonePic: 0.6, btnW: 220, thanks: 46, phoneThanks: 30, madeBy: 24, phoneMadeBy: 18, cupcake: 0.42,
       bubbles: [[255 / 1024, 28 / 765, 177 / 1024, 87 / 765, 270 / 1024, 136 / 765], [785 / 1024, 43 / 765, 155 / 1024, 87 / 765, 867 / 1024, 150 / 765],
         [132 / 1024, 412 / 765, 113 / 1024, 78 / 765, 241 / 1024, 502 / 765], [633 / 1024, 396 / 765, 176 / 1024, 84 / 765, 664 / 1024, 516 / 765]],
-      bubbleIn: [0.92, 0.86], bubbleLines: 3, bubbleLh: 1.15, bubbleScale: 0.75, bubbleInk: "#1b1b1b" },
+      bubbleIn: [0.92, 0.86], bubbleLines: 3, bubbleLh: 1.15, bubbleScale: 0.75, bubbleInk: "#1b1b1b",
+      // SPEC-033 AC 2 (придумал Claude): карточка «Как играть» после комикса — кегль названия и строки (компьютер / телефон × масштаб экрана),
+      // строк названия не больше titleLines, доля ширины под картинку на телефоне (картинка слева, текст справа), запас ширины кнопки «Учимся!» на более
+      // широкие шрифты (CI Linux ~ ×1.15) btnGrow
+      card: { title: 52, phoneTitle: 30, line: 26, phoneLine: 18, titleLines: 2, phonePic: 0.58, btnGrow: 1.15 } },
+    // SPEC-033 (придумал Claude): picBig — доля ширины под клетку 1 в «Как всё началось» (одна клетка крупно; не влез текст — уже, как pic)
     // SPEC-032 AC 7 (придумал Claude): «Как играть» — доля ширины под правила (компьютер / телефон; справа лист A), значок правила × кегль
     // (самый мелкий кегль и всё равно тесно — до iconMin ×), шаг строк правила на телефоне (в кеглях; компьютер — 1.2),
     // отступ значка от текста × кегль, шаг строк правил (px компьютера), кегль управления × кегль правил, отступ управления от правил,
     // ширина значка в кнопках «Картинки» / «Тренировка» × высота кнопки (запас ширины под значок); бумажная рамка листа A (поле, радиус
     // углов, отступ скотча — px компьютера × cpx), «Для взрослых» — не шире grownW ширины, кнопки — не уже btnMinW × высоты, поля
     // надписи btnPad (px × cpx); запасное эмодзи правила — emoji × кегль
-    story: { pic: 0.47, text: 22, phoneText: 18, rule: 17, phoneRule: 15, dot: 6, paper: "#fffdf5", pencil: "#94a3b8", heart: "#f9a8d4", backW: 170,
+    story: { pic: 0.47, picBig: 0.6, text: 22, phoneText: 18, rule: 17, phoneRule: 15, dot: 6, paper: "#fffdf5", pencil: "#94a3b8", heart: "#f9a8d4", backW: 170,
       rules: { share: 0.55, phoneShare: 0.64, icon: 1.6, iconMin: 1.3, iconGap: 0.35, rowGap: 4, phoneRowGap: 1.5, phoneLh: 1.1, ctl: 0.85, ctlGap: 6, btnIcon: 1.4,
         frame: 5, frameR: 6, tapeIn: 6, grownW: 0.3, btnMinW: 2.2, btnPad: 30, emoji: 1.3 } } },
   BANNER_TIME: 2,            // сек — надпись «Уровень N: тип» в начале уровня появляется и исчезает

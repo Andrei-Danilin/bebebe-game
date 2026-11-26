@@ -7,7 +7,7 @@ model: sonnet
 # Tester — bebebe-game
 
 ## Stack
-- Playwright, config `playwright.config.js`. Locally the browser draws on the **GPU** and runs at **below-normal priority**; on CI it uses SwiftShader (`tests/test-env.js`). `PW_GPU=0` forces SwiftShader locally (add `PW_NICE=0` on a busy machine: SwiftShader at below normal starves), `PW_GPU=1` forces the GPU, `PW_NICE=0` keeps normal priority.
+- Playwright, config `playwright.config.js`. Locally the browser draws on the **GPU** and runs at **below-normal priority**; on CI it uses SwiftShader (`tests/test-env.js`). `PW_GPU=0` forces SwiftShader locally (add `PW_NICE=0` on a busy machine: SwiftShader at below normal starves), `PW_GPU=1` forces the GPU, `PW_NICE=0` keeps normal priority. `PW_FONT=ci` (SPEC-033) draws the game's text in the CI runner's font (DejaVu Sans, wider): run the changed text / fit tests with it — a text that fits only with the local fonts is a CI red. CI keeps `retries: 0`.
 - Specs require `./pw` (= `@playwright/test` + failure screenshots of every open page), never `@playwright/test` directly.
 - The game is ES modules (`index.html` is the shell, the code is `src/**`) opened over http (`scripts/serve.js`, Playwright's `webServer`); `tests/helpers.js` serves three.js from `node_modules` (offline) and exposes:
   - `openGame(page, { lang, query, sim })` → array of page errors (assert it stays `[]`); `sim: true` = sim mode (no 3D, no drawing, no audio, no frame loop);

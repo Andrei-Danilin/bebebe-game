@@ -7,6 +7,7 @@
 // SPEC-011 AC 8d: a failed test also prints the seed its games were seeded with (tests/helpers.js testSeed(), annotation "seed").
 // Specs use it as `const base = require("./pw")` / `const { test, expect } = require("./pw")`.
 const pw = require("@playwright/test");
+const { installCiFont } = require("./ci-font");   // SPEC-033 AC 14: PW_FONT=ci — the fresh page of a test draws with the CI runner's font
 
 async function shoot(pages, testInfo, prefix) {
   let i = 0;
@@ -21,6 +22,7 @@ const failed = testInfo => testInfo.status !== testInfo.expectedStatus;
 
 const test = pw.test.extend({
   page: async ({ page }, use, testInfo) => {
+    await installCiFont(page);
     await use(page);
     if (failed(testInfo)) await shoot([page], testInfo, "failure-page");
   },

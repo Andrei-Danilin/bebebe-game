@@ -3,7 +3,8 @@
 //   node scripts/assets.js --debug 24_effects.webp   — list the regions found on one sheet (to write a manifest entry)
 // The manifest lives in scripts/assets.json (art/ is Andrei's: the pipeline only reads it).
 // Modes per source:
-//   "paper"  — a picture on paper (no key): resized whole.
+//   "paper"  — a picture on paper (no key): resized whole. SPEC-033: optional "crop": [x, y, w, h] (source px) keeps only that part
+//              (sharp extract before the resize) — to drop a strip of colour swatches at the bottom of a picture.
 //   "whole"  — a green sheet keyed to transparency and kept as one picture (the logo: every letter is its own region).
 //   "sheet"  — a green sheet cut into sprites by connected regions; a region smaller than "small" px (default 3000)
 //              joins the closest object within "merge" px (default 12) — strokes, stars, confetti bits; two big objects
@@ -336,8 +337,8 @@ async function writeSprite(img, file, max, q) {
   return { w, h };
 }
 
-async function writePaper(src, file, maxW, q, circles = null) {
-  const meta = await sharp(src).metadata();
+async function writePaper(src, file, maxW, q, circles = null, crop = null) {
+  const meta0 = await sharp(src).metadata(), meta = crop ? { ...meta0, width: crop[2], height: crop[3] } : meta0;
   let p = sharp(src).removeAlpha();
   if (circles) {                                  // SPEC-029: "erase" on a paper picture (stray words): circles painted with the paper around them
     const { rgb, W, H } = await readRGB(src), rgba = Buffer.alloc(W * H * 4);
@@ -345,6 +346,7 @@ async function writePaper(src, file, maxW, q, circles = null) {
     erase(rgba, W, H, circles);
     p = sharp(rgba, { raw: { width: W, height: H, channels: 4 } }).removeAlpha();
   }
+  if (crop) p = p.extract({ left: crop[0], top: crop[1], width: crop[2], height: crop[3] });   // SPEC-033: keep only this part of the source
   if (meta.width > maxW) p = p.resize({ width: maxW, kernel: "lanczos3" });
   await p.webp({ quality: q.paperQuality, effort: q.effort, smartSubsample: true }).toFile(file);
   return { w: Math.min(meta.width, maxW), h: meta.width > maxW ? Math.round(meta.height * maxW / meta.width) : meta.height };
@@ -378,7 +380,7 @@ async function run({ outDir = path.join(ROOT, "assets"), only = null, manifest =
     const src = path.join(ROOT, "art", s.src);
     const max = manifest.sizes[s.size];
     if (!max) throw new Error(`${s.src}: unknown size "${s.size}"`);
-    if (s.mode === "paper") { await put(s.name, s.size, f => writePaper(src, f, max, s.quality ? { ...q, paperQuality: s.quality } : q, s.erase || null)); continue; }
+    if (s.mode === "paper") { await put(s.name, s.size, f => writePaper(src, f, max, s.quality ? { ...q, paperQuality: s.quality } : q, s.erase || null, s.crop || null)); continue; }
     const { rgb, W, H } = await readRGB(src);
     if (s.mode === "whole") {
       const rgba = keyGreen(rgb, W, H, s);

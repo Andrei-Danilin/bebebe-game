@@ -14,7 +14,7 @@ import { restartTutorialGame, tutorialSkip } from "../tutorial.js";
 import { fitButton } from "./character/wardrobe.js";
 import { addButton, coinIcon, drawStarArt, fillStroke, rr } from "./draw.js";
 import { pButton, phoneFrame } from "./menu.js";
-import { cpx, fitText, fmtHearts, fmtTime, hudFont, label, labelFit, lastFit, noteText, pLabel, pRows, pWrap, scaledW } from "./text.js";
+import { cpx, fitText, fmtHearts, fmtTime, hudFont, label, labelFit, lastFit, noteText, pDraw, pLabel, pRows, pWrap, scaledW, titleRows } from "./text.js";
 import { G } from "../../core/active.js";
 
 // =====================================================================
@@ -109,12 +109,18 @@ export function endPhone() {
   if (mode === "win") {
     // слева: заголовок, строка под ним, звёзды и за что они; справа — строки награды и итог (SPEC-009)
     // SPEC-022: «Папа снова добрый!» — до двух строк, строка под ним — сразу под заголовком
-    const tb = pRows(winTitle(), "title", 32, colW, 2, 900), ty0 = Y0 + c(4);
+    // SPEC-033 AC 12: между заголовком и строкой — не меньше WIN_GAP × кегль строки; заголовок мельчает первым (до своего самого мелкого,
+    // потом остаётся как есть) так, чтобы заголовок, зазор и строка уместились над звёздами
+    const sub = pRows(winText(), "main", 16, colW, 2, 900), ty0 = Y0 + c(4), gap = Math.max(c(2), LOOK.WIN_GAP * sub.sz), room = Y0 + c(LOOK.WIN_STARS.y) - c(LOOK.WIN_STARS.r) - c(LOOK.WIN_STARS.gap) - ty0 - sub.h - gap;
+    let tb = pRows(winTitle(), "title", 32, colW, 2, 900);
+    for (let css = 31; tb.h > room && css >= LOOK.PHONE_TEXT.title; css--) tb = pRows(winTitle(), "title", css, colW, 2, 900);
     tb.rows.forEach((r, i) => label(r, lx, ty0 + tb.lh * (i + 0.5), tb.sz, "#ffcf33"));
     noteText("title", tb.sz);
     ui.hudRects.push({ id: "win:title", x: lx - tb.w / 2, y: ty0, w: tb.w, h: tb.h, text: tb.rows.join(" ") });
-    pWrap(winText(), lx, ty0 + tb.h + c(2), "main", 16, colW, 2, endInk("text", "#fff"), 900);
-    for (let k = 0; k < CFG.STARS_PER_LEVEL; k++) drawStarArt(lx - c(56) + k * c(56), Y0 + c(138), c(21), k < rw.stars);
+    const sy = ty0 + tb.h + gap;
+    pDraw(sub, lx, sy, endInk("text", "#fff"));
+    ui.hudRects.push({ id: "win:sub", x: lx - sub.w / 2, y: sy, w: sub.w, h: sub.h, text: sub.rows.join(" "), size: sub.sz });
+    for (let k = 0; k < CFG.STARS_PER_LEVEL; k++) drawStarArt(lx - c(56) + k * c(56), Y0 + c(LOOK.WIN_STARS.y), c(LOOK.WIN_STARS.r), k < rw.stars);
     [[true, L().victory], [rw.nobodyOut, L().nobodyOut], [rw.fast, L().fast(fmtTime(rw.target))]].forEach(([okk, txt], i) => {
       pLabel((okk ? "✔ " : "✘ ") + txt, lx, Y0 + c(178) + i * c(26), "main", 15, okk ? endInk("good", "#bbf7d0") : endInk("off", "#cbd5e1"), "center", colW);
     });
@@ -149,9 +155,21 @@ export function pauseDesktop() {
 }
 export function winDesktop() {
   endPaper(LOOK.PAPER.winBox);
-  labelFit(winTitle(), UW / 2, 92, 60, LOOK.PAPER.winBox[0] - 60, "#ffcf33", "center", 30);   // SPEC-022: «Папа снова добрый!»
-  ui.hudRects.push({ id: "win:title", x: UW / 2 - lastFit.w / 2, y: 92 - lastFit.sz * 0.6, w: lastFit.w, h: lastFit.sz * 1.2, text: lastFit.text });
-  label(winText(), UW / 2, 146, 22, endInk("text", "#fff"));
+  // SPEC-033 AC 12: строка под заголовком рисуется первой, заголовок не выше, чем оставляет зазор LOOK.WIN_GAP × её кегль
+  labelFit(winText(), UW / 2, 146, 22, LOOK.PAPER.winBox[0] - 60, endInk("text", "#fff"), "center", 14);
+  const sub = { id: "win:sub", x: UW / 2 - lastFit.w / 2, y: 146 - lastFit.sz * 0.6, w: lastFit.w, h: lastFit.sz * 1.2, text: lastFit.text, size: lastFit.sz };
+  // SPEC-022: «Папа снова добрый!» — одна строка, мельчает до 30; не влезла и такой (длинный босс, широкий шрифт) — две строки над зазором
+  const title = winTitle(), maxW = LOOK.PAPER.winBox[0] - 60;
+  const T = LOOK.WIN_TITLE_DESK, tr = titleRows(title, T.size, T.min, maxW, 2);
+  if (tr.rows.length === 1) {                      // one row: as big as the gap allows, down to T.min / the box width
+    labelFit(title, UW / 2, 92, Math.min(60, (sub.y - LOOK.WIN_GAP * sub.size - 92) / 0.6), maxW, "#ffcf33", "center", T.size);
+    ui.hudRects.push({ id: "win:title", x: UW / 2 - lastFit.w / 2, y: 92 - lastFit.sz * 0.6, w: lastFit.w, h: lastFit.sz * 1.2, text: lastFit.text });
+  } else {                                         // too long for one row even at T.size: two rows above the gap
+    const lh = tr.sz * 1.2, top = sub.y - LOOK.WIN_GAP * sub.size - tr.rows.length * lh;
+    tr.rows.forEach((r, i) => label(r, UW / 2, top + lh * (i + 0.5), tr.sz, "#ffcf33"));
+    ui.hudRects.push({ id: "win:title", x: UW / 2 - tr.w / 2, y: top, w: tr.w, h: tr.rows.length * lh, text: title });
+  }
+  ui.hudRects.push(sub);
   const rw = lastReward || { stars: 1, coins: 0, nobodyOut: false, fast: false, target: 0, parts: [] };
   // слева — звёзды и за что они, справа — строки награды и итог (SPEC-009)
   const lx = UW / 2 - 190;

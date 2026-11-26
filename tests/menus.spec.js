@@ -213,7 +213,7 @@ test("the shop holds the wardrobe", async ({ page }) => {
   const d = await page.evaluate(() => window.__bb.buttonRects.filter(q => String(q.id).startsWith("tab:")));
   expect(d.map(q => q.id), "four tabs in this order (SPEC-026: Progress first)").toEqual(["tab:progress", "tab:items", "tab:wardrobe", "tab:upgrades"]);
   expect(d[0].x < d[1].x && d[1].x < d[2].x && d[2].x < d[3].x).toBe(true);
-  expect(d.map(q => q.text)).toEqual(["🏆 Progress", "🛒 Items", "👕 Wardrobe", "⭐ Upgrades"]);
+  expect(d.map(q => q.text)).toEqual(["🏆 Progress", "📦 Items", "👕 Wardrobe", "⭐ Upgrades"]);
   // ← → (and the d-pad) cycle the four tabs
   const tabs = [];
   for (const k of ["ArrowRight", "ArrowRight", "ArrowRight", "ArrowRight", "ArrowLeft"]) { await page.keyboard.press(k); tabs.push(await page.evaluate(() => window.__bb.shopTab)); }
@@ -283,7 +283,7 @@ test("the wardrobe tab works and fits on a phone, also with wider fonts", async 
   expect(s.ids).not.toContain("name:p2");
   expect(await page.evaluate(() => window.__bb.skinPanels().map(p => p.key))).toEqual(["p1", "big"]);
   const fails = [];
-  for (const lang of LANGS) for (const scale of [1, 1.15]) for (const st of ["looks", "poor", "armed", "friends"]) {
+  for (const lang of LANGS) for (const scale of [1, 1.15, 1.3]) for (const st of ["looks", "poor", "armed", "friends"]) {
     await page.evaluate(([l, sc, state]) => {
       const b = window.__bb, W = b.wardrobe(), to = (slot, k, id) => b.cycleOutfit("p1", slot, W[k].findIndex(q => q.id === id) - b.outfits.shown.p1[slot]);
       b.setLang(l); b.CFG.TEXT_TEST_SCALE = sc; b.resetOutfits(); b.mode = "shop"; b.shopTab = "wardrobe"; b.wardrobePage = state === "friends" ? "friends" : "looks";
@@ -374,39 +374,22 @@ test("SPEC-026: the Progress page shows the save: look and name, stars, worlds, 
   expect(text("progress:lockText"), "SPEC-030: which world opens the School").toBe("Finish the City to open the School!");
   expect(text("progress:lockNote"), "the existing wording for a locked bonus world").toBe(d.I.lockedBonus);
   expect(d.previews.map(q => q.key), "the 3D look of player 1").toEqual(["p1"]);
-  // read-only: only the tabs, OK and Reset are buttons
-  expect(d.buttons.map(q => q.id || q.text).filter(id => !String(id).startsWith("tab:")).sort()).toEqual(["closeShop", "progress:reset"]);
+  // read-only (SPEC-033 AC 10): only the tabs and OK are buttons — Reset progress moved to the grown-ups page
+  expect(d.buttons.map(q => q.id || q.text).filter(id => !String(id).startsWith("tab:")).sort()).toEqual(["closeShop"]);
   await page.evaluate(() => { const b = window.__bb; b.setProgress(null); b.mode = "home"; });
 });
 
-test("SPEC-026: Reset progress works from the Progress page and is gone from Items and Upgrades", async ({ page }) => {
-  const resets = await page.evaluate(() => window.__bb.LANGS.flatMap(l => ["reset", "resetShort", "resetCancel", "resetCancelShort", "resetConfirm"].map(k => window.__bb.I18N[l][k])));
+test("SPEC-033: Progress, Items, Upgrades and Wardrobe have no reset control (it is on the grown-ups page)", async ({ page }) => {
+  const resets = await page.evaluate(() => window.__bb.LANGS.flatMap(l => ["reset", "resetCancel", "resetConfirm"].map(k => window.__bb.I18N[l][k])));
   await page.evaluate(save => { const b = window.__bb; b.setProgress(save); b.mode = "home"; }, MIXED);
   await click(page, "home:shop");
-  for (const tab of ["items", "upgrades", "wardrobe"]) {
+  for (const tab of ["progress", "items", "upgrades", "wardrobe"]) {
     await page.evaluate(t => { window.__bb.shopTab = t; }, tab); await frames(page);
-    const t = await page.evaluate(() => window.__bb.buttonRects.map(q => q.text));
-    expect(t.filter(x => resets.includes(x)), `no reset on ${tab}`).toEqual([]);
+    const d = await page.evaluate(() => window.__bb.buttonRects.map(q => [q.id, q.text]));
+    expect(d.map(q => q[1]).filter(x => resets.includes(x)), `no reset text on ${tab}`).toEqual([]);
+    expect(d.map(q => q[0]).filter(id => /^progress:(reset|confirm)$/.test(String(id))), `no reset button on ${tab}`).toEqual([]);
   }
-  await click(page, "tab:progress");
-  await click(page, "progress:reset");
-  // SPEC-025 AC 6b: armed — the button says "No, keep it", the separate confirm is elsewhere; nothing reset yet
-  const text = id => page.evaluate(k => { const q = window.__bb.buttonRects.find(r => r.id === k); return q ? q.text : null; }, id);
-  expect([await text("progress:reset"), await text("progress:confirm"), await page.evaluate(() => window.__bb.progress.coins)], "armed, nothing reset yet").toEqual(["No, keep it", "Yes, erase everything", 345]);
-  await click(page, "tab:items");
-  await click(page, "tab:progress");
-  expect([await text("progress:reset"), await text("progress:confirm")], "another tab disarms it").toEqual(["Reset progress", null]);
-  await click(page, "progress:reset");
-  await click(page, "progress:reset");
-  expect([await text("progress:confirm"), await page.evaluate(() => window.__bb.progress.coins)], "a second tap on the same button cancels").toEqual([null, 345]);
-  await click(page, "progress:reset");
-  await page.waitForTimeout(900);                                    // CFG.RESET_CONFIRM_DELAY (0.8 s): the confirm listens now
-  await click(page, "progress:confirm");
-  const p = await page.evaluate(() => { const b = window.__bb; return { coins: b.progress.coins, inv: b.progress.inv, upg: b.progress.upgrades, park: b.progress.worlds.park.unlocked, info: b.progressInfo }; });
-  expect([p.coins, p.park], "fresh progress").toEqual([0, 1]);
-  expect(p.inv).toEqual({ mittens: 0, mega: 0, kisses: 0, rescues: 0 });
-  expect(p.upg).toEqual({ fastFeet: 0, longItems: 0, quickHelp: 0 });
-  expect([p.info.stars, p.info.worldsDone], "the page shows it").toEqual([0, 0]);
+  expect(await page.evaluate(() => window.__bb.progress.coins), "nothing was reset").toBe(345);
   await page.evaluate(() => { window.__bb.mode = "home"; });
 });
 
@@ -935,6 +918,43 @@ test("CFG.MENU_LOOK has no key twice", () => {
   expect(dups).toEqual([]);
 });
 
+// SPEC-033 AC 9: every price — Items, Upgrades, a locked look of a kid and of the Big One — reads "Get for 🪙 N" and the 🪙 is drawn as the
+// item_coin picture (EMOJI_ART); a price is never written as bare "Buy N" (a narrow phone card may shorten it: "Get 🪙 N", "🪙 N" — with the
+// wider CI font, PW_FONT=ci, even the English line does)
+async function pricesAt(page) {
+  const fails = [];
+  const price = async (at, setup, ids) => {
+    await page.evaluate(setup);
+    await frames(page);
+    await page.evaluate(() => window.__bb.resetArtUse());
+    await frames(page);
+    const d = await page.evaluate(ids => {
+      const b = window.__bb;
+      return { b: b.buttonRects.filter(q => ids.some(i => q.id.startsWith(i))).map(q => ({ id: q.id, text: q.text, ok: ["", "🔒 ", "✔ "].flatMap(p => { const n = (/(\d+)$/.exec(q.text) || [])[1]; return [b.I18N.en.buyFor(n), `${b.I18N.en.buy} 🪙 ${n}`, `🪙 ${n}`].map(t => p + t); }) })), use: b.artUse };
+    }, ids);
+    if (!d.b.length) fails.push(`${at}: no price button`);
+    for (const q of d.b) if (!q.ok.includes(q.text)) fails.push(`${at}: ${q.id} reads "${q.text}"`);
+    if (!(d.use.item_coin >= d.b.length)) fails.push(`${at}: item_coin drawn ${d.use.item_coin} times for ${d.b.length} prices`);
+  };
+  await price("items", () => { const b = window.__bb; b.progress.coins = 500; b.mode = "shop"; b.shopTab = "items"; }, ["buy:"]);
+  await price("upgrades", () => { const b = window.__bb; b.mode = "shop"; b.shopTab = "upgrades"; }, ["upg:"]);
+  await price("wardrobe kid", () => { const b = window.__bb, W = b.wardrobe(); b.mode = "shop"; b.shopTab = "wardrobe"; b.wardrobePage = "looks"; b.cycleOutfit("p1", "hat", W.hat.findIndex(q => q.id === "crown") - b.outfits.shown.p1.hat); }, ["buy-look:p1"]);
+  await price("wardrobe big one", () => { const b = window.__bb, W = b.wardrobe(); b.cycleOutfit("p1", "hat", 0); b.cycleBig(W.big.findIndex(q => q.id === "robot") - b.outfits.shown.big); }, ["buy-look:big"]);
+  await page.evaluate(() => { window.__bb.mode = "home"; });
+  return fails;
+}
+test("every price shows the coin picture: Items, Upgrades, kid looks and Big One looks (desktop)", async ({ page }) => {
+  const fails = await pricesAt(page);
+  expect(fails).toEqual([]);
+});
+test("every price shows the coin picture (phone 667×375)", async ({ phonePage: page }) => {
+  const fails = await pricesAt(page);
+  expect(fails).toEqual([]);
+  // the narrow phone cards of the Items and Upgrades tabs, in every language: always the coin and the number, the text inside its button
+  // (a long "Conseguir por 🪙 30" gives way to "Conseguir 🪙 30" or "🪙 30"); also with 15 % / 30 % wider fonts
+  await priceFits(page, [1, 1.15, 1.3]);
+});
+
 // SPEC-032 AC 17: no player-visible "Shop" is left — no L().shop and no 🛒 + text in the client code (the Items tab's 🛒 is its
 // shop_items picture), and I18N has no `shop` string any more
 test("no Shop left: the client never writes L().shop or a 🛒 button, I18N has no shop string", { tag: "@fast" }, async ({ page }) => {
@@ -942,4 +962,24 @@ test("no Shop left: the client never writes L().shop or a 🛒 button, I18N has 
   expect(src.match(/L\(\)\.shop\b/g), "L().shop in the client").toBe(null);
   expect((src.match(/"🛒 " \+/g) || []).length, "a 🛒 + text button").toBe(0);
   expect(await page.evaluate(() => Object.keys(window.__bb.I18N).filter(l => "shop" in window.__bb.I18N[l]))).toEqual([]);
+});
+
+// SPEC-033 review: every price button of Items and Upgrades reads "… 🪙 N" and its text fits the button, in every language and with wider
+// fonts (the wording is built by one helper, priceLabel); b.textW is the real drawn width (scaled by TEXT_TEST_SCALE for fitButton, as
+// measured for the Items buttons — those shrink by the real font: PW_FONT=ci shows the CI font there)
+async function priceFits(page, scales) {
+  for (const [tab, prefix, n] of [["items", "buy:", 4], ["upgrades", "upg:", 3]]) for (const l of ["en", "es", "pt", "ru"]) for (const scale of scales) {
+    await page.evaluate(([lang, sc, t]) => { const b = window.__bb; b.setLang(lang); b.CFG.TEXT_TEST_SCALE = sc; b.setProgress(null); b.progress.coins = 500; b.mode = "shop"; b.shopTab = t; }, [l, scale, tab]);
+    await frames(page);
+    const d = await page.evaluate(p => window.__bb.buttonRects.filter(q => q.id.startsWith(p)).map(q => ({ id: q.id, text: q.text, textW: q.textW, w: q.w })), prefix);
+    expect(d.length, `${tab} ${l} ×${scale}: ${n} prices`).toBe(n);
+    for (const q of d) {
+      expect(q.text, `${tab} ${l} ×${scale} ${q.id}`).toMatch(/🪙 \d+$/);
+      expect(q.textW, `${tab} ${l} ×${scale} ${q.id}: the text fits its button`).toBeLessThanOrEqual(q.w + 0.5);
+    }
+  }
+  await page.evaluate(() => { const b = window.__bb; b.CFG.TEXT_TEST_SCALE = 1; b.setLang("en"); b.mode = "home"; });
+}
+test("every price button of Items and Upgrades fits in every language, also with wider fonts (desktop)", async ({ page }) => {
+  await priceFits(page, [1, 1.15, 1.3]);
 });

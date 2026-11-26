@@ -3,6 +3,7 @@
 // index.html in Phase C).
 
 import { clamp } from "../../core/util.js";
+import { L } from "../../i18n.js";
 import { paperUI } from "../art.js";
 import { LOOK } from "../look.js";
 import { CSS_H, CSS_W, ctx, OUT, PHONE, UW } from "../screen.js";
@@ -115,6 +116,26 @@ export function fz(size, cat) {
   const s = Math.max(size, minPx(cat));
   noteText(cat, s);
   return s;
+}
+// SPEC-033: подпись цены «Взять за 🪙 N» в кнопке шириной w: не влезла даже самым мелким кеглем min (с запасом LOOK.PRICE_FIT_MARGIN на шрифты CI,
+// шире наших) — «Взять 🪙 N», потом «🪙 N»; prefix — «🔒 » / «✔ » перед надписью. Общая для карточек вещей и кнопок наряда
+export function priceLabel(price, w, min, prefix = "") {
+  ctx.font = hudFont(min);
+  const options = [L().buyFor(price), `${L().buy} 🪙 ${price}`, `🪙 ${price}`].map(t => prefix + t);
+  return options.find(t => scaledW(t) * LOOK.PRICE_FIT_MARGIN <= w) || options.at(-1);
+}
+// название крупной надписью: слова переносятся (не больше lines строк), кегль мельче до min; меряется шрифтом label (hudFont); → { rows, sz, w, fit }
+// (SPEC-033: карточка «Как играть» и заголовок победы на компьютере)
+export function titleRows(text, size, min, maxW, lines) {
+  for (let sz = size; ; sz = Math.max(min, sz - 0.5)) {
+    ctx.font = hudFont(sz);
+    const rows = [];
+    let cur = "";
+    for (const wd of text.split(" ")) { const t = cur ? cur + " " + wd : wd; if (scaledW(t) > maxW && cur) { rows.push(cur); cur = wd; } else cur = t; }
+    rows.push(cur);
+    const w = Math.max(...rows.map(scaledW)), fit = rows.length <= lines && w <= maxW;
+    if (fit || sz <= min) return { rows, sz, w: Math.min(maxW, w), fit };
+  }
 }
 export const hudFont = sz => `900 ${sz}px system-ui, "Segoe UI", "Arial Rounded MT Bold", Arial, sans-serif`;
 // ---------- 2D — МЕНЮ (SPEC-017; телефон — SPEC-005, слой UI 420 px высотой): тексты и кнопки телефона, рамка экрана меню, дальше —

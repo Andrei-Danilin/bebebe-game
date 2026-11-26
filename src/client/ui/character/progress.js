@@ -9,22 +9,21 @@ import { ITEM_ART, UPG_ART, worldArt } from "../../art.js";
 import { LOOK } from "../../look.js";
 import { nameFor } from "../../names.js";
 import { LOOK_SLOTS, ownsItem, P_COLORS } from "../../outfits.js";
-import { armReset, confirmReset, resetConfirmReady } from "../../progress.js";
 import { ctx, OUT, PHONE } from "../../screen.js";
 import { upgLevel } from "../../shop.js";
 import { ui } from "../../state.js";
 import { SHOP_PICTURES, shopPicture } from "./items.js";
 import { upgPicture } from "./upgrades.js";
-import { fitButton, rowsAt } from "./wardrobe.js";
+import { rowsAt } from "./wardrobe.js";
 import { drawArtFit, drawStarArt, fillStroke, fillT, rr } from "../draw.js";
 import { mainStars, worldsFinished } from "../home.js";
 import { lockedText } from "../map.js";
 import { menuFrame, phoneFrame, worldPicture, worldStarsOf } from "../menu.js";
-import { cpx, hudFont, minPx, noteRows, noteText, plainText, scaledW } from "../text.js";
+import { cpx, minPx, noteRows, noteText, plainText } from "../text.js";
 import { fitLine } from "../win.js";
 
 // ---------- SPEC-026: персонаж — страница «Прогресс» (только смотреть; раскладка — Claude): вид и имя игрока 1, звёзды и пройденные
-// миры, по строке на мир (значок, звёзды, уровни, «Пройдено» или замок), рюкзак, улучшения, гардероб; сброс прогресса ----------
+// миры, по строке на мир (значок, звёзды, уровни, «Пройдено» или замок), рюкзак, улучшения, гардероб ----------
 // одежда своя / всего: шапки, куртки, штаны, Большие (бесплатное — своё; причёски не в счёт — они все бесплатные)
 export function clothesCount() {
   let n = 0, m = 0;
@@ -33,7 +32,7 @@ export function clothesCount() {
 }
 // уровни мира: пройдено (won) из levelsPerWorld()
 const worldWins = w => Array.from({ length: levelsPerWorld() }, (_, i) => i + 1).filter(n => progress.worlds[w].won[n] === true).length;
-// раскладка: три колонки под вкладками (компьютер — до ряда «Готово»): слева вид и имя игрока 1 (и сброс на телефоне), посередине
+// раскладка: три колонки под вкладками (компьютер — до ряда «Готово»): слева вид и имя игрока 1, посередине
 // звёзды и миры, справа рюкзак, улучшения, гардероб; preview — окошко 3D-вида (его же берёт skinPanels для рендера)
 export function progressGeom() {
   const L0 = LOOK.MENU_LOOK.progress, P = PHONE ? L0.phone : L0, c = PHONE ? cpx : (n => n);
@@ -44,15 +43,8 @@ export function progressGeom() {
   return { P, c, g, B, left: { x: x0, y: y0, w: lw, h }, mid: { x: x0 + lw + g, y: y0, w: mw, h }, right: { x: x0 + lw + 2 * g + mw, y: y0, w: rest - mw, h },
     preview: { x: x0 + (lw - pv) / 2, y: y0, w: pv, h: pv } };
 }
-// SPEC-025 AC 6b: the separate confirm of a reset ("Yes, erase everything"), faded while it still ignores taps
-// (CFG.RESET_CONFIRM_DELAY s after the first tap)
-export function resetConfirmButton(x, y, w, h, size, min) {
-  ctx.globalAlpha = resetConfirmReady() ? 1 : 0.5;
-  fitButton(x, y, w, h, L().resetConfirm, LOOK.MENU_LOOK.armed, confirmReset, size, min).id = "progress:confirm";
-  ctx.globalAlpha = 1;
-}
 export function progressPage() {
-  const G = progressGeom(), { P, c, B, left, mid, right, preview: pv } = G, M = LOOK.MENU_LOOK;
+  const G = progressGeom(), { P, c, left, mid, right, preview: pv } = G, M = LOOK.MENU_LOOK;
   const min = PHONE ? minPx("main") : LOOK.MENU_LOOK.progress.min, size = c(P.text), tsize = c(P.title);
   // одна строка: картинка слева (pic(x, cy, s) или null) и текст, сжимается до min (потом «…»); в hudRects — { id, text, textW }
   const line = (id, t, x, y, h, maxW, opts = {}) => {
@@ -66,21 +58,12 @@ export function progressPage() {
     return r;
   };
   const emoji = e => (x, y, s) => { ctx.font = `${s * 0.85}px system-ui, 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; fillT(e, x, y); };
-  // ---- слева: окошко 3D-вида игрока 1 (как в гардеробе), под ним имя; на телефоне внизу — сброс прогресса ----
+  // ---- слева: окошко 3D-вида игрока 1 (как в гардеробе), под ним имя (SPEC-033: сброс прогресса переехал на страницу для взрослых) ----
   rr(left.x - c(4), pv.y - c(4), left.w + c(8), pv.h + c(P.nameH) + c(12), c(14)); fillStroke(M.panel, 3);
   ctx.clearRect(pv.x, pv.y, pv.w, pv.h);                       // окошко: здесь видно 3D-превью
   ctx.lineWidth = 3; ctx.strokeStyle = OUT; ctx.strokeRect(pv.x, pv.y, pv.w, pv.h);
   const name = nameFor("p1");
   line("progress:name", name, left.x, pv.y + pv.h + c(4), c(P.nameH), left.w, { center: true, color: P_COLORS[0] });
-  if (PHONE) {
-    // SPEC-025 AC 6b: armed, the button says "No, keep it" (a tap cancels) and the confirm is a separate button at the bottom of the
-    // right column (another place, the widest free spot)
-    const texts = ui.resetArmed ? [L().resetCancel, L().resetCancelShort] : [L().reset, L().resetShort], rsz = c(15);
-    ctx.font = hudFont(rsz);
-    const t = texts.find(q => scaledW(q) * LOOK.PHONE_SHOP.RESET_FIT + c(20) <= left.w) ?? texts.at(-1);
-    fitButton(left.x, left.y + left.h - B, left.w, B, t, ui.resetArmed ? M.ok : M.reset, armReset, rsz, min).id = "progress:reset";
-    if (ui.resetArmed) resetConfirmButton(right.x, right.y + right.h - B, right.w, B, rsz, min);
-  }
   // ---- посередине: звёзды основных миров и пройденные миры, по строке на мир ----
   const starMax = CFG.STARS_PER_LEVEL * levelsPerWorld() * MAIN_WORLDS.length, wmax = CFG.STARS_PER_LEVEL * levelsPerWorld();
   const lockedAny = BONUS_WORLDS.some(w => !isOpen(w));

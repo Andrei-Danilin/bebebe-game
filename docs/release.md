@@ -46,7 +46,7 @@ unchanged ones. three.js has its own cache and is not downloaded again. (BACKLOG
 
 ### 2. Redeploy a known-good tag (fast, temporary)
 
-`gh workflow run pages.yml --ref master -f ref=vX.Y.Z`
+`gh workflow run pages.yml --ref master -f ref=vX.Y.Z` (the `ref` input defaults to `master`: a bare `gh workflow run pages.yml --ref master` redeploys `master`'s tested HEAD)
 
 - The workflow comes from `master`. The `ref` input (SPEC-025 AC 13) makes it test, build and deploy that tag. The first job
   resolves the tag to its commit sha once. The sharded tests run on that sha, then its site is built, deployed and checked
@@ -64,11 +64,13 @@ unchanged ones. three.js has its own cache and is not downloaded again. (BACKLOG
 
 ### 3. Revert (the lasting fix)
 
-- Revert the bad merge on a spec branch: `git revert -m 1 <merge sha>`, commit `SPEC-NNN: revert <what>`, push, wait for a
-  green Tests run, then merge and deploy as usual (CLAUDE.md "Workflow"). Never `git push --force`, never rewrite `master`.
-- Whether a revert may go straight to `master` without a spec-branch run is **decision D-7** (Andrei,
-  `docs/reviews/release-readiness.md`). Until he answers, today's rule holds: a revert is a change like any other and goes
-  through a spec branch with a green Tests run.
+- **Decided (D-7, Andrei, 2026-11-26):** when a deploy breaks the game for the kids, a revert of the merge commit may be pushed
+  **straight to `master`**: `git revert -m 1 <merge sha>`, message `revert: <what>`, `git push origin master`. No spec branch
+  and no branch run, but the Pages workflow still runs the sharded tests on it before it deploys (a red test stops the deploy),
+  and the deploy's live check waits for that commit. For a faster fix while the tests run, redeploy a known-good tag first (2).
+  Never `git push --force`, never rewrite `master`; the real fix afterwards is a normal spec.
+- A revert that is not urgent still goes on a spec branch as any change (CLAUDE.md "Workflow"). CI keeps `retries: 0` (D-15): a
+  flaky test blocks the deploy and is fixed at the root, not retried.
 
 ### 4. Children's saves during a rollback
 
