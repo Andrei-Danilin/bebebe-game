@@ -19,6 +19,7 @@ import { closeNameInput, nameInput, sticks } from "./input.js";
 import { LOOK } from "./look.js";
 import { botOutfit, endTryOn, makeLook, skinSel } from "./outfits.js";
 import { saveProgress, setLang } from "./progress.js";
+import { answerLang } from "./save.js";
 import { PHONE } from "./screen.js";
 import { screenChanged, ui } from "./state.js";
 import { camSnap } from "./three/camera.js";
@@ -130,7 +131,7 @@ export function goBack() {
   else if (mode === "play") setMode("pause");
   else if (mode === "pause") resumeGame();
   else if (mode === "win" || mode === "lose") toMap();
-  else if (mode === "lang") setMode("home");   // SPEC-032: Escape on the language screen keeps English (already on: the default)
+  else if (mode === "lang") { answerLang(); setMode("home"); }   // SPEC-032: Escape on the language screen keeps English (the default) — answered
 }
 // клиент: награда уровня (payLevel по levelResult) и мир, который она открыла
 export function giveReward(win) { lastReward = payLevel(levelResult(win)); noteOpenedWorld(lastReward); }

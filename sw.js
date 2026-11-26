@@ -25,17 +25,17 @@ const NET_TIMEOUT_MS = 4000;             // weak signal: after this long, a cach
 const SW_BUILD = 7;
 const SW_STRATEGY = "463855aec6";
 const SW_VERSION = "bebebe-1.0.0-dev-b7";
-const SRC_HASH = "30866647a1";
+const SRC_HASH = "6516023360";
 const PRECACHE_LOCAL = [
   "./", "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512-maskable.png",
   "./icons/icon-512.png", "./icons/icon.svg", "./index.html", "./manifest.webmanifest"
 ];
 const PRECACHE_SRC = [
   "./src/client/art-names.js?v=7b82d7a775", "./src/client/art.js?v=ab587a742e", "./src/client/debug.js?v=435a120459",
-  "./src/client/errors.js?v=d36934cb61", "./src/client/flow.js?v=0412dc7e8e", "./src/client/fx.js?v=73f397efb4",
+  "./src/client/errors.js?v=d36934cb61", "./src/client/flow.js?v=1312e415c3", "./src/client/fx.js?v=73f397efb4",
   "./src/client/input.js?v=e93ae6f296", "./src/client/lifecycle.js?v=3a42079abe", "./src/client/look.js?v=f823c135cb",
-  "./src/client/main.js?v=b6bb3d8131", "./src/client/names.js?v=dff85cded6", "./src/client/outfits.js?v=8564eaee23",
-  "./src/client/perf.js?v=1b8537ee9d", "./src/client/progress.js?v=0713011f0e", "./src/client/save.js?v=8ae5ac5801",
+  "./src/client/main.js?v=2bc449a4ed", "./src/client/names.js?v=dff85cded6", "./src/client/outfits.js?v=8564eaee23",
+  "./src/client/perf.js?v=1b8537ee9d", "./src/client/progress.js?v=0713011f0e", "./src/client/save.js?v=be42450a76",
   "./src/client/screen.js?v=94ffe40171", "./src/client/shop.js?v=ebde4ad6de", "./src/client/sound.js?v=57a594910c",
   "./src/client/state.js?v=b3783b8f4d", "./src/client/storage.js?v=686b11f06c",
   "./src/client/three/bosses.js?v=7814dfb8d4", "./src/client/three/camera.js?v=39a889ad56",
@@ -48,7 +48,7 @@ const PRECACHE_SRC = [
   "./src/client/ui/character/tabs.js?v=6d32ab672c", "./src/client/ui/character/upgrades.js?v=ee922fce9f",
   "./src/client/ui/character/wardrobe.js?v=815e77221d", "./src/client/ui/draw.js?v=4c6110e06c",
   "./src/client/ui/grownups.js?v=91d8fff16a", "./src/client/ui/home.js?v=d456be2d53",
-  "./src/client/ui/hud.js?v=6aa88bd04e", "./src/client/ui/lang.js?v=13f86cdf2f", "./src/client/ui/map.js?v=4634784c68",
+  "./src/client/ui/hud.js?v=6aa88bd04e", "./src/client/ui/lang.js?v=bcae317cee", "./src/client/ui/map.js?v=4634784c68",
   "./src/client/ui/menu.js?v=df7bd8b63c", "./src/client/ui/minimap.js?v=afd7cc3057",
   "./src/client/ui/phone.js?v=7c25c8ed3d", "./src/client/ui/screens.js?v=ca2adf910b",
   "./src/client/ui/story.js?v=0ae7b6144e", "./src/client/ui/text.js?v=e96306db7a",

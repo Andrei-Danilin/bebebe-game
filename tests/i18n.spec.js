@@ -233,6 +233,42 @@ test("first launch: tapping Português gives Portuguese everywhere (saved, the i
     expect(errors).toEqual([]);
   } finally { await context.close(); }
 });
+// review fix: the first save is written before the screen is answered — it carries langAsked: false (an added field, hard rule 7),
+// so an app closed on the language screen asks again next time; a choice (or Escape = English) sets it true; a bebebe-save without
+// the field (every save before SPEC-032) never asks
+const reopen = async page => {
+  await page.reload();
+  await page.waitForFunction(() => window.__bbReady === true && window.__bb.artInfo.done);
+  await frames(page); await frames(page);
+};
+const storedLangAsked = page => page.evaluate(() => { window.__bb.save.flush(); const s = JSON.parse(localStorage.getItem("bebebe-save")); return Object.hasOwn(s, "langAsked") ? s.langAsked : "absent"; });
+test("first launch: closed on the language screen → it comes back; answered (or Escape) → never again", async ({ browser }) => {
+  for (const answer of ["Enter", "Escape"]) {
+    const { context, page, errors } = await firstLaunch(browser, "en-US");
+    try {
+      expect(await storedLangAsked(page), "the first save is written before the answer").toBe(false);
+      await reopen(page);
+      await page.waitForFunction(() => window.__bb.mode === "lang", null, { timeout: 15_000 });
+      await page.keyboard.press(answer);
+      await page.waitForFunction(() => window.__bb.mode !== "lang");
+      expect(await storedLangAsked(page), `answered with ${answer}`).toBe(true);
+      await reopen(page);
+      expect(await page.evaluate(() => [window.__bb.mode, window.__bb.lang]), answer).toEqual(["scene", "en"]);   // straight to the intro comic
+      expect(errors).toEqual([]);
+    } finally { await context.close(); }
+  }
+});
+test("an existing bebebe-save without langAsked never sees the language screen", async ({ browser }) => {
+  const { context, page, errors } = await firstLaunch(browser, "pt-BR");
+  try {
+    // the same save as a pre-SPEC-032 game wrote it: no langAsked field
+    await page.evaluate(() => { window.__bb.save.flush(); const s = JSON.parse(localStorage.getItem("bebebe-save")); delete s.langAsked; localStorage.setItem("bebebe-save", JSON.stringify(s)); });
+    await reopen(page);
+    expect(await page.evaluate(() => [window.__bb.mode, window.__bb.scene && window.__bb.scene.id, window.__bb.lang])).toEqual(["scene", "intro", "en"]);
+    expect(await storedLangAsked(page), "the field is not added to an old save").toBe("absent");
+    expect(errors).toEqual([]);
+  } finally { await context.close(); }
+});
 test("an old save never sees the language screen (an old key, or the language the globe saved)", async ({ browser }) => {
   for (const keys of [{ "bebebe-progress": JSON.stringify({ coins: 5 }) }, { "bebebe-lang": "ru" }]) {
     const context = await browser.newContext({ locale: "pt-BR" });

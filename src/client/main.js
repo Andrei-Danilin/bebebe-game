@@ -17,7 +17,7 @@ import { initInput, pollPads } from "./input.js";
 import { initLifecycle } from "./lifecycle.js";
 import { endTryOn } from "./outfits.js";
 import { initPerf, noteFrame } from "./perf.js";
-import { loadSave, saveInfo } from "./save.js";
+import { langPending, loadSave } from "./save.js";
 import { openLangScreen } from "./ui/lang.js";
 import { fit, initScreen, isTouch, simMode } from "./screen.js";
 import { ui } from "./state.js";
@@ -66,8 +66,9 @@ async function boot() {
   // SPEC-022: самый первый запуск (и старое сохранение без seen: история новая для всех) — комикс «Как всё началось» (под экраном
   // загрузки, пока он есть). Тесты его пропускают: их init-скрипт ставит window.__bbNoIntro (кроме теста первого запуска)
   introDue = !progress.seen.intro && window.__bbNoIntro !== true;   // открывается в frame(), когда экрана загрузки уже нет
-  // SPEC-032 AC 13: самый первый запуск (ничего не сохранено) — сначала экран языка (тесты пропускают его вместе с комиксом)
-  langDue = saveInfo.firstLaunch && window.__bbNoIntro !== true;
+  // SPEC-032 AC 13: самый первый запуск (ничего не сохранено) — сначала экран языка, пока на него не ответили (langAsked: false в
+  // сохранении — закрыли приложение на нём, спросит снова); тесты пропускают его вместе с комиксом
+  langDue = langPending() && window.__bbNoIntro !== true;
   // SPEC-029: после комикса — обучение (только настоящий первый запуск: firstTutorial); тесты пропускают его: window.__bbNoTutorial
   tutorialDue = firstTutorial(progress) && window.__bbNoTutorial !== true;
   window.__bbReady = true;

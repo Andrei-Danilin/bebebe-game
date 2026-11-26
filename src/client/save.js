@@ -35,14 +35,15 @@ import { localBackend, wrapBackend } from "./storage.js";
  * @typedef {{ hair?: string, hat?: string, jacket?: string, pants?: string, [slot: string]: any }} OutfitIds   one Little One's outfit by item id (AC 3c)
  * @typedef {{ version: number, progress: Progress,
  *   outfits: { p1: OutfitIds, p2: OutfitIds, big: string }, names: { p1: string, p2: string, big: string, bots: string[] },
- *   lang: string, migrated: Record<string, string | null>, persist?: { asked: boolean, granted: boolean }, [field: string]: any }} Save   bebebe-save
+ *   lang: string, migrated: Record<string, string | null>, persist?: { asked: boolean, granted: boolean }, langAsked?: boolean,
+ *   [field: string]: any }} Save   bebebe-save
  */
 export const SAVE_VERSION = 1;              // the shape of bebebe-save (a schema id, not a tunable number)
 export const SAVE_KEYS = Object.freeze({ save: "bebebe-save", backup: "bebebe-save-backup", broken: "bebebe-save-broken", session: "bebebe-save-session",
   migration: "bebebe-save-before-migration", reset: "bebebe-save-before-reset", reset2: "bebebe-save-before-reset-2", import: "bebebe-save-before-import", restore: "bebebe-save-before-restore", errors: "bebebe-errors", probe: "bebebe-probe" });
 export const OLD_KEYS = Object.freeze(["bebebe-progress", "bebebe-outfits", "bebebe-names", "bebebe-lang"]);
 export const COPY_NAMES = Object.freeze(["backup", "session", "migration", "reset", "reset2", "import", "restore"]);   // backup → session → snapshots (newest first)
-const KNOWN_TOP = ["version", "progress", "outfits", "names", "lang", "migrated", "persist"];
+const KNOWN_TOP = ["version", "progress", "outfits", "names", "lang", "migrated", "persist", "langAsked"];
 const OWN_LISTS = { hats: HATS, jackets: JACKETS, pants: PANTS, big: BIG_SKINS };
 const WORLD_FIELDS = ["unlocked", "stars", "won"];
 
@@ -55,12 +56,14 @@ let held = emptyHeld();                    // parts of the stored save written b
 let future = false, futureVersion = SAVE_VERSION;
 let migrated = {};                         // old key → the fingerprint of its raw value at the last migration (null = absent)
 let persist = null;                        // { asked, granted } — navigator.storage.persist() (AC 5)
+// SPEC-032 AC 13 (review fix): the first-launch language screen — false: asked, not answered yet (the first save of a device with
+// nothing stored carries it, so an app closed on the screen asks again), true: answered, null: no field (older saves: never asked)
+let langAsked = null;
 let errCache = null;                       // the stored error log (read by loadSave)
 // what the grown-ups page and the tests read: storage failed (noSave), the notes due / shown, the copies stored
 // saveOff (review fix): the probe failed or the stored save could not be read — this session never writes bebebe-save or a copy
 // (a nearly full storage could take a fresh save over the real one)
-// SPEC-032 AC 13: firstLaunch — nothing was stored at all (no bebebe-save, no old key): the language screen opens before the intro
-export const saveInfo = { noSave: false, notes: [], shown: [], copies: {}, recovered: null, saveOff: false, firstLaunch: false };
+export const saveInfo = { noSave: false, notes: [], shown: [], copies: {}, recovered: null, saveOff: false };
 
 const plainObj = v => !!v && typeof v === "object" && !Array.isArray(v);
 const parse = t => { if (typeof t !== "string") return undefined; try { return JSON.parse(t); } catch (e) { return undefined; } };
@@ -73,7 +76,7 @@ export function fingerprint(t) {
 }
 // the root of a save: a plain object with a whole version ≥ 1 and a progress object (else broken)
 export const validSave = s => plainObj(s) && Number.isInteger(s.version) && s.version >= 1 && plainObj(s.progress);
-const TOP_VALID = { version: v => Number.isInteger(v) && v >= 1, progress: plainObj, outfits: plainObj, names: plainObj, lang: v => LANGS.includes(v), migrated: plainObj, persist: plainObj };
+const TOP_VALID = { version: v => Number.isInteger(v) && v >= 1, progress: plainObj, outfits: plainObj, names: plainObj, lang: v => LANGS.includes(v), migrated: plainObj, persist: plainObj, langAsked: v => typeof v === "boolean" };
 const navLangs = () => (navigator.languages && navigator.languages.length ? [...navigator.languages] : [navigator.language]);
 function applyLang(l) { setCurrentLang(l); document.documentElement.lang = HTML_LANG[l] || l; }
 function emptyHeld() { return { top: {}, progress: {}, worlds: {}, worldFields: {}, worldOver: {}, owned: {}, ownedKeys: {}, upgrades: {}, seen: {}, outfits: [] }; }
@@ -142,6 +145,7 @@ function saveObject() {
   }
   const out = /** @type {Save} */ ({ ...held.top, version: future ? futureVersion : SAVE_VERSION, progress: p, outfits, names: typedNames(), lang, migrated: { ...migrated } });
   if (persist) out.persist = { ...persist };
+  if (langAsked !== null) out.langAsked = langAsked;
   if (future) for (const k of KNOWN_TOP) if (Object.hasOwn(held.top, k)) out[k] = held.top[k];
   return out;
 }
@@ -216,6 +220,7 @@ function useSave(s) {
   held = holdSave(s);
   migrated = plainObj(s.migrated) ? { ...s.migrated } : {};
   persist = plainObj(s.persist) ? { ...s.persist } : null;
+  langAsked = typeof s.langAsked === "boolean" ? s.langAsked : null;
   setProgress(s.progress);
   const o = outfitsFromIds(s.outfits);
   setSkinSel(o); setSkinKeep(cloneSkins(o));
@@ -228,6 +233,7 @@ function useSave(s) {
 function migrateOld(old, gifts, first = false) {
   const pv = parse(old["bebebe-progress"]) ?? null, hadOwned = plainObj(pv) && "owned" in pv, played = old["bebebe-progress"] !== null;
   future = false; futureVersion = SAVE_VERSION; persist = null;
+  langAsked = first ? false : null;           // SPEC-032 AC 13: nothing stored at all → the language screen asks (until answered)
   held = emptyHeld();
   setProgress(pv);
   holdProgress(held, pv, false);
@@ -295,8 +301,8 @@ export async function loadSave() {
   const old = Object.fromEntries(OLD_KEYS.map(k => [k, raw[k]]));
   const stored = raw[SAVE_KEYS.save], s = parse(stored);
   let dirty = true;
-  saveInfo.firstLaunch = stored === null && OLD_KEYS.every(k => old[k] === null);   // SPEC-032 AC 13
-  if (stored === null) migrateOld(old, true, saveInfo.firstLaunch);   // no bebebe-save yet: the one migration (or a first launch)
+  // no bebebe-save yet: the one migration (or a first launch: nothing stored at all — SPEC-032 AC 13)
+  if (stored === null) migrateOld(old, true, OLD_KEYS.every(k => old[k] === null));
   else if (validSave(s)) {
     useSave(s); lastText = stored;
     dirty = mergeStale(old);
@@ -336,6 +342,9 @@ function requestPersist() {
   } catch (e) { /* no storage manager */ }
 }
 export const persistState = () => (persist ? { ...persist } : null);
+// SPEC-032 AC 13 (review fix): the language screen is due while the save says asked-but-not-answered; answered → saved at once
+export const langPending = () => langAsked === false;
+export function answerLang() { if (langAsked === false) { langAsked = true; queueSave(); } }
 
 // ---------- copies for the grown-ups page (AC 4, 6b) ----------
 // the stored copies that hold a valid save: [{ name, at, stars, coins }] in the recovery order
@@ -352,13 +361,13 @@ async function copySave(name) {
   const c = parse(await backend.get(SAVE_KEYS[name]));
   return plainObj(c) && validSave(c.save) ? c.save : null;
 }
-// a whole save replaces the game's (restore, undo, import): this device's migration record and persist answer stay
+// a whole save replaces the game's (restore, undo, import): this device's migration record, persist and language-screen answers stay
 function replaceWith(s) {
-  const keepMigrated = migrated, keepPersist = persist;
+  const keepMigrated = migrated, keepPersist = persist, keepAsked = langAsked;
   loading = true;
   useSave(s);
   loading = false;
-  migrated = keepMigrated; persist = keepPersist;
+  migrated = keepMigrated; persist = keepPersist; langAsked = keepAsked;
 }
 // a grown-up restored or reset: the broken copy is no longer needed
 const clearBroken = () => remove(SAVE_KEYS.broken);
@@ -418,7 +427,7 @@ const unb64url = s => { const bin = atob(s.replace(/-/g, "+").replace(/_/g, "/")
 export function saveCode() {
   flushSaves();
   const s = saveObject();
-  delete s.migrated; delete s.persist;
+  delete s.migrated; delete s.persist; delete s.langAsked;
   const json = JSON.stringify(s);
   return `BB1.${b64url(json)}.${fingerprint(json)}`;
 }

@@ -7,6 +7,7 @@ import { art } from "../art.js";
 import { setMode } from "../flow.js";
 import { LOOK } from "../look.js";
 import { setLang } from "../progress.js";
+import { answerLang } from "../save.js";
 import { ctx, PHONE, UH, UW } from "../screen.js";
 import { ui } from "../state.js";
 import { fitButton } from "./character/wardrobe.js";
@@ -18,10 +19,12 @@ import { cpx, minPx } from "./text.js";
 export function openLangScreen() { ui.langSel = Math.max(0, LANGS.indexOf("en")); setMode("lang"); }
 // the highlighted button moves (keys, the gamepad's cross): ±1 along a row, ±2 to the other row
 export function moveLangSel(d) { ui.langSel = (ui.langSel + d + LANGS.length) % LANGS.length; }
-// a language is chosen: saved at once (bebebe-save.lang), then the home screen — the intro comic and the tutorial follow as before
+// a language is chosen: saved at once (bebebe-save.lang, langAsked: true), then the home screen — the intro comic and the tutorial
+// follow as before
 export function chooseLang(l = LANGS[ui.langSel]) {
   if (!LANGS.includes(l)) return;
   setLang(l);
+  answerLang();
   setMode("home");
 }
 // two rows of two big paper buttons in the middle of the notebook page (no title: the four names are enough)
