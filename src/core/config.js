@@ -174,7 +174,8 @@ export const CFG = {
   // лабиринт (MAZE) — самый долгий блок; Парк EARLY — не дольше времени третьей звезды; Зима MAZE ≥ LATE_VS_EARLY × Парк EARLY;
   // спасают RESCUE_RATE падений; отдыхов на уровень (медиана) ≤ RESTS_MAX. CI_LEVELS — 12 уровней выборки (ранний и лабиринт в каждом мире)
   // SPEC-029: Andrei, one heart fewer everywhere (measured 0.4752) — TREND_RHO_WORLD: своя цель мира вместо TREND_RHO (Город 0,475)
-  BALANCE: { SIM_DT: 1 / 30, SEEDS: 3, TIME_LIMIT: 480, WIN_SEEDS: 2, TREND_RHO: 0.5, TREND_RHO_WORLD: { city: 0.475 }, LATE_VS_EARLY: 1.5, RESCUE_RATE: [0.5, 0.9],
+  // SPEC-032: Dad hears less (kids) — measured school 0.4286 → TREND_RHO_WORLD.school 0.428 (на измеренное; правила под цель не подгоняются)
+  BALANCE: { SIM_DT: 1 / 30, SEEDS: 3, TIME_LIMIT: 480, WIN_SEEDS: 2, TREND_RHO: 0.5, TREND_RHO_WORLD: { city: 0.475, school: 0.428 }, LATE_VS_EARLY: 1.5, RESCUE_RATE: [0.5, 0.9],
     RESTS_MAX: 2, RECKLESS_EVERY: 5, EARLY: [1, 5], MAZE: [17, 20],
     CI_LEVELS: [["park", 3], ["park", 18], ["field", 4], ["field", 19], ["city", 2], ["city", 18], ["school", 2], ["school", 19], ["beach", 4], ["beach", 17],
       ["winter", 5], ["winter", 20]],
