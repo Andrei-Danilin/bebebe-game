@@ -50,6 +50,31 @@ export function artLoad() {
   });
 }
 export const art = name => { const a = artImgs.get(name); return a && a.state === "ok" ? a.img : null; };
+// SPEC-032 AC 6: прозрачные поля картинки (доли её ширины / высоты): l, r — по средней трети строк, t, b — по средней трети столбцов
+// (видимый край нарисованной наклейки, не прозрачное поле вокруг); меряется один раз на картинку; нет картинки — нули
+const insetCache = new Map();
+export function artInset(name) {
+  const img = art(name);
+  if (!img) return { l: 0, r: 0, t: 0, b: 0 };
+  if (insetCache.get(name)?.img === img) return insetCache.get(name).v;
+  const W = img.naturalWidth, H = img.naturalHeight, cv = document.createElement("canvas");
+  cv.width = W; cv.height = H;
+  const g = cv.getContext("2d");
+  let v = { l: 0, r: 0, t: 0, b: 0 };
+  try {
+    g.drawImage(img, 0, 0);
+    const d = g.getImageData(0, 0, W, H).data, A = LOOK.PAPER.insetAlpha;
+    let l = W, r = -1, t = H, b = -1;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      if (d[(y * W + x) * 4 + 3] <= A) continue;
+      if (y > H / 3 && y < 2 * H / 3) { l = Math.min(l, x); r = Math.max(r, x); }
+      if (x > W / 3 && x < 2 * W / 3) { t = Math.min(t, y); b = Math.max(b, y); }
+    }
+    if (r >= l && b >= t) v = { l: l / W, r: (W - 1 - r) / W, t: t / H, b: (H - 1 - b) / H };
+  } catch (e) { /* холст недоступен (file://) — поля не известны */ }
+  insetCache.set(name, { img, v });
+  return v;
+}
 // картинка по своему пути (глава истории с c.image): грузится один раз при первом запросе, той же таблицей
 export function artFile(path) {
   let a = artImgs.get(path);

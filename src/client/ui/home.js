@@ -10,7 +10,7 @@ import { LOOK } from "../look.js";
 import { ctx, PHONE, UH, UW } from "../screen.js";
 import { ui } from "../state.js";
 import { fitButton } from "./character/wardrobe.js";
-import { drawArt, drawArt9, drawArtCover, drawArtFit, fillStroke, regButton, rr } from "./draw.js";
+import { art9Visible, drawArt, drawArt9, drawArtCover, drawArtFit, fillStroke, regButton, rr } from "./draw.js";
 import { menuFrame, phoneFrame, worldStarsOf } from "./menu.js";
 import { cpx, hudFont, label, labelFit, minPx, noteText, pLabel, plainText, scaledW } from "./text.js";
 import { fitLine } from "./win.js";
@@ -69,20 +69,23 @@ function homeIcons(x1, y, langW, w, h, size) {
 // центру всей кнопки: сначала мельчает под всю ширину (fitLine, поля btnPad), потом, если залезает на значок с отступом, сдвигается
 // вправо ровно настолько; мельчает дальше, только если и сдвиг не помог. null — нет картинок (бумаги или значка): рисует вызывающий.
 // Возвращает геометрию для __bb.homeInfo.buttons: { id, x, y, w, h, gap, icon: { x, y, w, h }, label: { x, w, cx, size, shifted } }
-function homeButton(x, y, w, h, a, size, min, hRef) {
+function homeButton(x, y, w, h, a, size, min) {
   const D = LOOK.MENU_LOOK.home, paper = PAPER_BTN[a.color], pic = artPick(a.icon), pad = (PHONE ? cpx(1) : 1) * D.btnPad / 2;
   if (!paperUI() || !paper || !pic || !art(paper)) return null;
-  const gap = hRef * D.btnIconGap, ic = hRef * D.btnIcon, clear = x + gap + ic + gap;   // левее clear надпись не начинается
+  // SPEC-032 AC 6: от видимого края нарисованной кнопки (не от прозрачного поля картинки) — btnIconGap × её высоты, значок btnIcon × высоты
+  const corner = Math.min(w, h) * LOOK.PAPER.btnCorner, vis = art9Visible(paper, x, y, w, h, corner);
+  const gap = h * D.btnIconGap, ic = h * D.btnIcon, ix = vis.x + gap, clear = ix + ic + h * D.btnLabelGap;   // левее clear надпись не начинается
+  const right = vis.x + vis.w - pad;
   let f = fitLine(a.text, size, min, w - 2 * pad);
-  if (x + w / 2 - f.w / 2 < clear && clear + f.w > x + w - pad) f = fitLine(a.text, f.sz, min, x + w - pad - clear);   // и сдвиг не помог
+  if (x + w / 2 - f.w / 2 < clear && clear + f.w > right) f = fitLine(a.text, f.sz, min, right - clear);   // и сдвиг не помог
   const cx = Math.max(x + w / 2, clear + f.w / 2), shifted = cx > x + w / 2;
-  drawArt9(paper, x, y, w, h, Math.min(w, h) * LOOK.PAPER.btnCorner);
-  drawArtFit(pic, x + gap + ic / 2, y + h / 2, ic);
+  drawArt9(paper, x, y, w, h, corner);
+  drawArtFit(pic, ix + ic / 2, y + h / 2, ic);
   label(f.text, cx, y + h / 2 + 1, f.sz, "#fff", "center");
   if (PHONE) noteText("main", f.sz);
   const b = regButton(x, y, w, h, a.emoji + a.text, a.act, a.id, ic + gap + f.w);
   b.size = f.sz;
-  return { id: a.id, x, y, w, h, gap, icon: { x: x + gap, y: y + h / 2 - ic / 2, w: ic, h: ic }, label: { x: cx - f.w / 2, w: f.w, cx, size: f.sz, shifted } };
+  return { id: a.id, x, y, w, h, gap, vis, icon: { x: ix, y: y + h / 2 - ic / 2, w: ic, h: ic }, label: { x: cx - f.w / 2, w: f.w, cx, size: f.sz, shifted } };
 }
 // одна раскладка для компьютера и телефона (SPEC-026): фон — страница menu_bg «cover» (лишнее срезается поровну), значки в углу,
 // по центру столбиком логотип и три кнопки (не шире col экрана); тесно по высоте — сначала ниже логотип, потом кнопки (не ниже 44 CSS px)
@@ -122,7 +125,7 @@ export function drawHome() {
   const btns = [];
   acts.forEach((a, i) => {
     const h = i ? subH : playH, size = c(i ? H.subSize : H.playSize);
-    const q = homeButton(x, y, colW, h, a, size, min, subH);
+    const q = homeButton(x, y, colW, h, a, size, min);
     if (q) btns.push(q);
     else fitButton(x, y, colW, h, a.emoji + a.text, a.color, a.act, size, min).id = a.id;
     y += h + gap;

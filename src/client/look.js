@@ -89,6 +89,7 @@ export const LOOK = {
   // (текст, «да», «нет», монетки, минус, черта итога). Надписи label(): заливка темнее darkInk (яркость 0..1) — не тёмная обводка OUT
   // (тёмное на тёмном — пятно), а тонкий светлый ореол halo толщиной haloW кегля (на светлой плашке его не видно)
   PAPER: { logoH: 132, phoneLogoH: 92, sheet: [0.3, 0.22, 0.45, 0.55], tapeW: 64, tapeH: 20, tape: "rgba(255,255,255,.62)", tapeLine: "rgba(120,120,120,.45)",
+    insetAlpha: 128,   // SPEC-032 AC 6: пиксель с непрозрачностью больше этой (0–255) — уже нарисованная наклейка (artInset)
     btnCorner: 0.34, offBtn: "#a3a3a3", cache: 3, heart: 1.3, hudIcon: 1.12, stickRing: "rgba(61,43,31,.6)", stickBase: 0.9, knob: 24,
     ink: { text: "#2e2116", good: "#15803d", off: "#64748b", gold: "#b45309", bad: "#b91c1c", line: "rgba(61,43,31,.45)" },
     fxHeart: 0.55, fxStar: 0.45, fxDust: 0.6, popBurst: 1.7, popH: 2.4, winBox: [800, 34, 500], loseBox: [780, 160, 290], pauseBox: [700, 190, 220], stop: 1.12, glow: 1.25, stamp: 0.62, pen: "rgba(40,60,160,.85)", coinLeft: 0.36, coinRight: 0.08,
@@ -177,7 +178,7 @@ export const LOOK = {
     frame: { w: 880, y: 26, h: 590, r: 30, padX: 15, padY: 14, g: 10, B: 50, tabsW: 655 },
     home: { w: 660, y: 40, h: 560, r: 30, titleSize: 54, pad: 14, gap: 12, col: 0.4, colW: 320, top: 24, logoGap: 26, btnGap: 14, logoW: 1.4, logoBand: 0.5,
       playH: 84, playSize: 34, subH: 62, subSize: 26, iconW: 56, langW: 92, iconH: 44, iconSize: 18, iconPad: 16,
-      btnIconGap: 0.12, btnIcon: 0.82, btnPad: 14 },   // SPEC-030 AC 8 (в SPEC-027): значок — от левого края на btnIconGap × высоты, размер btnIcon × высоты (высота — общая, у «Истории»/«Персонажа»: значки в один столбик); btnPad — поля надписи (px; телефон — cpx)
+      btnIconGap: 0.3, btnIcon: 0.8, btnLabelGap: 0.1, btnPad: 14 },   // SPEC-032 AC 6 (придумал Claude): значок — от видимого левого края нарисованной кнопки на btnIconGap × её высоты, размер btnIcon × её высоты; надпись — не ближе btnLabelGap × высоты к значку; btnPad — поля надписи (px; телефон — cpx)
     phoneHome: { col: 0.4, colMax: 300, titleSize: 30, pad: 12, logoGap: 10, logoMin: 56, playH: 64, playSize: 26, subH: 52, subSize: 20, langW: 76 },
     wardrobe: { preview: 110, colBottom: 548, rowY: 558, rowH: 46 },
     // SPEC-026: страница «Прогресс» персонажа (раскладка — Claude, проверить с детьми). Компьютер (UI px): верх и низ страницы (под вкладками,
