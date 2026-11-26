@@ -151,6 +151,13 @@ test("the Leave texts are in every language; the sim page has no guard", async (
 // there after LOOK.BACK_CLOSE_WAIT, the game steps off its guard (back to its own entry: no dialog, no new guard) and the next system
 // Back leaves (the Android app closes, the tab goes back). The next tap or key puts the guard back: a kid who stays is asked again.
 const isOff = () => !(history.state && history.state.bbGuard);
+// "Yes" pressed and the state read in one evaluate (one task): nothing of the close wait can pass in between, however slow the
+// runner (CI software rendering, no retries); hide = a pagehide right after the press (the window is going away)
+const yesNow = (page, hide = false) => page.evaluate(h => {
+  /** @type {HTMLElement} */ (document.querySelector("#leave button")).click();   // the first button is Yes
+  if (h) window.dispatchEvent(new PageTransitionEvent("pagehide"));
+  return { closed: window.__closed, dialog: !!document.getElementById("leave"), guard: !!(history.state && history.state.bbGuard) };
+}, hide);
 async function refusedClose(page, query, { oneEntry = false, reopen = false } = {}) {
   await page.addInitScript(() => { window.__closed = 0; window.close = () => { window.__closed++; }; });
   // a tab with no earlier entry has history.length 2 (the game + our guard)
@@ -166,9 +173,7 @@ async function refusedClose(page, query, { oneEntry = false, reopen = false } = 
   await touch(page);
   await back(page);
   const t0 = Date.now();
-  await press(page, "Yes");
-  expect(await page.evaluate(() => window.__closed), "window.close() called").toBe(1);
-  expect([await dialog(page), await guard(page)], "the dialog is closed; the window gets BACK_CLOSE_WAIT to close, the guard waits on top").toEqual([null, true]);
+  expect(await yesNow(page), "window.close() called; the dialog is closed; the window gets BACK_CLOSE_WAIT to close, the guard waits on top").toEqual({ closed: 1, dialog: false, guard: true });
   await page.waitForFunction(isOff, null, { timeout: wait + 5000 });
   expect(Date.now() - t0, "stepped off only after BACK_CLOSE_WAIT").toBeGreaterThanOrEqual(wait - 50);
   await frames(page);
@@ -199,8 +204,8 @@ test("a pagehide while the window closes keeps the guard; pageshow (back from th
   await page.evaluate(() => { window.__bb.mode = "home"; });
   await touch(page);
   await back(page);
-  await press(page, "Yes");
-  await page.evaluate(() => { window.dispatchEvent(new PageTransitionEvent("pagehide")); });   // the window is going away
+  expect(await yesNow(page, true), "Yes, then at once a pagehide").toEqual({ closed: 1, dialog: false, guard: true });
+  // proving that nothing happens: no flag tells "timer pending", so wait the close wait out (+ margin) and see the guard still there
   await page.waitForTimeout(wait + 300);
   expect(await guard(page), "closing: the guard is left alone").toBe(true);
   await page.evaluate(() => { window.dispatchEvent(new PageTransitionEvent("pageshow", { persisted: true })); });
