@@ -133,6 +133,35 @@ test("reset: two taps 50 ms apart change nothing; the confirm works after the de
   expect(errors).toEqual([]);
 });
 
+// SPEC-033 AC 13 (back.js): a system Back on the reset question presses "No, keep it" — disarmed, the grown-ups page stays; a confirm
+// tapped after something disarmed it under the view asks again (the delay starts over) instead of resetting
+test("reset: a system Back on the question = No, keep it; a disarmed confirm asks again", async ({ page }) => {
+  const errors = await openGame(page);
+  await page.evaluate(() => { const b = window.__bb; b.progress.coins = 345; b.mode = "story"; });
+  const acts = () => page.evaluate(() => [...document.querySelectorAll("#grownups button")].map(b => b.dataset.act));
+  const armed = () => page.evaluate(async () => (await import("./src/client/state.js")).ui.resetArmed);   // the game's own instance (import map)
+  const delay0 = await page.evaluate(() => window.__bb.CFG.RESET_CONFIRM_DELAY);
+  await page.evaluate(() => { window.__bb.CFG.RESET_CONFIRM_DELAY = 60; });
+  await openPage(page);
+  await pageAct(page, "resetProgress");
+  expect([await acts(), await armed()]).toEqual([["resetYes", "resetNo"], true]);
+  await page.evaluate(() => { window.dispatchEvent(new PopStateEvent("popstate")); });   // the system Back
+  expect([await acts(), await armed(), await page.evaluate(() => window.__bb.progress.coins)], "back on the grown-ups page, disarmed, nothing reset").toEqual([expect.arrayContaining(["resetProgress"]), false, 345]);
+  expect(await page.evaluate(() => [!!document.getElementById("grownups"), !!document.getElementById("leave")]), "the page stays; no Leave dialog").toEqual([true, false]);
+  // disarmed under the open question (a screen change): the confirm asks again and re-arms, faded for the delay
+  await pageAct(page, "resetProgress");
+  await page.evaluate(() => { window.__bb.shopTab = "items"; });
+  expect(await armed(), "disarmed under the view").toBe(false);
+  await pageAct(page, "resetYes");
+  expect([await acts(), await armed(), await page.evaluate(() => window.__bb.progress.coins)], "asked again, armed again, nothing reset").toEqual([["resetYes", "resetNo"], true, 345]);
+  expect(await page.evaluate(() => document.querySelector("#grownups [data-act=resetYes]").style.opacity), "the delay starts over").toBe("0.5");
+  await page.evaluate(() => { window.__bb.CFG.RESET_CONFIRM_DELAY = 0; });
+  await pageAct(page, "resetYes");
+  await page.waitForFunction(() => window.__bb.progress.coins === 0);
+  await page.evaluate(d => { window.__bb.CFG.RESET_CONFIRM_DELAY = d; }, delay0);
+  expect(errors).toEqual([]);
+});
+
 test("reset, play a level, undo: the old progress is back; the armed texts sure / sureShort are retired", async ({ page }) => {
   const errors = await openGame(page);
   await page.evaluate(() => { const b = window.__bb; b.progress.coins = 120; b.progress.worlds.park.unlocked = 7; b.progress.worlds.park.won = { 1: true, 6: true }; b.save.queue(); });

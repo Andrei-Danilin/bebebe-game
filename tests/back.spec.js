@@ -1,10 +1,10 @@
 // SPEC-033 AC 13 (D-14): the system Back (Android, installed or in the browser) and Escape on the home screen ask "Leave the game?".
-// - history.pushState keeps one guard entry on top (pushed at the player's first touch or key — Chrome skips entries made before a
-//   user activation): a real Back (popstate) lands one entry below it; the game handles that Back and
-//   puts the guard back, so one Back = one step. On the home screen the dialog opens and the guard comes back only with "No".
+// - history.pushState keeps one guard entry on top (pushed at the player's first tap or key but Escape — Chrome skips entries made
+//   before a user activation): a real Back (popstate) lands one entry below it; the game handles that Back and
+//   puts the guard back, so one Back = one step. On the home screen the dialog opens with the guard back under it (another Back = No).
 // - Back anywhere else does what Escape / ◀ does there (goBack): map → home, card → map, play → pause, pause → play, win → map…
 // - Yes goes back in history past the guard (the installed app closes); the tests count the leaves with __bb.back.noLeave so nothing
-//   really leaves, and one test leaves for real.
+//   really leaves, and one test leaves for real. With nothing behind the game Yes closes the window; refused, the game steps off its guard.
 const { test, expect } = require("./pw");   // SPEC-023: @playwright/test + failure screenshots
 const { openGame, frames } = require("./helpers");
 
@@ -20,7 +20,7 @@ async function back(page) {
   await page.waitForFunction(() => window.__popped === true);
   await frames(page);
 }
-// the player's first key: puts the guard entry on (a Shift press does nothing in the game)
+// the player's first key: puts the guard entry on (a Shift press does nothing in the game; any key but Escape — a user activation)
 const touch = page => page.keyboard.press("Shift");
 const press = (page, text) => page.locator("#leave button", { hasText: new RegExp(`^${text}$`) }).click();
 
@@ -75,7 +75,7 @@ test("Escape on the home screen asks too; Escape again, or Enter on the highligh
   await page.keyboard.press("Escape");
   await frames(page);
   expect(await dialog(page)).toMatchObject({ text: "Leave the game?", buttons: ["Yes", "No"] });
-  expect(await guard(page), "asked by a key: the guard entry is still on top").toBe(true);
+  expect(await guard(page), "Escape is no user activation (Chrome): it puts no guard entry on").toBe(false);
   await page.keyboard.press("Escape");
   expect(await dialog(page), "Escape again = No").toBe(null);
   await page.keyboard.press("Escape");
@@ -146,33 +146,79 @@ test("the Leave texts are in every language; the sim page has no guard", async (
   expect(errors).toEqual([]);
 });
 
-// SPEC-033 review: "Yes" with nothing behind the game (an installed app, a tab with no earlier entry) closes the window; a browser
-// that refuses leaves the game open with the guard on top, so the next Back asks again (never "no guard, next Back exits unasked")
-async function closeCase(page, query, oneEntry = false) {
+// SPEC-033 review: "Yes" with nothing behind the game (an installed app, a tab with no earlier entry) closes the window. Chrome refuses
+// window.close() for a window no script opened unless its history has one entry, and our guard makes it two: so when the page is still
+// there after LOOK.BACK_CLOSE_WAIT, the game steps off its guard (back to its own entry: no dialog, no new guard) and the next system
+// Back leaves (the Android app closes, the tab goes back). The next tap or key puts the guard back: a kid who stays is asked again.
+const isOff = () => !(history.state && history.state.bbGuard);
+async function refusedClose(page, query, { oneEntry = false, reopen = false } = {}) {
   await page.addInitScript(() => { window.__closed = 0; window.close = () => { window.__closed++; }; });
-  // a tab with no earlier entry has history.length 2 (the game + our guard); the test browser's page always has its about:blank before
+  // a tab with no earlier entry has history.length 2 (the game + our guard)
   if (oneEntry) await page.addInitScript(() => { Object.defineProperty(History.prototype, "length", { configurable: true, get: () => 2 }); });
   const errors = await openGame(page, { query });
+  if (reopen) {                                       // a real page behind the game, to see where the next Back goes
+    await page.goto("about:blank");
+    await page.goto("http://localhost:" + (process.env.PORT || 8123) + "/index.html" + query);
+    await page.waitForFunction(() => window.__bbReady === true);
+  }
+  const wait = await page.evaluate(() => window.__bb.CFG.BACK_CLOSE_WAIT * 1000);
+  await page.evaluate(() => { window.__bb.mode = "home"; });
+  await touch(page);
+  await back(page);
+  const t0 = Date.now();
+  await press(page, "Yes");
+  expect(await page.evaluate(() => window.__closed), "window.close() called").toBe(1);
+  expect([await dialog(page), await guard(page)], "the dialog is closed; the window gets BACK_CLOSE_WAIT to close, the guard waits on top").toEqual([null, true]);
+  await page.waitForFunction(isOff, null, { timeout: wait + 5000 });
+  expect(Date.now() - t0, "stepped off only after BACK_CLOSE_WAIT").toBeGreaterThanOrEqual(wait - 50);
+  await frames(page);
+  expect([await dialog(page), await mode(page), await guard(page), await page.evaluate(() => window.__bb.back.leaves)], "still here: off the guard, no dialog").toEqual([null, "home", false, 1]);
+  return errors;
+}
+test("Yes in an installed app closes the window; if it stays open the game steps off its guard, a new tap puts it back", async ({ page }) => {
+  const errors = await refusedClose(page, "?standalone=1");
+  const len = await page.evaluate(() => history.length);
+  await page.evaluate(() => { window.dispatchEvent(new Event("touchend")); });   // a new tap (touchend is a user activation)
+  expect([await guard(page), await page.evaluate(() => history.length)], "the guard is back, in place of the old one").toEqual([true, len]);
+  await touch(page);
+  expect(await page.evaluate(() => history.length), "once").toBe(len);
+  await back(page);
+  expect(await dialog(page), "the next Back asks again").not.toBe(null);
+  expect(errors).toEqual([]);
+});
+test("Yes in a tab with no earlier entry closes the window; if it stays open the next Back leaves unasked", async ({ page }) => {
+  const errors = await refusedClose(page, "", { oneEntry: true, reopen: true });
+  await Promise.all([page.waitForURL("about:blank"), page.evaluate(() => { setTimeout(() => history.back(), 0); })]);   // after evaluate returns: the page goes away
+  expect(page.url(), "the next Back is not intercepted").toBe("about:blank");
+  expect(errors.filter(e => !/closed|destroyed|Execution context/.test(e))).toEqual([]);
+});
+test("a pagehide while the window closes keeps the guard; pageshow (back from the cache) steps off again after a refusal", async ({ page }) => {
+  await page.addInitScript(() => { window.__closed = 0; window.close = () => { window.__closed++; }; });
+  const errors = await openGame(page, { query: "?standalone=1" });
+  const wait = await page.evaluate(() => window.__bb.CFG.BACK_CLOSE_WAIT * 1000);
   await page.evaluate(() => { window.__bb.mode = "home"; });
   await touch(page);
   await back(page);
   await press(page, "Yes");
-  expect(await page.evaluate(() => window.__closed), "window.close() called").toBe(1);
-  expect(await dialog(page), "the dialog is closed").toBe(null);
-  await page.waitForTimeout(900);                   // BACK_CLOSE_WAIT: still here, so the browser refused
-  expect(await guard(page), "the guard is on top").toBe(true);
-  expect(await page.evaluate(() => window.__bb.back.leaves)).toBe(1);
+  await page.evaluate(() => { window.dispatchEvent(new PageTransitionEvent("pagehide")); });   // the window is going away
+  await page.waitForTimeout(wait + 300);
+  expect(await guard(page), "closing: the guard is left alone").toBe(true);
+  await page.evaluate(() => { window.dispatchEvent(new PageTransitionEvent("pageshow", { persisted: true })); });
   await back(page);
-  expect(await dialog(page), "the next Back asks again").not.toBe(null);
+  await press(page, "Yes");
+  await page.waitForFunction(isOff, null, { timeout: wait + 5000 });
+  expect([await page.evaluate(() => window.__closed), await dialog(page)]).toEqual([2, null]);
   expect(errors).toEqual([]);
-}
-test("Yes in an installed app closes the window; if it stays open the next Back asks again", async ({ page }) => closeCase(page, "?standalone=1"));
-test("Yes in a tab with no earlier entry closes the window; if it stays open the next Back asks again", async ({ page }) => closeCase(page, "", true));
+});
 
-test("the guard is pushed at the first touch, not before; a pointer does it too", async ({ page }) => {
+test("the guard is pushed at the first touch, not before; a pointer does it too, on its release", async ({ page }) => {
   const errors = await openGame(page);
   expect(await guard(page)).toBe(false);
-  await page.mouse.click(5, 5);
+  await page.mouse.move(5, 5);
+  await page.mouse.down();
+  await page.evaluate(() => { window.dispatchEvent(new Event("touchstart")); });
+  expect(await guard(page), "a press is not yet a user activation for a touch: the release arms").toBe(false);
+  await page.mouse.up();
   expect(await guard(page)).toBe(true);
   const len = await page.evaluate(() => history.length);
   await page.keyboard.press("Shift");
