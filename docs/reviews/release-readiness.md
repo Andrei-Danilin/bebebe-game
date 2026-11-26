@@ -64,7 +64,7 @@ Also blocking a submission: no privacy page or parents' area in the app (RR-52),
 | RR-15 | LOW | `architecture.md` line table and section headers mislead the split | A14, M12 | 011 |
 | RR-16 | LOW | Hidden state changes in the frame loop and in drawing | A15 | 012 (AC 1f, moved from 011) |
 | RR-17 | HIGH | Single-key migration plan unsafe (key-presence rules, old tabs, unknown fields, rollback) | S4, M5 | 025 |
-| RR-18 | HIGH | "Reset progress" = two quick taps, no grown-up check, no undo | S2, R3 | 025 + decision |
+| RR-18 | HIGH | "Reset progress" = two quick taps, no grown-up check, no undo — done (SPEC-025, SPEC-033: the reset is on the grown-ups page) | S2, R3 | 025 + decision |
 | RR-19 | HIGH | An unreadable save is replaced without a trace, sometimes at startup | S1 | 025 |
 | RR-20 | HIGH | The planned backup is one write deep | S3 | 025 |
 | RR-21 | HIGH | Saves are synchronous `localStorage` at import; the wrapper needs an async native store | S5 | 025 + later |
@@ -100,13 +100,13 @@ Also blocking a submission: no privacy page or parents' area in the app (RR-52),
 | RR-51 | LOW | Per-frame garbage; event-log splice; A* allocations | F12 | BACKLOG (deferred from 012) |
 | RR-52 | BLOCKER | No privacy policy or parents' page in the app | K2 | 025 (slot) + later + decision |
 | RR-53 | HIGH | Planned parental gate is not an adult task; no Portuguese | K3 | 025 |
-| RR-54 | HIGH | Rules text: Dad "pushes you and breaks your leg", "limp home" | K4 | decision + later |
+| RR-54 | HIGH | Rules text: Dad "pushes you and breaks your leg", "limp home" — done (SPEC-033) | K4 | decision + later |
 | RR-55 | MEDIUM | SPEC-013 "Share" / `?room=` links would leave the app without a gate | K5 | BACKLOG |
 | RR-56 | MEDIUM | SPEC-013 sends a persistent `deviceId` | K6 | BACKLOG |
 | RR-57 | MEDIUM | Online server data handling not written as a kids' policy needs | K7 | BACKLOG |
 | RR-58 | LOW | Error log and handlers must stay local and name-free | K10 | 025 |
 | RR-59 | LOW | `navigator.storage.persist()` prompts in Firefox | K11 | 025 |
-| RR-60 | LOW | Shop wording looks like a purchase screen | K9 | decision + later |
+| RR-60 | LOW | Shop wording looks like a purchase screen — done (SPEC-033) | K9 | decision + later |
 | RR-61 | LOW | Kostya's name in the credits and the public repo | K12 | decision + BACKLOG |
 | RR-62 | LOW | `v1-2d/`, `__bb`, debug flags must not ship in the store build | K13 | later |
 | RR-63 | LOW | Strangers can join a room through a forwarded link | K14 | BACKLOG |
@@ -116,7 +116,7 @@ Also blocking a submission: no privacy page or parents' area in the app (RR-52),
 | RR-67 | MEDIUM | Benign promise rejections would trigger false Oops cards | R9 | 025 |
 | RR-68 | MEDIUM | Two taps in one frame run two actions (skip into a locked level, buy without confirm) | R7 | 025 |
 | RR-69 | MEDIUM | Gamepads tracked by list position: a disconnect swaps players, phantom presses | R8, M14 | 025 (may move later) |
-| RR-70 | MEDIUM | Android Back leaves the app mid-level | R10, P12 | 025 (seam) + later + decision |
+| RR-70 | MEDIUM | Android Back leaves the app mid-level — done (SPEC-033: "Leave the game?"; the store wrapper's native Back is later) | R10, P12 | 025 (seam) + later + decision |
 | RR-71 | MEDIUM | Flaky `bosses.spec.js:143` (assert :163): the cause is unseeded test starts | R11 | 011 (AC 8d, Phase A) |
 | RR-72 | LOW | Rotation/resize edge cases (live buttons under the rotate overlay, resize storms) | R12 | BACKLOG |
 | RR-73 | LOW | Two fingers on one stick half stop the hero | R14 | BACKLOG |
@@ -125,10 +125,10 @@ Also blocking a submission: no privacy page or parents' area in the app (RR-52),
 | RR-76 | HIGH | "All tests over http" under-specified: balance/perf scripts, SW in every test, file:// SW test | M4 | 011 |
 | RR-77 | HIGH | No store release pipeline: signing keys, tag → build, staged rollout, store rollback | M6, M15 | later + decision |
 | RR-78 | MEDIUM | Dependency updates: three.js in three places, Dependabot PRs get no CI, `lts/*` | M7 | 025 |
-| RR-79 | MEDIUM | Text-fit tests depend on the CI machine's fonts | M8 | decision + BACKLOG |
+| RR-79 | MEDIUM | Text-fit tests depend on the CI machine's fonts — CI font mode done (SPEC-033; the bundled font is later) | M8 | decision + BACKLOG |
 | RR-80 | MEDIUM | SPEC-012 Node tests: Playwright would load them; planned to gate only master | M10 | 012 |
 | RR-81 | MEDIUM | CI time doubled in two days; uneven shards | M11 | BACKLOG |
-| RR-82 | MEDIUM | No web rollback or hotfix runbook | M13 | 025 + decision |
+| RR-82 | MEDIUM | No web rollback or hotfix runbook — done (SPEC-033) | M13 | 025 + decision |
 | RR-83 | LOW | CI gate details: `retries: 0`, report shard count, actions pinned by tag | R13 | 025 + decision |
 | RR-84 | LOW | Bus factor: one account, unprotected `master` | M15 | 025 + decision |
 
@@ -270,6 +270,7 @@ What a lost save costs a child today: every world goes back to locked (the Field
 - **Spec:** SPEC-025 AC 3 (changed).
 
 #### RR-18 HIGH: "Reset progress" is two quick taps for anyone, with no grown-up check and no undo [S2, R3]
+- **Status (2026-11-26):** done (SPEC-025 safe flow; SPEC-033 moved it to the grown-ups page).
 - **Location:** `resetProgress` 2680–2689 (the first call arms, the second wipes, no minimum delay). The armed "Sure?" button is in the same rect (phone 6401–6405, desktop 6814), and buttons fire on `pointerdown` (3236). `game-design.md`: "double tap … (придумал Claude)".
 - **Why:** Small children double-tap all the time. Two taps ~100 ms apart, or two fingers in one frame (RR-68), erase everything. In a Kids-category app this is the most likely real-world loss of progress, more likely than storage failure. The planned single backup does not help (RR-20).
 - **Fix:** After the first tap the reset button shows "No, keep it". A separate confirm sits at a different spot and ignores taps for `CFG.RESET_CONFIRM_DELAY` s. The armed texts `sure`/`sureShort` ("Sure? Tap again") are retired. Before wiping, the current save is kept as `bebebe-save-before-reset`, and an undo is offered. Moving the button behind the parents' gate is decision D-12 (recommended).
@@ -511,6 +512,7 @@ Verified today: one third-party request (three.js, RR-29). No analytics, ads, fo
 - **Spec:** SPEC-025 AC 6 (changed).
 
 #### RR-54 HIGH: Rules text says Dad "pushes you and breaks your leg"; you "limp home" [K4]
+- **Status (2026-11-26):** done (SPEC-033).
 - **Location:** `I18N.*.rules`: en 658/660, es 744, pt 821, ru 899. Softer related texts: "BAM!" with a red burst (678/580); "Get out of my house!" (730).
 - **Why:** Since SPEC-022 the Big One is "Dad". A Kids or Teacher Approved reviewer may read the line as an adult injuring a child. The line pushes the rating answer to "cartoon violence: infrequent/mild" (Apple 9+ instead of 4+, possibly PEGI 7). The tutorial already says it gently ("he pushes — and you fall down!", 711).
 - **Fix:** Reword only (mechanic, numbers and visuals unchanged), e.g. "he pushes you and you fall down; friends help you up … you go home to rest". This is a kids' rule ("the leg breaks"), so it is **decision D-1** only. No spec changes it.
@@ -539,6 +541,7 @@ Verified today: one third-party request (three.js, RR-29). No analytics, ads, fo
 - **Spec:** SPEC-025 AC 5 (changed).
 
 #### RR-60 LOW: Shop wording looks like a purchase screen [K9]
+- **Status (2026-11-26):** done (SPEC-033).
 - **Location:** 🛒 Shop on the win and lose screens (6588/6592); `buy`, `buyFor`, `pack`, … (688–736 and the other languages).
 - **Why:** It is not IAP ("In-app purchases: No"), but a cart and "Buy" on the lose screen look like a purchase nudge to a reviewer or parent.
 - **Fix:** Show 🪙 in every price, drop 🛒 from the end screens, and consider "Get". The Shop button on the end screens is Andrei's (SPEC-026): **decision D-8**.
@@ -599,6 +602,7 @@ Verified today: one third-party request (three.js, RR-29). No analytics, ads, fo
 - **Spec:** SPEC-025 AC 7e (may move to a later release spec; see SPEC-025 Review notes).
 
 #### RR-70 MEDIUM: Android Back leaves the app mid-level, without pausing or settling [R10, P12]
+- **Status (2026-11-26):** done (SPEC-033; the wrapper's native Back is later).
 - **Location:** No `popstate` handling and no Capacitor `backButton`; Escape is mapped per screen in `onKey()` 3142–3191.
 - **Why:** Children trigger the edge-swipe Back by accident. In-level coins and a pending win are lost. Play's quality guidelines expect Back to move through the app's screens.
 - **Fix:** SPEC-025 exposes one `goBack()` (today's Escape logic) as the only back handler, plus `__bb.goBack`. The wrapper (later) wires the native Back to it. What Back does on the home screen is decision D-14.
@@ -669,6 +673,7 @@ Facts:
 - **Spec:** SPEC-025 AC 11 (changed).
 
 #### RR-79 MEDIUM: Text-fit tests depend on the CI machine's fonts [M8]
+- **Status (2026-11-26):** CI font mode done (SPEC-033).
 - **Location:** `font-family: system-ui, …` (17/26); `CFG.TEXT_TEST_SCALE`; eight "fits with CI fonts" commits; 7 of 10 red Tests runs.
 - **Why:** Every spec loses ~15 min CI rounds to text that fits locally. Real devices (Roboto, SF, OEM fonts) are not measured. Portuguese texts were already shortened for CI.
 - **Fix:** Either bundle one licensed web font for canvas and CSS (a visual change, **decision D-3**), or add a local `PW_FONT=ci` mode for the 667 runs.
@@ -685,6 +690,7 @@ Facts:
 - **Spec:** BACKLOG.
 
 #### RR-82 MEDIUM: No web rollback or hotfix runbook [M13]
+- **Status (2026-11-26):** done (SPEC-025 runbook; SPEC-033 revert rule and `ref` input).
 - **Location:** CLAUDE.md §8 covers only the forward path; `pages.yml` has no `ref` input; `sw.js` keeps a cached broken shell on slow networks.
 - **Why:** Today the way back is a revert, a spec-branch run (≥ 15 min), a merge and a Pages run (≥ 15 min plus a fragile deploy).
 - **Fix:** A rollback section in the release doc. `pages.yml` `workflow_dispatch` takes a `ref` to redeploy a known-good tag. A PWA test checks that a broken shell is replaced on the next online launch. "A revert may go straight to master" is **decision D-7**.
@@ -743,59 +749,61 @@ Facts:
 
 Each item would change a goal, a decision-type out-of-scope line, or a rule that belongs to the kids, Kostya or Andrei. None of them is written into a spec as decided. The specs either leave the current behaviour or say "if Andrei agrees".
 
-1. **D-1 Rules text "breaks your leg / limp home"** (RR-54, K4).
+**Status (2026-11-26):** Andrei decided D-1, D-2 (Capacitor), D-3, D-4, D-7, D-8, D-10, D-11 (→ SPEC-034), D-12, D-14, D-15, D-16 (not now) and D-17 as recommended; SPEC-033 carries out D-1, D-3, D-7, D-8, D-12, D-14 and D-15. **Still open: D-5, D-6, D-9, D-13.**
+
+1. **D-1 Rules text "breaks your leg / limp home"** (RR-54, K4). — **decided by Andrei, 2026-11-26: as recommended (softer wording, SPEC-033).**
    - **Question:** May the "How to play" lines say "he pushes you and you fall down; friends help you up … go home to rest" instead of "breaks your leg … limp home"? The mechanic, numbers and pictures stay the same.
    - **Options:** keep the text; soften the wording only; ask the kids for their own words.
    - **Recommendation:** soften it, in the kids' words if possible. The tutorial already says "you fall down". This decides Apple 4+ vs 9+ and PEGI 3 vs 7.
-2. **D-2 Capacitor or TWA** (RR-32, P7, K8).
+2. **D-2 Capacitor or TWA** (RR-32, P7, K8). — **decided by Andrei, 2026-11-26: as recommended: Capacitor for both stores.**
    - **Options:** Capacitor for both stores; TWA for Android (+ something else for iOS).
    - **Recommendation:** Capacitor for both stores, and keep the PWA as the web version. A TWA cannot start offline on first launch and loads code from github.io on every launch.
-3. **D-3 A bundled font** (RR-79, M8).
+3. **D-3 A bundled font** (RR-79, M8). — **decided by Andrei, 2026-11-26: as recommended: `PW_FONT=ci` now (SPEC-033), the bundled font is chosen with samples before packaging.**
    - **Question:** Ship one licensed web font for all texts, so CI, Android and iOS measure the same? This is a visual change to the comic UI.
    - **Options:** keep system fonts, and add a local `PW_FONT=ci` mode to catch CI-only misfits; bundle a rounded, child-friendly font (choose from samples).
    - **Recommendation:** add `PW_FONT=ci` now (BACKLOG). Decide the font with samples before packaging.
-4. **D-4 What the low quality tier may drop** (RR-43, F2).
+4. **D-4 What the low quality tier may drop** (RR-43, F2). — **decided by Andrei, 2026-11-26: as recommended.**
    - **Question:** On weak devices, which parts of the SPEC-021 comic look may go?
    - **Recommendation:** keep outlines and hatching. Drop MSAA and paper grain, change PCF shadows to basic 1024 or blob shadows, and show half of the background decor.
-5. **D-5 Own domain for the web version** (RR-26, S11).
+5. **D-5 Own domain for the web version** (RR-26, S11). — **still open.**
    - **Options:** stay on `andrei-danilin.github.io/bebebe-game/`; a custom domain (yearly cost; the URL changes and saves move only through the parents' code); a separate org/user Pages site.
    - **Recommendation:** an own origin before the web version is promoted.
-6. **D-6 Who holds the store accounts and keys, and the backup person** (RR-77, RR-84, M6, M15).
+6. **D-6 Who holds the store accounts and keys, and the backup person** (RR-77, RR-84, M6, M15). — **still open.**
    - **Question:** Who owns the Google Play and Apple developer accounts, the Android upload key and its password? Who is the second person with recovery access?
    - **Recommendation:** Play App Signing (Google keeps the app key); the upload key in a password manager plus an offline backup; one named backup person with documented recovery for GitHub, Google, Apple and the claude.ai project.
-7. **D-7 A revert straight to master** (RR-82, M13).
+7. **D-7 A revert straight to master** (RR-82, M13). — **decided by Andrei, 2026-11-26: as recommended (a revert of a merge commit straight to `master`, a tag redeploy; SPEC-033).**
    - **Question:** When a deploy breaks the game for kids, may `Revert SPEC-NNN` go straight to `master` and deploy, without the spec-branch CI run first?
    - **Options:** keep today's rule (revert as a branch run, ≥ 30 min to live); allow a revert of a merge commit only, with the Pages tests still gating the deploy; also allow redeploying a known-good tag through `workflow_dispatch`.
    - **Recommendation:** allow it for reverting a merge commit only, and add the tag redeploy.
-8. **D-8 Shop / "Buy" wording** (RR-60, K9).
+8. **D-8 Shop / "Buy" wording** (RR-60, K9). — **decided by Andrei, 2026-11-26: as recommended ("Get for 🪙 N", SPEC-033).**
    - **Question:** Keep 🛒 "Shop" on the win and lose screens and "Buy for N"? (The Shop button is Andrei's, SPEC-026; the coin shop is in Kostya's story.)
    - **Recommendation:** keep the shop. Show 🪙 in every price, drop the 🛒 icon on the lose screen, and consider "Get" instead of "Buy".
-9. **D-9 Kostya's name in the credits and the public repo** (RR-61, K12).
+9. **D-9 Kostya's name in the credits and the public repo** (RR-61, K12). — **still open.**
    - **Options:** keep "Made by Kostya and Dad" and the public repo; first name off the credits; make the repo private (Pages from a private repo needs a paid plan) or move the family docs.
    - **Recommendation:** a family choice before the store listing. Store rules allow either.
-10. **D-10 Minimum device** (RR-36, RR-65, F10, P9).
+10. **D-10 Minimum device** (RR-36, RR-65, F10, P9). — **decided by Andrei, 2026-11-26: as recommended.**
     - **Question:** Officially require WebGL2 / GLES 3.0, iOS 16.4+ and Android WebView ≥ Chrome 94?
     - **Recommendation:** yes. three.js r187 already needs these. Declare them in the store builds, and show "This device can't show the 3D game" below them.
-11. **D-11 A fixed live time step** (RR-08, A5).
+11. **D-11 A fixed live time step** (RR-08, A5). — **decided by Andrei, 2026-11-26: as recommended: its own small spec, SPEC-034.**
     - **Question:** Should live play advance in fixed steps (e.g. 1/60 s from an accumulator), so the game behaves the same on a 30 Hz phone, a 120 Hz iPad, the balance report and the future server?
     - **Options:** keep today's one step per frame (SPEC-012 only documents it); fixed 1/60 (no visible change on normal devices, steadier on slow ones); 1/30 (would change the feel, not recommended).
     - **Recommendation:** fixed 1/60 in its own small spec after SPEC-012, with a balance run.
-12. **D-12 Reset progress behind the parents' gate** (RR-18, S2, R3).
+12. **D-12 Reset progress behind the parents' gate** (RR-18, S2, R3). — **decided by Andrei, 2026-11-26: as recommended (SPEC-033).**
     - **Question:** Move "Reset progress" from the child's Progress page to the grown-ups page behind the gate? The double-tap rule is Claude's, but the button leaves the child's page.
     - **Recommendation:** yes, with "bring back erased progress" (undo) there too. SPEC-025 does the safe part either way: a delayed confirm at another spot, plus undo.
-13. **D-13 Privacy policy text, contact and developer name** (RR-52, K2).
+13. **D-13 Privacy policy text, contact and developer name** (RR-52, K2). — **still open.**
     - **Question:** Who is named as developer (a person or a legal entity), which contact email goes into the policy, and what is the final legal wording? Publishing is parked, so this is for the release spec. Also: may SPEC-025 already add a short factual "Privacy" section to the new grown-ups page (what is stored, nothing sent, how to erase it; not the legal policy), or does all privacy text wait for the release spec?
     - **Recommendation:** yes to the short in-app section in SPEC-025 (it is offline, has no link and states only what the code does). For the policy: use the factual list in Appendix A, a dedicated contact address, and the same text in the app and on the website.
-14. **D-14 What Android Back does on the home screen** (RR-70, R10).
+14. **D-14 What Android Back does on the home screen** (RR-70, R10). — **decided by Andrei, 2026-11-26: as recommended (SPEC-033).**
     - **Options:** leave the app at once; ask "Leave the game?" with big Yes/No; leave on a second Back within 2 s.
     - **Recommendation:** ask, with big buttons.
-15. **D-15 One automatic retry for flaky tests on CI** (RR-83, R13).
+15. **D-15 One automatic retry for flaky tests on CI** (RR-83, R13). — **decided by Andrei, 2026-11-26: as recommended: `retries: 0` stays (SPEC-033).**
     - **Question:** `retries: 1` on CI changes SPEC-023's "green means green".
     - **Recommendation:** keep `retries: 0` and fix flakes at the root (seeding, RR-71).
-16. **D-16 The second test pass on master** (RR-74 option, M1).
+16. **D-16 The second test pass on master** (RR-74 option, M1). — **decided by Andrei, 2026-11-26: as recommended: not now.**
     - **Question:** Skip the Pages test pass when the merge commit's tree equals a branch commit whose Tests run is green? (Andrei's speed rule says the Pages workflow tests master again.)
     - **Recommendation:** not now. Fix the deploy first (SPEC-011), then decide.
-17. **D-17 Device pass thresholds** (section 5).
+17. **D-17 Device pass thresholds** (section 5). — **decided by Andrei, 2026-11-26: as recommended.**
     - **Question:** Confirm the proposed fps, memory, battery and start-time thresholds, and the reference devices.
     - **Recommendation:** as proposed in section 5.
 
@@ -805,7 +813,14 @@ Each item would change a goal, a decision-type out-of-scope line, or a rule that
 - SPEC-011 and SPEC-025 each run as three merges (phases) instead of one, because the queue 024 → 011 → 012 → 025 stays as Andrei set it.
 - SPEC-025 changes Claude's reset rule (a "No, keep it" button and a separate, delayed confirm spot, plus undo) and the "unknown fields dropped" plan, and adds a gated "Erase all data on this device" (RR-17, RR-18).
 - SPEC-025 saves a win that is already decided when the app is hidden. This extends the rule at `game-design.md` :67–68, which is marked "решено во время запуска, проверить с детьми", so it can be checked with the kids together with that rule (RR-24).
-- The rating answers in Appendix B assume D-1 stays open.
+- D-1 is decided (the rules text is softer, SPEC-033), so the rating answers in Appendix B may use the softer text.
+- **SPEC-025 run decisions, confirmed by Andrei (2026-11-26):**
+  - the app losing focus (blur) pauses the game but keeps the sound;
+  - "Try again" (reload) appears on the "Oops" card when the same error repeats;
+  - the parents' gate waits 3 s after a wrong answer before its answers can be pressed;
+  - a reset keeps two copies, so a second reset after a short play loses neither progress;
+  - a release re-downloads the caches (shell and modules by `SRC_HASH`, sprites by `ASSETS_HASH`);
+  - the version label reads `1.0.0-dev+<hash>`.
 
 ---
 

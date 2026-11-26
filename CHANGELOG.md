@@ -20,6 +20,9 @@ The version is `package.json` `version` (shown on the "For grown-ups" page); how
 - Kids' feedback, round 2: a 👣 tiptoe button on touch screens and a Dad who doesn't hear every step, a new How to play
   page with Pictures and Practice, comic words written inside the drawn bubbles, a language screen on the very first
   launch, "Character" on the win and lose screens, and our own drawn icons instead of emoji (SPEC-032).
+- A "How to play" card after the first comic, one big picture in the "How it began" story, softer words about falling
+  down, "Get for 🪙" instead of "Buy", "Reset progress" moved behind the grown-ups question, a roomier win title, and
+  "Leave the game?" when Back is pressed on the home screen (SPEC-033).
 
 ## [1.0.0-dev] - what is in the game today
 

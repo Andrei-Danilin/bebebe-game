@@ -5,10 +5,10 @@ A top-down arcade game designed by kids: the **Little Ones** team against the **
 **Play:** https://andrei-danilin.github.io/bebebe-game/
 
 - Sneak up **behind** the Big One and hug him — he loses a heart.
-- If he **sees** you (yellow vision cone), he pushes you and your leg breaks: you can't move.
+- If he **sees** you (yellow vision cone), he pushes you and you fall down: you can't move.
 - A friend must stand next to you for 3 seconds to help you up. If the friend steps away, the progress slowly
   drains; if the friend gets pushed, it starts over. Bots set off to help 2–3 seconds after you fall.
-  If nobody helps within 18 seconds, you limp home and rest there for 30 seconds, then come back.
+  If nobody helps you up within 18 seconds, you go home to rest for 30 seconds, then come back.
   There is no game over — but every rest costs coins (−3 from the win line).
 - **Near Dad — tiptoe!** If you run close to the Big One where he can't see you, he hears you: an 👂 pops up
   over his head, then a ❓ and he turns round to look — but not every time: sometimes he misses it. Tiptoe (hold
@@ -19,14 +19,14 @@ A top-down arcade game designed by kids: the **Little Ones** team against the **
 - Your house is a safe zone: the Big One can't get in. Bushes hide you.
 - The Big One's house is not for you: stay inside for 5 seconds (a big "3, 2, 1" warns you) and he throws you
   out of the door — "Get out of my house!" You are dizzy for 2 seconds (you can't move, but he can't push you
-  either); your leg is fine.
+  either); you are fine.
 - Golden **bonus stars** pop up around the map now and then: run over one for +3 coins. Only players can pick
   them up — bots leave them to you.
 - When you hug him, you jump on his back for a second — hearts everywhere.
 - **Air kisses** (from the shop): send one from afar and it flies where you look. A hit takes half a heart and the
   Big One blushes for 1.5 s: he stands still, pushes nobody — and you can hug him from behind. Walls, trees and
   rocks stop a kiss; ponds and bushes don't. No kissing from your house.
-- **Rescue kits** 🩹 (from the shop): while your leg is broken, while you limp home or while you rest in the
+- **Rescue kits** 🩹 (from the shop): while you are down, while you go home or while you rest in the
   house, use one and you jump up right where you are, with 2 s of protection. Used before the 18 seconds run
   out, it doesn't count as a rest (no coin penalty, the "nobody rested" star stays). Only players use them.
 - 1–2 players + bots (5 Little Ones in total; one player on a phone). Bots mostly rescue fallen friends.
@@ -49,14 +49,15 @@ Every scene can be skipped and watched again in **Story** (▶ on the chapter pi
 
 ## The tutorial
 
-On the very first launch the comic is followed by a short **tutorial** (Skip on every page jumps to the end):
+On the very first launch the comic is followed by a **How to play** card (a picture, "Let's learn!" and Skip), then a
+short **tutorial** (Skip on the card or on any page jumps to the end):
 picture pages about hugs, pushes, rescues and tiptoeing → **practice game 1** (you and one bot against a slow Dad
 with 3 hearts: the bot gets pushed, you help it up, sneak behind Dad and hug him three times) → picture pages about
 the items, the banana, air kisses, the rescue kit and the mittens → **practice game 2** (lots of items and bananas,
 5 air kisses and 1 rescue kit just for this game, Dad with 5 hearts) → "You're ready!" and the level map with
 level 1 waiting. You can't lose a practice game, and nothing you do there changes your coins, stars, levels or
 things. On the Story's **❓ How to play** page, **Pictures** shows the tutorial's picture pages again and
-**Practice** plays the two practice games again.
+**Practice** plays the two practice games again (neither shows the card).
 Since SPEC-029 Dad starts with **5 hearts** on Park 1 (one fewer on every level).
 
 ## Starting a level
@@ -78,8 +79,8 @@ Character's **Progress** page.
 
 So from opening the game to playing is three taps: Play → the bouncing stop → Play.
 
-**Story** — the comic of the whole adventure, chapter by chapter: How it began (Dad's own words in the comic's speech
-bubbles), one chapter per world, How it ended (after the School's boss). A world's chapter opens with the world; until the comic pictures are drawn, a
+**Story** — the comic of the whole adventure, chapter by chapter: How it began (one big first picture with Dad's own words in its speech
+bubble; ▶ plays the whole comic), one chapter per world, How it ended (after the School's boss). A world's chapter opens with the world; until the comic pictures are drawn, a
 pencil sketch says "Comic coming soon". **❓ How to play** on the story screen shows the rules with
 pictures, the tutorial's first picture sheet and the controls; its **Pictures** button pages through all the tutorial
 pictures, and **Practice** plays the two practice games.
@@ -155,7 +156,7 @@ Menus:
 
 | Screen | Keyboard | Gamepad | Touch |
 |---|---|---|---|
-| Home | `Enter` / `Space` — Play, `S` — Story, `B` — Character | A — Play, X — Story, Y — Character | tap the buttons |
+| Home | `Enter` / `Space` — Play, `S` — Story, `B` — Character, `Esc` — "Leave the game?" (Yes / No) | A — Play, X — Story, Y — Character, B — "Leave the game?" | tap the buttons; Android Back — "Leave the game?" |
 | Level map | `←` / `→` — world (locked worlds are skipped), `↑` / `↓` — pick a stop, `Enter` — its level card, `Esc` — home | D-pad left/right or the shoulder buttons (LB / RB) — world, D-pad up/down — stop, A — card, B — home | tap a tab or a stop; swipe left/right — world |
 | Level card | `Enter` or `1` — one player, `2` — two players, `S` — the world's story chapter, `Esc` — close | A — one player, X — two players, Y — story chapter, B — close | Play (computer: 1 / 2 players), ✕ or a tap outside — close |
 | Story | `←` / `→` — chapter, `V` — watch the chapter's scene again, `Esc` — back | D-pad or shoulders — chapter, X — watch the scene, Y — How to play, B — back | ◀ ▶ or swipe, ▶ on the picture — watch the scene |
@@ -192,14 +193,16 @@ There you can:
 - **Copy my progress code** / **Paste a code** — the whole save (progress, outfits, names, language) as one line of
   text. Use it to move progress to another device or browser, or later into the store app. Pasting asks before it
   replaces anything, and the old progress is kept as a copy.
+- **Reset progress** (moved here from the Progress page): the first tap asks "Reset all progress?", and a separate
+  "Yes, erase everything" button works only after a moment.
 - **Bring back erased progress** after "Reset progress", and **Restore an older copy** (each copy shows its date,
   stars and coins). If a save ever gets broken, the game loads the newest good copy by itself and says so.
 - See the game's **version** (like `1.0.0-dev+<code>`; the code after `+` names the exact build).
 - Read the **Error log** (kept only on this device, never sent).
 - **Erase all data on this device** — the game starts as on a new device.
 
-"Reset progress" (Character → Progress) can't happen by accident any more: the first tap shows "No, keep it", and a
-separate "Yes, erase everything" button appears elsewhere and works only after a moment.
+"Reset progress" is only on the grown-ups page, behind the grown-up question, and can't happen by accident: the first
+tap asks, and a separate "Yes, erase everything" button works only after a moment.
 If the browser can't store anything (private mode, full storage), the game still plays and the menu says once that
 this device isn't keeping progress.
 
@@ -228,8 +231,8 @@ Leaving a level before the win (pause → Map or Home) pays the hugs only; leavi
 **Items** · **Wardrobe** (outfits and names, see below) · **Upgrades**. **Progress** (opened from home) shows player 1's
 look and name, the stars (out of 240) and finished worlds, one row per world (stars out of 60, levels won out of 20, a
 "done" stamp, a padlock on a locked world; under the rows, which world to finish next), the bag (gloves, air kisses, rescue kits), the upgrade levels and how
-many clothes you own — and the "Reset progress" button. **Items**: gloves, air kisses and rescue kits, bought with
-coins in packs.
+many clothes you own. The page is only for looking. **Items**: gloves, air kisses and rescue kits, got with coins
+("Get for 🪙 N") in packs.
 
 | Item | Price | Pack | Effect |
 |---|---|---|---|
@@ -253,7 +256,7 @@ bots or the Big One):
 | ⏳ Long items | boots, invisibility and shield you pick up last 15 % longer |
 | 🤝 Quick help | you lift a friend 10 % faster (3 → 2.1 s) |
 
-"Reset progress" (on the Progress page, tap twice) starts over — coins, stock, clothes and upgrades.
+"Reset progress" (on the grown-ups page) starts over — coins, stock, clothes and upgrades.
 
 ## Worlds
 
@@ -288,7 +291,7 @@ Bots get different outfits every level.
 
 The basic clothes are free (all hair, 4 hats, 4 jackets, 4 pants, Classic, Ogre and the Dad); the rest cost 40, 80 or 150
 coins and are kept forever once bought. A locked item shows 🔒 and its price: flip to it to try it on, then tap
-"Buy for N" twice. Leave the Wardrobe tab without buying and your last own look comes back; 🎲 picks only from your own
+"Get for 🪙 N" twice. Leave the Wardrobe tab without buying and your last own look comes back; 🎲 picks only from your own
 clothes. Clothes worn in a save from before the wardrobe stay yours.
 
 ## Names
