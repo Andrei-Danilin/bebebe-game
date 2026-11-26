@@ -127,6 +127,8 @@
  "openFriends": "function",
  "openMap": "function",
  "openNameInput": "function",
+ "openPictures": "function",
+ "openPractice": "function",
  "openScene": "function",
  "openShop": "function",
  "openStory": "function",

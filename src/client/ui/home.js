@@ -69,7 +69,7 @@ function homeIcons(x1, y, langW, w, h, size) {
 // центру всей кнопки: сначала мельчает под всю ширину (fitLine, поля btnPad), потом, если залезает на значок с отступом, сдвигается
 // вправо ровно настолько; мельчает дальше, только если и сдвиг не помог. null — нет картинок (бумаги или значка): рисует вызывающий.
 // Возвращает геометрию для __bb.homeInfo.buttons: { id, x, y, w, h, gap, icon: { x, y, w, h }, label: { x, w, cx, size, shifted } }
-function homeButton(x, y, w, h, a, size, min) {
+export function homeButton(x, y, w, h, a, size, min) {
   const D = LOOK.MENU_LOOK.home, paper = PAPER_BTN[a.color], pic = artPick(a.icon), pad = (PHONE ? cpx(1) : 1) * D.btnPad / 2;
   if (!paperUI() || !paper || !pic || !art(paper)) return null;
   // SPEC-032 AC 6: от видимого края нарисованной кнопки (не от прозрачного поля картинки) — btnIconGap × её высоты, значок btnIcon × высоты

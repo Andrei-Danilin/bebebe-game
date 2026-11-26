@@ -286,7 +286,7 @@ export function scenePages(id) {
 // SPEC-029: opts.skip — своё «Пропустить» (обучение: сразу в конец; кнопка на каждой странице), а «Дальше» после последней — then
 export function openScene(id, then = null, opts = {}) {
   if (!SCENE_IDS.includes(id) && !TUTORIAL_SCENES.includes(id)) return false;
-  ui.storyScene = { id, page: 0, then, mark: opts.mark !== false && SCENE_IDS.includes(id), play: !!opts.play, skip: opts.skip || null };
+  ui.storyScene = { id, page: 0, then, mark: opts.mark !== false && SCENE_IDS.includes(id), play: !!opts.play, skip: opts.skip || null, back: !!opts.back };
   setMode("scene");
   return true;
 }
@@ -307,6 +307,8 @@ export function sceneSkip() {
 // дальше (Enter, пробел, A, тап, «Дальше» / «Играть» / «Готово»): следующая страница, после последней — к тому, что дальше
 export function sceneNext() { if (ui.storyScene && ui.storyScene.page < scenePageCount() - 1) { ui.storyScene.page++; screenChanged(); } else sceneDone(); }
 export function scenePrev() { if (ui.storyScene && ui.storyScene.page > 0) { ui.storyScene.page--; screenChanged(); } }
+// SPEC-032 AC 8: «◀ Назад» листалки (opts.back): страница назад, на первой — выход (как «Пропустить»)
+export function sceneBack() { if (ui.storyScene && ui.storyScene.page > 0) scenePrev(); else sceneSkip(); }
 // заставка перед уровнем (мир, n), если её ещё не показывали: босс — перед 20-м уровнем основного мира, бонусный мир — перед
 // любым своим уровнем (первый раз это его первый уровень)
 function sceneBefore(world, n) {

@@ -93,6 +93,7 @@ export const I18N = {
       g2item: "Grab an item!", g2banana: "Lead Dad onto a banana!", g2kiss: k => `Send an air kiss 💋 (${k})`, g2kit: k => `Use the rescue kit 🩹 to get up! (${k})`,
       kissKey: "press E", kissTouch: "tap the 💋 button", kitKey: "press Q", kitTouch: "tap 🩹"
     },
+    pictures: "Pictures", sceneBack: "Back",   // SPEC-032 AC 8: «Картинки» на «Как играть»; «◀ Назад» листалки
     chapters: { began: "How it began", ended: "How it ended" }, endedLocked: "Win level 20 at the School to read the ending", howToPlay: "How to play",
     upg: { fastFeet: { name: "Fast feet", desc: p => `+${p}% speed` }, longItems: { name: "Long items", desc: () => "Items last longer" },
       quickHelp: { name: "Quick help", desc: () => "Lift friends faster" } },
@@ -176,6 +177,7 @@ export const I18N = {
       g2item: "¡Agarrá un objeto!", g2banana: "¡Llevá a Papá hasta una banana!", g2kiss: k => `Mandá un besito volador 💋 (${k})`, g2kit: k => `¡Usá la curita mágica 🩹 para levantarte! (${k})`,
       kissKey: "apretá E", kissTouch: "tocá el botón 💋", kitKey: "apretá Q", kitTouch: "tocá 🩹"
     },
+    pictures: "Dibujos", sceneBack: "Atrás",
     chapters: { began: "Cómo empezó", ended: "Cómo terminó" }, endedLocked: "Ganá el nivel 20 de la Escuela para leer el final", howToPlay: "Cómo se juega",
     upg: { fastFeet: { name: "Pies rápidos", desc: p => `+${p}% velocidad` }, longItems: { name: "Cosas duraderas", desc: () => "Duran más" },
       quickHelp: { name: "Ayuda rápida", desc: () => "Levantás más rápido" } },
@@ -263,6 +265,7 @@ export const I18N = {
       g2item: "Pegue um item!", g2banana: "Leve o Papai até uma banana!", g2kiss: k => `Mande um beijinho 💋 (${k})`, g2kit: k => `Use o kit de resgate 🩹 para levantar! (${k})`,
       kissKey: "aperte E", kissTouch: "toque no botão 💋", kitKey: "aperte Q", kitTouch: "toque em 🩹"
     },
+    pictures: "Figuras", sceneBack: "Voltar",
     chapters: { began: "Como tudo começou", ended: "Como tudo terminou" }, endedLocked: "Vença a fase 20 da Escola para ler o final", howToPlay: "Como jogar",
     upg: { fastFeet: { name: "Pés rápidos", desc: p => `+${p}% de velocidade` }, longItems: { name: "Itens duradouros", desc: () => "Duram mais" },
       quickHelp: { name: "Ajuda rápida", desc: () => "Levante os amigos mais rápido" } },
@@ -347,6 +350,7 @@ export const I18N = {
       g2item: "Возьми предмет!", g2banana: "Заведи папу на банан!", g2kiss: k => `Пошли воздушный поцелуй 💋 (${k})`, g2kit: k => `Встань спасалкой 🩹! (${k})`,
       kissKey: "нажми E", kissTouch: "нажми кнопку 💋", kitKey: "нажми Q", kitTouch: "нажми 🩹"
     },
+    pictures: "Картинки", sceneBack: "Назад",
     chapters: { began: "Как всё началось", ended: "Как всё закончилось" }, endedLocked: "Пройди 20-й уровень в Школе, чтобы прочитать конец", howToPlay: "Как играть",
     upg: { fastFeet: { name: "Быстрые ноги", desc: p => `+${p}% скорости` }, longItems: { name: "Долгие вещи", desc: () => "Действуют дольше" },
       quickHelp: { name: "Быстрая помощь", desc: () => "Поднимаешь быстрее" } },

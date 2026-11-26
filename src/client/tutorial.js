@@ -22,12 +22,15 @@ export let practiceStep = 0;
 // tutorialGame — номер идущей тренировки (1, 2; resetWorld строит её: свои сердечки, без босса) или 0 — обычный уровень.
 // Тренировка без награды: rewardDue = false (ни монеток, ни звёзд, ни уровней); победа — дальше по обучению, а не экран победы.
 export const TUTORIAL_STEPS = Object.freeze(["a", "game1", "b", "c", "game2", "ready"]);
-export const tutorialStep = () => (tutorial ? TUTORIAL_STEPS[tutorial.i] : null);
+// SPEC-032 AC 8: «Тренировка» на «Как играть» — только две тренировки (без страниц с картинками между ними)
+export const PRACTICE_STEPS = Object.freeze(["game1", "game2"]);
+export const tutorialStep = () => (tutorial ? tutorial.steps[tutorial.i] : null);
 // само открывается только при настоящем первом запуске: комикс ещё не видели, обучение тоже, и ни одного выигранного уровня
 // (старое сохранение, где уже играют, — нет; его предлагает «Как играть»)
 export const firstTutorial = p => !p.seen.intro && !p.seen.tutorial && !WORLDS.some(w => Object.keys(p.worlds[w].won).length > 0);
 // страницы листа sh («a», «b», «c»: четыре клетки картинки tutorial_<sh>, подпись под каждой) или «ready» (одна страница)
 export function tutorialPages(sh) {
+  if (sh === "pics") return ["a", "b", "c"].flatMap(tutorialPages);   // SPEC-032 AC 8: «Картинки» — все страницы листов A1…C4 подряд
   const T = L().tut, F = CFG.TUTORIAL_LOOK.pages;
   if (sh === "ready") return [{ art: "story_win", crop: null, text: T.ready, fallback: F.ready }];   // дети и подобревший папа
   const texts = sh === "a" ? T.a(PHONE || isTouch ? T.tiptoeTouch : T.tiptoeKey) : T[sh];
@@ -36,11 +39,18 @@ export function tutorialPages(sh) {
 // все картинки, которые может нарисовать обучение (листы, последняя страница, фигурки и значки запасных страниц)
 export const tutorialArtNames = () => [...["a", "b", "c"].map(s => "tutorial_" + s), "story_win", ...Object.values(CFG.TUTORIAL_LOOK.figures).map(f => f[0]),
   ...Object.values(CFG.TUTORIAL_LOOK.pages).flat(2).filter(n => !Object.hasOwn(CFG.TUTORIAL_LOOK.figures, n))];
-export function openTutorial(back = "map", from = TUTORIAL_STEPS[0]) {
-  if (!tutorial) tutorial = { i: 0, back: back === "story" ? "story" : "map", keep: { world: G.world, level: G.level, players: G.players } };
-  tutorial.i = Math.max(0, TUTORIAL_STEPS.indexOf(from));
+// steps — шаги этого прохода (весь TUTORIAL_STEPS при первом запуске; PRACTICE_STEPS — «Тренировка» на «Как играть», SPEC-032)
+export function openTutorial(back = "map", from = null, steps = TUTORIAL_STEPS) {
+  if (!tutorial) tutorial = { i: 0, back: back === "story" ? "story" : "map", keep: { world: G.world, level: G.level, players: G.players }, steps };
+  tutorial.i = Math.max(0, tutorial.steps.indexOf(from ?? tutorial.steps[0]));
   tutorialShow();
 }
+// SPEC-032 AC 8: «Тренировка» — тренировка 1, сразу тренировка 2, потом снова «Как играть»; «Пропустить» — как раньше
+export const openPractice = () => openTutorial("story", PRACTICE_STEPS[0], PRACTICE_STEPS);
+// SPEC-032 AC 8: «Картинки» — страницы листов A1…C4 (без тренировок): «Дальше» / «Назад» / точки; последняя «Дальше», «Назад» на
+// первой странице и Escape — снова «Как играть»
+const backToRules = () => { setMode("story"); ui.storyPage = "rules"; };
+export const openPictures = () => openScene("tutorial_pics", backToRules, { mark: false, skip: backToRules, back: true });
 function tutorialShow() {
   const s = tutorialStep();
   if (s.startsWith("game")) startTutorialGame(Number(s.slice(4)));
@@ -49,7 +59,7 @@ function tutorialShow() {
 // следующий шаг (страницы досмотрены, тренировка выиграна); после последнего — конец
 export function tutorialNext() {
   if (!tutorial) return;
-  if (tutorial.i >= TUTORIAL_STEPS.length - 1) tutorialEnd();
+  if (tutorial.i >= tutorial.steps.length - 1) tutorialEnd();
   else { tutorial.i++; tutorialShow(); }
 }
 // тренировка g: своя карта (resetWorld → applyTutorialMap; ключи мира и уровня — Парк 1), один игрок, без надписи уровня и без награды
@@ -67,7 +77,7 @@ function tutorialEnd() {
   tutorial = null; practiceStep = 0; ui.storyScene = null; G.rewardDue = false; G.pendingWin = 0;
   if (!progress.seen.tutorial) { progress.seen.tutorial = true; saveProgress(); }
   G.world = t.keep.world; G.level = t.keep.level; playWorld(t.keep.players);
-  if (t.back === "story") { setMode("story"); ui.storyPage = "rules"; }
+  if (t.back === "story") backToRules();
   else openMap();
 }
 // текст подсказки тренировки (или null); управление — по устройству, как на странице A4

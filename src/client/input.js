@@ -11,7 +11,7 @@ import { canvas, CSS_W, PHONE, UH, UW, wrap } from "./screen.js";
 import { cardOpen, moveCardFocus, pressCard } from "./errors.js";
 import { initAudio } from "./sound.js";
 import { ui } from "./state.js";
-import { openTutorial, tutorialSkip } from "./tutorial.js";
+import { openPictures, openPractice, tutorialSkip } from "./tutorial.js";
 import { homeActions } from "./ui/home.js";
 import { cpx } from "./ui/text.js";
 import { G } from "../core/active.js";
@@ -44,7 +44,8 @@ function onKey(code) {
     if (ui.storyPage === "chapters" && code === "ArrowLeft") storyStep(-1);
     if (ui.storyPage === "chapters" && code === "KeyV") watchChapter();   // SPEC-022: V — посмотреть заставку главы
     if (ui.storyPage === "chapters" && (code === "ArrowRight" || code === "Enter" || code === "Space")) storyStep(1);
-    else if (ui.storyPage === "rules" && (code === "Enter" || code === "NumpadEnter" || code === "Space")) openTutorial("story");   // SPEC-029: «Тренировка»
+    else if (ui.storyPage === "rules" && (code === "Enter" || code === "NumpadEnter" || code === "Space")) openPractice();   // SPEC-029/032: «Тренировка» (только игры)
+    else if (ui.storyPage === "rules" && code === "KeyV") openPictures();   // SPEC-032: V — «Картинки» (как «посмотреть» у глав)
   } else if (mode === "scene") {
     // SPEC-022: заставка — Enter / пробел / → дальше, ← назад, Escape пропустить
     if (code === "ArrowLeft") scenePrev();
@@ -205,7 +206,8 @@ function onPadButton(b, pad = 0) {
     if (ui.storyPage === "chapters") {
       if (b === 14 || b === LOOK.PAD_PREV_WORLD) storyStep(-1);
       if (b === 15 || b === LOOK.PAD_NEXT_WORLD || b === 0) storyStep(1);
-    } else if (b === 0) openTutorial("story");     // SPEC-029: A на «Как играть» — «Тренировка»
+    } else if (b === 0) openPractice();            // SPEC-029/032: A на «Как играть» — «Тренировка» (только игры)
+    else if (b === 2) openPictures();              // SPEC-032: X — «Картинки»
   } else if (mode === "scene") {
     if (b === 0 || b === 9 || b === 15) sceneNext();   // SPEC-022: A / Start / крестовина → — дальше, ← — назад, B — пропустить
     if (b === 14) scenePrev();
