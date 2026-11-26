@@ -902,7 +902,7 @@ test("the time-trend target can be set per world and compares the unrounded ρ",
   const { analyse, spearman } = require("../scripts/balance.js");
   const { readValue } = require("../scripts/docs-numbers.js");
   const B = readValue(fs.readFileSync(CONFIG, "utf8"), "CFG").BALANCE;
-  expect([B.TREND_RHO, B.TREND_RHO_WORLD]).toEqual([0.5, { city: 0.475 }]);   // SPEC-029: Andrei, one heart fewer everywhere (measured 0.4752)
+  expect([B.TREND_RHO, B.TREND_RHO_WORLD]).toEqual([0.5, { city: 0.475, school: 0.428 }]);   // SPEC-029: Andrei, one heart fewer everywhere (measured 0.4752); SPEC-032: Dad hears less (school measured 0.4286)
   // City's median times on the SPEC-029 balance run (ρ 0.4752) — the same times in the Park
   const times = [79.07, 123.87, 47.57, 27.13, 79.13, 64.03, 37.8, 50.23, 72.63, 95.53, 43.3, 45.57, 64.43, 124.27, 110.77, 95.37, 64.73, 317.23, 109.8, 207.9];
   const run = (world, n, t) => ({ world, n, type: "meadow", target: 999, style: "careful", seed: 0, win: true, time: t, hugs: 0, playerHugs: 0, pushes: 0,
