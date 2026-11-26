@@ -374,39 +374,22 @@ test("SPEC-026: the Progress page shows the save: look and name, stars, worlds, 
   expect(text("progress:lockText"), "SPEC-030: which world opens the School").toBe("Finish the City to open the School!");
   expect(text("progress:lockNote"), "the existing wording for a locked bonus world").toBe(d.I.lockedBonus);
   expect(d.previews.map(q => q.key), "the 3D look of player 1").toEqual(["p1"]);
-  // read-only: only the tabs, OK and Reset are buttons
-  expect(d.buttons.map(q => q.id || q.text).filter(id => !String(id).startsWith("tab:")).sort()).toEqual(["closeShop", "progress:reset"]);
+  // read-only (SPEC-033 AC 10): only the tabs and OK are buttons — Reset progress moved to the grown-ups page
+  expect(d.buttons.map(q => q.id || q.text).filter(id => !String(id).startsWith("tab:")).sort()).toEqual(["closeShop"]);
   await page.evaluate(() => { const b = window.__bb; b.setProgress(null); b.mode = "home"; });
 });
 
-test("SPEC-026: Reset progress works from the Progress page and is gone from Items and Upgrades", async ({ page }) => {
+test("SPEC-033: Progress, Items, Upgrades and Wardrobe have no reset control (it is on the grown-ups page)", async ({ page }) => {
   const resets = await page.evaluate(() => window.__bb.LANGS.flatMap(l => ["reset", "resetShort", "resetCancel", "resetCancelShort", "resetConfirm"].map(k => window.__bb.I18N[l][k])));
   await page.evaluate(save => { const b = window.__bb; b.setProgress(save); b.mode = "home"; }, MIXED);
   await click(page, "home:shop");
-  for (const tab of ["items", "upgrades", "wardrobe"]) {
+  for (const tab of ["progress", "items", "upgrades", "wardrobe"]) {
     await page.evaluate(t => { window.__bb.shopTab = t; }, tab); await frames(page);
-    const t = await page.evaluate(() => window.__bb.buttonRects.map(q => q.text));
-    expect(t.filter(x => resets.includes(x)), `no reset on ${tab}`).toEqual([]);
+    const d = await page.evaluate(() => window.__bb.buttonRects.map(q => [q.id, q.text]));
+    expect(d.map(q => q[1]).filter(x => resets.includes(x)), `no reset text on ${tab}`).toEqual([]);
+    expect(d.map(q => q[0]).filter(id => /^progress:(reset|confirm)$/.test(String(id))), `no reset button on ${tab}`).toEqual([]);
   }
-  await click(page, "tab:progress");
-  await click(page, "progress:reset");
-  // SPEC-025 AC 6b: armed — the button says "No, keep it", the separate confirm is elsewhere; nothing reset yet
-  const text = id => page.evaluate(k => { const q = window.__bb.buttonRects.find(r => r.id === k); return q ? q.text : null; }, id);
-  expect([await text("progress:reset"), await text("progress:confirm"), await page.evaluate(() => window.__bb.progress.coins)], "armed, nothing reset yet").toEqual(["No, keep it", "Yes, erase everything", 345]);
-  await click(page, "tab:items");
-  await click(page, "tab:progress");
-  expect([await text("progress:reset"), await text("progress:confirm")], "another tab disarms it").toEqual(["Reset progress", null]);
-  await click(page, "progress:reset");
-  await click(page, "progress:reset");
-  expect([await text("progress:confirm"), await page.evaluate(() => window.__bb.progress.coins)], "a second tap on the same button cancels").toEqual([null, 345]);
-  await click(page, "progress:reset");
-  await page.waitForTimeout(900);                                    // CFG.RESET_CONFIRM_DELAY (0.8 s): the confirm listens now
-  await click(page, "progress:confirm");
-  const p = await page.evaluate(() => { const b = window.__bb; return { coins: b.progress.coins, inv: b.progress.inv, upg: b.progress.upgrades, park: b.progress.worlds.park.unlocked, info: b.progressInfo }; });
-  expect([p.coins, p.park], "fresh progress").toEqual([0, 1]);
-  expect(p.inv).toEqual({ mittens: 0, mega: 0, kisses: 0, rescues: 0 });
-  expect(p.upg).toEqual({ fastFeet: 0, longItems: 0, quickHelp: 0 });
-  expect([p.info.stars, p.info.worldsDone], "the page shows it").toEqual([0, 0]);
+  expect(await page.evaluate(() => window.__bb.progress.coins), "nothing was reset").toBe(345);
   await page.evaluate(() => { window.__bb.mode = "home"; });
 });
 

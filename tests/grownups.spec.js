@@ -3,6 +3,7 @@
 //   question after a wrong answer; the page is reached from How to play.
 // - AC 6b: "Reset progress" never from one gesture (resetCancel on the armed button, a separate resetConfirm elsewhere that ignores
 //   taps for CFG.RESET_CONFIRM_DELAY s); bebebe-save-before-reset and undo; the migration record survives a reset; erase all data.
+//   SPEC-033 AC 10: the reset button lives on the grown-ups page (behind the gate), next to undo — no longer on the Progress page.
 // - AC 6c: the parents' code — base64url(JSON) + checksum with version; import through the normal schema, importConfirm, a snapshot
 //   first; codeBad / codeTooNew; copy to the clipboard with a selectable-text fallback.
 // - AC 4: restoring an older copy (the session copy) from the page.
@@ -82,7 +83,7 @@ test("every adult action calls the gate", { tag: "@fast" }, () => {
   // every button of the page but OK is made by act(…), which runs its action through parentGate
   const made = [...[...body.matchAll(/\bact\([^,]+, "(\w+)"/g)].map(m => ["act", m[1]]), ...[...body.matchAll(/\bbutton\(row, [^,]+, [^,]+, "(\w+)"\)/g)].map(m => ["button", m[1]])];
   expect(made.filter(([how, name]) => how !== "act" && name !== "close"), "page actions not behind the gate").toEqual([]);
-  expect(made.map(([, n]) => n).sort()).toEqual(["close", "copyCode", "errorLog", "pasteCode", "restoreCopy", "undoReset"].sort());
+  expect(made.map(([, n]) => n).sort()).toEqual(["close", "copyCode", "errorLog", "pasteCode", "resetProgress", "restoreCopy", "undoReset"].sort());   // SPEC-033: + resetProgress
   // review fix: erasing everything asks the gate again even with the page open (askGate, not the page's pass)
   expect(body).toMatch(/button\(\s*row,\s*L\(\)\.eraseAll,[^\n]*\baskGate\(\s*confirmErase\b[^\n]*"eraseAll"\s*\)/);
   expect(body).toMatch(/const act = \(label, name, fn\) => button\(row, label, \(\) => parentGate\(fn\), name\);/);
@@ -91,49 +92,44 @@ test("every adult action calls the gate", { tag: "@fast" }, () => {
 });
 
 // ---------- AC 6b: the reset ----------
-test("reset: two taps 50 ms apart and two pointers in one frame change nothing; the confirm works after the delay", async ({ page }) => {
+test("reset: two taps 50 ms apart change nothing; the confirm works after the delay (grown-ups page, SPEC-033 AC 10)", async ({ page }) => {
   const errors = await openGame(page);
-  await page.evaluate(() => { const b = window.__bb; b.progress.coins = 345; b.progress.worlds.park.unlocked = 5; b.mode = "home"; });
-  await frames(page);
-  await page.evaluate(() => window.__bb.tapButton("home:shop"));
-  await frames(page);
-  // the shipped delay; the delay is wall clock (performance.now() since the arming tap, progress.js resetConfirmReady). On a
-  // software-rendered CI page arm → frames → rects → 50 ms → click took longer than 0.8 s, so the taps "within the delay" run
-  // with a long delay, and the real reset below with the shipped one again
+  await page.evaluate(() => { const b = window.__bb; b.progress.coins = 345; b.progress.worlds.park.unlocked = 5; Object.assign(b.progress.inv, { kisses: 4 }); b.progress.upgrades.fastFeet = 2; b.mode = "story"; });
+  const state = () => page.evaluate(() => [window.__bb.progress.coins, window.__bb.progress.worlds.park.unlocked]);
+  const acts = () => page.evaluate(() => [...document.querySelectorAll("#grownups button")].map(b => b.dataset.act));
+  // the shipped delay; the delay is wall clock (progress.js resetConfirmReady): the taps "within the delay" run with a long one,
+  // and the real reset below with the shipped one again
   expect(await page.evaluate(() => window.__bb.CFG.RESET_CONFIRM_DELAY)).toBe(0.8);
   await page.evaluate(() => { window.__bb.CFG.RESET_CONFIRM_DELAY = 60; });
-  // a double tap: the reset button, then 50 ms later where the confirm appears
-  await clickButton(page, "progress:reset");
-  await frames(page);
-  const confirm = await page.evaluate(() => { const q = window.__bb.buttonRects.find(r => r.id === "progress:confirm"), c = document.getElementById("game").getBoundingClientRect(), u = window.__bb.uiSize;
-    return { x: c.left + (q.x + q.w / 2) * c.width / u.w, y: c.top + (q.y + q.h / 2) * c.height / u.h }; });
+  await openPage(page);
+  expect(await acts(), "Reset progress is on the grown-ups page").toContain("resetProgress");
+  // a double tap: the reset button, then 50 ms later where the confirm appears (another view of the page)
+  await pageAct(page, "resetProgress");
+  expect(await acts(), "the confirm is elsewhere: Yes, erase everything / No, keep it").toEqual(["resetYes", "resetNo"]);
   await page.waitForTimeout(50);
-  await page.mouse.click(confirm.x, confirm.y);
-  await frames(page);
-  expect(await page.evaluate(() => [window.__bb.progress.coins, window.__bb.progress.worlds.park.unlocked]), "a tap on the confirm within the delay").toEqual([345, 5]);
-  // the armed button is "No, keep it": a tap there cancels
-  await clickButton(page, "progress:reset");
-  await frames(page);
-  expect(await page.evaluate(() => window.__bb.buttonRects.some(r => r.id === "progress:confirm"))).toBe(false);
-  // two pointers in one frame on the reset button: armed, then the armed button (another button: ignored, AC 7d)
-  const at = await page.evaluate(() => { const q = window.__bb.buttonRects.find(r => r.id === "progress:reset"), c = document.getElementById("game").getBoundingClientRect(), u = window.__bb.uiSize;
-    return { x: c.left + (q.x + q.w / 2) * c.width / u.w, y: c.top + (q.y + q.h / 2) * c.height / u.h }; });
-  await page.evaluate(p => {
-    const el = document.getElementById("game");
-    for (const id of [1, 2]) el.dispatchEvent(new PointerEvent("pointerdown", { pointerId: id, clientX: p.x, clientY: p.y, bubbles: true, pointerType: "touch", isPrimary: id === 1 }));
-    for (const id of [1, 2]) el.dispatchEvent(new PointerEvent("pointerup", { pointerId: id, clientX: p.x, clientY: p.y, bubbles: true, pointerType: "touch", isPrimary: id === 1 }));
-  }, at);
-  await frames(page);
-  expect(await page.evaluate(() => [window.__bb.progress.coins, window.__bb.progress.worlds.park.unlocked]), "two pointers in one frame").toEqual([345, 5]);
-  // the real reset: armed, then the confirm after CFG.RESET_CONFIRM_DELAY
+  await pageAct(page, "resetYes");
+  expect(await state(), "a tap on the confirm within the delay").toEqual([345, 5]);
+  expect(await acts(), "still asking").toEqual(["resetYes", "resetNo"]);
+  // No, keep it: back to the page, nothing reset, the next arming starts the delay again
+  await pageAct(page, "resetNo");
+  expect(await acts()).toContain("resetProgress");
+  expect(await state()).toEqual([345, 5]);
+  // the real reset: arm, then the confirm after CFG.RESET_CONFIRM_DELAY
   await page.evaluate(() => { window.__bb.CFG.RESET_CONFIRM_DELAY = 0.8; });
-  if (!(await page.evaluate(() => window.__bb.buttonRects.some(r => r.id === "progress:confirm")))) { await clickButton(page, "progress:reset"); await frames(page); }
+  await pageAct(page, "resetProgress");
   await page.waitForTimeout(850);
-  await frames(page);
-  await clickButton(page, "progress:confirm");
-  await frames(page);
-  expect(await page.evaluate(() => [window.__bb.progress.coins, window.__bb.progress.worlds.park.unlocked])).toEqual([0, 1]);
+  await pageAct(page, "resetYes");
+  await page.waitForFunction(() => window.__bb.progress.coins === 0);
+  expect(await state()).toEqual([0, 1]);
+  expect(await page.evaluate(() => { const b = window.__bb; return [b.progress.inv, b.progress.upgrades]; }), "fresh bag and upgrades").toEqual([{ mittens: 0, mega: 0, kisses: 0, rescues: 0 }, { fastFeet: 0, longItems: 0, quickHelp: 0 }]);
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem("bebebe-save-before-reset")).save.progress.coins), "the save before the reset").toBe(345);
+  // back on the page, with the undo right next to Reset progress
+  await page.waitForFunction(() => [...document.querySelectorAll("#grownups button")].some(b => b.dataset.act === "undoReset"));
+  const a = await acts();
+  expect(a.indexOf("undoReset"), "undo right after reset").toBe(a.indexOf("resetProgress") + 1);
+  await pageAct(page, "undoReset");
+  await page.waitForFunction(() => window.__bb.progress.coins === 345);
+  expect(await state(), "undo brings the progress back").toEqual([345, 5]);
   expect(errors).toEqual([]);
 });
 

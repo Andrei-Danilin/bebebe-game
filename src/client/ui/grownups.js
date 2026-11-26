@@ -3,7 +3,8 @@
 //   words in the current language, CFG.GATE_ANSWERS answer buttons, a new question after a wrong answer (no long press, no tap
 //   count). While the grown-ups page is open its actions pass at once (the page itself was gated).
 // - The "For grown-ups" page (reached from How to play): the version, the parents' code (copy: clipboard + selectable text; paste:
-//   a text field, then importConfirm), restore an older copy, undo a reset, the error log with Copy, erase all data, the noSave note.
+//   a text field, then importConfirm), reset progress (SPEC-033: moved here from the Progress page, with undo right next to it), restore an
+//   older copy, the error log with Copy, erase all data, the noSave note.
 // - The save notes (saveRecovered, freshStart, noSave): shown once each, in the menus, as a small note that goes away by itself.
 // DOM (class bb-card like the other cards: keys and pad reach it, not the game). Client module.
 
@@ -11,9 +12,10 @@ import { CFG } from "../../core/config.js";
 import { vrand } from "../../core/util.js";
 import { L, lang } from "../../i18n.js";
 import { buildVersion, errorLog, hideCard } from "../errors.js";
-import { progressReplaced } from "../progress.js";
+import { armReset, confirmReset, progressReplaced, resetConfirmReady } from "../progress.js";
 import { eraseAll, importSave, listCopies, readCode, restoreCopy, saveCode, saveInfo, takeNote } from "../save.js";
 import { LOOK } from "../look.js";
+import { ui } from "../state.js";
 
 // ---------- the gate ----------
 let gate = null;                             // the open question { a, b, answers, wait } (or null)
@@ -89,6 +91,7 @@ function showPage(note = null) {
   const act = (label, name, fn) => button(row, label, () => parentGate(fn), name);
   act(L().copyCode, "copyCode", copyCode);
   act(L().pasteCode, "pasteCode", pasteCode);
+  act(L().reset, "resetProgress", askReset);   // SPEC-033 AC 10: the same safe flow as before — arm, confirm elsewhere after a delay, undo
   if (saveInfo.copies.reset) act(L().undoReset, "undoReset", () => restoreAndShow("reset"));
   act(L().restoreCopy, "restoreCopy", showCopies);
   act(L().errorLog, "errorLog", showLog);
@@ -97,7 +100,7 @@ function showPage(note = null) {
   button(row, L().ok, closePage, "close");
   focusFirst(el);
 }
-function closePage() { hideCard("grownups"); }
+function closePage() { cancelReset(); hideCard("grownups"); }
 // a sub-view of the page: its lines, a text area (optional) and buttons [[label, name, act]]
 function subView(lines, buttons, text = null) {
   const el = card("grownups", [L().forGrownUps, ...lines], true), box = el.firstChild, row = el.querySelector(".row");
@@ -146,6 +149,25 @@ function showLog() {
   const text = errorLog().map(e => `${e.message}${e.count > 1 ? " ×" + e.count : ""} · ${e.mode} · ${e.level} · ${e.version}${e.stack ? "\n" + e.stack : ""}`).join("\n\n");
   const v = subView([L().errorLog], [[L().copy, "copyLog", () => { v.area.select(); try { navigator.clipboard.writeText(text).catch(() => { /* selected */ }); } catch (e) { /* no clipboard */ } }], [L().ok, "back", () => showPage()]], text);
   v.area.readOnly = true;
+}
+// ---------- reset progress (SPEC-025 AC 6b, moved here by SPEC-033 AC 10) ----------
+// the first tap arms the reset (progress.js: armReset) and shows the question on its own view — the confirm is at another place and
+// ignores taps for CFG.RESET_CONFIRM_DELAY s (faded until it listens: a double tap never resets); "No, keep it" disarms
+function cancelReset() { if (ui.resetArmed) armReset(); }
+function askReset() {
+  cancelReset();
+  armReset();
+  const v = subView([L().resetAsk], [[L().resetConfirm, "resetYes", doReset], [L().resetCancel, "resetNo", () => { cancelReset(); showPage(); }]]);
+  const yes = /** @type {HTMLElement} */ (v.el.querySelector("[data-act=resetYes]")), no = /** @type {HTMLElement} */ (v.el.querySelector("[data-act=resetNo]"));
+  yes.style.opacity = "0.5";
+  setTimeout(() => { yes.style.opacity = ""; }, CFG.RESET_CONFIRM_DELAY * 1000);   // a detached card just ignores it
+  v.el.querySelectorAll("button").forEach(b => b.classList.toggle("hl", b === no));   // the highlight (Enter / pad A) starts on "No, keep it"
+  no.focus({ preventScroll: true });
+}
+// the confirm: ignored while resetConfirmReady() is false; then the progress is wiped (a copy is kept first) and the page comes back with the undo
+function doReset() {
+  if (!resetConfirmReady()) return;
+  Promise.resolve(confirmReset()).then(() => showPage(), () => showPage());
 }
 // the highlight (Enter / pad A) starts on "No, keep it"
 function confirmErase() {

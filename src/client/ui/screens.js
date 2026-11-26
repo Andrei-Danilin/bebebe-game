@@ -6,11 +6,10 @@ import { paperCache, paperUI } from "../art.js";
 import { backToWardrobe, closeShop, inMenus, mode, openFriends } from "../flow.js";
 import { nameInput, placeNameInput } from "../input.js";
 import { LOOK } from "../look.js";
-import { armReset } from "../progress.js";
 import { ctx, isTouch, PHONE, UH, UW, VIEW } from "../screen.js";
 import { ui } from "../state.js";
 import { itemsDesktop, itemsPhone } from "./character/items.js";
-import { progressPage, resetConfirmButton } from "./character/progress.js";
+import { progressPage } from "./character/progress.js";
 import { phoneShopBar, shopTabs } from "./character/tabs.js";
 import { upgradeCardsDesktop, upgradeCardsPhone } from "./character/upgrades.js";
 import { coinPlate, fitButton, wardrobeDesktop, wardrobePhone } from "./character/wardrobe.js";
@@ -71,12 +70,6 @@ function drawOverlay() {
       fitButton(UW / 2 + 130, W.rowY, 230, W.rowH, fr ? "◀ " + L().wardrobeTab : "👥 " + L().friends, fr ? LOOK.MENU_LOOK.ok : LOOK.MENU_LOOK.friends, fr ? backToWardrobe : openFriends, 20, 13);
     } else {
       addButton(UW / 2 - 100, 540, 200, 50, L().ok, LOOK.MENU_LOOK.ok, closeShop, 22);
-      // SPEC-026: «Сбросить прогресс» — только на странице «Прогресс». SPEC-025 AC 6b: первое нажатие — кнопка становится «Нет,
-      // оставить» (отмена), а отдельная «Да, стереть всё» появляется слева от «Готово» и первые CFG.RESET_CONFIRM_DELAY с не слушает касания
-      if (ui.shopTab === "progress") {
-        fitButton(UW / 2 + 200, 548, 180, 36, ui.resetArmed ? L().resetCancel : L().reset, ui.resetArmed ? LOOK.MENU_LOOK.ok : LOOK.MENU_LOOK.reset, armReset, 13, 11).id = "progress:reset";
-        if (ui.resetArmed) resetConfirmButton(UW / 2 - 380, 548, 180, 36, 13, 11);
-      }
     }
   } else if (mode === "pause") pauseDesktop();
   else if (mode === "win") winDesktop();
