@@ -43,7 +43,7 @@ export function hearNoise(dt) {
     logEvent("hearMiss", { who: loud.id, kind: loud.kind });
     return;
   }
-  const a =Math.atan2(loud.y - G.big.y, loud.x - G.big.x);
+  const a = Math.atan2(loud.y - G.big.y, loud.x - G.big.x);
   G.big.noise = 0; G.big.hearCd = CFG.HEAR_COOLDOWN;
   G.big.hearFace = a; G.big.hearTurnT = CFG.HEAR_TURN_TIME; G.big.hearRate = Math.abs(normAng(a - G.big.dir)) / CFG.HEAR_TURN_TIME;
   G.big.hearLook = rand(CFG.HEAR_LOOK[0], CFG.HEAR_LOOK[1]);
