@@ -751,59 +751,59 @@ Each item would change a goal, a decision-type out-of-scope line, or a rule that
 
 **Status (2026-11-26):** Andrei decided D-1, D-2 (Capacitor), D-3, D-4, D-7, D-8, D-10, D-11 (→ SPEC-034), D-12, D-14, D-15, D-16 (not now) and D-17 as recommended; SPEC-033 carries out D-1, D-3, D-7, D-8, D-12, D-14 and D-15. **Still open: D-5, D-6, D-9, D-13.**
 
-1. **D-1 Rules text "breaks your leg / limp home"** (RR-54, K4). — **decided by Andrei, 2026-11-26: as recommended (softer wording, SPEC-033).**
+1. **D-1 Rules text "breaks your leg / limp home"** (RR-54, K4). — **decided by Andrei, 2026-11-26: as recommended (softer wording, SPEC-033).**
    - **Question:** May the "How to play" lines say "he pushes you and you fall down; friends help you up … go home to rest" instead of "breaks your leg … limp home"? The mechanic, numbers and pictures stay the same.
    - **Options:** keep the text; soften the wording only; ask the kids for their own words.
    - **Recommendation:** soften it, in the kids' words if possible. The tutorial already says "you fall down". This decides Apple 4+ vs 9+ and PEGI 3 vs 7.
-2. **D-2 Capacitor or TWA** (RR-32, P7, K8). — **decided by Andrei, 2026-11-26: as recommended: Capacitor for both stores.**
+2. **D-2 Capacitor or TWA** (RR-32, P7, K8). — **decided by Andrei, 2026-11-26: as recommended: Capacitor for both stores.**
    - **Options:** Capacitor for both stores; TWA for Android (+ something else for iOS).
    - **Recommendation:** Capacitor for both stores, and keep the PWA as the web version. A TWA cannot start offline on first launch and loads code from github.io on every launch.
-3. **D-3 A bundled font** (RR-79, M8). — **decided by Andrei, 2026-11-26: as recommended: `PW_FONT=ci` now (SPEC-033), the bundled font is chosen with samples before packaging.**
+3. **D-3 A bundled font** (RR-79, M8). — **decided by Andrei, 2026-11-26: as recommended: `PW_FONT=ci` now (SPEC-033), the bundled font is chosen with samples before packaging.**
    - **Question:** Ship one licensed web font for all texts, so CI, Android and iOS measure the same? This is a visual change to the comic UI.
    - **Options:** keep system fonts, and add a local `PW_FONT=ci` mode to catch CI-only misfits; bundle a rounded, child-friendly font (choose from samples).
    - **Recommendation:** add `PW_FONT=ci` now (BACKLOG). Decide the font with samples before packaging.
-4. **D-4 What the low quality tier may drop** (RR-43, F2). — **decided by Andrei, 2026-11-26: as recommended.**
+4. **D-4 What the low quality tier may drop** (RR-43, F2). — **decided by Andrei, 2026-11-26: as recommended.**
    - **Question:** On weak devices, which parts of the SPEC-021 comic look may go?
    - **Recommendation:** keep outlines and hatching. Drop MSAA and paper grain, change PCF shadows to basic 1024 or blob shadows, and show half of the background decor.
-5. **D-5 Own domain for the web version** (RR-26, S11). — **still open.**
+5. **D-5 Own domain for the web version** (RR-26, S11). — **still open.**
    - **Options:** stay on `andrei-danilin.github.io/bebebe-game/`; a custom domain (yearly cost; the URL changes and saves move only through the parents' code); a separate org/user Pages site.
    - **Recommendation:** an own origin before the web version is promoted.
-6. **D-6 Who holds the store accounts and keys, and the backup person** (RR-77, RR-84, M6, M15). — **still open.**
+6. **D-6 Who holds the store accounts and keys, and the backup person** (RR-77, RR-84, M6, M15). — **still open.**
    - **Question:** Who owns the Google Play and Apple developer accounts, the Android upload key and its password? Who is the second person with recovery access?
    - **Recommendation:** Play App Signing (Google keeps the app key); the upload key in a password manager plus an offline backup; one named backup person with documented recovery for GitHub, Google, Apple and the claude.ai project.
-7. **D-7 A revert straight to master** (RR-82, M13). — **decided by Andrei, 2026-11-26: as recommended (a revert of a merge commit straight to `master`, a tag redeploy; SPEC-033).**
+7. **D-7 A revert straight to master** (RR-82, M13). — **decided by Andrei, 2026-11-26: as recommended (a revert of a merge commit straight to `master`, a tag redeploy; SPEC-033).**
    - **Question:** When a deploy breaks the game for kids, may `Revert SPEC-NNN` go straight to `master` and deploy, without the spec-branch CI run first?
    - **Options:** keep today's rule (revert as a branch run, ≥ 30 min to live); allow a revert of a merge commit only, with the Pages tests still gating the deploy; also allow redeploying a known-good tag through `workflow_dispatch`.
    - **Recommendation:** allow it for reverting a merge commit only, and add the tag redeploy.
-8. **D-8 Shop / "Buy" wording** (RR-60, K9). — **decided by Andrei, 2026-11-26: as recommended ("Get for 🪙 N", SPEC-033).**
+8. **D-8 Shop / "Buy" wording** (RR-60, K9). — **decided by Andrei, 2026-11-26: as recommended ("Get for 🪙 N", SPEC-033).**
    - **Question:** Keep 🛒 "Shop" on the win and lose screens and "Buy for N"? (The Shop button is Andrei's, SPEC-026; the coin shop is in Kostya's story.)
    - **Recommendation:** keep the shop. Show 🪙 in every price, drop the 🛒 icon on the lose screen, and consider "Get" instead of "Buy".
-9. **D-9 Kostya's name in the credits and the public repo** (RR-61, K12). — **still open.**
+9. **D-9 Kostya's name in the credits and the public repo** (RR-61, K12). — **still open.**
    - **Options:** keep "Made by Kostya and Dad" and the public repo; first name off the credits; make the repo private (Pages from a private repo needs a paid plan) or move the family docs.
    - **Recommendation:** a family choice before the store listing. Store rules allow either.
-10. **D-10 Minimum device** (RR-36, RR-65, F10, P9). — **decided by Andrei, 2026-11-26: as recommended.**
+10. **D-10 Minimum device** (RR-36, RR-65, F10, P9). — **decided by Andrei, 2026-11-26: as recommended.**
     - **Question:** Officially require WebGL2 / GLES 3.0, iOS 16.4+ and Android WebView ≥ Chrome 94?
     - **Recommendation:** yes. three.js r187 already needs these. Declare them in the store builds, and show "This device can't show the 3D game" below them.
-11. **D-11 A fixed live time step** (RR-08, A5). — **decided by Andrei, 2026-11-26: as recommended: its own small spec, SPEC-034.**
+11. **D-11 A fixed live time step** (RR-08, A5). — **decided by Andrei, 2026-11-26: as recommended: its own small spec, SPEC-034.**
     - **Question:** Should live play advance in fixed steps (e.g. 1/60 s from an accumulator), so the game behaves the same on a 30 Hz phone, a 120 Hz iPad, the balance report and the future server?
     - **Options:** keep today's one step per frame (SPEC-012 only documents it); fixed 1/60 (no visible change on normal devices, steadier on slow ones); 1/30 (would change the feel, not recommended).
     - **Recommendation:** fixed 1/60 in its own small spec after SPEC-012, with a balance run.
-12. **D-12 Reset progress behind the parents' gate** (RR-18, S2, R3). — **decided by Andrei, 2026-11-26: as recommended (SPEC-033).**
+12. **D-12 Reset progress behind the parents' gate** (RR-18, S2, R3). — **decided by Andrei, 2026-11-26: as recommended (SPEC-033).**
     - **Question:** Move "Reset progress" from the child's Progress page to the grown-ups page behind the gate? The double-tap rule is Claude's, but the button leaves the child's page.
     - **Recommendation:** yes, with "bring back erased progress" (undo) there too. SPEC-025 does the safe part either way: a delayed confirm at another spot, plus undo.
-13. **D-13 Privacy policy text, contact and developer name** (RR-52, K2). — **still open.**
+13. **D-13 Privacy policy text, contact and developer name** (RR-52, K2). — **still open.**
     - **Question:** Who is named as developer (a person or a legal entity), which contact email goes into the policy, and what is the final legal wording? Publishing is parked, so this is for the release spec. Also: may SPEC-025 already add a short factual "Privacy" section to the new grown-ups page (what is stored, nothing sent, how to erase it; not the legal policy), or does all privacy text wait for the release spec?
     - **Recommendation:** yes to the short in-app section in SPEC-025 (it is offline, has no link and states only what the code does). For the policy: use the factual list in Appendix A, a dedicated contact address, and the same text in the app and on the website.
-14. **D-14 What Android Back does on the home screen** (RR-70, R10). — **decided by Andrei, 2026-11-26: as recommended (SPEC-033).**
+14. **D-14 What Android Back does on the home screen** (RR-70, R10). — **decided by Andrei, 2026-11-26: as recommended (SPEC-033).**
     - **Options:** leave the app at once; ask "Leave the game?" with big Yes/No; leave on a second Back within 2 s.
     - **Recommendation:** ask, with big buttons.
-15. **D-15 One automatic retry for flaky tests on CI** (RR-83, R13). — **decided by Andrei, 2026-11-26: as recommended: `retries: 0` stays (SPEC-033).**
+15. **D-15 One automatic retry for flaky tests on CI** (RR-83, R13). — **decided by Andrei, 2026-11-26: as recommended: `retries: 0` stays (SPEC-033).**
     - **Question:** `retries: 1` on CI changes SPEC-023's "green means green".
     - **Recommendation:** keep `retries: 0` and fix flakes at the root (seeding, RR-71).
-16. **D-16 The second test pass on master** (RR-74 option, M1). — **decided by Andrei, 2026-11-26: as recommended: not now.**
+16. **D-16 The second test pass on master** (RR-74 option, M1). — **decided by Andrei, 2026-11-26: as recommended: not now.**
     - **Question:** Skip the Pages test pass when the merge commit's tree equals a branch commit whose Tests run is green? (Andrei's speed rule says the Pages workflow tests master again.)
     - **Recommendation:** not now. Fix the deploy first (SPEC-011), then decide.
-17. **D-17 Device pass thresholds** (section 5). — **decided by Andrei, 2026-11-26: as recommended.**
+17. **D-17 Device pass thresholds** (section 5). — **decided by Andrei, 2026-11-26: as recommended.**
     - **Question:** Confirm the proposed fps, memory, battery and start-time thresholds, and the reference devices.
     - **Recommendation:** as proposed in section 5.
 
