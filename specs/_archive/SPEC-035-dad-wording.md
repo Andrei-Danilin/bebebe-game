@@ -1,6 +1,6 @@
 # SPEC-035 — "Dad" and "kids" instead of "the Big One" in every text
 
-Status: ready
+Status: done (merged by "Merge SPEC-035", see git log)
 Complexity: S
 Branch: SPEC-035-dad-wording
 Decided by: Andrei (2026-11-26): the How to play rules still say "the Big One"; the texts should speak about the kids and Dad, as the story does. Wording in all four languages: Claude.
