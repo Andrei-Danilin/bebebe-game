@@ -25,7 +25,7 @@ const NET_TIMEOUT_MS = 4000;             // weak signal: after this long, a cach
 const SW_BUILD = 7;
 const SW_STRATEGY = "463855aec6";
 const SW_VERSION = "bebebe-1.0.0-dev-b7";
-const SRC_HASH = "658601ee53";
+const SRC_HASH = "0929450b63";
 const PRECACHE_LOCAL = [
   "./", "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512-maskable.png",
   "./icons/icon-512.png", "./icons/icon.svg", "./index.html", "./manifest.webmanifest"
@@ -52,7 +52,7 @@ const PRECACHE_SRC = [
   "./src/client/ui/menu.js?v=df7bd8b63c", "./src/client/ui/minimap.js?v=afd7cc3057",
   "./src/client/ui/phone.js?v=7c25c8ed3d", "./src/client/ui/screens.js?v=ca2adf910b",
   "./src/client/ui/story.js?v=3f7f481f99", "./src/client/ui/text.js?v=e96306db7a",
-  "./src/client/ui/win.js?v=9b3f336da5", "./src/core/active.js?v=70aa836ebd", "./src/core/autopilot.js?v=528edb53f9",
+  "./src/client/ui/win.js?v=b86d53a0e5", "./src/core/active.js?v=70aa836ebd", "./src/core/autopilot.js?v=528edb53f9",
   "./src/core/big.js?v=745c03a759", "./src/core/bots.js?v=fc04a520e3", "./src/core/config.js?v=110ef6a252",
   "./src/core/difficulty.js?v=72aff2bd1e", "./src/core/economy.js?v=6c6ac20714", "./src/core/game.js?v=a99ba230de",
   "./src/core/hearing.js?v=1cb67b68ce", "./src/core/hooks.js?v=5ceea54c61", "./src/core/index.js?v=2ac6418608",
@@ -60,7 +60,7 @@ const PRECACHE_SRC = [
   "./src/core/level/layouts.js?v=07d6472d8e", "./src/core/level/validate.js?v=3f3743eb46",
   "./src/core/mood.js?v=8dcad43e22", "./src/core/path.js?v=b05dfc5c4e", "./src/core/practice.js?v=44fe1505f4",
   "./src/core/progress-rules.js?v=a9deff0bda", "./src/core/rules.js?v=c4f51cf496", "./src/core/util.js?v=c7e01b9d3a",
-  "./src/core/wardrobe.js?v=011be2182f", "./src/core/world.js?v=68fa838aaf", "./src/i18n.js?v=c9e145ef6b",
+  "./src/core/wardrobe.js?v=011be2182f", "./src/core/world.js?v=68fa838aaf", "./src/i18n.js?v=0b26e60b5c",
   "./src/story.js?v=1848ece4be", "./src/version.js?v=6d0844555e"
 ];
 const THREE_VERSION = "r187";

@@ -75,16 +75,16 @@ function drawRewardLines(rw, x, y, w, rowH, size, min, big, bigMin) {
   const h = Math.max(name.sz * 1.2, 2 * r);
   ui.hudRects.push({ id: "win-line:total", x, y: ty - h / 2, w: 2 * r + gap + name.w, h, text: name.text });
 }
-// кнопки экрана итогов (компьютер и телефон): [надпись, цвет, действие]. SPEC-017: победа — «Дальше» · Карта · Магазин
-// (после последнего уровня мира — Карта · Магазин), проигрыш — Ещё раз · Магазин · Карта
+// кнопки экрана итогов (компьютер и телефон): [надпись, цвет, действие]. SPEC-017: победа — «Дальше» · Карта · Персонаж (SPEC-032: был «Магазин»)
+// (после последнего уровня мира — Карта · Персонаж), проигрыш — Ещё раз · Персонаж · Карта
 function endActions(m) {
   const M = LOOK.MENU_LOOK, map = ["🗺 " + L().map, M.back, toMap];
   if (m === "win") {
-    const shop = ["🛒 " + L().shop, M.shop, shopAfterWin];
+    const shop = ["🎒 " + L().character, M.shop, shopAfterWin];   // SPEC-032 AC 17: «Персонаж» (значок menu_character), не «Магазин»
     if (G.level >= levelsPerWorld()) return [["🗺 " + L().map, M.ok, toMap], shop];   // мир пройден: дальше — карта
     return [[L().next(G.level + 1), M.ok, nextLevel], map, shop];
   }
-  return [[L().again, M.shop, retryLevel], ["🛒 " + L().shop, M.shop, shopAfterLose], map];
+  return [[L().again, M.shop, retryLevel], ["🎒 " + L().character, M.shop, shopAfterLose], map];
 }
 // пауза (SPEC-017): Продолжить · Карта · Главная
 // SPEC-029: в тренировке — Продолжить · Ещё раз · Пропустить (обучение)
