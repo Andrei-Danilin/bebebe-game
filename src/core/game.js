@@ -264,7 +264,7 @@ export function update(dt) {
 }
 // SPEC-008: шагает игру пачкой (dt — сек игры за шаг), пока уровень идёт и не вышло seconds; → простые данные.
 // stepFn — один шаг (по умолчанию update; клиент даёт свой stepGame: ввод, эффекты и их таймеры — как в игре)
-export function simRun(seconds, dt = CFG.BALANCE.SIM_DT, stepFn = update) {
+export function simRun(seconds, dt = CFG.STEP, stepFn = update) {
   const n = Math.round(seconds / dt);
   for (let i = 0; G.phase !== "won" && (i < n || G.pendingWin > 0); i++) stepFn(dt);   // SPEC-022: начатая победа (обнимашка, дорога домой) доигрывается
   return { ended: G.phase === "won", win: G.phase === "won" && !G.tutorialGame, time: G.stats.time };   // SPEC-029: a practice game ends without a win screen

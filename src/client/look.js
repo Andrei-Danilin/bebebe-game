@@ -2,6 +2,7 @@
 // text tests) — the keys of CFG that only drawing reads. The rules, the generator and the balance are in src/core/config.js; the
 // key names did not change, and __bb.CFG shows both objects as one (tests write and restore keys through it).
 export const LOOK = {
+  VIEW_DT_MAX: 0.05,         // SPEC-034: сек — кадр дольше не двигает вид (камера, надписи, частицы, меню); игра шагает по своему накопителю
   // как выглядит: на цыпочках — ноги и руки машут меньше (swing), меньше подпрыгивает (bob), тело ниже (low) и чуть наклонено (lean);
   // «топ-топ» у ног бегущего рядом с Большим: штрихи длиной tap UI px, по taps с каждой стороны, видны при |sin(шага)| > tapShow
   TIPTOE_LOOK: { swing: 0.35, bob: 0.025, low: -0.08, lean: 0.2, tap: 10, taps: 2, tapShow: 0.35 },

@@ -1,6 +1,6 @@
 // SPEC-011: small helpers — distance, clamp, angles, and the gameplay randomness rng() (seeded, SPEC-008) next to the
 // visual one vrand(). Core module.
-import { TAU } from "./config.js";
+import { CFG, TAU } from "./config.js";
 import { G } from "./active.js";
 
 // =====================================================================
@@ -8,6 +8,13 @@ import { G } from "./active.js";
 // =====================================================================
 export const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 export const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+// SPEC-034: the accumulator of live play. A frame adds its time (at most CFG.MAX_FRAME) to acc; n = whole CFG.STEP steps (at most
+// CFG.MAX_STEPS, the excess is dropped); the sub-step remainder stays. The 1e-9 absorbs float error (20 frames of 0.05 s are 60 steps).
+export function frameSteps(acc, frameTime) {
+  acc += clamp(frameTime, 0, CFG.MAX_FRAME);
+  const whole = Math.floor(acc / CFG.STEP + 1e-9);
+  return { n: Math.min(whole, CFG.MAX_STEPS), acc: Math.max(0, acc - whole * CFG.STEP) };
+}
 // SPEC-008: случайность. Игровая — только rng() (mulberry32): __bb.seedRandom(n) задаёт зерно, без зерна — случайное
 // (игра как раньше). rand() — игровой. Визуальная — vrand() на Math.random: частицы burst, сердечки при обнимашках,
 // тряска камеры, снег, randomOutfit; она не трогает rng(), поэтому sim (без частиц) тянет тот же ряд, что и игра.

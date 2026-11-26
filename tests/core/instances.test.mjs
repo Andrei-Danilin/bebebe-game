@@ -4,7 +4,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { CFG, G, autopilot, createGame, setProgress, step, useGame, withGame } from "../../src/core/index.js";
 
-const DT = CFG.BALANCE.SIM_DT;                  // the fixed step of sim mode, the balance report and the server (AC 1e)
+const DT = CFG.STEP;                  // the fixed step of sim mode, the balance report and the server (AC 1e)
 const steps = s => Math.round(s / DT);
 // a game of 1 autopilot player + 4 bots on (world, n) from seed
 function newGame(world, n, seed) {

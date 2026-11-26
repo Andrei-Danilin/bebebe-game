@@ -3,7 +3,7 @@
 // resetMenus, toMap, toHome. Client module (moved out of index.html in Phase C).
 
 import { G } from "../core/active.js";
-import { BONUS_WORLDS, BOSSES, levelsPerWorld, MAIN_WORLDS, worldIndex, WORLDS } from "../core/config.js";
+import { BONUS_WORLDS, BOSSES, CFG, levelsPerWorld, MAIN_WORLDS, worldIndex, WORLDS } from "../core/config.js";
 import { addCoins, progress } from "../core/economy.js";
 import { createGame, logEvent, newInput, teamSize, useGame } from "../core/game.js";
 import { levelType } from "../core/level/generate.js";
@@ -165,6 +165,7 @@ function clearView() { ui.texts = []; ui.particles = []; ui.shake = 0; sticks.cl
 function buildLocal(n, playable) {
   if (PHONE) n = 1;                  // на телефоне играет один (SPEC-005)
   clearView();
+  ui.acc = CFG.STEP_PHASE * CFG.STEP;   // SPEC-034: a new game — the accumulator starts a quarter step in (away from the step boundary: no stalls at 60 Hz)
   ui.tiptoe = [false, false];        // SPEC-032 AC 1: кнопка 👣 — выключена в начале каждого уровня
   const keep = Object.fromEntries(KEEP.map(k => [k, G[k]]));
   lastReward = null;

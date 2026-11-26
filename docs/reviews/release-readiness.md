@@ -54,7 +54,7 @@ Also blocking a submission: no privacy page or parents' area in the app (RR-52),
 | RR-05 | HIGH | `mode` is both the client screen and the game phase | A3 | 012 (+011 setter) |
 | RR-06 | HIGH | The one live game is also the menu backdrop and the wardrobe stage | A4 | 012 |
 | RR-07 | HIGH | Game state not contained: 3D models on logic objects, mutable `const` containers | A7 | 012 |
-| RR-08 | HIGH | Live play steps on frame time; only sim is fixed-step | A5, F13 | 012 (document) + decision |
+| RR-08 | HIGH | Live play steps on frame time; only sim is fixed-step — done (SPEC-034: fixed 1/60 s step everywhere) | A5, F13 | 012 (document) + decision |
 | RR-09 | MEDIUM | Core-bound code touches DOM and storage at import | A9 | 011 |
 | RR-10 | MEDIUM | `CFG` mixes logic and look numbers | A12 | 011 |
 | RR-11 | MEDIUM | The logic makes translated text and UI-only state | A10 | 012 |
@@ -193,6 +193,7 @@ Context: `index.html` is 9,387 lines (module 49–9385). The 2D layer is 2,705 l
   - SPEC-012 AC 1 says "with the existing fixed logic", which does not exist.
 - **Fix:** In SPEC-012, document the two step modes and give the core a fixed-step entry for sim, Node and the server. Keep the live loop's feel exactly as today. A fixed live step (accumulator, e.g. 1/60) is decision D-11.
 - **Spec:** SPEC-012 AC 1 (wording), AC 1e; decision D-11.
+- **Status (2026-11-26):** done (SPEC-034: live play, the core, `simRun`, the autopilot and the balance runs all step at `CFG.STEP` = 1/60 s; the live loop takes whole steps from an accumulator, A5 and F13 included).
 
 #### RR-09 MEDIUM: Core-bound code touches DOM and storage at import [A9]
 - **Location:**
@@ -784,7 +785,7 @@ Each item would change a goal, a decision-type out-of-scope line, or a rule that
 10. **D-10 Minimum device** (RR-36, RR-65, F10, P9). — **decided by Andrei, 2026-11-26: as recommended.**
     - **Question:** Officially require WebGL2 / GLES 3.0, iOS 16.4+ and Android WebView ≥ Chrome 94?
     - **Recommendation:** yes. three.js r187 already needs these. Declare them in the store builds, and show "This device can't show the 3D game" below them.
-11. **D-11 A fixed live time step** (RR-08, A5). — **decided by Andrei, 2026-11-26: as recommended: its own small spec, SPEC-034.**
+11. **D-11 A fixed live time step** (RR-08, A5). — **decided by Andrei, 2026-11-26: as recommended: its own small spec, SPEC-034. Done (SPEC-034).**
     - **Question:** Should live play advance in fixed steps (e.g. 1/60 s from an accumulator), so the game behaves the same on a 30 Hz phone, a 120 Hz iPad, the balance report and the future server?
     - **Options:** keep today's one step per frame (SPEC-012 only documents it); fixed 1/60 (no visible change on normal devices, steadier on slow ones); 1/30 (would change the feel, not recommended).
     - **Recommendation:** fixed 1/60 in its own small spec after SPEC-012, with a balance run.
@@ -947,7 +948,7 @@ The specs were corrected in this run, with each correction marked "(from review)
 | 012 Context | kisses and kits spent from `progress.inv` | `gameInv()` (practice uses `tutorialInv`); glove charges spent and saved in `hug` 3483 |
 | 012 Context | "the kit function" | `useRescueKit(pi)` 4102, `canUseKit` 4101 |
 | 012 Context | `SFX.*` (~18 places), pop texts (`texts`) | `SFX` ×17, `burst` ×17, `popText(x, y, text, color, meaning)` ×18; `meaning` → `POP_ART`; plus footsteps/heard hint (SPEC-019), moods/bosses (SPEC-021/022) |
-| 012 AC 1 | "existing fixed logic" | no fixed step in live play (RR-08) |
+| 012 AC 1 | "existing fixed logic" | no fixed step in live play (RR-08; SPEC-034 added it) |
 | 012 AC 2 | slot `glove, gloveCharges, kisses, kits` | `progress.equip[pi]` + the shared `progress.inv` via `gloveOf`; local p1/p2 share one pool; the Big One slot also needs `boss` (`bossFor`) |
 | 012 AC 5 | `banner(world, n, type)` | also the world-opened banner (SPEC-030) and toasts |
 | 012 AC 6 | `perSlot { hugs, pushes, starCoins, kissesUsed, kitsUsed, gloveChargesUsed, rests }` | today's `stats` = `{ hugs, time, playerHugs, rests, starCoins }`; the reward uses `playerHugs` |

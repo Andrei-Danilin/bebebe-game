@@ -1,5 +1,5 @@
 // SPEC-012 AC 8: how fast the core steps games side by side (the server of SPEC-013 runs many rooms in one Node process).
-// 100 games (1 autopilot player + 4 bots, levels spread over the worlds) stepped in turn at CFG.BALANCE.SIM_DT (30 steps per
+// 100 games (1 autopilot player + 4 bots, levels spread over the worlds) stepped in turn at CFG.STEP (60 steps per
 // game-second) for 60 game-seconds; prints ms per game step (median, p95). Not a test gate: the numbers go into
 // docs/architecture.md. Target (spec): p95 ≤ 1 ms per game step.
 //   npm run bench:core  [-- --games 100 --seconds 60]
@@ -11,7 +11,7 @@ const arg = (name, def) => { const i = process.argv.indexOf("--" + name); return
 async function main() {
   const core = await import(pathToFileURL(path.join(__dirname, "..", "src", "core", "index.js")).href);
   const { CFG, WORLDS, autopilot, createGame, levelsPerWorld, setProgress, step, withGame } = core;
-  const GAMES = arg("games", 100), SECONDS = arg("seconds", 60), DT = CFG.BALANCE.SIM_DT, STEPS = Math.round(SECONDS / DT);
+  const GAMES = arg("games", 100), SECONDS = arg("seconds", 60), DT = CFG.STEP, STEPS = Math.round(SECONDS / DT);
   setProgress(null);
   const t0 = performance.now();
   const games = Array.from({ length: GAMES }, (_, i) => {

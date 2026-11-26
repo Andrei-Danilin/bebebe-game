@@ -123,13 +123,17 @@ const asStored = keys => Object.fromEntries(Object.entries(keys).map(([k, v]) =>
 // worlds since SPEC-030) through the __bb.world setter. The loop is simRun's, cut at every snapshot: update(dt) while the
 // level plays and the time is not up, then simRun(0) plays a started win to its end (as simRun does). runLevel itself is
 // checked too (its summary of Park 1).
+// The reference was recorded on the one-file game at its fixed step of 1/30 s (the old CFG.BALANCE.SIM_DT). SPEC-034 made the one game
+// step CFG.STEP = 1/60 s everywhere, but this test checks the split of the code, not the step size, so it keeps stepping at the
+// recorded dt (an explicit number, the same in the page and here); the reference is not re-recorded (and cannot be).
+const REF_DT = 1 / 30;
 const BASELINE_FILE = path.join(FIXTURES, "events-baseline.json");
 // Snapshots every 2 s (finer than the 10 s asked for: the stocked runs win in 6–64 s). [world, level, players]: the spec's three
 // runs and its 2-player run, plus City 18 — the spec's runs win before anyone needs a rescue kit; City 18 uses one.
 const BASELINE = { seed: 7, style: "careful", seconds: 120, snapEvery: 2 };
 const BASELINE_RUNS = [["park", 1, 1], ["beach", 9, 1], ["winter", 18, 1], ["park", 1, 2], ["city", 18, 1]];
-function baselineRun({ world, n, players, style, seed, seconds, snapEvery, save }) {   // runs in the page; plain data only
-  const b = window.__bb, dt = b.CFG.BALANCE.SIM_DT, f2 = v => v.toFixed(2);
+function baselineRun({ world, n, players, style, seed, seconds, snapEvery, save, dt }) {   // runs in the page; plain data only
+  const b = window.__bb, f2 = v => v.toFixed(2);
   b.clearLevelCache();
   b.setProgress(save);
   b.autopilot(true, style); b.seedRandom(seed);
@@ -173,10 +177,10 @@ test("same seed, same game after the split", async ({ page }) => {
 async function sameGame(page, errors) {
   const save = readJson(path.join(SAVES_DIR, "baseline-stocked.json")).keys["bebebe-progress"];
   const runs = [];
-  for (const [world, n, players] of BASELINE_RUNS) runs.push(await page.evaluate(baselineRun, { world, n, players, save, ...BASELINE }));
+  for (const [world, n, players] of BASELINE_RUNS) runs.push(await page.evaluate(baselineRun, { world, n, players, save, dt: REF_DT, ...BASELINE }));
   // and scripts/balance.js runLevel itself (its whole level, the balance summary) on the stocked save: Park 1
   const { runLevel } = require(path.join(ROOT, "scripts", "balance.js"));
-  const summary = await page.evaluate(runLevel, { world: "park", n: 1, style: BASELINE.style, seed: BASELINE.seed, progress: save });
+  const summary = await page.evaluate(runLevel, { world: "park", n: 1, style: BASELINE.style, seed: BASELINE.seed, progress: save, dt: REF_DT });
   // SPEC-012 AC 6 / 10: the events the client acts on that the recorded game did not log (it spent and paid in place) — compared
   // without exactly these types: every recorded event must still come in the same order with the same data
   summary.events -= await page.evaluate(types => window.__bb.events.filter(e => types.includes(e.type)).length, NEW_EVENT_TYPES);
@@ -416,7 +420,7 @@ test("no `L()` / `I18N` use in src/core/", { tag: "@fast" }, () => {
 // AC 2c: CFG is split by meaning — src/core/config.js holds the rules, generator and balance, src/client/look.js (LOOK) the look/UI
 // keys; key names did not change. No key in both; no look-named key in the core config except these (each with why); the core
 // never reads a LOOK key.
-const LOOK_NAME = /^(CAM_|PHONE_|MINIMAP_|ART$|PAPER|STORY_TEXT_|STORY_PIC$|TEXT_TEST_SCALE$|NAME_TAG$|BANNER_|PAD_|KISS_BTN$|TIPTOE_BTN$|STICK_ZONE$|ARROW_D$|OUTLINE_|SAFE_GLOW$|BOSS_SCALE$|STAR_BLINK$|DANGER_WARN$|BUBBLE_MIN$|LANG_SCREEN$|WIN_|PRICE_FIT_MARGIN$|BACK_CLOSE_WAIT$)|_LOOK$/;   // SPEC-032: + TIPTOE_BTN, BUBBLE_MIN, LANG_SCREEN; SPEC-033: + WIN_GAP
+const LOOK_NAME = /^(CAM_|PHONE_|MINIMAP_|ART$|PAPER|STORY_TEXT_|STORY_PIC$|TEXT_TEST_SCALE$|NAME_TAG$|BANNER_|PAD_|KISS_BTN$|TIPTOE_BTN$|STICK_ZONE$|ARROW_D$|OUTLINE_|SAFE_GLOW$|BOSS_SCALE$|STAR_BLINK$|DANGER_WARN$|BUBBLE_MIN$|LANG_SCREEN$|WIN_|PRICE_FIT_MARGIN$|BACK_CLOSE_WAIT$|VIEW_DT_MAX$)|_LOOK$/;   // SPEC-032: + TIPTOE_BTN, BUBBLE_MIN, LANG_SCREEN; SPEC-033: + WIN_GAP; SPEC-034: + VIEW_DT_MAX
 const CONFIG_LOOK_ALLOW = {
   TUTORIAL_LOOK: "the practice game reads TUTORIAL_LOOK.dadStart (where Dad stands in practice 1): gameplay, so the whole table stays in core config",
   HEAR_LOOK: "a rule, not a look: how many seconds the Big One keeps looking where he heard running feet (hearing.js)"

@@ -19,6 +19,7 @@ export const ui = {
   particles: [],
   muted: false,
   shake: 0,
+  acc: 0,                    // SPEC-034: the game-time accumulator of live play (s; < CFG.STEP between frames); a new game starts it at CFG.STEP_PHASE × CFG.STEP
   // SPEC-012 AC 5: the client's timers of the core's hints (who, how long still) and the wide-push rings { x, y, t, r }
   kitHintT: 0, kitHintPi: 0, heardHintT: 0, heardHintPi: 0, waves: [],
   tiptoe: [false, false],   // SPEC-032 AC 1: кнопка 👣 каждого игрока (касания) — на цыпочках включено; в начале уровня — выключено

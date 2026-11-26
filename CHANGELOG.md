@@ -24,6 +24,10 @@ The version is `package.json` `version` (shown on the "For grown-ups" page); how
   down, "Get for 🪙" instead of "Buy", "Reset progress" moved behind the grown-ups question, a roomier win title, and
   "Leave the game?" when Back is pressed on the home screen (SPEC-033).
 
+### Changed
+
+- The game now runs in fixed 1/60 s steps, so it plays the same on every screen, a slow phone or a fast tablet (SPEC-034).
+
 ## [1.0.0-dev] - what is in the game today
 
 The first written-down state of the game, made by Andrei and his kids from their scenario and drawings.
