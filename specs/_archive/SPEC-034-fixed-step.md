@@ -1,6 +1,6 @@
 # SPEC-034 — Fixed 1/60 s game step: the same game on every screen
 
-Status: ready
+Status: done (merged by "Merge SPEC-034", see git log)
 Complexity: M
 Branch: SPEC-034-fixed-step
 Decided by: Andrei (2026-11-26, D-11 of the release review, as recommended): live play advances in fixed 1/60 s steps. Accumulator details and the catch-up limit: Claude.
