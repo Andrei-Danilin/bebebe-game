@@ -126,6 +126,7 @@ export function installDebug() {
     // SPEC-012 AC 1b: the 3D model of Little One i or of the Big One ("big") — models are kept by the client, not on the entities
     model: who => modelOf(who === "big" ? G.big : G.littles[who]) || null,
     get game() { return G; },   // SPEC-012: the active game (plain data)
+    get acc() { return ui.acc; },   // SPEC-034: the game-time accumulator of live play (s, read-only; < CFG.STEP between frames)
     // SPEC-025 AC 7: the local error log (copies); an error as the game reports it (card, log); nextLevel (AC 7d)
     get errorLog() { return errorLog(); }, reportError, nextLevel,
     // SPEC-025: forget every pad (AC 7e: the tests' gamepad stubs); the one "back" (AC 14d); the audio context (AC 14); restored (AC 14c)

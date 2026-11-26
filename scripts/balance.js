@@ -18,7 +18,7 @@ const OUT_DIR = path.join(ROOT, "reports");
 // Runs IN THE PAGE (page.evaluate): one level, 1 player + 4 bots, the autopilot in `style`, seeded. `progress` is a save
 // to start from (SPEC-009: e.g. maxed upgrades); without it — fresh progress (empty inventory: nothing bought).
 // Returns plain data only.
-function runLevel({ world, n, style, seed, progress = null, dt = null }) {   // dt: only the test of the code split (modules.spec) steps at its recorded 1/30; the balance runs take CFG.STEP
+function runLevel({ world, n, style, seed, progress = null, dt = null }) {   // dt: only the code-split reference test steps at the reference's recorded step (REF_DT in modules.spec); the balance runs take CFG.STEP
   const b = window.__bb, B = b.CFG.BALANCE;
   b.setProgress(progress);
   b.autopilot(true, style); b.seedRandom(seed);

@@ -87,20 +87,92 @@ test("a slow device: 20 Hz keeps up with real time, 4 Hz is capped at 8 steps a 
   expect(r.sane, "nothing broke: finite positions, the level goes on").toBe(true);
 });
 
-// AC 1: pause and menus add nothing to the accumulator (the live loop does not feed the frame in them; a rendered page)
-test("pause adds no game time and no catch-up when play goes on", async ({ page }) => {
-  await page.evaluate(() => { const b = window.__bb; b.sim(false); });
+// AC 1: pause and menus add nothing to the accumulator. First the frame function (sim, simulated frame times), then the real loop
+// (a rendered page: the frames that pass while paused change nothing; no wait decides a pass)
+test("outside play a frame adds nothing: no steps, no accumulator", async ({ page }) => {
+  const r = await page.evaluate(() => {
+    const b = window.__bb, S = b.CFG.STEP, out = {};
+    b.world = "park"; b.level = 5; b.startGame(1);
+    out.start = b.acc;
+    b.frame(S * 0.4);                                         // 0 steps: the remainder grows
+    out.afterPlay = b.acc;
+    const t0 = b.stats.time;
+    for (const mode of ["pause", "home", "map", "shop"]) { b.mode = mode; for (let i = 0; i < 5; i++) b.frame(1); }
+    out.same = b.acc === out.afterPlay && b.stats.time === t0;
+    b.mode = "play";
+    for (let i = 0; i < 50; i++) { b.frame(0.013); out.max = Math.max(out.max || 0, b.acc); }
+    out.S = S; out.moved = b.stats.time > t0;
+    b.mode = "home";
+    return out;
+  });
+  expect(r.start, "a new game starts a quarter step in (CFG.STEP_PHASE)").toBeCloseTo(0.25 * r.S, 12);
+  expect(r.afterPlay).toBeCloseTo(0.65 * r.S, 12);
+  expect(r.same, "pause and menus: the accumulator and the game time stay put").toBe(true);
+  expect(r.max, "the accumulator is always less than a step after a frame").toBeLessThan(r.S);
+  expect(r.moved).toBe(true);
+});
+
+test("the real loop feeds nothing while paused (rendered page)", async ({ page }) => {
+  await page.evaluate(() => { window.__bb.sim(false); });
   try {
     await page.evaluate(() => { const b = window.__bb; b.world = "park"; b.level = 5; b.startGame(1); });
-    await page.waitForTimeout(300);
-    const t1 = await page.evaluate(() => { const b = window.__bb; b.mode = "pause"; return b.stats.time; });
-    await page.waitForTimeout(700);
-    const t2 = await page.evaluate(() => window.__bb.stats.time);
-    expect(t2, "a paused game does not move").toBe(t1);
+    await page.waitForFunction(() => window.__bb.stats.time > 0.05, null, { timeout: 30_000, polling: 50 });
+    const before = await page.evaluate(() => { const b = window.__bb; b.mode = "pause"; return { acc: b.acc, time: b.stats.time, rafs: b.sim().renders }; });
+    await page.waitForFunction(r => window.__bb.sim().renders >= r + 5, before.rafs, { timeout: 30_000, polling: 50 });   // frames passed while paused
+    const during = await page.evaluate(() => ({ acc: window.__bb.acc, time: window.__bb.stats.time }));
+    expect(during, "frames in pause change neither the accumulator nor the game time").toEqual({ acc: before.acc, time: before.time });
     await page.evaluate(() => { window.__bb.mode = "play"; });
-    await page.waitForTimeout(150);
-    const t3 = await page.evaluate(() => { const b = window.__bb; b.mode = "home"; return b.stats.time; });
-    expect(t3 - t2, "no catch-up of the 0.7 s pause: only the 0.15 s since play went on (plus a frame)").toBeLessThan(0.15 + 0.3);
-    expect(t3 - t2).toBeGreaterThan(0);
+    await page.waitForFunction(t => window.__bb.stats.time > t, before.time, { timeout: 30_000, polling: 50 });
+    const after = await page.evaluate(() => { const b = window.__bb; b.mode = "home"; return { acc: b.acc, S: b.CFG.STEP }; });
+    expect(after.acc, "back in play: less than a step in the accumulator").toBeLessThan(after.S);
   } finally { await page.evaluate(() => { window.__bb.sim(true); window.__bb.mode = "home"; }); }
+});
+
+// AC 1: the devices are read once and apply to every step of the frame; a one-shot button fires at the first step only
+test("a 💋 flag fires once in a frame of two steps; a result ends the frame's stepping", async ({ page }) => {
+  const r = await page.evaluate(() => {
+    const b = window.__bb, S = b.CFG.STEP, out = {};
+    b.progress.inv.kisses = 3;
+    b.world = "park"; b.level = 5; b.startGame(1);
+    const big = b.big, p = b.littles[0];
+    Object.assign(big, { state: "look", timer: 9999, stun: 0, x: 900, y: 600, dir: Math.PI / 2, noPush: 999 });
+    Object.assign(p, { x: 300, y: 300, dir: 0, kissCd: 0, state: "ok" });
+    b.game.inputs.p1.kiss = true;
+    b.frame(2 * S);                                           // two steps
+    out.kisses = b.events.filter(e => e.type === "spent" && e.kind === "kiss").length;
+    out.left = b.progress.inv.kisses;
+    out.flag = b.game.inputs.p1.kiss;
+    // a win decided on the first step: the frame's other steps do not run (the little one's invuln counts every step)
+    b.mode = "play";
+    const q = b.littles[1];
+    q.invuln = 1;
+    b.big.kind = true; b.game.pendingWin = 0.0001;            // the next step wins: result → the win screen
+    b.frame(6 * S);
+    out.stepsAfterResult = Math.round((1 - q.invuln) / S);
+    out.mode = b.mode;
+    b.mode = "home";
+    return out;
+  });
+  expect(r.kisses, "one kiss for the one press").toBe(1);
+  expect(r.left, "one kiss spent").toBe(2);
+  expect(r.flag, "the flag was consumed").toBe(false);
+  expect(r.mode, "the win screen").toBe("win");
+  expect(r.stepsAfterResult, "the other five steps of the frame did not run").toBe(1);
+});
+
+// the live path and the sim path are one: N frames of one step each = simRun of N steps on the same seed
+test("N frames of one step give the same game as simRun of N steps", async ({ page }) => {
+  const run = (live) => page.evaluate(({ live }) => {
+    const b = window.__bb, S = b.CFG.STEP, N = 900;
+    b.clearLevelCache(); b.autopilot(true, "careful"); b.seedRandom(77);
+    const draws0 = b.rngDraws;
+    b.world = "park"; b.level = 5; b.startGame(1);
+    if (live) for (let i = 0; i < N; i++) b.frame(S); else b.simRun(N * S);
+    const out = { time: b.stats.time, draws: b.rngDraws - draws0, big: [b.big.x, b.big.y, b.big.hp, b.big.state], littles: b.littles.map(l => [l.x, l.y, l.state, l.task]), events: JSON.stringify(b.events) };
+    b.autopilot(false, "careful"); b.mode = "home";
+    return out;
+  }, { live });
+  const a = await run(true), b = await run(false);
+  expect(JSON.parse(a.events).length, "things happened").toBeGreaterThan(3);
+  expect(a, "frames of one step = simRun").toEqual(b);
 });

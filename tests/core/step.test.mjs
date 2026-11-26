@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { CFG, frameSteps } from "../../src/core/index.js";
+import { CFG, frameSteps, mulberry32 } from "../../src/core/index.js";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const files = d => fs.readdirSync(path.join(ROOT, d), { withFileTypes: true }).flatMap(e =>
@@ -52,4 +52,29 @@ test("frameSteps: the accumulator", () => {
   // nothing negative or odd in: no steps
   assert.deepEqual(frameSteps(0, -1), { n: 0, acc: 0 });
   assert.deepEqual(frameSteps(0, 0), { n: 0, acc: 0 });
+});
+
+// SPEC-034 review: rAF timestamps are rounded (~0.1 ms) and jitter, so a game that starts with an empty accumulator and gets ~1/60 s
+// frames sits right on the step boundary and the remainder flips: frames with 0 steps and frames with 2 (the hero stalls and jumps).
+// A new game starts the accumulator at CFG.STEP_PHASE × CFG.STEP, away from the boundary at 60 Hz (and at the half step of 120 Hz).
+function simulate(hz, frames, start) {
+  const rnd = mulberry32(34), stamp = t => Math.round(t * 10000) / 10000;   // timestamps in whole 0.1 ms
+  const out = []; let acc = start, prev = 0;
+  for (let i = 1; i <= frames; i++) {
+    const ts = stamp(i / hz + (rnd() * 2 - 1) * 0.0001);                    // ±0.1 ms jitter
+    const r = frameSteps(acc, ts - prev); acc = r.acc; prev = ts; out.push(r.n);
+  }
+  return out;
+}
+test("a new game's accumulator phase keeps 60 and 120 Hz smooth under timestamp jitter", () => {
+  assert.ok(CFG.STEP_PHASE > 0 && CFG.STEP_PHASE < 1, "CFG.STEP_PHASE is a fraction of a step");
+  const start = CFG.STEP_PHASE * CFG.STEP;
+  const f60 = simulate(60, 600, start);
+  assert.equal(f60.filter(n => n !== 1).length, 0, "60 Hz: every frame takes exactly one step");
+  const f120 = simulate(120, 1200, start);
+  assert.ok(f120.every(n => n <= 1), "120 Hz: never two steps in a frame");
+  assert.equal(f120.some((n, i) => n === 0 && f120[i - 1] === 0), false, "120 Hz: never two empty frames in a row");
+  assert.ok(Math.abs(f120.reduce((a, b) => a + b, 0) - 600) <= 1, "120 Hz: 10 s are 600 steps");
+  // without the phase (an empty accumulator) the same frames stall and jump: why the phase exists
+  assert.ok(simulate(60, 600, 0).filter(n => n !== 1).length > 20);
 });

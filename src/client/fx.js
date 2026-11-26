@@ -1,6 +1,7 @@
 // SPEC-011 / SPEC-012 AC 5: the client's effects — popText, burst, clientFx (flying texts, particles, shake), bannerTick, and the
 // drain of the core's effect events (drainEvents: sounds, particles, translated pop texts, shake, wide-push rings, hints);
-// stepGame — one step of the local game as live play does it (devices → step → effects and their timers). Client module.
+// stepGame — one step of the local game by the caller's dt (__bb.update, the sim runs, the tests: devices → step → effects and their
+// timers); runFrame — one frame of live play (the accumulator's whole CFG.STEP steps, SPEC-034). Client module.
 
 import { G } from "../core/active.js";
 import { CFG, TAU } from "../core/config.js";
@@ -104,14 +105,15 @@ export function stepGame(dt) {
 // SPEC-034 AC 1: one frame of live play — the one function the frame loop calls in play (__bb.frame feeds it simulated frame times).
 // The accumulator takes the frame time and gives n whole CFG.STEP steps; the devices are read once and apply to all n steps (the
 // 💋 / 🩹 flags fire at the first); the game time moves by n × STEP only. The view (texts, particles, rings, shake) is client-only
-// and ages by the frame time. A step that leaves play (a win, a result) ends the frame's stepping.
+// and ages by the frame time. A step that leaves play or builds another game (a win, a practice win) ends the frame's stepping; outside play it does nothing.
 export function runFrame(frameTime) {
+  if (mode !== "play") return;                                // pause, menus: nothing is added, nothing steps
   const { n, acc } = frameSteps(ui.acc, frameTime);
   ui.acc = acc;
   if (n > 0) {
-    const was = mode;
+    const game = G;
     runCore(() => { fillInputs(); });
-    for (let i = 0; i < n && mode === was; i++) coreStep(CFG.STEP);
+    for (let i = 0; i < n && mode === "play" && G === game; i++) coreStep(CFG.STEP);   // a win, a result or a next practice game ends the frame's stepping
   }
   viewTick(Math.min(LOOK.VIEW_DT_MAX, Math.max(0, frameTime)));
 }

@@ -27,6 +27,7 @@
  "WARDROBE_TIERS": "value",
  "WORLDS": "value",
  "WORLD_SEED": "value",
+ "acc": "getter",
  "art": "function",
  "artInfo": "getter",
  "artTableNames": "function",

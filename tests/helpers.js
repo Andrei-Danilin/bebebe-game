@@ -143,7 +143,7 @@ async function frames(page) {
 }
 
 async function step(page, seconds) {
-  await page.evaluate(sec => { for (let i = 0; i < Math.round(sec * 60); i++) window.__bb.update(1 / 60); }, seconds);
+  await page.evaluate(sec => { const dt = window.__bb.CFG.STEP; for (let i = 0; i < Math.round(sec / dt); i++) window.__bb.update(dt); }, seconds);
 }
 
 // SPEC-018: a cheap expect for checks inside loops. Every Playwright expect() records a test step (with a stack), a few ms
