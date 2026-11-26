@@ -919,7 +919,8 @@ test("CFG.MENU_LOOK has no key twice", () => {
 });
 
 // SPEC-033 AC 9: every price — Items, Upgrades, a locked look of a kid and of the Big One — reads "Get for 🪙 N" and the 🪙 is drawn as the
-// item_coin picture (EMOJI_ART); a price is never written as bare "Buy N"
+// item_coin picture (EMOJI_ART); a price is never written as bare "Buy N" (a narrow phone card may shorten it: "Get 🪙 N", "🪙 N" — with the
+// wider CI font, PW_FONT=ci, even the English line does)
 async function pricesAt(page) {
   const fails = [];
   const price = async (at, setup, ids) => {
@@ -929,7 +930,7 @@ async function pricesAt(page) {
     await frames(page);
     const d = await page.evaluate(ids => {
       const b = window.__bb;
-      return { b: b.buttonRects.filter(q => ids.some(i => q.id.startsWith(i))).map(q => ({ id: q.id, text: q.text, ok: ["", "🔒 ", "✔ "].map(p => p + b.I18N.en.buyFor((/(\d+)$/.exec(q.text) || [])[1])) })), use: b.artUse };
+      return { b: b.buttonRects.filter(q => ids.some(i => q.id.startsWith(i))).map(q => ({ id: q.id, text: q.text, ok: ["", "🔒 ", "✔ "].flatMap(p => { const n = (/(\d+)$/.exec(q.text) || [])[1]; return [b.I18N.en.buyFor(n), `${b.I18N.en.buy} 🪙 ${n}`, `🪙 ${n}`].map(t => p + t); }) })), use: b.artUse };
     }, ids);
     if (!d.b.length) fails.push(`${at}: no price button`);
     for (const q of d.b) if (!q.ok.includes(q.text)) fails.push(`${at}: ${q.id} reads "${q.text}"`);

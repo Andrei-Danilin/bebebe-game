@@ -419,6 +419,9 @@ node scripts/perf.js   # frame times, master vs the working copy (phone + deskto
   already busy (e.g. other Claude Code sessions running their tests) a run can crawl. With the GPU that was fine (the whole
   suite passed at below normal on a busy machine), but **SwiftShader (`PW_GPU=0`, or the fallback) needs every CPU core and
   starved into 90 s timeouts there — run it as `PW_GPU=0 PW_NICE=0`** (measured in SPEC-023, `reports/test-times.md`).
+- `PW_FONT=ci` (SPEC-033): the local test browser draws the game's text with the font CI draws it with (DejaVu Sans, wider than
+  Windows / macOS fonts; `tests/ci-font.js`, `tests/fonts/`, test-only), so text that only misfits on CI shows up locally:
+  `PW_FONT=ci npx playwright test tests/menus.spec.js -g "phone"`. The site and CI are unchanged; CI's emoji font is not copied.
 - Claude Code itself at low priority on Windows (everything it starts inherits it): `start /belownormal claude --model opus`
   in `cmd` (from PowerShell: `cmd /c start /belownormal claude --model opus`; it opens a new console window).
 - Logic-only tests open the game in **sim mode** (`openGame(page, { sim: true })`: no 3D, no audio), so they are fast

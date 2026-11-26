@@ -8,6 +8,7 @@
 const path = require("path");
 const fs = require("fs");
 const { expect, test } = require("@playwright/test");
+const { installCiFont, ciFontReady } = require("./ci-font");   // SPEC-033 AC 14
 
 const ROOT = path.resolve(__dirname, "..");
 // SPEC-011 AC 8: every test opens the game over http (the webServer of playwright.config.js serves the repo root here);
@@ -85,6 +86,7 @@ async function openGame(page, { lang = "en", clearStorage = true, query = "", si
   page.on("pageerror", e => errors.push(String(e)));
   page.on("console", m => { if (m.type() === "error") errors.push("console: " + m.text()); });
   await page.addInitScript(strictRng);
+  await installCiFont(page);   // SPEC-033 AC 14: PW_FONT=ci — the CI runner's font
   if (testSeed() != null) await page.addInitScript(bootSeed, testSeed());
   if (!intro) await page.addInitScript(noIntro);
   if (!tutorial) await page.addInitScript(noTutorial);
@@ -94,6 +96,7 @@ async function openGame(page, { lang = "en", clearStorage = true, query = "", si
   if (sim) guardSim(page);
   await page.goto(base + "index.html" + withSim(query, sim));
   await page.waitForFunction(() => window.__bbReady === true, null, { timeout: READY_MS });
+  await ciFontReady(page);
   await seedGame(page);
   return errors;
 }
@@ -115,6 +118,7 @@ async function openGameHttp(page, { lang = "en", query = "", clearStorage = true
   page.on("pageerror", e => errors.push(String(e)));
   page.on("console", m => { if (m.type() === "error") errors.push("console: " + m.text()); });
   await page.addInitScript(strictRng);
+  await installCiFont(page);   // SPEC-033 AC 14
   if (testSeed() != null) await page.addInitScript(bootSeed, testSeed());
   if (!intro) await page.addInitScript(noIntro);
   if (!tutorial) await page.addInitScript(noTutorial);
@@ -123,6 +127,7 @@ async function openGameHttp(page, { lang = "en", query = "", clearStorage = true
   }
   await page.goto(HTTP_BASE + query);
   await page.waitForFunction(() => window.__bbReady === true, null, { timeout: READY_MS });
+  await ciFontReady(page);
   await seedGame(page);
   return errors;
 }

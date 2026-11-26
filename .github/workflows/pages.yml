@@ -7,8 +7,10 @@
 # A red deploy with green tests: `gh run rerun <id> --failed` only when that run's `build` job was green AND its commit is
 # still the HEAD of origin/master (the rerun deploys the artifact `build` uploaded once; it uploads nothing new); otherwise
 # a fresh `gh workflow run pages.yml --ref master`.
-# SPEC-025 AC 13: a rollback redeploys a known-good tag — `gh workflow run pages.yml --ref master -f ref=vX.Y.Z` (docs/release.md
-# "Rollback"): the tests run on that ref first, then its site is built and deployed; version.txt is the ref's commit sha.
+# SPEC-025 AC 13, SPEC-033 AC 15: a rollback redeploys a known-good tag — `gh workflow run pages.yml --ref master -f ref=vX.Y.Z`
+# (docs/release.md "Rollback"): the `ref` input (default master) is resolved to a commit once; the tests run on that commit
+# first, then its site is built and deployed; version.txt is that commit's sha and the live check waits for exactly it.
+# A broken deploy can also be undone by pushing `git revert -m 1 <merge>` straight to master: this workflow tests it like any push.
 name: Pages
 
 on:
@@ -17,10 +19,10 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: "Tag, branch or commit to test and deploy (empty: the commit the run starts on — master)"
+        description: "Tag, branch or commit to test and deploy (default: master)"
         type: string
         required: false
-        default: ""
+        default: "master"
 
 permissions:
   contents: read

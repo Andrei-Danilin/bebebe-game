@@ -2,7 +2,11 @@
 // on CI / PW_GPU=0 / after a fallback), and the run is at below-normal priority unless PW_NICE=0.
 const { test, expect } = require("./pw");   // SPEC-023: @playwright/test + failure screenshots
 const os = require("os");
+const fs = require("fs");
+const path = require("path");
 const { glBackend, rendererInPage, isSoftware } = require("./test-env");
+const { ciFont, DIR } = require("./ci-font");
+const { openGame } = require("./helpers");
 
 test("the WebGL renderer matches the chosen backend", { tag: "@fast" }, async ({ page }) => {
   const backend = glBackend();
@@ -35,4 +39,32 @@ test("the browser's processes run at below-normal priority (Windows)", async ({ 
   const browsers = rows.filter(r => mine.has(r.pid) && /chrom|msedge/i.test(r.name));
   expect(browsers.length, "the worker's browser processes are found").toBeGreaterThan(0);
   expect(browsers.filter(r => r.prio !== 6).map(r => `${r.name} ${r.pid}: base priority ${r.prio} (6 = below normal)`)).toEqual([]);
+});
+
+// ---------- SPEC-033 AC 14 (D-3): PW_FONT=ci — the local browser draws with the font CI draws with (DejaVu Sans, tests/fonts) ----------
+// DejaVu Sans Bold at 20 px: "Hello World 0123456789" is 277.0 px wide (Segoe UI: 242.8, Arial: 265.8 — measured on a Windows machine)
+test("PW_FONT=ci: the game's canvas and DOM text use DejaVu Sans, not the machine's fonts", async ({ page }) => {
+  test.skip(!ciFont, "only with PW_FONT=ci");
+  await openGame(page, { sim: true });
+  const r = await page.evaluate(() => {
+    const ctx = document.createElement("canvas").getContext("2d");
+    const w = font => { ctx.font = font; return ctx.measureText("Hello World 0123456789").width; };
+    return { stack: w('800 20px system-ui, "Segoe UI", sans-serif'), rounded: w('900 20px "Arial Rounded MT Bold", Arial, sans-serif'), arial: w("800 20px Arial"),
+      dom: getComputedStyle(document.body).fontFamily, loaded: document.fonts.check("20px BBCI") };
+  });
+  expect(r.stack, "the usual stack").toBeCloseTo(277, 0);
+  expect(r.rounded, "the title stack").toBeCloseTo(277, 0);
+  expect(r.arial, "Arial is swapped too").toBeCloseTo(277, 0);
+  expect(r.dom, "the DOM").toMatch(/BBCI/);
+  expect(r.loaded).toBe(true);
+});
+test("PW_FONT=ci: off by default; the font folder is test-only (not in the site, not precached) and carries its licence", { tag: "@fast" }, async () => {
+  const { SITE, SITE_LATER, PAGES_ONLY } = require("../scripts/site");
+  expect(ciFont, "PW_FONT=ci is on only when asked").toBe(process.env.PW_FONT === "ci");
+  const all = [...SITE, ...SITE_LATER, ...PAGES_ONLY];
+  expect(all.filter(f => /^tests|fonts/.test(f)), "no tests/ or fonts in the site list").toEqual([]);
+  const sw = fs.readFileSync(path.join(__dirname, "..", "sw.js"), "utf8");
+  expect(sw, "sw.js (the precache) never names the test fonts").not.toMatch(/tests\/fonts|DejaVu/);
+  expect(fs.readdirSync(DIR).sort(), "the font files and their licence").toEqual(["AUTHORS", "DejaVuSans-Bold.ttf", "DejaVuSans.ttf", "LICENSE"]);
+  expect(fs.readFileSync(path.join(DIR, "LICENSE"), "utf8")).toMatch(/Bitstream Vera Fonts Copyright[\s\S]*Permission is hereby granted, free of charge/);
 });

@@ -14,7 +14,7 @@ node -e "import('./src/core/index.js').then(m => console.log('CORE_OK', Object.k
 Then `npm run lint` (ESLint, SPEC-011 AC 11b: undefined names, unused variables, `var`, `let` never reassigned, another module's `let` reassigned, unresolved or missing imports — over `src/` and `scripts/`): zero errors; every Tests run on CI runs it too. After any change in `src/` also `npm run precache` (module hashes, the entry script's version, `SRC_HASH`).
 
 ## 2. Tests
-- **Locally**: `npm run test:fast` (~1.5 min) + the test files of what changed: `npx playwright test tests/<file>` or `-g "<name>"`; phone layouts at 667×375 only. Locally the browser uses the GPU at below-normal priority (`PW_GPU=0` → SwiftShader, then also `PW_NICE=0` on a busy machine; `PW_NICE=0` → normal priority). Never the whole suite locally unless the spec asks for it.
+- **Locally**: `npm run test:fast` (~1.5 min) + the test files of what changed: `npx playwright test tests/<file>` or `-g "<name>"`; phone layouts at 667×375 only. Locally the browser uses the GPU at below-normal priority (`PW_GPU=0` → SwiftShader, then also `PW_NICE=0` on a busy machine; `PW_NICE=0` → normal priority). Text and layout tests also with `PW_FONT=ci` (the CI runner's wider font, SPEC-033: `PW_FONT=ci npx playwright test tests/<file> -g "<name>"`). Never the whole suite locally unless the spec asks for it.
 - **The whole suite on CI**: `git push -u origin <branch>`; then the run of exactly this commit:
   ```bash
   sha=$(git rev-parse HEAD); id=""
