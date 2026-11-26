@@ -162,6 +162,7 @@ function clearView() { ui.texts = []; ui.particles = []; ui.shake = 0; sticks.cl
 function buildLocal(n, playable) {
   if (PHONE) n = 1;                  // на телефоне играет один (SPEC-005)
   clearView();
+  ui.tiptoe = [false, false];        // SPEC-032 AC 1: кнопка 👣 — выключена в начале каждого уровня
   const keep = Object.fromEntries(KEEP.map(k => [k, G[k]]));
   lastReward = null;
   useGame(createGame({ world: G.world, n: G.level, mode: "local", slots: localSlots(n), stock: localStock(), practice: practiceStep, rng: playable ? localRng : { s: localRng.s, draws: 0 }, keep }));

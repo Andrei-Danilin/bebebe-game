@@ -199,7 +199,7 @@ test("tutorial pages: four panels per sheet with captions in every language", { 
   }
   soft(r.out.en.tutorial_a.texts[0], "A1").toBe("Sneak up behind Dad and hug him! Every hug takes away one angry heart.");
   soft(r.out.en.tutorial_a.texts[3], "A4 on the keyboard").toBe("Dad hears running behind him. Close to him, tiptoe! (hold Shift)");
-  soft(r.I.a4touch, "A4 on the phone").toBe("Dad hears running behind him. Close to him, tiptoe! (push the stick just a little)");
+  soft(r.I.a4touch, "A4 on the phone").toBe("Dad hears running behind him. Close to him, tiptoe! (tap 👣)");   // SPEC-032 AC 1: the 👣 button
   soft(r.out.en.tutorial_c.texts[3], "C4").toBe("Win levels, get coins, and buy all this in Character!");
   soft.done();
 });
@@ -718,7 +718,7 @@ async function hintBanner(page, touch) {
   await page.evaluate(s => { const b = window.__bb; b.CFG.TEXT_TEST_SCALE = s; b.setLang("en"); b.littles[1].state = "ok"; b.update(1 / 60); }, scale0);
   await frames(page);
   soft(await page.evaluate(() => window.__bb.tutorialHint && window.__bb.tutorialHint.text), "hint 2 with the device's controls")
-    .toBe(`Now sneak behind Dad — tiptoe close to him! (${touch ? "push the stick just a little" : "hold Shift"})`);
+    .toBe(`Now sneak behind Dad — tiptoe close to him! (${touch ? "tap 👣" : "hold Shift"})`);
   await page.evaluate(() => window.__bb.tutorialSkip());
   soft.done();
 }

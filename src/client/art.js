@@ -82,7 +82,8 @@ export const WARDROBE_ART = {
 export const EMOJI_ART = { "👥": "ui_friends", "🎲": "ui_dice", "❓": "ui_question", "✏": "ui_pencil", "📦": "ui_pack", "👂": "ui_ear", "🗺": "ui_map",
   "✔": "ui_check", "✘": "ui_cross", "✕": "ui_cross", "🔒": "padlock", "🩹": "icon_bandaid", "💋": "item_kiss", "⭐": "star_gold", "🪙": "item_coin",
   "📖": "menu_story", "🏆": "tab_progress", "🎒": "menu_character", "🏠": "ui_home", "🛒": "shop_items", "👕": "shop_wardrobe",
-  "🛡": "icon_shield", "🍌": "item_banana", "👟": "item_boots", "👻": "item_cape", "❤": "heart_full", "🤝": "shop_quick_help" };
+  "🛡": "icon_shield", "🍌": "item_banana", "👟": "item_boots", "👻": "item_cape", "❤": "heart_full", "🤝": "shop_quick_help",
+  "👣": "ui_tiptoe" };   // SPEC-032: 35_icons_more
 // SPEC-027: новая картинка не загрузилась — прежняя (а нет и её — рисунок кодом или эмодзи, как у всякой картинки SPEC-020)
 export const ART_FALLBACK = { menu_play: "ui_play", menu_story: "ui_story", menu_character: "ui_bag", tab_progress: "star_gold" };
 // первая загруженная картинка из name и его запасных (ART_FALLBACK) или null

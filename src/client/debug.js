@@ -45,7 +45,7 @@ import { groundCanvas, OUTLINE } from "./three/materials.js";
 import { outfitModel, skinPanels } from "./three/previews.js";
 import { camera, LITTLE_SCALE } from "./three/setup.js";
 import { THEMES } from "./three/themes.js";
-import { firstTutorial, openTutorial, tutorial, TUTORIAL_STEPS, tutorialArtNames, tutorialSkip, tutorialStep } from "./tutorial.js";
+import { firstTutorial, openTutorial, tutorial, TUTORIAL_STEPS, tutorialArtNames, tutorialPages, tutorialSkip, tutorialStep } from "./tutorial.js";
 import { SHOP_PICTURES, shopCards } from "./ui/character/items.js";
 import { clothesCount } from "./ui/character/progress.js";
 import { artUse, KID_HEAD_R, nameTagH, resetArtUse, tapLines } from "./ui/draw.js";
@@ -189,7 +189,7 @@ export function installDebug() {
         rect: camRect(), zoom: PHONE ? cam.zoom : 1, dist: camDist, ahead: { x: cam.lax, y: cam.lay } };
     },
     isStandalone, get homeInfo() { return ui.homeInfo && JSON.parse(JSON.stringify(ui.homeInfo)); }, get progressInfo() { return ui.progressInfo && JSON.parse(JSON.stringify(ui.progressInfo)); }, clothesCount, get buttonNames() { return ui.buttons.map(b => b.act.name); },
-    get buttonRects() { return ui.buttons.map(b => ({ id: b.id || b.act.name, x: b.x, y: b.y, w: b.w, h: b.h, text: b.text, textW: b.textW })); },
+    get buttonRects() { return ui.buttons.map(b => ({ id: b.id || b.act.name, x: b.x, y: b.y, w: b.w, h: b.h, text: b.text, textW: b.textW, on: b.on })); },
     nameTagH,   // SPEC-021: высота точки имени над ногами (px мира)
     updateCamera, camSnap, stickR, updateMinimapFade, get minimapAlpha() { return mmAlpha; }, skinPanels, resetBannerTimer() { ui.bannerShownAt = -Infinity; }, showBanner,
     // SPEC-031: textFloors — самый мелкий текст телефона по видам textSizes (CSS px)
@@ -209,6 +209,8 @@ export function installDebug() {
     // SPEC-019: бежит ли маленький i (true/false); значок над Большим; подсказка «услышал топот» (текст, чья, плашка этого кадра) или null;
     // джойстики этого кадра с кольцом «на цыпочках»
     isRunning: i => isRunning(G.littles[i]), get bigMark() { return bigMark(); },
+    // SPEC-032 AC 1: кнопки 👣 игроков (включено ли «на цыпочках»); текст подсказки «услышал топот» по устройству; страницы листа обучения
+    get tiptoe() { return [...ui.tiptoe]; }, heardHintText, tutorialPages,
     get heardHint() { return heardHintOn() ? { text: heardHintText(), pi: ui.heardHintPi, rect: ui.heardHintRect && { ...ui.heardHintRect, rows: [...ui.heardHintRect.rows] } } : null; },
     get stickMarks() { return ui.stickMarks.map(q => ({ ...q })); }, get tapLines() { return [...tapLines]; },
     GLOVES, KISSES, get shopLayout() { return ui.shopLayout; },                         // SPEC-007 AC 10

@@ -132,7 +132,7 @@ test("the tiptoe rule and the heard hints are in every language", async ({ page 
   for (const x of r) soft(x, x.l).toEqual({ l: x.l, n: 7, last: true, icon: "👣", texts: true, keys: true });
   soft.done();
   const en = await page.evaluate(() => { const I = window.__bb.I18N.en; return [I.ruleTiptoe, I.heardHint(I.heardKey1), I.heardHintTouch]; });
-  expect(en).toEqual(["Run near Dad and he hears you — tiptoe!", "Dad heard you running! Tiptoe near him: hold ⇦ Shift", "Dad heard you running! Push the stick just a little to tiptoe"]);
+  expect(en).toEqual(["Run near Dad and he hears you — tiptoe!", "Dad heard you running! Tiptoe near him: hold ⇦ Shift", "Dad heard you running! Tap 👣 to tiptoe"]);   // SPEC-032 AC 1: the 👣 button
 });
 
 // SPEC-028 AC 2: a true first launch (no saved language and no progress) follows the browser: pt*, es*, ru* → that language,

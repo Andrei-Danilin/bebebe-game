@@ -9,7 +9,7 @@ import { ctx, OUT, STANDALONE, UH, UW } from "../screen.js";
 import { ui } from "../state.js";
 import { tutorialHintOn, tutorialHintText, tutorialSkip } from "../tutorial.js";
 import { addButton, circle, drawArtFit, drawMitten, drawSticks, fillStroke, hpHeart, iconButton, rr, toggleFullscreen } from "./draw.js";
-import { angerLabel, chipText, drawHeardHint, drawKitHint, heardHintOn, heartFill, hintPlate, kissBtnRect, kissButton, kitButton, kitHintOn, restText, timerText } from "./hud.js";
+import { angerLabel, chipText, drawHeardHint, drawKitHint, heardHintOn, heartFill, hintPlate, kissButton, kitButton, kitHintOn, restText, timerText, tiptoeBtnRect, tiptoeButton } from "./hud.js";
 import { drawEdgeArrows, drawMinimap, minimapRect, showMinimap } from "./minimap.js";
 import { cpx, fitText, fz, hudFont, labelFit, lastFit, minPx, noteText, scaledW } from "./text.js";
 import { G } from "../../core/active.js";
@@ -91,8 +91,9 @@ export function drawHUDPhone(t) {
   // внизу справа: 💋 (или 🩹, пока герой лежит, хромает домой или отдыхает — SPEC-007) и рукавицы рядом
   const kitOn = canKitNow(G.littles[0]), kissOn = mode === "play" && !kitOn && gameInv().kisses > 0;
   if (kitOn) kitButton(0, t); else if (kissOn) kissButton(0);
-  const kr = kissBtnRect(0), gl = gloveOf(0), gh = cpx(44), gEach = cpx(80);
-  let rightEdge = kitOn || kissOn ? kr.x - gap : UW - m;
+  if (mode === "play") tiptoeButton(0, t);               // SPEC-032 AC 1: 👣 левее 💋 (его место — и когда 💋 нет)
+  const gl = gloveOf(0), gh = cpx(44), gEach = cpx(80);
+  let rightEdge = mode === "play" ? tiptoeBtnRect(0).x - gap : UW - m;
   if (gl) {
     const gx0 = rightEdge - gEach, gy0 = UH - m - gh;
     plate("gloves", gx0, gy0, gEach, gh);

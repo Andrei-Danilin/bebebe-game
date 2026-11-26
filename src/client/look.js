@@ -50,6 +50,9 @@ export const LOOK = {
     ringW: 1.5, frame: 0.6, frameW: 1, frameShade: 0.25, frameShadeW: 3, border: 0.35, borderW: 1, radius: 8 },
   ARROW_D: 30,               // CSS px — кружок стрелки у края экрана (диаметр)
   PHONE_KISS_BTN: 80,        // CSS px — кнопка 💋 на телефоне
+  // SPEC-032 AC 1: кнопка 👣 (на цыпочках, переключатель; придумал Claude): диаметр на телефоне (CSS px) и на сенсорном компьютере (px),
+  // отступ от кнопки 💋 (доля её диаметра), значок на рамке phone_stick_base (доля диаметра), свечение включённой (цвет, толщина — доля диаметра)
+  TIPTOE_BTN: { phone: 64, desk: 56, gap: 0.1, icon: 0.62, glow: "#facc15", glowW: 0.09 },
   STICK_ZONE: 0.55,          // доля ширины слева, где касание создаёт джойстик
   PHONE_STICK_R: 60,         // CSS px — радиус джойстика на телефоне
   PHONE_BTN_MIN: 44,         // CSS px — кнопка на телефоне не меньше

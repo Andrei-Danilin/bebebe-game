@@ -271,6 +271,7 @@ export function fillInputs() {
     if (l.kind !== "player") continue;
     const inp = G.inputs[l.slot] || (G.inputs[l.slot] = newInput()), v = deviceInput(l);
     inp.mx = v.x; inp.my = v.y;
+    inp.tiptoe = !!ui.tiptoe[l.id];          // SPEC-032 AC 1: кнопка 👣 включена — не быстрее TIPTOE_MULT (ядро режет стик), тихо
   }
 }
 

@@ -28,7 +28,7 @@ export const I18N = {
     // SPEC-019: на цыпочках; подсказка, когда Большой впервые обернулся на топот игрока (клавиша — отдельно, как у спасалки)
     ruleTiptoe: "Run near Dad and he hears you — tiptoe!",
     heardHint: k => `Dad heard you running! Tiptoe near him: hold ${k}`, heardKey1: "⇦ Shift", heardKey2: "/",
-    heardHintTouch: "Dad heard you running! Push the stick just a little to tiptoe",
+    heardHintTouch: "Dad heard you running! Tap 👣 to tiptoe", tiptoeTap: "Tap 👣 to tiptoe",
     level: "Level", lvShort: "Lv.", onePlayer: "1 player", twoPlayers: "2 players",
     controls1: "Keyboard: Player 1 — W A S D, Player 2 — arrows  •  P — pause  •  M — sound  •  L — language",
     controls2: "Tablet/phone: drag your finger  •  Gamepad: stick, A — choose, B — back, LB/RB — worlds",
@@ -80,7 +80,7 @@ export const I18N = {
     tut: {
       a: k => ["Sneak up behind Dad and hug him! Every hug takes away one angry heart.", "If Dad sees you, he pushes — and you fall down!",
         "A friend fell? Stand next to them to help them up. Friends help you too!", `Dad hears running behind him. Close to him, tiptoe! (${k})`],
-      tiptoeKey: "hold Shift", tiptoeTouch: "push the stick just a little",
+      tiptoeKey: "hold Shift", tiptoeTouch: "tap 👣",
       b: ["Speed boots: you run faster!", "Invisibility cloak: Dad can't see you!", "Shield: Dad can't push you!",
         "Banana! Lead Dad onto it — he slips, and you can hug him from any side!"],
       c: ["Air kisses 💋: send one from far away. Dad loses half a heart and blushes!", "Rescue kit 🩹: fell down? Get up at once!",
@@ -120,7 +120,7 @@ export const I18N = {
     ],
     ruleTiptoe: "Si corrés cerca de papá, te escucha: ¡andá en puntitas de pie!",
     heardHint: k => `¡Papá te escuchó correr! Cerca de él andá en puntitas: mantené ${k}`, heardKey1: "⇦ Shift", heardKey2: "/",
-    heardHintTouch: "¡Papá te escuchó correr! Mové el joystick apenas para ir en puntitas",
+    heardHintTouch: "¡Papá te escuchó correr! Tocá 👣 para ir en puntitas", tiptoeTap: "Tocá 👣 para ir en puntitas",
     level: "Nivel", lvShort: "Niv.", onePlayer: "1 jugador", twoPlayers: "2 jugadores",
     controls1: "Teclado: Jugador 1 — W A S D, Jugador 2 — flechas  •  P — pausa  •  M — sonido  •  L — idioma",
     controls2: "Tablet/celu: deslizá el dedo  •  Joystick: palanca, A — elegir, B — volver, LB/RB — mundos",
@@ -165,7 +165,7 @@ export const I18N = {
     tut: {
       a: k => ["¡Acercate a Papá por detrás y abrazalo! Cada abrazo le saca un corazón enojado.", "Si Papá te ve, te empuja… ¡y te caés!",
         "¿Se cayó un amigo? Parate al lado para ayudarlo a levantarse. ¡Tus amigos también te ayudan!", `Papá escucha si corrés detrás de él. Cerca de él, ¡andá en puntitas! (${k})`],
-      tiptoeKey: "mantené Shift", tiptoeTouch: "mové el joystick apenas",
+      tiptoeKey: "mantené Shift", tiptoeTouch: "tocá 👣",
       b: ["Zapatillas veloces: ¡corrés más rápido!", "Capa de invisibilidad: ¡Papá no te ve!", "Escudo: ¡Papá no te puede empujar!",
         "¡Banana! Llevá a Papá hasta ella: se resbala, ¡y lo podés abrazar de cualquier lado!"],
       c: ["Besitos voladores 💋: mandá uno de lejos. ¡Papá pierde medio corazón y se pone colorado!", "Curita mágica 🩹: ¿te caíste? ¡Levantate al toque!",
@@ -205,7 +205,7 @@ export const I18N = {
     ruleTiptoe: "Correu perto do Papai? Ele escuta — ande na ponta dos pés!",
     // SPEC-028: на бразильской клавиатуре (ABNT2) на клавише «/» американской раскладки написано «;»
     heardHint: k => `O Papai ouviu você correr! Perto dele, ande na ponta dos pés: segure ${k}`, heardKey1: "⇦ Shift", heardKey2: "/ (;)",
-    heardHintTouch: "O Papai ouviu você correr! Mexa o joystick só um pouquinho para andar na ponta dos pés",
+    heardHintTouch: "O Papai ouviu você correr! Toque 👣 para andar na ponta dos pés", tiptoeTap: "Toque 👣 para andar na ponta dos pés",
     level: "Fase", lvShort: "Fase", onePlayer: "1 jogador", twoPlayers: "2 jogadores",
     controls1: "Teclado: Jogador 1 — W A S D, Jogador 2 — setas  •  P — pausa  •  M — som  •  L — idioma",
     controls2: "Tablet/celular: arraste o dedo  •  Controle: analógico, A — escolher, B — voltar, LB/RB — mundos",
@@ -252,7 +252,7 @@ export const I18N = {
     tut: {
       a: k => ["Chegue por trás do Papai e dê um abraço! Cada abraço tira um coração bravo.", "Se o Papai te vê, ele empurra — e você cai!",
         "Um amigo caiu? Fique pertinho dele para ajudar a levantar. Os amigos também te ajudam!", `O Papai ouve quem corre atrás dele. Perto dele, ande na ponta dos pés! (${k})`],
-      tiptoeKey: "segure Shift", tiptoeTouch: "mexa o joystick só um pouquinho",
+      tiptoeKey: "segure Shift", tiptoeTouch: "toque 👣",
       b: ["Botas rápidas: você corre mais rápido!", "Capa de invisibilidade: o Papai não te vê!", "Escudo: o Papai não consegue te empurrar!",
         "Banana! Leve o Papai até ela — ele escorrega, e você pode abraçar de qualquer lado!"],
       c: ["Beijinhos 💋: mande um de longe. O Papai perde meio coração e fica vermelho!", "Kit de resgate 🩹: caiu? Levante na hora!",
@@ -289,7 +289,7 @@ export const I18N = {
     ],
     ruleTiptoe: "Бежишь рядом с папой — он слышит. Иди на цыпочках!",
     heardHint: k => `Папа услышал топот! Рядом с ним иди на цыпочках: держи ${k}`, heardKey1: "⇦ Shift", heardKey2: "/ (.)",
-    heardHintTouch: "Папа услышал топот! Чуть-чуть наклони джойстик — пойдёшь на цыпочках",
+    heardHintTouch: "Папа услышал топот! Нажми 👣, чтобы идти на цыпочках", tiptoeTap: "Нажми 👣, чтобы идти на цыпочках",
     level: "Уровень", lvShort: "Ур.", onePlayer: "1 игрок", twoPlayers: "2 игрока",
     controls1: "Клавиатура: Игрок 1 — W A S D, Игрок 2 — стрелки  •  P — пауза  •  M — звук  •  L — язык",
     controls2: "Планшет/телефон: водите пальцем  •  Геймпад: стик, A — выбрать, B — назад, LB/RB — миры",
@@ -336,7 +336,7 @@ export const I18N = {
     tut: {
       a: k => ["Подкрадись к папе сзади и обними! Каждая обнимашка забирает одно злое сердечко.", "Если папа тебя увидит — толкнёт, и ты упадёшь!",
         "Друг упал? Встань рядом — поможешь ему подняться. Друзья помогут и тебе!", `Папа слышит топот за спиной. Рядом с ним иди на цыпочках! (${k})`],
-      tiptoeKey: "держи Shift", tiptoeTouch: "чуть-чуть наклони джойстик",
+      tiptoeKey: "держи Shift", tiptoeTouch: "нажми 👣",
       b: ["Сапоги-скороходы: бегаешь быстрее!", "Плащ-невидимка: папа тебя не видит!", "Щит: папа не может тебя толкнуть!",
         "Банан! Заведи папу на него — он поскользнётся, и его можно обнять с любой стороны!"],
       c: ["Воздушный поцелуй 💋: пошли издалека. Папа теряет полсердечка и краснеет!", "Спасалка 🩹: упал? Сразу вставай!",

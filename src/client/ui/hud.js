@@ -70,6 +70,7 @@ export function drawHUD(t) {
   // кнопка игрока: 💋, а пока он лежит, хромает домой или отдыхает и спасалки есть — 🩹 на том же месте (SPEC-007)
   if (isTouch && mode === "play") for (let pi = 0; pi < G.players; pi++) {
     if (canKitNow(G.littles[pi])) kitButton(pi, t); else if (gameInv().kisses > 0) kissButton(pi);
+    tiptoeButton(pi, t);                                   // SPEC-032 AC 1: 👣 рядом
   }
   rr(UW / 2 - 95, 8, 110, 34, 14); fillStroke("rgba(255,255,255,.8)", 3);
   label(timerText(), UW / 2 - 40, 25, 14, OUT);
@@ -168,6 +169,31 @@ export function kitButton(pi, t) {
   circle(cx + r * 0.72, cy - r * 0.72, br); fillStroke("#16a34a", 2.5);
   label(String(gameInv().kits), cx + r * 0.72, cy - r * 0.72 + 1, fz(13, "hint"), "#fff");
   ui.buttons.push({ ...rc, act: () => pressKit(pi), id: "kit:" + pi });
+}
+// SPEC-032 AC 1: круглая кнопка 👣 игрока pi рядом с 💋 / 🩹 (касания): переключатель «на цыпочках» (придумал Claude: детям проще, чем
+// держать, пока рулишь). Место — со стороны середины экрана от 💋, по той же нижней линии; есть, даже когда 💋 нет
+export function tiptoeBtnRect(pi) {
+  const T = LOOK.TIPTOE_BTN, k = kissBtnRect(pi), d = PHONE ? cpx(T.phone) : T.desk, gap = k.w * T.gap, right = !PHONE && G.players === 2 && pi === 0;
+  return { x: right ? k.x + k.w + gap : k.x - gap - d, y: k.y + k.h - d, w: d, h: d };
+}
+export function toggleTiptoe(pi) { ui.tiptoe[pi] = !ui.tiptoe[pi]; }
+export function tiptoeButton(pi, t) {
+  const T = LOOK.TIPTOE_BTN, rc = tiptoeBtnRect(pi), r = rc.w / 2, cx = rc.x + r, cy = rc.y + r, on = !!ui.tiptoe[pi];
+  ctx.save(); ctx.globalAlpha = on ? 1 : 0.9;
+  if (on) {                                               // включена — светится (мягко пульсирует)
+    ctx.globalAlpha = 0.55 + 0.35 * (0.5 + 0.5 * Math.sin(t * 4));
+    circle(cx, cy, r + rc.w * T.glowW * 0.6); ctx.fillStyle = T.glow; ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+  if (!drawArtFit("phone_stick_base", cx, cy, rc.w * LOOK.PAPER.hudIcon)) { circle(cx, cy, r); fillStroke(on ? "#fef9c3" : "#f8fafc", 4, G.players === 2 ? P_COLORS[pi] : OUT); }
+  else if (G.players === 2) { circle(cx, cy, r); ctx.lineWidth = 4; ctx.strokeStyle = P_COLORS[pi]; ctx.stroke(); }
+  if (!drawArtFit("ui_tiptoe", cx, cy, rc.w * T.icon)) {
+    ctx.font = `${rc.w * T.icon * 0.8}px system-ui, 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText("👣", cx, cy);                          // нет картинки — эмодзи (запасной вид)
+  }
+  if (on) { circle(cx, cy, r - rc.w * T.glowW / 2); ctx.lineWidth = rc.w * T.glowW; ctx.strokeStyle = T.glow; ctx.stroke(); }
+  ctx.restore();
+  ui.buttons.push({ ...rc, act: () => toggleTiptoe(pi), id: "tiptoe:" + pi, text: "👣", on });
 }
 
 // прямоугольник героя на экране (UI px): от ног до имени над головой (playerNameTag, как в drawMarkers), шириной с тело или имя
