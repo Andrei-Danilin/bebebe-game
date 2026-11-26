@@ -93,9 +93,9 @@ test("SPEC-026: Dad's bubble lines (4 per language, Andrei's Russian in docs/sto
   expect(errors).toEqual([]);
 });
 
-// every intro page writes its line into its bubble, the text box inside the panel, never smaller than the captions' smallest size
-// (SPEC-031: on the phone CFG.STORY_TEXT_MIN);
-// the Story's "How it began" (the whole page) writes all four
+// every intro page writes its line into its bubble, the text box inside the panel, never smaller than the bubbles' smallest size
+// (SPEC-032 AC 10: CFG.BUBBLE_MIN, up to 3 lines, no own bubble);
+// the Story's "How it began" (the whole page, small bubbles) writes the four that fit there (SPEC-032: a word too long is not written)
 async function bubbleProblems(page, phone) {
   const fails = [];
   for (const lang of LANGS) for (const scale of [1, 1.15]) {
@@ -103,16 +103,16 @@ async function bubbleProblems(page, phone) {
     for (let i = 0; i < 4; i++) {
       await page.evaluate(k => { const b = window.__bb; b.openScene("intro"); for (let j = 0; j < k; j++) b.sceneNext(); }, i);
       await frames(page);
-      const d = await page.evaluate(() => ({ info: window.__bb.sceneInfo, min: window.__bb.CFG.STORY_TEXT_MIN, ui: window.__bb.uiSize, hud: window.__bb.hudRects }));
+      const d = await page.evaluate(() => ({ info: window.__bb.sceneInfo, min: window.__bb.CFG.BUBBLE_MIN, ui: window.__bb.uiSize, hud: window.__bb.hudRects }));
       const at = `${lang} ×${scale} intro page ${i + 1}`, q = d.info && d.info.bubble;
       if (!q) { fails.push(`${at}: no bubble`); continue; }
       if (q.text !== BUBBLES[lang][i]) fails.push(`${at}: bubble "${q.text}"`);
       const P = d.info.panel;
       if (!(q.x >= P.x - 0.5 && q.y >= P.y - 0.5 && q.x + q.w <= P.x + P.w + 0.5 && q.y + q.h <= P.y + P.h + 0.5)) fails.push(`${at}: text box ${JSON.stringify(q)} leaves the panel ${JSON.stringify(P)}`);
-      if (q.rows > 2) fails.push(`${at}: ${q.rows} lines`);
-      if (phone ? q.size * d.ui.scale < d.min - 0.01 : q.size < 14 - 0.01) fails.push(`${at}: text ${q.size} below the captions' smallest size`);
-      if (q.own && !(q.bubble.x >= P.x - 0.5 && q.bubble.y >= P.y - 0.5 && q.bubble.x + q.bubble.w <= P.x + P.w + 0.5 && q.bubble.y + q.bubble.h <= P.y + P.h + 0.5))
-        fails.push(`${at}: its own bubble leaves the panel`);
+      if (q.rows > 3) fails.push(`${at}: ${q.rows} lines`);
+      if (q.skipped || !q.fit) fails.push(`${at}: "${q.text}" does not fit its bubble`);
+      if (phone ? q.size * d.ui.scale < d.min.phone - 0.01 : q.size < d.min.desk - 0.01) fails.push(`${at}: text ${q.size} below BUBBLE_MIN`);
+      if ("own" in q || "bubble" in q) fails.push(`${at}: an own bubble`);
       const cap = d.hud.find(h => h.id === "scene:caption");
       if (cap && q.x < cap.x + cap.w && q.x + q.w > cap.x && q.y < cap.y + cap.h && q.y + q.h > cap.y) fails.push(`${at}: bubble on the caption`);
     }
@@ -121,12 +121,12 @@ async function bubbleProblems(page, phone) {
     const st = await page.evaluate(() => ({ info: window.__bb.storyInfo, buttons: window.__bb.buttonRects }));
     const bs = (st.info && st.info.bubbles) || [], at = `${lang} ×${scale} Story "How it began"`;
     if (bs.map(q => q.text).join("|") !== BUBBLES[lang].join("|")) fails.push(`${at}: bubbles ${JSON.stringify(bs.map(q => q.text))}`);
-    for (const q of bs) {
+    for (const q of bs.filter(x => !x.skipped)) {
       const P = q.panel, pic = st.info.pic;
       if (!(q.x >= P.x - 0.5 && q.y >= P.y - 0.5 && q.x + q.w <= P.x + P.w + 0.5 && q.y + q.h <= P.y + P.h + 0.5)) fails.push(`${at}: "${q.text}" leaves its panel`);
-      if (q.rows > 2) fails.push(`${at}: "${q.text}" in ${q.rows} lines`);
+      if (q.rows > 3) fails.push(`${at}: "${q.text}" in ${q.rows} lines`);
       if (!(P.x >= pic.x - 0.5 && P.y >= pic.y - 0.5 && P.x + P.w <= pic.x + pic.w + 0.5 && P.y + P.h <= pic.y + pic.h + 0.5)) fails.push(`${at}: panel outside the picture`);
-      for (const b of st.buttons) { const r = q.own ? q.bubble : q; if (r.x < b.x + b.w && r.x + r.w > b.x && r.y < b.y + b.h && r.y + r.h > b.y) fails.push(`${at}: "${q.text}" under button ${b.id}`); }
+      for (const b of st.buttons) if (q.x < b.x + b.w && q.x + q.w > b.x && q.y < b.y + b.h && q.y + q.h > b.y) fails.push(`${at}: "${q.text}" under button ${b.id}`);
     }
   }
   await page.evaluate(() => { const b = window.__bb; b.CFG.TEXT_TEST_SCALE = 1; b.setLang("en"); b.mode = "home"; });

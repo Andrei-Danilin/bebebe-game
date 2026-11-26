@@ -53,7 +53,7 @@ import { heardHintOn, heardHintText, heartFill, timerText } from "./ui/hud.js";
 import { mmAlpha, mmCount, mmDraws, mmState, updateMinimapFade } from "./ui/minimap.js";
 import { gateState, openGrownUps, parentGate } from "./ui/grownups.js";
 import { drawUI } from "./ui/screens.js";
-import { fmtHearts } from "./ui/text.js";
+import { fmtHearts, storyPx } from "./ui/text.js";
 import { winTitle } from "./ui/win.js";
 import { G } from "../core/active.js";
 
@@ -193,7 +193,10 @@ export function installDebug() {
     nameTagH,   // SPEC-021: высота точки имени над ногами (px мира)
     updateCamera, camSnap, stickR, updateMinimapFade, get minimapAlpha() { return mmAlpha; }, skinPanels, resetBannerTimer() { ui.bannerShownAt = -Infinity; }, showBanner,
     // SPEC-031: textFloors — самый мелкий текст телефона по видам textSizes (CSS px)
-    get textSizes() { return { ...ui.textSizes }; }, get textFloors() { return { ...LOOK.PHONE_TEXT, story: LOOK.STORY_TEXT_MIN }; }, get textOverflows() { return ui.textOverflows.map(q => ({ ...q })); }, get rotateShown() { return ui.rotateShown; }, get bannerRect() { return ui.bannerRect && { ...ui.bannerRect }; },
+    get textSizes() { return { ...ui.textSizes }; }, get textFloors() { return { ...LOOK.PHONE_TEXT, story: LOOK.STORY_TEXT_MIN, bubble: LOOK.BUBBLE_MIN.phone }; },
+    // SPEC-032 AC 12: облачка без букв (кадр сравнивается с обычным); кегль текста истории на телефоне
+    get bubbleTextOff() { return ui.bubbleTextOff; }, set bubbleTextOff(v) { ui.bubbleTextOff = !!v; }, storyPx,
+    get textOverflows() { return ui.textOverflows.map(q => ({ ...q })); }, get rotateShown() { return ui.rotateShown; }, get bannerRect() { return ui.bannerRect && { ...ui.bannerRect }; },
     get minimap() { return ui.mmShown ? { x: mmState.x, y: mmState.y, w: mmState.w, h: mmState.h, alpha: mmState.alpha, baseDraws: mmDraws, markers: mmState.markers.slice(0, mmCount).map(m => ({ ...m })) } : null; },
     get edgeArrows() { return ui.edgeArrows.map(a => ({ ...a })); }, get hudRects() { return ui.hudRects.map(r => ({ ...r })); },
     get sticks() { return [...sticks].map(([id, s]) => ({ id, ...s })); },

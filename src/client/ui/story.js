@@ -2,7 +2,6 @@
 // module (moved out of index.html in Phase C).
 
 import { BONUS_WORLDS, CFG, WORLDS } from "../../core/config.js";
-import { clamp } from "../../core/util.js";
 import { L, lang } from "../../i18n.js";
 import { RULE_ICONS, STORY, TUTORIAL_SCENES } from "../../story.js";
 import { art, artFile, artImgs, STORY_ART, tape } from "../art.js";
@@ -106,7 +105,9 @@ export function drawStory() {
     tape(ix + 6 * k, iy + 2 * k, -0.7, k * 0.8); tape(ix + iw - 6 * k, iy + 2 * k, 0.7, k * 0.8);
   } else storyPlaceholder(pic, !open);
   // SPEC-026: «Как всё началось» — комикс целиком: слова папы во всех четырёх облачках
-  const bubbles = img && artName && c.bubbles ? drawBubbles(c.bubbles[lang].map((text, i) => ({ i, text })), [0, 0, 1, 1], ...imgRect) : [];
+  // SPEC-032: на маленькой картинке главы облачка крошечные — слова, которые не влезли и самым мелким, не пишутся (облачко как нарисовано;
+  // ▶ показывает комикс по клеткам, там влезают все)
+  const bubbles = img && artName && c.bubbles ? drawBubbles(c.bubbles[lang].map((text, i) => ({ i, text })), [0, 0, 1, 1], ...imgRect, true) : [];
   if (open) {                                                // SPEC-022: ▶ в углу картинки — посмотреть заставку главы ещё раз
     // SPEC-026: в правом нижнем углу картинки (в правом верхнем — облачко второй клетки комикса)
     const fr = imgRect || [pic.x, pic.y, pic.w, pic.h], r = B, bx = fr[0] + fr[2] - r - 4 * k, byy = fr[1] + fr[3] - r - 4 * k;
@@ -215,65 +216,34 @@ function bubbleRows(text, maxW, maxH, size, min, lines) {
     if (fit || sz <= min) return { rows, sz, w, h, fit, lh };
   }
 }
-// неровный контур облачка (как фломастером): суперэллипс степени n с центром cx, cy, полуосями rx, ry; неровность — синусы, без случайности
-function wobblyBubble(cx, cy, rx, ry, wob, n) {
-  const sp = (v, e) => Math.sign(v) * Math.abs(v) ** e;
-  ctx.beginPath();
-  for (let j = 0; j <= 48; j++) {
-    const a = j / 48 * Math.PI * 2, f = 1 + wob * (Math.sin(a * 5 + 0.7) + 0.6 * Math.sin(a * 9 + 2.1)) / 1.6;
-    const x = cx + sp(Math.cos(a), 2 / n) * rx * f, y = cy + sp(Math.sin(a), 2 / n) * ry * f;
-    if (j) ctx.lineTo(x, y); else ctx.moveTo(x, y);
-  }
-  ctx.closePath();
-}
 // list — [{ i, text }] (облачко i = клетка i), cr — какая часть картинки нарисована (доли [x, y, w, h]), ix…ih — где она на экране.
-// Слова — по центру облачка, тёмные, жирные,
-// до двух строк, мельче — до самого мелкого текста подписи; не влезли и так — своё облачко поверх нарисованного (белое, неровный
-// чёрный контур, хвостик в ту же сторону), внутри клетки, по размеру слов.
-// → [{ i, text, x, y, w, h (рамка строк), size, rows, own, bubble (своё облачко или null), panel (клетка на экране) }]
-function drawBubbles(list, cr, ix, iy, iw, ih) {
-  const S = LOOK.MENU_LOOK.scene, k = PHONE ? cpx(1) : 1, min = storyMin(S.bubbleMin), max = Math.max(min, PHONE ? storyPx(S.phoneText) : S.text);   // SPEC-031: масштаб и самый мелкий — как у подписи
+// SPEC-032 AC 9–10: только буквы — внутри белого нарисованного облачка (без своей заливки и контура поверх картинки): тёмные, жирные,
+// по центру облачка, кегль bubbleScale × прежнего (SPEC-031: × масштаб экрана), мельче — до LOOK.BUBBLE_MIN, до bubbleLines строк;
+// не влезли и самым мелким — самым мелким (fit = false; en/es/pt тогда пишутся короче, русские строки Андрея остаются); fitOnly (картинка
+// главы «Истории», облачка крошечные) — такие слова не пишутся вовсе ({ skipped: true }).
+// → [{ i, text, x, y, w, h (рамка строк), size, rows, fit, box (белое внутри облачка на экране), panel (клетка на экране), img / crop (где картинка) }]
+function drawBubbles(list, cr, ix, iy, iw, ih, fitOnly = false) {
+  const S = LOOK.MENU_LOOK.scene, min = PHONE ? cpx(LOOK.BUBBLE_MIN.phone) : LOOK.BUBBLE_MIN.desk;
+  const max = Math.max(min, (PHONE ? storyPx(S.phoneText) : S.text) * S.bubbleScale);
   const X = f => ix + (f - cr[0]) / cr[2] * iw, Y = f => iy + (f - cr[1]) / cr[3] * ih, [inW, inH] = S.bubbleIn;
   const out = [];
   for (const { i, text } of list) {
-    const [bx, by, bw, bh, tx, ty] = S.bubbles[i], [px, py, pw, ph] = S.panels[i];
+    const [bx, by, bw, bh] = S.bubbles[i], [px, py, pw, ph] = S.panels[i];
     const box = { x: X(bx), y: Y(by), w: X(bx + bw) - X(bx), h: Y(by + bh) - Y(by) };
     const panel = { x: Math.max(ix, X(px)), y: Math.max(iy, Y(py)) };
     panel.w = Math.min(ix + iw, X(px + pw)) - panel.x; panel.h = Math.min(iy + ih, Y(py + ph)) - panel.y;
-    let b = bubbleRows(text, box.w * inW, box.h * inH, max, min, S.bubbleLines), cx = box.x + box.w / 2, cy = box.y + box.h / 2, bubble = null;
-    if (!b.fit) {
-      // своё облачко: слова кеглем своего облачка (SPEC-031: на телефоне phoneOwn × масштаб экрана, не мельче min; компьютер — min),
-      // ширина строки растёт, пока строк не больше lines (но облачко не шире ownMax клетки); не влезло и так — самым мелким
-      const m = S.ownEdge * k, [oW, oH] = S.ownIn, wMax = (panel.w * S.ownMax - 2 * m) * oW;
-      for (const sz of PHONE && storyPx(S.phoneOwn) > min ? [storyPx(S.phoneOwn), min] : [min]) {
-        let w = box.w * inW;
-        do { b = bubbleRows(text, w, Infinity, sz, sz, S.bubbleLines); w *= 1.12; } while (b.rows.length > S.bubbleLines && w < wMax * 1.12);
-        if (b.rows.length <= S.bubbleLines && b.w <= wMax) break;
-      }
-      // не меньше нарисованного облачка: пустого облачка не видно (SPEC-026: ни одной клетки с пустым облачком)
-      const ow = Math.min(panel.w - 2 * m, Math.max(box.w * S.ownCover, b.w / oW)), oh = Math.min(panel.h - 2 * m, Math.max(box.h * S.ownCover, b.h / oH));
-      cx = clamp(cx, panel.x + m + ow / 2, panel.x + panel.w - m - ow / 2); cy = clamp(cy, panel.y + m + oh / 2, panel.y + panel.h - m - oh / 2);
-      bubble = { x: cx - ow / 2, y: cy - oh / 2, w: ow, h: oh };
-      // хвостик — туда же, куда у нарисованного облачка (к его кончику), не дальше края клетки
-      const a = Math.atan2(Y(ty) - (box.y + box.h / 2), X(tx) - (box.x + box.w / 2)), len = oh * S.ownTail;
-      const tipX = clamp(cx + Math.cos(a) * (ow / 2 + len), panel.x + m, panel.x + panel.w - m), tipY = clamp(cy + Math.sin(a) * (oh / 2 + len), panel.y + m, panel.y + panel.h - m);
+    const b = bubbleRows(text, box.w * inW, box.h * inH, max, min, S.bubbleLines), cx = box.x + box.w / 2, cy = box.y + box.h / 2;
+    const lh = b.sz * b.lh, top = cy - b.h / 2;
+    const skip = fitOnly && !b.fit;                           // глава «Истории»: не влезло и самым мелким — облачко остаётся пустым
+    if (!ui.bubbleTextOff && !skip) {                         // SPEC-032 AC 12: тест сравнивает кадр с буквами и без них
       ctx.save();
-      ctx.lineWidth = S.ownLine * k; ctx.strokeStyle = S.bubbleInk; ctx.fillStyle = "#ffffff"; ctx.lineJoin = "round";
-      ctx.beginPath();
-      ctx.moveTo(cx + Math.cos(a - 0.3) * ow * 0.42, cy + Math.sin(a - 0.3) * oh * 0.42); ctx.lineTo(tipX, tipY);
-      ctx.lineTo(cx + Math.cos(a + 0.3) * ow * 0.42, cy + Math.sin(a + 0.3) * oh * 0.42); ctx.closePath();
-      ctx.fill(); ctx.stroke();
-      wobblyBubble(cx, cy, ow / 2, oh / 2, S.ownWobble, S.ownRound); ctx.fill(); ctx.stroke();
+      ctx.font = `800 ${b.sz}px system-ui, "Segoe UI", sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = S.bubbleInk;
+      b.rows.forEach((r, j) => fillT(r, cx, top + lh * (j + 0.5)));
       ctx.restore();
     }
-    // строки по центру облачка
-    const lh = b.sz * b.lh, top = cy - b.h / 2;
-    ctx.save();
-    ctx.font = `800 ${b.sz}px system-ui, "Segoe UI", sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = S.bubbleInk;
-    b.rows.forEach((r, j) => fillT(r, cx, top + lh * (j + 0.5)));
-    ctx.restore();
-    if (PHONE) noteText("story", b.sz);
-    out.push({ i, text, x: cx - b.w / 2, y: top, w: b.w, h: b.h, size: b.sz, rows: b.rows.length, own: !!bubble, bubble, panel });
+    if (skip) { out.push({ i, text, skipped: true, fit: false, box, panel }); continue; }
+    if (PHONE) noteText("bubble", b.sz);
+    out.push({ i, text, x: cx - b.w / 2, y: top, w: b.w, h: b.h, size: b.sz, rows: b.rows.length, fit: b.fit, box, panel, img: { x: ix, y: iy, w: iw, h: ih }, crop: cr });
   }
   return out;
 }
