@@ -17,6 +17,7 @@ import { initInput, pollPads } from "./input.js";
 import { initBack } from "./back.js";
 import { initLifecycle } from "./lifecycle.js";
 import { endTryOn } from "./outfits.js";
+import { LOOK } from "./look.js";
 import { initPerf, noteFrame } from "./perf.js";
 import { langPending, loadSave } from "./save.js";
 import { openLangScreen } from "./ui/lang.js";
@@ -92,7 +93,7 @@ function frame(now) {
 }
 function tick(now) {
   // первая метка rAF бывает раньше performance.now() при запуске: dt < 0 раскачивал тряску камеры (shake − dt) — не меньше 0
-  const real = (now - last) / 1000, dt = Math.max(0, Math.min(0.05, real));
+  const real = (now - last) / 1000, dt = Math.max(0, Math.min(LOOK.VIEW_DT_MAX, real));   // dt — the frame time of the view; the game takes real through the accumulator (SPEC-034)
   last = now;
   noteFrame(Math.max(0, real), dt);          // SPEC-025 AC 15b: __bb.perf()
   if (simMode) return;                       // sim: ни логики, ни рисования — игру шагает simRun
@@ -105,7 +106,7 @@ function tick(now) {
   if (!inWardrobe() && endTryOn()) redress();   // SPEC-009/017: ушли из вкладки «Гардероб» (друзья — её часть) — примерка кончилась
   const portrait = isTouch && window.innerHeight > window.innerWidth;
   mapTick(dt);
-  if (mode === "play" && !portrait) runFrame(Math.max(0, real));           // SPEC-012: devices → one step → its effects (AC 3, AC 5)
+  if (mode === "play" && !portrait) runFrame(Math.max(0, real));           // SPEC-012 / SPEC-034: devices once → the accumulator's whole 1/60 s steps → their effects (the game); the view ages by the frame time
   else { drainEvents(); viewTick(dt); if (inMenus()) ui.menuSpin += dt * 0.8; }   // SPEC-012 AC 1d: the Big One turns in the menus — a view angle, not game state
   noGameRng("render", () => {              // рисование не тянет игровую случайность (SPEC-008: тесты — ошибка, игра — vrand)
     updateCamera(dt);                       // телефон: камера за героем (3D-слой, не логика)

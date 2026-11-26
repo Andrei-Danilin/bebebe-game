@@ -5,14 +5,14 @@
 import { G } from "../core/active.js";
 import { CFG, TAU } from "../core/config.js";
 import { update } from "../core/game.js";
-import { noGameRng, vrand } from "../core/util.js";
+import { frameSteps, noGameRng, vrand } from "../core/util.js";
 import { L } from "../i18n.js";
 import { fillInputs } from "./input.js";
 import { LOOK } from "./look.js";
 import { simMode } from "./screen.js";
 import { SFX } from "./sound.js";
 import { ui } from "./state.js";
-import { applyGameEvent, syncStock } from "./flow.js";
+import { applyGameEvent, mode, syncStock } from "./flow.js";
 
 // ---------- Эффекты клиента ----------
 // meaning — что случилось (SPEC-020: "bang" | "hug" | "mega" | "kiss" | "out"): под надписью рисуется свой взрыв (POP_ART), необязательно
@@ -88,12 +88,30 @@ export function runCore(fn, afterCore = null) {
   drainEvents();
   return r;
 }
-// one step of the local game: the players' devices into their slots, the step, then its effects and their timers (the hints
-// age before the new ones arrive; texts, particles and rings age after, as when the core played them inside the step)
-export function stepGame(dt) {
-  runCore(() => { fillInputs(); bannerTick(dt); update(dt); }, () => hintTick(dt));
+// one core step of the local game: the banner timer, the step, the hints' timers (they age before the new ones arrive), the step's
+// effects, the hearts while hugging. No device reading and no view timers: runFrame and stepGame add them
+function coreStep(dt) {
+  runCore(() => { bannerTick(dt); update(dt); }, () => hintTick(dt));
   for (const l of G.littles) if (l.hugAnim > 0 && vrand() < dt * 6) burst(G.big.x, G.big.y - 20, "heart", "#ff4d8d", 1);   // сердечки, пока обнимает
+}
+// one step of the local game by the dt the caller gives (__bb.update and the tests): the players' devices into their slots, the
+// step, then its effects and their timers (texts, particles and rings age after, as when the core played them inside the step)
+export function stepGame(dt) {
+  runCore(() => { fillInputs(); });
+  coreStep(dt);
   viewTick(dt);
 }
-// SPEC-034 step 1: one frame of live play (the one function the frame loop calls in play; __bb.frame feeds it simulated frame times)
-export function runFrame(frameTime) { stepGame(Math.min(0.05, frameTime)); }
+// SPEC-034 AC 1: one frame of live play — the one function the frame loop calls in play (__bb.frame feeds it simulated frame times).
+// The accumulator takes the frame time and gives n whole CFG.STEP steps; the devices are read once and apply to all n steps (the
+// 💋 / 🩹 flags fire at the first); the game time moves by n × STEP only. The view (texts, particles, rings, shake) is client-only
+// and ages by the frame time. A step that leaves play (a win, a result) ends the frame's stepping.
+export function runFrame(frameTime) {
+  const { n, acc } = frameSteps(ui.acc, frameTime);
+  ui.acc = acc;
+  if (n > 0) {
+    const was = mode;
+    runCore(() => { fillInputs(); });
+    for (let i = 0; i < n && mode === was; i++) coreStep(CFG.STEP);
+  }
+  viewTick(Math.min(LOOK.VIEW_DT_MAX, Math.max(0, frameTime)));
+}
