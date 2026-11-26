@@ -3,6 +3,7 @@
 // index.html in Phase C).
 
 import { clamp } from "../../core/util.js";
+import { L } from "../../i18n.js";
 import { paperUI } from "../art.js";
 import { LOOK } from "../look.js";
 import { CSS_H, CSS_W, ctx, OUT, PHONE, UW } from "../screen.js";
@@ -115,6 +116,13 @@ export function fz(size, cat) {
   const s = Math.max(size, minPx(cat));
   noteText(cat, s);
   return s;
+}
+// SPEC-033: подпись цены «Взять за 🪙 N» в кнопке шириной w: не влезла даже самым мелким кеглем min (с запасом LOOK.PHONE_PRICE_FIT на шрифты CI,
+// шире наших) — «Взять 🪙 N», потом «🪙 N»; prefix — «🔒 » / «✔ » перед надписью. Общая для карточек вещей и кнопок наряда
+export function priceLabel(price, w, min, prefix = "") {
+  ctx.font = hudFont(min);
+  const options = [L().buyFor(price), `${L().buy} 🪙 ${price}`, `🪙 ${price}`].map(t => prefix + t);
+  return options.find(t => scaledW(t) * LOOK.PHONE_PRICE_FIT <= w) || options.at(-1);
 }
 export const hudFont = sz => `900 ${sz}px system-ui, "Segoe UI", "Arial Rounded MT Bold", Arial, sans-serif`;
 // ---------- 2D — МЕНЮ (SPEC-017; телефон — SPEC-005, слой UI 420 px высотой): тексты и кнопки телефона, рамка экрана меню, дальше —

@@ -283,7 +283,7 @@ test("the wardrobe tab works and fits on a phone, also with wider fonts", async 
   expect(s.ids).not.toContain("name:p2");
   expect(await page.evaluate(() => window.__bb.skinPanels().map(p => p.key))).toEqual(["p1", "big"]);
   const fails = [];
-  for (const lang of LANGS) for (const scale of [1, 1.15]) for (const st of ["looks", "poor", "armed", "friends"]) {
+  for (const lang of LANGS) for (const scale of [1, 1.15, 1.3]) for (const st of ["looks", "poor", "armed", "friends"]) {
     await page.evaluate(([l, sc, state]) => {
       const b = window.__bb, W = b.wardrobe(), to = (slot, k, id) => b.cycleOutfit("p1", slot, W[k].findIndex(q => q.id === id) - b.outfits.shown.p1[slot]);
       b.setLang(l); b.CFG.TEXT_TEST_SCALE = sc; b.resetOutfits(); b.mode = "shop"; b.shopTab = "wardrobe"; b.wardrobePage = state === "friends" ? "friends" : "looks";

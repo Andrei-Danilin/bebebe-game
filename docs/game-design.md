@@ -479,7 +479,8 @@
 | CFG | `LANG_SCREEN` | { w: 0.34, maxW: 300, h: 76, gap: 22, size: 30, ring: 5, glow: "#facc15", ringR: 0.4, min: 0.6 } | SPEC-032 AC 13 (Claude): the language screen — button width (share of the screen, at most maxW), height, gap, font size (UI px on a computer, CSS px on a phone), the glow ring of the highlighted butt… |
 | CFG | `BUBBLE_MIN` | { phone: 8, desk: 9 } | SPEC-032 AC 10 (придумал Claude): самый мелкий текст в облачках комикса — CSS px на телефоне, px на компьютере |
 | CFG | `STORY_TEXT_MIN` | 12 | CSS px — самый мелкий текст глав, подписей заставок и облачков на телефоне (остальное — PHONE_TEXT) |
-| CFG | `STORY_PIC` | { min: 0.4, step: 0.02, minH: 0.4 } | SPEC-031: картинка рядом с текстом (глава «Истории»; заставка на телефоне): текст не влез и самым мелким — картинка уже на step доли ширины, но не уже min доли; заставка на компьютере (подпись под ка… |
+| CFG | `PHONE_PRICE_FIT` | 1.15 | SPEC-033: запас ширины для подписи цены «Взять за 🪙 N» (шрифты CI и iPhone шире наших): не влезла — короче (priceLabel) |
+| CFG | `STORY_PIC` | { min: 0.4, step: 0.02, minH: 0.4 } |  |
 | CFG | `PHONE_CHIP_FONT` | 1.3 | SPEC-029: кружок команды на телефоне — под метку шрифтом до 30 % шире (CI, iPhone) |
 | CFG | `PHONE_SHOP` | { pic: 30, picMin: 18, picGrow: 16, picW: 1.3, picBox: 1.1, badge: 11, badgeMin: 9, pad: 6, sp: 3, gap: 2, side: 5, nameLines: 2, descLines: 4, packLines: 2, shortLines: 1, haveLines: 2, noLines: 2, scan: 1, eps: 0.01, RESET_FIT: 1.15 } | карточки магазина на телефоне (SPEC-007 AC 10), CSS px: картинка (обычная, самая маленькая, насколько может вырасти), ширина картинки в её высотах, радиус кружка «у вас», поля, промежуток, отступ кру… |
 | CFG | `ART` | { dir: "assets/", waitMs: 5000 } | SPEC-020: картинки из папки dir (их делает npm run assets из art/); экран загрузки ждёт их не дольше waitMs мс, остальные появятся, когда догрузятся (до тех пор и при ошибке — рисунок кодом, как рань… |
