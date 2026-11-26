@@ -131,9 +131,12 @@ export function endPhone() {
     // SPEC-016: под строками звёзд и наградой, над кнопками, по центру экрана — во всю ширину (испанский текст в левую колонку не влезал)
     drawBonusNote(UW / 2, Math.min(Y0 + c(262), Y1 - bh - g - c(15)), X1 - X0 - 2 * g, c(28), 15);
   } else {
-    pLabel(loseTitle(), lx, Y0 + c(40), "title", 36, "#fca5a5", "center", colW);
-    ui.hudRects.push({ id: "lose:title", x: lx - lastFit.w / 2, y: Y0 + c(40) - lastFit.sz * 0.6, w: lastFit.w, h: lastFit.sz * 1.2, text: lastFit.text, size: lastFit.sz });
-    pWrap(L().loseSub(fmtHearts(G.big.maxHp - G.big.hp), G.big.maxHp), lx, Y0 + c(70), "main", 17, colW, 3, endInk("text", "#fff"), 900);
+    // SPEC-035: «<имя> всё ещё сердится…» — до двух строк (в одну колонку не влезало), строка под ним — сразу под заголовком
+    const ty0 = Y0 + c(14), tb = pRows(loseTitle(), "title", 32, colW, 2, 900);
+    tb.rows.forEach((r, i) => label(r, lx, ty0 + tb.lh * (i + 0.5), tb.sz, "#fca5a5"));
+    noteText("title", tb.sz);
+    ui.hudRects.push({ id: "lose:title", x: lx - tb.w / 2, y: ty0, w: tb.w, h: tb.h, text: tb.rows.join(" "), size: tb.sz });
+    pWrap(L().loseSub(fmtHearts(G.big.maxHp - G.big.hp), G.big.maxHp), lx, ty0 + tb.h + c(8), "main", 17, colW, 3, endInk("text", "#fff"), 900);
     const sc = lastReward ? lastReward.starCoins || 0 : 0, hugCoins = lastReward ? lastReward.coins - sc : 0;
     if (hugCoins > 0) { coinIcon(rx - c(70), Y0 + c(60), c(12)); pLabel(L().forHugs(hugCoins), rx - c(50), Y0 + c(60), "main", 18, endInk("gold", "#fde047"), "left", colW - c(30)); }
     if (sc > 0) pLabel("✨ " + L().starCoins(sc), rx, Y0 + c(90), "main", 16, endInk("gold", "#fde047"), "center", colW);
