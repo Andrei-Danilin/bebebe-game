@@ -110,7 +110,7 @@ export function drawKitHint(x, y, w, h, r, note, size, min) {
 // Без сенсорного экрана — клавиша этого игрока (левый Shift; вдвоём у игрока 2 — «/»), иначе — про джойстик
 export const heardHintOn = () => mode === "play" && ui.heardHintT > 0;
 const heardKey = () => G.players === 2 && ui.heardHintPi === 1 ? L().heardKey2 : L().heardKey1;
-export const heardHintText = () => PHONE || isTouch ? L().heardHintTouch : L().heardHint(heardKey());
+export const heardHintText = () => PHONE || isTouch ? L().heardHintTouch(L().tiptoeTap) : L().heardHint(heardKey());
 // плашка нижним краем на bottom, до двух строк (мерка с LOOK.TEXT_TEST_SCALE, не мельче min); → кегль
 export function drawHeardHint(x, bottom, w, size, min, pad) {
   ui.heardHintRect = hintPlate("heardHint", heardHintText(), x, bottom, w, size, min, pad);
@@ -181,14 +181,14 @@ export function tiptoeButton(pi, t) {
   const T = LOOK.TIPTOE_BTN, rc = tiptoeBtnRect(pi), r = rc.w / 2, cx = rc.x + r, cy = rc.y + r, on = !!ui.tiptoe[pi];
   ctx.save(); ctx.globalAlpha = on ? 1 : 0.9;
   if (on) {                                               // включена — светится (мягко пульсирует)
-    ctx.globalAlpha = 0.55 + 0.35 * (0.5 + 0.5 * Math.sin(t * 4));
-    circle(cx, cy, r + rc.w * T.glowW * 0.6); ctx.fillStyle = T.glow; ctx.fill();
+    ctx.globalAlpha = T.pulseMin + T.pulseAmp * (0.5 + 0.5 * Math.sin(t * T.pulseSpeed));
+    circle(cx, cy, r + rc.w * T.glowW * T.glowOut); ctx.fillStyle = T.glow; ctx.fill();
     ctx.globalAlpha = 1;
   }
   if (!drawArtFit("phone_stick_base", cx, cy, rc.w * LOOK.PAPER.hudIcon)) { circle(cx, cy, r); fillStroke(on ? "#fef9c3" : "#f8fafc", 4, G.players === 2 ? P_COLORS[pi] : OUT); }
   else if (G.players === 2) { circle(cx, cy, r); ctx.lineWidth = 4; ctx.strokeStyle = P_COLORS[pi]; ctx.stroke(); }
   if (!drawArtFit("ui_tiptoe", cx, cy, rc.w * T.icon)) {
-    ctx.font = `${rc.w * T.icon * 0.8}px system-ui, 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.font = `${rc.w * T.icon * T.emoji}px system-ui, 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
     ctx.fillText("👣", cx, cy);                          // нет картинки — эмодзи (запасной вид)
   }
   if (on) { circle(cx, cy, r - rc.w * T.glowW / 2); ctx.lineWidth = rc.w * T.glowW; ctx.strokeStyle = T.glow; ctx.stroke(); }

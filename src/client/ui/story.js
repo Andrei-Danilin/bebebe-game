@@ -129,12 +129,12 @@ function drawRulesPage(c, open, title, top, { X0, X1, Y1, g, B }, minMain, minHi
   // нижний ряд: справа «Тренировка», левее «Картинки» (бумажные кнопки со значком, как на главном), слева «Для взрослых»
   const bsz = PHONE ? cpx(18) : 20, gt = L().forGrownUps;
   ctx.font = hudFont(PHONE ? cpx(16) : 17);
-  const gw = Math.min((X1 - X0) * 0.3, Math.max(B * 2, scaledW(gt) + 26 * k));
+  const gw = Math.min((X1 - X0) * R.grownW, Math.max(B * 2, scaledW(gt) + 26 * k));
   fitButton(X0, by, gw, B, gt, M.back, openGrownUps, PHONE ? cpx(16) : 17, minMain).id = "story:grownups";
   const acts = [{ id: "story:pictures", icon: "menu_story", emoji: "📖 ", text: L().pictures, color: M.storyBtn, act: openPictures },
     { id: "story:practice", icon: "menu_play", emoji: "▶ ", text: L().tut.practice, color: M.ok, act: openPractice }];
   ctx.font = hudFont(bsz);
-  const room = (X1 - X0 - gw - 3 * g) / 2, bws = acts.map(a => Math.min(room, Math.max(B * 2.2, scaledW(a.text) + B * R.btnIcon + 30 * k)));
+  const room = (X1 - X0 - gw - 3 * g) / 2, bws = acts.map(a => Math.min(room, Math.max(B * R.btnMinW, scaledW(a.text) + B * R.btnIcon + R.btnPad * k)));
   let bx = X1;
   for (let i = acts.length - 1; i >= 0; i--) {
     bx -= bws[i];
@@ -152,12 +152,12 @@ function drawRulesPage(c, open, title, top, { X0, X1, Y1, g, B }, minMain, minHi
   const img = art("tutorial_a");
   let picBox = pic;
   if (img) {
-    const fr = 5 * k, sc = Math.min((pic.w - 2 * fr) / img.width, (pic.h - 2 * fr) / img.height), iw = img.width * sc, ih = img.height * sc;
+    const fr = R.frame * k, sc = Math.min((pic.w - 2 * fr) / img.width, (pic.h - 2 * fr) / img.height), iw = img.width * sc, ih = img.height * sc;
     const ix = pic.x + (pic.w - iw) / 2, iy = pic.y + (pic.h - ih) / 2;
-    rr(ix - fr, iy - fr, iw + 2 * fr, ih + 2 * fr, 6 * k); fillStroke(S.paper, 3 * k);   // бумажная рамка, как в «Истории»
+    rr(ix - fr, iy - fr, iw + 2 * fr, ih + 2 * fr, R.frameR * k); fillStroke(S.paper, 3 * k);   // бумажная рамка, как в «Истории»
     ctx.drawImage(img, ix, iy, iw, ih);
     noteArt("tutorial_a");
-    tape(ix + 6 * k, iy + 2 * k, -0.7, k * 0.8); tape(ix + iw - 6 * k, iy + 2 * k, 0.7, k * 0.8);
+    tape(ix + R.tapeIn * k, iy + 2 * k, -0.7, k * 0.8); tape(ix + iw - R.tapeIn * k, iy + 2 * k, 0.7, k * 0.8);
     picBox = { x: ix - fr - 1.5 * k, y: iy - fr - 1.5 * k, w: iw + 2 * fr + 3 * k, h: ih + 2 * fr + 3 * k };
   } else storyPlaceholder(pic, false, false);
   // слева — правила (и на компьютере под ними управление); кегль один на всё (мельче, пока не влезет по высоте)
@@ -177,7 +177,7 @@ function drawRulesPage(c, open, title, top, { X0, X1, Y1, g, B }, minMain, minHi
     const lh = b.sz * rlh, ic = iconOf(b.sz), rowH = Math.max(b.rows.length * lh, ic), tx = X0 + ic + b.sz * R.iconGap;
     const name = RULE_ART[i], cy = y + rowH / 2;
     if (!(name && drawArtFit(name, X0 + ic / 2, cy, ic))) {   // нет картинки — эмодзи, как раньше
-      ctx.font = `${b.sz * 1.3}px system-ui, 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.font = `${b.sz * R.emoji}px system-ui, 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
       ctx.fillText(RULE_ICONS[i] || "•", X0 + ic / 2, cy);
     } else drawnIcons.push(name);
     ui.hudRects.push({ id: "rulesIcon:" + i, x: X0, y: cy - ic / 2, w: ic, h: ic });

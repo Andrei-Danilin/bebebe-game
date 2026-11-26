@@ -1568,7 +1568,7 @@ test.describe("phone heard hint 667×375", () => {
         const hint = b.heardHint, c = document.createElement("canvas").getContext("2d");
         let rowsW = [];
         if (hint && hint.rect) { c.font = `800 ${hint.rect.size}px system-ui, "Segoe UI", sans-serif`; rowsW = hint.rect.rows.map(q => c.measureText(q).width * f); }
-        return { heard, down: l.state, hint, rowsW, want: b.I18N[lg].heardHintTouch, ui: b.uiSize, buttons: b.buttonRects, hud: b.hudRects, mm: b.minimap, texts: b.textSizes };
+        return { heard, down: l.state, hint, rowsW, want: b.I18N[lg].heardHintTouch(b.I18N[lg].tiptoeTap), ui: b.uiSize, buttons: b.buttonRects, hud: b.hudRects, mm: b.minimap, texts: b.textSizes };
       }, [lang, fs]);
       const label = `${lang} ×${fs}`;
       if (!d.heard || d.down !== "down") { fails.push(`${label}: setup heard ${d.heard}, hero ${d.down}`); continue; }

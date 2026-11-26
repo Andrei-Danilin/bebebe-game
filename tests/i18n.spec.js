@@ -125,13 +125,13 @@ test("the tiptoe rule and the heard hints are in every language", async ({ page 
   const r = await page.evaluate(langs => langs.map(l => {
     const I = window.__bb.I18N[l], rules = I.rules(18);
     return { l, n: rules.length, last: rules[rules.length - 1] === I.ruleTiptoe, icon: window.__bb.RULE_ICONS[6],
-      texts: [I.ruleTiptoe, I.heardHint(I.heardKey1), I.heardHint(I.heardKey2), I.heardHintTouch].every(t => typeof t === "string" && t.length > 10),
+      texts: [I.ruleTiptoe, I.heardHint(I.heardKey1), I.heardHint(I.heardKey2), I.heardHintTouch(I.tiptoeTap)].every(t => typeof t === "string" && t.length > 10),
       keys: [I.heardKey1, I.heardKey2].every(k => typeof k === "string" && k.length > 0 && I.heardHint(k).includes(k)) };
   }), LANGS);
   const soft = softly();
   for (const x of r) soft(x, x.l).toEqual({ l: x.l, n: 7, last: true, icon: "👣", texts: true, keys: true });
   soft.done();
-  const en = await page.evaluate(() => { const I = window.__bb.I18N.en; return [I.ruleTiptoe, I.heardHint(I.heardKey1), I.heardHintTouch]; });
+  const en = await page.evaluate(() => { const I = window.__bb.I18N.en; return [I.ruleTiptoe, I.heardHint(I.heardKey1), I.heardHintTouch(I.tiptoeTap)]; });
   expect(en).toEqual(["Run near Dad and he hears you — tiptoe!", "Dad heard you running! Tiptoe near him: hold ⇦ Shift", "Dad heard you running! Tap 👣 to tiptoe"]);   // SPEC-032 AC 1: the 👣 button
 });
 

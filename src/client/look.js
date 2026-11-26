@@ -51,8 +51,9 @@ export const LOOK = {
   ARROW_D: 30,               // CSS px — кружок стрелки у края экрана (диаметр)
   PHONE_KISS_BTN: 80,        // CSS px — кнопка 💋 на телефоне
   // SPEC-032 AC 1: кнопка 👣 (на цыпочках, переключатель; придумал Claude): диаметр на телефоне (CSS px) и на сенсорном компьютере (px),
-  // отступ от кнопки 💋 (доля её диаметра), значок на рамке phone_stick_base (доля диаметра), свечение включённой (цвет, толщина — доля диаметра)
-  TIPTOE_BTN: { phone: 64, desk: 56, gap: 0.1, icon: 0.62, glow: "#facc15", glowW: 0.09 },
+  // отступ от кнопки 💋 (доля её диаметра), значок на рамке phone_stick_base (доля диаметра), свечение включённой (цвет, толщина — доля диаметра);
+  // пульс свечения: прозрачность pulseMin…pulseMin + pulseAmp, pulseSpeed рад/с, ореол за краем — glowOut × glowW диаметра; эмодзи — emoji × значка
+  TIPTOE_BTN: { phone: 64, desk: 56, gap: 0.1, icon: 0.62, glow: "#facc15", glowW: 0.09, pulseMin: 0.55, pulseAmp: 0.35, pulseSpeed: 4, glowOut: 0.6, emoji: 0.8 },
   STICK_ZONE: 0.55,          // доля ширины слева, где касание создаёт джойстик
   PHONE_STICK_R: 60,         // CSS px — радиус джойстика на телефоне
   PHONE_BTN_MIN: 44,         // CSS px — кнопка на телефоне не меньше
@@ -64,8 +65,9 @@ export const LOOK = {
   // средний телефон лёжа), в пределах min…max; компьютер — ×1 (его холст и так растёт с окном)
   STORY_TEXT_SCALE: { ref: [844, 390], min: 0.72, max: 1.1 },
   // SPEC-032 AC 13 (Claude): the language screen — button width (share of the screen, at most maxW), height, gap, font size
-  // (UI px on a computer, CSS px on a phone), the glow ring of the highlighted button (width, colour)
-  LANG_SCREEN: { w: 0.34, maxW: 300, h: 76, gap: 22, size: 30, ring: 5, glow: "#facc15" },
+  // (UI px on a computer, CSS px on a phone), the glow ring of the highlighted button (width, colour, corner radius × button height),
+  // the smallest font on a computer (× size)
+  LANG_SCREEN: { w: 0.34, maxW: 300, h: 76, gap: 22, size: 30, ring: 5, glow: "#facc15", ringR: 0.4, min: 0.6 },
   BUBBLE_MIN: { phone: 8, desk: 9 },   // SPEC-032 AC 10 (придумал Claude): самый мелкий текст в облачках комикса — CSS px на телефоне, px на компьютере
   STORY_TEXT_MIN: 12,        // CSS px — самый мелкий текст глав, подписей заставок и облачков на телефоне (остальное — PHONE_TEXT)
   // SPEC-031: картинка рядом с текстом (глава «Истории»; заставка на телефоне): текст не влез и самым мелким — картинка уже на step
@@ -211,9 +213,12 @@ export const LOOK = {
     // SPEC-032 AC 7 (придумал Claude): «Как играть» — доля ширины под правила (компьютер / телефон; справа лист A), значок правила × кегль
     // (самый мелкий кегль и всё равно тесно — до iconMin ×), шаг строк правила на телефоне (в кеглях; компьютер — 1.2),
     // отступ значка от текста × кегль, шаг строк правил (px компьютера), кегль управления × кегль правил, отступ управления от правил,
-    // ширина значка в кнопках «Картинки» / «Тренировка» × высота кнопки (запас ширины под значок)
+    // ширина значка в кнопках «Картинки» / «Тренировка» × высота кнопки (запас ширины под значок); бумажная рамка листа A (поле, радиус
+    // углов, отступ скотча — px компьютера × cpx), «Для взрослых» — не шире grownW ширины, кнопки — не уже btnMinW × высоты, поля
+    // надписи btnPad (px × cpx); запасное эмодзи правила — emoji × кегль
     story: { pic: 0.47, text: 22, phoneText: 18, rule: 17, phoneRule: 15, dot: 6, paper: "#fffdf5", pencil: "#94a3b8", heart: "#f9a8d4", backW: 170,
-      rules: { share: 0.55, phoneShare: 0.64, icon: 1.6, iconMin: 1.3, iconGap: 0.35, rowGap: 4, phoneRowGap: 1.5, phoneLh: 1.1, ctl: 0.85, ctlGap: 6, btnIcon: 1.4 } } },
+      rules: { share: 0.55, phoneShare: 0.64, icon: 1.6, iconMin: 1.3, iconGap: 0.35, rowGap: 4, phoneRowGap: 1.5, phoneLh: 1.1, ctl: 0.85, ctlGap: 6, btnIcon: 1.4,
+        frame: 5, frameR: 6, tapeIn: 6, grownW: 0.3, btnMinW: 2.2, btnPad: 30, emoji: 1.3 } } },
   BANNER_TIME: 2,            // сек — надпись «Уровень N: тип» в начале уровня появляется и исчезает
   BANNER_FADE: 0.4,          // сек — появление и исчезание
   BANNER_REPEAT: 1,          // сек — перезапуск раньше этого после прошлой надписи её не показывает
