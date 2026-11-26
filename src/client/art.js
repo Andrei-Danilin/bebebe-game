@@ -108,7 +108,11 @@ export const EMOJI_ART = { "👥": "ui_friends", "🎲": "ui_dice", "❓": "ui_q
   "✔": "ui_check", "✘": "ui_cross", "✕": "ui_cross", "🔒": "padlock", "🩹": "icon_bandaid", "💋": "item_kiss", "⭐": "star_gold", "🪙": "item_coin",
   "📖": "menu_story", "🏆": "tab_progress", "🎒": "menu_character", "🏠": "ui_home", "🛒": "shop_items", "👕": "shop_wardrobe",
   "🛡": "icon_shield", "🍌": "item_banana", "👟": "item_boots", "👻": "item_cape", "❤": "heart_full", "🤝": "shop_quick_help",
-  "👣": "ui_tiptoe" };   // SPEC-032: 35_icons_more
+  // SPEC-032 AC 18: emoji still drawn as text → art we already had; AC 19: the new sheet 35_icons_more (ui_hug … ui_tiptoe)
+  "🎁": "ui_gift", "🌐": "ui_globe", "🔊": "ui_sound_on", "🔇": "ui_sound_off", "⛶": "ui_fullscreen", "✨": "fx_sparkle", "🎉": "fx_confetti",
+  "💗": "fx_hearts", "💫": "fx_dizzy", "💦": "fx_steam_left", "🔁": "round_restart",
+  "🌳": "world_park", "⚽": "world_field", "🏙": "world_city", "🏫": "world_school", "🏖": "world_beach", "❄": "world_winter",
+  "🤗": "ui_hug", "😴": "ui_sleep", "💤": "ui_sleep", "❗": "ui_alert", "🏁": "ui_flag", "👀": "ui_eyes", "⏱": "ui_timer", "👣": "ui_tiptoe" };
 // SPEC-027: новая картинка не загрузилась — прежняя (а нет и её — рисунок кодом или эмодзи, как у всякой картинки SPEC-020)
 export const ART_FALLBACK = { menu_play: "ui_play", menu_story: "ui_story", menu_character: "ui_bag", tab_progress: "star_gold" };
 // первая загруженная картинка из name и его запасных (ART_FALLBACK) или null

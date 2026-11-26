@@ -226,6 +226,70 @@ test.describe("on a phone", () => {
   });
 });
 
+// SPEC-032 AC 18–20: with the art loaded no screen draws an emoji as text — every one has its picture (EMOJI_ART: the older art
+// and sheet 35). Home, map (also the world tabs and a locked world), level card, Character (every tab, the friends page), Story,
+// How to play, Pictures, win, lose, pause, the HUD with Dad's marks, the phone controls. Allow-list: each entry says why.
+const EMOJI_OK = {
+  "▶": "the Play / Next / ▶ arrow is a navigation glyph drawn in the button's ink (font text, not a picture)",
+  "◀": "the Back / previous arrow, the same navigation glyph as ▶",
+  "⏭": "the practice's Skip button (SPEC-029): a navigation glyph like ▶; no skip picture in our sheets yet (BACKLOG: draw one)"
+};
+const ANY_EMOJI = /\p{Extended_Pictographic}/gu;
+async function anyEmojiLeft(page, phone) {
+  const screens = [
+    ["home", () => { window.__bb.toHome(); }],
+    ["home muted", () => { window.__bb.tapButton("home:sound"); }],
+    ["home sound", () => { window.__bb.tapButton("home:sound"); }],
+    ["map", () => { const b = window.__bb; Object.assign(b.progress.worlds.park, { unlocked: 3, won: { 1: true, 2: true }, stars: { 1: 3, 2: 1 } }); b.toMap(); }],
+    ["map bonus world", () => { const b = window.__bb; for (const w of b.WORLDS) b.progress.worlds[w].unlocked = Math.max(1, b.progress.worlds[w].unlocked); b.world = "beach"; b.toMap(); }],
+    ["level card", () => { const b = window.__bb; b.world = "park"; b.toMap(); b.mode = "levelCard"; }],
+    ["progress", () => { const b = window.__bb; b.mode = "shop"; b.shopTab = "progress"; }],
+    ["items", () => { const b = window.__bb; b.mode = "shop"; b.shopTab = "items"; b.progress.inv.kisses = 3; }],
+    ["wardrobe", () => { const b = window.__bb; b.mode = "shop"; b.shopTab = "wardrobe"; }],
+    ["friends", () => { const b = window.__bb; b.mode = "shop"; b.shopTab = "wardrobe"; b.wardrobePage = "friends"; }],
+    ["upgrades", () => { const b = window.__bb; b.wardrobePage = "looks"; b.mode = "shop"; b.shopTab = "upgrades"; }],
+    ["story began", () => { window.__bb.openStory("began", "home"); }],
+    ["story park", () => { window.__bb.openStory("park", "home"); }],
+    ["story ended", () => { window.__bb.openStory("ended", "home"); }],
+    ["how to play", () => { window.__bb.tapButton("story:rules"); }],
+    ["pictures", () => { window.__bb.openPictures(); }],
+    ["win", () => { const b = window.__bb; b.startGame(1); Object.assign(b.stats, { playerHugs: 2, rests: 1 }); b.giveReward(true); b.mode = "win"; }],
+    ["win replay", () => { const b = window.__bb; b.startGame(1); Object.assign(b.stats, { playerHugs: 2, rests: 1 }); b.giveReward(true); b.mode = "win"; }],
+    ["lose", () => { const b = window.__bb; b.startGame(1); b.giveReward(false); b.mode = "lose"; }],
+    ["pause", () => { const b = window.__bb; b.startGame(1); b.mode = "pause"; }],
+    ["play", () => { const b = window.__bb; b.startGame(1); b.progress.inv.kisses = 3; b.progress.inv.rescues = 1; }],
+    ["play: rest", () => { const b = window.__bb; Object.assign(b.littles[0], { state: "rest", restTimer: 9 }); }],
+    ["play: kind dad", () => { const b = window.__bb; b.littles[0].state = "ok"; b.big.kind = true; }],
+    ["play: slipping dad", () => { const b = window.__bb; Object.assign(b.big, { kind: false, slip: 2 }); }],
+    ["play: blushing dad", () => { const b = window.__bb; Object.assign(b.big, { slip: 0, blush: 2 }); }],
+    ["play: resting dad", () => { const b = window.__bb; Object.assign(b.big, { blush: 0, noPush: 5 }); }],
+    ["play: chasing dad", () => { const b = window.__bb; Object.assign(b.big, { noPush: 0, state: "chase" }); }],
+    ["play: a friend down", () => { const b = window.__bb; Object.assign(b.littles[1], { state: "down", downTimer: 15 }); Object.assign(b.big, { state: "look", timer: 999 }); }],
+    ["play: tutorial", () => { const b = window.__bb; b.openTutorial("map", "game1"); }],
+    ["world banner", () => { const b = window.__bb; b.resetMenus(); b.world = "park"; b.progress.worlds.park.unlocked = 20; b.level = 20; b.startGame(1); b.giveReward(true); b.toMap(); }],
+    ["bonus unlocked", () => { const b = window.__bb; b.resetMenus(); b.world = "park"; b.level = 1; b.startGame(1); b.giveReward(true); b.mode = "win"; }]
+  ];
+  const left = [];
+  for (const [name, fn] of screens) for (const t of await drawnTexts(page, fn)) for (const e of t.match(ANY_EMOJI) || []) if (!EMOJI_OK[e]) left.push(`${name}: ${e} in "${t}"`);
+  await page.evaluate(() => { const b = window.__bb; b.resetMenus(); b.resetOutfits(); b.toHome(); });
+  return [...new Set(left)];
+}
+test("SPEC-032: with the art loaded no screen draws an emoji as text (allow-list with reasons)", async ({ page }) => {
+  const errors = await openGame(page);
+  await page.waitForFunction(() => window.__bb.artInfo.done, null, { timeout: 15_000 });
+  expect(await anyEmojiLeft(page, false)).toEqual([]);
+  expect(errors).toEqual([]);
+});
+test.describe("on a phone (SPEC-032)", () => {
+  test.use({ viewport: { width: 667, height: 375 }, hasTouch: true, isMobile: true });
+  test("SPEC-032: with the art loaded no phone screen draws an emoji as text (667)", async ({ page }) => {
+    const errors = await openGame(page, { query: "?phone=1" });
+    await page.waitForFunction(() => window.__bb.artInfo.done, null, { timeout: 15_000 });
+    expect(await anyEmojiLeft(page, true)).toEqual([]);
+    expect(errors).toEqual([]);
+  });
+});
+
 test("home, level map and level card are drawn with the art", async ({ page }) => {
   const errors = await openGame(page, { lang: "ru" });
   await page.waitForFunction(() => window.__bb.artInfo.done, null, { timeout: 15_000 });
