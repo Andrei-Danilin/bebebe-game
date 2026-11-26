@@ -86,6 +86,7 @@ export const I18N = {
       c: ["Air kisses 💋: send one from far away. Dad loses half a heart and blushes!", "Rescue kit 🩹: fell down? Get up at once!",
         "Warm mittens: each hug takes 2 hearts. Mega mittens: 3!", "Win levels, get coins, and buy all this in Character!"],
       ready: "You're ready! Let's make the dads kind again!", practice: "Practice",
+      introLine: "Let's learn how to make the dads kind again!", introGo: "Let's learn!",   // SPEC-033: the How to play card
       // подсказки тренировки 1 (по шагам)
       g1rescue: "Your friend fell! Run to them and stand close to help them up.", g1sneak: k => `Now sneak behind Dad — tiptoe close to him! (${k})`,
       g1hug: "Hug him from behind — 3 times!",
@@ -172,6 +173,7 @@ export const I18N = {
       c: ["Besitos voladores 💋: mandá uno de lejos. ¡Papá pierde medio corazón y se pone colorado!", "Curita mágica 🩹: ¿te caíste? ¡Levantate al toque!",
         "Mitones abrigados: cada abrazo saca 2 corazones. ¡Los mitones gigantes, 3!", "¡Ganá niveles, juntá monedas y comprá todo esto en Personaje!"],
       ready: "¡Ya estás listo! ¡Vamos a hacer que los papás vuelvan a ser buenos!", practice: "Practicar",
+      introLine: "¡Aprendamos a hacer que los papás vuelvan a ser buenos!", introGo: "¡A aprender!",
       g1rescue: "¡Tu amigo se cayó! Corré hasta él y quedate cerca para ayudarlo a levantarse.", g1sneak: k => `Ahora acercate a Papá por detrás: ¡en puntitas cerca de él! (${k})`,
       g1hug: "¡Abrazalo por detrás, 3 veces!",
       g2item: "¡Agarrá un objeto!", g2banana: "¡Llevá a Papá hasta una banana!", g2kiss: k => `Mandá un besito volador 💋 (${k})`, g2kit: k => `¡Usá la curita mágica 🩹 para levantarte! (${k})`,
@@ -260,6 +262,7 @@ export const I18N = {
       c: ["Beijinhos 💋: mande um de longe. O Papai perde meio coração e fica vermelho!", "Kit de resgate 🩹: caiu? Levante na hora!",
         "Luvas quentinhas: cada abraço tira 2 corações. Luvas gigantes: 3!", "Vença fases, ganhe moedas e compre tudo isso em Personagem!"],
       ready: "Você está pronto! Vamos deixar os papais bonzinhos de novo!", practice: "Praticar",
+      introLine: "Vamos aprender a deixar os papais bonzinhos de novo!", introGo: "Vamos lá!",
       g1rescue: "Seu amigo caiu! Corra até ele e fique pertinho para ajudar a levantar.", g1sneak: k => `Agora chegue por trás do Papai — perto dele, na ponta dos pés! (${k})`,
       g1hug: "Abrace ele por trás — 3 vezes!",
       g2item: "Pegue um item!", g2banana: "Leve o Papai até uma banana!", g2kiss: k => `Mande um beijinho 💋 (${k})`, g2kit: k => `Use o kit de resgate 🩹 para levantar! (${k})`,
@@ -345,6 +348,7 @@ export const I18N = {
       c: ["Воздушный поцелуй 💋: пошли издалека. Папа теряет полсердечка и краснеет!", "Спасалка 🩹: упал? Сразу вставай!",
         "Тёплые рукавицы: обнимашка забирает 2 сердечка. Мега-рукавицы — 3!", "Выигрывай уровни, собирай монетки и покупай всё это в «Персонаже»!"],
       ready: "Ты готов! Давай сделаем пап снова добрыми!", practice: "Тренировка",
+      introLine: "Давай научимся делать пап снова добрыми!", introGo: "Учимся!",
       g1rescue: "Друг упал! Беги к нему и встань рядом — поможешь подняться.", g1sneak: k => `Теперь подкрадись к папе сзади — рядом с ним на цыпочках! (${k})`,
       g1hug: "Обними его сзади — 3 раза!",
       g2item: "Возьми предмет!", g2banana: "Заведи папу на банан!", g2kiss: k => `Пошли воздушный поцелуй 💋 (${k})`, g2kit: k => `Встань спасалкой 🩹! (${k})`,

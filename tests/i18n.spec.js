@@ -197,11 +197,11 @@ test("first launch: the language screen, English highlighted (Enter picks it), t
     await page.waitForFunction(() => window.__bb.mode === "scene");
     let s = await page.evaluate(() => ({ lang: window.__bb.lang, scene: window.__bb.scene, saved: JSON.parse(localStorage.getItem("bebebe-save")).lang }));
     expect([s.lang, s.scene.id, s.saved]).toEqual(["en", "intro", "en"]);
-    // the intro skipped → the tutorial (page A), skipped → the Park map
+    // the intro skipped → the tutorial (SPEC-033: first the How to play card), skipped → the Park map
     await page.keyboard.press("Escape");
     await frames(page);
     s = await page.evaluate(() => ({ mode: window.__bb.mode, scene: window.__bb.scene, tutorial: window.__bb.tutorial }));
-    expect([s.mode, s.scene && s.scene.id, s.tutorial && s.tutorial.step]).toEqual(["scene", "tutorial_a", "a"]);
+    expect([s.mode, s.scene && s.scene.id, s.tutorial && s.tutorial.step]).toEqual(["scene", "tutorial_intro", "intro"]);
     await page.keyboard.press("Escape");
     await frames(page);
     expect(await page.evaluate(() => window.__bb.mode)).toBe("map");

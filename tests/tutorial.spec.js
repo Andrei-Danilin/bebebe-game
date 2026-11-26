@@ -5,7 +5,7 @@ const base = require("./pw");   // SPEC-023: @playwright/test + failure screensh
 const { expect } = base;
 const fs = require("fs");
 const path = require("path");
-const { openGame, frames, step, sharedPage, resetGame, softly, putOldSave } = require("./helpers");
+const { LANGS, openGame, frames, step, sharedPage, resetGame, softly, putOldSave } = require("./helpers");
 
 // a shared sim page (logic) and a shared rendered page (desktop, then phone); order: sim and fresh-page tests first, the rendered
 // shared-page tests last (a rendered page left open slows every other test)
@@ -78,12 +78,21 @@ test("first launch: the intro comic, the tutorial, then the Park map with level 
   await frames(page);
   let s = await state(page);
   expect([s.mode, s.scene && s.scene.id, s.tutorial]).toEqual(["scene", "intro", null]);
-  await page.keyboard.press("Escape");                   // the intro skipped: the tutorial still comes
+  await page.keyboard.press("Escape");                   // the intro skipped: the tutorial still comes — first the How to play card (SPEC-033 AC 1)
+  await frames(page);
+  s = await state(page);
+  expect(s.scene).toEqual({ id: "tutorial_intro", page: 0, pages: 1 });
+  expect(s.tutorial).toEqual({ step: "intro", page: 0, game: 0, hint: 0, back: "map" });
+  expect([s.mode, s.seen.intro, s.seen.tutorial]).toEqual(["scene", true, false]);
+  const card = await page.evaluate(() => { const b = window.__bb; return { btn: b.buttonRects.map(q => [q.id, q.text]).sort(), art: b.sceneInfo.art, name: b.sceneInfo.artName, hud: b.hudRects.filter(h => h.id.startsWith("scene:")).map(h => [h.id, h.text]), I: b.I18N.en }; });
+  expect(card.btn, "Let's learn! and Skip").toEqual([["scene:next", "Let's learn! ▶"], ["scene:skip", "Skip"]]);
+  expect([card.art, card.name], "the howto_card picture").toEqual(["image", "howto_card"]);
+  expect(card.hud, "the title and the line").toEqual([["scene:title", card.I.howToPlay], ["scene:caption", card.I.tut.introLine]]);
+  await page.keyboard.press("Enter");                    // Let's learn! → the tutorial pictures
   await frames(page);
   s = await state(page);
   expect(s.scene).toEqual({ id: "tutorial_a", page: 0, pages: 4 });
   expect(s.tutorial).toEqual({ step: "a", page: 0, game: 0, hint: 0, back: "map" });
-  expect([s.mode, s.seen.intro, s.seen.tutorial]).toEqual(["scene", true, false]);
   const cap = await page.evaluate(() => [window.__bb.sceneInfo.caption, window.__bb.I18N.en.tut.a(window.__bb.I18N.en.tut.tiptoeKey)[0]]);
   expect(cap[0], "a caption under the panel").toBe(cap[1]);
   // Next through page A (four panels) → practice game 1: one player, Dad with 3 hearts
@@ -136,6 +145,68 @@ test("tutorial pages without their pictures: every panel draws a figure and its 
   }
   soft.done();
   expect(errors.filter(e => !e.includes("Failed to load resource")), "only the 404s of the missing pictures").toEqual([]);
+});
+
+// ---------- SPEC-033 AC 2: the How to play card — the picture howto_card, or the A1 panel of tutorial_a when it is missing ----------
+test("How to play card: howto_card when it exists, the A1 panel of tutorial_a on paper when not", async ({ page }) => {
+  await page.route(/\/assets\/howto_card\.webp$/, route => route.fulfill({ status: 404, body: "" }));
+  const errors = await openGame(page);
+  await page.waitForFunction(() => window.__bb.artInfo.done);
+  await page.evaluate(() => { const b = window.__bb; b.progress.seen.tutorial = false; b.openFirstTutorial(); });
+  await frames(page);
+  const d = await page.evaluate(() => ({ info: window.__bb.sceneInfo, panel: window.__bb.CFG.MENU_LOOK.scene.panels[0] }));
+  expect([d.info.art, d.info.artName, d.info.crop], "the kid hugging Dad from behind, A1").toEqual(["image", "tutorial_a", d.panel]);
+  await page.evaluate(() => window.__bb.tutorialSkip());
+  expect(errors.filter(e => !e.includes("Failed to load resource")), "only the 404 of the missing picture").toEqual([]);
+});
+
+// ---------- SPEC-033 AC 3: the card fits 568×320, 667×375 and 1280×720 in every language (and with wider fonts, like CI) ----------
+// Runs in the page: title and line inside the screen, nothing cut, no overlap with the picture and the buttons → problem list
+function cardFitCases([langs, scales]) {
+  const b = window.__bb, ui = b.uiSize, out = [];
+  const ov = (a, c) => a.x < c.x + c.w - 0.5 && a.x + a.w > c.x + 0.5 && a.y < c.y + c.h - 0.5 && a.y + a.h > c.y + 0.5;
+  const inside = a => a.x >= -0.5 && a.y >= -0.5 && a.x + a.w <= ui.w + 0.5 && a.y + a.h <= ui.h + 0.5;
+  for (const lang of langs) for (const sc of scales) {
+    const at = `${lang} ×${sc}`;
+    b.setLang(lang); b.CFG.TEXT_TEST_SCALE = sc; b.resetMenus(); b.openScene("tutorial_intro", null, { mark: false, skip: () => {} }); b.drawNow();
+    const I = b.I18N[lang], info = b.sceneInfo, hud = b.hudRects, title = hud.find(h => h.id === "scene:title"), line = hud.find(h => h.id === "scene:caption");
+    if (!title || !line || !info || !info.picBox) { out.push(`${at}: nothing drawn`); continue; }
+    if (title.text !== I.howToPlay || line.text !== I.tut.introLine) out.push(`${at}: text cut "${title.text}" / "${line.text}"`);
+    if (b.textOverflows.length) out.push(`${at}: overflows ${JSON.stringify(b.textOverflows)}`);
+    if (info.fit !== true) out.push(`${at}: does not fit`);
+    if (!(title.size > line.size)) out.push(`${at}: the title is not bigger than the line`);
+    const btn = Object.fromEntries(b.buttonRects.map(q => [q.id, q]));
+    if (!btn["scene:next"] || btn["scene:next"].text !== I.tut.introGo + " ▶" || !btn["scene:skip"]) out.push(`${at}: buttons ${Object.keys(btn)}`);
+    const boxes = [["title", title], ["line", line], ["picture", info.picBox], ...Object.entries(btn)];
+    for (const [n, r] of boxes) if (!inside(r)) out.push(`${at}: ${n} off the screen`);
+    for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) if (ov(boxes[i][1], boxes[j][1])) out.push(`${at}: ${boxes[i][0]} over ${boxes[j][0]}`);
+    if (!(info.picBox.h >= ui.h * 0.35)) out.push(`${at}: the picture is only ${Math.round(info.picBox.h)} of ${Math.round(ui.h)} high`);
+  }
+  b.CFG.TEXT_TEST_SCALE = 1; b.setLang("en"); b.resetMenus();
+  return out;
+}
+async function resizeTo(page, [w, h]) {
+  await page.setViewportSize({ width: w, height: h });
+  await page.waitForFunction(([vw, vh]) => window.innerWidth === vw && window.innerHeight === vh, [w, h]);
+  await frames(page);
+}
+test("How to play card fits 568×320, 667×375 and 1280×720 in every language", async ({ browser }) => {
+  test.slow();
+  const fails = [], errors = [];
+  for (const [sizes, phone] of [[[[568, 320], [667, 375]], true], [[[1280, 720]], false]]) {
+    const ctx = await browser.newContext({ viewport: { width: sizes[0][0], height: sizes[0][1] }, hasTouch: phone, isMobile: phone });
+    try {
+      const page = await ctx.newPage();
+      errors.push(...await openGame(page, phone ? { query: "?phone=1" } : {}));
+      await page.waitForFunction(() => window.__bb.artInfo.done);
+      for (const sz of sizes) {
+        await resizeTo(page, sz);
+        fails.push(...(await page.evaluate(cardFitCases, [LANGS, [1, 1.15]])).map(f => `${sz.join("×")} ${f}`));
+      }
+    } finally { await ctx.close(); }
+  }
+  expect(fails, fails.slice(0, 20).join("\n")).toEqual([]);
+  expect(errors).toEqual([]);
 });
 
 // ---------- AC 2: an old save that has already seen the intro — the tutorial does not open by itself ----------
@@ -628,6 +699,50 @@ test("Skip from every tutorial step goes to the Park map and sets seen.tutorial"
     await ended(`${g}: pause Skip`);
   }
   soft.done();
+});
+
+// ---------- SPEC-033 AC 1: Skip on the card skips the whole tutorial; Let's learn! goes to A1; Practice and Pictures never show the card ----------
+test("How to play card: Skip skips the whole tutorial, Let's learn! starts page A1", async ({ desk: page }) => {
+  const at = async () => {
+    await page.evaluate(() => { const b = window.__bb; b.progress.seen.tutorial = false; b.mode = "home"; b.openFirstTutorial(); });
+    await frames(page);
+  };
+  await at();
+  let s = await state(page);
+  expect([s.mode, s.scene, s.tutorial.step]).toEqual(["scene", { id: "tutorial_intro", page: 0, pages: 1 }, "intro"]);
+  expect(await page.evaluate(() => window.__bb.tapButton("scene:skip"))).toBe(true);
+  await frames(page);
+  s = await state(page);
+  expect([s.mode, s.tutorial, s.seen.tutorial], "Skip: the Park map, tutorial seen").toEqual(["map", null, true]);
+  await at();
+  await page.keyboard.press("Escape");                   // Escape = Skip
+  await frames(page);
+  s = await state(page);
+  expect([s.mode, s.tutorial, s.seen.tutorial]).toEqual(["map", null, true]);
+  await at();
+  expect(await page.evaluate(() => window.__bb.tapButton("scene:next"))).toBe(true);
+  await frames(page);
+  s = await state(page);
+  expect([s.mode, s.scene, s.tutorial.step]).toEqual(["scene", { id: "tutorial_a", page: 0, pages: 4 }, "a"]);
+  await page.evaluate(() => window.__bb.tutorialSkip());
+});
+test("How to play card: Practice, Pictures and a plain openTutorial do not show it", async ({ desk: page }) => {
+  const r = await page.evaluate(() => {
+    const b = window.__bb, out = {};
+    b.progress.seen.tutorial = true; b.openStory("began", "home");
+    b.openPractice(); out.practice = [b.mode, b.scene, b.tutorial.step];
+    b.tutorialSkip();
+    b.openPictures(); out.pictures = [b.mode, b.scene && b.scene.id];
+    b.sceneSkip();
+    b.mode = "home"; b.openTutorial("story"); out.again = [b.mode, b.scene && b.scene.id, b.tutorial.step];
+    b.tutorialSkip();
+    out.steps = b.TUTORIAL_STEPS;
+    return out;
+  });
+  expect(r.practice, "Practice: game 1 at once").toEqual(["play", null, "game1"]);
+  expect(r.pictures, "Pictures: the viewer").toEqual(["scene", "tutorial_pics"]);
+  expect(r.again, "a review from How to play starts at page A").toEqual(["scene", "tutorial_a", "a"]);
+  expect(r.steps).not.toContain("intro");
 });
 
 // ---------- AC 4 (SPEC-032 AC 8): Practice on the "How to play" page runs only the two practice games, back on the Story ----------

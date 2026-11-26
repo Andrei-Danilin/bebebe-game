@@ -42,6 +42,17 @@ test("the SPEC-027 sheets give their sprites: menu icons, the missing clothes, t
     .toEqual(["28_menu_icons.webp", "button", "29_wardrobe_2.webp", "icon", "34_small_icons.webp"]);
 });
 
+// SPEC-033 AC 2: the How to play card picture (art/36) is a paper picture cropped above its row of colour swatches
+test("SPEC-033: howto_card is the cropped art/36 on paper (the swatches are cut off) @fast", async () => {
+  const s = manifest.sources.find(q => q.src === "36_howto_card.webp");
+  expect([s?.mode, s?.size, s?.name], "36_howto_card.webp").toEqual(["paper", "background", "howto_card"]);
+  expect(s.crop, "keeps the top 735 px of the 1200×896 source").toEqual([0, 0, 1200, 735]);
+  const src = await sharp(path.join(ROOT, "art", "36_howto_card.webp")).metadata();
+  expect([src.width, src.height], "the source is untouched").toEqual([1200, 896]);
+  const m = await sharp(path.join(ASSETS, "howto_card.webp")).metadata();
+  expect([m.width, m.height], "the cropped picture").toEqual([1200, 735]);
+});
+
 // SPEC-029 AC 6: the tutorial sheets (paper, one picture each; A4's stray words erased) and sheet 30 (11 items in reading
 // order) — sheet 30 replaces every crop of the old v1/staff.webp, whose entry is gone
 test("SPEC-029: the tutorial pictures and sheet 30 replace v1/staff @fast", async () => {
@@ -109,8 +120,8 @@ test("assets fit the budget @fast", async () => {
 
 test("the pipeline is deterministic (two runs → identical files)", async () => {
   // a sample covering every mode in use: whole (logo), sheet with merge + erase + circle crop, rekey, paper (+ erase)
-  // (SPEC-029: 30_items replaces the paper boxes of v1/staff; 31_tutorial_a — erase on a paper picture)
-  const only = ["19_logo.webp", "25_phone_controls.webp", "20_levelmap_parts.webp", "30_items.webp", "31_tutorial_a.webp", "14_interface.webp"];
+  // (SPEC-029: 30_items replaces the paper boxes of v1/staff; 31_tutorial_a — erase on a paper picture; SPEC-033: 36_howto_card — crop)
+  const only = ["19_logo.webp", "25_phone_controls.webp", "20_levelmap_parts.webp", "30_items.webp", "31_tutorial_a.webp", "36_howto_card.webp", "14_interface.webp"];
   const dirs = [0, 1].map(i => fs.mkdtempSync(path.join(os.tmpdir(), `bb-assets-${i}-`)));
   try {
     const rows = [];

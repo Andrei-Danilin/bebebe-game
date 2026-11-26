@@ -128,6 +128,7 @@
  "nameTagH": "function",
  "names": "getter",
  "nextLevel": "function",
+ "openFirstTutorial": "function",
  "openFriends": "function",
  "openLangScreen": "function",
  "openMap": "function",

@@ -45,7 +45,7 @@ import { groundCanvas, OUTLINE } from "./three/materials.js";
 import { outfitModel, skinPanels } from "./three/previews.js";
 import { camera, LITTLE_SCALE } from "./three/setup.js";
 import { THEMES } from "./three/themes.js";
-import { firstTutorial, openPictures, openPractice, openTutorial, tutorial, TUTORIAL_STEPS, tutorialArtNames, tutorialPages, tutorialSkip, tutorialStep } from "./tutorial.js";
+import { firstTutorial, openFirstTutorial, openPictures, openPractice, openTutorial, tutorial, TUTORIAL_STEPS, tutorialArtNames, tutorialPages, tutorialSkip, tutorialStep } from "./tutorial.js";
 import { SHOP_PICTURES, shopCards } from "./ui/character/items.js";
 import { clothesCount } from "./ui/character/progress.js";
 import { artUse, KID_HEAD_R, nameTagH, resetArtUse, tapLines } from "./ui/draw.js";
@@ -113,7 +113,7 @@ export function installDebug() {
     // SPEC-029: обучение — шаги, идёт ли ({ step, page — страница листа, game — 1 / 2 в тренировке, иначе 0, back } или null), начать
     // (back «map» / «story», с шага from), пропустить; firstTutorial(p) — откроется ли само после комикса (чистая)
     TUTORIAL_STEPS, get tutorial() { const s = tutorialStep(); return s && { step: s, page: ui.storyScene && TUTORIAL_SCENES.includes(ui.storyScene.id) ? ui.storyScene.page : 0, game: s.startsWith("game") ? Number(s.slice(4)) : 0, hint: G.tutorialGame ? G.tut.hint : 0, back: tutorial.back }; },
-    openTutorial, tutorialSkip, firstTutorial, openPictures, openPractice,   // SPEC-032 AC 8: «Картинки» и «Тренировка» на «Как играть»
+    openTutorial, openFirstTutorial, tutorialSkip, firstTutorial, openPictures, openPractice,   // SPEC-032 AC 8: «Картинки» и «Тренировка» на «Как играть»
     // SPEC-029: клетки поляны тренировок { x, y, w, h }; подпись времени в HUD; подсказка тренировки этого кадра (плашка) или null
     get tutorialMapRect() { return tutorialMapRect(); }, timerText, get tutorialHint() { return ui.tutorialHintRect && { ...ui.tutorialHintRect, rows: [...ui.tutorialHintRect.rows] }; }, winTitle, get pushWaves() { return ui.waves.map(w => ({ ...w })); }, get scene() { return ui.storyScene && { id: ui.storyScene.id, page: ui.storyScene.page, pages: scenePageCount() }; },
     get sceneInfo() { return ui.sceneInfo && { ...ui.sceneInfo }; }, drawNow() { drawUI(ui.T); }, bossFor,   // SPEC-031: drawNow — нарисовать слой интерфейса сейчас (тест раскладки рисует много экранов за один evaluate)

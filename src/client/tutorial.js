@@ -22,6 +22,10 @@ export let practiceStep = 0;
 // tutorialGame — номер идущей тренировки (1, 2; resetWorld строит её: свои сердечки, без босса) или 0 — обычный уровень.
 // Тренировка без награды: rewardDue = false (ни монеток, ни звёзд, ни уровней); победа — дальше по обучению, а не экран победы.
 export const TUTORIAL_STEPS = Object.freeze(["a", "game1", "b", "c", "game2", "ready"]);
+// SPEC-033 AC 1: первый запуск — перед страницей A карточка «Как играть» (сцена tutorial_intro); пересмотр, «Тренировка» и «Картинки» её не показывают
+export const FIRST_STEPS = Object.freeze(["intro", ...TUTORIAL_STEPS]);
+// SPEC-033 AC 1: первый запуск, после комикса: карточка «Как играть», потом всё обучение (из main.js)
+export const openFirstTutorial = () => openTutorial("map", FIRST_STEPS[0], FIRST_STEPS);
 // SPEC-032 AC 8: «Тренировка» на «Как играть» — только две тренировки (без страниц с картинками между ними)
 export const PRACTICE_STEPS = Object.freeze(["game1", "game2"]);
 export const tutorialStep = () => (tutorial ? tutorial.steps[tutorial.i] : null);
@@ -32,12 +36,13 @@ export const firstTutorial = p => !p.seen.intro && !p.seen.tutorial && !WORLDS.s
 export function tutorialPages(sh) {
   if (sh === "pics") return ["a", "b", "c"].flatMap(tutorialPages);   // SPEC-032 AC 8: «Картинки» — все страницы листов A1…C4 подряд
   const T = L().tut, F = CFG.TUTORIAL_LOOK.pages;
+  if (sh === "intro") return [{ card: true, art: "howto_card", crop: null, title: L().howToPlay, text: T.introLine, art2: "tutorial_a", crop2: LOOK.MENU_LOOK.scene.panels[0], fallback: F.a[0] }];   // SPEC-033 AC 2: нет howto_card — клетка A1
   if (sh === "ready") return [{ art: "story_win", crop: null, text: T.ready, fallback: F.ready }];   // дети и подобревший папа
   const texts = sh === "a" ? T.a(PHONE || isTouch ? T.tiptoeTouch : T.tiptoeKey) : T[sh];
   return LOOK.MENU_LOOK.scene.panels.map((crop, i) => ({ art: "tutorial_" + sh, crop, text: texts[i], fallback: F[sh][i] }));   // клетка листа (как комикс в начале)
 }
 // все картинки, которые может нарисовать обучение (листы, последняя страница, фигурки и значки запасных страниц)
-export const tutorialArtNames = () => [...["a", "b", "c"].map(s => "tutorial_" + s), "story_win", ...Object.values(CFG.TUTORIAL_LOOK.figures).map(f => f[0]),
+export const tutorialArtNames = () => [...["a", "b", "c"].map(s => "tutorial_" + s), "story_win", "howto_card", ...Object.values(CFG.TUTORIAL_LOOK.figures).map(f => f[0]),
   ...Object.values(CFG.TUTORIAL_LOOK.pages).flat(2).filter(n => !Object.hasOwn(CFG.TUTORIAL_LOOK.figures, n))];
 // steps — шаги этого прохода (весь TUTORIAL_STEPS при первом запуске; PRACTICE_STEPS — «Тренировка» на «Как играть», SPEC-032)
 export function openTutorial(back = "map", from = null, steps = TUTORIAL_STEPS) {

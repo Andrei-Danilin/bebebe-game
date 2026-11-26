@@ -63,7 +63,7 @@ function storyFitCases([langs, scales, deskMin]) {
       }
     }
     setSave(false);
-    for (const id of [...b.SCENE_IDS, "tutorial_a", "tutorial_b", "tutorial_c", "tutorial_ready"]) {
+    for (const id of [...b.SCENE_IDS, "tutorial_intro", "tutorial_a", "tutorial_b", "tutorial_c", "tutorial_ready"]) {
       const n = b.scenePages(id).length;
       for (let p = 0; p < n; p++) {
         b.resetMenus(); b.openScene(id, null, { mark: false });

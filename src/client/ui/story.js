@@ -254,6 +254,72 @@ function drawBubbles(list, cr, ix, iy, iw, ih) {
   }
   return out;
 }
+// картинка img (часть cr — доли) в бумажной рамке со скотчем по центру места pic → { ix, iy, iw, ih (картинка на экране), box (с рамкой) }
+function paperPicture(img, cr, pic, name) {
+  const k = PHONE ? cpx(1) : 1, fr = 5 * k, sw = img.width * cr[2], sh = img.height * cr[3];
+  const sc = Math.min((pic.w - 2 * fr) / sw, (pic.h - 2 * fr) / sh), iw = sw * sc, ih = sh * sc, ix = pic.x + (pic.w - iw) / 2, iy = pic.y + (pic.h - ih) / 2;
+  rr(ix - fr, iy - fr, iw + 2 * fr, ih + 2 * fr, 6 * k); fillStroke(LOOK.MENU_LOOK.story.paper, 3 * k);   // бумажная рамка, как в «Истории»
+  ctx.drawImage(img, img.width * cr[0], img.height * cr[1], sw, sh, ix, iy, iw, ih);
+  noteArt(name);
+  tape(ix + 6 * k, iy + 2 * k, -0.7, k * 0.8); tape(ix + iw - 6 * k, iy + 2 * k, 0.7, k * 0.8);
+  return { ix, iy, iw, ih, box: { x: ix - fr - 1.5 * k, y: iy - fr - 1.5 * k, w: iw + 2 * fr + 3 * k, h: ih + 2 * fr + 3 * k } };
+}
+// название карточки: слова переносятся (не больше lines строк), кегль мельче до min; меряется шрифтом label (hudFont)
+function titleRows(text, size, min, maxW, lines) {
+  for (let sz = size; ; sz = Math.max(min, sz - 0.5)) {
+    ctx.font = hudFont(sz);
+    const rows = [];
+    let cur = "";
+    for (const wd of text.split(" ")) { const t = cur ? cur + " " + wd : wd; if (scaledW(t) > maxW && cur) { rows.push(cur); cur = wd; } else cur = t; }
+    rows.push(cur);
+    const w = Math.max(...rows.map(scaledW)), fit = rows.length <= lines && w <= maxW;
+    if (fit || sz <= min) return { rows, sz, w: Math.min(maxW, w), fit };
+  }
+}
+// SPEC-033 AC 2: карточка «Как играть» (после комикса на первом запуске): большое название, строка под ним, картинка howto_card (нет — клетка A1
+// tutorial_a; нет и её — запасная страница) в бумажной рамке. Телефон: картинка слева, текст справа по центру; компьютер: название и строка
+// сверху, картинка под ними. Кнопки («Учимся! ▶», «Пропустить») рисует drawScene.
+function drawIntroCard(area, pg, g, n) {
+  const M = LOOK.MENU_LOOK, S = M.scene, C = S.card, P = LOOK.STORY_PIC;
+  let img = art(pg.art), name = pg.art, cr = pg.crop || [0, 0, 1, 1];
+  if (!img) { img = art(pg.art2); name = pg.art2; cr = pg.crop2; }
+  const aspect = img ? (img.width * cr[2]) / (img.height * cr[3]) : 16 / 9;
+  const tSize = PHONE ? storyPx(C.phoneTitle) : C.title, tMin = PHONE ? minPx("title") : 24, lSize = PHONE ? storyPx(C.phoneLine) : C.line, lMin = storyMin(14);
+  const hOf = (b, lh) => b.rows.length * b.sz * lh;
+  let pic, cx, ty, tW, tb, lb, fit, share;
+  if (PHONE) {                                                // картинка слева, текст справа; не влез — картинка уже (как sideFit)
+    for (let p = C.phonePic; ; p = Math.max(P.min, p - P.step)) {
+      const pw = Math.min(area.w * p, area.h * aspect);
+      tW = area.w - pw - 2 * g;
+      tb = titleRows(pg.title, tSize, tMin, tW, C.titleLines); lb = noteRows(pg.text, lSize, lMin, tW, Infinity, { keep: true });
+      fit = tb.fit && lb.fit && hOf(tb, 1.2) + g + hOf(lb, 1.2) <= area.h + 0.01;
+      if (fit || p <= P.min) { pic = { x: area.x, y: area.y, w: pw, h: area.h }; share = pw / area.w; break; }
+    }
+    if (!fit) noteUnfit(pg.text, lb, tW, area.h - hOf(tb, 1.2) - g);
+    cx = pic.x + pic.w + 2 * g + tW / 2;
+    ty = area.y + Math.max(0, (area.h - hOf(tb, 1.2) - g - hOf(lb, 1.2)) / 2);
+  } else {                                                    // название и строка сверху, картинка не ниже STORY_PIC.minH высоты
+    tW = area.w; cx = area.x + area.w / 2; ty = area.y;
+    tb = titleRows(pg.title, tSize, tMin, tW, C.titleLines); lb = noteRows(pg.text, lSize, lMin, tW, S.lines, { keep: true });
+    const th = hOf(tb, 1.2) + g + hOf(lb, 1.2), maxH = area.h * (1 - P.minH) - g;
+    fit = tb.fit && lb.fit && th <= maxH + 0.01;
+    if (!fit) noteUnfit(pg.text, lb, tW, maxH - hOf(tb, 1.2) - g);
+    pic = { x: area.x, y: area.y + th + g, w: area.w, h: Math.max(area.h * P.minH, area.h - th - g) };
+    share = pic.h / area.h;
+  }
+  const lh = tb.sz * 1.2;
+  tb.rows.forEach((r, i) => label(r, cx, ty + lh * (i + 0.5), tb.sz, M.title, "center"));
+  ui.hudRects.push({ id: "scene:title", x: cx - tb.w / 2, y: ty, w: tb.w, h: hOf(tb, 1.2), text: pg.title, rows: tb.rows.slice(), size: tb.sz });
+  rowsAt("scene:caption", lb, cx, ty + hOf(tb, 1.2) + g, M.ink);
+  ui.hudRects[ui.hudRects.length - 1].text = pg.text;
+  if (PHONE) { noteText("title", tb.sz); noteText("story", lb.sz); }
+  let picBox = pic, panel = null, pieces = null;
+  if (img) { const r = paperPicture(img, cr, pic, name); panel = { x: r.ix, y: r.iy, w: r.iw, h: r.ih }; picBox = r.box; }
+  else if (pg.fallback) pieces = drawTutorialFallback(pic, pg.fallback);
+  else storyPlaceholder(pic, false, false);
+  ui.sceneInfo = { id: ui.storyScene.id, page: ui.storyScene.page, pages: n, art: img ? "image" : pieces ? "fallback" : "placeholder", artName: img ? name : null,
+    caption: pg.text, title: pg.title, crop: img && name === pg.art2 ? pg.crop2 : null, bubble: null, panel, pieces, picBox, fit, picShare: share };
+}
 export function drawScene() {
   if (!ui.storyScene) return;
   const M = LOOK.MENU_LOOK, S = M.scene, k = PHONE ? cpx(1) : 1, minMain = PHONE ? minPx("main") : 14;
@@ -264,7 +330,8 @@ export function drawScene() {
   const by = Y1 - B, bw = PHONE ? Math.min((X1 - X0) * 0.36, Math.max(B * 2.8, cpx(150))) : S.btnW, bsz = PHONE ? cpx(20) : 24;
   const viewer = ui.storyScene.back;                           // SPEC-032 AC 8: листалка «Картинки» — «◀ Назад» вместо «Пропустить»
   const goOn = !!ui.storyScene.skip && !viewer && ui.storyScene.id !== TUTORIAL_SCENES.at(-1);   // SPEC-029: лист обучения — и на последней «Дальше» (дальше тренировка)
-  fitButton(X1 - bw, by, bw, B, last && !goOn ? (before ? "▶ " + L().play : L().ok) : L().sceneNext + " ▶", M.ok, sceneNext, bsz, minMain).id = "scene:next";
+  const nextText = pg.card ? L().tut.introGo + " ▶" : last && !goOn ? (before ? "▶ " + L().play : L().ok) : L().sceneNext + " ▶";   // SPEC-033: карточка «Как играть» — «Учимся! ▶»
+  fitButton(X1 - bw, by, bw, B, nextText, M.ok, sceneNext, bsz, minMain).id = "scene:next";
   if (viewer) fitButton(X0, by, bw, B, "◀ " + L().sceneBack, M.back, sceneBack, bsz, minMain).id = "scene:back";
   else if (!last || n === 1 || ui.storyScene.skip) fitButton(X0, by, bw, B, L().sceneSkip, M.back, sceneSkip, bsz, minMain).id = "scene:skip";   // SPEC-029: обучение — на каждой
   if (n > 1) {
@@ -285,6 +352,7 @@ export function drawScene() {
     ui.sceneInfo = { id: ui.storyScene.id, page: ui.storyScene.page, pages: n, art: "thanks", caption: null, crop: null };
     return;
   }
+  if (pg.card) { drawIntroCard(area, pg, g, n); return; }    // SPEC-033: карточка «Как играть» после комикса
   const img = art(pg.art), cr = pg.crop || [0, 0, 1, 1];
   const aspect = img ? (img.width * cr[2]) / (img.height * cr[3]) : 16 / 9;
   // SPEC-031: подпись меряется первой (кегль × масштаб экрана, мельче до самого мелкого), картинка — на остальном месте
@@ -308,15 +376,10 @@ export function drawScene() {
   }
   let picBox = pic;
   if (img) {
-    const fr = 5 * k, sw = img.width * cr[2], sh = img.height * cr[3];
-    const sc = Math.min((pic.w - 2 * fr) / sw, (pic.h - 2 * fr) / sh), iw = sw * sc, ih = sh * sc, ix = pic.x + (pic.w - iw) / 2, iy = pic.y + (pic.h - ih) / 2;
-    rr(ix - fr, iy - fr, iw + 2 * fr, ih + 2 * fr, 6 * k); fillStroke(M.story.paper, 3 * k);   // бумажная рамка, как в «Истории»
-    ctx.drawImage(img, img.width * cr[0], img.height * cr[1], sw, sh, ix, iy, iw, ih);
-    noteArt(pg.art);
-    tape(ix + 6 * k, iy + 2 * k, -0.7, k * 0.8); tape(ix + iw - 6 * k, iy + 2 * k, 0.7, k * 0.8);
+    const { ix, iy, iw, ih, box } = paperPicture(img, cr, pic, pg.art);
     if (pg.bubbles) bubbles = drawBubbles(pg.bubbles, cr, ix, iy, iw, ih);   // SPEC-026: слова папы в облачке клетки
     panel = { x: ix, y: iy, w: iw, h: ih };
-    picBox = { x: ix - fr - 1.5 * k, y: iy - fr - 1.5 * k, w: iw + 2 * fr + 3 * k, h: ih + 2 * fr + 3 * k };   // SPEC-031: с рамкой
+    picBox = box;   // SPEC-031: с рамкой
   } else if (pg.fallback) pieces = drawTutorialFallback(pic, pg.fallback);   // SPEC-029: обучение без своей картинки — из других картинок
   else storyPlaceholder(pic, false);
   rowsAt("scene:caption", b, tx + tW / 2, ty, M.ink);
