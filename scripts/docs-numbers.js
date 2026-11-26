@@ -94,7 +94,7 @@ function fmtValue(v) {
   if (v && typeof v === "object") return `{ ${Object.entries(v).map(([k, x]) => `${k}: ${fmtValue(x)}`).join(", ")} }`;
   return String(v);
 }
-// The value as written in the source (after the colon), for numbers given as an expression (Math.PI / 4, 1 / 30)
+// The value as written in the source (after the colon), for numbers given as an expression (Math.PI / 4, 1 / 60)
 function sourceValue(objText, key) {
   const m = new RegExp(`(?:^|[\\s,{])${key}\\s*:\\s*([^,\\n]+?)\\s*(?:,|\\n|\\/\\/|$)`).exec(objText);
   return m ? m[1].trim() : "";

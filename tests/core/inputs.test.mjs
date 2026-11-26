@@ -4,7 +4,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { CFG, createGame, setProgress, step, withGame } from "../../src/core/index.js";
 
-const DT = CFG.BALANCE.SIM_DT;
+const DT = CFG.STEP;
 // a calm Big One far away (he looks at nothing for a long time), so only the inputs move player 1
 const calm = g => Object.assign(g.big, { x: 900, y: 600, state: "look", timer: 9999, dir: Math.PI / 2, lookSign: 0, noPush: 999 });
 

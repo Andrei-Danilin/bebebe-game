@@ -4,7 +4,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { CFG, autopilot, createGame, step, withGame } from "../../src/core/index.js";
 
-const DT = CFG.BALANCE.SIM_DT;
+const DT = CFG.STEP;
 
 test("practice 2 plays to practiceWin in Node", () => {
   const g = createGame({ world: "park", n: 1, seed: 17, practice: { step: 2 }, slots: [{ slot: "p1", kind: "player" }] });

@@ -1,10 +1,10 @@
-// SPEC-012 AC 7 / 1e: whole headless games in plain Node at the fixed step CFG.BALANCE.SIM_DT (the step of sim mode, the balance
-// report and the server; live play steps once per display frame) — no client, no effect queue (fx: false). npm run test:core.
+// SPEC-012 AC 7 / 1e: whole headless games in plain Node at the fixed step CFG.STEP (the step of sim mode, the balance
+// report, the server and live play, SPEC-034) — no client, no effect queue (fx: false). npm run test:core.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { CFG, autopilot, createGame, setProgress, step, withGame } from "../../src/core/index.js";
 
-const DT = CFG.BALANCE.SIM_DT;
+const DT = CFG.STEP;
 const steps = s => Math.round(s / DT);
 const autoGame = opts => { const g = createGame({ fx: false, ...opts }); withGame(g, () => autopilot(true, "careful")); return g; };
 

@@ -25,7 +25,7 @@ const NET_TIMEOUT_MS = 4000;             // weak signal: after this long, a cach
 const SW_BUILD = 7;
 const SW_STRATEGY = "463855aec6";
 const SW_VERSION = "bebebe-1.0.0-dev-b7";
-const SRC_HASH = "9cf78bcce5";
+const SRC_HASH = "67b0458804";
 const PRECACHE_LOCAL = [
   "./", "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512-maskable.png",
   "./icons/icon-512.png", "./icons/icon.svg", "./index.html", "./manifest.webmanifest"
@@ -53,8 +53,8 @@ const PRECACHE_SRC = [
   "./src/client/ui/phone.js?v=7c25c8ed3d", "./src/client/ui/screens.js?v=1b61c919f8",
   "./src/client/ui/story.js?v=15c8a394f7", "./src/client/ui/text.js?v=9282c2557e",
   "./src/client/ui/win.js?v=00c39c253d", "./src/core/active.js?v=70aa836ebd", "./src/core/autopilot.js?v=528edb53f9",
-  "./src/core/big.js?v=745c03a759", "./src/core/bots.js?v=fc04a520e3", "./src/core/config.js?v=62a8403680",
-  "./src/core/difficulty.js?v=72aff2bd1e", "./src/core/economy.js?v=6c6ac20714", "./src/core/game.js?v=a99ba230de",
+  "./src/core/big.js?v=745c03a759", "./src/core/bots.js?v=fc04a520e3", "./src/core/config.js?v=d526536bf5",
+  "./src/core/difficulty.js?v=72aff2bd1e", "./src/core/economy.js?v=6c6ac20714", "./src/core/game.js?v=972948175e",
   "./src/core/hearing.js?v=02c8023238", "./src/core/hooks.js?v=5ceea54c61", "./src/core/index.js?v=2ac6418608",
   "./src/core/level/build.js?v=fc9509a62b", "./src/core/level/generate.js?v=455b2ff4e4",
   "./src/core/level/layouts.js?v=07d6472d8e", "./src/core/level/validate.js?v=3f3743eb46",

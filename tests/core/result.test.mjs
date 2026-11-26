@@ -4,7 +4,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { CFG, REWARD, autopilot, computeReward, createGame, freshProgress, progress, setProgress, step, withGame } from "../../src/core/index.js";
 
-const DT = CFG.BALANCE.SIM_DT;
+const DT = CFG.STEP;
 
 test("result sums match the event log", () => {
   const max0 = CFG.EVENT_LOG_MAX;

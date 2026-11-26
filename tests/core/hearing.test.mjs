@@ -5,7 +5,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { CELL, CFG, createGame, hearNoise, inSafe, los, seeSolidAt, withGame } from "../../src/core/index.js";
 
-const DT = CFG.BALANCE.SIM_DT;
+const DT = CFG.STEP;
 // a spot with 100 px of open ground on its left (Dad looks right, the kid runs behind him)
 function openSpot(g) {
   return withGame(g, () => {

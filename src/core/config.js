@@ -174,13 +174,13 @@ export const CFG = {
   MAX_STEPS: 8,              // шагов игры за один кадр экрана — не больше
   EVENT_LOG_MAX: 5000,       // SPEC-008: событий в __bb.events не больше (старые выпадают); очищается в начале уровня
   // SPEC-008: проверка баланса (npm run balance, тест-выборка в CI). Прогон: SEEDS сидов careful-автопилота на уровень,
-  // 1 игрок + 4 бота, не дольше TIME_LIMIT сек игры с шагом SIM_DT; reckless — 1 сид, каждый RECKLESS_EVERY-й уровень.
+  // 1 игрок + 4 бота, не дольше TIME_LIMIT сек игры с шагом STEP (SPEC-034: тот же шаг, что в живой игре); reckless — 1 сид, каждый RECKLESS_EVERY-й уровень.
   // Цели отчёта: careful выигрывает уровень хотя бы в WIN_SEEDS сидах; время побед растёт внутри мира (Спирмен ≥ TREND_RHO),
   // лабиринт (MAZE) — самый долгий блок; Парк EARLY — не дольше времени третьей звезды; Зима MAZE ≥ LATE_VS_EARLY × Парк EARLY;
   // спасают RESCUE_RATE падений; отдыхов на уровень (медиана) ≤ RESTS_MAX. CI_LEVELS — 12 уровней выборки (ранний и лабиринт в каждом мире)
   // SPEC-029: Andrei, one heart fewer everywhere (measured 0.4752) — TREND_RHO_WORLD: своя цель мира вместо TREND_RHO (Город 0,475)
   // SPEC-032: Dad hears less (kids) — measured school 0.4286 → TREND_RHO_WORLD.school 0.428 (на измеренное; правила под цель не подгоняются)
-  BALANCE: { SIM_DT: 1 / 30, SEEDS: 3, TIME_LIMIT: 480, WIN_SEEDS: 2, TREND_RHO: 0.5, TREND_RHO_WORLD: { city: 0.475, school: 0.428 }, LATE_VS_EARLY: 1.5, RESCUE_RATE: [0.5, 0.9],
+  BALANCE: { SEEDS: 3, TIME_LIMIT: 480, WIN_SEEDS: 2, TREND_RHO: 0.5, TREND_RHO_WORLD: { city: 0.475, school: 0.428 }, LATE_VS_EARLY: 1.5, RESCUE_RATE: [0.5, 0.9],
     RESTS_MAX: 2, RECKLESS_EVERY: 5, EARLY: [1, 5], MAZE: [17, 20],
     CI_LEVELS: [["park", 3], ["park", 18], ["field", 4], ["field", 19], ["city", 2], ["city", 18], ["school", 2], ["school", 19], ["beach", 4], ["beach", 17],
       ["winter", 5], ["winter", 20]],
