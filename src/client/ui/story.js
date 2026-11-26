@@ -333,7 +333,11 @@ export function drawScene() {
   const viewer = ui.storyScene.back;                           // SPEC-032 AC 8: листалка «Картинки» — «◀ Назад» вместо «Пропустить»
   const goOn = !!ui.storyScene.skip && !viewer && ui.storyScene.id !== TUTORIAL_SCENES.at(-1);   // SPEC-029: лист обучения — и на последней «Дальше» (дальше тренировка)
   const nextText = pg.card ? L().tut.introGo + " ▶" : last && !goOn ? (before ? "▶ " + L().play : L().ok) : L().sceneNext + " ▶";   // SPEC-033: карточка «Как играть» — «Учимся! ▶»
-  fitButton(X1 - bw, by, bw, B, nextText, M.ok, sceneNext, bsz, minMain).id = "scene:next";
+  // SPEC-033 (CI): «Учимся! ▶» длиннее «Дальше ▶» — кнопка берёт нужную ширину (надпись × card.btnGrow на запас под более широкие шрифты CI), но не
+  // налезает на «Пропустить» (промежуток g); остальные страницы — как были
+  let nw = bw;
+  if (pg.card) { ctx.font = hudFont(bsz); nw = Math.min(X1 - X0 - bw - g, Math.max(bw, scaledW(nextText) * S.card.btnGrow + (PHONE ? cpx(14) : 14))); }
+  fitButton(X1 - nw, by, nw, B, nextText, M.ok, sceneNext, bsz, minMain).id = "scene:next";
   if (viewer) fitButton(X0, by, bw, B, "◀ " + L().sceneBack, M.back, sceneBack, bsz, minMain).id = "scene:back";
   else if (!last || n === 1 || ui.storyScene.skip) fitButton(X0, by, bw, B, L().sceneSkip, M.back, sceneSkip, bsz, minMain).id = "scene:skip";   // SPEC-029: обучение — на каждой
   if (n > 1) {

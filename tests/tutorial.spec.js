@@ -160,7 +160,7 @@ test("How to play card: howto_card when it exists, the A1 panel of tutorial_a on
   expect(errors.filter(e => !e.includes("Failed to load resource")), "only the 404 of the missing picture").toEqual([]);
 });
 
-// ---------- SPEC-033 AC 3: the card fits 568×320, 667×375 and 1280×720 in every language (and with wider fonts, like CI) ----------
+// ---------- SPEC-033 AC 3: the card fits 568×320, 667×375 and 1280×720 in every language, also with fonts 15 % (CI) and 30 % wider ----------
 // Runs in the page: title and line inside the screen, nothing cut, no overlap with the picture and the buttons → problem list
 function cardFitCases([langs, scales]) {
   const b = window.__bb, ui = b.uiSize, out = [];
@@ -201,7 +201,7 @@ test("How to play card fits 568×320, 667×375 and 1280×720 in every language",
       await page.waitForFunction(() => window.__bb.artInfo.done);
       for (const sz of sizes) {
         await resizeTo(page, sz);
-        fails.push(...(await page.evaluate(cardFitCases, [LANGS, [1, 1.15]])).map(f => `${sz.join("×")} ${f}`));
+        fails.push(...(await page.evaluate(cardFitCases, [LANGS, [1, 1.15, 1.3]])).map(f => `${sz.join("×")} ${f}`));
       }
     } finally { await ctx.close(); }
   }
