@@ -169,6 +169,22 @@ for (const [name, ctx] of [["568×320 phone", { viewport: { width: 568, height: 
         soft(e.title && e.title.text, `${at}: the lose title text`).toBe(e.want);
         soft(!!e.title && e.title.x >= -0.5 && e.title.x + e.title.w <= e.ui.w + 0.5, `${at}: the lose title on screen ${JSON.stringify(e.title)}`).toBe(true);
         soft(e.over, `${at}: lose screen, every text fits`).toEqual([]);
+        // the longest name (CFG.NAME_MAX = 12 characters) in the longest languages: the title stays in its column, at most two rows,
+        // and ends above the buttons (so it cannot grow into the line under it)
+        if (lang === "ru" || lang === "pt") {
+          await page.evaluate(() => { const b = window.__bb; b.setName("big", "Maximiliano!"); });
+          await frames(page);
+          const f = await page.evaluate(() => { const b = window.__bb; return { title: b.hudRects.find(h => h.id === "lose:title"), ui: b.uiSize, tops: b.buttonRects.filter(q => q.y > b.hudRects.find(h => h.id === "lose:title").y).map(q => q.y), max: b.CFG.NAME_MAX, room: b.CFG.PAPER.loseBox[0] - b.CFG.LOSE_TITLE_DESK.pad }; });
+          const t = f.title, atN = `${at} typed name`;
+          soft("Maximiliano!".length, `${atN}: 12 characters = CFG.NAME_MAX`).toBe(f.max);
+          soft(!!t && t.text.startsWith("Maximiliano!"), `${atN}: the title uses the typed name ${t && t.text}`).toBe(true);
+          soft(!!t && t.x >= -0.5 && t.x + t.w <= f.ui.w + 0.5, `${atN}: on screen ${JSON.stringify(t)}`).toBe(true);
+          if (ctx.query) soft(!!t && t.w <= 0.44 * f.ui.w + 0.5, `${atN}: not wider than its column ${t && t.w} > ${0.44 * f.ui.w}`).toBe(true);
+          else soft(!!t && t.w <= f.room + 0.5, `${atN}: not wider than the paper's room ${t && t.w} > ${f.room}`).toBe(true);
+          soft(!!t && t.h <= 2 * 1.25 * t.size + 0.5, `${atN}: at most two rows ${t && t.h}`).toBe(true);
+          soft(!!t && t.y + t.h <= Math.min(...f.tops) + 0.5, `${atN}: ends above the buttons ${t && t.y + t.h} > ${Math.min(...f.tops)} (${f.tops.length} buttons below it)`).toBe(true);
+          await page.evaluate(() => { window.__bb.setName("big", ""); });
+        }
       }
       await page.evaluate(() => { const b = window.__bb; b.CFG.TEXT_TEST_SCALE = 1; b.setLang("en"); b.mode = "home"; });
       soft.done();

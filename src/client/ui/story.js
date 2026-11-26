@@ -162,7 +162,7 @@ function drawRulesPage(c, open, title, top, { X0, X1, Y1, g, B }, minMain, minHi
   if (PHONE) {
     const icon0 = iconK;
     iconK = R.iconMin;
-    for (let L0 = lay(minHint, lw); (L0.h > mh || !L0.fit) && lw < (X1 - X0) * R.phoneShareMax; L0 = lay(minHint, lw)) lw += (X1 - X0) * 0.02;
+    for (let L0 = lay(minHint, lw); (L0.h > mh || !L0.fit) && lw < (X1 - X0) * R.phoneShareMax; L0 = lay(minHint, lw)) lw = Math.min(lw + (X1 - X0) * 0.02, (X1 - X0) * R.phoneShareMax);
     iconK = icon0;
   }
   const px = X0 + lw + 2 * g, rw = X1 - px;

@@ -14,7 +14,7 @@ import { restartTutorialGame, tutorialSkip } from "../tutorial.js";
 import { fitButton } from "./character/wardrobe.js";
 import { addButton, coinIcon, drawStarArt, fillStroke, rr } from "./draw.js";
 import { pButton, phoneFrame } from "./menu.js";
-import { cpx, fitText, fmtHearts, fmtTime, hudFont, label, labelFit, lastFit, noteText, pDraw, pLabel, pRows, pWrap, scaledW, titleRows } from "./text.js";
+import { clipRows, cpx, fitText, fmtHearts, fmtTime, hudFont, label, labelFit, lastFit, noteText, pDraw, pLabel, pRows, pWrap, scaledW, titleRows } from "./text.js";
 import { G } from "../../core/active.js";
 
 // =====================================================================
@@ -132,7 +132,7 @@ export function endPhone() {
     drawBonusNote(UW / 2, Math.min(Y0 + c(262), Y1 - bh - g - c(15)), X1 - X0 - 2 * g, c(28), 15);
   } else {
     // SPEC-035: «<имя> всё ещё сердится…» — до двух строк (в одну колонку не влезало), строка под ним — сразу под заголовком
-    const ty0 = Y0 + c(14), tb = pRows(loseTitle(), "title", 32, colW, 2, 900);
+    const ty0 = Y0 + c(14), tb = clipRows(pRows(loseTitle(), "title", 32, colW, 2, 900), 2);   // не больше двух строк и не шире колонки: длинное имя не залезет на строку под ним
     tb.rows.forEach((r, i) => label(r, lx, ty0 + tb.lh * (i + 0.5), tb.sz, "#fca5a5"));
     noteText("title", tb.sz);
     ui.hudRects.push({ id: "lose:title", x: lx - tb.w / 2, y: ty0, w: tb.w, h: tb.h, text: tb.rows.join(" "), size: tb.sz });
@@ -192,7 +192,7 @@ export function winDesktop() {
 }
 export function loseDesktop() {
   endPaper(LOOK.PAPER.loseBox);
-  labelFit(loseTitle(), UW / 2, UH / 2 - 100, 58, LOOK.PAPER.loseBox[0] - 60, "#fca5a5", "center", LOOK.WIN_TITLE_DESK.min);   // SPEC-035: the title shrinks to the paper's width
+  labelFit(loseTitle(), UW / 2, UH / 2 - 100, LOOK.LOSE_TITLE_DESK.size, LOOK.PAPER.loseBox[0] - LOOK.LOSE_TITLE_DESK.pad, "#fca5a5", "center", LOOK.LOSE_TITLE_DESK.min);   // SPEC-035: the title shrinks to the paper's width
   ui.hudRects.push({ id: "lose:title", x: UW / 2 - lastFit.w / 2, y: UH / 2 - 100 - lastFit.sz * 0.6, w: lastFit.w, h: lastFit.sz * 1.2, text: lastFit.text, size: lastFit.sz });
   label(L().loseSub(fmtHearts(G.big.maxHp - G.big.hp), G.big.maxHp), UW / 2, UH / 2 - 35, 24, endInk("text", "#fff"));
   const sc = lastReward ? lastReward.starCoins || 0 : 0, hugCoins = lastReward ? lastReward.coins - sc : 0;
