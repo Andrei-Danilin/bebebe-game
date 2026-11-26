@@ -121,7 +121,7 @@ export function settleDecidedWin() {
   return true;
 }
 // SPEC-025 AC 14d: the one "back" (Escape, the back buttons, __bb.goBack; later the system Back of a native wrapper) — today's
-// Escape per screen: play → pause, pause → play, a menu → its parent, win / lose → the map; the home screen: nothing (D-14)
+// Escape per screen: play → pause, pause → play, a menu → its parent, win / lose → the map; the home screen: the Leave dialog (SPEC-033, D-14)
 export function goBack() {
   if (mode === "map") setMode("home");
   else if (mode === "levelCard") closeCard();
@@ -131,6 +131,7 @@ export function goBack() {
   else if (mode === "play") setMode("pause");
   else if (mode === "pause") resumeGame();
   else if (mode === "win" || mode === "lose") toMap();
+  else if (mode === "home") { if (ui.homeBack) ui.homeBack(); }   // SPEC-033: "Leave the game?" (back.js)
   else if (mode === "lang") { answerLang(); setMode("home"); }   // SPEC-032: Escape on the language screen keeps English (the default) — answered
 }
 // клиент: награда уровня (payLevel по levelResult) и мир, который она открыла

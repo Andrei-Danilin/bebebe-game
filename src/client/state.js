@@ -32,6 +32,7 @@ export const ui = {
   screenSeq: 0,
   buttonsGen: 0,
   resetArmed: false,
+  homeBack: /** @type {null | (() => void)} */ (null),   // SPEC-033: what goBack does on the home screen (back.js sets it: the Leave dialog); null — nothing
   kitHintRect: null,
   heardHintRect: null,
   tutorialHintRect: null,   // плашки подсказок этого кадра (рисование)

@@ -8,6 +8,7 @@ import { LOOK } from "./look.js";
 import { cleanName, nameFor, setName } from "./names.js";
 import { randomOutfit } from "./outfits.js";
 import { canvas, CSS_W, PHONE, UH, UW, wrap } from "./screen.js";
+import { leaveCancel } from "./back.js";
 import { cardOpen, moveCardFocus, pressCard } from "./errors.js";
 import { initAudio } from "./sound.js";
 import { ui } from "./state.js";
@@ -187,6 +188,7 @@ function onPadButton(b, pad = 0) {
   if (cardOpen()) {                         // SPEC-025: a card over the game — D-pad ←/→ pick its button, A / Start press it, nothing else
     if (b === 14 || b === 15) moveCardFocus(b === 14 ? -1 : 1);
     else if (b === 0 || b === 9) pressCard();
+    else if (b === 1) leaveCancel();       // SPEC-033: B on the Leave dialog = No
     return;
   }
   initAudio();
@@ -293,6 +295,7 @@ export function initInput() {
   window.addEventListener("keydown", e => {
     if (nameInput) return;                     // печатают имя: игровые клавиши (WASD, M, L, Esc…) не трогаем
     if (cardOpen()) {                          // SPEC-025: a card over the game — keys do not reach the game; Enter / Space press the card
+      if (e.code === "Escape" && leaveCancel()) { keys.add(e.code); return; }   // SPEC-033: Escape on the Leave dialog = No
       if (e.code === "ArrowLeft" || e.code === "ArrowRight") { e.preventDefault(); moveCardFocus(e.code === "ArrowLeft" ? -1 : 1); }
       else if (e.code === "Enter" || e.code === "NumpadEnter" || e.code === "Space") { e.preventDefault(); if (!keys.has(e.code)) pressCard(); }   // the highlighted (or Tab-focused) button
       keys.add(e.code);

@@ -48,6 +48,7 @@ import { THEMES } from "./three/themes.js";
 import { firstTutorial, openFirstTutorial, openPictures, openPractice, openTutorial, tutorial, TUTORIAL_STEPS, tutorialArtNames, tutorialPages, tutorialSkip, tutorialStep } from "./tutorial.js";
 import { SHOP_PICTURES, shopCards } from "./ui/character/items.js";
 import { clothesCount } from "./ui/character/progress.js";
+import { backInfo } from "./back.js";
 import { artUse, KID_HEAD_R, nameTagH, resetArtUse, tapLines } from "./ui/draw.js";
 import { chooseLang, openLangScreen } from "./ui/lang.js";
 import { heardHintOn, heardHintText, heartFill, timerText } from "./ui/hud.js";
@@ -84,6 +85,7 @@ const SIM_DRAWN = ["buttonRects", "buttonNames", "tapButton", "hudRects", "mapIn
 export function installDebug() {
   window.__bb = {
     // SPEC-020: art(name) — картинка или null; artInfo — сколько картинок готово / не загрузилось, всё ли решено
+    back: backInfo,   // SPEC-033: { leaves, noLeave } — the "Yes" of the Leave dialog counted (noLeave: not really leaving)
     get artUse() { return { ...artUse }; }, resetArtUse, get artVersion() { return artVersion; },
     // SPEC-020: все имена картинок, которые могут выдать таблицы (тест: каждое есть в ART_NAMES)
     artTableNames: () => [...Object.values(PAPER_BTN), ...Object.values(ITEM_ART), ...Object.values(UPG_ART), ...Object.values(SHOP_TAB_ART),

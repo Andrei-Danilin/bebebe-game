@@ -5,7 +5,7 @@
 //   (as leaving the level records it); nothing else is settled on hide; a level is paid at most once (visible again, bfcache);
 // - AC 14c: WebGL context lost → pause and the "Tap to continue" card; restored → the 3D is rebuilt, a tap continues; no
 //   restore within CFG.GL_RESTORE_WAIT s → save and reload;
-// - AC 14d: one goBack() — Escape, the back buttons and __bb.goBack() land where Escape lands today; home: nothing (D-14).
+// - AC 14d: one goBack() — Escape, the back buttons and __bb.goBack() land where Escape lands today; home: the Leave dialog opens and stays on home (D-14, SPEC-033).
 const { test, expect } = require("./pw");   // SPEC-023: @playwright/test + failure screenshots
 const { openGame, frames, step, setupHug, reloadGame } = require("./helpers");
 
@@ -163,7 +163,7 @@ test("a lost WebGL context that never comes back: the game saves and reloads", a
 // ---------- AC 14d: goBack() ----------
 // Where Escape landed before SPEC-025 (master's onKey, checked by hand): each screen as the code that opens it and where "back"
 // goes from it — { mode, page (the story's page, drawn), ward (the wardrobe page) }. Escape, __bb.goBack() and the back buttons
-// must all land there; the home screen stays (decision D-14).
+// must all land there; the home screen stays (decision D-14; SPEC-033: Escape / goBack there ask "Leave the game?", a second goBack answers No).
 const BACK = [
   ["home", "b.mode = 'home'", { mode: "home" }],
   ["map", "b.openMap()", { mode: "home" }],

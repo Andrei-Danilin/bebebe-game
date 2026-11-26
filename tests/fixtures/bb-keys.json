@@ -35,6 +35,7 @@
  "autoStick": "function",
  "autoThink": "function",
  "autopilot": "function",
+ "back": "value",
  "banner": "getter",
  "bannerAlpha": "function",
  "bannerRect": "getter",

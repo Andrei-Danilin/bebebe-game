@@ -14,6 +14,7 @@ import { failStart, initErrors, reportError } from "./errors.js";
 import { inMenus, inWardrobe, mapTick, mode, openScene, redress, resetWorld, seedRandom, syncStock } from "./flow.js";
 import { drainEvents, stepGame, viewTick } from "./fx.js";
 import { initInput, pollPads } from "./input.js";
+import { initBack } from "./back.js";
 import { initLifecycle } from "./lifecycle.js";
 import { endTryOn } from "./outfits.js";
 import { initPerf, noteFrame } from "./perf.js";
@@ -58,6 +59,8 @@ async function boot() {
   initPreviews();
   // SPEC-025 AC 14 / 14c: hide, blur, WebGL context loss
   initLifecycle();
+  // SPEC-033 AC 13: the system Back / Escape on home ask "Leave the game?" (a guard history entry)
+  initBack();
   // SPEC-025 AC 15b: ?perf=1 — the perf overlay (__bb.perf)
   initPerf();
   fit();
