@@ -6,6 +6,7 @@
 const base = require("./pw");   // @playwright/test + failure screenshots
 const { expect } = base;
 const { LANGS, openGame, frames } = require("./helpers");
+const { overflowKeys } = require("./bubble-overflow");   // SPEC-032 AC 11: the bubbles allowed to overflow at BUBBLE_MIN, listed
 const test = base.test;
 
 const PHONE_SIZES = [[568, 320], [640, 360], [667, 375], [740, 360], [844, 390], [932, 430]];
@@ -38,7 +39,9 @@ function storyFitCases([langs, scales, deskMin]) {
     for (const h of hud) if (h.text && !/^story:(dots|soon)$/.test(h.id) && ov(h, pic)) fail(at, `${h.id} on the picture ${JSON.stringify(h)} / ${JSON.stringify(pic)}`);
     for (const q of b.buttonRects) if (ov(t, q)) fail(at, `text on button ${q.id}`);
     for (const h of hud) if (h !== t && ov(t, h)) fail(at, `text on ${h.id}`);   // the title, the chapter dots, …
-    for (const q of bubbles.filter(x => !x.skipped)) {   // SPEC-032: a word too long for a tiny chapter bubble is not written
+    for (const q of bubbles) {   // SPEC-032 (review fix): no bubble is left empty — every one writes its line
+      if (q.skipped || !(q.rows >= 1) || !(q.w > 0)) { fail(at, `bubble "${q.text}" left empty`); continue; }
+      if (q.rows > 3) fail(at, `bubble "${q.text}" in ${q.rows} rows`);
       if (!inside(q, q.panel)) fail(at, `the words of "${q.text}" leave their panel`);
       if (!inside(q, pic)) fail(at, `the words of "${q.text}" leave the picture`);   // AC 3: bubbles stay inside the picture
       if (!inside(q.panel, pic)) fail(at, `panel of "${q.text}" outside the picture`);
@@ -187,8 +190,11 @@ test("SPEC-031: desktop — the chapter picture gives way, the scene caption tak
 // the text box lies inside its measured bubble box; ≥ 95 % of the picture's pixels under the text box are near-white (the drawn
 // bubble); a frame drawn without the letters (__bb.bubbleTextOff) differs from the real one only inside the text boxes (nothing
 // else is painted over the art); the size is ≤ bubbleScale × the old size and ≥ BUBBLE_MIN; at most bubbleLines rows.
-async function bubbleCases([langs]) {
-  const b = window.__bb, ui = b.uiSize, S = b.CFG.MENU_LOOK.scene, phone = b.phone, out = { fails: [], unfit: [], checked: 0, skipped: [] };
+// No bubble is ever empty (review fix): a line that does not fit even at BUBBLE_MIN is written at BUBBLE_MIN, centred on the bubble —
+// only when its case is in the list of tests/bubble-overflow.js (ok: { case: ["lang|i"] }); then only the "inside the bubble" and
+// "white under it" checks are waived.
+async function bubbleCases([langs, ok]) {
+  const b = window.__bb, ui = b.uiSize, S = b.CFG.MENU_LOOK.scene, phone = b.phone, out = { fails: [], over: [], checked: 0 };
   const fail = (at, what) => { if (out.fails.length < 60) out.fails.push(`${at}: ${what}`); };
   const min = phone ? b.CFG.BUBBLE_MIN.phone / ui.scale : b.CFG.BUBBLE_MIN.desk;   // UI px
   const canvas = document.getElementById("game"), g = canvas.getContext("2d"), k = canvas.width / ui.w;
@@ -216,12 +222,22 @@ async function bubbleCases([langs]) {
       if (!bubbles.length) { fail(at, "no bubble"); continue; }
       for (const q of bubbles) {
         out.checked++;
-        if (q.skipped) { out.skipped.push(`${at}: "${q.text}"`); if (name.startsWith("intro")) fail(at, `"${q.text}" not written in the intro`); continue; }
         const t = `"${q.text}"`;
-        if (!(q.x >= q.box.x - 0.5 && q.y >= q.box.y - 0.5 && q.x + q.w <= q.box.x + q.box.w + 0.5 && q.y + q.h <= q.box.y + q.box.h + 0.5)) fail(at, `${t} text box ${JSON.stringify([q.x, q.y, q.w, q.h].map(Math.round))} leaves its bubble ${JSON.stringify([q.box.x, q.box.y, q.box.w, q.box.h].map(Math.round))}`);
+        if (q.skipped || !(q.rows >= 1) || !(q.w > 0) || !(q.h > 0)) { fail(at, `${t} left empty`); continue; }
         if (!(q.size >= min - 0.01)) fail(at, `${t} ${q.size} below BUBBLE_MIN`);
         if (q.rows > S.bubbleLines) fail(at, `${t} ${q.rows} rows`);
-        if (!q.fit) out.unfit.push(`${at}: ${t}`);
+        const P = q.panel;
+        if (!(q.x >= P.x - 0.5 && q.y >= P.y - 0.5 && q.x + q.w <= P.x + P.w + 0.5 && q.y + q.h <= P.y + P.h + 0.5)) fail(at, `${t} leaves its panel`);
+        if (!q.fit) {
+          if (!(ok[name] || []).includes(`${lang}|${q.i}`)) { fail(at, `${t} does not fit its bubble at BUBBLE_MIN and is not in tests/bubble-overflow.js`); continue; }
+          out.over.push(`${at} #${q.i}: ${t}`);
+          if (q.size > min + 0.01) fail(at, `${t} overflows above BUBBLE_MIN (${q.size})`);
+          // centred on its bubble — or moved only as far as its panel's edge needs (then it touches that edge)
+          const centred = (c, bc, lo, len, half) => Math.abs(c - bc) <= 0.5 || Math.abs(c - half - lo) <= 0.5 || Math.abs(c + half - lo - len) <= 0.5;
+          if (!centred(q.x + q.w / 2, q.box.x + q.box.w / 2, P.x, P.w, q.w / 2) || !centred(q.y + q.h / 2, q.box.y + q.box.h / 2, P.y, P.h, q.h / 2)) fail(at, `${t} not centred on its bubble`);
+          continue;   // listed: written at the minimum over the bubble's edge — the in-bubble and white checks are waived
+        }
+        if (!(q.x >= q.box.x - 0.5 && q.y >= q.box.y - 0.5 && q.x + q.w <= q.box.x + q.box.w + 0.5 && q.y + q.h <= q.box.y + q.box.h + 0.5)) fail(at, `${t} text box ${JSON.stringify([q.x, q.y, q.w, q.h].map(Math.round))} leaves its bubble ${JSON.stringify([q.box.x, q.box.y, q.box.w, q.box.h].map(Math.round))}`);
         // the old size was the caption's (× the screen scale on a phone): never more than bubbleScale of it
         const oldMax = phone ? b.storyPx(old) : old;
         if (q.size > oldMax * S.bubbleScale + 0.01) fail(at, `${t} ${q.size} > ${S.bubbleScale} × ${oldMax}`);
@@ -245,18 +261,18 @@ async function bubbleCases([langs]) {
         const p = i / 4, x = p % canvas.width, y = Math.floor(p / canvas.width);
         if (!boxes.some(r => x >= r[0] && x <= r[2] && y >= r[1] && y <= r[3])) { stray++; sx0 = Math.min(sx0, x); sy0 = Math.min(sy0, y); sx1 = Math.max(sx1, x); sy1 = Math.max(sy1, y); }
       }
-      if (!changed && bubbles.some(q => !q.skipped)) fail(at, "the letters drew nothing");
+      if (!changed) fail(at, "the letters drew nothing");
       if (stray) fail(at, `${stray} pixels outside the text boxes were changed by the bubbles (canvas px ${[sx0, sy0, sx1, sy1]}; text boxes ${JSON.stringify(boxes.map(r => r.map(Math.round)))}; canvas ${canvas.width}×${canvas.height})`);
     }
   }
   b.setLang("en"); b.resetMenus();
   return out;
 }
-const BUBBLE_UNFIT_OK = [];   // AC 11: Andrei's Russian lines kept although they do not fit at BUBBLE_MIN (listed in the report)
+const okFor = sz => ({ "story began": overflowKeys("story began", sz.join("×")) });
 test("SPEC-032: Dad's words only inside the drawn bubble, smaller — every phone size and language", async ({ browser }) => {
   test.slow();
   const ctx = await browser.newContext({ viewport: { width: 844, height: 390 }, hasTouch: true, isMobile: true });
-  const fails = [], unfit = [], skipped = [];
+  const fails = [], over = [];
   let errors, checked = 0;
   try {
     const page = await ctx.newPage();
@@ -264,30 +280,26 @@ test("SPEC-032: Dad's words only inside the drawn bubble, smaller — every phon
     await page.waitForFunction(() => window.__bb.artInfo.done);
     for (const sz of PHONE_SIZES) {
       await resize(page, sz);
-      const r = await page.evaluate(bubbleCases, [LANGS]);
-      fails.push(...r.fails.map(f => `${sz.join("×")} ${f}`)); unfit.push(...r.unfit.map(f => `${sz.join("×")} ${f}`)); checked += r.checked;
-      skipped.push(...r.skipped.map(f => `${sz.join("×")} ${f}`));
+      const r = await page.evaluate(bubbleCases, [LANGS, okFor(sz)]);
+      fails.push(...r.fails.map(f => `${sz.join("×")} ${f}`)); over.push(...r.over.map(f => `${sz.join("×")} ${f}`)); checked += r.checked;
       if (sz[0] === 667) await page.screenshot({ path: test.info().outputPath("bubbles-story-667x375.png") });
     }
   } finally { await ctx.close(); }
   expect(checked).toBe(PHONE_SIZES.length * LANGS.length * 8);
   expect(fails, fails.slice(0, 25).join("\n")).toEqual([]);
-  expect(unfit.filter(u => !u.includes(" ru ") && !BUBBLE_UNFIT_OK.some(k => u.includes(k))), "en / es / pt lines that do not fit are shortened (AC 11)").toEqual([]);
-  console.log("[SPEC-032 AC 11] ru bubbles kept although they do not fit at BUBBLE_MIN:", JSON.stringify(unfit.filter(u => u.includes(" ru "))));
-  console.log("[SPEC-032] chapter-page bubbles left empty (too small at BUBBLE_MIN):", JSON.stringify(skipped));
+  console.log("[SPEC-032 AC 11] listed bubbles written at BUBBLE_MIN over their edge here:", JSON.stringify(over));
   expect(errors).toEqual([]);
 });
 test("SPEC-032: Dad's words only inside the drawn bubble, smaller — every desktop window and language", async ({ page }) => {
   const errors = await openGame(page);
   await page.waitForFunction(() => window.__bb.artInfo.done);
-  const fails = [], unfit = [];
+  const fails = [], over = [];
   for (const sz of DESK_SIZES) {
     await resize(page, sz);
-    const r = await page.evaluate(bubbleCases, [LANGS]);
-    fails.push(...r.fails.map(f => `${sz.join("×")} ${f}`)); unfit.push(...r.unfit.map(f => `${sz.join("×")} ${f}`));
+    const r = await page.evaluate(bubbleCases, [LANGS, okFor(sz)]);
+    fails.push(...r.fails.map(f => `${sz.join("×")} ${f}`)); over.push(...r.over.map(f => `${sz.join("×")} ${f}`));
   }
   expect(fails, fails.slice(0, 25).join("\n")).toEqual([]);
-  expect(unfit.filter(u => !u.includes(" ru ")), "en / es / pt lines that do not fit are shortened (AC 11)").toEqual([]);
-  console.log("[SPEC-032 AC 11] ru bubbles kept although they do not fit at BUBBLE_MIN:", JSON.stringify(unfit.filter(u => u.includes(" ru "))));
+  console.log("[SPEC-032 AC 11] listed bubbles written at BUBBLE_MIN over their edge here:", JSON.stringify(over));
   expect(errors).toEqual([]);
 });

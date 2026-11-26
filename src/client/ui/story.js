@@ -104,10 +104,9 @@ export function drawStory() {
     if (artName) noteArt(artName);
     tape(ix + 6 * k, iy + 2 * k, -0.7, k * 0.8); tape(ix + iw - 6 * k, iy + 2 * k, 0.7, k * 0.8);
   } else storyPlaceholder(pic, !open);
-  // SPEC-026: «Как всё началось» — комикс целиком: слова папы во всех четырёх облачках
-  // SPEC-032: на маленькой картинке главы облачка крошечные — слова, которые не влезли и самым мелким, не пишутся (облачко как нарисовано;
-  // ▶ показывает комикс по клеткам, там влезают все)
-  const bubbles = img && artName && c.bubbles ? drawBubbles(c.bubbles[lang].map((text, i) => ({ i, text })), [0, 0, 1, 1], ...imgRect, true) : [];
+  // SPEC-026: «Как всё началось» — комикс целиком: слова папы во всех четырёх облачках (SPEC-032: облачка тут крошечные — не влезшее
+  // и самым мелким пишется самым мелким поверх края облачка; ▶ показывает комикс по клеткам, там влезают все)
+  const bubbles = img && artName && c.bubbles ? drawBubbles(c.bubbles[lang].map((text, i) => ({ i, text })), [0, 0, 1, 1], ...imgRect) : [];
   if (open) {                                                // SPEC-022: ▶ в углу картинки — посмотреть заставку главы ещё раз
     // SPEC-026: в правом нижнем углу картинки (в правом верхнем — облачко второй клетки комикса)
     const fr = imgRect || [pic.x, pic.y, pic.w, pic.h], r = B, bx = fr[0] + fr[2] - r - 4 * k, byy = fr[1] + fr[3] - r - 4 * k;
@@ -202,27 +201,34 @@ function drawRulesPage(c, open, title, top, { X0, X1, Y1, g, B }, minMain, minHi
 }
 // ---------- SPEC-026: слова папы в пустых облачках комикса 8_start (заставка «Как всё началось» и глава в «Истории») ----------
 // строки текста облачка: кегль от size до min (шаг 0,5), не больше lines строк, не шире maxW и не выше maxH (× TEXT_TEST_SCALE);
-// → { rows, sz, w, h, fit } (fit = false: не влезло и самым мелким — тогда строки самым мелким, их может быть больше lines)
+// → { rows, sz, w, h, fit } (fit = false: не влезло и самым мелким — тогда самым мелким, всё равно не больше lines строк: шире облачка)
 function bubbleRows(text, maxW, maxH, size, min, lines) {
   const lh = LOOK.MENU_LOOK.scene.bubbleLh;
-  for (let sz = size; ; sz = Math.max(min, sz - 0.5)) {
-    ctx.font = `800 ${sz}px system-ui, "Segoe UI", sans-serif`;
+  const wrap = mw => {
     const rows = [];
     let cur = "";
-    for (const wd of text.split(" ")) { const t = cur ? cur + " " + wd : wd; if (scaledW(t) > maxW && cur) { rows.push(cur); cur = wd; } else cur = t; }
+    for (const wd of text.split(" ")) { const t = cur ? cur + " " + wd : wd; if (scaledW(t) > mw && cur) { rows.push(cur); cur = wd; } else cur = t; }
     rows.push(cur);
-    const w = Math.max(...rows.map(scaledW)), h = rows.length * sz * lh;
-    const fit = rows.length <= lines && w <= maxW && h <= maxH;
-    if (fit || sz <= min) return { rows, sz, w, h, fit, lh };
+    return rows;
+  };
+  for (let sz = size; ; sz = Math.max(min, sz - 0.5)) {
+    ctx.font = `800 ${sz}px system-ui, "Segoe UI", sans-serif`;
+    let rows = wrap(maxW);
+    const fit = rows.length <= lines && Math.max(...rows.map(scaledW)) <= maxW && rows.length * sz * lh <= maxH;
+    if (fit || sz <= min) {
+      // SPEC-032 (ревью): не влезло и самым мелким — всё равно пишется (пустых облачков не бывает), не больше lines строк
+      for (let mw = maxW; rows.length > lines; mw += sz / 2) rows = wrap(mw);
+      return { rows, sz, w: Math.max(...rows.map(scaledW)), h: rows.length * sz * lh, fit, lh };
+    }
   }
 }
 // list — [{ i, text }] (облачко i = клетка i), cr — какая часть картинки нарисована (доли [x, y, w, h]), ix…ih — где она на экране.
 // SPEC-032 AC 9–10: только буквы — внутри белого нарисованного облачка (без своей заливки и контура поверх картинки): тёмные, жирные,
 // по центру облачка, кегль bubbleScale × прежнего (SPEC-031: × масштаб экрана), мельче — до LOOK.BUBBLE_MIN, до bubbleLines строк;
-// не влезли и самым мелким — самым мелким (fit = false; en/es/pt тогда пишутся короче, русские строки Андрея остаются); fitOnly (картинка
-// главы «Истории», облачка крошечные) — такие слова не пишутся вовсе ({ skipped: true }).
+// не влезли и самым мелким — всё равно пишутся самым мелким, по центру облачка, до bubbleLines строк (fit = false; пустых облачков
+// не бывает — правило Андрея SPEC-026; такие случаи — только из списка tests/bubble-overflow.js: картинка главы «Истории» мала).
 // → [{ i, text, x, y, w, h (рамка строк), size, rows, fit, box (белое внутри облачка на экране), panel (клетка на экране), img / crop (где картинка) }]
-function drawBubbles(list, cr, ix, iy, iw, ih, fitOnly = false) {
+function drawBubbles(list, cr, ix, iy, iw, ih) {
   const S = LOOK.MENU_LOOK.scene, min = PHONE ? cpx(LOOK.BUBBLE_MIN.phone) : LOOK.BUBBLE_MIN.desk;
   const max = Math.max(min, (PHONE ? storyPx(S.phoneText) : S.text) * S.bubbleScale);
   const X = f => ix + (f - cr[0]) / cr[2] * iw, Y = f => iy + (f - cr[1]) / cr[3] * ih, [inW, inH] = S.bubbleIn;
@@ -232,16 +238,17 @@ function drawBubbles(list, cr, ix, iy, iw, ih, fitOnly = false) {
     const box = { x: X(bx), y: Y(by), w: X(bx + bw) - X(bx), h: Y(by + bh) - Y(by) };
     const panel = { x: Math.max(ix, X(px)), y: Math.max(iy, Y(py)) };
     panel.w = Math.min(ix + iw, X(px + pw)) - panel.x; panel.h = Math.min(iy + ih, Y(py + ph)) - panel.y;
-    const b = bubbleRows(text, box.w * inW, box.h * inH, max, min, S.bubbleLines), cx = box.x + box.w / 2, cy = box.y + box.h / 2;
+    const b = bubbleRows(text, box.w * inW, box.h * inH, max, min, S.bubbleLines);
+    // по центру облачка; не влезшее (шире / выше облачка) сдвигается ровно настолько, чтобы остаться в своей клетке
+    const into = (c, half, lo, len) => Math.min(Math.max(c, lo + half), lo + len - half);
+    const cx = into(box.x + box.w / 2, b.w / 2, panel.x, panel.w), cy = into(box.y + box.h / 2, b.h / 2, panel.y, panel.h);
     const lh = b.sz * b.lh, top = cy - b.h / 2;
-    const skip = fitOnly && !b.fit;                           // глава «Истории»: не влезло и самым мелким — облачко остаётся пустым
-    if (!ui.bubbleTextOff && !skip) {                         // SPEC-032 AC 12: тест сравнивает кадр с буквами и без них
+    if (!ui.bubbleTextOff) {                                  // SPEC-032 AC 12: тест сравнивает кадр с буквами и без них
       ctx.save();
       ctx.font = `800 ${b.sz}px system-ui, "Segoe UI", sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = S.bubbleInk;
       b.rows.forEach((r, j) => fillT(r, cx, top + lh * (j + 0.5)));
       ctx.restore();
     }
-    if (skip) { out.push({ i, text, skipped: true, fit: false, box, panel }); continue; }
     if (PHONE) noteText("bubble", b.sz);
     out.push({ i, text, x: cx - b.w / 2, y: top, w: b.w, h: b.h, size: b.sz, rows: b.rows.length, fit: b.fit, box, panel, img: { x: ix, y: iy, w: iw, h: ih }, crop: cr });
   }
