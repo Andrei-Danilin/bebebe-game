@@ -95,3 +95,5 @@ export function stepGame(dt) {
   for (const l of G.littles) if (l.hugAnim > 0 && vrand() < dt * 6) burst(G.big.x, G.big.y - 20, "heart", "#ff4d8d", 1);   // сердечки, пока обнимает
   viewTick(dt);
 }
+// SPEC-034 step 1: one frame of live play (the one function the frame loop calls in play; __bb.frame feeds it simulated frame times)
+export function runFrame(frameTime) { stepGame(Math.min(0.05, frameTime)); }

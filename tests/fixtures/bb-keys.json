@@ -81,6 +81,7 @@
  "fastTarget": "function",
  "firstTutorial": "function",
  "fmtHearts": "function",
+ "frame": "function",
  "fxBurst": "function",
  "game": "getter",
  "generateLevel": "function",

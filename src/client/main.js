@@ -12,7 +12,7 @@ import { artGate, initArt } from "./art.js";
 import { installDebug } from "./debug.js";
 import { failStart, initErrors, reportError } from "./errors.js";
 import { inMenus, inWardrobe, mapTick, mode, openScene, redress, resetWorld, seedRandom, syncStock } from "./flow.js";
-import { drainEvents, stepGame, viewTick } from "./fx.js";
+import { drainEvents, runFrame, viewTick } from "./fx.js";
 import { initInput, pollPads } from "./input.js";
 import { initBack } from "./back.js";
 import { initLifecycle } from "./lifecycle.js";
@@ -105,7 +105,7 @@ function tick(now) {
   if (!inWardrobe() && endTryOn()) redress();   // SPEC-009/017: ушли из вкладки «Гардероб» (друзья — её часть) — примерка кончилась
   const portrait = isTouch && window.innerHeight > window.innerWidth;
   mapTick(dt);
-  if (mode === "play" && !portrait) stepGame(dt);           // SPEC-012: devices → one step → its effects (AC 3, AC 5)
+  if (mode === "play" && !portrait) runFrame(Math.max(0, real));           // SPEC-012: devices → one step → its effects (AC 3, AC 5)
   else { drainEvents(); viewTick(dt); if (inMenus()) ui.menuSpin += dt * 0.8; }   // SPEC-012 AC 1d: the Big One turns in the menus — a view angle, not game state
   noGameRng("render", () => {              // рисование не тянет игровую случайность (SPEC-008: тесты — ошибка, игра — vrand)
     updateCamera(dt);                       // телефон: камера за героем (3D-слой, не логика)
