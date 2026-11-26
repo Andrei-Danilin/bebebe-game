@@ -25,7 +25,7 @@ const NET_TIMEOUT_MS = 4000;             // weak signal: after this long, a cach
 const SW_BUILD = 7;
 const SW_STRATEGY = "463855aec6";
 const SW_VERSION = "bebebe-1.0.0-dev-b7";
-const SRC_HASH = "3fc3212cdb";
+const SRC_HASH = "d216825ce2";
 const PRECACHE_LOCAL = [
   "./", "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512-maskable.png",
   "./icons/icon-512.png", "./icons/icon.svg", "./index.html", "./manifest.webmanifest"
@@ -60,7 +60,7 @@ const PRECACHE_SRC = [
   "./src/core/level/layouts.js?v=07d6472d8e", "./src/core/level/validate.js?v=3f3743eb46",
   "./src/core/mood.js?v=8dcad43e22", "./src/core/path.js?v=b05dfc5c4e", "./src/core/practice.js?v=44fe1505f4",
   "./src/core/progress-rules.js?v=a9deff0bda", "./src/core/rules.js?v=c4f51cf496", "./src/core/util.js?v=c7e01b9d3a",
-  "./src/core/wardrobe.js?v=011be2182f", "./src/core/world.js?v=68fa838aaf", "./src/i18n.js?v=1c36b9b29b",
+  "./src/core/wardrobe.js?v=011be2182f", "./src/core/world.js?v=68fa838aaf", "./src/i18n.js?v=4558f0affc",
   "./src/story.js?v=0cd3381a6e", "./src/version.js?v=6d0844555e"
 ];
 const THREE_VERSION = "r187";

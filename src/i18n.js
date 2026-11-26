@@ -18,9 +18,9 @@ export const I18N = {
     name: "English",
     rules: n => [
       "Sneak up BEHIND the Big One and hug him: he loses a heart",
-      "If he SEES you (yellow beam), he pushes you and breaks your leg",
+      "If he SEES you (yellow beam), he pushes you and you fall down",
       `Friends run over and stand next to you for ${CFG.RESCUE_TIME} seconds to help you up`,
-      `If nobody helps within ${n} s, you limp home and rest for ${CFG.REST_TIME} s`,
+      `If nobody helps you up within ${n} s, you go home to rest for ${CFG.REST_TIME} s`,
       "Bushes hide you. Your house is safe: the Big One can't get in",
       "Grab items: speed boots, invisibility, shield — and a banana he slips on!",
       I18N.en.ruleTiptoe
@@ -113,9 +113,9 @@ export const I18N = {
     name: "Español",
     rules: n => [
       "Acercate al Grandote POR DETRÁS y abrazalo: pierde un corazón",
-      "Si te VE (rayo amarillo), te empuja y te rompés la pierna",
+      "Si te VE (rayo amarillo), te empuja y te caés",
       `Tus amigos vienen y se quedan ${CFG.RESCUE_TIME} segundos al lado tuyo para ayudarte`,
-      `Si nadie te ayuda en ${n} segundos, vas a casa y descansás ${CFG.REST_TIME} segundos`,
+      `Si nadie te ayuda a levantarte en ${n} segundos, te vas a casa a descansar ${CFG.REST_TIME} segundos`,
       "En los arbustos no te ve. Tu casa es segura: el Grandote no puede entrar",
       "Agarrá cosas: zapatillas veloces, invisibilidad, escudo ¡y una banana para que se resbale!",
       I18N.es.ruleTiptoe
@@ -199,9 +199,9 @@ export const I18N = {
     name: "Português",
     rules: n => [
       "Chegue POR TRÁS do Grandão e dê um abraço: ele perde um coração",
-      "Se ele te VÊ (raio amarelo), ele te empurra e sua perna quebra",
+      "Se ele te VÊ (raio amarelo), ele te empurra e você cai",
       `Os amigos vêm e ficam ${CFG.RESCUE_TIME} segundos do seu lado para te levantar`,
-      `Se ninguém ajudar em ${n} s, você vai para casa e descansa ${CFG.REST_TIME} s`,
+      `Se ninguém te ajudar a levantar em ${n} s, você vai para casa descansar ${CFG.REST_TIME} s`,
       "Nos arbustos ele não te vê. Sua casa é segura: o Grandão não entra",
       "Pegue itens: botas rápidas, invisibilidade, escudo — e uma banana para ele escorregar!",
       I18N.pt.ruleTiptoe
@@ -286,9 +286,9 @@ export const I18N = {
     name: "Русский",
     rules: n => [
       "Подкрадись к Большому СЗАДИ и обними — минус сердечко",
-      "Увидит тебя (жёлтый луч) — толкнёт, и нога сломается",
+      "Увидит тебя (жёлтый луч) — толкнёт, и ты упадёшь",
       `Друзья подбегают и стоят рядом ${CFG.RESCUE_TIME} сек — ты снова в игре`,
-      `Никто не помог за ${n} сек — идёшь в домик и отдыхаешь ${CFG.REST_TIME} сек`,
+      `Никто не помог встать за ${n} сек — идёшь домой отдыхать ${CFG.REST_TIME} сек`,
       "В кустах Большой не видит. Домик — безопасная зона, Большой туда не зайдёт",
       "Собирай предметы: сапоги-скороходы, невидимку, щит — и банан, на котором он поскользнётся!",
       I18N.ru.ruleTiptoe

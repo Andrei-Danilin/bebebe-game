@@ -36,6 +36,47 @@ test("es, pt and ru have every key that en has, with the same type and function 
   expect(missing).toEqual([]);
 });
 
+// SPEC-033: every text of the game, as the player can read it: I18N with its functions called, the clothes and look names (Kostya's
+// STORY texts are his own and are not reworded: they are not part of this walk)
+function allTexts(langs) {
+  const b = window.__bb, out = {};
+  const texts = (v, acc, path) => {
+    if (typeof v === "string") acc.push([path, v]);
+    else if (Array.isArray(v)) v.forEach((x, i) => texts(x, acc, `${path}[${i}]`));
+    else if (typeof v === "function") for (const n of [1, 2]) { try { texts(v(n, n, n), acc, `${path}(${n})`); } catch (e) { /* not a text function */ } }
+    else if (v && typeof v === "object") for (const [k, x] of Object.entries(v)) texts(x, acc, path ? `${path}.${k}` : k);
+    return acc;
+  };
+  for (const l of langs) {
+    const acc = texts(b.I18N[l], [], l);
+    for (const [kind, list] of Object.entries(b.itemNames())) list.forEach((nm, i) => acc.push([`${l}.${kind}[${i}]`, nm[l]]));
+    out[l] = acc;
+  }
+  return out;
+}
+
+// SPEC-033 AC 6–7 (D-1): nothing the player reads talks about a broken leg, limping or an injury — the Big One pushes, you fall down
+// and go home to rest. The same walk, with the words of all four languages (word boundaries: "legend", "limpar" are fine).
+test("no text speaks of a broken leg, limping or injury (en, es, pt, ru)", { tag: "@fast" }, async ({ page }) => {
+  await openGame(page, { sim: true });
+  const hits = await page.evaluate(([langs, src, fn]) => {
+    const re = new RegExp(src, "iu"), all = new Function("return " + fn)()(langs), out = [];
+    for (const l of langs) for (const [path, t] of all[l]) if (re.test(t)) out.push(`${path}: ${t}`);
+    return out;
+  }, [LANGS, String.raw`\bleg(s)?\b|\blimp(s|ed|ing)?\b|\bbroke(n)?\b|\bbreaks\b|\binjur|pierna|\bperna|cojea|\bmanca\b|rompés|\brompe\b|quebra|ногу|хрома|хромает|сломае|сломан`, allTexts.toString()]);
+  expect(hits).toEqual([]);
+});
+// the How to play lines say it the new way (the numbers still come from the code)
+test("the How to play rules: he pushes you and you fall down; no help → you go home to rest", { tag: "@fast" }, async ({ page }) => {
+  await openGame(page, { sim: true });
+  const r = await page.evaluate(() => { const b = window.__bb, out = {}; for (const l of b.LANGS) out[l] = [b.I18N[l].rules(15)[1], b.I18N[l].rules(15)[3]]; return { out, rest: b.CFG.REST_TIME }; });
+  expect(r.rest).toBe(30);
+  expect(r.out.en).toEqual(["If he SEES you (yellow beam), he pushes you and you fall down", "If nobody helps you up within 15 s, you go home to rest for 30 s"]);
+  expect(r.out.es).toEqual(["Si te VE (rayo amarillo), te empuja y te caés", "Si nadie te ayuda a levantarte en 15 segundos, te vas a casa a descansar 30 segundos"]);
+  expect(r.out.pt).toEqual(["Se ele te VÊ (raio amarelo), ele te empurra e você cai", "Se ninguém te ajudar a levantar em 15 s, você vai para casa descansar 30 s"]);
+  expect(r.out.ru).toEqual(["Увидит тебя (жёлтый луч) — толкнёт, и ты упадёшь", "Никто не помог встать за 15 сек — идёшь домой отдыхать 30 сек"]);
+});
+
 // SPEC-017: every story chapter has its text in every language; SPEC-028: captions, boss lines and bubbles too
 test("every STORY text is in every language", { tag: "@fast" }, async ({ page }) => {
   await openGame(page, { sim: true });   // SPEC-023: texts only, nothing drawn

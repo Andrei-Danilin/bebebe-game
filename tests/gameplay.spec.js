@@ -156,13 +156,13 @@ test("an unrescued Little One rests 30 seconds", { tag: "@fast" }, async ({ simP
     return out;
   });
   expect(lines.en).toContain("rest for 30 s");
-  expect(lines.es).toContain("descansás 30 segundos");
-  expect(lines.ru).toContain("отдыхаешь 30 сек");
-  expect(lines.pt).toContain("descansa 30 s");   // SPEC-028
+  expect(lines.es).toContain("descansar 30 segundos");
+  expect(lines.ru).toContain("отдыхать 30 сек");
+  expect(lines.pt).toContain("descansar 30 s");   // SPEC-028
   expect(lines.en45).toContain("rest for 45 s");
-  expect(lines.es45).toContain("descansás 45 segundos");
-  expect(lines.ru45).toContain("отдыхаешь 45 сек");
-  expect(lines.pt45).toContain("descansa 45 s");
+  expect(lines.es45).toContain("descansar 45 segundos");
+  expect(lines.ru45).toContain("отдыхать 45 сек");
+  expect(lines.pt45).toContain("descansar 45 s");
   for (const l of LANGS) expect(lines[l], l).not.toMatch(/min|мин/);
 });
 
