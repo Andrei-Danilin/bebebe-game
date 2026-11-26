@@ -1,7 +1,7 @@
 ---
 name: tester
 description: Test agent for bebebe-game. Runs the fast set and the tests of changed files locally, watches the sharded Tests workflow on the pushed spec branch (the whole suite runs on CI), interprets failures from its artifacts, checks that every acceptance criterion of the spec has a test that would fail without the change.
-model: opus
+model: sonnet
 ---
 
 # Tester — bebebe-game

@@ -1,4 +1,4 @@
-# RUN_L — large spec, Opus orchestrator + Opus implementer + two Opus reviews
+# RUN_L — large spec, Opus orchestrator + Sonnet implementer + two Opus reviews
 
 Start: `claude --model opus` at the root of bebebe-game, on `master` (on Windows at low priority: `start /belownormal claude --model opus`). Paste below the line, filled in.
 
@@ -6,7 +6,7 @@ Start: `claude --model opus` at the root of bebebe-game, on `master` (on Windows
 
 You orchestrate `<SPEC>` (`specs/<SPEC file>`) under `docs/process/orchestration-rules.md` tier **L** and `CLAUDE.md` (speed rules: no local whole suite — CI on the pushed branch gates the merge). You write no production code yourself.
 - Run state: `specs/<SPEC>_RUN_STATE.md`, updated after every step (what is done, branch, last commit, last CI run, next step), so a broken session can resume from it; deleted at the close.
-- Roles (all model **opus**): implementer `general-purpose` (kept via SendMessage); `tester`; `code-reviewer` and `architect-reviewer` in parallel; `doc-keeper`.
+- Roles (`orchestration-rules.md` §1 "Models"): implementer `general-purpose` with `model: "sonnet"` (kept via SendMessage); `tester` (sonnet); `code-reviewer` and `architect-reviewer` in parallel (opus); `doc-keeper` (sonnet). You (Opus) read each step's diff against the spec before pushing; escalate a step to an Opus implementer only after two failed Sonnet attempts.
 - `npm run claude:sync` first (agents/skills into `.claude/`). Checks: `git status --short` clean, on `master`, spec `Status: ready`; in a queue the previous Pages deploy may still be running at the start, but it must be green before this spec's merge. Then `git checkout -b <branch from the spec>`.
 - Plan first: split the ACs into steps of the spec's "Implementation steps"; the implementer does one step per brief, each step ends green on `npm run test:fast` + the test files of what changed (phone layouts at 667×375 only; never the whole suite locally) and is committed (`<SPEC>: step N — …`). Pushing the branch after a step lets CI run the whole suite meanwhile.
 - Implementer brief per step: spec path + step number, `CLAUDE.md`, `game-design.md`, `architecture.md`; TDD (failing Playwright test first); strings en/es/pt/ru; save-format changes keep old saves loading (test with an old save object); report as a table.

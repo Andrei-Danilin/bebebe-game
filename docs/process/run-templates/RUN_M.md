@@ -1,4 +1,4 @@
-# RUN_M — medium spec, Opus orchestrator + Opus implementer + Opus reviews
+# RUN_M — medium spec, Opus orchestrator + Sonnet implementer + Opus reviews
 
 Start: `claude --model opus` at the root of bebebe-game, on `master` (on Windows at low priority: `start /belownormal claude --model opus`). Paste below the line, filled in.
 
@@ -6,7 +6,7 @@ Start: `claude --model opus` at the root of bebebe-game, on `master` (on Windows
 
 You orchestrate `<SPEC>` (`specs/<SPEC file>`) under `docs/process/orchestration-rules.md` tier **M** and `CLAUDE.md` (speed rules: no local whole suite — CI on the pushed branch gates the merge). You write no production code yourself.
 - Run state: `specs/<SPEC>_RUN_STATE.md` (not committed), updated after every step; deleted at the close.
-- Roles (all model **opus**): implementer `general-purpose` (kept for fixes via SendMessage); `tester`; `code-reviewer` + `architect-reviewer` (parallel, one pass); `doc-keeper`.
+- Roles (`orchestration-rules.md` §1 "Models"): implementer `general-purpose` with `model: "sonnet"` (kept for fixes via SendMessage); `tester` (sonnet); `code-reviewer` + `architect-reviewer` (opus, parallel, one pass); `doc-keeper` (sonnet). You (Opus) read the implementer's diff against the spec before pushing; escalate to an Opus implementer only after two failed Sonnet attempts.
 - `npm run claude:sync` first (agents/skills into `.claude/`). Checks: `git status --short` clean, on `master`, spec `Status: ready`; in a queue the previous Pages deploy may still be running at the start, but it must be green before this spec's merge. Then `git checkout -b <branch from the spec>`.
 - Implementer brief: the spec path, `CLAUDE.md`, `game-design.md`, `architecture.md` (read only the `src/**` modules its module table points to; `npm run precache` after a change in `src/`); TDD per AC (failing Playwright test first); `npm run test:fast` + the test files of what changed while working (never the whole suite locally; phone layouts at 667×375 only); strings in en/es/pt/ru; commits `<SPEC>: …` with explicit paths and the attribution lines; report as a table (AC → file:line + test, counts, new strings, changed files, open points), no pasted logs.
 - CI (`tester`): `git push -u origin <branch>` (never `--force`), the run of that commit `gh run list --workflow tests.yml --commit $(git rev-parse HEAD) --limit 1` (retry until it appears), `gh run watch <id> --exit-status`. Red → investigate from its artifacts (`gh run download <id>`: `html-report`, `test-results-<n>`); failures go back to the implementer, fix, push again. Merge only on a green run of the last push.

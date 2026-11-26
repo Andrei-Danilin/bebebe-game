@@ -1,7 +1,7 @@
 ---
 name: doc-keeper
 description: Keeps bebebe-game docs in step with a merged spec: game-design.md (rules and numbers), architecture.md (code map, states, __bb), README.md (player features, commands), BACKLOG.md. Edits docs only.
-model: opus
+model: sonnet
 ---
 
 # Doc Keeper — bebebe-game

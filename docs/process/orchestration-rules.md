@@ -1,17 +1,21 @@
 # Run sizing and rules for spec runs (bebebe-game)
 
 Adapted from ce-fsa-app's orchestration rules (2026-11-21), with two differences agreed by Andrei:
-**Claude Code commits and merges itself**, and **every role runs on Opus**. Every run prompt follows these rules; a prompt may only tighten them.
+**Claude Code commits and merges itself**, and **Sonnet writes the code while Opus orchestrates and checks** (Andrei, 2026-11-26; before that every role ran on Opus). Every run prompt follows these rules; a prompt may only tighten them.
 
 ## 1. Size the spec first (the spec's `Complexity:` line decides; when unsure, the smaller tier)
 
 | Tier | What it is | Roles | Review | Target |
 |---|---|---|---|---|
-| **S** | one rule or number, one item, one text/visual tweak | **one Opus session** implements | one `code-reviewer` (opus) | 20–40 min |
-| **M** | several related items, a new screen, a new item type or place | **Opus** orchestrator + **Opus** implementer (`general-purpose`) | `code-reviewer` + `architect-reviewer` (opus, parallel), one pass; one `code-reviewer` check of the fix commits | 45–90 min |
-| **L** | new game system (economy, progress format, level generator, AI behaviour), a big refactor (e.g. splitting `index.html`) | **Opus** orchestrator + **Opus** implementer | `code-reviewer` + `architect-reviewer` (opus, parallel), one pass; one `code-reviewer` check of the fix commits | 2–3 h |
+| **S** | one rule or number, one item, one text/visual tweak | **Opus** orchestrator + **Sonnet** implementer (`general-purpose`) | one `code-reviewer` (opus) | 20–40 min |
+| **M** | several related items, a new screen, a new item type or place | **Opus** orchestrator + **Sonnet** implementer (`general-purpose`) | `code-reviewer` + `architect-reviewer` (opus, parallel), one pass; one `code-reviewer` check of the fix commits | 45–90 min |
+| **L** | new game system (economy, progress format, level generator, AI behaviour), a big refactor (e.g. splitting `index.html`) | **Opus** orchestrator + **Sonnet** implementer | `code-reviewer` + `architect-reviewer` (opus, parallel), one pass; one `code-reviewer` check of the fix commits | 2–3 h |
 
-All roles use `model: "opus"`. Start every run with `claude --model opus`; the first step of every run is `npm run claude:sync` (agents and skills from `claude-setup/` into `.claude/`).
+**Models (Andrei, 2026-11-26):**
+- **Opus** — the main session (orchestrator: plans the steps, briefs, reads every implementer diff against the spec before CI, decides) and the reviewers `code-reviewer` and `architect-reviewer`. The orchestrator writes no production code.
+- **Sonnet** — the code: the implementer is `general-purpose` started with `model: "sonnet"` (kept for its fix rounds via SendMessage); also `tester` (runs tests and CI, reads artifacts) and `doc-keeper` (docs), whose agent files say `model: sonnet`.
+- **Escalation:** if the Sonnet implementer fails the same step twice (tests still red, or the orchestrator's diff check finds the AC not met), the orchestrator may brief a fresh `general-purpose` with `model: "opus"` for that one step only, and says so in the report.
+Start every run with `claude --model opus`; the first step of every run is `npm run claude:sync` (agents and skills from `claude-setup/` into `.claude/`).
 
 ## 2. Tests
 - TDD: each acceptance criterion gets a Playwright test that fails before the change (the run report names it).
