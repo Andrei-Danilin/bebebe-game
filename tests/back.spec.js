@@ -158,6 +158,15 @@ const yesNow = (page, hide = false) => page.evaluate(h => {
   if (h) window.dispatchEvent(new PageTransitionEvent("pagehide"));
   return { closed: window.__closed, dialog: !!document.getElementById("leave"), guard: !!(history.state && history.state.bbGuard) };
 }, hide);
+// waits (polled by time, not by animation frames: a slow software-rendered frame must not stretch the wait) for the step off the guard;
+// a timeout says what the page looked like
+async function steppedOff(page, wait) {
+  try { await page.waitForFunction(isOff, null, { timeout: wait + 5000, polling: 50 }); }
+  catch (e) {
+    const state = await page.evaluate(() => ({ state: history.state, length: history.length, closed: window.__closed, dialog: !!document.getElementById("leave"), mode: window.__bb.mode })).catch(x => String(x));
+    throw new Error(`no step off the guard within ${wait + 5000} ms: ${JSON.stringify(state)}`, { cause: e });
+  }
+}
 async function refusedClose(page, query, { oneEntry = false, reopen = false } = {}) {
   await page.addInitScript(() => { window.__closed = 0; window.close = () => { window.__closed++; }; });
   // a tab with no earlier entry has history.length 2 (the game + our guard)
@@ -174,7 +183,7 @@ async function refusedClose(page, query, { oneEntry = false, reopen = false } = 
   await back(page);
   const t0 = Date.now();
   expect(await yesNow(page), "window.close() called; the dialog is closed; the window gets BACK_CLOSE_WAIT to close, the guard waits on top").toEqual({ closed: 1, dialog: false, guard: true });
-  await page.waitForFunction(isOff, null, { timeout: wait + 5000 });
+  await steppedOff(page, wait);
   expect(Date.now() - t0, "stepped off only after BACK_CLOSE_WAIT").toBeGreaterThanOrEqual(wait - 50);
   await frames(page);
   expect([await dialog(page), await mode(page), await guard(page), await page.evaluate(() => window.__bb.back.leaves)], "still here: off the guard, no dialog").toEqual([null, "home", false, 1]);
@@ -211,7 +220,7 @@ test("a pagehide while the window closes keeps the guard; pageshow (back from th
   await page.evaluate(() => { window.dispatchEvent(new PageTransitionEvent("pageshow", { persisted: true })); });
   await back(page);
   await press(page, "Yes");
-  await page.waitForFunction(isOff, null, { timeout: wait + 5000 });
+  await steppedOff(page, wait);
   expect([await page.evaluate(() => window.__closed), await dialog(page)]).toEqual([2, null]);
   expect(errors).toEqual([]);
 });

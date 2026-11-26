@@ -38,10 +38,13 @@ test("hidden, pagehide or blur during play pause the game; it stays paused when 
     expect(await mode(page), `${how}: still paused when back`).toBe("pause");
     const t1 = await page.evaluate(() => window.__bb.stats.time);
     expect(t1 - t0, `${how}: no game time while away`).toBeLessThan(0.2);
-    await page.evaluate(() => { window.__bb.mode = "play"; });
+    // SPEC-034: the game now keeps up with real time over the frames after resume (a slow software-rendered frame is 0.25 s: 8 steps),
+    // but never runs ahead of it: the time away (the 400 ms wait) feeds nothing into the first frame back
+    const r0 = await page.evaluate(() => { window.__bb.mode = "play"; return performance.now(); });
     await frames(page);
-    const t2 = await page.evaluate(() => window.__bb.stats.time);
-    expect(t2 - t1, `${how}: no dt spike after resume`).toBeLessThan(0.2);
+    const { t2, r1, S } = await page.evaluate(() => ({ t2: window.__bb.stats.time, r1: performance.now(), S: window.__bb.CFG.STEP }));
+    const real = (r1 - r0) / 1000;
+    expect(t2 - t1, `${how}: game time after resume ≤ the real time of those frames (+ one step), not the ${how} gap`).toBeLessThanOrEqual(real + S + 1e-9);
   }
   // in the menus nothing changes
   await page.evaluate(() => { window.__bb.toHome(); });
