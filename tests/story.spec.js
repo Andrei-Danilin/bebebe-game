@@ -6,7 +6,6 @@ const { expect } = base;
 const fs = require("fs");
 const path = require("path");
 const { LANGS, openGame, frames, softly, sharedPage, resetGame, ROOT } = require("./helpers");
-const { overflowKeys } = require("./bubble-overflow");   // SPEC-032 AC 11: the bubbles allowed to overflow at BUBBLE_MIN, listed
 
 // one rendered game page for the scene tests (resetGame before each); the fresh-page tests come first in the file
 const shared = sharedPage();
@@ -96,11 +95,10 @@ test("SPEC-026: Dad's bubble lines (4 per language, Andrei's Russian in docs/sto
 
 // every intro page writes its line into its bubble, the text box inside the panel, never smaller than the bubbles' smallest size
 // (SPEC-032 AC 10: CFG.BUBBLE_MIN, up to 3 lines, no own bubble);
-// the Story's "How it began" (the whole page, small bubbles) writes all four too — never an empty bubble (Andrei, SPEC-026); a line
-// that does not fit there even at BUBBLE_MIN is written at BUBBLE_MIN only if tests/bubble-overflow.js lists it (checked at ×1;
-// at ×1.15 — the CI fonts' margin — it may overflow, but is still written, ≤ 3 rows, at the minimum, inside its panel)
+// SPEC-033 AC 4–5: the Story's "How it began" shows only panel 1, big, with its bubble (the first line); that line fits its bubble
+// at both font scales (×1.15 = the CI fonts' margin) — no waiver list any more
 async function bubbleProblems(page, phone) {
-  const fails = [], size = phone ? "667×375" : "960×640", ok = overflowKeys("story began", size);
+  const fails = [];
   for (const lang of LANGS) for (const scale of [1, 1.15]) {
     await page.evaluate(([l, s]) => { const b = window.__bb; b.setLang(l); b.CFG.TEXT_TEST_SCALE = s; }, [lang, scale]);
     for (let i = 0; i < 4; i++) {
@@ -123,13 +121,12 @@ async function bubbleProblems(page, phone) {
     await frames(page);
     const st = await page.evaluate(() => ({ info: window.__bb.storyInfo, buttons: window.__bb.buttonRects, min: window.__bb.CFG.BUBBLE_MIN, ui: window.__bb.uiSize }));
     const bs = (st.info && st.info.bubbles) || [], at = `${lang} ×${scale} Story "How it began"`;
-    if (bs.map(q => q.text).join("|") !== BUBBLES[lang].join("|")) fails.push(`${at}: bubbles ${JSON.stringify(bs.map(q => q.text))}`);
+    if (bs.map(q => q.text).join("|") !== BUBBLES[lang][0]) fails.push(`${at}: bubbles ${JSON.stringify(bs.map(q => q.text))} (only the first line)`);
     for (const q of bs) {
       if (q.skipped || !(q.rows >= 1) || !(q.w > 0)) { fails.push(`${at}: "${q.text}" left empty`); continue; }
       const P = q.panel, pic = st.info.pic, min = phone ? st.min.phone / st.ui.scale : st.min.desk;
       if (!(q.size >= min - 0.01)) fails.push(`${at}: "${q.text}" ${q.size} below BUBBLE_MIN`);
-      if (!q.fit && q.size > min + 0.01) fails.push(`${at}: "${q.text}" does not fit, yet not at BUBBLE_MIN`);
-      if (!q.fit && scale === 1 && !ok.includes(`${lang}|${q.i}`)) fails.push(`${at}: "${q.text}" does not fit at BUBBLE_MIN and is not in tests/bubble-overflow.js (${size})`);
+      if (!q.fit) fails.push(`${at}: "${q.text}" does not fit its bubble`);
       if (!(q.x >= P.x - 0.5 && q.y >= P.y - 0.5 && q.x + q.w <= P.x + P.w + 0.5 && q.y + q.h <= P.y + P.h + 0.5)) fails.push(`${at}: "${q.text}" leaves its panel`);
       if (q.rows > 3) fails.push(`${at}: "${q.text}" in ${q.rows} lines`);
       if (!(P.x >= pic.x - 0.5 && P.y >= pic.y - 0.5 && P.x + P.w <= pic.x + pic.w + 0.5 && P.y + P.h <= pic.y + pic.h + 0.5)) fails.push(`${at}: panel outside the picture`);
@@ -309,6 +306,27 @@ test("the first School 20 win shows the ending and the thank-you card", async ({
   await frames(page);
   await page.keyboard.press("Enter");
   expect(await page.evaluate(() => window.__bb.mode)).toBe("map");
+});
+
+// ---------- SPEC-033 AC 4: "How it began" shows panel 1 only, big, with its bubble; ▶ still plays the whole comic; other chapters unchanged ----------
+test("SPEC-033: the Story's How it began page shows panel 1 big with its bubble, ▶ plays the whole comic", async ({ desk: page }) => {
+  await page.evaluate(() => { window.__bb.progress.seen.tutorial = true; window.__bb.openStory("began", "home"); });
+  await frames(page);
+  const d = await page.evaluate(() => { const b = window.__bb, i = b.storyInfo; return { info: i, panel0: b.CFG.MENU_LOOK.scene.panels[0], lines: b.STORY[0].bubbles.en, ui: b.uiSize, hud: b.hudRects.find(h => h.id === "story:text") }; });
+  expect(d.info.art).toBe("image");
+  expect(d.info.crop, "panel 1 of story_start").toEqual(d.panel0);
+  expect(d.info.bubbles.map(q => [q.i, q.text, q.fit]), "only its own bubble, inside it").toEqual([[0, d.lines[0], true]]);
+  // big: the picture takes the free height of the page (well above a quarter of the old whole-picture frame) and keeps the panel's shape
+  expect(d.info.picBox.h, "as tall as the picture area allows").toBeGreaterThan(d.ui.h * 0.5);
+  expect(d.info.picBox.w / d.info.picBox.h, "the panel's shape (about 4:3), not the whole 2×2").toBeLessThan(1.6);
+  await page.evaluate(() => window.__bb.tapButton("story:scene"));
+  await frames(page);
+  expect(await page.evaluate(() => window.__bb.scene), "▶ plays the whole intro comic").toEqual({ id: "intro", page: 0, pages: 4 });
+  await page.keyboard.press("Escape");
+  await frames(page);
+  await page.evaluate(() => { const b = window.__bb, all = Object.fromEntries(Array.from({ length: 20 }, (_, i) => [i + 1, true])); Object.assign(b.progress.worlds.park, { unlocked: 20, won: all }); b.openStory("park", "home"); });
+  await frames(page);
+  expect(await page.evaluate(() => [window.__bb.storyInfo.crop, window.__bb.storyInfo.bubbles.length]), "other chapters: the whole picture").toEqual([[0, 0, 1, 1], 0]);
 });
 
 // ---------- AC 9–11: every scene can be watched again from the Story ----------

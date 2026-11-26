@@ -89,24 +89,26 @@ export function drawStory() {
   // SPEC-031: сначала текст — кегль × масштаб экрана, мельче до самого мелкого, потом картинка уже (sideFit); картинка — на остальном
   const text = open ? c.text[lang] : WORLDS.includes(c.id) ? lockedText(c.id) : L().endedLocked;
   const mh = by - g - top, size = PHONE ? storyPx(S.phoneText) : S.text, min = storyMin(14);
-  const { pw, tW, b } = sideFit(text, X1 - X0, mh, 2 * g, S.pic, p => Math.min((X1 - X0) * p, mh * 1.4), size, min), picShare = pw / (X1 - X0);
-  const pic = { x: X0, y: top, w: pw, h: mh };
+  // SPEC-033 AC 4: «Как всё началось» — только клетка 1, крупно (часть MENU_LOOK.scene.panels[0] картинки комикса); ▶ показывает весь комикс
+  const one = c.id === "began" && !c.image, cr = one ? M.scene.panels[0] : [0, 0, 1, 1];
   // SPEC-020: картинка главы — свой путь (c.image) или комикс из art/ (STORY_ART); нет — заглушка
   const own = open && c.image ? storyPicture(c) : null, artName = open && !c.image ? STORY_ART[c.id] : null, img = own || (artName && art(artName));
+  const aspect = img ? (img.width * cr[2]) / (img.height * cr[3]) : 1.4;
+  const { pw, tW, b } = sideFit(text, X1 - X0, mh, 2 * g, one ? S.picBig : S.pic, p => Math.min((X1 - X0) * p, mh * aspect), size, min), picShare = pw / (X1 - X0);
+  const pic = { x: X0, y: top, w: pw, h: mh };
   let imgRect = null, picBox = pic;
   if (img) {
-    const fr = 5 * k, sc = Math.min((pic.w - 2 * fr) / img.width, (pic.h - 2 * fr) / img.height), iw = img.width * sc, ih = img.height * sc;
+    const fr = 5 * k, sw = img.width * cr[2], sh = img.height * cr[3], sc = Math.min((pic.w - 2 * fr) / sw, (pic.h - 2 * fr) / sh), iw = sw * sc, ih = sh * sc;
     const ix = pic.x + (pic.w - iw) / 2, iy = pic.y + (pic.h - ih) / 2;
     imgRect = [ix, iy, iw, ih];
     picBox = { x: ix - fr - 1.5 * k, y: iy - fr - 1.5 * k, w: iw + 2 * fr + 3 * k, h: ih + 2 * fr + 3 * k };   // SPEC-031: с рамкой (и половиной её линии)
     rr(ix - fr, iy - fr, iw + 2 * fr, ih + 2 * fr, 6 * k); fillStroke(S.paper, 3 * k);   // бумажная рамка
-    ctx.drawImage(img, ix, iy, iw, ih);
+    ctx.drawImage(img, img.width * cr[0], img.height * cr[1], sw, sh, ix, iy, iw, ih);
     if (artName) noteArt(artName);
     tape(ix + 6 * k, iy + 2 * k, -0.7, k * 0.8); tape(ix + iw - 6 * k, iy + 2 * k, 0.7, k * 0.8);
   } else storyPlaceholder(pic, !open);
-  // SPEC-026: «Как всё началось» — комикс целиком: слова папы во всех четырёх облачках (SPEC-032: облачка тут крошечные — не влезшее
-  // и самым мелким пишется самым мелким поверх края облачка; ▶ показывает комикс по клеткам, там влезают все)
-  const bubbles = img && artName && c.bubbles ? drawBubbles(c.bubbles[lang].map((text, i) => ({ i, text })), [0, 0, 1, 1], ...imgRect) : [];
+  // SPEC-026 / SPEC-033: слова папы клетки 1 в её облачке (только буквы, SPEC-032); остальные три облачка — в комиксе по ▶
+  const bubbles = img && artName && c.bubbles ? drawBubbles([{ i: 0, text: c.bubbles[lang][0] }], cr, ...imgRect) : [];
   if (open) {                                                // SPEC-022: ▶ в углу картинки — посмотреть заставку главы ещё раз
     // SPEC-026: в правом нижнем углу картинки (в правом верхнем — облачко второй клетки комикса)
     const fr = imgRect || [pic.x, pic.y, pic.w, pic.h], r = B, bx = fr[0] + fr[2] - r - 4 * k, byy = fr[1] + fr[3] - r - 4 * k;
@@ -118,7 +120,7 @@ export function drawStory() {
   ui.hudRects[ui.hudRects.length - 1].text = text;
   if (PHONE) noteText("story", b.sz);   // SPEC-031: свой вид — свой самый мелкий (STORY_TEXT_MIN)
   // SPEC-031: picBox — картинка с рамкой (или заглушка), fit — весь текст влез в своё место, picShare — доля ширины под картинку
-  ui.storyInfo = { chapter: c.id, index: storyCh, locked: !open, page: "chapters", title, text, art: !open ? "locked" : img ? "image" : "placeholder", load: storyLoad(c), pic, bubbles, picBox, fit: b.fit, picShare };
+  ui.storyInfo = { chapter: c.id, index: storyCh, locked: !open, page: "chapters", title, text, art: !open ? "locked" : img ? "image" : "placeholder", load: storyLoad(c), pic, bubbles, picBox, fit: b.fit, picShare, crop: img ? cr : null };
 }
 // ---------- SPEC-032 AC 7–8: «Как играть» — слева правила со значками-картинками (~1.6 × кегля; эмодзи — только запасной вид), справа
 // лист обучения A (tutorial_a, все четыре клетки) в бумажной рамке, как картинки «Истории»; под правилами — управление (телефон —
@@ -226,7 +228,7 @@ function bubbleRows(text, maxW, maxH, size, min, lines) {
 // SPEC-032 AC 9–10: только буквы — внутри белого нарисованного облачка (без своей заливки и контура поверх картинки): тёмные, жирные,
 // по центру облачка, кегль bubbleScale × прежнего (SPEC-031: × масштаб экрана), мельче — до LOOK.BUBBLE_MIN, до bubbleLines строк;
 // не влезли и самым мелким — всё равно пишутся самым мелким, по центру облачка, до bubbleLines строк (fit = false; пустых облачков
-// не бывает — правило Андрея SPEC-026; такие случаи — только из списка tests/bubble-overflow.js: картинка главы «Истории» мала).
+// не бывает — правило Андрея SPEC-026; SPEC-033: списка исключений больше нет — глава «Как всё началось» показывает одну клетку крупно, всё влезает).
 // → [{ i, text, x, y, w, h (рамка строк), size, rows, fit, box (белое внутри облачка на экране), panel (клетка на экране), img / crop (где картинка) }]
 function drawBubbles(list, cr, ix, iy, iw, ih) {
   const S = LOOK.MENU_LOOK.scene, min = PHONE ? cpx(LOOK.BUBBLE_MIN.phone) : LOOK.BUBBLE_MIN.desk;
