@@ -1,6 +1,6 @@
 # SPEC-032 — Kids' feedback, round 2: easier sneaking, How to play, clean comic bubbles, language on first launch, own icons everywhere
 
-Status: ready (art `art/35_icons_more.webp` is on master, checked by Claude 2026-11-25: all 7 icons in order; the eyes, the Zzz, the heart over the hug and the toes/dots of the footprints are separate small regions — merge them into their icon)
+Status: done (merged by "Merge SPEC-032", see git log)
 Complexity: L
 Branch: SPEC-032-kids-feedback-2
 Decided by: Andrei and the kids (2026-11-25, after playing the SPEC-026…031 build). Every item below is theirs. Claude (spec author) chose the numbers, the toggle behaviour of the tiptoe button and the layouts; those are marked "(Claude)".
