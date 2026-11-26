@@ -77,6 +77,25 @@ test("the How to play rules: he pushes you and you fall down; no help → you go
   expect(r.out.ru).toEqual(["Увидит тебя (жёлтый луч) — толкнёт, и ты упадёшь", "Никто не помог встать за 15 сек — идёшь домой отдыхать 30 сек"]);
 });
 
+// SPEC-033 AC 8 (D-8): there are no money purchases, only coins — "Get for 🪙 N" in four languages
+test("prices say Get for 🪙 N: buyFor, buy, tapAgain and the tutorial C4 line (en, es, pt, ru)", { tag: "@fast" }, async ({ page }) => {
+  await openGame(page, { sim: true });
+  const r = await page.evaluate(() => Object.fromEntries(window.__bb.LANGS.map(l => { const I = window.__bb.I18N[l]; return [l, [I.buyFor(150), I.buy, I.tapAgain, I.tut.c[3]]]; })));
+  expect(r.en).toEqual(["Get for 🪙 150", "Get", "Tap again to get it", "Win levels, get coins, and pick all this up in Character!"]);
+  expect(r.es).toEqual(["Conseguir por 🪙 150", "Conseguir", "Tocá otra vez para conseguirlo", "¡Ganá niveles, juntá monedas y conseguí todo esto en Personaje!"]);
+  expect(r.pt).toEqual(["Pegar por 🪙 150", "Pegar", "Toque de novo para pegar", "Vença fases, ganhe moedas e pegue tudo isso em Personagem!"]);
+  expect(r.ru).toEqual(["Взять за 🪙 150", "Взять", "Нажми ещё раз, чтобы взять", "Выигрывай уровни, собирай монетки и бери всё это в «Персонаже»!"]);
+});
+test("no text says Buy, Comprar, Купить or shows a 🛒 (en, es, pt, ru)", { tag: "@fast" }, async ({ page }) => {
+  await openGame(page, { sim: true });
+  const hits = await page.evaluate(([langs, src, fn]) => {
+    const re = new RegExp(src, "iu"), all = new Function("return " + fn)()(langs), out = [];
+    for (const l of langs) for (const [path, t] of all[l]) if (re.test(t)) out.push(`${path}: ${t}`);
+    return out;
+  }, [LANGS, String.raw`\bbuy|\bbought|compr(ar|á|e|a|o)\b|купи|покуп|🛒`, allTexts.toString()]);
+  expect(hits).toEqual([]);
+});
+
 // SPEC-017: every story chapter has its text in every language; SPEC-028: captions, boss lines and bubbles too
 test("every STORY text is in every language", { tag: "@fast" }, async ({ page }) => {
   await openGame(page, { sim: true });   // SPEC-023: texts only, nothing drawn

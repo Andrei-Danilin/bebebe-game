@@ -10,9 +10,9 @@ import { P_COLORS } from "../../outfits.js";
 import { ctx, OUT, UW } from "../../screen.js";
 import { buyGloves, buyKisses, buyRescueKit, setEquip } from "../../shop.js";
 import { ui } from "../../state.js";
-import { addButton, circle, coinIcon, drawArtFit, drawKiss, drawKit, drawMitten, fillStroke, rr } from "../draw.js";
+import { addButton, circle, drawArtFit, drawKiss, drawKit, drawMitten, fillStroke, rr } from "../draw.js";
 import { pButton } from "../menu.js";
-import { clipRows, cpx, fitText, fz, hudFont, label, minPx, noteText, pDraw, pLabel, pRows, wrapText } from "../text.js";
+import { clipRows, cpx, fitText, fz, hudFont, label, minPx, scaledW, noteText, pDraw, pLabel, pRows, wrapText } from "../text.js";
 
 // карточки магазина (компьютер и телефон): рукавицы, мега-рукавицы, воздушные поцелуи, спасалка (SPEC-007)
 export const shopCards = () => [
@@ -112,12 +112,9 @@ export function itemsPhone(f) {
     const pk = packOf(b, m);
     yl -= pk.h;
     box("card-pack:" + cd.k, pk, cx, yl); pDraw(pk, cx, yl, "#64748b");
-    const ok = !b.no, txt = `${L().buy}  ${cd.price}      `;
+    const ok = !b.no, txt = priceLabel(cd.price, bw);   // SPEC-033: «Взять за 🪙 N» — монетка рисуется картинкой item_coin
     const btn = pButton(cx - bw / 2, by, bw, B, txt, ok ? "#22c55e" : "#cbd5e1", cd.buy, 17);
     btn.id = "buy:" + cd.k;
-    ctx.font = hudFont(btn.size);
-    const vis = ctx.measureText(`${L().buy}  ${cd.price}`).width, full = ctx.measureText(txt).width;
-    coinIcon(cx - full / 2 + vis + c(14), by + B / 2, c(9));                // монетка после цены
     if (b.no) { const ny = by + B + sp; box("card-no:" + cd.k, b.no, cx, ny); pDraw(b.no, cx, ny, "#ef4444"); }
   });
   // кто что надевает (на телефоне — только игрок 1)
@@ -129,6 +126,12 @@ export function itemsPhone(f) {
     addButton(bx, wy, bw, B, k === "none" ? L().none : "", on ? "#ff6fa8" : "#cbd5e1", () => setEquip(0, k), fz(16, "main"));
     if (k !== "none") { (paperUI() && drawArtFit(ITEM_ART[k], bx + c(28), wy + B / 2, c(34))) || drawMitten(bx + c(28), wy + B / 2, c(26), k); pLabel("×" + progress.inv[k], bx + c(72), wy + B / 2, "main", 16, "#fff"); }
   });
+}
+// SPEC-033: подпись цены на узкой карточке телефона: «Взять за 🪙 N», не влезла самым мелким кеглем — «Взять 🪙 N», потом «🪙 N»
+function priceLabel(price, w) {
+  ctx.font = hudFont(cpx(LOOK.PHONE_TEXT.main));
+  const options = [L().buyFor(price), `${L().buy} 🪙 ${price}`, `🪙 ${price}`];
+  return options.find(t => scaledW(t) <= w - cpx(14)) || options.at(-1);
 }
 // SPEC-007/009: вкладка «Вещи» Персонажа на компьютере
 export function itemsDesktop() {
@@ -142,14 +145,11 @@ export function itemsDesktop() {
     wrapText(c.desc, cx, y0 + 140, 14, w - 22, 2, "#475569", 700);
     fitText(c.pack, cx, y0 + 182, 13, w - 22, "center", "#64748b", 600);
     fitText(c.have, cx, y0 + 202, 14, w - 22, "center", c.n > 0 ? "#15803d" : "#94a3b8", 800);
-    const ok = progress.coins >= c.price, txt = `${L().buy}  ${c.price}      `;
+    const ok = progress.coins >= c.price, txt = L().buyFor(c.price);
     ctx.font = `900 19px system-ui, "Segoe UI", "Arial Rounded MT Bold", Arial, sans-serif`;
     let fs = 19;
     while (ctx.measureText(txt).width > bw - 12 && fs > 14) { fs -= 0.5; ctx.font = `900 ${fs}px system-ui, "Segoe UI", "Arial Rounded MT Bold", Arial, sans-serif`; }
     addButton(cx - bw / 2, y0 + 216, bw, 50, txt, ok ? "#22c55e" : "#cbd5e1", c.buy, fs).id = "buy:" + c.k;
-    ctx.font = `900 ${fs}px system-ui, "Segoe UI", "Arial Rounded MT Bold", Arial, sans-serif`;
-    const vis = ctx.measureText(`${L().buy}  ${c.price}`).width, full = ctx.measureText(txt).width;
-    coinIcon(cx - full / 2 + vis + fs * 0.85, y0 + 242, 10);                 // монетка после цены
     if (!ok) fitText(L().notEnough, cx, y0 + 279, 12, w - 22, "center", "#ef4444", 700);
   });
   // кто что надевает

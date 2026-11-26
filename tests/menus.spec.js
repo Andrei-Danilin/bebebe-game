@@ -213,7 +213,7 @@ test("the shop holds the wardrobe", async ({ page }) => {
   const d = await page.evaluate(() => window.__bb.buttonRects.filter(q => String(q.id).startsWith("tab:")));
   expect(d.map(q => q.id), "four tabs in this order (SPEC-026: Progress first)").toEqual(["tab:progress", "tab:items", "tab:wardrobe", "tab:upgrades"]);
   expect(d[0].x < d[1].x && d[1].x < d[2].x && d[2].x < d[3].x).toBe(true);
-  expect(d.map(q => q.text)).toEqual(["🏆 Progress", "🛒 Items", "👕 Wardrobe", "⭐ Upgrades"]);
+  expect(d.map(q => q.text)).toEqual(["🏆 Progress", "📦 Items", "👕 Wardrobe", "⭐ Upgrades"]);
   // ← → (and the d-pad) cycle the four tabs
   const tabs = [];
   for (const k of ["ArrowRight", "ArrowRight", "ArrowRight", "ArrowRight", "ArrowLeft"]) { await page.keyboard.press(k); tabs.push(await page.evaluate(() => window.__bb.shopTab)); }
@@ -933,6 +933,52 @@ test("CFG.MENU_LOOK has no key twice", () => {
     }
   }
   expect(dups).toEqual([]);
+});
+
+// SPEC-033 AC 9: every price — Items, Upgrades, a locked look of a kid and of the Big One — reads "Get for 🪙 N" and the 🪙 is drawn as the
+// item_coin picture (EMOJI_ART); a price is never written as bare "Buy N"
+async function pricesAt(page) {
+  const fails = [];
+  const price = async (at, setup, ids) => {
+    await page.evaluate(setup);
+    await frames(page);
+    await page.evaluate(() => window.__bb.resetArtUse());
+    await frames(page);
+    const d = await page.evaluate(ids => {
+      const b = window.__bb;
+      return { b: b.buttonRects.filter(q => ids.some(i => q.id.startsWith(i))).map(q => ({ id: q.id, text: q.text, ok: ["", "🔒 ", "✔ "].map(p => p + b.I18N.en.buyFor((/(\d+)$/.exec(q.text) || [])[1])) })), use: b.artUse };
+    }, ids);
+    if (!d.b.length) fails.push(`${at}: no price button`);
+    for (const q of d.b) if (!q.ok.includes(q.text)) fails.push(`${at}: ${q.id} reads "${q.text}"`);
+    if (!(d.use.item_coin >= d.b.length)) fails.push(`${at}: item_coin drawn ${d.use.item_coin} times for ${d.b.length} prices`);
+  };
+  await price("items", () => { const b = window.__bb; b.progress.coins = 500; b.mode = "shop"; b.shopTab = "items"; }, ["buy:"]);
+  await price("upgrades", () => { const b = window.__bb; b.mode = "shop"; b.shopTab = "upgrades"; }, ["upg:"]);
+  await price("wardrobe kid", () => { const b = window.__bb, W = b.wardrobe(); b.mode = "shop"; b.shopTab = "wardrobe"; b.wardrobePage = "looks"; b.cycleOutfit("p1", "hat", W.hat.findIndex(q => q.id === "crown") - b.outfits.shown.p1.hat); }, ["buy-look:p1"]);
+  await price("wardrobe big one", () => { const b = window.__bb, W = b.wardrobe(); b.cycleOutfit("p1", "hat", 0); b.cycleBig(W.big.findIndex(q => q.id === "robot") - b.outfits.shown.big); }, ["buy-look:big"]);
+  await page.evaluate(() => { window.__bb.mode = "home"; });
+  return fails;
+}
+test("every price shows the coin picture: Items, Upgrades, kid looks and Big One looks (desktop)", async ({ page }) => {
+  const fails = await pricesAt(page);
+  expect(fails).toEqual([]);
+});
+test("every price shows the coin picture (phone 667×375)", async ({ phonePage: page }) => {
+  const fails = await pricesAt(page);
+  expect(fails).toEqual([]);
+  // the narrow phone cards of the Items tab, in every language: always the coin and the number, the text inside its button
+  // (a long "Conseguir por 🪙 30" gives way to "Conseguir 🪙 30" or "🪙 30")
+  for (const l of ["en", "es", "pt", "ru"]) for (const scale of [1, 1.15]) {
+    await page.evaluate(([lang, sc]) => { const b = window.__bb; b.setLang(lang); b.CFG.TEXT_TEST_SCALE = sc; b.progress.coins = 500; b.mode = "shop"; b.shopTab = "items"; }, [l, scale]);
+    await frames(page);
+    const d = await page.evaluate(() => window.__bb.buttonRects.filter(q => q.id.startsWith("buy:")).map(q => ({ id: q.id, text: q.text, textW: q.textW, w: q.w })));
+    expect(d.length, `${l} ×${scale}: four prices`).toBe(4);
+    for (const q of d) {
+      expect(q.text, `${l} ×${scale} ${q.id}`).toMatch(/🪙 \d+$/);
+      expect(q.textW, `${l} ×${scale} ${q.id}: the text fits its button`).toBeLessThanOrEqual(q.w + 0.5);
+    }
+  }
+  await page.evaluate(() => { const b = window.__bb; b.CFG.TEXT_TEST_SCALE = 1; b.setLang("en"); b.mode = "home"; });
 });
 
 // SPEC-032 AC 17: no player-visible "Shop" is left — no L().shop and no 🛒 + text in the client code (the Items tab's 🛒 is its
