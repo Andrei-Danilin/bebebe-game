@@ -54,3 +54,53 @@ test("the same game at every frame rate with a held stick (keyboard)", async ({ 
   expect(Math.hypot(ref.littles[0][0] - start[0], ref.littles[0][1] - start[1]), "the held stick moved the hero").toBeGreaterThan(50);
   for (const hz of RATES) expect(runs[hz], `${hz} Hz plays the same game as 60 Hz`).toEqual(ref);
 });
+
+// AC 5: a slow device is not penalised. 20 Hz (0.05 s frames): 3 steps a frame, game time = real time. 4 Hz (0.25 s frames):
+// capped at MAX_STEPS = 8 steps a frame, the rest dropped, and nothing breaks.
+test("a slow device: 20 Hz keeps up with real time, 4 Hz is capped at 8 steps a frame", async ({ page }) => {
+  const r = await page.evaluate(() => {
+    const b = window.__bb, C = b.CFG, out = {};
+    b.clearLevelCache(); b.autopilot(true, "careful"); b.seedRandom(5);
+    b.world = "park"; b.level = 5; b.startGame(1);
+    const perFrame = (hz, frames) => {
+      const steps = [];
+      for (let i = 0; i < frames; i++) { const t0 = b.stats.time; b.frame(1 / hz); steps.push(Math.round((b.stats.time - t0) / C.STEP)); }
+      return steps;
+    };
+    const t0 = b.stats.time;
+    out.slow20 = perFrame(20, 100);                       // 5 s of real time
+    out.time20 = b.stats.time - t0;
+    const t1 = b.stats.time;
+    out.slow4 = perFrame(4, 20);                          // 5 s of real time
+    out.time4 = b.stats.time - t1;
+    out.long = perFrame(0.1, 2);                          // a 10 s frame (a tab coming back): counts as MAX_FRAME, 8 steps
+    out.sane = [b.big.x, b.big.y, ...b.littles.flatMap(l => [l.x, l.y])].every(Number.isFinite) && b.mode === "play";
+    out.max = [C.MAX_STEPS, C.STEP];
+    b.autopilot(false, "careful"); b.mode = "home";
+    return out;
+  });
+  expect(r.slow20.every(n => n === 3), `20 Hz: 3 steps every frame (${r.slow20.slice(0, 6)}…)`).toBe(true);
+  expect(r.time20, "20 Hz: 5 s of game time in 5 s of real time").toBeCloseTo(5, 6);
+  expect(r.slow4.every(n => n === r.max[0]), `4 Hz: ${r.max[0]} steps every frame`).toBe(true);
+  expect(r.time4, "4 Hz: the game runs slower than real time, capped").toBeCloseTo(20 * r.max[0] * r.max[1], 6);
+  expect(r.long, "a very long frame counts as MAX_FRAME and runs at most MAX_STEPS steps").toEqual([8, 8]);
+  expect(r.sane, "nothing broke: finite positions, the level goes on").toBe(true);
+});
+
+// AC 1: pause and menus add nothing to the accumulator (the live loop does not feed the frame in them; a rendered page)
+test("pause adds no game time and no catch-up when play goes on", async ({ page }) => {
+  await page.evaluate(() => { const b = window.__bb; b.sim(false); });
+  try {
+    await page.evaluate(() => { const b = window.__bb; b.world = "park"; b.level = 5; b.startGame(1); });
+    await page.waitForTimeout(300);
+    const t1 = await page.evaluate(() => { const b = window.__bb; b.mode = "pause"; return b.stats.time; });
+    await page.waitForTimeout(700);
+    const t2 = await page.evaluate(() => window.__bb.stats.time);
+    expect(t2, "a paused game does not move").toBe(t1);
+    await page.evaluate(() => { window.__bb.mode = "play"; });
+    await page.waitForTimeout(150);
+    const t3 = await page.evaluate(() => { const b = window.__bb; b.mode = "home"; return b.stats.time; });
+    expect(t3 - t2, "no catch-up of the 0.7 s pause: only the 0.15 s since play went on (plus a frame)").toBeLessThan(0.15 + 0.3);
+    expect(t3 - t2).toBeGreaterThan(0);
+  } finally { await page.evaluate(() => { window.__bb.sim(true); window.__bb.mode = "home"; }); }
+});
