@@ -4,9 +4,9 @@ A top-down arcade game designed by kids: the **Little Ones** team against the **
 
 **Play:** https://andrei-danilin.github.io/bebebe-game/
 
-- Sneak up **behind** the Big One and hug him — he loses a heart.
-- If he **sees** you (yellow vision cone), he pushes you and you fall down: you can't move.
-- A friend must stand next to you for 3 seconds to help you up. If the friend steps away, the progress slowly
+- Sneak up **behind** Dad and hug him — he loses an angry heart.
+- If Dad **sees** you (yellow vision cone), he pushes you and you fall down: you can't move.
+- Another kid must stand next to you for 3 seconds to help you up. If the friend steps away, the progress slowly
   drains; if the friend gets pushed, it starts over. Bots set off to help 2–3 seconds after you fall.
   If nobody helps you up within 18 seconds, you go home to rest for 30 seconds, then come back.
   There is no game over — but every rest costs coins (−3 from the win line).
