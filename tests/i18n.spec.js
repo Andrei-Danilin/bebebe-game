@@ -71,10 +71,10 @@ test("the How to play rules: he pushes you and you fall down; no help → you go
   await openGame(page, { sim: true });
   const r = await page.evaluate(() => { const b = window.__bb, out = {}; for (const l of b.LANGS) out[l] = [b.I18N[l].rules(15)[1], b.I18N[l].rules(15)[3]]; return { out, rest: b.CFG.REST_TIME }; });
   expect(r.rest).toBe(30);
-  expect(r.out.en).toEqual(["If he SEES you (yellow beam), he pushes you and you fall down", "If nobody helps you up within 15 s, you go home to rest for 30 s"]);
-  expect(r.out.es).toEqual(["Si te VE (rayo amarillo), te empuja y te caés", "Si nadie te ayuda a levantarte en 15 segundos, te vas a casa a descansar 30 segundos"]);
-  expect(r.out.pt).toEqual(["Se ele te VÊ (raio amarelo), ele te empurra e você cai", "Se ninguém te ajudar a levantar em 15 s, você vai para casa descansar 30 s"]);
-  expect(r.out.ru).toEqual(["Увидит тебя (жёлтый луч) — толкнёт, и ты упадёшь", "Никто не помог встать за 15 сек — идёшь домой отдыхать 30 сек"]);
+  expect(r.out.en).toEqual(["If Dad SEES you (yellow beam), he pushes you and you fall down", "If nobody helps you up within 15 s, you go home to rest for 30 s"]);
+  expect(r.out.es).toEqual(["Si Papá te VE (rayo amarillo), te empuja y te caés", "Si nadie te ayuda a levantarte en 15 segundos, te vas a casa a descansar 30 segundos"]);
+  expect(r.out.pt).toEqual(["Se o Papai te VÊ (raio amarelo), ele te empurra e você cai", "Se ninguém te ajudar a levantar em 15 s, você vai para casa descansar 30 s"]);
+  expect(r.out.ru).toEqual(["Папа увидит тебя (жёлтый луч) — толкнёт, и ты упадёшь", "Никто не помог встать за 15 сек — идёшь домой отдыхать 30 сек"]);
 });
 
 // SPEC-035 AC 4: the character is Dad and the kids everywhere a player reads: no text names him "Big One" / "Grandote" / "Grandão" /

@@ -22,6 +22,8 @@ import { G } from "../../core/active.js";
 // =====================================================================
 // SPEC-022: заголовок экрана победы: «<имя> снова добрый!» — босс уровня по имени босса, иначе набранное имя или «Папа»
 export const winTitle = () => L().kindAgain(bossFor(G.world, G.level) ? L().bossNames[G.world] : nameFor("big"));
+// SPEC-035: заголовок проигрыша — «<имя> всё ещё сердится…»: имя папы (набранное или по умолчанию), без слов «Большой победил»
+export const loseTitle = () => L().lose(nameFor("big"));
 // Ширина текста меряется с LOOK.TEXT_TEST_SCALE (тесты изображают более широкие шрифты CI и iPhone): плашка всегда шире текста
 function drawBonusNote(cx, cy, maxW, h, css) {
   if (!lastReward || !lastReward.bonusUnlocked) return;
@@ -129,7 +131,8 @@ export function endPhone() {
     // SPEC-016: под строками звёзд и наградой, над кнопками, по центру экрана — во всю ширину (испанский текст в левую колонку не влезал)
     drawBonusNote(UW / 2, Math.min(Y0 + c(262), Y1 - bh - g - c(15)), X1 - X0 - 2 * g, c(28), 15);
   } else {
-    pLabel(L().lose, lx, Y0 + c(40), "title", 36, "#fca5a5", "center", colW);
+    pLabel(loseTitle(), lx, Y0 + c(40), "title", 36, "#fca5a5", "center", colW);
+    ui.hudRects.push({ id: "lose:title", x: lx - lastFit.w / 2, y: Y0 + c(40) - lastFit.sz * 0.6, w: lastFit.w, h: lastFit.sz * 1.2, text: lastFit.text, size: lastFit.sz });
     pWrap(L().loseSub(fmtHearts(G.big.maxHp - G.big.hp), G.big.maxHp), lx, Y0 + c(70), "main", 17, colW, 3, endInk("text", "#fff"), 900);
     const sc = lastReward ? lastReward.starCoins || 0 : 0, hugCoins = lastReward ? lastReward.coins - sc : 0;
     if (hugCoins > 0) { coinIcon(rx - c(70), Y0 + c(60), c(12)); pLabel(L().forHugs(hugCoins), rx - c(50), Y0 + c(60), "main", 18, endInk("gold", "#fde047"), "left", colW - c(30)); }
@@ -186,7 +189,8 @@ export function winDesktop() {
 }
 export function loseDesktop() {
   endPaper(LOOK.PAPER.loseBox);
-  label(L().lose, UW / 2, UH / 2 - 100, 58, "#fca5a5");
+  labelFit(loseTitle(), UW / 2, UH / 2 - 100, 58, LOOK.PAPER.loseBox[0] - 60, "#fca5a5", "center", LOOK.WIN_TITLE_DESK.min);   // SPEC-035: the title shrinks to the paper's width
+  ui.hudRects.push({ id: "lose:title", x: UW / 2 - lastFit.w / 2, y: UH / 2 - 100 - lastFit.sz * 0.6, w: lastFit.w, h: lastFit.sz * 1.2, text: lastFit.text, size: lastFit.sz });
   label(L().loseSub(fmtHearts(G.big.maxHp - G.big.hp), G.big.maxHp), UW / 2, UH / 2 - 35, 24, endInk("text", "#fff"));
   const sc = lastReward ? lastReward.starCoins || 0 : 0, hugCoins = lastReward ? lastReward.coins - sc : 0;
   if (hugCoins > 0) { coinIcon(UW / 2 - 70, UH / 2 - 2, 13); label(L().forHugs(hugCoins), UW / 2 - 50, UH / 2 - 2, 20, endInk("gold", "#fde047"), "left"); }

@@ -119,6 +119,7 @@
  "loadOutfits": "function",
  "loadProgress": "function",
  "look3D": "function",
+ "loseTitle": "function",
  "mapInfo": "getter",
  "mapPieces": "function",
  "mapTick": "function",
