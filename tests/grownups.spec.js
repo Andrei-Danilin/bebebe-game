@@ -177,6 +177,9 @@ test("erase all data: every bebebe-* key goes, the old keys too; the game starts
   await answer(page);                                               // review fix: erase all asks the gate again
   await Promise.all([page.waitForEvent("load"), pageAct(page, "eraseYes")]);
   await page.waitForFunction(() => window.__bbReady === true);
+  // a new device again: SPEC-032's language screen first (English highlighted, Enter picks it), then the first-run comic
+  await page.waitForFunction(() => window.__bb.mode === "lang", null, { timeout: 30_000 });
+  await page.keyboard.press("Enter");
   await page.waitForFunction(() => window.__bb.mode === "scene", null, { timeout: 30_000 });   // the first-run comic again
   const r = await page.evaluate(() => ({ coins: window.__bb.progress.coins, intro: window.__bb.progress.seen.intro, name: window.__bb.names.p1,
     keys: Object.keys(localStorage).filter(k => k.startsWith("bebebe-") && k !== "bebebe-save-backup").sort() }));   // the new game's own save (and its backup)
