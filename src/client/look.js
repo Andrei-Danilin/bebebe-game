@@ -70,10 +70,17 @@ export const LOOK = {
   LANG_SCREEN: { w: 0.34, maxW: 300, h: 76, gap: 22, size: 30, ring: 5, glow: "#facc15", ringR: 0.4, min: 0.6 },
   BUBBLE_MIN: { phone: 8, desk: 9 },   // SPEC-032 AC 10 (придумал Claude): самый мелкий текст в облачках комикса — CSS px на телефоне, px на компьютере
   STORY_TEXT_MIN: 12,        // CSS px — самый мелкий текст глав, подписей заставок и облачков на телефоне (остальное — PHONE_TEXT)
+  // SPEC-033: экран победы — зазор между заголовком и строкой под ним (доля кегля строки, не меньше 0,25; запас); ряд звёзд телефона (CSS px: центр по y
+  // от верха рамки, радиус, зазор от нижнего края заголовка до верха звёзд); заголовок компьютера — кегль до size и самый мелкий кегль (потом две строки)
+  WIN_GAP: 0.3,
+  WIN_STARS: { y: 138, r: 21, gap: 3 },
+  WIN_TITLE_DESK: { size: 30, min: 20 },
+  // SPEC-033: запас ширины для подписи цены «Взять за 🪙 N» (шрифты CI и iPhone шире наших): не влезла — короче (priceLabel, text.js); компьютер и телефон
+  PRICE_FIT_MARGIN: 1.15,
+  // SPEC-033 AC 13: сек — «Да» в «Выйти из игры?» закрывает окно; не закрылось (браузер отказал) — защитная запись истории снова на месте
+  BACK_CLOSE_WAIT: 0.6,
   // SPEC-031: картинка рядом с текстом (глава «Истории»; заставка на телефоне): текст не влез и самым мелким — картинка уже на step
   // доли ширины, но не уже min доли; заставка на компьютере (подпись под картинкой): картинка не ниже minH доли высоты
-  WIN_GAP: 0.3,              // SPEC-033 AC 12: зазор между заголовком победы и строкой под ним — доля кегля строки (не меньше 0,25; запас)
-  PHONE_PRICE_FIT: 1.15,           // SPEC-033: запас ширины для подписи цены «Взять за 🪙 N» (шрифты CI и iPhone шире наших): не влезла — короче (priceLabel)
   STORY_PIC: { min: 0.4, step: 0.02, minH: 0.4 },
   PHONE_CHIP_FONT: 1.3,      // SPEC-029: кружок команды на телефоне — под метку шрифтом до 30 % шире (CI, iPhone)
   // карточки магазина на телефоне (SPEC-007 AC 10), CSS px: картинка (обычная, самая маленькая, насколько может вырасти),
@@ -82,7 +89,7 @@ export const LOOK = {
   // scan — шаг подбора размера картинки, eps — допуск сравнения (UI px)
   PHONE_SHOP: { pic: 30, picMin: 18, picGrow: 16, picW: 1.3, picBox: 1.1, badge: 11, badgeMin: 9, pad: 6, sp: 3, gap: 2, side: 5,
     nameLines: 2, descLines: 4, packLines: 2, shortLines: 1, haveLines: 2, noLines: 2, scan: 1, eps: 0.01,
-    RESET_FIT: 1.15 },        // запас для надписи «Сбросить прогресс»: не влезает с ним — короткая «Сброс» (SPEC-009, шрифты CI шире)
+    RESET_FIT: 1.15 },        // запас для надписи средней кнопки вкладки Персонажа (tabs.js: шрифты CI и iPhone шире наших)
   // SPEC-020: картинки из папки dir (их делает npm run assets из art/); экран загрузки ждёт их не дольше waitMs мс, остальные
   // появятся, когда догрузятся (до тех пор и при ошибке — рисунок кодом, как раньше)
   ART: { dir: "assets/", waitMs: 5000 },
@@ -182,7 +189,7 @@ export const LOOK = {
   MENU_LOOK: { card: "rgba(255,250,235,.96)", cardLine: 5, title: "#ffcf33", pill: "#ffffff", pillLine: 3, ink: "#3d2b1f",
     locked: "#e5e7eb", lockedInk: "#64748b", lockedVeil: "rgba(226,232,240,.7)", play: "#16a34a", storyBtn: "#ec4899", shop: "#f59e0b", icon: "#cbd5e1", back: "#64748b",
     nav: "#94a3b8", ok: "#22c55e", alt: "#22c55e", tabOn: "#f59e0b", tabOff: "#cbd5e1", type: "#7c3aed", dim: "rgba(20,30,25,.45)", panel: "#ffffff",
-    friends: "#a78bfa", friendsTitle: "#8b5cf6", dice: "#fbbf24", reset: "#94a3b8", armed: "#ef4444", note: "#64748b", lockNote: "#b45309", soft: "#475569", bigInk: "#9b2c3a",
+    friends: "#a78bfa", friendsTitle: "#8b5cf6", dice: "#fbbf24", note: "#64748b", lockNote: "#b45309", soft: "#475569", bigInk: "#9b2c3a",
     frame: { w: 880, y: 26, h: 590, r: 30, padX: 15, padY: 14, g: 10, B: 50, tabsW: 655 },
     home: { w: 660, y: 40, h: 560, r: 30, titleSize: 54, pad: 14, gap: 12, col: 0.4, colW: 320, top: 24, logoGap: 26, btnGap: 14, logoW: 1.4, logoBand: 0.5,
       playH: 84, playSize: 34, subH: 62, subSize: 26, iconW: 56, langW: 92, iconH: 44, iconSize: 18, iconPad: 16,

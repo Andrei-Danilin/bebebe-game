@@ -200,6 +200,7 @@ function onPadButton(b, pad = 0) {
   } else if (mode === "home") {
     const a = homeActions().find(q => q.pad.includes(b));   // SPEC-017: A — «Играть», X — история, Y — магазин
     if (a) a.act();
+    else if (b === 1) goBack();                              // SPEC-033: B — как Escape: «Выйти из игры?»
   } else if (mode === "map") {
     if (b === 14 || b === LOOK.PAD_PREV_WORLD) cycleWorld(-1);   // крестовина ←/→ и бамперы — миры
     if (b === 15 || b === LOOK.PAD_NEXT_WORLD) cycleWorld(1);
@@ -295,7 +296,7 @@ export function initInput() {
   window.addEventListener("keydown", e => {
     if (nameInput) return;                     // печатают имя: игровые клавиши (WASD, M, L, Esc…) не трогаем
     if (cardOpen()) {                          // SPEC-025: a card over the game — keys do not reach the game; Enter / Space press the card
-      if (e.code === "Escape" && leaveCancel()) { keys.add(e.code); return; }   // SPEC-033: Escape on the Leave dialog = No
+      if (e.code === "Escape" && !e.repeat && leaveCancel()) { keys.add(e.code); return; }   // SPEC-033: Escape on the Leave dialog = No (holding it must not close what it just opened)
       if (e.code === "ArrowLeft" || e.code === "ArrowRight") { e.preventDefault(); moveCardFocus(e.code === "ArrowLeft" ? -1 : 1); }
       else if (e.code === "Enter" || e.code === "NumpadEnter" || e.code === "Space") { e.preventDefault(); if (!keys.has(e.code)) pressCard(); }   // the highlighted (or Tab-focused) button
       keys.add(e.code);

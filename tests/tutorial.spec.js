@@ -736,13 +736,14 @@ test("How to play card: Practice, Pictures and a plain openTutorial do not show 
     b.sceneSkip();
     b.mode = "home"; b.openTutorial("story"); out.again = [b.mode, b.scene && b.scene.id, b.tutorial.step];
     b.tutorialSkip();
-    out.steps = b.TUTORIAL_STEPS;
+    out.steps = b.TUTORIAL_STEPS; out.first = b.FIRST_STEPS;
     return out;
   });
   expect(r.practice, "Practice: game 1 at once").toEqual(["play", null, "game1"]);
   expect(r.pictures, "Pictures: the viewer").toEqual(["scene", "tutorial_pics"]);
   expect(r.again, "a review from How to play starts at page A").toEqual(["scene", "tutorial_a", "a"]);
   expect(r.steps).not.toContain("intro");
+  expect(r.first, "the first-launch list (SPEC-033): the card, then every step").toEqual(["intro", ...r.steps]);
 });
 
 // ---------- AC 4 (SPEC-032 AC 8): Practice on the "How to play" page runs only the two practice games, back on the Story ----------

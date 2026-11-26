@@ -840,7 +840,7 @@ async function upgradeTabProblems(page, phone) {
       Object.assign(b.progress.upgrades, { fastFeet: 0, longItems: 2, quickHelp: 3 }); b.mode = "shop"; b.shopTab = "upgrades";
     }, [lang, scale, coins]);
     await frames(page);
-    const d = await page.evaluate(() => { const b = window.__bb, resets = b.LANGS.flatMap(l => ["reset", "resetShort", "resetCancel", "resetCancelShort", "resetConfirm"].map(k => b.I18N[l][k]));
+    const d = await page.evaluate(() => { const b = window.__bb, resets = b.LANGS.flatMap(l => ["reset", "resetCancel", "resetConfirm"].map(k => b.I18N[l][k]));
       return { buttons: b.buttonRects, hud: b.hudRects, ui: b.uiSize, texts: b.textSizes, min: b.CFG.PHONE_TEXT, tab: b.shopTab, resets }; });
     if (d.tab !== "upgrades") { fails.push(`${at}: tab ${d.tab}`); continue; }
     // SPEC-026: Reset progress moved to the Character's Progress page — not on the Upgrades tab

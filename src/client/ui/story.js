@@ -16,7 +16,7 @@ import { fitButton, rowsAt } from "./character/wardrobe.js";
 import { circle, drawArtFit, fillStroke, fillT, heartPath, noteArt, regButton, rr } from "./draw.js";
 import { lockedText, WORLD_ICONS } from "./map.js";
 import { menuFrame } from "./menu.js";
-import { cpx, hudFont, label, minPx, noteRows, noteText, noteUnfit, plainText, scaledW, sideFit, storyMin, storyPx } from "./text.js";
+import { cpx, hudFont, label, minPx, noteRows, noteText, noteUnfit, plainText, scaledW, sideFit, storyMin, storyPx, titleRows } from "./text.js";
 import { fitLine } from "./win.js";
 
 // SPEC-032 AC 7: значки правил «Как играть» — картинки по порядку RULE_ICONS (❤ 👀 🤝 ⏱ 🏠 🍌 👣); нет картинки — эмодзи
@@ -93,7 +93,7 @@ export function drawStory() {
   const one = c.id === "began" && !c.image, cr = one ? M.scene.panels[0] : [0, 0, 1, 1];
   // SPEC-020: картинка главы — свой путь (c.image) или комикс из art/ (STORY_ART); нет — заглушка
   const own = open && c.image ? storyPicture(c) : null, artName = open && !c.image ? STORY_ART[c.id] : null, img = own || (artName && art(artName));
-  const aspect = img ? (img.width * cr[2]) / (img.height * cr[3]) : 1.4;
+  const aspect = one && img ? (img.width * cr[2]) / (img.height * cr[3]) : 1.4;   // other chapters: the old width cap (AC 4: unchanged)
   const { pw, tW, b } = sideFit(text, X1 - X0, mh, 2 * g, one ? S.picBig : S.pic, p => Math.min((X1 - X0) * p, mh * aspect), size, min), picShare = pw / (X1 - X0);
   const pic = { x: X0, y: top, w: pw, h: mh };
   let imgRect = null, picBox = pic;
@@ -265,18 +265,6 @@ function paperPicture(img, cr, pic, name) {
   noteArt(name);
   tape(ix + 6 * k, iy + 2 * k, -0.7, k * 0.8); tape(ix + iw - 6 * k, iy + 2 * k, 0.7, k * 0.8);
   return { ix, iy, iw, ih, box: { x: ix - fr - 1.5 * k, y: iy - fr - 1.5 * k, w: iw + 2 * fr + 3 * k, h: ih + 2 * fr + 3 * k } };
-}
-// название карточки: слова переносятся (не больше lines строк), кегль мельче до min; меряется шрифтом label (hudFont)
-function titleRows(text, size, min, maxW, lines) {
-  for (let sz = size; ; sz = Math.max(min, sz - 0.5)) {
-    ctx.font = hudFont(sz);
-    const rows = [];
-    let cur = "";
-    for (const wd of text.split(" ")) { const t = cur ? cur + " " + wd : wd; if (scaledW(t) > maxW && cur) { rows.push(cur); cur = wd; } else cur = t; }
-    rows.push(cur);
-    const w = Math.max(...rows.map(scaledW)), fit = rows.length <= lines && w <= maxW;
-    if (fit || sz <= min) return { rows, sz, w: Math.min(maxW, w), fit };
-  }
 }
 // SPEC-033 AC 2: карточка «Как играть» (после комикса на первом запуске): большое название, строка под ним, картинка howto_card (нет — клетка A1
 // tutorial_a; нет и её — запасная страница) в бумажной рамке. Телефон: картинка слева, текст справа по центру; компьютер: название и строка

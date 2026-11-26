@@ -380,7 +380,7 @@ test("SPEC-026: the Progress page shows the save: look and name, stars, worlds, 
 });
 
 test("SPEC-033: Progress, Items, Upgrades and Wardrobe have no reset control (it is on the grown-ups page)", async ({ page }) => {
-  const resets = await page.evaluate(() => window.__bb.LANGS.flatMap(l => ["reset", "resetShort", "resetCancel", "resetCancelShort", "resetConfirm"].map(k => window.__bb.I18N[l][k])));
+  const resets = await page.evaluate(() => window.__bb.LANGS.flatMap(l => ["reset", "resetCancel", "resetConfirm"].map(k => window.__bb.I18N[l][k])));
   await page.evaluate(save => { const b = window.__bb; b.setProgress(save); b.mode = "home"; }, MIXED);
   await click(page, "home:shop");
   for (const tab of ["progress", "items", "upgrades", "wardrobe"]) {
@@ -950,19 +950,9 @@ test("every price shows the coin picture: Items, Upgrades, kid looks and Big One
 test("every price shows the coin picture (phone 667×375)", async ({ phonePage: page }) => {
   const fails = await pricesAt(page);
   expect(fails).toEqual([]);
-  // the narrow phone cards of the Items tab, in every language: always the coin and the number, the text inside its button
-  // (a long "Conseguir por 🪙 30" gives way to "Conseguir 🪙 30" or "🪙 30")
-  for (const l of ["en", "es", "pt", "ru"]) for (const scale of [1, 1.15]) {
-    await page.evaluate(([lang, sc]) => { const b = window.__bb; b.setLang(lang); b.CFG.TEXT_TEST_SCALE = sc; b.progress.coins = 500; b.mode = "shop"; b.shopTab = "items"; }, [l, scale]);
-    await frames(page);
-    const d = await page.evaluate(() => window.__bb.buttonRects.filter(q => q.id.startsWith("buy:")).map(q => ({ id: q.id, text: q.text, textW: q.textW, w: q.w })));
-    expect(d.length, `${l} ×${scale}: four prices`).toBe(4);
-    for (const q of d) {
-      expect(q.text, `${l} ×${scale} ${q.id}`).toMatch(/🪙 \d+$/);
-      expect(q.textW, `${l} ×${scale} ${q.id}: the text fits its button`).toBeLessThanOrEqual(q.w + 0.5);
-    }
-  }
-  await page.evaluate(() => { const b = window.__bb; b.CFG.TEXT_TEST_SCALE = 1; b.setLang("en"); b.mode = "home"; });
+  // the narrow phone cards of the Items and Upgrades tabs, in every language: always the coin and the number, the text inside its button
+  // (a long "Conseguir por 🪙 30" gives way to "Conseguir 🪙 30" or "🪙 30"); also with 15 % / 30 % wider fonts
+  await priceFits(page, [1, 1.15, 1.3]);
 });
 
 // SPEC-032 AC 17: no player-visible "Shop" is left — no L().shop and no 🛒 + text in the client code (the Items tab's 🛒 is its
@@ -972,4 +962,24 @@ test("no Shop left: the client never writes L().shop or a 🛒 button, I18N has 
   expect(src.match(/L\(\)\.shop\b/g), "L().shop in the client").toBe(null);
   expect((src.match(/"🛒 " \+/g) || []).length, "a 🛒 + text button").toBe(0);
   expect(await page.evaluate(() => Object.keys(window.__bb.I18N).filter(l => "shop" in window.__bb.I18N[l]))).toEqual([]);
+});
+
+// SPEC-033 review: every price button of Items and Upgrades reads "… 🪙 N" and its text fits the button, in every language and with wider
+// fonts (the wording is built by one helper, priceLabel); b.textW is the real drawn width (scaled by TEXT_TEST_SCALE for fitButton, as
+// measured for the Items buttons — those shrink by the real font: PW_FONT=ci shows the CI font there)
+async function priceFits(page, scales) {
+  for (const [tab, prefix, n] of [["items", "buy:", 4], ["upgrades", "upg:", 3]]) for (const l of ["en", "es", "pt", "ru"]) for (const scale of scales) {
+    await page.evaluate(([lang, sc, t]) => { const b = window.__bb; b.setLang(lang); b.CFG.TEXT_TEST_SCALE = sc; b.setProgress(null); b.progress.coins = 500; b.mode = "shop"; b.shopTab = t; }, [l, scale, tab]);
+    await frames(page);
+    const d = await page.evaluate(p => window.__bb.buttonRects.filter(q => q.id.startsWith(p)).map(q => ({ id: q.id, text: q.text, textW: q.textW, w: q.w })), prefix);
+    expect(d.length, `${tab} ${l} ×${scale}: ${n} prices`).toBe(n);
+    for (const q of d) {
+      expect(q.text, `${tab} ${l} ×${scale} ${q.id}`).toMatch(/🪙 \d+$/);
+      expect(q.textW, `${tab} ${l} ×${scale} ${q.id}: the text fits its button`).toBeLessThanOrEqual(q.w + 0.5);
+    }
+  }
+  await page.evaluate(() => { const b = window.__bb; b.CFG.TEXT_TEST_SCALE = 1; b.setLang("en"); b.mode = "home"; });
+}
+test("every price button of Items and Upgrades fits in every language, also with wider fonts (desktop)", async ({ page }) => {
+  await priceFits(page, [1, 1.15, 1.3]);
 });

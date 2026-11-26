@@ -230,6 +230,7 @@ const storedSave = page => page.evaluate(() => { window.__bb.save.flush(); retur
 async function resetGame(page) {
   await page.evaluate(seed => {
     const b = window.__bb;
+    document.querySelectorAll(".bb-card").forEach(e => e.remove());   // SPEC-033: no card (the Leave dialog…) left over from the test before
     b.resetMenus();                                            // SPEC-029: no tutorial left running (resetWorld below builds a normal level)
     delete navigator.getGamepads; window.__pads = []; b.resetPads();   // gamepad stubs some tests leave behind (SPEC-025: and the pads' players)
     b.setLang("en"); b.clearLevelCache(); b.resetBannerTimer(); b.mode = "home"; b.seedRandom(seed); b.autopilot(false, "careful");   // SPEC-011 AC 8d: seeded; no autopilot, default style

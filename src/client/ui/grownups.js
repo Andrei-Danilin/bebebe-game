@@ -159,6 +159,7 @@ function askReset() {
   armReset();
   const v = subView([L().resetAsk], [[L().resetConfirm, "resetYes", doReset], [L().resetCancel, "resetNo", () => { cancelReset(); showPage(); }]]);
   const yes = /** @type {HTMLElement} */ (v.el.querySelector("[data-act=resetYes]")), no = /** @type {HTMLElement} */ (v.el.querySelector("[data-act=resetNo]"));
+  no.dataset.back = "1";                       // a system Back presses "No, keep it" (back.js)
   yes.style.opacity = "0.5";
   setTimeout(() => { yes.style.opacity = ""; }, CFG.RESET_CONFIRM_DELAY * 1000);   // a detached card just ignores it
   v.el.querySelectorAll("button").forEach(b => b.classList.toggle("hl", b === no));   // the highlight (Enter / pad A) starts on "No, keep it"
@@ -166,6 +167,7 @@ function askReset() {
 }
 // the confirm: ignored while resetConfirmReady() is false; then the progress is wiped (a copy is kept first) and the page comes back with the undo
 function doReset() {
+  if (!ui.resetArmed) { askReset(); return; }   // a screen change disarmed it under the view: ask again, the delay starts over
   if (!resetConfirmReady()) return;
   Promise.resolve(confirmReset()).then(() => showPage(), () => showPage());
 }
@@ -174,6 +176,7 @@ function confirmErase() {
   const v = subView([L().eraseAll + "?"], [[L().resetConfirm, "eraseYes", () => { eraseAll().then(() => location.reload()); }], [L().resetCancel, "eraseNo", () => showPage()]]);
   const no = /** @type {HTMLElement} */ (v.el.querySelector("[data-act=eraseNo]"));
   v.el.querySelectorAll("button").forEach(b => b.classList.toggle("hl", b === no));
+  no.dataset.back = "1";                       // a system Back = No (back.js)
   no.focus({ preventScroll: true });
 }
 

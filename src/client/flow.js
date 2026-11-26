@@ -332,6 +332,7 @@ export function watchChapter() {
 }
 // всё состояние экранов меню — как при запуске (тесты: resetGame); SPEC-029: и обучения нет
 export function resetMenus() {
+  document.getElementById("leave")?.remove();   // SPEC-033: the Leave dialog (back.js) is not left over a reset menu
   closeNameInput(false); ui.shopTab = "items"; ui.wardrobePage = "looks"; shopBack = "home"; mapSel = null; ui.toast = null; cardLevel = 1; ui.mapSwipe = null; ui.openedWorld = null; ui.worldBanner = null;
   storyCh = 0; storyBack = "home"; ui.storyPage = "chapters"; ui.storyScene = null; setTutorial(null); setPracticeStep(0);
 }

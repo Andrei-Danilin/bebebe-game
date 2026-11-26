@@ -139,7 +139,7 @@ export function itemsDesktop() {
     wrapText(c.desc, cx, y0 + 140, 14, w - 22, 2, "#475569", 700);
     fitText(c.pack, cx, y0 + 182, 13, w - 22, "center", "#64748b", 600);
     fitText(c.have, cx, y0 + 202, 14, w - 22, "center", c.n > 0 ? "#15803d" : "#94a3b8", 800);
-    const ok = progress.coins >= c.price, txt = L().buyFor(c.price);
+    const ok = progress.coins >= c.price, txt = priceLabel(c.price, bw - 12, 14);   // SPEC-033: the same price wording as everywhere (shortened when it does not fit)
     ctx.font = `900 19px system-ui, "Segoe UI", "Arial Rounded MT Bold", Arial, sans-serif`;
     let fs = 19;
     while (ctx.measureText(txt).width > bw - 12 && fs > 14) { fs -= 0.5; ctx.font = `900 ${fs}px system-ui, "Segoe UI", "Arial Rounded MT Bold", Arial, sans-serif`; }

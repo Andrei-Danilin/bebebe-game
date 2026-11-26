@@ -5,18 +5,22 @@
 //   card (the grown-ups page, the gate) is closed by its ✕; the Oops card stays.
 // - The home screen: the dialog (a DOM card, keys and pad work like on the other cards; the highlight starts on No); the guard is
 //   back under it, so another Back is a No. "Yes" goes back in history past the guard (two steps; the installed app closes).
+// - The guard is pushed at the player's first touch or key (Chrome skips history entries made before a user activation, so one pushed
+//   at start could be skipped by Back); a reload on a guard entry keeps it. Yes with nothing behind the game (an installed app, a tab
+//   with no earlier entry) closes the window; if the browser refuses, the guard stays and the next Back asks again.
 // - Sim mode has no history entries and no dialog. Client module.
 
 import { L } from "../i18n.js";
 import { hideCard, showCard } from "./errors.js";
 import { goBack, mode } from "./flow.js";
-import { simMode } from "./screen.js";
+import { LOOK } from "./look.js";
+import { isStandalone, simMode } from "./screen.js";
 import { ui } from "./state.js";
 
 // __bb.back: how many times "Yes" was chosen; noLeave — the tests count the leaves without navigating
 export const backInfo = { leaves: 0, noLeave: false };
-let onGuard = false, leaving = false;
-const GUARD = { bbGuard: 1 };
+let onGuard = false, leaving = false, closing = false;
+const GUARD = { bbGuard: 1 }, TOUCH = ["pointerdown", "keydown", "touchstart"];
 
 function pushGuard() {
   try { history.pushState(GUARD, ""); onGuard = true; } catch (e) { onGuard = false; /* no history (a sandboxed frame): Back leaves as usual */ }
@@ -41,22 +45,31 @@ export function leaveCancel() {
   stay();
   return true;
 }
+// nothing behind the game: the installed app, or history of only the game's own entry and our guard
+const nothingBehind = () => isStandalone() || history.length <= (onGuard ? 2 : 1);
 function leave() {
   hideCard("leave");
   backInfo.leaves++;
   if (backInfo.noLeave) return;
+  if (nothingBehind()) { closeWindow(); return; }
   try {
-    if (onGuard) leaving = true;           // asked by Escape: the guard is still on top — one Back takes it, the next one leaves
+    if (onGuard) leaving = true;           // the guard is on top — one Back takes it, the next one leaves
     history.back();
   } catch (e) { /* nothing to go back to */ }
+}
+// the app has no earlier page to go back to: close the window; a browser that refuses (a tab we did not open) leaves us here — then
+// the guard stays (or is put back) so the next Back asks again
+function closeWindow() {
+  try { window.close(); } catch (e) { /* refused */ }
+  setTimeout(() => { if (!closing && !onGuard) pushGuard(); }, LOOK.BACK_CLOSE_WAIT * 1000);
 }
 function onPop() {
   onGuard = false;
   if (leaving) { leaving = false; try { history.back(); } catch (e) { /* ignore */ } return; }
   if (leaveOpen()) { stay(); return; }           // a Back with the dialog open is a No
   const card = document.querySelector(".bb-card");
-  if (card) {                                    // another card is open: its ✕ closes it (the Oops card has none and stays)
-    const x = /** @type {HTMLElement | null} */ (card.querySelector("[data-act=close]"));
+  if (card) {                                    // another card is open: its ✕ (or its "No, keep it": data-back) closes it (the Oops card has none and stays)
+    const x = /** @type {HTMLElement | null} */ (card.querySelector("[data-act=close], [data-back]"));
     if (x) x.click();
     pushGuard();
     return;
@@ -70,6 +83,12 @@ function onPop() {
 export function initBack() {
   if (simMode) return;
   ui.homeBack = () => { if (!leaveCancel()) askLeave(); };   // flow.js goBack on the home screen (Escape, pad B): ask — or, with the dialog open, No
-  try { if (history.state && history.state.bbGuard) onGuard = true; else pushGuard(); } catch (e) { /* no history */ }   // a reload keeps its entry (and its guard)
   window.addEventListener("popstate", onPop);
+  window.addEventListener("pagehide", () => { closing = true; });
+  try {
+    if (history.state && history.state.bbGuard) { onGuard = true; return; }   // a reload keeps its entry (and its guard)
+    // the guard goes on at the first touch or key: an entry pushed before a user activation may be skipped by Back
+    const arm = () => { for (const t of TOUCH) window.removeEventListener(t, arm, true); if (!onGuard) pushGuard(); };
+    for (const t of TOUCH) window.addEventListener(t, arm, true);
+  } catch (e) { /* no history */ }
 }
