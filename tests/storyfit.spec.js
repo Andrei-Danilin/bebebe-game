@@ -251,8 +251,9 @@ async function bubbleCases([langs, ok]) {
         }
         if (!(all > 0 && white / all >= 0.95)) fail(at, `${t}: ${(100 * white / all).toFixed(1)} % of the picture under the text is white`);
       }
-      // nothing but the letters changes: every changed pixel lies in a text box (2 px of anti-aliasing around it)
-      const boxes = bubbles.map(q => [(q.x - 2) * k, (q.y - 2) * k, (q.x + q.w + 2) * k, (q.y + q.h + 2) * k]);
+      // nothing but the letters changes: every changed pixel lies in a text box (2 px of anti-aliasing around it, or 0.3 of the
+      // font size when that is more: an accent over a capital — "É", "Ó" — rises above the line box; CI run 45741208870)
+      const boxes = bubbles.map(q => { const m = Math.max(2, 0.3 * q.size); return [(q.x - m) * k, (q.y - m) * k, (q.x + q.w + m) * k, (q.y + q.h + m) * k]; });
       let stray = 0, changed = 0, sx0 = Infinity, sy0 = Infinity, sx1 = -1, sy1 = -1;
       for (let i = 0; i < on.length; i += 4) {
         const same = (a, c) => a[i] === c[i] && a[i + 1] === c[i + 1] && a[i + 2] === c[i + 2] && a[i + 3] === c[i + 3];
