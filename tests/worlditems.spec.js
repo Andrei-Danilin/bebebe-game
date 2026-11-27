@@ -94,7 +94,37 @@ test("How to play rule 6 ends with its own surprise in each world, in all four l
   await openGame(page, { sim: true });
   const t = await page.evaluate(() => Object.fromEntries(["en", "es", "pt", "ru"].map(l => [l, window.__bb.I18N[l].rules(10)[5]])));
   expect(t.en).toContain("in each world its own surprise");
-  expect(t.es).toContain("en cada mundo, su propia sorpresa");
-  expect(t.pt).toContain("em cada mundo, uma surpresa");
-  expect(t.ru).toContain("в каждом мире — своя неожиданность");
+  expect(t.es).toContain("en cada mundo, su sorpresa");
+  expect(t.pt).toContain("em cada mundo uma surpresa");
+  expect(t.ru).toContain("в каждом мире своя неожиданность");
+});
+
+// ================= Dad's marks are drawn (draw.js), as the pictures of EMOJI_ART =================
+test("Dad's marks of the new states are drawn over his head, each as its picture (🧊 for frozen, not the winter world icon)", async ({ page }) => {
+  const errors = await openGame(page);
+  await page.waitForFunction(() => window.__bb.artInfo.done, null, { timeout: 15_000 });
+  await page.evaluate(() => { const b = window.__bb; b.world = "city"; b.level = 3; b.startGame(1); b.autopilot(false); });
+  const cases = [
+    ["banana", { slip: 60, slipKind: "banana" }, "🍌💫", ["item_banana", "fx_dizzy"]],
+    ["melon", { slip: 60, slipKind: "melon" }, "🍉💫", ["item_watermelon", "fx_dizzy"]],
+    ["ball", { slip: 60, slipKind: "ball" }, "💫", ["fx_dizzy"]],
+    ["eat", { slip: 60, slipKind: "eat" }, "🧁💗", ["icon_cupcake", "fx_hearts"]],
+    ["freeze", { slip: 60, slipKind: "freeze" }, "🧊", ["item_snowball"]],
+    ["plane look", { slip: 0, watch: 60, watchX: 700, watchY: 100 }, "✈", ["item_paperplane"]]
+  ];
+  for (const [name, state, mark, arts] of cases) {
+    await page.evaluate(st => {
+      const b = window.__bb;
+      Object.assign(b.big, { kind: false, slip: 0, watch: 0, cake: 0, slipKind: "banana", stun: 0, blush: 0, noPush: 0, state: "look", timer: 999, hearLook: 999, hugCd: 9999, x: 480, y: 300 }, st);
+      b.littles.forEach((l, i) => Object.assign(l, { x: i === 0 ? 470 : 100 + 30 * i, y: i === 0 ? 345 : 590, state: "ok" }));
+      b.game.itemCd = 1e9; b.items.length = 0; b.resetArtUse();
+    }, state);
+    await frames(page);
+    await page.evaluate(() => window.__bb.resetArtUse());
+    await frames(page);
+    const r = await page.evaluate(() => ({ mark: window.__bb.bigMark, use: window.__bb.artUse }));
+    expect(r.mark, `${name}: the mark`).toBe(mark);
+    for (const a of arts) expect(r.use[a] > 0, `${name}: ${a} drawn (${JSON.stringify(r.use)})`).toBe(true);
+  }
+  expect(errors).toEqual([]);
 });

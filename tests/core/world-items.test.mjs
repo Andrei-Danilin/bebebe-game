@@ -2,7 +2,7 @@
 // autopilot (AC 4). Core tests: headless games at the fixed step, seeded.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { CELL, CFG, WORLDS, cellsOf, checkContacts, createGame, spawnItem, step, updateBig, updateItems, updateShots, useGame, withGame } from "../../src/core/index.js";
+import { CELL, CFG, WORLDS, autopilot, cellsOf, checkContacts, createGame, spawnItem, step, updateBig, updateBigPlayer, updateItems, updateShots, useGame, withGame } from "../../src/core/index.js";
 
 // n spawns in a game of `world`, one at a time (the map is emptied between them); → { kind: count }
 function sample(world, n, opts = {}) {
@@ -266,21 +266,75 @@ test("cupcake: he does not see one farther than 5 cells or behind him, and he ch
   assert.equal(kid.big.state, "chase", "he chases the kid, not the cake");
   assert.equal(kid.big.cake, 0);
 });
-test("cupcake: one he cannot reach is given up, and a boss eats for half the time", () => {
+// a wall (not for the eyes) between Dad at (480, 320) and the cupcake 3 cells ahead, on the kids' grids and on his: the cupcake cannot be reached
+function walledCake() {
   const g = clearGame("city");
   const it = addItem(g, "cupcake", 480 + 3 * CELL, 320);
-  g.obstacles = [{ shape: "rect", x: 480 + CELL, y: 0, w: CELL, h: 640, move: true, sight: false }];   // a wall between them (not for the eyes)
-  for (let j = 0; j < 80; j++) for (const i of [16, 17, 18, 19, 20]) { g.moveGrid[j * 120 + 60 + (i - 16)] = 1; g.moveGridBig[j * 120 + 60 + (i - 16)] = 1; }
+  g.obstacles = [{ shape: "rect", x: 480 + CELL, y: 0, w: CELL, h: 640, move: true, sight: false }];
+  for (let j = 0; j < 80; j++) for (let i = 0; i < 5; i++) { g.moveGrid[j * 120 + 60 + i] = 1; g.moveGridBig[j * 120 + 60 + i] = 1; }
   for (let c = 0; c < 20; c++) { g.blocked[c * 30 + 16] = 1; g.blockedBig[c * 30 + 16] = 1; }
-  withGame(g, () => { for (let i = 0; i < Math.ceil((WI.cupcake.giveUp + 2) / DT) && it.t < it.life; i++) { updateBig(DT); updateItems(DT); } });
-  assert.ok(it.t >= it.life, "he gave up waiting for it");
+  return { g, it };
+}
+// the longest time Dad stands in patrol (or walks less than half a cell) over `seconds`, as the stall guard (SPEC-037) sees it
+function longestStill(g, seconds) {
+  let x0 = null, still = 0, worst = 0;
+  withGame(g, () => {
+    for (let i = 0; i < Math.round(seconds / DT); i++) {
+      updateBig(DT); updateItems(DT);
+      if (g.big.state === "patrol") { if (x0 && Math.hypot(g.big.x - x0.x, g.big.y - x0.y) < CELL / 2) still += DT; else { x0 = { x: g.big.x, y: g.big.y }; still = 0; } worst = Math.max(worst, still); } else { x0 = null; still = 0; }
+    }
+  });
+  return worst;
+}
+test("cupcake: one he cannot reach is ignored (he does not walk to it), so he never stands stuck in patrol", () => {
+  const { g, it } = walledCake();
+  assert.ok(longestStill(g, WI.cupcake.giveUp + 3) <= CFG.BALANCE.STALL.TIME, "no stall");
+  assert.equal(g.big.cake, 0, "never went for it");
   assert.equal(g.big.slip, 0);
+  assert.ok(it.t < it.life, "it is still there (he just does not see a way to it)");
+});
+test("cupcake: a walk that gets nowhere (pressed on a wall) is given up after `stuck` s, by the way he went, not by whether he moves", () => {
+  const { g, it } = walledCake();
+  g.big.cake = it.id;                                                      // he is already on his way (a wall appeared, a friend fell in the way…)
+  const t0 = g.stats.time;
+  assert.ok(longestStill(g, WI.cupcake.giveUp + 3) <= CFG.BALANCE.STALL.TIME, "no stall");
+  assert.ok(it.t >= it.life, "he gave the cupcake up");
+  assert.equal(g.big.cake, 0);
+  void t0;
+});
+test("cupcake: a boss eats for half the time", () => {
   const b = clearGame("city");
   b.big.boss = "city";
   addItem(b, "cupcake", 480 + 3 * CELL, 320);
   withGame(b, () => { for (let i = 0; i < 300 && b.big.slip <= 0; i++) { updateBig(DT); updateItems(DT); } });
   assert.ok(Math.abs(b.big.slip - WI.cupcake.time * WI.bossMul) < 0.1, `boss eats ${b.big.slip}`);
 });
+test("a Dad a player moves has no plane look and no cupcake walk or meal (his AI does not run; the effects that lay him down still do)", () => {
+  const slots = [{ slot: "p1", kind: "player" }, { slot: "big", kind: "player" }];
+  const g = clearGame("school", { slots });
+  assert.ok(g.big.player);
+  g.big.dir = Math.PI / 2; Object.assign(g.big, { x: 480, y: 200 });
+  addItem(g, "cupcake", 480, 235);                                         // in front of him, within reach
+  const it = addItem(g, "plane", 300, 320);
+  runInto(g, g.littles[0], it, 0);
+  tick(g);
+  Object.assign(g.littles[0], { x: 100, y: 40, moving: false });
+  flight(g);
+  assert.equal(g.big.watch, 0, "no plane look");
+  withGame(g, () => { for (let i = 0; i < 90; i++) { updateBigPlayer(DT); updateItems(DT); } });
+  assert.equal(g.big.cake, 0);
+  assert.equal(g.big.slip, 0, "no meal");
+  assert.equal(g.items.filter(i => i.kind === "cupcake").length, 1, "the cupcake is still there");
+  addItem(g, "watermelon", g.big.x, g.big.y);                              // a watermelon still lays him down
+  tick(g);
+  assert.equal(g.big.slipKind, "melon");
+});
+test("the plane look waits for the blush: a red Dad (just kissed) does not turn to a plane", () => {
+  const g = planeGame({ blush: 3 });
+  throwPlane(g);
+  assert.equal(g.big.watch, 0);
+});
+
 test("cupcake: no effect in a practice game", () => {
   const p = clearGame("city", { practice: 2 });
   addItem(p, "cupcake", 480 + 2 * CELL, 320);
@@ -459,17 +513,27 @@ test("snowball and plane: a bot or the autopilot runs through one that lies near
     }
   }
 });
-test("same seed, same game: a world-item level plays the same twice, and with WORLD_ITEMS_ON 0 no world item ever appears", () => {
+test("same seed, same game: the five world levels play the same twice, with world items used (counted per kind); with WORLD_ITEMS_ON 0 none appears", () => {
   const run = on => {
     const keep = CFG.WORLD_ITEMS_ON; CFG.WORLD_ITEMS_ON = on;
     try {
-      const g = createGame({ world: "winter", n: 3, seed: 21, fx: false });
-      const seen = new Set();
-      for (let i = 0; i < 3600; i++) { step(g, DT); for (const it of g.items) seen.add(it.kind); }
-      return { sig: JSON.stringify([g.events.map(e => e.type + e.t.toFixed(3)), g.big.x, g.big.y]), seen };
+      const sig = [], counts = {}, seen = new Set();
+      for (const world of ["field", "city", "school", "beach", "winter"]) for (const seed of [21, 22]) {
+        const g = createGame({ world, n: 3, seed, fx: false, slots: [{ slot: "p1", kind: "player" }] });
+        withGame(g, () => autopilot(true, "careful"));
+        for (let i = 0; i < 5400; i++) { step(g, DT); for (const it of g.items) seen.add(it.kind); }
+        for (const e of g.events) if (e.type === "worldItem") counts[e.kind + ":" + e.effect] = (counts[e.kind + ":" + e.effect] || 0) + 1;
+        sig.push(g.events.map(e => e.type + e.t.toFixed(3)).join(), g.big.x, g.big.y);
+      }
+      return { sig: JSON.stringify(sig), counts, seen };
     } finally { CFG.WORLD_ITEMS_ON = keep; }
   };
-  assert.equal(run(1).sig, run(1).sig, "deterministic");
-  assert.ok(run(1).seen.has("snowball"), "a snowball pile shows up within a minute of Winter");
-  assert.ok(!run(0).seen.has("snowball"));
+  const a = run(1), b = run(1);
+  assert.equal(a.sig, b.sig, "deterministic");
+  assert.deepEqual(a.counts, b.counts, "the same uses");
+  assert.ok(Object.values(a.counts).reduce((x, y) => x + y, 0) > 0, `world items were used: ${JSON.stringify(a.counts)}`);
+  for (const k of ["football", "cupcake", "plane", "watermelon", "snowball"]) assert.ok(a.seen.has(k), `${k} showed up`);
+  const off = run(0);
+  assert.deepEqual(off.counts, {});
+  for (const k of ["football", "cupcake", "plane", "watermelon", "snowball"]) assert.ok(!off.seen.has(k), `${k} never with WORLD_ITEMS_ON 0`);
 });

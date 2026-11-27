@@ -68,48 +68,56 @@ export function makeWorldItemMesh(kind) {
 
 // ---------- the flying ones ----------
 function makeShotMesh(kind) { const m = new THREE.Group(), o = kind === "snowball" ? snowball() : BUILD[kind](); o.scale.setScalar(L().scale); m.add(o); m.traverse(o => { if (o.isMesh) o.castShadow = true; }); return m; }
+const hasShot = id => { for (const s of G.shots) if (s.id === id) return true; return false; };
+const AXIS = new THREE.Vector3();                           // scratch: the football's roll axis (no allocation per frame)
 export function syncShots(t) {
   if (!G.shots.length && !shotMeshes.size) return;
-  const K = L(), alive = new Set(G.shots.map(s => s.id));
-  for (const [id, g] of shotMeshes) if (!alive.has(id)) { shotGroup.remove(g); disposeTree(g); shotMeshes.delete(id); }
+  const K = L();
+  for (const [id, g] of shotMeshes) if (!hasShot(id)) { shotGroup.remove(g); disposeTree(g); shotMeshes.delete(id); }
   for (const s of G.shots) {
     let g = shotMeshes.get(s.id);
     if (!g) { g = makeShotMesh(s.kind); shotGroup.add(g); shotMeshes.set(s.id, g); }
     const u = 1 - s.left / (CFG.WORLD_ITEMS[s.kind].cells * CELL), ang = Math.atan2(s.dy, s.dx), inner = g.children[0];
     if (s.kind === "football") {                          // rolls about the axis across its way, with a little hop
-      g.position.set(P(s.x), 0.2 + Math.abs(Math.sin(s.t * 18)) * K.hop, P(s.y));
-      inner.rotation.set(0, 0, 0); inner.rotateOnWorldAxis(new THREE.Vector3(-s.dy, 0, s.dx), s.t * CFG.WORLD_ITEMS.football.speed * K.roll * 6);
+      const F = K.football;
+      g.position.set(P(s.x), F.y + Math.abs(Math.sin(s.t * F.hopSpeed)) * F.hop, P(s.y));
+      inner.rotation.set(0, 0, 0); inner.rotateOnWorldAxis(AXIS.set(-s.dy, 0, s.dx), s.t * F.roll);
     } else if (s.kind === "plane") {                      // glides high, banks and bobs
-      g.position.set(P(s.x), K.plane.alt + Math.sin(s.t * 6) * K.plane.bob, P(s.y));
-      g.rotation.set(0, -ang, 0); inner.rotation.set(Math.sin(s.t * 5) * K.plane.bank, 0, -0.12);
+      const Pl = K.plane;
+      g.position.set(P(s.x), Pl.alt + Math.sin(s.t * Pl.bobSpeed) * Pl.bob, P(s.y));
+      g.rotation.set(0, -ang, 0); inner.rotation.set(Math.sin(s.t * Pl.bankSpeed) * Pl.bank, 0, Pl.pitch);
     } else {                                              // the snowball goes up and down in an arc and turns
-      g.position.set(P(s.x), 0.3 + Math.sin(Math.PI * u) * K.arc, P(s.y));
-      inner.rotation.set(s.t * 9, s.t * 7, 0);
+      const S = K.snow;
+      g.position.set(P(s.x), S.y + Math.sin(Math.PI * u) * S.arc, P(s.y));
+      inner.rotation.set(s.t * S.spin[0], s.t * S.spin[1], 0);
     }
   }
 }
 
 // ---------- Dad under the items ----------
 const ICE = new THREE.Color();
-let held = null;
+let held = null;                                            // the cupcake in his hands: built on the first meal, dropped when his model is replaced
+function dropHeld() { if (held) { if (held.parent) held.parent.remove(held); disposeTree(held); held = null; } }
 /** after syncBig's own pose: the cupcake in his hands and the chewing, the ice tint and shiver, the head up for the plane (m: his model, b: G.big, t: seconds) */
 export function bigWorldPose(m, b, t) {
   const K = L(), eat = b.slip > 0 && b.slipKind === "eat", freeze = b.slip > 0 && b.slipKind === "freeze", watch = b.watch > 0 && b.slip <= 0;
-  if (!held || held.userData.model !== m) { if (held && held.parent) held.parent.remove(held); held = cupcake(); held.userData.model = m; held.traverse(o => { if (o.isMesh) o.castShadow = true; }); }
+  if (held && held.userData.model !== m) dropHeld();
   if (eat) {
+    if (!held) { held = cupcake(); held.userData.model = m; held.traverse(o => { if (o.isMesh) o.castShadow = true; }); }
     if (held.parent !== m.rig) m.rig.add(held);
     held.visible = true; held.position.set(0, K.held.y, K.held.z); held.scale.setScalar(K.held.s);
-    m.arms[0].rotation.x = -1.2; m.arms[1].rotation.x = -1.2; m.arms[0].rotation.z = -0.3; m.arms[1].rotation.z = 0.3;
+    m.arms[0].rotation.x = K.eatArms[0]; m.arms[1].rotation.x = K.eatArms[0]; m.arms[0].rotation.z = -K.eatArms[1]; m.arms[1].rotation.z = K.eatArms[1];
     m.head.rotation.x = Math.sin(t * K.chewSpeed) * K.chew; m.face.mouth.rotation.z = Math.PI;
     m.stars.visible = false;
-  } else held.visible = false;
+  } else if (held) held.visible = false;
   if (freeze) {
     ICE.set(K.ice); m.bodyMat.emissive.copy(ICE).multiplyScalar(K.iceK);
     for (const fm of m.faceMats) fm.emissive.copy(ICE).multiplyScalar(K.iceK);
-    m.rig.rotation.z = Math.sin(t * 60) * K.shiver; m.arms[0].rotation.x = -0.9; m.arms[1].rotation.x = -0.9; m.arms[0].rotation.z = -0.5; m.arms[1].rotation.z = 0.5;
+    m.rig.rotation.z = Math.sin(t * K.shiverSpeed) * K.shiver;
+    m.arms[0].rotation.x = K.freezeArms[0]; m.arms[1].rotation.x = K.freezeArms[0]; m.arms[0].rotation.z = -K.freezeArms[1]; m.arms[1].rotation.z = K.freezeArms[1];
     m.stars.visible = false;
   }
-  if (watch) m.head.rotation.x = -0.25;
+  if (watch) m.head.rotation.x = K.watchHead;
 }
 /** Dad's model is in the pose of lying on his back (the banana, the watermelon), not just standing shocked */
 export const lyingPose = b => b.slip > 0 && (b.slipKind === "banana" || b.slipKind === "melon");

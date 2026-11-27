@@ -8,7 +8,7 @@ import { moveEntity, steerTo } from "./path.js";
 import { pushHit } from "./rules.js";
 import { bigStepTrick } from "./tricks/index.js";
 import { bigStepItem, slideStep } from "./worlditems.js";
-import { canSee } from "./vision.js";
+import { canSee, isPrey } from "./vision.js";
 import { G } from "./active.js";
 import { emit } from "./events.js";
 
@@ -103,7 +103,7 @@ export function updateBig(dt) {
   let target = null, td = Infinity;
   for (const l of G.littles) {
     if (G.big.noPush > 0) break;               // отдыхает — никого не ловит
-    if (l.state !== "ok" || l.invuln > 0 || l.dizzy > 0) continue;   // с кружащейся головой не трогает
+    if (!isPrey(l)) continue;                  // с кружащейся головой не трогает
     if (canSee(l)) { const d = dist(G.big, l); if (d < td) { td = d; target = l; } }
   }
   if (target) {

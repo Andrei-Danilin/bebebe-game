@@ -138,7 +138,7 @@ export function buildGame(world, n, slots) {
     state: "look", timer: 4, lookSign: 1, lastSeen: null, goal: null, patrolT: 0, prog: { x: 0, y: 0, t: 0, last: -1 },
     path: [], repath: 0, moveDir: 0, walk: 0, moving: false, stun: 0, stunFace: 0, stunTurn: 0, pushCd: 0, noPush: 0, hugCd: 0, flash: 0, slip: 0,
     slipKind: "banana", slideX: 0, slideY: 0, slideT: 0,   // SPEC-043: what laid him down (banana / ball / eat / freeze / melon) and the watermelon's slide
-    watch: 0, watchX: 0, watchY: 0, cake: 0, cakeT: 0, cakeStuck: 0,   // SPEC-043: watching the plane (s left, where) and the walk to a cupcake (its id, s walked, s stuck)
+    watch: 0, watchX: 0, watchY: 0, cake: 0, cakeT: 0, cakeStuck: 0, cakeX: 0, cakeY: 0,   // SPEC-043: watching the plane (s left, where) and the walk to a cupcake (its id, s walked, s without progress, where the progress is measured from)
     blush: 0, blushBy: 0,   // покраснел после поцелуя: сколько ещё сек и кто бросил (индекс игрока)
     kind: false,            // SPEC-022: злость кончилась — подобрел и идёт домой (pendingWin — сколько ещё идёт)
     boss: G.tutorialGame ? null : bs.boss !== undefined ? bs.boss : bossFor(world, n),   // SPEC-022: босс уровня (мир из BOSSES) или null; в тренировке — нет

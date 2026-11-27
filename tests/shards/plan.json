@@ -2,21 +2,20 @@
  "shards": 10,
  "entries": [
   [
+   ["balance.spec.js"],
    ["quality.spec.js"],
    ["saves.spec.js"],
-   ["site.spec.js"],
    ["tutorial.spec.js"],
    ["worlds.spec.js"]
   ],
   [
+   ["assets.spec.js"],
    ["gameplay.spec.js"],
    ["i18n.spec.js","1280×720 desktop","every wardrobe name fits its row, en and pt (1280×720 desktop)"],
    ["i18n.spec.js","667×375 phone","every wardrobe name fits its row, en and pt (667×375 phone)"],
    ["i18n.spec.js","667×375 phone","in Portuguese no screen draws an English, Spanish or Russian word (667×375 phone)"],
    ["levels.spec.js"],
-   ["tooling.spec.js"],
-   ["tricks.spec.js"],
-   ["wardrobe.spec.js"]
+   ["tricks.spec.js"]
   ],
   [
    ["errors.spec.js"],
@@ -64,7 +63,6 @@
   ],
   [
    ["art.spec.js"],
-   ["fixedstep.spec.js"],
    ["offline.spec.js"],
    ["story.spec.js","Dad's mood shows: angry red with steam and a dark cloud, mid orange-pink with less steam, kind pink with hearts"],
    ["story.spec.js","each boss wears his own look on the dad model, a bit bigger"],
@@ -74,6 +72,7 @@
    ["story.spec.js","the kind dad smiles, blushes and waves on his way home"],
    ["story.spec.js","the scenes fit a 667×375 phone"],
    ["story.spec.js","the win title: Dad is kind again (phone 667×375)"],
+   ["tooling.spec.js"],
    ["worlditems.spec.js"]
   ],
   [
@@ -165,10 +164,10 @@
    ["story.spec.js","the first launch shows the start comic once"],
    ["story.spec.js","the first School 20 win shows the ending and the thank-you card"],
    ["story.spec.js","the story texts come from Kostya's story (docs/story.md)"],
-   ["story.spec.js","the win title: Dad is kind again (desktop)"]
+   ["story.spec.js","the win title: Dad is kind again (desktop)"],
+   ["wardrobe.spec.js"]
   ],
   [
-   ["assets.spec.js"],
    ["back.spec.js"],
    ["grownups.spec.js"],
    ["perf.spec.js","rotate overlay","SPEC-040 AC 3: no render3D under the rotate overlay"],
@@ -179,10 +178,10 @@
    ["perf.spec.js","SPEC-040 AC 4: the first 60 frames of a new world (Beach 3 after Park) (phone view): p95 ≤ steady × 1.5, no program or geometry first made in them"],
    ["perf.spec.js","SPEC-040 AC 4: the first 60 frames of the first boss (Park 20) (phone view): p95 ≤ steady × 1.5, no program or geometry first made in them"],
    ["perf.spec.js","SPEC-040 AC 4: the warm-up does not change the game Play starts; Play before its end starts the level; a Retry builds nothing"],
-   ["perf.spec.js","SPEC-040 AC 9: measureText calls per frame on the home and Character screens drop at least 5×"]
+   ["perf.spec.js","SPEC-040 AC 9: measureText calls per frame on the home and Character screens drop at least 5×"],
+   ["site.spec.js"]
   ],
   [
-   ["balance.spec.js"],
    ["economy.spec.js","every coin change is in the ledger"],
    ["economy.spec.js","every wardrobe item has an id and a price; the basic ones and every default look are free"],
    ["economy.spec.js","every wardrobe text is in every language"],
@@ -205,6 +204,7 @@
    ["economy.spec.js","the win screen lists each reward line and fits (phone 667×375)"],
    ["economy.spec.js","upgrades apply to players only and stop at level 3"],
    ["economy.spec.js","upgrades are saved, merged with defaults and cleaned"],
+   ["fixedstep.spec.js"],
    ["phone.spec.js","phone banner 844×390","the phone banner never covers the hero (844×390)"],
    ["phone.spec.js","phone banner 932×430","the phone banner never covers the hero (932×430)"],
    ["phone.spec.js","phone banner too wide","the phone banner switches to the short text, and is skipped when nothing fits"],

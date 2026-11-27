@@ -159,7 +159,7 @@ export const EMOJI_ART = { "👥": "ui_friends", "🎲": "ui_dice", "❓": "ui_q
   "🎁": "ui_gift", "🌐": "ui_globe", "🔊": "ui_sound_on", "🔇": "ui_sound_off", "⛶": "ui_fullscreen", "✨": "fx_sparkle", "🎉": "fx_confetti",
   "💗": "fx_hearts", "💫": "fx_dizzy", "💦": "fx_steam_left", "🔁": "round_restart",
   "🌳": "world_park", "⚽": "world_field", "🏙": "world_city", "🏫": "world_school", "🏖": "world_beach", "❄": "world_winter",
-  "🍉": "item_watermelon", "🧁": "icon_cupcake", "✈": "item_paperplane",   // SPEC-043: Dad's marks and the tip card (⚽ and ❄ are the Field's and Winter's world icons above)
+  "🍉": "item_watermelon", "🧁": "icon_cupcake", "✈": "item_paperplane", "🧊": "item_snowball",   // SPEC-043: Dad's marks and the tip card (⚽ and ❄ stay the Field's and Winter's world icons above: a frozen Dad shows 🧊)
   "🤗": "ui_hug", "😴": "ui_sleep", "💤": "ui_sleep", "❗": "ui_alert", "🏁": "ui_flag", "👀": "ui_eyes", "⏱": "ui_timer", "👣": "ui_tiptoe" };
 // SPEC-027: новая картинка не загрузилась — прежняя (а нет и её — рисунок кодом или эмодзи, как у всякой картинки SPEC-020)
 export const ART_FALLBACK = { menu_play: "ui_play", menu_story: "ui_story", menu_character: "ui_bag", tab_progress: "star_gold" };

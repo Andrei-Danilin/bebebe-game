@@ -40,6 +40,7 @@ function runLevel({ world, n, style, seed, progress = null, dt = null }) {   // 
     rescues: count("rescued"), rests: count("rest"), kits: count("kit"), kisses: count("kiss"), bonusStars: count("star"),
     items: count("item"), slips: count("slip"), thrownOut: count("thrownOut"),
     stars: res.win && lr ? lr.stars : 0, coins: coins.reduce((s, c) => s + c.amount, 0), parts: res.win && lr ? lr.parts : [],
+    ...(count("worldItem") ? { worldItems: count("worldItem") } : {}),   // SPEC-043: a launch, a hit, a slide or a meal of a world item (left out when none: the recorded reference game has none)
     coinsEvents: coins, events: ev.length, logFull: ev.length >= b.CFG.EVENT_LOG_MAX, maxGap, noHug
   };
   b.autopilot(false); b.seedRandom(); b.mode = "home";
@@ -100,7 +101,7 @@ function analyse(runs, B, worlds, perWorld) {
       time: median(rs.map(r => runTime(r, limit))), winTimes: rs.filter(r => r.win).map(r => r.time),
       hugs: mean(rs.map(r => r.hugs)), playerHugs: mean(rs.map(r => r.playerHugs)), pushes: mean(rs.map(r => r.pushes)),
       falls: mean(rs.map(r => r.falls)), rescueRate: falls ? rescues / falls : null, rests: median(rs.map(r => r.rests)),
-      stars: mean(rs.map(r => r.stars)), coins: mean(rs.map(r => r.coins)), parts, bonusStars: mean(rs.map(r => r.bonusStars))
+      stars: mean(rs.map(r => r.stars)), coins: mean(rs.map(r => r.coins)), parts, bonusStars: mean(rs.map(r => r.bonusStars)), worldItems: mean(rs.map(r => r.worldItems || 0))
     });
   }
   const of = (w, a, z) => levels.filter(l => l.world === w && l.n >= a && l.n <= z);
@@ -248,13 +249,13 @@ function markdown(rep) {
     `## Targets — ${greens} green, ${targets.length - greens} red`, "", "| Target | Value | Want | Result | Detail |", "|---|---|---|---|---|");
   for (const t of targets) L.push(`| ${t.name} | ${t.value} | ${t.want} | ${t.ok ? "🟢 green" : "🔴 red"} | ${t.detail} |`);
   L.push("", "## Worlds", "", `Trend: median time per level 1→${rep.perWorld}, \`${TREND}\` from fast to ${fmt(maxT)} s.`, "",
-    `| World | Wins | Median time | Hugs (player) | Pushes | Falls | Rescue rate | Rests | Stars | Coins | Bonus stars | Trend 1→${rep.perWorld} |`, "|---|---|---|---|---|---|---|---|---|---|---|---|");
+    `| World | Wins | Median time | Hugs (player) | Pushes | Falls | Rescue rate | Rests | Stars | Coins | Bonus stars | World items | Trend 1→${rep.perWorld} |`, "|---|---|---|---|---|---|---|---|---|---|---|---|---|");
   for (const w of worlds) {
     const ls = levels.filter(l => l.world === w), rs = runs.filter(r => r.world === w && r.style === "careful");
     const f = rs.reduce((s, r) => s + r.falls, 0), rr = f ? rs.reduce((s, r) => s + r.rescues, 0) / f : 0;
     L.push(`| ${w} | ${rs.filter(r => r.win).length}/${rs.length} | ${fmt(median(ls.map(l => l.time)))} | ${fmt(mean(ls.map(l => l.hugs)), 1)} (${fmt(mean(ls.map(l => l.playerHugs)), 1)}) | ` +
       `${fmt(mean(ls.map(l => l.pushes)), 1)} | ${fmt(mean(ls.map(l => l.falls)), 1)} | ${pct(rr)} | ${fmt(mean(ls.map(l => l.rests)), 1)} | ${fmt(mean(ls.map(l => l.stars)), 1)} | ` +
-      `${fmt(mean(ls.map(l => l.coins)), 1)} | ${fmt(mean(ls.map(l => l.bonusStars)), 1)} | \`${trend(ls, maxT)}\` |`);
+      `${fmt(mean(ls.map(l => l.coins)), 1)} | ${fmt(mean(ls.map(l => l.bonusStars)), 1)} | ${fmt(mean(ls.map(l => l.worldItems)), 1)} | \`${trend(ls, maxT)}\` |`);
   }
   L.push("", "## Levels", "", "Per level, means over its runs (rests: median). Coins = all coins earned in the level (reward + bonus stars); parts = the mean reward parts of the wins.");
   for (const w of worlds) {

@@ -26,6 +26,8 @@ export function inCone(x, y) {
   return d < CFG.VISION_RANGE + 25 && angDiff(G.big.dir, Math.atan2(dy, dx)) < CFG.VISION_HALF + 0.2;
 }
 export const inBush = l => CFG.BUSH_HIDES && G.bushes.some(b => Math.hypot(l.x - b.x, l.y - b.y) < b.r - 6);
+// SPEC-043: a kid Dad may go after — on his feet, not invulnerable, head not spinning (the chase's target loop in big.js and the cupcake's "no kid in view" rule share it)
+export const isPrey = l => l.state === "ok" && l.invuln <= 0 && l.dizzy <= 0;
 // Видит ли Большой l (SPEC-011: из big.js)
 export function canSee(l) {
   if (inSafe(l)) return false;          // в домике Большой не видит и не трогает

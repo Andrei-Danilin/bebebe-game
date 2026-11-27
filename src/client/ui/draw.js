@@ -3,7 +3,7 @@
 // Client module (moved out of index.html in Phase C).
 
 import { BOSSES, CELL, CFG, GLOVES, TAU } from "../../core/config.js";
-import { audible, bigListens, bigMark } from "../../core/hearing.js";
+import { audible, bigListens, bigMark, SLIP_MARKS } from "../../core/hearing.js";
 import { inBush } from "../../core/vision.js";
 import { L } from "../../i18n.js";
 import { art, FX_ART, HEART_ART, PAPER_BTN, POP_ART } from "../art.js";
@@ -248,7 +248,8 @@ export function drawMarkers(t) {
     ctx.restore();
   }
   const mark = bigMark();
-  if (mark === "🍌💫") label(mark, bh.x + 10, bh.y + 30, 20, "#fff");
+  if (SLIP_MARKS.includes(mark)) label(mark, bh.x + 10, bh.y + 30, 20, "#fff");   // SPEC-043: the banana's mark and the ones of the other things that lay him down
+  else if (mark === "✈" || mark === "🧁") label(mark, bh.x + 24, bh.y + 2, fz(26, "main"), "#fff");   // SPEC-043: watching the plane, walking to a cupcake
   else if (mark === "?!") label(mark, bh.x + 22, bh.y, 22, "#fff");
   else if (mark === "💗") label(mark, bh.x + 22, bh.y + 2, 20 + Math.sin(t * 10) * 2, "#fff");
   else if (mark === "❓" || mark === "👂") label(mark, bh.x + 24, bh.y + 2, fz(mark === "❓" ? 30 : 26, "main"), "#fff");   // SPEC-019: топот
