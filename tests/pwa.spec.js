@@ -160,6 +160,7 @@ async function withOwnServer(page, override, fn, quiet = false) {
   await new Promise(r => server.listen(0, r));
   try {
     const base = `http://localhost:${server.address().port}/`;
+    await page.addInitScript(() => { window.__bbQuality = "high"; });   // SPEC-040: not the start probe's tier
     await page.goto(base);
     await page.waitForFunction(() => window.__bbReady === true, null, { timeout: 30_000 });
     await waitForSW(page);

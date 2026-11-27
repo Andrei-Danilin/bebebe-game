@@ -244,5 +244,8 @@
  "worldOpen": "function",
  "worldState": "function",
  "view3D": "value",
- "warm": "getter"
+ "warm": "getter",
+ "quality": "getter",
+ "setQuality": "function",
+ "qualityFrame": "function"
 }

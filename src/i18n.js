@@ -37,6 +37,8 @@ export const I18N = {
     // SPEC-025 phase 2: the save notes, the parents' gate and the grown-ups page (the reset's armed texts sure / sureShort are retired)
     saveRecovered: "We fixed your save from a backup", freshStart: "We couldn't read your save, so we started a new game", noSave: "This device isn't keeping progress",
     parentsGate: (a, b) => `For grown-ups: what is ${a} times ${b}?`, numberWords: ["three", "four", "five", "six", "seven", "eight", "nine"], gateWrong: "Not quite. Here is another one",
+    quality: "Picture quality", qualityAuto: "Auto", qualityHigh: "High", qualityMedium: "Medium", qualityLow: "Low",
+    qualityLine: (mode, now) => `Picture quality: ${mode}${now ? ` (now ${now})` : ""}`,
     forGrownUps: "For grown-ups", copyCode: "Copy my progress code", pasteCode: "Paste a code", codeCopied: "Code copied",
     importConfirm: "Replace the progress on this device with the code?", codeTooNew: "This code is from a newer version of the game", codeBad: "This code doesn't work. Check it and try again",
     undoReset: "Bring back erased progress", resetAsk: "Reset all progress?", leaveAsk: "Leave the game?", yes: "Yes", no: "No", restoreCopy: "Restore an older copy", eraseAll: "Erase all data on this device", errorLog: "Error log", copy: "Copy", version: "Version",
@@ -131,6 +133,8 @@ export const I18N = {
     // SPEC-025 phase 2: las notas del guardado, la pregunta para adultos y la página para adultos
     saveRecovered: "Arreglamos tu partida con una copia", freshStart: "No pudimos leer tu partida, así que empezamos una nueva", noSave: "Este dispositivo no está guardando el progreso",
     parentsGate: (a, b) => `Para adultos: ¿cuánto es ${a} por ${b}?`, numberWords: ["tres", "cuatro", "cinco", "seis", "siete", "ocho", "nueve"], gateWrong: "No es así. Probá con esta otra",
+    quality: "Calidad de imagen", qualityAuto: "Auto", qualityHigh: "Alta", qualityMedium: "Media", qualityLow: "Baja",
+    qualityLine: (mode, now) => `Calidad de imagen: ${mode}${now ? ` (ahora: ${now})` : ""}`,
     forGrownUps: "Para adultos", copyCode: "Copiar mi código", pasteCode: "Pegar un código", codeCopied: "Código copiado",
     importConfirm: "¿Reemplazar el progreso de este dispositivo con el código?", codeTooNew: "Este código es de una versión más nueva del juego", codeBad: "Este código no funciona. Revisalo y probá de nuevo",
     undoReset: "Recuperar el progreso borrado", resetAsk: "¿Borrar todo el progreso?", leaveAsk: "¿Salir del juego?", yes: "Sí", no: "No", restoreCopy: "Volver a una copia anterior", eraseAll: "Borrar todos los datos de este dispositivo", errorLog: "Registro de errores", copy: "Copiar", version: "Versión",
@@ -218,6 +222,8 @@ export const I18N = {
     // SPEC-025 phase 2: os avisos do progresso salvo, a pergunta para adultos e a página para adultos
     saveRecovered: "Recuperamos seu progresso de uma cópia", freshStart: "Não conseguimos ler seu progresso, então começamos um jogo novo", noSave: "Este aparelho não está salvando o progresso",
     parentsGate: (a, b) => `Para adultos: quanto é ${a} vezes ${b}?`, numberWords: ["três", "quatro", "cinco", "seis", "sete", "oito", "nove"], gateWrong: "Não é bem isso. Tente esta aqui",
+    quality: "Qualidade da imagem", qualityAuto: "Auto", qualityHigh: "Alta", qualityMedium: "Média", qualityLow: "Baixa",
+    qualityLine: (mode, now) => `Qualidade da imagem: ${mode}${now ? ` (agora: ${now})` : ""}`,
     forGrownUps: "Para adultos", copyCode: "Copiar meu código de progresso", pasteCode: "Colar um código", codeCopied: "Código copiado",
     importConfirm: "Substituir o progresso deste aparelho pelo do código?", codeTooNew: "Este código é de uma versão mais nova do jogo", codeBad: "Este código não funciona. Confira e tente de novo",
     undoReset: "Recuperar o progresso apagado", resetAsk: "Apagar todo o progresso?", leaveAsk: "Sair do jogo?", yes: "Sim", no: "Não", restoreCopy: "Voltar para uma cópia anterior", eraseAll: "Apagar todos os dados deste aparelho", errorLog: "Registro de erros", copy: "Copiar", version: "Versão",
@@ -304,6 +310,8 @@ export const I18N = {
     // SPEC-025 phase 2: заметки о сохранении, вопрос для взрослых и страница для взрослых
     saveRecovered: "Мы восстановили сохранение из копии", freshStart: "Не получилось прочитать сохранение, поэтому начали новую игру", noSave: "Это устройство не сохраняет прогресс",
     parentsGate: (a, b) => `Для взрослых: сколько будет ${a} умножить на ${b}?`, numberWords: ["три", "четыре", "пять", "шесть", "семь", "восемь", "девять"], gateWrong: "Не совсем. Вот другой пример",
+    quality: "Качество картинки", qualityAuto: "Авто", qualityHigh: "Высокое", qualityMedium: "Среднее", qualityLow: "Низкое",
+    qualityLine: (mode, now) => `Качество картинки: ${mode}${now ? ` (сейчас: ${now})` : ""}`,
     forGrownUps: "Для взрослых", copyCode: "Скопировать код прогресса", pasteCode: "Вставить код", codeCopied: "Код скопирован",
     importConfirm: "Заменить прогресс на этом устройстве прогрессом из кода?", codeTooNew: "Этот код из более новой версии игры", codeBad: "Этот код не подходит. Проверьте его и попробуйте ещё раз",
     undoReset: "Вернуть стёртый прогресс", resetAsk: "Сбросить весь прогресс?", leaveAsk: "Выйти из игры?", yes: "Да", no: "Нет", restoreCopy: "Вернуть более старую копию", eraseAll: "Стереть все данные на этом устройстве", errorLog: "Журнал ошибок", copy: "Копировать", version: "Версия",

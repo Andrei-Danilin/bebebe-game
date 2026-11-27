@@ -163,3 +163,47 @@ the models 25–30 ms, the upload 110–275 ms in all, split over ~6–12 frames
 anyway, and what is repeated across levels (the instanced shapes) is small. The wardrobe's previews, the minimap and the paper are not
 part of the warm-up. A level started through Next on the win screen still hitches as in step 4 (build + first frame ~100–270 ms GPU):
 warming it would need a second scene or a second map group.
+
+## SPEC-040 step 6 — quality tiers (AC 6, 7; D-4, D-17), measured 2026-11-27
+
+**The tiers** (`LOOK.QUALITY`, numbers in `docs/game-design.md` after `npm run docs:numbers`):
+
+| | high (today's picture) | medium | low (D-4) |
+|---|---|---|---|
+| pixel-ratio cap | 2 (touch 1.5) | 1.5 | 1 |
+| MSAA | yes | yes | no (a new canvas and renderer) |
+| shadow map | 2048, PCF (soft) | 1024, PCF | 1024, basic (hard-edged) |
+| paper grain | yes (not on phones, as before) | yes | no |
+| background decor (outside the fence) | all | 3/4 | 1/2 |
+| outlines, hatching, the play area, walls, bushes, trees that matter, logic | as is | as is | as is |
+
+Low keeps a basic shadow map rather than blob shadows: it stays a shadow of the right shape from the one pass that exists, while blobs
+would need new drawing for every character, tree and house. The decor thinning is positional: the sequence of the seeded decor is drawn in
+full and the n-th piece is kept when the running share grows (`keepDecor`), so every device of a tier gets the same decor, and the map's
+walls, roofs, trees, bushes and the level are untouched (the pieces count is equal in all tiers; `test:core` and the same-seed tests stay green).
+
+**Choice.** A pinned tier (tests) or the grown-ups' choice (saved) is used as it is. In auto mode a start probe draws the home scene 8 times
+at the high tier (the first 2 compile the shaders; ≤ 600 ms in all), waits for the GPU each time (readPixels) and takes the median ms per
+frame: ≤ 10 ms high, ≤ 22 ms medium, else low. (10 ms keeps a 60 fps phone's frame inside the iPhone 8 row of D-17, p95 ≤ 25 ms; 22 ms is
+what a frame may cost on the weakest row, p95 ≤ 45 ms, after the cuts of the lower tiers.) In play, in auto mode: the p95 of the last 3 s of
+frame times (frames over 500 ms — a level build, a hidden tab — are not counted; at least 20 frames) over 45 ms (D-17's loosest p95, the
+low-end Android) for 5 s drops one tier; a pause, a menu and a level just built do not count; the tier never goes up during a run; the next
+start probes again. Changing the tier rebuilds only what the tier changes: MSAA = a new canvas and renderer (the old context is given
+up on purpose: `forceContextLoss`, with its loss listeners moved first, so no "tap to continue" card), shadows, the pixel ratio, the grain,
+and the decor = the 3D map is built again; the game and the level go on.
+
+**Draw calls / triangles per tier** (colour + shadow, one level per world at level start, `render3D` at fixed times; `deviceScaleFactor` 2 on the
+phone view; GPU). The draw calls are the same in every tier — the decor is instanced or joined — so the tiers cut triangles and pixels:
+
+| | phone 667×375: high | medium | low | tablet 1180×820: high | medium | low |
+|---|---|---|---|---|---|---|
+| Park 3 | 155 / 177k | 155 / 161k | 155 / 146k | 217 / 189k | 217 / 173k | 216 / 158k |
+| Field 3 | 151 / 203k | 151 / 174k | 151 / 148k | 212 / 215k | 212 / 186k | 211 / 160k |
+| City 3 | 172 / 169k | 172 / 140k | 172 / 114k | 234 / 181k | 234 / 153k | 233 / 126k |
+| School 2 | 144 / 195k | 144 / 167k | 144 / 140k | 203 / 207k | 203 / 178k | 202 / 152k |
+| Beach 3 | 167 / 132k | 167 / 115k | 167 / 100k | 235 / 145k | 235 / 128k | 234 / 113k |
+| Winter 2 | 156 / 130k | 156 / 125k | 156 / 121k | 215 / 142k | 215 / 137k | 214 / 133k |
+
+Canvas on the phone view with the 2× screen: high and medium 1000×562 (high stops at 1.5 on touch screens as before), low 667×375. High
+is pixel-identical to the step-5 picture in Park, Field, City, School, Beach (0 differing pixels, 960×640 and 667×375); in Winter 0.3–0.5 %
+of the pixels differ, the snow particles (their start positions come from the view's random stream). Low-tier screenshots: `shots/SPEC-040/step6/`.

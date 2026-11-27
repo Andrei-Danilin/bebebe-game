@@ -6,6 +6,7 @@ import { H, W } from "../../core/config.js";
 import { mulberry32 } from "../../core/util.js";
 import { LOOK } from "../look.js";
 import { PHONE } from "../screen.js";
+import { tierNumbers } from "../quality.js";
 import { renderer, scene, sun } from "./setup.js";
 
 // ---------- Материалы ----------
@@ -167,7 +168,7 @@ function makePaperGrain() {
 }
 let paperPR = 0;
 export function syncPaper() {                                // каждый кадр: только сравнения, без новых объектов
-  const want = !!LOOK.PAPER_GRAIN && (!PHONE || !!LOOK.PAPER_GRAIN_PHONE), pr = renderer.getPixelRatio();
+  const want = !!LOOK.PAPER_GRAIN && (!PHONE || !!LOOK.PAPER_GRAIN_PHONE) && tierNumbers().grain, pr = renderer.getPixelRatio();   // SPEC-040: not on the low tier
   if (pr !== paperPR) { paperPR = pr; paperU.uTile.value = LOOK.PAPER_GRAIN_LOOK.size * pr; }   // плитка в px экрана
   if (want === paperOn) return;
   if (want && !paperMade) makePaperGrain();

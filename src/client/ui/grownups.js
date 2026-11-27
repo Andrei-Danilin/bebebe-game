@@ -4,13 +4,15 @@
 //   count). While the grown-ups page is open its actions pass at once (the page itself was gated).
 // - The "For grown-ups" page (reached from How to play): the version, the parents' code (copy: clipboard + selectable text; paste:
 //   a text field, then importConfirm), reset progress (SPEC-033: moved here from the Progress page, with undo right next to it), restore an
-//   older copy, the error log with Copy, erase all data, the noSave note.
+//   older copy, the error log with Copy, erase all data, the noSave note; SPEC-040: the picture quality (the tier in use, and Auto / High /
+//   Medium / Low to choose one — saved on this device).
 // - The save notes (saveRecovered, freshStart, noSave): shown once each, in the menus, as a small note that goes away by itself.
 // DOM (class bb-card like the other cards: keys and pad reach it, not the game). Client module.
 
 import { CFG } from "../../core/config.js";
 import { vrand } from "../../core/util.js";
 import { L, lang } from "../../i18n.js";
+import { qualityInfo, setQualityMode } from "../adaptive.js";
 import { buildVersion, errorLog, hideCard } from "../errors.js";
 import { armReset, confirmReset, progressReplaced, resetConfirmReady } from "../reset.js";
 import { eraseAll, importSave, listCopies, readCode, restoreCopy, saveCode, saveInfo, takeNote } from "../save.js";
@@ -86,6 +88,7 @@ function showPage(note = null) {
   /** @type {HTMLElement} */ (box.firstChild).className = "title";
   const line = (t, cls) => { const d = document.createElement("div"); d.textContent = t; if (cls) d.className = cls; box.insertBefore(d, row); return d; };
   line(`${L().version}: ${buildVersion()}`, "small");
+  line(qualityText(), "small").dataset.note = "quality";   // SPEC-040 AC 7: the tier in use
   if (saveInfo.noSave) line(L().noSave, "note");
   if (note) line(note, "note");
   const act = (label, name, fn) => button(row, label, () => parentGate(fn), name);
@@ -93,6 +96,7 @@ function showPage(note = null) {
   act(L().pasteCode, "pasteCode", pasteCode);
   act(L().reset, "resetProgress", askReset);   // SPEC-033 AC 10: the same safe flow as before — arm, confirm elsewhere after a delay, undo
   if (saveInfo.copies.reset) act(L().undoReset, "undoReset", () => restoreAndShow("reset"));
+  act(L().quality, "quality", showQuality);
   act(L().restoreCopy, "restoreCopy", showCopies);
   act(L().errorLog, "errorLog", showLog);
   // review fix: erasing everything always asks the gate again (also with the page open)
@@ -101,6 +105,13 @@ function showPage(note = null) {
   focusFirst(el);
 }
 function closePage() { cancelReset(); hideCard("grownups"); }
+// SPEC-040 AC 7: "Picture quality: Auto (now Medium)"; the sub-view: Auto / High / Medium / Low (the one in force marked), the choice applied and saved at once
+const tierName = t => L()["quality" + t[0].toUpperCase() + t.slice(1)];
+function qualityText() { const q = qualityInfo(); return L().qualityLine(tierName(q.mode), q.mode === "auto" ? tierName(q.tier) : ""); }
+function showQuality() {
+  const q = qualityInfo();
+  subView([qualityText()], [...["auto", "high", "medium", "low"].map(m => [(q.mode === m ? "✓ " : "") + tierName(m), "quality" + m[0].toUpperCase() + m.slice(1), () => { setQualityMode(m); showQuality(); }]), [L().ok, "back", () => showPage()]]);
+}
 // a sub-view of the page: its lines, a text area (optional) and buttons [[label, name, act]]
 function subView(lines, buttons, text = null) {
   const el = card("grownups", [L().forGrownUps, ...lines], true), box = el.firstChild, row = el.querySelector(".row");

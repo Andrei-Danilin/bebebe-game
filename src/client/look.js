@@ -100,6 +100,23 @@ export const LOOK = {
   // появятся, когда догрузятся (до тех пор и при ошибке — рисунок кодом, как раньше). SPEC-040: не постоянную картинку (assets.json "resident": false)
   // отпускаем, когда её не рисовали releaseMs мс (проверка не чаще sweepMs)
   ART: { dir: "assets/", waitMs: 5000, releaseMs: 2000, sweepMs: 250 },
+  // SPEC-040 AC 6 / 7 (RR-43, D-4, D-17): quality tiers. high = the picture as it was; medium = a lower pixel ratio, a 1024 shadow map, three
+  // quarters of the background decor; low (D-4: keeps the outlines and the hatching) = pixel ratio 1, no MSAA, no paper grain, a 1024
+  // "basic" (hard-edged) shadow map — one pass that stays a shadow of the right shape; the blob shadows the spec also allowed would need new
+  // drawing for every character, tree and house — and half the background decor (a seeded, positional thinning: the same decor on every
+  // device of the tier; only what is outside the fence). dprCap: a number, or { desktop, touch }. probe: at start the home scene is drawn
+  // 'frames' times at the high tier (the first 'skip' compile the shaders), 'maxMs' at most, the median ms per frame (the GPU waited for)
+  // picks the tier: ≤ highMs high, ≤ mediumMs medium, else low (high 10 ms keeps a 60 fps phone's frame under the iPhone 8 row of D-17,
+  // p95 ≤ 25 ms; 22 ms is what a frame may cost on the weakest row, p95 ≤ 45 ms, after the cuts of the lower tiers). stepDown: in auto mode,
+  // in play, the p95 frame time of the last windowS seconds (≥ minFrames frames; a frame over ignoreMs is a hitch, not counted) over p95Ms
+  // (D-17: the loosest row, the low-end Android's p95 ≤ 45 ms) for afterS seconds drops one tier; never up during a run.
+  QUALITY: {
+    high:   { dprCap: { desktop: 2, touch: 1.5 }, msaa: true,  shadow: 2048, shadowType: "pcf",   grain: true,  decor: 1 },
+    medium: { dprCap: 1.5,                         msaa: true,  shadow: 1024, shadowType: "pcf",   grain: true,  decor: 0.75 },
+    low:    { dprCap: 1,                           msaa: false, shadow: 1024, shadowType: "basic", grain: false, decor: 0.5 },
+    probe: { frames: 8, skip: 2, maxMs: 600, highMs: 10, mediumMs: 22 },
+    stepDown: { p95Ms: 45, afterS: 5, windowS: 3, minFrames: 20, ignoreMs: 500 }
+  },
   // SPEC-020: бумажный вид экранов с картинками: высота логотипа на главном экране (компьютер UI px / телефон CSS px); кусок страницы
   // тетради menu_bg (доли x, y, ширины, высоты) — бумага панелей; скотч на углах панели (ширина, высота в UI px компьютера, цвет,
   // контур); углы бумажных кнопок (доля меньшей стороны кнопки), цвет «выключенной» кнопки (серая бумага), сколько листов бумаги

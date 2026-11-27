@@ -424,7 +424,7 @@ test("no `L()` / `I18N` use in src/core/", { tag: "@fast" }, () => {
 // AC 2c: CFG is split by meaning — src/core/config.js holds the rules, generator and balance, src/client/look.js (LOOK) the look/UI
 // keys; key names did not change. No key in both; no look-named key in the core config except these (each with why); the core
 // never reads a LOOK key.
-const LOOK_NAME = /^(FADE_SETTLED$|CAM_|PHONE_|MINIMAP_|ART$|PAPER|STORY_TEXT_|STORY_PIC$|TEXT_TEST_SCALE$|NAME_TAG$|BANNER_|PAD_|KISS_BTN$|TIPTOE_BTN$|STICK_ZONE$|ARROW_D$|OUTLINE_|SAFE_GLOW$|BOSS_SCALE$|STAR_BLINK$|DANGER_WARN$|BUBBLE_MIN$|LANG_SCREEN$|WIN_|LOSE_|PRICE_FIT_MARGIN$|BACK_CLOSE_WAIT$|VIEW_DT_MAX$|STICK_STACK_MAX$|UPDATE_NOTE$)|_LOOK$/;   // SPEC-032: + TIPTOE_BTN, BUBBLE_MIN, LANG_SCREEN; SPEC-033: + WIN_GAP; SPEC-034: + VIEW_DT_MAX; SPEC-035: + LOSE_TITLE_DESK
+const LOOK_NAME = /^(QUALITY$|FADE_SETTLED$|CAM_|PHONE_|MINIMAP_|ART$|PAPER|STORY_TEXT_|STORY_PIC$|TEXT_TEST_SCALE$|NAME_TAG$|BANNER_|PAD_|KISS_BTN$|TIPTOE_BTN$|STICK_ZONE$|ARROW_D$|OUTLINE_|SAFE_GLOW$|BOSS_SCALE$|STAR_BLINK$|DANGER_WARN$|BUBBLE_MIN$|LANG_SCREEN$|WIN_|LOSE_|PRICE_FIT_MARGIN$|BACK_CLOSE_WAIT$|VIEW_DT_MAX$|STICK_STACK_MAX$|UPDATE_NOTE$)|_LOOK$/;   // SPEC-032: + TIPTOE_BTN, BUBBLE_MIN, LANG_SCREEN; SPEC-033: + WIN_GAP; SPEC-034: + VIEW_DT_MAX; SPEC-035: + LOSE_TITLE_DESK
 const CONFIG_LOOK_ALLOW = {
   TUTORIAL_LOOK: "the practice game reads TUTORIAL_LOOK.dadStart (where Dad stands in practice 1): gameplay, so the whole table stays in core config",
   HEAR_LOOK: "a rule, not a look: how many seconds the Big One keeps looking where he heard running feet (hearing.js)"
@@ -733,7 +733,7 @@ test("no top-level read of a module evaluated later in the same import cycle", {
   expect(order.length, "main.js reaches the client and the core").toBeGreaterThan(60);
   expect(reads, "the scan sees top-level reads (LOOK, CFG, …)").toBeGreaterThan(20);
   expect(bad).toEqual([]);
-  expect(info["src/client/three/setup.js"].deps.filter(d => d.startsWith("src/client/") && !/\/(look|art-names)\.js$/.test(d)), "three/setup.js is a leaf of the client").toEqual([]);
+  expect(info["src/client/three/setup.js"].deps.filter(d => d.startsWith("src/client/") && !/\/(look|art-names|quality)\.js$/.test(d)), "three/setup.js is a leaf of the client").toEqual([]);
 });
 
 // AC 8c: no script or test reads game code from index.html. The files that still read index.html read the shell (since Phase C

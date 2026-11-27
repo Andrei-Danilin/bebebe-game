@@ -27,34 +27,36 @@ const NET_TIMEOUT_MS = 4000;             // weak signal: after this long, a cach
 const SW_BUILD = 11;
 const SW_STRATEGY = "0c8e52b02e";
 const SW_VERSION = "bebebe-1.0.0-dev-b11";
-const SRC_HASH = "7e3f55b43c";
+const SRC_HASH = "aa22077a2e";
 const PRECACHE_LOCAL = [
   "./", "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512-maskable.png",
   "./icons/icon-512.png", "./icons/icon.svg", "./index.html", "./manifest.webmanifest"
 ];
 const PRECACHE_SRC = [
-  "./src/client/art-names.js?v=64e5afa0d4", "./src/client/art.js?v=45d04a089a", "./src/client/back.js?v=2bbaab7f17",
-  "./src/client/cadence.js?v=2ada0d3133", "./src/client/debug.js?v=d2adce547c", "./src/client/devices.js?v=892965ff6f",
-  "./src/client/errors.js?v=7b215fb847", "./src/client/flow.js?v=8648c16c5f", "./src/client/fx.js?v=5a88b57937",
-  "./src/client/input.js?v=983462c66e", "./src/client/lifecycle.js?v=6390975daf", "./src/client/look.js?v=2681f288fc",
-  "./src/client/main.js?v=60e448c437", "./src/client/names.js?v=dff85cded6", "./src/client/outfits.js?v=e814941367",
-  "./src/client/perf.js?v=2c7f71b57b", "./src/client/ports.js?v=4285602733", "./src/client/progress.js?v=38515d7fe6",
-  "./src/client/reset.js?v=30ccdd527d", "./src/client/save.js?v=7939a95d74", "./src/client/screen.js?v=b2d0263850",
-  "./src/client/shop.js?v=ebde4ad6de", "./src/client/sound.js?v=57a594910c", "./src/client/state.js?v=fe4135ebe7",
-  "./src/client/storage.js?v=686b11f06c", "./src/client/three/batch.js?v=72814fddc1",
-  "./src/client/three/bosses.js?v=7814dfb8d4", "./src/client/three/camera.js?v=cd37d1af9d",
-  "./src/client/three/characters.js?v=9d751c743a", "./src/client/three/houses.js?v=cc24238c90",
-  "./src/client/three/look3d.js?v=bed183f8c6", "./src/client/three/map3d.js?v=547da5e0ef",
-  "./src/client/three/mapstate.js?v=df23bf049c", "./src/client/three/materials.js?v=2571bf9d38",
-  "./src/client/three/pools.js?v=75c81234b2", "./src/client/three/previews.js?v=f6a39ecdaf",
-  "./src/client/three/setup.js?v=f20369215b", "./src/client/three/sync.js?v=a0f9c28b1a",
-  "./src/client/three/themes.js?v=4b130c3f66", "./src/client/tutorial-data.js?v=d7936119e6",
+  "./src/client/adaptive.js?v=c223d4391e", "./src/client/art-names.js?v=64e5afa0d4",
+  "./src/client/art.js?v=45d04a089a", "./src/client/back.js?v=2bbaab7f17", "./src/client/cadence.js?v=2ada0d3133",
+  "./src/client/debug.js?v=51a064e27b", "./src/client/devices.js?v=892965ff6f", "./src/client/errors.js?v=7b215fb847",
+  "./src/client/flow.js?v=8648c16c5f", "./src/client/fx.js?v=5a88b57937", "./src/client/input.js?v=983462c66e",
+  "./src/client/lifecycle.js?v=42d6c088ba", "./src/client/look.js?v=c758fa2b19", "./src/client/main.js?v=8d8424beac",
+  "./src/client/names.js?v=dff85cded6", "./src/client/outfits.js?v=e814941367", "./src/client/perf.js?v=2c7f71b57b",
+  "./src/client/ports.js?v=4285602733", "./src/client/progress.js?v=38515d7fe6",
+  "./src/client/quality.js?v=0936f05d03", "./src/client/reset.js?v=30ccdd527d", "./src/client/save.js?v=ef4b513256",
+  "./src/client/screen.js?v=576f0ce0af", "./src/client/shop.js?v=ebde4ad6de", "./src/client/sound.js?v=57a594910c",
+  "./src/client/state.js?v=fe4135ebe7", "./src/client/storage.js?v=686b11f06c",
+  "./src/client/three/batch.js?v=72814fddc1", "./src/client/three/bosses.js?v=7814dfb8d4",
+  "./src/client/three/camera.js?v=cd37d1af9d", "./src/client/three/characters.js?v=9d751c743a",
+  "./src/client/three/houses.js?v=cc24238c90", "./src/client/three/look3d.js?v=bed183f8c6",
+  "./src/client/three/map3d.js?v=ca07d2c914", "./src/client/three/mapstate.js?v=df23bf049c",
+  "./src/client/three/materials.js?v=b97d638913", "./src/client/three/pools.js?v=75c81234b2",
+  "./src/client/three/previews.js?v=f6a39ecdaf", "./src/client/three/setup.js?v=3cb458f3c6",
+  "./src/client/three/sync.js?v=a0f9c28b1a", "./src/client/three/themes.js?v=4b130c3f66",
+  "./src/client/three/tier.js?v=afcaee6daf", "./src/client/tutorial-data.js?v=d7936119e6",
   "./src/client/tutorial.js?v=d366f16b03", "./src/client/ui/artdraw.js?v=48e3a5b4ce",
   "./src/client/ui/buttons.js?v=67b41b2f83", "./src/client/ui/canvas.js?v=697f7d0db5",
   "./src/client/ui/character/items.js?v=87b6a8f23e", "./src/client/ui/character/progress.js?v=46b61d937e",
   "./src/client/ui/character/tabs.js?v=bd6c90ad68", "./src/client/ui/character/upgrades.js?v=58cb99b9b1",
   "./src/client/ui/character/wardrobe.js?v=3fb7e40d1d", "./src/client/ui/draw.js?v=510f1e4a0b",
-  "./src/client/ui/grownups.js?v=87e0c3d642", "./src/client/ui/home.js?v=bdcbc2445d",
+  "./src/client/ui/grownups.js?v=9cec820d99", "./src/client/ui/home.js?v=bdcbc2445d",
   "./src/client/ui/hud.js?v=353bbb5527", "./src/client/ui/lang.js?v=568a4dc213",
   "./src/client/ui/layout.js?v=b3868f6e6c", "./src/client/ui/map.js?v=2d635f6a93",
   "./src/client/ui/menu.js?v=92826074d8", "./src/client/ui/minimap.js?v=7d23e70a73",
@@ -72,7 +74,7 @@ const PRECACHE_SRC = [
   "./src/core/mood.js?v=65a5548f9d", "./src/core/path.js?v=26b96c775d", "./src/core/practice.js?v=807c98cf2e",
   "./src/core/progress-rules.js?v=7c34b4f903", "./src/core/rules.js?v=62128604fa", "./src/core/util.js?v=b56133239e",
   "./src/core/vision.js?v=f239fd8abc", "./src/core/wardrobe.js?v=011be2182f", "./src/core/world.js?v=4c89ba327c",
-  "./src/i18n.js?v=ad8999931e", "./src/story.js?v=0cd3381a6e"
+  "./src/i18n.js?v=d7a6f210de", "./src/story.js?v=0cd3381a6e"
 ];
 const THREE_VERSION = "r187";
 const PRECACHE_THREE = [

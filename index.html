@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="BeBeBe">
 <meta name="theme-color" content="#faf4e2">
-<meta name="src-hash" content="7e3f55b43c">
+<meta name="src-hash" content="aa22077a2e">
 <meta name="game-version" content="1.0.0-dev">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
@@ -102,27 +102,29 @@
 { "imports": {
   "./vendor/three/three.core.js": "./vendor/three/three.core.js?v=60880f0fd0",
   "three": "./vendor/three/three.module.js?v=49bfc58c40",
+  "./src/client/adaptive.js": "./src/client/adaptive.js?v=c223d4391e",
   "./src/client/art-names.js": "./src/client/art-names.js?v=64e5afa0d4",
   "./src/client/art.js": "./src/client/art.js?v=45d04a089a",
   "./src/client/back.js": "./src/client/back.js?v=2bbaab7f17",
   "./src/client/cadence.js": "./src/client/cadence.js?v=2ada0d3133",
-  "./src/client/debug.js": "./src/client/debug.js?v=d2adce547c",
+  "./src/client/debug.js": "./src/client/debug.js?v=51a064e27b",
   "./src/client/devices.js": "./src/client/devices.js?v=892965ff6f",
   "./src/client/errors.js": "./src/client/errors.js?v=7b215fb847",
   "./src/client/flow.js": "./src/client/flow.js?v=8648c16c5f",
   "./src/client/fx.js": "./src/client/fx.js?v=5a88b57937",
   "./src/client/input.js": "./src/client/input.js?v=983462c66e",
-  "./src/client/lifecycle.js": "./src/client/lifecycle.js?v=6390975daf",
-  "./src/client/look.js": "./src/client/look.js?v=2681f288fc",
-  "./src/client/main.js": "./src/client/main.js?v=60e448c437",
+  "./src/client/lifecycle.js": "./src/client/lifecycle.js?v=42d6c088ba",
+  "./src/client/look.js": "./src/client/look.js?v=c758fa2b19",
+  "./src/client/main.js": "./src/client/main.js?v=8d8424beac",
   "./src/client/names.js": "./src/client/names.js?v=dff85cded6",
   "./src/client/outfits.js": "./src/client/outfits.js?v=e814941367",
   "./src/client/perf.js": "./src/client/perf.js?v=2c7f71b57b",
   "./src/client/ports.js": "./src/client/ports.js?v=4285602733",
   "./src/client/progress.js": "./src/client/progress.js?v=38515d7fe6",
+  "./src/client/quality.js": "./src/client/quality.js?v=0936f05d03",
   "./src/client/reset.js": "./src/client/reset.js?v=30ccdd527d",
-  "./src/client/save.js": "./src/client/save.js?v=7939a95d74",
-  "./src/client/screen.js": "./src/client/screen.js?v=b2d0263850",
+  "./src/client/save.js": "./src/client/save.js?v=ef4b513256",
+  "./src/client/screen.js": "./src/client/screen.js?v=576f0ce0af",
   "./src/client/shop.js": "./src/client/shop.js?v=ebde4ad6de",
   "./src/client/sound.js": "./src/client/sound.js?v=57a594910c",
   "./src/client/state.js": "./src/client/state.js?v=fe4135ebe7",
@@ -133,14 +135,15 @@
   "./src/client/three/characters.js": "./src/client/three/characters.js?v=9d751c743a",
   "./src/client/three/houses.js": "./src/client/three/houses.js?v=cc24238c90",
   "./src/client/three/look3d.js": "./src/client/three/look3d.js?v=bed183f8c6",
-  "./src/client/three/map3d.js": "./src/client/three/map3d.js?v=547da5e0ef",
+  "./src/client/three/map3d.js": "./src/client/three/map3d.js?v=ca07d2c914",
   "./src/client/three/mapstate.js": "./src/client/three/mapstate.js?v=df23bf049c",
-  "./src/client/three/materials.js": "./src/client/three/materials.js?v=2571bf9d38",
+  "./src/client/three/materials.js": "./src/client/three/materials.js?v=b97d638913",
   "./src/client/three/pools.js": "./src/client/three/pools.js?v=75c81234b2",
   "./src/client/three/previews.js": "./src/client/three/previews.js?v=f6a39ecdaf",
-  "./src/client/three/setup.js": "./src/client/three/setup.js?v=f20369215b",
+  "./src/client/three/setup.js": "./src/client/three/setup.js?v=3cb458f3c6",
   "./src/client/three/sync.js": "./src/client/three/sync.js?v=a0f9c28b1a",
   "./src/client/three/themes.js": "./src/client/three/themes.js?v=4b130c3f66",
+  "./src/client/three/tier.js": "./src/client/three/tier.js?v=afcaee6daf",
   "./src/client/tutorial-data.js": "./src/client/tutorial-data.js?v=d7936119e6",
   "./src/client/tutorial.js": "./src/client/tutorial.js?v=d366f16b03",
   "./src/client/ui/artdraw.js": "./src/client/ui/artdraw.js?v=48e3a5b4ce",
@@ -152,7 +155,7 @@
   "./src/client/ui/character/upgrades.js": "./src/client/ui/character/upgrades.js?v=58cb99b9b1",
   "./src/client/ui/character/wardrobe.js": "./src/client/ui/character/wardrobe.js?v=3fb7e40d1d",
   "./src/client/ui/draw.js": "./src/client/ui/draw.js?v=510f1e4a0b",
-  "./src/client/ui/grownups.js": "./src/client/ui/grownups.js?v=87e0c3d642",
+  "./src/client/ui/grownups.js": "./src/client/ui/grownups.js?v=9cec820d99",
   "./src/client/ui/home.js": "./src/client/ui/home.js?v=bdcbc2445d",
   "./src/client/ui/hud.js": "./src/client/ui/hud.js?v=353bbb5527",
   "./src/client/ui/lang.js": "./src/client/ui/lang.js?v=568a4dc213",
@@ -197,10 +200,10 @@
   "./src/core/vision.js": "./src/core/vision.js?v=f239fd8abc",
   "./src/core/wardrobe.js": "./src/core/wardrobe.js?v=011be2182f",
   "./src/core/world.js": "./src/core/world.js?v=4c89ba327c",
-  "./src/i18n.js": "./src/i18n.js?v=ad8999931e",
+  "./src/i18n.js": "./src/i18n.js?v=d7a6f210de",
   "./src/story.js": "./src/story.js?v=0cd3381a6e"
 } }
 </script>
-<script type="module" src="./src/client/main.js?v=60e448c437"></script>
+<script type="module" src="./src/client/main.js?v=8d8424beac"></script>
 </body>
 </html>

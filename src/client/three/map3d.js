@@ -9,6 +9,7 @@ import { dressHouses, houseRoofs, setHouseInfo } from "./houses.js";
 import { mapGroup, setMapGroup, waves } from "./mapstate.js";
 import { batchMap } from "./batch.js";
 import { beginGeoScope, disposeTree, endGeoScope, gradTex, groundCanvas, groundTex, ownMat, part, toon, toonH, wobbleSeed } from "./materials.js";
+import { keepDecor, tierNumbers } from "../quality.js";
 import { camera, P, renderer, scene, WALL_H } from "./setup.js";
 import { adBoards, HEDGE_COLORS, makeBushFor, makeCottage, makeFountain, makePondFor, makeRockFor, makeStreetThing, makeTreeFor, makeWaterFor, mazeDeco, paintPitch, paintStreets, riverBanks, tag, THEMES } from "./themes.js";
 import { circleOn, fillStrokeOn, rrOn } from "../ui/canvas.js";
@@ -266,6 +267,9 @@ export function buildMap3D() {
     if (x > -1.2 && x < COLS + 1.2 && z > -1.2 && z < ROWS + 1.2) continue;
     if (place === "beach" && z > ROWS + 3.5) continue;   // там море
     const fake = { s: 0.9 + rng() * 0.5, v: rng() < 0.6 ? "pine" : "round" };
+    // SPEC-040 AC 6: the tier keeps a share of this decor (medium 3/4, low 1/2) — by its number in the sequence, so every device of a tier draws
+    // the same decor; the seeded sequence itself is drawn in full (the rest of the decor stays where it was) and nothing of the play area is thinned
+    if (!keepDecor(made, tierNumbers().decor)) { if (place === "city" && made % 2) rng(); made++; continue; }
     if (place === "city" && made % 2) {                  // SPEC-016: на улицах за оградой — фонари, гидранты, скамейки, урны
       const thing = makeStreetThing(["lamp", "hydrant", "lamp", "bench", "lamp", "bin"][(made >> 1) % 6], th.deco);
       thing.position.set(x, 0, z); thing.rotation.y = Math.round(rng() * 3) * Math.PI / 2; mapGroup.add(thing); made++; continue;

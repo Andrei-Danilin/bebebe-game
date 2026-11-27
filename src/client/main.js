@@ -10,6 +10,7 @@ import { progress } from "../core/economy.js";
 import { newGame, useGame } from "../core/game.js";
 import { setHooks } from "../core/hooks.js";
 import { noGameRng, setStrictRng } from "../core/util.js";
+import { earlyQuality, initQuality, qualityFrame } from "./adaptive.js";
 import { artGate, artKeep, artSweep, initArt, mapBgArt } from "./art.js";
 import { cadence, newCadence } from "./cadence.js";
 import { installDebug } from "./debug.js";
@@ -59,6 +60,7 @@ async function boot() {
   await loadSave();
   try { adoptErrorLog(readErrorLog()); } catch (e) { /* the log never stops the start */ }   // SPEC-039: the stored log joins this run's (was inside loadSave)
   initInput();
+  earlyQuality();                             // SPEC-040 AC 7: the tier the renderer is made with (a pinned or saved one; MSAA is part of it)
   initThree();
   fit();
   initScene();
@@ -75,6 +77,8 @@ async function boot() {
   initPerf();
   fit();
   resetWorld(1);
+  // SPEC-040 AC 7: the start probe picks the quality tier (unless one is pinned or chosen)
+  initQuality();
   artGate();                                  // SPEC-020: экран загрузки ждёт картинки (недолго); игра уже готова
   // SPEC-022: самый первый запуск (и старое сохранение без seen: история новая для всех) — комикс «Как всё началось» (под экраном
   // загрузки, пока он есть). Тесты его пропускают: их init-скрипт ставит window.__bbNoIntro (кроме теста первого запуска)
@@ -108,6 +112,7 @@ function tick(now) {
   noteFrame(Math.max(0, real), dt);          // SPEC-025 AC 15b: __bb.perf()
   runQueuedFit();                            // SPEC-038 AC 2: a resize / rotation since the last frame — the canvases are rebuilt before this frame draws
   if (simMode) return;                       // sim: ни логики, ни рисования — игру шагает simRun
+  qualityFrame(real, mode, now);             // SPEC-040 AC 7: in play, a p95 over the D-17 threshold for 5 s drops a quality tier
   artKeep(mapBgArt(G.world)); artSweep(now);   // SPEC-040 AC 1: фон карты текущего мира в памяти; остальные не постоянные картинки уходят, когда их не рисуют
   if (langDue && mode === "home" && !document.getElementById("loading")) { langDue = false; openLangScreen(); }   // SPEC-032: язык — до комикса
   if (introDue && mode === "home" && !document.getElementById("loading")) { introDue = false; openScene("intro", tutorialDue ? openFirstTutorial : null); }   // SPEC-022: первый запуск (SPEC-029: потом обучение; SPEC-033: сначала карточка «Как играть»)

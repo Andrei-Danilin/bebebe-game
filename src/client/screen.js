@@ -3,6 +3,7 @@
 
 import { H, W } from "../core/config.js";
 import { LOOK } from "./look.js";
+import { dprCap } from "./quality.js";
 import { renderer } from "./three/setup.js";
 
 // =====================================================================
@@ -75,7 +76,7 @@ function fitSoon() {
 }
 export function fit() {
   fitCount++;
-  DPR = Math.min(window.devicePixelRatio || 1, isTouch ? 1.5 : 2);   // на планшетах чуть меньше пикселей — плавнее
+  DPR = Math.min(window.devicePixelRatio || 1, dprCap(isTouch));   // на планшетах чуть меньше пикселей — плавнее; SPEC-040: потолок — по уровню качества
   const area = playArea();
   const oldCSSW = CSS_W;
   if (PHONE) {

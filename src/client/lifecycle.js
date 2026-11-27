@@ -79,6 +79,12 @@ export function initLifecycle() {
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") onHide(); else armGlWait(); });
   window.addEventListener("pagehide", onHide);
   window.addEventListener("blur", pauseIfPlaying);
-  const gl = document.getElementById("gl");
+  watchGl(document.getElementById("gl"));
+}
+// the canvas whose context loss and restore are watched (SPEC-040: a new canvas when the quality tier changes the MSAA — the old one is let go first)
+let watched = null;
+export function watchGl(gl) {
+  if (watched) { watched.removeEventListener("webglcontextlost", onContextLost); watched.removeEventListener("webglcontextrestored", onContextRestored); }
+  watched = gl;
   if (gl) { gl.addEventListener("webglcontextlost", onContextLost); gl.addEventListener("webglcontextrestored", onContextRestored); }
 }

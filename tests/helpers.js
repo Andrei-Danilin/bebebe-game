@@ -50,6 +50,8 @@ const withSim = (query, sim) => (sim ? query + (query.includes("?") ? "&" : "?")
 function noIntro() { window.__bbNoIntro = true; }
 // SPEC-029: the tutorial after the intro on the first launch — skipped the same way (window.__bbNoTutorial); `tutorial: true` = its own tests
 function noTutorial() { window.__bbNoTutorial = true; }
+// SPEC-040 AC 7: every test draws with the high tier (today's picture) unless it asks for another: on CI (SwiftShader) the start probe would pick low
+function pinQuality(q) { window.__bbQuality = q; }
 
 // SPEC-011 AC 8d: every test game is seeded before it starts. The seed is a stable hash (FNV-1a) of the test's file name and
 // title path, so a test plays the same game on every run and machine; openGame / openGameHttp / resetGame / reloadGame seed
@@ -81,7 +83,7 @@ async function reloadGame(page) {
 }
 
 // `base` (SPEC-011 AC 8): the site URL with a trailing slash — HTTP_BASE by default; scripts pass their own server's.
-async function openGame(page, { lang = "en", clearStorage = true, query = "", sim = false, intro = false, tutorial = false, base = HTTP_BASE } = {}) {
+async function openGame(page, { lang = "en", clearStorage = true, query = "", sim = false, intro = false, tutorial = false, quality = "high", base = HTTP_BASE } = {}) {
   const errors = [];
   page.on("pageerror", e => errors.push(String(e)));
   page.on("console", m => { if (m.type() === "error") errors.push("console: " + m.text()); });
@@ -90,6 +92,7 @@ async function openGame(page, { lang = "en", clearStorage = true, query = "", si
   if (testSeed() != null) await page.addInitScript(bootSeed, testSeed());
   if (!intro) await page.addInitScript(noIntro);
   if (!tutorial) await page.addInitScript(noTutorial);
+  if (quality) await page.addInitScript(pinQuality, quality);   // quality: null — no pin: the saved choice or the start probe decides
   if (clearStorage) {
     await page.addInitScript(clearOnce, lang);
   }
@@ -113,7 +116,7 @@ function guardSim(page) {
 // Like openGame(), but at the site root (HTTP_BASE + query). SPEC-011 AC 8b: Playwright blocks service workers by default (playwright.config.js); a spec
 // that needs the service worker allows it with test.use({ serviceWorkers: "allow" }) (pwa.spec.js does).
 // `query` is appended to the URL (e.g. "?standalone=1").
-async function openGameHttp(page, { lang = "en", query = "", clearStorage = true, intro = false, tutorial = false } = {}) {
+async function openGameHttp(page, { lang = "en", query = "", clearStorage = true, intro = false, tutorial = false, quality = "high" } = {}) {
   const errors = [];
   page.on("pageerror", e => errors.push(String(e)));
   page.on("console", m => { if (m.type() === "error") errors.push("console: " + m.text()); });
@@ -122,6 +125,7 @@ async function openGameHttp(page, { lang = "en", query = "", clearStorage = true
   if (testSeed() != null) await page.addInitScript(bootSeed, testSeed());
   if (!intro) await page.addInitScript(noIntro);
   if (!tutorial) await page.addInitScript(noTutorial);
+  if (quality) await page.addInitScript(pinQuality, quality);   // quality: null — no pin: the saved choice or the start probe decides
   if (clearStorage) {
     await page.addInitScript(clearOnce, lang);
   }
