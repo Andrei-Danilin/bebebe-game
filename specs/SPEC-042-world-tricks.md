@@ -1,0 +1,123 @@
+# SPEC-042 — Every world has its own trick: puddles, sprinklers, the ice-cream truck, the school bell, waves, footprints
+
+Status: ready
+Complexity: L
+Branch: SPEC-042-world-tricks
+Decided by: Andrei (2026-11-26): each world gets one special mechanic (idea 1 of "how to make the worlds different"). Which trick goes to which world, the numbers and the "new here" card: Claude, check with the kids. Art: sheets 37 (icons) and 40 / 41 (world tip pictures) from Andrei.
+
+## Description
+Today the worlds differ mostly in colours and decor. Each world now gets one trick that changes how you play there:
+
+| World | Trick | What it does |
+|---|---|---|
+| Park | **Puddles** | Running through a puddle makes a loud SPLASH: Dad hears it from twice as far. Tiptoeing through is quiet. |
+| Football field | **Sprinklers** | Every 20 s a sprinkler sprays a circle for 5 s. Dad never walks into the spray, and a kid inside it is hidden (like in a bush). |
+| City | **Ice-cream truck** | A slow truck drives a loop along the streets. Dad can't see through it, so kids can sneak along behind it. It stops when someone is in front of it. |
+| School | **The bell ("Freeze!")** | Every 30 s the bell rings for 3 s, with a 2 s warning. Dad looks all around; any kid who runs while it rings is spotted. Kids who stand still or tiptoe are not. |
+| Beach | **Waves** | Every 20 s a wave rolls 2 cells up the beach for 6 s. Kids in the water move at 60%; Dad won't go in. |
+| Winter | **Footprints** | Running kids leave footprints in the snow for 8 s, and Dad follows fresh prints. Tiptoeing leaves none. |
+
+The first time a world opens, a **"New here!"** card shows its trick and its item (SPEC-043) with a comic picture. It can be watched again from the level card.
+
+## Goal
+Each world plays differently and teaches one idea, from what the game already has (hearing, hiding, sneaking), without breaking the level rules or the balance targets the kids care about (difficulty grows, mazes hardest).
+
+## Context
+(Pre-flight against master; match names.)
+- **Core:**
+  - `src/core/` — `big.js` (vision, search, chase, look), `hearing.js` (`audible`, `HEAR_RADIUS`, noise), `world.js` (`los`, `seeSolidAt`, `inSafe`, bushes hide);
+  - `rules.js` (items, slip); `bots.js`, `autopilot.js`;
+  - `level/` — `generate.js`, `layouts.js`, `validate.js`: the fairness rules `DOOR_APRON`, `HOUSE_PATH`, `FREE_MIN`;
+  - `config.js` (`CFG`), the fixed step (SPEC-034), events (`emit`).
+- **Client:** 3D map pieces `src/client/three/map3d.js` / `themes.js`; effects `fx.js`; HUD `ui/hud.js`; scenes and tutorial pages `ui/story.js` / `tutorial.js`; level card `ui/map.js`.
+- **Worlds:** `WORLDS`, `MAIN_WORLDS`, `BONUS_WORLDS`, `WORLD_SEED`, `worldOpen` (SPEC-030).
+- Practice games and the tutorial are on the Park map with no tricks.
+- **Art:**
+  - `art/37_world_icons.webp`: icons `ui_puddle`, `ui_sprinkler`, `ui_truck`, `ui_bell`, `ui_wave`, `ui_snowprints` used by this spec; the item icons are for SPEC-043;
+  - `art/40_world_tips_main.webp` (2×2: Park, Field, City, School);
+  - `art/41_world_tips_bonus.webp` (2 panels: Beach, Winter).
+  - All optional: missing art falls back to existing icons and a map-preview panel.
+
+## Out of scope
+World items (SPEC-043), world houses (SPEC-044), new level types.
+
+## Acceptance criteria
+### General
+1. **Core, deterministic, data-driven:**
+   - each trick is a core module (`src/core/tricks/<name>.js`) driven by the fixed step and the seeded random, switched on per world by `CFG.WORLD_TRICK` (`park: "puddles"`, `field: "sprinklers"`, `city: "truck"`, `school: "bell"`, `beach: "waves"`, `winter: "footprints"`);
+   - numbers live in `CFG.TRICKS`;
+   - the same seed gives the same level and the same trick timing;
+   - the headless core runs the tricks; the server can later (SPEC-013).
+2. **Fair levels:** trick pieces are placed by the level generator and checked by `validate.js`:
+   - never in a house, its door apron or the path between the houses' doors where that would block it;
+   - the level stays winnable (the existing fairness checks pass for all 120 levels).
+3. **Bots and autopilot understand the trick enough not to break it:**
+   - they tiptoe around puddles near Dad;
+   - they use the spray and the truck to hide when sneaking;
+   - they freeze at the bell;
+   - they keep out of waves when chased;
+   - they stop running near Dad on snow.
+   The SPEC-037 stall guard still passes.
+4. **Tutorial and practice games have no tricks.**
+
+### The six tricks (numbers: Claude, in `CFG.TRICKS`)
+5. **Park — puddles:**
+   - 3–5 puddles per level (1-cell circles) on free ground;
+   - a running kid crossing one emits a splash (SPLASH pop, water fx, `sfx: "splash"` placeholder) that counts as noise at `2 × HEAR_RADIUS` for 1 s;
+   - tiptoeing through is silent;
+   - Dad stepping in one only splashes (no effect).
+6. **Field — sprinklers:**
+   - 2–3 sprinklers per level, each on a 20 s cycle: 1 s drip warning, 5 s spray (radius 2 cells), off;
+   - phases offset so they don't all spray at once;
+   - Dad never enters an active spray (re-paths; if inside when it starts, he steps out);
+   - a kid inside an active spray is hidden from his view, like in a bush.
+7. **City — ice-cream truck:**
+   - one truck per level drives a closed loop along open lanes (generated with the level), at 0.5 × kid speed;
+   - it blocks Dad's line of sight like a wall (2 × 1 cells) and never hurts anyone;
+   - it stops while a kid or Dad is in the cell in front of it, then goes on;
+   - levels with no loop of at least 16 cells have no truck (logged; the generator should usually make one).
+8. **School — the bell:**
+   - every 30 s: a 2 s warning (the bell icon shakes in the HUD with "2, 1"), then a 3 s ring;
+   - during the ring Dad stops and looks all around (his cone sweeps 360°);
+   - any kid moving faster than tiptoe in his line of sight is spotted (Dad chases them after the ring);
+   - kids standing still or tiptoeing are not spotted;
+   - a short "Freeze!" banner on the first ring of each level (four languages).
+9. **Beach — waves:**
+   - the water edge of the level rises 2 cells for 6 s every 20 s (wave fx);
+   - kids in the wave area move at 60%;
+   - Dad doesn't enter it (re-paths; if caught inside he walks out at normal speed);
+   - houses and their aprons are never in the wave area.
+10. **Winter — footprints:**
+    - a running kid leaves a footprint every 0.4 s, fading over 8 s (drawn on the snow);
+    - tiptoeing leaves none;
+    - Dad in patrol or search who sees a print within his cone goes to the freshest print of that trail;
+    - prints in the kids' house are not followed.
+
+### "New here!" card
+11. **When:**
+    - the first time a world's level 1 card opens (after the world is open), a card shows: the world's tip picture (sheet 40 / 41 panel), a title "New in the {world}!", two lines (the trick and the world item of SPEC-043), and OK;
+    - `progress.seen.trick_<world>` is set;
+    - the level card gets a small **?** button that shows it again.
+12. **Texts** (en / es / pt / ru, Claude). For example the School: "When the bell rings — freeze! Dad looks everywhere and sees anyone running." All six in the spec's string table, written by the implementer in the same voice.
+13. **Fallback:** without the tip art, the card shows the world's map preview (SPEC-041) with the trick icon.
+
+### Balance and tests
+14. **Tests:**
+    - core tests per trick (timing, effect, determinism, no effect in practice);
+    - the generator never breaks the fairness checks with tricks on (all 120 levels);
+    - the card shows once per world and again from **?**.
+15. **Balance:**
+    - run the Balance workflow on the branch and commit the reports;
+    - "difficulty grows" and "mazes hardest" (the kids' rules) stay as targets: if a trick breaks one, tune the trick's numbers first (`CFG.TRICKS`), not the target;
+    - report per world before and after.
+16. **Docs:**
+    - `docs/game-design.md`: the tricks and their numbers via `docs:numbers`;
+    - `docs/architecture.md`: the tricks modules;
+    - `specs/BACKLOG.md`: "trick numbers and texts — Claude, check with the kids";
+    - sound placeholders for SPEC (audio): splash, sprinkler, truck tune, bell, wave, snow crunch.
+
+## Implementation steps (TDD: failing test first in each)
+1. The tricks framework (`CFG.WORLD_TRICK`, `CFG.TRICKS`, core hook per step, generator hook, validator).
+2. One trick per step: puddles → sprinklers → truck → bell → waves → footprints; each with core tests, 3D / fx pieces and bot / autopilot handling.
+3. "New here!" card, **?** button, texts, art mapping (`37` icons, `40` / `41` panels).
+4. Balance workflow and tuning, screenshots (one per world at 667×375, the card), docs.
