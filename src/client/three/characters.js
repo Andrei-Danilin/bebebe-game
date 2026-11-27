@@ -86,9 +86,10 @@ function addHair(head, look) {
       const mid = new THREE.Mesh(sphere(0.04, 8, 6), toon("#fde047")); mid.position.set(0.17, 0.2, 0.15); head.add(mid);
       break;
     }
-    case "headband": {
-      const t = part(new THREE.TorusGeometry(r + 0.01, 0.035, 6, 24), "#ef4444", 0.012); t.rotation.x = Math.PI / 2; t.position.y = 0.08; head.add(t);
-      for (const k of [-1, 1]) { const tail = part(new THREE.BoxGeometry(0.05, 0.2, 0.03), "#ef4444", 0.01); tail.position.set(k * 0.05, -0.02, -0.29); tail.rotation.z = k * 0.4; head.add(tail); }
+    case "headband": {   // SPEC-041: чёрная повязка с двумя красными хвостиками сзади, как на картинке hat_ninja (userData.hat — для теста: __bb.hat3D)
+      const H = LOOK.HEADBAND_LOOK;
+      const t = part(new THREE.TorusGeometry(r + 0.01, 0.035, 6, 24), H.band, 0.012); t.rotation.x = Math.PI / 2; t.position.y = 0.08; t.userData.hat = "band"; head.add(t);
+      for (const k of [-1, 1]) { const tail = part(new THREE.BoxGeometry(0.05, H.tail, 0.03), H.tailColor, 0.01); tail.position.set(k * 0.05, -0.02, -0.29); tail.rotation.z = k * 0.4; tail.userData.hat = "tail"; head.add(tail); }
       break;
     }
     case "tophat": {
@@ -149,9 +150,10 @@ export function buildLittleModel(look, isPlayer, pid = 0, glove = null) {
     // SPEC-027: комбинезон — нагрудник и две лямки ПОВЕРХ куртки: перед нагрудника (z 0.25) и лямки (дуги радиуса 0.25 через плечо)
     // дальше всех деталей курток (молния ≤ 0.21, кольца полос / пояса / радуги ≤ 0.235, звезда плаща ≤ 0.23), верх нагрудника (0.075)
     // выше колец на 0.04 — ничего не мерцает и не лежит поверх нагрудника
+    // SPEC-041: дуга короче (LOOK.STRAP_LOOK.arc × π вместо π): кончик лямки над плечом, не доходит до ткани плаща сзади (ткань на z −0.185…−0.155)
     const bib = wearPart("bib", part(new THREE.BoxGeometry(0.22, 0.225, 0.085), look.pants, 0.012), body); bib.position.set(0, -0.0375, 0.2075);
     for (const k of [-1, 1]) {
-      const st = wearPart("strap", part(new THREE.TorusGeometry(0.25, 0.018, 4, 16, Math.PI), look.pants, 0.008), body);
+      const st = wearPart("strap", part(new THREE.TorusGeometry(0.25, 0.018, 4, LOOK.STRAP_LOOK.segs, Math.PI * LOOK.STRAP_LOOK.arc), look.pants, 0.008), body);
       st.rotation.y = -Math.PI / 2; st.position.set(k * 0.08, 0.06, 0);   // дуга от груди через плечо на спину
       const bt = wearPart("button", new THREE.Mesh(sphere(0.018, 6, 5), toon("#facc15")), body); bt.position.set(k * 0.08, 0.045, 0.252);
     }

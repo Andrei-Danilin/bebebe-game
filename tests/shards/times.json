@@ -620,5 +620,19 @@
  "worlds.spec.js › phone 667: lock toasts, the opened banner and the Progress lines fit in every language at fonts ×1.3": 27.8,
  "worlds.spec.js › the Progress page shows the padlock on locked main worlds and the finish line of the next one; the Story says the same": 6,
  "worlds.spec.js › winning a world's level 20 for the first time opens the next world: the map switches to it and says so": 0,
- "worlds.spec.js › worldOpen gives every reason: start, previous, bonus, played, locked": 0.2
+ "worlds.spec.js › worldOpen gives every reason: start, previous, bonus, played, locked": 0.2,
+ "economy.spec.js › buying an upgrade shows a sparkle on its card (fx_sparkle) and fills a pip": 8,
+ "economy.spec.js › the Upgrades page: pips, effect now → next, MAX ribbon, the players-only line, big pictures, no empty block (desktop)": 40,
+ "economy.spec.js › the Upgrades page: pips, effect now → next, MAX ribbon, the players-only line, big pictures, no empty block (phone 667×375)": 25,
+ "economy.spec.js › the Upgrades tab fits (desktop 1280×720)": 14,
+ "economy.spec.js › the Upgrades tab fits (phone 568×320)": 22,
+ "look3d.spec.js › overalls straps stop above the cape: nothing behind the cape cloth (cape, magiccape; in play and in the wardrobe preview)": 30,
+ "look3d.spec.js › the ninja band is a black band with two short red tails at the back, in play and in the wardrobe preview": 20,
+ "menus.spec.js › the level card draws the preview with both houses; level 20 has the boss face; a closed level is dimmed with the padlock": 4,
+ "menus.spec.js › the level card with its preview fits (desktop 1280×720, fonts ×1 / ×1.15 / ×1.3)": 14,
+ "menus.spec.js › the level card with its preview fits (desktop 960×640, fonts ×1 / ×1.15 / ×1.3)": 14,
+ "menus.spec.js › the level card with its preview fits (phone 568×320, fonts ×1 / ×1.15)": 14,
+ "menus.spec.js › the level card with its preview fits (phone 667×375, fonts ×1 / ×1.15)": 14,
+ "menus.spec.js › the level card's preview paints the generated level's map (every world: walls dark, water blue, free ground the place's colour)": 6,
+ "menus.spec.js › the card's map is made when it opens, never by drawing; clearLevelCache clears the previews; Play on a closed level does nothing": 6
 }

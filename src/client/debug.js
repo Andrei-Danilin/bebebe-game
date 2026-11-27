@@ -1,8 +1,9 @@
 // SPEC-011: window.__bb for the tests (getters and setters over the modules' live state, never copies), CFG_ALL (the
 // __bb.CFG Proxy over CFG and LOOK), SIM_DRAWN. Client module (moved out of index.html in Phase C).
 
+import { Vector3 } from "three";
 import { autopilot } from "../core/autopilot.js";
-import { BONUS_WORLDS, BOSSES, CELL, CFG, COLS, GLOVES, KISSES, levelsPerWorld, MAIN_WORLDS, RESCUE_KIT, REWARD, ROWS, UPGRADES, WARDROBE_TIERS, WORLD_SEED, worldDifficulty, WORLDS } from "../core/config.js";
+import { BONUS_WORLDS, BOSSES, CELL, CFG, COLS, GLOVES, KISSES, levelsPerWorld, MAIN_WORLDS, RESCUE_KIT, REWARD, ROWS, UPGRADES, upgBonus, WARDROBE_TIERS, WORLD_SEED, worldDifficulty, WORLDS } from "../core/config.js";
 import { bigBoost, bigSpeeds, difficulty } from "../core/difficulty.js";
 import { ledger, progress, setProgress } from "../core/economy.js";
 import { readInputs, simRun } from "../core/game.js";
@@ -27,7 +28,7 @@ import { qualityFrame, qualityInfo, setQualityMode } from "./adaptive.js";
 import { warmInfo } from "./warm.js";
 import { art, ART_FALLBACK, artBytes, artCount, artLazy, artLoad, artDone, artVersion, EMOJI_ART, FX_ART, HEART_ART, ITEM_ART, mapBgArt, PAPER_BTN, POP_ART, SHOP_TAB_ART, STORY_ART, UPG_ART, WARDROBE_ART, worldArt } from "./art.js";
 import { orderedEvents } from "../core/events.js";
-import { bannerAlpha, chapterOpen, chooseStop, goBack, nextLevel, closeShop, giveReward, lastReward, mapTick, openFriends, openMap, openScene, openShop, openStory, resetMenus, resetWorld, rngDraws, sceneNext, scenePageCount, scenePages, sceneSkip, seedRandom, selectWorld, setLastReward, setMode, setShopTab, shopAfterWin, showBanner, startGame, tapWorldTab, toHome, toMap } from "./flow.js";
+import { bannerAlpha, chapterOpen, chooseStop, goBack, nextLevel, closeShop, giveReward, lastReward, mapTick, openFriends, openMap, openScene, openShop, openStory, resetMenus, resetWorld, rngDraws, sceneNext, scenePageCount, scenePages, sceneSkip, seedRandom, selectWorld, setLastReward, setMode, setShopTab, shopAfterWin, showBanner, showCard, startGame, tapWorldTab, toHome, toMap } from "./flow.js";
 import { errorLog, reportError } from "./errors.js";
 import { glRestored } from "./lifecycle.js";
 import { audioContext } from "./sound.js";
@@ -63,6 +64,8 @@ import { artUse, resetArtUse } from "./ui/artdraw.js";
 import { chooseLang, openLangScreen } from "./ui/lang.js";
 import { heardHintOn, heardHintText, heartFill, timerText } from "./ui/hud.js";
 import { mmAlpha, mmCount, mmDraws, mmState, updateMinimapFade } from "./ui/minimap.js";
+import { clearLevelPreviews, previewCacheSize, previewDataOf, previewStats } from "./preview-data.js";
+import { levelPreviewOf } from "./ui/level-preview.js";
 import { gateState, openGrownUps, parentGate } from "./ui/grownups.js";
 import { drawUI } from "./ui/screens.js";
 import { fmtHearts, storyPx } from "./ui/text.js";
@@ -88,7 +91,7 @@ const CFG_ALL = new Proxy({}, {
 // ошибку, чтобы визуальный тест, открытый в sim, падал громко, а не проверял пустоту.
 const SIM_DRAWN = ["buttonRects", "buttonNames", "tapButton", "hudRects", "mapInfo", "levelCard", "storyInfo", "textSizes", "minimap",
   "bannerRect", "rotateShown", "winPanel", "winLine", "bonusNote", "shopLayout", "kitHint", "heardHint", "edgeArrows", "downDrawn", "stickMarks",
-  "tapLines", "textOverflows", "tutorialHint", "homeInfo", "progressInfo", "outfit3D", "bibClear", "mapPieces", "groundColorAt", "camera", "minimapAlpha", "artUse", "sceneInfo", "moodInfo", "bigLook", "look3D", "drawNow", "model",
+  "tapLines", "textOverflows", "tutorialHint", "homeInfo", "progressInfo", "outfit3D", "bibClear", "hat3D", "capeClear", "cardRect", "mapPieces", "groundColorAt", "camera", "minimapAlpha", "artUse", "sceneInfo", "moodInfo", "bigLook", "look3D", "drawNow", "model",
   "perf", "disposeCheck"];   // SPEC-025 AC 15 / 15b: the renderer's numbers and textures — a rendered page only
 
 
@@ -131,7 +134,7 @@ export function installDebug() {
     get mapInfo() { return ui.mapState && JSON.parse(JSON.stringify(ui.mapState)); }, get toast() { return ui.toast && { ...ui.toast }; },
     // SPEC-030: мир, который карта покажет при входе (или null); плашка «<мир> открыт!» { world, t, text } (или null)
     get openedWorld() { return ui.openedWorld; }, mapTick, get worldBanner() { return ui.worldBanner && { ...ui.worldBanner, text: L().worldOpened(ui.worldBanner.world) }; },
-    get levelCard() { return ui.cardInfo && { ...ui.cardInfo }; }, openMap,
+    get levelCard() { return ui.cardInfo && { ...ui.cardInfo }; }, get cardRect() { return ui.cardRect && { ...ui.cardRect }; }, openMap,
     RULE_ICONS, STORY, openStory, get storyInfo() { return ui.storyInfo && { ...ui.storyInfo }; },
     // SPEC-022: заставки (scene — логика: { id, page, pages } или null; sceneInfo — нарисованное в этом кадре), боссы уровней
     SCENE_IDS, openScene, sceneNext, sceneSkip, scenePages, bigMood,
@@ -172,7 +175,7 @@ export function installDebug() {
     LANGS, detectLang, get lang() { return lang; },   // SPEC-028: языки по порядку значка 🌐, язык при запуске (чистая), текущий язык
     update: stepGame, frame: runFrame, inSafe, I18N, startGame, resetWorld, cycleOutfit, randomOutfit, cycleBig, setLang, toScreen,
     get items() { return G.items; }, get progress() { return progress; }, buyGloves, setEquip, get lastReward() { return lastReward; }, spawnItem,
-    UPGRADES, buyUpgrade, get upgrades() { return { ...progress.upgrades }; }, get shopTab() { return ui.shopTab; }, set shopTab(v) { setShopTab(v); },   // SPEC-009 (SPEC-017: + «wardrobe»)
+    UPGRADES, upgBonus, buyUpgrade, get upgrades() { return { ...progress.upgrades }; }, get shopTab() { return ui.shopTab; }, set shopTab(v) { setShopTab(v); },   // SPEC-009 (SPEC-017: + «wardrobe»)
     WARDROBE_TIERS, buyLook, resetOutfits, loadOutfits,   // SPEC-021: loadOutfits(save) — чистое «сохранение → наряды»
     get outfits() { return { shown: cloneSkins(skinSel), saved: cloneSkins(skinKeep) }; },   // SPEC-009: гардероб
     // SPEC-027: новые детали одежды модели: who — номер маленького или «p1» / «p2» (превью гардероба) → [{ piece, color }]
@@ -190,6 +193,29 @@ export function installDebug() {
       const under = m.body.children.filter(o => o.isMesh && !own.has(o) && o.material !== OUTLINE).map(box)
         .filter(q => q.max.x > b.min.x && q.min.x < b.max.x && q.max.y > b.min.y && q.min.y < b.max.y);
       return { bibFront: b.max.z, bibTop: b.max.y, jacketFront: Math.max(0, ...under.map(q => q.max.z)), parts: under.length };
+    },
+    // SPEC-041: детали шапки модели (помеченные userData.hat) → [{ piece, color, z }] (z — где в голове: сзади меньше 0); null — нет модели
+    hat3D(who) {
+      const m = outfitModel(who);
+      return m && m.head ? m.head.children.filter(o => o.userData.hat).map(o => ({ piece: o.userData.hat, color: "#" + o.material.color.getHexString(), z: o.position.z })) : null;
+    },
+    // SPEC-041: лямки комбинезона против плаща: самая задняя точка лямок под плащом (в тех же x и y, в координатах модели) и передняя грань
+    // ткани плаща — лямка не должна заходить за неё; null — нет лямок или плаща
+    capeClear(who) {
+      const m = outfitModel(who), straps = m && m.outfit && m.outfit.filter(q => q.piece === "strap"), cloth = m && m.cape && m.cape.children[0];
+      if (!straps || !straps.length || !cloth) return null;
+      cloth.updateMatrix(); cloth.geometry.computeBoundingBox();
+      const cb = cloth.geometry.boundingBox.clone().applyMatrix4(cloth.matrix).translate(m.cape.position);
+      let back = Infinity, n = 0;
+      for (const { mesh } of straps) {
+        mesh.updateMatrix();
+        const pos = mesh.geometry.attributes.position, v = new Vector3();
+        for (let i = 0; i < pos.count; i++) {
+          v.fromBufferAttribute(pos, i).applyMatrix4(mesh.matrix).add(m.body.position);
+          if (v.x >= cb.min.x && v.x <= cb.max.x && v.y >= cb.min.y && v.y <= cb.max.y) { back = Math.min(back, v.z); n++; }
+        }
+      }
+      return { strapBack: n ? back : null, capeFront: cb.max.z, covered: n };
     },
     wardrobe: () => ({ hat: HATS.map(({ id, price }) => ({ id, price })), jacket: JACKETS.map(({ id, price }) => ({ id, price })),
       pants: PANTS.map(({ id, price }) => ({ id, price })), big: BIG_SKINS.map(({ id, price }) => ({ id, price })), hairs: HAIRS.length }),
@@ -251,7 +277,10 @@ export function installDebug() {
     get heardHint() { return heardHintOn() ? { text: heardHintText(), pi: ui.heardHintPi, rect: ui.heardHintRect && { ...ui.heardHintRect, rows: [...ui.heardHintRect.rows] } } : null; },
     get stickMarks() { return ui.stickMarks.map(q => ({ ...q })); }, get tapLines() { return [...tapLines]; },
     GLOVES, KISSES, get shopLayout() { return ui.shopLayout; },                         // SPEC-007 AC 10
-    levelType, levelReport, get levelInfo() { return G.levelInfo; }, clearLevelCache, CFG: CFG_ALL, THEMES, look3D, disposeCheck, perf: perfReport, setBigFace,   // SPEC-021: look3D() — как нарисована 3D-сцена
+    // SPEC-041: картинка карточки уровня — levelPreview(мир, n) → { canvas, data } (из кеша или построить), previewInfo — сколько построено / взято из кеша / держится
+    showCard, levelPreview: (world, lv) => { previewDataOf(world, lv); return levelPreviewOf(world, lv); }, get previewInfo() { return { ...previewStats, size: previewCacheSize() }; }, clearLevelPreviews,
+    levelType, levelReport, get levelInfo() { return G.levelInfo; }, clearLevelCache: () => { clearLevelCache(); clearLevelPreviews(); },   // SPEC-041: the card previews live with the level cache
+     CFG: CFG_ALL, THEMES, look3D, disposeCheck, perf: perfReport, setBigFace,   // SPEC-021: look3D() — как нарисована 3D-сцена
     get banner() { return ui.banner; }, bannerAlpha,
     // всё состояние мира, которое levelReport сохраняет и возвращает (для теста «не трогает идущую игру»)
     worldState() { return JSON.stringify({ obstacles: G.obstacles, bushes: G.bushes, floors: G.floors, decor: G.decor, trees: G.trees, flowers: G.flowers, safeZone: G.safeZone, dangerZone: G.dangerZone, spawns: G.spawns, reachable: Array.from(G.reachable).join(""), grids: [G.blocked, G.blockedBig, G.moveGrid, G.seeGrid, G.moveGridBig].map(g => g.join("")) }); },

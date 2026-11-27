@@ -66,6 +66,22 @@ export const LOOK = {
   UPDATE_NOTE: { h: 34, phoneH: 32, size: 17, phoneSize: 16, min: 12, maxW: 0.92, gap: 10, bg: "#fde047", ink: "#3d2b1f", wait: 3 },
   STICK_STACK_MAX: 5,        // SPEC-038: сколько пальцев стик одного игрока помнит (самый старый забывается; потерянный pointerup не копится)
   PHONE_STICK_R: 60,         // CSS px — радиус джойстика на телефоне
+  // SPEC-041: 3D-повязка ниндзя как на картинке hat_ninja — чёрная повязка, красные хвостики короче (tail — их высота)
+  HEADBAND_LOOK: { band: "#1b1b1f", tailColor: "#ef4444", tail: 0.16 },
+  // SPEC-041: лямки комбинезона — дуга arc × π (было π: конец заходил за плащ сзади; спека: 0.55–0.6 π), segs — отрезков дуги
+  STRAP_LOOK: { arc: 0.6, segs: 10 },
+  // SPEC-041 (придумал Claude): картинка на карточке уровня — вид сверху на карту этого уровня: px — ширина холста карты без размера рисунка (тесты; высота 2:3), pxMin / pxMax — пределы ширины холста (ширина рисунка × масштаб экрана), cache —
+  // сколько уровней держать, рамка бумаги (поле, радиус углов — доля меньшей стороны, контур, цвет), домики и босс — доля меньшей стороны
+  // зоны, закрытый уровень — затемнение и замок (доля меньшей стороны); доля ширины карточки под картинку (компьютер / телефон) и строк строки уровня
+  LEVEL_PREVIEW_LOOK: { px: 480, pxMin: 160, pxMax: 720, cache: 8, frame: 5, corner: 0.06, line: 3, paper: "#fffdf5", house: 0.9, boss: 1.15, dim: "rgba(255,255,255,.62)", lock: 0.42,
+    deskFrac: 0.42, phoneFrac: 0.36, lines: 4 },
+  // SPEC-041 (придумал Claude): страница «Улучшения» — картинка карточки × (было 1.0), искорки после покупки (сколько секунд, штук, размер
+  // и радиус — доли картинки; spin — оборот за жизнь, r0 / rGrow — радиус в начале и прирост, squash — сплющивание, s0 / sShrink — размер,
+  // star — запасная звёздочка), лента «Максимум» (ribbon_star; кегль надписи — доля высоты ленты, textW — доля её ширины под надпись; запасная плашка: цвет, скругление, контур; обводка букв; сдвиг), компьютер: верх, высота карточки, центр
+  // картинки (размер s: рисуется ×1.2), название, кружки, строки эффекта, кнопка, «не хватает», строка «только игрокам» (px интерфейса)
+  UPG_PAGE_LOOK: { pic: 1.6, phone: { name: 17, effect: 14, gapMax: 14 }, spark: { time: 0.8, n: 6, size: 0.3, radius: 0.55, spin: 2, r0: 0.55, rGrow: 0.6, squash: 0.85, s0: 1.1, sShrink: 0.4, star: 0.35 },
+    ribbon: { text: 0.42, textW: 0.86, ink: "#3d2b1f", fill: "#fbbf24", corner: 0.3, plateLine: 3, minLine: 2, line: 0.2, dy: 1 },
+    desk: { top: 92, h: 372, pic: 86, picY: 74, nameY: 138, nameSz: 22, dotsY: 186, dotR: 9, effY: 206, effSz: 19, effLines: 2, btnY: 284, btnH: 54, noY: 346, noteY: 488, noteSz: 17 } },
   PHONE_BTN_MIN: 44,         // CSS px — кнопка на телефоне не меньше
   PHONE_HEART_MIN: 9,        // CSS px — шаг облачек злости на телефоне не меньше (SPEC-022: сначала теснятся облачка, подпись — целиком)
   PHONE_BTN_GAP: 8,          // CSS px — между соседними кнопками
@@ -237,7 +253,7 @@ export const LOOK = {
     map: { cols: 5, stop: 62, phoneStop: 46, boss: 1.22, starRow: 0.3, tabH: 52, backW: 140, coinsW: 150, phoneCoins: 88, titleH: 38, phoneTitleH: 30,
       bounce: 4, bounceSpeed: 5, swipe: 50, toastTime: 2.5, toastRows: 2, toastLine: 1.1, toastPadY: 0.3, dotW: 4, dash: 2, dashGap: 9, path: "rgba(255,255,255,.9)", pageR: 18, ringPad: 5, ringW: 4, badgeMin: 11,
       open: "#ffffff", next: "#fde047", closed: "#cbd5e1", ring: "#ff6fa8", badge: "#ef4444", badgeInk: "#ffffff", done: "#15803d", doneBg: "#dcfce7", toastBg: "#334155", toastInk: "#ffffff", openedBg: "#fde047", openedInk: "#831843", openedTime: 3.5,
-      doodles: 9, doodleAlpha: 0.55, doodleSize: 44, doodleGrow: 22, cardW: 480, phoneCardW: 420, cardPad: 14, cardR: 22, cardStar: 10, cardBtn: 56,
+      doodles: 9, doodleAlpha: 0.55, doodleSize: 44, doodleGrow: 22, cardW: 700, phoneCardW: 640, cardPad: 14, cardR: 22, cardStar: 10, cardBtn: 56,
       doodle: { trunk: "#8b5a2b", ball: "#ffffff", window: "#bae6fd", flag: "#ef4444", palm: "#a0703f", leaf: "#16a34a", snow: "#ffffff", road: "#6b7280" } },
     // SPEC-022: заставки истории — клетки комикса 8_start (доли картинки [x, y, w, h], по порядку подписей), кегль подписи
     // (компьютер / телефон, UI px до cpx), строк подписи на компьютере (картинка над подписью), доля ширины под картинку на

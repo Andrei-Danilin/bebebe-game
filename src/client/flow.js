@@ -18,6 +18,7 @@ import { SCENE_IDS, STORY, TUTORIAL_SCENES } from "../story.js";
 import { STORY_ART } from "./art.js";
 import { closeNameInput, nameInput, sticks } from "./devices.js";
 import { LOOK } from "./look.js";
+import { previewDataOf } from "./preview-data.js";
 import { botOutfit, endTryOn, makeLook, skinSel } from "./outfits.js";
 import { saveProgress, setLang } from "./progress.js";
 import { answerLang } from "./save.js";
@@ -41,6 +42,7 @@ export function setMode(v) {
   screenChanged();                                          // SPEC-025 AC 7d
   if (mode !== "shop") { ui.shopTab = "items"; ui.wardrobePage = "looks"; }
   if (mode !== "map") ui.toast = null;   // SPEC-017: подсказка карты — только пока карта на экране
+  if (mode === "levelCard") previewDataOf(G.world, cardLevel);   // SPEC-041: the card's map is made here (logic), drawing only paints it
   if (mode !== "map" && mode !== "levelCard") ui.mapBgCache = null;   // фон страницы мира не держим в памяти вне карты
   if (nameInput && !inWardrobe()) closeNameInput(false);
   return mode;
@@ -249,7 +251,13 @@ export function mapTick(dt) {
 export function chooseStop(n) {
   mapSel = { world: G.world, n };
   if (n > worldProgress().unlocked) { showToast(L().lockedLevel(n - 1)); return; }
-  cardLevel = n; ui.warm = { world: G.world, level: n }; setMode("levelCard");   // SPEC-040 AC 4: warm.js builds that level's 3D while the card is shown
+  showCard(n);
+}
+// SPEC-041: открыть карточку уровня n (chooseStop — для открытых; закрытый уровень карточка тоже умеет нарисовать — затемнённая картинка с замком; тест)
+export function showCard(n) {
+  cardLevel = n;
+  ui.warm = n <= worldProgress().unlocked ? { world: G.world, level: n } : null;   // SPEC-040 AC 4: warm.js builds an open level's 3D while the card is shown (never a closed one)
+  setMode("levelCard");   // (builds the card's map data first: it fills the level cache, so the warm-up's game stage does not search the level again)
 }
 // вкладка мира: закрытый мир не выбирается — только подсказка (SPEC-030: главный — какой мир пройти)
 // подсказка закрытого мира (по worldOpen): нужен главный мир — «Пройди <его>, чтобы открыть <этот>!», иначе — прежняя строка бонусных
@@ -257,7 +265,7 @@ export const lockedText = w => { const o = worldOpen(w, progress); return o.need
 export function tapWorldTab(w) { if (isOpen(w, progress)) selectWorld(w); else showToast(lockedText(w)); }
 export const closeCard = () => { ui.warm = null; setMode("map"); };
 // «Играть» на карточке: тот же startGame, что и раньше (resetWorld → loadLevel, надпись уровня, камера телефона)
-export function playCard(players) { G.level = cardLevel; withScene(sceneBefore(G.world, G.level), () => startGame(players)); }   // SPEC-022: сначала заставка, если пора
+export function playCard(players) { if (cardLevel > worldProgress().unlocked) { toMap(); return; } G.level = cardLevel; withScene(sceneBefore(G.world, G.level), () => startGame(players)); }   // SPEC-022: сначала заставка, если пора
 // ---------- SPEC-017: история — главы по порядку и страница «Как играть» ----------
 // storyCh — глава на экране; storyBack — куда ведёт «назад» (главный экран или карточка уровня); storyPage — «chapters» или «rules»
 export let storyCh = 0, storyBack = "home";

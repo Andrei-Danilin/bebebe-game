@@ -1,7 +1,7 @@
 // SPEC-011: the level map (world tabs, the 20 stops) and the level card (SPEC-017), lockedText. Client module (moved out of
 // index.html in Phase C).
 
-import { CFG, levelsPerWorld, TAU, WORLD_SEED, WORLDS } from "../../core/config.js";
+import { CFG, H, levelsPerWorld, TAU, W, WORLD_SEED, WORLDS } from "../../core/config.js";
 import { levelType } from "../../core/level/generate.js";
 import { bossFor } from "../../core/mood.js";
 import { progress, worldProgress } from "../../core/economy.js";
@@ -20,6 +20,7 @@ import { fitButton, iconOnlyButton, rowsAt } from "./buttons.js";
 import { addButton, circle, drawStar, drawStarArt, fillStroke, regButton, rr } from "./draw.js";
 import { drawArtFit, fillT, noteArt } from "./artdraw.js";
 import { drawPill, homePill } from "./home.js";
+import { drawLevelPreview } from "./level-preview.js";
 import { menuFrame, phoneFrame, worldStarsOf } from "./menu.js";
 import { fitLine, fz, label, noteRows, noteText, plainText, scaledW } from "./text.js";
 import { cpx, hudFont, minPx } from "./layout.js";
@@ -264,15 +265,19 @@ export function drawMap(t) {
 // SPEC-017: карточка уровня — «Мир · Уровень n», тип, строка про тип (у 20-го — про босса), звёзды; внизу 📖 (глава мира) и
 // Играть (компьютер — 1 или 2 игрока), ✕ в углу. Высота — по тексту; вся по центру экрана
 export function drawLevelCard() {
-  const M = LOOK.MENU_LOOK, A = M.map, k = PHONE ? cpx(1) : 1, B = PHONE ? cpx(LOOK.PHONE_BTN_MIN) : 44, g = PHONE ? cpx(LOOK.PHONE_BTN_GAP) : 10;
+  const M = LOOK.MENU_LOOK, A = M.map, PV = LOOK.LEVEL_PREVIEW_LOOK, k = PHONE ? cpx(1) : 1, B = PHONE ? cpx(LOOK.PHONE_BTN_MIN) : 44, g = PHONE ? cpx(LOOK.PHONE_BTN_GAP) : 10;
   const n = cardLevel, minMain = PHONE ? minPx("main") : 13, minHint = PHONE ? minPx("hint") : 12, pad = A.cardPad * k;
   const cw = Math.min(UW - 40 * k, (PHONE ? A.phoneCardW : A.cardW) * k), BH = PHONE ? B + 6 * k : A.cardBtn, sr = A.cardStar * k;
   const title = `${L().worlds[G.world]} · ${L().level} ${n}`, type = L().types[levelType(G.world, n)];
   // SPEC-022: строка босса — только у мира с боссом (у бонусных миров босса нет — обычная строка типа)
-  const line = n >= levelsPerWorld() && L().bossLine[G.world] ? L().bossLine[G.world] : L().typeLines[levelType(G.world, n)], stars = worldProgress().stars[n] || 0;
-  const f1 = fitLine(title, PHONE ? cpx(22) : 26, minMain, cw - 3 * pad - B), f2 = fitLine(type, PHONE ? cpx(17) : 20, minMain, cw - 2 * pad);
-  const lb = noteRows(line, PHONE ? cpx(16) : 18, minHint, cw - 2 * pad, 3), lineH = lb.rows.length * lb.sz * 1.2;
-  const ch = pad + B + g + f2.sz * 1.2 + g + lineH + g + 2 * sr + g + BH + pad, x = UW / 2 - cw / 2, y = Math.max(4 * k, UH / 2 - ch / 2);
+  const boss = n >= levelsPerWorld() && !!L().bossLine[G.world], locked = n > worldProgress().unlocked;
+  const line = boss ? L().bossLine[G.world] : L().typeLines[levelType(G.world, n)], stars = worldProgress().stars[n] || 0;
+  // SPEC-041: слева картинка — вид сверху на карту этого уровня (level-preview.js), справа тип, строка и звёзды; под ними кнопки
+  const pw = cw * (PHONE ? PV.phoneFrac : PV.deskFrac), ph = pw * H / W, tw = cw - 3 * pad - pw;
+  const f1 = fitLine(title, PHONE ? cpx(22) : 26, minMain, cw - 3 * pad - B), f2 = fitLine(type, PHONE ? cpx(17) : 20, minMain, tw);
+  const lb = noteRows(line, PHONE ? cpx(16) : 18, minHint, tw, PV.lines), lineH = lb.rows.length * lb.sz * 1.2;
+  const textH = f2.sz * 1.2 + g + lineH + g + 2 * sr, bodyH = Math.max(ph + 2 * PV.frame, textH);
+  const ch = pad + B + g + bodyH + g + BH + pad, x = UW / 2 - cw / 2, y = Math.max(4 * k, UH / 2 - ch / 2);
   ctx.fillStyle = M.dim; ctx.fillRect(0, 0, UW, UH);
   if (!paperPanel(x, y, cw, ch, A.cardR * k)) { rr(x, y, cw, ch, A.cardR * k); fillStroke(M.card, M.cardLine); }   // SPEC-020: бумага тетради
   ui.cardRect = { x, y, w: cw, h: ch };
@@ -280,24 +285,27 @@ export function drawLevelCard() {
   label(f1.text, x + pad, y + pad + B / 2, f1.sz, M.title, "left");
   if (PHONE) noteText("main", f1.sz);
   ui.hudRects.push({ id: "card:title", x: x + pad, y: y + pad + B / 2 - f1.sz * 0.6, w: f1.w, h: f1.sz * 1.2, text: f1.text });
-  let yy = y + pad + B + g + f2.sz * 0.6;
-  plainText(f2.text, UW / 2, yy, f2.sz, M.type, "center");
+  const body = y + pad + B + g, tx = x + 2 * pad + pw + tw / 2;
+  const pr = drawLevelPreview(G.world, n, x + pad, body + (bodyH - ph) / 2, pw, { boss, locked });
+  ui.hudRects.push({ id: "card:preview", x: pr.x - PV.frame, y: pr.y - PV.frame, w: pr.w + 2 * PV.frame, h: pr.h + 2 * PV.frame });
+  let yy = body + (bodyH - textH) / 2 + f2.sz * 0.6;
+  plainText(f2.text, tx, yy, f2.sz, M.type, "center");
   if (PHONE) noteText("main", f2.sz);
-  ui.hudRects.push({ id: "card:type", x: UW / 2 - f2.w / 2, y: yy - f2.sz * 0.6, w: f2.w, h: f2.sz * 1.2, text: f2.text });
+  ui.hudRects.push({ id: "card:type", x: tx - f2.w / 2, y: yy - f2.sz * 0.6, w: f2.w, h: f2.sz * 1.2, text: f2.text });
   yy += f2.sz * 0.6 + g;
   ctx.font = `800 ${lb.sz}px system-ui, "Segoe UI", sans-serif`;
-  yy += rowsAt("card:line", lb, UW / 2, yy, M.lockedInk) + g;
+  yy += rowsAt("card:line", lb, tx, yy, M.lockedInk) + g;
   ui.hudRects[ui.hudRects.length - 1].text = line;
   if (PHONE) noteText("hint", lb.sz);
-  for (let i = 0; i < CFG.STARS_PER_LEVEL; i++) drawStarArt(UW / 2 + (i - 1) * sr * 2.6, yy + sr, sr, i < stars);
+  for (let i = 0; i < CFG.STARS_PER_LEVEL; i++) drawStarArt(tx + (i - 1) * sr * 2.6, yy + sr, sr, i < stars);
   const by = y + ch - pad - BH;
   iconOnlyButton(x + pad, by, BH, BH, "menu_story", "📖", M.storyBtn, () => openStory(G.world, "levelCard"), PHONE ? cpx(20) : 24, minMain, "card:story");   // SPEC-027: значок 28_menu_icons
-  const px = x + pad + BH + g, pw = cw - 2 * pad - BH - g;
-  if (PHONE) fitButton(px, by, pw, BH, "▶ " + L().play, M.play, () => playCard(1), cpx(22), minMain).id = "card:play";
+  const px = x + pad + BH + g, pw2 = cw - 2 * pad - BH - g;
+  if (PHONE) fitButton(px, by, pw2, BH, "▶ " + L().play, M.play, () => playCard(1), cpx(22), minMain).id = "card:play";
   else {
-    const bw = (pw - g) / 2;
+    const bw = (pw2 - g) / 2;
     fitButton(px, by, bw, BH, L().onePlayer, M.play, () => playCard(1), 24, 14).id = "card:1";
     fitButton(px + bw + g, by, bw, BH, L().twoPlayers, M.alt, () => playCard(2), 24, 14).id = "card:2";
   }
-  ui.cardInfo = { world: G.world, n, title, type, line, stars };
+  ui.cardInfo = { world: G.world, n, title, type, line, stars, preview: { boss, locked } };
 }
