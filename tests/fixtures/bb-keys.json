@@ -1,5 +1,6 @@
 {
  "ART_NAMES": "value",
+ "ART_RESIDENT": "value",
  "BONUS_WORLDS": "value",
  "BOSSES": "value",
  "BOSS_LOOKS": "value",
@@ -241,5 +242,10 @@
  "worldComplete": "function",
  "worldDifficulty": "function",
  "worldOpen": "function",
- "worldState": "function"
+ "worldState": "function",
+ "view3D": "value",
+ "warm": "getter",
+ "quality": "getter",
+ "setQuality": "function",
+ "qualityFrame": "function"
 }

@@ -191,6 +191,7 @@ first start of the new version; nothing is lost and the old keys are left alone.
 **For grown-ups.** On **❓ How to play** a "For grown-ups" button opens a page behind a small grown-up question
 (a multiplication written in words, like "seven times four"; a wrong answer gets a new question after a short wait).
 There you can:
+- **Picture quality**: Auto (the game tries the picture once at the start and steps down by itself if it stutters, never up), High, Medium or Low (a lower pixel ratio, softer shadows and fewer background plants on the lower ones; the rules and the look of the characters stay). The choice stays on this device.
 - **Copy my progress code** / **Paste a code** — the whole save (progress, outfits, names, language) as one line of
   text. Use it to move progress to another device or browser, or later into the store app. Pasting asks before it
   replaces anything, and the old progress is kept as a copy.

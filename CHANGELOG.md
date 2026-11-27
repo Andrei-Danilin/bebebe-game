@@ -37,6 +37,9 @@ The version is `package.json` `version` (shown on the "For grown-ups" page); how
   play in portrait, the fullscreen button hides where it can't work, and the app says when a new version is ready (SPEC-038).
 - Faster, steadier checks behind the scenes: each push is tested in under 10 minutes (was 21–25), a release no longer makes
   the installed app download the whole game again, and the code has no import loops (SPEC-039).
+- Lighter on weak phones and tablets: pictures load per screen (a quarter of the memory at start), the 3D draws far fewer
+  pieces and only when it can be seen, a new world starts without a stutter, and the picture quality steps down by itself
+  on slow devices (Auto / High / Medium / Low on the grown-ups page) (SPEC-040).
 
 ## [1.0.0-dev] - what is in the game today
 

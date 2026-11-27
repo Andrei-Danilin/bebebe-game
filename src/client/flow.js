@@ -5,7 +5,7 @@
 import { G } from "../core/active.js";
 import { BONUS_WORLDS, BOSSES, CFG, levelsPerWorld, MAIN_WORLDS, worldIndex, WORLDS } from "../core/config.js";
 import { addCoins, progress, worldProgress } from "../core/economy.js";
-import { logEvent } from "../core/events.js";
+import { clearEvents, logEvent } from "../core/events.js";
 import { createGame, newInput, teamSize, useGame } from "../core/game.js";
 import { levelType } from "../core/level/generate.js";
 import { bossFor } from "../core/mood.js";
@@ -26,6 +26,7 @@ import { inWardrobe, mode, screenChanged, setModeValue, ui } from "./state.js";
 import { camSnap } from "./three/camera.js";
 import { practiceStep, setPracticeStep, setTutorial, tutorialPages } from "./tutorial-data.js";
 import { rebuild3D } from "./three/characters.js";
+import { applyPendingTier } from "./three/tier.js";
 
 // SPEC-012 AC 1c: the screen is the client's (the core has only the game's phase, G.phase). mode — one of MODES; lastReward — the
 // reward of the last level paid (payLevel's result: the win screen shows it), null after a new game is built
@@ -146,7 +147,7 @@ export function noteOpenedWorld(r) { if (r && r.worldOpened) ui.openedWorld = r.
 const localRng = newRng();
 export function seedRandom(n) { seedStream(n, localRng); }
 export const rngDraws = () => localRng.draws;
-const KEEP = Object.freeze(["events", "rewardDue", "itemSeq", "starSeq", "kissSeq", "autoOn", "autoStyle"]);
+const KEEP = Object.freeze(["events", "eventsHead", "rewardDue", "itemSeq", "starSeq", "kissSeq", "autoOn", "autoStyle"]);
 // the looks of n players, the bots and the Big One from the wardrobe (the game only carries them)
 const looksFor = (n, practice = G.practice) => ({ players: [makeLook(skinSel.p1), makeLook(skinSel.p2)], bots: Array.from({ length: teamSize(practice) - n }, (_, bi) => makeLook(botOutfit(bi))), big: BIG_SKINS[skinSel.big] });
 // SPEC-012 AC 2: the slots of a local game — n players p1…pn (look, glove, upgrades from the saves), the bots with their looks,
@@ -193,7 +194,7 @@ export function showBanner() {
 export const bannerAlpha = () => !ui.banner ? 0 : clamp(Math.min(ui.banner.t, LOOK.BANNER_TIME - ui.banner.t) / LOOK.BANNER_FADE, 0, 1);
 // camSnap: начало уровня — камера телефона сразу у героя (в resetWorld нельзя: он же открывает меню, где камера показывает всю карту)
 // SPEC-030: начатый уровень снимает плашку и несостоявшийся переход карты в открытый мир (не показывать их игрой позже)
-export function startGame(n) { leaveLevel(); ui.openedWorld = null; ui.worldBanner = null; endTryOn(); G.events = []; playWorld(n); setMode("play"); G.rewardDue = true; mapSel = null; showBanner(); camSnap(); }
+export function startGame(n) { ui.warm = null; applyPendingTier(false); leaveLevel(); ui.openedWorld = null; ui.worldBanner = null; endTryOn(); clearEvents(); playWorld(n); setMode("play"); G.rewardDue = true; mapSel = null; showBanner(); camSnap(); }
 // следующий уровень того же мира; после последнего мир пройден — на карту уровней
 // SPEC-025 AC 7d: never past the open level (a stale double tap, a test that set the level) — then the map
 export function nextLevel() { if (G.level >= levelsPerWorld() || G.level + 1 > worldProgress().unlocked) { toMap(); return; } G.level = G.level + 1; withScene(sceneBefore(G.world, G.level), () => startGame(G.players)); }
@@ -248,13 +249,13 @@ export function mapTick(dt) {
 export function chooseStop(n) {
   mapSel = { world: G.world, n };
   if (n > worldProgress().unlocked) { showToast(L().lockedLevel(n - 1)); return; }
-  cardLevel = n; setMode("levelCard");
+  cardLevel = n; ui.warm = { world: G.world, level: n }; setMode("levelCard");   // SPEC-040 AC 4: warm.js builds that level's 3D while the card is shown
 }
 // вкладка мира: закрытый мир не выбирается — только подсказка (SPEC-030: главный — какой мир пройти)
 // подсказка закрытого мира (по worldOpen): нужен главный мир — «Пройди <его>, чтобы открыть <этот>!», иначе — прежняя строка бонусных
 export const lockedText = w => { const o = worldOpen(w, progress); return o.needs ? L().lockedWorld(o.needs, w) : L().lockedBonus; };
 export function tapWorldTab(w) { if (isOpen(w, progress)) selectWorld(w); else showToast(lockedText(w)); }
-export const closeCard = () => { setMode("map"); };
+export const closeCard = () => { ui.warm = null; setMode("map"); };
 // «Играть» на карточке: тот же startGame, что и раньше (resetWorld → loadLevel, надпись уровня, камера телефона)
 export function playCard(players) { G.level = cardLevel; withScene(sceneBefore(G.world, G.level), () => startGame(players)); }   // SPEC-022: сначала заставка, если пора
 // ---------- SPEC-017: история — главы по порядку и страница «Как играть» ----------

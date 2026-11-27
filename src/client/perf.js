@@ -2,13 +2,16 @@
 // main.js's frame loop with each frame's real and game time; perfReport — what __bb.perf() returns: fps and frame time p50 /
 // p95 / max over the last LOOK.PERF_LOOK.frames frames, the draw calls and triangles of the main 3D pass (its shadow pass included:
 // three.js counts both in one render call), renderer.info.memory and programs, the cache sizes, the JS heap (where the browser
-// tells it), DPR, the canvas sizes, the level and the game-time / real-time ratio. ?perf=1 shows it as a small overlay with a
+// tells it), DPR, the canvas sizes, the level and the game-time / real-time ratio; SPEC-040 AC 11: the quality tier and its mode, the decoded
+// sprite memory, the fps at p50 / p95. The draw counts are those of the LAST world frame: the 3D is not drawn under a cover (menus, pause), so
+// they stay at the last frame drawn — the overlay says so. ?perf=1 shows it as a small overlay with a
 // "copy" button (initPerf). Client module.
 
 import { G } from "../core/active.js";
-import { artImgs } from "./art.js";
+import { artBytes, artImgs } from "./art.js";
 import { paperCache } from "./ui/paper.js";
 import { LOOK } from "./look.js";
+import { Q } from "./quality.js";
 import { canvas, DPR } from "./screen.js";
 import { ui } from "./state.js";
 import { previewCount } from "./three/previews.js";
@@ -36,7 +39,10 @@ export function perfReport() {
     frames: frames.n,
     fps: sumReal > 0 ? round(frames.n / sumReal, 1) : 0,
     frameMs: { p50: round(pct(ms, 0.5)), p95: round(pct(ms, 0.95)), max: round(ms.length ? ms[ms.length - 1] : 0) },
-    draw: { calls: ui.mainPass.calls, triangles: ui.mainPass.triangles },
+    draw: { calls: ui.mainPass.calls, triangles: ui.mainPass.triangles },   // of the last world frame (the 3D is not drawn when covered)
+    fpsP: { p50: ms.length && pct(ms, 0.5) > 0 ? round(1000 / pct(ms, 0.5), 1) : 0, p95: ms.length && pct(ms, 0.95) > 0 ? round(1000 / pct(ms, 0.95), 1) : 0 },   // p95 = the slow end (95 % of frames are at least this fast)
+    tier: { name: Q.tier, mode: Q.pinned ? "pinned" : Q.mode },
+    artBytes: artBytes(),
     memory: info ? { ...info.memory } : null,
     programs: info && info.programs ? info.programs.length : 0,
     caches: { previews: previewCount(), art: artImgs.size, paper: paperCache.length, mapBg: ui.mapBgCache ? 1 : 0, minimap: mmBase ? 1 : 0 },
@@ -44,7 +50,8 @@ export function perfReport() {
     dpr: DPR,
     canvas: { ui: { w: canvas.width, h: canvas.height }, gl: gl ? { w: gl.width, h: gl.height } : null },
     level: G ? `${G.world} ${G.level}` : null,
-    gameRealRatio: sumReal > 0 ? round(sumGame / sumReal, 3) : 1
+    gameRealRatio: sumReal > 0 ? round(sumGame / sumReal, 3) : 1,
+    gameSec: round(sumGame, 2), realSec: round(sumReal, 2)
   };
 }
 
@@ -64,9 +71,13 @@ export function initPerf() {
   document.body.appendChild(box);
   const show = () => {
     const r = perfReport();
-    pre.textContent = `${r.fps} fps · ${r.frameMs.p50}/${r.frameMs.p95}/${r.frameMs.max} ms · ${r.draw.calls} calls ${r.draw.triangles} tris\n` +
-      `geo ${r.memory && r.memory.geometries} tex ${r.memory && r.memory.textures} prog ${r.programs} · heap ${r.heap ? Math.round(r.heap / 1048576) + " MB" : "?"}\n` +
-      `dpr ${r.dpr} · ${r.canvas.ui.w}×${r.canvas.ui.h} · ${r.level} · game/real ${r.gameRealRatio}`;
+    pre.textContent = `${r.fps} fps (p50 ${r.fpsP.p50} · p95 ${r.fpsP.p95}) · ${r.frameMs.p50}/${r.frameMs.p95}/${r.frameMs.max} ms
+` +
+      `last world frame: ${r.draw.calls} calls ${r.draw.triangles} tris · tier ${r.tier.name} (${r.tier.mode})
+` +
+      `geo ${r.memory && r.memory.geometries} tex ${r.memory && r.memory.textures} prog ${r.programs} · heap ${r.heap ? Math.round(r.heap / 1048576) + " MB" : "?"} · sprites ${(r.artBytes / 1048576).toFixed(1)} MB
+` +
+      `dpr ${r.dpr} · ${r.canvas.ui.w}×${r.canvas.ui.h} · ${r.level} · game time/real time ${r.gameRealRatio} (${r.gameSec} s / ${r.realSec} s)`;
   };
   show();
   setInterval(show, LOOK.PERF_LOOK.overlayMs);

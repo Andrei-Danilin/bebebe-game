@@ -10,6 +10,7 @@ import { CSS_H, CSS_W, ctx, OUT, PHONE } from "../screen.js";
 import { cpx, hudFont, minPx } from "./layout.js";
 import { ui } from "../state.js";
 import { fillT, strokeT } from "./artdraw.js";
+import { fits, syncTextMemo, textW } from "./measure.js";
 
 export const fmtHearts = n => (Math.floor(n) || (n % 1 ? "" : "0")) + (n % 1 ? "½" : "");   // 2.5 → «2½», 0.5 → «½»
 export const fmtTime = sec => `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, "0")}`;
@@ -47,8 +48,17 @@ export function label(text, x, y, size, color, align = "center") {
   if (PHONE) noteText("drawn", size);
 }
 export function fitText(text, x, y, size, maxW, align, color, weight, min = 9, scaled = false) {
-  let sz = size + 0.5, w;
-  do { sz = Math.max(min, sz - 0.5); ctx.font = `${weight} ${sz}px system-ui, "Segoe UI", sans-serif`; w = ctx.measureText(text).width; } while (w > maxW && sz > min);
+  // SPEC-040 AC 9: the fit (the size and the width it ends with) is remembered per (text, size, weight, width, min) — see measure.js
+  syncTextMemo();
+  const key = `f|${weight}|${size}|${maxW}|${min}|${text}`;
+  let m = fits.get(key);
+  if (!m) {
+    let sz = size + 0.5, w;
+    do { sz = Math.max(min, sz - 0.5); ctx.font = `${weight} ${sz}px system-ui, "Segoe UI", sans-serif`; w = textW(text); } while (w > maxW && sz > min);
+    fits.set(key, m = { sz, w });
+  }
+  const { sz, w } = m;
+  ctx.font = `${weight} ${sz}px system-ui, "Segoe UI", sans-serif`;
   noteOverflow(text, w * min / sz, maxW, scaled);
   ctx.textAlign = /** @type {CanvasTextAlign} */ (align); ctx.textBaseline = "middle"; ctx.fillStyle = color;
   fillT(text, x, y);
@@ -61,23 +71,31 @@ function noteOverflow(text, wMin, maxW, scaled) {
 }
 // Текст в несколько строк (по словам), не больше lines строк; не влезает — мельче
 export function wrapText(text, x, y, size, maxW, lines, color, weight) {
-  let sz = size, rows;
-  for (;;) {
-    ctx.font = `${weight} ${sz}px system-ui, "Segoe UI", sans-serif`;
-    rows = [];
-    let cur = "";
-    for (const wd of text.split(" ")) {
-      const t = cur ? cur + " " + wd : wd;
-      if (ctx.measureText(t).width > maxW && cur) { rows.push(cur); cur = wd; } else cur = t;
+  syncTextMemo();
+  const key = `w|${weight}|${size}|${maxW}|${lines}|${text}`;   // SPEC-040 AC 9: the rows and the size they end with are remembered
+  let m = fits.get(key);
+  if (!m) {
+    let sz = size, rows, fit;
+    for (;;) {
+      ctx.font = `${weight} ${sz}px system-ui, "Segoe UI", sans-serif`;
+      rows = [];
+      let cur = "";
+      for (const wd of text.split(" ")) {
+        const t = cur ? cur + " " + wd : wd;
+        if (textW(t) > maxW && cur) { rows.push(cur); cur = wd; } else cur = t;
+      }
+      rows.push(cur);
+      fit = rows.length <= lines && rows.every(r => textW(r) <= maxW);
+      if (fit || sz <= 9) break;
+      sz -= 0.5;
     }
-    rows.push(cur);
-    const fit = rows.length <= lines && rows.every(r => ctx.measureText(r).width <= maxW);
-    if (!fit && sz <= 9) {   // SPEC-028: сдался на самом мелком — лишние строки или строка шире места → textOverflows
-      if (rows.length > lines) noteOverflow(text, maxW * rows.length / lines, maxW);
-      for (const r of rows) noteOverflow(r, ctx.measureText(r).width, maxW);
-    }
-    if (fit || sz <= 9) break;
-    sz -= 0.5;
+    fits.set(key, m = { rows, sz, fit });
+  }
+  const { rows, sz, fit } = m;
+  ctx.font = `${weight} ${sz}px system-ui, "Segoe UI", sans-serif`;
+  if (!fit && sz <= 9) {   // SPEC-028: сдался на самом мелком — лишние строки или строка шире места → textOverflows (every frame: the list is the frame's)
+    if (rows.length > lines) noteOverflow(text, maxW * rows.length / lines, maxW);
+    for (const r of rows) noteOverflow(r, textW(r), maxW);
   }
   ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = color;
   const lh = sz * 1.25, y0 = y - (rows.length - 1) * lh / 2 + (lines - 1) * lh / 2;
@@ -87,14 +105,23 @@ export function wrapText(text, x, y, size, maxW, lines, color, weight) {
 export let lastFit = null;   // что нарисовал последний labelFit: { text, sz, w } (SPEC-022: подпись злости — в hudRects)
 export function labelFit(text, x, y, size, maxW, color, align = "center", min = 11, scaled = false) {
   const font = sz => `900 ${sz}px system-ui, "Segoe UI", "Arial Rounded MT Bold", Arial, sans-serif`;
-  let sz = size;
+  syncTextMemo();
+  const key = `l|${size}|${maxW}|${min}|${text}`;   // SPEC-040 AC 9: the size, the cut text and the widths are remembered
+  let m = fits.get(key);
+  if (!m) {
+    let sz = size, t = text;
+    ctx.font = font(sz);
+    while (textW(t) > maxW && sz > min) { sz = Math.max(min, sz - 0.5); ctx.font = font(sz); }
+    let chars = Array.from(t);
+    const w0 = textW(t);
+    while (chars.length > 1 && textW(t) > maxW) { chars = chars.slice(0, -1); t = chars.join("").trimEnd() + "…"; }
+    fits.set(key, m = { sz, text: t, w0, w: textW(t) });
+  }
+  const { sz } = m;
   ctx.font = font(sz);
-  while (ctx.measureText(text).width > maxW && sz > min) { sz = Math.max(min, sz - 0.5); ctx.font = font(sz); }
-  let chars = Array.from(text);
-  if (sz <= min || LOOK.TEXT_TEST_SCALE !== 1) noteOverflow(text, ctx.measureText(text).width * min / sz, maxW, scaled);   // крупнее min при ×1 — влезло
-  while (chars.length > 1 && ctx.measureText(text).width > maxW) { chars = chars.slice(0, -1); text = chars.join("").trimEnd() + "…"; }
-  lastFit = { text, sz, w: ctx.measureText(text).width };
-  label(text, x, y, sz, color, align);
+  if (sz <= min || LOOK.TEXT_TEST_SCALE !== 1) noteOverflow(text, m.w0 * min / sz, maxW, scaled);   // крупнее min при ×1 — влезло
+  lastFit = { text: m.text, sz, w: m.w };
+  label(m.text, x, y, sz, color, align);
   return sz;
 }
 
@@ -150,7 +177,7 @@ export function pText(text, x, y, cat, css, maxW, align = "center", color = OUT,
 }
 // несколько строк: сначала мерка (pRows: строки, кегль, высота h, ширина w самой длинной строки), потом рисуем (pDraw)
 // ширина строки при мерке: × LOOK.TEXT_TEST_SCALE (тесты изображают более широкие шрифты CI и iPhone)
-export const scaledW = t => ctx.measureText(t).width * LOOK.TEXT_TEST_SCALE;
+export const scaledW = t => textW(t) * LOOK.TEXT_TEST_SCALE;
 export function pRows(text, cat, css, maxW, lines, weight = 700) {
   const min = cpx(LOOK.PHONE_TEXT[cat]);
   let sz = Math.max(cpx(css), min), rows = [];

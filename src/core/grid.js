@@ -6,11 +6,24 @@ import { clamp, dist, rng } from "./util.js";
 import { moveSolidAt, moveSolidBigAt, inDangerXY } from "./world.js";
 import { G } from "./active.js";
 
+// ---------- SPEC-040 AC 10 (RR-51): scratch buffers ----------
+// The searches below used to make four typed arrays a call (A*) and one a BFS; the buffers are now the game's own, made on first use (the game's
+// first search, so a run allocates none after its first step) and reused: zeroed at the start of each search. They live on the game (G.scratch),
+// not in the module: games side by side (SPEC-012 instances) never share them. seen: the BFS marks of nearestFree and freeCellNear (never nested);
+// gs / fs / came / closed: A*; grid: bigGrid's copy; reach: the two marks bigReach hands out in turn — learnBlocked reads two results side by side,
+// so a result stays good until the call after the next.
+function scratchOf() {
+  if (G.scratch) return G.scratch;
+  const N = COLS * ROWS;
+  return (G.scratch = { seen: new Uint8Array(N), gs: new Float32Array(N), fs: new Float32Array(N), came: new Int32Array(N), closed: new Uint8Array(N),
+    grid: new Uint8Array(N), reach: [new Uint8Array(N), new Uint8Array(N)], flip: 0 });
+}
+export function prepareScratch() { return scratchOf(); }   // createGame makes them with the game: no typed array is made while it runs
 // ---------- Поиск пути (A*) ----------
 export function cellIdx(x, y) { return clamp(Math.floor(y / CELL), 0, ROWS - 1) * COLS + clamp(Math.floor(x / CELL), 0, COLS - 1); }
 function nearestFree(idx, grid = G.blocked) {
   if (!grid[idx]) return idx;
-  const seen = new Uint8Array(COLS * ROWS), q = [idx];
+  const seen = scratchOf().seen.fill(0), q = [idx];
   seen[idx] = 1;
   for (let h = 0; h < q.length; h++) {
     const i = q[h];
@@ -27,10 +40,8 @@ function nearestFree(idx, grid = G.blocked) {
 }
 const DIRS = Object.freeze([[1, 0, 1], [-1, 0, 1], [0, 1, 1], [0, -1, 1], [1, 1, 1.414], [1, -1, 1.414], [-1, 1, 1.414], [-1, -1, 1.414]]);
 export function findPath(sx, sy, gx, gy, extraCost, grid = G.blocked) {   // grid ≠ G.blocked — сетка Большого (G.blockedBig или она + выученные клетки, SPEC-037)
-  const N = COLS * ROWS;
   const s = nearestFree(cellIdx(sx, sy), grid), g = nearestFree(cellIdx(gx, gy), grid);
-  const gs = new Float32Array(N).fill(Infinity), fs = new Float32Array(N).fill(Infinity);
-  const came = new Int32Array(N).fill(-1), closed = new Uint8Array(N);
+  const sc = scratchOf(), gs = sc.gs.fill(Infinity), fs = sc.fs.fill(Infinity), came = sc.came.fill(-1), closed = sc.closed.fill(0);
   const gcx = g % COLS, gcy = (g / COLS) | 0;
   const h = i => { const dx = Math.abs(i % COLS - gcx), dy = Math.abs(((i / COLS) | 0) - gcy); return Math.max(dx, dy) + 0.414 * Math.min(dx, dy); };
   const open = [s];
@@ -67,7 +78,7 @@ export function findPath(sx, sy, gx, gy, extraCost, grid = G.blocked) {   // gri
 // ---------- Ближайшая свободная клетка и выход ----------
 // Ближайшая свободная клетка (не стена и не дом Большого), поиск в ширину
 export function freeCellNear(idx) {
-  const seen = new Uint8Array(COLS * ROWS), q = [idx];
+  const seen = scratchOf().seen.fill(0), q = [idx];
   seen[idx] = 1;
   for (let h = 0; h < q.length; h++) {
     const i = q[h], cx = i % COLS, cy = (i / COLS) | 0;
@@ -104,7 +115,8 @@ export const nearDown = (x, y) => downGap(x, y) < 0;
 // сетка Большого для A* и bigReach: уровень + клетки, до которых он не дошёл (G.bigLearned; только гуляя и ища)
 export function bigGrid() {
   if (!wallOn() || !G.bigLearned.some(v => v)) return G.blockedBig;
-  const m = new Uint8Array(G.blockedBig);
+  const m = scratchOf().grid;
+  m.set(G.blockedBig);                    // (valid until the next bigGrid call: A* and bigReach use it at once)
   for (let i = 0; i < m.length; i++) if (G.bigLearned[i]) m[i] = 1;
   return m;
 }
@@ -125,7 +137,7 @@ export function randomFreePoint() {
 // SPEC-037: клетки, куда Большой дойдёт от себя (не стена и не выученная клетка; не рядом с лежащим другом, разве что прочь от него; своя клетка — всегда,
 // даже выученная), и ближайшая из них к точке (x, y) — её центр: цель, которая не достижима, не остаётся. ignoreKids — без лежащих друзей
 export function bigReach(ignoreKids = false) {
-  const grid = bigGrid(), seen = new Uint8Array(COLS * ROWS), q = [cellIdx(G.big.x, G.big.y)];
+  const sc = scratchOf(), grid = bigGrid(), seen = sc.reach[sc.flip ^= 1].fill(0), q = [cellIdx(G.big.x, G.big.y)];
   seen[q[0]] = 1;
   for (let h = 0; h < q.length; h++) {
     const i = q[h], cx = i % COLS, cy = (i / COLS) | 0;

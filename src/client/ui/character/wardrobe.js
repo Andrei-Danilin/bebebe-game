@@ -18,6 +18,7 @@ import { addButton, circle, drawCoin, fillStroke, rr } from "../draw.js";
 import { drawArtFit, fillT, noteArt } from "../artdraw.js";
 import { fitLine, fitText, fz, label, noteRows, noteText, pLabel, plainText, priceLabel, pText, pWrap } from "../text.js";
 import { cpx, phoneSkinCols } from "../layout.js";
+import { textW } from "../measure.js";
 
 // ---------- SPEC-009: гардероб — замки, «Купить», подписи (вкладка «Гардероб» магазина, компьютер и телефон) ----------
 // цена замочка в строке слота (0 — вещь своя); sl = слот или «look» (Большой)
@@ -170,7 +171,7 @@ function nameLabel(rect, slot, color) {
   if (PHONE) {
     const min = cpx(LOOK.PHONE_TEXT.main);
     noteText("main", fitText(nameFor(slot) + " ✏️", rect.x + rect.w / 2, rect.y + rect.h / 2 + 1, Math.max(min, Math.min(cpx(20), rect.h * 0.5)), rect.w - cpx(12), "center", color, 900, min));
-    ui.buttons.push({ ...rect, act: () => openNameInput(rect, slot), id: "name:" + slot, onUp: true, textW: ctx.measureText(nameFor(slot) + " ✏️").width });
+    ui.buttons.push({ ...rect, act: () => openNameInput(rect, slot), id: "name:" + slot, onUp: true, textW: textW(nameFor(slot) + " ✏️") });
     return;
   } else fitText(nameFor(slot) + " ✏️", rect.x + rect.w / 2, rect.y + rect.h / 2 + 1, Math.min(22, rect.h * 0.5), rect.w - 16, "center", color, 900);
   ui.buttons.push({ ...rect, act: () => openNameInput(rect, slot), id: "name:" + slot, onUp: true });

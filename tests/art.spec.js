@@ -46,14 +46,19 @@ test("the game works without art: assets/ missing → every screen draws as befo
   const errors = await openGame(page);
   await page.waitForFunction(() => window.__bb.artInfo.done, null, { timeout: 15_000 });
   const info = await page.evaluate(() => window.__bb.artInfo);
-  expect(info).toMatchObject({ ok: 0, bad: info.total, done: true, loadingShown: false });
+  // SPEC-040 AC 1: done = the resident sprites settled (the others are asked for by the screens that draw them)
+  // (bad: the resident sprites and the current world's map page, which main.js keeps asking for)
+  expect(info).toMatchObject({ ok: 0, bad: info.resident + 1, done: true, loadingShown: false });
   expect(info.total).toBe((await page.evaluate(() => window.__bb.ART_NAMES)).length);
+  expect(info.resident).toBe((await page.evaluate(() => window.__bb.ART_RESIDENT)).length);
   expect(asked, "only the logo is asked for: when it fails, the other sprites are not requested").toEqual(["logo.webp"]);
   expect(await page.evaluate(() => window.__bb.art("logo"))).toBe(null);
   await page.evaluate(() => window.__bb.resetArtUse());
   const seen = await everyScreen(page);
   expect(seen.map(s => s[1])).toEqual(["home", "map", "levelCard", "story", "shop", "shop", "shop", "shop", "play", "pause", "win", "lose", "home"]);
   expect(await page.evaluate(() => window.__bb.artUse), "no sprite drawn: every screen used its code drawing").toEqual({});
+  expect(asked, "the screens asked for their pictures (story, tutorial, maps): none was requested from the network, the first failure is final").toEqual(["logo.webp"]);
+  expect(await page.evaluate(() => window.__bb.artInfo), "nothing is loading or loaded").toMatchObject({ loaded: 0, pending: 0, bytes: 0 });
   // SPEC-027 2a: without the small icons the emoji are drawn as before (level card ✕ and 📖, the wardrobe's 🎲 and 👥)
   const card = await drawnTexts(page, () => { const b = window.__bb; b.toMap(); b.mode = "levelCard"; });
   expect(card.filter(t => t === "✕" || t === "📖")).toEqual(expect.arrayContaining(["✕", "📖"]));
@@ -97,21 +102,55 @@ test.describe("the game works without art on a phone", () => {
   });
 });
 
-test("the art loads once at start: every sprite decoded, the loading screen gone @fast", async ({ page }) => {
+// SPEC-040 AC 1: the resident sprites (scripts/assets.json "resident": true → ART_RESIDENT) load at start, with the current world's map background
+test("the resident art loads once at start: every resident sprite decoded, the loading screen gone @fast", async ({ page }) => {
+  const asked = [];
+  await page.route(/\/assets\/[^/]+\.webp$/, route => { asked.push(route.request().url().split("/").pop().replace(".webp", "")); return route.continue(); });
   const errors = await openGame(page);
   await page.waitForFunction(() => window.__bb.artInfo.done, null, { timeout: 15_000 });
   const r = await page.evaluate(() => {
     const b = window.__bb, info = b.artInfo;
-    const bad = b.ART_NAMES.filter(n => { const img = b.art(n); return !img || !img.complete || !img.naturalWidth; });
-    return { info, bad, same: b.art("logo") === b.art("logo"), unknown: b.art("no_such_sprite"), logoW: b.art("logo").naturalWidth, version: b.artVersion };
+    const bad = b.ART_RESIDENT.filter(n => { const img = b.art(n); return !img || !img.complete || !img.naturalWidth; });
+    return { info, bad, resident: b.ART_RESIDENT, same: b.art("logo") === b.art("logo"), unknown: b.art("no_such_sprite"), logoW: b.art("logo").naturalWidth, version: b.artVersion, world: b.world };
   });
-  expect(r.info).toMatchObject({ ok: r.info.total, bad: 0, done: true, loadingShown: false });
+  expect(r.info).toMatchObject({ ok: r.info.resident, bad: 0, done: true, loadingShown: false, pending: 0 });
   expect(r.info.total).toBeGreaterThan(100);
+  expect(r.info.resident, "some sprites are not resident").toBeLessThan(r.info.total);
   expect(r.bad).toEqual([]);
   expect(r.same, "one Image per sprite, decoded once").toBe(true);
   expect(r.unknown).toBe(null);
   expect(r.logoW).toBeGreaterThan(500);
-  expect(r.version, "artVersion counts the sprites that became ready (SPEC-021 reads it)").toBe(r.info.total);
+  // the page asked for the resident sprites and the current world's map page (kept for the map) — nothing else
+  await page.waitForFunction(() => window.__bb.artInfo.pending === 0);
+  expect([...new Set(asked)].sort()).toEqual([...r.resident, "map_bg_" + r.world].sort());
+  expect(r.info.loaded, "the resident sprites and the map page").toBe(r.info.resident + 1);
+  expect(r.version, "artVersion counts the sprites that became ready (SPEC-021 reads it)").toBeGreaterThanOrEqual(r.info.resident);
+  expect(errors).toEqual([]);
+});
+
+// SPEC-040 AC 1: a screen's pictures load when it first draws them and go when no screen draws them (LOOK.ART.releaseMs)
+test("a story picture loads when its page opens and is released after the page closes; the map page follows the world", async ({ page }) => {
+  const errors = await openGame(page);
+  await page.waitForFunction(() => window.__bb.artInfo.done, null, { timeout: 15_000 });
+  const info = () => page.evaluate(() => window.__bb.artInfo);
+  const home = await info();
+  await page.evaluate(() => { window.__bb.CFG.ART.releaseMs = 300; });   // the test does not wait the 2 s of play
+  // the story page: its chapter picture (art() is not called by the test: asking for a sprite loads it)
+  await page.evaluate(() => { window.__bb.openStory("park", "home"); });
+  await frames(page);                                                  // frames() also waits for what the frames asked for
+  const story = await info();
+  expect(story.loaded, "story_park came in").toBe(home.loaded + 1);
+  expect(story.bytes - home.bytes, "its decoded size").toBe(1024 * 572 * 4);
+  expect(await page.evaluate(() => window.__bb.artUse.story_park > 0)).toBe(true);
+  await page.evaluate(() => { window.__bb.mode = "home"; });
+  await page.waitForFunction(h => window.__bb.artInfo.loaded === h, home.loaded, { timeout: 10_000 });   // released
+  expect((await info()).bytes).toBe(home.bytes);
+  // the map page of the current world stays; a new world's page comes and the old one goes
+  await page.evaluate(() => { window.__bb.world = "field"; });   // (selectWorld refuses a locked world)
+  await page.waitForFunction(() => window.__bb.artInfo.pending === 0 && !!window.__bb.art("map_bg_field"));
+  await page.waitForFunction(h => window.__bb.artInfo.loaded === h && !window.__bb.artInfo.pending, home.loaded, { timeout: 10_000 });
+  expect(await page.evaluate(() => ({ field: !!window.__bb.art("map_bg_field"), loaded: window.__bb.artInfo.loaded }))).toEqual({ field: true, loaded: home.loaded });
+  expect((await info()).bad).toBe(0);
   expect(errors).toEqual([]);
 });
 

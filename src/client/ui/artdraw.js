@@ -5,6 +5,7 @@
 import { art, artInset, artPick, EMOJI_ART, EMOJI_RE } from "../art.js";
 import { LOOK } from "../look.js";
 import { ctx } from "../screen.js";
+import { textW } from "./measure.js";
 
 // ---------- SPEC-020: картинки на холсте. Каждая функция рисует картинку name и возвращает true — или false, если картинки нет
 // (тогда вызывающий рисует кодом, как раньше). artUse — сколько раз нарисована каждая картинка с последнего resetArtUse()
@@ -45,7 +46,7 @@ function textArt(text, x, y, stroke) {
   }
   if (!segs.length) return plain();
   if (at < text.length) segs.push({ t: text.slice(at) });
-  const ws = segs.map(q => ctx.measureText(q.t).width), total = ws.reduce((a, b) => a + b, 0), align = ctx.textAlign, bl = ctx.textBaseline;
+  const ws = segs.map(q => textW(q.t)), total = ws.reduce((a, b) => a + b, 0), align = ctx.textAlign, bl = ctx.textBaseline;
   const sz = parseFloat((/(\d+(?:\.\d+)?)px/.exec(ctx.font) || [])[1]) || 16;
   const cy = bl === "middle" ? y : bl === "top" || bl === "hanging" ? y + sz / 2 : bl === "bottom" || bl === "ideographic" ? y - sz / 2 : y - sz * 0.35;
   let cx = align === "center" ? x - total / 2 : align === "right" || align === "end" ? x - total : x;

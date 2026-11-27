@@ -10,6 +10,35 @@ test("loads to the home screen without errors", { tag: "@fast" }, async ({ page 
   expect(errors).toEqual([]);
 });
 
+// Review fix (SPEC-040 step 7: a stray comment in the one-line reset of drawUI switched off half of it): every per-frame drawn field is emptied at the
+// start of each frame. Each is filled with a stale entry, one frame is drawn, and a field the home screen does not set must be empty again.
+test("drawUI empties every per-frame drawn field at the start of a frame", { tag: "@fast" }, async ({ page }) => {
+  const errors = await openGame(page);
+  const left = await page.evaluate(async () => {
+    const { ui } = await import("./src/client/state.js");
+    const lists = ["downDrawn", "textOverflows", "stickMarks", "edgeArrows"], things = ["bannerRect", "kitHintRect", "heardHintRect", "tutorialHintRect", "shopLayout", "winPanel",
+      "progressInfo", "mapState", "cardInfo", "cardRect", "storyInfo", "sceneInfo", "bonusNote"];
+    for (const k of lists) ui[k] = [{ stale: 1 }];
+    for (const k of things) ui[k] = { stale: 1 };
+    ui.textSizes = { stale: 1 }; ui.winLine = "stale"; ui.mmShown = true;
+    ui.hudRects.push({ id: "stale" }); ui.buttons.push({ id: "stale" });
+    const n = ui.draws;
+    await new Promise(res => { const t0 = performance.now(), tick = () => (ui.draws > n || performance.now() - t0 > 20000 ? res() : requestAnimationFrame(tick)); tick(); });
+    const out = [];
+    for (const k of lists) if (ui[k].length) out.push(k);
+    for (const k of things) if (ui[k] !== null) out.push(k);
+    if ("stale" in ui.textSizes) out.push("textSizes");
+    if (ui.winLine !== "") out.push("winLine");
+    if (ui.mmShown !== false) out.push("mmShown");
+    if (ui.hudRects.some(r => r.id === "stale")) out.push("hudRects");
+    if (ui.buttons.some(r => r.id === "stale")) out.push("buttons");
+    return { out, drew: ui.draws > n };
+  });
+  expect(left.drew, "a frame was drawn").toBe(true);
+  expect(left.out, "per-frame drawn fields still holding last frame's entry").toEqual([]);
+  expect(errors).toEqual([]);
+});
+
 // SPEC-023 AC 5: every getter of window.__bb is either drawn state (in __bb.SIM_DRAWN: throws in sim mode) or on this
 // list of logic state that a sim test may read. A new getter must be put in one of the two, so a drawn one can't slip past
 // the sim guard.
@@ -19,6 +48,7 @@ const LOGIC_GETTERS = ["errorLog", "glRestored", "mode", "muted", "wardrobePage"
   "tutorial", "tutorialMapRect",    // SPEC-029: the tutorial state, the practice map
   "textFloors",                     // SPEC-031: phone text floors (reads CFG only)
   "game", "screenState",            // SPEC-012: the active game (plain data); the menus' screen state (AC 1f)
+  "warm", "quality",               // SPEC-040: the warm-up behind the level card, the quality tier (plain state)
   "tiptoe", "bubbleTextOff", "langSel",
   "acc",    // SPEC-034: the live accumulator (game-time seconds, plain number); SPEC-032: the 👣 toggles, the bubbles-without-letters switch, the language screen's highlight
   "fitCount", "updateReady", "updateChecks"];   // SPEC-038: counters and flags (how many times fit() ran, the new-version hint) — plain numbers, nothing drawn

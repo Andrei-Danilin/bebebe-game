@@ -6,6 +6,8 @@ interface Window {
   __bbReady?: boolean;
   __bbBoot?: any;
   __bbSeed?: number;
+  __bbProbeMs?: number;   // SPEC-040: the tests give the start probe's answer (ms per frame)
+  __bbQuality?: string;   // SPEC-040: the tests pin a quality tier (high / medium / low / auto)
   __bbStrictRng?: boolean;
   __bbNoIntro?: boolean;
   __bbNoTutorial?: boolean;

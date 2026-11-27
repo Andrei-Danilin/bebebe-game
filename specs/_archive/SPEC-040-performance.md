@@ -1,6 +1,6 @@
 # SPEC-040 — Performance pass: less memory, fewer draw calls, quality tiers for weak phones
 
-Status: ready
+Status: done (merged by "Merge SPEC-040", see git log)
 Complexity: L
 Branch: SPEC-040-performance
 Decided by: Andrei (2026-11-26).
