@@ -22,21 +22,21 @@ const CACHE_PREFIX = "bebebe-";          // all Pages projects of the account sh
 const NET_TIMEOUT_MS = 4000;             // weak signal: after this long, a cached copy wins over a slow network
 // SPEC-011: written by npm run precache (scripts/precache.js) — do not edit by hand
 // precache:start
-const SW_BUILD = 7;
-const SW_STRATEGY = "463855aec6";
-const SW_VERSION = "bebebe-1.0.0-dev-b7";
-const SRC_HASH = "c410094c0a";
+const SW_BUILD = 10;
+const SW_STRATEGY = "16a86f84f8";
+const SW_VERSION = "bebebe-1.0.0-dev-b10";
+const SRC_HASH = "d005d322bb";
 const PRECACHE_LOCAL = [
   "./", "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512-maskable.png",
   "./icons/icon-512.png", "./icons/icon.svg", "./index.html", "./manifest.webmanifest"
 ];
 const PRECACHE_SRC = [
   "./src/client/art-names.js?v=20ca23d7bd", "./src/client/art.js?v=68d5388c7e", "./src/client/back.js?v=31643bda5c",
-  "./src/client/debug.js?v=5e4f9e4bd9", "./src/client/errors.js?v=d36934cb61", "./src/client/flow.js?v=9843e36ab7",
-  "./src/client/fx.js?v=84a289bc8e", "./src/client/input.js?v=9dd01ce6c3", "./src/client/lifecycle.js?v=3a42079abe",
-  "./src/client/look.js?v=8fd8039408", "./src/client/main.js?v=7fbc35ed28", "./src/client/names.js?v=dff85cded6",
+  "./src/client/debug.js?v=f249d79223", "./src/client/errors.js?v=d36934cb61", "./src/client/flow.js?v=adbf8f4f53",
+  "./src/client/fx.js?v=84a289bc8e", "./src/client/input.js?v=7187d6d2d6", "./src/client/lifecycle.js?v=1749f28ea8",
+  "./src/client/look.js?v=3aefb9f645", "./src/client/main.js?v=8ebdfcc35c", "./src/client/names.js?v=dff85cded6",
   "./src/client/outfits.js?v=8564eaee23", "./src/client/perf.js?v=1b8537ee9d", "./src/client/progress.js?v=ae2e521ad9",
-  "./src/client/save.js?v=be42450a76", "./src/client/screen.js?v=94ffe40171", "./src/client/shop.js?v=ebde4ad6de",
+  "./src/client/save.js?v=be42450a76", "./src/client/screen.js?v=92a8a9701c", "./src/client/shop.js?v=ebde4ad6de",
   "./src/client/sound.js?v=57a594910c", "./src/client/state.js?v=47e0e50964", "./src/client/storage.js?v=686b11f06c",
   "./src/client/three/bosses.js?v=7814dfb8d4", "./src/client/three/camera.js?v=39a889ad56",
   "./src/client/three/characters.js?v=87a7d8775e", "./src/client/three/houses.js?v=c9bc94bc94",
@@ -46,22 +46,23 @@ const PRECACHE_SRC = [
   "./src/client/three/themes.js?v=6f17def67f", "./src/client/tutorial.js?v=79c53ff666",
   "./src/client/ui/character/items.js?v=9f6dd754dd", "./src/client/ui/character/progress.js?v=4a8d1be0da",
   "./src/client/ui/character/tabs.js?v=736bd98233", "./src/client/ui/character/upgrades.js?v=ec89bfa2d2",
-  "./src/client/ui/character/wardrobe.js?v=9b68107cfe", "./src/client/ui/draw.js?v=822a4cc90e",
-  "./src/client/ui/grownups.js?v=be5b41506c", "./src/client/ui/home.js?v=d456be2d53",
-  "./src/client/ui/hud.js?v=168281e932", "./src/client/ui/lang.js?v=6f01f96074", "./src/client/ui/map.js?v=4634784c68",
+  "./src/client/ui/character/wardrobe.js?v=9b68107cfe", "./src/client/ui/draw.js?v=29e45ed564",
+  "./src/client/ui/grownups.js?v=be5b41506c", "./src/client/ui/home.js?v=61d291dbc9",
+  "./src/client/ui/hud.js?v=847efcf8eb", "./src/client/ui/lang.js?v=6f01f96074", "./src/client/ui/map.js?v=4634784c68",
   "./src/client/ui/menu.js?v=df7bd8b63c", "./src/client/ui/minimap.js?v=afd7cc3057",
-  "./src/client/ui/phone.js?v=8f5b6fdf9a", "./src/client/ui/screens.js?v=fbb3472d0a",
+  "./src/client/ui/phone.js?v=83c9ce2f06", "./src/client/ui/screens.js?v=c9c66745f9",
   "./src/client/ui/story.js?v=2161f3118f", "./src/client/ui/text.js?v=9282c2557e",
-  "./src/client/ui/win.js?v=39875a8f61", "./src/core/active.js?v=70aa836ebd", "./src/core/autopilot.js?v=528edb53f9",
-  "./src/core/big.js?v=bab7a9cd72", "./src/core/bots.js?v=fc04a520e3", "./src/core/config.js?v=f3ac2f052c",
-  "./src/core/difficulty.js?v=72aff2bd1e", "./src/core/economy.js?v=6c6ac20714", "./src/core/game.js?v=79c95b3179",
-  "./src/core/hearing.js?v=02c8023238", "./src/core/hooks.js?v=5ceea54c61", "./src/core/index.js?v=2ac6418608",
-  "./src/core/level/build.js?v=fc9509a62b", "./src/core/level/generate.js?v=455b2ff4e4",
-  "./src/core/level/layouts.js?v=07d6472d8e", "./src/core/level/validate.js?v=3f3743eb46",
-  "./src/core/mood.js?v=8dcad43e22", "./src/core/path.js?v=85a51244fe", "./src/core/practice.js?v=dff6db8024",
-  "./src/core/progress-rules.js?v=a9deff0bda", "./src/core/rules.js?v=ebb66b0e27", "./src/core/util.js?v=b56133239e",
-  "./src/core/wardrobe.js?v=011be2182f", "./src/core/world.js?v=4c89ba327c", "./src/i18n.js?v=0b27cd61e2",
-  "./src/story.js?v=0cd3381a6e", "./src/version.js?v=6d0844555e"
+  "./src/client/ui/win.js?v=39875a8f61", "./src/client/update.js?v=e702121a73", "./src/core/active.js?v=70aa836ebd",
+  "./src/core/autopilot.js?v=528edb53f9", "./src/core/big.js?v=bab7a9cd72", "./src/core/bots.js?v=fc04a520e3",
+  "./src/core/config.js?v=f3ac2f052c", "./src/core/difficulty.js?v=72aff2bd1e", "./src/core/economy.js?v=6c6ac20714",
+  "./src/core/game.js?v=79c95b3179", "./src/core/hearing.js?v=02c8023238", "./src/core/hooks.js?v=5ceea54c61",
+  "./src/core/index.js?v=2ac6418608", "./src/core/level/build.js?v=fc9509a62b",
+  "./src/core/level/generate.js?v=455b2ff4e4", "./src/core/level/layouts.js?v=07d6472d8e",
+  "./src/core/level/validate.js?v=3f3743eb46", "./src/core/mood.js?v=8dcad43e22", "./src/core/path.js?v=85a51244fe",
+  "./src/core/practice.js?v=dff6db8024", "./src/core/progress-rules.js?v=a9deff0bda",
+  "./src/core/rules.js?v=ebb66b0e27", "./src/core/util.js?v=b56133239e", "./src/core/wardrobe.js?v=011be2182f",
+  "./src/core/world.js?v=4c89ba327c", "./src/i18n.js?v=ad8999931e", "./src/story.js?v=0cd3381a6e",
+  "./src/version.js?v=6d0844555e"
 ];
 const THREE_VERSION = "r187";
 const PRECACHE_THREE = [
@@ -166,6 +167,15 @@ self.addEventListener("install", event => {
   })());
 });
 
+// SPEC-038 AC 5: the page's "new version" note: a waiting worker takes over when the page asks (it also skips waiting on its own
+// at the end of its install; this is for a worker that was left waiting)
+self.addEventListener("message", event => {
+  const type = event.data && event.data.type;
+  if (type === "SKIP_WAITING") self.skipWaiting();
+  // the page asks which module set this worker is (the hint shows only for another one than the page runs)
+  else if (type === "VERSION" && event.ports && event.ports[0]) event.ports[0].postMessage({ srcHash: SRC_HASH, version: SW_VERSION });
+});
+
 // the kind of one of our caches ("src", "assets", "three") or null (an old name: deleted)
 const kindOf = name => (/-src-[^-]+$/.test(name) ? "src" : /-assets-[^-]+$/.test(name) ? "assets" : name.startsWith(CACHE_PREFIX + "three-") ? "three" : null);
 self.addEventListener("activate", event => {
@@ -205,6 +215,25 @@ function rememberShell(event, request, response) {
     try { event.waitUntil(saved); } catch (e) { /* saving goes on anyway */ }
   }
   return response;
+}
+
+// SPEC-038 AC 6 (RR-39): on an online start (a navigation the network answered) every precached sprite missing from this version's
+// sprite cache (evicted by the browser, or one the install could not fetch) is fetched again, one after the other: a miss never
+// blocks anything, one pass runs at a time, and a sprite the server does not have (404) is asked for once per worker lifetime
+let repairing = false;
+const gone = new Set();
+function repairArt(event) {
+  if (repairing) return;
+  repairing = true;
+  const done = (async () => {
+    const art = await caches.open(CACHE_ASSETS);
+    const have = new Set((await art.keys()).map(r => r.url));
+    const missing = PRECACHE_ASSETS.filter(u => !have.has(new URL(u, self.location).href) && !gone.has(u));
+    for (const u of missing) {
+      try { await art.add(new Request(u, { cache: "no-cache" })); } catch (e) { gone.add(u); }
+    }
+  })().catch(() => {}).finally(() => { repairing = false; });
+  try { event.waitUntil(done); } catch (e) { /* the event is over: the pass goes on anyway */ }
 }
 
 // the cached shell: this worker's own version first (its modules are there), then any other copy
@@ -249,7 +278,8 @@ self.addEventListener("fetch", event => {
   if (req.mode === "navigate" || atRoot) {
     // a new version of the game shows up as soon as the phone is online
     const fallback = atRoot ? SCOPE_ROOT : null;
-    event.respondWith(networkFirst(event, req, fallback, atRoot ? rememberShell : null, () => cachedShell(req, fallback)));
+    const save = (ev, rq, res) => { if (res.ok) repairArt(ev); return atRoot ? rememberShell(ev, rq, res) : res; };   // SPEC-038 AC 6: online → missing sprites back
+    event.respondWith(networkFirst(event, req, fallback, save, () => cachedShell(req, fallback)));
   } else if (local && url.pathname.includes("/src/") && url.searchParams.has("v")) {
     // a versioned module: the exact URL (its hash) from any of our caches, else the network — never written at runtime
     event.respondWith(cacheFirst(event, req, null, { ignoreVary: true }));

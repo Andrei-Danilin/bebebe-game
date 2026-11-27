@@ -33,7 +33,7 @@ export const I18N = {
     controls1: "Keyboard: Player 1 — W A S D, Player 2 — arrows  •  P — pause  •  M — sound  •  L — language",
     controls2: "Tablet/phone: drag your finger  •  Gamepad: stick, A — choose, B — back, LB/RB — worlds",
     pause: "Paused", play: "Play", resume: "Continue", story: "Story", map: "Map", home: "Home",   // SPEC-017: экраны меню
-    glLost: "Tap to continue", oops: "Oops! Something went wrong", restartLevel: "Restart level",   // SPEC-025 AC 7: карточка ошибки (Продолжить — resume)
+    glLost: "Tap to continue", updateReady: "A new version is ready — tap to update", oops: "Oops! Something went wrong", restartLevel: "Restart level",   // SPEC-025 AC 7: карточка ошибки (Продолжить — resume)
     // SPEC-025 phase 2: the save notes, the parents' gate and the grown-ups page (the reset's armed texts sure / sureShort are retired)
     saveRecovered: "We fixed your save from a backup", freshStart: "We couldn't read your save, so we started a new game", noSave: "This device isn't keeping progress",
     parentsGate: (a, b) => `For grown-ups: what is ${a} times ${b}?`, numberWords: ["three", "four", "five", "six", "seven", "eight", "nine"], gateWrong: "Not quite. Here is another one",
@@ -127,7 +127,7 @@ export const I18N = {
     controls1: "Teclado: Jugador 1 — W A S D, Jugador 2 — flechas  •  P — pausa  •  M — sonido  •  L — idioma",
     controls2: "Tablet/celu: deslizá el dedo  •  Joystick: palanca, A — elegir, B — volver, LB/RB — mundos",
     pause: "Pausa", play: "Jugar", resume: "Seguir", story: "Historia", map: "Mapa", home: "Inicio",
-    glLost: "Tocá para seguir", oops: "¡Uy! Algo salió mal", restartLevel: "Reiniciar nivel",   // SPEC-025 AC 7: карточка ошибки (Продолжить — resume)
+    glLost: "Tocá para seguir", updateReady: "Hay una versión nueva — tocá para actualizar", oops: "¡Uy! Algo salió mal", restartLevel: "Reiniciar nivel",   // SPEC-025 AC 7: карточка ошибки (Продолжить — resume)
     // SPEC-025 phase 2: las notas del guardado, la pregunta para adultos y la página para adultos
     saveRecovered: "Arreglamos tu partida con una copia", freshStart: "No pudimos leer tu partida, así que empezamos una nueva", noSave: "Este dispositivo no está guardando el progreso",
     parentsGate: (a, b) => `Para adultos: ¿cuánto es ${a} por ${b}?`, numberWords: ["tres", "cuatro", "cinco", "seis", "siete", "ocho", "nueve"], gateWrong: "No es así. Probá con esta otra",
@@ -214,7 +214,7 @@ export const I18N = {
     controls1: "Teclado: Jogador 1 — W A S D, Jogador 2 — setas  •  P — pausa  •  M — som  •  L — idioma",
     controls2: "Tablet/celular: arraste o dedo  •  Controle: analógico, A — escolher, B — voltar, LB/RB — mundos",
     pause: "Pausa", play: "Jogar", resume: "Continuar", story: "História", map: "Mapa", home: "Início",
-    glLost: "Toque para continuar", oops: "Ops! Algo deu errado", restartLevel: "Recomeçar a fase",   // SPEC-025 AC 7: карточка ошибки (Продолжить — resume)
+    glLost: "Toque para continuar", updateReady: "Tem uma versão nova — toque para atualizar", oops: "Ops! Algo deu errado", restartLevel: "Recomeçar a fase",   // SPEC-025 AC 7: карточка ошибки (Продолжить — resume)
     // SPEC-025 phase 2: os avisos do progresso salvo, a pergunta para adultos e a página para adultos
     saveRecovered: "Recuperamos seu progresso de uma cópia", freshStart: "Não conseguimos ler seu progresso, então começamos um jogo novo", noSave: "Este aparelho não está salvando o progresso",
     parentsGate: (a, b) => `Para adultos: quanto é ${a} vezes ${b}?`, numberWords: ["três", "quatro", "cinco", "seis", "sete", "oito", "nove"], gateWrong: "Não é bem isso. Tente esta aqui",
@@ -300,7 +300,7 @@ export const I18N = {
     controls1: "Клавиатура: Игрок 1 — W A S D, Игрок 2 — стрелки  •  P — пауза  •  M — звук  •  L — язык",
     controls2: "Планшет/телефон: водите пальцем  •  Геймпад: стик, A — выбрать, B — назад, LB/RB — миры",
     pause: "Пауза", play: "Играть", resume: "Продолжить", story: "История", map: "Карта", home: "Главная",
-    glLost: "Нажми, чтобы продолжить", oops: "Ой! Что-то пошло не так", restartLevel: "Начать уровень заново",   // SPEC-025 AC 7: карточка ошибки (Продолжить — resume)
+    glLost: "Нажми, чтобы продолжить", updateReady: "Готова новая версия — нажми, чтобы обновить", oops: "Ой! Что-то пошло не так", restartLevel: "Начать уровень заново",   // SPEC-025 AC 7: карточка ошибки (Продолжить — resume)
     // SPEC-025 phase 2: заметки о сохранении, вопрос для взрослых и страница для взрослых
     saveRecovered: "Мы восстановили сохранение из копии", freshStart: "Не получилось прочитать сохранение, поэтому начали новую игру", noSave: "Это устройство не сохраняет прогресс",
     parentsGate: (a, b) => `Для взрослых: сколько будет ${a} умножить на ${b}?`, numberWords: ["три", "четыре", "пять", "шесть", "семь", "восемь", "девять"], gateWrong: "Не совсем. Вот другой пример",

@@ -107,6 +107,7 @@ test.describe(() => {
     expect(await box()).toMatchObject({ w: 960, h: 640 });
     // emulate a notch + home indicator: top 40, right 30, bottom 20, left 50 → space 880×580
     await page.evaluate(() => { document.body.style.padding = "40px 30px 20px 50px"; window.dispatchEvent(new Event("resize")); });
+    await frames(page);                                  // SPEC-038: fit() waits for the next frame
     const b = await box();
     const s = Math.min(880 / 960, 580 / 640);
     expect(b.w).toBe(Math.floor(960 * s));
@@ -450,4 +451,179 @@ test.describe("on iPhone Safari", () => {
     expect(d.hud).toEqual(["home:title"]);
     expect(errors.filter(e => !e.includes("Failed to load resource"))).toEqual([]);
   });
+});
+
+// SPEC-038 AC 5: the "new version" hint. A waiting (or just activated) worker means a newer version than the page runs: the home
+// screen shows a small paper note, a tap activates the waiting worker (SKIP_WAITING) and reloads. Never in a level; nothing is
+// lost (the save is on the device).
+const UPDATE_TEXTS = { en: "A new version is ready — tap to update", es: "Hay una versión nueva — tocá para actualizar", pt: "Tem uma versão nova — toque para atualizar", ru: "Готова новая версия — нажми, чтобы обновить" };
+// a registration with a worker waiting; its postMessage is reported to the test (exposeFunction survives the reload) and answered
+// by a controllerchange, as a real worker that skipped waiting would
+function stubWaitingWorker() {
+  const real = ServiceWorkerContainer.prototype.register;
+  ServiceWorkerContainer.prototype.register = function (...a) {
+    real.apply(this, a).catch(() => {});
+    const worker = {
+      state: "installed", addEventListener() {},
+      postMessage: (m, ports) => {
+        if (m.type === "VERSION") { ports[0].postMessage({ srcHash: "another-module-set" }); return; }   // a worker of other modules than the page's
+        window.__swPosted(m); setTimeout(() => navigator.serviceWorker.dispatchEvent(new Event("controllerchange")), 20);
+      }
+    };
+    return Promise.resolve({ waiting: worker, installing: null, active: {}, addEventListener() {}, update: () => Promise.resolve() });
+  };
+}
+const homeNote = page => page.evaluate(() => { const b = window.__bb; return { rect: b.hudRects.find(h => h.id === "home:update") || null, button: b.buttonRects.find(r => r.id === "home:update") || null, mode: b.mode }; });
+
+test("a waiting worker shows the new-version note on the home screen; a tap activates it and reloads", async ({ page }) => {
+  const posted = [];
+  await page.exposeFunction("__swPosted", m => posted.push(m));
+  await page.addInitScript(stubWaitingWorker);
+  const errors = await openGameHttp(page);
+  await page.waitForFunction(() => window.__bb.updateReady === true);
+  await frames(page);
+  expect(await page.evaluate(() => window.__bb.mode)).toBe("home");
+  for (const l of ["en", "es", "pt", "ru"]) {
+    await page.evaluate(v => { window.__bb.setLang(v); }, l);
+    await frames(page);
+    const n = await homeNote(page);
+    expect(n.rect && n.rect.text, `${l}: the note`).toBe(UPDATE_TEXTS[l]);
+    expect(n.button, `${l}: it is a button`).not.toBeNull();
+  }
+  await page.evaluate(() => { window.__bb.setLang("en"); });
+  // never in a level (or any screen but home)
+  await page.evaluate(() => { window.__bb.startGame(1); });
+  await frames(page);
+  expect((await homeNote(page)).rect, "not in a level").toBeNull();
+  await page.evaluate(() => { window.__bb.mode = "map"; });
+  await frames(page);
+  expect((await homeNote(page)).rect, "not on the map").toBeNull();
+  await page.evaluate(() => { window.__bb.mode = "home"; });
+  await frames(page);
+  // a tap: SKIP_WAITING goes to the waiting worker, then the page reloads
+  const b = (await homeNote(page)).button, c = await page.locator("#game").boundingBox(), s = c.width / (await page.evaluate(() => window.__bb.uiSize.w));
+  const load = page.waitForEvent("load");
+  await page.mouse.click(c.x + (b.x + b.w / 2) * s, c.y + (b.y + b.h / 2) * s);
+  await load;
+  expect(posted).toEqual([{ type: "SKIP_WAITING" }]);
+  expect(errors.filter(e => !e.includes("Failed to load resource"))).toEqual([]);
+});
+
+test("no waiting worker: no note", async ({ page }) => {
+  await openGameHttp(page);
+  await waitForSW(page);
+  await frames(page);
+  expect(await page.evaluate(() => window.__bb.updateReady)).toBe(false);
+  expect((await homeNote(page)).rect).toBeNull();
+});
+
+// the real thing: the installed app (controlled page) is online when a new sw.js arrives; the new worker installs and takes over
+// (skipWaiting). The note shows only when its modules differ from the page's (SRC_HASH): index.html is network-first, so a page
+// that was loaded after the deploy already runs them
+const takeover = page => page.evaluate(() => { window.__took = false; navigator.serviceWorker.addEventListener("controllerchange", () => { window.__took = true; }); });
+const updateSw = page => page.evaluate(async () => { try { await (await navigator.serviceWorker.getRegistration()).update(); } catch (e) { /* ok */ } });
+const newModulesSw = () => SW_SRC.replace(`const SRC_HASH = "${SRC_HASH}";`, "const SRC_HASH = \"testnew999\";").replace(/"\.\/src\/client\/art-names\.js\?v=[0-9a-f]+"/, "\"./src/client/art-names.js?v=testnew001\"");
+test("a new worker with other modules taking over a running page shows the note", async ({ page }) => {
+  test.slow();
+  const ov = { fn: () => null };
+  await withOwnServer(page, ov, async () => {
+    await page.reload();                                      // now the page is controlled (the note rules start from a controlled page)
+    await page.waitForFunction(() => window.__bbReady === true && !!navigator.serviceWorker.controller, null, { timeout: 30_000 });
+    await page.evaluate(() => { const b = window.__bb; b.resetMenus(); b.mode = "home"; });
+    expect(await page.evaluate(() => window.__bb.updateReady)).toBe(false);
+    const v = newVersion(), sw = newModulesSw();               // other modules: another SRC_HASH, shell and module served to match
+    ov.fn = p => (p === "/sw.js" ? sw : p === "/index.html" ? v.html : p === ART_FILE ? v.art : null);
+    await takeover(page);
+    await updateSw(page);
+    await page.waitForFunction(() => window.__bb.updateReady === true, null, { timeout: 60_000 });
+    // (a first launch opens the language screen and the comic: back to home until a frame draws the note)
+    await page.waitForFunction(() => { const b = window.__bb; if (b.mode !== "home") b.mode = "home"; return b.hudRects.some(h => h.id === "home:update"); }, null, { timeout: 15_000 });
+  });
+});
+
+// a worker of the same modules (only SW_VERSION changed: a sprite-only deploy, a strategy change) taking over a page that already
+// runs these modules: nothing to update, no note
+test("a new worker with the same modules shows no note", async ({ page }) => {
+  test.slow();
+  const ov = { fn: () => null };
+  await withOwnServer(page, ov, async () => {
+    await page.reload();
+    await page.waitForFunction(() => window.__bbReady === true && !!navigator.serviceWorker.controller, null, { timeout: 30_000 });
+    await page.evaluate(() => { const b = window.__bb; b.resetMenus(); b.mode = "home"; });
+    const checks0 = await page.evaluate(() => window.__bb.updateChecks);
+    ov.fn = p => (p === "/sw.js" ? SW_SRC.replace(/const SW_VERSION\s*=\s*"[^"]+"/, "const SW_VERSION = \"bebebe-test-same\"") : null);
+    await takeover(page);
+    await updateSw(page);
+    await page.waitForFunction(() => window.__took === true, null, { timeout: 60_000 });                    // the new worker took over
+    await page.waitForFunction(c => window.__bb.updateChecks > c, checks0, { timeout: 15_000 });            // and answered which modules it is
+    await frames(page);
+    expect(await page.evaluate(() => window.__bb.updateReady), "the page already runs these modules").toBe(false);
+    expect((await homeNote(page)).rect).toBeNull();
+  });
+});
+
+// a first visit (no worker at the start): the first install claiming the page is no update; a later takeover with other modules is
+test("a first visit sees a later update", async ({ page }) => {
+  test.slow();
+  const ov = { fn: () => null };
+  await withOwnServer(page, ov, async () => {                  // loaded without a worker; the worker installs and claims the page
+    expect(await page.evaluate(() => window.__bb.updateReady), "the first install is no update").toBe(false);
+    const v = newVersion(), sw = newModulesSw();
+    ov.fn = p => (p === "/sw.js" ? sw : p === "/index.html" ? v.html : p === ART_FILE ? v.art : null);
+    await updateSw(page);                                       // no reload in between
+    await page.waitForFunction(() => window.__bb.updateReady === true, null, { timeout: 60_000 });
+  });
+});
+
+// the note fits one phone screen (667×375) in every language, also with wider fonts (CI and iPhone fonts are wider than Windows):
+// whole text, inside the screen, on no other control
+const NOTE_FIT_SETUPS = [["on a phone", { viewport: { width: 667, height: 375 }, hasTouch: true, isMobile: true }, "?phone=1", "667×375"],
+  ["on the desktop", { viewport: { width: 960, height: 640 } }, "", "960×640"]];
+for (const [name, ctxOpts, query, size] of NOTE_FIT_SETUPS) test.describe(`the new-version note ${name}`, () => {
+  test.use(ctxOpts);
+
+  test(`it fits at ${size} in every language and font scale`, async ({ page }) => {
+    const errors = [];
+    await page.exposeFunction("__swPosted", () => {});
+    await page.addInitScript(stubWaitingWorker);
+    errors.push(...await openGameHttp(page, { query }));
+    await page.waitForFunction(() => window.__bb.updateReady === true);
+    const problems = [];
+    for (const l of ["en", "es", "pt", "ru"]) for (const scale of [1, 1.15, 1.3]) {
+      await page.evaluate(([v, sc]) => { const b = window.__bb; b.setLang(v); b.CFG.TEXT_TEST_SCALE = sc; b.mode = "home"; }, [l, scale]);
+      await frames(page);
+      const d = await page.evaluate(() => { const b = window.__bb; return { hud: b.hudRects, buttons: b.buttonRects, ui: b.uiSize, min: b.textSizes }; });
+      const n = d.hud.find(h => h.id === "home:update"), at = `${l} ×${scale}`;
+      if (!n) { problems.push(`${at}: no note`); continue; }
+      if (n.text !== UPDATE_TEXTS[l]) problems.push(`${at}: text cut to "${n.text}"`);
+      if (n.x < 0 || n.x + n.w > d.ui.w || n.y < 0 || n.y + n.h > d.ui.h) problems.push(`${at}: off the screen ${JSON.stringify(n)}`);
+      for (const q of [...d.buttons.filter(b => b.id !== "home:update"), ...d.hud.filter(h => h.id === "home:title")]) {
+        if (n.x < q.x + q.w && n.x + n.w > q.x && n.y < q.y + q.h && n.y + n.h > q.y) problems.push(`${at}: the note covers ${q.id}`);
+      }
+      if (name === "on a phone" && n.h * d.ui.scale < 28) problems.push(`${at}: the note is ${n.h * d.ui.scale} CSS px tall`);
+    }
+    await page.evaluate(() => { window.__bb.CFG.TEXT_TEST_SCALE = 1; });
+    expect(problems).toEqual([]);
+    expect(errors.filter(e => !e.includes("Failed to load resource"))).toEqual([]);
+  });
+});
+
+// SPEC-038 AC 6 (RR-39): a sprite missing from the sprite cache (evicted, or one the install could not fetch) is fetched again on
+// the next online start; the page need not ask for it
+test("an online start re-fetches a sprite missing from the cache", async ({ page }) => {
+  test.slow();
+  await openGameHttp(page);
+  await waitForSW(page);
+  const sprite = HTTP_BASE + "assets/" + swList("PRECACHE_ASSETS")[5].slice(9);
+  const has = () => page.evaluate(async ([n, u]) => !!(await (await caches.open(n)).match(u)), [CACHE_ASSETS, sprite]);
+  expect(await has(), "installed with it").toBe(true);
+  expect(await page.evaluate(async ([n, u]) => (await caches.open(n)).delete(u), [CACHE_ASSETS, sprite])).toBe(true);
+  expect(await has()).toBe(false);
+  // an online start = a navigation the network answers; a plain document (not the game, which would ask for the sprite itself)
+  await page.goto(HTTP_BASE + "icons/icon.svg");
+  expect(await page.evaluate(() => !!navigator.serviceWorker.controller), "still the worker's page").toBe(true);
+  await expect.poll(has, { timeout: 30_000, message: "the worker put the sprite back" }).toBe(true);
+  // and the whole list is there again
+  const art = await page.evaluate(async n => (await (await caches.open(n)).keys()).map(r => r.url), CACHE_ASSETS);
+  expect(swList("PRECACHE_ASSETS").filter(u => !art.includes(HTTP_BASE + u.slice(2)))).toEqual([]);
 });

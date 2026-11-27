@@ -17,6 +17,7 @@ interface Navigator {
 }
 interface Document {
   webkitFullscreenElement?: Element | null;
+  webkitFullscreenEnabled?: boolean;
   webkitExitFullscreen?: () => Promise<void> | void;
 }
 interface HTMLElement {

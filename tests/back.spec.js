@@ -158,6 +158,11 @@ const yesNow = (page, hide = false) => page.evaluate(h => {
   if (h) window.dispatchEvent(new PageTransitionEvent("pagehide"));
   return { closed: window.__closed, dialog: !!document.getElementById("leave"), guard: !!(history.state && history.state.bbGuard) };
 }, hide);
+// SPEC-038: the timed part of these tests (the close wait, the step off the guard) runs with the game quiet: sim mode draws no 3D
+// and no 2D (the home screen's showcase game is the heaviest thing on a software-rendered CI page and starved the page's main thread
+// — the timer, the history traversal, the polling — by seconds). The Back logic does not depend on drawing (back.js reads simMode
+// at its start only). quiet(false) draws again (the 3D is rebuilt), for the steps that wait for frames.
+const quiet = (page, on) => page.evaluate(v => { window.__bb.sim(v); }, on);
 // waits (polled by time, not by animation frames: a slow software-rendered frame must not stretch the wait) for the step off the guard;
 // a timeout says what the page looked like
 async function steppedOff(page, wait) {
@@ -181,10 +186,12 @@ async function refusedClose(page, query, { oneEntry = false, reopen = false } = 
   await page.evaluate(() => { window.__bb.mode = "home"; });
   await touch(page);
   await back(page);
+  await quiet(page, true);
   const t0 = Date.now();
   expect(await yesNow(page), "window.close() called; the dialog is closed; the window gets BACK_CLOSE_WAIT to close, the guard waits on top").toEqual({ closed: 1, dialog: false, guard: true });
   await steppedOff(page, wait);
   expect(Date.now() - t0, "stepped off only after BACK_CLOSE_WAIT").toBeGreaterThanOrEqual(wait - 50);
+  await quiet(page, false);
   await frames(page);
   expect([await dialog(page), await mode(page), await guard(page), await page.evaluate(() => window.__bb.back.leaves)], "still here: off the guard, no dialog").toEqual([null, "home", false, 1]);
   return errors;
@@ -213,14 +220,18 @@ test("a pagehide while the window closes keeps the guard; pageshow (back from th
   await page.evaluate(() => { window.__bb.mode = "home"; });
   await touch(page);
   await back(page);
+  await quiet(page, true);
   expect(await yesNow(page, true), "Yes, then at once a pagehide").toEqual({ closed: 1, dialog: false, guard: true });
   // proving that nothing happens: no flag tells "timer pending", so wait the close wait out (+ margin) and see the guard still there
-  await page.waitForTimeout(wait + 300);
+  await page.waitForTimeout(wait + 300);                // (quiet: nothing draws while the wait runs out)
   expect(await guard(page), "closing: the guard is left alone").toBe(true);
+  await quiet(page, false);
   await page.evaluate(() => { window.dispatchEvent(new PageTransitionEvent("pageshow", { persisted: true })); });
   await back(page);
+  await quiet(page, true);
   await press(page, "Yes");
   await steppedOff(page, wait);
+  await quiet(page, false);
   expect([await page.evaluate(() => window.__closed), await dialog(page)]).toEqual([2, null]);
   expect(errors).toEqual([]);
 });

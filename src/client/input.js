@@ -7,7 +7,7 @@ import { backToWardrobe, chooseStop, closeCard, goBack, closeShop, cycleWorld, i
 import { LOOK } from "./look.js";
 import { cleanName, nameFor, setName } from "./names.js";
 import { randomOutfit } from "./outfits.js";
-import { canvas, CSS_W, PHONE, UH, UW, wrap } from "./screen.js";
+import { canvas, CSS_W, PHONE, rotateWall, UH, UW, wrap } from "./screen.js";
 import { leaveCancel } from "./back.js";
 import { cardOpen, moveCardFocus, pressCard } from "./errors.js";
 import { initAudio } from "./sound.js";
@@ -110,6 +110,11 @@ const hitButton = p => ui.buttons.find(b => p.x >= b.x && p.x <= b.x + b.w && p.
 let pendingUp = null;   // кнопка, которая срабатывает на отпускании (поле имени: iOS даёт фокус только в pointerup/click)
 
 const endStick = e => sticks.delete(e.pointerId);
+// SPEC-038 AC 1: a player's stick is a stack of his pointers (the Map keeps them in the order they landed): the newest finger
+// steers; lifting it falls back to the previous one; lifting an older one changes nothing; all lifted — the hero stops
+export const activeStick = player => { let a = null; for (const s of sticks.values()) if (s.player === player) a = s; return a; };
+export const clearSticks = () => sticks.clear();   // SPEC-038: the fingers are gone (the "turn your device" wall, a level left)
+export const activeSticks = () => [0, 1].map(activeStick).filter(Boolean);
 
 // Поле ввода имени: HTML <input> ровно поверх прямоугольника на холсте (rect в логических пикселях)
 export let nameInput = null;   // { el, slot, rect }
@@ -267,8 +272,8 @@ export function deviceInput(l) {
   x += (pressed(c.right) ? 1 : 0) - (pressed(c.left) ? 1 : 0);
   y += (pressed(c.down) ? 1 : 0) - (pressed(c.up) ? 1 : 0);
   padSlots.forEach((p, i) => { if (p.connected && (G.players === 1 || i === pi)) { x += p.x; y += p.y; } });
-  for (const s of sticks.values()) {
-    if (s.player !== pi) continue;
+  const s = activeStick(pi);                   // SPEC-038 AC 1: the newest finger of this player's stack
+  if (s) {
     const R = stickR(), dx = (s.x - s.ox) / R, dy = (s.y - s.oy) / R;
     if (Math.hypot(dx, dy) > 0.15) { x += dx; y += dy; }
   }
@@ -313,6 +318,7 @@ export function initInput() {
   window.addEventListener("contextmenu", e => e.preventDefault());
   canvas.addEventListener("pointerdown", e => {
     e.preventDefault();
+    if (rotateWall()) return;                          // SPEC-038 AC 2: the "turn your device" overlay is on — nothing under it reacts
     initAudio();
     if (nameInput) { closeNameInput(true); return; }   // тап мимо поля — имя сохраняется
     // SPEC-025 AC 7d: in the frame that changed the screen the drawn buttons (and the screen-wide taps: next comic page, resume,
@@ -334,7 +340,8 @@ export function initInput() {
     if (mode === "play" && e.pointerType !== "mouse") {
       if (PHONE && p.x > UW * LOOK.STICK_ZONE) return;   // телефон: справа — только кнопки
       const player = G.players === 2 && p.x > UW / 2 ? 1 : 0;
-      for (const [id, s] of sticks) if (s.player === player) sticks.delete(id);
+      const mine = [...sticks].filter(([, q]) => q.player === player);   // SPEC-038 AC 1: the stack grows; only its depth is capped (a lost pointerup must not pile up)
+      for (const [id] of mine.slice(0, Math.max(0, mine.length + 1 - LOOK.STICK_STACK_MAX))) sticks.delete(id);
       sticks.set(e.pointerId, { player, ox: p.x, oy: p.y, x: p.x, y: p.y });
       try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* ok */ }
     } else if (mode === "pause") resumeGame();
@@ -351,6 +358,7 @@ export function initInput() {
   canvas.addEventListener("pointerup", e => {
     initAudio();                                       // SPEC-025 AC 14: WebKit unlocks audio on the release
     endStick(e);
+    if (rotateWall()) { pendingUp = null; ui.mapSwipe = null; return; }   // SPEC-038 AC 2: a release under the overlay presses nothing
     const stale = staleButtons();                      // SPEC-025 AC 7d: a swipe still works; a button of an older screen does not
     const sw = ui.mapSwipe;
     if (sw && sw.id === e.pointerId) {
@@ -371,4 +379,5 @@ export function initInput() {
     if (hit && hit.id === pu.id) hit.act();              // тот же жест — фокус в поле, клавиатура на iOS открывается
   });
   canvas.addEventListener("pointercancel", e => { endStick(e); ui.mapSwipe = null; });
+  canvas.addEventListener("lostpointercapture", endStick);   // SPEC-038 AC 1: a pointer the browser no longer follows leaves the stack
 }

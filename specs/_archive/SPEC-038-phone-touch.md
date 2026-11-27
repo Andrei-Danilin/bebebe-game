@@ -1,6 +1,6 @@
 # SPEC-038 — Phone and touch robustness: second finger, rotation, tablets in portrait, fullscreen button, "new version" hint
 
-Status: ready
+Status: done (merged by "Merge SPEC-038", see git log)
 Complexity: M
 Branch: SPEC-038-phone-touch
 Decided by: Andrei (2026-11-26): do the phone and touch items from the release review and the backlog. Layout details and texts: Claude.

@@ -15,13 +15,13 @@ import { inMenus, inWardrobe, mapTick, mode, openScene, redress, resetWorld, see
 import { drainEvents, runFrame, viewTick } from "./fx.js";
 import { initInput, pollPads } from "./input.js";
 import { initBack } from "./back.js";
-import { initLifecycle } from "./lifecycle.js";
+import { initLifecycle, pauseForWall } from "./lifecycle.js";
 import { endTryOn } from "./outfits.js";
 import { LOOK } from "./look.js";
 import { initPerf, noteFrame } from "./perf.js";
 import { langPending, loadSave } from "./save.js";
 import { openLangScreen } from "./ui/lang.js";
-import { fit, initScreen, isTouch, simMode } from "./screen.js";
+import { fit, initScreen, runQueuedFit, simMode } from "./screen.js";
 import { ui } from "./state.js";
 import { initCamera, updateCamera } from "./three/camera.js";
 import { initCharacters, rebuild3D } from "./three/characters.js";
@@ -30,6 +30,7 @@ import { initPreviews } from "./three/previews.js";
 import { hasWebGL2, initScene, initThree } from "./three/setup.js";
 import { initSync, render3D } from "./three/sync.js";
 import { firstTutorial, openFirstTutorial } from "./tutorial.js";
+import { initUpdates } from "./update.js";
 import { showDueNote } from "./ui/grownups.js";
 import { updateMinimapFade } from "./ui/minimap.js";
 import { drawUI } from "./ui/screens.js";
@@ -96,6 +97,7 @@ function tick(now) {
   const real = (now - last) / 1000, dt = Math.max(0, Math.min(LOOK.VIEW_DT_MAX, real));   // dt — the frame time of the view; the game takes real through the accumulator (SPEC-034)
   last = now;
   noteFrame(Math.max(0, real), dt);          // SPEC-025 AC 15b: __bb.perf()
+  runQueuedFit();                            // SPEC-038 AC 2: a resize / rotation since the last frame — the canvases are rebuilt before this frame draws
   if (simMode) return;                       // sim: ни логики, ни рисования — игру шагает simRun
   if (langDue && mode === "home" && !document.getElementById("loading")) { langDue = false; openLangScreen(); }   // SPEC-032: язык — до комикса
   if (introDue && mode === "home" && !document.getElementById("loading")) { introDue = false; openScene("intro", tutorialDue ? openFirstTutorial : null); }   // SPEC-022: первый запуск (SPEC-029: потом обучение; SPEC-033: сначала карточка «Как играть»)
@@ -104,9 +106,9 @@ function tick(now) {
   pollPads();
   syncStock();                              // SPEC-012: the local stock follows the saves (shop, tests)
   if (!inWardrobe() && endTryOn()) redress();   // SPEC-009/017: ушли из вкладки «Гардероб» (друзья — её часть) — примерка кончилась
-  const portrait = isTouch && window.innerHeight > window.innerWidth;
+  pauseForWall();                           // SPEC-038 AC 2: the phone turned upright — the sticks go, a level pauses (turned back: the pause menu, no auto-resume)
   mapTick(dt);
-  if (mode === "play" && !portrait) runFrame(Math.max(0, real));           // SPEC-012 / SPEC-034: devices once → the accumulator's whole 1/60 s steps → their effects (the game); the view ages by the frame time
+  if (mode === "play") runFrame(Math.max(0, real));           // SPEC-012 / SPEC-034: devices once → the accumulator's whole 1/60 s steps → their effects (the game); the view ages by the frame time
   else { drainEvents(); viewTick(dt); if (inMenus()) ui.menuSpin += dt * 0.8; }   // SPEC-012 AC 1d: the Big One turns in the menus — a view angle, not game state
   noGameRng("render", () => {              // рисование не тянет игровую случайность (SPEC-008: тесты — ошибка, игра — vrand)
     updateCamera(dt);                       // телефон: камера за героем (3D-слой, не логика)
@@ -120,7 +122,7 @@ function tick(now) {
 function registerServiceWorker() {
   try {
     if ((location.protocol === "http:" || location.protocol === "https:") && navigator.serviceWorker) {
-      navigator.serviceWorker.register("sw.js").catch(() => { /* регистрацию запретили — игра работает и так */ });
+      navigator.serviceWorker.register("sw.js").then(initUpdates).catch(() => { /* регистрацию запретили — игра работает и так */ });   // SPEC-038 AC 5: initUpdates — плашка «новая версия»
     }
   } catch (e) { /* нет доступа к serviceWorker */ }
 }

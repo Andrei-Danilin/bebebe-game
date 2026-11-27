@@ -150,6 +150,49 @@ test.describe("tablet", () => {
   });
 });
 
+// SPEC-038 AC 3 (RR-38): a tablet (a touch screen over PHONE_MAX_SHORT_SIDE) and a tall desktop window play in portrait: the
+// landscape canvas centred between paper margins, no rotate wall. A phone keeps the wall (the "phone portrait" test below).
+test.describe("tablet portrait", () => {
+  test.use({ viewport: { width: 820, height: 1180 }, hasTouch: true, isMobile: true });
+
+  test("an iPad in portrait plays letterboxed, with no rotate wall", async ({ page }) => {
+    const errors = await openGame(page);
+    expect(await page.evaluate(() => window.__bb.phone)).toBe(false);
+    await frames(page);
+    const home = await page.evaluate(() => ({ shown: window.__bb.rotateShown, wall: window.__bb.rotateWall(), buttons: window.__bb.buttonRects.length, ui: window.__bb.uiSize }));
+    expect(home.shown).toBe(false); expect(home.wall).toBe(false); expect(home.buttons).toBeGreaterThan(0);
+    // the landscape canvas: full width, 3:2 shape, centred vertically (paper margins above and below)
+    const box = await page.locator("#game").boundingBox();
+    expect(Math.abs(box.x), "x").toBeLessThanOrEqual(1);
+    expect(Math.abs(box.width - 820), `width ${box.width}`).toBeLessThanOrEqual(1);
+    expect(Math.abs(box.height - 820 * 640 / 960), `height ${box.height}`).toBeLessThanOrEqual(1);
+    expect(Math.abs(box.y - (1180 - box.height) / 2), `y ${box.y}`).toBeLessThanOrEqual(1.5);
+    // a tap on Play (through the letterbox) works
+    const play = (await page.evaluate(() => window.__bb.buttonRects)).find(b => b.id === "home:play"), s = home.ui.scale;
+    await page.touchscreen.tap(box.x + (play.x + play.w / 2) * s, box.y + (play.y + play.h / 2) * s);
+    expect(await page.evaluate(() => window.__bb.mode)).not.toBe("home");
+    // a level in portrait runs: it does not pause, the clock moves
+    await page.evaluate(() => { window.__bb.startGame(1); });
+    await page.waitForFunction(() => window.__bb.stats.time > 0.3, null, { timeout: 15_000 });
+    expect(await page.evaluate(() => ({ mode: window.__bb.mode, shown: window.__bb.rotateShown }))).toEqual({ mode: "play", shown: false });
+    expect(errors).toEqual([]);
+  });
+});
+
+test.describe("desktop window taller than wide", () => {
+  test.use({ viewport: { width: 700, height: 1000 } });
+
+  test("it plays letterboxed in portrait, no rotate wall", async ({ page }) => {
+    const errors = await openGame(page);
+    await frames(page);
+    expect(await page.evaluate(() => ({ shown: window.__bb.rotateShown, wall: window.__bb.rotateWall() }))).toEqual({ shown: false, wall: false });
+    const box = await page.locator("#game").boundingBox();
+    expect(Math.abs(box.width - 700), `width ${box.width}`).toBeLessThanOrEqual(1);
+    expect(Math.abs(box.y - (1000 - box.height) / 2), `y ${box.y}`).toBeLessThanOrEqual(1.5);
+    expect(errors).toEqual([]);
+  });
+});
+
 // AC 2: in phone mode both canvases fill playArea() (no letterbox), the UI layer has its own size (PHONE_UI_H × aspect).
 for (const [vw, vh] of [[667, 375], [844, 390], [932, 430]]) {
   test.describe(`phone ${vw}×${vh}`, () => {
@@ -484,6 +527,54 @@ test.describe("phone controls", () => {
     } finally {
       await page.evaluate(z => { window.__bb.CFG.STICK_ZONE = z; }, zone0);
     }
+    expect(errors).toEqual([]);
+  });
+
+  // SPEC-038 AC 1 (RR-73): each player's stick keeps a stack of its pointers — the newest steers; lifting the newest falls back
+  // to the previous one; lifting an older one changes nothing; lifting all stops the hero. One evaluate: events and steps
+  // run together, so the real frame loop adds no steps in between.
+  test("a second finger on the stick: the newest steers, lifting it falls back, buttons keep their own touches", async ({ phonePage: page }) => {
+    const errors = await phonePlay(page);
+    await placeHero(page, 480, 320);
+    await frames(page);
+    const d = await page.evaluate(() => {
+      const b = window.__bb, l = b.littles[0], c = document.getElementById("game"), r = c.getBoundingClientRect(), s = b.uiSize.scale, R = b.stickR();
+      const ev = (t, id, x, y) => c.dispatchEvent(new PointerEvent(t, { clientX: r.left + x * s, clientY: r.top + y * s, pointerId: id, pointerType: "touch", isPrimary: id === 1, bubbles: true, cancelable: true }));
+      const out = {};
+      const drift = key => {                                   // where the hero heads over 12 steps
+        Object.assign(l, { x: 480, y: 320, kx: 0, ky: 0, moving: false });
+        for (let i = 0; i < 12; i++) b.update(1 / 60);
+        const dx = l.x - 480, dy = l.y - 320;
+        out[key] = Math.abs(dx) < 1 && Math.abs(dy) < 1 ? "stop" : Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "right" : "left") : (dy > 0 ? "down" : "up");
+      };
+      ev("pointerdown", 1, 100, 250); ev("pointermove", 1, 100 + R * 0.8, 250);   // finger A: push right
+      drift("a");
+      ev("pointerdown", 2, 100, 150); ev("pointermove", 2, 100, 150 + R * 0.8);   // finger B lands: push down
+      out.stack = b.sticks.length;
+      drift("ab");
+      ev("pointerup", 1, 100 + R * 0.8, 250);                                     // the older finger lifts: still down
+      drift("liftA");
+      ev("pointerdown", 1, 100, 250); ev("pointermove", 1, 100 + R * 0.8, 250);   // A lands again (newest now): right
+      drift("a2");
+      ev("pointerup", 1, 100 + R * 0.8, 250);                                     // the newest lifts: back to B (down)
+      drift("liftNewest");
+      ev("pointerup", 2, 100, 150 + R * 0.8);                                     // all fingers up
+      drift("allUp");
+      out.left = b.sticks.length;
+      return out;
+    });
+    expect(d).toEqual({ a: "right", stack: 2, ab: "down", liftA: "down", a2: "right", liftNewest: "down", allUp: "stop", left: 0 });
+    // a button's touch never takes over the stick: a finger on the stick, another on the 💋 button (right)
+    await page.evaluate(() => { window.__bb.progress.inv.kisses = 5; });
+    await frames(page);
+    const kiss = (await page.evaluate(() => window.__bb.buttonRects)).find(q => q.id === "kiss:0");
+    await touch(page, "pointerdown", 150, 300, 11);
+    await touch(page, "pointerdown", kiss.x + kiss.w / 2, kiss.y + kiss.h / 2, 12);
+    expect(await page.evaluate(() => window.__bb.sticks.map(q => q.id))).toEqual([11]);
+    await touch(page, "pointerup", kiss.x + kiss.w / 2, kiss.y + kiss.h / 2, 12);
+    expect(await page.evaluate(() => window.__bb.sticks.map(q => q.id))).toEqual([11]);
+    await touch(page, "pointerup", 150, 300, 11);
+    expect(await page.evaluate(() => window.__bb.sticks.length)).toBe(0);
     expect(errors).toEqual([]);
   });
 
@@ -1458,6 +1549,62 @@ test.describe("phone portrait", () => {
     expect(d.shown).toBe(true);
     expect(d.texts.title * d.ui.scale).toBeGreaterThanOrEqual(24 - 0.01);
     expect(d.buttons).toEqual([]);
+    expect(errors).toEqual([]);
+  });
+});
+
+// SPEC-038 AC 2 (RR-72): rotation. Turning to portrait in a level pauses; turning back shows the pause menu (no auto-resume);
+// while the rotate overlay shows nothing under it reacts, also on a touch device that is not in phone mode; a burst of resize
+// events makes one fit() (one canvas reallocation) per animation frame.
+test.describe("phone rotation", () => {
+  test.use({ ...PHONE_CTX, viewport: { width: 667, height: 375 } });
+
+  test("portrait during a level pauses; back to landscape shows the pause menu, not the game", async ({ phonePage: page }) => {
+    const errors = await phonePlay(page);
+    await frames(page);
+    expect(await page.evaluate(() => window.__bb.mode)).toBe("play");
+    await page.setViewportSize({ width: 375, height: 667 });
+    await frames(page); await frames(page);
+    const p = await page.evaluate(() => ({ mode: window.__bb.mode, shown: window.__bb.rotateShown, buttons: window.__bb.buttonRects.length }));
+    expect(p).toEqual({ mode: "pause", shown: true, buttons: 0 });
+    // a tap on the overlay does not resume (the pause screen's tap-anywhere is under it)
+    await page.touchscreen.tap(187, 333);
+    expect(await page.evaluate(() => window.__bb.mode)).toBe("pause");
+    await page.setViewportSize({ width: 667, height: 375 });
+    await frames(page); await frames(page);
+    const back = await page.evaluate(() => ({ mode: window.__bb.mode, shown: window.__bb.rotateShown, buttons: window.__bb.buttonRects.map(b => b.id) }));
+    expect(back.mode, "no auto-resume").toBe("pause");
+    expect(back.shown).toBe(false);
+    expect(back.buttons.length, "the pause menu's buttons are there").toBeGreaterThan(0);
+    expect(errors).toEqual([]);
+  });
+
+  test("20 resize events in one frame make one fit()", async ({ phonePage: page }) => {
+    const errors = page.sharedErrors;
+    await frames(page);
+    const d = await page.evaluate(() => new Promise(done => {
+      const b = window.__bb, n0 = b.fitCount;
+      for (let i = 0; i < 20; i++) window.dispatchEvent(new Event("resize"));
+      const during = b.fitCount - n0;                           // nothing yet: the work waits for the frame
+      requestAnimationFrame(() => requestAnimationFrame(() => done({ during, after: b.fitCount - n0 })));
+    }));
+    expect(d).toEqual({ during: 0, after: 1 });
+    expect(errors).toEqual([]);
+  });
+});
+
+// a touch device that is not in phone mode (?phone=0) with a phone-sized screen still gets the wall, and it blocks every control
+test.describe("rotate overlay off the phone mode", () => {
+  test.use({ ...PHONE_CTX, viewport: { width: 390, height: 844 } });
+
+  test("it shows and nothing under it reacts", async ({ page }) => {
+    const errors = await openGame(page, { query: "?phone=0" });
+    expect(await page.evaluate(() => window.__bb.phone)).toBe(false);
+    await frames(page);
+    const d = await page.evaluate(() => ({ shown: window.__bb.rotateShown, buttons: window.__bb.buttonRects.length, mode: window.__bb.mode }));
+    expect(d).toEqual({ shown: true, buttons: 0, mode: "home" });
+    for (let y = 300; y <= 560; y += 20) for (const x of [60, 195, 330]) await page.touchscreen.tap(x, y);   // the letterboxed canvas, the whole of it
+    expect(await page.evaluate(() => ({ mode: window.__bb.mode, sticks: window.__bb.sticks.length }))).toEqual({ mode: "home", sticks: 0 });
     expect(errors).toEqual([]);
   });
 });

@@ -96,6 +96,7 @@ menu offers Continue, Map and Home.
 
 - It works **offline** from the very first launch (airplane mode too): everything, three.js included, comes from the game's own site.
 - The home-screen app keeps its **own progress**, separate from Safari (coins, stars and outfits from Safari do not carry over).
+- When a new version has arrived, the home screen shows a small yellow note, "A new version is ready — tap to update"; a tap loads it (nothing is lost). It never shows in a level.
 - The ring/silent switch mutes the sound; sound starts after the first tap.
 
 ## Install on Android
@@ -104,7 +105,7 @@ Open the link in **Chrome** → menu ⋮ → **Install app** (or **Add to Home s
 
 ## Playing on a phone
 
-On a phone (held sideways) the game switches to **phone mode**; iPads and computers keep the normal view.
+On a phone (held sideways) the game switches to **phone mode**; iPads and computers keep the normal view. A tablet or a tall browser window held upright plays **letterboxed** (the game picture centred between paper margins); only a phone asks you to turn it sideways, and a level is paused while it is upright.
 
 - The game fills the whole screen (clear of the notch and the home bar).
 - The camera comes closer — about half of the map, 10 rows tall — and follows your hero, so everyone is

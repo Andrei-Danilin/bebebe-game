@@ -28,6 +28,9 @@ export function isStandalone() {
   } catch (e) { return false; }
 }
 export const STANDALONE = isStandalone();                 // режим отображения не меняется за сессию
+// SPEC-038 AC 4 (RR-34): кнопка «во весь экран» — только где она что-то делает: есть Fullscreen API (обычный или webkit; на iPhone
+// Safari его нет) и это не установленное приложение. Решается при рисовании: HUD (hud.js, phone.js) и сдвиг кнопок рядом
+export const fullscreenShown = () => !STANDALONE && !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
 // Телефон (SPEC-005): сенсорный экран с короткой стороной ≤ PHONE_MAX_SHORT_SIDE; ?phone=1 / ?phone=0 — принудительно.
 function isPhone() {
   try {
@@ -38,6 +41,12 @@ function isPhone() {
   } catch (e) { return false; }
 }
 export const PHONE = isPhone();                           // решается один раз при запуске, как STANDALONE
+// SPEC-038 AC 2 / 3: «поверни устройство» — только на телефоне (PHONE или сенсорный экран с короткой стороной ≤ PHONE_MAX_SHORT_SIDE),
+// пока он стоит вертикально. Планшет (в том числе окно iPadOS вдвое уже экрана) и высокое окно компьютера играют в портрете
+// с полями; screen — весь экран устройства, а не окно. Считается каждый раз: окно меняется
+export function rotateWall() {
+  try { return isTouch && window.innerHeight > window.innerWidth && (PHONE || Math.min(screen.width, screen.height) <= LOOK.PHONE_MAX_SHORT_SIDE); } catch (e) { return false; }
+}
 // SPEC-008: режим симуляции (?sim=1 или __bb.sim(true)): без 3D, без 2D, без звука, цикл кадров игру не двигает —
 // её шагает __bb.simRun. Счётчики — для теста: сколько раз рисовали 3D, 2D и сколько звуков просили (не в sim).
 export let simMode = false;
@@ -51,7 +60,24 @@ function playArea() {
 }
 
 export let onFit = null;               // телефон: 3D-камера подстраивается под форму холста (задаётся в разделе 3D)
+export let fitCount = 0;               // SPEC-038 AC 2: сколько раз fit() переделал холсты (для теста: пачка resize — один раз)
+// SPEC-038 AC 2 (RR-72): пачка resize / orientationchange за кадр — один fit() (он пересоздаёт оба холста). Событие только ставит флаг;
+// fit() делает начало следующего кадра игры (runQueuedFit в tick, ДО рисования: кадр не рисуется на старых размерах); rAF — запасной
+// путь, когда цикл кадров не идёт (sim: tick выходит; вкладка скрыта)
+let fitQueued = false, fitFallback = false;
+export function runQueuedFit() {
+  if (!fitQueued) return;
+  fitQueued = false;
+  fit();
+}
+function fitSoon() {
+  fitQueued = true;
+  if (fitFallback) return;
+  fitFallback = true;
+  requestAnimationFrame(() => { fitFallback = false; runQueuedFit(); });
+}
 export function fit() {
+  fitCount++;
   DPR = Math.min(window.devicePixelRatio || 1, isTouch ? 1.5 : 2);   // на планшетах чуть меньше пикселей — плавнее
   const area = playArea();
   const oldCSSW = CSS_W;
@@ -86,6 +112,6 @@ export function setCtx(v) { ctx = v; }
 export function initScreen() {
   try { simMode = new URLSearchParams(location.search).get("sim") === "1"; } catch (e) { /* без адреса — обычная игра */ }
   if (PHONE) document.body.classList.add("phone");
-  window.addEventListener("resize", () => fit());
-  window.addEventListener("orientationchange", () => requestAnimationFrame(() => fit())); // iOS обновляет safe-area чуть позже
+  window.addEventListener("resize", fitSoon);
+  window.addEventListener("orientationchange", fitSoon);   // iOS обновляет safe-area чуть позже — кадр спустя
 }

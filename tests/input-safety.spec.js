@@ -212,3 +212,43 @@ test("a button held while a pad reconnects on the win screen does not press Next
   expect(await page.evaluate(() => [window.__bb.mode, window.__bb.level])).toEqual(["play", 2]);
   await page.evaluate(() => { window.__pads = []; delete navigator.getGamepads; });
 });
+
+// SPEC-038 AC 4 (RR-34): the fullscreen button is drawn only where it does something — the Fullscreen API exists (the standard or
+// the webkit one) and the game is not an installed app. iPhone Safari has no such API. Both HUDs: desktop (960×640) and phone.
+const FS_SETUPS = [
+  ["desktop", { viewport: { width: 960, height: 640 } }, ""],
+  ["phone", { viewport: { width: 667, height: 375 }, hasTouch: true, isMobile: true }, "?phone=1"]
+];
+const noFullscreenApi = () => {
+  Object.defineProperty(document, "fullscreenEnabled", { configurable: true, get: () => false });
+  Object.defineProperty(document, "webkitFullscreenEnabled", { configurable: true, get: () => false });
+};
+const webkitOnly = () => {
+  Object.defineProperty(document, "fullscreenEnabled", { configurable: true, get: () => undefined });
+  Object.defineProperty(document, "webkitFullscreenEnabled", { configurable: true, get: () => true });
+};
+for (const [name, ctxOpts, query] of FS_SETUPS) {
+  test.describe(`fullscreen button, ${name} HUD`, () => {
+    test.use(ctxOpts);
+    const hasButton = async (page, q) => {
+      await openGame(page, { query: q });
+      await page.evaluate(() => { window.__bb.startGame(1); });
+      await frames(page);
+      return page.evaluate(() => window.__bb.buttonRects.some(r => r.id === "toggleFullscreen"));
+    };
+    test("shown when the Fullscreen API exists", async ({ page }) => {
+      expect(await hasButton(page, query)).toBe(true);
+    });
+    test("shown with only the webkit API", async ({ page }) => {
+      await page.addInitScript(webkitOnly);
+      expect(await hasButton(page, query)).toBe(true);
+    });
+    test("hidden when no Fullscreen API exists (iPhone Safari)", async ({ page }) => {
+      await page.addInitScript(noFullscreenApi);
+      expect(await hasButton(page, query)).toBe(false);
+    });
+    test("hidden in the installed app", async ({ page }) => {
+      expect(await hasButton(page, (query ? query + "&" : "?") + "standalone=1")).toBe(false);
+    });
+  });
+}

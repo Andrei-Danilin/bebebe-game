@@ -160,6 +160,10 @@ test.describe("installed app", () => {
     await page.reload();
     await page.waitForFunction(() => window.__bbReady === true, null, { timeout: 60_000 });
     expect(await walkGame(page)).toEqual(WALKED);
+    // SPEC-038 AC 6 (RR-39): every sprite came from the cache — none failed to load offline
+    const art = await page.evaluate(() => { const a = window.__bb.artInfo; return { done: a.done, ok: a.ok, total: a.total, bad: a.bad }; });
+    expect(art.total, "the sprite list is not empty").toBeGreaterThan(100);
+    expect(art, "every sprite loaded offline").toEqual({ done: true, ok: art.total, total: art.total, bad: 0 });
     expect(remote).toEqual([]);
     expect(errors.filter(e => !e.includes("Failed to load resource"))).toEqual([]);
   });
