@@ -29,22 +29,34 @@ test("hidden, pagehide or blur during play pause the game; it stays paused when 
   for (const how of ["hidden", "pagehide", "blur"]) {
     await page.evaluate(() => { window.__bb.startGame(1); });
     await frames(page);
-    const t0 = await page.evaluate(() => window.__bb.stats.time);
     if (how === "hidden") await hide(page); else await fire(page, how);
     expect(await mode(page), how).toBe("pause");
+    // SPEC-039 AC 4: from the pause on nothing moves the game clock, however long the page is away or how slow its frames are
+    // (a rendered frame can take 0.25 s on CI): the game time is exactly what it was at the pause — no timing, no flake
+    const tPause = await page.evaluate(() => window.__bb.stats.time);
     await page.waitForTimeout(400);
     if (how === "hidden") await show(page); else await fire(page, how === "pagehide" ? "pageshow" : "focus");
     await frames(page);
     expect(await mode(page), `${how}: still paused when back`).toBe("pause");
-    const t1 = await page.evaluate(() => window.__bb.stats.time);
-    expect(t1 - t0, `${how}: no game time while away`).toBeLessThan(0.2);
-    // SPEC-034: the game now keeps up with real time over the frames after resume (a slow software-rendered frame is 0.25 s: 8 steps),
-    // but never runs ahead of it: the time away (the 400 ms wait) feeds nothing into the first frame back
-    const r0 = await page.evaluate(() => { window.__bb.mode = "play"; return performance.now(); });
-    await frames(page);
-    const { t2, r1, S } = await page.evaluate(() => ({ t2: window.__bb.stats.time, r1: performance.now(), S: window.__bb.CFG.STEP }));
-    const real = (r1 - r0) / 1000;
-    expect(t2 - t1, `${how}: game time after resume ≤ the real time of those frames (+ one step), not the ${how} gap`).toBeLessThanOrEqual(real + S + 1e-9);
+    expect(await page.evaluate(() => window.__bb.stats.time), `${how}: no game time while away`).toBe(tPause);
+    // the first frame back after a long gap (SPEC-034): the frame loop is frozen (sim) and fed the frame times by hand, so the
+    // bound is the game's own rules — a frame adds at most MAX_FRAME s to the accumulator and the game takes at most MAX_STEPS
+    // steps of STEP s from it — not how long any real frame took. A gap of seconds (the time away) adds one capped frame, no more.
+    const r = await page.evaluate(() => {
+      const b = window.__bb, C = b.CFG;
+      b.sim(true);
+      try {
+        b.mode = "play";
+        const t1 = b.stats.time;
+        b.frame(4);                                   // 4 s away: clamped to MAX_FRAME, then to MAX_STEPS steps
+        const first = b.stats.time - t1;
+        b.frame(C.STEP);                              // an ordinary frame next: one step (the accumulator keeps the remainder < STEP)
+        return { first, second: b.stats.time - t1 - first, MAX_STEPS: C.MAX_STEPS, STEP: C.STEP, MAX_FRAME: C.MAX_FRAME };
+      } finally { b.sim(false); }
+    });
+    expect(r.first, `${how}: the gap back feeds at most MAX_STEPS steps`).toBeLessThanOrEqual(r.MAX_STEPS * r.STEP + 1e-9);
+    expect(r.first, `${how}: and no more than MAX_FRAME of game time`).toBeLessThanOrEqual(r.MAX_FRAME + 1e-9);
+    expect(r.second, `${how}: the next ordinary frame is at most one step`).toBeLessThanOrEqual(r.STEP + 1e-9);
   }
   // in the menus nothing changes
   await page.evaluate(() => { window.__bb.toHome(); });
