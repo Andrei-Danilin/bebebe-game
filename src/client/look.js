@@ -179,7 +179,9 @@ export const LOOK = {
   FLOOR_LOOK: { wood: ["#f3d9a4", "#e0bf82"], dark: ["#d8a7a2", "#c48f8a"] },
   SAFE_GLOW: { color: "#4ade80", alpha: 0.25 },
   // SPEC-042: the world tricks' 3D pieces (three/tricks3d.js): puddle colours and height; a sprinkler's head, the ring of its reach, the spray (wet ground, drops: count, size, speed, height, reach as a share of the radius) and the drip warning (drops, speed)
-  TRICK_LOOK: { puddle: "#9fe0f8", puddleRim: "#4cc9f0", puddleShine: "#e6f8ff", puddleY: 0.03, sprayRing: "#c4ecff", headBase: "#8b95a7", headStem: "#b8c0cc", headNozzle: "#38bdf8",
+  // SPEC-042: the school bell's HUD: the bell's colours, the plates (warning / ring) and the ink of "Freeze!", the swing (rad) and its speed (rad/s) in the warning and in the ring, the banner's time and fade (s)
+  BELL_LOOK: { gold: "#facc15", clapper: "#b45309", plateWarn: "rgba(255,244,200,.92)", plateRing: "rgba(255,214,230,.95)", inkRing: "#d6336c", warnSwing: 0.35, warnHz: 34, ringSwing: 0.42, ringHz: 16, freezeTime: 1.8, freezeFade: 0.3 },
+  TRICK_LOOK: { print: "#8da2c4", printFaded: "#f2f7ff", printY: 0.034, printSize: 1, printLen: 0.25, printWide: 0.14, printSide: 0.1, puddle: "#9fe0f8", puddleRim: "#4cc9f0", puddleShine: "#e6f8ff", puddleY: 0.03, sprayRing: "#c4ecff", headBase: "#8b95a7", headStem: "#b8c0cc", headNozzle: "#38bdf8",
     sprayWet: "#4cc9f0", sprayWetAlpha: 0.32, sprayDrop: "#8fe3ff", dropN: 72, dropSize: 0.14, dropSpeed: 0.9, dropH: 1.3, reach: 0.96, dripN: 6, dripSpeed: 1.6,
     // the ice-cream truck (City): body, cabin, stripe, roof, window, wheel, cone and scoop colours; the turn follows the way it points at this share per frame; the bounce while it drives (height, speed)
     truck: { body: "#fff4e0", cabin: "#ff9ec4", stripe: "#ff7fb0", roof: "#9bdcfb", window: "#bae6fd", wheel: "#374151", cone: "#f5c26b", scoop: "#ff8fb1", turn: 0.22, bob: 0.025, bobSpeed: 9 } },

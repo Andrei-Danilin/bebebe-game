@@ -3,7 +3,7 @@ import { CELL, CFG } from "./config.js";
 import { angDiff, dist, normAng, rand, rng } from "./util.js";
 import { emit, logEvent } from "./events.js";
 import { inSafe, los, seeSolidAt } from "./world.js";
-import { trickHearMul } from "./tricks/query.js";
+import { trickHearMul, trickMark } from "./tricks/query.js";
 import { G } from "./active.js";
 
 // ---------- SPEC-019: Большой слышит топот ----------
@@ -59,6 +59,7 @@ export function bigMark() {
   if (G.big.slip > 0) return "🍌💫";
   if (G.big.stun > 0) return "?!";
   if (G.big.blush > 0) return "💗";
+  if (trickMark()) return trickMark();                     // SPEC-042: the school bell holds him: 🔔
   if (G.big.state === "look" && (G.big.hearTurnT > 0 || G.big.hearLook > 0)) return "❓";
   if (G.big.noise >= CFG.NOISE_WARN) return "👂";
   if (G.big.noPush > 0) return "💦";

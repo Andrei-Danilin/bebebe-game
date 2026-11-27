@@ -638,5 +638,10 @@
  "menus.spec.js › the level card with its preview fits (phone 667×375, fonts ×1 / ×1.15)": 14,
  "menus.spec.js › the level card's preview paints the generated level's map (every world: walls dark, water blue, free ground the place's colour)": 6,
  "menus.spec.js › the card's map is made when it opens, never by drawing; clearLevelCache clears the previews; Play on a closed level does nothing": 6,
- "tricks.spec.js › the City's ice-cream truck is an animated group: one per level, not batched, and the picture follows the core": 2.5
+ "tricks.spec.js › the City's ice-cream truck is an animated group: one per level, not batched, and the picture follows the core": 2.5,
+ "tricks.spec.js › school bell, desktop › the school bell in the HUD: the warning shows 2, 1 and the ring says Freeze! in every language, inside the screen and clear of the timer (960×640)": 3,
+ "tricks.spec.js › school bell, desktop › the Freeze! banner shows on the first ring of a level only, fits, and fades (960×640)": 3,
+ "tricks.spec.js › school bell, phone 667 › the school bell in the HUD: the warning shows 2, 1 and the ring says Freeze! in every language, inside the screen and clear of the timer (phone 667×375)": 3.5,
+ "tricks.spec.js › school bell, phone 667 › the Freeze! banner shows on the first ring of a level only, fits, and fades (phone 667×375)": 2.5,
+ "tricks.spec.js › Winter's footprints are one pooled instanced mesh made with the map: none shown at the start, count follows the game, never batched": 4
 }

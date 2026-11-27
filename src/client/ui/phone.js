@@ -11,7 +11,7 @@ import { tutorialSkip } from "../tutorial.js";
 import { tutorialHintOn, tutorialHintText } from "../tutorial-data.js";
 import { addButton, circle, drawMitten, drawSticks, fillStroke, hpHeart, iconButton, rr, toggleFullscreen } from "./draw.js";
 import { drawArtFit } from "./artdraw.js";
-import { angerLabel, chipFill, chipInk, chipText, noteChip, drawHeardHint, drawKitHint, heardHintOn, heartFill, hintPlate, kissButton, kitButton, kitHintOn, restText, timerText, tiptoeBtnRect, tiptoeButton } from "./hud.js";
+import { angerLabel, chipFill, chipInk, chipText, drawBellHud, drawFreeze, noteChip, drawHeardHint, drawKitHint, heardHintOn, heartFill, hintPlate, kissButton, kitButton, kitHintOn, restText, timerText, tiptoeBtnRect, tiptoeButton } from "./hud.js";
 import { drawEdgeArrows, drawMinimap } from "./minimap.js";
 import { fitText, fz, labelFit, lastFit, noteText, scaledW } from "./text.js";
 import { cpx, hudFont, minimapRect, minPx, showMinimap, teamRect } from "./layout.js";
@@ -48,6 +48,8 @@ export function drawHUDPhone(t) {
   const gx = m + pw + Math.max(gap, (mm.x - gap - (m + pw) - gw) / 2);
   plate("timer", gx, top, tw, bh);
   noteText("main", fitText(timeTxt, gx + tw / 2, top + bh / 2 + 1, main, tw, "center", OUT, 900, main));
+  drawBellHud(gx, top + bh + gap, tw + gap + bh, bh, cpx(14), t, main, main, true);   // SPEC-042: the school bell under the timer
+  drawFreeze(UW / 2, top + 2 * (bh + gap), Math.min(UW * 0.55, cpx(260)), cpx(46), cpx(18), minPx("title"), minPx("title"), true);
   iconButton("phone_pause", gx + tw + gap, top, bh, bh, "II", "#64748b", () => { setMode("pause"); }, fz(main, "main"));
   if (fsOn) iconButton("ui_fullscreen", gx + tw + gap + bh + gap, top, bh, bh, "⛶", "#64748b", toggleFullscreen, fz(main, "main")).onUp = true;   // SPEC-025 AC 7c: на отпускании (жест)
   // SPEC-029: в тренировке — кнопка ⏭ «Пропустить» (обучение целиком; то же со словом — в паузе) в ряду кнопок, после «во весь экран»

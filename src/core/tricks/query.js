@@ -1,7 +1,7 @@
 // SPEC-042: the questions the rest of the core asks a world trick — one function per effect, each a plain read of the fields
 // a trick's step wrote into G.trick.fx (kit.js newFx); with no trick in the game (practice, tutorial, a world without one) every
 // answer is "no effect". A low module (it only reads G), so world / vision / hearing / rules / grid can import it. Core module.
-import { CELL, COLS, FINE, FW, W, H } from "../config.js";
+import { CELL, CFG, COLS, FINE, FW, W, H } from "../config.js";
 import { anyArea, areaHas } from "./kit.js";
 import { G } from "../active.js";
 
@@ -21,7 +21,22 @@ export const trickSpeedMul = l => { const T = G.trick; return T && T.fx.slow.len
 // how many times HEAR_RADIUS a running kid is heard from (a puddle's splash); 1 — as usual
 export const trickHearMul = l => { const T = G.trick; return (T && T.fx.loud[l.id]) || 1; };
 // a kid should tiptoe here: on ground that gives him away (a puddle) while Dad is near enough to hear it (fx.quiet, fx.quietRange) — the bots and the careful autopilot
-export const trickQuiet = l => { const T = G.trick; return !!T && T.fx.quiet.length > 0 && Math.hypot(l.x - G.big.x, l.y - G.big.y) <= T.fx.quietRange && anyArea(T.fx.quiet, l.x, l.y); };
+// (not once he is chasing: then there is nothing left to hide)
+export const trickQuiet = l => { const T = G.trick; return !!T && T.fx.quiet.length > 0 && G.big.state !== "chase" && Math.hypot(l.x - G.big.x, l.y - G.big.y) <= T.fx.quietRange && anyArea(T.fx.quiet, l.x, l.y); };
+// the bell (fx.freeze 1 warning / 2 ring) for a kid who is near Dad (HEAR_RADIUS cells) or in his sight (VISION_RANGE, a clear line): 0 — nothing; 1 — tiptoe; 2 — stand still. Not while Dad chases
+export function trickFreeze(l) {
+  const T = G.trick;
+  if (!T || !T.fx.freeze || G.big.state === "chase") return 0;
+  const d = Math.hypot(l.x - G.big.x, l.y - G.big.y);
+  if (d > CFG.VISION_RANGE && d > CFG.HEAR_RADIUS * CELL) return 0;
+  if (d > CFG.HEAR_RADIUS * CELL) for (let i = 1, n = Math.ceil(d / 5); i < n; i++) {   // beyond the near circle: only if he could see him
+    const x = G.big.x + (l.x - G.big.x) * i / n, y = G.big.y + (l.y - G.big.y) * i / n;
+    if (G.seeGrid[((y / FINE) | 0) * FW + ((x / FINE) | 0)] === 1) return 0;
+  }
+  return T.fx.freeze;
+}
+// the mark the trick puts over Dad ("" — none)
+export const trickMark = () => (G.trick ? G.trick.fx.mark : "");
 // a place for a bot or the autopilot to hide, within maxDist px of p (default fx.hideReach): the middle of an active spray, or the point just behind
 // a sight blocker (the truck) as Dad sees it (on the line from him through its centre, free ground); the nearest one → { x, y, stop (px: how close to get) }; null if none
 export function trickHideSpot(p, maxDist) {

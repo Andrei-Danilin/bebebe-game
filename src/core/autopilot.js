@@ -3,7 +3,7 @@ import { CELL, CFG } from "./config.js";
 import { angDiff, dist, normAng } from "./util.js";
 import { bigListens } from "./hearing.js";
 import { steerPoint } from "./path.js";
-import { trickHideSpot, trickQuiet } from "./tricks/query.js";
+import { trickFreeze, trickHideSpot, trickQuiet } from "./tricks/query.js";
 import { inCone } from "./vision.js";
 import { canUseKit, gameInv, moveSpeed } from "./rules.js";
 import { canAct, inSafe, los, seeSolidAt } from "./world.js";
@@ -76,6 +76,8 @@ export function autoDecide(l, inp, dt) {
   // 🩹: лежит долго и никто не поднимает (или уже хромает в домик, отдыхает)
   if (G.autoStyle === "careful" && canUseKit(l) && (l.state !== "down" || (l.rescue <= 0 && l.downTimer < CFG.DOWN_TIME - A.kitWait))) { inp.kit = true; return; }
   if (!canAct(l)) return;
+  const freeze = G.autoStyle === "careful" ? trickFreeze(l) : 0;   // SPEC-042: the bell rings and Dad could see him: stand still; the warning: tiptoe
+  if (freeze === 2) return;
   const goal = G.autoStyle === "reckless" ? autoGoalReckless(l) : autoGoalCareful(l);
   if (Math.hypot(goal.x - l.x, goal.y - l.y) <= goal.stop) return;
   const { tx, ty } = steerPoint(n, goal.x, goal.y, dt, goal.avoid, () => A.repath);
@@ -83,7 +85,7 @@ export function autoDecide(l, inp, dt) {
   if (d < A.minStep) return;
   const sp = moveSpeed(l);
   let m = Math.min(1, d / (sp * dt));                  // не проскочить точку
-  if (G.autoStyle === "careful" && (autoTiptoe(l) || trickQuiet(l))) m = Math.min(m, CFG.TIPTOE_MULT);   // SPEC-019: рядом сзади/сбоку — на цыпочках
+  if (G.autoStyle === "careful" && (autoTiptoe(l) || trickQuiet(l) || freeze === 1)) m = Math.min(m, CFG.TIPTOE_MULT);   // SPEC-019: рядом сзади/сбоку — на цыпочках
   G.autoMove[l.id] = { x: dx / d * m, y: dy / d * m };
   // 💋: смотрит на Большого, он близко, видно, и поцелуй сработает
   if (G.autoStyle === "careful" && gameInv().kisses > 0 && l.kissCd <= 0 && !inSafe(l) && G.big.stun <= 0 && G.big.blush <= 0 && G.big.hugCd <= 0 &&

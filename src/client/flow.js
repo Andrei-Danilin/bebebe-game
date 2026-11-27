@@ -161,7 +161,7 @@ function localSlots(n) {
 }
 const localStock = () => ({ shared: true, kisses: progress.inv.kisses, kits: progress.inv.rescues, gloves: { mittens: progress.inv.mittens, mega: progress.inv.mega } });
 // the client's per-game view state from scratch: texts, particles, shake, sticks, the reset button, the menu spin of the Big One
-function clearView() { ui.texts = []; ui.particles = []; ui.shake = 0; sticks.clear(); ui.resetArmed = false; ui.menuSpin = 0; ui.waves = []; ui.kitHintT = 0; ui.heardHintT = 0; }
+function clearView() { ui.texts = []; ui.particles = []; ui.shake = 0; sticks.clear(); ui.resetArmed = false; ui.menuSpin = 0; ui.waves = []; ui.kitHintT = 0; ui.heardHintT = 0; ui.freezeT = 0; }
 function buildLocal(n, playable) {
   if (PHONE) n = 1;                  // на телефоне играет один (SPEC-005)
   clearView();

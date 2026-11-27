@@ -44,7 +44,7 @@ export function viewTick(dt) {
 // надпись уровня гаснет, пока уровень идёт (каждый шаг игры)
 export function bannerTick(dt) { if (ui.banner && (ui.banner.t += dt) >= LOOK.BANNER_TIME) ui.banner = null; }
 // подсказки «Нажми 🩹» и «Папа услышал топот!» гаснут, пока уровень идёт (каждый шаг игры)
-function hintTick(dt) { ui.kitHintT = Math.max(0, ui.kitHintT - dt); ui.heardHintT = Math.max(0, ui.heardHintT - dt); }
+function hintTick(dt) { ui.kitHintT = Math.max(0, ui.kitHintT - dt); ui.heardHintT = Math.max(0, ui.heardHintT - dt); ui.freezeT = Math.max(0, ui.freezeT - dt); }
 
 // ---------- SPEC-012 AC 5: the core's effect events ----------
 // the text of a pop: an I18N key in the player's language (a function gets the args; a table gets args[0]); key null — args[0] itself
@@ -64,6 +64,7 @@ function playEvent(e) {
     if (e.kind === "kit") { ui.kitHintT = CFG.KIT_HINT_TIME; ui.kitHintPi = pi; }
     else if (e.kind === "kitOff" && ui.kitHintPi === pi) ui.kitHintT = 0;
     else if (e.kind === "heard") { ui.heardHintT = CFG.HEAR_HINT_TIME; ui.heardHintPi = pi; }
+    else if (e.kind === "freeze") ui.freezeT = LOOK.BELL_LOOK.freezeTime;   // SPEC-042: the first ring of the level
     // "practice": the HUD reads the practice hint step from the game (G.tut.hint)
   }
   // "mood": the 3D face and the mood sprites read Dad's mood from the game every frame

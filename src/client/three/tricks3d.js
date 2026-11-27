@@ -3,8 +3,9 @@
 // map is batched and returns the animated groups for batchMap's skip set; syncTrick3D moves them every frame. Client module.
 import * as THREE from "three";
 import { G } from "../../core/active.js";
+import { printAge } from "../../core/tricks/footprints.js";
 import { sprinklerPhase } from "../../core/tricks/sprinklers.js";
-import { CELL } from "../../core/config.js";
+import { CELL, CFG } from "../../core/config.js";
 import { normAng } from "../../core/util.js";
 import { LOOK } from "../look.js";
 import { mapGroup } from "./mapstate.js";
@@ -14,6 +15,9 @@ import { part, toon } from "./materials.js";
 export const sprays = [];
 /** the ice-cream trucks (one): { g (group), rot (the angle it is drawn at) } */
 export const trucks = [];
+/** Winter's footprints: one pooled InstancedMesh with room for CFG.TRICKS.footprints.max prints, made with the map (so the warm-up has it), shown count prints at a time */
+export const prints3d = { im: null };
+const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _e = new THREE.Euler(), _p = new THREE.Vector3(), _s = new THREE.Vector3(), _c = new THREE.Color(), _from = new THREE.Color(), _to = new THREE.Color();
 // a code-built ice-cream truck, 2 cells long along +x, 1 across: cream body, a pink cabin at the front, a striped roof, a cone and a scoop on top, four wheels
 function makeTruck(L) {
   const g = new THREE.Group(), box = (w, h, d, c, x, y, z, o = 0.02) => { const m = part(new THREE.BoxGeometry(w, h, d), c, o); m.position.set(x, y, z); g.add(m); return m; };
@@ -35,7 +39,7 @@ const flat = (geo, mat, x, y, z, sx = 1, sz = 1, piece = "") => {
 };
 // → the animated groups (batchMap leaves them alone)
 export function buildTrick3D() {
-  sprays.length = 0; trucks.length = 0;
+  sprays.length = 0; trucks.length = 0; prints3d.im = null;
   const T = G.trick, skip = [];
   if (!T || !mapGroup) return skip;
   const L = LOOK.TRICK_LOOK;
@@ -65,7 +69,13 @@ export function buildTrick3D() {
       sprays.push({ g, disc, pts, p, i });
     });
   }
-  else if (T.name === "truck" && T.pieces.length) {
+  else if (T.name === "footprints") {
+    const geo = new THREE.CircleGeometry(1, 12); geo.rotateX(-Math.PI / 2);
+    const im = new THREE.InstancedMesh(geo, toon("#ffffff"), CFG.TRICKS.footprints.max);
+    im.count = 0; im.frustumCulled = false; im.receiveShadow = true;
+    for (let i = 0; i < im.instanceMatrix.count; i++) im.setColorAt(i, _c.set(L.print));
+    mapGroup.add(im); skip.push(im); prints3d.im = im;
+  } else if (T.name === "truck" && T.pieces.length) {
     const g = makeTruck(L.truck), st = T.st;
     g.position.set(st.x / CELL, 0, st.y / CELL); g.rotation.y = -st.dir;
     mapGroup.add(g); skip.push(g);
@@ -77,19 +87,35 @@ export function buildTrick3D() {
 export function trickMeshes() {
   let puddles = 0, rings = 0;
   if (mapGroup) mapGroup.traverse(o => { if (o.userData.piece === "puddle") puddles++; else if (o.userData.piece === "sprayRing") rings++; });
-  return { puddles, rings, trucks: trucks.map(t => ({ x: t.g.position.x * CELL, y: t.g.position.z * CELL, batched: t.g.layers.mask !== 1 || t.g.children.some(c => c.layers.mask !== 1) })), sprays: sprays.map(s => ({ i: s.i, on: s.g.visible, wet: s.disc.visible, batched: [s.g, s.disc, s.pts].some(o => o.layers.mask !== 1) })) };
+  return { puddles, rings, prints: prints3d.im ? { shown: prints3d.im.count, room: prints3d.im.instanceMatrix.count, batched: prints3d.im.layers.mask !== 1 } : null, trucks: trucks.map(t => ({ x: t.g.position.x * CELL, y: t.g.position.z * CELL, batched: t.g.layers.mask !== 1 || t.g.children.some(c => c.layers.mask !== 1) })), sprays: sprays.map(s => ({ i: s.i, on: s.g.visible, wet: s.disc.visible, batched: [s.g, s.disc, s.pts].some(o => o.layers.mask !== 1) })) };
+}
+// the prints: every print of the game's trail (oldest first) is an instance; it shrinks a little and fades toward the snow as it ages, and goes
+function syncPrints(T, L) {
+  const im = prints3d.im, list = T.st.prints, n = Math.min(list.length, im.instanceMatrix.count), life = CFG.TRICKS.footprints.life;
+  _from.set(L.print); _to.set(L.printFaded);
+  for (let i = 0; i < n; i++) {
+    const p = list[i], left = Math.max(0, 1 - printAge(T, p) / life), k = L.printSize * (0.7 + 0.3 * left);
+    _e.set(0, -p.dir, 0); _q.setFromEuler(_e);
+    _p.set(p.x / CELL - Math.sin(p.dir) * p.side * L.printSide, L.printY, p.y / CELL + Math.cos(p.dir) * p.side * L.printSide);
+    _s.set(k * L.printLen, 1, k * L.printWide);
+    im.setMatrixAt(i, _m.compose(_p, _q, _s));
+    im.setColorAt(i, _c.copy(_from).lerp(_to, 1 - left));
+  }
+  im.count = n;
+  im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true;
 }
 // every frame: the sprays follow the sprinklers' cycle (the game's trick clock) and the drops fly (the frame time t)
 export function syncTrick3D(t) {
   const T = G.trick, L = LOOK.TRICK_LOOK;
-  if (!T) return;
-  for (const k of trucks) {                                              // the truck: where the core has it, turning smoothly, bouncing while it drives
+  if (!T) return;                                                        // (the map in 3D may be one game behind the game: each piece reads only its own trick)
+  if (T.name === "truck") for (const k of trucks) {                                              // the truck: where the core has it, turning smoothly, bouncing while it drives
     const st = T.st, want = -st.dir;
     k.rot += normAng(want - k.rot) * L.truck.turn;
     k.g.position.set(st.x / CELL, st.stopped ? 0 : Math.abs(Math.sin(t * L.truck.bobSpeed)) * L.truck.bob, st.y / CELL);
     k.g.rotation.y = k.rot;
   }
-  if (!sprays.length) return;
+  if (T.name === "footprints" && prints3d.im) syncPrints(T, L);
+  if (T.name !== "sprinklers" || !sprays.length) return;
   for (const s of sprays) {
     const ph = sprinklerPhase(s.p, T.t);
     s.g.visible = ph !== "off";

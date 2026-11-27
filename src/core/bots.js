@@ -4,7 +4,7 @@ import { angDiff, clamp, dist, rand, turnToward } from "./util.js";
 import { bossPower } from "./mood.js";
 import { cellIdx, freeCellNear, nearestExit } from "./grid.js";
 import { steerTo } from "./path.js";
-import { trickHideSpot, trickQuiet } from "./tricks/query.js";
+import { trickFreeze, trickHideSpot, trickQuiet } from "./tricks/query.js";
 import { canSee, inCone } from "./vision.js";
 import { canAct, inDanger, inDangerXY, moveSolidAt } from "./world.js";
 import { G } from "./active.js";
@@ -47,7 +47,9 @@ export function updateBots(dt) {
     b.fleeRe -= dt;
     const seen = G.big.stun <= 0 && G.big.slip <= 0 && G.big.noPush <= 0 && G.big.blush <= 0 && canSee(b);
     const wide = wideDanger(b);                           // SPEC-022: перед самым злым папой, пока он может толкнуть — отойти
-    const quiet = trickQuiet(b);                          // SPEC-042: a puddle near Dad that would give him away — tiptoe across it
+    const freeze = trickFreeze(b);                        // SPEC-042: the school bell, he is near Dad or in his sight: warning — tiptoe, ring — stand still
+    if (freeze === 2) { b.moving = false; b.speedFrac = 0; continue; }
+    const quiet = freeze === 1 || trickQuiet(b);          // a puddle or snow near Dad that would give him away — tiptoe across it
     const speed = CFG.BOT_SPEED * (b.fx.boots > 0 ? CFG.BOOTS_MULT : 1) * (quiet ? CFG.TIPTOE_MULT : 1);
     // SPEC-019: подкрадываясь (ближе HEAR_RADIUS + TIPTOE_NEAR клеток) и выжидая там, где он слышит (HEAR_RADIUS), — на цыпочках;
     // убегают и спасают — бегом

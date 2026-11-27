@@ -223,9 +223,9 @@ export const CFG = {
     puddles: { count: [3, 5], r: 0.5, pad: 1, splashMul: 2, splashTime: 1 },                       // лужи Парка: бегом через лужу — всплеск, слышно в splashMul × HEAR_RADIUS splashTime сек
     sprinklers: { count: [2, 3], r: 2, pad: 1, cycle: 20, warn: 1, spray: 5, hideReach: 4, spare: 4, exitPad: 1.2 },                     // поливалки Поля: цикл cycle сек — warn сек капли, spray сек брызги радиусом r клеток; боты и автопилот прячутся в брызгах не дальше hideReach клеток; exitPad — клеток за краем брызг, куда выходит папа, оказавшийся внутри; spare — запасных мест, из которых берутся поливалки, не закрывающие путь между домами
     truck: { w: 2, h: 1, speedMul: 0.5, minLoop: 16, maxLoop: 64, maxWait: 4, passTime: 1.5, hideReach: 5 },                                             // грузовик Города: по замкнутой дорожке (minLoop…maxLoop клеток) шириной в 2 клетки со скоростью speedMul × шаг маленького; стоит, пока кто-то перед ним, но не дольше maxWait сек (потом passTime сек едет сквозь); прятаться за ним боты и автопилот идут не дальше hideReach клеток
-    bell: { every: 30, warn: 2, ring: 3 },                                                         // звонок Школы: раз в every сек — warn сек до звонка, потом ring сек «Замри!»
+    bell: { every: 30, warn: 2, ring: 3, afterLook: 0.3 },                                                         // звонок Школы: раз в every сек — warn сек до звонка, потом ring сек «Замри!»; после звонка папа ещё afterLook сек осматривается
     waves: { every: 20, depth: 2, time: 6, slowMul: 0.6, pad: 1 },                                 // волны Пляжа: раз в every сек вода выше на depth клеток на time сек; в воде маленькие — slowMul скорости
-    footprints: { every: 0.4, life: 8 }                                                            // следы Зимы: бегущий оставляет след раз в every сек, он тает life сек
+    footprints: { every: 0.4, life: 8, max: 90, quietRange: 8, arrive: 1.5 }                                                            // следы Зимы: бегущий оставляет след раз в every сек, он тает life сек; следов не больше max; боты тихо идут по снегу, пока папа ближе quietRange клеток; папа не идёт к свежему следу, если он ближе arrive клеток
   },
   // правила честности уровня
   DOOR_APRON: 2,             // клеток свободно перед каждой дверью домиков

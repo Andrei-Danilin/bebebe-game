@@ -20,7 +20,7 @@ test("the Park's puddles are in the 3D map: three parts each, and none in the pr
   expect(sprinklerWorld, "no puddles in the Field").toBe(0);
   const practice = await page.evaluate(() => { const b = window.__bb; b.tutorialSkip(); b.seedRandom(3); b.openTutorial("map", "game1"); return { trick: b.trick, mesh: b.trickMeshes() }; });
   expect(practice.trick).toBeNull();
-  expect(practice.mesh).toEqual({ puddles: 0, rings: 0, trucks: [], sprays: [] });
+  expect(practice.mesh).toEqual({ puddles: 0, rings: 0, prints: null, trucks: [], sprays: [] });
   expect(errors).toEqual([]);
 });
 
@@ -69,5 +69,78 @@ test("the City's ice-cream truck is an animated group: one per level, not batche
   const m = await page.evaluate(() => window.__bb.trickMeshes());
   expect(Math.hypot(m.trucks[0].x - r1.st.x, m.trucks[0].y - r1.st.y), "drawn where the core has it (a few live steps apart)").toBeLessThan(12);
   expect(r1.nodes).toBeGreaterThanOrEqual(16);
+  expect(errors).toEqual([]);
+});
+
+// ---------- SPEC-042 AC 8: the school bell in the HUD; AC 10: the footprints' pool ----------
+async function bellAt(page, t) {
+  await page.evaluate(t0 => { window.__bb.trick.t = t0; }, t);
+  await frames(page);
+  return page.evaluate(() => ({ ...window.__bb.bellHud, ui: window.__bb.uiSize, over: window.__bb.textOverflows, timer: window.__bb.hudRects.filter(r => r.id === "timer" || r.id === "hearts") }));
+}
+const bellChecks = (label, state) => {
+  test(`the school bell in the HUD: the warning shows 2, 1 and the ring says Freeze! in every language, inside the screen and clear of the timer (${label})`, async ({ page }) => {
+    const errors = await openGame(page, state.query ? { query: state.query } : {});
+    await page.evaluate(() => { const b = window.__bb; b.world = "school"; b.level = 3; b.startGame(1); b.big.stun = 99; });
+    await frames(page);
+    expect((await bellAt(page, 10)).bell, "quiet: no bell").toBeNull();
+    for (const lang of ["en", "es", "pt", "ru"]) {
+      await page.evaluate(l => window.__bb.setLang(l), lang);
+      for (const [t, phase, count] of [[25.3, "warn", 2], [26.3, "warn", 1], [28, "ring", 0]]) {
+        const r = await bellAt(page, t);
+        expect(r.bell, `${lang} at ${t}`).not.toBeNull();
+        expect([r.bell.phase, r.bell.count]).toEqual([phase, count]);
+        expect(r.bell.x).toBeGreaterThanOrEqual(0); expect(r.bell.y).toBeGreaterThanOrEqual(0);
+        expect(r.bell.x + r.bell.w).toBeLessThanOrEqual(r.ui.w); expect(r.bell.y + r.bell.h).toBeLessThanOrEqual(r.ui.h);
+        for (const q of r.timer) expect(r.bell.y >= q.y + q.h - 1 || r.bell.x >= q.x + q.w - 1 || r.bell.x + r.bell.w <= q.x + 1, `${lang}: the bell plate overlaps ${q.id}`).toBe(true);
+        expect(r.over, `${lang} at ${t}: text that does not fit`).toEqual([]);
+        if (phase === "ring") expect(r.bell.text).toBe(await page.evaluate(l => window.__bb.I18N[l].freeze, lang));
+      }
+    }
+    expect(errors).toEqual([]);
+  });
+  test(`the Freeze! banner shows on the first ring of a level only, fits, and fades (${label})`, async ({ page }) => {
+    const errors = await openGame(page, state.query ? { query: state.query } : {});
+    await page.evaluate(() => { const b = window.__bb; b.world = "school"; b.level = 3; b.startGame(1); b.big.stun = 99; b.trick.t = 26.99; b.update(1 / 60); });   // the ring starts
+    await frames(page);
+    const first = await page.evaluate(() => ({ ...window.__bb.bellHud, ui: window.__bb.uiSize, over: window.__bb.textOverflows }));
+    expect(first.freezeT).toBeGreaterThan(1);
+    expect(first.freeze, "the banner").not.toBeNull();
+    expect(first.freeze.x).toBeGreaterThanOrEqual(0); expect(first.freeze.x + first.freeze.w).toBeLessThanOrEqual(first.ui.w);
+    expect(first.freeze.y + first.freeze.h).toBeLessThanOrEqual(first.ui.h);
+    expect(first.over).toEqual([]);
+    await page.evaluate(() => { const b = window.__bb; for (let i = 0; i < 130; i++) b.update(1 / 60); });
+    await frames(page);
+    expect((await page.evaluate(() => window.__bb.bellHud)).freeze, "faded").toBeNull();
+    // the second ring: no banner
+    await page.evaluate(() => { const b = window.__bb; b.trick.t = 40; b.update(1 / 60); b.trick.t = 56.99; b.update(1 / 60); });
+    await frames(page);
+    const second = await page.evaluate(() => ({ ...window.__bb.bellHud, rings: window.__bb.trick.st.rings }));
+    expect(second.rings).toBe(2);
+    expect(second.freeze).toBeNull();
+    expect(errors).toEqual([]);
+  });
+};
+test.describe("school bell, desktop", () => { bellChecks("960×640", {}); });
+test.describe("school bell, phone 667", () => {
+  test.use({ viewport: { width: 667, height: 375 }, hasTouch: true, isMobile: true });
+  bellChecks("phone 667×375", { query: "?phone=1" });
+});
+
+test("Winter's footprints are one pooled instanced mesh made with the map: none shown at the start, count follows the game, never batched", async ({ page }) => {
+  const errors = await openGame(page);
+  const r0 = await page.evaluate(() => { const b = window.__bb; b.world = "winter"; b.level = 3; b.startGame(1); b.big.stun = 99; return { name: b.trick.name, m: b.trickMeshes(), max: b.CFG.TRICKS.footprints.max }; });
+  await frames(page);
+  expect(r0.name).toBe("footprints");
+  expect(r0.m.prints).toEqual({ shown: 0, room: r0.max, batched: false });
+  // the kid runs: prints appear in the core and in the pool
+  await page.evaluate(() => { const b = window.__bb, l = b.littles[0]; Object.assign(l, { x: 480, y: 300 }); });
+  await page.keyboard.down("ArrowRight");
+  await page.waitForFunction(() => window.__bb.trick.st.prints.length >= 4, null, { timeout: 8000 });
+  await page.keyboard.up("ArrowRight");
+  await frames(page);
+  const r1 = await page.evaluate(() => ({ core: window.__bb.trick.st.prints.length, m: window.__bb.trickMeshes().prints }));
+  expect(r1.m.shown).toBe(Math.min(r1.core, r0.max));
+  expect(r1.m.batched).toBe(false);
   expect(errors).toEqual([]);
 });

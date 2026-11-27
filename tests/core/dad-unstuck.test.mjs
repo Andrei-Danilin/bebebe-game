@@ -49,9 +49,9 @@ test("the balance hangs are gone: School 20 reckless, Field 17 careful, Beach 19
   }
 });
 test("BIG_UNSTUCK_TIME 0 and BIG_DETOUR_COST 0 are the game before SPEC-037: School 20 reckless hangs again (the test sees the cause)", () => {
-  const keep = [CFG.BIG_UNSTUCK_TIME, CFG.BIG_DETOUR_COST];
-  CFG.BIG_UNSTUCK_TIME = 0; CFG.BIG_DETOUR_COST = 0;
-  try { assert.notEqual(play("school", 20, "reckless", 220187, CFG.BALANCE.TIME_LIMIT).phase, "won"); } finally { [CFG.BIG_UNSTUCK_TIME, CFG.BIG_DETOUR_COST] = keep; }
+  const keep = [CFG.BIG_UNSTUCK_TIME, CFG.BIG_DETOUR_COST, CFG.TRICKS_ON];
+  CFG.BIG_UNSTUCK_TIME = 0; CFG.BIG_DETOUR_COST = 0; CFG.TRICKS_ON = 0;   // SPEC-042: and no school bell — the recorded game had none (the bell's stands change which game hangs)
+  try { assert.notEqual(play("school", 20, "reckless", 220187, CFG.BALANCE.TIME_LIMIT).phase, "won"); } finally { [CFG.BIG_UNSTUCK_TIME, CFG.BIG_DETOUR_COST, CFG.TRICKS_ON] = keep; }
 });
 
 // AC 3: a lying friend does not move, so for Dad he is a wall — a goal behind him is not reachable, and the nearest reachable cell to a spot

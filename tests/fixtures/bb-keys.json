@@ -257,5 +257,6 @@
  "setQuality": "function",
  "qualityFrame": "function",
  "trick": "getter",
- "trickMeshes": "function"
+ "trickMeshes": "function",
+ "bellHud": "getter"
 }
