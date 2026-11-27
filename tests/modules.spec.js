@@ -168,7 +168,8 @@ const withoutStarSlot = e => { if (e.type !== "coins" || e.reason !== "star") re
 // SPEC-032 changed hearing on purpose (HEAR_CHANCE 0.6, HEAR_TURN_TIME 0.35): the recorded game is played with the old hearing,
 // which CFG still reaches (HEAR_CHANCE 1 draws no rng) — so the reference stays the same and proves nothing else changed.
 // SPEC-036 (kids' rule) too: the fallen kid's timer stops while a friend helps (DOWN_PAUSE_HELPED 1); 0 is the old rule
-const OLD_RULES = { HEAR_CHANCE: 1, HEAR_TURN_TIME: 0.15, DOWN_PAUSE_HELPED: 0 };
+// SPEC-037: Dad no longer stands stuck (re-path after BIG_UNSTUCK_TIME s, a lying friend is a wall for his path); 0 is the game before
+const OLD_RULES = { HEAR_CHANCE: 1, HEAR_TURN_TIME: 0.15, DOWN_PAUSE_HELPED: 0, BIG_UNSTUCK_TIME: 0 };
 test("same seed, same game after the split", async ({ page }) => {
   test.setTimeout(180_000);
   const errors = await openGame(page, { sim: true });

@@ -156,7 +156,7 @@ export function buildGame(world, n, slots) {
   const maxHp = G.tutorialGame ? G.practice.hearts : difficulty(world, n).hearts;   // SPEC-029: тренировка — свои сердечки
   G.big = {
     isBig: true, x: G.spawns.big.x, y: G.spawns.big.y, r: 22, dir: -Math.PI / 2, hp: maxHp, maxHp,
-    state: "look", timer: 4, lookSign: 1, lastSeen: null, goal: null, patrolT: 0,
+    state: "look", timer: 4, lookSign: 1, lastSeen: null, goal: null, patrolT: 0, prog: null,
     path: [], repath: 0, moveDir: 0, walk: 0, moving: false, stun: 0, stunFace: 0, stunTurn: 0, pushCd: 0, noPush: 0, hugCd: 0, flash: 0, slip: 0,
     blush: 0, blushBy: 0,   // покраснел после поцелуя: сколько ещё сек и кто бросил (индекс игрока)
     kind: false,            // SPEC-022: злость кончилась — подобрел и идёт домой (pendingWin — сколько ещё идёт)
