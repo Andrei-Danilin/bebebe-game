@@ -53,7 +53,7 @@ export function hearNoise(dt) {
   logEvent("heard", { who: loud.id, kind: loud.kind });
   if (loud.kind === "player" && !G.heardHintDone) { G.heardHintDone = true; emit("hint", { kind: "heard", slot: loud.slot }); }
 }
-const SLIP_MARK = Object.freeze({ banana: "🍌💫", melon: "🍉💫", ball: "⚽💫", eat: "😋", freeze: "❄" });   // SPEC-043
+const SLIP_MARK = Object.freeze({ banana: "🍌💫", melon: "🍉💫", ball: "💫", eat: "🧁💗", freeze: "❄" });   // SPEC-043
 // значок над Большим (тот же порядок, что рисуется): 🍌💫, ?!, 💗, ❓ (обернулся на топот), 👂 (слышит), 💦, !
 export function bigMark() {
   if (G.big.kind) return "💗";                               // SPEC-022: подобрел — не «!» и не «👂»

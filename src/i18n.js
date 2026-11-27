@@ -22,7 +22,7 @@ export const I18N = {
       `Other kids run over and stand next to you for ${CFG.RESCUE_TIME} seconds to help you up`,
       `If nobody helps you up within ${n} s, you go home to rest for ${CFG.REST_TIME} s`,
       "Bushes hide you. The kids' house is safe: Dad can't get in",
-      "Grab items: speed boots, invisibility, shield — and a banana Dad slips on!",
+      "Grab items: speed boots, invisibility, shield — and a banana Dad slips on! And in each world its own surprise!",
       I18N.en.ruleTiptoe
     ],
     // SPEC-019: на цыпочках; подсказка, когда Большой впервые обернулся на топот игрока (клавиша — отдельно, как у спасалки)
@@ -130,7 +130,7 @@ export const I18N = {
       `Los otros chicos vienen y se quedan ${CFG.RESCUE_TIME} segundos al lado tuyo para ayudarte a levantarte`,
       `Si nadie te ayuda a levantarte en ${n} segundos, te vas a casa a descansar ${CFG.REST_TIME} segundos`,
       "En los arbustos no te ve. La casa de los chicos es segura: Papá no puede entrar",
-      "Agarrá cosas: zapatillas veloces, invisibilidad, escudo ¡y una banana para que Papá se resbale!",
+      "Agarrá cosas: zapatillas veloces, invisibilidad, escudo ¡y una banana para que Papá se resbale! ¡Y en cada mundo, su propia sorpresa!",
       I18N.es.ruleTiptoe
     ],
     ruleTiptoe: "Si corrés cerca de papá, te escucha: ¡andá en puntitas de pie!",
@@ -227,7 +227,7 @@ export const I18N = {
       `As outras crianças vêm e ficam ${CFG.RESCUE_TIME} segundos do seu lado para te levantar`,
       `Se ninguém te ajudar a levantar em ${n} s, você vai para casa descansar ${CFG.REST_TIME} s`,
       "Nos arbustos ele não te vê. A casa das crianças é segura: o Papai não entra",
-      "Pegue itens: botas rápidas, invisibilidade, escudo — e uma banana para o Papai escorregar!",
+      "Pegue itens: botas rápidas, invisibilidade, escudo — e uma banana para o Papai escorregar! E em cada mundo, uma surpresa só dele!",
       I18N.pt.ruleTiptoe
     ],
     ruleTiptoe: "Correu perto do Papai? Ele escuta — ande na ponta dos pés!",
@@ -325,7 +325,7 @@ export const I18N = {
       `Другие дети подбегают и стоят рядом ${CFG.RESCUE_TIME} сек — ты снова в игре`,
       `Никто не помог встать за ${n} сек — идёшь домой отдыхать ${CFG.REST_TIME} сек`,
       "В кустах папа не видит. Домик детей — безопасная зона, папа туда не зайдёт",
-      "Собирай предметы: сапоги-скороходы, невидимку, щит — и банан, на котором папа поскользнётся!",
+      "Собирай предметы: сапоги-скороходы, невидимку, щит — и банан, на котором папа поскользнётся! А в каждом мире — своя неожиданность!",
       I18N.ru.ruleTiptoe
     ],
     ruleTiptoe: "Бежишь рядом с папой — он слышит. Иди на цыпочках!",

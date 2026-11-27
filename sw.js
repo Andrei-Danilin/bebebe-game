@@ -27,14 +27,14 @@ const NET_TIMEOUT_MS = 4000;             // weak signal: after this long, a cach
 const SW_BUILD = 11;
 const SW_STRATEGY = "0c8e52b02e";
 const SW_VERSION = "bebebe-1.0.0-dev-b11";
-const SRC_HASH = "840989aa29";
+const SRC_HASH = "8da52984bb";
 const PRECACHE_LOCAL = [
   "./", "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512-maskable.png",
   "./icons/icon-512.png", "./icons/icon.svg", "./index.html", "./manifest.webmanifest"
 ];
 const PRECACHE_SRC = [
   "./src/client/adaptive.js?v=5487878407", "./src/client/art-names.js?v=c95b54939f",
-  "./src/client/art.js?v=b41092cd87", "./src/client/back.js?v=2bbaab7f17", "./src/client/cadence.js?v=6fc971a515",
+  "./src/client/art.js?v=71dd821204", "./src/client/back.js?v=2bbaab7f17", "./src/client/cadence.js?v=6fc971a515",
   "./src/client/debug.js?v=8fcada08ff", "./src/client/devices.js?v=892965ff6f", "./src/client/errors.js?v=7b215fb847",
   "./src/client/flow.js?v=6fb99ab1f9", "./src/client/fx.js?v=7a3aaf4fc8", "./src/client/input.js?v=9b767266f2",
   "./src/client/lifecycle.js?v=42d6c088ba", "./src/client/look.js?v=70eec8f25e", "./src/client/main.js?v=bfa3b146b5",
@@ -65,11 +65,11 @@ const PRECACHE_SRC = [
   "./src/client/ui/minimap.js?v=e900bbfee9", "./src/client/ui/paper.js?v=c25342da07",
   "./src/client/ui/phone.js?v=c718f7078d", "./src/client/ui/screens.js?v=e98bfff809",
   "./src/client/ui/story.js?v=5f55a5406a", "./src/client/ui/text.js?v=fe5b98f9e4",
-  "./src/client/ui/tip.js?v=e276e1e479", "./src/client/ui/win.js?v=f1b1933411", "./src/client/update.js?v=e702121a73",
+  "./src/client/ui/tip.js?v=531dcecde9", "./src/client/ui/win.js?v=f1b1933411", "./src/client/update.js?v=e702121a73",
   "./src/client/warm.js?v=6a2d57b991", "./src/core/active.js?v=70aa836ebd", "./src/core/autopilot.js?v=922f7b4442",
   "./src/core/big.js?v=e80c09a17a", "./src/core/bots.js?v=32defc7e5b", "./src/core/config.js?v=b91854dcb5",
   "./src/core/difficulty.js?v=72aff2bd1e", "./src/core/economy.js?v=e3d6023dec", "./src/core/events.js?v=f2627cc22e",
-  "./src/core/game.js?v=d0397a5129", "./src/core/grid.js?v=a38c7b977b", "./src/core/hearing.js?v=04c87cd85a",
+  "./src/core/game.js?v=d0397a5129", "./src/core/grid.js?v=a38c7b977b", "./src/core/hearing.js?v=e501f1e17b",
   "./src/core/hooks.js?v=5ceea54c61", "./src/core/index.js?v=ff5975de4d", "./src/core/kindwalk.js?v=caa3127c7c",
   "./src/core/level/build.js?v=3d663d2628", "./src/core/level/generate.js?v=455b2ff4e4",
   "./src/core/level/layouts.js?v=07d6472d8e", "./src/core/level/load.js?v=d7e6940cc5",
@@ -82,7 +82,7 @@ const PRECACHE_SRC = [
   "./src/core/tricks/query.js?v=f5070ac764", "./src/core/tricks/sprinklers.js?v=d0d67dc091",
   "./src/core/tricks/truck.js?v=6da8d905c4", "./src/core/tricks/waves.js?v=2bc3aa5809",
   "./src/core/util.js?v=b56133239e", "./src/core/vision.js?v=6d97f49e93", "./src/core/wardrobe.js?v=011be2182f",
-  "./src/core/world.js?v=7ffe232fac", "./src/core/worlditems.js?v=a294f70d7f", "./src/i18n.js?v=90abaf4bec",
+  "./src/core/world.js?v=7ffe232fac", "./src/core/worlditems.js?v=a294f70d7f", "./src/i18n.js?v=6cea78b26a",
   "./src/story.js?v=d4c2c3d810"
 ];
 const THREE_VERSION = "r187";

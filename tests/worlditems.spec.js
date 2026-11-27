@@ -64,3 +64,37 @@ test("Bonk, Yum, Brrr and Whee are pop texts in all four languages", async ({ pa
     expect(new Set(Object.values(v)).size, `${k}: not one word for all four`).toBeGreaterThan(1);
   }
 });
+
+// ================= step 3: the icons and the texts =================
+const WORLDS = ["park", "field", "city", "school", "beach", "winter"];
+const ICON = { banana: "item_banana", football: "item_football", cupcake: "icon_cupcake", plane: "item_paperplane", watermelon: "item_watermelon", snowball: "item_snowball" };
+
+test("the New here! card's item icon follows CFG.WORLD_ITEM (the sheet-37 picture), one table for the card and the core", async ({ page }) => {
+  const errors = await openGame(page, { tips: true });
+  await page.waitForFunction(() => window.__bb.artInfo.done, null, { timeout: 15_000 });
+  const iconDrawn = async (world, name) => {
+    await page.evaluate(w => { const b = window.__bb; b.resetArtUse(); b.world = w; b.mode = "map"; b.showCard(1); b.openTip(w); }, world);
+    await frames(page);
+    await page.evaluate(() => window.__bb.resetArtUse());
+    await frames(page);
+    return page.evaluate(n => window.__bb.artUse[n] > 0, name);
+  };
+  for (const w of WORLDS) {
+    const kind = await page.evaluate(k => window.__bb.CFG.WORLD_ITEM[k], w);
+    expect(await iconDrawn(w, ICON[kind]), `${w}: the ${kind} icon`).toBe(true);
+  }
+  // change the table: the card follows it
+  await page.evaluate(() => { window.__bb.CFG.WORLD_ITEM.field = "snowball"; });
+  expect(await iconDrawn("field", "item_snowball"), "field with a snowball: its icon").toBe(true);
+  await page.evaluate(() => { window.__bb.CFG.WORLD_ITEM.field = "football"; });
+  expect(errors).toEqual([]);
+});
+
+test("How to play rule 6 ends with its own surprise in each world, in all four languages", async ({ page }) => {
+  await openGame(page, { sim: true });
+  const t = await page.evaluate(() => Object.fromEntries(["en", "es", "pt", "ru"].map(l => [l, window.__bb.I18N[l].rules(10)[5]])));
+  expect(t.en).toContain("in each world its own surprise");
+  expect(t.es).toContain("en cada mundo, su propia sorpresa");
+  expect(t.pt).toContain("em cada mundo, uma surpresa");
+  expect(t.ru).toContain("в каждом мире — своя неожиданность");
+});

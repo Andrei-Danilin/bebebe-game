@@ -4,7 +4,7 @@
 // (SPEC-041) with the trick's icon. Client module.
 import { CFG, H, W } from "../../core/config.js";
 import { L } from "../../i18n.js";
-import { ITEM_EMOJI, ITEM_ICON, TIP_ART, TRICK_EMOJI, TRICK_ICON } from "../art.js";
+import { itemEmoji, itemIcon, TIP_ART, TRICK_EMOJI, TRICK_ICON } from "../art.js";
 import { closeTip } from "../flow.js";
 import { LOOK } from "../look.js";
 import { ctx, OUT, PHONE, UH, UW } from "../screen.js";
@@ -39,7 +39,7 @@ export function drawTipCard() {
   const bodyMax = UH - 8 * k - 2 * pad - B - 2 * g - BH, pw = Math.min(cw * (PHONE ? TL.phoneFrac : TL.deskFrac), (bodyMax - 2 * TL.frame) / TL.ratio), ph = pw * TL.ratio;
   const tw = cw - 3 * pad - pw, ic = Math.min(B * TL.iconBox, tw * 0.2), textW = tw - ic - g, each = (bodyMax - g) / 2;
   const size = PHONE ? cpx(15) : 18;
-  const lines = [[L().tipTrick[world], "tip:trick", TRICK_ICON[trick], TRICK_EMOJI[trick]], [L().tipItem[world], "tip:item", ITEM_ICON[world], ITEM_EMOJI[world]]];
+  const lines = [[L().tipTrick[world], "tip:trick", TRICK_ICON[trick], TRICK_EMOJI[trick]], [L().tipItem[world], "tip:item", itemIcon(world), itemEmoji(world)]];
   const blocks = lines.map(([text]) => noteRows(text, size, minHint, textW, TL.lines, { maxH: each }));
   const heights = blocks.map(b => b.rows.length * b.sz * 1.2), used = heights[0] + heights[1] + g;
   const bodyH = Math.min(bodyMax, Math.max(ph + 2 * TL.frame, used));

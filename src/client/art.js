@@ -2,6 +2,7 @@
 // …), the paper panels (paperUI, paperCache, paperPanel). Client module (moved out of index.html in Phase C).
 
 import { ART_NAMES, ART_RESIDENT } from "./art-names.js";
+import { CFG } from "../core/config.js";
 import { LOOK } from "./look.js";
 import { simMode } from "./screen.js";
 
@@ -158,6 +159,7 @@ export const EMOJI_ART = { "👥": "ui_friends", "🎲": "ui_dice", "❓": "ui_q
   "🎁": "ui_gift", "🌐": "ui_globe", "🔊": "ui_sound_on", "🔇": "ui_sound_off", "⛶": "ui_fullscreen", "✨": "fx_sparkle", "🎉": "fx_confetti",
   "💗": "fx_hearts", "💫": "fx_dizzy", "💦": "fx_steam_left", "🔁": "round_restart",
   "🌳": "world_park", "⚽": "world_field", "🏙": "world_city", "🏫": "world_school", "🏖": "world_beach", "❄": "world_winter",
+  "🍉": "item_watermelon", "🧁": "icon_cupcake", "✈": "item_paperplane",   // SPEC-043: Dad's marks and the tip card (⚽ and ❄ are the Field's and Winter's world icons above)
   "🤗": "ui_hug", "😴": "ui_sleep", "💤": "ui_sleep", "❗": "ui_alert", "🏁": "ui_flag", "👀": "ui_eyes", "⏱": "ui_timer", "👣": "ui_tiptoe" };
 // SPEC-027: новая картинка не загрузилась — прежняя (а нет и её — рисунок кодом или эмодзи, как у всякой картинки SPEC-020)
 export const ART_FALLBACK = { menu_play: "ui_play", menu_story: "ui_story", menu_character: "ui_bag", tab_progress: "star_gold" };
@@ -171,8 +173,10 @@ export function artPick(name) {
 export const TIP_ART = { park: ["tips_main", 0], field: ["tips_main", 1], city: ["tips_main", 2], school: ["tips_main", 3], beach: ["tips_bonus", 0], winter: ["tips_bonus", 1] };
 export const TRICK_ICON = { puddles: "ui_puddle", sprinklers: "ui_sprinkler", truck: "ui_truck", bell: "ui_bell", waves: "ui_wave", footprints: "ui_snowprints" };
 export const TRICK_EMOJI = { puddles: "💦", sprinklers: "🚿", truck: "🍦", bell: "🔔", waves: "🌊", footprints: "👣" };
-export const ITEM_ICON = { park: "item_banana", field: "item_football", city: "icon_cupcake", school: "item_paperplane", beach: "item_watermelon", winter: "item_snowball" };
-export const ITEM_EMOJI = { park: "🍌", field: "⚽", city: "🧁", school: "✈️", beach: "🍉", winter: "❄️" };
+// SPEC-043: the one table of the world items' pictures — item → [icon of sheet 37 (or the older one), emoji]; a world's item is CFG.WORLD_ITEM[world]
+export const WORLD_ITEM_ART = { banana: ["item_banana", "🍌"], football: ["item_football", "⚽"], cupcake: ["icon_cupcake", "🧁"], plane: ["item_paperplane", "✈️"], watermelon: ["item_watermelon", "🍉"], snowball: ["item_snowball", "❄️"] };
+export const itemIcon = world => (WORLD_ITEM_ART[CFG.WORLD_ITEM[world]] || WORLD_ITEM_ART.banana)[0];
+export const itemEmoji = world => (WORLD_ITEM_ART[CFG.WORLD_ITEM[world]] || WORLD_ITEM_ART.banana)[1];
 // комиксы глав (8_start, 9_1…9_4, 26_1/26_2, 10_end)
 export const STORY_ART = { began: "story_start", park: "story_park", field: "story_field", city: "story_city", school: "story_school",
   beach: "story_beach", winter: "story_winter", ended: "story_end" };
