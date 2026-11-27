@@ -2,6 +2,7 @@
 // Core module (the level generator fills it).
 import { CELL, COLS, FH, FINE, FW, H, ROWS, W } from "./config.js";
 import { clamp } from "./util.js";
+import { trickDadSolid, trickSightSolid } from "./tricks/query.js";
 import { G } from "./active.js";
 
 // =====================================================================
@@ -59,8 +60,8 @@ export function buildGrids() {
   }
 }
 export const moveSolidAt = (x, y) => (x < 0 || y < 0 || x >= W || y >= H) ? true : G.moveGrid[((y / FINE) | 0) * FW + ((x / FINE) | 0)] === 1;
-export const moveSolidBigAt = (x, y) => (x < 0 || y < 0 || x >= W || y >= H) ? true : G.moveGridBig[((y / FINE) | 0) * FW + ((x / FINE) | 0)] === 1;
-export const seeSolidAt = (x, y) => (x < 0 || y < 0 || x >= W || y >= H) ? true : G.seeGrid[((y / FINE) | 0) * FW + ((x / FINE) | 0)] === 1;
+export const moveSolidBigAt = (x, y) => (x < 0 || y < 0 || x >= W || y >= H) ? true : G.moveGridBig[((y / FINE) | 0) * FW + ((x / FINE) | 0)] === 1 || trickDadSolid(x, y);   // SPEC-042: + a spray / a wave he keeps out of
+export const seeSolidAt = (x, y) => (x < 0 || y < 0 || x >= W || y >= H) ? true : G.seeGrid[((y / FINE) | 0) * FW + ((x / FINE) | 0)] === 1 || trickSightSolid(x, y);   // SPEC-042: + the ice-cream truck
 
 export function los(x1, y1, x2, y2, solid) {
   const d = Math.hypot(x2 - x1, y2 - y1), n = Math.ceil(d / 5);

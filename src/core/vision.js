@@ -3,6 +3,7 @@
 import { CFG } from "./config.js";
 import { angDiff } from "./util.js";
 import { inSafe, los, seeSolidAt } from "./world.js";
+import { trickHides } from "./tricks/query.js";
 import { G } from "./active.js";
 
 // Большой «спокоен»: в шоке, отдыхает после толчка или краснеет — конус бледный (3D и мини-карта)
@@ -32,6 +33,6 @@ export function canSee(l) {
   const dx = l.x - G.big.x, dy = l.y - G.big.y, d = Math.hypot(dx, dy);
   const diff = angDiff(G.big.dir, Math.atan2(dy, dx));
   if (d < G.big.r + l.r + 22 && diff < 1.9) return true;
-  if (d > 45 && inBush(l)) return false;
+  if (d > 45 && (inBush(l) || trickHides(l))) return false;   // SPEC-042: a sprinkler's spray hides like a bush
   return d < CFG.VISION_RANGE && diff < CFG.VISION_HALF && los(G.big.x, G.big.y, l.x, l.y, seeSolidAt);
 }

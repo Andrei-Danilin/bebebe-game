@@ -27,7 +27,7 @@ const NET_TIMEOUT_MS = 4000;             // weak signal: after this long, a cach
 const SW_BUILD = 11;
 const SW_STRATEGY = "0c8e52b02e";
 const SW_VERSION = "bebebe-1.0.0-dev-b11";
-const SRC_HASH = "1a8a372b66";
+const SRC_HASH = "6724bdaf10";
 const PRECACHE_LOCAL = [
   "./", "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512-maskable.png",
   "./icons/icon-512.png", "./icons/icon.svg", "./index.html", "./manifest.webmanifest"
@@ -35,7 +35,7 @@ const PRECACHE_LOCAL = [
 const PRECACHE_SRC = [
   "./src/client/adaptive.js?v=5487878407", "./src/client/art-names.js?v=64e5afa0d4",
   "./src/client/art.js?v=56266359ee", "./src/client/back.js?v=2bbaab7f17", "./src/client/cadence.js?v=6fc971a515",
-  "./src/client/debug.js?v=6e61462248", "./src/client/devices.js?v=892965ff6f", "./src/client/errors.js?v=7b215fb847",
+  "./src/client/debug.js?v=3a9d623915", "./src/client/devices.js?v=892965ff6f", "./src/client/errors.js?v=7b215fb847",
   "./src/client/flow.js?v=ff2d339310", "./src/client/fx.js?v=5a88b57937", "./src/client/input.js?v=983462c66e",
   "./src/client/lifecycle.js?v=42d6c088ba", "./src/client/look.js?v=58369dfe7f", "./src/client/main.js?v=bfa3b146b5",
   "./src/client/names.js?v=dff85cded6", "./src/client/outfits.js?v=e814941367", "./src/client/perf.js?v=2462f1b4ae",
@@ -64,18 +64,22 @@ const PRECACHE_SRC = [
   "./src/client/ui/phone.js?v=9aa24cd1ae", "./src/client/ui/screens.js?v=525270d29d",
   "./src/client/ui/story.js?v=5f55a5406a", "./src/client/ui/text.js?v=fe5b98f9e4",
   "./src/client/ui/win.js?v=f1b1933411", "./src/client/update.js?v=e702121a73", "./src/client/warm.js?v=6a2d57b991",
-  "./src/core/active.js?v=70aa836ebd", "./src/core/autopilot.js?v=67ef4c36b5", "./src/core/big.js?v=7e52188e25",
-  "./src/core/bots.js?v=d2e5c69d1b", "./src/core/config.js?v=f3ac2f052c", "./src/core/difficulty.js?v=72aff2bd1e",
-  "./src/core/economy.js?v=e3d6023dec", "./src/core/events.js?v=f2627cc22e", "./src/core/game.js?v=3c72d0aaf1",
-  "./src/core/grid.js?v=c2af2f71bf", "./src/core/hearing.js?v=fa15ffe834", "./src/core/hooks.js?v=5ceea54c61",
-  "./src/core/index.js?v=dde55b7f59", "./src/core/kindwalk.js?v=42ad90dbc0", "./src/core/level/build.js?v=9e143d5222",
+  "./src/core/active.js?v=70aa836ebd", "./src/core/autopilot.js?v=67ef4c36b5", "./src/core/big.js?v=56702d1baa",
+  "./src/core/bots.js?v=d2e5c69d1b", "./src/core/config.js?v=2886079af7", "./src/core/difficulty.js?v=72aff2bd1e",
+  "./src/core/economy.js?v=e3d6023dec", "./src/core/events.js?v=f2627cc22e", "./src/core/game.js?v=5b3cfdcef1",
+  "./src/core/grid.js?v=ca30198e79", "./src/core/hearing.js?v=e67a10b436", "./src/core/hooks.js?v=5ceea54c61",
+  "./src/core/index.js?v=4bb48b7be5", "./src/core/kindwalk.js?v=42ad90dbc0", "./src/core/level/build.js?v=87ede3ca46",
   "./src/core/level/generate.js?v=455b2ff4e4", "./src/core/level/layouts.js?v=07d6472d8e",
   "./src/core/level/load.js?v=35ddf9f455", "./src/core/level/report.js?v=d3e7b72446",
-  "./src/core/level/validate.js?v=048c553ac4", "./src/core/mood.js?v=65a5548f9d", "./src/core/path.js?v=26b96c775d",
+  "./src/core/level/validate.js?v=6d0ccc9c73", "./src/core/mood.js?v=65a5548f9d", "./src/core/path.js?v=26b96c775d",
   "./src/core/practice.js?v=807c98cf2e", "./src/core/progress-rules.js?v=7c34b4f903",
-  "./src/core/rules.js?v=62128604fa", "./src/core/util.js?v=b56133239e", "./src/core/vision.js?v=f239fd8abc",
-  "./src/core/wardrobe.js?v=011be2182f", "./src/core/world.js?v=4c89ba327c", "./src/i18n.js?v=d7a6f210de",
-  "./src/story.js?v=0cd3381a6e"
+  "./src/core/rules.js?v=c62905970d", "./src/core/tricks/bell.js?v=3fea6ac8b8",
+  "./src/core/tricks/footprints.js?v=754e58439e", "./src/core/tricks/index.js?v=cff89dec09",
+  "./src/core/tricks/kit.js?v=cd146151ef", "./src/core/tricks/puddles.js?v=058c37d6b6",
+  "./src/core/tricks/query.js?v=00201f17c5", "./src/core/tricks/sprinklers.js?v=319d272ba7",
+  "./src/core/tricks/truck.js?v=df3c8e979b", "./src/core/tricks/waves.js?v=bf33e18ce7",
+  "./src/core/util.js?v=b56133239e", "./src/core/vision.js?v=6d97f49e93", "./src/core/wardrobe.js?v=011be2182f",
+  "./src/core/world.js?v=8d8db51b08", "./src/i18n.js?v=d7a6f210de", "./src/story.js?v=0cd3381a6e"
 ];
 const THREE_VERSION = "r187";
 const PRECACHE_THREE = [

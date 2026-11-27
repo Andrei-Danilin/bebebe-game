@@ -247,5 +247,6 @@
  "warm": "getter",
  "quality": "getter",
  "setQuality": "function",
- "qualityFrame": "function"
+ "qualityFrame": "function",
+ "trick": "getter"
 }

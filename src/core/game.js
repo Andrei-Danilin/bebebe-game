@@ -15,6 +15,7 @@ import { bossFor } from "./mood.js";
 import { moveEntity } from "./path.js";
 import { applyTutorialMap, practiceOf, stockOf, tutorialSetup, updateTutorial } from "./practice.js";
 import { checkContacts, moveSpeed, separate, throwKiss, updateDanger, updateDowned, updateHugAnim, updateItems, updateKisses, updateResting, updateStars, useRescueKit, winNow } from "./rules.js";
+import { initTrick, stepTrick } from "./tricks/index.js";
 import { canAct } from "./world.js";
 import { G, setActiveGame } from "./active.js";
 
@@ -66,6 +67,7 @@ export function newGame(opts = {}) {
     moveGrid: new Uint8Array(N_FINE), seeGrid: new Uint8Array(N_FINE), moveGridBig: new Uint8Array(N_FINE),
     scratch: null,                                           // SPEC-040 AC 10: the searches' reusable buffers (grid.js), made on first use
     safeZone: null, dangerZone: null, spawns: { small: [], big: { x: 0, y: 0 } }, levelInfo: null,
+    trick: null,                                             // SPEC-042: the world's trick — { name, pieces, meta, st, fx, t } (tricks/kit.js), null: none (practice, tutorial)
     // SPEC-029: тренировка (practice.js): её номер (0 — обычный уровень), сценарий и подсказки, свой запас
     // SPEC-012 AC 10: practice — the practice game's option (practiceOf) or null; tutorialGame — its step (0 — a normal level)
     practice: null, tutorialGame: 0, tut: { script: false, hint: 0, bothDown: 0 }, tutorialInv: stockOf(null),
@@ -148,6 +150,7 @@ export function buildGame(world, n, slots) {
   G.attackToken = null; G.prevToken = null; G.botAttackCd = rand(3, 5);
   G.stats = { hugs: 0, time: 0, playerHugs: 0, rests: 0, starCoins: 0 };
   G.autoNavs = {}; G.autoMove = [];
+  initTrick();                                               // SPEC-042: the level's trick starts from zero (a practice game has none)
   if (G.tutorialGame) tutorialSetup();                       // SPEC-029: тренировка — папа на поляне, сценарий, подсказки, свой запас
   hooks.rebuild();
 }
@@ -218,7 +221,7 @@ export function update(dt) {
     } else { l.kx = 0; l.ky = 0; }
   }
   if (G.big.kind) updateKindWalk(dt);                        // SPEC-022: идёт домой; маленькие стоят и радуются
-  else { readInputs(dt); updatePlayers(dt); updateBots(dt); if (G.big.player) updateBigPlayer(dt); else updateBig(dt); }
+  else { readInputs(dt); updatePlayers(dt); updateBots(dt); stepTrick(dt); if (G.big.player) updateBigPlayer(dt); else updateBig(dt); }
   updateHugAnim(dt);
   updateKisses(dt);
   separate();

@@ -214,6 +214,19 @@ export const CFG = {
   // 🩹 — если лежит дольше kitWait и никто не поднимает; 💋 — если смотрит на Большого точнее kissAim рад и он ближе kissReach × дальности
   AUTOPILOT: { repath: 0.35, itemReach: 120, pickSafe: 160, rescueSafe: 110, sneakNear: 200, orbit: 180, orbitStep: 0.9, orbitR: 60,
     arrive: 6, backNear: 95, backDist: 75, hugIn: 3, minStep: 1, kitWait: 6, kissAim: 0.15, kissReach: 0.9 },
+  // SPEC-042: у каждого мира своя хитрость (src/core/tricks/<имя>.js; придумал Claude, проверить с детьми). TRICKS_ON 0 — ни в одном мире (игра до SPEC-042);
+  // тренировки и обучение — без хитростей всегда. Числа ниже — по мере того, как хитрости приходят (TRICKS); меняется число — clearLevelCache()
+  TRICKS_ON: 1,              // SPEC-042: 1 — миры играют со своей хитростью (WORLD_TRICK), 0 — как до спеки
+  WORLD_TRICK: { park: "puddles", field: "sprinklers", city: "truck", school: "bell", beach: "waves", winter: "footprints" },   // SPEC-042: хитрость мира
+  // SPEC-042: числа хитростей. count — штук на уровень [от, до]; pad — клеток отступа от занятого и друг от друга (при расстановке); cells/сек — как сказано
+  TRICKS: {
+    puddles: { count: [3, 5], r: 0.5, pad: 1, splashMul: 2, splashTime: 1 },                       // лужи Парка: бегом через лужу — всплеск, слышно в splashMul × HEAR_RADIUS splashTime сек
+    sprinklers: { count: [2, 3], r: 2, pad: 1, cycle: 20, warn: 1, spray: 5 },                     // поливалки Поля: цикл cycle сек — warn сек капли, spray сек брызги радиусом r клеток
+    truck: { w: 2, h: 1, speedMul: 0.5, minLoop: 16 },                                             // грузовик Города: по замкнутой дорожке (≥ minLoop клеток) со скоростью speedMul × шаг маленького
+    bell: { every: 30, warn: 2, ring: 3 },                                                         // звонок Школы: раз в every сек — warn сек до звонка, потом ring сек «Замри!»
+    waves: { every: 20, depth: 2, time: 6, slowMul: 0.6, pad: 1 },                                 // волны Пляжа: раз в every сек вода выше на depth клеток на time сек; в воде маленькие — slowMul скорости
+    footprints: { every: 0.4, life: 8 }                                                            // следы Зимы: бегущий оставляет след раз в every сек, он тает life сек
+  },
   // правила честности уровня
   DOOR_APRON: 2,             // клеток свободно перед каждой дверью домиков
   HOUSE_PATH: [18, 70],      // клеток — путь Большого от его двери до клетки перед дверью маленьких (A*)

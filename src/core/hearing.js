@@ -3,6 +3,7 @@ import { CELL, CFG } from "./config.js";
 import { angDiff, dist, normAng, rand, rng } from "./util.js";
 import { emit, logEvent } from "./events.js";
 import { inSafe, los, seeSolidAt } from "./world.js";
+import { trickHearMul } from "./tricks/query.js";
 import { G } from "./active.js";
 
 // ---------- SPEC-019: Большой слышит топот ----------
@@ -21,7 +22,7 @@ export const bigListens = () => !bigDeaf();
 export function audible(l) {
   if (!isRunning(l) || l.fx.cloak > 0 || inSafe(l)) return 0;
   const dx = l.x - G.big.x, dy = l.y - G.big.y;
-  if (Math.hypot(dx, dy) > CFG.HEAR_RADIUS * CELL || angDiff(G.big.dir, Math.atan2(dy, dx)) < CFG.VISION_HALF) return 0;
+  if (Math.hypot(dx, dy) > CFG.HEAR_RADIUS * CELL * trickHearMul(l) || angDiff(G.big.dir, Math.atan2(dy, dx)) < CFG.VISION_HALF) return 0;
   return los(G.big.x, G.big.y, l.x, l.y, seeSolidAt) ? 1 : CFG.HEAR_WALL;
 }
 export function hearNoise(dt) {

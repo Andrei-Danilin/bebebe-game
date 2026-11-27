@@ -7,13 +7,14 @@ import { cellIdx, freeCellNear, nearestExit } from "./grid.js";
 import { bigMood, bossPower } from "./mood.js";
 import { resolveWalls, steerTo } from "./path.js";
 import { fastTarget } from "./progress-rules.js";
+import { trickSpeedMul } from "./tricks/query.js";
 import { canAct, inDanger, inSafe, los, moveSolidAt, seeSolidAt } from "./world.js";
 import { G } from "./active.js";
 
 // прибавка улучшения k для этого маленького: его уровень (взят при создании; у ботов нет) × step
 const playerBonus = (l, k) => (l.upg ? (l.upg[k] || 0) * UPGRADES[k].step : 0);
 // скорость маленького-игрока: обычная × «быстрые ноги» × сапоги (CFG.PLAYER_SPEED не меняется — предел Большого от неё)
-export const moveSpeed = l => CFG.PLAYER_SPEED * (1 + playerBonus(l, "fastFeet")) * (l.fx.boots > 0 ? CFG.BOOTS_MULT : 1);
+export const moveSpeed = l => CFG.PLAYER_SPEED * (1 + playerBonus(l, "fastFeet")) * (l.fx.boots > 0 ? CFG.BOOTS_MULT : 1) * trickSpeedMul(l);   // SPEC-042: × the wave
 const helps = (o, l) => o !== l && o.state === "ok" && dist(o, l) < o.r + l.r + 12;   // o стоит рядом с упавшим l и поднимает его
 // SPEC-022: толчок того, кого Большой поймал: самый злой папа (Школа 20) толкает широко — всех рядом перед собой
 export function pushHit(t) { if (bossPower(G.big.boss) === "wide") widePush(t); else push(t); }

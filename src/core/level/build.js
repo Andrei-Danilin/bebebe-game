@@ -6,6 +6,7 @@ import { levelSeed, levelTier, levelType, placeHomes } from "./generate.js";
 import { LAYOUTS, hWallTo, vWallTo } from "./layouts.js";
 import { cellIdx } from "../grid.js";
 import { buildGrids } from "../world.js";
+import { placeTrick, makeTrick } from "../tricks/index.js";
 import { G } from "../active.js";
 
 // ---------- Сборка уровня ----------
@@ -52,13 +53,16 @@ function layoutLevel(world, lv, attempt) {
   const doors = { small: lc.doors.small.map(md), big: lc.doors.big.map(md) };
   const fl = [];
   for (let i = 0; i < 60; i++) fl.push({ x: rng() * W, y: rng() * H, c: ["#fff27a", "#ff9ecb", "#ffffff", "#b5e3ff"][ri(0, 3)] });
-  return { type, items, small: lc.small.map(tp), big: tp(lc.bigPt), flowers: fl, doors, meta: lc.meta };
+  // SPEC-042: the world's trick, placed on the finished map from its own seeded stream (the layout above is the same with tricks on or off)
+  const trick = placeTrick(world, { items, doors }, lv, type, tier, levelSeed(world, lv) * 6151 + attempt * 7919 + 41);
+  return { type, items, small: lc.small.map(tp), big: tp(lc.bigPt), flowers: fl, doors, meta: lc.meta, trick };
 }
 
 // Новое состояние мира здесь → добавить его в список keep у levelReport (и в __bb.worldState)
 export function applyWorld(gen) {
   G.obstacles = []; G.bushes = []; G.floors = []; G.decor = []; G.trees = []; G.safeZone = null; G.dangerZone = null;
   G.flowers = gen.flowers;
+  G.trick = makeTrick(gen.trick);                            // SPEC-042: null on the practice maps (they have no gen.trick)
   for (const it of gen.items) {
     const px = it.x * CELL, py = it.y * CELL;
     if (it.t === "wall") G.obstacles.push({ shape: "rect", x: px, y: py, w: it.w * CELL, h: it.h * CELL, move: true, sight: true, kind: it.kind });

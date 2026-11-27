@@ -4,6 +4,7 @@
 import { CELL, CFG, COLS, H, ROWS, W } from "./config.js";
 import { clamp, dist, rng } from "./util.js";
 import { moveSolidAt, moveSolidBigAt, inDangerXY } from "./world.js";
+import { trickDadCells } from "./tricks/query.js";
 import { G } from "./active.js";
 
 // ---------- SPEC-040 AC 10 (RR-51): scratch buffers ----------
@@ -114,10 +115,11 @@ export function downGap(x, y, ignore = false) {
 export const nearDown = (x, y) => downGap(x, y) < 0;
 // сетка Большого для A* и bigReach: уровень + клетки, до которых он не дошёл (G.bigLearned; только гуляя и ища)
 export function bigGrid() {
-  if (!wallOn() || !G.bigLearned.some(v => v)) return G.blockedBig;
+  const trick = trickDadCells(), learned = wallOn() && G.bigLearned.some(v => v);   // SPEC-042: + the cells a spray / a wave keeps him out of (any state)
+  if (!learned && !trick) return G.blockedBig;
   const m = scratchOf().grid;
   m.set(G.blockedBig);                    // (valid until the next bigGrid call: A* and bigReach use it at once)
-  for (let i = 0; i < m.length; i++) if (G.bigLearned[i]) m[i] = 1;
+  for (let i = 0; i < m.length; i++) if ((learned && G.bigLearned[i]) || (trick && trick[i])) m[i] = 1;
   return m;
 }
 // цена клетки рядом с лежащим другом; внутри его самого (где Большой не встанет) — вдвое: выход из тесноты идёт мимо друга, не сквозь него

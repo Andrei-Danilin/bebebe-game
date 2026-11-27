@@ -251,10 +251,10 @@ export function installDebug() {
     get heardHint() { return heardHintOn() ? { text: heardHintText(), pi: ui.heardHintPi, rect: ui.heardHintRect && { ...ui.heardHintRect, rows: [...ui.heardHintRect.rows] } } : null; },
     get stickMarks() { return ui.stickMarks.map(q => ({ ...q })); }, get tapLines() { return [...tapLines]; },
     GLOVES, KISSES, get shopLayout() { return ui.shopLayout; },                         // SPEC-007 AC 10
-    levelType, levelReport, get levelInfo() { return G.levelInfo; }, clearLevelCache, CFG: CFG_ALL, THEMES, look3D, disposeCheck, perf: perfReport, setBigFace,   // SPEC-021: look3D() — как нарисована 3D-сцена
+    levelType, levelReport, get levelInfo() { return G.levelInfo; }, get trick() { return G.trick; }, clearLevelCache, CFG: CFG_ALL, THEMES, look3D, disposeCheck, perf: perfReport, setBigFace,   // SPEC-021: look3D() — как нарисована 3D-сцена
     get banner() { return ui.banner; }, bannerAlpha,
     // всё состояние мира, которое levelReport сохраняет и возвращает (для теста «не трогает идущую игру»)
-    worldState() { return JSON.stringify({ obstacles: G.obstacles, bushes: G.bushes, floors: G.floors, decor: G.decor, trees: G.trees, flowers: G.flowers, safeZone: G.safeZone, dangerZone: G.dangerZone, spawns: G.spawns, reachable: Array.from(G.reachable).join(""), grids: [G.blocked, G.blockedBig, G.moveGrid, G.seeGrid, G.moveGridBig].map(g => g.join("")) }); },
+    worldState() { return JSON.stringify({ obstacles: G.obstacles, bushes: G.bushes, floors: G.floors, decor: G.decor, trees: G.trees, flowers: G.flowers, safeZone: G.safeZone, dangerZone: G.dangerZone, trick: G.trick && { name: G.trick.name, pieces: G.trick.pieces, meta: G.trick.meta }, spawns: G.spawns, reachable: Array.from(G.reachable).join(""), grids: [G.blocked, G.blockedBig, G.moveGrid, G.seeGrid, G.moveGridBig].map(g => g.join("")) }); },
     // детали 3D-карты с метками: [{ piece, color }] (для тестов оформления) и цвет текстуры земли в точке
     mapPieces() { const r = []; if (mapGroup) mapGroup.traverse(q => { if (q.userData.piece && q.material && q.material.color) r.push({ piece: q.userData.piece, color: "#" + q.material.color.getHexString(), y: q.position.y }); }); return r; },
     groundColorAt(x, y) { const d = groundCanvas.getContext("2d").getImageData(Math.round(x * 2), Math.round(y * 2), 1, 1).data; return "#" + [d[0], d[1], d[2]].map(v => v.toString(16).padStart(2, "0")).join(""); }

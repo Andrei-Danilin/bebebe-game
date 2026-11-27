@@ -3,6 +3,7 @@ import { CELL, CFG, COLS, ROWS } from "../config.js";
 import { applyWorld, connectivity, generateLevel } from "./build.js";
 import { levelKey, levelTier, levelType } from "./generate.js";
 import { cellIdx, findPath } from "../grid.js";
+import { validateTrick } from "../tricks/index.js";
 import { buildGrids } from "../world.js";
 import { G } from "../active.js";
 
@@ -54,6 +55,20 @@ function deadEndScan(skip = null) {
   }
   return { count, longest };
 }
+// 3: A* по сетке grid (Большого) от его двери до клетки перед дверью маленьких; кратчайшая пара дверей, диагональ = √2; −1 — пути нет.
+// SPEC-042: и для проверки хитростей мира (tricks/index.js validateTrick) — путь между домами, когда хитрость занимает клетки
+function housePathLen(doors, grid) {
+  let best = Infinity;
+  for (const bd of doors.big) for (const sd of doors.small) {
+    const s = { x: (bd.x + 0.5) * CELL, y: (bd.y + 0.5) * CELL }, [fx0, fy0] = doorFront(sd, 1)[0];
+    const pts = findPath(s.x, s.y, (fx0 + 0.5) * CELL, (fy0 + 0.5) * CELL, null, grid);
+    if (!pts.length) continue;
+    let L = 0, px = s.x, py = s.y;
+    for (const p of pts) { L += Math.hypot(p.x - px, p.y - py) / CELL; px = p.x; py = p.y; }
+    best = Math.min(best, L);
+  }
+  return isFinite(best) ? Math.round(best * 10) / 10 : -1;
+}
 export function validateLevel(gen, type) {
   const N = COLS * ROWS, fails = [];
   // 1, 2: всё свободное достижимо — для маленьких от их домика, для Большого (вне домика маленьких) от его места
@@ -71,16 +86,7 @@ export function validateLevel(gen, type) {
   let doorClear = doors.small.length > 0 && doors.big.length > 0;
   for (const d of [...doors.small, ...doors.big]) for (let k = 1; k <= CFG.DOOR_APRON; k++) for (const c of doorFront(d, k)) if (!cellFree(G.blocked, c) || !cellFree(G.blockedBig, c)) doorClear = false;
   // 3: A* по сетке Большого от его двери до клетки перед дверью маленьких; кратчайшая пара дверей, диагональ = √2
-  let housePath = Infinity;
-  for (const bd of doors.big) for (const sd of doors.small) {
-    const s = { x: (bd.x + 0.5) * CELL, y: (bd.y + 0.5) * CELL }, [fx0, fy0] = doorFront(sd, 1)[0];
-    const pts = findPath(s.x, s.y, (fx0 + 0.5) * CELL, (fy0 + 0.5) * CELL, null, G.blockedBig);
-    if (!pts.length) continue;
-    let L = 0, px = s.x, py = s.y;
-    for (const p of pts) { L += Math.hypot(p.x - px, p.y - py) / CELL; px = p.x; py = p.y; }
-    housePath = Math.min(housePath, L);
-  }
-  housePath = isFinite(housePath) ? Math.round(housePath * 10) / 10 : -1;
+  const housePath = housePathLen(doors, G.blockedBig);
   // 6: тупики (в лабиринте — сколько концов осталось от тупиков идеального лабиринта)
   // в лабиринте концы тупиков считаем только вне домиков с их площадками у дверей (там не лабиринт)
   const A = CFG.DOOR_APRON, grow = r => r && { x: r.x - A, y: r.y - A, w: r.w + 2 * A, h: r.h + 2 * A };
@@ -97,6 +103,7 @@ export function validateLevel(gen, type) {
   if (type === "maze" ? !(before != null && de.count <= Math.floor(before * CFG.MAZE_DEAD_ENDS)) : de.longest > CFG.DEAD_END_MAX) fails.push("deadEnds");
   if (bushes < CFG.BUSH_MIN[type]) fails.push("bushes");
   if (gen.meta && gen.meta.bad) fails.push("layout:" + gen.meta.bad);
+  fails.push(...validateTrick(gen, grid => housePathLen(doors, grid)));   // SPEC-042: the world's trick: nothing in a house or its door apron, the path between the doors stays
   return { ok: fails.length === 0, fails, seen: small.seen, freeRatio, bigReachAll, smallReachAll, housePath, doorClear, deadEnds, bushes };
 }
 // Строит уровень: до LEVEL_ATTEMPTS попыток, пока validateLevel не пройдёт; иначе — запасной вариант (живая изгородь в «карманах»).
