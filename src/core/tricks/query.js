@@ -1,7 +1,7 @@
 // SPEC-042: the questions the rest of the core asks a world trick — one function per effect, each a plain read of the fields
 // a trick's step wrote into G.trick.fx (kit.js newFx); with no trick in the game (practice, tutorial, a world without one) every
 // answer is "no effect". A low module (it only reads G), so world / vision / hearing / rules / grid can import it. Core module.
-import { CELL, COLS, W, H } from "../config.js";
+import { CELL, COLS, FINE, FW, W, H } from "../config.js";
 import { anyArea, areaHas } from "./kit.js";
 import { G } from "../active.js";
 
@@ -22,12 +22,24 @@ export const trickSpeedMul = l => { const T = G.trick; return T && T.fx.slow.len
 export const trickHearMul = l => { const T = G.trick; return (T && T.fx.loud[l.id]) || 1; };
 // a kid should tiptoe here: on ground that gives him away (a puddle) while Dad is near enough to hear it (fx.quiet, fx.quietRange) — the bots and the careful autopilot
 export const trickQuiet = l => { const T = G.trick; return !!T && T.fx.quiet.length > 0 && Math.hypot(l.x - G.big.x, l.y - G.big.y) <= T.fx.quietRange && anyArea(T.fx.quiet, l.x, l.y); };
-// the centre of the nearest hiding area (an active spray) within maxDist px of p — a spot for a bot or the autopilot to hide in; null if none
+// a place for a bot or the autopilot to hide, within maxDist px of p (default fx.hideReach): the middle of an active spray, or the point just behind
+// a sight blocker (the truck) as Dad sees it (on the line from him through its centre, free ground); the nearest one → { x, y, stop (px: how close to get) }; null if none
 export function trickHideSpot(p, maxDist) {
   const T = G.trick;
   if (!T) return null;
-  let best = null, bd = maxDist;
-  for (const a of T.fx.hide) { const d = Math.hypot(a.x - p.x, a.y - p.y); if (d <= bd) { bd = d; best = { x: a.x, y: a.y }; } }
+  const reach = maxDist ?? T.fx.hideReach;
+  let best = null, bd = reach;
+  const take = (x, y, stop) => { const d = Math.hypot(x - p.x, y - p.y); if (d <= bd) { bd = d; best = { x, y, stop }; } };
+  for (const a of T.fx.hide) take(a.x, a.y, a.r / 2);
+  for (const a of T.fx.sight) {
+    if (a.shape !== "rect") continue;
+    const cx = a.x + a.w / 2, cy = a.y + a.h / 2, dx = cx - G.big.x, dy = cy - G.big.y, d = Math.hypot(dx, dy) || 1, off = Math.max(a.w, a.h) / 2 + 22;
+    const ux = dx / d, uy = dy / d;
+    for (const [sx, sy] of [[0, 0], [-uy * 40, ux * 40], [uy * 40, -ux * 40]]) {   // straight behind it, else a bit to either side
+      const x = cx + ux * off + sx, y = cy + uy * off + sy;
+      if (x > 20 && y > 20 && x < W - 20 && y < H - 20 && G.moveGrid[((y / FINE) | 0) * FW + ((x / FINE) | 0)] !== 1) { take(x, y, 10); break; }
+    }
+  }
   return best;
 }
 // p stands in a hiding area (so a bot that went there is hidden)

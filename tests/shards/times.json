@@ -637,5 +637,6 @@
  "menus.spec.js › the level card with its preview fits (phone 568×320, fonts ×1 / ×1.15)": 14,
  "menus.spec.js › the level card with its preview fits (phone 667×375, fonts ×1 / ×1.15)": 14,
  "menus.spec.js › the level card's preview paints the generated level's map (every world: walls dark, water blue, free ground the place's colour)": 6,
- "menus.spec.js › the card's map is made when it opens, never by drawing; clearLevelCache clears the previews; Play on a closed level does nothing": 6
+ "menus.spec.js › the card's map is made when it opens, never by drawing; clearLevelCache clears the previews; Play on a closed level does nothing": 6,
+ "tricks.spec.js › the City's ice-cream truck is an animated group: one per level, not batched, and the picture follows the core": 2.5
 }

@@ -7,10 +7,10 @@
    ["names.spec.js"],
    ["quality.spec.js"],
    ["saves.spec.js"],
-   ["tutorial.spec.js"]
+   ["tutorial.spec.js"],
+   ["wardrobe.spec.js"]
   ],
   [
-   ["fixedstep.spec.js"],
    ["gameplay.spec.js"],
    ["i18n.spec.js","1280×720 desktop","every wardrobe name fits its row, en and pt (1280×720 desktop)"],
    ["i18n.spec.js","667×375 phone","every wardrobe name fits its row, en and pt (667×375 phone)"],
@@ -18,7 +18,7 @@
    ["invariants.spec.js"],
    ["offline.spec.js"],
    ["tooling.spec.js"],
-   ["wardrobe.spec.js"]
+   ["tricks.spec.js"]
   ],
   [
    ["errors.spec.js"],
@@ -66,6 +66,7 @@
   [
    ["art.spec.js"],
    ["assets.spec.js"],
+   ["fixedstep.spec.js"],
    ["modules.spec.js"],
    ["story.spec.js","Dad's mood shows: angry red with steam and a dark cloud, mid orange-pink with less steam, kind pink with hearts"],
    ["story.spec.js","each boss wears his own look on the dad model, a bit bigger"],
@@ -75,7 +76,6 @@
    ["story.spec.js","the kind dad smiles, blushes and waves on his way home"],
    ["story.spec.js","the scenes fit a 667×375 phone"],
    ["story.spec.js","the win title: Dad is kind again (phone 667×375)"],
-   ["tricks.spec.js"],
    ["worlds.spec.js"]
   ],
   [

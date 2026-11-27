@@ -4,12 +4,30 @@
 import * as THREE from "three";
 import { G } from "../../core/active.js";
 import { sprinklerPhase } from "../../core/tricks/sprinklers.js";
+import { CELL } from "../../core/config.js";
+import { normAng } from "../../core/util.js";
 import { LOOK } from "../look.js";
 import { mapGroup } from "./mapstate.js";
-import { toon } from "./materials.js";
+import { part, toon } from "./materials.js";
 
 /** the sprays of the built map: { g (group), disc (wet ground), pts (the drops), p (the piece) } — rebuilt with the map */
 export const sprays = [];
+/** the ice-cream trucks (one): { g (group), rot (the angle it is drawn at) } */
+export const trucks = [];
+// a code-built ice-cream truck, 2 cells long along +x, 1 across: cream body, a pink cabin at the front, a striped roof, a cone and a scoop on top, four wheels
+function makeTruck(L) {
+  const g = new THREE.Group(), box = (w, h, d, c, x, y, z, o = 0.02) => { const m = part(new THREE.BoxGeometry(w, h, d), c, o); m.position.set(x, y, z); g.add(m); return m; };
+  box(1.35, 0.55, 0.82, L.body, -0.3, 0.46, 0);                 // the box with the ice cream
+  box(0.6, 0.45, 0.8, L.cabin, 0.68, 0.4, 0);                    // the cabin
+  box(0.4, 0.2, 0.7, L.window, 0.78, 0.5, 0, 0);                 // the windscreen
+  box(1.4, 0.07, 0.86, L.roof, -0.3, 0.76, 0);                   // the roof
+  box(1.0, 0.1, 0.86, L.stripe, -0.3, 0.55, 0);                  // the stripe
+  for (const z of [-0.43, 0.43]) box(0.5, 0.22, 0.02, L.window, -0.55, 0.55, z, 0);   // the serving windows
+  const cone = part(new THREE.ConeGeometry(0.16, 0.34, 10), L.cone, 0.02); cone.rotation.z = Math.PI; cone.position.set(-0.3, 0.97, 0); g.add(cone);
+  const scoop = part(new THREE.SphereGeometry(0.17, 12, 8), L.scoop, 0.02); scoop.position.set(-0.3, 1.2, 0); g.add(scoop);
+  for (const x of [-0.7, 0.62]) for (const z of [-0.4, 0.4]) { const w = part(new THREE.CylinderGeometry(0.17, 0.17, 0.1, 12), L.wheel, 0.02); w.rotation.x = Math.PI / 2; w.position.set(x, 0.17, z); g.add(w); }
+  return g;
+}
 const flat = (geo, mat, x, y, z, sx = 1, sz = 1, piece = "") => {
   const m = new THREE.Mesh(geo, mat); m.userData.piece = piece;   // piece: the probes' tag (__bb.mapPieces, trickMeshes)
   m.rotation.x = -Math.PI / 2; m.position.set(x, y, z); m.scale.set(sx, sz, 1); m.receiveShadow = true;
@@ -17,7 +35,7 @@ const flat = (geo, mat, x, y, z, sx = 1, sz = 1, piece = "") => {
 };
 // → the animated groups (batchMap leaves them alone)
 export function buildTrick3D() {
-  sprays.length = 0;
+  sprays.length = 0; trucks.length = 0;
   const T = G.trick, skip = [];
   if (!T || !mapGroup) return skip;
   const L = LOOK.TRICK_LOOK;
@@ -47,18 +65,31 @@ export function buildTrick3D() {
       sprays.push({ g, disc, pts, p, i });
     });
   }
+  else if (T.name === "truck" && T.pieces.length) {
+    const g = makeTruck(L.truck), st = T.st;
+    g.position.set(st.x / CELL, 0, st.y / CELL); g.rotation.y = -st.dir;
+    mapGroup.add(g); skip.push(g);
+    trucks.push({ g, rot: -st.dir });
+  }
   return skip;
 }
 // the probe (__bb.trickMeshes): what the map has of the trick — the puddle parts, the ring parts, and each spray: shown, its wet ground shown, drawn by a batch (it must not be)
 export function trickMeshes() {
   let puddles = 0, rings = 0;
   if (mapGroup) mapGroup.traverse(o => { if (o.userData.piece === "puddle") puddles++; else if (o.userData.piece === "sprayRing") rings++; });
-  return { puddles, rings, sprays: sprays.map(s => ({ i: s.i, on: s.g.visible, wet: s.disc.visible, batched: [s.g, s.disc, s.pts].some(o => o.layers.mask !== 1) })) };
+  return { puddles, rings, trucks: trucks.map(t => ({ x: t.g.position.x * CELL, y: t.g.position.z * CELL, batched: t.g.layers.mask !== 1 || t.g.children.some(c => c.layers.mask !== 1) })), sprays: sprays.map(s => ({ i: s.i, on: s.g.visible, wet: s.disc.visible, batched: [s.g, s.disc, s.pts].some(o => o.layers.mask !== 1) })) };
 }
 // every frame: the sprays follow the sprinklers' cycle (the game's trick clock) and the drops fly (the frame time t)
 export function syncTrick3D(t) {
   const T = G.trick, L = LOOK.TRICK_LOOK;
-  if (!T || !sprays.length) return;
+  if (!T) return;
+  for (const k of trucks) {                                              // the truck: where the core has it, turning smoothly, bouncing while it drives
+    const st = T.st, want = -st.dir;
+    k.rot += normAng(want - k.rot) * L.truck.turn;
+    k.g.position.set(st.x / CELL, st.stopped ? 0 : Math.abs(Math.sin(t * L.truck.bobSpeed)) * L.truck.bob, st.y / CELL);
+    k.g.rotation.y = k.rot;
+  }
+  if (!sprays.length) return;
   for (const s of sprays) {
     const ph = sprinklerPhase(s.p, T.t);
     s.g.visible = ph !== "off";

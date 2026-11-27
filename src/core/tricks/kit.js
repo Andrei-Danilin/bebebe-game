@@ -13,7 +13,7 @@ import { CFG, COLS, ROWS } from "../config.js";
 // core asks for are the fields of T.fx, read by query.js — a trick never edits big.js / vision.js / hearing.js itself.
 /** @typedef {{ shape: "circle", cx: number, cy: number, r: number } | { shape: "rect", x: number, y: number, w: number, h: number }} Area   in cells (cx, cy — a centre in cell coordinates) */
 /** @typedef {{ name: string, pieces: any[], meta?: any }} TrickGen   what the generator puts into gen.trick */
-/** @typedef {{ hide: any[], sight: any[], noDad: Uint8Array | null, slow: any[], slowMul: number, loud: Record<number, number>, quiet: any[], quietRange: number }} TrickFx   the effect fields (areas in px) */
+/** @typedef {{ hide: any[], sight: any[], noDad: Uint8Array | null, slow: any[], slowMul: number, loud: Record<number, number>, quiet: any[], quietRange: number, hideReach: number }} TrickFx   the effect fields (areas in px) */
 /** @typedef {{ name: string, pieces: any[], meta: any, st: any, fx: TrickFx, t: number }} Trick   G.trick */
 
 // the effect fields (query.js reads them; a trick's step rewrites the ones it uses, the rest stay empty — a no-op)
@@ -23,7 +23,8 @@ import { CFG, COLS, ROWS } from "../config.js";
 //   slow      areas (px) where a kid moves at slowMul of its speed (the wave)            (rules.js moveSpeed)
 //   loud      { kidId: multiplier } — the kid is heard from multiplier × HEAR_RADIUS      (hearing.js audible)
 //   quiet     areas (px) where a kid tiptoes while Dad is within quietRange px — bots and the careful autopilot (puddles)  (query.js trickQuiet)
-export const newFx = () => ({ hide: [], sight: [], noDad: null, slow: [], slowMul: 1, loud: {}, quiet: [], quietRange: 0 });
+//   hideReach px: how near a bot looks for a place to hide (query.js trickHideSpot: the middle of an active spray, the far side of a sight blocker from Dad)
+export const newFx = () => ({ hide: [], sight: [], noDad: null, slow: [], slowMul: 1, loud: {}, quiet: [], quietRange: 0, hideReach: 0 });
 
 // ---------- areas ----------
 // an area in px — { shape: "circle", x, y, r } or { shape: "rect", x, y, w, h } (the fx fields; pieces are in cells, a trick converts)

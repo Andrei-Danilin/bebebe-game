@@ -20,7 +20,7 @@ test("the Park's puddles are in the 3D map: three parts each, and none in the pr
   expect(sprinklerWorld, "no puddles in the Field").toBe(0);
   const practice = await page.evaluate(() => { const b = window.__bb; b.tutorialSkip(); b.seedRandom(3); b.openTutorial("map", "game1"); return { trick: b.trick, mesh: b.trickMeshes() }; });
   expect(practice.trick).toBeNull();
-  expect(practice.mesh).toEqual({ puddles: 0, rings: 0, sprays: [] });
+  expect(practice.mesh).toEqual({ puddles: 0, rings: 0, trucks: [], sprays: [] });
   expect(errors).toEqual([]);
 });
 
@@ -54,4 +54,20 @@ test("SPLASH is a pop text in all four languages", async ({ page }) => {
   const t = await page.evaluate(() => Object.fromEntries(["en", "es", "pt", "ru"].map(l => [l, window.__bb.I18N[l].splash])));
   expect(Object.values(t).every(v => typeof v === "string" && v.length > 1), JSON.stringify(t)).toBe(true);
   expect(new Set(Object.values(t)).size, "four different words").toBe(4);
+});
+
+test("the City's ice-cream truck is an animated group: one per level, not batched, and the picture follows the core", async ({ page }) => {
+  const errors = await openGame(page);
+  const r0 = await page.evaluate(() => { const b = window.__bb; b.world = "city"; b.level = 4; b.startGame(1); b.big.stun = 99; return { t: b.trick, m: b.trickMeshes() }; });
+  await frames(page);
+  expect(r0.t.name).toBe("truck");
+  expect(r0.m.trucks.length).toBe(1);
+  expect(r0.m.trucks[0].batched, "the truck is drawn by itself").toBe(false);
+  expect(r0.m.puddles + r0.m.sprays.length).toBe(0);
+  const r1 = await page.evaluate(() => { const b = window.__bb; for (let i = 0; i < 90; i++) b.update(1 / 60); return { st: { ...b.trick.st }, nodes: b.trick.pieces[0].nodes.length }; });
+  await frames(page);
+  const m = await page.evaluate(() => window.__bb.trickMeshes());
+  expect(Math.hypot(m.trucks[0].x - r1.st.x, m.trucks[0].y - r1.st.y), "drawn where the core has it (a few live steps apart)").toBeLessThan(12);
+  expect(r1.nodes).toBeGreaterThanOrEqual(16);
+  expect(errors).toEqual([]);
 });

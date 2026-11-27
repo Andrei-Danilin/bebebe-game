@@ -88,7 +88,8 @@ export function validateLevel(gen, type) {
   if (bushes < CFG.BUSH_MIN[type]) fails.push("bushes");
   if (gen.meta && gen.meta.bad) fails.push("layout:" + gen.meta.bad);
   fails.push(...validateTrick(gen));   // SPEC-042: the world's trick: nothing in a house or its door apron, the path between the doors stays
-  return { ok: fails.length === 0, fails, seen: small.seen, freeRatio, bigReachAll, smallReachAll, housePath, doorClear, deadEnds, bushes };
+  const trick = gen.trick ? { name: gen.trick.name, n: gen.trick.pieces.length, loop: gen.trick.meta.loop ?? null } : null;   // SPEC-042: what the level's trick came to (the truck: loop "none" — no lane)
+  return { ok: fails.length === 0, fails, seen: small.seen, freeRatio, bigReachAll, smallReachAll, housePath, doorClear, deadEnds, bushes, trick };
 }
 // Строит уровень: до LEVEL_ATTEMPTS попыток, пока validateLevel не пройдёт; иначе — запасной вариант (живая изгородь в «карманах»).
 // Попытки с 0 до LEVEL_ATTEMPTS-1, первая честная принимается. attempt — какая попытка построена.

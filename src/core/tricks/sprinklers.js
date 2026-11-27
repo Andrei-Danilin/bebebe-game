@@ -36,7 +36,7 @@ export const sprinklers = Object.freeze({
   // the kept sprinklers' phases are spread evenly over the cycle from the seeded start: never two sprays at once (cycle / n ≥ spray for n ≤ 4)
   fit(t) { t.pieces.forEach((p, i) => { p.off = Math.round((t.meta.base + i * CFG.TRICKS.sprinklers.cycle / t.pieces.length) % CFG.TRICKS.sprinklers.cycle * 10) / 10; }); },
   // st.ph[i] — the phase of sprinkler i; the hide areas and Dad's mask follow the active sprays (apply)
-  init(T) { T.st = { ph: T.pieces.map(() => "off") }; apply(T); },
+  init(T) { T.st = { ph: T.pieces.map(() => "off") }; T.fx.hideReach = CFG.TRICKS.sprinklers.hideReach * CELL; apply(T); },
   // Dad is standing in a spray that started under him (looking, hearing, pushing, thinking): he spends his steps walking straight out of it, before anything else
   bigStep(T, dt) {
     const b = G.big;

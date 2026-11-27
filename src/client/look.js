@@ -180,7 +180,9 @@ export const LOOK = {
   SAFE_GLOW: { color: "#4ade80", alpha: 0.25 },
   // SPEC-042: the world tricks' 3D pieces (three/tricks3d.js): puddle colours and height; a sprinkler's head, the ring of its reach, the spray (wet ground, drops: count, size, speed, height, reach as a share of the radius) and the drip warning (drops, speed)
   TRICK_LOOK: { puddle: "#9fe0f8", puddleRim: "#4cc9f0", puddleShine: "#e6f8ff", puddleY: 0.03, sprayRing: "#c4ecff", headBase: "#8b95a7", headStem: "#b8c0cc", headNozzle: "#38bdf8",
-    sprayWet: "#4cc9f0", sprayWetAlpha: 0.32, sprayDrop: "#8fe3ff", dropN: 72, dropSize: 0.14, dropSpeed: 0.9, dropH: 1.3, reach: 0.96, dripN: 6, dripSpeed: 1.6 },
+    sprayWet: "#4cc9f0", sprayWetAlpha: 0.32, sprayDrop: "#8fe3ff", dropN: 72, dropSize: 0.14, dropSpeed: 0.9, dropH: 1.3, reach: 0.96, dripN: 6, dripSpeed: 1.6,
+    // the ice-cream truck (City): body, cabin, stripe, roof, window, wheel, cone and scoop colours; the turn follows the way it points at this share per frame; the bounce while it drives (height, speed)
+    truck: { body: "#fff4e0", cabin: "#ff9ec4", stripe: "#ff7fb0", roof: "#9bdcfb", window: "#bae6fd", wheel: "#374151", cone: "#f5c26b", scoop: "#ff8fb1", turn: 0.22, bob: 0.025, bobSpeed: 9 } },
   // SPEC-036: пока упавшему помогают, его таймер «домой» стоит (решение детей) — как это выглядит (Claude): круг таймера в зелёном цвете
   // спасения вместо красного (и не мигает белым), цифра светло-зелёная, вокруг него мягкий зелёный ореол — радиальный градиент с прозрачным центром, чтобы не закрывать
   // ребёнка (стопы glow, от радиуса glowIn до glowOut UI px, пик на доле glowPeak; прозрачность glowA ± glowPulse, glowSpeed рад/с); кружок команды зелёный с тёмной цифрой

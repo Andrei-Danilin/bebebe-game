@@ -10,8 +10,8 @@ import { canAct, inDanger, inDangerXY, moveSolidAt } from "./world.js";
 import { G } from "./active.js";
 
 function fleePoint(b) {
-  const spray = trickHideSpot(b, CFG.TRICKS.sprinklers.hideReach * CELL);   // SPEC-042: an active sprinkler's spray hides him like a bush
-  if (spray) return spray;
+  const hide = trickHideSpot(b);   // SPEC-042: an active spray hides him like a bush, the far side of the truck from Dad too
+  if (hide) return hide;
   if (G.safeZone) {                        // домик рядом — бежим в домик
     const home = { x: G.safeZone.x + G.safeZone.w / 2, y: G.safeZone.y + G.safeZone.h / 2 };
     if (dist(b, home) < 260) return home;
@@ -113,8 +113,8 @@ function wideDanger(p, o = null) {
   const keep = (CFG.WIDE_PUSH_R + CFG.BOT_WIDE_KEEP) * CELL + (o ? o.r * 2 : 0);
   return dist(p, G.big) < keep && angDiff(G.big.dir, Math.atan2(p.y - G.big.y, p.x - G.big.x)) <= CFG.WIDE_PUSH_ARC * Math.PI / 360;
 }
-// SPEC-042: a spray near the lurking place — wait inside it (hidden), else where it was
-function lurkSpot(g) { return trickHideSpot(g, CFG.TRICKS.sprinklers.hideReach * CELL) || g; }
+// SPEC-042: a place to hide near the lurking place (a spray, behind the truck) — wait there, else where it was
+function lurkSpot(g) { return trickHideSpot(g) || g; }
 // Где ждать боту: в 170 px за Большим, но не в его доме; точка в стене или за водой — ближайшая свободная клетка
 function lurkPoint(a0) {
   for (const k of [0, 0.5, -0.5, 1, -1, 1.5, -1.5, 2, -2, 2.5, -2.5, Math.PI]) {
