@@ -85,6 +85,60 @@ test("rescue takes 3 seconds and drains when the helper leaves", { tag: "@fast" 
   expect(r.d).toBe("ok");
 });
 
+// SPEC-036 (the kids' rule, 2026-11-26): while a friend helps a fallen kid up, that kid's "go home" timer stops;
+// when the helper leaves, it goes on from where it stopped (core test: tests/core/rescue.test.mjs)
+test("while a friend helps, the fallen kid's timer stops; it goes on from there when the helper leaves", { tag: "@fast" }, async ({ simPage: page }) => {
+  await installTestHelpers(page);
+  const r = await page.evaluate(() => {
+    const b = window.__bb, t = window.__t, L = b.littles, out = {}, DT = b.CFG.DOWN_TIME;
+    t.calm(); t.pin([0, 1]);
+    Object.assign(L[0], { state: "down", downTimer: DT, rescue: 0, x: 400, y: 300, kx: 0, ky: 0, botWait: 999 });
+    Object.assign(L[1], { kind: "player", controls: { up: [], down: [], left: [], right: [] }, state: "ok", invuln: 0, x: 700, y: 300 });
+    t.step(5); out.alone = L[0].downTimer;                  // nobody near: counts down, 5 s
+    Object.assign(L[1], { x: 420, y: 300 });
+    t.step(1.9); out.helped = { timer: L[0].downTimer, state: L[0].state, helped: L[0].helped };   // 1.9 s of help (RESCUE_TIME is 3 s)
+    Object.assign(L[1], { x: 700, y: 300 });
+    t.step(0.1); out.left = { timer: L[0].downTimer, helped: L[0].helped };
+    t.step(1.0); out.after = L[0].downTimer;
+    out.DT = DT;
+    return out;
+  });
+  expect(r.alone).toBeCloseTo(r.DT - 5, 1);
+  expect(r.helped.state).toBe("down");
+  expect(r.helped.helped).toBe(true);
+  expect(r.helped.timer).toBeCloseTo(r.DT - 5, 1);          // 13 s at the moment of leaving (DOWN_TIME 18): it did not move
+  expect(r.left.helped).toBe(false);
+  expect(r.left.timer).toBeCloseTo(r.DT - 5 - 0.1, 1);
+  expect(r.after).toBeCloseTo(r.DT - 5 - 1.1, 1);           // keeps counting down from 13
+});
+
+// SPEC-036 AC 3: the pause is visible — a helped fallen kid's timer ring and team chip are drawn in the rescue green (LOOK.HELPED_LOOK),
+// an unhelped one in the warning red; checked on the drawn state of a rendered page (the real loop draws the frames)
+test("a helped fallen kid is drawn with a green timer ring and chip, an unhelped one with the warning ring", async ({ page }) => {
+  await installTestHelpers(page);
+  await page.evaluate(() => {
+    const b = window.__bb, t = window.__t, L = b.littles;
+    t.calm(); t.pin([0, 1]);
+    window.__saveRT = b.CFG.RESCUE_TIME; b.CFG.RESCUE_TIME = 1e6;       // the real loop must not finish the rescue while frames are drawn
+    Object.assign(L[0], { state: "down", downTimer: 15, rescue: 0, x: 400, y: 300, kx: 0, ky: 0, botWait: 999 });
+    Object.assign(L[1], { kind: "player", controls: { up: [], down: [], left: [], right: [] }, state: "ok", invuln: 0, x: 420, y: 300 });
+  });
+  try {
+    await frames(page); await frames(page);
+    const on = await page.evaluate(() => ({ drawn: window.__bb.downDrawn, timer: window.__bb.littles[0].downTimer, green: window.__bb.CFG.HELPED_LOOK }));
+    expect(on.timer, "the timer stood still while helped, frames and all").toBe(15);
+    expect(on.drawn.filter(d => d.id === 0).map(d => [d.kind, d.helped, d.color]).sort()).toEqual([["chip", true, on.green.chip], ["ring", true, on.green.ring]]);
+    await page.evaluate(() => { window.__bb.littles[1].x = 700; });
+    await frames(page); await frames(page);
+    const off = await page.evaluate(() => ({ drawn: window.__bb.downDrawn, timer: window.__bb.littles[0].downTimer }));
+    expect(off.timer, "the helper left: it counts down again").toBeLessThan(15);
+    expect(off.drawn.filter(d => d.id === 0).map(d => [d.kind, d.helped]).sort()).toEqual([["chip", false], ["ring", false]]);
+    expect(off.drawn.find(d => d.kind === "ring").color).toBe("#ef4444");
+  } finally {
+    await page.evaluate(() => { window.__bb.CFG.RESCUE_TIME = window.__saveRT; delete window.__saveRT; });
+  }
+});
+
 test("pushing the helper resets the rescue", async ({ simPage: page }) => {
   await installTestHelpers(page);
   const r = await page.evaluate(() => {

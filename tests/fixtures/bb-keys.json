@@ -76,6 +76,7 @@
  "difficulty": "function",
  "disposeCheck": "function",
  "drawNow": "function",
+ "downDrawn": "getter",
  "edgeArrows": "getter",
  "errorLog": "getter",
  "events": "getter",

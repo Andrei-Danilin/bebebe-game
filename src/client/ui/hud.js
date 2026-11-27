@@ -32,6 +32,10 @@ export const angerLabel = () => (typedName("big") ? L().angerOf(typedName("big")
 export const timerText = () => { if (G.tutorialGame) return L().tut.practice; const s = Math.floor(G.stats.time); return `${L().lvShort} ${G.level}  ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };   // SPEC-029: в тренировке — «Тренировка»
 // кружок команды: секунды до «домой» у упавшего, «z» у отдыхающего, иначе метка игрока или бота
 export const chipText = l => l.state === "down" ? (G.tutorialGame ? "!" : String(Math.ceil(l.downTimer))) : l.state === "home" || l.state === "rest" ? "z" : l.kind === "player" ? chipName(l) : L().botChip;
+// SPEC-036: кружок упавшего, которому помогают (таймер стоит): зелёный с тёмной цифрой; записывается в downDrawn (для тестов)
+export const chipFill = l => l.state === "ok" ? l.look.shirt : l.state === "down" && l.helped ? LOOK.HELPED_LOOK.chip : "#9ca3af";
+export const chipInk = l => l.state === "down" ? (l.helped ? LOOK.HELPED_LOOK.chipInk : "#fecaca") : "#fff";
+export const noteChip = l => { if (l.state === "down") ui.downDrawn.push({ kind: "chip", id: l.id, helped: !!l.helped, color: chipFill(l) }); };
 export const restText = l => "💤 " + L().resting(nameOf(l), fmtTime(Math.max(0, l.state === "rest" ? l.restTimer : CFG.REST_TIME)));
 
 export function drawHUD(t) {
@@ -52,10 +56,10 @@ export function drawHUD(t) {
   G.littles.forEach((l, i) => {
     const cx = x0 + 7 + i * chipW + chipW / 2, cy = 25;
     ctx.globalAlpha = l.state === "home" || l.state === "rest" ? 0.45 : 1;
-    circle(cx, cy, 11); fillStroke(l.state === "ok" ? l.look.shirt : "#9ca3af", 2.5);
+    circle(cx, cy, 11); fillStroke(chipFill(l), 2.5); noteChip(l);
     ctx.globalAlpha = 1;
     const down = l.state === "down", zz = l.state === "home" || l.state === "rest";
-    label(chipText(l), cx, cy, down ? 11 : zz ? 12 : l.kind === "player" && G.players === 1 ? 8 : 10, down ? "#fecaca" : "#fff");
+    label(chipText(l), cx, cy, down ? 11 : zz ? 12 : l.kind === "player" && G.players === 1 ? 8 : 10, chipInk(l));
   });
 
   const gls = [0, 1].filter(pi => pi < G.players).map(pi => gloveOf(pi)).filter(Boolean);
