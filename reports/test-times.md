@@ -368,4 +368,8 @@ First CI run of the branch: run 45957040604 on `03efd2e`, **wall 9.5 min** (9 of
 
 | run | commit | wall | slowest shard | fastest shard |
 |---|---|---|---|---|
-| _to fill: run id_ | _commit_ | _s (min)_ | _s_ | _s_ |
+| 45957040604 | 03efd2e | 9.5 min | 534 s | 356 s (shard 7 failed at apt) |
+| 45958712945 | a675fa4 | 10.2 min | 582 s | 225 s |
+| **45960221617** | **3b06ca2** (plan refolded from the 10-shard times) | **9.8 min** | 566 s | 238 s |
+
+The last code push of the branch ran in **9.8 min** (≤ 10: AC 1 met, from 21–25 min). The shards still spread 238–566 s against a plan of 367–395 s: the same test takes noticeably different times on different runners, so the margin is thin (9.5–10.2 min over three runs) — see BACKLOG.
