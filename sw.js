@@ -25,7 +25,7 @@ const NET_TIMEOUT_MS = 4000;             // weak signal: after this long, a cach
 const SW_BUILD = 7;
 const SW_STRATEGY = "463855aec6";
 const SW_VERSION = "bebebe-1.0.0-dev-b7";
-const SRC_HASH = "ffdbb31641";
+const SRC_HASH = "de01bd67ec";
 const PRECACHE_LOCAL = [
   "./", "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512-maskable.png",
   "./icons/icon-512.png", "./icons/icon.svg", "./index.html", "./manifest.webmanifest"
@@ -34,7 +34,7 @@ const PRECACHE_SRC = [
   "./src/client/art-names.js?v=20ca23d7bd", "./src/client/art.js?v=68d5388c7e", "./src/client/back.js?v=31643bda5c",
   "./src/client/debug.js?v=5e4f9e4bd9", "./src/client/errors.js?v=d36934cb61", "./src/client/flow.js?v=9843e36ab7",
   "./src/client/fx.js?v=84a289bc8e", "./src/client/input.js?v=9dd01ce6c3", "./src/client/lifecycle.js?v=3a42079abe",
-  "./src/client/look.js?v=d6ced80fc2", "./src/client/main.js?v=7fbc35ed28", "./src/client/names.js?v=dff85cded6",
+  "./src/client/look.js?v=8fd8039408", "./src/client/main.js?v=7fbc35ed28", "./src/client/names.js?v=dff85cded6",
   "./src/client/outfits.js?v=8564eaee23", "./src/client/perf.js?v=1b8537ee9d", "./src/client/progress.js?v=ae2e521ad9",
   "./src/client/save.js?v=be42450a76", "./src/client/screen.js?v=94ffe40171", "./src/client/shop.js?v=ebde4ad6de",
   "./src/client/sound.js?v=57a594910c", "./src/client/state.js?v=47e0e50964", "./src/client/storage.js?v=686b11f06c",
@@ -46,7 +46,7 @@ const PRECACHE_SRC = [
   "./src/client/three/themes.js?v=6f17def67f", "./src/client/tutorial.js?v=79c53ff666",
   "./src/client/ui/character/items.js?v=9f6dd754dd", "./src/client/ui/character/progress.js?v=4a8d1be0da",
   "./src/client/ui/character/tabs.js?v=736bd98233", "./src/client/ui/character/upgrades.js?v=ec89bfa2d2",
-  "./src/client/ui/character/wardrobe.js?v=9b68107cfe", "./src/client/ui/draw.js?v=44cd9635cf",
+  "./src/client/ui/character/wardrobe.js?v=9b68107cfe", "./src/client/ui/draw.js?v=822a4cc90e",
   "./src/client/ui/grownups.js?v=be5b41506c", "./src/client/ui/home.js?v=d456be2d53",
   "./src/client/ui/hud.js?v=168281e932", "./src/client/ui/lang.js?v=6f01f96074", "./src/client/ui/map.js?v=4634784c68",
   "./src/client/ui/menu.js?v=df7bd8b63c", "./src/client/ui/minimap.js?v=afd7cc3057",
@@ -58,7 +58,7 @@ const PRECACHE_SRC = [
   "./src/core/hearing.js?v=02c8023238", "./src/core/hooks.js?v=5ceea54c61", "./src/core/index.js?v=2ac6418608",
   "./src/core/level/build.js?v=fc9509a62b", "./src/core/level/generate.js?v=455b2ff4e4",
   "./src/core/level/layouts.js?v=07d6472d8e", "./src/core/level/validate.js?v=3f3743eb46",
-  "./src/core/mood.js?v=8dcad43e22", "./src/core/path.js?v=b05dfc5c4e", "./src/core/practice.js?v=44fe1505f4",
+  "./src/core/mood.js?v=8dcad43e22", "./src/core/path.js?v=b05dfc5c4e", "./src/core/practice.js?v=dff6db8024",
   "./src/core/progress-rules.js?v=a9deff0bda", "./src/core/rules.js?v=ebb66b0e27", "./src/core/util.js?v=b56133239e",
   "./src/core/wardrobe.js?v=011be2182f", "./src/core/world.js?v=68fa838aaf", "./src/i18n.js?v=0b27cd61e2",
   "./src/story.js?v=0cd3381a6e", "./src/version.js?v=6d0844555e"

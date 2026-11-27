@@ -96,7 +96,7 @@ test("while a friend helps, the fallen kid's timer stops; it goes on from there 
     Object.assign(L[1], { kind: "player", controls: { up: [], down: [], left: [], right: [] }, state: "ok", invuln: 0, x: 700, y: 300 });
     t.step(5); out.alone = L[0].downTimer;                  // nobody near: counts down, 5 s
     Object.assign(L[1], { x: 420, y: 300 });
-    t.step(1.9); out.helped = { timer: L[0].downTimer, state: L[0].state, helped: L[0].helped };   // 1.9 s of help (RESCUE_TIME is 3 s)
+    t.step(2 - 1 / 60); out.helped = { timer: L[0].downTimer, state: L[0].state, helped: L[0].helped };   // 2 s of help, a step short (RESCUE_TIME is 3 s)
     Object.assign(L[1], { x: 700, y: 300 });
     t.step(0.1); out.left = { timer: L[0].downTimer, helped: L[0].helped };
     t.step(1.0); out.after = L[0].downTimer;

@@ -65,7 +65,7 @@ export function updateTutorial(dt) {
       G.tut.bothDown = 0;
       for (const l of G.littles) {
         const sp = G.spawns.small[l.id];
-        Object.assign(l, { state: "ok", x: sp.x, y: sp.y, kx: 0, ky: 0, rescue: 0, path: [], moving: false, invuln: CFG.INVULN_AFTER_RESCUE });
+        Object.assign(l, { state: "ok", x: sp.x, y: sp.y, kx: 0, ky: 0, rescue: 0, helped: false, path: [], moving: false, invuln: CFG.INVULN_AFTER_RESCUE });
         emit("pop", { key: "back", args: [], x: l.x, y: l.y - 40, color: "#7CFC9A" });
       }
     }

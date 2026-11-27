@@ -309,7 +309,11 @@ export function drawMarkers(t) {
     } else {
       const c = toScreen(l.x, l.y, 10);
       const H = LOOK.HELPED_LOOK, helped = !!l.helped;           // SPEC-036: помощник рядом — таймер стоит: зелёный круг, свечение
-      if (helped) { ctx.save(); ctx.globalAlpha = H.glowA + Math.sin(t * H.glowSpeed) * H.glowPulse; ctx.fillStyle = H.glow; circle(c.x, c.y, H.glowR); ctx.fill(); ctx.restore(); }
+      if (helped) {                                              // ореол вокруг круга таймера: центр прозрачный — ребёнок виден
+        const gr = ctx.createRadialGradient(c.x, c.y, H.glowIn, c.x, c.y, H.glowOut);
+        gr.addColorStop(0, H.glow[0]); gr.addColorStop(H.glowPeak, H.glow[1]); gr.addColorStop(1, H.glow[2]);
+        ctx.save(); ctx.globalAlpha = H.glowA + Math.sin(t * H.glowSpeed) * H.glowPulse; ctx.fillStyle = gr; circle(c.x, c.y, H.glowOut); ctx.fill(); ctx.restore();
+      }
       ctx.lineWidth = 4; ctx.lineCap = "round";
       ctx.strokeStyle = "rgba(0,0,0,.3)"; circle(c.x, c.y, 24); ctx.stroke();
       const dn = G.tutorialGame ? CFG.DOWN_TIME : l.downTimer;   // SPEC-029: в тренировке лежат без времени — полный круг, без счёта
