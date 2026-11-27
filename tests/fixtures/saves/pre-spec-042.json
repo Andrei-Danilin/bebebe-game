@@ -1,0 +1,260 @@
+{
+  "about": "Before SPEC-042 (the current shape of SPEC-029 to SPEC-041): six worlds with won flags, lastWorld, coins, inv with rescues, equip, owned clothes, upgrade levels, outfits, names; seen = the story scenes already shown and the tutorial, without the world tricks cards.",
+  "keys": {
+    "bebebe-progress": {
+      "worlds": {
+        "park": {
+          "unlocked": 20,
+          "stars": {
+            "1": 3,
+            "2": 2,
+            "19": 1
+          },
+          "won": {
+            "1": true,
+            "2": true,
+            "19": true
+          }
+        },
+        "field": {
+          "unlocked": 4,
+          "stars": {
+            "1": 3,
+            "2": 1,
+            "3": 2
+          },
+          "won": {
+            "1": true,
+            "2": true,
+            "3": true
+          }
+        },
+        "city": {
+          "unlocked": 2,
+          "stars": {
+            "1": 1
+          },
+          "won": {
+            "1": true
+          }
+        },
+        "school": {
+          "unlocked": 3,
+          "stars": {
+            "1": 3,
+            "2": 1
+          },
+          "won": {
+            "1": true,
+            "2": true
+          }
+        },
+        "beach": {
+          "unlocked": 2,
+          "stars": {
+            "1": 2
+          },
+          "won": {
+            "1": true
+          }
+        },
+        "winter": {
+          "unlocked": 1,
+          "stars": {},
+          "won": {}
+        }
+      },
+      "lastWorld": "field",
+      "coins": 88,
+      "inv": {
+        "mittens": 1,
+        "mega": 2,
+        "kisses": 3,
+        "rescues": 4
+      },
+      "equip": [
+        "mega",
+        "mittens"
+      ],
+      "owned": {
+        "hats": [],
+        "jackets": [],
+        "pants": [],
+        "big": [
+          "bear"
+        ]
+      },
+      "upgrades": {
+        "fastFeet": 1,
+        "longItems": 0,
+        "quickHelp": 2
+      },
+      "seen": {
+        "intro": true,
+        "boss_park": true,
+        "boss_field": false,
+        "boss_city": false,
+        "boss_school": false,
+        "bonus_beach": false,
+        "bonus_winter": false,
+        "ending": false,
+        "tutorial": true
+      }
+    },
+    "bebebe-outfits": {
+      "p1": {
+        "hair": 3,
+        "hat": 0,
+        "jacket": 2,
+        "pants": 1
+      },
+      "p2": {
+        "hair": 0,
+        "hat": 2,
+        "jacket": 3,
+        "pants": 0
+      },
+      "big": 4
+    },
+    "bebebe-names": {
+      "p1": "Mila",
+      "p2": "Tomás",
+      "big": "Papá",
+      "bots": [
+        "Тёма",
+        "",
+        "Sol",
+        ""
+      ]
+    },
+    "bebebe-lang": "ru"
+  },
+  "expect": {
+    "progress": {
+      "worlds": {
+        "park": {
+          "unlocked": 20,
+          "stars": {
+            "1": 3,
+            "2": 2,
+            "19": 1
+          },
+          "won": {
+            "1": true,
+            "2": true,
+            "19": true
+          }
+        },
+        "field": {
+          "unlocked": 4,
+          "stars": {
+            "1": 3,
+            "2": 1,
+            "3": 2
+          },
+          "won": {
+            "1": true,
+            "2": true,
+            "3": true
+          }
+        },
+        "city": {
+          "unlocked": 2,
+          "stars": {
+            "1": 1
+          },
+          "won": {
+            "1": true
+          }
+        },
+        "school": {
+          "unlocked": 3,
+          "stars": {
+            "1": 3,
+            "2": 1
+          },
+          "won": {
+            "1": true,
+            "2": true
+          }
+        },
+        "beach": {
+          "unlocked": 2,
+          "stars": {
+            "1": 2
+          },
+          "won": {
+            "1": true
+          }
+        },
+        "winter": {
+          "unlocked": 1,
+          "stars": {},
+          "won": {}
+        }
+      },
+      "lastWorld": "field",
+      "coins": 88,
+      "inv": {
+        "mittens": 1,
+        "mega": 2,
+        "kisses": 3,
+        "rescues": 4
+      },
+      "equip": [
+        "mega",
+        "mittens"
+      ],
+      "owned": {
+        "hats": [],
+        "jackets": [],
+        "pants": [],
+        "big": [
+          "bear"
+        ]
+      },
+      "upgrades": {
+        "fastFeet": 1,
+        "longItems": 0,
+        "quickHelp": 2
+      },
+      "seen": {
+        "intro": true,
+        "boss_park": true,
+        "boss_field": false,
+        "boss_city": false,
+        "boss_school": false,
+        "bonus_beach": false,
+        "bonus_winter": false,
+        "ending": false,
+        "tutorial": true
+      }
+    },
+    "outfits": {
+      "p1": {
+        "hair": 3,
+        "hat": 0,
+        "jacket": 2,
+        "pants": 1
+      },
+      "p2": {
+        "hair": 0,
+        "hat": 2,
+        "jacket": 3,
+        "pants": 0
+      },
+      "big": 4
+    },
+    "names": {
+      "p1": "Mila",
+      "p2": "Tomás",
+      "big": "Papá",
+      "bots": [
+        "Тёма",
+        "",
+        "Sol",
+        ""
+      ]
+    }
+  }
+}
