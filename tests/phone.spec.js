@@ -150,6 +150,49 @@ test.describe("tablet", () => {
   });
 });
 
+// SPEC-038 AC 3 (RR-38): a tablet (a touch screen over PHONE_MAX_SHORT_SIDE) and a tall desktop window play in portrait: the
+// landscape canvas centred between paper margins, no rotate wall. A phone keeps the wall (the "phone portrait" test below).
+test.describe("tablet portrait", () => {
+  test.use({ viewport: { width: 820, height: 1180 }, hasTouch: true, isMobile: true });
+
+  test("an iPad in portrait plays letterboxed, with no rotate wall", async ({ page }) => {
+    const errors = await openGame(page);
+    expect(await page.evaluate(() => window.__bb.phone)).toBe(false);
+    await frames(page);
+    const home = await page.evaluate(() => ({ shown: window.__bb.rotateShown, wall: window.__bb.rotateWall(), buttons: window.__bb.buttonRects.length, ui: window.__bb.uiSize }));
+    expect(home.shown).toBe(false); expect(home.wall).toBe(false); expect(home.buttons).toBeGreaterThan(0);
+    // the landscape canvas: full width, 3:2 shape, centred vertically (paper margins above and below)
+    const box = await page.locator("#game").boundingBox();
+    expect(Math.abs(box.x), "x").toBeLessThanOrEqual(1);
+    expect(Math.abs(box.width - 820), `width ${box.width}`).toBeLessThanOrEqual(1);
+    expect(Math.abs(box.height - 820 * 640 / 960), `height ${box.height}`).toBeLessThanOrEqual(1);
+    expect(Math.abs(box.y - (1180 - box.height) / 2), `y ${box.y}`).toBeLessThanOrEqual(1.5);
+    // a tap on Play (through the letterbox) works
+    const play = (await page.evaluate(() => window.__bb.buttonRects)).find(b => b.id === "home:play"), s = home.ui.scale;
+    await page.touchscreen.tap(box.x + (play.x + play.w / 2) * s, box.y + (play.y + play.h / 2) * s);
+    expect(await page.evaluate(() => window.__bb.mode)).not.toBe("home");
+    // a level in portrait runs: it does not pause, the clock moves
+    await page.evaluate(() => { window.__bb.startGame(1); });
+    await page.waitForFunction(() => window.__bb.stats.time > 0.3, null, { timeout: 15_000 });
+    expect(await page.evaluate(() => ({ mode: window.__bb.mode, shown: window.__bb.rotateShown }))).toEqual({ mode: "play", shown: false });
+    expect(errors).toEqual([]);
+  });
+});
+
+test.describe("desktop window taller than wide", () => {
+  test.use({ viewport: { width: 700, height: 1000 } });
+
+  test("it plays letterboxed in portrait, no rotate wall", async ({ page }) => {
+    const errors = await openGame(page);
+    await frames(page);
+    expect(await page.evaluate(() => ({ shown: window.__bb.rotateShown, wall: window.__bb.rotateWall() }))).toEqual({ shown: false, wall: false });
+    const box = await page.locator("#game").boundingBox();
+    expect(Math.abs(box.width - 700), `width ${box.width}`).toBeLessThanOrEqual(1);
+    expect(Math.abs(box.y - (1000 - box.height) / 2), `y ${box.y}`).toBeLessThanOrEqual(1.5);
+    expect(errors).toEqual([]);
+  });
+});
+
 // AC 2: in phone mode both canvases fill playArea() (no letterbox), the UI layer has its own size (PHONE_UI_H × aspect).
 for (const [vw, vh] of [[667, 375], [844, 390], [932, 430]]) {
   test.describe(`phone ${vw}×${vh}`, () => {
