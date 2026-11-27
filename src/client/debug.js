@@ -77,7 +77,7 @@ const CFG_ALL = new Proxy({}, {
 // SPEC-023 AC 5: в sim ничего не рисуется — состояние, которое заполняют drawUI / 3D, устарело или пусто. Чтение бросает
 // ошибку, чтобы визуальный тест, открытый в sim, падал громко, а не проверял пустоту.
 const SIM_DRAWN = ["buttonRects", "buttonNames", "tapButton", "hudRects", "mapInfo", "levelCard", "storyInfo", "textSizes", "minimap",
-  "bannerRect", "rotateShown", "winPanel", "winLine", "bonusNote", "shopLayout", "kitHint", "heardHint", "edgeArrows", "stickMarks",
+  "bannerRect", "rotateShown", "winPanel", "winLine", "bonusNote", "shopLayout", "kitHint", "heardHint", "edgeArrows", "downDrawn", "stickMarks",
   "tapLines", "textOverflows", "tutorialHint", "homeInfo", "progressInfo", "outfit3D", "bibClear", "mapPieces", "groundColorAt", "camera", "minimapAlpha", "artUse", "sceneInfo", "moodInfo", "bigLook", "look3D", "drawNow", "model",
   "perf", "disposeCheck"];   // SPEC-025 AC 15 / 15b: the renderer's numbers and textures — a rendered page only
 
@@ -202,7 +202,7 @@ export function installDebug() {
     get bubbleTextOff() { return ui.bubbleTextOff; }, set bubbleTextOff(v) { ui.bubbleTextOff = !!v; }, storyPx,
     get textOverflows() { return ui.textOverflows.map(q => ({ ...q })); }, get rotateShown() { return ui.rotateShown; }, get bannerRect() { return ui.bannerRect && { ...ui.bannerRect }; },
     get minimap() { return ui.mmShown ? { x: mmState.x, y: mmState.y, w: mmState.w, h: mmState.h, alpha: mmState.alpha, baseDraws: mmDraws, markers: mmState.markers.slice(0, mmCount).map(m => ({ ...m })) } : null; },
-    get edgeArrows() { return ui.edgeArrows.map(a => ({ ...a })); }, get hudRects() { return ui.hudRects.map(r => ({ ...r })); },
+    get edgeArrows() { return ui.edgeArrows.map(a => ({ ...a })); }, get hudRects() { return ui.hudRects.map(r => ({ ...r })); }, get downDrawn() { return ui.downDrawn.map(r => ({ ...r })); },
     get sticks() { return [...sticks].map(([id, s]) => ({ id, ...s })); },
     // слой интерфейса: размер в UI px, размер холста в CSS px, scale = CSS px на UI px (SPEC-005)
     get uiSize() { return { w: UW, h: UH, cssW: CSS_W, cssH: CSS_H, scale: CSS_W / UW }; }, toGame,

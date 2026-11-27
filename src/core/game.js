@@ -115,7 +115,7 @@ function makeLittle(i, s, botIndex) {
   return {
     id: i, slot: s.slot, x: sp.x, y: sp.y, r: 11, kind, botIndex, look: s.look,
     name: s.name ?? null, glove: s.glove ?? null, gloveCharges: s.gloveCharges ?? 0, kisses: s.kisses ?? 0, kits: s.kits ?? 0,
-    state: "ok", downTimer: 0, rescue: 0, botWait: 0, invuln: 0, kx: 0, ky: 0, dangerT: 0, dizzy: 0,
+    state: "ok", downTimer: 0, rescue: 0, helped: false, botWait: 0, invuln: 0, kx: 0, ky: 0, dangerT: 0, dizzy: 0,
     path: [], repath: 0, dir: Math.PI / 2, moveDir: 0, walk: 0, moving: false, speedFrac: 0, hugCd: 0,
     task: "idle", fleeT: 0, fleeGoal: null, fleeRe: 0, lurkT: rand(0, 2), offset: rand(-0.5, 0.5), tokenT: 0,
     hugAnim: 0, kissCd: 0, fx: { boots: 0, cloak: 0, shield: 0 },

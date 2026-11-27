@@ -308,14 +308,22 @@ export function drawMarkers(t) {
       if (ic) { ctx.font = "15px system-ui, 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; fillT(ic, hd.x, hd.y - (isPlayer ? 30 : 20)); }
     } else {
       const c = toScreen(l.x, l.y, 10);
+      const H = LOOK.HELPED_LOOK, helped = !!l.helped;           // SPEC-036: помощник рядом — таймер стоит: зелёный круг, свечение
+      if (helped) {                                              // ореол вокруг круга таймера: центр прозрачный — ребёнок виден
+        const gr = ctx.createRadialGradient(c.x, c.y, H.glowIn, c.x, c.y, H.glowOut);
+        gr.addColorStop(0, H.glow[0]); gr.addColorStop(H.glowPeak, H.glow[1]); gr.addColorStop(1, H.glow[2]);
+        ctx.save(); ctx.globalAlpha = H.glowA + Math.sin(t * H.glowSpeed) * H.glowPulse; ctx.fillStyle = gr; circle(c.x, c.y, H.glowOut); ctx.fill(); ctx.restore();
+      }
       ctx.lineWidth = 4; ctx.lineCap = "round";
       ctx.strokeStyle = "rgba(0,0,0,.3)"; circle(c.x, c.y, 24); ctx.stroke();
       const dn = G.tutorialGame ? CFG.DOWN_TIME : l.downTimer;   // SPEC-029: в тренировке лежат без времени — полный круг, без счёта
-      ctx.strokeStyle = dn < 5 && Math.floor(t * 6) % 2 ? "#fff" : "#ef4444";
+      const ringColor = helped ? H.ring : dn < 5 && Math.floor(t * 6) % 2 ? "#fff" : "#ef4444";
+      ui.downDrawn.push({ kind: "ring", id: l.id, helped, color: ringColor });
+      ctx.strokeStyle = ringColor;
       ctx.beginPath(); ctx.arc(c.x, c.y, 24, -Math.PI / 2, -Math.PI / 2 + TAU * (dn / CFG.DOWN_TIME)); ctx.stroke();
-      if (l.rescue > 0) { ctx.strokeStyle = "#4ade80"; ctx.beginPath(); ctx.arc(c.x, c.y, 29, -Math.PI / 2, -Math.PI / 2 + TAU * (l.rescue / (l.rescueNeed || CFG.RESCUE_TIME))); ctx.stroke(); }
+      if (l.rescue > 0) { ctx.strokeStyle = H.ring; ctx.beginPath(); ctx.arc(c.x, c.y, 29, -Math.PI / 2, -Math.PI / 2 + TAU * (l.rescue / (l.rescueNeed || CFG.RESCUE_TIME))); ctx.stroke(); }
       ctx.lineCap = "butt";
-      if (!G.tutorialGame) label(String(Math.ceil(l.downTimer)), c.x + 30, c.y - 22, fz(15, "main"), "#fecaca");
+      if (!G.tutorialGame) label(String(Math.ceil(l.downTimer)), c.x + 30, c.y - 22, fz(15, "main"), helped ? H.num : "#fecaca");
       const pulse = 1 + Math.sin(t * 8) * 0.1;   // телефон: пульсирует вверх от минимального размера
       label(isPlayer ? L().help(name) : "SOS", c.x, c.y - 40, PHONE ? fz(12, "main") * (pulse + 0.1) : 12 * pulse, "#fde047");
     }

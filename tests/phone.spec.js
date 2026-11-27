@@ -532,6 +532,36 @@ test.describe("phone controls", () => {
 
 // SPEC-032 AC 1: the 👣 button next to 💋 / 🩹 is a toggle (Claude): tap = tiptoe on (it glows; full tilt walks at TIPTOE_MULT,
 // silent), tap again = off; off again at each level start; a light tilt still tiptoes as before
+// SPEC-036 AC 3: the paused timer on the phone — the team chip of a helped fallen hero is green with a dark number (the ring is the same
+// drawing as on a computer); without a helper it is the grey chip with the red-pink number
+test.describe("phone paused timer 667×375", () => {
+  test.use({ ...PHONE_CTX, viewport: { width: 667, height: 375 } });
+
+  test("a helped fallen hero: green chip and ring; the helper leaves: grey chip, warning ring (667)", async ({ phonePage: page }) => {
+    await phonePlay(page); await calmAll(page);
+    await page.evaluate(() => {
+      const b = window.__bb, L = b.littles;
+      window.__saveRT = b.CFG.RESCUE_TIME; b.CFG.RESCUE_TIME = 1e6;     // the real loop must not finish the rescue
+      Object.assign(L[0], { state: "down", downTimer: 15, rescue: 0, kx: 0, ky: 0, moving: false });
+      Object.assign(L[1], { kind: "player", controls: { up: [], down: [], left: [], right: [] }, state: "ok", invuln: 0, kx: 0, ky: 0, x: L[0].x + 20, y: L[0].y });
+      b.camSnap();
+    });
+    try {
+      await frames(page); await frames(page);
+      const on = await page.evaluate(() => ({ drawn: window.__bb.downDrawn, timer: window.__bb.littles[0].downTimer, H: window.__bb.CFG.HELPED_LOOK }));
+      expect(on.timer).toBe(15);
+      expect(on.drawn.filter(d => d.id === 0).map(d => [d.kind, d.helped, d.color]).sort()).toEqual([["chip", true, on.H.chip], ["ring", true, on.H.ring]]);
+      await page.evaluate(() => { const L = window.__bb.littles; L[1].x = L[0].x + 600; });
+      await frames(page); await frames(page);
+      const off = await page.evaluate(() => ({ drawn: window.__bb.downDrawn, timer: window.__bb.littles[0].downTimer }));
+      expect(off.timer).toBeLessThan(15);
+      expect(off.drawn.filter(d => d.id === 0).map(d => [d.kind, d.helped, d.color]).sort()).toEqual([["chip", false, "#9ca3af"], ["ring", false, "#ef4444"]]);
+    } finally {
+      await page.evaluate(() => { window.__bb.CFG.RESCUE_TIME = window.__saveRT; delete window.__saveRT; });
+    }
+  });
+});
+
 test.describe("phone tiptoe button 667×375", () => {
   test.use({ ...PHONE_CTX, viewport: { width: 667, height: 375 } });
 

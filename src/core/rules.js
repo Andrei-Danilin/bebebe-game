@@ -48,7 +48,7 @@ function push(t, wide = false) {
     emit("sfx", { name: "shield" });
     return;
   }
-  t.state = "down"; t.downTimer = CFG.DOWN_TIME; t.rescue = 0; t.path = []; t.dangerT = 0;
+  t.state = "down"; t.downTimer = CFG.DOWN_TIME; t.rescue = 0; t.helped = false; t.path = []; t.dangerT = 0;
   logEvent("push", { who: t.id, blocked: false }); logEvent("down", { who: t.id, kind: t.kind });
   t.botWait = rand(CFG.BOT_RESCUE_DELAY[0], CFG.BOT_RESCUE_DELAY[1]);   // боты пойдут спасать чуть позже
   t.kx = Math.cos(a) * 360; t.ky = Math.sin(a) * 360;
@@ -331,7 +331,7 @@ export function useRescueKit(pi) {
   logEvent("kit", { who: l.id });
   emit("hint", { kind: "kitOff", slot: l.slot });            // встал — его подсказка «Нажми 🩹» больше не нужна
   // лёжа (таймер ещё не кончился) — это не отдых: stats.rests не растёт; дома — уже засчитанный отдых остаётся
-  l.state = "ok"; l.invuln = CFG.KIT_INVULN; l.rescue = 0; l.downTimer = 0; l.restTimer = 0; l.path = [];
+  l.state = "ok"; l.invuln = CFG.KIT_INVULN; l.rescue = 0; l.helped = false; l.downTimer = 0; l.restTimer = 0; l.path = [];
   l.kx = 0; l.ky = 0; l.moving = false; l.botWait = 0; l.fleeT = 0;
   l.kissCd = Math.max(l.kissCd, CFG.KIT_SLOT_LOCK);      // второй тап по тому же месту (там уже 💋) не бросает поцелуй
   emit("pop", { key: "kitUsed", args: [], x: l.x, y: l.y - 40, color: "#7CFC9A" });
@@ -342,20 +342,22 @@ export function useRescueKit(pi) {
 export function updateDowned(dt) {
   for (const l of G.littles) {
     if (l.state !== "down") continue;
-    if (!G.tutorialGame) l.downTimer -= dt;                 // SPEC-029: в тренировке лежат без времени — пока не поднимут
     l.botWait = Math.max(0, l.botWait - dt);
     // SPEC-009: рядом игрок — он и поднимает (с «быстрой помощью» быстрее); бот — всегда за RESCUE_TIME
     const helper = G.littles.find(o => o.kind === "player" && helps(o, l)) || G.littles.find(o => helps(o, l));
+    l.helped = !!helper;                                    // SPEC-036: клиент рисует «ему помогают» (зелёное кольцо, свечение)
+    // SPEC-036 (решение детей): пока помощник рядом — таймер «домой» стоит; отошёл — идёт дальше с того же места
+    if (!G.tutorialGame && !(helper && CFG.DOWN_PAUSE_HELPED)) l.downTimer -= dt;      // SPEC-029: в тренировке лежат без времени — пока не поднимут
     l.rescueNeed = CFG.RESCUE_TIME * (1 - (helper ? playerBonus(helper, "quickHelp") : 0));
     l.rescue = helper ? l.rescue + dt : Math.max(0, l.rescue - CFG.RESCUE_DRAIN * dt);   // отошёл — прогресс тает
     if (l.rescue >= l.rescueNeed) {
-      l.state = "ok"; l.invuln = CFG.INVULN_AFTER_RESCUE; l.rescue = 0;
+      l.state = "ok"; l.invuln = CFG.INVULN_AFTER_RESCUE; l.rescue = 0; l.helped = false;
       logEvent("rescued", { who: l.id, by: helper.kind });
       emit("pop", { key: "saved", args: [], x: l.x, y: l.y - 40, color: "#7CFC9A" });
       emit("burst", { kind: "star", x: l.x, y: l.y - 10, n: 10, color: "#7CFC9A" });
       emit("sfx", { name: "rescue" });
     } else if (!G.tutorialGame && l.downTimer <= 0) {   // никто не помог — встаёт и хромает в домик отдыхать (SPEC-029: в тренировке — никогда)
-      l.state = "home"; l.path = []; l.rescue = 0;
+      l.state = "home"; l.path = []; l.rescue = 0; l.helped = false;
       l.restSpot = { ...G.spawns.small[l.id] };
       G.stats.rests++;
       logEvent("rest", { who: l.id });

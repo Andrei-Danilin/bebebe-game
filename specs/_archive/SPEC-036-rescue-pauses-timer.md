@@ -1,6 +1,6 @@
 # SPEC-036 — While a friend helps you up, your "go home" timer stops
 
-Status: ready
+Status: done (merged by "Merge SPEC-036", see git log)
 Complexity: S
 Branch: SPEC-036-rescue-pauses-timer
 Decided by: the kids (2026-11-26, via Andrei). While someone is helping a fallen kid up, that kid's "go home" timer stops. If the helper runs away, the timer goes on from where it stopped. The kids' rule; how the pause looks: Claude.

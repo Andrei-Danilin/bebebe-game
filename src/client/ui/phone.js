@@ -9,7 +9,7 @@ import { ctx, OUT, STANDALONE, UH, UW } from "../screen.js";
 import { ui } from "../state.js";
 import { tutorialHintOn, tutorialHintText, tutorialSkip } from "../tutorial.js";
 import { addButton, circle, drawArtFit, drawMitten, drawSticks, fillStroke, hpHeart, iconButton, rr, toggleFullscreen } from "./draw.js";
-import { angerLabel, chipText, drawHeardHint, drawKitHint, heardHintOn, heartFill, hintPlate, kissButton, kitButton, kitHintOn, restText, timerText, tiptoeBtnRect, tiptoeButton } from "./hud.js";
+import { angerLabel, chipFill, chipInk, chipText, noteChip, drawHeardHint, drawKitHint, heardHintOn, heartFill, hintPlate, kissButton, kitButton, kitHintOn, restText, timerText, tiptoeBtnRect, tiptoeButton } from "./hud.js";
 import { drawEdgeArrows, drawMinimap, minimapRect, showMinimap } from "./minimap.js";
 import { cpx, fitText, fz, hudFont, labelFit, lastFit, minPx, noteText, scaledW } from "./text.js";
 import { G } from "../../core/active.js";
@@ -84,9 +84,9 @@ export function drawHUDPhone(t) {
   G.littles.forEach((l, i) => {
     const cx = tr.x + cpx(5) + i * tr.cw + tr.cw / 2, cy = tr.y + tr.h / 2;
     ctx.globalAlpha = l.state === "home" || l.state === "rest" ? 0.45 : 1;
-    circle(cx, cy, tr.cd / 2); fillStroke(l.state === "ok" ? l.look.shirt : "#9ca3af", 2.5);
+    circle(cx, cy, tr.cd / 2); fillStroke(chipFill(l), 2.5); noteChip(l);
     ctx.globalAlpha = 1;
-    noteText("hint", labelFit(chipText(l), cx, cy, hint, tr.cd - cpx(4), l.state === "down" ? "#fecaca" : "#fff", "center", hint));
+    noteText("hint", labelFit(chipText(l), cx, cy, hint, tr.cd - cpx(4), chipInk(l), "center", hint));
   });
   // внизу справа: 💋 (или 🩹, пока герой лежит, хромает домой или отдыхает — SPEC-007) и рукавицы рядом
   const kitOn = canKitNow(G.littles[0]), kissOn = mode === "play" && !kitOn && gameInv().kisses > 0;

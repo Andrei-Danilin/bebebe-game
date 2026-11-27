@@ -75,6 +75,8 @@ export const ui = {
   mmShown: false,
   edgeArrows: [],
   hudRects: [],
+  // SPEC-036: что нарисовано для упавших в этом кадре (для тестов): { kind: "ring" | "chip", id, helped, color } — цвет круга таймера / кружка команды
+  downDrawn: [],
   // карта этого кадра (для тестов): { world, sel, done, tabs, stops }; карточка уровня: { world, n, title, type }
   mapState: null,
   cardInfo: null,

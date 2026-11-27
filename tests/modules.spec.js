@@ -166,12 +166,13 @@ const NEW_EVENT_TYPES = ["spent", "result", "practiceWin"];
 // SPEC-012 AC 6b (review): the star's coins event now names the slot that picked the star — compared without that one new field
 const withoutStarSlot = e => { if (e.type !== "coins" || e.reason !== "star") return e; const { slot, ...rest } = e; return rest; };
 // SPEC-032 changed hearing on purpose (HEAR_CHANCE 0.6, HEAR_TURN_TIME 0.35): the recorded game is played with the old hearing,
-// which CFG still reaches (HEAR_CHANCE 1 draws no rng) — so the reference stays the same and proves nothing else changed
-const OLD_HEARING = { HEAR_CHANCE: 1, HEAR_TURN_TIME: 0.15 };
+// which CFG still reaches (HEAR_CHANCE 1 draws no rng) — so the reference stays the same and proves nothing else changed.
+// SPEC-036 (kids' rule) too: the fallen kid's timer stops while a friend helps (DOWN_PAUSE_HELPED 1); 0 is the old rule
+const OLD_RULES = { HEAR_CHANCE: 1, HEAR_TURN_TIME: 0.15, DOWN_PAUSE_HELPED: 0 };
 test("same seed, same game after the split", async ({ page }) => {
   test.setTimeout(180_000);
   const errors = await openGame(page, { sim: true });
-  const keep = await page.evaluate(old => { const C = window.__bb.CFG, k = {}; for (const n of Object.keys(old)) { k[n] = C[n]; C[n] = old[n]; } return k; }, OLD_HEARING);
+  const keep = await page.evaluate(old => { const C = window.__bb.CFG, k = {}; for (const n of Object.keys(old)) { k[n] = C[n]; C[n] = old[n]; } return k; }, OLD_RULES);
   try { await sameGame(page, errors); } finally { await page.evaluate(k => { Object.assign(window.__bb.CFG, k); }, keep); }
 });
 async function sameGame(page, errors) {
