@@ -26,6 +26,7 @@ import { inWardrobe, mode, screenChanged, setModeValue, ui } from "./state.js";
 import { camSnap } from "./three/camera.js";
 import { practiceStep, setPracticeStep, setTutorial, tutorialPages } from "./tutorial-data.js";
 import { rebuild3D } from "./three/characters.js";
+import { applyPendingTier } from "./three/tier.js";
 
 // SPEC-012 AC 1c: the screen is the client's (the core has only the game's phase, G.phase). mode — one of MODES; lastReward — the
 // reward of the last level paid (payLevel's result: the win screen shows it), null after a new game is built
@@ -193,7 +194,7 @@ export function showBanner() {
 export const bannerAlpha = () => !ui.banner ? 0 : clamp(Math.min(ui.banner.t, LOOK.BANNER_TIME - ui.banner.t) / LOOK.BANNER_FADE, 0, 1);
 // camSnap: начало уровня — камера телефона сразу у героя (в resetWorld нельзя: он же открывает меню, где камера показывает всю карту)
 // SPEC-030: начатый уровень снимает плашку и несостоявшийся переход карты в открытый мир (не показывать их игрой позже)
-export function startGame(n) { ui.warm = null; leaveLevel(); ui.openedWorld = null; ui.worldBanner = null; endTryOn(); clearEvents(); playWorld(n); setMode("play"); G.rewardDue = true; mapSel = null; showBanner(); camSnap(); }
+export function startGame(n) { ui.warm = null; applyPendingTier(false); leaveLevel(); ui.openedWorld = null; ui.worldBanner = null; endTryOn(); clearEvents(); playWorld(n); setMode("play"); G.rewardDue = true; mapSel = null; showBanner(); camSnap(); }
 // следующий уровень того же мира; после последнего мир пройден — на карту уровней
 // SPEC-025 AC 7d: never past the open level (a stale double tap, a test that set the level) — then the map
 export function nextLevel() { if (G.level >= levelsPerWorld() || G.level + 1 > worldProgress().unlocked) { toMap(); return; } G.level = G.level + 1; withScene(sceneBefore(G.world, G.level), () => startGame(G.players)); }

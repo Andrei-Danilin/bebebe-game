@@ -5,7 +5,6 @@
 // startFailed with Try again, index.html); the frame loop schedules the next frame first and runs inside a guard.
 
 import { G } from "../core/active.js";
-import { CFG } from "../core/config.js";
 import { progress } from "../core/economy.js";
 import { newGame, useGame } from "../core/game.js";
 import { setHooks } from "../core/hooks.js";
@@ -134,7 +133,7 @@ function tick(now) {
     // SPEC-040 AC 3: the world is drawn only when the screen shows it (cadence.js); drawUI, the logic and the camera run on every frame
     if (fitCount !== view3D.fit || rebuilt.n !== view3D.built) { invalidateSnapshot(); view3D.fit = fitCount; view3D.built = rebuilt.n; }   // the canvas is empty / stale
     const previews = previewsShown(), draw = cadence(view3D.cadence, { mode, rotated: rotateWall(), page: !!document.getElementById("grownups"), previews,
-      snap: snapshotValid(), menuFps: CFG.MENU_FPS, seq: ui.screenSeq, fit: fitCount, builds: rebuilt.n, settling: view3D.settling }, now);
+      snap: snapshotValid(), menuFps: LOOK.MENU_FPS, seq: ui.screenSeq, fit: fitCount, builds: rebuilt.n, settling: view3D.settling }, now);
     warmUpload(draw === "world");            // SPEC-040 AC 4: the world of the open card's level, uploaded a few parts a frame (warm.js)
     if (draw === "world") view3D.settling = render3D(ui.T, previews);
     else if (draw === "previews") previewsOverSnapshot(ui.T);

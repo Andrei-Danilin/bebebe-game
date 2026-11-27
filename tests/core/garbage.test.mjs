@@ -1,8 +1,6 @@
 // SPEC-040 AC 10 (RR-51): the core makes no garbage in a running game — the pathfinder reuses per-game scratch buffers (no typed array
 // allocated after the first step of a 600-step run), the event log is a fixed-size ring (no splice of the log at every event once
 // full). Plain Node.
-// The "baseline" half of each test records what today's code does (step 1 of SPEC-040, 2026-11-27); SPEC-040 step 7 sets PENDING to
-// false, and the test then asserts the bound itself. While PENDING, a test that finds the bound already met fails: flip the flag.
 import test from "node:test";
 import fs from "node:fs";
 import assert from "node:assert/strict";
@@ -10,7 +8,6 @@ import { CFG, autopilot, createGame, logEvent, orderedEvents, setProgress, step,
 
 // PERF_OUT=<file>: the numbers are also appended there as JSON lines (like tests/perf.spec.js)
 const record = (key, value) => { console.log(`[perf] ${key}: ${JSON.stringify(value)}`); if (process.env.PERF_OUT) fs.appendFileSync(process.env.PERF_OUT, JSON.stringify({ key, value, gl: "node" }) + "\n"); };
-const PENDING = false;   // SPEC-040 step 7: the pathfinder has per-game scratch buffers, the event log is a ring
 const DT = CFG.STEP;
 
 // every typed-array construction (new X(…), X.from, X.of) and every allocating typed-array method (slice, map, filter) while fn runs.
@@ -52,8 +49,7 @@ test("AC 10: a 600-step headless run allocates no typed arrays after its first s
   }
   record("typed arrays allocated in steps 2–600", found);
   const total = Object.values(found).reduce((s, r) => s + r.total, 0);
-  if (PENDING) assert.ok(total > 0, "the bound is already met: set PENDING = false in tests/core/garbage.test.mjs (SPEC-040 step 7 done)");
-  else assert.equal(total, 0, `typed arrays allocated after step 1: ${JSON.stringify(found)}`);
+  assert.equal(total, 0, `typed arrays allocated after step 1: ${JSON.stringify(found)}`);
 });
 
 test("AC 10: the event log is a ring: a full log is not spliced at every event", () => {
@@ -77,8 +73,7 @@ test("AC 10: the event log is a ring: a full log is not spliced at every event",
   const copy = structuredClone(g);
   withGame(copy, () => logEvent("tail", { k: 7 }));
   assert.equal(orderedEvents(copy).at(-1).k, 7); assert.equal(copy.events.length, i, "a clone is a ring too");
-  if (PENDING) assert.ok(splices > 0, "the bound is already met: set PENDING = false in tests/core/garbage.test.mjs (SPEC-040 step 7 done)");
-  else assert.equal(splices, 0, "a ring buffer never splices");
+  assert.equal(splices, 0, "a ring buffer never splices");
 });
 
 // the cap is read at each push (tests lower it and put it back): a lowered cap keeps the newest, a raised one goes on in time order

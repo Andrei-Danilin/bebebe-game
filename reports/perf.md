@@ -104,7 +104,7 @@ with real time); the gate takes the level-start view, which is the same on every
 | `render3D` per 2 s under story / comic scene / Character ×4 tabs / grown-ups | GPU 98–120 (= every frame, 49–60/s); SwiftShader 7–8 | 0 (AC 3) | step 3 |
 | `render3D` per 2 s while paused | GPU 107; SwiftShader 7 | ≤ 1 (AC 3) | step 3 |
 | `render3D` per 2 s under the rotate overlay (touch, 375×667 `?phone=1`) | GPU 120; SwiftShader 53 | 0 (AC 3) | step 3 |
-| `render3D` per second in the menus (home / map) | GPU 55.9 / 54.2 (frame loop 55.9 / 54.2 fps); SwiftShader 3.6 | ≤ 30 (`CFG.MENU_FPS`, AC 3) | step 3 |
+| `render3D` per second in the menus (home / map) | GPU 55.9 / 54.2 (frame loop 55.9 / 54.2 fps); SwiftShader 3.6 | ≤ 30 (`LOOK.MENU_FPS`, AC 3) | step 3 |
 | New GPU work inside the first 60 frames: new world (Beach 3 after Park 1, phone) | 5 programs, 477 geometries, 0 textures | 0 (AC 4, the count is the gate) | step 5 |
 | same, first boss (Park 20 after Park 1) | 2 programs, 217 geometries, 0 textures | 0 | step 5 |
 | Slowest frame in the first 60 of a level (phone) | beach 3: 717 ms GPU / 3700 ms SwiftShader; park 20: 383 / 433; park 3: 617 / 617; winter 2: 367 / 733 | (release-readiness §5: ≤ 500 ms on the weak Android) | step 5 |

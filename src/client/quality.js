@@ -7,8 +7,15 @@ import { LOOK } from "./look.js";
 
 export const TIERS = Object.freeze(["high", "medium", "low"]);
 export const MODES = Object.freeze(["auto", ...TIERS]);
-/** the state: the tier in use, how it was chosen, the probe's median ms per frame (null: not probed), the step-downs of this session */
-export const Q = { tier: "high", mode: "auto", pinned: false, probeMs: /** @type {number | null} */ (null), steps: 0 };   // pinned: a test fixed the tier (nothing is saved)
+/** the state: the tier in use, how it was chosen, the probe's median ms per frame (null: not probed) and the tier it was drawn at, the step-downs of
+ * this session, and whether the tier's MSAA / decor changes are still waiting for a level build or a pause (pending). Read it anywhere; write it only
+ * through the setters below (adaptive.js and three/tier.js call them). */
+export const Q = { tier: "high", mode: "auto", pinned: false, probeMs: /** @type {number | null} */ (null), probeTier: "", steps: 0, pending: false };   // pinned: a test fixed the tier (nothing is saved)
+/** @param {string} t */ export const setTier = t => { Q.tier = t; };
+/** @param {string} m @param {boolean} [pinned] */ export const setMode = (m, pinned = Q.pinned) => { Q.mode = m; Q.pinned = pinned; };
+/** @param {number} ms @param {string} tierAt the tier the probe drew at */ export const setProbe = (ms, tierAt) => { Q.probeMs = ms; Q.probeTier = tierAt; };
+export const noteStepDown = () => { Q.steps++; };
+/** @param {boolean} on */ export const setPending = on => { Q.pending = on; };
 
 /** @param {string} [name] */
 export const tierOf = (name = Q.tier) => LOOK.QUALITY[name] || LOOK.QUALITY.high;

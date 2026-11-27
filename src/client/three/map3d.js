@@ -324,9 +324,11 @@ const roofSetter = () => { const mats = houseRoofs.flatMap(r => r.mats.flatMap(m
 // the same without blocking: compileAsync polls the driver (KHR_parallel_shader_compile where there is one) and the promise resolves when the programs are ready
 export async function compileFadeVariants() {
   if (!renderer) return;
-  const set = roofSetter();
-  set(true);
-  await renderer.compileAsync(scene, camera);
-  set(false);
+  const mats = houseRoofs.flatMap(r => r.mats.flatMap(mt => [mt, mt.userData.outline])), was = mats.map(mt => mt.transparent);
+  const to = on => mats.forEach((mt, i) => { const t = on === null ? was[i] : on; if (mt.transparent !== t) { mt.transparent = t; mt.needsUpdate = true; } });
+  to(true);
+  const first = renderer.compileAsync(scene, camera);   // the programs are chosen in this call; only their compiling is waited for below
+  to(null);                                              // so the roofs are back as they were at once: a Play (or a roof that starts fading) during the wait sees no override
+  await first;
   await renderer.compileAsync(scene, camera);
 }

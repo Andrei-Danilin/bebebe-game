@@ -317,7 +317,7 @@ test("SPEC-040 AC 3: a paused level renders once, settles, and then renders noth
   expect((await page.evaluate(() => window.__bb.sim().renders)) - w2, "a changed screen draws the frozen scene").toBeGreaterThanOrEqual(1);
   expect(errors).toEqual([]);
 });
-test("SPEC-040 AC 3: the menus render at most CFG.MENU_FPS (30) frames per second", async ({ page }) => {
+test("SPEC-040 AC 3: the menus render at most LOOK.MENU_FPS (30) frames per second", async ({ page }) => {
   test.setTimeout(120_000);
   const errors = await openGame(page);
   const out = {};
@@ -496,6 +496,31 @@ test("SPEC-040 AC 4: the warm-up does not change the game Play starts; Play befo
   await page.evaluate(() => { window.__bb.startGame(1); });
   await frames(page); await frames(page);
   expect(await mem(), "a Retry builds nothing new").toEqual(before);
+  expect(errors).toEqual([]);
+});
+
+// Review fix: the card left any way that does not clear ui.warm (the error card's Home, the __bb.mode setter) ends the warm-up for good — a story page
+// or a comic opened later does not restart it — and a warm-up cut after its game stage builds the 3D of the game it made (no old map under new models).
+test("SPEC-040 AC 4: leaving the card another way ends the warm-up for good and leaves a consistent 3D", async ({ page }) => {
+  test.setTimeout(180_000);
+  const errors = await openView(page, PHONE);
+  await page.evaluate(() => { const b = window.__bb; b.mode = "map"; b.world = "park"; b.progress.worlds.park.unlocked = 20; b.seedRandom(7); b.chooseStop(3); });
+  await page.waitForFunction(() => ["map", "shaders", "compiling", "chars", "upload"].includes(window.__bb.warm.phase), null, { timeout: 30_000, polling: 5 });
+  await page.evaluate(() => { window.__bb.mode = "home"; });             // not closeCard: ui.warm is still set
+  await frames(page);
+  expect(await page.evaluate(() => window.__bb.warm), "the warm-up ended with the card").toMatchObject({ key: "", phase: "", done: false });
+  for (const m of ["story", "scene"]) {
+    await page.evaluate(m => { const b = window.__bb; b.mode = m; }, m);
+    await frames(page);
+    expect(await page.evaluate(() => window.__bb.warm.phase), "a story page or a comic does not restart it (" + m + ")").toBe("");
+  }
+  await page.evaluate(() => { window.__bb.mode = "home"; });
+  await frames(page);
+  // the 3D is of the game that is there: the map was built for it, and nothing stays hidden
+  expect(await page.evaluate(async () => {
+    const { mapGroup } = await import("./src/client/three/mapstate.js"), { charGroup } = await import("./src/client/three/characters.js"), { builtKey, mapKey } = await import("./src/client/three/map3d.js");
+    return { visible: mapGroup.visible && charGroup.visible, built: builtKey === mapKey() };
+  })).toEqual({ visible: true, built: true });
   expect(errors).toEqual([]);
 });
 

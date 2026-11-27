@@ -9,7 +9,7 @@
 //             change of screen), then nothing;
 //   covered — a full-screen page (story, the comic scenes, Character, the language page, the grown-ups page, the rotate overlay): nothing
 //             (the Character's wardrobe / progress previews keep drawing, on the saved picture);
-//   menu    — home, map, level card, win, lose: at most CFG.MENU_FPS frames per second.
+//   menu    — home, map, level card, win, lose: at most LOOK.MENU_FPS frames per second.
 // A resized canvas (fit) or a rebuilt scene (a new look, a restored context) is empty or stale: it gets one world frame whatever the screen.
 // Client module (a leaf: imports nothing).
 

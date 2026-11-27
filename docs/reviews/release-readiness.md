@@ -89,11 +89,11 @@ Also blocking a submission: no privacy page or parents' area in the app (RR-52),
 | RR-40 | LOW | Store icons, splash and manifest fields are web-only | P15 | later + BACKLOG |
 | RR-41 | HIGH | WebGL context loss not handled | F3, P12, R6 | 025 |
 | RR-42 | HIGH | Draw calls: two meshes per part, no sharing, hulls cast shadows — done (SPEC-040: shared geometries, instanced and joined static parts, hulls never cast shadows; the busiest levels draw 145–172 calls on the phone and 203–234 on a tablet, was 690–1160 and 1510–3061) | F1 | later |
-| RR-43 | HIGH | No quality tiers; tablets get the heaviest path — done (SPEC-040: `CFG.QUALITY` tiers, a start probe, a step down after 5 s of slow frames, a picture-quality setting on the grown-ups page) | F2 | later + decision |
+| RR-43 | HIGH | No quality tiers; tablets get the heaviest path — done (SPEC-040: `LOOK.QUALITY` tiers, a start probe, a step down after 5 s of slow frames, a picture-quality setting on the grown-ups page) | F2 | later + decision |
 | RR-44 | MEDIUM | Memory checks partial; no perf hook for device measurement | F6 | 025 |
 | RR-45 | MEDIUM | First load parses ~3 MB of unminified JS | F11 | 025 |
 | RR-46 | MEDIUM | All 155 sprites decoded at start (~70 MB) — done (SPEC-040: 22 MB decoded at the home screen, was 83 MB; sprites load per screen and are released) | F4 | later |
-| RR-47 | MEDIUM | Full-rate rendering under opaque menus, pause, rotate prompt — done (SPEC-040: no `render3D` under a cover, once while paused, menus at `CFG.MENU_FPS`) | F5 | later |
+| RR-47 | MEDIUM | Full-rate rendering under opaque menus, pause, rotate prompt — done (SPEC-040: no `render3D` under a cover, once while paused, menus at `LOOK.MENU_FPS`) | F5 | later |
 | RR-48 | MEDIUM | Level start: new geometries and no shader warm-up — done (SPEC-040: the level card warms up the level; nothing new is built in the first 60 frames) | F7 | later |
 | RR-49 | MEDIUM | Text fit/wrap re-measured every frame — done (SPEC-040: text widths and fits are remembered; home and the Character tabs measure nothing per frame) | F8 | later |
 | RR-50 | MEDIUM | Trees, bushes and roofs are transparent all the time — done (SPEC-040: opaque until a fade starts) | F9 | later |
@@ -454,9 +454,9 @@ Figures are estimates from code and files. Nothing was run on a device; see the 
 #### RR-43 HIGH: No quality tiers; tablets run the heaviest path [F2]
 - **Location:** 6965 `antialias: true`; PCF shadows 2048² (6966–6984); DPR 1149; `isPhone()` 1123–1132 (tablets count as desktop); grain on tablets (290); ground canvas 1920×1280 + `anisotropy = 8` (7233–7237).
 - **Why:** Families installs land on 2 GB phones and A9/A10 iPads. There is no fallback when frames are slow, so the device heats up and throttles.
-- **Fix:** A `CFG.QUALITY` table (`high`/`medium`/`low`) picked by a probe and stepped down on slow p95, plus a hidden override. What the low tier may drop is decision D-4.
+- **Fix:** A `LOOK.QUALITY` table (`high`/`medium`/`low`) picked by a probe and stepped down on slow p95, plus a hidden override. What the low tier may drop is decision D-4.
 - **Spec:** later (performance pass); decision D-4.
-- **Status (2026-11-27):** done (SPEC-040: `CFG.QUALITY` tiers, a start probe, a step down after 5 s of slow frames, a picture-quality setting on the grown-ups page).
+- **Status (2026-11-27):** done (SPEC-040: `LOOK.QUALITY` tiers, a start probe, a step down after 5 s of slow frames, a picture-quality setting on the grown-ups page).
 
 #### RR-44 MEDIUM: Memory checks are partial; no perf hook for the device measurements [F6]
 - **Location:** `tests/look3d.spec.js:129` (textures and geometries only, 7 builds); `disposeTree` 7222 (own materials' maps not freed); preview cache 9030, `artImgs`/`artFile`, `paperCache` 4349, `mmBase` 5063.
@@ -481,7 +481,7 @@ Figures are estimates from code and files. Nothing was run on a device; see the 
 - **Why:** Battery and heat, so the next level plays throttled. Battery drain is a common complaint in kids' app reviews.
 - **Fix:** Skip `render3D` when the 3D is covered, render once while paused, and run menus at ~30 fps.
 - **Spec:** later (performance pass).
-- **Status (2026-11-27):** done (SPEC-040: no `render3D` under a cover, once while paused, menus at `CFG.MENU_FPS`).
+- **Status (2026-11-27):** done (SPEC-040: no `render3D` under a cover, once while paused, menus at `LOOK.MENU_FPS`).
 
 #### RR-48 MEDIUM: Level start creates hundreds of geometries and has no shader warm-up [F7]
 - **Fix:** A geometry cache (RR-42) and `renderer.compileAsync` behind the level card.

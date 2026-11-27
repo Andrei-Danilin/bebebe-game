@@ -37,7 +37,7 @@ function artSettle(a, ok, name) {
   if (a.state !== "loading") return;
   a.state = ok ? "ok" : "bad";
   if (ok) artVersion++;
-  if (a.lazy) { lazyLoading--; if (ok) lazyOk.add(name); else { a.img = null; lazyBad++; } }
+  if (a.lazy) { lazyLoading--; if (ok) lazyOk.add(name); else { a.img = null; lazyBad++; a.failedAt = performance.now(); } }
   else if (!a.own) { artCount[ok ? "ok" : "bad"]++; artProgress(); }
 }
 function artFetch(a, src, then, name) {
@@ -68,6 +68,8 @@ export function art(name) {
   const a = artImgs.get(name);
   if (!a) return null;
   if (a.state === "ok") { if (a.lazy) a.seen = performance.now(); return a.img; }
+  // SPEC-040: a lazy picture that failed (a dropped connection) is asked for again after LOOK.ART.retryMs, not on every frame
+  if (a.state === "bad" && a.lazy && artRoot === "ok" && performance.now() - (a.failedAt || 0) > LOOK.ART.retryMs) { lazyBad--; a.state = "idle"; }
   if (a.state === "idle") artRequest(a, name);
   return null;
 }

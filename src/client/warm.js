@@ -10,7 +10,9 @@
 //            a few top-level parts of the map and of the characters per frame, with a one-pixel scissor, only in a frame that draws the world
 //            anyway (cadence.js: the rest of the canvas is painted by the world frame that follows);
 //   done   — the world is shown again (it was hidden while built) and counted as rebuilt: one cheap world frame.
-// Play before the end cancels it (startGame clears ui.warm): the normal start builds what is missing — never more than it did before — and
+// The state: game → map → shaders → compiling → chars → upload → done. Leaving the card by any way (Play, Home, the error card, __bb.mode) ends it:
+// warmBuild clears ui.warm in a frame whose mode is not a card mode, and a warm-up cut short after the game stage builds the 3D of the game it made
+// (stop → rebuild3D), so the world is never shown from two levels. Play before the end cancels it (startGame clears ui.warm): the normal start builds what is missing — never more than it did before — and
 // finds the map (same mapKey) and the models (same looks) already there. A level started any other way (Next, Retry, a practice game,
 // __bb.startGame) is built as before, and the map and the models of the same level and team are reused (rebuild3D). Client module.
 
@@ -18,10 +20,11 @@ import { G } from "../core/active.js";
 import { resetWorld } from "./flow.js";
 import { CSS_H, CSS_W } from "./screen.js";
 import { mode, ui } from "./state.js";
-import { charGroup, deferRebuild, noteRebuilt, rebuildChars3D, rebuildMap3D, showWorld } from "./three/characters.js";
+import { charGroup, deferRebuild, noteRebuilt, rebuild3D, rebuildChars3D, rebuildMap3D, showWorld } from "./three/characters.js";
 import { compileFadeVariants, setCompileLater } from "./three/map3d.js";
 import { mapGroup } from "./three/mapstate.js";
 import { camera, renderer, scene } from "./three/setup.js";
+import { applyPendingTier } from "./three/tier.js";
 
 const SLICE = 8;                                  // top-level parts drawn per frame in the upload stage
 const CARD_MODES = ["levelCard", "story", "scene"];   // the card, its story page, the comic before a level
@@ -30,9 +33,13 @@ const W = { key: "", phase: "", queue: /** @type {any[]} */ ([]), at: 0 };
 /** @returns {{ key: string, phase: string, done: boolean }} */
 export const warmInfo = () => ({ key: ui.warm ? W.key : "", phase: ui.warm ? W.phase : "", done: !!ui.warm && W.phase === "done" });   // (no card, no warm-up: Play or closing the card ends it at once)
 
-function stop() {
-  if (["shaders", "compiling", "chars", "upload"].includes(W.phase)) showWorld(true);   // cut short while the world was hidden
+// rebuild: the warm-up ends (not just moves on to another card): after the game stage the game is the card's level and the 3D is still the old
+// one's (or half new): build what is missing for this game, which also shows the world again
+function stop(rebuild = true) {
+  const cut = ["map", "shaders", "compiling", "chars", "upload"].includes(W.phase);
   W.phase = ""; W.key = ""; W.queue = []; W.at = 0;
+  if (!cut) return;
+  if (rebuild) rebuild3D(); else showWorld(true);
 }
 // draws some of the world's parts once, into one pixel
 function drawSlice(items) {
@@ -48,13 +55,19 @@ function drawSlice(items) {
 }
 // once a frame, outside the frame's guard against gameplay randomness (main.js): the stages that build a game and the 3D
 export function warmBuild() {
+  if (ui.warm && !CARD_MODES.includes(mode)) ui.warm = null;   // the card was left some way that does not clear it: nothing stays armed for a later story page
   const want = ui.warm;
-  if (!want || !CARD_MODES.includes(mode) || G.world !== want.world) { if (W.phase) stop(); return; }
+  if (!want || G.world !== want.world) { if (W.phase) stop(); return; }
+  try { warmStage(want); } catch (e) { ui.warm = null; stop(); throw e; }   // a stage that throws ends the warm-up (the frame's guard reports it once)
+}
+function warmStage(want) {
   const key = want.world + ":" + want.level;
-  if (W.key !== key) { stop(); W.key = key; W.phase = "game"; }
+  if (W.key !== key) { stop(false); W.key = key; W.phase = "game"; }
   switch (W.phase) {
     case "game":
+      applyPendingTier(false);                       // a tier the game picked by itself: its MSAA and decor are made now, behind the card
       G.level = want.level;
+      showWorld(false);                              // the old map must not show under the new game's models
       deferRebuild(true);
       try { resetWorld(G.players); } finally { deferRebuild(false); }
       W.phase = "map";

@@ -2,10 +2,10 @@
 // on CI whatever the speed of the machine (the real-frame-rate test in tests/perf.spec.js skips itself below 40 fps). Plain Node.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { CFG } from "../../src/core/index.js";
+import { LOOK } from "../../src/client/look.js";
 import { cadence, COVERED, newCadence } from "../../src/client/cadence.js";
 
-const inp = o => ({ mode: "home", rotated: false, page: false, previews: false, snap: false, menuFps: CFG.MENU_FPS, seq: 0, fit: 0, builds: 0, settling: false, ...o });
+const inp = o => ({ mode: "home", rotated: false, page: false, previews: false, snap: false, menuFps: LOOK.MENU_FPS, seq: 0, fit: 0, builds: 0, settling: false, ...o });
 // a loop at `hz` for `sec` seconds: what cadence answers each frame (the state is kept; `get(i)` gives the inputs of frame i)
 function run(hz, sec, get, st = newCadence()) {
   const out = [];
@@ -14,18 +14,18 @@ function run(hz, sec, get, st = newCadence()) {
 }
 const count = (a, v = "world") => a.filter(x => x === v).length;
 
-test("CFG.MENU_FPS is 30", () => assert.equal(CFG.MENU_FPS, 30));
+test("LOOK.MENU_FPS is 30", () => assert.equal(LOOK.MENU_FPS, 30));
 
 test("a level in play draws the world on every frame, at any frame rate", () => {
   for (const hz of [20, 60, 144]) assert.equal(count(run(hz, 1, () => inp({ mode: "play" }))), hz, `${hz} Hz`);
 });
 
-test("the menus draw the world at most CFG.MENU_FPS times a second: home, map, level card, win, lose", () => {
+test("the menus draw the world at most LOOK.MENU_FPS times a second: home, map, level card, win, lose", () => {
   for (const mode of ["home", "map", "levelCard", "win", "lose"]) {
     for (const hz of [30, 60, 90, 120, 144, 240]) {
       const n = count(run(hz, 4, () => inp({ mode })));
-      assert.ok(n <= 4 * CFG.MENU_FPS + 1, `${mode} at ${hz} Hz: ${n} frames in 4 s`);
-      assert.ok(n >= 4 * CFG.MENU_FPS * 0.85, `${mode} at ${hz} Hz: ${n} frames in 4 s is not much less than the cap`);
+      assert.ok(n <= 4 * LOOK.MENU_FPS + 1, `${mode} at ${hz} Hz: ${n} frames in 4 s`);
+      assert.ok(n >= 4 * LOOK.MENU_FPS * 0.85, `${mode} at ${hz} Hz: ${n} frames in 4 s is not much less than the cap`);
     }
   }
   // a loop slower than the cap draws every frame
@@ -73,14 +73,14 @@ test("a resized canvas or a rebuilt scene under a full-screen page is drawn once
   assert.equal(cadence(st, inp({ mode: "shop", fit: 1, builds: 1 }), 2050), null);
 });
 
-test("the Character previews: the world once (it is saved), then previews on the saved picture at most CFG.MENU_FPS a second", () => {
+test("the Character previews: the world once (it is saved), then previews on the saved picture at most LOOK.MENU_FPS a second", () => {
   const st = newCadence();
   const first = cadence(st, inp({ mode: "shop", previews: true, snap: false }), 0);
   assert.equal(first, "world");
   assert.equal(cadence(st, inp({ mode: "shop", previews: true, snap: false }), 16), "world", "until the picture is saved");
   const a = run(60, 4, () => inp({ mode: "shop", previews: true, snap: true }), st);
   assert.equal(count(a), 0, "no world once it is saved");
-  assert.ok(count(a, "previews") <= 4 * CFG.MENU_FPS + 1 && count(a, "previews") >= 4 * CFG.MENU_FPS * 0.85, `${count(a, "previews")} preview frames in 4 s`);
+  assert.ok(count(a, "previews") <= 4 * LOOK.MENU_FPS + 1 && count(a, "previews") >= 4 * LOOK.MENU_FPS * 0.85, `${count(a, "previews")} preview frames in 4 s`);
   // a Character page without previews (items, upgrades) draws nothing
   assert.equal(count(run(60, 2, () => inp({ mode: "shop", previews: false, snap: true }), st), "previews"), 0);
 });

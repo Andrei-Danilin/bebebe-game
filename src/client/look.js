@@ -39,6 +39,9 @@ export const LOOK = {
   MINIMAP_BG_ALPHA: 0.12,    // прозрачность тёмной подложки (было .35) — только чтобы точки читались на снегу и песке
   MINIMAP_UNDER_ALPHA: 0.2,  // вся мини-карта, когда под ней герой или Большой
   MINIMAP_UNDER_PAD: 12,     // UI px — запас вокруг мини-карты для «под ней»
+  // SPEC-040 AC 3: меню (главная, карта, карточка уровня, победа / поражение) рисуют 3D за собой не чаще MENU_FPS раз в секунду; под полноэкранной
+  // страницей (история, Персонаж, заставка, язык, «для взрослых», «поверни устройство») 3D не рисуется совсем, на паузе — один раз
+  MENU_FPS: 30,
   TEXT_MEMO_MAX: 6000,       // SPEC-040 AC 9: entries of the text-width and text-fit memos (ui/measure.js) before they are emptied
   FADE_SETTLED: 0.01,        // SPEC-040: roof / tree / bush fade closer than this to its goal is settled — a frozen scene (pause) is no longer redrawn
   MINIMAP_FADE_TIME: 0.2,    // сек — от полной до бледной (и обратно)
@@ -100,7 +103,7 @@ export const LOOK = {
   // SPEC-020: картинки из папки dir (их делает npm run assets из art/); экран загрузки ждёт их не дольше waitMs мс, остальные
   // появятся, когда догрузятся (до тех пор и при ошибке — рисунок кодом, как раньше). SPEC-040: не постоянную картинку (assets.json "resident": false)
   // отпускаем, когда её не рисовали releaseMs мс (проверка не чаще sweepMs)
-  ART: { dir: "assets/", waitMs: 5000, releaseMs: 2000, sweepMs: 250 },
+  ART: { dir: "assets/", waitMs: 5000, releaseMs: 30000, sweepMs: 250, retryMs: 5000 },
   // SPEC-040 AC 6 / 7 (RR-43, D-4, D-17): quality tiers. high = the picture as it was; medium = a lower pixel ratio, a 1024 shadow map, three
   // quarters of the background decor; low (D-4: keeps the outlines and the hatching) = pixel ratio 1, no MSAA, no paper grain, a 1024
   // "basic" (hard-edged) shadow map — one pass that stays a shadow of the right shape; the blob shadows the spec also allowed would need new

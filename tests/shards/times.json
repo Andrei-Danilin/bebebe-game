@@ -399,7 +399,7 @@
  "perf.spec.js › SPEC-040 AC 3: a paused level renders once, settles, and then renders nothing": 10,
  "perf.spec.js › SPEC-040 AC 3: a resize under a full-screen page, and the way back, leave the world drawn": 41,
  "perf.spec.js › SPEC-040 AC 3: no render3D while story, scene, Character pages and the grown-ups page cover the 3D": 17,
- "perf.spec.js › SPEC-040 AC 3: the menus render at most CFG.MENU_FPS (30) frames per second": 10,
+ "perf.spec.js › SPEC-040 AC 3: the menus render at most LOOK.MENU_FPS (30) frames per second": 10,
  "perf.spec.js › SPEC-040 AC 3: the wardrobe previews keep animating while the world behind is not drawn": 26,
  "perf.spec.js › SPEC-040 AC 4: the first 60 frames of a new world (Beach 3 after Park) (phone view): p95 ≤ steady × 1.5, no program or geometry first made in them": 24,
  "perf.spec.js › SPEC-040 AC 4: the first 60 frames of the first boss (Park 20) (phone view): p95 ≤ steady × 1.5, no program or geometry first made in them": 29,

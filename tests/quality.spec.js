@@ -55,8 +55,14 @@ for (const [ms, tier] of [[5, "high"], [15, "medium"], [60, "low"]]) {
   test(`the start probe's ${ms} ms picks the ${tier} tier and the renderer follows`, async ({ page }) => {
     await page.addInitScript(([ms]) => { window.__bbQuality = "auto"; window.__bbProbeMs = ms; }, [ms]);
     const errors = await openGame(page, { quality: null });
-    expect(await page.evaluate(() => window.__bb.quality)).toMatchObject({ mode: "auto", tier, probeMs: ms });
+    expect(await page.evaluate(() => window.__bb.quality)).toMatchObject({ mode: "auto", tier, probeMs: ms, probeTier: "high", pending: tier !== "high" });
+    // review fix: the start makes no second renderer and no second map — the shadow map and the pixel ratio follow at once, the MSAA and the decor wait
+    expect(await look(page), "the renderer the page started with, the shadow map of the tier").toMatchObject({ msaa: true, shadowSize: tier === "high" ? 2048 : 1024, canvases: 1, lost: false });
+    // the first level build (Play, or the warm-up behind the card) makes them
+    await page.evaluate(() => { const b = window.__bb; b.world = "park"; b.level = 1; b.startGame(1); });
+    await frames(page);
     expect(await look(page)).toMatchObject({ msaa: tier !== "low", shadowSize: tier === "high" ? 2048 : 1024, canvases: 1, lost: false });
+    expect(await page.evaluate(() => window.__bb.quality.pending)).toBe(false);
     expect(errors).toEqual([]);
   });
 }
@@ -67,6 +73,23 @@ test("the start probe really measures: auto picks the tier of its own millisecon
   expect(r.q.mode).toBe("auto");
   expect(r.q.probeMs, "the probe ran").toBeGreaterThan(0);
   expect(r.q.tier).toBe(r.want);
+});
+
+// review fix: a re-pick from the grown-ups page draws its probe at the high tier, whatever tier the game was in (the tests give no probe answer: the real probe runs)
+test("auto after a lower tier probes at the high tier", async ({ page }) => {
+  test.setTimeout(120_000);
+  const errors = await openGame(page, { quality: null });
+  await page.evaluate(() => { delete window.__bbProbeMs; window.__bb.setQuality("low"); });
+  await frames(page);
+  expect(await look(page)).toMatchObject({ pixelRatio: 1, msaa: false, canvases: 1 });
+  await page.evaluate(() => { window.__bb.setQuality("auto"); });
+  await frames(page);
+  const q = await page.evaluate(() => { const b = window.__bb, P = b.CFG.QUALITY.probe, q = b.quality; return { q, want: q.probeMs <= P.highMs ? "high" : q.probeMs <= P.mediumMs ? "medium" : "low" }; });
+  expect(q.q, "the probe drew at the high tier").toMatchObject({ mode: "auto", probeTier: "high" });
+  expect(q.q.probeMs).toBeGreaterThan(0);
+  expect(q.q.tier, "the tier of its own milliseconds").toBe(q.want);
+  expect(await look(page), "one canvas, not lost").toMatchObject({ canvases: 1, lost: false });
+  expect(errors).toEqual([]);
 });
 
 test("in play the p95 over 45 ms for 5 s steps one tier down; it never steps up; pause and menus do not count", async ({ page }) => {
@@ -82,13 +105,17 @@ test("in play the p95 over 45 ms for 5 s steps one tier down; it never steps up;
   // 4 s of slow play: not yet; 4 more: one step
   expect((await feed("play", 4, 80)).tier).toBe("high");
   expect(await feed("play", 4, 80), "high → medium").toMatchObject({ tier: "medium", steps: 1 });
-  expect((await look(page)).shadowSize, "medium is applied").toBe(1024);
+  expect((await look(page)).shadowSize, "medium: the shadow map at once").toBe(1024);
+  expect((await look(page)).pixelRatio, "medium: the pixel ratio at once").toBeLessThanOrEqual(1.5);
   // good frames never bring it back up
   expect((await feed("play", 30, 16.7)).tier).toBe("medium");
   // slow again: medium → low (a new renderer without MSAA), and the level has gone on all the time
   await feed("play", 8, 80);
   const q = await feed("play", 8, 80);
-  expect(q).toMatchObject({ tier: "low", steps: 2 });
+  expect(q).toMatchObject({ tier: "low", steps: 2, pending: true });
+  // review fix: in play only the pixel ratio and the shadow map change; the new renderer (MSAA) and the decor wait for a pause — no frame of play is lost to them
+  expect(await look(page), "in play: DPR and the shadow map, not the renderer").toMatchObject({ msaa: true, shadowType: BASIC, pixelRatio: 1, canvases: 1, lost: false });
+  expect((await feed("pause", 1, 16.7)).pending, "the pause applies what waited").toBe(false);
   const l = await look(page);
   expect(l).toMatchObject({ msaa: false, shadowType: BASIC, pixelRatio: 1, canvases: 1, lost: false });
   expect((await feed("play", 30, 90)).tier, "nothing below low").toBe("low");
