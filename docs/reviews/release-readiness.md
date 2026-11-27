@@ -80,12 +80,12 @@ Also blocking a submission: no privacy page or parents' area in the app (RR-52),
 | RR-31 | HIGH | Site file list in three places; CI never tests `_site` or the deployed site | P2, M14 | 011 |
 | RR-32 | HIGH | Capacitor vs TWA still open; TWA breaks "offline" and "nothing leaves" | P7, K8 | later + decision |
 | RR-33 | HIGH | Storage origin in the wrapper; PWA saves do not move to the store app | P6, S12 | later + 025 note |
-| RR-34 | HIGH | Fullscreen button is dead in a native wrapper and on iPhone | P5 | later + BACKLOG |
+| RR-34 | HIGH | Fullscreen button is dead in a native wrapper and on iPhone — done for the web (SPEC-038: hidden without the Fullscreen API; the native-wrapper half comes with the wrapper) | P5 | later + BACKLOG |
 | RR-35 | MEDIUM | Service worker inside the native wrapper | P8 | later |
 | RR-36 | MEDIUM | Minimum OS / WebView / GLES not declared | P9, F10 | later + decision |
 | RR-37 | MEDIUM | Safe areas and system bars on Android edge-to-edge | P10 | later |
-| RR-38 | MEDIUM | Orientation locked only by the web manifest; tablets in portrait | P11 | later + BACKLOG |
-| RR-39 | LOW | Sprite precache best-effort; the offline test does not check art | P14 | BACKLOG |
+| RR-38 | MEDIUM | Orientation locked only by the web manifest; tablets in portrait — done (SPEC-038: tablets and tall windows play letterboxed; native orientation keys come with the wrapper) | P11 | later + BACKLOG |
+| RR-39 | LOW | Sprite precache best-effort; the offline test does not check art — done (SPEC-038) | P14 | BACKLOG |
 | RR-40 | LOW | Store icons, splash and manifest fields are web-only | P15 | later + BACKLOG |
 | RR-41 | HIGH | WebGL context loss not handled | F3, P12, R6 | 025 |
 | RR-42 | HIGH | Draw calls: two meshes per part, no sharing, hulls cast shadows | F1 | later |
@@ -118,8 +118,8 @@ Also blocking a submission: no privacy page or parents' area in the app (RR-52),
 | RR-69 | MEDIUM | Gamepads tracked by list position: a disconnect swaps players, phantom presses | R8, M14 | 025 (may move later) |
 | RR-70 | MEDIUM | Android Back leaves the app mid-level — done (SPEC-033: "Leave the game?"; the store wrapper's native Back is later) | R10, P12 | 025 (seam) + later + decision |
 | RR-71 | MEDIUM | Flaky `bosses.spec.js:143` (assert :163): the cause is unseeded test starts | R11 | 011 (AC 8d, Phase A) |
-| RR-72 | LOW | Rotation/resize edge cases (live buttons under the rotate overlay, resize storms) | R12 | BACKLOG |
-| RR-73 | LOW | Two fingers on one stick half stop the hero | R14 | BACKLOG |
+| RR-72 | LOW | Rotation/resize edge cases (live buttons under the rotate overlay, resize storms) — done (SPEC-038) | R12 | BACKLOG |
+| RR-73 | LOW | Two fingers on one stick half stop the hero — done (SPEC-038) | R14 | BACKLOG |
 | RR-74 | HIGH | Pages deploy fails ~1 in 3 runs with green tests; master not live | R4, M1 | 011 |
 | RR-75 | HIGH | The 9,400-line split runs with no undefined-name check | M2 | 011 |
 | RR-76 | HIGH | "All tests over http" under-specified: balance/perf scripts, SW in every test, file:// SW test | M4 | 011 |
@@ -393,6 +393,7 @@ Remote dependencies (verified): only three.js r187 (`index.html:50`, which pulls
 - **Spec:** later (config pin, restore check); SPEC-025 AC 6c (bridge note).
 
 #### RR-34 HIGH: The fullscreen button is dead in a native wrapper and on iPhone [P5]
+- **Status (2026-11-27):** done for the web (SPEC-038: `fullscreenShown()` — hidden when neither `fullscreenEnabled` nor `webkitFullscreenEnabled` is true, and when `STANDALONE`); the `NATIVE` flag for the store wrapper is later.
 - **Location:** `isStandalone` 1116–1122, `toggleFullscreen` 4736–4741 (errors swallowed), shown at 4850/4942 when `!STANDALONE`.
 - **Why:** In WKWebView neither standalone check is true, so ⛶ is drawn and does nothing. Apple 2.1 rejects visibly non-functional controls.
 - **Fix:** A `NATIVE` flag next to `STANDALONE`. Hide the button when `STANDALONE || NATIVE` or when the Fullscreen API is missing (that half now, in BACKLOG).
@@ -416,12 +417,14 @@ Remote dependencies (verified): only three.js r187 (`index.html:50`, which pulls
 - **Spec:** later.
 
 #### RR-38 MEDIUM: Orientation locked only by the web manifest; tablets in portrait [P11]
+- **Status (2026-11-27):** done (SPEC-038: `rotateWall()` — the wall only on a phone; a tablet or a tall desktop window plays letterboxed in portrait); the native orientation keys are later (the wrapper).
 - **Location:** `manifest.webmanifest` `orientation`; the portrait overlay 6947–6956 and `update` skip 9226.
 - **Why:** iOS ignores the manifest, Android 16 ignores locks on large screens and iPadOS 26 has resizable windows. A tablet can show "rotate" forever.
 - **Fix:** Native orientation keys. On tablets and large windows in portrait, play letterboxed. The rotate wall stays for phones only.
 - **Spec:** later; BACKLOG (tablet portrait behaviour).
 
 #### RR-39 LOW: Sprite precache is best-effort; the offline test does not check art [P14]
+- **Status (2026-11-27):** done (SPEC-038: `offline.spec.js` asserts every sprite loaded offline; `sw.js` `repairArt` re-fetches missing sprites on an online navigation).
 - **Location:** `sw.js:74`; `artLoad` 522–531 (if the logo fails, every sprite is marked bad); `pwa.spec.js` 210–224.
 - **Fix:** The offline test asserts `__bb.artInfo.ok === total`, and the SW re-adds missing sprites on the next online start.
 - **Spec:** BACKLOG.
@@ -614,11 +617,13 @@ Verified today: one third-party request (three.js, RR-29). No analytics, ads, fo
 - **Spec:** SPEC-011 AC 8d (Phase A; fix round: moved from SPEC-012, so the harness is fixed before the split). Root cause and fix: section 3a.
 
 #### RR-72 LOW: Rotation and resize edge cases [R12]
+- **Status (2026-11-27):** done (SPEC-038: the overlay blocks every control and portrait in a level pauses; `fit()` runs once per animation frame).
 - **Location:** 6946–6955 (`buttons = []` only on `PHONE`, so tablet buttons stay live under the rotate overlay); 9225–9226 (rotating back resumes play instantly); 1169–1170 (`fit()` on every resize event).
 - **Fix:** Clear buttons under the overlay on every touch device, pause on portrait during play, and run `fit()` at most once per frame.
 - **Spec:** BACKLOG.
 
 #### RR-73 LOW: Two fingers on one stick half stop the hero [R14]
+- **Status (2026-11-27):** done (SPEC-038: a per-player pointer stack, `activeStick`).
 - **Location:** 3237–3240, 3253.
 - **Fix:** Keep a per-player pointer stack and fall back to the previous finger.
 - **Spec:** BACKLOG.
