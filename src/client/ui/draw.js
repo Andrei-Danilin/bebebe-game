@@ -7,7 +7,7 @@ import { audible, bigListens, bigMark } from "../../core/hearing.js";
 import { inBush } from "../../core/path.js";
 import { L } from "../../i18n.js";
 import { art, artInset, artPick, EMOJI_ART, EMOJI_RE, FX_ART, HEART_ART, PAPER_BTN, paperUI, POP_ART } from "../art.js";
-import { stickR, sticks } from "../input.js";
+import { activeSticks, stickR } from "../input.js";
 import { LOOK } from "../look.js";
 import { nameFor, nameOf } from "../names.js";
 import { P_COLORS } from "../outfits.js";
@@ -407,7 +407,7 @@ export function toggleFullscreen() {
 export function drawSticks() {
   const SR = stickR();
   const P = LOOK.PAPER, base = art("phone_stick_base"), knob = art("phone_stick_knob");   // SPEC-020: джойстик 25_phone_controls
-  for (const st of sticks.values()) {
+  for (const st of activeSticks()) {   // SPEC-038 AC 1: only the newest finger of each player is drawn
     ctx.globalAlpha = base ? P.stickBase : 0.35;
     if (!drawArtFit("phone_stick_base", st.ox, st.oy, SR * 2.1)) { circle(st.ox, st.oy, SR); fillStroke("#fff", 3); }
     // SPEC-019: внутреннее кольцо — граница «на цыпочках»: внутри него тихо, дальше — бегом (на бумажном основании — тёмное)

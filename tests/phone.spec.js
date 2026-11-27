@@ -487,6 +487,54 @@ test.describe("phone controls", () => {
     expect(errors).toEqual([]);
   });
 
+  // SPEC-038 AC 1 (RR-73): each player's stick keeps a stack of its pointers — the newest steers; lifting the newest falls back
+  // to the previous one; lifting an older one changes nothing; lifting all stops the hero. One evaluate: events and steps
+  // run together, so the real frame loop adds no steps in between.
+  test("a second finger on the stick: the newest steers, lifting it falls back, buttons keep their own touches", async ({ phonePage: page }) => {
+    const errors = await phonePlay(page);
+    await placeHero(page, 480, 320);
+    await frames(page);
+    const d = await page.evaluate(() => {
+      const b = window.__bb, l = b.littles[0], c = document.getElementById("game"), r = c.getBoundingClientRect(), s = b.uiSize.scale, R = b.stickR();
+      const ev = (t, id, x, y) => c.dispatchEvent(new PointerEvent(t, { clientX: r.left + x * s, clientY: r.top + y * s, pointerId: id, pointerType: "touch", isPrimary: id === 1, bubbles: true, cancelable: true }));
+      const out = {};
+      const drift = key => {                                   // where the hero heads over 12 steps
+        Object.assign(l, { x: 480, y: 320, kx: 0, ky: 0, moving: false });
+        for (let i = 0; i < 12; i++) b.update(1 / 60);
+        const dx = l.x - 480, dy = l.y - 320;
+        out[key] = Math.abs(dx) < 1 && Math.abs(dy) < 1 ? "stop" : Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "right" : "left") : (dy > 0 ? "down" : "up");
+      };
+      ev("pointerdown", 1, 100, 250); ev("pointermove", 1, 100 + R * 0.8, 250);   // finger A: push right
+      drift("a");
+      ev("pointerdown", 2, 100, 150); ev("pointermove", 2, 100, 150 + R * 0.8);   // finger B lands: push down
+      out.stack = b.sticks.length;
+      drift("ab");
+      ev("pointerup", 1, 100 + R * 0.8, 250);                                     // the older finger lifts: still down
+      drift("liftA");
+      ev("pointerdown", 1, 100, 250); ev("pointermove", 1, 100 + R * 0.8, 250);   // A lands again (newest now): right
+      drift("a2");
+      ev("pointerup", 1, 100 + R * 0.8, 250);                                     // the newest lifts: back to B (down)
+      drift("liftNewest");
+      ev("pointerup", 2, 100, 150 + R * 0.8);                                     // all fingers up
+      drift("allUp");
+      out.left = b.sticks.length;
+      return out;
+    });
+    expect(d).toEqual({ a: "right", stack: 2, ab: "down", liftA: "down", a2: "right", liftNewest: "down", allUp: "stop", left: 0 });
+    // a button's touch never takes over the stick: a finger on the stick, another on the 💋 button (right)
+    await page.evaluate(() => { window.__bb.progress.inv.kisses = 5; });
+    await frames(page);
+    const kiss = (await page.evaluate(() => window.__bb.buttonRects)).find(q => q.id === "kiss:0");
+    await touch(page, "pointerdown", 150, 300, 11);
+    await touch(page, "pointerdown", kiss.x + kiss.w / 2, kiss.y + kiss.h / 2, 12);
+    expect(await page.evaluate(() => window.__bb.sticks.map(q => q.id))).toEqual([11]);
+    await touch(page, "pointerup", kiss.x + kiss.w / 2, kiss.y + kiss.h / 2, 12);
+    expect(await page.evaluate(() => window.__bb.sticks.map(q => q.id))).toEqual([11]);
+    await touch(page, "pointerup", 150, 300, 11);
+    expect(await page.evaluate(() => window.__bb.sticks.length)).toBe(0);
+    expect(errors).toEqual([]);
+  });
+
   test("phones play with one player", async ({ phonePage: page }) => {
     const errors = page.sharedErrors;
     const en = await page.evaluate(() => window.__bb.I18N.en);

@@ -56,6 +56,7 @@ export const LOOK = {
   // пульс свечения: прозрачность pulseMin…pulseMin + pulseAmp, pulseSpeed рад/с, ореол за краем — glowOut × glowW диаметра; эмодзи — emoji × значка
   TIPTOE_BTN: { phone: 64, desk: 56, gap: 0.1, icon: 0.62, glow: "#facc15", glowW: 0.09, pulseMin: 0.55, pulseAmp: 0.35, pulseSpeed: 4, glowOut: 0.6, emoji: 0.8 },
   STICK_ZONE: 0.55,          // доля ширины слева, где касание создаёт джойстик
+  STICK_STACK_MAX: 5,        // SPEC-038: сколько пальцев стик одного игрока помнит (самый старый забывается; потерянный pointerup не копится)
   PHONE_STICK_R: 60,         // CSS px — радиус джойстика на телефоне
   PHONE_BTN_MIN: 44,         // CSS px — кнопка на телефоне не меньше
   PHONE_HEART_MIN: 9,        // CSS px — шаг облачек злости на телефоне не меньше (SPEC-022: сначала теснятся облачка, подпись — целиком)
