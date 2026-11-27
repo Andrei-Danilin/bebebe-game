@@ -286,6 +286,8 @@ export const UPGRADES = {
   quickHelp: { step: 0.1, prices: [150, 300, 450] }     // игрок поднимает друга быстрее: −10 % времени за уровень (3 → 2,1 с)
 };
 export const upgTop = k => UPGRADES[k].prices.length;   // последний уровень
+// SPEC-041: прибавка улучшения k на уровне lv (доля: 0,06 = +6 %) — её же берут правила (playerBonus) и страница «Улучшения»
+export const upgBonus = (k, lv) => lv * UPGRADES[k].step;
 // поле: размер в px, клетка, клеток по ширине и высоте; мелкая сетка движения и взгляда (FINE px)
 export const W = 960, H = 640, CELL = 32, COLS = 30, ROWS = 20, FINE = 8, FW = W / FINE, FH = H / FINE;
 export const TAU = Math.PI * 2;

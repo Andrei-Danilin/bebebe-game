@@ -34,10 +34,17 @@ function minimapBase(r) {
   const li = G.levelInfo || {}, key = [li.world, li.lv, li.attempt, li.fallback, r.w, VIEW].join(":");
   if (mmBase && key === mmKey) return mmBase;
   mmKey = key; mmDraws++;
-  const th = THEMES[li.world || G.world], L = LOOK.MINIMAP_LOOK, c = mmBase || (mmBase = document.createElement("canvas"));
+  const th = THEMES[li.world || G.world], c = mmBase || (mmBase = document.createElement("canvas"));
   c.width = Math.max(1, Math.round(r.w * VIEW)); c.height = Math.max(1, Math.round(r.h * VIEW));   // новый размер — холст чистый
-  const g = c.getContext("2d"), ui = W / r.w;                    // px карты на UI px
+  const g = c.getContext("2d");
   g.setTransform(c.width / W, 0, 0, c.height / H, 0, 0);          // рисуем в px карты
+  paintMapBase(g, G, th, W / r.w);                                 // px карты на UI px
+  return c;
+}
+// SPEC-041 (из minimapBase): те же цвета и фигуры на любом холсте g в px карты (setTransform уже стоит); карта — всё, что читается из
+// игры: { safeZone, dangerZone, obstacles, bushes } (G или предпросмотр уровня на карточке); px — px карты на px холста (толщина линий)
+export function paintMapBase(g, map, th, px) {
+  const L = LOOK.MINIMAP_LOOK, ui = px;
   const dark = col => mixHex(col, MM_DARK, L.dark);
   const zone = (z, col) => {
     if (!z) return;
@@ -45,8 +52,8 @@ function minimapBase(r) {
     g.globalAlpha = L.zone; g.fillStyle = col; g.fillRect(z.x, z.y, z.w, z.h); g.globalAlpha = 1;
     g.lineWidth = lw; g.strokeStyle = col; g.strokeRect(z.x + lw / 2, z.y + lw / 2, z.w - lw, z.h - lw);
   };
-  zone(G.safeZone, th.walls.home[0]); zone(G.dangerZone, th.walls.bighome[0]);
-  for (const o of G.obstacles) {
+  zone(map.safeZone, th.walls.home[0]); zone(map.dangerZone, th.walls.bighome[0]);
+  for (const o of map.obstacles) {
     // SPEC-016: у места с воротами (deco.goal — Поле) пруд — это ворота: рисуются цветом рамки, не водой
     if (o.kind === "water" || o.kind === "pond") { g.fillStyle = o.kind === "pond" && !o.fountain && th.deco?.goal ? th.deco.goal : MM_WATER; g.fillRect(o.x, o.y, o.w, o.h); continue; }
     if (o.kind === "tree" || o.kind === "rock") {
@@ -61,8 +68,7 @@ function minimapBase(r) {
     else g.fillRect(o.x, o.y, o.w, o.h);
   }
   g.fillStyle = dark(MM_BUSH);
-  for (const b of G.bushes) { g.beginPath(); g.arc(b.x, b.y, b.r * L.bush, 0, TAU); g.fill(); }
-  return c;
+  for (const b of map.bushes) { g.beginPath(); g.arc(b.x, b.y, b.r * L.bush, 0, TAU); g.fill(); }
 }
 function mark(kind, x, y, r = 0) {
   const m = mmState.markers[mmCount] || (mmState.markers[mmCount] = { kind: "", x: 0, y: 0, r: 0 });
