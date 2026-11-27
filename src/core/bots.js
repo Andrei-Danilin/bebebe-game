@@ -7,6 +7,7 @@ import { steerTo } from "./path.js";
 import { trickFreeze } from "./tricks/aware.js";
 import { trickHideSpot, trickKidCost, trickQuiet } from "./tricks/query.js";
 import { canSee, inCone } from "./vision.js";
+import { launcherGoal } from "./worlditems.js";
 import { canAct, inDanger, inDangerXY, moveSolidAt } from "./world.js";
 import { G } from "./active.js";
 
@@ -83,7 +84,11 @@ export function updateBots(dt) {
         // SPEC-029: в тренировке 1 бот сам не обнимает (это делает игрок): убегает и ждёт рядом, как обычно, но не нападает
         if (!G.attackToken && G.botAttackCd <= 0 && b.lurkT <= 0 && free.has(b) && G.tutorialGame !== 1) { G.attackToken = b; b.tokenT = 8; }
         const back = G.big.dir + Math.PI;
-        if (G.attackToken === b) {
+        const kick = G.attackToken !== b ? launcherGoal(b, true) : null;   // SPEC-043: a football / plane / snowball lies near and Dad is in line: run through it at him
+        if (kick) {
+          b.task = "kick";
+          moved = steerTo(b, kick.x, kick.y, speed, dt, true);
+        } else if (G.attackToken === b) {
           b.task = "attack";
           b.tokenT -= dt;
           if (b.tokenT <= 0) { G.attackToken = null; b.lurkT = rand(3, 6); }

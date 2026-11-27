@@ -28,6 +28,7 @@ export * from "./vision.js";
 export * from "./path.js";
 export * from "./difficulty.js";
 export * from "./game.js";
+export * from "./worlditems.js";
 export * from "./rules.js";
 export * from "./bots.js";
 export * from "./big.js";

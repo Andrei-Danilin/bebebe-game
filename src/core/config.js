@@ -228,10 +228,11 @@ export const CFG = {
   WORLD_ITEMS: {
     shares: { boots: 0.3, cloak: 0.25, shield: 0.2, banana: 0.1, world: 0.15 }, lyingLife: 8, bossMul: 0.5, touch: 16,
     football: { cells: 6, speed: 14, hit: 8, time: 1.5, bounces: 1 },                    // мяч катится cells клеток, один раз отскакивает от стены; попал — папа оглушён time сек
-    cupcake: { see: 5, time: 3, near: 14, speedMul: 1 },                                  // кекс: папа видит его ближе see клеток — идёт и ест time сек
+    cupcake: { see: 5, time: 3, near: 14, giveUp: 12, stuck: 1.5 },                       // кекс: папа видит его ближе see клеток — идёт и ест time сек (подошёл на near px к краю; не дошёл за giveUp сек или стоит stuck сек — кекс пропал)
     plane: { cells: 8, speed: 8, time: 2, turn: 6 },                                      // самолётик летит cells клеток; увидевший его папа смотрит на него time сек (turn рад/с)
     watermelon: { slide: 2, slideTime: 0.4, time: 3.5 },                                  // арбуз: папа проезжает slide клеток за slideTime сек и лежит всего time сек
-    snowball: { cells: 7, speed: 12, hit: 8, time: 1.5 }                                  // снежок летит cells клеток; попал — папа замёрз на time сек
+    snowball: { cells: 7, speed: 12, hit: 8, time: 1.5 },                                 // снежок летит cells клеток; попал — папа замёрз на time сек
+    kick: { reach: 140, approach: 36, line: 0.3, past: 30 }                               // боты и автопилот: берутся за мяч / самолётик / снежок не дальше reach px; встают на approach px за ним на линии к папе (line рад — «на линии»), потом бегут сквозь него (на past px дальше)
   },
   // SPEC-042: числа хитростей. count — штук на уровень [от, до]; pad — клеток отступа от занятого и друг от друга (при расстановке); cells/сек — как сказано
   // SPEC-042: hideSpot — где боты и автопилот прячутся за тем, что закрывает папе обзор (грузовик): на behind px за его краем, не дальше side px вбок, не ближе edge px к краю карты, подходят на stop px

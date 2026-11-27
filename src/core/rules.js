@@ -9,6 +9,7 @@ import { resolveWalls, steerTo } from "./path.js";
 import { fastTarget } from "./progress-rules.js";
 import { trickKeepsDadOut, trickSpeedMul } from "./tricks/query.js";
 import { canAct, inDanger, inSafe, los, moveSolidAt, seeSolidAt } from "./world.js";
+import { dadDown, touchWorldItem, WORLD_KINDS } from "./worlditems.js";
 import { G } from "./active.js";
 
 // прибавка улучшения k для этого маленького: его уровень (взят при создании; у ботов нет) × step
@@ -73,7 +74,7 @@ function hug(l, a) {
   G.big.hp = Math.max(0, G.big.hp - power); G.big.hugCd = CFG.HUG_STUN + 0.3; G.big.stun = CFG.HUG_STUN; G.big.stunFace = a; G.big.flash = 0.3;
   G.big.stunTurn = Math.abs(normAng(a - G.big.dir)) / CFG.HUG_STUN;   // медленно поворачивается, пока в шоке
   G.big.state = "chase"; G.big.lastSeen = { x: l.x, y: l.y };
-  G.big.slip = 0;
+  G.big.slip = 0; G.big.slideT = 0; G.big.watch = 0; G.big.cake = 0;   // SPEC-043: the hug ends whatever held him (slide, plane look, cupcake walk)
   if (bigMood() !== mood0) emit("mood", { level: bigMood() });
   l.hugCd = 1.5 + CFG.HUG_ANIM; l.hugAnim = CFG.HUG_ANIM;   // запрыгивает на спину
   l.path = [];
@@ -276,7 +277,7 @@ export function updateItems(dt) {
     if (it.kind === "banana") {
       if (!G.big.kind && G.big.slip <= 0 && G.big.stun <= 0 && dist(G.big, it) < G.big.r + 8) {   // SPEC-022: по дороге домой не поскальзывается
         it.t = 999;
-        G.big.slip = CFG.SLIP_STUN; G.big.path = []; G.big.flash = 0.2;
+        dadDown("banana", CFG.SLIP_STUN, 1);
         logEvent("slip", {});
         emit("pop", { key: "slip", args: [], x: G.big.x, y: G.big.y - 70, color: "#fde047" });
         emit("burst", { kind: "star", x: G.big.x, y: G.big.y, n: 12, color: "#fde047" });
@@ -285,6 +286,7 @@ export function updateItems(dt) {
       }
       continue;
     }
+    if (WORLD_KINDS.includes(it.kind)) { touchWorldItem(it); continue; }   // SPEC-043: the world's own item
     const l = G.littles.find(q => q.state === "ok" && q.hugAnim <= 0 && dist(q, it) < q.r + 16);
     if (l) {
       it.t = 999;

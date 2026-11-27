@@ -44,7 +44,7 @@ export const I18N = {
     undoReset: "Bring back erased progress", resetAsk: "Reset all progress?", leaveAsk: "Leave the game?", yes: "Yes", no: "No", restoreCopy: "Restore an older copy", eraseAll: "Erase all data on this device", errorLog: "Error log", copy: "Copy", version: "Version",
     win: "YOU WIN!", winSub: "You hugged him lots of times, and he went home!", next: n => `Level ${n} ▶`,
     // SPEC-022: заголовок победы — папа (босс, набранное имя) снова добрый; «Ура!» друзей, пока он идёт домой; имена боссов
-    kindAgain: n => `${n} is kind again!`, cheer: "Yay!", whoosh: "WHOOSH!", splash: "SPLASH!", freeze: "Freeze!",
+    kindAgain: n => `${n} is kind again!`, cheer: "Yay!", whoosh: "WHOOSH!", splash: "SPLASH!", freeze: "Freeze!", bonk: "Bonk!", yum: "Yum!", brr: "Brrr!", whee: "Whee!",
     bossNames: { park: "The park boss", field: "The coach", city: "The builder", school: "The grumpiest dad" },
     lose: n => `${n} is still grumpy…`, loseSub: (h, m) => `Hearts taken: ${h} of ${m}. Try again?`, again: "Try again",
     big: "Grumpy dad", hug: "Hug! -1", bang: "BAM!", saved: "Saved!", out: "Going home to rest", back: "Back in the game!", resting: (n, t) => `${n}: resting… back in ${t}`, help: n => `${n}: HELP!`,
@@ -150,7 +150,7 @@ export const I18N = {
     importConfirm: "¿Reemplazar el progreso de este dispositivo con el código?", codeTooNew: "Este código es de una versión más nueva del juego", codeBad: "Este código no funciona. Revisalo y probá de nuevo",
     undoReset: "Recuperar el progreso borrado", resetAsk: "¿Borrar todo el progreso?", leaveAsk: "¿Salir del juego?", yes: "Sí", no: "No", restoreCopy: "Volver a una copia anterior", eraseAll: "Borrar todos los datos de este dispositivo", errorLog: "Registro de errores", copy: "Copiar", version: "Versión",
     win: "¡GANARON!", winSub: "¡Lo abrazaron muchas veces y se fue a su casa!", next: n => `Nivel ${n} ▶`,
-    kindAgain: n => `¡${n} volvió a ser bueno!`, cheer: "¡Bien!", whoosh: "¡FIUUU!", splash: "¡CHAPA!", freeze: "¡Quietos!",
+    kindAgain: n => `¡${n} volvió a ser bueno!`, cheer: "¡Bien!", whoosh: "¡FIUUU!", splash: "¡CHAPA!", freeze: "¡Quietos!", bonk: "¡Toc!", yum: "¡Ñam!", brr: "¡Brrr!", whee: "¡Wiii!",
     bossNames: { park: "El jefe del parque", field: "El entrenador", city: "El albañil", school: "El papá más enojado" },
     lose: n => `${n} sigue enojado…`, loseSub: (h, m) => `Corazones: ${h} de ${m}. ¿Otra vez?`, again: "Otra vez",
     big: "Papá gruñón", hug: "¡Abrazo! -1", bang: "¡PUM!", saved: "¡Salvado!", out: "Me voy a descansar", back: "¡De vuelta!", resting: (n, t) => `${n}: descansando… volvés en ${t}`, help: n => `${n}: ¡AYUDA!`,
@@ -248,7 +248,7 @@ export const I18N = {
     importConfirm: "Substituir o progresso deste aparelho pelo do código?", codeTooNew: "Este código é de uma versão mais nova do jogo", codeBad: "Este código não funciona. Confira e tente de novo",
     undoReset: "Recuperar o progresso apagado", resetAsk: "Apagar todo o progresso?", leaveAsk: "Sair do jogo?", yes: "Sim", no: "Não", restoreCopy: "Voltar para uma cópia anterior", eraseAll: "Apagar todos os dados deste aparelho", errorLog: "Registro de erros", copy: "Copiar", version: "Versão",
     win: "VOCÊS GANHARAM!", winSub: "Vocês deram muitos abraços nele, e ele foi para casa!", next: n => `Fase ${n} ▶`,
-    kindAgain: n => `${n} ficou bonzinho!`, cheer: "Eba!", whoosh: "VUUUSH!", splash: "PLOFT!", freeze: "Parados!",   // SPEC-028: kindAgain без «de novo» — длинное имя босса не влезало (шрифты CI)
+    kindAgain: n => `${n} ficou bonzinho!`, cheer: "Eba!", whoosh: "VUUUSH!", splash: "PLOFT!", freeze: "Parados!", bonk: "Toc!", yum: "Nham!", brr: "Brrr!", whee: "Uhuu!",   // SPEC-028: kindAgain без «de novo» — длинное имя босса не влезало (шрифты CI)
     bossNames: { park: "O chefe do parque", field: "O treinador", city: "O construtor", school: "O papai mais bravo" },
     lose: n => `${n} ainda está bravo…`, loseSub: (h, m) => `Corações: ${h} de ${m}. Mais uma vez?`, again: "De novo",
     big: "Papai bravo", hug: "Abraço! -1", bang: "BUM!", saved: "Salvo!", out: "Vou descansar", back: "De volta ao jogo!", resting: (n, t) => `${n}: descansando… volta em ${t}`, help: n => `${n}: SOCORRO!`,
@@ -345,7 +345,7 @@ export const I18N = {
     importConfirm: "Заменить прогресс на этом устройстве прогрессом из кода?", codeTooNew: "Этот код из более новой версии игры", codeBad: "Этот код не подходит. Проверьте его и попробуйте ещё раз",
     undoReset: "Вернуть стёртый прогресс", resetAsk: "Сбросить весь прогресс?", leaveAsk: "Выйти из игры?", yes: "Да", no: "Нет", restoreCopy: "Вернуть более старую копию", eraseAll: "Стереть все данные на этом устройстве", errorLog: "Журнал ошибок", copy: "Копировать", version: "Версия",
     win: "ПОБЕДА!", winSub: "Его обняли много раз, и он ушёл домой!", next: n => `Уровень ${n} ▶`,
-    kindAgain: n => `${n} снова добрый!`, cheer: "Ура!", whoosh: "ВЖУХ!", splash: "ПЛЮХ!", freeze: "Замри!",
+    kindAgain: n => `${n} снова добрый!`, cheer: "Ура!", whoosh: "ВЖУХ!", splash: "ПЛЮХ!", freeze: "Замри!", bonk: "Бом!", yum: "Ням!", brr: "Брр!", whee: "Уиии!",
     bossNames: { park: "Босс парка", field: "Тренер", city: "Строитель", school: "Самый злой папа" },
     lose: n => `${n} всё ещё сердится…`, loseSub: (h, m) => `Сердечек забрали: ${h} из ${m}. Ещё разок?`, again: "Ещё раз",
     big: "Злой папа", hug: "Обнимашки! -1", bang: "БАХ!", saved: "Спасён!", out: "Иду отдыхать", back: "Снова в игре!", resting: (n, t) => `${n}: отдых… вернёшься через ${t}`, help: n => `${n}: ПОМОГИТЕ!`,
