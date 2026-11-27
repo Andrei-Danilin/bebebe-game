@@ -3,7 +3,7 @@
 
 import { CFG, TAU, UPGRADES, upgBonus, upgTop } from "../../../core/config.js";
 import { progress } from "../../../core/economy.js";
-import { L } from "../../../i18n.js";
+import { L, lang } from "../../../i18n.js";
 import { art, UPG_ART } from "../../art.js";
 import { paperUI } from "../paper.js";
 import { LOOK } from "../../look.js";
@@ -47,27 +47,29 @@ function upgButton(cd, x, y, w, h, size, min) {
 }
 // лента «Максимум» в рамке x, y, w, h: картинка ribbon_star (нет — золотая плашка), надпись по центру
 function upgRibbon(cd, x, y, w, h, size, min) {
-  const R = LOOK.UPG_PAGE_LOOK.ribbon, text = L().upgMax.toLocaleUpperCase(), cx = x + w / 2, cy = y + h / 2;
+  const R = LOOK.UPG_PAGE_LOOK.ribbon, text = L().upgMax.toLocaleUpperCase(lang), cx = x + w / 2, cy = y + h / 2;
   const img = art("ribbon_star"), k = img ? Math.min(w / img.naturalWidth, h / img.naturalHeight) : 0;
   let rw = w, rh = h;
   if (paperUI() && img) { rw = img.naturalWidth * k; rh = img.naturalHeight * k; drawArtFit("ribbon_star", cx, cy, Math.max(rw, rh)); }
-  else { rr(x, y, w, h, h * 0.3); fillStroke(R.fill, 3); }
+  else { rr(x, y, w, h, h * R.corner); fillStroke(R.fill, R.plateLine); }
   const f = fitLine(text, Math.max(size, h * R.text), PHONE ? minPx("hint") : min, rw * R.textW);   // лента — не кнопка: надпись может быть мельче (hint), лишь бы вся
   ctx.font = hudFont(f.sz); ctx.textAlign = "center"; ctx.textBaseline = "middle";
-  ctx.lineWidth = Math.max(2, f.sz / 5); ctx.lineJoin = "round"; ctx.strokeStyle = "#fff"; ctx.strokeText(f.text, cx, cy + 1); ctx.fillStyle = R.ink; fillT(f.text, cx, cy + 1);
+  ctx.lineWidth = Math.max(R.minLine, f.sz * R.line); ctx.lineJoin = "round"; ctx.strokeStyle = "#fff"; ctx.strokeText(f.text, cx, cy + R.dy); ctx.fillStyle = R.ink; fillT(f.text, cx, cy + R.dy);
   if (PHONE) noteText("hint", f.sz);
   ui.hudRects.push({ id: "upg-max:" + cd.k, x: cx - rw / 2, y: cy - rh / 2, w: rw, h: rh, text: f.text });   // что нарисовано: обрезка видна тесту
 }
-// SPEC-041: искорки (fx_sparkle) вокруг картинки купленного улучшения: UPG_PAGE_LOOK.spark.time секунд после покупки (ui.upgSpark)
+// SPEC-041: искорки (fx_sparkle) вокруг картинки купленного улучшения: UPG_PAGE_LOOK.spark.time секунд после покупки (ui.upgSpark);
+// рисование только читает: по возрасту искорки гаснут сами
 function upgSparkles(cd, cx, cy, size) {
   const sp = ui.upgSpark, S = LOOK.UPG_PAGE_LOOK.spark;
   if (!sp || sp.k !== cd.k) return;
   const age = (ui.T - sp.t0) / S.time;
-  if (age < 0 || age >= 1) { if (age >= 1) ui.upgSpark = null; return; }
+  if (age < 0 || age >= 1) return;
   for (let i = 0; i < S.n; i++) {
-    const a = (i / S.n) * TAU + age * 2, r = size * S.radius * (0.55 + age * 0.6), x = cx + Math.cos(a) * r, y = cy + Math.sin(a) * r * 0.85;
+    const a = (i / S.n) * TAU + age * S.spin, r = size * S.radius * (S.r0 + age * S.rGrow), x = cx + Math.cos(a) * r, y = cy + Math.sin(a) * r * S.squash;
+    const d = size * S.size * (S.s0 - age * S.sShrink);
     ctx.globalAlpha = 1 - age;
-    if (!drawArtFit("fx_sparkle", x, y, size * S.size * (1.1 - age * 0.4))) drawStar(x, y, size * S.size * 0.35, true);
+    if (!drawArtFit("fx_sparkle", x, y, d)) drawStar(x, y, d * S.star, true);
   }
   ctx.globalAlpha = 1;
 }

@@ -853,12 +853,41 @@ test("opening a level's card twice uses the cached preview; the cache keeps at m
   await page.evaluate(() => { window.__bb.mode = "map"; window.__bb.showCard(8); window.__bb.drawNow(); window.__bb.drawNow(); });
   const i2 = await info();
   expect(i2.built, "the second time: not built again").toBe(i1.built);
-  expect(i2.hits - i1.hits, "taken from the cache (every draw of the card)").toBeGreaterThanOrEqual(2);
+  expect(i2.hits - i1.hits, "taken from the cache when the card opens").toBeGreaterThanOrEqual(1);
   const canvas = await page.evaluate(() => { const b = window.__bb; return [b.levelPreview("park", 8).canvas === b.levelPreview("park", 8).canvas, b.levelPreview("park", 8).canvas === b.levelPreview("park", 9).canvas]; });
   expect(canvas, "the same canvas for the same level, another for another").toEqual([true, false]);
   await page.evaluate(() => { const b = window.__bb; for (let n = 1; n <= 20; n++) b.levelPreview("park", n); });
   const i3 = await info();
   expect(i3.size, "the oldest go first").toBe(i3.cache);
+  await page.evaluate(() => { window.__bb.mode = "home"; });
+});
+
+// SPEC-012 AC 1f: drawing builds no level — the map is made when the card OPENS (setMode), the draw only paints what it finds; the previews
+// live with the level cache (__bb.clearLevelCache clears both); Play on a closed level's card goes back to the map
+test("the card's map is made when it opens, never by drawing; clearLevelCache clears the previews; Play on a closed level does nothing", async ({ page }) => {
+  await page.evaluate(() => { const b = window.__bb; b.setProgress(null); b.progress.worlds.park.unlocked = 3; b.world = "park"; b.clearLevelCache(); b.mode = "map"; });
+  await frames(page);
+  const info = () => page.evaluate(() => ({ ...window.__bb.previewInfo }));
+  const i0 = await info();
+  expect(i0.size, "clearLevelCache cleared the previews too").toBe(0);
+  await page.evaluate(() => window.__bb.showCard(2));
+  const i1 = await info();
+  expect(i1.built - i0.built, "opening the card builds the map").toBe(1);
+  await page.evaluate(() => { const b = window.__bb; for (let i = 0; i < 3; i++) b.drawNow(); });
+  expect((await info()).built, "drawing builds nothing").toBe(i1.built);
+  // a card with no data (the previews cleared under it): the draw only shows the empty frame — still no build, no error
+  await page.evaluate(() => { const b = window.__bb; b.clearLevelPreviews(); b.drawNow(); });
+  const i2 = await info();
+  expect([i2.built, i2.size], "still nothing built by drawing").toEqual([i1.built, 0]);
+  // the cache is the level cache's: clearing the level cache drops the previews
+  await page.evaluate(() => { const b = window.__bb; b.showCard(2); b.clearLevelCache(); });
+  expect((await info()).size).toBe(0);
+  // a closed level: Play does nothing (back to the map), the same as the next-level button
+  await page.evaluate(() => { window.__bb.showCard(9); window.__bb.drawNow(); });
+  expect(await page.evaluate(() => window.__bb.levelCard.preview.locked)).toBe(true);
+  await page.evaluate(() => window.__bb.tapButton("card:1"));
+  await frames(page);
+  expect(await page.evaluate(() => window.__bb.mode), "Play on a closed level's card").toBe("map");
   await page.evaluate(() => { window.__bb.mode = "home"; });
 });
 

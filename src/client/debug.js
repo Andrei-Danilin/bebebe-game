@@ -60,7 +60,8 @@ import { artUse, resetArtUse } from "./ui/artdraw.js";
 import { chooseLang, openLangScreen } from "./ui/lang.js";
 import { heardHintOn, heardHintText, heartFill, timerText } from "./ui/hud.js";
 import { mmAlpha, mmCount, mmDraws, mmState, updateMinimapFade } from "./ui/minimap.js";
-import { clearLevelPreviews, levelPreviewOf, previewCacheSize, previewStats } from "./ui/level-preview.js";
+import { clearLevelPreviews, previewCacheSize, previewDataOf, previewStats } from "./preview-data.js";
+import { levelPreviewOf } from "./ui/level-preview.js";
 import { gateState, openGrownUps, parentGate } from "./ui/grownups.js";
 import { drawUI } from "./ui/screens.js";
 import { fmtHearts, storyPx } from "./ui/text.js";
@@ -266,8 +267,9 @@ export function installDebug() {
     get stickMarks() { return ui.stickMarks.map(q => ({ ...q })); }, get tapLines() { return [...tapLines]; },
     GLOVES, KISSES, get shopLayout() { return ui.shopLayout; },                         // SPEC-007 AC 10
     // SPEC-041: картинка карточки уровня — levelPreview(мир, n) → { canvas, data } (из кеша или построить), previewInfo — сколько построено / взято из кеша / держится
-    showCard, levelPreview: levelPreviewOf, get previewInfo() { return { ...previewStats, size: previewCacheSize() }; }, clearLevelPreviews,
-    levelType, levelReport, get levelInfo() { return G.levelInfo; }, clearLevelCache, CFG: CFG_ALL, THEMES, look3D, disposeCheck, perf: perfReport, setBigFace,   // SPEC-021: look3D() — как нарисована 3D-сцена
+    showCard, levelPreview: (world, lv) => { previewDataOf(world, lv); return levelPreviewOf(world, lv); }, get previewInfo() { return { ...previewStats, size: previewCacheSize() }; }, clearLevelPreviews,
+    levelType, levelReport, get levelInfo() { return G.levelInfo; }, clearLevelCache: () => { clearLevelCache(); clearLevelPreviews(); },   // SPEC-041: the card previews live with the level cache
+     CFG: CFG_ALL, THEMES, look3D, disposeCheck, perf: perfReport, setBigFace,   // SPEC-021: look3D() — как нарисована 3D-сцена
     get banner() { return ui.banner; }, bannerAlpha,
     // всё состояние мира, которое levelReport сохраняет и возвращает (для теста «не трогает идущую игру»)
     worldState() { return JSON.stringify({ obstacles: G.obstacles, bushes: G.bushes, floors: G.floors, decor: G.decor, trees: G.trees, flowers: G.flowers, safeZone: G.safeZone, dangerZone: G.dangerZone, spawns: G.spawns, reachable: Array.from(G.reachable).join(""), grids: [G.blocked, G.blockedBig, G.moveGrid, G.seeGrid, G.moveGridBig].map(g => g.join("")) }); },

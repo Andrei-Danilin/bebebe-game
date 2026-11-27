@@ -930,7 +930,7 @@ async function upgradeFacts(page, kind) {
         out.want[k] = { lv, top, text: I.upg[k].effect(val(lv), lv < top ? val(lv + 1) : null), pips: "●".repeat(lv) + "○".repeat(top - lv), name: I.upg[k].name,
           now: val(lv), next: lv < top ? val(lv + 1) : null };
       }
-      out.note = I.upgNote; out.maxWord = I.upgMax.toLocaleUpperCase();
+      out.note = I.upgNote; out.maxWord = I.upgMax.toLocaleUpperCase(b.lang);
       return out;
     });
     const hud = id => d.hud.find(h => h.id === id);
@@ -974,19 +974,25 @@ test("the Upgrades page: pips, effect now → next, MAX ribbon, the players-only
   const fails = await upgradeFacts(page, "phone667");
   expect(fails, fails.slice(0, 12).join("\n")).toEqual([]);
 });
-// buying shows a sparkle on the card (fx_sparkle drawn only after the buy), and the level pip fills
+// buying shows a sparkle on the card (fx_sparkle drawn only after the buy), and the level pip fills. Frame-rate independent: the buy and
+// the draw happen in one synchronous step of the page (ui.T, the frame clock, cannot move between them), so a slow software renderer
+// cannot let the sparkle's 0.8 s pass before the check
 test("buying an upgrade shows a sparkle on its card (fx_sparkle) and fills a pip", async ({ page }) => {
+  await page.waitForFunction(() => window.__bb.artInfo.done, null, { timeout: 60_000 });   // without the sprite the sparkle is a code-drawn star (no fx_sparkle drawn)
   await page.evaluate(() => { const b = window.__bb; b.setProgress(null); b.progress.coins = 1000; b.mode = "shop"; b.shopTab = "upgrades"; });
   await frames(page);
-  await page.evaluate(() => window.__bb.resetArtUse());
-  await frames(page);
-  expect(await page.evaluate(() => window.__bb.artUse.fx_sparkle || 0), "no sparkle before a purchase").toBe(0);
-  await page.evaluate(() => window.__bb.tapButton("upg:longItems"));
-  await frames(page);
-  const d = await page.evaluate(() => ({ sparkle: window.__bb.artUse.fx_sparkle || 0, dots: window.__bb.hudRects.find(h => h.id === "upg-dots:longItems").text, lv: window.__bb.upgrades.longItems }));
+  const d = await page.evaluate(() => {
+    const b = window.__bb;
+    b.drawNow(); b.resetArtUse(); b.drawNow();
+    const before = b.artUse.fx_sparkle || 0;
+    b.tapButton("upg:longItems");
+    b.resetArtUse(); b.drawNow();
+    return { before, after: b.artUse.fx_sparkle || 0, dots: b.hudRects.find(h => h.id === "upg-dots:longItems").text, lv: b.upgrades.longItems };
+  });
+  expect(d.before, "no sparkle before a purchase").toBe(0);
   expect(d.lv).toBe(1);
   expect(d.dots).toBe("●○○");
-  expect(d.sparkle, "fx_sparkle drawn after the buy").toBeGreaterThan(0);
+  expect(d.after, "fx_sparkle drawn right after the buy").toBeGreaterThan(0);
   await page.evaluate(() => { window.__bb.setProgress(null); window.__bb.mode = "home"; });
 });
 // the new sizes of SPEC-041: 568×320 and 1280×720 (the desktop UI is 960×640 scaled)

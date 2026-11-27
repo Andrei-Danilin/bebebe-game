@@ -20,6 +20,7 @@ test("the preview's cells equal the cells of the generated level (every world, a
     const at = `${world} ${lv}`;
     assert.equal(p.type, g.levelInfo.type, `${at}: the type`);
     assert.equal(p.fallback, g.levelInfo.fallback, `${at}: the fallback flag`);
+    assert.equal(p.attempt, g.levelInfo.attempt, `${at}: the accepted attempt`);
     assert.equal(p.cells.wall + p.cells.water, blocked, `${at}: wall + water cells = the game's blocked cells`);
     assert.equal(p.cells.water, water.size, `${at}: water cells`);
     assert.equal(p.cells.bush, bush.size, `${at}: bush cells`);

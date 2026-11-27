@@ -12,6 +12,8 @@ import { G } from "../active.js";
 // как в levelReport.
 const levelCache = new Map();
 export const clearLevelCache = () => levelCache.clear();
+// SPEC-041: принятая попытка уровня в кеше (undefined — не в кеше): по ней картинка карточки узнаёт, что построена по тому же уровню
+export const acceptedAttempt = (world, lv) => levelCache.get(levelKey(world, lv));
 export function loadLevel(world, lv) {
   const t0 = performance.now(), type = levelType(world, lv), key = levelKey(world, lv), c = levelCache.get(key);
   if (c !== undefined && c < CFG.LEVEL_ATTEMPTS) {

@@ -1,4 +1,4 @@
-// SPEC-011 (from validate.js): the level report for the tests. Core module.
+// SPEC-011 (from validate.js): the level report for the tests; SPEC-041: levelPreview — the map of a level for the level card. Core module.
 import { COLS, ROWS, CELL } from "../config.js";
 import { newGame, withGame } from "../game.js";
 import { loadLevel } from "./load.js";
@@ -8,13 +8,13 @@ import { G } from "../active.js";
 // Отчёт о честности уровня (для тестов): строит уровень на пустой карте своей игры (SPEC-012: newGame) — идущая игра не меняется
 export function levelReport(world, lv) { return withGame(newGame({ world, n: lv }), () => buildLevel(world, lv)); }
 // SPEC-041: карта уровня для картинки на карточке — тот же уровень, что построит игра (loadLevel: тот же кеш принятой попытки), но в
-// своей игре (withGame): идущая игра, её случайность и поле не меняются. → { world, lv, type, fallback, obstacles, bushes, safeZone,
+// своей игре (withGame): идущая игра, её случайность и поле не меняются. → { world, lv, type, attempt, fallback, obstacles, bushes, safeZone,
 // dangerZone, cells: { wall, free, bush, water } } — cells считаются по клеткам сетки COLS × ROWS (стена — занятая клетка, не вода и не куст)
 export function levelPreview(world, lv) {
   return withGame(newGame({ world, n: lv }), () => {
     loadLevel(world, lv);
     const { obstacles, bushes, safeZone, dangerZone } = G, info = G.levelInfo;
-    return { world, lv, type: info.type, fallback: info.fallback, obstacles, bushes, safeZone, dangerZone, cells: previewCells(obstacles, bushes) };
+    return { world, lv, type: info.type, attempt: info.attempt, fallback: info.fallback, obstacles, bushes, safeZone, dangerZone, cells: previewCells(obstacles, bushes) };
   });
 }
 // клетки сетки: вода (пруд, вода) / стена (остальные препятствия: стены, домики, деревья, камни) / куст (не занятые чем-то из этого) / свободно

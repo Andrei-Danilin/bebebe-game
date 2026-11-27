@@ -18,6 +18,7 @@ import { SCENE_IDS, STORY, TUTORIAL_SCENES } from "../story.js";
 import { STORY_ART } from "./art.js";
 import { closeNameInput, nameInput, sticks } from "./devices.js";
 import { LOOK } from "./look.js";
+import { previewDataOf } from "./preview-data.js";
 import { botOutfit, endTryOn, makeLook, skinSel } from "./outfits.js";
 import { saveProgress, setLang } from "./progress.js";
 import { answerLang } from "./save.js";
@@ -40,6 +41,7 @@ export function setMode(v) {
   screenChanged();                                          // SPEC-025 AC 7d
   if (mode !== "shop") { ui.shopTab = "items"; ui.wardrobePage = "looks"; }
   if (mode !== "map") ui.toast = null;   // SPEC-017: подсказка карты — только пока карта на экране
+  if (mode === "levelCard") previewDataOf(G.world, cardLevel);   // SPEC-041: the card's map is made here (logic), drawing only paints it
   if (mode !== "map" && mode !== "levelCard") ui.mapBgCache = null;   // фон страницы мира не держим в памяти вне карты
   if (nameInput && !inWardrobe()) closeNameInput(false);
   return mode;
@@ -258,7 +260,7 @@ export const lockedText = w => { const o = worldOpen(w, progress); return o.need
 export function tapWorldTab(w) { if (isOpen(w, progress)) selectWorld(w); else showToast(lockedText(w)); }
 export const closeCard = () => { setMode("map"); };
 // «Играть» на карточке: тот же startGame, что и раньше (resetWorld → loadLevel, надпись уровня, камера телефона)
-export function playCard(players) { G.level = cardLevel; withScene(sceneBefore(G.world, G.level), () => startGame(players)); }   // SPEC-022: сначала заставка, если пора
+export function playCard(players) { if (cardLevel > worldProgress().unlocked) { toMap(); return; } G.level = cardLevel; withScene(sceneBefore(G.world, G.level), () => startGame(players)); }   // SPEC-022: сначала заставка, если пора
 // ---------- SPEC-017: история — главы по порядку и страница «Как играть» ----------
 // storyCh — глава на экране; storyBack — куда ведёт «назад» (главный экран или карточка уровня); storyPage — «chapters» или «rules»
 export let storyCh = 0, storyBack = "home";

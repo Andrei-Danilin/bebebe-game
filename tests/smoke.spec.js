@@ -21,7 +21,8 @@ const LOGIC_GETTERS = ["errorLog", "glRestored", "mode", "muted", "wardrobePage"
   "game", "screenState",            // SPEC-012: the active game (plain data); the menus' screen state (AC 1f)
   "tiptoe", "bubbleTextOff", "langSel",
   "acc",    // SPEC-034: the live accumulator (game-time seconds, plain number); SPEC-032: the 👣 toggles, the bubbles-without-letters switch, the language screen's highlight
-  "fitCount", "updateReady", "updateChecks"];   // SPEC-038: counters and flags (how many times fit() ran, the new-version hint) — plain numbers, nothing drawn
+  "fitCount", "updateReady", "updateChecks",
+  "previewInfo"];   // SPEC-041: the level card previews built / hits / size — plain numbers   // SPEC-038: counters and flags (how many times fit() ran, the new-version hint) — plain numbers, nothing drawn
 test("every __bb getter is drawn state (SIM_DRAWN) or listed logic state", async ({ page }) => {
   const errors = await openGame(page, { sim: true });   // descriptors only, nothing drawn is read
   const r = await page.evaluate(() => {

@@ -430,7 +430,8 @@ test("overalls straps stop above the cape: nothing behind the cape cloth (cape, 
     const prev = await page.evaluate(() => window.__bb.capeClear("p1"));
     for (const [where, c] of [["in play", play0], ["in the wardrobe preview", prev]]) {
       if (!c) { bad.push(`${j} ${where}: no straps or no cape`); continue; }
-      if (c.covered > 0 && !(c.strapBack >= c.capeFront)) bad.push(`${j} ${where}: a strap vertex at z ${c.strapBack} is behind the cape front ${c.capeFront}`);
+      if (!(c.covered > 0) || !Number.isFinite(c.strapBack)) bad.push(`${j} ${where}: no strap vertex was measured (covered ${c.covered}), the check would pass for nothing`);
+      else if (!(c.strapBack >= c.capeFront)) bad.push(`${j} ${where}: a strap vertex at z ${c.strapBack} is behind the cape front ${c.capeFront}`);
     }
     // the straps are still there, over the shoulders: the arc reaches past the top of the body (the front end is on the chest)
     const parts = await page.evaluate(() => window.__bb.outfit3D("p1").filter(q => q.piece === "strap"));
