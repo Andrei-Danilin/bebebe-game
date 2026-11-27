@@ -144,10 +144,28 @@ function drawRulesPage(c, open, title, top, { X0, X1, Y1, g, B }, minMain, minHi
     bx -= g;
   }
   // управление: на компьютере — под правилами (слева), на телефоне — под картинкой (справа: слева правилам нужна вся высота)
-  const mh = by - g - top, lw = (X1 - X0) * (PHONE ? R.phoneShare : R.share), px = X0 + lw + 2 * g, rw = X1 - px;
+  const mh = by - g - top;
   const ctl = PHONE ? [["controls:touch", L().touch1]] : [["controls:0", L().controls1], ["controls:1", L().controls2]];
   const ctlRows = (sz, w) => ctl.map(([, t]) => noteRows(t, Math.max(minHint, sz * R.ctl), minHint, w, 2, { keep: true }));
   const ctlH = cb => cb.reduce((a, b) => a + b.rows.length * b.sz * 1.2 + 2 * k, 0) + R.ctlGap * k;
+  // слева — правила (и на компьютере под ними управление); кегль один на всё (мельче, пока не влезет по высоте)
+  let iconK = R.icon;
+  const iconOf = sz => sz * iconK, colW = (sz, w) => w - iconOf(sz) - sz * R.iconGap, rowGap = (PHONE ? R.phoneRowGap : R.rowGap) * k, rlh = PHONE ? R.phoneLh : 1.2;
+  const lay = (sz, w) => {
+    const rows = lines.map(r => noteRows(r, sz, minHint, colW(sz, w), 3, { keep: true })), cb = PHONE ? [] : ctlRows(sz, w);
+    const h = rows.reduce((a, b) => a + Math.max(b.rows.length * b.sz * rlh, iconOf(b.sz)) + rowGap, 0) + (cb.length ? ctlH(cb) : 0);
+    return { rows, cb, h, fit: rows.every(b => b.fit) && cb.every(b => b.fit) };
+  };
+  // SPEC-035: a very small phone (568×320) with the longest texts: the rules still do not fit at the smallest size and the smallest icons →
+  // the text column grows (the picture gets narrower) until they do, at most to R.phoneShareMax
+  let lw = (X1 - X0) * (PHONE ? R.phoneShare : R.share);
+  if (PHONE) {
+    const icon0 = iconK;
+    iconK = R.iconMin;
+    for (let L0 = lay(minHint, lw); (L0.h > mh || !L0.fit) && lw < (X1 - X0) * R.phoneShareMax; L0 = lay(minHint, lw)) lw = Math.min(lw + (X1 - X0) * 0.02, (X1 - X0) * R.phoneShareMax);
+    iconK = icon0;
+  }
+  const px = X0 + lw + 2 * g, rw = X1 - px;
   const phoneCtl = PHONE ? ctlRows(cpx(S.phoneRule), rw) : null;
   // справа — лист A целиком (без картинки — запасная страница первой клетки)
   const pic = { x: px, y: top, w: rw, h: mh - (phoneCtl ? ctlH(phoneCtl) : 0) };
@@ -162,17 +180,9 @@ function drawRulesPage(c, open, title, top, { X0, X1, Y1, g, B }, minMain, minHi
     tape(ix + R.tapeIn * k, iy + 2 * k, -0.7, k * 0.8); tape(ix + iw - R.tapeIn * k, iy + 2 * k, 0.7, k * 0.8);
     picBox = { x: ix - fr - 1.5 * k, y: iy - fr - 1.5 * k, w: iw + 2 * fr + 3 * k, h: ih + 2 * fr + 3 * k };
   } else storyPlaceholder(pic, false, false);
-  // слева — правила (и на компьютере под ними управление); кегль один на всё (мельче, пока не влезет по высоте)
-  let iconK = R.icon;
-  const iconOf = sz => sz * iconK, colW = sz => lw - iconOf(sz) - sz * R.iconGap, rowGap = (PHONE ? R.phoneRowGap : R.rowGap) * k, rlh = PHONE ? R.phoneLh : 1.2;
-  const lay = sz => {
-    const rows = lines.map(r => noteRows(r, sz, minHint, colW(sz), 3, { keep: true })), cb = phoneCtl ? [] : ctlRows(sz, lw);
-    const h = rows.reduce((a, b) => a + Math.max(b.rows.length * b.sz * rlh, iconOf(b.sz)) + rowGap, 0) + (cb.length ? ctlH(cb) : 0);
-    return { rows, cb, h, fit: rows.every(b => b.fit) && cb.every(b => b.fit) };
-  };
-  let size = PHONE ? cpx(S.phoneRule) : S.rule, L1 = lay(size);
-  while (size > minHint && (L1.h > mh || !L1.fit)) { size = Math.max(minHint, size - 0.5); L1 = lay(size); }
-  while (iconK > R.iconMin && (L1.h > mh || !L1.fit)) { iconK = Math.max(R.iconMin, iconK - 0.05); L1 = lay(size); }   // самый мелкий кегль и всё равно тесно — значки чуть меньше
+  let size = PHONE ? cpx(S.phoneRule) : S.rule, L1 = lay(size, lw);
+  while (size > minHint && (L1.h > mh || !L1.fit)) { size = Math.max(minHint, size - 0.5); L1 = lay(size, lw); }
+  while (iconK > R.iconMin && (L1.h > mh || !L1.fit)) { iconK = Math.max(R.iconMin, iconK - 0.05); L1 = lay(size, lw); }   // самый мелкий кегль и всё равно тесно — значки чуть меньше
   let y = top + Math.max(0, (mh - L1.h) / 2);
   const drawnIcons = [];
   L1.rows.forEach((b, i) => {
@@ -188,7 +198,7 @@ function drawRulesPage(c, open, title, top, { X0, X1, Y1, g, B }, minMain, minHi
     b.rows.forEach((q, j) => fillT(q, tx, ty + lh * (j + 0.5)));
     if (PHONE) noteText("hint", b.sz);
     ui.hudRects.push({ id: "rules:" + i, x: tx, y: ty, w: b.w, h: b.rows.length * lh, text: lines[i], size: b.sz });
-    if (!b.fit) noteUnfit(lines[i], b, colW(b.sz), 3 * b.sz * 1.2);
+    if (!b.fit) noteUnfit(lines[i], b, colW(b.sz, lw), 3 * b.sz * 1.2);
     y += rowH + rowGap;
   });
   let cy = phoneCtl ? picBox.y + picBox.h + R.ctlGap * k : y + R.ctlGap * k;

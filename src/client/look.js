@@ -74,6 +74,7 @@ export const LOOK = {
   // SPEC-033: экран победы (заголовок и строка под ним не слипаются)
   WIN_GAP: 0.3,                            // зазор между заголовком и строкой под ним — доля кегля строки (не меньше 0,25; запас)
   WIN_STARS: { y: 138, r: 21, gap: 3 },    // ряд звёзд телефона, CSS px: центр по y от верха рамки, радиус, зазор от низа заголовка до верха звёзд
+  LOSE_TITLE_DESK: { size: 58, min: 28, pad: 60 },   // SPEC-035: заголовок проигрыша на компьютере: кегль до size, самый мелкий min, запас pad от ширины листа (длинное имя папы мельчает)
   WIN_TITLE_DESK: { size: 30, min: 20 },   // заголовок на компьютере: кегль до size, самый мелкий min (мельче — две строки)
   // SPEC-033: запас ширины для подписи цены «Взять за 🪙 N» (шрифты CI и iPhone шире наших): не влезла — короче (priceLabel, text.js); компьютер и телефон
   PRICE_FIT_MARGIN: 1.15,
@@ -231,7 +232,7 @@ export const LOOK = {
     // углов, отступ скотча — px компьютера × cpx), «Для взрослых» — не шире grownW ширины, кнопки — не уже btnMinW × высоты, поля
     // надписи btnPad (px × cpx); запасное эмодзи правила — emoji × кегль
     story: { pic: 0.47, picBig: 0.6, text: 22, phoneText: 18, rule: 17, phoneRule: 15, dot: 6, paper: "#fffdf5", pencil: "#94a3b8", heart: "#f9a8d4", backW: 170,
-      rules: { share: 0.55, phoneShare: 0.64, icon: 1.6, iconMin: 1.3, iconGap: 0.35, rowGap: 4, phoneRowGap: 1.5, phoneLh: 1.1, ctl: 0.85, ctlGap: 6, btnIcon: 1.4,
+      rules: { share: 0.55, phoneShare: 0.64, phoneShareMax: 0.8, icon: 1.6, iconMin: 1.3, iconGap: 0.35, rowGap: 4, phoneRowGap: 1.5, phoneLh: 1.1, ctl: 0.85, ctlGap: 6, btnIcon: 1.4,
         frame: 5, frameR: 6, tapeIn: 6, grownW: 0.3, btnMinW: 2.2, btnPad: 30, emoji: 1.3 } } },
   BANNER_TIME: 2,            // сек — надпись «Уровень N: тип» в начале уровня появляется и исчезает
   BANNER_FADE: 0.4,          // сек — появление и исчезание

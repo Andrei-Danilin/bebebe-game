@@ -17,12 +17,12 @@ export const I18N = {
   en: {
     name: "English",
     rules: n => [
-      "Sneak up BEHIND the Big One and hug him: he loses a heart",
-      "If he SEES you (yellow beam), he pushes you and you fall down",
-      `Friends run over and stand next to you for ${CFG.RESCUE_TIME} seconds to help you up`,
+      "Sneak up BEHIND Dad and hug him: he loses an angry heart",
+      "If Dad SEES you (yellow beam), he pushes you and you fall down",
+      `Other kids run over and stand next to you for ${CFG.RESCUE_TIME} seconds to help you up`,
       `If nobody helps you up within ${n} s, you go home to rest for ${CFG.REST_TIME} s`,
-      "Bushes hide you. Your house is safe: the Big One can't get in",
-      "Grab items: speed boots, invisibility, shield — and a banana he slips on!",
+      "Bushes hide you. The kids' house is safe: Dad can't get in",
+      "Grab items: speed boots, invisibility, shield — and a banana Dad slips on!",
       I18N.en.ruleTiptoe
     ],
     // SPEC-019: на цыпочках; подсказка, когда Большой впервые обернулся на топот игрока (клавиша — отдельно, как у спасалки)
@@ -44,8 +44,8 @@ export const I18N = {
     // SPEC-022: заголовок победы — папа (босс, набранное имя) снова добрый; «Ура!» друзей, пока он идёт домой; имена боссов
     kindAgain: n => `${n} is kind again!`, cheer: "Yay!", whoosh: "WHOOSH!",
     bossNames: { park: "The park boss", field: "The coach", city: "The builder", school: "The grumpiest dad" },
-    lose: "The Big One won...", loseSub: (h, m) => `Hearts taken: ${h} of ${m}. Try again?`, again: "Try again",
-    big: "Big One", hug: "Hug! -1", bang: "BAM!", saved: "Saved!", out: "Going home to rest", back: "Back in the game!", resting: (n, t) => `${n}: resting… back in ${t}`, help: n => `${n}: HELP!`,
+    lose: n => `${n} is still grumpy…`, loseSub: (h, m) => `Hearts taken: ${h} of ${m}. Try again?`, again: "Try again",
+    big: "Grumpy dad", hug: "Hug! -1", bang: "BAM!", saved: "Saved!", out: "Going home to rest", back: "Back in the game!", resting: (n, t) => `${n}: resting… back in ${t}`, help: n => `${n}: HELP!`,
     touch1: "Drag your finger on the screen to run", touch2: "Player 1: finger on the left  •  Player 2: on the right",
     rotate: "Turn your device sideways ↻", me: "Me", botChip: "B", safe: "SAFE",
     player1: "Player 1", player2: "Player 2", ok: "OK",
@@ -112,12 +112,12 @@ export const I18N = {
   es: {
     name: "Español",
     rules: n => [
-      "Acercate al Grandote POR DETRÁS y abrazalo: pierde un corazón",
-      "Si te VE (rayo amarillo), te empuja y te caés",
-      `Tus amigos vienen y se quedan ${CFG.RESCUE_TIME} segundos al lado tuyo para ayudarte`,
+      "Acercate a Papá POR DETRÁS y abrazalo: pierde un corazón enojado",
+      "Si Papá te VE (rayo amarillo), te empuja y te caés",
+      `Los otros chicos vienen y se quedan ${CFG.RESCUE_TIME} segundos al lado tuyo para ayudarte a levantarte`,
       `Si nadie te ayuda a levantarte en ${n} segundos, te vas a casa a descansar ${CFG.REST_TIME} segundos`,
-      "En los arbustos no te ve. Tu casa es segura: el Grandote no puede entrar",
-      "Agarrá cosas: zapatillas veloces, invisibilidad, escudo ¡y una banana para que se resbale!",
+      "En los arbustos no te ve. La casa de los chicos es segura: Papá no puede entrar",
+      "Agarrá cosas: zapatillas veloces, invisibilidad, escudo ¡y una banana para que Papá se resbale!",
       I18N.es.ruleTiptoe
     ],
     ruleTiptoe: "Si corrés cerca de papá, te escucha: ¡andá en puntitas de pie!",
@@ -137,8 +137,8 @@ export const I18N = {
     win: "¡GANARON!", winSub: "¡Lo abrazaron muchas veces y se fue a su casa!", next: n => `Nivel ${n} ▶`,
     kindAgain: n => `¡${n} volvió a ser bueno!`, cheer: "¡Bien!", whoosh: "¡FIUUU!",
     bossNames: { park: "El jefe del parque", field: "El entrenador", city: "El albañil", school: "El papá más enojado" },
-    lose: "Ganó el Grandote...", loseSub: (h, m) => `Corazones: ${h} de ${m}. ¿Otra vez?`, again: "Otra vez",
-    big: "Grandote", hug: "¡Abrazo! -1", bang: "¡PUM!", saved: "¡Salvado!", out: "Me voy a descansar", back: "¡De vuelta!", resting: (n, t) => `${n}: descansando… volvés en ${t}`, help: n => `${n}: ¡AYUDA!`,
+    lose: n => `${n} sigue enojado…`, loseSub: (h, m) => `Corazones: ${h} de ${m}. ¿Otra vez?`, again: "Otra vez",
+    big: "Papá gruñón", hug: "¡Abrazo! -1", bang: "¡PUM!", saved: "¡Salvado!", out: "Me voy a descansar", back: "¡De vuelta!", resting: (n, t) => `${n}: descansando… volvés en ${t}`, help: n => `${n}: ¡AYUDA!`,
     touch1: "Deslizá el dedo por la pantalla para correr", touch2: "Jugador 1: dedo a la izquierda  •  Jugador 2: a la derecha",
     rotate: "Girá el dispositivo ↻", me: "Yo", botChip: "B", safe: "ZONA SEGURA",
     player1: "Jugador 1", player2: "Jugador 2", ok: "Listo",
@@ -198,12 +198,12 @@ export const I18N = {
   pt: {
     name: "Português",
     rules: n => [
-      "Chegue POR TRÁS do Grandão e dê um abraço: ele perde um coração",
-      "Se ele te VÊ (raio amarelo), ele te empurra e você cai",
-      `Os amigos vêm e ficam ${CFG.RESCUE_TIME} segundos do seu lado para te levantar`,
+      "Chegue POR TRÁS do Papai e dê um abraço: ele perde um coração bravo",
+      "Se o Papai te VÊ (raio amarelo), ele te empurra e você cai",
+      `As outras crianças vêm e ficam ${CFG.RESCUE_TIME} segundos do seu lado para te levantar`,
       `Se ninguém te ajudar a levantar em ${n} s, você vai para casa descansar ${CFG.REST_TIME} s`,
-      "Nos arbustos ele não te vê. Sua casa é segura: o Grandão não entra",
-      "Pegue itens: botas rápidas, invisibilidade, escudo — e uma banana para ele escorregar!",
+      "Nos arbustos ele não te vê. A casa das crianças é segura: o Papai não entra",
+      "Pegue itens: botas rápidas, invisibilidade, escudo — e uma banana para o Papai escorregar!",
       I18N.pt.ruleTiptoe
     ],
     ruleTiptoe: "Correu perto do Papai? Ele escuta — ande na ponta dos pés!",
@@ -224,8 +224,8 @@ export const I18N = {
     win: "VOCÊS GANHARAM!", winSub: "Vocês deram muitos abraços nele, e ele foi para casa!", next: n => `Fase ${n} ▶`,
     kindAgain: n => `${n} ficou bonzinho!`, cheer: "Eba!", whoosh: "VUUUSH!",   // SPEC-028: kindAgain без «de novo» — длинное имя босса не влезало (шрифты CI)
     bossNames: { park: "O chefe do parque", field: "O treinador", city: "O construtor", school: "O papai mais bravo" },
-    lose: "Perdemos…", loseSub: (h, m) => `Corações: ${h} de ${m}. Mais uma vez?`, again: "De novo",
-    big: "Grandão", hug: "Abraço! -1", bang: "BUM!", saved: "Salvo!", out: "Vou descansar", back: "De volta ao jogo!", resting: (n, t) => `${n}: descansando… volta em ${t}`, help: n => `${n}: SOCORRO!`,
+    lose: n => `${n} ainda está bravo…`, loseSub: (h, m) => `Corações: ${h} de ${m}. Mais uma vez?`, again: "De novo",
+    big: "Papai bravo", hug: "Abraço! -1", bang: "BUM!", saved: "Salvo!", out: "Vou descansar", back: "De volta ao jogo!", resting: (n, t) => `${n}: descansando… volta em ${t}`, help: n => `${n}: SOCORRO!`,
     touch1: "Arraste o dedo na tela para correr", touch2: "Jogador 1: dedo à esquerda  •  Jogador 2: à direita",
     rotate: "Vire o aparelho de lado ↻", me: "Eu", botChip: "B", safe: "SEGURO",
     player1: "Jogador 1", player2: "Jogador 2", ok: "OK",
@@ -285,12 +285,12 @@ export const I18N = {
   ru: {
     name: "Русский",
     rules: n => [
-      "Подкрадись к Большому СЗАДИ и обними — минус сердечко",
-      "Увидит тебя (жёлтый луч) — толкнёт, и ты упадёшь",
-      `Друзья подбегают и стоят рядом ${CFG.RESCUE_TIME} сек — ты снова в игре`,
+      "Подкрадись к папе СЗАДИ и обними — у него минус злое сердечко",
+      "Папа увидит тебя (жёлтый луч) — толкнёт, и ты упадёшь",
+      `Другие дети подбегают и стоят рядом ${CFG.RESCUE_TIME} сек — ты снова в игре`,
       `Никто не помог встать за ${n} сек — идёшь домой отдыхать ${CFG.REST_TIME} сек`,
-      "В кустах Большой не видит. Домик — безопасная зона, Большой туда не зайдёт",
-      "Собирай предметы: сапоги-скороходы, невидимку, щит — и банан, на котором он поскользнётся!",
+      "В кустах папа не видит. Домик детей — безопасная зона, папа туда не зайдёт",
+      "Собирай предметы: сапоги-скороходы, невидимку, щит — и банан, на котором папа поскользнётся!",
       I18N.ru.ruleTiptoe
     ],
     ruleTiptoe: "Бежишь рядом с папой — он слышит. Иди на цыпочках!",
@@ -310,8 +310,8 @@ export const I18N = {
     win: "ПОБЕДА!", winSub: "Его обняли много раз, и он ушёл домой!", next: n => `Уровень ${n} ▶`,
     kindAgain: n => `${n} снова добрый!`, cheer: "Ура!", whoosh: "ВЖУХ!",
     bossNames: { park: "Босс парка", field: "Тренер", city: "Строитель", school: "Самый злой папа" },
-    lose: "Большой победил...", loseSub: (h, m) => `Сердечек забрали: ${h} из ${m}. Ещё разок?`, again: "Ещё раз",
-    big: "Большой", hug: "Обнимашки! -1", bang: "БАХ!", saved: "Спасён!", out: "Иду отдыхать", back: "Снова в игре!", resting: (n, t) => `${n}: отдых… вернёшься через ${t}`, help: n => `${n}: ПОМОГИТЕ!`,
+    lose: n => `${n} всё ещё сердится…`, loseSub: (h, m) => `Сердечек забрали: ${h} из ${m}. Ещё разок?`, again: "Ещё раз",
+    big: "Злой папа", hug: "Обнимашки! -1", bang: "БАХ!", saved: "Спасён!", out: "Иду отдыхать", back: "Снова в игре!", resting: (n, t) => `${n}: отдых… вернёшься через ${t}`, help: n => `${n}: ПОМОГИТЕ!`,
     touch1: "Води пальцем по экрану, чтобы бежать", touch2: "Игрок 1 — палец слева, Игрок 2 — палец справа",
     rotate: "Поверни устройство боком ↻", me: "Я", botChip: "Б", safe: "БЕЗОПАСНО",
     player1: "Игрок 1", player2: "Игрок 2", ok: "Готово",

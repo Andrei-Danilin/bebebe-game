@@ -71,11 +71,127 @@ test("the How to play rules: he pushes you and you fall down; no help → you go
   await openGame(page, { sim: true });
   const r = await page.evaluate(() => { const b = window.__bb, out = {}; for (const l of b.LANGS) out[l] = [b.I18N[l].rules(15)[1], b.I18N[l].rules(15)[3]]; return { out, rest: b.CFG.REST_TIME }; });
   expect(r.rest).toBe(30);
-  expect(r.out.en).toEqual(["If he SEES you (yellow beam), he pushes you and you fall down", "If nobody helps you up within 15 s, you go home to rest for 30 s"]);
-  expect(r.out.es).toEqual(["Si te VE (rayo amarillo), te empuja y te caés", "Si nadie te ayuda a levantarte en 15 segundos, te vas a casa a descansar 30 segundos"]);
-  expect(r.out.pt).toEqual(["Se ele te VÊ (raio amarelo), ele te empurra e você cai", "Se ninguém te ajudar a levantar em 15 s, você vai para casa descansar 30 s"]);
-  expect(r.out.ru).toEqual(["Увидит тебя (жёлтый луч) — толкнёт, и ты упадёшь", "Никто не помог встать за 15 сек — идёшь домой отдыхать 30 сек"]);
+  expect(r.out.en).toEqual(["If Dad SEES you (yellow beam), he pushes you and you fall down", "If nobody helps you up within 15 s, you go home to rest for 30 s"]);
+  expect(r.out.es).toEqual(["Si Papá te VE (rayo amarillo), te empuja y te caés", "Si nadie te ayuda a levantarte en 15 segundos, te vas a casa a descansar 30 segundos"]);
+  expect(r.out.pt).toEqual(["Se o Papai te VÊ (raio amarelo), ele te empurra e você cai", "Se ninguém te ajudar a levantar em 15 s, você vai para casa descansar 30 s"]);
+  expect(r.out.ru).toEqual(["Папа увидит тебя (жёлтый луч) — толкнёт, и ты упадёшь", "Никто не помог встать за 15 сек — идёшь домой отдыхать 30 сек"]);
 });
+
+// SPEC-035 AC 4: the character is Dad and the kids everywhere a player reads: no text names him "Big One" / "Grandote" / "Grandão" /
+// "Большой" (any case form). Kostya's STORY texts are not part of the walk; "Большой дом" (a big house) is a place, not him.
+test("SPEC-035: no text calls Dad the Big One (en, es, pt, ru; every key, functions called, look names)", { tag: "@fast" }, async ({ page }) => {
+  await openGame(page, { sim: true });
+  const hits = await page.evaluate(([langs, src, fn]) => {
+    const re = new RegExp(src, "iu"), all = new Function("return " + fn)()(langs), out = [];
+    for (const l of langs) for (const [path, t] of all[l]) if (re.test(t)) out.push(`${path}: ${t}`);
+    return out;
+  }, [LANGS, String.raw`Big One|Grandote|Grandão|Больш(?:ой|ого|ому|им|ом|ая|ую|ое|ие|их)(?![\p{L}])(?! дом)`, allTexts.toString()]);
+  expect(hits).toEqual([]);
+});
+
+// SPEC-035 AC 1: the How to play rules say Dad and the kids, in this order (line 7 is the tiptoe rule); the numbers come from CFG
+test("SPEC-035: the How to play rules speak of Dad and the kids (en, es, pt, ru)", { tag: "@fast" }, async ({ page }) => {
+  await openGame(page, { sim: true });
+  const r = await page.evaluate(() => { const b = window.__bb, out = {}; for (const l of b.LANGS) out[l] = { rules: b.I18N[l].rules(15), tiptoe: b.I18N[l].ruleTiptoe }; return { out, rescue: b.CFG.RESCUE_TIME, rest: b.CFG.REST_TIME }; });
+  const R = r.rescue, T = r.rest, n = 15;
+  const want = {
+    en: ["Sneak up BEHIND Dad and hug him: he loses an angry heart", "If Dad SEES you (yellow beam), he pushes you and you fall down",
+      `Other kids run over and stand next to you for ${R} seconds to help you up`, `If nobody helps you up within ${n} s, you go home to rest for ${T} s`,
+      "Bushes hide you. The kids' house is safe: Dad can't get in", "Grab items: speed boots, invisibility, shield — and a banana Dad slips on!"],
+    es: ["Acercate a Papá POR DETRÁS y abrazalo: pierde un corazón enojado", "Si Papá te VE (rayo amarillo), te empuja y te caés",
+      `Los otros chicos vienen y se quedan ${R} segundos al lado tuyo para ayudarte a levantarte`, `Si nadie te ayuda a levantarte en ${n} segundos, te vas a casa a descansar ${T} segundos`,
+      "En los arbustos no te ve. La casa de los chicos es segura: Papá no puede entrar", "Agarrá cosas: zapatillas veloces, invisibilidad, escudo ¡y una banana para que Papá se resbale!"],
+    pt: ["Chegue POR TRÁS do Papai e dê um abraço: ele perde um coração bravo", "Se o Papai te VÊ (raio amarelo), ele te empurra e você cai",
+      `As outras crianças vêm e ficam ${R} segundos do seu lado para te levantar`, `Se ninguém te ajudar a levantar em ${n} s, você vai para casa descansar ${T} s`,
+      "Nos arbustos ele não te vê. A casa das crianças é segura: o Papai não entra", "Pegue itens: botas rápidas, invisibilidade, escudo — e uma banana para o Papai escorregar!"],
+    ru: ["Подкрадись к папе СЗАДИ и обними — у него минус злое сердечко", "Папа увидит тебя (жёлтый луч) — толкнёт, и ты упадёшь",
+      `Другие дети подбегают и стоят рядом ${R} сек — ты снова в игре`, `Никто не помог встать за ${n} сек — идёшь домой отдыхать ${T} сек`,
+      "В кустах папа не видит. Домик детей — безопасная зона, папа туда не зайдёт", "Собирай предметы: сапоги-скороходы, невидимку, щит — и банан, на котором папа поскользнётся!"]
+  };
+  for (const l of LANGS) expect(r.out[l].rules, l).toEqual([...want[l], r.out[l].tiptoe]);
+});
+
+// SPEC-035 AC 2: the lose title uses the Big One's current name (default Dad / Papá / Papai / Папа); the subtitle is unchanged
+test("SPEC-035: the lose title is '<Dad> is still grumpy…', with the typed name when there is one", { tag: "@fast" }, async ({ page }) => {
+  await openGame(page, { sim: true });
+  const r = await page.evaluate(() => {
+    const b = window.__bb, out = {};
+    for (const l of b.LANGS) {
+      b.setLang(l); b.setName("big", "");
+      const dflt = b.loseTitle(); b.setName("big", "Max");
+      out[l] = { dflt, typed: b.loseTitle(), sub: b.I18N[l].loseSub(2, 3) };
+    }
+    b.setName("big", ""); b.setLang("en");
+    return out;
+  });
+  const want = { en: ["Dad is still grumpy…", "Max is still grumpy…"], es: ["Papá sigue enojado…", "Max sigue enojado…"], pt: ["Papai ainda está bravo…", "Max ainda está bravo…"], ru: ["Папа всё ещё сердится…", "Max всё ещё сердится…"] };
+  for (const l of LANGS) expect([r[l].dflt, r[l].typed], l).toEqual(want[l]);
+  expect(r.en.sub).toBe("Hearts taken: 2 of 3. Try again?");
+  expect(r.es.sub).toBe("Corazones: 2 de 3. ¿Otra vez?");
+  expect(r.pt.sub).toBe("Corações: 2 de 3. Mais uma vez?");
+  expect(r.ru.sub).toBe("Сердечек забрали: 2 из 3. Ещё разок?");
+});
+
+// SPEC-035 AC 3: the wardrobe's third column is "Grumpy dad" (the name field under it is unchanged)
+test("SPEC-035: the wardrobe column of the Big One is titled Grumpy dad (en, es, pt, ru)", { tag: "@fast" }, async ({ page }) => {
+  await openGame(page, { sim: true });
+  const r = await page.evaluate(() => Object.fromEntries(window.__bb.LANGS.map(l => [l, window.__bb.I18N[l].big])));
+  expect(r).toEqual({ en: "Grumpy dad", es: "Papá gruñón", pt: "Papai bravo", ru: "Злой папа" });
+});
+
+// SPEC-035 AC 5: How to play (every rules line) and the lose screen title fit at 568×320, 667×375 and 1280×720 in all four languages,
+// with the font scales of the other fit tests (×1, ×1.15 like CI's fonts, ×1.3 as a margin): nothing overflows, nothing leaves the screen.
+// (568×320 is below the smallest phone of the other tests: there ×1 and ×1.15 only — ×1.3 on top of CI's already wider font is not asked of it)
+for (const [name, ctx] of [["568×320 phone", { viewport: { width: 568, height: 320 }, hasTouch: true, isMobile: true, query: "?phone=1", scales: [1, 1.15] }],
+  ["667×375 phone", { viewport: { width: 667, height: 375 }, hasTouch: true, isMobile: true, query: "?phone=1", scales: [1, 1.15, 1.3] }],
+  ["1280×720 desktop", { viewport: { width: 1280, height: 720 }, query: "", scales: [1, 1.15, 1.3] }]]) {
+  test.describe(`SPEC-035 fit ${name}`, () => {
+    test.use({ viewport: ctx.viewport, hasTouch: !!ctx.hasTouch, isMobile: !!ctx.isMobile });
+    test(`How to play and the lose title fit in en, es, pt and ru, font scales ${ctx.scales.join(" / ")} (${name})`, async ({ page }) => {
+      test.setTimeout(180_000);
+      const errors = await openGame(page, { query: ctx.query });
+      await page.waitForFunction(() => window.__bb.artInfo.done, null, { timeout: 15_000 });
+      const soft = softly();
+      for (const lang of LANGS) for (const scale of ctx.scales) {
+        const at = `${name} ${lang} ×${scale}`;
+        await page.evaluate(([l, s]) => { const b = window.__bb; b.setLang(l); b.CFG.TEXT_TEST_SCALE = s; b.setName("big", ""); b.openStory("began", "home"); }, [lang, scale]);
+        await frames(page);
+        await page.evaluate(() => window.__bb.tapButton("story:rules"));
+        await frames(page);
+        const d = await page.evaluate(() => { const b = window.__bb; return { rules: b.hudRects.filter(h => /^rules:\d+$/.test(h.id)), over: b.textOverflows, ui: b.uiSize, n: b.I18N[b.lang].rules(b.CFG.DOWN_TIME).length, page: b.storyInfo && b.storyInfo.page }; });
+        soft(d.page, `${at}: the How to play page`).toBe("rules");
+        soft(d.rules.length, `${at}: every rule drawn`).toBe(d.n);
+        for (const r of d.rules) soft(r.x >= -0.5 && r.y >= -0.5 && r.x + r.w <= d.ui.w + 0.5 && r.y + r.h <= d.ui.h + 0.5, `${at}: ${r.id} on screen`).toBe(true);
+        soft(d.over, `${at}: How to play, every text fits`).toEqual([]);
+        await page.evaluate(() => { const b = window.__bb; b.world = "park"; b.level = 2; b.startGame(1); b.giveReward(false); b.mode = "lose"; });
+        await frames(page);
+        const e = await page.evaluate(() => { const b = window.__bb; return { title: b.hudRects.find(h => h.id === "lose:title"), want: b.loseTitle(), over: b.textOverflows, ui: b.uiSize }; });
+        soft(e.title && e.title.text, `${at}: the lose title text`).toBe(e.want);
+        soft(!!e.title && e.title.x >= -0.5 && e.title.x + e.title.w <= e.ui.w + 0.5, `${at}: the lose title on screen ${JSON.stringify(e.title)}`).toBe(true);
+        soft(e.over, `${at}: lose screen, every text fits`).toEqual([]);
+        // the longest name (CFG.NAME_MAX = 12 characters) in the longest languages: the title stays in its column, at most two rows,
+        // and ends above the buttons (so it cannot grow into the line under it)
+        if (lang === "ru" || lang === "pt") {
+          await page.evaluate(() => { const b = window.__bb; b.setName("big", "Maximiliano!"); });
+          await frames(page);
+          const f = await page.evaluate(() => { const b = window.__bb; return { title: b.hudRects.find(h => h.id === "lose:title"), ui: b.uiSize, tops: b.buttonRects.filter(q => q.y > b.hudRects.find(h => h.id === "lose:title").y).map(q => q.y), max: b.CFG.NAME_MAX, room: b.CFG.PAPER.loseBox[0] - b.CFG.LOSE_TITLE_DESK.pad }; });
+          const t = f.title, atN = `${at} typed name`;
+          soft("Maximiliano!".length, `${atN}: 12 characters = CFG.NAME_MAX`).toBe(f.max);
+          soft(!!t && t.text.startsWith("Maximiliano!"), `${atN}: the title uses the typed name ${t && t.text}`).toBe(true);
+          soft(!!t && t.x >= -0.5 && t.x + t.w <= f.ui.w + 0.5, `${atN}: on screen ${JSON.stringify(t)}`).toBe(true);
+          if (ctx.query) soft(!!t && t.w <= 0.44 * f.ui.w + 0.5, `${atN}: not wider than its column ${t && t.w} > ${0.44 * f.ui.w}`).toBe(true);
+          else soft(!!t && t.w <= f.room + 0.5, `${atN}: not wider than the paper's room ${t && t.w} > ${f.room}`).toBe(true);
+          soft(!!t && t.h <= 2 * 1.25 * t.size + 0.5, `${atN}: at most two rows ${t && t.h}`).toBe(true);
+          soft(!!t && t.y + t.h <= Math.min(...f.tops) + 0.5, `${atN}: ends above the buttons ${t && t.y + t.h} > ${Math.min(...f.tops)} (${f.tops.length} buttons below it)`).toBe(true);
+          await page.evaluate(() => { window.__bb.setName("big", ""); });
+        }
+      }
+      await page.evaluate(() => { const b = window.__bb; b.CFG.TEXT_TEST_SCALE = 1; b.setLang("en"); b.mode = "home"; });
+      soft.done();
+      expect(errors).toEqual([]);
+    });
+  });
+}
 
 // SPEC-033 AC 8 (D-8): there are no money purchases, only coins — "Get for 🪙 N" in four languages
 test("prices say Get for 🪙 N: buyFor, buy, tapAgain and the tutorial C4 line (en, es, pt, ru)", { tag: "@fast" }, async ({ page }) => {
