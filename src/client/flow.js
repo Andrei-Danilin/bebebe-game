@@ -248,8 +248,10 @@ export function mapTick(dt) {
 export function chooseStop(n) {
   mapSel = { world: G.world, n };
   if (n > worldProgress().unlocked) { showToast(L().lockedLevel(n - 1)); return; }
-  cardLevel = n; setMode("levelCard");
+  showCard(n);
 }
+// SPEC-041: открыть карточку уровня n (chooseStop — для открытых; закрытый уровень карточка тоже умеет нарисовать — затемнённая картинка с замком; тест)
+export function showCard(n) { cardLevel = n; setMode("levelCard"); }
 // вкладка мира: закрытый мир не выбирается — только подсказка (SPEC-030: главный — какой мир пройти)
 // подсказка закрытого мира (по worldOpen): нужен главный мир — «Пройди <его>, чтобы открыть <этот>!», иначе — прежняя строка бонусных
 export const lockedText = w => { const o = worldOpen(w, progress); return o.needs ? L().lockedWorld(o.needs, w) : L().lockedBonus; };

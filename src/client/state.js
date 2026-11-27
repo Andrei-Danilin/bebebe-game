@@ -41,6 +41,7 @@ export const ui = {
   banner: null,
   bannerShownAt: -Infinity,
   shopTab: "items",
+  upgSpark: /** @type {null | { k: string, t0: number }} */ (null),   // SPEC-041: искорки на карточке улучшения k, купленного в момент ui.T = t0
   wardrobePage: "looks",
   // ---------- SPEC-017: карта уровней ----------
   // мир карты — G.world (выбор мира — selectWorld, он же запоминает progress.lastWorld); mapSel — остановка с кольцом выбора

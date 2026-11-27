@@ -384,6 +384,63 @@ test("the new clothes are built in 3D: rainbow bands, a coat hem, overalls, stri
   expect(errors).toEqual([]);
 });
 
+// SPEC-041 AC 10: the 3D ninja band matches its wardrobe picture (hat_ninja): a black band with two short red tails at the back
+test("the ninja band is a black band with two short red tails at the back, in play and in the wardrobe preview", async ({ page }) => {
+  const errors = await openGame(page);
+  await page.evaluate(() => { const b = window.__bb, W = b.wardrobe(); b.progress.owned.hats.push("headband"); b.cycleOutfit("p1", "hat", W.hat.findIndex(q => q.id === "headband") - b.outfits.shown.p1.hat); });
+  await play(page, "park", 1);
+  await frames(page);
+  const read = who => page.evaluate(w => ({ parts: window.__bb.hat3D(w), want: window.__bb.CFG.HEADBAND_LOOK }), who);
+  const rgb = c => [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16));
+  for (const [where, who] of [["in play", 0], ["in the wardrobe preview", "p1"]]) {
+    if (who === "p1") { await page.evaluate(() => { const b = window.__bb; b.mode = "shop"; b.shopTab = "wardrobe"; }); await frames(page); }
+    const r = await read(who), band = r.parts.filter(q => q.piece === "band"), tails = r.parts.filter(q => q.piece === "tail");
+    expect(band.length, `${where}: one band`).toBe(1);
+    expect(tails.length, `${where}: two tails`).toBe(2);
+    expect(band[0].color, `${where}: the band colour is the LOOK colour`).toBe(r.want.band);
+    expect(Math.max(...rgb(band[0].color)), `${where}: the band is black`).toBeLessThan(60);
+    for (const t of tails) {
+      const [R, G, B] = rgb(t.color);
+      expect(t.color, `${where}: a tail colour is the LOOK colour`).toBe(r.want.tailColor);
+      expect([R > 200, G < 100, B < 100], `${where}: a tail is red`).toEqual([true, true, true]);
+      expect(t.z, `${where}: the tails are at the back of the head`).toBeLessThan(-0.2);
+    }
+  }
+  expect(errors).toEqual([]);
+});
+
+// SPEC-041 AC 11: the overalls' strap arcs end above the cape line — with overalls and a resting cape (cape, magiccape) no strap vertex
+// lies behind the cape's front surface; without a cape nothing changes (two straps, the same colour)
+test("overalls straps stop above the cape: nothing behind the cape cloth (cape, magiccape; in play and in the wardrobe preview)", async ({ page }) => {
+  const errors = await openGame(page);
+  const wear = (jacket, pants) => page.evaluate(([j, p]) => {
+    const b = window.__bb, W = b.wardrobe(), o = b.progress.owned;
+    o.jackets.push(j); o.pants.push(p);
+    b.cycleOutfit("p1", "jacket", W.jacket.findIndex(q => q.id === j) - b.outfits.shown.p1.jacket);
+    b.cycleOutfit("p1", "pants", W.pants.findIndex(q => q.id === p) - b.outfits.shown.p1.pants);
+  }, [jacket, pants]);
+  const bad = [];
+  for (const j of ["cape", "magiccape"]) {
+    await wear(j, "overalls");
+    await play(page, "park", 1);
+    await frames(page);
+    const play0 = await page.evaluate(() => window.__bb.capeClear(0));
+    await page.evaluate(() => { const b = window.__bb; b.mode = "shop"; b.shopTab = "wardrobe"; });
+    await frames(page);
+    const prev = await page.evaluate(() => window.__bb.capeClear("p1"));
+    for (const [where, c] of [["in play", play0], ["in the wardrobe preview", prev]]) {
+      if (!c) { bad.push(`${j} ${where}: no straps or no cape`); continue; }
+      if (c.covered > 0 && !(c.strapBack >= c.capeFront)) bad.push(`${j} ${where}: a strap vertex at z ${c.strapBack} is behind the cape front ${c.capeFront}`);
+    }
+    // the straps are still there, over the shoulders: the arc reaches past the top of the body (the front end is on the chest)
+    const parts = await page.evaluate(() => window.__bb.outfit3D("p1").filter(q => q.piece === "strap"));
+    if (parts.length !== 2) bad.push(`${j}: ${parts.length} straps`);
+    await page.evaluate(() => { window.__bb.mode = "home"; });
+  }
+  expect(bad).toEqual([]);
+  expect(errors).toEqual([]);
+});
+
 // SPEC-012 review: a glove change re-dresses the shown game (no rebuild of the level) — the kid's 3D model wears the new mittens at
 // once: mittens red, mega pink, none — no glove parts
 test("equipping a glove re-dresses the kid in the menus", async ({ page }) => {

@@ -21,7 +21,9 @@ const fixture = (key, ctx, query = "") => async ({ browser }, use) => {
 };
 const test = base.test.extend({
   page: fixture("desktop", { viewport: { width: 960, height: 640 } }),
-  phonePage: fixture("phone", { viewport: { width: 667, height: 375 }, hasTouch: true, isMobile: true }, "?phone=1")
+  phonePage: fixture("phone", { viewport: { width: 667, height: 375 }, hasTouch: true, isMobile: true }, "?phone=1"),
+  phone568: fixture("phone568", { viewport: { width: 568, height: 320 }, hasTouch: true, isMobile: true }, "?phone=1"),   // SPEC-041
+  desk1280: fixture("desk1280", { viewport: { width: 1280, height: 720 } })
 });
 test.afterAll(async () => { await shared.close(); });
 
@@ -751,7 +753,7 @@ test("the level card starts the level", async ({ page }) => {
   await page.evaluate(() => window.__bb.tapButton("stop:8"));
   await frames(page);
   let d = await page.evaluate(() => ({ card: window.__bb.levelCard, ids: window.__bb.buttonRects.map(q => q.id), hud: window.__bb.hudRects, lines: window.__bb.I18N.en.typeLines, boss: window.__bb.I18N.en.bossLine }));
-  expect(d.card).toEqual({ world: "park", n: 8, title: "Park · Level 8", type: "River with bridges", line: d.lines.river, stars: 2 });
+  expect(d.card).toEqual({ world: "park", n: 8, title: "Park · Level 8", type: "River with bridges", line: d.lines.river, stars: 2, preview: { boss: false, locked: false } });
   expect(d.hud.find(h => h.id === "card:line").text).toBe(d.lines.river);
   expect([...d.ids].sort(), "desktop: 1 or 2 players, the story, close").toEqual(["card:1", "card:2", "card:close", "card:story"]);
   // level 20: the boss line
@@ -776,6 +778,134 @@ test("the level card starts the level", async ({ page }) => {
   // the texts: a line for every level type and the boss line, in every language
   const T = await page.evaluate(() => window.__bb.LANGS.map(l => { const I = window.__bb.I18N[l]; return { keys: Object.keys(I.typeLines).sort(), types: Object.keys(I.types).sort(), ok: Object.values(I.typeLines).every(s => typeof s === "string" && s.length > 8), boss: I.bossLine }; }));
   for (const t of T) { expect(t.keys).toEqual(t.types); expect(t.ok).toBe(true); expect(Object.values(t.boss).every(s => s.length > 8)).toBe(true); }
+});
+
+// ---------- SPEC-041 AC 6–9: the picture on the level card — a top-down preview of the very level ----------
+// The map is the core's levelPreview (tests/core/level-preview.test.mjs: its cells equal the game's, it never touches a running game);
+// here: it is painted from that data (walls dark, ponds blue, the ground of the place elsewhere), the card draws it with the houses
+// (and the boss face on level 20, the dimming and padlock of a closed level), the cache, and the layout.
+test("the level card's preview paints the generated level's map (every world: walls dark, water blue, free ground the place's colour)", async ({ page }) => {
+  const r = await page.evaluate(() => {
+    const b = window.__bb, out = [], hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+    b.clearLevelPreviews();
+    for (const world of b.WORLDS.slice(0, 6)) for (const lv of [1, 7, 13, 20]) {
+      const { canvas, data } = b.levelPreview(world, lv), g = canvas.getContext("2d"), k = canvas.width / 960, C = 32;
+      const px = (x, y) => Array.from(g.getImageData(Math.round(x * k), Math.round(y * k), 1, 1).data);
+      const lum = c => 0.3 * c[0] + 0.59 * c[1] + 0.11 * c[2], ground = hex(b.THEMES[world].g1), at = `${world} ${lv}`, bad = [];
+      if (canvas.height !== Math.round(canvas.width * 640 / 960)) bad.push(`${at}: the canvas is not 3:2`);
+      let walls = 0, ponds = 0;
+      for (const o of data.obstacles) {
+        if (o.shape !== "rect" || o.w < C || o.h < C) continue;
+        const c = px(o.x + o.w / 2, o.y + o.h / 2);
+        if (o.kind === "pond" && !o.fountain && b.THEMES[world].deco?.goal) { ponds++; if (Math.abs(c[0] - hex(b.THEMES[world].deco.goal)[0]) > 6) bad.push(`${at}: the goal at ${o.x},${o.y} is not the goal colour ${c}`); }   // the Field's "ponds" are goals (SPEC-016)
+        else if (o.kind === "water" || o.kind === "pond") { ponds++; if (!(c[2] > c[0] + 40)) bad.push(`${at}: ${o.kind} at ${o.x},${o.y} is not blue ${c}`); } else { walls++; if (!(lum(c) < 0.5 * lum(ground) + 20 || lum(c) < 110)) bad.push(`${at}: ${o.kind} at ${o.x},${o.y} is not dark ${c}`); }
+      }
+      // a free cell (no obstacle, bush or house on it) shows the ground of the place
+      let free = 0;
+      for (let cy = 0; cy < 20 && free < 3; cy++) for (let cx = 0; cx < 30 && free < 3; cx++) {
+        const x = cx * C + C / 2, y = cy * C + C / 2, inZone = z => z && x >= z.x && x <= z.x + z.w && y >= z.y && y <= z.y + z.h;
+        const hit = data.obstacles.some(o => (o.shape === "circle" ? Math.hypot(o.x - x, o.y - y) < o.r + 6 : x >= o.x - 6 && x <= o.x + o.w + 6 && y >= o.y - 6 && y <= o.y + o.h + 6)) || data.bushes.some(q => Math.hypot(q.x - x, q.y - y) < 40) || inZone(data.safeZone) || inZone(data.dangerZone);
+        if (hit) continue;
+        free++;
+        const c = px(x, y);
+        if (Math.abs(c[0] - ground[0]) + Math.abs(c[1] - ground[1]) + Math.abs(c[2] - ground[2]) > 6) bad.push(`${at}: free cell ${cx},${cy} is ${c}, the ground is ${ground}`);
+      }
+      if (!free) bad.push(`${at}: no free cell found`);
+      if (!walls && !ponds && !data.bushes.length) bad.push(`${at}: nothing drawn`);
+      out.push(...bad);
+    }
+    return out;
+  });
+  expect(r, r.slice(0, 8).join("\n")).toEqual([]);
+});
+
+test("the level card draws the preview with both houses; level 20 has the boss face; a closed level is dimmed with the padlock", async ({ page }) => {
+  await page.evaluate(() => { const b = window.__bb; b.progress.worlds.park.unlocked = 6; b.world = "park"; b.mode = "map"; });
+  await frames(page);
+  // one UI draw each time, art counted for that draw only
+  const draw = async n => page.evaluate(k => { const b = window.__bb; b.showCard(k); b.drawNow(); b.resetArtUse(); b.drawNow(); return { card: b.levelCard, use: b.artUse, hud: b.hudRects.find(h => h.id === "card:preview"), ui: b.uiSize }; }, n);
+  const open = await draw(5), closed = await draw(15);
+  expect(open.card.preview, "an open level: no boss, not closed").toEqual({ boss: false, locked: false });
+  expect(open.hud, "the picture has its rectangle on the card").toBeTruthy();
+  expect(open.hud.w / open.hud.h, "3:2 (the map is 30 × 20 cells) plus the frame").toBeGreaterThan(1.3);
+  expect(open.use.house_kids, "the kids' house on the map").toBeGreaterThanOrEqual(1);
+  expect(open.use.house_messy, "Dad's house on the map").toBeGreaterThanOrEqual(1);
+  expect(closed.card.preview).toEqual({ boss: false, locked: true });
+  expect(closed.use.padlock, "a closed level: the padlock over its preview (the map's closed stops draw theirs too)").toBeGreaterThan(open.use.padlock || 0);
+  // the boss level: the boss face (stop_boss) one more time than the map alone draws it
+  await page.evaluate(() => { window.__bb.progress.worlds.park.unlocked = 20; });
+  const plain = await draw(8), boss = await draw(20);
+  expect(boss.card.preview).toEqual({ boss: true, locked: false });
+  expect(plain.card.preview.boss).toBe(false);
+  expect(boss.use.stop_boss, "the boss face over Dad's house on level 20").toBe((plain.use.stop_boss || 0) + 1);
+  await page.evaluate(() => { window.__bb.mode = "home"; });
+});
+
+test("opening a level's card twice uses the cached preview; the cache keeps at most LEVEL_PREVIEW_LOOK.cache levels", async ({ page }) => {
+  await page.evaluate(() => { const b = window.__bb; b.progress.worlds.park.unlocked = 20; b.world = "park"; b.clearLevelPreviews(); b.mode = "map"; });
+  await frames(page);
+  const info = () => page.evaluate(() => ({ ...window.__bb.previewInfo, cache: window.__bb.CFG.LEVEL_PREVIEW_LOOK.cache }));
+  const i0 = await info();
+  expect([i0.built, i0.hits, i0.size], "cleared").toEqual([i0.built, i0.hits, 0]);
+  await page.evaluate(() => { window.__bb.showCard(8); window.__bb.drawNow(); });
+  const i1 = await info();
+  expect([i1.built - i0.built, i1.size], "the first time: built").toEqual([1, 1]);
+  await page.evaluate(() => { window.__bb.mode = "map"; window.__bb.showCard(8); window.__bb.drawNow(); window.__bb.drawNow(); });
+  const i2 = await info();
+  expect(i2.built, "the second time: not built again").toBe(i1.built);
+  expect(i2.hits - i1.hits, "taken from the cache (every draw of the card)").toBeGreaterThanOrEqual(2);
+  const canvas = await page.evaluate(() => { const b = window.__bb; return [b.levelPreview("park", 8).canvas === b.levelPreview("park", 8).canvas, b.levelPreview("park", 8).canvas === b.levelPreview("park", 9).canvas]; });
+  expect(canvas, "the same canvas for the same level, another for another").toEqual([true, false]);
+  await page.evaluate(() => { const b = window.__bb; for (let n = 1; n <= 20; n++) b.levelPreview("park", n); });
+  const i3 = await info();
+  expect(i3.size, "the oldest go first").toBe(i3.cache);
+  await page.evaluate(() => { window.__bb.mode = "home"; });
+});
+
+// the card fits in every language: the preview on the left, the type / line / stars on the right, the buttons below; nothing overlaps
+// or leaves the screen. Levels: 1 (classic), 20 (the boss, the longest line), a closed one. Fonts ×1 and ×1.15 (CI's font is wider).
+async function cardProblems(page, phone, scales) {
+  const fails = [];
+  for (const lang of LANGS) for (const scale of scales) for (const [n, unlocked] of [[1, 20], [20, 20], [9, 3]]) {
+    const at = `${lang} ×${scale} level ${n}${unlocked < n ? " closed" : ""}`;
+    // (one UI draw instead of waiting for frames: this loop draws 24 cards)
+    const d = await page.evaluate(([l, s, k, u]) => { const b = window.__bb; b.setProgress(null); b.setLang(l); b.CFG.TEXT_TEST_SCALE = s; b.progress.worlds.school.unlocked = u; b.world = "school"; b.mode = "map"; b.showCard(k); b.drawNow(); return { card: b.levelCard, hud: b.hudRects, buttons: b.buttonRects, ui: b.uiSize, texts: b.textSizes, min: b.textFloors, over: b.textOverflows, rect: b.cardRect }; }, [lang, scale, n, unlocked]);
+    const pic = d.hud.find(h => h.id === "card:preview"), parts = d.hud.filter(h => h.id !== "card:preview");
+    if (!pic) { fails.push(`${at}: no preview`); continue; }
+    if (!!d.card.preview.locked !== (unlocked < n)) fails.push(`${at}: locked flag ${d.card.preview.locked}`);
+    if (pic.x < -0.01 || pic.y < -0.01 || pic.x + pic.w > d.ui.w + 0.01 || pic.y + pic.h > d.ui.h + 0.01) fails.push(`${at}: the preview leaves the screen`);
+    if (pic.w < d.ui.w * 0.18) fails.push(`${at}: the preview is small: ${pic.w} of ${d.ui.w}`);
+    for (const h of parts) { if (overlaps(pic, h)) fails.push(`${at}: preview on ${h.id}`); if (h.x < -0.01 || h.y < -0.01 || h.x + h.w > d.ui.w + 0.01 || h.y + h.h > d.ui.h + 0.01) fails.push(`${at}: ${h.id} outside`); }
+    for (const q of d.buttons) { if (overlaps(pic, q)) fails.push(`${at}: preview on button ${q.id}`); if (q.x < -0.01 || q.y < -0.01 || q.x + q.w > d.ui.w + 0.01 || q.y + q.h > d.ui.h + 0.01) fails.push(`${at}: button ${q.id} outside`); }
+    d.buttons.forEach((a, i) => d.buttons.slice(i + 1).forEach(b => { if (overlaps(a, b)) fails.push(`${at}: ${a.id} on ${b.id}`); }));
+    const text = parts.filter(h => h.id !== "card:title");
+    text.forEach((a, i) => text.slice(i + 1).forEach(b => { if (overlaps(a, b)) fails.push(`${at}: ${a.id} on ${b.id}`); }));
+    if (d.over.length) fails.push(`${at}: text overflows ${JSON.stringify(d.over)}`);
+    const c = d.rect;
+    if (c && [pic, ...parts, ...d.buttons].some(h => h.x < c.x - 0.01 || h.x + h.w > c.x + c.w + 0.01 || h.y < c.y - 0.01 || h.y + h.h > c.y + c.h + 0.01)) fails.push(`${at}: something leaves the card`);
+    // the preview is left of the text column (desktop and phone alike; the buttons are below both)
+    const txt = parts.filter(h => ["card:type", "card:line"].includes(h.id));
+    if (txt.some(h => h.x < pic.x + pic.w - 0.01)) fails.push(`${at}: the text is not right of the preview`);
+    if (phone) for (const cat of ["main", "hint"]) if (!(d.texts[cat] * d.ui.scale >= d.min[cat] - 0.01) && d.texts[cat]) fails.push(`${at}: smallest ${cat} text ${d.texts[cat] * d.ui.scale}`);
+  }
+  await page.evaluate(() => { const b = window.__bb; b.CFG.TEXT_TEST_SCALE = 1; b.setProgress(null); b.setLang("en"); b.mode = "home"; });
+  return fails;
+}
+test("the level card with its preview fits (desktop 960×640, fonts ×1 / ×1.15 / ×1.3)", async ({ page }) => {
+  const fails = await cardProblems(page, false, [1, 1.15, 1.3]);
+  expect(fails, fails.slice(0, 10).join("\n")).toEqual([]);
+});
+test("the level card with its preview fits (phone 667×375, fonts ×1 / ×1.15)", async ({ phonePage: page }) => {
+  const fails = await cardProblems(page, true, [1, 1.15]);
+  expect(fails, fails.slice(0, 10).join("\n")).toEqual([]);
+});
+test("the level card with its preview fits (phone 568×320, fonts ×1 / ×1.15)", async ({ phone568: page }) => {
+  const fails = await cardProblems(page, true, [1, 1.15]);
+  expect(fails, fails.slice(0, 10).join("\n")).toEqual([]);
+});
+test("the level card with its preview fits (desktop 1280×720, fonts ×1 / ×1.15 / ×1.3)", async ({ desk1280: page }) => {
+  const fails = await cardProblems(page, false, [1, 1.15, 1.3]);
+  expect(fails, fails.slice(0, 10).join("\n")).toEqual([]);
 });
 
 // ---------- AC 8, 9: the story ----------

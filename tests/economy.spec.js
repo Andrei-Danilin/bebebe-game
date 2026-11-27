@@ -27,7 +27,9 @@ const test = base.test.extend({
   // the phone at its smallest size (SPEC-005 sizes), touch + mobile
   phonePage: fixture("phone", { viewport: { width: 667, height: 375 }, hasTouch: true, isMobile: true }, "?phone=1"),
   phone844: fixture("phone844", { viewport: { width: 844, height: 390 }, hasTouch: true, isMobile: true }, "?phone=1"),
-  phone932: fixture("phone932", { viewport: { width: 932, height: 430 }, hasTouch: true, isMobile: true }, "?phone=1")
+  phone932: fixture("phone932", { viewport: { width: 932, height: 430 }, hasTouch: true, isMobile: true }, "?phone=1"),
+  phone568: fixture("phone568", { viewport: { width: 568, height: 320 }, hasTouch: true, isMobile: true }, "?phone=1"),   // SPEC-041
+  desk1280: fixture("desk1280", { viewport: { width: 1280, height: 720 } })
 });
 test.afterAll(async () => { await shared.close(); await sharedSim.close(); });
 
@@ -812,7 +814,8 @@ test("the shop has an Items tab and an Upgrades tab", async ({ page }) => {
   expect(d.hud.find(h => h.id === "upg-dots:longItems").text).toBe("●●○");
   expect(d.hud.find(h => h.id === "upg-dots:fastFeet").text).toBe("○○○");
   expect(d.btn.find(q => q.id === "upg:longItems").text).toContain("450");   // SPEC-026: level 3 costs 450
-  expect(d.btn.find(q => q.id === "upg:quickHelp").text).toContain(d.I.upgMax);
+  expect(d.btn.find(q => q.id === "upg:quickHelp"), "SPEC-041: bought out → a MAX ribbon, no button").toBeUndefined();
+  expect(d.hud.find(h => h.id === "upg-max:quickHelp").text).toBe(d.I.upgMax.toLocaleUpperCase());
   await page.keyboard.press("ArrowLeft");                                     // SPEC-017: three tabs — Items · Wardrobe · Upgrades
   await frames(page);
   expect(await page.evaluate(() => window.__bb.shopTab)).toBe("wardrobe");
@@ -846,25 +849,31 @@ async function upgradeTabProblems(page, phone) {
     // SPEC-026: Reset progress moved to the Character's Progress page — not on the Upgrades tab
     if (d.buttons.some(q => d.resets.includes(q.text))) fails.push(`${at}: a reset button on the Upgrades tab`);
     const s = d.ui.scale, inside = r => r.x >= -0.01 && r.y >= -0.01 && r.x + r.w <= d.ui.w + 0.01 && r.y + r.h <= d.ui.h + 0.01;
-    const btns = KEYS.map(k => d.buttons.find(q => q.id === "upg:" + k));
-    if (btns.some(q => !q)) { fails.push(`${at}: missing upgrade buttons`); continue; }
-    const cx = btns.map(q => q.x + q.w / 2), cols = cx.map((x, i) => [i ? (cx[i - 1] + x) / 2 : 0, i < 2 ? (x + cx[i + 1]) / 2 : d.ui.w]);
-    const parts = d.hud.filter(h => h.id.startsWith("upg-"));
-    KEYS.forEach((k, i) => {
-      const mine = parts.filter(p => p.id.endsWith(":" + k));
-      for (const id of ["pic", "name", "dots", "desc"]) if (!mine.some(p => p.id === `upg-${id}:${k}`)) fails.push(`${at}: no upg-${id}:${k}`);
-      const poor = coins === 10 && k !== "quickHelp";
+    // SPEC-041: the card of each upgrade is a hudRect (upg-card:<k>); every part of the card lies inside it; the bought-out one has a MAX ribbon, not a button
+    const parts = d.hud.filter(h => h.id.startsWith("upg-")), note = d.hud.find(h => h.id === "upg-note");
+    KEYS.forEach(k => {
+      const mine = parts.filter(p => p.id.endsWith(":" + k)), card = mine.find(p => p.id === "upg-card:" + k), max = k === "quickHelp";
+      if (!card) { fails.push(`${at}: no upg-card:${k}`); return; }
+      for (const id of ["pic", "name", "dots", "effect"]) if (!mine.some(p => p.id === `upg-${id}:${k}`)) fails.push(`${at}: no upg-${id}:${k}`);
+      if (!!d.buttons.find(q => q.id === "upg:" + k) === max) fails.push(`${at}: upg:${k} button ${max ? "shown at max" : "missing"}`);
+      if (mine.some(p => p.id === "upg-max:" + k) !== max) fails.push(`${at}: upg-max:${k} ${max ? "missing" : "shown"}`);
+      const poor = coins === 10 && !max;
       if (mine.some(p => p.id === "upg-no:" + k) !== poor) fails.push(`${at}: upg-no:${k} ${poor ? "missing" : "shown"}`);
-      for (const p of mine) if (p.x < cols[i][0] - 0.01 || p.x + p.w > cols[i][1] + 0.01) fails.push(`${at}: ${p.id} leaves its card ${JSON.stringify(p)}`);
+      for (const p of mine) if (p !== card && (p.x < card.x - 0.01 || p.x + p.w > card.x + card.w + 0.01 || p.y < card.y - 0.01 || p.y + p.h > card.y + card.h + 0.01)) fails.push(`${at}: ${p.id} leaves its card ${JSON.stringify(p)}`);
+      for (const q of d.buttons.filter(q => q.id === "upg:" + k)) if (q.x < card.x - 0.01 || q.x + q.w > card.x + card.w + 0.01 || q.y + q.h > card.y + card.h + 0.01) fails.push(`${at}: ${q.id} leaves its card`);
+      if (note && card.y + card.h > note.y + 0.01) fails.push(`${at}: the note is above the ${k} card`);
     });
+    if (!note) fails.push(`${at}: no upg-note`);
+    else if (note.x < -0.01 || note.x + note.w > d.ui.w + 0.01 || note.y + note.h > d.ui.h + 0.01) fails.push(`${at}: the note leaves the screen ${JSON.stringify(note)}`);
     for (const b of d.buttons) {
       if (!inside(b)) fails.push(`${at}: button ${b.id || b.text} outside`);
       if (b.textW !== undefined && b.textW > b.w + 0.5) fails.push(`${at}: button ${b.id || b.text} text ${b.textW} > ${b.w}`);
       if (phone && (b.w * s < 44 - 0.01 || b.h * s < 44 - 0.01)) fails.push(`${at}: button ${b.id || b.text} ${b.w * s}×${b.h * s} CSS px`);
-      for (const h of d.hud) if (overlaps(b, h)) fails.push(`${at}: button ${b.id || b.text} on ${h.id}`);
+      for (const h of d.hud) if (!h.id.startsWith("upg-card:") && overlaps(b, h)) fails.push(`${at}: button ${b.id || b.text} on ${h.id}`);
     }
     d.buttons.forEach((a, i) => d.buttons.slice(i + 1).forEach(b => { if (overlaps(a, b)) fails.push(`${at}: ${a.id || a.text} on ${b.id || b.text}`); }));
-    d.hud.forEach((a, i) => { if (!inside(a)) fails.push(`${at}: ${a.id} outside`); d.hud.slice(i + 1).forEach(b => { if (overlaps(a, b)) fails.push(`${at}: ${a.id} on ${b.id}`); }); });
+    const huds = d.hud.filter(h => !h.id.startsWith("upg-card:"));   // (a card holds its parts)
+    huds.forEach((a, i) => { if (!inside(a)) fails.push(`${at}: ${a.id} outside`); huds.slice(i + 1).forEach(b => { if (overlaps(a, b)) fails.push(`${at}: ${a.id} on ${b.id}`); }); });
     if (phone) for (const cat of ["main", "hint"]) if (!(d.texts[cat] * s >= d.min[cat] - 0.01)) fails.push(`${at}: smallest ${cat} text ${d.texts[cat] * s}`);
   }
   await page.evaluate(() => { const b = window.__bb; b.CFG.TEXT_TEST_SCALE = 1; b.setLang("en"); b.mode = "home"; });
@@ -890,11 +899,104 @@ test("the Upgrades tab fits (phone 932×430)", async ({ phone932: page }) => {
 });
 
 test("every upgrade text is in every language", async ({ simPage: page }) => {
-  const I = await page.evaluate(() => { const I = window.__bb.I18N; return window.__bb.LANGS.map(l => [I[l].itemsTab, I[l].upgradesTab, I[l].upgMax, ...["fastFeet", "longItems", "quickHelp"].map(k => [I[l].upg[k].name, I[l].upg[k].desc(3)])]); });
-  expect(I[0]).toEqual(["Items", "Upgrades", "Max", ["Fast feet", "+3% speed"], ["Long items", "Items last longer"], ["Quick help", "Lift friends faster"]]);
-  expect(I[1]).toEqual(["Cosas", "Mejoras", "Máximo", ["Pies rápidos", "+3% velocidad"], ["Cosas duraderas", "Duran más"], ["Ayuda rápida", "Levantás más rápido"]]);
-  expect(I[2]).toEqual(["Itens", "Melhorias", "Máximo", ["Pés rápidos", "+3% de velocidade"], ["Itens duradouros", "Duram mais"], ["Ajuda rápida", "Levante os amigos mais rápido"]]);
-  expect(I[3]).toEqual(["Вещи", "Улучшения", "Максимум", ["Быстрые ноги", "+3% скорости"], ["Долгие вещи", "Действуют дольше"], ["Быстрая помощь", "Поднимаешь быстрее"]]);
+  // SPEC-041: the effect line "now → next" (a number each; null next = the last level) and the note under the cards
+  const I = await page.evaluate(() => { const I = window.__bb.I18N; return window.__bb.LANGS.map(l => [I[l].itemsTab, I[l].upgradesTab, I[l].upgMax, I[l].upgNote, ...["fastFeet", "longItems", "quickHelp"].map(k => [I[l].upg[k].name, ...(k === "quickHelp" ? [I[l].upg[k].effect(2.7, 2.4), I[l].upg[k].effect(2.1, null)] : [I[l].upg[k].effect(3, 6), I[l].upg[k].effect(9, null)])])]); });
+  expect(I[0]).toEqual(["Items", "Upgrades", "Max", "Upgrades help players only, not the bots.", ["Fast feet", "Speed +3% → +6%", "Speed +9%"], ["Long items", "Items last +3% → +6%", "Items last +9%"], ["Quick help", "Help up in 2.7 s → 2.4 s", "Help up in 2.1 s"]]);
+  expect(I[1]).toEqual(["Cosas", "Mejoras", "Máximo", "Las mejoras ayudan solo a los jugadores, no a los bots.", ["Pies rápidos", "Velocidad +3% → +6%", "Velocidad +9%"], ["Cosas duraderas", "Duran +3% → +6%", "Duran +9%"], ["Ayuda rápida", "Levantás en 2,7 s → 2,4 s", "Levantás en 2,1 s"]]);
+  expect(I[2]).toEqual(["Itens", "Melhorias", "Máximo", "As melhorias ajudam só os jogadores, não os bots.", ["Pés rápidos", "Velocidade +3% → +6%", "Velocidade +9%"], ["Itens duradouros", "Duram +3% → +6%", "Duram +9%"], ["Ajuda rápida", "Levante em 2,7 s → 2,4 s", "Levante em 2,1 s"]]);
+  expect(I[3]).toEqual(["Вещи", "Улучшения", "Максимум", "Улучшения помогают только игрокам, а не ботам.", ["Быстрые ноги", "Скорость +3% → +6%", "Скорость +9%"], ["Долгие вещи", "Действуют дольше на 3% → 6%", "Действуют дольше на 9%"], ["Быстрая помощь", "Поднимаешь за 2,7 с → 2,4 с", "Поднимаешь за 2,1 с"]]);
+});
+
+// ---------- SPEC-041 AC 1–5: the Upgrades page as a "level up" page ----------
+// pips = the save, effect now → next = UPGRADES (upgBonus) and CFG.RESCUE_TIME, MAX ribbon at the top level, one line "players only",
+// pictures ×1.6 of SPEC-009's, no empty block under the cards, a sparkle when one is bought
+const OLD_PIC_H = { desk: 64, phone667: 57 };   // UI px: the picture box of master (SPEC-009 / SPEC-026) at 960×640 and at 667×375
+async function upgradeFacts(page, kind) {
+  const fails = [];
+  await page.waitForFunction(() => window.__bb.artInfo.done, null, { timeout: 15_000 });
+  for (const lang of LANGS) for (const levels of lang === "en" ? [{ fastFeet: 0, longItems: 2, quickHelp: 3 }, { fastFeet: 1, longItems: 0, quickHelp: 2 }] : [{ fastFeet: 0, longItems: 2, quickHelp: 3 }]) {
+    const at = `${kind} ${lang} ${JSON.stringify(levels)}`;
+    await page.evaluate(([l, lv]) => {
+      const b = window.__bb; b.setLang(l); b.progress.coins = 9999; Object.assign(b.progress.upgrades, lv); b.mode = "shop"; b.shopTab = "upgrades";
+    }, [lang, levels]);
+    await frames(page);
+    await page.evaluate(() => window.__bb.resetArtUse());
+    await frames(page);
+    const d = await page.evaluate(() => {
+      const b = window.__bb, I = b.I18N[b.lang], out = { hud: b.hudRects, btn: b.buttonRects, ui: b.uiSize, use: b.artUse, want: {} };
+      for (const k of Object.keys(b.UPGRADES)) {
+        const lv = b.upgrades[k], top = b.UPGRADES[k].prices.length;
+        const val = n => k === "quickHelp" ? b.CFG.RESCUE_TIME * (1 - b.upgBonus(k, n)) : Math.round(b.upgBonus(k, n) * 100);
+        out.want[k] = { lv, top, text: I.upg[k].effect(val(lv), lv < top ? val(lv + 1) : null), pips: "●".repeat(lv) + "○".repeat(top - lv), name: I.upg[k].name,
+          now: val(lv), next: lv < top ? val(lv + 1) : null };
+      }
+      out.note = I.upgNote; out.maxWord = I.upgMax.toLocaleUpperCase();
+      return out;
+    });
+    const hud = id => d.hud.find(h => h.id === id);
+    for (const [k, w] of Object.entries(d.want)) {
+      if (!hud("upg-dots:" + k) || hud("upg-dots:" + k).text !== w.pips) fails.push(`${at}: ${k} pips ${hud("upg-dots:" + k) && hud("upg-dots:" + k).text} ≠ ${w.pips}`);
+      const eff = hud("upg-effect:" + k);
+      if (!eff || eff.text !== w.text) fails.push(`${at}: ${k} effect "${eff && eff.text}" ≠ "${w.text}"`);
+      // the numbers themselves, from UPGRADES (percent) or CFG.RESCUE_TIME (seconds)
+      const fmt = n => (k === "quickHelp" ? n.toFixed(1) : String(n)).replace(".", lang === "en" ? "." : ",");
+      const unit = k === "quickHelp" ? (lang === "ru" ? " с" : " s") : "%";
+      if (eff && !eff.text.includes(fmt(w.now))) fails.push(`${at}: ${k} effect lacks the current ${fmt(w.now)}: ${eff.text}`);
+      if (eff && w.next != null && (!eff.text.includes("→") || !eff.text.endsWith(fmt(w.next) + unit))) fails.push(`${at}: ${k} effect does not end with the next ${fmt(w.next)}: ${eff.text}`);
+      if (w.next == null && eff && eff.text.includes("→")) fails.push(`${at}: ${k} at max still shows an arrow: ${eff.text}`);
+      const max = w.lv >= w.top, btn = d.btn.find(q => q.id === "upg:" + k), rib = hud("upg-max:" + k);
+      if (max && (btn || !rib)) fails.push(`${at}: ${k} at max needs the MAX ribbon and no button`);
+      if (!max && (!btn || rib)) fails.push(`${at}: ${k} below max needs the price button and no ribbon`);
+      if (max && rib && rib.text !== d.maxWord) fails.push(`${at}: the ribbon reads "${rib.text}", not the whole word "${d.maxWord}"`);
+      const card = hud("upg-card:" + k), used = [...d.hud.filter(h => h.id.endsWith(":" + k) && !h.id.startsWith("upg-card:")), ...d.btn.filter(q => q.id === "upg:" + k)];
+      const bottom = Math.max(...used.map(h => h.y + h.h));
+      if (card && bottom < card.y + 0.85 * card.h) fails.push(`${at}: ${k} card has an empty block: content ends at ${bottom - card.y} of ${card.h}`);
+    }
+    const note = hud("upg-note"), cards = Object.keys(d.want).map(k => hud("upg-card:" + k));
+    if (!note || note.text !== d.note) fails.push(`${at}: the note "${note && note.text}" ≠ "${d.note}"`);
+    if (note && cards.every(Boolean) && note.y < Math.max(...cards.map(c => c.y + c.h))) fails.push(`${at}: the note is not under the cards`);
+    // no empty area under the page: cards + note reach the lower part of the screen (the Done button / the frame is below)
+    if (note && note.y + note.h < d.ui.h * (kind === "desktop" ? 0.74 : 0.8)) fails.push(`${at}: an empty area under the note: ends at ${note.y + note.h} of ${d.ui.h}`);
+    if (d.want.quickHelp.lv >= d.want.quickHelp.top && !(d.use.ribbon_star >= 1)) fails.push(`${at}: ribbon_star not drawn at max`);
+  }
+  // the pictures: ×1.6 of master's (fresh levels, plenty of coins)
+  const pic = await page.evaluate(() => window.__bb.hudRects.find(h => h.id === "upg-pic:fastFeet").h);
+  const old = kind === "desktop" ? OLD_PIC_H.desk : OLD_PIC_H.phone667;
+  if (pic < old * 1.45) fails.push(`${kind}: picture ${pic} < 1.45 × ${old}`);
+  await page.evaluate(() => { const b = window.__bb; b.setLang("en"); b.mode = "home"; });
+  return fails;
+}
+test("the Upgrades page: pips, effect now → next, MAX ribbon, the players-only line, big pictures, no empty block (desktop)", async ({ page }) => {
+  const fails = await upgradeFacts(page, "desktop");
+  expect(fails, fails.slice(0, 12).join("\n")).toEqual([]);
+});
+test("the Upgrades page: pips, effect now → next, MAX ribbon, the players-only line, big pictures, no empty block (phone 667×375)", async ({ phonePage: page }) => {
+  const fails = await upgradeFacts(page, "phone667");
+  expect(fails, fails.slice(0, 12).join("\n")).toEqual([]);
+});
+// buying shows a sparkle on the card (fx_sparkle drawn only after the buy), and the level pip fills
+test("buying an upgrade shows a sparkle on its card (fx_sparkle) and fills a pip", async ({ page }) => {
+  await page.evaluate(() => { const b = window.__bb; b.setProgress(null); b.progress.coins = 1000; b.mode = "shop"; b.shopTab = "upgrades"; });
+  await frames(page);
+  await page.evaluate(() => window.__bb.resetArtUse());
+  await frames(page);
+  expect(await page.evaluate(() => window.__bb.artUse.fx_sparkle || 0), "no sparkle before a purchase").toBe(0);
+  await page.evaluate(() => window.__bb.tapButton("upg:longItems"));
+  await frames(page);
+  const d = await page.evaluate(() => ({ sparkle: window.__bb.artUse.fx_sparkle || 0, dots: window.__bb.hudRects.find(h => h.id === "upg-dots:longItems").text, lv: window.__bb.upgrades.longItems }));
+  expect(d.lv).toBe(1);
+  expect(d.dots).toBe("●○○");
+  expect(d.sparkle, "fx_sparkle drawn after the buy").toBeGreaterThan(0);
+  await page.evaluate(() => { window.__bb.setProgress(null); window.__bb.mode = "home"; });
+});
+// the new sizes of SPEC-041: 568×320 and 1280×720 (the desktop UI is 960×640 scaled)
+test("the Upgrades tab fits (phone 568×320)", async ({ phone568: page }) => {
+  const fails = await upgradeTabProblems(page, true);
+  expect(fails, fails.slice(0, 12).join("\n")).toEqual([]);
+});
+test("the Upgrades tab fits (desktop 1280×720)", async ({ desk1280: page }) => {
+  const fails = await upgradeTabProblems(page, false);
+  expect(fails, fails.slice(0, 12).join("\n")).toEqual([]);
 });
 
 // ---------- SPEC-029: a world's own trend target (TREND_RHO_WORLD), ρ compared unrounded (pure, no browser) ----------

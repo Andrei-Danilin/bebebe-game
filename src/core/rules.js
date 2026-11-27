@@ -1,6 +1,6 @@
 // SPEC-011: the rules — push (and the wide push), hug, win, kisses, items, bonus stars, contacts, the rescue kit, downed,
 // danger, resting. Core module.
-import { CELL, CFG, COLS, GLOVES, levelsPerWorld, ROWS, UPGRADES } from "./config.js";
+import { CELL, CFG, COLS, GLOVES, levelsPerWorld, ROWS, upgBonus } from "./config.js";
 import { angDiff, clamp, dist, normAng, rand, rng, turnToward } from "./util.js";
 import { emit, logEcon, logEvent } from "./events.js";
 import { cellIdx, freeCellNear, nearestExit } from "./grid.js";
@@ -11,7 +11,7 @@ import { canAct, inDanger, inSafe, los, moveSolidAt, seeSolidAt } from "./world.
 import { G } from "./active.js";
 
 // прибавка улучшения k для этого маленького: его уровень (взят при создании; у ботов нет) × step
-const playerBonus = (l, k) => (l.upg ? (l.upg[k] || 0) * UPGRADES[k].step : 0);
+const playerBonus = (l, k) => (l.upg ? upgBonus(k, l.upg[k] || 0) : 0);
 // скорость маленького-игрока: обычная × «быстрые ноги» × сапоги (CFG.PLAYER_SPEED не меняется — предел Большого от неё)
 export const moveSpeed = l => CFG.PLAYER_SPEED * (1 + playerBonus(l, "fastFeet")) * (l.fx.boots > 0 ? CFG.BOOTS_MULT : 1);
 const helps = (o, l) => o !== l && o.state === "ok" && dist(o, l) < o.r + l.r + 12;   // o стоит рядом с упавшим l и поднимает его

@@ -6,6 +6,7 @@ import { progress, spendCoins } from "../core/economy.js";
 import { SFX } from "./sound.js";
 import { redress } from "./flow.js";
 import { saveProgress } from "./progress.js";
+import { ui } from "./state.js";
 
 export function buyGloves(kind) {
   const g = GLOVES[kind];
@@ -31,7 +32,7 @@ export function buyUpgrade(k) {
   const u = UPGRADES[k], lv = upgLevel(k);
   if (lv >= u.prices.length) return;
   if (!spendCoins("upgrade:" + k, u.prices[lv])) { SFX.out(); return; }
-  progress.upgrades[k] = lv + 1;
+  progress.upgrades[k] = lv + 1; ui.upgSpark = { k, t0: ui.T };   // SPEC-041: искорки на карточке
   saveProgress(); SFX.item();
 }
 export function setEquip(pi, kind) { progress.equip[pi] = kind; saveProgress(); redress(); }
