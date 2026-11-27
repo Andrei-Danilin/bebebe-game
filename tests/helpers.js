@@ -135,10 +135,17 @@ async function openGameHttp(page, { lang = "en", query = "", clearStorage = true
 // Waits for two animation frames, so the 2D layer has redrawn after a state change.
 // SPEC-023 AC 5: in sim mode the frame loop draws nothing (and plays no logic), so waiting for frames there means the
 // test checks drawing on a page that does not draw — it throws.
+// SPEC-040 AC 1: a sprite that is not resident loads when a screen first draws it (the screen draws its code drawing until then), so
+// after the two frames it also waits for the sprites those frames asked for (artInfo.pending) and, if it had to wait, draws two more
+// frames with them: what a test sees after frames() is the screen with its pictures, as before.
 async function frames(page) {
-  await page.evaluate(() => {
+  await page.evaluate(async () => {
     if (window.__bb && window.__bb.sim().on) throw new Error("sim mode: frames() waits for drawing, but nothing is drawn — this test needs a rendered page (openGame without sim)");
-    return new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    const raf = () => new Promise(r => requestAnimationFrame(r));
+    await raf(); await raf();
+    let waited = false;
+    for (const t0 = performance.now(); (window.__bb ? window.__bb.artInfo.pending : 0) > 0 && performance.now() - t0 < 20000;) { waited = true; await raf(); }
+    if (waited) { await raf(); await raf(); }
   });
 }
 

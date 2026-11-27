@@ -25,4 +25,21 @@ export const ART_NAMES = [
   "ui_flag", "ui_eyes", "ui_timer", "ui_tiptoe", "item_boots", "item_cape", "item_banana", "item_mittens",
   "item_mega_mittens", "item_kiss", "item_star", "item_coin", "heart_full", "heart_half", "heart_empty"
 ];
+// SPEC-040 AC 1: the sprites loaded at start and kept; the others load when a screen draws them and are released when it stops
+export const ART_RESIDENT = [
+  "menu_bg", "logo", "icon_shield", "icon_bandaid", "icon_cupcake", "icon_angry_heart", "icon_pause", "icon_sound",
+  "btn_green", "btn_pink", "btn_orange", "btn_grey", "round_play", "round_pause", "round_sound", "round_restart",
+  "cloud_heart_full", "cloud_heart_half", "cloud_heart_fading", "cloud_heart_empty", "coin_badge", "ribbon_star",
+  "stop_empty", "stop_current", "stop_locked", "stop_boss", "star_gold", "star_empty", "stamp_done", "padlock",
+  "world_park", "world_field", "world_city", "world_school", "world_beach", "world_winter", "ui_play", "ui_back",
+  "ui_home", "ui_story", "ui_bag", "ui_gear", "ui_sound_on", "ui_sound_off", "ui_fullscreen", "ui_globe", "ui_coin",
+  "ui_gift", "shop_fast_feet", "shop_long_items", "shop_quick_help", "shop_wardrobe", "shop_items", "shop_upgrades",
+  "fx_burst_yellow", "fx_burst_red", "fx_burst_pink", "fx_steam_left", "fx_steam_right", "fx_storm_cloud", "fx_stink",
+  "fx_dizzy", "fx_hearts", "fx_speed", "fx_dust", "fx_sparkle", "fx_bandaid", "fx_confetti", "phone_kiss", "phone_kit",
+  "phone_stick_base", "phone_pause", "phone_stick_knob", "menu_play", "menu_story", "menu_character", "tab_progress",
+  "ui_friends", "ui_dice", "ui_question", "ui_pencil", "ui_pack", "ui_ear", "ui_map", "ui_check", "ui_cross", "ui_hug",
+  "ui_sleep", "ui_alert", "ui_flag", "ui_eyes", "ui_timer", "ui_tiptoe", "item_boots", "item_cape", "item_banana",
+  "item_mittens", "item_mega_mittens", "item_kiss", "item_star", "item_coin", "heart_full", "heart_half",
+  "heart_empty"
+];
 // art:end

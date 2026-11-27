@@ -196,6 +196,9 @@ async function bubbleCases([langs]) {
   const fail = (at, what) => { if (out.fails.length < 60) out.fails.push(`${at}: ${what}`); };
   const min = phone ? b.CFG.BUBBLE_MIN.phone / ui.scale : b.CFG.BUBBLE_MIN.desk;   // UI px
   const canvas = document.getElementById("game"), g = canvas.getContext("2d"), k = canvas.width / ui.w;
+  // SPEC-040 AC 1: story_start is not resident — asking for it loads it; the test keeps it (no release) while it reads its pixels
+  b.CFG.ART.releaseMs = 1e9;
+  for (let i = 0; !b.art("story_start") && i < 1200; i++) await new Promise(r => requestAnimationFrame(r));
   const img = b.art("story_start"), src = document.createElement("canvas");
   src.width = img.naturalWidth; src.height = img.naturalHeight;
   const sg = src.getContext("2d");

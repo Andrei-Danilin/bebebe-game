@@ -354,16 +354,26 @@ async function writePaper(src, file, maxW, q, circles = null, crop = null) {
 
 function loadManifest() { return JSON.parse(fs.readFileSync(MANIFEST, "utf8")); }
 
+// The sprite names of one source (in manifest order).
+function sourceNames(s) {
+  const names = [];
+  if (s.name) names.push(s.name);
+  if (s.names) names.push(...s.names.filter(Boolean));
+  if (s.boxes) names.push(...Object.keys(s.boxes));
+  if (s.circles) names.push(...Object.keys(s.circles));
+  return names;
+}
 // Every sprite name the manifest promises (in manifest order).
 function spriteNames(manifest = loadManifest()) {
-  const names = [];
-  for (const s of manifest.sources) {
-    if (s.name) names.push(s.name);
-    if (s.names) names.push(...s.names.filter(Boolean));
-    if (s.boxes) names.push(...Object.keys(s.boxes));
-    if (s.circles) names.push(...Object.keys(s.circles));
-  }
-  return names;
+  return manifest.sources.flatMap(sourceNames);
+}
+// SPEC-040 AC 1: the resident sprites — loaded at start and kept (HUD, buttons, items, effects, icons, the paper sheet, the logo). Every source
+// says "resident": true or false (a new picture must decide); a sprite of a source with false loads when a screen first draws it and is
+// released when no screen has drawn it for LOOK.ART.releaseMs (the story and tutorial pictures, the map backgrounds, the wardrobe, the houses).
+function residentNames(manifest = loadManifest()) {
+  const bad = manifest.sources.filter(s => typeof s.resident !== "boolean").map(s => s.src);
+  if (bad.length) throw new Error("scripts/assets.json: \"resident\": true or false is missing in " + bad.join(", "));
+  return manifest.sources.filter(s => s.resident).flatMap(sourceNames);
 }
 
 // Processes the manifest (or only the sources whose src is in `only`) into outDir. Returns the report rows.
@@ -464,7 +474,7 @@ async function debug(src, manifest = loadManifest()) {
   groups.forEach((g, i) => console.log(`${String(i).padStart(3)} [${g.x0},${g.y0} ${g.x1 - g.x0 + 1}×${g.y1 - g.y0 + 1}] area ${g.area} parts ${g.ids.length}  ${(s.names || [])[i] ?? ""}`));
 }
 // ---------- the lists other files keep (written between markers, so nobody edits them by hand) ----------
-// src/client/art-names.js: ART_NAMES (the sprites the game loads; SPEC-011 AC 8c — was in index.html); sw.js: PRECACHE_ASSETS + ASSETS_HASH (a hash of their bytes: a redrawn
+// src/client/art-names.js: ART_NAMES (every sprite; ART_RESIDENT: the ones loaded at start; SPEC-011 AC 8c — was in index.html); sw.js: PRECACHE_ASSETS + ASSETS_HASH (a hash of their bytes: a redrawn
 // sprite changes sw.js, so the installed app fetches it again).
 const ART_FILE = path.join(ROOT, "src", "client", "art-names.js"), SW = path.join(ROOT, "sw.js");
 const MARK = { index: ["// art:start", "// art:end"], sw: ["// assets:start", "// assets:end"] };
@@ -491,7 +501,9 @@ function arrayLines(items, indent) {
 function listBlocks(manifest = loadManifest(), dir = path.join(ROOT, "assets")) {
   const names = spriteNames(manifest);
   return {
-    index: ["export const ART_NAMES = [", arrayLines(names, "  "), "];"].join(NL),
+    index: ["export const ART_NAMES = [", arrayLines(names, "  "), "];",
+      "// SPEC-040 AC 1: the sprites loaded at start and kept; the others load when a screen draws them and are released when it stops",
+      "export const ART_RESIDENT = [", arrayLines(residentNames(manifest), "  "), "];"].join(NL),
     sw: [`const ASSETS_HASH = "${assetsHash(names, dir)}";`, "const PRECACHE_ASSETS = [",
       arrayLines(names.map(n => "./assets/" + n + ".webp"), "  "), "];"].join(NL)
   };
@@ -516,7 +528,7 @@ function writeLists(manifest = loadManifest()) {
   }
 }
 
-module.exports = { run, report, spriteNames, loadManifest, keyGreen, keyPaper, regionsOf, listBlocks, between, writeLists, MARK, ART_FILE, SW, MANIFEST, ROOT };
+module.exports = { run, report, spriteNames, residentNames, loadManifest, keyGreen, keyPaper, regionsOf, listBlocks, between, writeLists, MARK, ART_FILE, SW, MANIFEST, ROOT };
 
 if (require.main === module) {
   (async () => {

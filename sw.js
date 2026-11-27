@@ -27,16 +27,16 @@ const NET_TIMEOUT_MS = 4000;             // weak signal: after this long, a cach
 const SW_BUILD = 11;
 const SW_STRATEGY = "0c8e52b02e";
 const SW_VERSION = "bebebe-1.0.0-dev-b11";
-const SRC_HASH = "2d2e5498b2";
+const SRC_HASH = "b0d5eefbff";
 const PRECACHE_LOCAL = [
   "./", "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512-maskable.png",
   "./icons/icon-512.png", "./icons/icon.svg", "./index.html", "./manifest.webmanifest"
 ];
 const PRECACHE_SRC = [
-  "./src/client/art-names.js?v=20ca23d7bd", "./src/client/art.js?v=1f53c76757", "./src/client/back.js?v=2bbaab7f17",
-  "./src/client/debug.js?v=4380438530", "./src/client/devices.js?v=892965ff6f", "./src/client/errors.js?v=7b215fb847",
+  "./src/client/art-names.js?v=64e5afa0d4", "./src/client/art.js?v=45d04a089a", "./src/client/back.js?v=2bbaab7f17",
+  "./src/client/debug.js?v=fd4c182514", "./src/client/devices.js?v=892965ff6f", "./src/client/errors.js?v=7b215fb847",
   "./src/client/flow.js?v=4792b1ac89", "./src/client/fx.js?v=5a88b57937", "./src/client/input.js?v=983462c66e",
-  "./src/client/lifecycle.js?v=1c78b949bb", "./src/client/look.js?v=25255d8de4", "./src/client/main.js?v=5f7a78b2fb",
+  "./src/client/lifecycle.js?v=1c78b949bb", "./src/client/look.js?v=6c4a7b49a4", "./src/client/main.js?v=c80034b91d",
   "./src/client/names.js?v=dff85cded6", "./src/client/outfits.js?v=e814941367", "./src/client/perf.js?v=2c7f71b57b",
   "./src/client/ports.js?v=4285602733", "./src/client/progress.js?v=38515d7fe6", "./src/client/reset.js?v=30ccdd527d",
   "./src/client/save.js?v=7939a95d74", "./src/client/screen.js?v=b2d0263850", "./src/client/shop.js?v=ebde4ad6de",

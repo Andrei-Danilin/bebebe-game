@@ -177,25 +177,21 @@ async function openView(page, view, opts = {}) {
 }
 
 // ---------- AC 1: decoded sprite memory at the home screen (RR-46) ----------
-// Σ naturalWidth × naturalHeight × 4 of the sprites art() has (the decoded RGBA the browser keeps), read when the loading screen is
-// gone and the number has stopped moving. Today every sprite of ART_NAMES loads at start.
+// Σ naturalWidth × naturalHeight × 4 of the sprites in memory (the decoded RGBA the browser keeps), read when the loading screen is
+// gone and the number has stopped moving. (Before SPEC-040 step 2 every sprite of ART_NAMES loaded at start: 83 MB.)
 async function homeSprites(page) {
   await page.waitForFunction(() => !window.__bb.artInfo.loadingShown, null, { timeout: 60_000, polling: 100 });
-  const read = () => page.evaluate(() => {
-    const b = window.__bb; let bytes = 0, loaded = 0;
-    for (const n of b.ART_NAMES) { const img = b.art(n); if (img) { loaded++; bytes += img.naturalWidth * img.naturalHeight * 4; } }
-    return { loaded, total: b.ART_NAMES.length, bytes, mode: b.mode };
-  });
+  // artInfo.bytes = Σ naturalWidth × naturalHeight × 4 of the sprites in memory; read without art(): asking for a sprite loads it
+  const read = () => page.evaluate(() => { const b = window.__bb, i = b.artInfo; return { loaded: i.loaded, total: i.total, resident: i.resident, bytes: i.bytes, mode: b.mode }; });
   let a = await read();
   for (let i = 0; i < 20; i++) { await page.waitForTimeout(300); const b = await read(); if (b.bytes === a.bytes && b.loaded === a.loaded) return b; a = b; }
   return a;
 }
 test("SPEC-040 AC 1: decoded sprite memory at the home screen is at most 25 MB", async ({ page }) => {
-  test.fail();   // SPEC-040 step 2 turns this on (resident sprites, per-screen loading)
   const errors = await openGame(page);
   const r = await homeSprites(page);
   expect(r.mode).toBe("home");
-  record("sprites at home", { loaded: r.loaded, total: r.total, MB: round1(r.bytes / MB) });
+  record("sprites at home", { loaded: r.loaded, resident: r.resident, total: r.total, MB: round1(r.bytes / MB) });
   expect(r.loaded, "sprites that loaded").toBeGreaterThan(100);   // the art folder is there: the number below is a real measure
   expect(r.bytes / MB, `decoded sprites at home: ${round1(r.bytes / MB)} MB in ${r.loaded} sprites`).toBeLessThanOrEqual(25);
   expect(errors).toEqual([]);

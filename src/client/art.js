@@ -1,36 +1,53 @@
 // SPEC-011: the art loader (art, artFile, artLoad, artGate, artVersion), the sprite tables (ITEM_ART, POP_ART, EMOJI_ART,
 // …), the paper panels (paperUI, paperCache, paperPanel). Client module (moved out of index.html in Phase C).
 
-import { ART_NAMES } from "./art-names.js";
+import { ART_NAMES, ART_RESIDENT } from "./art-names.js";
 import { LOOK } from "./look.js";
 import { simMode } from "./screen.js";
 
 // =====================================================================
 //  SPEC-020: КАРТИНКИ (assets/*.webp — их делает npm run assets из рисунков в art/)
 // =====================================================================
-// Каждая картинка грузится и декодируется один раз, сразу при старте. art(name) — готовая картинка или null; рисуем так:
+// Постоянные картинки (ART_RESIDENT: HUD, кнопки, значки, вещи, эффекты, бумага, логотип) грузятся и декодируются один раз при старте.
+// SPEC-040 AC 1: остальные (комиксы, обучение, фоны карт, гардероб, домики) — когда экран впервые их рисует (art(name) просит файл и пока
+// отдаёт null — вызывающий рисует кодом) и отпускаются, когда их не рисовали LOOK.ART.releaseMs (artSweep): в памяти только то, что на
+// экране. Фон карты текущего мира держит main.js (artKeep). art(name) — готовая картинка или null; рисуем так:
 // const img = art("logo"); if (img) ctx.drawImage(img, …); else <рисунок кодом, как раньше>. Нет папки assets/ (страница
 // claude.ai) или файл не загрузился — игра работает и без картинок. Список между метками пишет scripts/assets.js.
-// имя или свой путь → { img, state: "loading" | "ok" | "bad", own } (own — картинка по своему пути, в счёт загрузки не входит)
+// имя или свой путь → { img, state: "idle" | "loading" | "ok" | "bad", own, lazy, seen } (own — картинка по своему пути, в счёт загрузки не
+// входит; lazy — не постоянная: idle, пока не попросили; seen — когда её просили в последний раз)
 export const artImgs = new Map();
-export const artCount = { ok: 0, bad: 0 };
+export const artCount = { ok: 0, bad: 0 };            // постоянные: готовы / не загрузились
+const RESIDENT = new Set(ART_RESIDENT);
+const lazyOk = new Set();                              // имена не постоянных картинок, что сейчас в памяти
+let lazyLoading = 0, lazyBad = 0;                      // не постоянные: загружаются (artInfo.pending) / не загрузились
+export const artLazy = () => ({ loaded: lazyOk.size, loading: lazyLoading, bad: lazyBad });
+// decoded memory of the pictures in memory now (RGBA: width × height × 4; own pictures too), for __bb.artInfo and the perf overlay — does not ask for any
+export function artBytes() {
+  let n = 0;
+  for (const a of artImgs.values()) if (a.state === "ok" && a.img) n += a.img.naturalWidth * a.img.naturalHeight * 4;
+  return n;
+}
 export let artVersion = 0;                              // растёт, когда картинка готова: SPEC-021 (3D) по нему узнаёт, что пора взять текстуры
-let artStarted = false;
-export const artDone = () => artCount.ok + artCount.bad >= ART_NAMES.length;
-function artSettle(a, ok) {
+let artStarted = false, artRoot = "pending";            // artRoot: логотип (проба) сказал, есть ли папка assets/: "pending" | "ok" | "bad"
+// экран загрузки ждёт только постоянные картинки; artInfo.done — и тех, что экран попросил и ещё грузятся
+const residentDone = () => artCount.ok + artCount.bad >= ART_RESIDENT.length;
+export const artDone = () => residentDone() && lazyLoading === 0;
+function artSettle(a, ok, name) {
   if (a.state !== "loading") return;
   a.state = ok ? "ok" : "bad";
   if (ok) artVersion++;
-  if (!a.own) { artCount[ok ? "ok" : "bad"]++; artProgress(); }
+  if (a.lazy) { lazyLoading--; if (ok) lazyOk.add(name); else { a.img = null; lazyBad++; } }
+  else if (!a.own) { artCount[ok ? "ok" : "bad"]++; artProgress(); }
 }
-function artFetch(a, src, then) {
+function artFetch(a, src, then, name) {
   try {
     const img = a.img = new Image();
     img.src = src;
-    const done = ok => { artSettle(a, ok); if (then) then(ok); };
+    const done = ok => { artSettle(a, ok, name); if (then) then(ok); };
     if (img.decode) img.decode().then(() => done(true), () => done(false));
     else { img.onload = () => done(true); img.onerror = () => done(false); }
-  } catch (e) { artSettle(a, false); if (then) then(false); }
+  } catch (e) { artSettle(a, false, name); if (then) then(false); }
 }
 // грузить начинаем, когда игра уже собрана (artGate): картинки не тормозят запуск (уровень, 3D) — экран загрузки их подождёт.
 // Сначала логотип: не загрузился (нет папки assets/ — страница claude.ai) — остальные не просим, все «bad» (рисунок кодом).
@@ -40,13 +57,43 @@ export function artLoad() {
   artStarted = true;
   const probe = artImgs.get("logo");
   artFetch(probe, LOOK.ART.dir + "logo.webp", ok => {
+    artRoot = ok ? "ok" : "bad";
     for (const [name, a] of artImgs) {
-      if (a.own || a.img) continue;
-      if (ok) artFetch(a, LOOK.ART.dir + name + ".webp"); else artSettle(a, false);
+      if (a.own || a.lazy || a.img) continue;
+      if (ok) artFetch(a, LOOK.ART.dir + name + ".webp"); else artSettle(a, false, name);
     }
-  });
+  }, "logo");
 }
-export const art = name => { const a = artImgs.get(name); return a && a.state === "ok" ? a.img : null; };
+export function art(name) {
+  const a = artImgs.get(name);
+  if (!a) return null;
+  if (a.state === "ok") { if (a.lazy) a.seen = performance.now(); return a.img; }
+  if (a.state === "idle") artRequest(a, name);
+  return null;
+}
+// не постоянная картинка: попросили — грузим (не раньше старта загрузки и ответа пробы; нет папки assets/ — «bad», рисунок кодом)
+function artRequest(a, name) {
+  a.seen = performance.now();
+  if (!artStarted || artRoot === "pending") return;
+  if (artRoot === "bad") { a.state = "bad"; lazyBad++; return; }
+  a.state = "loading"; lazyLoading++;
+  artFetch(a, LOOK.ART.dir + name + ".webp", null, name);
+}
+// фон карты текущего мира и всё, что надо держать на виду: просим картинку, не рисуя её (main.js, каждый кадр)
+export const artKeep = name => { art(name); };
+// SPEC-040 AC 1: отпустить не постоянные картинки, которых не просили дольше LOOK.ART.releaseMs (main.js, каждый кадр; проверка не чаще
+// LOOK.ART.sweepMs). Картинка снова idle: её просят заново, когда экран вернётся (пока — рисунок кодом)
+let lastSweep = 0;
+export function artSweep(now = performance.now()) {
+  if (now - lastSweep < LOOK.ART.sweepMs || !lazyOk.size) return;
+  lastSweep = now;
+  for (const name of [...lazyOk]) {
+    const a = artImgs.get(name);
+    if (now - a.seen < LOOK.ART.releaseMs) continue;
+    lazyOk.delete(name); insetCache.delete(name);
+    a.img = null; a.state = "idle";
+  }
+}
 // SPEC-032 AC 6: прозрачные поля картинки (доли её ширины / высоты): l, r — по средней трети строк, t, b — по средней трети столбцов
 // (видимый край нарисованной наклейки, не прозрачное поле вокруг); меряется один раз на картинку; нет картинки — нули
 const insetCache = new Map();
@@ -131,9 +178,9 @@ export const worldArt = w => "world_" + w, mapBgArt = w => "map_bg_" + w;
 function artProgress() {
   const el = document.getElementById("loading");
   if (!el || !el.classList.contains("art")) return;
-  if (artDone()) { el.remove(); return; }
+  if (residentDone()) { el.remove(); return; }
   const bar = /** @type {HTMLElement} */ (el.querySelector("#loadbar i"));
-  if (bar) bar.style.width = Math.round(100 * (artCount.ok + artCount.bad) / ART_NAMES.length) + "%";
+  if (bar) bar.style.width = Math.round(100 * (artCount.ok + artCount.bad) / ART_RESIDENT.length) + "%";
 }
 // игра готова: ждём картинки не дольше LOOK.ART.waitMs (window.__bbReady от этого не ждёт)
 export function artGate() {
@@ -141,7 +188,7 @@ export function artGate() {
   if (simMode) { if (el) el.remove(); return; }  // sim (баланс, тесты): картинки не нужны, экран загрузки — тоже; sim(false) начнёт загрузку
   artLoad();
   if (!el) return;
-  if (artDone()) { el.remove(); return; }
+  if (residentDone()) { el.remove(); return; }
   el.classList.add("art");
   artProgress();
   setTimeout(() => el.remove(), LOOK.ART.waitMs);
@@ -152,5 +199,5 @@ export function artGate() {
 export const EMOJI_RE = new RegExp(`(${Object.keys(EMOJI_ART).join("|")})\uFE0F?`, "gu");
 // called once by main.js, in the start order of the one-file game
 export function initArt() {
-  for (const name of ART_NAMES) artImgs.set(name, { img: null, state: "loading", own: false });
+  for (const name of ART_NAMES) { const lazy = !RESIDENT.has(name); artImgs.set(name, { img: null, state: lazy ? "idle" : "loading", own: false, lazy, seen: 0 }); }
 }

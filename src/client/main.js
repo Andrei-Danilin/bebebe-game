@@ -4,11 +4,12 @@
 // SPEC-025 AC 7 / 7b: the start is one guarded boot() (no WebGL2 → the loading screen says noWebGL; any other start error →
 // startFailed with Try again, index.html); the frame loop schedules the next frame first and runs inside a guard.
 
+import { G } from "../core/active.js";
 import { progress } from "../core/economy.js";
 import { newGame, useGame } from "../core/game.js";
 import { setHooks } from "../core/hooks.js";
 import { noGameRng, setStrictRng } from "../core/util.js";
-import { artGate, initArt } from "./art.js";
+import { artGate, artKeep, artSweep, initArt, mapBgArt } from "./art.js";
 import { installDebug } from "./debug.js";
 import { adoptErrorLog, failStart, initErrors, reportError } from "./errors.js";
 import { mapTick, openScene, redress, resetWorld, seedRandom, syncStock } from "./flow.js";
@@ -103,6 +104,7 @@ function tick(now) {
   noteFrame(Math.max(0, real), dt);          // SPEC-025 AC 15b: __bb.perf()
   runQueuedFit();                            // SPEC-038 AC 2: a resize / rotation since the last frame — the canvases are rebuilt before this frame draws
   if (simMode) return;                       // sim: ни логики, ни рисования — игру шагает simRun
+  artKeep(mapBgArt(G.world)); artSweep(now);   // SPEC-040 AC 1: фон карты текущего мира в памяти; остальные не постоянные картинки уходят, когда их не рисуют
   if (langDue && mode === "home" && !document.getElementById("loading")) { langDue = false; openLangScreen(); }   // SPEC-032: язык — до комикса
   if (introDue && mode === "home" && !document.getElementById("loading")) { introDue = false; openScene("intro", tutorialDue ? openFirstTutorial : null); }   // SPEC-022: первый запуск (SPEC-029: потом обучение; SPEC-033: сначала карточка «Как играть»)
   if (inMenus() && !document.getElementById("loading")) showDueNote(now);   // SPEC-025 AC 4 / 4b: a save note, once, in the menus
