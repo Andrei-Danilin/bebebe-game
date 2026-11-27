@@ -241,3 +241,45 @@ Core garbage (`tests/core/garbage.test.mjs`, steps 2–600 of a headless run):
 
 Client: `drawUI` empties `hudRects` and `edgeArrows` instead of making new arrays, the wardrobe preview cache key is made from the four
 picks (no `JSON.stringify` per frame), the camera shake uses one scratch vector.
+
+## SPEC-040 result — before and after (step 8, AC 12), measured 2026-11-27
+
+**Before** = the step-1 baseline above (`master` 0c30772). **After** = the branch at step 8, same machine (Andrei's Windows PC, Playwright's Chromium), GPU run of `PERF_OUT=<file> npx playwright test tests/perf.spec.js -g "SPEC-040"` and, for the frame times, an A/B of the master tree and the branch in the same session with the same script (SwiftShader, `PW_GPU=0`). Views as in the baseline: phone 667×375 `?phone=1`, tablet 1180×820. Tier: high (the tests pin it).
+
+| What | Before | After | Bound |
+|---|---|---|---|
+| Draw calls, busiest level, phone (Park / Field / City / School / Beach / Winter) | 690 / 775 / 736 / 761 / **1160** / 787 | **155 / 151 / 172 / 145 / 167 / 156** | ≤ 300 |
+| Draw calls, busiest level, tablet (same order) | 1510 / 1685 / 1656 / 1650 / **3061** / 1637 | **217 / 212 / 234 / 203 / 234 / 215** | ≤ 600 |
+| Triangles, same levels, high tier, phone | ~90–100 k | **130–203 k** (Park 177 k, Field 203 k, City 169 k, School 196 k, Beach 132 k, Winter 130 k) | recorded |
+| Triangles, same levels, high tier, tablet | 150–200 k | 141–215 k | recorded |
+| Triangles per tier (phone / tablet) | no tiers | high 130–203 k / 141–215 k; medium 115–174 k / 128–186 k; low 100–148 k / 113–160 k (step 6 table above) | recorded |
+| Decoded sprites at the home screen | 83 MB (163 of 163) | **22.2 MB** (105 loaded, 104 resident) | ≤ 25 MB |
+| `render3D` per 2 s under story / comic scene / Character ×4 / grown-ups | 98–120 (every frame) | **0** | 0 |
+| `render3D` from the pause until quiet | 107 per 2 s | **2** in all, then none | ≤ 1 per 2 s once quiet |
+| `render3D` under the rotate overlay | 120 per 2 s | **0** | 0 |
+| `render3D` per second in the menus (home / map) | 55.9 / 54.2 | **30.3 / 29.8** | ≤ 30 |
+| New programs / geometries / textures in the first 60 frames of a level started through its card: Beach 3 after Park / first boss | 5 / 477 / 0 and 2 / 217 / 0 | **0 / 0 / 0** and **0 / 0 / 0** (GPU; on SwiftShader the boss shows 5 geometries by frame 60: items and stars of a game that has run on a slow machine) | 0 |
+| Slowest frame in the first 60 (card start): Beach 3 / first boss, GPU | 717 ms / 383 ms | **16.8 ms / 50 ms** | ≤ 500 ms |
+| Slowest frame in the first 60 when a level is started *without* a card (`__bb.startGame`, the `phone frame time` test) | Park 3 617 / Beach 3 717 / Winter 2 367 ms | 683 / 650 / 500 ms | not changed: nothing warms it |
+| `measureText` per 2D frame: home / progress / items / wardrobe / upgrades | 15 / 111 / 116 / 73 / 93 | **0 / 0 / 0 / 0 / 0** | ≥ 5× fewer |
+| Typed arrays in steps 2–600 of a headless game (Park 1 / Winter 18, 5 players) | 884 / 452 | **0 / 0** | 0 |
+| Splices of the event log in 100 events on a full log | 100 | **0** | 0 |
+| `npm run bench:core`, ms per game step, median / p95 (3 quiet runs each) | master 0.076–0.079 / 0.322–0.377 | branch 0.074–0.077 / 0.311–0.348 | no regression |
+| Phone frame time, steady, GPU (Park 3 / Beach 3 / Winter 2), p50 / p95 | 16.7 / 16.8 for all three | 16.7 / 16.8, 16.7 / 16.7, 16.7 / 16.7 | vsync-bound: no information |
+| Phone frame time, steady, SwiftShader, master tree vs branch, same session, p50 / p95 ms (two runs) | Park 117 / 238 and 101 / 188; Beach 111 / 196 and 102 / 163; Winter 114 / 180 and 114 / 136 | Park 122 / 284 and 116 / 228; Beach 118 / 164 and 119 / 173; Winter 113 / 148 and 115 / 149 | see below |
+
+**What got worse.**
+- *Triangles at the high tier on the phone* are about 1.3–2× the baseline's (130–203 k against ~90–100 k at the level start; in the SwiftShader A/B, mid-game, 92–137 k against 38–81 k). The cause is most likely the instancing (not separately verified): an `InstancedMesh` is one draw call but three.js culls it as a whole, so the instances outside the view are still sent, where single meshes were culled one by one. The tablet is the same as before.
+- *On the software rasteriser* (SwiftShader, which pays per pixel and per triangle, not per draw call) the steady frame is not faster: p50 is 0–15 % slower in Park and Beach (122 against 117 and 101, 118 against 111 and 102), Winter is the same, p95 is mixed (Park slower, Beach and Winter equal or better). It is inside the spread between two runs of the same build, but the direction in Park and Beach is consistent. The 5–8× cut in draw calls is a gain for a device whose cost is per call (the weak Android the review is about); this machine has no such device, so that gain is measured in counts only, and the real check is the device pass.
+- *A level started without its card* (`__bb.startGame`; a Next after a win) still hitches 500–700 ms; only the card start is warmed (BACKLOG line from step 5).
+
+Nothing else regresses beyond noise: the GPU frame is vsync-bound at 16.7 ms on both sides, `bench:core` is level, every count above moved the right way.
+
+**AC 8 pictures** (`shots/SPEC-040/final/` in the run's scratch folder, not committed): the high tier of the branch against `master` 0c30772, one level per world (Park 3, Field 3, City 3, School 2, Beach 3, Winter 2), the 3D only, the same seed, the same hand-drawn frame, 960×640 and 667×375 `?phone=1`:
+
+| view | world | pixels that differ | over 40 (of 255) | max channel | mean |
+|---|---|---|---|---|---|
+| 960×640 | Park / Field / City / School / Beach / Winter | 2.01 / 2.10 / 1.78 / 1.69 / 2.88 / 2.15 % | 0.001 / 0.001 / 0.002 / 0.039 / 0.000 / 0.096 % | 47 / 51 / 54 / 53 / 44 / 211 | 0.24 / 0.23 / 0.22 / 0.24 / 0.27 / 0.35 |
+| 667×375 | Park / Field / City / School / Beach / Winter | 1.68 / 1.24 / 1.19 / 1.52 / 1.84 / 1.87 % | 0.000 / 0.000 / 0.000 / 0.000 / 0.000 / 0.057 % | 40 / 34 / 40 / 38 / 40 / 205 | 0.30 / 0.21 / 0.23 / 0.25 / 0.28 / 0.40 |
+
+The differences are thin shadow edges (the joined and instanced pieces rasterise a pixel differently) and, in Winter, the self-shadow of the rocks (max 205–211, 0.06–0.10 % of the pixels). Low-tier pictures of the same levels, both sizes: `low-desk-<world>.png`, `low-phone-<world>.png` in the same folder.

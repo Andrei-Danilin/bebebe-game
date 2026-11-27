@@ -88,16 +88,16 @@ Also blocking a submission: no privacy page or parents' area in the app (RR-52),
 | RR-39 | LOW | Sprite precache best-effort; the offline test does not check art — done (SPEC-038) | P14 | BACKLOG |
 | RR-40 | LOW | Store icons, splash and manifest fields are web-only | P15 | later + BACKLOG |
 | RR-41 | HIGH | WebGL context loss not handled | F3, P12, R6 | 025 |
-| RR-42 | HIGH | Draw calls: two meshes per part, no sharing, hulls cast shadows | F1 | later |
-| RR-43 | HIGH | No quality tiers; tablets get the heaviest path | F2 | later + decision |
+| RR-42 | HIGH | Draw calls: two meshes per part, no sharing, hulls cast shadows — done (SPEC-040: shared geometries, instanced and joined static parts, hulls never cast shadows; the busiest levels draw 145–172 calls on the phone and 203–234 on a tablet, was 690–1160 and 1510–3061) | F1 | later |
+| RR-43 | HIGH | No quality tiers; tablets get the heaviest path — done (SPEC-040: `CFG.QUALITY` tiers, a start probe, a step down after 5 s of slow frames, a picture-quality setting on the grown-ups page) | F2 | later + decision |
 | RR-44 | MEDIUM | Memory checks partial; no perf hook for device measurement | F6 | 025 |
 | RR-45 | MEDIUM | First load parses ~3 MB of unminified JS | F11 | 025 |
-| RR-46 | MEDIUM | All 155 sprites decoded at start (~70 MB) | F4 | later |
-| RR-47 | MEDIUM | Full-rate rendering under opaque menus, pause, rotate prompt | F5 | later |
-| RR-48 | MEDIUM | Level start: new geometries and no shader warm-up | F7 | later |
-| RR-49 | MEDIUM | Text fit/wrap re-measured every frame | F8 | later |
-| RR-50 | MEDIUM | Trees, bushes and roofs are transparent all the time | F9 | later |
-| RR-51 | LOW | Per-frame garbage; event-log splice; A* allocations | F12 | BACKLOG (deferred from 012) |
+| RR-46 | MEDIUM | All 155 sprites decoded at start (~70 MB) — done (SPEC-040: 22 MB decoded at the home screen, was 83 MB; sprites load per screen and are released) | F4 | later |
+| RR-47 | MEDIUM | Full-rate rendering under opaque menus, pause, rotate prompt — done (SPEC-040: no `render3D` under a cover, once while paused, menus at `CFG.MENU_FPS`) | F5 | later |
+| RR-48 | MEDIUM | Level start: new geometries and no shader warm-up — done (SPEC-040: the level card warms up the level; nothing new is built in the first 60 frames) | F7 | later |
+| RR-49 | MEDIUM | Text fit/wrap re-measured every frame — done (SPEC-040: text widths and fits are remembered; home and the Character tabs measure nothing per frame) | F8 | later |
+| RR-50 | MEDIUM | Trees, bushes and roofs are transparent all the time — done (SPEC-040: opaque until a fade starts) | F9 | later |
+| RR-51 | LOW | Per-frame garbage; event-log splice; A* allocations — done (SPEC-040: event-log ring, per-game scratch buffers, drawUI lists reused, preview keys without `JSON.stringify`) | F12 | BACKLOG (deferred from 012) |
 | RR-52 | BLOCKER | No privacy policy or parents' page in the app | K2 | 025 (slot) + later + decision |
 | RR-53 | HIGH | Planned parental gate is not an adult task; no Portuguese | K3 | 025 |
 | RR-54 | HIGH | Rules text: Dad "pushes you and breaks your leg", "limp home" — done (SPEC-033) | K4 | decision + later |
@@ -193,7 +193,7 @@ Context: `index.html` is 9,387 lines (module 49–9385). The 2D layer is 2,705 l
   - SPEC-012 AC 1 says "with the existing fixed logic", which does not exist.
 - **Fix:** In SPEC-012, document the two step modes and give the core a fixed-step entry for sim, Node and the server. Keep the live loop's feel exactly as today. A fixed live step (accumulator, e.g. 1/60) is decision D-11.
 - **Spec:** SPEC-012 AC 1 (wording), AC 1e; decision D-11.
-- **Status (2026-11-26):** done (SPEC-034: live play, the core, `simRun`, the autopilot and the balance runs all step at `CFG.STEP` = 1/60 s; the live loop takes whole steps from an accumulator, A5 and F13 included).
+- **Status (2026-11-26):** done (SPEC-034: live play, the core, `simRun`, the autopilot and the balance runs all step at `CFG.STEP` = 1/60 s; the live loop takes whole steps from an accumulator, A5 and F13 included). F13's number is read off the perf overlay (SPEC-040 AC 11): game time / real time, with both sums.
 
 #### RR-09 MEDIUM: Core-bound code touches DOM and storage at import [A9]
 - **Location:**
@@ -449,12 +449,14 @@ Figures are estimates from code and files. Nothing was run on a device; see the 
 - **Why:** One background palm = 30 colour draws + 30 shadow draws. On Beach, the whole map in view (desktop and every tablet) can reach ~1,400 + ~1,400 draws, against a practical budget of 150–300 on Mali/PowerVR. Each part builds its own geometry.
 - **Fix:** Share geometries, make background decor `InstancedMesh` per part kind, and stop hulls from casting shadows. No visual change.
 - **Spec:** later (performance pass).
+- **Status (2026-11-27):** done (SPEC-040: shared geometries, instanced and joined static parts, hulls never cast shadows; the busiest levels draw 145–172 calls on the phone and 203–234 on a tablet, was 690–1160 and 1510–3061).
 
 #### RR-43 HIGH: No quality tiers; tablets run the heaviest path [F2]
 - **Location:** 6965 `antialias: true`; PCF shadows 2048² (6966–6984); DPR 1149; `isPhone()` 1123–1132 (tablets count as desktop); grain on tablets (290); ground canvas 1920×1280 + `anisotropy = 8` (7233–7237).
 - **Why:** Families installs land on 2 GB phones and A9/A10 iPads. There is no fallback when frames are slow, so the device heats up and throttles.
 - **Fix:** A `CFG.QUALITY` table (`high`/`medium`/`low`) picked by a probe and stepped down on slow p95, plus a hidden override. What the low tier may drop is decision D-4.
 - **Spec:** later (performance pass); decision D-4.
+- **Status (2026-11-27):** done (SPEC-040: `CFG.QUALITY` tiers, a start probe, a step down after 5 s of slow frames, a picture-quality setting on the grown-ups page).
 
 #### RR-44 MEDIUM: Memory checks are partial; no perf hook for the device measurements [F6]
 - **Location:** `tests/look3d.spec.js:129` (textures and geometries only, 7 builds); `disposeTree` 7222 (own materials' maps not freed); preview cache 9030, `artImgs`/`artFile`, `paperCache` 4349, `mmBase` 5063.
@@ -472,26 +474,31 @@ Figures are estimates from code and files. Nothing was run on a device; see the 
 - **Location:** `artImgs` 517, `artLoad` 521–531; the largest are 1024×765 (3 MB decoded each).
 - **Fix:** Keep HUD and button sprites resident. Load story, tutorial and map backgrounds per screen and release them when the screen closes.
 - **Spec:** later (performance pass).
+- **Status (2026-11-27):** done (SPEC-040: 22 MB decoded at the home screen, was 83 MB; sprites load per screen and are released).
 
 #### RR-47 MEDIUM: The game renders at full rate under opaque menus, pause and the rotate prompt [F5]
 - **Location:** `frame()` 9217–9236 (`render3D` + `drawUI` every frame), +3 preview renders in the wardrobe (9042).
 - **Why:** Battery and heat, so the next level plays throttled. Battery drain is a common complaint in kids' app reviews.
 - **Fix:** Skip `render3D` when the 3D is covered, render once while paused, and run menus at ~30 fps.
 - **Spec:** later (performance pass).
+- **Status (2026-11-27):** done (SPEC-040: no `render3D` under a cover, once while paused, menus at `CFG.MENU_FPS`).
 
 #### RR-48 MEDIUM: Level start creates hundreds of geometries and has no shader warm-up [F7]
 - **Fix:** A geometry cache (RR-42) and `renderer.compileAsync` behind the level card.
 - **Spec:** later.
+- **Status (2026-11-27):** done (SPEC-040: the level card warms up the level; nothing new is built in the first 60 frames).
 
 #### RR-49 MEDIUM: Text fit/wrap is re-measured every frame [F8]
 - **Location:** `fitText` 4428, `wrapText` 4447, `labelFit` 4472, shop loops.
 - **Fix:** Memoize per `(text, size, weight, maxW, scale)`, cleared on language change and resize.
 - **Spec:** later (can join SPEC-011's `ui/text.js` only if Andrei prefers; not planned there).
+- **Status (2026-11-27):** done (SPEC-040: text widths and fits are remembered; home and the Character tabs measure nothing per frame).
 
 #### RR-50 MEDIUM: Trees, bushes and roofs are transparent all the time [F9]
 - **Location:** `fadeHelper` 7310, `makeBushFor` 7415, outline materials 7164, fades in `syncScene` 9002–9010.
 - **Fix:** Keep them opaque until a fade starts.
 - **Spec:** later.
+- **Status (2026-11-27):** done (SPEC-040: opaque until a fade starts).
 
 #### RR-51 LOW: Per-frame garbage; event-log splice; A* allocations [F12]
 - **Location:** `drawUI` rebuilds ~25 arrays per frame; `new Set(…)` ×3 per frame (8758/8795/8838); A* allocates four typed arrays per repath (2113); the event log `splice`s 5,000 entries per event once full (2489); `JSON.stringify(makeLook())` ×2 per frame in the wardrobe.
@@ -501,6 +508,7 @@ Figures are estimates from code and files. Nothing was run on a device; see the 
 ### 2.5 Store policy and privacy
 
 Verified today: one third-party request (three.js, RR-29). No analytics, ads, fonts, trackers or network calls. No outbound links and no `window.open`. No permission prompts. `navigator.language(s)` picks the first-run language and stays on the device. The shop uses earned coins only, with no IAP and no loot boxes.
+- **Status (2026-11-27):** done (SPEC-040: event-log ring, per-game scratch buffers, drawUI lists reused, preview keys without `JSON.stringify`).
 
 #### RR-52 BLOCKER: No privacy policy or parents' page inside the app [K2]
 - **Why:** Apple 5.1.1(i) requires a policy link in App Store Connect and inside the app, and 5.1.4(b) requires a policy for every Kids app. Google Families requires a policy that matches the Data safety form. A web link would be a link out and need a gate.

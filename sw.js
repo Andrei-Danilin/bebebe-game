@@ -27,7 +27,7 @@ const NET_TIMEOUT_MS = 4000;             // weak signal: after this long, a cach
 const SW_BUILD = 11;
 const SW_STRATEGY = "0c8e52b02e";
 const SW_VERSION = "bebebe-1.0.0-dev-b11";
-const SRC_HASH = "47e31e01f6";
+const SRC_HASH = "df9a492530";
 const PRECACHE_LOCAL = [
   "./", "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512-maskable.png",
   "./icons/icon-512.png", "./icons/icon.svg", "./index.html", "./manifest.webmanifest"
@@ -38,7 +38,7 @@ const PRECACHE_SRC = [
   "./src/client/debug.js?v=6e61462248", "./src/client/devices.js?v=892965ff6f", "./src/client/errors.js?v=7b215fb847",
   "./src/client/flow.js?v=f18840b48d", "./src/client/fx.js?v=5a88b57937", "./src/client/input.js?v=983462c66e",
   "./src/client/lifecycle.js?v=42d6c088ba", "./src/client/look.js?v=660e7b3ee8", "./src/client/main.js?v=2d7e55b410",
-  "./src/client/names.js?v=dff85cded6", "./src/client/outfits.js?v=e814941367", "./src/client/perf.js?v=2c7f71b57b",
+  "./src/client/names.js?v=dff85cded6", "./src/client/outfits.js?v=e814941367", "./src/client/perf.js?v=2462f1b4ae",
   "./src/client/ports.js?v=4285602733", "./src/client/progress.js?v=38515d7fe6",
   "./src/client/quality.js?v=0936f05d03", "./src/client/reset.js?v=30ccdd527d", "./src/client/save.js?v=ef4b513256",
   "./src/client/screen.js?v=576f0ce0af", "./src/client/shop.js?v=ebde4ad6de", "./src/client/sound.js?v=57a594910c",

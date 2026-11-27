@@ -18,7 +18,7 @@ test("AC 15b: __bb.perf() has every field after 2 s of play", { tag: "@fast" }, 
   await page.waitForFunction(() => window.__bb.perf().frames >= 20, null, { timeout: 60_000, polling: 100 });
   const r = await page.evaluate(() => ({ p: window.__bb.perf(), max: window.__bb.CFG.PERF_LOOK.frames, level: `${window.__bb.world} ${window.__bb.level}` }));
   const p = r.p;
-  expect(Object.keys(p).sort()).toEqual(["caches", "canvas", "dpr", "draw", "fps", "frameMs", "frames", "gameRealRatio", "heap", "level", "memory", "programs"].sort());
+  expect(Object.keys(p).sort()).toEqual(["artBytes", "caches", "canvas", "dpr", "draw", "fps", "fpsP", "frameMs", "frames", "gameRealRatio", "gameSec", "heap", "level", "memory", "programs", "realSec", "tier"].sort());
   expect(r.max).toBe(300);
   expect(p.frames).toBeLessThanOrEqual(r.max);
   expect(p.fps).toBeGreaterThan(0);
@@ -52,6 +52,19 @@ test("AC 15b: ?perf=1 shows the overlay with a copy button", async ({ page }) =>
   const errors = await openGame(page, { query: "?perf=1" });
   await page.waitForFunction(() => /fps/.test((document.querySelector("#perf pre") || {}).textContent || ""), null, { timeout: 30_000 });
   expect(await page.evaluate(() => document.querySelector("#perf button").textContent)).toBe("copy");
+  // SPEC-040 AC 11: the overlay names the last world frame's draw calls, the tier and its mode, the decoded sprite memory, fps p50 / p95 and the
+  // game time over the real time (F13) — and they are the live numbers: after more frames the game / real seconds have grown
+  const text = () => page.evaluate(() => document.querySelector("#perf pre").textContent);
+  const t1 = await text();
+  expect(t1).toMatch(/last world frame: \d+ calls \d+ tris · tier (high|medium|low) \((auto|pinned|high|medium|low)\)/);
+  expect(t1).toMatch(/sprites \d+\.\d MB/);
+  expect(t1).toMatch(/p50 [\d.]+ · p95 [\d.]+/);
+  expect(t1).toMatch(/game time\/real time [\d.]+ \([\d.]+ s \/ [\d.]+ s\)/);
+  const real1 = Number(t1.match(/\/ ([\d.]+) s\)/)[1]);
+  await page.waitForFunction(r => Number((document.querySelector("#perf pre").textContent.match(/\/ ([\d.]+) s\)/) || [])[1]) > r, real1, { timeout: 30_000 });
+  const p = await page.evaluate(() => window.__bb.perf());
+  expect(p.tier.name).toBe(await page.evaluate(() => window.__bb.quality.tier));
+  expect(p.artBytes).toBe(await page.evaluate(() => window.__bb.artInfo.bytes));
   expect(errors).toEqual([]);
 });
 
