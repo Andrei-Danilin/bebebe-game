@@ -62,6 +62,7 @@ test("AC 15b: ?perf=1 shows the overlay with a copy button", async ({ page }) =>
   expect(t1).toMatch(/game time\/real time [\d.]+ \([\d.]+ s \/ [\d.]+ s\)/);
   const real1 = Number(t1.match(/\/ ([\d.]+) s\)/)[1]);
   await page.waitForFunction(r => Number((document.querySelector("#perf pre").textContent.match(/\/ ([\d.]+) s\)/) || [])[1]) > r, real1, { timeout: 30_000 });
+  await page.waitForFunction(() => window.__bb.artInfo.done, null, { timeout: 60_000 });   // sprites still loading between the two reads made the byte counts differ on a slow machine
   const p = await page.evaluate(() => window.__bb.perf());
   expect(p.tier.name).toBe(await page.evaluate(() => window.__bb.quality.tier));
   expect(p.artBytes).toBe(await page.evaluate(() => window.__bb.artInfo.bytes));

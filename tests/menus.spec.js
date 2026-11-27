@@ -823,7 +823,12 @@ test("the level card draws the preview with both houses; level 20 has the boss f
   await page.evaluate(() => { const b = window.__bb; b.progress.worlds.park.unlocked = 6; b.world = "park"; b.mode = "map"; });
   await frames(page);
   // one UI draw each time, art counted for that draw only
-  const draw = async n => page.evaluate(k => { const b = window.__bb; b.showCard(k); b.drawNow(); b.resetArtUse(); b.drawNow(); return { card: b.levelCard, use: b.artUse, hud: b.hudRects.find(h => h.id === "card:preview"), ui: b.uiSize }; }, n);
+  // (the houses and the boss face are lazy sprites: the first draw asks for them, so wait until nothing is pending, then count one draw)
+  const draw = async n => {
+    await page.evaluate(k => { window.__bb.showCard(k); window.__bb.drawNow(); }, n);
+    await page.waitForFunction(() => window.__bb.artInfo.pending === 0, null, { timeout: 60_000 });
+    return page.evaluate(k => { const b = window.__bb; b.drawNow(); b.resetArtUse(); b.drawNow(); return { card: b.levelCard, use: b.artUse, hud: b.hudRects.find(h => h.id === "card:preview"), ui: b.uiSize }; }, n);
+  };
   const open = await draw(5), closed = await draw(15);
   expect(open.card.preview, "an open level: no boss, not closed").toEqual({ boss: false, locked: false });
   expect(open.hud, "the picture has its rectangle on the card").toBeTruthy();
