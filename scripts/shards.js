@@ -2,11 +2,11 @@
 // order), so one shard got the slow story / phone / menu tests (20 min) while another got the quick ones (10 min). Here the tests
 // are packed by their measured time instead: tests/shards/times.json (seconds per test, from CI) → tests/shards/plan.json (which
 // file or tests go to which shard); a shard runs `npx playwright test --test-list <its list>` (node scripts/shards.js list <n>).
-//   node scripts/shards.js                  make the plan from the times and the tests as they are now (npm run shards)
+//   node scripts/shards.js                  make the plan from the times and the tests as they are now (npm run shards; npm run shards:check only checks)
 //   node scripts/shards.js --check          the plan runs every test exactly once (a test file added or a test renamed → red)
 //   node scripts/shards.js list <n>         the test list of shard n (the lines `--test-list` reads)
 //   node scripts/shards.js --ran <merged.json>   a CI run's merged JSON report holds every test of the suite once (the `report` job)
-//   node scripts/shards.js times <report.jsonl …>   fold the test times of unzipped blob reports of a CI run into times.json
+//   node scripts/shards.js times <report.jsonl …>   fold the test times of unzipped blob reports of a CI run into times.json (tests no longer in the suite are dropped)
 //                                           (the Tests workflow's blob-report-<n> artifacts: `gh run download <id>`, unzip each)
 // How the plan packs: a file small enough stays whole (so its shared page starts once and a test added to it is covered without
 // touching the plan); a file longer than a shard's half is cut into contiguous pieces (the tests of a piece are listed one by one);
@@ -137,7 +137,7 @@ if (require.main === module) {
     process.stdout.write(listOf(plan, n));
   } else if (cmd === "times") {
     fs.mkdirSync(DIR, { recursive: true });
-    const t = foldTimes(rest);
+    const live = new Set(listTests().map(x => x.key)), t = Object.fromEntries(Object.entries(foldTimes(rest)).filter(([k]) => live.has(k)));
     fs.writeFileSync(TIMES, dump(t));
     console.log(`shards: ${Object.keys(t).length} test times written`);
   } else if (cmd === "--ran") {

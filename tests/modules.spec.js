@@ -758,12 +758,14 @@ test("no script or test reads game code from index.html", { tag: "@fast" }, () =
 // SPEC-039 AC 5 / 6: no import cycles. The core had a 13-module cycle through game.js (emit, logEvent, newGame came from the hub
 // that imports every rule) and the client a 39-module one (a screen module imports flow.js, flow.js imports the screens). A cycle
 // makes the evaluation order matter and every module in it unusable alone; now the graph of static imports (`import … from`,
-// `export … from`, relative paths only) of src/core + the shared data, and of src/client, are acyclic (Tarjan's components).
+// `export … from`, bare `import "./x.js"`, dynamic `import("./x.js")`; relative paths, comments stripped first) of src/core + the shared
+// data, and of src/client, are acyclic (Tarjan's components).
+const noComments = s => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|\s)\/\/.*$/gm, "$1");
+const relImports = text => [...text.matchAll(/^\s*(?:import|export)\b[^;]*?\bfrom\s*["'](\.[^"']+)["']|^\s*import\s*["'](\.[^"']+)["']|\bimport\s*\(\s*["'](\.[^"']+)["']\s*\)/gm)].map(m => m[1] || m[2] || m[3]);
 function importCycles(prefix) {
   const files = allSrc(), deps = {};
   for (const f of files) {
-    const text = readRoot(f).replace(/\/\*[\s\S]*?\*\//g, "");
-    deps[f] = [...text.matchAll(/^\s*(?:import|export)\b[^;]*?\bfrom\s*["'](\.[^"']+)["']/gm)].map(m => path.posix.normalize(path.posix.join(path.posix.dirname(f), m[1])));
+    deps[f] = relImports(noComments(readRoot(f))).map(r => path.posix.normalize(path.posix.join(path.posix.dirname(f), r)));
     for (const d of deps[f]) expect(files.includes(d), `${f} imports ${d}, which exists`).toBe(true);
   }
   let idx = 0;
@@ -783,6 +785,10 @@ function importCycles(prefix) {
   files.forEach(f => { if (!(f in I)) visit(f); });
   return { cycles: cycles.filter(c => c.some(f => f.startsWith(prefix))), modules: files.filter(f => f.startsWith(prefix)).length };
 }
+test("the import scan sees static, bare and dynamic imports and ignores comments", { tag: "@fast" }, () => {
+  const text = noComments("import { a } from \"./a.js\";\nexport * from \"./b.js\";\nimport \"./c.js\";\nconst d = await import(\"./d.js\");\n// import { x } from \"./commented.js\";\n/* import \"./block.js\"; */\nimport { e } from \"three\";\n");
+  expect(relImports(text)).toEqual(["./a.js", "./b.js", "./c.js", "./d.js"]);
+});
 test("the core's import graph has no cycle", { tag: "@fast" }, () => {
   const { cycles, modules } = importCycles("src/core/");
   expect(modules, "the scan sees the core").toBeGreaterThan(15);
@@ -792,4 +798,10 @@ test("the client's import graph has no cycle", { tag: "@fast" }, () => {
   const { cycles, modules } = importCycles("src/client/");
   expect(modules, "the scan sees the client").toBeGreaterThan(45);
   expect(cycles, "modules that import each other round (a cycle)").toEqual([]);
+});
+// SPEC-039 review: the screen is written by one function, setMode in flow.js (it also resets the menus' state of the screen left); state.js only
+// holds it. Another module calling setModeValue would change the screen without that reset.
+test("only flow.js calls setModeValue", { tag: "@fast" }, () => {
+  const users = allSrc().filter(f => f !== "src/client/state.js" && /\bsetModeValue\b/.test(codeOnly(readRoot(f))));
+  expect(users, "modules that name setModeValue besides state.js").toEqual(["src/client/flow.js"]);
 });
