@@ -1,6 +1,6 @@
 // SPEC-042 AC 10: Winter — footprints. A kid who runs leaves a print in the snow every `every` s; it fades over `life` s (at most `max` prints are
 // kept, the oldest go first). Tiptoeing leaves none, and nothing is left or followed in the kids' house. Dad in patrol or search who sees a print
-// in his cone goes to the freshest print of that kid's trail (lastSeen + search; bigStep returns false, the normal search does the walking); a
+// in his cone (within followRange cells, no older than followAge s) goes to the freshest print of that kid's trail (lastSeen + search; bigStep returns false, the normal search does the walking); a
 // trail whose freshest print he stands at or has been to is nothing new. The whole map is snow: bots and the careful autopilot tiptoe when Dad is within
 // quietRange cells and is not already chasing (fx.quiet). Core module.
 import { CELL, CFG, H, W } from "../config.js";
@@ -42,8 +42,9 @@ export const footprints = Object.freeze({
     if (b.state !== "patrol" && b.state !== "search") return false;
     let near = null, nd = Infinity;                                    // the nearest print he sees
     for (const p of st.prints) {
-      if (printAge(T, p) >= C.life || !inCone(p.x, p.y) || !los(b.x, b.y, p.x, p.y, seeSolidAt)) continue;
+      if (printAge(T, p) >= Math.min(C.life, C.followAge) || !inCone(p.x, p.y) || !los(b.x, b.y, p.x, p.y, seeSolidAt)) continue;
       const d = Math.hypot(p.x - b.x, p.y - b.y);
+      if (d > C.followRange * CELL) continue;                        // a print far off in his cone is too small to notice
       if (d < nd) { nd = d; near = p; }
     }
     if (!near) return false;

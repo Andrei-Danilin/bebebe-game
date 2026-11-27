@@ -92,7 +92,7 @@ export function updateBots(dt) {
           moved = steerTo(b, G.big.x + Math.cos(a) * rr, G.big.y + Math.sin(a) * rr, speed * frac, dt, true);
         } else {
           b.task = "lurk";
-          const g = lurkSpot(lurkPoint(back + b.offset * 2.2));
+          const g = lurkPoint(back + b.offset * 2.2);
           frac = lurkTip ? CFG.TIPTOE_MULT : CFG.BOT_LURK_MULT;
           if (Math.hypot(g.x - b.x, g.y - b.y) > 20) moved = steerTo(b, g.x, g.y, speed * frac, dt, true);
         }
@@ -115,8 +115,6 @@ function wideDanger(p, o = null) {
   const keep = (CFG.WIDE_PUSH_R + CFG.BOT_WIDE_KEEP) * CELL + (o ? o.r * 2 : 0);
   return dist(p, G.big) < keep && angDiff(G.big.dir, Math.atan2(p.y - G.big.y, p.x - G.big.x)) <= CFG.WIDE_PUSH_ARC * Math.PI / 360;
 }
-// SPEC-042: a place to hide near the lurking place (a spray, behind the truck) — wait there, else where it was
-function lurkSpot(g) { return trickHideSpot(g) || g; }
 // Где ждать боту: в 170 px за Большим, но не в его доме; точка в стене или за водой — ближайшая свободная клетка
 function lurkPoint(a0) {
   for (const k of [0, 0.5, -0.5, 1, -1, 1.5, -1.5, 2, -2, 2.5, -2.5, Math.PI]) {

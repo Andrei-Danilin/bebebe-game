@@ -230,15 +230,15 @@ test("footprints: Dad in patrol or search who sees a print goes to the freshest 
   const g = clearField("winter");
   g.trick.t = 10;
   // a trail 90 → 200 px ahead of Dad (he looks right): the freshest is the far one
-  prints(g, [[570, 320, 9], [630, 320, 9.4], [690, 320, 9.8]]);
+  prints(g, [[510, 320, 9], [550, 320, 9.4], [600, 320, 9.8]]);   // the nearest within followRange, the freshest beyond arrive
   withGame(g, () => { updateBig(DT); stepTrick(DT); updateBig(DT); });
   assert.equal(g.big.state, "search");
-  assert.deepEqual([g.big.lastSeen.x, g.big.lastSeen.y], [690, 320], "the freshest print of the trail");
+  assert.deepEqual([g.big.lastSeen.x, g.big.lastSeen.y], [600, 320], "the freshest print of the trail");
   // he does not go twice to the print he has been to
   Object.assign(g.big, { state: "patrol", lastSeen: null });
   withGame(g, () => updateBig(DT));
   assert.equal(g.big.state, "patrol", "nothing newer");
-  prints(g, [[570, 320, 9], [690, 320, 9.8], [740, 320, 10]]);
+  prints(g, [[510, 320, 9.5], [600, 320, 9.9], [650, 320, 10]]);
   Object.assign(g.big, { state: "patrol" });
   withGame(g, () => updateBig(DT));
   assert.equal(g.big.state, "search", "a newer print of the same kid");
@@ -261,11 +261,11 @@ test("footprints: Dad in patrol or search who sees a print goes to the freshest 
   assert.equal(d.big.state, "patrol");
   // an expired print is not a print; a wall between: not seen
   const e = clearField("winter"); e.trick.t = 30;
-  prints(e, [[570, 320, 9], [690, 320, 9.8]]);
+  prints(e, [[510, 320, 9], [600, 320, 9.8]]);
   withGame(e, () => updateBig(DT));
   assert.equal(e.big.state, "patrol", "faded");
   const w = clearField("winter"); w.trick.t = 10; w.seeGrid.fill(1);
-  prints(w, [[570, 320, 9.5], [690, 320, 9.8]]);
+  prints(w, [[510, 320, 9.5], [600, 320, 9.8]]);
   withGame(w, () => updateBig(DT));
   assert.equal(w.big.state, "patrol", "behind a wall");
 });
@@ -300,4 +300,15 @@ test("footprints: same seed, same prints; none in a practice game; Winter's leve
   };
   assert.equal(run(8), run(8));
   assert.equal(createGame({ world: "winter", n: 1, practice: 2, seed: 1, fx: false }).trick, null);
+});
+
+test("footprints (balance levers): Dad notices only prints within followRange cells and no older than followAge s, though they stay drawn for life s", () => {
+  assert.ok(F.followRange * CELL < CFG.VISION_RANGE && F.followAge < F.life, "the levers narrow what he follows, not what is drawn");
+  const prints = (g, list) => { g.trick.st.prints = list.map(([x, y, t]) => ({ x, y, t, id: 0, dir: 0, side: 1 })); };
+  const state = (list, t = 10) => { const g = clearField("winter"); g.trick.t = t; prints(g, list); withGame(g, () => updateBig(DT)); return g.big.state; };
+  const near = 480 + (F.followRange - 0.5) * CELL, far = 480 + (F.followRange + 1) * CELL;
+  assert.equal(state([[near, 320, 9.9], [near + 70, 320, 10]]), "search", "close and fresh: followed");
+  assert.equal(state([[far, 320, 9.9], [far + 70, 320, 10]]), "patrol", "farther than followRange: not noticed");
+  assert.equal(state([[near, 320, 10 - F.followAge - 0.5], [near + 70, 320, 10 - F.followAge - 0.2]]), "patrol", "older than followAge: not followed");
+  assert.ok(F.life > F.followAge);
 });

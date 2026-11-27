@@ -236,7 +236,7 @@ test("sprinklers: the mask and the hide areas are exactly the active sprays and 
   assert.ok(states.includes(0) && states.includes(1) && Math.max(...states) === 1);
 });
 
-test("sprinklers: bots flee into a spray near them and wait in it; the careful autopilot hides in it when Dad looks at him", () => {
+test("sprinklers: bots flee into a spray near them; the careful autopilot hides in it when Dad sees him", () => {
   const g = clearField("field", [sprinkler(15.5, 9.5, 0)]);
   g.trick.t = S.cycle - S.spray + 0.5; withGame(g, () => stepTrick(DT));   // active
   assert.equal(g.trick.fx.hide.length, 1);

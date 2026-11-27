@@ -3,7 +3,7 @@
 // that starts under him makes him step out) and a kid inside is hidden from his eyes like in a bush (fx.hide). Bots and the careful autopilot
 // hide in an active spray (query.js trickHideSpot). Core module.
 import { CELL, CFG, COLS, ROWS } from "../config.js";
-import { logEvent } from "../events.js";
+import { emit, logEvent } from "../events.js";
 import { bigSpeeds } from "../difficulty.js";
 import { steerTo } from "../path.js";
 import { turnToward } from "../util.js";
@@ -56,6 +56,7 @@ export const sprinklers = Object.freeze({
       if (ph === T.st.ph[i]) return;
       T.st.ph[i] = ph; changed = true;
       logEvent("sprinkler", { i, phase: ph });
+      if (ph === "spray") emit("sfx", { name: "sprinkler" });   // placeholder tones; the real sound comes with the audio spec
     });
     if (changed) apply(T);
   }

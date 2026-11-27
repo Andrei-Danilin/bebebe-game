@@ -4,7 +4,7 @@ import { angDiff, dist, normAng } from "./util.js";
 import { bigListens } from "./hearing.js";
 import { steerPoint } from "./path.js";
 import { trickFreeze, trickHideSpot, trickQuiet } from "./tricks/query.js";
-import { inCone } from "./vision.js";
+import { canSee, inCone } from "./vision.js";
 import { canUseKit, gameInv, moveSpeed } from "./rules.js";
 import { canAct, inSafe, los, seeSolidAt } from "./world.js";
 import { G } from "./active.js";
@@ -52,8 +52,8 @@ function autoGoalCareful(l) {
     if (dist(l, s) < A.itemReach && (!danger || (dist(s, G.big) > A.pickSafe && !inCone(s.x, s.y))) && (!pick || dist(l, s) < dist(l, pick))) pick = s;
   }
   if (pick) return { x: pick.x, y: pick.y, avoid: true, stop: 0 };
-  // SPEC-042: он смотрит сюда (а он может толкнуть) и рядом брызги поливалки или грузовик — прячемся в брызгах / за ним, как в кусте
-  if (danger && inCone(l.x, l.y)) { const h = trickHideSpot(l); if (h) return { x: h.x, y: h.y, avoid: false, stop: h.stop }; }
+  // SPEC-042: он видит его прямо сейчас (а он может толкнуть) и рядом брызги поливалки или грузовик — прячемся в брызгах / за ним, как в кусте
+  if (danger && canSee(l)) { const h = trickHideSpot(l); if (h) return { x: h.x, y: h.y, avoid: false, stop: h.stop }; }
   // обнимашка: близко и перед ним, а он может толкнуть, — обходим сбоку к спине; иначе к спине, издалека — в обход взгляда
   const d = dist(l, G.big), a = Math.atan2(l.y - G.big.y, l.x - G.big.x), side = normAng(a - G.big.dir);
   if (danger && d < A.orbit && Math.abs(side) < CFG.BEHIND_ANGLE) {

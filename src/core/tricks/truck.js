@@ -4,7 +4,7 @@
 // moving wall could squash a kid against a real one), so it can never hurt or trap anyone. Bots and the careful autopilot walk on its far side
 // from Dad (query.js trickHideSpot). Core module.
 import { CELL, CFG, COLS, ROWS } from "../config.js";
-import { logEvent } from "../events.js";
+import { emit, logEvent } from "../events.js";
 import { G } from "../active.js";
 import { NO_HOOKS } from "./kit.js";
 
@@ -125,6 +125,7 @@ export const truck = Object.freeze({
     } else st.wait = 0;
     if (hold !== st.stopped) { st.stopped = hold; logEvent(hold ? "truckStop" : "truckGo", {}); }
     if (!hold) st.s += CFG.PLAYER_SPEED * C.speedMul * dt;
+    if (!hold && (st.tune = (st.tune ?? 0) + dt) >= C.tuneEvery) { st.tune = 0; emit("sfx", { name: "truck" }); }   // the ice-cream tune (placeholder tones), now and then while it drives
     Object.assign(st, truckAt(p.nodes, st.s));
     T.fx.sight = [bodyOf(st)];
   }
