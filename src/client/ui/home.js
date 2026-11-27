@@ -9,6 +9,7 @@ import { nextLang, openMap, openShop, openStory, toggleSound } from "../flow.js"
 import { LOOK } from "../look.js";
 import { ctx, PHONE, UH, UW } from "../screen.js";
 import { ui } from "../state.js";
+import { applyUpdate, updateReady } from "../update.js";
 import { fitButton } from "./character/wardrobe.js";
 import { art9Visible, drawArt, drawArt9, drawArtCover, drawArtFit, fillStroke, regButton, rr } from "./draw.js";
 import { menuFrame, phoneFrame, worldStarsOf } from "./menu.js";
@@ -87,6 +88,16 @@ export function homeButton(x, y, w, h, a, size, min) {
   b.size = f.sz;
   return { id: a.id, x, y, w, h, gap, vis, icon: { x: ix, y: y + h / 2 - ic / 2, w: ic, h: ic }, label: { x: cx - f.w / 2, w: f.w, cx, size: f.sz, shifted } };
 }
+// SPEC-038 AC 5: плашка «Готова новая версия — нажми, чтобы обновить» (жёлтая бумажка): целиком, шире не LOOK.UPDATE_NOTE.maxW экрана;
+// нажатие — applyUpdate() (update.js): рабочий воркер берёт управление и страница перезагружается
+function drawUpdateNote(y, h) {
+  const U = LOOK.UPDATE_NOTE, p = homePill("home:update", L().updateReady, h, PHONE ? cpx(U.phoneSize) : U.size, PHONE ? minPx("main") : U.min);
+  p.bg = U.bg; p.ink = U.ink;
+  const w = Math.min(p.w, UW * U.maxW), x = UW / 2 - w / 2;
+  drawPill(p, x, y, w);
+  const r = ui.hudRects[ui.hudRects.length - 1];
+  regButton(x, y, w, h, r.text, applyUpdate, "home:update", r.textW);
+}
 // одна раскладка для компьютера и телефона (SPEC-026): фон — страница menu_bg «cover» (лишнее срезается поровну), значки в углу,
 // по центру столбиком логотип и три кнопки (не шире col экрана); тесно по высоте — сначала ниже логотип, потом кнопки (не ниже 44 CSS px)
 export function drawHome() {
@@ -95,7 +106,9 @@ export function drawHome() {
   if (drawArtCover("menu_bg", 0, 0, UW, UH)) { const k = Math.min(img.naturalWidth / UW, img.naturalHeight / UH), w = UW * k / img.naturalWidth; bg = { x: (1 - w) / 2, w }; }
   // без картинки фона — бумажная карточка, как раньше (значки — в её углу)
   const f = PHONE ? phoneFrame(!bg) : menuFrame(D, !bg);
-  const top = PHONE ? f.Y0 : bg ? D.top : D.y + D.top, bottom = PHONE ? f.Y1 : bg ? UH - D.top : D.y + D.h - D.top;
+  // SPEC-038 AC 5: «Готова новая версия» — плашка внизу по центру; колонке остаётся место над ней
+  const U = LOOK.UPDATE_NOTE, noteH = updateReady() ? (PHONE ? cpx(U.phoneH) : U.h) : 0, noteGap = noteH ? c(U.gap) : 0;
+  const top = PHONE ? f.Y0 : bg ? D.top : D.y + D.top, edge = PHONE ? f.Y1 : bg ? UH - D.top : D.y + D.h - D.top, bottom = edge - noteH - noteGap;
   if (PHONE) homeIcons(f.X1, f.Y0, c(H.langW), f.B, f.B, c(16));
   else homeIcons(bg ? UW - D.iconPad : f.x + D.w - D.iconPad, bg ? D.iconPad : D.y + D.iconPad, D.langW, D.iconW, D.iconH, D.iconSize);
   const acts = homeActions(), gap = PHONE ? f.g : D.btnGap, minH = PHONE ? f.B : D.subH, colW = Math.min(UW * H.col, PHONE ? c(H.colMax) : D.colW);
@@ -130,5 +143,6 @@ export function drawHome() {
     else fitButton(x, y, colW, h, a.emoji + a.text, a.color, a.act, size, min).id = a.id;
     y += h + gap;
   });
+  if (noteH) drawUpdateNote(edge - noteH, noteH);
   ui.homeInfo = { bg, col: { x, w: colW }, paper: acts.map(a => PAPER_BTN[a.color]), colors: acts.map(a => a.color), buttons: btns };
 }

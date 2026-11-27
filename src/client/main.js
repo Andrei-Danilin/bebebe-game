@@ -30,6 +30,7 @@ import { initPreviews } from "./three/previews.js";
 import { hasWebGL2, initScene, initThree } from "./three/setup.js";
 import { initSync, render3D } from "./three/sync.js";
 import { firstTutorial, openFirstTutorial } from "./tutorial.js";
+import { watchUpdates } from "./update.js";
 import { showDueNote } from "./ui/grownups.js";
 import { updateMinimapFade } from "./ui/minimap.js";
 import { drawUI } from "./ui/screens.js";
@@ -120,7 +121,7 @@ function tick(now) {
 function registerServiceWorker() {
   try {
     if ((location.protocol === "http:" || location.protocol === "https:") && navigator.serviceWorker) {
-      navigator.serviceWorker.register("sw.js").catch(() => { /* регистрацию запретили — игра работает и так */ });
+      navigator.serviceWorker.register("sw.js").then(watchUpdates).catch(() => { /* регистрацию запретили — игра работает и так */ });   // SPEC-038 AC 5: watchUpdates — плашка «новая версия»
     }
   } catch (e) { /* нет доступа к serviceWorker */ }
 }

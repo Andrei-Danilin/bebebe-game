@@ -33,6 +33,7 @@ import { allNames, nameOf, setName } from "./names.js";
 import { BOSS_LOOKS, botOutfit, buyLook, cloneSkins, cycleBig, cycleOutfit, loadOutfits, LOOK_SLOTS, randomOutfit, resetOutfits, skinKeep, skinSel } from "./outfits.js";
 import { resetProgress, setLang } from "./progress.js";
 import { fingerprint, flushSaves, OLD_KEYS, outfitsOf, promptsForPersist, queueSave, readCode, SAVE_KEYS, SAVE_VERSION, saveCode, saveState, validSave } from "./save.js";
+import { updateReady } from "./update.js";
 import { CSS_H, CSS_W, fitCount, isStandalone, PHONE, rotateWall, sim, simMode, UH, UW } from "./screen.js";
 import { buyGloves, buyKisses, buyRescueKit, buyUpgrade, setEquip } from "./shop.js";
 import { ui } from "./state.js";
@@ -205,7 +206,7 @@ export function installDebug() {
     get edgeArrows() { return ui.edgeArrows.map(a => ({ ...a })); }, get hudRects() { return ui.hudRects.map(r => ({ ...r })); }, get downDrawn() { return ui.downDrawn.map(r => ({ ...r })); },
     get sticks() { return [...sticks].map(([id, s]) => ({ id, ...s })); },
     // слой интерфейса: размер в UI px, размер холста в CSS px, scale = CSS px на UI px (SPEC-005)
-    get fitCount() { return fitCount; }, rotateWall,   // SPEC-038: how many times fit() rebuilt the canvases; the "turn your device" test
+    get fitCount() { return fitCount; }, rotateWall, get updateReady() { return updateReady(); },   // SPEC-038: how many times fit() rebuilt the canvases; the "turn your device" test
     get uiSize() { return { w: UW, h: UH, cssW: CSS_W, cssH: CSS_H, scale: CSS_W / UW }; }, toGame,
     get names() { return allNames(); }, setName, nameOf, inDanger, get stars() { return G.bonusStars; }, spawnStar, giveReward,
     get dangerZone() { return G.dangerZone; }, get safeZone() { return G.safeZone; }, get texts() { return ui.texts; }, generateLevel,

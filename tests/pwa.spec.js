@@ -107,6 +107,7 @@ test.describe(() => {
     expect(await box()).toMatchObject({ w: 960, h: 640 });
     // emulate a notch + home indicator: top 40, right 30, bottom 20, left 50 → space 880×580
     await page.evaluate(() => { document.body.style.padding = "40px 30px 20px 50px"; window.dispatchEvent(new Event("resize")); });
+    await frames(page);                                  // SPEC-038: fit() waits for the next frame
     const b = await box();
     const s = Math.min(880 / 960, 580 / 640);
     expect(b.w).toBe(Math.floor(960 * s));
@@ -448,6 +449,114 @@ test.describe("on iPhone Safari", () => {
     expect(d.mode).toBe("home");
     expect(d.ids).toEqual(["home:lang", "home:play", "home:shop", "home:sound", "home:story"]);
     expect(d.hud).toEqual(["home:title"]);
+    expect(errors.filter(e => !e.includes("Failed to load resource"))).toEqual([]);
+  });
+});
+
+// SPEC-038 AC 5: the "new version" hint. A waiting (or just activated) worker means a newer version than the page runs: the home
+// screen shows a small paper note, a tap activates the waiting worker (SKIP_WAITING) and reloads. Never in a level; nothing is
+// lost (the save is on the device).
+const UPDATE_TEXTS = { en: "A new version is ready — tap to update", es: "Hay una versión nueva — tocá para actualizar", pt: "Tem uma versão nova — toque para atualizar", ru: "Готова новая версия — нажми, чтобы обновить" };
+// a registration with a worker waiting; its postMessage is reported to the test (exposeFunction survives the reload) and answered
+// by a controllerchange, as a real worker that skipped waiting would
+function stubWaitingWorker() {
+  const real = ServiceWorkerContainer.prototype.register;
+  ServiceWorkerContainer.prototype.register = function (...a) {
+    real.apply(this, a).catch(() => {});
+    const worker = { state: "installed", postMessage: m => { window.__swPosted(m); setTimeout(() => navigator.serviceWorker.dispatchEvent(new Event("controllerchange")), 20); }, addEventListener() {} };
+    return Promise.resolve({ waiting: worker, installing: null, active: {}, addEventListener() {}, update: () => Promise.resolve() });
+  };
+}
+const homeNote = page => page.evaluate(() => { const b = window.__bb; return { rect: b.hudRects.find(h => h.id === "home:update") || null, button: b.buttonRects.find(r => r.id === "home:update") || null, mode: b.mode }; });
+
+test("a waiting worker shows the new-version note on the home screen; a tap activates it and reloads", async ({ page }) => {
+  const posted = [];
+  await page.exposeFunction("__swPosted", m => posted.push(m));
+  await page.addInitScript(stubWaitingWorker);
+  const errors = await openGameHttp(page);
+  await page.waitForFunction(() => window.__bb.updateReady === true);
+  await frames(page);
+  expect(await page.evaluate(() => window.__bb.mode)).toBe("home");
+  for (const l of ["en", "es", "pt", "ru"]) {
+    await page.evaluate(v => { window.__bb.setLang(v); }, l);
+    await frames(page);
+    const n = await homeNote(page);
+    expect(n.rect && n.rect.text, `${l}: the note`).toBe(UPDATE_TEXTS[l]);
+    expect(n.button, `${l}: it is a button`).not.toBeNull();
+  }
+  await page.evaluate(() => { window.__bb.setLang("en"); });
+  // never in a level (or any screen but home)
+  await page.evaluate(() => { window.__bb.startGame(1); });
+  await frames(page);
+  expect((await homeNote(page)).rect, "not in a level").toBeNull();
+  await page.evaluate(() => { window.__bb.mode = "map"; });
+  await frames(page);
+  expect((await homeNote(page)).rect, "not on the map").toBeNull();
+  await page.evaluate(() => { window.__bb.mode = "home"; });
+  await frames(page);
+  // a tap: SKIP_WAITING goes to the waiting worker, then the page reloads
+  const b = (await homeNote(page)).button, c = await page.locator("#game").boundingBox(), s = c.width / (await page.evaluate(() => window.__bb.uiSize.w));
+  const load = page.waitForEvent("load");
+  await page.mouse.click(c.x + (b.x + b.w / 2) * s, c.y + (b.y + b.h / 2) * s);
+  await load;
+  expect(posted).toEqual([{ type: "SKIP_WAITING" }]);
+  expect(errors.filter(e => !e.includes("Failed to load resource"))).toEqual([]);
+});
+
+test("no waiting worker: no note", async ({ page }) => {
+  await openGameHttp(page);
+  await waitForSW(page);
+  await frames(page);
+  expect(await page.evaluate(() => window.__bb.updateReady)).toBe(false);
+  expect((await homeNote(page)).rect).toBeNull();
+});
+
+// the real thing: the installed app (controlled page) is online when a new sw.js arrives; the new worker installs, takes over
+// (skipWaiting) and the page runs the old modules until it reloads — that is when the note shows
+test("a new worker taking over a running page shows the note", async ({ page }) => {
+  test.slow();
+  const ov = { fn: () => null };
+  const version = v => SW_SRC.replace(/const SW_VERSION\s*=\s*"[^"]+"/, `const SW_VERSION = "${v}"`);
+  await withOwnServer(page, ov, async () => {
+    await page.reload();                                      // now the page is controlled (the note rules start from a controlled page)
+    await page.waitForFunction(() => window.__bbReady === true && !!navigator.serviceWorker.controller, null, { timeout: 30_000 });
+    await page.evaluate(() => { const b = window.__bb; b.resetMenus(); b.mode = "home"; });
+    expect(await page.evaluate(() => window.__bb.updateReady)).toBe(false);
+    ov.fn = p => (p === "/sw.js" ? version("bebebe-test-note") : null);
+    await page.evaluate(async () => { try { await (await navigator.serviceWorker.getRegistration()).update(); } catch (e) { /* ok */ } });
+    await page.waitForFunction(() => window.__bb.updateReady === true, null, { timeout: 60_000 });
+    // (a first launch opens the language screen and the comic: back to home until a frame draws the note)
+    await page.waitForFunction(() => { const b = window.__bb; if (b.mode !== "home") b.mode = "home"; return b.hudRects.some(h => h.id === "home:update"); }, null, { timeout: 15_000 });
+  });
+});
+
+// the note fits one phone screen (667×375) in every language, also with wider fonts (CI and iPhone fonts are wider than Windows):
+// whole text, inside the screen, on no other control
+test.describe("the new-version note on a phone", () => {
+  test.use({ viewport: { width: 667, height: 375 }, hasTouch: true, isMobile: true });
+
+  test("it fits at 667×375 in every language and font scale", async ({ page }) => {
+    const errors = [];
+    await page.exposeFunction("__swPosted", () => {});
+    await page.addInitScript(stubWaitingWorker);
+    errors.push(...await openGameHttp(page, { query: "?phone=1" }));
+    await page.waitForFunction(() => window.__bb.updateReady === true);
+    const problems = [];
+    for (const l of ["en", "es", "pt", "ru"]) for (const scale of [1, 1.15, 1.3]) {
+      await page.evaluate(([v, sc]) => { const b = window.__bb; b.setLang(v); b.CFG.TEXT_TEST_SCALE = sc; b.mode = "home"; }, [l, scale]);
+      await frames(page);
+      const d = await page.evaluate(() => { const b = window.__bb; return { hud: b.hudRects, buttons: b.buttonRects, ui: b.uiSize, min: b.textSizes }; });
+      const n = d.hud.find(h => h.id === "home:update"), at = `${l} ×${scale}`;
+      if (!n) { problems.push(`${at}: no note`); continue; }
+      if (n.text !== UPDATE_TEXTS[l]) problems.push(`${at}: text cut to "${n.text}"`);
+      if (n.x < 0 || n.x + n.w > d.ui.w || n.y < 0 || n.y + n.h > d.ui.h) problems.push(`${at}: off the screen ${JSON.stringify(n)}`);
+      for (const q of [...d.buttons.filter(b => b.id !== "home:update"), ...d.hud.filter(h => h.id === "home:title")]) {
+        if (n.x < q.x + q.w && n.x + n.w > q.x && n.y < q.y + q.h && n.y + n.h > q.y) problems.push(`${at}: the note covers ${q.id}`);
+      }
+      if (n.h * d.ui.scale < 28) problems.push(`${at}: the note is ${n.h * d.ui.scale} CSS px tall`);
+    }
+    await page.evaluate(() => { window.__bb.CFG.TEXT_TEST_SCALE = 1; });
+    expect(problems).toEqual([]);
     expect(errors.filter(e => !e.includes("Failed to load resource"))).toEqual([]);
   });
 });
