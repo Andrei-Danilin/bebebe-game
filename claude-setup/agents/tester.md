@@ -28,7 +28,7 @@ model: sonnet
 ## Writing tests
 - One rule per test, named in plain words ("a banana makes the Big One slip; ..."). Kids' rules go to `gameplay.spec.js`.
 - **Sim or rendered:** a test that checks only logic or numbers uses `simPage` / `openGame(page, { sim: true })`; a test that checks what is drawn (HUD, menus, layouts, buttons, banners, 3D map pieces, screenshots), sound, the gamepad (polled by the frame loop) or anything that needs real frames uses a rendered `page`. In sim, `frames()`, `page.screenshot()` and every name in `__bb.SIM_DRAWN` throw. A new drawn getter in `__bb` goes into `SIM_DRAWN` (a test fails otherwise).
-- **CI order rule:** CI runs the files in 4 shards with `fullyParallel`, so any test may be the first one of its file in a shard. No test depends on the one before it; a spec with a shared page closes it in a top-level `test.afterAll`; at most one **rendered** shared page is open at a time.
+- **CI order rule:** CI runs the tests in 10 shards (packed by measured time, `npm run shards`) with `fullyParallel`, so any test may be the first one of its file in a shard. No test depends on the one before it; a spec with a shared page closes it in a top-level `test.afterAll`; at most one **rendered** shared page is open at a time.
 - Pin the scene: move the Big One away or set `big.state = "look"`, `big.timer = 999`; set exact positions; then `step()`.
 - Keep tests fast: no `evaluate` that returns a game object (a mutating body goes in braces); loop checks through `softly()` with one `expect` at the end.
 - Never wait in real time for game logic (`waitForTimeout` only to let a frame render before a draw-only check).

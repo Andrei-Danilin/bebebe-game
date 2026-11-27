@@ -4,14 +4,17 @@
 import { UPGRADES, upgTop } from "../../../core/config.js";
 import { progress } from "../../../core/economy.js";
 import { L } from "../../../i18n.js";
-import { paperUI, UPG_ART } from "../../art.js";
+import { UPG_ART } from "../../art.js";
+import { paperUI } from "../paper.js";
 import { LOOK } from "../../look.js";
 import { ctx, OUT, PHONE, UW } from "../../screen.js";
 import { buyUpgrade, upgLevel } from "../../shop.js";
 import { ui } from "../../state.js";
-import { fitButton, rowsAt } from "./wardrobe.js";
-import { circle, drawArtFit, fillStroke, fillT, rr } from "../draw.js";
-import { clipRows, cpx, minPx, noteRows, pDraw, priceLabel, pRows } from "../text.js";
+import { fitButton, rowsAt } from "../buttons.js";
+import { circle, fillStroke, rr } from "../draw.js";
+import { drawArtFit, fillT } from "../artdraw.js";
+import { clipRows, noteRows, pDraw, priceLabel, pRows } from "../text.js";
+import { cpx, minPx } from "../layout.js";
 
 // ---------- SPEC-009: вкладки и улучшения в магазине ----------
 const UPG_ICONS = { fastFeet: "👟", longItems: "⏳", quickHelp: "🤝" };

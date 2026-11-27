@@ -10,10 +10,11 @@ import { setLang } from "../progress.js";
 import { answerLang } from "../save.js";
 import { ctx, PHONE, UH, UW } from "../screen.js";
 import { ui } from "../state.js";
-import { fitButton } from "./character/wardrobe.js";
-import { drawArtCover, rr } from "./draw.js";
+import { fitButton } from "./buttons.js";
+import { rr } from "./draw.js";
+import { drawArtCover } from "./artdraw.js";
 import { menuFrame, phoneFrame } from "./menu.js";
-import { cpx, minPx } from "./text.js";
+import { cpx, minPx } from "./layout.js";
 
 // the language screen opens with English highlighted (Andrei: default English, no detection)
 export function openLangScreen() { ui.langSel = Math.max(0, LANGS.indexOf("en")); setMode("lang"); }

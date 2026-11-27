@@ -45,6 +45,15 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
+      # CI 45957040604: the runner's packages.microsoft.com apt source answered 403 and failed `apt-get update`; the browser's libraries
+      # come from Ubuntu's own archive, so every other source list is removed first (same step as tests.yml)
+      - name: Drop the runner's third-party apt sources (only Ubuntu's are needed)
+        run: |
+          shopt -s nullglob
+          for f in /etc/apt/sources.list.d/*; do
+            case "$(basename "$f")" in ubuntu*) ;; *) sudo rm -f "$f" ;; esac
+          done
+          true
       - name: Install Chromium and its system libraries
         if: steps.pw-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium

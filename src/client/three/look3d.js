@@ -5,7 +5,7 @@ import * as THREE from "three";
 import { CELL, COLS, ROWS, W } from "../../core/config.js";
 import { charGroup, modelOf } from "./characters.js";
 import { houseInfo, houseRoofs } from "./houses.js";
-import { mapGroup } from "./map3d.js";
+import { mapGroup } from "./mapstate.js";
 import { disposeTree, gradTex, groundCanvas, groundTex, ownMat, paperMade, paperMat, paperMesh, paperU } from "./materials.js";
 import { camera, renderer, scene, sun } from "./setup.js";
 import { HATCHED } from "./themes.js";

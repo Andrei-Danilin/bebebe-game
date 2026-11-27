@@ -1,11 +1,10 @@
 // SPEC-011 AC 2b: the progress rules — the save shape (fresh, clean, load), which worlds are open, the reward of a level.
-// Core module.
+// SPEC-039: stateless — every function takes the progress it works on (economy.js owns the live one and imports this module, not the
+// other way round; no active game here either). Core module.
 import { BONUS_WORLDS, CFG, GLOVES, MAIN_WORLDS, REWARD, UPGRADES, WORLDS, levelsPerWorld, upgTop, worldDifficulty } from "./config.js";
 import { clamp } from "./util.js";
 import { BIG_SKINS, HATS, JACKETS, PANTS } from "./wardrobe.js";
 import { SEEN_IDS } from "../story.js";
-import { progress } from "./economy.js";
-import { G } from "./active.js";
 
 // ---------- Прогресс: миры (открытые уровни, звёзды), монетки, рукавицы (хранится в этом браузере) ----------
 // SPEC-006: progress.worlds = { [мир из WORLDS]: { unlocked, stars: { [n]: 1..3 } } }, lastWorld — мир в меню
@@ -13,8 +12,6 @@ import { G } from "./active.js";
 // SPEC-009: won = { [n]: true } — уровни, уже выигранные хоть раз (первая победа платит всю основу, повтор — половину)
 function freshWorld() { return { unlocked: 1, stars: {}, won: {} }; }
 // SPEC-022: seen = { [заставка из SCENE_IDS]: true, если уже показана } — все ключи всегда есть (SPEC-029: + tutorial)
-// SPEC-011: function declarations (hoisted) — economy.js builds its first progress at import, while this module may still be
-// in the middle of its import cycle; everything they call is a function declaration or data of config/story/wardrobe
 // SPEC-025 AC 9: the save schema's progress part (JSDoc for `npm run typecheck`; the checks themselves: loadProgress,
 // badProgressFields). Unknown fields, worlds and ids are kept (SPEC-025 AC 3), so every object is open.
 /**
@@ -123,18 +120,18 @@ export function loadProgress(pv) {
   if (!isOpen(out.lastWorld, out)) out.lastWorld = WORLDS[0];   // SPEC-016/030: закрытый мир → меню открывается на Парке
   return out;
 }
-// мир пройден: выиграны все его уровни (20-й, босс, открывается последним — значит, «20-й выигран»); p — прогресс, по умолчанию текущий
+// мир пройден: выиграны все его уровни (20-й, босс, открывается последним — значит, «20-й выигран»); p — прогресс (SPEC-039: всегда явный — модуль без состояния; текущий — progress из economy.js)
 // (сохранение может быть неполным — нет мира или полей: значит, не выиграно и прогресса нет)
-export const worldComplete = (w = G.world, p = progress) => { const won = p?.worlds?.[w]?.won ?? {}; for (let n = 1; n <= levelsPerWorld(); n++) if (won[n] !== true) return false; return true; };
+export const worldComplete = (w, p) => { const won = p?.worlds?.[w]?.won ?? {}; for (let n = 1; n <= levelsPerWorld(); n++) if (won[n] !== true) return false; return true; };
 // SPEC-016: бонусные миры открываются, когда пройдены все главные миры
-export const bonusUnlocked = (p = progress) => MAIN_WORLDS.every(w => worldComplete(w, p));
+export const bonusUnlocked = p => MAIN_WORLDS.every(w => worldComplete(w, p));
 // в мире есть прогресс: открыт дальше 1-го уровня или есть победа/звёзды
-const worldHasProgress = (w, p = progress) => { const v = p?.worlds?.[w]; return !!v && (v.unlocked > 1 || Object.keys(v.won ?? {}).length > 0 || Object.keys(v.stars ?? {}).length > 0); };
+const worldHasProgress = (w, p) => { const v = p?.worlds?.[w]; return !!v && (v.unlocked > 1 || Object.keys(v.won ?? {}).length > 0 || Object.keys(v.stars ?? {}).length > 0); };
 // SPEC-030 (решение Андрея): единственное место, где решается «мир открыт». Главные — по порядку: Парк сразу («start»), следующий —
 // когда пройден предыдущий («previous»); бонусные — когда пройдены все главные («bonus»); мир, где уже есть прогресс, открыт всегда
 // («played»: старые сохранения времён «все миры открыты» ничего не теряют); иначе «locked» и needs — что пройти: главный мир перед
 // ним или null (бонусный — все главные; неизвестный мир). Сюда же — другая причина (и что для неё нужно), если появится
-export function worldOpen(world, p = progress) {
+export function worldOpen(world, p) {
   const i = MAIN_WORLDS.indexOf(world);
   if (i === 0) return { open: true, reason: "start" };
   if (i > 0 && worldComplete(MAIN_WORLDS[i - 1], p)) return { open: true, reason: "previous" };
@@ -142,8 +139,7 @@ export function worldOpen(world, p = progress) {
   if (WORLDS.includes(world) && worldHasProgress(world, p)) return { open: true, reason: "played" };
   return { open: false, reason: "locked", needs: i > 0 ? MAIN_WORLDS[i - 1] : null };
 }
-export const isOpen = (w, p = progress) => worldOpen(w, p).open;
-export const worldProgress = (w = G.world) => progress.worlds[w];
+export const isOpen = (w, p) => worldOpen(w, p).open;
 // SPEC-009: основа награды уровня n мира (SPEC-016: по индексу сложности мира, 0–4)
 const rewardBase = (world, n) => REWARD.BASE + REWARD.PER_LEVEL * n + REWARD.PER_WORLD * worldDifficulty(world);
 // SPEC-026: строка победы × REWARD.WIN_SCALE и округление (toFixed убирает хвост дробей: 45 × 0,7 = 31,4999… → 31,5 → 32)

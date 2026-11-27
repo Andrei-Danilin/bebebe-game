@@ -12,6 +12,8 @@
     "bench:core": "node scripts/bench-core.js",
     "test:headed": "playwright test --headed",
     "claude:sync": "node scripts/claude-sync.js",
+    "shards": "node scripts/shards.js",
+    "shards:check": "node scripts/shards.js --check",
     "icons": "node scripts/make-icons.js",
     "assets": "node scripts/assets.js",
     "docs:numbers": "node scripts/docs-numbers.js",

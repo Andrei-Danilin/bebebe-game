@@ -2,50 +2,23 @@
 // out of index.html in Phase C).
 
 import { progress } from "../../core/economy.js";
-import { L, lang } from "../../i18n.js";
+import { L } from "../../i18n.js";
 import { ITEM_ART } from "../art.js";
 import { LOOK } from "../look.js";
 import { ctx, fullscreenShown, OUT, UH, UW } from "../screen.js";
-import { ui } from "../state.js";
-import { tutorialHintOn, tutorialHintText, tutorialSkip } from "../tutorial.js";
-import { addButton, circle, drawArtFit, drawMitten, drawSticks, fillStroke, hpHeart, iconButton, rr, toggleFullscreen } from "./draw.js";
+import { mode, ui } from "../state.js";
+import { tutorialSkip } from "../tutorial.js";
+import { tutorialHintOn, tutorialHintText } from "../tutorial-data.js";
+import { addButton, circle, drawMitten, drawSticks, fillStroke, hpHeart, iconButton, rr, toggleFullscreen } from "./draw.js";
+import { drawArtFit } from "./artdraw.js";
 import { angerLabel, chipFill, chipInk, chipText, noteChip, drawHeardHint, drawKitHint, heardHintOn, heartFill, hintPlate, kissButton, kitButton, kitHintOn, restText, timerText, tiptoeBtnRect, tiptoeButton } from "./hud.js";
-import { drawEdgeArrows, drawMinimap, minimapRect, showMinimap } from "./minimap.js";
-import { cpx, fitText, fz, hudFont, labelFit, lastFit, minPx, noteText, scaledW } from "./text.js";
+import { drawEdgeArrows, drawMinimap } from "./minimap.js";
+import { fitText, fz, labelFit, lastFit, noteText, scaledW } from "./text.js";
+import { cpx, hudFont, minimapRect, minPx, showMinimap, teamRect } from "./layout.js";
 import { G } from "../../core/active.js";
-import { canKitNow, mode, setMode } from "../flow.js";
+import { canKitNow, setMode } from "../flow.js";
 import { gameInv, gloveOf } from "../../core/rules.js";
 
-// геометрия верхней полосы и кружков команды телефона (их же обходят камера и стрелки)
-export const phoneTopBar = () => cpx(6) + cpx(LOOK.PHONE_BTN_MIN);
-// кружок не уже любой своей метки («Я», «Б», 1, 2, счёт лежащего, z, !) самым мелким шрифтом подсказок с запасом PHONE_CHIP_FONT
-// на более широкие шрифты (SPEC-029: шрифты CI и iPhone шире — «Me» не влезал в 30 CSS px). Запас постоянный, не от
-// LOOK.TEXT_TEST_SCALE: раскладка (камера, надпись уровня) не меняется, пока тест расширяет шрифт. Метки — от языка, не от состояния
-let chipCache = { key: "", d: 0 };
-function chipDiameter() {
-  const key = [lang, cpx(1)].join(":");                    // мерка — один раз на язык и размер UI
-  if (chipCache.key === key) return chipCache.d;
-  const f = ctx.font;
-  ctx.font = hudFont(minPx("hint"));
-  const need = Math.max(...[L().me, L().botChip, "1", "2", "88", "z", "!"].map(t => ctx.measureText(t).width)) * LOOK.PHONE_CHIP_FONT;
-  ctx.font = f;
-  chipCache = { key, d: Math.max(cpx(30), need + cpx(4)) };
-  return chipCache.d;
-}
-export function teamRect() {
-  const mm = minimapRect(), cd = chipDiameter(), cw = cd + cpx(3), w = G.littles.length * cw + cpx(10), h = cd + cpx(8);
-  return { x: mm.x + mm.w - w, y: mm.y + mm.h + cpx(LOOK.PHONE_BTN_GAP), w, h, cd, cw };
-}
-// места экрана, где героя не видно: верхняя полоса и угол мини-карты с кружками (pad — запас);
-// sides — ещё полосы у левого и правого края (для камеры: герой с именем целиком на экране)
-export function phoneOccluders(pad = 0, sides = 0) {
-  const mm = minimapRect(), tr = teamRect(), top = phoneTopBar();
-  // ways — куда камере уводить героя из-под этого места, по порядку: сначала первый, второй — когда первый упёрся
-  const r = [{ x: -1e4, y: -1e4, w: 2e4, h: 1e4 + top + pad, ways: ["down"] },
-    { x: Math.min(mm.x, tr.x) - pad, y: -1e4, w: 2e4, h: 1e4 + tr.y + tr.h + pad, ways: ["down", "left"] }];   // SPEC-010: кружки шире маленькой мини-карты
-  if (sides) r.push({ x: -1e4, y: -1e4, w: 1e4 + sides, h: 2e4, ways: ["right"] }, { x: UW - sides, y: -1e4, w: 2e4, h: 2e4, ways: ["left"] });
-  return r;
-}
 // верхняя полоса телефона: слева имя Большого и сердечки, дальше уровень/время, пауза, «во весь экран»;
 // справа сверху мини-карта, под ней кружки команды; внизу справа 💋 и рядом рукавицы
 export function drawHUDPhone(t) {

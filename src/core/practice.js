@@ -5,7 +5,20 @@ import { applyWorld, connectivity } from "./level/build.js";
 import { houseDoor, placeSmallHome } from "./level/generate.js";
 import { BIG_HOUSE, bigHouse, hWallTo, vWallTo } from "./level/layouts.js";
 import { G } from "./active.js";
-import { emit, stockOf } from "./game.js";
+import { emit } from "./events.js";
+
+// SPEC-012 AC 2: a game's stock { shared, kisses, kits, gloves: { mittens, mega } } (local play: one pool for p1/p2)
+/** @import { Stock } from "./game.js" */
+/** @type {(s: any) => Stock} */
+export const stockOf = s => ({ shared: s?.shared ?? true, kisses: s?.kisses ?? 0, kits: s?.kits ?? 0, gloves: { mittens: s?.gloves?.mittens ?? 0, mega: s?.gloves?.mega ?? 0 } });
+// SPEC-012 AC 10: the practice option — a step (1, 2) or { step, map, hearts, bots, stock, script } (script: an id — "game1" is the
+// scripted push of practice 1, below) → plain data with today's defaults from CFG.TUTORIAL; nothing → null
+export function practiceOf(p) {
+  if (!p) return null;
+  const o = typeof p === "number" ? { step: p } : p, T = CFG.TUTORIAL, s = o.step;
+  return { step: s, map: o.map ?? "tutorial", hearts: o.hearts ?? T["hearts" + s], bots: o.bots ?? T.bots,
+    stock: stockOf(o.stock ?? (s === 2 ? { kisses: T.kisses, kits: T.kits } : null)), script: o.script ?? (s === 1 ? "game1" : null) };
+}
 
 // ---------- SPEC-029: карта тренировок обучения ----------
 // Своя, всегда одна и та же (без случайности): поляна в левом верхнем углу ≈ CFG.TUTORIAL.mapArea площади карты (21 × 14 клеток
@@ -93,11 +106,4 @@ function updateHints2(dt) {
     if (G.tut.hint !== 4) G.tut.seq = G.tut.hint + 1;
     G.tut.hint = nextSeq(); G.tut.hintT = 0;
   }
-}
-// событие игры в тренировке 2 → флаг сделанного для подсказок: предмет взял игрок, папа поскользнулся, спасалка игрока
-export function tutorialNote(e) {
-  const p = G.littles[0];
-  if (e.type === "item" && e.who === p.id) G.tut.did[1] = true;
-  else if (e.type === "slip") G.tut.did[2] = true;
-  else if (e.type === "kit" && e.who === p.id) G.tut.did[4] = true;
 }

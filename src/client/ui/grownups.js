@@ -12,7 +12,7 @@ import { CFG } from "../../core/config.js";
 import { vrand } from "../../core/util.js";
 import { L, lang } from "../../i18n.js";
 import { buildVersion, errorLog, hideCard } from "../errors.js";
-import { armReset, confirmReset, progressReplaced, resetConfirmReady } from "../progress.js";
+import { armReset, confirmReset, progressReplaced, resetConfirmReady } from "../reset.js";
 import { eraseAll, importSave, listCopies, readCode, restoreCopy, saveCode, saveInfo, takeNote } from "../save.js";
 import { LOOK } from "../look.js";
 import { ui } from "../state.js";

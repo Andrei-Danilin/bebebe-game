@@ -7,20 +7,21 @@ import { clamp } from "../../core/util.js";
 import { canAct, inSafe } from "../../core/world.js";
 import { L } from "../../i18n.js";
 import { ITEM_ART } from "../art.js";
-import { bannerAlpha, canKitNow, mode, pressKiss, pressKit, setMode } from "../flow.js";
-import { chipName } from "../input.js";
+import { bannerAlpha, canKitNow, pressKiss, pressKit, setMode } from "../flow.js";
+import { chipName } from "../devices.js";
 import { LOOK } from "../look.js";
 import { nameOf, typedName } from "../names.js";
 import { P_COLORS } from "../outfits.js";
 import { CSS_W, ctx, fullscreenShown, isTouch, OUT, PHONE, UH, UW } from "../screen.js";
-import { ui } from "../state.js";
+import { mode, ui } from "../state.js";
 import { camHero, toScreen } from "../three/camera.js";
-import { tutorialHintOn, tutorialHintText, tutorialSkip } from "../tutorial.js";
-import { fitButton } from "./character/wardrobe.js";
-import { circle, drawArtFit, drawKiss, drawKit, drawMitten, drawSticks, fillStroke, fillT, hpHeart, iconButton, nameTagH, playerNameTag, rr, toggleFullscreen } from "./draw.js";
-import { minimapRect } from "./minimap.js";
-import { drawHUDPhone, phoneTopBar } from "./phone.js";
-import { cpx, fitText, fmtTime, fz, hudFont, label, labelFit, lastFit, minPx, noteRows, noteText } from "./text.js";
+import { tutorialSkip } from "../tutorial.js";
+import { tutorialHintOn, tutorialHintText } from "../tutorial-data.js";
+import { fitButton } from "./buttons.js";
+import { circle, drawKiss, drawKit, drawMitten, drawSticks, fillStroke, hpHeart, iconButton, nameTagH, playerNameTag, rr, toggleFullscreen } from "./draw.js";
+import { drawArtFit, fillT } from "./artdraw.js";
+import { fitText, fmtTime, fz, label, labelFit, lastFit, noteRows, noteText } from "./text.js";
+import { cpx, hudFont, minimapRect, minPx, phoneTopBar } from "./layout.js";
 import { G } from "../../core/active.js";
 import { gameInv, gloveOf } from "../../core/rules.js";
 
@@ -39,7 +40,6 @@ export const noteChip = l => { if (l.state === "down") ui.downDrawn.push({ kind:
 export const restText = l => "💤 " + L().resting(nameOf(l), fmtTime(Math.max(0, l.state === "rest" ? l.restTimer : CFG.REST_TIME)));
 
 export function drawHUD(t) {
-  if (PHONE) { drawHUDPhone(t); return; }
   // SPEC-022: злость папы (подпись + облачка-сердечки); полоска не налезает на таймер в центре
   const many = G.big.maxHp > 8, lots = G.big.maxHp > 12, hStep = lots ? 15 : many ? 17 : 21, hSize = lots ? 13 : many ? 15 : 18;   // много облачек — плотнее, чтобы влезла подпись
   const bigName = angerLabel(), hearts = G.big.maxHp * hStep, timerX = UW / 2 - 95;

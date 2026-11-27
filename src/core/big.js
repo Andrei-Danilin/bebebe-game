@@ -3,21 +3,13 @@ import { CELL, CFG } from "./config.js";
 import { angDiff, dist, rand, rng, turnToward } from "./util.js";
 import { bigSpeeds } from "./difficulty.js";
 import { bigDeaf, hearNoise, stopHearing } from "./hearing.js";
-import { bigReach, cellIdx, inBush, moveEntity, randomFreePoint, reachableGoal, steerTo } from "./path.js";
+import { bigReach, cellIdx, randomFreePoint, reachableGoal } from "./grid.js";
+import { moveEntity, steerTo } from "./path.js";
 import { pushHit } from "./rules.js";
-import { inSafe, los, seeSolidAt } from "./world.js";
+import { canSee } from "./vision.js";
 import { G } from "./active.js";
-import { emit } from "./game.js";
+import { emit } from "./events.js";
 
-export function canSee(l) {
-  if (inSafe(l)) return false;          // в домике Большой не видит и не трогает
-  if (l.fx && l.fx.cloak > 0) return false;   // невидимка          // в домике Большой не видит и не трогает
-  const dx = l.x - G.big.x, dy = l.y - G.big.y, d = Math.hypot(dx, dy);
-  const diff = angDiff(G.big.dir, Math.atan2(dy, dx));
-  if (d < G.big.r + l.r + 22 && diff < 1.9) return true;
-  if (d > 45 && inBush(l)) return false;
-  return d < CFG.VISION_RANGE && diff < CFG.VISION_HALF && los(G.big.x, G.big.y, l.x, l.y, seeSolidAt);
-}
 // SPEC-012 AC 4: a Big One a player moves (G.inputs.big): his timers run, he walks where the stick points at his chase speed
 // (not while stunned, slipping or red); no AI — no seeing, chasing, hearing or patrol (the push and button rules: SPEC-015)
 export function updateBigPlayer(dt) {

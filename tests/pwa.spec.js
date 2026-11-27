@@ -14,12 +14,15 @@ const IPHONE_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleW
 const SW_FILE = path.join(ROOT, "sw.js");
 const SW_SRC = fs.existsSync(SW_FILE) ? fs.readFileSync(SW_FILE, "utf8") : "";
 const SW_VERSION = (SW_SRC.match(/const SW_VERSION\s*=\s*"([^"]+)"/) || [])[1];
+const SW_BUILD = (SW_SRC.match(/const SW_BUILD\s*=\s*(\d+)/) || [])[1];
 // SPEC-020: the hash of the art sprites (npm run assets); SPEC-011 AC 9: the hash of the module set (npm run precache)
 const ASSETS_HASH = (SW_SRC.match(/const ASSETS_HASH\s*=\s*"([^"]+)"/) || [])[1];
 const SRC_HASH = (SW_SRC.match(/const SRC_HASH\s*=\s*"([^"]+)"/) || [])[1];
 const THREE_VERSION = (SW_SRC.match(/const THREE_VERSION\s*=\s*"([^"]+)"/) || [])[1];
-// SPEC-011 AC 9: three caches — the shell + modules by SRC_HASH, the sprites by ASSETS_HASH, three.js by its version
-const CACHE_SRC = SW_VERSION + "-src-" + SRC_HASH, CACHE_ASSETS = SW_VERSION + "-assets-" + ASSETS_HASH, CACHE_THREE = "bebebe-three-" + THREE_VERSION;
+// SPEC-011 AC 9: three caches — the shell + modules by SRC_HASH, the sprites by ASSETS_HASH, three.js by its version. SPEC-039 AC 3: the
+// first two are named by the build counter and the content hash, never by the game's semver — a release keeps them
+const CACHE_SRC = `bebebe-b${SW_BUILD}-src-${SRC_HASH}`, CACHE_ASSETS = `bebebe-b${SW_BUILD}-assets-${ASSETS_HASH}`, CACHE_THREE = "bebebe-three-" + THREE_VERSION;
+const PKG_VERSION = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8")).version;
 // the string items of a `const NAME = [ … ];` list in sw.js
 const swList = name => { const m = SW_SRC.match(new RegExp(`const ${name} = \\[([\\s\\S]*?)\\];`)); return m ? [...m[1].matchAll(/"([^"]+)"/g)].map(x => x[1]) : []; };
 const precache = require("../scripts/precache");
@@ -128,6 +131,7 @@ test("service worker registers and controls the page over http", { tag: "@fast" 
   expect(ASSETS_HASH && SRC_HASH && THREE_VERSION).toBeTruthy();
   // SPEC-011 AC 9: exactly the three caches
   expect((await page.evaluate(() => caches.keys())).sort()).toEqual([CACHE_ASSETS, CACHE_SRC, CACHE_THREE].sort());
+  expect([CACHE_SRC, CACHE_ASSETS].filter(n => n.includes(PKG_VERSION)), "no cache name carries the game version (SPEC-039 AC 3)").toEqual([]);
   const keysOf = name => page.evaluate(async v => (await (await caches.open(v)).keys()).map(r => r.url), name);
   const src = await keysOf(CACHE_SRC), three = await keysOf(CACHE_THREE), art = await keysOf(CACHE_ASSETS);
   for (const u of ["", "index.html", "manifest.webmanifest", "icons/icon.svg", "icons/apple-touch-icon.png",
@@ -187,23 +191,48 @@ test("the vendored three.js is the version of package.json and the service worke
 // SPEC-011 AC 9: the cache rotation with three kinds of caches. A new version keeps the caches of the version before (a page of
 // it may still be open) and deletes older ones and old-style names; three.js is kept while its version is the same; other apps
 // on the origin are never touched
-test("old caches are removed on a new SW_VERSION", async ({ page }) => {
+test("old caches are removed on a new build (SW_BUILD)", async ({ page }) => {
   test.slow();                       // installs two more service workers: slow under load
   const ov = { fn: () => null };
   const keys = () => page.evaluate(async () => (await caches.keys()).sort());
-  const version = v => SW_SRC.replace(/const SW_VERSION\s*=\s*"[^"]+"/, `const SW_VERSION = "${v}"`);
+  const build = n => SW_SRC.replace(/const SW_BUILD\s*=\s*\d+/, `const SW_BUILD = ${n}`);
   const update = () => page.evaluate(async () => (await navigator.serviceWorker.getRegistration()).update());
   await withOwnServer(page, ov, async () => {
     expect(await keys()).toEqual([CACHE_ASSETS, CACHE_SRC, CACHE_THREE].sort());
     // an old-style name, the old jsDelivr three.js cache (SPEC-025: removed) + another app
     await page.evaluate(() => Promise.all([caches.open("bebebe-v0"), caches.open("bebebe-three-0.187.0"), caches.open("other-pages-app")]));
-    ov.fn = p => (p === "/sw.js" ? version("bebebe-test-v2") : null);
+    ov.fn = p => (p === "/sw.js" ? build(9001) : null);
     await update();
-    const v2 = ["bebebe-test-v2-assets-" + ASSETS_HASH, "bebebe-test-v2-src-" + SRC_HASH];
+    const v2 = ["bebebe-b9001-assets-" + ASSETS_HASH, "bebebe-b9001-src-" + SRC_HASH];
     await expect.poll(keys, { timeout: 60_000 }).toEqual([...v2, CACHE_ASSETS, CACHE_SRC, CACHE_THREE, "other-pages-app"].sort());
-    ov.fn = p => (p === "/sw.js" ? version("bebebe-test-v3") : null);
+    ov.fn = p => (p === "/sw.js" ? build(9002) : null);
     await update();
-    await expect.poll(keys, { timeout: 60_000 }).toEqual(["bebebe-test-v3-assets-" + ASSETS_HASH, "bebebe-test-v3-src-" + SRC_HASH, ...v2, CACHE_THREE, "other-pages-app"].sort());
+    await expect.poll(keys, { timeout: 60_000 }).toEqual(["bebebe-b9002-assets-" + ASSETS_HASH, "bebebe-b9002-src-" + SRC_HASH, ...v2, CACHE_THREE, "other-pages-app"].sort());
+  });
+});
+
+// SPEC-039 AC 3: a release (a new game version: SW_VERSION changes, the modules, the sprites and three.js do not) installs without
+// downloading a module, a sprite, an icon or three.js — only index.html (and the worker itself): the caches are named by the build
+// counter and the content hashes, so the new worker finds them complete and keeps them as they are
+test("a release with the same files downloads only index.html and sw.js", async ({ page }) => {
+  test.slow();                       // installs another service worker
+  const ov = { fn: () => null }, asked = [];
+  const keys = () => page.evaluate(async () => (await caches.keys()).sort());
+  const version = () => page.evaluate(() => new Promise(res => {
+    const ch = new MessageChannel();
+    ch.port1.onmessage = e => res(e.data.version);
+    navigator.serviceWorker.getRegistration().then(r => r.active.postMessage({ type: "VERSION" }, [ch.port2]));
+  }));
+  await withOwnServer(page, ov, async () => {
+    const names = await keys();
+    expect(names).toEqual([CACHE_ASSETS, CACHE_SRC, CACHE_THREE].sort());
+    const next = SW_SRC.replace(/const SW_VERSION\s*=\s*"[^"]+"/, 'const SW_VERSION = "bebebe-9.9.9-b' + SW_BUILD + '"');
+    expect(next, "only the version differs").not.toBe(SW_SRC);
+    ov.fn = p => { if (p !== "/sw.js") asked.push(p); return p === "/sw.js" ? next : null; };
+    await page.evaluate(async () => { await (await navigator.serviceWorker.getRegistration()).update(); });
+    await expect.poll(version, { timeout: 60_000 }).toBe("bebebe-9.9.9-b" + SW_BUILD);   // the new worker took over
+    expect(await keys(), "the same caches: nothing new, nothing deleted").toEqual(names);
+    expect([...new Set(asked)].filter(p => p !== "/" && p !== "/index.html"), "downloaded besides index.html and sw.js").toEqual([]);
   });
 });
 
@@ -347,7 +376,7 @@ test("a sprite-only update keeps the code cache and downloads no module", async 
     // 2. the right shell → the new worker installs: a new sprite cache, the same complete code cache, no module downloaded
     ov.fn = p => { if (p.startsWith("/src/")) asked.push(p); return p === "/sw.js" ? next : null; };
     await update();
-    await expect.poll(keys, { timeout: 60_000 }).toEqual([...names, SW_VERSION + "-assets-testart0001"].sort());
+    await expect.poll(keys, { timeout: 60_000 }).toEqual([...names, `bebebe-b${SW_BUILD}-assets-testart0001`].sort());
     expect(await srcState()).toEqual(before);
     expect(asked, "modules downloaded by a sprite-only update").toEqual([]);
   });

@@ -33,7 +33,7 @@ You review one spec's change to BeBeBe Atrapar, a 3D browser game in ES modules 
 - A test that checks only logic or numbers runs on a sim page (`simPage` / `openGame(page, { sim: true })`); a test that checks what is drawn, sound, the gamepad or real frames runs on a rendered `page`. A drawn check on a sim page is a finding (it throws, or checks nothing).
 - A new drawn getter or function in `window.__bb` (filled by `drawUI` / 3D) is added to `SIM_DRAWN` in `src/client/debug.js` (`smoke.spec.js` fails otherwise).
 - Specs require `./pw`, not `@playwright/test`.
-- CI order rule: CI shards every file with `fullyParallel`, so no test may depend on the one before it; a spec with a shared page closes it in a top-level `test.afterAll`; at most one **rendered** shared page is open at a time (sim pages draw nothing and may stay open beside it).
+- CI order rule: CI shards the tests (10, by measured time) with `fullyParallel`, so no test may depend on the one before it; a spec with a shared page closes it in a top-level `test.afterAll`; at most one **rendered** shared page is open at a time (sim pages draw nothing and may stay open beside it).
 - No `evaluate` that returns a game object; loop checks via `softly()`.
 
 **Performance**

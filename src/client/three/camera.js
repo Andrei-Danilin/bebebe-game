@@ -7,11 +7,9 @@ import { clamp } from "../../core/util.js";
 import { LOOK } from "../look.js";
 import { CSS_H, CSS_W, onFit, PHONE, setOnFit, UH, UW } from "../screen.js";
 import { camBase, camera, camTarget, P, sun, U, WALL_H } from "./setup.js";
-import { minimapRect, showMinimap } from "../ui/minimap.js";
-import { phoneTopBar, teamRect } from "../ui/phone.js";
-import { cpx } from "../ui/text.js";
+import { cpx, minimapRect, phoneTopBar, showMinimap, teamRect } from "../ui/layout.js";
 import { G } from "../../core/active.js";
-import { mode } from "../flow.js";
+import { mode } from "../state.js";
 
 // Камера: наклон сверху, вся карта помещается в кадр
 const CAM_EL = 63 * Math.PI / 180, camDir = new THREE.Vector3(0, Math.sin(CAM_EL), Math.cos(CAM_EL));   // камера всегда смотрит под этим углом

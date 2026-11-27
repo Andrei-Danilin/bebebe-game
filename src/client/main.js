@@ -10,8 +10,8 @@ import { setHooks } from "../core/hooks.js";
 import { noGameRng, setStrictRng } from "../core/util.js";
 import { artGate, initArt } from "./art.js";
 import { installDebug } from "./debug.js";
-import { failStart, initErrors, reportError } from "./errors.js";
-import { inMenus, inWardrobe, mapTick, mode, openScene, redress, resetWorld, seedRandom, syncStock } from "./flow.js";
+import { adoptErrorLog, failStart, initErrors, reportError } from "./errors.js";
+import { mapTick, openScene, redress, resetWorld, seedRandom, syncStock } from "./flow.js";
 import { drainEvents, runFrame, viewTick } from "./fx.js";
 import { initInput, pollPads } from "./input.js";
 import { initBack } from "./back.js";
@@ -19,17 +19,19 @@ import { initLifecycle, pauseForWall } from "./lifecycle.js";
 import { endTryOn } from "./outfits.js";
 import { LOOK } from "./look.js";
 import { initPerf, noteFrame } from "./perf.js";
-import { langPending, loadSave } from "./save.js";
+import { setPorts } from "./ports.js";
+import { langPending, loadSave, queueSave, readErrorLog } from "./save.js";
 import { openLangScreen } from "./ui/lang.js";
 import { fit, initScreen, runQueuedFit, simMode } from "./screen.js";
-import { ui } from "./state.js";
+import { inMenus, inWardrobe, mode, ui } from "./state.js";
 import { initCamera, updateCamera } from "./three/camera.js";
 import { initCharacters, rebuild3D } from "./three/characters.js";
 import { initMaterials } from "./three/materials.js";
 import { initPreviews } from "./three/previews.js";
 import { hasWebGL2, initScene, initThree } from "./three/setup.js";
 import { initSync, render3D } from "./three/sync.js";
-import { firstTutorial, openFirstTutorial } from "./tutorial.js";
+import { openFirstTutorial } from "./tutorial.js";
+import { firstTutorial } from "./tutorial-data.js";
 import { initUpdates } from "./update.js";
 import { showDueNote } from "./ui/grownups.js";
 import { updateMinimapFade } from "./ui/minimap.js";
@@ -37,6 +39,7 @@ import { drawUI } from "./ui/screens.js";
 
 let langDue = false, introDue = false, tutorialDue = false, last = 0;
 async function boot() {
+  setPorts({ redress, queueSave });             // SPEC-039: the calls the wardrobe and the save make up the stack (ports.js) — before anything can call them
   // SPEC-025 AC 7: errors are logged (and, once ready, shown) from here on
   initErrors();
   if (!hasWebGL2()) { failStart("noWebGL"); return; }   // SPEC-025 AC 7b: three.js r187 needs WebGL2
@@ -50,6 +53,7 @@ async function boot() {
   setHooks({ rebuild: rebuild3D });
   // SPEC-025 AC 3b: the save module loads (and migrates, recovers) the save before the first level is built (storage is async)
   await loadSave();
+  try { adoptErrorLog(readErrorLog()); } catch (e) { /* the log never stops the start */ }   // SPEC-039: the stored log joins this run's (was inside loadSave)
   initInput();
   initThree();
   fit();

@@ -1,6 +1,6 @@
 # SPEC-039 — CI and code health: CI under 10 minutes, no stalled installs, release-friendly caches, no import cycles
 
-Status: ready
+Status: done (merged by "Merge SPEC-039", see git log)
 Complexity: M
 Branch: SPEC-039-ci-code-health
 Decided by: Andrei (2026-11-26): do the CI and code-health items from the backlog. Shard counts, tags and module names: Claude.

@@ -1,7 +1,8 @@
 // SPEC-011 AC 2b: the player's economy — the one owner of progress and the coin book. Core module.
 import { CFG } from "./config.js";
-import { logEvent } from "./game.js";
+import { logEvent } from "./events.js";
 import { freshProgress, loadProgress } from "./progress-rules.js";
+import { G } from "./active.js";
 
 // SPEC-011 AC 2b: экономика игрока — единственный владелец progress (простые данные: миры, монетки, запас, рукавицы, наряды,
 // улучшения, заставки) и книги монеток ledger. Простые данные: хранилище не трогает и не сохраняет — клиент пишет progress после
@@ -15,6 +16,8 @@ function logCoins(reason, amount, logged = null) {
   ledger.push({ ...(logged || logEvent("coins", { reason, amount })) });
   if (ledger.length > CFG.EVENT_LOG_MAX) ledger.splice(0, ledger.length - CFG.EVENT_LOG_MAX);
 }
+// прогресс мира w (по умолчанию мир активной игры) — SPEC-039: из progress-rules.js, там нет состояния
+export const worldProgress = (w = G.world) => progress.worlds[w];
 // сохранение (или null — новый прогресс) → прогресс игры (loadProgress: никогда не бросает); ничего не пишет
 export function setProgress(save) { progress = loadProgress(save); }
 // SPEC-009: единственный код, который меняет progress.coins (тест «only the ledger writes coins» это проверяет).

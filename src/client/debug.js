@@ -7,11 +7,12 @@ import { bigBoost, bigSpeeds, difficulty } from "../core/difficulty.js";
 import { ledger, progress, setProgress } from "../core/economy.js";
 import { readInputs, simRun } from "../core/game.js";
 import { bigMark, isRunning } from "../core/hearing.js";
-import { clearLevelCache, generateLevel } from "../core/level/build.js";
+import { generateLevel } from "../core/level/build.js";
 import { levelType } from "../core/level/generate.js";
-import { levelReport } from "../core/level/validate.js";
+import { clearLevelCache } from "../core/level/load.js";
+import { levelReport } from "../core/level/report.js";
 import { bigMood, bossFor } from "../core/mood.js";
-import { bigCalm } from "../core/path.js";
+import { bigCalm } from "../core/vision.js";
 import { tutorialMapRect } from "../core/practice.js";
 import { bonusUnlocked, fastTarget, loadProgress, worldComplete, worldOpen } from "../core/progress-rules.js";
 import { spawnItem, spawnStar } from "../core/rules.js";
@@ -21,36 +22,40 @@ import { inDanger, inSafe, seeSolidAt } from "../core/world.js";
 import { detectLang, I18N, L, lang, LANG_NAMES, LANGS } from "../i18n.js";
 import { RULE_ICONS, SCENE_IDS, STORY, TUTORIAL_SCENES } from "../story.js";
 import { ART_NAMES } from "./art-names.js";
-import { art, ART_FALLBACK, artCount, artDone, artVersion, EMOJI_ART, FX_ART, HEART_ART, ITEM_ART, mapBgArt, PAPER_BTN, POP_ART, SHOP_TAB_ART, STORY_ART, UPG_ART, WARDROBE_ART, worldArt } from "./art.js";
-import { bannerAlpha, chapterOpen, chooseStop, goBack, nextLevel, closeShop, giveReward, kissNow, kitNow, lastReward, mapTick, mode, MODES, openFriends, openMap, openScene, openShop, openStory, resetMenus, resetWorld, rngDraws, sceneNext, scenePageCount, scenePages, sceneSkip, seedRandom, selectWorld, setLastReward, setMode, setShopTab, shopAfterWin, showBanner, startGame, tapWorldTab, toHome, toMap } from "./flow.js";
+import { art, ART_FALLBACK, artCount, artLoad, artDone, artVersion, EMOJI_ART, FX_ART, HEART_ART, ITEM_ART, mapBgArt, PAPER_BTN, POP_ART, SHOP_TAB_ART, STORY_ART, UPG_ART, WARDROBE_ART, worldArt } from "./art.js";
+import { bannerAlpha, chapterOpen, chooseStop, goBack, nextLevel, closeShop, giveReward, lastReward, mapTick, openFriends, openMap, openScene, openShop, openStory, resetMenus, resetWorld, rngDraws, sceneNext, scenePageCount, scenePages, sceneSkip, seedRandom, selectWorld, setLastReward, setMode, setShopTab, shopAfterWin, showBanner, startGame, tapWorldTab, toHome, toMap } from "./flow.js";
 import { errorLog, reportError } from "./errors.js";
 import { glRestored } from "./lifecycle.js";
 import { audioContext } from "./sound.js";
-import { burst, popText, runCore, runFrame, stepGame } from "./fx.js";
-import { nameInput, openNameInput, resetPads, stickR, sticks, toGame } from "./input.js";
-import { LOOK } from "./look.js";
+import { burst, kissNow, kitNow, popText, runCore, runFrame, stepGame } from "./fx.js";
+import { resetPads, toGame } from "./input.js";
+import { nameInput, openNameInput, stickR, sticks } from "./devices.js";
+import { KID_HEAD_R, LOOK } from "./look.js";
 import { allNames, nameOf, setName } from "./names.js";
 import { BOSS_LOOKS, botOutfit, buyLook, cloneSkins, cycleBig, cycleOutfit, loadOutfits, LOOK_SLOTS, randomOutfit, resetOutfits, skinKeep, skinSel } from "./outfits.js";
-import { resetProgress, setLang } from "./progress.js";
+import { setLang } from "./progress.js";
+import { resetProgress } from "./reset.js";
 import { fingerprint, flushSaves, OLD_KEYS, outfitsOf, promptsForPersist, queueSave, readCode, SAVE_KEYS, SAVE_VERSION, saveCode, saveState, validSave } from "./save.js";
 import { updateChecks, updateReady } from "./update.js";
-import { CSS_H, CSS_W, fitCount, isStandalone, PHONE, rotateWall, sim, simMode, UH, UW } from "./screen.js";
+import { CSS_H, CSS_W, fitCount, isStandalone, PHONE, rotateWall, setSimMode, simMode, UH, UW } from "./screen.js";
 import { buyGloves, buyKisses, buyRescueKit, buyUpgrade, setEquip } from "./shop.js";
-import { ui } from "./state.js";
+import { mode, MODES, ui } from "./state.js";
 import { cam, camDist, camLook, camRect, camSnap, toScreen, updateCamera } from "./three/camera.js";
-import { modelOf, setBigFace } from "./three/characters.js";
+import { modelOf, rebuild3D, setBigFace } from "./three/characters.js";
 import { disposeCheck, look3D } from "./three/look3d.js";
 import { perfReport } from "./perf.js";
-import { mapGroup } from "./three/map3d.js";
+import { mapGroup } from "./three/mapstate.js";
 import { groundCanvas, OUTLINE } from "./three/materials.js";
 import { outfitModel, skinPanels } from "./three/previews.js";
 import { camera, LITTLE_SCALE } from "./three/setup.js";
 import { THEMES } from "./three/themes.js";
-import { FIRST_STEPS, firstTutorial, openFirstTutorial, openPictures, openPractice, openTutorial, tutorial, TUTORIAL_STEPS, tutorialArtNames, tutorialPages, tutorialSkip, tutorialStep } from "./tutorial.js";
+import { openFirstTutorial, openPictures, openPractice, openTutorial, tutorialSkip } from "./tutorial.js";
+import { FIRST_STEPS, firstTutorial, tutorial, TUTORIAL_STEPS, tutorialArtNames, tutorialPages, tutorialStep } from "./tutorial-data.js";
 import { SHOP_PICTURES, shopCards } from "./ui/character/items.js";
 import { clothesCount } from "./ui/character/progress.js";
 import { backInfo } from "./back.js";
-import { artUse, KID_HEAD_R, nameTagH, resetArtUse, tapLines } from "./ui/draw.js";
+import { nameTagH, tapLines } from "./ui/draw.js";
+import { artUse, resetArtUse } from "./ui/artdraw.js";
 import { chooseLang, openLangScreen } from "./ui/lang.js";
 import { heardHintOn, heardHintText, heartFill, timerText } from "./ui/hud.js";
 import { mmAlpha, mmCount, mmDraws, mmState, updateMinimapFade } from "./ui/minimap.js";
@@ -82,6 +87,14 @@ const SIM_DRAWN = ["buttonRects", "buttonNames", "tapButton", "hudRects", "mapIn
   "tapLines", "textOverflows", "tutorialHint", "homeInfo", "progressInfo", "outfit3D", "bibClear", "mapPieces", "groundColorAt", "camera", "minimapAlpha", "artUse", "sceneInfo", "moodInfo", "bigLook", "look3D", "drawNow", "model",
   "perf", "disposeCheck"];   // SPEC-025 AC 15 / 15b: the renderer's numbers and textures — a rendered page only
 
+
+// sim(on): включить/выключить режим симуляции; без аргумента — только узнать. Выключили — 3D строится заново (SPEC-039: из screen.js —
+// ему нельзя импортировать ни 3D, ни картинки, а режим только переключается его setSimMode)
+function sim(on) {
+  if (typeof on === "boolean" && on !== simMode) { setSimMode(on); if (!on) { rebuild3D(); artLoad(); } }
+  return { on: simMode, renders: ui.renders, draws: ui.draws, sounds: ui.sounds };
+}
+
 // called once by main.js, in the start order of the one-file game
 export function installDebug() {
   window.__bb = {
@@ -102,7 +115,9 @@ export function installDebug() {
     // SPEC-006: world — мир идущего/выбранного уровня (не мир — игнорируется), level — номер в мире
     get world() { return G.world; }, set world(v) { if (WORLDS.includes(v)) G.world = v; }, WORLDS, difficulty, bigSpeeds,
     // SPEC-016: списки миров, сиды по имени, индекс сложности, время третьей звезды, бонусные миры (p — прогресс, по умолчанию текущий)
-    MAIN_WORLDS, BONUS_WORLDS, WORLD_SEED, worldDifficulty, fastTarget, bonusUnlocked, worldOpen, chapterOpen, worldComplete,
+    MAIN_WORLDS, BONUS_WORLDS, WORLD_SEED, worldDifficulty, fastTarget, chapterOpen,
+    // SPEC-039: the progress rules are stateless — here p is the current progress when the test gives none, w the active game's world
+    bonusUnlocked: (p = progress) => bonusUnlocked(p), worldOpen: (w, p = progress) => worldOpen(w, p), worldComplete: (w = G.world, p = progress) => worldComplete(w, p),
     get bonusNote() { return ui.bonusNote && { ...ui.bonusNote }; },   // SPEC-016: плашка «Открылись бонусные миры!» этого кадра (или null)
     get winLine() { return ui.winLine; }, selectWorld,
     // SPEC-017: карта этого кадра, подсказка, карточка уровня; tapButton(id) — нажать кнопку этого кадра (как пальцем)

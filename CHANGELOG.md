@@ -35,6 +35,8 @@ The version is `package.json` `version` (shown on the "For grown-ups" page); how
   a new check plays every level to make sure he never stalls again (SPEC-037).
 - Phones and tablets: a second finger no longer stops the hero, turning the phone upright pauses the game, tablets
   play in portrait, the fullscreen button hides where it can't work, and the app says when a new version is ready (SPEC-038).
+- Faster, steadier checks behind the scenes: each push is tested in under 10 minutes (was 21–25), a release no longer makes
+  the installed app download the whole game again, and the code has no import loops (SPEC-039).
 
 ## [1.0.0-dev] - what is in the game today
 

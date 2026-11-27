@@ -2,20 +2,19 @@
 // (SPEC-012: the players' input slots). Client module (moved out of index.html in Phase C).
 
 import { CFG } from "../core/config.js";
-import { L } from "../i18n.js";
-import { backToWardrobe, chooseStop, closeCard, goBack, closeShop, cycleWorld, inWardrobe, mapSelN, mode, moveMapSel, nextLang, nextLevel, openStory, playCard, pressKiss, pressKit, resumeGame, retryLevel, sceneNext, scenePrev, sceneSkip, setMode, setStoryPage, storyBackKey, storyStep, switchShopTab, toggleSound, toMap, watchChapter } from "./flow.js";
+import { backToWardrobe, chooseStop, closeCard, goBack, closeShop, cycleWorld, mapSelN, moveMapSel, nextLang, nextLevel, openStory, playCard, pressKiss, pressKit, resumeGame, retryLevel, sceneNext, scenePrev, sceneSkip, setMode, setStoryPage, storyBackKey, storyStep, switchShopTab, toggleSound, toMap, watchChapter } from "./flow.js";
 import { LOOK } from "./look.js";
-import { cleanName, nameFor, setName } from "./names.js";
+import { activeStick, closeNameInput, nameInput, stickR, sticks, afterFit } from "./devices.js";
 import { randomOutfit } from "./outfits.js";
-import { canvas, CSS_W, PHONE, rotateWall, UH, UW, wrap } from "./screen.js";
+import { canvas, PHONE, rotateWall, setAfterFit, UH, UW } from "./screen.js";
 import { leaveCancel } from "./back.js";
 import { cardOpen, moveCardFocus, pressCard } from "./errors.js";
 import { initAudio } from "./sound.js";
-import { ui } from "./state.js";
+import { inWardrobe, mode, ui } from "./state.js";
 import { openPictures, openPractice, tutorialSkip } from "./tutorial.js";
 import { homeActions } from "./ui/home.js";
 import { chooseLang, moveLangSel } from "./ui/lang.js";
-import { cpx } from "./ui/text.js";
+import { cpx } from "./ui/layout.js";
 import { G } from "../core/active.js";
 import { newInput } from "../core/game.js";
 
@@ -93,12 +92,6 @@ function kitKeyPlayer(code) {
   return G.players === 2 && code === "ShiftRight" ? 1 : -1;
 }
 
-// Касания: левая половина — игрок 1, правая — игрок 2 (в игре на одного — весь экран)
-export const sticks = new Map();
-export const chipName = l => G.players === 1 ? L().me : String(l.id + 1);   // короткая метка игрока в кружке HUD
-const STICK_R = 55;
-// радиус джойстика в UI px: на телефоне — PHONE_STICK_R в CSS px (под палец), иначе как было
-export const stickR = () => PHONE ? LOOK.PHONE_STICK_R * UW / CSS_W : STICK_R;
 export function toGame(e) {
   const rect = canvas.getBoundingClientRect();
   return { x: (e.clientX - rect.left) * UW / rect.width, y: (e.clientY - rect.top) * UH / rect.height };
@@ -110,43 +103,6 @@ const hitButton = p => ui.buttons.find(b => p.x >= b.x && p.x <= b.x + b.w && p.
 let pendingUp = null;   // кнопка, которая срабатывает на отпускании (поле имени: iOS даёт фокус только в pointerup/click)
 
 const endStick = e => sticks.delete(e.pointerId);
-// SPEC-038 AC 1: a player's stick is a stack of his pointers (the Map keeps them in the order they landed): the newest finger
-// steers; lifting it falls back to the previous one; lifting an older one changes nothing; all lifted — the hero stops
-export const activeStick = player => { let a = null; for (const s of sticks.values()) if (s.player === player) a = s; return a; };
-export const clearSticks = () => sticks.clear();   // SPEC-038: the fingers are gone (the "turn your device" wall, a level left)
-export const activeSticks = () => [0, 1].map(activeStick).filter(Boolean);
-
-// Поле ввода имени: HTML <input> ровно поверх прямоугольника на холсте (rect в логических пикселях)
-export let nameInput = null;   // { el, slot, rect }
-export function placeNameInput() {
-  if (!nameInput) return;
-  const k = CSS_W / UW, r = nameInput.rect;
-  Object.assign(nameInput.el.style, { left: r.x * k + "px", top: r.y * k + "px", width: r.w * k + "px", height: r.h * k + "px", fontSize: Math.max(LOOK.PHONE_TEXT.input, r.h * k * 0.5) + "px" });
-}
-export function openNameInput(rect, slot) {
-  closeNameInput(true);
-  const el = document.createElement("input");
-  el.type = "text"; el.className = "name-input"; el.maxLength = CFG.NAME_MAX * 2; el.value = nameFor(slot);   // эмодзи — 2 знака UTF-16; cleanName режет до NAME_MAX
-  el.setAttribute("enterkeyhint", "done"); el.setAttribute("autocapitalize", "words"); el.setAttribute("autocomplete", "off"); el.spellcheck = false;
-  nameInput = { el, slot, rect };
-  placeNameInput();
-  el.addEventListener("keydown", e => {
-    e.stopPropagation();
-    if (e.key === "Enter") { e.preventDefault(); closeNameInput(true); }
-    else if (e.key === "Escape") { e.preventDefault(); closeNameInput(false); }
-  });
-  el.addEventListener("blur", () => closeNameInput(true));
-  wrap.appendChild(el);
-  el.focus(); el.select();
-}
-export function closeNameInput(save) {
-  if (!nameInput) return;
-  const { el, slot } = nameInput;
-  nameInput = null;
-  if (save && cleanName(el.value) !== nameFor(slot)) setName(slot, el.value);   // не менял — имя по умолчанию остаётся «языковым»
-  el.remove();
-}
-
 // Геймпады. SPEC-025 AC 7e: by Gamepad.index; padSlots[n] — the pad of player n (players in the order the pads first connected):
 // { index, id, connected, prev, x, y }. A pad that comes back (maybe at another index) takes the free slot it had (same id),
 // else the first free one; its first poll fires no button edges; only pads with the standard mapping press buttons
@@ -298,6 +254,7 @@ export function fillInputs() {
 
 // called once by main.js, in the start order of the one-file game
 export function initInput() {
+  setAfterFit(afterFit);                       // SPEC-039: fit() keeps the name input in place (the hook, so screen.js imports no input)
   window.addEventListener("keydown", e => {
     if (nameInput) return;                     // печатают имя: игровые клавиши (WASD, M, L, Esc…) не трогаем
     if (cardOpen()) {                          // SPEC-025: a card over the game — keys do not reach the game; Enter / Space press the card

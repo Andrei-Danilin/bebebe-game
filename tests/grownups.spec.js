@@ -53,7 +53,7 @@ test("the gate: a multiplication in words, four answers; wrong → a new questio
   await page.evaluate(w => { window.__bb.CFG.GATE_WRONG_WAIT = w; }, wait0);
   await answer(page, true);
   expect(await page.evaluate(() => [!!document.getElementById("grownups"), window.__bb.grownUps.gate])).toEqual([true, null]);
-  // SPEC-025 AC 12: the page shows the game version (package.json = src/version.js) with the module set's hash
+  // SPEC-025 AC 12: the page shows the game version (package.json = the game-version meta of index.html) with the module set's hash
   const pkgVersion = JSON.parse(require("fs").readFileSync(require("path").join(__dirname, "..", "package.json"), "utf8")).version;
   const srcHash = await page.evaluate(() => document.querySelector("meta[name=src-hash]").content);
   expect(await page.evaluate(() => document.querySelector("#grownups").textContent)).toContain(`Versión: ${pkgVersion}+${srcHash}`);

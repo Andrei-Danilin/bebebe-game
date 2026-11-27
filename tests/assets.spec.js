@@ -145,6 +145,6 @@ test("art-names.js and sw.js list every sprite (npm run assets keeps them in ste
   const sw = fs.readFileSync(SW, "utf8");
   // one by one, errors ignored (the core precache stays atomic); SPEC-011 AC 9: in their own cache, named by ASSETS_HASH
   expect(sw).toMatch(/PRECACHE_ASSETS\.map\(async u => \{[^}]*art\.add\([^)]*\)\)\.catch\(\(\) => \{\}\)/);
-  expect(sw).toContain('const CACHE_ASSETS = SW_VERSION + "-assets-" + ASSETS_HASH');
+  expect(sw).toContain('const CACHE_ASSETS = CACHE_PREFIX + "b" + SW_BUILD + "-assets-" + ASSETS_HASH');
   expect(sw).toContain('url.pathname.includes("/assets/")');
 });

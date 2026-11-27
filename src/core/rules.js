@@ -2,12 +2,12 @@
 // danger, resting. Core module.
 import { CELL, CFG, COLS, GLOVES, levelsPerWorld, ROWS, UPGRADES } from "./config.js";
 import { angDiff, clamp, dist, normAng, rand, rng, turnToward } from "./util.js";
-import { nearestExit } from "./bots.js";
-import { emit, logEcon, logEvent } from "./game.js";
+import { emit, logEcon, logEvent } from "./events.js";
+import { cellIdx, freeCellNear, nearestExit } from "./grid.js";
 import { bigMood, bossPower } from "./mood.js";
-import { cellIdx, resolveWalls, steerTo } from "./path.js";
+import { resolveWalls, steerTo } from "./path.js";
 import { fastTarget } from "./progress-rules.js";
-import { canAct, inDanger, inDangerXY, inSafe, los, moveSolidAt, seeSolidAt } from "./world.js";
+import { canAct, inDanger, inSafe, los, moveSolidAt, seeSolidAt } from "./world.js";
 import { G } from "./active.js";
 
 // прибавка улучшения k для этого маленького: его уровень (взят при создании; у ботов нет) × step
@@ -387,22 +387,6 @@ function throwOut(l) {
   emit("pop", { key: "thrownOut", args: [], x: l.x, y: l.y - 40, color: "#fca5a5", meaning: "out" });
   emit("burst", { kind: "star", x: l.x, y: l.y - 10, n: 10, color: "#fde047" });
   emit("sfx", { name: "thrown" });
-}
-// Ближайшая свободная клетка (не стена и не дом Большого), поиск в ширину
-export function freeCellNear(idx) {
-  const seen = new Uint8Array(COLS * ROWS), q = [idx];
-  seen[idx] = 1;
-  for (let h = 0; h < q.length; h++) {
-    const i = q[h], cx = i % COLS, cy = (i / COLS) | 0;
-    if (!G.blocked[i] && G.reachable[i] && !inDangerXY((cx + 0.5) * CELL, (cy + 0.5) * CELL)) return i;
-    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-      const nx = cx + dx, ny = cy + dy;
-      if (nx < 0 || ny < 0 || nx >= COLS || ny >= ROWS) continue;
-      const j = ny * COLS + nx;
-      if (!seen[j]) { seen[j] = 1; q.push(j); }
-    }
-  }
-  return idx;
 }
 export function updateResting(dt) {
   for (const l of G.littles) {

@@ -5,7 +5,7 @@ import * as THREE from "three";
 import { CELL, COLS, ROWS, TAU } from "../../core/config.js";
 import { mulberry32 } from "../../core/util.js";
 import { LOOK } from "../look.js";
-import { mapGroup } from "./map3d.js";
+import { mapGroup } from "./mapstate.js";
 import { INK3, ownMat, part, sphere, toon } from "./materials.js";
 import { WALL_H } from "./setup.js";
 import { tag, THEMES } from "./themes.js";

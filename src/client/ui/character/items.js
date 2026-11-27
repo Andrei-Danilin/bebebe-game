@@ -4,15 +4,18 @@
 import { GLOVES, KISSES, RESCUE_KIT } from "../../../core/config.js";
 import { progress } from "../../../core/economy.js";
 import { L } from "../../../i18n.js";
-import { ITEM_ART, paperUI } from "../../art.js";
+import { ITEM_ART } from "../../art.js";
+import { paperUI } from "../paper.js";
 import { LOOK } from "../../look.js";
 import { P_COLORS } from "../../outfits.js";
 import { ctx, OUT, UW } from "../../screen.js";
 import { buyGloves, buyKisses, buyRescueKit, setEquip } from "../../shop.js";
 import { ui } from "../../state.js";
-import { addButton, circle, drawArtFit, drawKiss, drawKit, drawMitten, fillStroke, rr } from "../draw.js";
+import { addButton, circle, drawKiss, drawKit, drawMitten, fillStroke, rr } from "../draw.js";
+import { drawArtFit } from "../artdraw.js";
 import { pButton } from "../menu.js";
-import { clipRows, cpx, fitText, fz, label, minPx, priceLabel, noteText, pDraw, pLabel, pRows, wrapText } from "../text.js";
+import { clipRows, fitText, fz, label, priceLabel, noteText, pDraw, pLabel, pRows, wrapText } from "../text.js";
+import { cpx, minPx } from "../layout.js";
 
 // карточки магазина (компьютер и телефон): рукавицы, мега-рукавицы, воздушные поцелуи, спасалка (SPEC-007)
 export const shopCards = () => [

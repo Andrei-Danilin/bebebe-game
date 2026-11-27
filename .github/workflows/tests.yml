@@ -1,5 +1,6 @@
-# SPEC-023: the whole Playwright suite in 4 parallel shards (SPEC-011: plus one lint job; SPEC-012: plus one Node core job;
-# SPEC-025 AC 10: plus one typecheck job; SPEC-037: plus one stall-guard job — every job must be green).
+# SPEC-023: the whole Playwright suite in parallel shards (SPEC-039: 10, packed by the measured time of each test — scripts/shards.js,
+# tests/shards/plan.json — so the slowest shard is about as long as the fastest; SPEC-011: plus one lint job; SPEC-012: plus one
+# Node core job; SPEC-025 AC 10: plus one typecheck job; SPEC-037: plus one stall-guard job — every job must be green).
 # - on every push of a spec branch (SPEC-*): the orchestrator merges only when this run is green;
 # - on pull requests into master (SPEC-025 AC 11: Dependabot's PRs; CLAUDE.md "Dependabot");
 # - by hand (workflow_dispatch);
@@ -7,7 +8,8 @@
 # SPEC-025 AC 10: Node is a pinned major and every action is pinned by commit SHA (the tag in the comment; Dependabot keeps them
 # current). `retries` stays 0 (one CI retry is decision D-15).
 # Each shard writes a blob report; the `report` job merges them into one HTML report (artifact `html-report`) and fails
-# when a shard failed. A failing shard also uploads its test-results/ (error context, failure screenshots) as
+# when a shard failed or a test ran twice or not at all (SPEC-039 AC 1: `scripts/shards.js --ran`).
+# A failing shard also uploads its test-results/ (error context, failure screenshots) as
 # `test-results-<shard>` (error context + failure screenshots; no traces are recorded). On CI the browser draws with SwiftShader (tests/test-env.js: process.env.CI).
 name: Tests
 
@@ -105,13 +107,13 @@ jobs:
       - run: npm run test:stall --if-present
 
   test:
-    name: shard ${{ matrix.shard }}/4
+    name: shard ${{ matrix.shard }}/10
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -130,14 +132,41 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
-      - name: Install Chromium and its system libraries
+      - name: Download Chromium (not in the cache)
         if: steps.pw-cache.outputs.cache-hit != 'true'
-        run: npx playwright install --with-deps chromium
-      - name: Install the system libraries (browsers from the cache)
-        if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: npx playwright install chromium
+      # SPEC-039 AC 2: the apt step once hung for 7m48s on a shard (SPEC-023): it is its own step with a 4 minute limit and one retry,
+      # so a hang fails (or is retried) fast and says which step it was
+      # CI 45957040604: `apt-get update` failed on the runner's packages.microsoft.com source (403, "no longer signed") — the browser's
+      # libraries come from Ubuntu's own archive, so every other source list is removed first (never fails when there is none)
+      - name: Drop the runner's third-party apt sources (only Ubuntu's are needed)
+        run: |
+          shopt -s nullglob
+          for f in /etc/apt/sources.list.d/*; do
+            case "$(basename "$f")" in ubuntu*) ;; *) sudo rm -f "$f" ;; esac
+          done
+          true
+      - name: Install the system libraries for Chromium (apt, 4 min limit)
+        id: deps
+        timeout-minutes: 4
+        continue-on-error: true
         run: npx playwright install-deps chromium
-      - name: Run shard ${{ matrix.shard }}/4
-        run: npx playwright test --shard ${{ matrix.shard }}/4 --reporter=blob,dot
+      - name: Install the system libraries for Chromium (apt, retry after a hang or an error)
+        if: steps.deps.outcome == 'failure'
+        timeout-minutes: 4
+        run: |
+          sudo dpkg --configure -a || true
+          sleep 5
+          npx playwright install-deps chromium
+      # a rollback ref from before SPEC-039 (pages.yml `ref`) has no shard plan: Playwright's own count split of 10 runs it
+      - name: Run shard ${{ matrix.shard }}/10
+        run: |
+          if [ -f scripts/shards.js ]; then
+            node scripts/shards.js list ${{ matrix.shard }} > shard-list.txt
+            npx playwright test --test-list shard-list.txt --reporter=blob,dot
+          else
+            npx playwright test --shard ${{ matrix.shard }}/10 --reporter=blob,dot
+          fi
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ !cancelled() }}
         with:
@@ -181,13 +210,21 @@ jobs:
           path: playwright-report/
           retention-days: 14
       # RR-83: a shard whose blob report is missing (an upload that failed, a shard that never ran) must not pass as a complete
-      # report: the job fails unless all 4 were downloaded (what was there is still merged and uploaded above)
-      - name: Check all 4 blob reports were merged
+      # report: the job fails unless all 10 were downloaded (what was there is still merged and uploaded above)
+      - name: Check all 10 blob reports were merged
         if: ${{ always() }}
         run: |
           n=$(find all-blob-reports -maxdepth 1 -name '*.zip' | wc -l)
-          if [ "$n" -ne 4 ]; then echo "expected 4 blob reports, got $n"; ls -la all-blob-reports || true; exit 1; fi
-          echo "4 blob reports"
+          if [ "$n" -ne 10 ]; then echo "expected 10 blob reports, got $n"; ls -la all-blob-reports || true; exit 1; fi
+          echo "10 blob reports"
+      # SPEC-039 AC 1: no test is dropped or doubled by the shard plan — the merged report holds every test of the suite once
+      - name: Check every test ran exactly once
+        if: ${{ needs.test.result == 'success' }}
+        run: |
+          if [ -f scripts/shards.js ]; then
+            npx playwright merge-reports --reporter=json ./all-blob-reports > merged.json
+            node scripts/shards.js --ran merged.json
+          fi
       - name: Fail when a shard failed
         if: ${{ needs.test.result != 'success' }}
         run: |

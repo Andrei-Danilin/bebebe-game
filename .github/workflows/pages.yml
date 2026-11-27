@@ -46,7 +46,7 @@ jobs:
       - id: sha
         run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
-  # SPEC-023: the same 4 sharded test jobs as on spec branches (tests.yml), on the resolved commit
+  # SPEC-023: the same sharded test jobs as on spec branches (tests.yml), on the resolved commit
   test:
     needs: resolve
     uses: ./.github/workflows/tests.yml

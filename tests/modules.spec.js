@@ -297,7 +297,8 @@ const coreCode = () => srcFiles(path.join(ROOT, "src", "core")).map(f => [relNam
 const allSrc = () => srcFiles(path.join(ROOT, "src")).map(relName).sort();
 const readRoot = f => fs.readFileSync(path.join(ROOT, f), "utf8");
 // code without comments and string contents (a comment or a text may name anything)
-const codeOnly = s => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|\s)\/\/.*$/gm, "$1")
+const noComments = s => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|\s)\/\/.*$/gm, "$1");   // SPEC-039: also what the import scan reads
+const codeOnly = s => noComments(s)
   .replace(/"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|`(?:[^`\\]|\\.)*`/g, "\"\"");
 
 // AC 3b: the core reaches the client only through one port, src/core/hooks.js: setHooks({ … }) with no-op defaults (the Node
@@ -369,7 +370,7 @@ const CORE_MODULE_STATE = {
   "src/core/util.js:rngOff": "the gameplay-rng guard: the name of the code that must not draw it (test switch, AC 1)",
   "src/core/util.js:strictRng": "the strict rng guard of the tests (AC 1)",
   "src/core/hooks.js:hookImpl": "the hooks the client registered (AC 1: the hooks)",
-  "src/core/level/build.js:levelCache": "the accepted attempt per level key: pure per key, shared by all games (AC 1)",
+  "src/core/level/load.js:levelCache": "the accepted attempt per level key: pure per key, shared by all games (AC 1)",
   "src/core/economy.js:progress": "the player's economy (AC 1b: session economy data)",
   "src/core/economy.js:ledger": "the session coin book: survives startGame, the shop writes it (AC 1b)",
   // constant tables: data the game reads and never writes (CFG and the price tables are tuned by tests through __bb.CFG / __bb.*)
@@ -753,4 +754,75 @@ test("no script or test reads game code from index.html", { tag: "@fast" }, () =
   // the numbers, the art names and the menus' look come from src/ (AC 8c)
   expect(readRoot("scripts/docs-numbers.js")).toContain("\"src\", \"core\", \"config.js\"");
   expect(readRoot("scripts/assets.js")).toContain("\"src\", \"client\", \"art-names.js\"");
+});
+
+// SPEC-039 AC 5 / 6: no import cycles. The core had a 13-module cycle through game.js (emit, logEvent, newGame came from the hub
+// that imports every rule) and the client a 39-module one (a screen module imports flow.js, flow.js imports the screens). A cycle
+// makes the evaluation order matter and every module in it unusable alone; now the graph of static imports (`import … from`,
+// `export … from`, bare `import "./x.js"`, dynamic `import("./x.js")`; relative paths, comments stripped first) of src/core + the shared
+// data, and of src/client, are acyclic (Tarjan's components).
+const relImports = text => [...text.matchAll(/^\s*(?:import|export)\b[^;]*?\bfrom\s*["'](\.[^"']+)["']|^\s*import\s*["'](\.[^"']+)["']|\bimport\s*\(\s*["'](\.[^"']+)["']\s*\)/gm)].map(m => m[1] || m[2] || m[3]);
+function importCycles(prefix) {
+  const files = allSrc(), deps = {};
+  for (const f of files) {
+    deps[f] = relImports(noComments(readRoot(f))).map(r => path.posix.normalize(path.posix.join(path.posix.dirname(f), r)));
+    for (const d of deps[f]) expect(files.includes(d), `${f} imports ${d}, which exists`).toBe(true);
+  }
+  let idx = 0;
+  const stack = [], on = new Set(), I = {}, low = {}, cycles = [];
+  const visit = v => {
+    I[v] = low[v] = idx++; stack.push(v); on.add(v);
+    for (const w of deps[v]) {
+      if (!(w in I)) { visit(w); low[v] = Math.min(low[v], low[w]); } else if (on.has(w)) low[v] = Math.min(low[v], I[w]);
+    }
+    if (low[v] === I[v]) {
+      const comp = [];
+      let w;
+      do { w = stack.pop(); on.delete(w); comp.push(w); } while (w !== v);
+      if (comp.length > 1 || deps[v].includes(v)) cycles.push(comp.sort());
+    }
+  };
+  files.forEach(f => { if (!(f in I)) visit(f); });
+  return { cycles: cycles.filter(c => c.some(f => f.startsWith(prefix))), modules: files.filter(f => f.startsWith(prefix)).length };
+}
+test("the import scan sees static, bare and dynamic imports and ignores comments", { tag: "@fast" }, () => {
+  const text = noComments("import { a } from \"./a.js\";\nexport * from \"./b.js\";\nimport \"./c.js\";\nconst d = await import(\"./d.js\");\n// import { x } from \"./commented.js\";\n/* import \"./block.js\"; */\nimport { e } from \"three\";\n");
+  expect(relImports(text)).toEqual(["./a.js", "./b.js", "./c.js", "./d.js"]);
+});
+test("the core's import graph has no cycle", { tag: "@fast" }, () => {
+  const { cycles, modules } = importCycles("src/core/");
+  expect(modules, "the scan sees the core").toBeGreaterThan(15);
+  expect(cycles, "modules that import each other round (a cycle)").toEqual([]);
+});
+test("the client's import graph has no cycle", { tag: "@fast" }, () => {
+  const { cycles, modules } = importCycles("src/client/");
+  expect(modules, "the scan sees the client").toBeGreaterThan(45);
+  expect(cycles, "modules that import each other round (a cycle)").toEqual([]);
+});
+// SPEC-039 review: the screen is written by one function, setMode in flow.js (it also resets the menus' state of the screen left); state.js only
+// holds it. Another module calling setModeValue would change the screen without that reset.
+test("only flow.js calls setModeValue", { tag: "@fast" }, () => {
+  const users = allSrc().filter(f => f !== "src/client/state.js" && /\bsetModeValue\b/.test(codeOnly(readRoot(f))));
+  expect(users, "modules that name setModeValue besides state.js").toEqual(["src/client/flow.js"]);
+});
+
+// SPEC-039 review: the "by depth" lists of architecture.md (longest import path down to a module with no import) are computed here and
+// compared — a new module or a moved import that changes a depth makes the doc say so.
+test("the depth lists in architecture.md are the real depths", { tag: "@fast" }, () => {
+  const files = allSrc(), deps = {};
+  for (const f of files) deps[f] = relImports(noComments(readRoot(f))).map(r => path.posix.normalize(path.posix.join(path.posix.dirname(f), r)));
+  const memo = {};
+  const depth = f => memo[f] ?? (memo[f] = deps[f].length ? 1 + Math.max(...deps[f].map(depth)) : 0);
+  const doc = fs.readFileSync(ARCH, "utf8");
+  for (const [label, prefix] of [["Core", "src/core/"], ["Client", "src/client/"]]) {
+    const line = doc.split("\n").find(l => l.startsWith(`- **${label}, by depth:**`));
+    expect(line, `the "${label}, by depth" line`).toBeTruthy();
+    const written = {};
+    for (const part of line.slice(line.indexOf(":**") + 3).split(" · ")) {
+      const [, n, names] = part.trim().match(/^(\d+) (.*)$/) || [];
+      for (const [, name] of (names || "").matchAll(/`([^`]+)`/g)) written[prefix + name + ".js"] = Number(n);
+    }
+    const real = Object.fromEntries(files.filter(f => f.startsWith(prefix)).map(f => [f, depth(f)]));
+    expect(written, `${label}: the depth of each module`).toEqual(real);
+  }
 });

@@ -4,19 +4,20 @@
 import { progress } from "../../../core/economy.js";
 import { BIG_SKINS, SLOTS } from "../../../core/wardrobe.js";
 import { L, lang } from "../../../i18n.js";
-import { art, paperUI, WARDROBE_ART } from "../../art.js";
-import { openNameInput } from "../../input.js";
+import { art, WARDROBE_ART } from "../../art.js";
+import { paperUI } from "../paper.js";
+import { openNameInput } from "../../devices.js";
 import { LOOK } from "../../look.js";
 import { BOT_SLOTS, nameFor } from "../../names.js";
 import { botOutfit, buyArmed, buyLook, cycleBig, cycleOutfit, lockedItems, lockedPrice, makeLook, ownsItem, P_COLORS, randomOutfit, skinSel } from "../../outfits.js";
 import { ctx, OUT, PHONE, UW } from "../../screen.js";
 import { ui } from "../../state.js";
 import { skinCx, skinPanels } from "../../three/previews.js";
-import { iconOnlyButton } from "./tabs.js";
-import { addButton, circle, drawArtFit, drawCoin, fillStroke, fillT, noteArt, rr } from "../draw.js";
-import { phoneSkinCols } from "../menu.js";
-import { cpx, fitText, fz, label, noteRows, noteText, pLabel, plainText, pText, priceLabel, pWrap } from "../text.js";
-import { fitLine } from "../win.js";
+import { iconOnlyButton } from "../buttons.js";
+import { addButton, circle, drawCoin, fillStroke, rr } from "../draw.js";
+import { drawArtFit, fillT, noteArt } from "../artdraw.js";
+import { fitLine, fitText, fz, label, noteRows, noteText, pLabel, plainText, priceLabel, pText, pWrap } from "../text.js";
+import { cpx, phoneSkinCols } from "../layout.js";
 
 // ---------- SPEC-009: гардероб — замки, «Купить», подписи (вкладка «Гардероб» магазина, компьютер и телефон) ----------
 // цена замочка в строке слота (0 — вещь своя); sl = слот или «look» (Большой)
@@ -65,22 +66,6 @@ function lookBuy(key, r, note) {
   if (poor) previewNote(key, note, L().notEnough, "#fecaca");
   else if (armed) previewNote(key, note, L().tapAgain, "#fde047");
 }
-// кнопка, надпись которой меряется с LOOK.TEXT_TEST_SCALE и сжимается до min (потом «…»); textW — ширина с этим множителем
-export function fitButton(x, y, w, h, text, color, act, size, min) {
-  const f = fitLine(text, size, min, w - (PHONE ? cpx(14) : 14));
-  const b = addButton(x, y, w, h, f.text, color, act, f.sz);
-  b.textW = f.w; b.size = f.sz;
-  return b;
-}
-// строки noteRows от верхнего края y по центру cx (+ прямоугольник в hudRects); возвращает высоту
-export function rowsAt(id, b, cx, y, color, weight = 800) {
-  const lh = b.sz * 1.2;
-  ctx.font = `${weight} ${b.sz}px system-ui, "Segoe UI", sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = color;
-  b.rows.forEach((q, i) => fillT(q, cx, y + lh * (i + 0.5)));
-  ui.hudRects.push({ id, x: cx - b.w / 2, y, w: b.w, h: b.rows.length * lh, text: b.rows.join(" "), rows: b.rows.slice(), size: b.sz });
-  return b.rows.length * lh;
-}
-
 // ---------- SPEC-017: вкладка «Гардероб» магазина — бывший экран нарядов (SPEC-003/009) и имена друзей ----------
 const LOOK_TITLES = () => ({ p1: [L().player1, P_COLORS[0]], p2: [L().player2, P_COLORS[1]], big: [L().big, LOOK.MENU_LOOK.bigInk] });
 // стрелки ◀ ▶ строки наряда: id «cycle:<колонка>:<слот>:±1»

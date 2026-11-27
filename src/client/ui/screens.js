@@ -2,25 +2,28 @@
 // out of index.html in Phase C).
 
 import { L } from "../../i18n.js";
-import { paperCache, paperUI } from "../art.js";
-import { backToWardrobe, closeShop, inMenus, mode, openFriends } from "../flow.js";
-import { nameInput, placeNameInput } from "../input.js";
+import { paperCache, paperUI } from "./paper.js";
+import { backToWardrobe, closeShop, openFriends } from "../flow.js";
+import { nameInput, placeNameInput } from "../devices.js";
 import { LOOK } from "../look.js";
 import { ctx, PHONE, rotateWall, UH, UW, VIEW } from "../screen.js";
-import { ui } from "../state.js";
+import { inMenus, mode, ui } from "../state.js";
 import { itemsDesktop, itemsPhone } from "./character/items.js";
 import { progressPage } from "./character/progress.js";
 import { phoneShopBar, shopTabs } from "./character/tabs.js";
 import { upgradeCardsDesktop, upgradeCardsPhone } from "./character/upgrades.js";
-import { coinPlate, fitButton, wardrobeDesktop, wardrobePhone } from "./character/wardrobe.js";
+import { coinPlate, wardrobeDesktop, wardrobePhone } from "./character/wardrobe.js";
+import { fitButton } from "./buttons.js";
 import { addButton, drawFx, drawMarkers, drawMood } from "./draw.js";
 import { drawHome } from "./home.js";
 import { drawLangScreen } from "./lang.js";
 import { drawBanner, drawHUD } from "./hud.js";
+import { drawHUDPhone } from "./phone.js";
 import { drawLevelCard, drawMap } from "./map.js";
 import { menuFrame, phoneFrame } from "./menu.js";
 import { drawScene, drawStory } from "./story.js";
-import { cpx, fitText, label, pWrap } from "./text.js";
+import { fitText, label, pWrap } from "./text.js";
+import { cpx } from "./layout.js";
 import { endPhone, loseDesktop, pauseDesktop, pausePhone, winDesktop } from "./win.js";
 
 function drawOverlayPhone() {
@@ -83,7 +86,7 @@ export function drawUI(t) {
   if (!paperUI()) paperCache.length = 0;                           // SPEC-020: и листы бумажных панелей — вне бумажных экранов
   ctx.setTransform(VIEW, 0, 0, VIEW, 0, 0);
   ctx.clearRect(0, 0, UW, UH);
-  if (!inMenus()) { drawMarkers(t); drawMood(t); drawFx(); drawHUD(t); } else ui.moodInfo = null;
+  if (!inMenus()) { drawMarkers(t); drawMood(t); drawFx(); if (PHONE) drawHUDPhone(t); else drawHUD(t); } else ui.moodInfo = null;
   if (mode === "play" && ui.banner) drawBanner();
   drawOverlay();
   if (PHONE && nameInput) {                // телефон: поле ввода следует за своей подписью (клавиатура могла поменять высоту экрана)

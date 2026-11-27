@@ -1,7 +1,7 @@
 // SPEC-019 / SPEC-011: the Big One hears running feet. Core module.
 import { CELL, CFG } from "./config.js";
 import { angDiff, dist, normAng, rand, rng } from "./util.js";
-import { emit, logEvent } from "./game.js";
+import { emit, logEvent } from "./events.js";
 import { inSafe, los, seeSolidAt } from "./world.js";
 import { G } from "./active.js";
 

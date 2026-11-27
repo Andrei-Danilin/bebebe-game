@@ -4,17 +4,19 @@
 import { CFG, levelsPerWorld } from "../../core/config.js";
 import { bossFor } from "../../core/mood.js";
 import { L } from "../../i18n.js";
-import { art, paperPanel, paperUI } from "../art.js";
-import { lastReward, mode, nextLevel, resumeGame, retryLevel, shopAfterLose, shopAfterWin, toHome, toMap } from "../flow.js";
+import { art } from "../art.js";
+import { paperPanel, paperUI } from "./paper.js";
+import { lastReward, nextLevel, resumeGame, retryLevel, shopAfterLose, shopAfterWin, toHome, toMap } from "../flow.js";
 import { LOOK } from "../look.js";
 import { nameFor } from "../names.js";
 import { ctx, OUT, PHONE, UH, UW } from "../screen.js";
-import { ui } from "../state.js";
+import { mode, ui } from "../state.js";
 import { restartTutorialGame, tutorialSkip } from "../tutorial.js";
-import { fitButton } from "./character/wardrobe.js";
+import { fitButton } from "./buttons.js";
 import { addButton, coinIcon, drawStarArt, fillStroke, rr } from "./draw.js";
 import { pButton, phoneFrame } from "./menu.js";
-import { clipRows, cpx, fitText, fmtHearts, fmtTime, hudFont, label, labelFit, lastFit, noteText, pDraw, pLabel, pRows, pWrap, scaledW, titleRows } from "./text.js";
+import { clipRows, fitLine, fitText, fmtHearts, fmtTime, label, labelFit, lastFit, noteText, pDraw, pLabel, pRows, pWrap, titleRows } from "./text.js";
+import { cpx } from "./layout.js";
 import { G } from "../../core/active.js";
 
 // =====================================================================
@@ -45,14 +47,6 @@ function winText() {
 // Каждый текст меряется с LOOK.TEXT_TEST_SCALE, сжимается не мельче min, потом режется «…»; части — в hudRects
 // (win-line:<reason> — название, win-num:<reason> — сумма; итог — :total), рамка всех строк — winPanel (для тестов).
 const RW_ICONS = { firstWin: "🏆", replay: "🔁", newStars: "⭐", star: "✨", hugs: "🤗", rests: "😴" };
-export function fitLine(text, size, min, maxW) {
-  let sz = size;
-  ctx.font = hudFont(sz);
-  while (scaledW(text) > maxW && sz > min) { sz = Math.max(min, sz - 0.5); ctx.font = hudFont(sz); }
-  let chs = Array.from(text);
-  while (chs.length > 1 && scaledW(text) > maxW) { chs = chs.slice(0, -1); text = chs.join("").trimEnd() + "…"; }
-  return { text, sz, w: scaledW(text) };
-}
 // x, y — левый верхний угол, w — ширина; rowH — шаг строк; size/min — кегль строк; big/bigMin — кегль суммы итога (UI px)
 function drawRewardLines(rw, x, y, w, rowH, size, min, big, bigMin) {
   const parts = rw.parts || [], gap = size * 0.6, totalH = rowH * 1.4, r = size * 0.55;

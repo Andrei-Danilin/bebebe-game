@@ -16,10 +16,10 @@
 
 import { L } from "../i18n.js";
 import { hideCard, showCard } from "./errors.js";
-import { goBack, mode } from "./flow.js";
+import { goBack } from "./flow.js";
 import { LOOK } from "./look.js";
 import { isStandalone, simMode } from "./screen.js";
-import { ui } from "./state.js";
+import { mode, ui } from "./state.js";
 
 // __bb.back: how many times "Yes" was chosen; noLeave — the tests count the leaves without navigating
 export const backInfo = { leaves: 0, noLeave: false };
