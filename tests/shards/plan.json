@@ -2,9 +2,9 @@
  "shards": 10,
  "entries": [
   [
-   ["back.spec.js"],
    ["errors.spec.js"],
-   ["gameplay.spec.js"]
+   ["gameplay.spec.js"],
+   ["storyfit.spec.js"]
   ],
   [
    ["i18n.spec.js","1280×720 desktop","in Portuguese no screen draws an English, Spanish or Russian word (1280×720 desktop)"],
@@ -39,15 +39,15 @@
    ["i18n.spec.js","the Portuguese story texts are in docs/story.md"],
    ["i18n.spec.js","the tiptoe rule and the heard hints are in every language"],
    ["lifecycle.spec.js"],
-   ["storyfit.spec.js"]
+   ["look3d.spec.js"]
   ],
   [
    ["art.spec.js"],
-   ["input-safety.spec.js"],
+   ["back.spec.js"],
    ["smoke.spec.js"]
   ],
   [
-   ["look3d.spec.js"],
+   ["input-safety.spec.js"],
    ["pwa.spec.js"],
    ["tutorial.spec.js","How to play fits the phone 667×375: rules with art icons, the picture, the touch line, Pictures and Practice"],
    ["tutorial.spec.js","How to play: rules with art icons, the tutorial picture, controls, Pictures and Practice (desktop)"],

@@ -313,6 +313,8 @@
  "look3d.spec.js › equipping a glove re-dresses the kid in the menus": 4.3,
  "look3d.spec.js › every world's ground has diagonal marker strokes over its THEMES colour; walls and roofs are hatched": 5.2,
  "look3d.spec.js › outlines are black #1b1b1b, twice as thick, with a seeded wobble that CFG.OUTLINE_WOBBLE turns off @fast": 7.8,
+ "look3d.spec.js › SPEC-040 AC 2: the map is drawn in batches, hulls cast no shadow, geometries are shared": 5,
+ "look3d.spec.js › SPEC-040 AC 5: trees, bushes and roofs are opaque until a fade starts, transparent while fading, opaque again when back": 13,
  "look3d.spec.js › switching levels keeps the renderer's texture and geometry count flat": 6.1,
  "look3d.spec.js › the dad is the Big One of a new save and of an old default save; other old costumes and a new Classic stay": 3.9,
  "look3d.spec.js › the dad: bald with stubble, small eyes, heavy brows, big nose, red t-shirt, jeans, sneakers — with hooks for his moods @fast": 0.9,

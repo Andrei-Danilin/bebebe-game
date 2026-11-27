@@ -200,7 +200,6 @@ test("SPEC-040 AC 1: decoded sprite memory at the home screen is at most 25 MB",
 // ---------- AC 2: draw calls (colour + shadow) of the busiest level of each world (RR-42) ----------
 for (const [name, view, limit] of [["phone", PHONE, 300], ["tablet", TABLET, 600]]) {
   test(`SPEC-040 AC 2: the busiest level of each world draws at most ${limit} calls on the ${name} view`, async ({ page }) => {
-    test.fail();   // SPEC-040 step 4 turns this on (shared geometries, instanced decor, hulls cast no shadow)
     test.setTimeout(180_000);
     const errors = await openView(page, view);
     const worlds = await page.evaluate(() => window.__bb.WORLDS);

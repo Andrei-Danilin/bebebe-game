@@ -11,6 +11,7 @@ import { CSS_H, CSS_W, PHONE } from "../screen.js";
 import { inMenus, mode, ui } from "../state.js";
 import { cam, camDist } from "./camera.js";
 import { bossScale, modelOf, setBigFace, setCloak } from "./characters.js";
+import { setFading } from "./batch.js";
 import { fadeRoofs } from "./houses.js";
 import { bigHomeMats, fadeBushes, fadeTrees, safeGlow, snow } from "./map3d.js";
 import { waves } from "./mapstate.js";
@@ -283,6 +284,14 @@ function syncBig(b, t) {
   } else { m.arms[0].rotation.z = -0.25; m.arms[1].rotation.z = 0.25; }   // как при постройке (k × 0.25)
   if (m.blink) m.blink.material.emissiveIntensity = Math.floor(t * 3) % 2 ? 1 : 0.2;
 }
+// SPEC-040 AC 5: a tree or bush is the opaque instanced drawing until its fade starts; while it fades (and while it stays faded) it is drawn
+// from its own transparent materials; once fully back (a within FADE_SETTLED of 1, nothing behind it) it snaps to 1 and is instanced again
+function fadeStep(f, goal) {
+  const solid = goal === 1 && 1 - f.a < LOOK.FADE_SETTLED;
+  if (solid) f.a = 1;
+  setFading(f, !solid);
+  if (!solid) for (const mt of f.mats) { mt.opacity = f.a; mt.userData.outline.opacity = f.a; mt.depthWrite = f.a > 0.95; }
+}
 let lastSyncT = 0;
 // returns true while a fade (roof, tree, bush) is still moving: a frozen scene (the pause menu) is drawn again until it has settled
 function syncScene(t) {
@@ -308,14 +317,14 @@ function syncScene(t) {
     const goal = behind ? 0.35 : 1;
     if (Math.abs(goal - ft.a) > LOOK.FADE_SETTLED) moving = true;
     ft.a += (goal - ft.a) * 0.2;
-    for (const mt of ft.mats) { mt.opacity = ft.a; mt.userData.outline.opacity = ft.a; mt.depthWrite = ft.a > 0.95; }
+    fadeStep(ft, goal);
   }
   for (const fb of fadeBushes) {
     const inside = G.littles.some(l => l.kind === "player" && Math.hypot(l.x - fb.b.x, l.y - fb.b.y) < fb.b.r + 4);
     const goal = inside ? 0.45 : 1;
     if (Math.abs(goal - fb.a) > LOOK.FADE_SETTLED) moving = true;
     fb.a += (goal - fb.a) * 0.2;
-    for (const mt of fb.mats) { mt.opacity = fb.a; mt.userData.outline.opacity = fb.a; mt.depthWrite = fb.a > 0.95; }
+    fadeStep(fb, goal);
   }
   for (const [i, wv] of waves.entries()) wv.position.y = (wv.userData.baseY ?? 0.04) + Math.sin(t * 2 + i) * 0.01, wv.rotation.z = Math.sin(t + i) * 0.3;
   if (snow) {

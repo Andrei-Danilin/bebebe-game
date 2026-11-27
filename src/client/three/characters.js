@@ -9,6 +9,7 @@ import { KID_HEAD_R, LOOK } from "../look.js";
 import { P_COLORS } from "../outfits.js";
 import { simMode } from "../screen.js";
 import { dressBoss } from "./bosses.js";
+import { mergeModel } from "./batch.js";
 import { buildMap3D, builtKey, mapKey } from "./map3d.js";
 import { mapGroup } from "./mapstate.js";
 import { capsule, disposeTree, gradTex, INK3, ownMat, part, sphere, toon, wobbleSeed } from "./materials.js";
@@ -43,6 +44,8 @@ function addFace(head, r, opts = {}) {
   const kid = !opts.big && !opts.small, mr = kid ? K.smile : 0.17, mw = kid ? K.smileW : 0.045;
   const mouth = new THREE.Mesh(new THREE.TorusGeometry(r * mr, r * mw, 6, 12, Math.PI), toon(INK3));
   mouth.rotation.z = Math.PI; mouth.position.set(0, -r * 0.3, r * 0.93); head.add(mouth); f.mouth = mouth;
+  // SPEC-040 AC 2: the features of the face cast no shadow of their own (the head's shadow is the same shape; one shadow draw each less)
+  head.traverse(o => { if (o.isMesh && (f.eyes.includes(o) || f.cheeks.includes(o) || f.brows.includes(o) || o === mouth)) o.userData.noShadow = true; });
   return f;
 }
 function addHair(head, look) {
@@ -325,7 +328,7 @@ export function buildBigModel(sk) {
   const top = new THREE.Group(); top.position.y = head.position.y + r + 0.2; rig.add(top);
   const torso = new THREE.Group(); torso.position.y = body.position.y; rig.add(torso);
   const anchors = { head: headSurf, top, torso, handL: hands[1], handR: hands[0] };   // лицом к +z: левая рука — +x
-  root.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  root.traverse(o => { if (o.isMesh && !o.userData.noShadow) o.castShadow = true; });
   return { root, rig, legs, arms, head, body, bodyMat, headMat, cheeks, face, sweat, stars, blink,
     look: sk.id, faceMats, faceBase: sk.skin, moodFace: !!sk.mood, topH: top.position.y, stubbleMat, stubbleK: sk.stubble || 1, anchors, headTop: top, outfitAnchor: torso,
     mats: { shirt: bodyMat, pants: pantsMat, shoes: shoeMat, face: headMat, stubble: stubbleMat }, dad };
@@ -351,6 +354,7 @@ function buildCharacters() {
     const m = buildLittleModel(l.look, l.kind === "player", l.id, l.kind === "player" ? gloveOf(l.id) : null);
     m.rig.scale.setScalar(LITTLE_SCALE); m.ghost.scale.setScalar(LITTLE_SCALE);
     charGroup.add(m.root, m.ghost);
+    mergeModel(m);                       // SPEC-040 AC 2: a draw call per moving node and material, not per part
     models.set("L" + l.id, m);
   }
   // SPEC-022: босс уровня — папа в образе босса (BOSS_LOOKS), крупнее (bossScale)
@@ -358,6 +362,7 @@ function buildCharacters() {
   if (G.big.boss) dressBoss(bm, G.big.boss);
   bm.rig.scale.setScalar(BIG_SCALE * bossScale(G.big));
   charGroup.add(bm.root);
+  mergeModel(bm);
   models.set("big", bm);
 }
 // SPEC-040 AC 3: how many times the scene was rebuilt (a new look, a new level, a restored context): main.js draws the world once after each,

@@ -69,14 +69,41 @@ export const wobbleSeed = n => { wobRng = mulberry32(LOOK.OUTLINE_LOOK.seed + n)
 const wob = a => (wobRng() * 2 - 1) * a;
 // Деталь с контуром (контур — та же форма чуть больше, изнанкой наружу). SPEC-021: толщина × OUTLINE_LOOK.k, чуть неровная:
 // по каждой оси своя толщина (± wobble) и оболочка чуть сдвинута (± shift толщины) — одна сторона линии толще другой
+// SPEC-040 AC 2: shared geometries. While a map is being built (beginGeoScope … endGeoScope, called by buildMap3D) a standard geometry
+// (BoxGeometry, CylinderGeometry, … with plain-number parameters) that has been made before is not made again: part() and the batching
+// pass take the first one of the same type and parameters; the duplicate is dropped (it was never uploaded). A geometry that was
+// moved after its construction (translate) or has no plain parameters (shapes, custom buffers) is never merged with another.
+let geoScope = null;
+const plain = p => !!p && Object.values(p).every(v => v === undefined || v === null || typeof v !== "object");
+export const geoKey = g => (plain(g.parameters) ? g.type + JSON.stringify(g.parameters) : null);
+export const beginGeoScope = () => { geoScope = new Map(); };
+export const endGeoScope = () => { geoScope = null; };
+export function sharedGeo(g) {
+  if (!geoScope) return g;
+  const k = geoKey(g);
+  if (k === null) return g;
+  const first = geoScope.get(k);
+  if (!first) { geoScope.set(k, g); return g; }
+  if (first !== g) g.dispose();
+  return first;
+}
+// SPEC-040 AC 2: a hull never casts a shadow (the part's own shadow is the same shape; the hull doubled the shadow pass). The many
+// "castShadow = true" over a whole model (traverse) must not switch it on again, so this mesh ignores the write.
+class HullMesh extends THREE.Mesh {
+  /** @param {any} geo @param {any} mat */
+  constructor(geo, mat) { super(geo, mat); }
+  get castShadow() { return false; }
+  set castShadow(v) { /* never */ }
+}
 export function part(geo, color, outline = 0.03, mat = null) {
+  geo = sharedGeo(geo);
   const m = new THREE.Mesh(geo, mat || toon(color));
   m.castShadow = true;
   if (outline > 0) {
     const L = LOOK.OUTLINE_LOOK, on = LOOK.OUTLINE_WOBBLE, t = outline * L.k;
     geo.computeBoundingBox();
     const sz = new THREE.Vector3(); geo.boundingBox.getSize(sz);
-    const o = new THREE.Mesh(geo, mat ? mat.userData.outline : OUTLINE);
+    const o = new HullMesh(geo, mat ? mat.userData.outline : OUTLINE);
     const tx = t * (1 + (on ? wob(L.wobble) : 0)), ty = t * (1 + (on ? wob(L.wobble) : 0)), tz = t * (1 + (on ? wob(L.wobble) : 0));
     o.scale.set(1 + 2 * tx / Math.max(sz.x, 0.02), 1 + 2 * ty / Math.max(sz.y, 0.02), 1 + 2 * tz / Math.max(sz.z, 0.02));
     if (on) o.position.set(wob(L.shift) * tx, wob(L.shift) * ty, wob(L.shift) * tz);
