@@ -24,6 +24,7 @@ import { fitText, fmtTime, fz, label, labelFit, lastFit, noteRows, noteText } fr
 import { cpx, hudFont, minimapRect, minPx, phoneTopBar } from "./layout.js";
 import { G } from "../../core/active.js";
 import { gameInv, gloveOf } from "../../core/rules.js";
+import { bellPhase } from "../../core/tricks/bell.js";
 import { textW } from "./measure.js";
 
 // Сердечко i в полоске: 1 — целое, 0.5 — половинка, 0 — пустое
@@ -79,6 +80,8 @@ export function drawHUD(t) {
   }
   rr(UW / 2 - 95, 8, 110, 34, 14); fillStroke("rgba(255,255,255,.8)", 3);
   label(timerText(), UW / 2 - 40, 25, 14, OUT);
+  drawBellHud(UW / 2 - 95, 48, 110, 34, 14, t, 14, 9);                       // SPEC-042: the school bell under the timer
+  drawFreeze(UW / 2, 92, 220, 54, 22, 32, 14);
   iconButton("round_pause", UW / 2 + 22, 8, 40, 34, "II", "#64748b", () => { setMode("pause"); }, 16);
   if (fullscreenShown()) iconButton("ui_fullscreen", UW / 2 + 68, 8, 40, 34, "⛶", "#64748b", toggleFullscreen, 18).onUp = true;   // на iPhone нет Fullscreen API; SPEC-025 AC 7c: на отпускании (жест)
   // SPEC-029: в тренировке — маленькая «Пропустить» справа от кнопок (обучение целиком; то же есть в паузе)
@@ -97,6 +100,51 @@ export function drawHUD(t) {
   // SPEC-019: ещё выше; в первые секунды на сенсорном экране — и над подписью «води пальцем»
   if (heardHintOn()) drawHeardHint(UW / 2 - 300, UH - 20 - (resting.length + (kitHintOn() ? 1 : 0)) * 44 - (isTouch && G.stats.time < 5 ? 30 : 0), 600, 18, 12, 12);
   if (tutorialHintOn()) ui.tutorialHintRect = hintPlate("tutorialHint", tutorialHintText(), UW / 2 - 300, UH - 20 - (isTouch && G.stats.time < 5 ? 30 : 0), 600, 18, 12, 12);   // SPEC-029
+}
+
+// ---------- SPEC-042 AC 8: the school bell in the HUD ----------
+// a code-drawn bell (gold, a clapper), swung by `ang` rad around its hook at (cx, cy); size = its height in px
+function drawBellIcon(cx, cy, size, ang) {
+  const BL = LOOK.BELL_LOOK, k = size / 20;
+  ctx.save(); ctx.translate(cx, cy - size * 0.45); ctx.rotate(ang); ctx.translate(0, size * 0.45);
+  if (drawArtFit("ui_bell", 0, 0, size * 1.2)) { ctx.restore(); return; }   // the picture of sheet 37 (the code-drawn bell below is its fallback)
+  ctx.beginPath();
+  ctx.moveTo(-9 * k, 8 * k); ctx.quadraticCurveTo(-8 * k, -2 * k, -5 * k, -6 * k); ctx.quadraticCurveTo(0, -12 * k, 5 * k, -6 * k);
+  ctx.quadraticCurveTo(8 * k, -2 * k, 9 * k, 8 * k); ctx.closePath();
+  ctx.fillStyle = BL.gold; ctx.fill(); ctx.lineWidth = Math.max(1.5, 2 * k); ctx.strokeStyle = OUT; ctx.lineJoin = "round"; ctx.stroke();
+  ctx.beginPath(); ctx.arc(0, 11 * k, 2.6 * k, 0, TAU); ctx.fillStyle = BL.clapper; ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.arc(0, -10 * k, 1.8 * k, 0, TAU); ctx.fillStyle = BL.clapper; ctx.fill();
+  ctx.restore();
+}
+// the bell's plate (x, y, w, h): hidden when the bell is quiet; the warning — a shaking bell and the seconds left (2, 1); the ring — a swinging bell
+// and "Freeze!". t — the frame's visual time. Returns the plate's rect for the probe (ui.bellRect) or null. text size and minimum are the caller's
+// (the phone's fit rules)
+export function drawBellHud(x, y, w, h, r, t, size, min, phone = false) {
+  const T = G.trick;
+  ui.bellRect = null;
+  if (!T || T.name !== "bell" || G.big.kind) return null;
+  const { phase, left } = bellPhase(T.t);
+  if (phase === "idle") return null;
+  const BL = LOOK.BELL_LOOK, ring = phase === "ring", ang = Math.sin(t * (ring ? BL.ringHz : BL.warnHz)) * (ring ? BL.ringSwing : BL.warnSwing);
+  rr(x, y, w, h, r); fillStroke(ring ? BL.plateRing : BL.plateWarn, 3);
+  drawBellIcon(x + h * 0.62, y + h * 0.56, h * 0.66, ang);
+  const text = ring ? L().freeze : String(Math.ceil(left)), tx = x + h * 1.05, tw = w - h * 1.05 - h * 0.25;
+  if (phone) noteText("main", fitText(text, tx + tw / 2, y + h / 2 + 1, size, tw / LOOK.TEXT_TEST_SCALE + 0.01, "center", ring ? BL.inkRing : OUT, 900, min, true));
+  else fitText(text, tx + tw / 2, y + h / 2 + 1, size, tw, "center", ring ? BL.inkRing : OUT, 900);
+  ui.bellRect = { x, y, w, h, phase, count: ring ? 0 : Math.ceil(left), text };
+  return ui.bellRect;
+}
+// the first ring of a level: a big "Freeze!" for a moment (ui.freezeT, set by the bell's hint event), centred at (cx, y)
+export function drawFreeze(cx, y, w, h, r, size, min, phone = false) {
+  ui.freezeRect = null;
+  if (mode !== "play" || ui.freezeT <= 0) return;
+  const a = clamp(Math.min(ui.freezeT, LOOK.BELL_LOOK.freezeTime - ui.freezeT + 0.05) / LOOK.BELL_LOOK.freezeFade, 0, 1), text = L().freeze;
+  ctx.save(); ctx.globalAlpha = a;
+  rr(cx - w / 2, y, w, h, r); fillStroke(LOOK.BELL_LOOK.freezePlate, 4);
+  if (phone) noteText("title", fitText(text, cx, y + h / 2 + 1, size, (w - 2 * r) / LOOK.TEXT_TEST_SCALE, "center", LOOK.BELL_LOOK.freezeInk, 900, min, true));
+  else fitText(text, cx, y + h / 2 + 1, size, w - 2 * r, "center", LOOK.BELL_LOOK.freezeInk, 900);
+  ctx.restore();
+  ui.freezeRect = { x: cx - w / 2, y, w, h, text };
 }
 
 // Подсказка «Нажми 🩹» (SPEC-007): видна KIT_HINT_TIME сек, пока упавший игрок может встать спасалкой.

@@ -40,6 +40,12 @@ export const SFX = {
   rescue: () => { beep(523, 0.1, "square", 0.05); beep(784, 0.18, "square", 0.05, 0.1); },
   out: () => { beep(330, 0.2, "triangle", 0.08); beep(220, 0.35, "triangle", 0.08, 0.18); },
   alert: () => beep(990, 0.07, "square", 0.04),
+  bell: () => { beep(1568, 0.5, "sine", 0.07); beep(2093, 0.35, "sine", 0.04, 0.01); beep(1568, 0.5, "sine", 0.05, 0.28); },   // SPEC-042: the school bell (placeholder tones)
+  sprinkler: () => [880, 1046, 1318].forEach((f, i) => beep(f, 0.05, "sine", 0.03, i * 0.05)),   // SPEC-042: a sprinkler starts to spray (placeholder)
+  truck: () => [659, 784, 659, 523].forEach((f, i) => beep(f, 0.13, "triangle", 0.04, i * 0.14)),   // SPEC-042: the ice-cream truck's tune (placeholder)
+  wave: () => { beep(260, 0.25, "sine", 0.05); beep(330, 0.3, "sine", 0.035, 0.12); },   // SPEC-042: a wave comes up (placeholder)
+  crunch: () => beep(160, 0.04, "square", 0.012),                  // SPEC-042: a step in the snow (placeholder)
+  splash: () => { beep(420, 0.07, "sine", 0.06); beep(640, 0.09, "sine", 0.05, 0.04); beep(300, 0.12, "triangle", 0.04, 0.09); },   // SPEC-042: a puddle's splash (placeholder tones)
   item: () => [660, 880, 1175].forEach((f, i) => beep(f, 0.09, "square", 0.05, i * 0.06)),
   shield: () => { beep(1200, 0.12, "triangle", 0.08); beep(1500, 0.18, "triangle", 0.06, 0.08); },
   star: () => [880, 1175, 1568, 2093].forEach((f, i) => beep(f, 0.08, "triangle", 0.06, i * 0.05)),

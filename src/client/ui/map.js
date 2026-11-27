@@ -10,7 +10,7 @@ import { mulberry32 } from "../../core/util.js";
 import { L } from "../../i18n.js";
 import { art, mapBgArt, worldArt } from "../art.js";
 import { paperPanel } from "./paper.js";
-import { cardLevel, chooseStop, goBack, mapSelN, nextStop, openStory, playCard, tapWorldTab } from "../flow.js";
+import { cardLevel, chooseStop, goBack, mapSelN, nextStop, openStory, openTip, playCard, tapWorldTab } from "../flow.js";
 import { LOOK } from "../look.js";
 import { ctx, OUT, PHONE, UH, UW, VIEW } from "../screen.js";
 import { ui } from "../state.js";
@@ -22,6 +22,7 @@ import { drawArtFit, fillT, noteArt } from "./artdraw.js";
 import { drawPill, homePill } from "./home.js";
 import { drawLevelPreview } from "./level-preview.js";
 import { menuFrame, phoneFrame, worldStarsOf } from "./menu.js";
+import { drawTipCard } from "./tip.js";
 import { fitLine, fz, label, noteRows, noteText, plainText, scaledW } from "./text.js";
 import { cpx, hudFont, minPx } from "./layout.js";
 import { G } from "../../core/active.js";
@@ -265,6 +266,7 @@ export function drawMap(t) {
 // SPEC-017: карточка уровня — «Мир · Уровень n», тип, строка про тип (у 20-го — про босса), звёзды; внизу 📖 (глава мира) и
 // Играть (компьютер — 1 или 2 игрока), ✕ в углу. Высота — по тексту; вся по центру экрана
 export function drawLevelCard() {
+  if (ui.tip) { drawTipCard(); return; }   // SPEC-042: the "New here!" card stands in its place
   const M = LOOK.MENU_LOOK, A = M.map, PV = LOOK.LEVEL_PREVIEW_LOOK, k = PHONE ? cpx(1) : 1, B = PHONE ? cpx(LOOK.PHONE_BTN_MIN) : 44, g = PHONE ? cpx(LOOK.PHONE_BTN_GAP) : 10;
   const n = cardLevel, minMain = PHONE ? minPx("main") : 13, minHint = PHONE ? minPx("hint") : 12, pad = A.cardPad * k;
   const cw = Math.min(UW - 40 * k, (PHONE ? A.phoneCardW : A.cardW) * k), BH = PHONE ? B + 6 * k : A.cardBtn, sr = A.cardStar * k;
@@ -300,7 +302,8 @@ export function drawLevelCard() {
   for (let i = 0; i < CFG.STARS_PER_LEVEL; i++) drawStarArt(tx + (i - 1) * sr * 2.6, yy + sr, sr, i < stars);
   const by = y + ch - pad - BH;
   iconOnlyButton(x + pad, by, BH, BH, "menu_story", "📖", M.storyBtn, () => openStory(G.world, "levelCard"), PHONE ? cpx(20) : 24, minMain, "card:story");   // SPEC-027: значок 28_menu_icons
-  const px = x + pad + BH + g, pw2 = cw - 2 * pad - BH - g;
+  fitButton(x + pad + BH + g, by, BH, BH, "?", M.alt, openTip, PHONE ? cpx(22) : 26, minMain).id = "card:tip";   // SPEC-042 AC 11: what is new in this world
+  const px = x + pad + 2 * (BH + g), pw2 = cw - 2 * pad - 2 * (BH + g);
   if (PHONE) fitButton(px, by, pw2, BH, "▶ " + L().play, M.play, () => playCard(1), cpx(22), minMain).id = "card:play";
   else {
     const bw = (pw2 - g) / 2;

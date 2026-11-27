@@ -4,6 +4,7 @@
 import { CELL, CFG, COLS, H, ROWS, W } from "./config.js";
 import { clamp, dist, rng } from "./util.js";
 import { moveSolidAt, moveSolidBigAt, inDangerXY } from "./world.js";
+import { trickDadCells } from "./tricks/query.js";
 import { G } from "./active.js";
 
 // ---------- SPEC-040 AC 10 (RR-51): scratch buffers ----------
@@ -74,6 +75,22 @@ export function findPath(sx, sy, gx, gy, extraCost, grid = G.blocked) {   // gri
   return pts;
 }
 
+// клетки ряда k перед дверью (k = 1 — сразу за проёмом)
+export const doorFront = (d, k) => { const c = []; for (let yy = 0; yy < d.h; yy++) for (let xx = 0; xx < d.w; xx++) c.push([d.x + xx + d.dx * k, d.y + yy + d.dy * k]); return c; };
+// SPEC-002 / SPEC-042: путь в клетках по сетке grid (Большого) от его двери до клетки перед дверью маленьких: кратчайшая пара дверей, диагональ = √2;
+// −1 — пути нет. validate.js: правило housePath; tricks/index.js: хитрость не должна закрыть этот путь
+export function housePathLen(doors, grid) {
+  let best = Infinity;
+  for (const bd of doors.big) for (const sd of doors.small) {
+    const s = { x: (bd.x + 0.5) * CELL, y: (bd.y + 0.5) * CELL }, [fx0, fy0] = doorFront(sd, 1)[0];
+    const pts = findPath(s.x, s.y, (fx0 + 0.5) * CELL, (fy0 + 0.5) * CELL, null, grid);
+    if (!pts.length) continue;
+    let L = 0, px = s.x, py = s.y;
+    for (const p of pts) { L += Math.hypot(p.x - px, p.y - py) / CELL; px = p.x; py = p.y; }
+    best = Math.min(best, L);
+  }
+  return isFinite(best) ? Math.round(best * 10) / 10 : -1;
+}
 
 // ---------- Ближайшая свободная клетка и выход ----------
 // Ближайшая свободная клетка (не стена и не дом Большого), поиск в ширину
@@ -114,10 +131,11 @@ export function downGap(x, y, ignore = false) {
 export const nearDown = (x, y) => downGap(x, y) < 0;
 // сетка Большого для A* и bigReach: уровень + клетки, до которых он не дошёл (G.bigLearned; только гуляя и ища)
 export function bigGrid() {
-  if (!wallOn() || !G.bigLearned.some(v => v)) return G.blockedBig;
+  const trick = trickDadCells(), learned = wallOn() && G.bigLearned.some(v => v);   // SPEC-042: + the cells a spray / a wave keeps him out of (any state)
+  if (!learned && !trick) return G.blockedBig;
   const m = scratchOf().grid;
   m.set(G.blockedBig);                    // (valid until the next bigGrid call: A* and bigReach use it at once)
-  for (let i = 0; i < m.length; i++) if (G.bigLearned[i]) m[i] = 1;
+  for (let i = 0; i < m.length; i++) if ((learned && G.bigLearned[i]) || (trick && trick[i])) m[i] = 1;
   return m;
 }
 // цена клетки рядом с лежащим другом; внутри его самого (где Большой не встанет) — вдвое: выход из тесноты идёт мимо друга, не сквозь него

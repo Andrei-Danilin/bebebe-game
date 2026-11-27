@@ -14,6 +14,7 @@ export const LOOK = {
   PAD_KISS: 2,               // кнопка геймпада для поцелуя: X (Xbox) / □ (PlayStation)
   PAD_KIT: 3,                // кнопка геймпада для спасалки 🩹: Y (Xbox) / △ (PlayStation) (SPEC-007)
   PAD_PREV_WORLD: 4,         // SPEC-017: на карте уровней — предыдущий мир: левый бампер (LB / L1)
+  PAD_TIP: 5,                // SPEC-042: on a level card — what is new in this world (the ? button): RB / R1; with the "New here!" card open it closes it
   PAD_NEXT_WORLD: 5,         // SPEC-017: на карте уровней — следующий мир: правый бампер (RB / R1)
   // режим телефона (SPEC-005): камера ближе и едет за героем, мини-карта, крупные кнопки
   PHONE_MAX_SHORT_SIDE: 500, // CSS px — короткая сторона экрана сенсорного устройства не больше этого = телефон (iPad ≥ 744)
@@ -178,6 +179,19 @@ export const LOOK = {
   // SPEC-021: полы домиков [заливка, доски] (деревянный — у маленьких, тёмный — у Большого); зелёный свет пола безопасного дома
   FLOOR_LOOK: { wood: ["#f3d9a4", "#e0bf82"], dark: ["#d8a7a2", "#c48f8a"] },
   SAFE_GLOW: { color: "#4ade80", alpha: 0.25 },
+  // SPEC-042: the world tricks' 3D pieces (three/tricks3d.js): puddle colours and height; a sprinkler's head, the ring of its reach, the spray (wet ground, drops: count, size, speed, height, reach as a share of the radius) and the drip warning (drops, speed)
+  // SPEC-042 AC 11 / 13: the "New here!" card — the panels of the tip sheets (fractions [x, y, w, h] of art/40 as assets/tips_main: Park, Field, City, School; of art/41 cropped to
+  // its top half as assets/tips_bonus: Beach, Winter; measured on the pictures), the frame and corner of the picture, its height / width, its share of the card
+  // (computer / phone), the icon box (share of the button height) and the fallback's icon (share of the picture), lines per text at most
+  TIP_LOOK: { panels: { tips_main: [[0.0258, 0.0346, 0.4642, 0.4542], [0.5108, 0.0346, 0.4625, 0.4542], [0.0258, 0.5156, 0.4642, 0.4554], [0.5108, 0.5156, 0.4625, 0.4554]],
+      tips_bonus: [[0.0112, 0.029, 0.4784, 0.94], [0.5103, 0.029, 0.4793, 0.94]] },
+    frame: 5, corner: 0.05, ratio: 0.73, deskFrac: 0.5, phoneFrac: 0.44, iconBox: 0.8, iconFrac: 0.34, lines: 6 },
+  // SPEC-042: the school bell's HUD: the bell's colours, the plates (warning / ring) and the ink of "Freeze!", the swing (rad) and its speed (rad/s) in the warning and in the ring, the banner's time and fade (s)
+  BELL_LOOK: { gold: "#facc15", clapper: "#b45309", plateWarn: "rgba(255,244,200,.92)", plateRing: "rgba(255,214,230,.95)", inkRing: "#d6336c", warnSwing: 0.35, warnHz: 34, ringSwing: 0.42, ringHz: 16, freezeTime: 1.8, freezeFade: 0.3, freezePlate: "rgba(255,250,235,.95)", freezeInk: "#ff6fa8" },
+  TRICK_LOOK: { wetSand: "#e0bd78", wetEdge: "#c79a52", water: "#35c6d4", waterAlpha: 0.5, foam: "#ffffff", print: "#8da2c4", printFaded: "#f2f7ff", printY: 0.034, printSize: 1, printLen: 0.25, printWide: 0.14, printSide: 0.1, puddle: "#9fe0f8", puddleRim: "#4cc9f0", puddleShine: "#e6f8ff", puddleY: 0.03, sprayRing: "#c4ecff", headBase: "#8b95a7", headStem: "#b8c0cc", headNozzle: "#38bdf8",
+    sprayWet: "#4cc9f0", sprayWetAlpha: 0.32, sprayDrop: "#8fe3ff", dropN: 72, dropSize: 0.14, dropSpeed: 0.9, dropH: 1.3, reach: 0.96, dripN: 6, dripSpeed: 1.6,
+    // the ice-cream truck (City): body, cabin, stripe, roof, window, wheel, cone and scoop colours; the turn follows the way it points at this share per frame; the bounce while it drives (height, speed)
+    truck: { body: "#fff4e0", cabin: "#ff9ec4", stripe: "#ff7fb0", roof: "#9bdcfb", window: "#bae6fd", wheel: "#374151", cone: "#f5c26b", scoop: "#ff8fb1", turn: 0.22, bob: 0.025, bobSpeed: 9 } },
   // SPEC-036: пока упавшему помогают, его таймер «домой» стоит (решение детей) — как это выглядит (Claude): круг таймера в зелёном цвете
   // спасения вместо красного (и не мигает белым), цифра светло-зелёная, вокруг него мягкий зелёный ореол — радиальный градиент с прозрачным центром, чтобы не закрывать
   // ребёнка (стопы glow, от радиуса glowIn до glowOut UI px, пик на доле glowPeak; прозрачность glowA ± glowPulse, glowSpeed рад/с); кружок команды зелёный с тёмной цифрой

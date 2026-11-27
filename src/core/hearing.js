@@ -3,6 +3,7 @@ import { CELL, CFG } from "./config.js";
 import { angDiff, dist, normAng, rand, rng } from "./util.js";
 import { emit, logEvent } from "./events.js";
 import { inSafe, los, seeSolidAt } from "./world.js";
+import { trickHearMul, trickMark } from "./tricks/query.js";
 import { G } from "./active.js";
 
 // ---------- SPEC-019: Большой слышит топот ----------
@@ -19,9 +20,10 @@ export const bigListens = () => !bigDeaf();
 // к ближнему) за HEAR_TURN_TIME, потом стоит и смотрит туда HEAR_LOOK сек; HEAR_COOLDOWN сек — снова не слышит.
 // насколько слышно бегущего l: 0 — не слышно; 1 — рядом и видно по прямой; HEAR_WALL — через стену (кулдаун и «не слышит» — не здесь)
 export function audible(l) {
-  if (!isRunning(l) || l.fx.cloak > 0 || inSafe(l)) return 0;
+  const loud = trickHearMul(l);                              // SPEC-042: a puddle's splash is heard from loud × HEAR_RADIUS for a second, running or not
+  if ((!isRunning(l) && !(loud > 1 && l.state === "ok")) || l.fx.cloak > 0 || inSafe(l)) return 0;
   const dx = l.x - G.big.x, dy = l.y - G.big.y;
-  if (Math.hypot(dx, dy) > CFG.HEAR_RADIUS * CELL || angDiff(G.big.dir, Math.atan2(dy, dx)) < CFG.VISION_HALF) return 0;
+  if (Math.hypot(dx, dy) > CFG.HEAR_RADIUS * CELL * loud || angDiff(G.big.dir, Math.atan2(dy, dx)) < CFG.VISION_HALF) return 0;
   return los(G.big.x, G.big.y, l.x, l.y, seeSolidAt) ? 1 : CFG.HEAR_WALL;
 }
 export function hearNoise(dt) {
@@ -57,6 +59,7 @@ export function bigMark() {
   if (G.big.slip > 0) return "🍌💫";
   if (G.big.stun > 0) return "?!";
   if (G.big.blush > 0) return "💗";
+  if (trickMark()) return trickMark();                     // SPEC-042: the school bell holds him: 🔔
   if (G.big.state === "look" && (G.big.hearTurnT > 0 || G.big.hearLook > 0)) return "❓";
   if (G.big.noise >= CFG.NOISE_WARN) return "👂";
   if (G.big.noPush > 0) return "💦";

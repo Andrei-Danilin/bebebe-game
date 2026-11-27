@@ -6,6 +6,7 @@ import { bigDeaf, hearNoise, stopHearing } from "./hearing.js";
 import { bigReach, cellIdx, randomFreePoint, reachableGoal } from "./grid.js";
 import { moveEntity, steerTo } from "./path.js";
 import { pushHit } from "./rules.js";
+import { bigStepTrick } from "./tricks/index.js";
 import { canSee } from "./vision.js";
 import { G } from "./active.js";
 import { emit } from "./events.js";
@@ -95,6 +96,7 @@ export function updateBig(dt) {
     if (b.state === "ok" && dist(G.big, b) < G.big.r + b.r + CFG.TUTORIAL.scriptPushPad) pushHit(b);
     return;
   }
+  if (bigStepTrick(dt)) return;                               // SPEC-042: the world trick may take his step (the school bell holds him)
   const speed = bigSpeeds();
   let target = null, td = Infinity;
   for (const l of G.littles) {

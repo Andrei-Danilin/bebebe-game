@@ -1,9 +1,10 @@
 # SPEC-042 — Every world has its own trick: puddles, sprinklers, the ice-cream truck, the school bell, waves, footprints
 
-Status: ready (art 37, 40, 41 on master, checked by Claude 2026-11-26:
+Status: done (merged by "Merge SPEC-042", see git log)
+Art notes (art 37, 40, 41, checked by Claude 2026-11-26):
 - **sheet 37** has 13 icons, not 10: Gemini repeated the wave, the football and the plane. In reading order: `ui_puddle`, `ui_sprinkler`, `ui_truck`, `ui_bell`, `ui_wave`, `item_football`, `item_paperplane`, (wave again: drop), `ui_snowprints`, (football again: drop), (plane again: drop), `item_watermelon`, `item_snowball`. Motion lines and drops are separate small regions: merge them into their icon.
 - **sheet 40** is a clean 2×2 page (Park, Field, City, School) like `8_start`: same panel crops.
-- **sheet 41** has its two panels side by side in the **top half** only; the lower half is an empty notebook page. Crop each panel (about x 0.03–0.49 and 0.51–0.97, y 0.08–0.56; measure) and ignore the rest.)
+- **sheet 41** has its two panels side by side in the **top half** only; the lower half is an empty notebook page. Crop each panel (about x 0.03–0.49 and 0.51–0.97, y 0.08–0.56; measure) and ignore the rest.
 Complexity: L
 Branch: SPEC-042-world-tricks
 Decided by: Andrei (2026-11-26): each world gets one special mechanic (idea 1 of "how to make the worlds different"). Which trick goes to which world, the numbers and the "new here" card: Claude, check with the kids. Art: sheets 37 (icons) and 40 / 41 (world tip pictures) from Andrei.
@@ -103,6 +104,25 @@ World items (SPEC-043), world houses (SPEC-044), new level types.
     - the level card gets a small **?** button that shows it again.
 12. **Texts** (en / es / pt / ru, Claude). For example the School: "When the bell rings — freeze! Dad looks everywhere and sees anyone running." All six in the spec's string table, written by the implementer in the same voice.
 13. **Fallback:** without the tip art, the card shows the world's map preview (SPEC-041) with the trick icon.
+
+### AC 12 string table (as built: `I18N.newIn`, `I18N.tipTrick[world]`, `I18N.tipItem[world]`; the item lines follow SPEC-043's table)
+| World | | en | es (voseo) | pt (pt-BR) | ru |
+|---|---|---|---|---|---|
+| all | title | New in {the world}! | ¡Novedad en {el mundo}! | Novidade {no mundo}! | Новое: {мир}! |
+| Park | trick | Run through a puddle and it goes SPLASH — Dad hears it from far away! Tiptoe to stay quiet. | Si corrés por un charco, ¡CHAPA! Papá lo escucha de lejos. ¡Pasá en puntitas! | Se você correr numa poça, vai PLOFT! O Papai ouve de longe. Ande na ponta dos pés! | Побежишь по луже — ПЛЮХ! Папа услышит издалека. Пройди на цыпочках! |
+| Park | item | Lead Dad onto a banana peel: he slips and you can hug him from any side! | Hacé que Papá pise una cáscara de banana: se resbala y podés abrazarlo desde cualquier lado. | Faça o Papai pisar numa casca de banana: ele escorrega e você pode abraçá-lo por qualquer lado! | Заведи Папу на банановую кожуру: он поскользнётся, и его можно обнять с любой стороны! |
+| Field | trick | A sprinkler sprays now and then. Dad won't walk into the spray — and you can hide in it! | A veces un regador echa agua. Papá no entra en el chorro, ¡y vos podés esconderte adentro! | De vez em quando um irrigador espirra água. O Papai não entra no jato — e você pode se esconder nele! | Время от времени поливалка брызгает водой. Папа в брызги не зайдёт — а ты там можешь спрятаться! |
+| Field | item | Run into the football: it rolls away and bonks Dad! | Corré hacia la pelota: sale rodando y le pega a Papá. | Corra na bola de futebol: ela rola e acerta o Papai! | Набеги на мяч: он покатится и стукнет Папу! |
+| City | trick | A slow ice-cream truck drives around. Dad can't see through it — sneak along behind it! | Un camión de helados pasa despacito. Papá no ve a través de él: ¡andá escondido detrás! | Um carrinho de sorvete passa devagar. O Papai não enxerga através dele — vá escondido atrás! | По улице медленно едет грузовик с мороженым. Папа не видит сквозь него — пробирайся за ним! |
+| City | item | Leave a cupcake out: Dad can't resist and stops to eat it! | Dejá un cupcake: ¡Papá no se resiste y para a comérselo! | Deixe um cupcake: o Papai não resiste e para para comer! | Оставь кексик: Папа не удержится и остановится поесть! |
+| School | trick | When the bell rings — freeze! Dad looks everywhere and sees anyone running. | Cuando suena la campana, ¡quietos! Papá mira por todos lados y ve a cualquiera que corra. | Quando o sinal tocar — congele! O Papai olha para todo lado e vê quem estiver correndo. | Когда звенит звонок — замри! Папа смотрит по сторонам и видит всех, кто бежит. |
+| School | item | Run into a paper plane: it flies off, and Dad turns to watch it! | Corré hacia el avioncito de papel: sale volando y Papá se da vuelta a mirarlo. | Corra no aviãozinho de papel: ele sai voando e o Papai vira para olhar! | Набеги на бумажный самолётик: он улетит, а Папа обернётся посмотреть! |
+| Beach | trick | Waves roll up the beach. They slow you down — and Dad won't go into the water! | Las olas suben por la playa. Te frenan, ¡y Papá no se mete en el agua! | As ondas sobem pela praia. Elas atrasam você — e o Papai não entra na água! | Волны накатывают на пляж. Они замедляют тебя — а Папа в воду не пойдёт! |
+| Beach | item | Lead Dad onto the watermelon slice: he slides and falls! | Hacé que Papá pise la sandía: ¡se resbala y se cae! | Faça o Papai pisar na fatia de melancia: ele escorrega e cai! | Заведи Папу на ломтик арбуза: он поскользнётся и упадёт! |
+| Winter | trick | Running leaves footprints in the snow, and Dad follows them. Tiptoe leaves none! | Si corrés dejás huellas en la nieve, y Papá las sigue. ¡En puntitas no dejás ninguna! | Correr deixa pegadas na neve, e o Papai segue elas. Na ponta dos pés você não deixa nenhuma! | Бегущий оставляет следы на снегу, и Папа идёт по ним. На цыпочках следов нет! |
+| Winter | item | Run into the snowballs: one flies at Dad and he freezes — Brrr! | Corré hacia las bolas de nieve: una le da a Papá y se congela. ¡Brrr! | Corra nas bolas de neve: uma voa no Papai e ele congela — Brrr! | Набеги на снежки: один полетит в Папу, и он замёрзнет — Брр! |
+
+(The titles: en "New in the Park!" … "New in the Winter!"; es "¡Novedad en el Parque!" / "la Cancha" / "la Ciudad" / "la Escuela" / "la Playa" / "el Invierno"; pt "Novidade no Parque!" / "no Campo de futebol" / "na Cidade" / "na Escola" / "na Praia" / "no Inverno"; ru "Новое: Парк!" … "Новое: Зима!".)
 
 ### Balance and tests
 14. **Tests:**

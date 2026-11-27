@@ -6,6 +6,7 @@ import { levelSeed, levelTier, levelType, placeHomes } from "./generate.js";
 import { LAYOUTS, hWallTo, vWallTo } from "./layouts.js";
 import { cellIdx } from "../grid.js";
 import { buildGrids } from "../world.js";
+import { fitTrick, placeTrick, makeTrick } from "../tricks/index.js";
 import { G } from "../active.js";
 
 // ---------- Сборка уровня ----------
@@ -52,11 +53,14 @@ function layoutLevel(world, lv, attempt) {
   const doors = { small: lc.doors.small.map(md), big: lc.doors.big.map(md) };
   const fl = [];
   for (let i = 0; i < 60; i++) fl.push({ x: rng() * W, y: rng() * H, c: ["#fff27a", "#ff9ecb", "#ffffff", "#b5e3ff"][ri(0, 3)] });
-  return { type, items, small: lc.small.map(tp), big: tp(lc.bigPt), flowers: fl, doors, meta: lc.meta };
+  // SPEC-042: the world's trick, placed on the finished map from its own seeded stream (the layout above is the same with tricks on or off)
+  const trick = placeTrick(world, { items, doors }, lv, type, tier, levelSeed(world, lv) * 6151 + attempt * 7919 + 41);
+  return { type, items, small: lc.small.map(tp), big: tp(lc.bigPt), flowers: fl, doors, meta: lc.meta, trick };
 }
 
 // Новое состояние мира здесь → добавить его в список keep у levelReport (и в __bb.worldState)
 export function applyWorld(gen) {
+  G.trick = null;                                            // SPEC-042: until this level's trick is made below (a map with none has none)
   G.obstacles = []; G.bushes = []; G.floors = []; G.decor = []; G.trees = []; G.safeZone = null; G.dangerZone = null;
   G.flowers = gen.flowers;
   for (const it of gen.items) {
@@ -75,6 +79,8 @@ export function applyWorld(gen) {
   }
   G.spawns = { small: gen.small.map(([x, y]) => ({ x: x * CELL, y: y * CELL })), big: { x: gen.big[0] * CELL, y: gen.big[1] * CELL } };
   buildGrids();
+  fitTrick(gen);                                             // SPEC-042: a trick that keeps Dad out keeps the pieces that leave the way between the doors
+  G.trick = makeTrick(gen.trick);                            // null on the practice maps (they have no gen.trick)
 }
 
 export function connectivity() {

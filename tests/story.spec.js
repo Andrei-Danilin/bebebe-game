@@ -185,7 +185,7 @@ test("progress.seen: old saves load with every scene unseen, a broken one too", 
     return { old: plain(b.loadProgress(save).seen), broken: plain(b.loadProgress({ ...save, seen: "oops" }).seen),
       mixed: plain(b.loadProgress({ ...save, seen: { intro: true, boss_park: 1, ending: "yes", nonsense: true } }).seen), fresh: plain(b.loadProgress(null).seen) };
   }, f.keys["bebebe-progress"]);
-  const none = { intro: false, boss_park: false, boss_field: false, boss_city: false, boss_school: false, bonus_beach: false, bonus_winter: false, ending: false, tutorial: false };   // SPEC-029: + tutorial
+  const none = { intro: false, boss_park: false, boss_field: false, boss_city: false, boss_school: false, bonus_beach: false, bonus_winter: false, ending: false, tutorial: false, trick_park: false, trick_field: false, trick_city: false, trick_school: false, trick_beach: false, trick_winter: false };   // SPEC-029: + tutorial; SPEC-042: + trick_<world>
   expect(r.old).toEqual(none);
   expect(r.broken).toEqual(none);
   expect(r.fresh).toEqual(none);

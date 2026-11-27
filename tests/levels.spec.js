@@ -311,7 +311,7 @@ test("old worlds keep their maps", { tag: "@fast" }, async ({ levelPage: page })
   const r = await page.evaluate(W => {
     const b = window.__bb, out = {};
     const fnv = s => { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; } return h.toString(16).padStart(8, "0"); };
-    for (const w of W) for (let n = 1; n <= 20; n++) { const q = b.levelReport(w, n); out[`${w}:${n}`] = { type: q.type, attempt: q.attempt, hash: fnv(JSON.stringify(b.generateLevel(w, n, q.attempt))) }; }
+    for (const w of W) for (let n = 1; n <= 20; n++) { const q = b.levelReport(w, n); out[`${w}:${n}`] = { type: q.type, attempt: q.attempt, hash: fnv(JSON.stringify({ ...b.generateLevel(w, n, q.attempt), trick: undefined })) }; }
     return out;
   }, WORLDS);
   const of = ws => Object.fromEntries(Object.entries(r).filter(([k]) => ws.includes(k.split(":")[0])));

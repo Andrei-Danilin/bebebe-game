@@ -255,5 +255,12 @@
  "warm": "getter",
  "quality": "getter",
  "setQuality": "function",
- "qualityFrame": "function"
+ "qualityFrame": "function",
+ "trick": "getter",
+ "trickMeshes": "function",
+ "bellHud": "getter",
+ "tipCard": "getter",
+ "openTip": "function",
+ "closeTip": "function",
+ "tipDue": "function"
 }

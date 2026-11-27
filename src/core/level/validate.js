@@ -2,7 +2,8 @@
 import { CELL, CFG, COLS, ROWS } from "../config.js";
 import { applyWorld, connectivity, generateLevel } from "./build.js";
 import { levelKey, levelTier, levelType } from "./generate.js";
-import { cellIdx, findPath } from "../grid.js";
+import { cellIdx, doorFront, housePathLen } from "../grid.js";
+import { validateTrick } from "../tricks/index.js";
 import { buildGrids } from "../world.js";
 import { G } from "../active.js";
 
@@ -25,8 +26,6 @@ function floodCells(start, grid) {
   return seen;
 }
 const allSeen = (grid, seen) => { for (let i = 0; i < COLS * ROWS; i++) if (!grid[i] && !seen[i]) return false; return true; };
-// клетки ряда k перед дверью (k = 1 — сразу за проёмом)
-const doorFront = (d, k) => { const c = []; for (let yy = 0; yy < d.h; yy++) for (let xx = 0; xx < d.w; xx++) c.push([d.x + xx + d.dx * k, d.y + yy + d.dy * k]); return c; };
 const cellFree = (grid, [x, y]) => x >= 0 && y >= 0 && x < COLS && y < ROWS && !grid[y * COLS + x];
 // Тупики на сетке Большого: узлы — «окна» 2×2 свободных клеток (там он помещается), соседи — сдвиг на клетку.
 // Листья обрезаем по одному: обрезанная цепочка — тупиковый коридор, её длина в клетках = окон + 1.
@@ -71,16 +70,7 @@ export function validateLevel(gen, type) {
   let doorClear = doors.small.length > 0 && doors.big.length > 0;
   for (const d of [...doors.small, ...doors.big]) for (let k = 1; k <= CFG.DOOR_APRON; k++) for (const c of doorFront(d, k)) if (!cellFree(G.blocked, c) || !cellFree(G.blockedBig, c)) doorClear = false;
   // 3: A* по сетке Большого от его двери до клетки перед дверью маленьких; кратчайшая пара дверей, диагональ = √2
-  let housePath = Infinity;
-  for (const bd of doors.big) for (const sd of doors.small) {
-    const s = { x: (bd.x + 0.5) * CELL, y: (bd.y + 0.5) * CELL }, [fx0, fy0] = doorFront(sd, 1)[0];
-    const pts = findPath(s.x, s.y, (fx0 + 0.5) * CELL, (fy0 + 0.5) * CELL, null, G.blockedBig);
-    if (!pts.length) continue;
-    let L = 0, px = s.x, py = s.y;
-    for (const p of pts) { L += Math.hypot(p.x - px, p.y - py) / CELL; px = p.x; py = p.y; }
-    housePath = Math.min(housePath, L);
-  }
-  housePath = isFinite(housePath) ? Math.round(housePath * 10) / 10 : -1;
+  const housePath = housePathLen(doors, G.blockedBig);
   // 6: тупики (в лабиринте — сколько концов осталось от тупиков идеального лабиринта)
   // в лабиринте концы тупиков считаем только вне домиков с их площадками у дверей (там не лабиринт)
   const A = CFG.DOOR_APRON, grow = r => r && { x: r.x - A, y: r.y - A, w: r.w + 2 * A, h: r.h + 2 * A };
@@ -97,7 +87,9 @@ export function validateLevel(gen, type) {
   if (type === "maze" ? !(before != null && de.count <= Math.floor(before * CFG.MAZE_DEAD_ENDS)) : de.longest > CFG.DEAD_END_MAX) fails.push("deadEnds");
   if (bushes < CFG.BUSH_MIN[type]) fails.push("bushes");
   if (gen.meta && gen.meta.bad) fails.push("layout:" + gen.meta.bad);
-  return { ok: fails.length === 0, fails, seen: small.seen, freeRatio, bigReachAll, smallReachAll, housePath, doorClear, deadEnds, bushes };
+  fails.push(...validateTrick(gen));   // SPEC-042: the world's trick: nothing in a house or its door apron, the path between the doors stays
+  const trick = gen.trick ? { name: gen.trick.name, n: gen.trick.pieces.length, loop: gen.trick.meta.loop ?? null } : null;   // SPEC-042: what the level's trick came to (the truck: loop "none" — no lane)
+  return { ok: fails.length === 0, fails, seen: small.seen, freeRatio, bigReachAll, smallReachAll, housePath, doorClear, deadEnds, bushes, trick };
 }
 // Строит уровень: до LEVEL_ATTEMPTS попыток, пока validateLevel не пройдёт; иначе — запасной вариант (живая изгородь в «карманах»).
 // Попытки с 0 до LEVEL_ATTEMPTS-1, первая честная принимается. attempt — какая попытка построена.

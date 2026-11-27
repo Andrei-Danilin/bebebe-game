@@ -8,6 +8,7 @@ import { LOOK } from "../look.js";
 import { dressHouses, houseRoofs, setHouseInfo } from "./houses.js";
 import { mapGroup, setMapGroup, waves } from "./mapstate.js";
 import { batchMap } from "./batch.js";
+import { buildTrick3D } from "./tricks3d.js";
 import { beginGeoScope, disposeTree, endGeoScope, gradTex, groundCanvas, groundTex, ownMat, part, toon, toonH, wobbleSeed } from "./materials.js";
 import { keepDecor, tierNumbers } from "../quality.js";
 import { camera, P, renderer, scene, WALL_H } from "./setup.js";
@@ -303,7 +304,8 @@ export function buildMap3D() {
     snow = new THREE.Points(g, pm); snow.frustumCulled = false; mapGroup.add(snow);
   }
   // SPEC-040 AC 2 / 5: what stands still is drawn instanced; trees and bushes are drawn opaque from the instances until a fade starts (batch.js)
-  batchMap(mapGroup, { skip: new Set([...houseRoofs.map(r => r.g), ...waves]), fades: [...fadeTrees, ...fadeBushes] });
+  const trickAnim = buildTrick3D();                      // SPEC-042: puddles, sprinkler heads (static, batched) and the sprays (animated: left alone)
+  batchMap(mapGroup, { skip: new Set([...houseRoofs.map(r => r.g), ...waves, ...trickAnim]), fades: [...fadeTrees, ...fadeBushes] });
   endGeoScope();
   if (!compileLater) warmFadeVariants();
 }

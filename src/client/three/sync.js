@@ -15,6 +15,7 @@ import { setFading } from "./batch.js";
 import { fadeRoofs } from "./houses.js";
 import { bigHomeMats, fadeBushes, fadeTrees, safeGlow, snow } from "./map3d.js";
 import { waves } from "./mapstate.js";
+import { syncTrick3D } from "./tricks3d.js";
 import { disposeTree, ownMat, part, sphere, syncPaper, toon } from "./materials.js";
 import { itemGroup, itemMeshes, kissGroup, kissMeshes, starGroup, starMeshes } from "./pools.js";
 import { previewsShown, renderPreviews, snapshotWorld } from "./previews.js";
@@ -328,6 +329,7 @@ function syncScene(t) {
     fadeStep(fb, goal);
   }
   for (const [i, wv] of waves.entries()) wv.position.y = (wv.userData.baseY ?? 0.04) + Math.sin(t * 2 + i) * 0.01, wv.rotation.z = Math.sin(t + i) * 0.3;
+  syncTrick3D(t);                                        // SPEC-042: the sprinklers' sprays
   if (snow) {
     const pa = snow.geometry.attributes.position.array;
     for (let i = 0; i < pa.length; i += 3) {

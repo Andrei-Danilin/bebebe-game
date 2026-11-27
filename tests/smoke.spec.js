@@ -49,6 +49,7 @@ const LOGIC_GETTERS = ["errorLog", "glRestored", "mode", "muted", "wardrobePage"
   "textFloors",                     // SPEC-031: phone text floors (reads CFG only)
   "game", "screenState",            // SPEC-012: the active game (plain data); the menus' screen state (AC 1f)
   "warm", "quality",               // SPEC-040: the warm-up behind the level card, the quality tier (plain state)
+  "trick",                          // SPEC-042: the world trick of the active game (plain data)
   "tiptoe", "bubbleTextOff", "langSel",
   "acc",    // SPEC-034: the live accumulator (game-time seconds, plain number); SPEC-032: the 👣 toggles, the bubbles-without-letters switch, the language screen's highlight
   "fitCount", "updateReady", "updateChecks",

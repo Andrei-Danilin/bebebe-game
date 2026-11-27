@@ -1,5 +1,5 @@
 {
-  "sizes": { "icon": 256, "button": 512, "logo": 1024, "background": 1600 },
+  "sizes": { "icon": 256, "button": 512, "logo": 1024, "background": 1600, "tip": 1000 },
   "budget": { "totalKB": 4096, "backgroundKB": 250 },
   "encode": { "quality": 86, "alphaQuality": 100, "paperQuality": 80, "effort": 4 },
   "pad": 4,
@@ -44,6 +44,10 @@
     { "src": "21_icons_ui.webp", "resident": true, "mode": "sheet", "size": "icon",
       "names": ["ui_play", "ui_back", "ui_home", "ui_story", "ui_bag", "ui_gear", "ui_sound_on", "ui_sound_off",
                 "ui_fullscreen", "ui_globe", "ui_coin", "ui_gift"] },
+    { "src": "37_world_icons.webp", "resident": false, "mode": "sheet", "size": "icon", "small": 4000,
+      "names": ["ui_puddle", "ui_sprinkler", "ui_truck", "ui_bell", "ui_wave", "item_football", "item_paperplane", null, "ui_snowprints", null, null, "item_watermelon", "item_snowball"] },
+    { "src": "40_world_tips_main.webp", "resident": false, "mode": "paper", "size": "tip", "name": "tips_main" },
+    { "src": "41_world_tips_bonus.webp", "resident": false, "mode": "paper", "size": "tip", "name": "tips_bonus", "crop": [20, 66, 1160, 448] },
     { "src": "22_icons_shop.webp", "resident": true, "mode": "sheet", "size": "icon",
       "names": ["shop_fast_feet", "shop_long_items", "shop_quick_help", "shop_wardrobe", "shop_items", "shop_upgrades"] },
     { "src": "23_wardrobe.webp", "resident": false, "mode": "sheet", "size": "icon",

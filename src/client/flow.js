@@ -10,6 +10,7 @@ import { createGame, newInput, teamSize, useGame } from "../core/game.js";
 import { levelType } from "../core/level/generate.js";
 import { bossFor } from "../core/mood.js";
 import { computeReward, isOpen, worldComplete, worldOpen } from "../core/progress-rules.js";
+import { trickOf } from "../core/tricks/index.js";
 import { canUseKit, levelResult } from "../core/rules.js";
 import { clamp, newRng, seedRandom as seedStream } from "../core/util.js";
 import { BIG_SKINS } from "../core/wardrobe.js";
@@ -124,7 +125,7 @@ export function settleDecidedWin() {
 // Escape per screen: play → pause, pause → play, a menu → its parent, win / lose → the map; the home screen: the Leave dialog (SPEC-033, D-14)
 export function goBack() {
   if (mode === "map") setMode("home");
-  else if (mode === "levelCard") closeCard();
+  else if (mode === "levelCard") { if (ui.tip) closeTip(); else closeCard(); }
   else if (mode === "story") storyBackKey();
   else if (mode === "scene") sceneSkip();
   else if (mode === "shop") { if (inWardrobe() && ui.wardrobePage === "friends") backToWardrobe(); else closeShop(); }
@@ -161,7 +162,7 @@ function localSlots(n) {
 }
 const localStock = () => ({ shared: true, kisses: progress.inv.kisses, kits: progress.inv.rescues, gloves: { mittens: progress.inv.mittens, mega: progress.inv.mega } });
 // the client's per-game view state from scratch: texts, particles, shake, sticks, the reset button, the menu spin of the Big One
-function clearView() { ui.texts = []; ui.particles = []; ui.shake = 0; sticks.clear(); ui.resetArmed = false; ui.menuSpin = 0; ui.waves = []; ui.kitHintT = 0; ui.heardHintT = 0; }
+function clearView() { ui.texts = []; ui.particles = []; ui.shake = 0; sticks.clear(); ui.resetArmed = false; ui.menuSpin = 0; ui.waves = []; ui.kitHintT = 0; ui.heardHintT = 0; ui.freezeT = 0; }
 function buildLocal(n, playable) {
   if (PHONE) n = 1;                  // на телефоне играет один (SPEC-005)
   clearView();
@@ -258,12 +259,19 @@ export function showCard(n) {
   cardLevel = n;
   ui.warm = n <= worldProgress().unlocked ? { world: G.world, level: n } : null;   // SPEC-040 AC 4: warm.js builds an open level's 3D while the card is shown (never a closed one)
   setMode("levelCard");   // (builds the card's map data first: it fills the level cache, so the warm-up's game stage does not search the level again)
+  ui.tip = null;
+  if (n === 1 && tipDue(G.world)) { ui.tip = G.world; progress.seen["trick_" + G.world] = true; saveProgress(); }   // SPEC-042 AC 11: "New here!" — the first time this world's level 1 card opens
 }
+// SPEC-042 AC 11: the world's trick card has not been shown yet (tests set window.__bbNoTips, like __bbNoIntro: only the tests of the card itself see it)
+export const tipDue = w => window.__bbNoTips !== true && trickOf(w) !== null && isOpen(w, progress) && !progress.seen["trick_" + w];   // (TRICKS_ON 0: no trick, no card)
+// the ? button of the level card shows it again; OK / ✕ / Back close it (back to the level card)
+export function openTip() { ui.tip = G.world; screenChanged(); }
+export function closeTip() { ui.tip = null; screenChanged(); }
 // вкладка мира: закрытый мир не выбирается — только подсказка (SPEC-030: главный — какой мир пройти)
 // подсказка закрытого мира (по worldOpen): нужен главный мир — «Пройди <его>, чтобы открыть <этот>!», иначе — прежняя строка бонусных
 export const lockedText = w => { const o = worldOpen(w, progress); return o.needs ? L().lockedWorld(o.needs, w) : L().lockedBonus; };
 export function tapWorldTab(w) { if (isOpen(w, progress)) selectWorld(w); else showToast(lockedText(w)); }
-export const closeCard = () => { ui.warm = null; setMode("map"); };
+export const closeCard = () => { ui.warm = null; ui.tip = null; setMode("map"); };
 // «Играть» на карточке: тот же startGame, что и раньше (resetWorld → loadLevel, надпись уровня, камера телефона)
 export function playCard(players) { if (cardLevel > worldProgress().unlocked) { toMap(); return; } G.level = cardLevel; withScene(sceneBefore(G.world, G.level), () => startGame(players)); }   // SPEC-022: сначала заставка, если пора
 // ---------- SPEC-017: история — главы по порядку и страница «Как играть» ----------

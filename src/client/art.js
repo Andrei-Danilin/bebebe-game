@@ -166,6 +166,13 @@ export function artPick(name) {
   for (let n = name; n; n = ART_FALLBACK[n]) if (art(n)) return n;
   return null;
 }
+// SPEC-042 AC 11 / 13: the "New here!" card — which sheet and panel of it shows each world's trick (40: Park, Field, City, School; 41: Beach, Winter; the panels'
+// fractions are LOOK.TIP_LOOK.panels), the trick icons and the world items' icons (sheet 37 and the older ones), and their emoji for when the art is missing
+export const TIP_ART = { park: ["tips_main", 0], field: ["tips_main", 1], city: ["tips_main", 2], school: ["tips_main", 3], beach: ["tips_bonus", 0], winter: ["tips_bonus", 1] };
+export const TRICK_ICON = { puddles: "ui_puddle", sprinklers: "ui_sprinkler", truck: "ui_truck", bell: "ui_bell", waves: "ui_wave", footprints: "ui_snowprints" };
+export const TRICK_EMOJI = { puddles: "💦", sprinklers: "🚿", truck: "🍦", bell: "🔔", waves: "🌊", footprints: "👣" };
+export const ITEM_ICON = { park: "item_banana", field: "item_football", city: "icon_cupcake", school: "item_paperplane", beach: "item_watermelon", winter: "item_snowball" };
+export const ITEM_EMOJI = { park: "🍌", field: "⚽", city: "🧁", school: "✈️", beach: "🍉", winter: "❄️" };
 // комиксы глав (8_start, 9_1…9_4, 26_1/26_2, 10_end)
 export const STORY_ART = { began: "story_start", park: "story_park", field: "story_field", city: "story_city", school: "story_school",
   beach: "story_beach", winter: "story_winter", ended: "story_end" };

@@ -4,11 +4,15 @@ import { angDiff, clamp, dist, rand, turnToward } from "./util.js";
 import { bossPower } from "./mood.js";
 import { cellIdx, freeCellNear, nearestExit } from "./grid.js";
 import { steerTo } from "./path.js";
+import { trickFreeze } from "./tricks/aware.js";
+import { trickHideSpot, trickKidCost, trickQuiet } from "./tricks/query.js";
 import { canSee, inCone } from "./vision.js";
 import { canAct, inDanger, inDangerXY, moveSolidAt } from "./world.js";
 import { G } from "./active.js";
 
 function fleePoint(b) {
+  const hide = trickHideSpot(b);   // SPEC-042: an active spray hides him like a bush, the far side of the truck from Dad too
+  if (hide) return hide;
   if (G.safeZone) {                        // домик рядом — бежим в домик
     const home = { x: G.safeZone.x + G.safeZone.w / 2, y: G.safeZone.y + G.safeZone.h / 2 };
     if (dist(b, home) < 260) return home;
@@ -17,7 +21,7 @@ function fleePoint(b) {
   for (const k of [0, 0.6, -0.6, 1.2, -1.2, 1.8, -1.8]) {
     const a = away + k;
     const x = clamp(b.x + Math.cos(a) * 140, 20, W - 20), y = clamp(b.y + Math.sin(a) * 140, 20, H - 20);
-    if (!moveSolidAt(x, y) && G.reachable[cellIdx(x, y)] && !inCone(x, y) && !inDangerXY(x, y)) return { x, y };   // не за водой и не в «кармане»
+    if (!moveSolidAt(x, y) && G.reachable[cellIdx(x, y)] && !inCone(x, y) && !inDangerXY(x, y) && !trickKidCost(x, y)) return { x, y };   // не за водой и не в «кармане»
   }
   return freePointNear({ x: clamp(b.x + Math.cos(away) * 140, 20, W - 20), y: clamp(b.y + Math.sin(away) * 140, 20, H - 20) });
 }
@@ -44,7 +48,10 @@ export function updateBots(dt) {
     b.fleeRe -= dt;
     const seen = G.big.stun <= 0 && G.big.slip <= 0 && G.big.noPush <= 0 && G.big.blush <= 0 && canSee(b);
     const wide = wideDanger(b);                           // SPEC-022: перед самым злым папой, пока он может толкнуть — отойти
-    const speed = CFG.BOT_SPEED * (b.fx.boots > 0 ? CFG.BOOTS_MULT : 1);
+    const freeze = trickFreeze(b);                        // SPEC-042: the school bell, he is near Dad or in his sight: warning — tiptoe, ring — stand still
+    if (freeze === 2) { b.moving = false; b.speedFrac = 0; continue; }
+    const quiet = freeze === 1 || trickQuiet(b);          // a puddle or snow near Dad that would give him away — tiptoe across it
+    const speed = CFG.BOT_SPEED * (b.fx.boots > 0 ? CFG.BOOTS_MULT : 1) * (quiet ? CFG.TIPTOE_MULT : 1);
     // SPEC-019: подкрадываясь (ближе HEAR_RADIUS + TIPTOE_NEAR клеток) и выжидая там, где он слышит (HEAR_RADIUS), — на цыпочках;
     // убегают и спасают — бегом
     const db = dist(b, G.big), tiptoe = db <= (CFG.HEAR_RADIUS + CFG.TIPTOE_NEAR) * CELL, lurkTip = db <= CFG.HEAR_RADIUS * CELL;
@@ -92,6 +99,7 @@ export function updateBots(dt) {
         }
       }
     }
+    if (quiet) frac = Math.min(frac, CFG.TIPTOE_MULT);
     b.moving = moved;
     b.speedFrac = moved ? frac : 0;                       // SPEC-019: доля своей скорости (на цыпочках — TIPTOE_MULT, тихо)
     if (moved) b.dir = turnToward(b.dir, b.moveDir, 10 * dt);

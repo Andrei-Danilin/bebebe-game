@@ -169,7 +169,8 @@ const withoutStarSlot = e => { if (e.type !== "coins" || e.reason !== "star") re
 // which CFG still reaches (HEAR_CHANCE 1 draws no rng) — so the reference stays the same and proves nothing else changed.
 // SPEC-036 (kids' rule) too: the fallen kid's timer stops while a friend helps (DOWN_PAUSE_HELPED 1); 0 is the old rule
 // SPEC-037: Dad no longer stands stuck (re-path after BIG_UNSTUCK_TIME s; BIG_DETOUR_COST: a lying friend is a wall for his patrol and search path); 0 and 0 are the game before
-const OLD_RULES = { HEAR_CHANCE: 1, HEAR_TURN_TIME: 0.15, DOWN_PAUSE_HELPED: 0, BIG_UNSTUCK_TIME: 0, BIG_DETOUR_COST: 0 };
+// SPEC-042: TRICKS_ON 0 — the worlds have no trick (puddles in the Park would change the recorded game); 0 is the game before
+const OLD_RULES = { HEAR_CHANCE: 1, HEAR_TURN_TIME: 0.15, DOWN_PAUSE_HELPED: 0, BIG_UNSTUCK_TIME: 0, BIG_DETOUR_COST: 0, TRICKS_ON: 0 };
 test("same seed, same game after the split", async ({ page }) => {
   test.setTimeout(180_000);
   const errors = await openGame(page, { sim: true });
@@ -377,6 +378,7 @@ const CORE_MODULE_STATE = {
   "src/core/config.js:CFG": "the rule numbers (constant table; tests tune them)",
   "src/core/config.js:GLOVES": "constant table", "src/core/config.js:KISSES": "constant table", "src/core/config.js:RESCUE_KIT": "constant table",
   "src/core/config.js:REWARD": "constant table", "src/core/config.js:WARDROBE_TIERS": "constant table", "src/core/config.js:UPGRADES": "constant table",
+  "src/core/tricks/index.js:TRICK_MODS": "constant table of the six trick modules (a core test swaps one for a fake and restores it)",
   "src/core/wardrobe.js:HAIRS": "constant table", "src/core/wardrobe.js:HATS": "constant table", "src/core/wardrobe.js:JACKETS": "constant table",
   "src/core/wardrobe.js:PANTS": "constant table", "src/core/wardrobe.js:BIG_SKINS": "constant table"
 };

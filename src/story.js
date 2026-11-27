@@ -1,5 +1,5 @@
 // SPEC-011: the story (chapters, scenes) in four languages, the rule icons and the scene ids. Shared data.
-import { BONUS_WORLDS, BOSSES } from "./core/config.js";
+import { BONUS_WORLDS, BOSSES, WORLDS } from "./core/config.js";
 
 // =====================================================================
 //  ИСТОРИЯ (SPEC-017; SPEC-022: тексты — из истории Кости, docs/story.md): главы по порядку — начало, миры, бонусные миры, конец.
@@ -101,4 +101,6 @@ export const SCENE_IDS = Object.freeze(["intro", ...Object.keys(BOSSES).map(w =>
 // SPEC-029: страницы обучения — тоже заставки (тот же экран), но не глава истории и не отмечаются в progress.seen по отдельности;
 // в seen — одно «tutorial»: обучение закончили или пропустили
 export const TUTORIAL_SCENES = Object.freeze(["tutorial_intro", "tutorial_a", "tutorial_b", "tutorial_c", "tutorial_pics", "tutorial_ready"]);   // SPEC-032: tutorial_pics — «Картинки» (A1…C4); SPEC-033: tutorial_intro — карточка «Как играть» после комикса (последняя — tutorial_ready)
-export const SEEN_IDS = Object.freeze([...SCENE_IDS, "tutorial"]);
+// SPEC-042 AC 11: trick_<world> — the "New here!" card of that world has been shown
+export const TRICK_SEEN_IDS = Object.freeze(WORLDS.map(w => "trick_" + w));
+export const SEEN_IDS = Object.freeze([...SCENE_IDS, ...TRICK_SEEN_IDS, "tutorial"]);

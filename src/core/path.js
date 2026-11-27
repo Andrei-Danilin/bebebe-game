@@ -3,6 +3,7 @@
 import { CFG, H, W } from "./config.js";
 import { clamp, rand } from "./util.js";
 import { bigGrid, detourCost, findPath, wallOn } from "./grid.js";
+import { trickDadSolid, trickKidCost } from "./tricks/query.js";
 import { inCone } from "./vision.js";
 import { inDangerXY, losWide, moveSolidAt, moveSolidBigAt } from "./world.js";
 import { G } from "./active.js";
@@ -51,6 +52,7 @@ function clearTo(e, x, y, avoidCone) {
   if (!losWide(e.x, e.y, x, y, e.r - 1, e.isBig ? moveSolidBigAt : moveSolidAt)) return false;
   // лежащий друг на отрезке — не прямо (кроме самой цели: к нему идут, поиск начинается у него)
   if (e.isBig && wallOn() && G.littles.some(l => l.state === "down" && Math.hypot(l.x - x, l.y - y) >= e.r + l.r && segDist(l.x, l.y, e.x, e.y, x, y) < e.r + l.r)) return false;
+  if (!e.isBig && G.trick) for (let t = 0.2; t <= 1.001; t += 0.2) if (trickKidCost(e.x + (x - e.x) * t, e.y + (y - e.y) * t)) return false;   // SPEC-042: not straight through a wave: A* goes round
   if (avoidCone && G.big.stun <= 0 && G.big.blush <= 0) for (let t = 0.2; t <= 1.001; t += 0.2) if (inCone(e.x + (x - e.x) * t, e.y + (y - e.y) * t)) return false;
   return true;
 }
@@ -62,13 +64,14 @@ export function steerPoint(e, gx, gy, dt, avoidCone, repathIn = () => rand(0.3, 
   if (!clearTo(e, gx, gy, avoidCone)) {
     if (e.repath <= 0 || !e.path.length) {
       const cost = e.isBig ? ((x, y) => (avoidCone && inCone(x, y) ? 20 : 0) + detourCost(x, y))
-        : (x, y) => (avoidCone && inCone(x, y) ? 20 : 0) + (inDangerXY(x, y) ? CFG.BOT_DANGER_COST : 0);   // дом Большого — «дорогой»
+        : (x, y) => (avoidCone && inCone(x, y) ? 20 : 0) + (inDangerXY(x, y) ? CFG.BOT_DANGER_COST : 0) + trickKidCost(x, y);   // дом Большого — «дорогой»; SPEC-042: волна — тоже
       e.path = findPath(e.x, e.y, gx, gy, cost, e.isBig ? bigGrid() : G.blocked);
       e.repath = repathIn();
     }
     while (e.path.length && Math.hypot(e.path[0].x - e.x, e.path[0].y - e.y) < 8) e.path.shift();
     while (e.path.length > 1 && clearTo(e, e.path[1].x, e.path[1].y, avoidCone)) e.path.shift();
     if (e.path.length) { tx = e.path[0].x; ty = e.path[0].y; }
+    else if (e.isBig && trickDadSolid(gx, gy)) { tx = e.x; ty = e.y; }   // SPEC-042: no way to a goal inside a spray / a wave (he is already at its edge): he waits, he does not walk in
   } else e.path = [];
   return { tx, ty };
 }

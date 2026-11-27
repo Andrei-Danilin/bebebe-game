@@ -755,7 +755,7 @@ test("the level card starts the level", async ({ page }) => {
   let d = await page.evaluate(() => ({ card: window.__bb.levelCard, ids: window.__bb.buttonRects.map(q => q.id), hud: window.__bb.hudRects, lines: window.__bb.I18N.en.typeLines, boss: window.__bb.I18N.en.bossLine }));
   expect(d.card).toEqual({ world: "park", n: 8, title: "Park · Level 8", type: "River with bridges", line: d.lines.river, stars: 2, preview: { boss: false, locked: false } });
   expect(d.hud.find(h => h.id === "card:line").text).toBe(d.lines.river);
-  expect([...d.ids].sort(), "desktop: 1 or 2 players, the story, close").toEqual(["card:1", "card:2", "card:close", "card:story"]);
+  expect([...d.ids].sort(), "desktop: 1 or 2 players, the story, the ? (SPEC-042), close").toEqual(["card:1", "card:2", "card:close", "card:story", "card:tip"]);
   // level 20: the boss line
   await page.keyboard.press("Escape");
   await frames(page);
@@ -1030,7 +1030,7 @@ test("story, rules and the level card fit a phone, also with wider fonts", async
     const at = `${lang} ×${scale} ${st}`;
     fails.push(...phoneProblems(at, d));
     if (st.startsWith("card")) {
-      if (!d.card || [...d.buttons.map(q => q.id)].sort().join() !== "card:close,card:play,card:story") fails.push(`${at}: card buttons ${d.buttons.map(q => q.id)}`);
+      if (!d.card || [...d.buttons.map(q => q.id)].sort().join() !== "card:close,card:play,card:story,card:tip") fails.push(`${at}: card buttons ${d.buttons.map(q => q.id)}`);
       if (!d.hud.some(h => h.id === "card:line")) fails.push(`${at}: no type line`);
     } else if (st === "rules") {
       if (d.hud.filter(h => h.id.startsWith("rules:")).length !== d.rules) fails.push(`${at}: not ${d.rules} rules lines`);
