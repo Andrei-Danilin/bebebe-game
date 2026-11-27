@@ -11,9 +11,9 @@ import { noGameRng, setStrictRng } from "../core/util.js";
 import { artGate, initArt } from "./art.js";
 import { installDebug } from "./debug.js";
 import { failStart, initErrors, reportError } from "./errors.js";
-import { inMenus, inWardrobe, mapTick, mode, openScene, redress, resetWorld, seedRandom, syncStock } from "./flow.js";
+import { inMenus, inWardrobe, mapTick, mode, openScene, redress, resetWorld, seedRandom, setMode, syncStock } from "./flow.js";
 import { drainEvents, runFrame, viewTick } from "./fx.js";
-import { initInput, pollPads } from "./input.js";
+import { initInput, pollPads, sticks } from "./input.js";
 import { initBack } from "./back.js";
 import { initLifecycle } from "./lifecycle.js";
 import { endTryOn } from "./outfits.js";
@@ -21,7 +21,7 @@ import { LOOK } from "./look.js";
 import { initPerf, noteFrame } from "./perf.js";
 import { langPending, loadSave } from "./save.js";
 import { openLangScreen } from "./ui/lang.js";
-import { fit, initScreen, isTouch, simMode } from "./screen.js";
+import { fit, initScreen, rotateWall, simMode } from "./screen.js";
 import { ui } from "./state.js";
 import { initCamera, updateCamera } from "./three/camera.js";
 import { initCharacters, rebuild3D } from "./three/characters.js";
@@ -104,9 +104,9 @@ function tick(now) {
   pollPads();
   syncStock();                              // SPEC-012: the local stock follows the saves (shop, tests)
   if (!inWardrobe() && endTryOn()) redress();   // SPEC-009/017: ушли из вкладки «Гардероб» (друзья — её часть) — примерка кончилась
-  const portrait = isTouch && window.innerHeight > window.innerWidth;
+  if (mode === "play" && rotateWall()) { sticks.clear(); setMode("pause"); }   // SPEC-038 AC 2: the phone turned upright in a level — pause; turned back, the pause menu waits (no auto-resume)
   mapTick(dt);
-  if (mode === "play" && !portrait) runFrame(Math.max(0, real));           // SPEC-012 / SPEC-034: devices once → the accumulator's whole 1/60 s steps → their effects (the game); the view ages by the frame time
+  if (mode === "play") runFrame(Math.max(0, real));           // SPEC-012 / SPEC-034: devices once → the accumulator's whole 1/60 s steps → their effects (the game); the view ages by the frame time
   else { drainEvents(); viewTick(dt); if (inMenus()) ui.menuSpin += dt * 0.8; }   // SPEC-012 AC 1d: the Big One turns in the menus — a view angle, not game state
   noGameRng("render", () => {              // рисование не тянет игровую случайность (SPEC-008: тесты — ошибка, игра — vrand)
     updateCamera(dt);                       // телефон: камера за героем (3D-слой, не логика)

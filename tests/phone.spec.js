@@ -1510,6 +1510,62 @@ test.describe("phone portrait", () => {
   });
 });
 
+// SPEC-038 AC 2 (RR-72): rotation. Turning to portrait in a level pauses; turning back shows the pause menu (no auto-resume);
+// while the rotate overlay shows nothing under it reacts, also on a touch device that is not in phone mode; a burst of resize
+// events makes one fit() (one canvas reallocation) per animation frame.
+test.describe("phone rotation", () => {
+  test.use({ ...PHONE_CTX, viewport: { width: 667, height: 375 } });
+
+  test("portrait during a level pauses; back to landscape shows the pause menu, not the game", async ({ phonePage: page }) => {
+    const errors = await phonePlay(page);
+    await frames(page);
+    expect(await page.evaluate(() => window.__bb.mode)).toBe("play");
+    await page.setViewportSize({ width: 375, height: 667 });
+    await frames(page); await frames(page);
+    const p = await page.evaluate(() => ({ mode: window.__bb.mode, shown: window.__bb.rotateShown, buttons: window.__bb.buttonRects.length }));
+    expect(p).toEqual({ mode: "pause", shown: true, buttons: 0 });
+    // a tap on the overlay does not resume (the pause screen's tap-anywhere is under it)
+    await page.touchscreen.tap(187, 333);
+    expect(await page.evaluate(() => window.__bb.mode)).toBe("pause");
+    await page.setViewportSize({ width: 667, height: 375 });
+    await frames(page); await frames(page);
+    const back = await page.evaluate(() => ({ mode: window.__bb.mode, shown: window.__bb.rotateShown, buttons: window.__bb.buttonRects.map(b => b.id) }));
+    expect(back.mode, "no auto-resume").toBe("pause");
+    expect(back.shown).toBe(false);
+    expect(back.buttons.length, "the pause menu's buttons are there").toBeGreaterThan(0);
+    expect(errors).toEqual([]);
+  });
+
+  test("20 resize events in one frame make one fit()", async ({ phonePage: page }) => {
+    const errors = page.sharedErrors;
+    await frames(page);
+    const d = await page.evaluate(() => new Promise(done => {
+      const b = window.__bb, n0 = b.fitCount;
+      for (let i = 0; i < 20; i++) window.dispatchEvent(new Event("resize"));
+      const during = b.fitCount - n0;                           // nothing yet: the work waits for the frame
+      requestAnimationFrame(() => requestAnimationFrame(() => done({ during, after: b.fitCount - n0 })));
+    }));
+    expect(d).toEqual({ during: 0, after: 1 });
+    expect(errors).toEqual([]);
+  });
+});
+
+// a touch device that is not in phone mode (?phone=0) with a phone-sized screen still gets the wall, and it blocks every control
+test.describe("rotate overlay off the phone mode", () => {
+  test.use({ ...PHONE_CTX, viewport: { width: 390, height: 844 } });
+
+  test("it shows and nothing under it reacts", async ({ page }) => {
+    const errors = await openGame(page, { query: "?phone=0" });
+    expect(await page.evaluate(() => window.__bb.phone)).toBe(false);
+    await frames(page);
+    const d = await page.evaluate(() => ({ shown: window.__bb.rotateShown, buttons: window.__bb.buttonRects.length, mode: window.__bb.mode }));
+    expect(d).toEqual({ shown: true, buttons: 0, mode: "home" });
+    for (let y = 300; y <= 560; y += 20) for (const x of [60, 195, 330]) await page.touchscreen.tap(x, y);   // the letterboxed canvas, the whole of it
+    expect(await page.evaluate(() => ({ mode: window.__bb.mode, sticks: window.__bb.sticks.length }))).toEqual({ mode: "home", sticks: 0 });
+    expect(errors).toEqual([]);
+  });
+});
+
 // SPEC-007 AC 10: the phone shop cards never overlap, also with wider fonts (CI and iPhone fonts are wider than Windows).
 // The font scale (CFG.TEXT_TEST_SCALE) multiplies the measured width of every phone pRows text, like the banner test.
 // Card parts are recorded in hudRects: card-pic, card-name, card-desc, card-pack, card-have, card-badge, card-no.

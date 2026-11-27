@@ -7,7 +7,7 @@ import { backToWardrobe, chooseStop, closeCard, goBack, closeShop, cycleWorld, i
 import { LOOK } from "./look.js";
 import { cleanName, nameFor, setName } from "./names.js";
 import { randomOutfit } from "./outfits.js";
-import { canvas, CSS_W, PHONE, UH, UW, wrap } from "./screen.js";
+import { canvas, CSS_W, PHONE, rotateWall, UH, UW, wrap } from "./screen.js";
 import { leaveCancel } from "./back.js";
 import { cardOpen, moveCardFocus, pressCard } from "./errors.js";
 import { initAudio } from "./sound.js";
@@ -317,6 +317,7 @@ export function initInput() {
   window.addEventListener("contextmenu", e => e.preventDefault());
   canvas.addEventListener("pointerdown", e => {
     e.preventDefault();
+    if (rotateWall()) return;                          // SPEC-038 AC 2: the "turn your device" overlay is on — nothing under it reacts
     initAudio();
     if (nameInput) { closeNameInput(true); return; }   // тап мимо поля — имя сохраняется
     // SPEC-025 AC 7d: in the frame that changed the screen the drawn buttons (and the screen-wide taps: next comic page, resume,
@@ -356,6 +357,7 @@ export function initInput() {
   canvas.addEventListener("pointerup", e => {
     initAudio();                                       // SPEC-025 AC 14: WebKit unlocks audio on the release
     endStick(e);
+    if (rotateWall()) { pendingUp = null; ui.mapSwipe = null; return; }   // SPEC-038 AC 2: a release under the overlay presses nothing
     const stale = staleButtons();                      // SPEC-025 AC 7d: a swipe still works; a button of an older screen does not
     const sw = ui.mapSwipe;
     if (sw && sw.id === e.pointerId) {
