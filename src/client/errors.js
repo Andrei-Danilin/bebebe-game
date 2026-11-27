@@ -9,8 +9,8 @@
 import { G } from "../core/active.js";
 import { CFG } from "../core/config.js";
 import { L } from "../i18n.js";
-import { VERSION } from "../version.js";
-import { mode, resumeGame, retryLevel, setMode, toHome } from "./flow.js";
+import { resumeGame, retryLevel, setMode, toHome } from "./flow.js";
+import { mode } from "./state.js";
 import { mergeLogs, readErrorLog, writeErrorLog } from "./save.js";
 import { restartTutorialGame } from "./tutorial.js";
 
@@ -18,13 +18,14 @@ let log = null;                      // the error log (read on the first error; 
 let logDirty = false, logWrittenAt = 0;
 let pausedByOops = false, lastShown = null;   // the entry the last card showed (the same one again → also a reload button)
 const seen = { version: null };     // the build's version, made once (an error repeating every frame stays cheap)
-// SPEC-025 AC 12: the game version + the module set's SRC_HASH (semver build metadata: "1.0.0-dev+ca4a5e9ae9") — the version
+// SPEC-025 AC 12 / SPEC-039: the game version (<meta name="game-version">) + the module set's SRC_HASH (semver build metadata: "1.0.0-dev+ca4a5e9ae9") — the version
 // names the release, the hash the exact modules (a -dev version spans many deploys); the error log and the grown-ups page show it
 export function buildVersion() {
   if (seen.version === null) {
-    let hash = "?";
+    let hash = "?", version = "?";
     try { hash = /** @type {HTMLMetaElement} */ (document.querySelector("meta[name=src-hash]")).content; } catch (e) { /* no shell meta */ }
-    seen.version = `${VERSION}+${hash}`;
+    try { version = /** @type {HTMLMetaElement} */ (document.querySelector("meta[name=game-version]")).content; } catch (e) { /* no shell meta */ }   // SPEC-039: the shell carries the version, not a module
+    seen.version = `${version}+${hash}`;
   }
   return seen.version;
 }

@@ -1,9 +1,11 @@
 // Service worker of BeBeBe Atrapar: the installed app keeps working offline after the first open.
 // SPEC-011 AC 9: three caches, so a code deploy re-downloads no sprites and a sprite-only deploy no code (an install finds the
 // complete src cache of its SRC_HASH and keeps it):
-//   <SW_VERSION>-src-<SRC_HASH>     the shell (index.html, manifest, icons) + the game's ES modules, written only at install
+//   bebebe-b<SW_BUILD>-src-<SRC_HASH>     the shell (index.html, manifest, icons) + the game's ES modules, written only at install
 //                                   (plus the shell rule below); complete when its "installed" marker is there;
-//   <SW_VERSION>-assets-<ASSETS_HASH>  the art sprites (assets/, listed by npm run assets);
+//   bebebe-b<SW_BUILD>-assets-<ASSETS_HASH>  the art sprites (assets/, listed by npm run assets);
+// SPEC-039: the two names carry the build counter and the content hash, never the game's semver: a release (SW_VERSION changes, the
+// files do not) finds both caches complete and downloads nothing but index.html and this worker.
 //   bebebe-three-<THREE_VERSION>    the vendored three.js (vendor/three/, SPEC-025 AC 1), by its version: a code deploy
 //                                   never downloads it again.
 // The module URLs are versioned (./src/…/x.js?v=<hash of its bytes>: the import map of index.html, written by npm run precache
@@ -22,47 +24,54 @@ const CACHE_PREFIX = "bebebe-";          // all Pages projects of the account sh
 const NET_TIMEOUT_MS = 4000;             // weak signal: after this long, a cached copy wins over a slow network
 // SPEC-011: written by npm run precache (scripts/precache.js) — do not edit by hand
 // precache:start
-const SW_BUILD = 10;
-const SW_STRATEGY = "16a86f84f8";
-const SW_VERSION = "bebebe-1.0.0-dev-b10";
-const SRC_HASH = "d005d322bb";
+const SW_BUILD = 11;
+const SW_STRATEGY = "0c8e52b02e";
+const SW_VERSION = "bebebe-1.0.0-dev-b11";
+const SRC_HASH = "e425d6412e";
 const PRECACHE_LOCAL = [
   "./", "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512-maskable.png",
   "./icons/icon-512.png", "./icons/icon.svg", "./index.html", "./manifest.webmanifest"
 ];
 const PRECACHE_SRC = [
-  "./src/client/art-names.js?v=20ca23d7bd", "./src/client/art.js?v=68d5388c7e", "./src/client/back.js?v=31643bda5c",
-  "./src/client/debug.js?v=f249d79223", "./src/client/errors.js?v=d36934cb61", "./src/client/flow.js?v=adbf8f4f53",
-  "./src/client/fx.js?v=84a289bc8e", "./src/client/input.js?v=7187d6d2d6", "./src/client/lifecycle.js?v=1749f28ea8",
-  "./src/client/look.js?v=3aefb9f645", "./src/client/main.js?v=8ebdfcc35c", "./src/client/names.js?v=dff85cded6",
-  "./src/client/outfits.js?v=8564eaee23", "./src/client/perf.js?v=1b8537ee9d", "./src/client/progress.js?v=ae2e521ad9",
-  "./src/client/save.js?v=be42450a76", "./src/client/screen.js?v=92a8a9701c", "./src/client/shop.js?v=ebde4ad6de",
-  "./src/client/sound.js?v=57a594910c", "./src/client/state.js?v=47e0e50964", "./src/client/storage.js?v=686b11f06c",
-  "./src/client/three/bosses.js?v=7814dfb8d4", "./src/client/three/camera.js?v=39a889ad56",
-  "./src/client/three/characters.js?v=87a7d8775e", "./src/client/three/houses.js?v=c9bc94bc94",
-  "./src/client/three/look3d.js?v=6620453fc3", "./src/client/three/map3d.js?v=c3fed1392a",
-  "./src/client/three/materials.js?v=bf7b1c0f0f", "./src/client/three/previews.js?v=0cdeff7116",
-  "./src/client/three/setup.js?v=f20369215b", "./src/client/three/sync.js?v=4461a2e27a",
-  "./src/client/three/themes.js?v=6f17def67f", "./src/client/tutorial.js?v=79c53ff666",
-  "./src/client/ui/character/items.js?v=9f6dd754dd", "./src/client/ui/character/progress.js?v=4a8d1be0da",
-  "./src/client/ui/character/tabs.js?v=736bd98233", "./src/client/ui/character/upgrades.js?v=ec89bfa2d2",
-  "./src/client/ui/character/wardrobe.js?v=9b68107cfe", "./src/client/ui/draw.js?v=29e45ed564",
-  "./src/client/ui/grownups.js?v=be5b41506c", "./src/client/ui/home.js?v=61d291dbc9",
-  "./src/client/ui/hud.js?v=847efcf8eb", "./src/client/ui/lang.js?v=6f01f96074", "./src/client/ui/map.js?v=4634784c68",
-  "./src/client/ui/menu.js?v=df7bd8b63c", "./src/client/ui/minimap.js?v=afd7cc3057",
-  "./src/client/ui/phone.js?v=83c9ce2f06", "./src/client/ui/screens.js?v=c9c66745f9",
-  "./src/client/ui/story.js?v=2161f3118f", "./src/client/ui/text.js?v=9282c2557e",
-  "./src/client/ui/win.js?v=39875a8f61", "./src/client/update.js?v=e702121a73", "./src/core/active.js?v=70aa836ebd",
-  "./src/core/autopilot.js?v=528edb53f9", "./src/core/big.js?v=bab7a9cd72", "./src/core/bots.js?v=fc04a520e3",
-  "./src/core/config.js?v=f3ac2f052c", "./src/core/difficulty.js?v=72aff2bd1e", "./src/core/economy.js?v=6c6ac20714",
-  "./src/core/game.js?v=79c95b3179", "./src/core/hearing.js?v=02c8023238", "./src/core/hooks.js?v=5ceea54c61",
-  "./src/core/index.js?v=2ac6418608", "./src/core/level/build.js?v=fc9509a62b",
+  "./src/client/art-names.js?v=20ca23d7bd", "./src/client/art.js?v=1f53c76757", "./src/client/back.js?v=2bbaab7f17",
+  "./src/client/debug.js?v=4380438530", "./src/client/devices.js?v=892965ff6f", "./src/client/errors.js?v=7b215fb847",
+  "./src/client/flow.js?v=4792b1ac89", "./src/client/fx.js?v=5a88b57937", "./src/client/input.js?v=983462c66e",
+  "./src/client/lifecycle.js?v=1c78b949bb", "./src/client/look.js?v=25255d8de4", "./src/client/main.js?v=5f7a78b2fb",
+  "./src/client/names.js?v=dff85cded6", "./src/client/outfits.js?v=e814941367", "./src/client/perf.js?v=2c7f71b57b",
+  "./src/client/ports.js?v=4285602733", "./src/client/progress.js?v=38515d7fe6", "./src/client/reset.js?v=30ccdd527d",
+  "./src/client/save.js?v=7939a95d74", "./src/client/screen.js?v=b2d0263850", "./src/client/shop.js?v=ebde4ad6de",
+  "./src/client/sound.js?v=57a594910c", "./src/client/state.js?v=3b73591050", "./src/client/storage.js?v=686b11f06c",
+  "./src/client/three/bosses.js?v=7814dfb8d4", "./src/client/three/camera.js?v=cd37d1af9d",
+  "./src/client/three/characters.js?v=4fbaac5ba1", "./src/client/three/houses.js?v=7b4e722052",
+  "./src/client/three/look3d.js?v=4c30e2da56", "./src/client/three/map3d.js?v=c420d2cfb8",
+  "./src/client/three/mapstate.js?v=df23bf049c", "./src/client/three/materials.js?v=bf7b1c0f0f",
+  "./src/client/three/pools.js?v=75c81234b2", "./src/client/three/previews.js?v=885473544b",
+  "./src/client/three/setup.js?v=f20369215b", "./src/client/three/sync.js?v=91dd0e2f93",
+  "./src/client/three/themes.js?v=4b130c3f66", "./src/client/tutorial-data.js?v=d7936119e6",
+  "./src/client/tutorial.js?v=d366f16b03", "./src/client/ui/artdraw.js?v=48e3a5b4ce",
+  "./src/client/ui/buttons.js?v=67b41b2f83", "./src/client/ui/canvas.js?v=697f7d0db5",
+  "./src/client/ui/character/items.js?v=87b6a8f23e", "./src/client/ui/character/progress.js?v=46b61d937e",
+  "./src/client/ui/character/tabs.js?v=bd6c90ad68", "./src/client/ui/character/upgrades.js?v=58cb99b9b1",
+  "./src/client/ui/character/wardrobe.js?v=3fb7e40d1d", "./src/client/ui/draw.js?v=510f1e4a0b",
+  "./src/client/ui/grownups.js?v=87e0c3d642", "./src/client/ui/home.js?v=bdcbc2445d",
+  "./src/client/ui/hud.js?v=353bbb5527", "./src/client/ui/lang.js?v=568a4dc213",
+  "./src/client/ui/layout.js?v=5ed9c00448", "./src/client/ui/map.js?v=2d635f6a93",
+  "./src/client/ui/menu.js?v=92826074d8", "./src/client/ui/minimap.js?v=7d23e70a73",
+  "./src/client/ui/paper.js?v=c25342da07", "./src/client/ui/phone.js?v=27e9795943",
+  "./src/client/ui/screens.js?v=22db6f2c52", "./src/client/ui/story.js?v=5f55a5406a",
+  "./src/client/ui/text.js?v=88e58fc198", "./src/client/ui/win.js?v=2034a489f8", "./src/client/update.js?v=e702121a73",
+  "./src/core/active.js?v=70aa836ebd", "./src/core/autopilot.js?v=67ef4c36b5", "./src/core/big.js?v=7e52188e25",
+  "./src/core/bots.js?v=d2e5c69d1b", "./src/core/config.js?v=f3ac2f052c", "./src/core/difficulty.js?v=72aff2bd1e",
+  "./src/core/economy.js?v=e3d6023dec", "./src/core/events.js?v=5f9445b895", "./src/core/game.js?v=e4b753f4fa",
+  "./src/core/grid.js?v=508da7bc4c", "./src/core/hearing.js?v=fa15ffe834", "./src/core/hooks.js?v=5ceea54c61",
+  "./src/core/index.js?v=dde55b7f59", "./src/core/kindwalk.js?v=42ad90dbc0", "./src/core/level/build.js?v=9e143d5222",
   "./src/core/level/generate.js?v=455b2ff4e4", "./src/core/level/layouts.js?v=07d6472d8e",
-  "./src/core/level/validate.js?v=3f3743eb46", "./src/core/mood.js?v=8dcad43e22", "./src/core/path.js?v=85a51244fe",
-  "./src/core/practice.js?v=dff6db8024", "./src/core/progress-rules.js?v=a9deff0bda",
-  "./src/core/rules.js?v=ebb66b0e27", "./src/core/util.js?v=b56133239e", "./src/core/wardrobe.js?v=011be2182f",
-  "./src/core/world.js?v=4c89ba327c", "./src/i18n.js?v=ad8999931e", "./src/story.js?v=0cd3381a6e",
-  "./src/version.js?v=6d0844555e"
+  "./src/core/level/load.js?v=35ddf9f455", "./src/core/level/report.js?v=d3e7b72446",
+  "./src/core/level/validate.js?v=048c553ac4", "./src/core/mood.js?v=65a5548f9d", "./src/core/path.js?v=26b96c775d",
+  "./src/core/practice.js?v=807c98cf2e", "./src/core/progress-rules.js?v=7c34b4f903",
+  "./src/core/rules.js?v=62128604fa", "./src/core/util.js?v=b56133239e", "./src/core/vision.js?v=f239fd8abc",
+  "./src/core/wardrobe.js?v=011be2182f", "./src/core/world.js?v=4c89ba327c", "./src/i18n.js?v=ad8999931e",
+  "./src/story.js?v=0cd3381a6e"
 ];
 const THREE_VERSION = "r187";
 const PRECACHE_THREE = [
@@ -120,8 +129,9 @@ const PRECACHE_ASSETS = [
   "./assets/heart_half.webp", "./assets/heart_empty.webp"
 ];
 // assets:end
-const CACHE_SRC = SW_VERSION + "-src-" + SRC_HASH;
-const CACHE_ASSETS = SW_VERSION + "-assets-" + ASSETS_HASH;
+const srcCacheName = hash => CACHE_PREFIX + "b" + SW_BUILD + "-src-" + hash;   // SPEC-039: no semver in the name
+const CACHE_SRC = srcCacheName(SRC_HASH);
+const CACHE_ASSETS = CACHE_PREFIX + "b" + SW_BUILD + "-assets-" + ASSETS_HASH;
 const CACHE_THREE = CACHE_PREFIX + "three-" + THREE_VERSION;
 const SCOPE_ROOT = new URL("./", self.location).href;
 const INSTALLED = new URL("./__installed__", self.location).href;   // the marker of a complete src cache
@@ -209,7 +219,7 @@ function rememberShell(event, request, response) {
   if (response.ok && response.type === "basic") {
     const copy = response.clone();
     const saved = (async () => {
-      const hash = srcHashOf(await copy.clone().text()), name = hash && SW_VERSION + "-src-" + hash;
+      const hash = srcHashOf(await copy.clone().text()), name = hash && srcCacheName(hash);
       if (name && await isComplete(name)) await (await caches.open(name)).put(request, copy);
     })().catch(() => {});
     try { event.waitUntil(saved); } catch (e) { /* saving goes on anyway */ }

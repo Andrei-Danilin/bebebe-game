@@ -12,7 +12,8 @@
 //               module URLs (PRECACHE_SRC) the service worker installs into its "src" cache; THREE_VERSION (r<REVISION> of
 //               the vendored build) and PRECACHE_THREE, the versioned vendor URLs of its three.js cache (SPEC-025 AC 1).
 // SPEC-025 AC 12: and the versions —
-//   src/version.js: `export const VERSION = "<package.json version>"` (written first: it is a module, hashed like the rest);
+//   index.html: <meta name="game-version" content="<package.json version>"> (SPEC-039: no longer a module, src/version.js: a release
+//               changes the shell and the worker only — no module, so the installed app downloads no code again);
 //   sw.js (same block): SW_VERSION = "bebebe-<version>-b<SW_BUILD>", derived — SW_BUILD is a build counter that goes up by one
 //               whenever SW_STRATEGY changes: the hash of sw.js outside its generated blocks (the cache strategy) and of the
 //               shell files the src cache keeps besides index.html (the icons, the manifest). So a strategy change or a
@@ -32,7 +33,6 @@ const ENTRY = "./src/client/main.js";
 const ENTRY_RE = /<script type="module" src="\.\/src\/client\/main\.js(?:\?v=[0-9a-f]*)?"><\/script>/;
 const THREE_DIR = "vendor/three";
 const THREE_ENTRY = "./vendor/three/three.module.js";
-const VERSION_FILE = path.join(ROOT, "src", "version.js");
 const SW_BLOCKS = [MARK, ["// assets:start", "// assets:end"]];   // generated: not part of the cache strategy
 const TEXT_SHELL = /\.(svg|webmanifest|json)$/;
 const hashOf = text => crypto.createHash("sha256").update(text).digest("hex").slice(0, 10);
@@ -68,16 +68,12 @@ function lists() {
 }
 // a cached shell file's hash: text with LF line ends, binary (the png icons) as bytes
 const shellFileHash = f => (TEXT_SHELL.test(f) ? fileHash(f) : crypto.createHash("sha256").update(fs.readFileSync(f)).digest("hex").slice(0, 10));
-// SPEC-025 AC 12: the game version (package.json "version", semver) and the text of src/version.js for it
+// SPEC-025 AC 12: the game version (package.json "version", semver)
 function gameVersion() {
   const v = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8")).version;
   if (!/^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/.test(v || "")) throw new Error(`package.json: version "${v}" is not semver`);
   return v;
 }
-const versionModule = v => [
-  "// SPEC-025 AC 12: the game version, from package.json \"version\" — written by npm run precache (scripts/precache.js), do not",
-  "// edit by hand. Shown on the grown-ups page and kept in the error log as <VERSION>+<SRC_HASH> (shared data).",
-  `export const VERSION = ${JSON.stringify(v)};`, ""].join(NL);
 // the cache strategy of a sw.js text: everything outside its generated blocks
 function strategyText(sw) {
   let out = sw;
@@ -106,7 +102,7 @@ const arrayLines = (items, indent) => {
 };
 
 // index.html with the import map and the src-hash meta for these modules (and the vendored three.js)
-function writeIndex(html, { modules, srcHash, three }) {
+function writeIndex(html, { modules, srcHash, three, version }) {
   const re = /<script type="importmap">([\s\S]*?)<\/script>/;
   if (!re.test(html)) throw new Error("index.html: no <script type=\"importmap\">");
   if (!three.some(x => x.url === THREE_ENTRY)) throw new Error(`${THREE_ENTRY} is missing`);
@@ -122,6 +118,9 @@ function writeIndex(html, { modules, srcHash, three }) {
   const meta = `<meta name="src-hash" content="${srcHash}">`;
   if (/<meta name="src-hash" content="[^"]*">/.test(html)) html = html.replace(/<meta name="src-hash" content="[^"]*">/, meta);
   else html = html.replace(/(<meta name="theme-color"[^>]*>)/, `$1${NL}${meta}`);
+  // SPEC-039: the game version, shown on the grown-ups page and kept in the error log as <version>+<src-hash> (errors.js buildVersion)
+  const ver = `<meta name="game-version" content="${version}">`;
+  html = /<meta name="game-version" content="[^"]*">/.test(html) ? html.replace(/<meta name="game-version" content="[^"]*">/, ver) : html.replace(/(<meta name="src-hash"[^>]*>)/, `$1${NL}${ver}`);
   return html;
 }
 
@@ -141,22 +140,15 @@ function writeSw(sw, { shell, modules, srcHash, three, threeVersion: tv, version
   return sw.slice(0, sw.indexOf(NL, a) + 1) + block + NL + sw.slice(b);
 }
 
-// what the files should be now (LF); the caller keeps a file's line ends. src/version.js is one of the modules: a stale one
-// (check mode, or before the write) is hashed as it will be written
+// what the files should be now (LF); the caller keeps a file's line ends
 function expected() {
-  const lf = f => (fs.existsSync(f) ? fs.readFileSync(f, "utf8").split("\r\n").join(NL) : "");
-  const version = versionModule(gameVersion()), L = lists();
-  if (lf(VERSION_FILE) !== version) {
-    L.modules = L.modules.filter(x => x.url !== "./src/version.js").concat([{ url: "./src/version.js", hash: hashOf(version) }]);
-    L.modules.sort((x, y) => (x.url < y.url ? -1 : x.url > y.url ? 1 : 0));
-    L.srcHash = hashOf(L.modules.map(m => `${m.url} ${m.hash}`).join(NL));
-  }
-  return { lists: L, version, index: writeIndex(lf(INDEX), L), sw: writeSw(lf(SW), L) };
+  const lf = f => (fs.existsSync(f) ? fs.readFileSync(f, "utf8").split("\r\n").join(NL) : ""), L = lists();
+  return { lists: L, index: writeIndex(lf(INDEX), L), sw: writeSw(lf(SW), L) };
 }
 
 function run({ check = false } = {}) {
   const e = expected(), stale = [];
-  for (const [file, next] of [[VERSION_FILE, e.version], [INDEX, e.index], [SW, e.sw]]) {
+  for (const [file, next] of [[INDEX, e.index], [SW, e.sw]]) {
     const text = fs.existsSync(file) ? fs.readFileSync(file, "utf8") : "", eol = text.includes("\r\n") ? "\r\n" : NL;
     if (text.split("\r\n").join(NL) === next) continue;
     stale.push(path.basename(file));
@@ -165,7 +157,7 @@ function run({ check = false } = {}) {
   return { stale, srcHash: e.lists.srcHash, modules: e.lists.modules.length };
 }
 
-module.exports = { lists, expected, run, writeIndex, writeSw, hashOf, fileHash, threeVersion, gameVersion, versionModule, strategyText, MARK, ENTRY, THREE_ENTRY };
+module.exports = { lists, expected, run, writeIndex, writeSw, hashOf, fileHash, threeVersion, gameVersion, strategyText, MARK, ENTRY, THREE_ENTRY };
 
 if (require.main === module) {
   const check = process.argv.includes("--check");

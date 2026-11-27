@@ -1,5 +1,5 @@
 // SPEC-025 AC 13: `npm run release -- <version>` — the file part of a release (docs/release.md): sets package.json "version",
-// rewrites src/version.js and sw.js's SW_VERSION (npm run precache), and for a release version (no "-" pre-release part) moves
+// rewrites index.html's game-version meta and sw.js's SW_VERSION (npm run precache), and for a release version (no "-" pre-release part) moves
 // the CHANGELOG.md "Unreleased" entries under "## [<version>] - <today>" with a fresh empty "Unreleased" above. Committing,
 // merging, tagging (`git tag -a v<version>`) and pushing the tag stay manual steps of the release run (docs/release.md).
 // A pre-release version (e.g. 1.1.0-dev, the version after a release) only sets the version.

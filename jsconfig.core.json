@@ -9,5 +9,5 @@
     "strictNullChecks": false,
     "lib": ["ES2022"]
   },
-  "include": ["src/core/**/*.js", "src/i18n.js", "src/story.js", "src/version.js", "types/core-globals.d.ts"]
+  "include": ["src/core/**/*.js", "src/i18n.js", "src/story.js", "types/core-globals.d.ts"]
 }
