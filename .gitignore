@@ -7,3 +7,5 @@ playwright-report/
 .tmp-module.mjs
 .claude/
 _site/
+# SPEC-047: WAV masters of the game audio stay on the machine (MP3 copies are in audio/src/)
+audio/wav/
