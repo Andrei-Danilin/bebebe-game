@@ -12,7 +12,7 @@ import { chipName } from "../input.js";
 import { LOOK } from "../look.js";
 import { nameOf, typedName } from "../names.js";
 import { P_COLORS } from "../outfits.js";
-import { CSS_W, ctx, isTouch, OUT, PHONE, STANDALONE, UH, UW } from "../screen.js";
+import { CSS_W, ctx, fullscreenShown, isTouch, OUT, PHONE, UH, UW } from "../screen.js";
 import { ui } from "../state.js";
 import { camHero, toScreen } from "../three/camera.js";
 import { tutorialHintOn, tutorialHintText, tutorialSkip } from "../tutorial.js";
@@ -79,9 +79,9 @@ export function drawHUD(t) {
   rr(UW / 2 - 95, 8, 110, 34, 14); fillStroke("rgba(255,255,255,.8)", 3);
   label(timerText(), UW / 2 - 40, 25, 14, OUT);
   iconButton("round_pause", UW / 2 + 22, 8, 40, 34, "II", "#64748b", () => { setMode("pause"); }, 16);
-  if (!STANDALONE) iconButton("ui_fullscreen", UW / 2 + 68, 8, 40, 34, "⛶", "#64748b", toggleFullscreen, 18).onUp = true;   // на iPhone нет Fullscreen API; SPEC-025 AC 7c: на отпускании (жест)
+  if (fullscreenShown()) iconButton("ui_fullscreen", UW / 2 + 68, 8, 40, 34, "⛶", "#64748b", toggleFullscreen, 18).onUp = true;   // на iPhone нет Fullscreen API; SPEC-025 AC 7c: на отпускании (жест)
   // SPEC-029: в тренировке — маленькая «Пропустить» справа от кнопок (обучение целиком; то же есть в паузе)
-  if (G.tutorialGame && mode === "play") fitButton(UW / 2 + (STANDALONE ? 68 : 114), 8, CFG.TUTORIAL_LOOK.skipW, 34, "⏭ " + L().sceneSkip, LOOK.MENU_LOOK.back, tutorialSkip, 16, 11).id = "tutorial:skip";
+  if (G.tutorialGame && mode === "play") fitButton(UW / 2 + (fullscreenShown() ? 114 : 68), 8, CFG.TUTORIAL_LOOK.skipW, 34, "⏭ " + L().sceneSkip, LOOK.MENU_LOOK.back, tutorialSkip, 16, 11).id = "tutorial:skip";
 
   drawSticks();
   if (isTouch && G.stats.time < 5) {

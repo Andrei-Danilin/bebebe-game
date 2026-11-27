@@ -5,7 +5,7 @@ import { progress } from "../../core/economy.js";
 import { L, lang } from "../../i18n.js";
 import { ITEM_ART } from "../art.js";
 import { LOOK } from "../look.js";
-import { ctx, OUT, STANDALONE, UH, UW } from "../screen.js";
+import { ctx, fullscreenShown, OUT, UH, UW } from "../screen.js";
 import { ui } from "../state.js";
 import { tutorialHintOn, tutorialHintText, tutorialSkip } from "../tutorial.js";
 import { addButton, circle, drawArtFit, drawMitten, drawSticks, fillStroke, hpHeart, iconButton, rr, toggleFullscreen } from "./draw.js";
@@ -51,12 +51,12 @@ export function phoneOccluders(pad = 0, sides = 0) {
 export function drawHUDPhone(t) {
   if (mode === "win" || mode === "lose") return;   // итоги — свой экран
   const m = cpx(8), gap = cpx(LOOK.PHONE_BTN_GAP), bh = cpx(LOOK.PHONE_BTN_MIN), top = cpx(6), pad = cpx(10);
-  const mm = minimapRect(), main = minPx("main"), hint = minPx("hint");
+  const mm = minimapRect(), main = minPx("main"), hint = minPx("hint"), fsOn = fullscreenShown();   // SPEC-038 AC 4
   const plate = (id, x, y, w, h) => { rr(x, y, w, h, cpx(14)); fillStroke("rgba(255,255,255,.85)", 3); ui.hudRects.push({ id, x, y, w, h }); };
   // уровень и время + кнопки
   const timeTxt = timerText();
   ctx.font = hudFont(main);
-  const tw = (G.tutorialGame ? scaledW(timeTxt) : ctx.measureText(timeTxt).width) + 2 * pad, nBtn = (STANDALONE ? 1 : 2) + (G.tutorialGame ? 1 : 0), gw = tw + nBtn * (gap + bh);   // SPEC-029: «Тренировка» — с запасом на широкие шрифты; + ⏭
+  const tw = (G.tutorialGame ? scaledW(timeTxt) : ctx.measureText(timeTxt).width) + 2 * pad, nBtn = (fsOn ? 2 : 1) + (G.tutorialGame ? 1 : 0), gw = tw + nBtn * (gap + bh);   // SPEC-029: «Тренировка» — с запасом на широкие шрифты; + ⏭
   // SPEC-022: злость папы (подпись) и облачка-сердечки. Подпись — вся (ширина с LOOK.TEXT_TEST_SCALE: шрифты CI и iPhone шире);
   // не влезает — облачка плотнее (до PHONE_HEART_MIN), и только потом подпись короче
   const bigName = angerLabel(), room = mm.x - gap - m - gw - gap;
@@ -75,9 +75,9 @@ export function drawHUDPhone(t) {
   plate("timer", gx, top, tw, bh);
   noteText("main", fitText(timeTxt, gx + tw / 2, top + bh / 2 + 1, main, tw, "center", OUT, 900, main));
   iconButton("phone_pause", gx + tw + gap, top, bh, bh, "II", "#64748b", () => { setMode("pause"); }, fz(main, "main"));
-  if (!STANDALONE) iconButton("ui_fullscreen", gx + tw + gap + bh + gap, top, bh, bh, "⛶", "#64748b", toggleFullscreen, fz(main, "main")).onUp = true;   // SPEC-025 AC 7c: на отпускании (жест)
+  if (fsOn) iconButton("ui_fullscreen", gx + tw + gap + bh + gap, top, bh, bh, "⛶", "#64748b", toggleFullscreen, fz(main, "main")).onUp = true;   // SPEC-025 AC 7c: на отпускании (жест)
   // SPEC-029: в тренировке — кнопка ⏭ «Пропустить» (обучение целиком; то же со словом — в паузе) в ряду кнопок, после «во весь экран»
-  if (G.tutorialGame && mode === "play") addButton(gx + tw + gap + (STANDALONE ? 1 : 2) * (bh + gap), top, bh, bh, "⏭", LOOK.MENU_LOOK.back, tutorialSkip, fz(main, "main")).id = "tutorial:skip";
+  if (G.tutorialGame && mode === "play") addButton(gx + tw + gap + (fsOn ? 2 : 1) * (bh + gap), top, bh, bh, "⏭", LOOK.MENU_LOOK.back, tutorialSkip, fz(main, "main")).id = "tutorial:skip";
   // кружки команды под мини-картой
   const tr = teamRect();
   plate("team", tr.x, tr.y, tr.w, tr.h);

@@ -28,6 +28,9 @@ export function isStandalone() {
   } catch (e) { return false; }
 }
 export const STANDALONE = isStandalone();                 // режим отображения не меняется за сессию
+// SPEC-038 AC 4 (RR-34): кнопка «во весь экран» — только где она что-то делает: есть Fullscreen API (обычный или webkit; на iPhone
+// Safari его нет) и это не установленное приложение. Решается при рисовании: HUD (hud.js, phone.js) и сдвиг кнопок рядом
+export const fullscreenShown = () => !STANDALONE && !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
 // Телефон (SPEC-005): сенсорный экран с короткой стороной ≤ PHONE_MAX_SHORT_SIDE; ?phone=1 / ?phone=0 — принудительно.
 function isPhone() {
   try {
