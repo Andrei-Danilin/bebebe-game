@@ -2,7 +2,8 @@
 // Core module (the level generator fills it).
 import { CELL, COLS, FH, FINE, FW, H, ROWS, W } from "./config.js";
 import { clamp } from "./util.js";
-import { trickDadSolid, trickSightSolid } from "./tricks/query.js";
+import { trickDadSolid, trickSightOwn, trickSightSolid } from "./tricks/query.js";
+import { areaHas } from "./tricks/kit.js";
 import { G } from "./active.js";
 
 // =====================================================================
@@ -61,11 +62,15 @@ export function buildGrids() {
 }
 export const moveSolidAt = (x, y) => (x < 0 || y < 0 || x >= W || y >= H) ? true : G.moveGrid[((y / FINE) | 0) * FW + ((x / FINE) | 0)] === 1;
 export const moveSolidBigAt = (x, y) => (x < 0 || y < 0 || x >= W || y >= H) ? true : G.moveGridBig[((y / FINE) | 0) * FW + ((x / FINE) | 0)] === 1 || trickDadSolid(x, y);   // SPEC-042: + a spray / a wave he keeps out of
-export const seeSolidAt = (x, y) => (x < 0 || y < 0 || x >= W || y >= H) ? true : G.seeGrid[((y / FINE) | 0) * FW + ((x / FINE) | 0)] === 1 || trickSightSolid(x, y);   // SPEC-042: + the ice-cream truck
+const wallSeeAt = (x, y) => (x < 0 || y < 0 || x >= W || y >= H) ? true : G.seeGrid[((y / FINE) | 0) * FW + ((x / FINE) | 0)] === 1;
+export const seeSolidAt = (x, y) => wallSeeAt(x, y) || trickSightSolid(x, y);   // SPEC-042: + the ice-cream truck
 
 export function los(x1, y1, x2, y2, solid) {
   const d = Math.hypot(x2 - x1, y2 - y1), n = Math.ceil(d / 5);
-  for (let i = 1; i < n; i++) { const t = i / n; if (solid(x1 + (x2 - x1) * t, y1 + (y2 - y1) * t)) return false; }
+  // SPEC-042: the truck hides only what is behind it — a viewer or a target standing inside its body is not hidden by it (walls always are)
+  const own = solid === seeSolidAt ? trickSightOwn(x1, y1, x2, y2) : null;
+  const blocked = own ? (x, y) => wallSeeAt(x, y) || (trickSightSolid(x, y) && !own.some(a => areaHas(a, x, y))) : solid;
+  for (let i = 1; i < n; i++) { const t = i / n; if (blocked(x1 + (x2 - x1) * t, y1 + (y2 - y1) * t)) return false; }
   return true;
 }
 export function losWide(x1, y1, x2, y2, r, solid = moveSolidAt) {

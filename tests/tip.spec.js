@@ -139,3 +139,87 @@ test("the level card gets a ? button next to the story button; Play still fits",
   expect(r).toEqual(expect.arrayContaining(["card:story", "card:tip", "card:1", "card:2", "card:close"]));
   expect(errors).toEqual([]);
 });
+
+// ---------- input (hard rule 5: keyboard, gamepad and touch all work): the "New here!" card stands in the level card's place and takes the input ----------
+async function stubPads(page) {
+  await page.evaluate(() => {
+    window.__pad = (index, down = []) => ({ index, id: "pad", mapping: "standard", connected: true, axes: [0, 0], buttons: Array.from({ length: 17 }, (_, k) => ({ pressed: down.includes(k), value: down.includes(k) ? 1 : 0 })) });
+    window.__pads = [];
+    Object.defineProperty(navigator, "getGamepads", { configurable: true, value: () => window.__pads });
+  });
+}
+const tipState = page => page.evaluate(() => ({ open: window.__bb.tipCard.open, mode: window.__bb.mode }));
+const padPress = async (page, b) => {
+  await page.evaluate(k => { window.__pads = [window.__pad(0, [k])]; }, b);
+  await frames(page);
+  await page.evaluate(() => { window.__pads = [window.__pad(0, [])]; });
+  await frames(page);
+};
+test("keyboard: Enter / Space / H close the New here! card (Play does not start), H opens it from the level card, Escape closes only it", async ({ page }) => {
+  const errors = await openGame(page, { tips: true });
+  await page.evaluate(openAll);
+  expect((await showCard(page, "school", 1)).open).toBe("school");
+  for (const key of ["Enter", "Space", "KeyH"]) {
+    await page.keyboard.press(key);
+    await frames(page);
+    expect(await tipState(page), `${key} closes the card, the level card stays`).toEqual({ open: null, mode: "levelCard" });
+    await page.keyboard.press("KeyH");
+    await frames(page);
+    expect((await tipState(page)).open, "H shows it again").toBe("school");
+  }
+  await page.keyboard.press("Escape");
+  await frames(page);
+  expect(await tipState(page), "Escape closes only the card").toEqual({ open: null, mode: "levelCard" });
+  await page.keyboard.press("KeyH");
+  await frames(page);
+  await page.keyboard.press("Digit1");                            // nothing acts under the card
+  await frames(page);
+  expect(await tipState(page), "1 does not start a game under the card").toEqual({ open: "school", mode: "levelCard" });
+  expect(errors).toEqual([]);
+});
+test("gamepad: A / B / Start close the New here! card, not the level card or the game; RB opens it", async ({ page }) => {
+  const errors = await openGame(page, { tips: true });
+  await stubPads(page);
+  await page.evaluate(() => { window.__pads = [window.__pad(0, [])]; });   // connected first: a pad's first poll fires no edges
+  await frames(page);
+  await page.evaluate(openAll);
+  for (const b of [0, 1, 9]) {
+    await showCard(page, "beach", 1);
+    await page.evaluate(() => window.__bb.openTip());
+    await frames(page);
+    expect((await tipState(page)).open, "the card is open").toBe("beach");
+    await padPress(page, b);
+    expect(await tipState(page), `button ${b} closes the card, the level card stays`).toEqual({ open: null, mode: "levelCard" });
+    await padPress(page, 5);
+    expect((await tipState(page)).open, "RB shows it again").toBe("beach");
+    await padPress(page, 5);
+    expect(await tipState(page), "RB closes it again").toEqual({ open: null, mode: "levelCard" });
+  }
+  await padPress(page, 1);                                       // B on the level card itself goes back to the map
+  expect((await tipState(page)).mode).toBe("map");
+  expect(errors).toEqual([]);
+});
+test("touch: a tap beside the New here! card closes only it", async ({ page }) => {
+  const errors = await openGame(page, { tips: true });
+  await page.evaluate(openAll);
+  await showCard(page, "winter", 1);
+  const box = await page.locator("#game").boundingBox();
+  await page.mouse.click(box.x + 4, box.y + 4);                  // the corner: outside the card
+  await frames(page);
+  expect(await tipState(page)).toEqual({ open: null, mode: "levelCard" });
+  await page.mouse.click(box.x + 4, box.y + 4);                  // and the second tap closes the level card
+  await frames(page);
+  expect((await tipState(page)).mode).toBe("map");
+  expect(errors).toEqual([]);
+});
+
+test("with the tricks switched off (TRICKS_ON 0) no card comes by itself", async ({ page }) => {
+  const errors = await openGame(page, { tips: true });
+  await page.evaluate(openAll);
+  await page.evaluate(() => { window.__bb.CFG.TRICKS_ON = 0; });
+  expect((await showCard(page, "park", 1)).open, "no trick, no card").toBeNull();
+  expect(await page.evaluate(() => window.__bb.progress.seen.trick_park), "and nothing is marked seen").toBe(false);
+  await page.evaluate(() => { window.__bb.CFG.TRICKS_ON = 1; window.__bb.clearLevelCache(); });
+  expect((await showCard(page, "park", 1)).open).toBe("park");
+  expect(errors).toEqual([]);
+});

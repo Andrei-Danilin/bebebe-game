@@ -42,9 +42,9 @@ export const footprints = Object.freeze({
     if (b.state !== "patrol" && b.state !== "search") return false;
     let near = null, nd = Infinity;                                    // the nearest print he sees
     for (const p of st.prints) {
-      if (printAge(T, p) >= Math.min(C.life, C.followAge) || !inCone(p.x, p.y) || !los(b.x, b.y, p.x, p.y, seeSolidAt)) continue;
+      if (printAge(T, p) >= Math.min(C.life, C.followAge)) continue;
       const d = Math.hypot(p.x - b.x, p.y - b.y);
-      if (d > C.followRange * CELL) continue;                        // a print far off in his cone is too small to notice
+      if (d > C.followRange * CELL || !inCone(p.x, p.y) || !los(b.x, b.y, p.x, p.y, seeSolidAt)) continue;   // a print far off in his cone is too small to notice; the cheap test first
       if (d < nd) { nd = d; near = p; }
     }
     if (!near) return false;

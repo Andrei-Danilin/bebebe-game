@@ -140,9 +140,9 @@ export function drawFreeze(cx, y, w, h, r, size, min, phone = false) {
   if (mode !== "play" || ui.freezeT <= 0) return;
   const a = clamp(Math.min(ui.freezeT, LOOK.BELL_LOOK.freezeTime - ui.freezeT + 0.05) / LOOK.BELL_LOOK.freezeFade, 0, 1), text = L().freeze;
   ctx.save(); ctx.globalAlpha = a;
-  rr(cx - w / 2, y, w, h, r); fillStroke("rgba(255,250,235,.95)", 4);
-  if (phone) noteText("title", fitText(text, cx, y + h / 2 + 1, size, (w - 2 * r) / LOOK.TEXT_TEST_SCALE, "center", "#ff6fa8", 900, min, true));
-  else fitText(text, cx, y + h / 2 + 1, size, w - 2 * r, "center", "#ff6fa8", 900);
+  rr(cx - w / 2, y, w, h, r); fillStroke(LOOK.BELL_LOOK.freezePlate, 4);
+  if (phone) noteText("title", fitText(text, cx, y + h / 2 + 1, size, (w - 2 * r) / LOOK.TEXT_TEST_SCALE, "center", LOOK.BELL_LOOK.freezeInk, 900, min, true));
+  else fitText(text, cx, y + h / 2 + 1, size, w - 2 * r, "center", LOOK.BELL_LOOK.freezeInk, 900);
   ctx.restore();
   ui.freezeRect = { x: cx - w / 2, y, w, h, text };
 }

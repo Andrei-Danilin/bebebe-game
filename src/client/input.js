@@ -2,7 +2,7 @@
 // (SPEC-012: the players' input slots). Client module (moved out of index.html in Phase C).
 
 import { CFG } from "../core/config.js";
-import { backToWardrobe, chooseStop, closeCard, goBack, closeShop, cycleWorld, mapSelN, moveMapSel, nextLang, nextLevel, openStory, playCard, pressKiss, pressKit, resumeGame, retryLevel, sceneNext, scenePrev, sceneSkip, setMode, setStoryPage, storyBackKey, storyStep, switchShopTab, toggleSound, toMap, watchChapter } from "./flow.js";
+import { backToWardrobe, chooseStop, closeCard, closeTip, goBack, closeShop, cycleWorld, mapSelN, moveMapSel, nextLang, nextLevel, openStory, openTip, playCard, pressKiss, pressKit, resumeGame, retryLevel, sceneNext, scenePrev, sceneSkip, setMode, setStoryPage, storyBackKey, storyStep, switchShopTab, toggleSound, toMap, watchChapter } from "./flow.js";
 import { LOOK } from "./look.js";
 import { activeStick, closeNameInput, nameInput, stickR, sticks, afterFit } from "./devices.js";
 import { randomOutfit } from "./outfits.js";
@@ -43,9 +43,14 @@ function onKey(code) {
     if (code === "ArrowDown") moveMapSel(1);
     if (code === "Enter" || code === "NumpadEnter" || code === "Space") chooseStop(mapSelN());
   } else if (mode === "levelCard") {
+    if (ui.tip) {                                              // SPEC-042: the "New here!" card stands in the level card's place: Enter / Space / H close it (Escape too, goBack), nothing else acts under it
+      if (code === "Enter" || code === "NumpadEnter" || code === "Space" || code === "KeyH") closeTip();
+      return;
+    }
     if (code === "Enter" || code === "NumpadEnter" || code === "Space" || code === "Digit1" || code === "Numpad1") playCard(1);
     if (code === "Digit2" || code === "Numpad2") playCard(2);
     if (code === "KeyS") openStory(G.world, "levelCard");
+    if (code === "KeyH") openTip();                           // SPEC-042: H — what is new in this world (the ? button)
   } else if (mode === "story") {
     if (ui.storyPage === "chapters" && code === "ArrowLeft") storyStep(-1);
     if (ui.storyPage === "chapters" && code === "KeyV") watchChapter();   // SPEC-022: V — посмотреть заставку главы
@@ -109,7 +114,7 @@ const endStick = e => sticks.delete(e.pointerId);
 const padSlots = [];
 export function resetPads() { padSlots.length = 0; }
 // кнопки, у которых ловим нажатие: A, B, X, Y, Start, крестовина (+ поцелуй, спасалка и бамперы карты из CFG — читаем каждый раз)
-const padEdge = () => [...new Set([0, 1, 2, 3, 9, 12, 13, 14, 15, LOOK.PAD_KISS, LOOK.PAD_KIT, LOOK.PAD_PREV_WORLD, LOOK.PAD_NEXT_WORLD])];
+const padEdge = () => [...new Set([0, 1, 2, 3, 9, 12, 13, 14, 15, LOOK.PAD_KISS, LOOK.PAD_KIT, LOOK.PAD_PREV_WORLD, LOOK.PAD_NEXT_WORLD, LOOK.PAD_TIP])];
 export function pollPads() {
   let list = [];
   try { list = navigator.getGamepads ? Array.from(navigator.getGamepads()) : []; } catch (e) { /* not allowed */ }
@@ -170,6 +175,11 @@ function onPadButton(b, pad = 0) {
     if (b === 0) chooseStop(mapSelN());
     if (b === 1) setMode("home");
   } else if (mode === "levelCard") {
+    if (ui.tip) {                                              // SPEC-042: A / B / Start / the tip button close the "New here!" card, not the level card
+      if (b === 0 || b === 1 || b === 9 || b === LOOK.PAD_TIP) closeTip();
+      return;
+    }
+    if (b === LOOK.PAD_TIP) openTip();                         // SPEC-042: RB — what is new in this world
     if (b === 0 || b === 9) playCard(1);
     if (b === 2) playCard(2);                      // X — вдвоём (на телефоне startGame сам оставит одного игрока)
     if (b === 3) openStory(G.world, "levelCard"); // Y — 📖 глава мира
@@ -290,7 +300,7 @@ export function initInput() {
       return;
     }
     if (stale && mode !== "play") return;
-    if (mode === "levelCard" && !hit && ui.cardRect && !(p.x >= ui.cardRect.x && p.x <= ui.cardRect.x + ui.cardRect.w && p.y >= ui.cardRect.y && p.y <= ui.cardRect.y + ui.cardRect.h)) { closeCard(); return; }
+    if (mode === "levelCard" && !hit && ui.cardRect && !(p.x >= ui.cardRect.x && p.x <= ui.cardRect.x + ui.cardRect.w && p.y >= ui.cardRect.y && p.y <= ui.cardRect.y + ui.cardRect.h)) { if (ui.tip) closeTip(); else closeCard(); return; }   // SPEC-042: a tap beside the "New here!" card closes only it
     if (hit && hit.onUp) { pendingUp = { id: hit.id, pointerId: e.pointerId }; return; }
     if (hit) { hit.act(); return; }
     if (mode === "scene") { sceneNext(); return; }      // SPEC-022: тап по заставке — дальше

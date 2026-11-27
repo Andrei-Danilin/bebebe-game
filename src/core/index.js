@@ -15,6 +15,7 @@ export * from "./level/load.js";
 export * from "./level/report.js";
 export * from "./tricks/kit.js";
 export * from "./tricks/query.js";
+export * from "./tricks/aware.js";
 export * from "./tricks/index.js";
 export * from "./tricks/puddles.js";
 export * from "./tricks/sprinklers.js";

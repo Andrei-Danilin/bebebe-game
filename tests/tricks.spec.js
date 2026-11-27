@@ -50,7 +50,7 @@ test("the Field's sprays are animated groups, shown while a sprinkler drips or s
 });
 
 test("SPLASH is a pop text in all four languages", async ({ page }) => {
-  await openGame(page);
+  await openGame(page, { sim: true });   // data only: nothing is drawn
   const t = await page.evaluate(() => Object.fromEntries(["en", "es", "pt", "ru"].map(l => [l, window.__bb.I18N[l].splash])));
   expect(Object.values(t).every(v => typeof v === "string" && v.length > 1), JSON.stringify(t)).toBe(true);
   expect(new Set(Object.values(t)).size, "four different words").toBe(4);

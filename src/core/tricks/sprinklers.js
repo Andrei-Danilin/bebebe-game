@@ -46,7 +46,7 @@ export const sprinklers = Object.freeze({
     if (!c) return false;
     const a = cd > 1 ? Math.atan2(b.y - c.cy * CELL, b.x - c.cx * CELL) : 0, out = (c.r + CFG.TRICKS.sprinklers.exitPad) * CELL;
     b.moving = steerTo(b, c.cx * CELL + Math.cos(a) * out, c.cy * CELL + Math.sin(a) * out, bigSpeeds().patrol, dt, false);
-    if (b.moving) b.dir = turnToward(b.dir, b.moveDir, 5 * dt);
+    if (b.moving) b.dir = turnToward(b.dir, b.moveDir, CFG.TRICKS.sprinklers.exitTurn * dt);
     return true;
   },
   step(T) {
@@ -69,5 +69,5 @@ function apply(T) {
   const m = new Uint8Array(COLS * ROWS);
   for (const p of act) for (const i of cellsOf(p)) m[i] = 1;
   T.fx.noDad = m;
-  if (G.big && act.some(p => Math.hypot(G.big.x - p.cx * CELL, G.big.y - p.cy * CELL) < (p.r + 3) * CELL)) { G.big.path = []; G.big.repath = 0; }
+  if (G.big && act.some(p => Math.hypot(G.big.x - p.cx * CELL, G.big.y - p.cy * CELL) < (p.r + CFG.TRICKS.sprinklers.repathR) * CELL)) { G.big.path = []; G.big.repath = 0; }
 }

@@ -29,8 +29,8 @@ function inSight(l) {
 
 export const bell = Object.freeze({
   name: "bell", ...NO_HOOKS,
-  // st: ph — the phase now, rings — rings so far, held — Dad stood for this ring, spotted — { kidId: true }, last — where the last one was seen
-  init(T) { T.st = { ph: "idle", rings: 0, held: false, spotted: {}, last: null }; },
+  // st: ph — the phase now, rings — rings so far, held — Dad stood for this ring, spotted — { kidId: true }, last — where the last one was seen, pending — { x, y, t }: he is to chase there once he can act
+  init(T) { T.st = { ph: "idle", rings: 0, held: false, spotted: {}, last: null, pending: null }; },
   step(T) {
     const st = T.st, fx = T.fx, now = bellPhase(T.t).phase;
     fx.mark = "";
@@ -47,21 +47,30 @@ export const bell = Object.freeze({
     if (was === "ring") {                                              // over: he goes after the one he saw run
       const spot = Object.keys(st.spotted).length > 0;
       logEvent("bellEnd", { held: st.held, spotted: Object.keys(st.spotted).length });
-      if (st.held && spot && st.last && !G.big.kind) {
-        G.big.state = "chase"; G.big.lastSeen = { ...st.last }; G.big.path = []; G.big.goal = null; G.big.timer = 0;
-        G.big.dir = Math.atan2(st.last.y - G.big.y, st.last.x - G.big.x);
-      }
+      if (st.held && spot && st.last) st.pending = { x: st.last.x, y: st.last.y, t: T.t };   // he goes after him as soon as he can act (bigStep): a stun, a slip, red or a push-stand come first
     }
   },
   // Dad can act: during the ring he stands and turns once round (state look, so the stall guard treats it as a look), spotting runners
   bigStep(T, dt) {
-    const st = T.st, b = G.big;
+    const st = T.st, b = G.big, C = CFG.TRICKS.bell;
+    if (st.pending) {                                                  // the ring is over and he spotted a runner: after it, through his own gates, he chases
+      if (T.t - st.pending.t > C.chaseKeep) st.pending = null;
+      else if (st.ph !== "ring") {
+        if (b.state !== "chase") {                                    // (already chasing someone he sees: nothing to add)
+          b.state = "chase"; b.lastSeen = { x: st.pending.x, y: st.pending.y }; b.path = []; b.goal = null; b.timer = 0;
+          b.dir = Math.atan2(st.pending.y - b.y, st.pending.x - b.x);
+        }
+        st.pending = null;
+        return false;
+      }
+    }
     if (st.ph !== "ring" || b.state === "chase") return false;
     st.held = true;
     b.moving = false; b.state = "look"; b.timer = CFG.TRICKS.bell.afterLook; b.goal = null; b.path = [];
     b.hearTurnT = 0; b.hearLook = 0; b.noise = 0;
     b.dir += TAU / CFG.TRICKS.bell.ring * dt * b.lookSign;
     T.fx.mark = "🔔";
+    if (b.noPush > 0) return true;                                     // resting after a push he catches nobody (but he still stands and looks round)
     for (const l of G.littles) {
       if (!runs(l) || l.invuln > 0 || l.dizzy > 0 || !inSight(l)) continue;
       st.last = { x: l.x, y: l.y };

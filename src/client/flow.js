@@ -10,6 +10,7 @@ import { createGame, newInput, teamSize, useGame } from "../core/game.js";
 import { levelType } from "../core/level/generate.js";
 import { bossFor } from "../core/mood.js";
 import { computeReward, isOpen, worldComplete, worldOpen } from "../core/progress-rules.js";
+import { trickOf } from "../core/tricks/index.js";
 import { canUseKit, levelResult } from "../core/rules.js";
 import { clamp, newRng, seedRandom as seedStream } from "../core/util.js";
 import { BIG_SKINS } from "../core/wardrobe.js";
@@ -262,7 +263,7 @@ export function showCard(n) {
   if (n === 1 && tipDue(G.world)) { ui.tip = G.world; progress.seen["trick_" + G.world] = true; saveProgress(); }   // SPEC-042 AC 11: "New here!" — the first time this world's level 1 card opens
 }
 // SPEC-042 AC 11: the world's trick card has not been shown yet (tests set window.__bbNoTips, like __bbNoIntro: only the tests of the card itself see it)
-export const tipDue = w => window.__bbNoTips !== true && isOpen(w, progress) && !progress.seen["trick_" + w];
+export const tipDue = w => window.__bbNoTips !== true && trickOf(w) !== null && isOpen(w, progress) && !progress.seen["trick_" + w];   // (TRICKS_ON 0: no trick, no card)
 // the ? button of the level card shows it again; OK / ✕ / Back close it (back to the level card)
 export function openTip() { ui.tip = G.world; screenChanged(); }
 export function closeTip() { ui.tip = null; screenChanged(); }

@@ -89,7 +89,7 @@ test("bell: a kid who runs in Dad's sight is spotted — from any side — and D
     at(g, 27 - DT); tick(g, 1);
     withGame(g, () => { for (let i = 0; i < Math.round(B.ring / DT) - 1; i++) { stepTrick(DT); updateBig(DT); } });
     const ids = Object.keys(g.trick.st.spotted).length;
-    withGame(g, () => { stepTrick(DT); stepTrick(DT); stepTrick(DT); });
+    withGame(g, () => { for (let i = 0; i < 3; i++) { stepTrick(DT); updateBig(DT); } });   // the ring is over: through his own step he goes after the runner
     return { g, ids, state: g.big.state, seen: g.big.lastSeen };
   };
   const behind = spotted((g, l) => Object.assign(l, { x: 480 - 150, y: 320, moving: true, speedFrac: 1 }));   // behind his back: a cone would not see him
@@ -311,4 +311,34 @@ test("footprints (balance levers): Dad notices only prints within followRange ce
   assert.equal(state([[far, 320, 9.9], [far + 70, 320, 10]]), "patrol", "farther than followRange: not noticed");
   assert.equal(state([[near, 320, 10 - F.followAge - 0.5], [near + 70, 320, 10 - F.followAge - 0.2]]), "patrol", "older than followAge: not followed");
   assert.ok(F.life > F.followAge);
+});
+
+test("bell: the chase after the ring goes through Dad's gates — stunned, slipping, red or standing after a push he does not chase until he can act; resting after a push, he spots nobody", () => {
+  const ringEnd = over => {
+    const g = clearField("school"), l = g.littles[0];
+    Object.assign(l, { x: 480 - 150, y: 320, moving: true, speedFrac: 1 });
+    at(g, 27 - DT); tick(g, 1);
+    withGame(g, () => { for (let i = 0; i < Math.round(B.ring / DT) - 2; i++) { stepTrick(DT); updateBig(DT); } });
+    assert.equal(Object.keys(g.trick.st.spotted).length, 1, "he spotted the runner");
+    Object.assign(g.big, over);                                   // the gate closes just as the ring ends
+    Object.assign(l, { moving: false, speedFrac: 0 });
+    withGame(g, () => { for (let i = 0; i < 6; i++) { stepTrick(DT); updateBig(DT); } });
+    return g;
+  };
+  assert.equal(ringEnd({}).big.state, "chase", "no gate: he chases");
+  for (const over of [{ stun: 1.5 }, { slip: 1.5 }, { blush: 1.5 }, { pushCd: 1.5 }]) {
+    const g = ringEnd(over);
+    assert.notEqual(g.big.state, "chase", `${JSON.stringify(over)}: not while the gate holds him`);
+    assert.ok(g.trick.st.pending, "but he has not forgotten");
+    withGame(g, () => { for (let i = 0; i < Math.round(2.5 / DT); i++) { stepTrick(DT); updateBig(DT); } });
+    assert.ok(["chase", "search"].includes(g.big.state), `${JSON.stringify(over)}: once he can act he goes after the runner (${g.big.state})`);
+  }
+  // resting after a push (noPush): he stands and turns, and spots nobody
+  const g = clearField("school"), l = g.littles[0];
+  Object.assign(l, { x: 480 - 150, y: 320, moving: true, speedFrac: 1 });
+  g.big.noPush = 10;
+  at(g, 27 - DT); tick(g, 1);
+  withGame(g, () => { for (let i = 0; i < Math.round(B.ring / DT) - 2; i++) { stepTrick(DT); updateBig(DT); } });
+  assert.deepEqual(g.trick.st.spotted, {}, "resting after a push: nobody spotted");
+  assert.equal(g.big.state, "look", "but he still stands and looks round");
 });

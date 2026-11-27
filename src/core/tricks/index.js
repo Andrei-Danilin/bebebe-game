@@ -94,6 +94,14 @@ export function stepTrick(dt) {
   const mod = TRICK_MODS[T.name];
   if (mod) mod.step(T, dt);
 }
+// update's call while Dad walks home kind (the trick is not stepped then): what it still held on him or the kids is let go — no spray, wave, bell or mark stays up
+export function calmTrick() {
+  const T = G.trick;
+  if (!T) return;
+  const f = T.fx;
+  if (!f.noDad && !f.slow.length && !f.hide.length && !f.freeze && !f.mark) return;
+  f.noDad = null; f.slow = []; f.hide = []; f.freeze = 0; f.mark = "";
+}
 // updateBig's call (Dad can act: not stunned, slipping, red or resting): true — the trick took his step
 export function bigStepTrick(dt) {
   const T = G.trick;

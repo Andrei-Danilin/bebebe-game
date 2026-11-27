@@ -46,10 +46,10 @@ export const puddles = Object.freeze({
       st.loud[l.id] = C.splashTime; fx.loud[l.id] = C.splashMul;
       logEvent("splash", { who: l.id, kind: l.kind });
       emit("pop", { key: "splash", args: [], x: l.x, y: l.y - 40, color: SPLASH_COLOR });
-      drops(l.x, l.y, 10);
+      drops(l.x, l.y, C.drops);
     }
     const bigIn = G.big.moving && inside(G.big, 0) >= 0;           // Dad: only a splash for the eyes
-    if (bigIn && !st.bigWet) drops(G.big.x, G.big.y, 8);
+    if (bigIn && !st.bigWet) drops(G.big.x, G.big.y, C.dropsDad);
     st.bigWet = bigIn;
   }
 });

@@ -60,6 +60,7 @@ function layoutLevel(world, lv, attempt) {
 
 // Новое состояние мира здесь → добавить его в список keep у levelReport (и в __bb.worldState)
 export function applyWorld(gen) {
+  G.trick = null;                                            // SPEC-042: until this level's trick is made below (a map with none has none)
   G.obstacles = []; G.bushes = []; G.floors = []; G.decor = []; G.trees = []; G.safeZone = null; G.dangerZone = null;
   G.flowers = gen.flowers;
   for (const it of gen.items) {

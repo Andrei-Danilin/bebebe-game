@@ -15,7 +15,7 @@ import { bossFor } from "./mood.js";
 import { moveEntity } from "./path.js";
 import { applyTutorialMap, practiceOf, stockOf, tutorialSetup, updateTutorial } from "./practice.js";
 import { checkContacts, moveSpeed, separate, throwKiss, updateDanger, updateDowned, updateHugAnim, updateItems, updateKisses, updateResting, updateStars, useRescueKit, winNow } from "./rules.js";
-import { initTrick, stepTrick } from "./tricks/index.js";
+import { calmTrick, initTrick, stepTrick } from "./tricks/index.js";
 import { canAct } from "./world.js";
 import { G, setActiveGame } from "./active.js";
 
@@ -220,7 +220,7 @@ export function update(dt) {
       const f = Math.exp(-7 * dt); l.kx *= f; l.ky *= f;
     } else { l.kx = 0; l.ky = 0; }
   }
-  if (G.big.kind) updateKindWalk(dt);                        // SPEC-022: идёт домой; маленькие стоят и радуются
+  if (G.big.kind) { updateKindWalk(dt); calmTrick(); }       // SPEC-022: идёт домой; маленькие стоят и радуются; SPEC-042: хитрость отпускает его и детей
   else { readInputs(dt); updatePlayers(dt); updateBots(dt); stepTrick(dt); if (G.big.player) updateBigPlayer(dt); else updateBig(dt); }
   updateHugAnim(dt);
   updateKisses(dt);

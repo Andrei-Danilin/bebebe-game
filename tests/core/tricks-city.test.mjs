@@ -143,6 +143,7 @@ test("truck: a level with no lane has no truck, and the level is the same", () =
   // a game with no truck runs
   const g = createGame({ world: "city", n: 2, seed: 1, fx: false });
   g.trick.pieces = []; withGame(g, () => initTrick());
+  assert.ok(g.events.some(e => e.type === "truckNone"), "the missing lane is logged (AC 7)");
   for (let i = 0; i < 60; i++) step(g, DT);
   assert.deepEqual(g.trick.fx.sight, []);
 });
@@ -185,4 +186,24 @@ test("truck: bots flee to its far side from Dad, where Dad cannot see them; the 
 
 test("AC 4: practice games have no truck", () => {
   for (const practice of [1, 2]) assert.equal(createGame({ world: "city", n: 1, practice, seed: 1, fx: false }).trick, null);
+});
+
+test("truck: it hides only what is BEHIND it — a kid standing inside its body is seen, and Dad standing inside it is not blind", () => {
+  const g = field(), T = g.trick, l = g.littles[0];
+  tick(g, 1);
+  const c = { x: T.st.x, y: T.st.y };
+  Object.assign(g.big, { x: c.x - 4 * CELL, y: c.y, dir: 0 });
+  Object.assign(l, { x: c.x + 3 * CELL, y: c.y });
+  assert.equal(withGame(g, () => canSee(l)), false, "behind the truck: hidden");
+  Object.assign(l, { x: c.x, y: c.y });
+  assert.equal(withGame(g, () => canSee(l)), true, "in the truck, in Dad's cone: seen");
+  Object.assign(l, { x: c.x + 0.5 * CELL, y: c.y });
+  assert.equal(withGame(g, () => canSee(l)), true, "still inside the body (half a cell from its middle)");
+  // Dad inside the body looks out at a kid in front of him
+  Object.assign(g.big, { x: c.x, y: c.y, dir: 0 });
+  Object.assign(l, { x: c.x + 3 * CELL, y: c.y });
+  assert.equal(withGame(g, () => canSee(l)), true, "Dad in the truck sees out");
+  // walls still hide: a wall on the line hides a kid inside the truck's reach
+  g.seeGrid.fill(1);
+  assert.equal(withGame(g, () => canSee(l)), false, "walls always hide");
 });

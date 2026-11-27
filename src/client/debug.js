@@ -91,7 +91,7 @@ const CFG_ALL = new Proxy({}, {
 // SPEC-023 AC 5: в sim ничего не рисуется — состояние, которое заполняют drawUI / 3D, устарело или пусто. Чтение бросает
 // ошибку, чтобы визуальный тест, открытый в sim, падал громко, а не проверял пустоту.
 const SIM_DRAWN = ["buttonRects", "buttonNames", "tapButton", "hudRects", "mapInfo", "levelCard", "storyInfo", "textSizes", "minimap",
-  "bannerRect", "bellHud", "tipCard", "rotateShown", "winPanel", "winLine", "bonusNote", "shopLayout", "kitHint", "heardHint", "edgeArrows", "downDrawn", "stickMarks",
+  "bannerRect", "bellHud", "tipCard", "trickMeshes", "rotateShown", "winPanel", "winLine", "bonusNote", "shopLayout", "kitHint", "heardHint", "edgeArrows", "downDrawn", "stickMarks",
   "tapLines", "textOverflows", "tutorialHint", "homeInfo", "progressInfo", "outfit3D", "bibClear", "hat3D", "capeClear", "cardRect", "mapPieces", "groundColorAt", "camera", "minimapAlpha", "artUse", "sceneInfo", "moodInfo", "bigLook", "look3D", "drawNow", "model",
   "perf", "disposeCheck"];   // SPEC-025 AC 15 / 15b: the renderer's numbers and textures — a rendered page only
 

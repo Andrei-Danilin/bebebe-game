@@ -69,7 +69,7 @@ export const waves = Object.freeze({
     const tx = p.edge === "left" ? d + pad : p.edge === "right" ? (COLS - C.depth) * CELL - pad : b.x;
     const ty = p.edge === "top" ? d + pad : p.edge === "bottom" ? (ROWS - C.depth) * CELL - pad : b.y;
     b.moving = steerTo(b, tx, ty, bigSpeeds().patrol, dt, false);
-    if (b.moving) b.dir = turnToward(b.dir, b.moveDir, 5 * dt);
+    if (b.moving) b.dir = turnToward(b.dir, b.moveDir, C.exitTurn * dt);
     return true;
   },
   step(T) {
@@ -84,10 +84,11 @@ export const waves = Object.freeze({
 });
 // the band while the wave is up → fx.slow (px rects) and fx.noDad (its cells); Dad re-plans at once when it comes up near him
 function apply(T) {
+  const R3 = CFG.TRICKS.waves.repathR;
   if (!T.st.up || !T.pieces.length) { T.fx.slow = []; T.fx.noDad = null; return; }
   T.fx.slow = T.pieces.map(p => ({ shape: "rect", x: p.x * CELL, y: p.y * CELL, w: p.w * CELL, h: p.h * CELL }));
   const m = new Uint8Array(COLS * ROWS);
   for (const p of T.pieces) for (const i of cellsOf(p)) m[i] = 1;
   T.fx.noDad = m;
-  if (G.big && T.pieces.some(p => G.big.x > (p.x - 3) * CELL && G.big.x < (p.x + p.w + 3) * CELL && G.big.y > (p.y - 3) * CELL && G.big.y < (p.y + p.h + 3) * CELL)) { G.big.path = []; G.big.repath = 0; }
+  if (G.big && T.pieces.some(p => G.big.x > (p.x - R3) * CELL && G.big.x < (p.x + p.w + R3) * CELL && G.big.y > (p.y - R3) * CELL && G.big.y < (p.y + p.h + R3) * CELL)) { G.big.path = []; G.big.repath = 0; }
 }

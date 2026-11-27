@@ -46,15 +46,15 @@ function rectLoop(ok, rng, minLoop, maxLoop) {
 }
 // the fallback for the irregular lanes (mazes, rooms): a seeded depth-first walk over free windows that comes back to its start after at least
 // minLoop and at most maxLoop steps without visiting a window twice; a bounded number of tries
-function walkLoop(ok, rng, minLoop, maxLoop) {
+function walkLoop(ok, rng, minLoop, maxLoop, tries, budgetMax) {
   const free = [];
   for (let k = 0; k < ok.length; k++) if (ok[k]) free.push(k);
   if (!free.length) return null;
   const N4 = [[1, 0], [0, 1], [-1, 0], [0, -1]];
   const order = () => { const o = [0, 1, 2, 3]; for (let k = 3; k > 0; k--) { const m = Math.floor(rng() * (k + 1)); [o[k], o[m]] = [o[m], o[k]]; } return o; };
-  for (let tries = 0; tries < 24; tries++) {
+  for (let t = 0; t < tries; t++) {
     const start = free[Math.floor(rng() * free.length)], seen = new Uint8Array(ok.length), path = [start], pick = [order()];
-    let budget = 3000;
+    let budget = budgetMax;
     seen[start] = 1;
     while (path.length && budget-- > 0) {
       const u = path[path.length - 1], opts = pick[pick.length - 1];
@@ -100,7 +100,7 @@ export const truck = Object.freeze({
   // one loop of ≥ minLoop windows (a ring around a free block, else a walked loop), a seeded start and direction; none → no truck (meta.loop "none")
   place(pcx) {
     const C = CFG.TRICKS.truck, ok = windowsOf(pcx.occ);
-    const nodes = rectLoop(ok, pcx.rng, C.minLoop, C.maxLoop) || walkLoop(ok, pcx.rng, C.minLoop, C.maxLoop);
+    const nodes = rectLoop(ok, pcx.rng, C.minLoop, C.maxLoop) || walkLoop(ok, pcx.rng, C.minLoop, C.maxLoop, C.loopTries, C.loopBudget);
     if (!nodes) return { pieces: [], meta: { loop: "none" } };
     if (pcx.rng() < 0.5) nodes.reverse();
     const start = Math.floor(pcx.rng() * nodes.length);
@@ -110,6 +110,7 @@ export const truck = Object.freeze({
   init(T) {
     T.fx.hideReach = CFG.TRICKS.truck.hideReach * CELL;
     const p = T.pieces[0];
+    if (!p) logEvent("truckNone", { loop: T.meta.loop ?? "none" });   // AC 7: a level with no lane long enough has no truck — logged
     T.st = { s: p ? p.start * CELL : 0, wait: 0, pass: 0, stopped: false, ...(p ? truckAt(p.nodes, p.start * CELL) : { x: 0, y: 0, dir: 0, horizontal: true }) };
     if (p) T.fx.sight = [bodyOf(T.st)];
   },

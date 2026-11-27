@@ -154,13 +154,13 @@ test("sprinklers: 2–3 per Field level, at least 2r + 1 cells apart, clear of h
     const g = createGame({ world: "field", n: lv, seed: 1, fx: false });
     const ps = g.trick.pieces;
     counts.push(ps.length);
-    assert.ok(ps.length >= 1 && ps.length <= S.count[1], `field ${lv}: ${ps.length} sprinklers`);
+    assert.ok(ps.length >= S.count[0] && ps.length <= S.count[1], `field ${lv}: ${ps.length} sprinklers`);
     for (const p of ps) assert.equal(p.r, S.r);
     for (let i = 0; i < ps.length; i++) for (let j = i + 1; j < ps.length; j++) assert.ok(Math.hypot(ps[i].cx - ps[j].cx, ps[i].cy - ps[j].cy) >= 2 * S.r + 1, `field ${lv}: apart`);
     if (ps.length > 1) for (let t = 0; t < 2 * S.cycle; t += 0.1) assert.ok(ps.filter(p => sprinklerPhase(p, t) === "spray").length <= 1, `field ${lv} t=${t.toFixed(1)}: two sprays at once`);
     assert.equal(g.levelInfo.fallback, false);
   }
-  assert.ok(counts.filter(n => n >= S.count[0]).length >= 17, `most levels have ${S.count[0]}–${S.count[1]}: ${counts.join(" ")}`);
+  assert.ok(counts.every(n => n >= S.count[0] && n <= S.count[1]), `every level has ${S.count[0]}–${S.count[1]}: ${counts.join(" ")}`);
 });
 
 test("sprinklers: the cycle is off → 1 s of drip → 5 s of spray, every 20 s (log and phases)", () => {
@@ -280,3 +280,15 @@ test("AC 4: practice games have neither puddles nor sprinklers", () => {
     assert.deepEqual(g.events.filter(e => e.type === "splash" || e.type === "sprinkler"), []);
   }
 });
+
+test("when Dad turns kind and walks home, the sprays, the waves and the bell let go (nothing stays up)", () => {
+  const g = clearField("field", [sprinkler(15.5, 9.5, 0)]);
+  g.trick.t = S.cycle - S.spray - DT / 2;
+  tick(g, 3);
+  assert.equal(g.trick.fx.hide.length, 1);
+  assert.ok(g.trick.fx.noDad);
+  g.big.kind = true;
+  withGame(g, () => { step(g, DT); });
+  assert.deepEqual([g.trick.fx.hide.length, g.trick.fx.noDad, g.trick.fx.slow.length, g.trick.fx.freeze, g.trick.fx.mark], [0, null, 0, 0, ""]);
+});
+function tick(g, n) { for (let i = 0; i < n; i++) withGame(g, () => stepTrick(DT)); }
