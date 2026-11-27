@@ -66,6 +66,17 @@ function spearman(x, y) {
   return dx && dy ? num / Math.sqrt(dx * dy) : 0;
 }
 
+// SPEC-037 AC 4: a run that is still not won after CFG.BALANCE.STALL.STUCK_TIME s of game time is "stuck" (it hit the time limit: nobody
+// wins, nobody loses); reported with its seed so the game can be replayed from it (balance.json: stuck, balance.md: a section and a target)
+function stuckRuns(runs, B) {
+  return runs.filter(r => !r.win && r.time > B.STALL.STUCK_TIME)
+    .map(r => ({ world: r.world, n: r.n, style: r.style, seed: r.seed, time: Math.round(r.time), falls: r.falls, pass: r.pass || "main" }));
+}
+const stuckTarget = (stuck, B) => ({
+  name: `no run is stuck: still not won after ${B.STALL.STUCK_TIME} s`, value: `${stuck.length} stuck`, want: "0", ok: stuck.length === 0,
+  detail: stuck.map(r => `${r.world} ${r.n} ${r.style} seed ${r.seed}`).join(", ")
+});
+
 // A run's time for the statistics: its win time; a run that did not win counts as the time limit
 const runTime = (r, limit) => (r.win ? r.time : limit);
 
@@ -279,6 +290,9 @@ function markdown(rep) {
     L.push("", "### Every upgrade maxed (1 seed)", "", "| Level | Without upgrades: win, time | With all upgrades: win, time |", "|---|---|---|");
     for (const r of ec.upgrades) L.push(`| ${r.world} ${r.n} | ${r.baseWin ? "won" : "—"}, ${fmt(r.baseTime)} s | ${r.win ? "won" : "—"}, ${fmt(r.time)} s |`);
   }
+  L.push("", "## Stuck runs (SPEC-037)", "", `A run still not won after ${B.STALL.STUCK_TIME} s of game time (any pass). Replay one from its seed (createGame with that world, level and seed, the autopilot in that style).`, "");
+  if (!rep.stuck || !rep.stuck.length) L.push("None.");
+  else { L.push("| Level | Style | Seed | Time | Falls | Pass |", "|---|---|---|---|---|---|"); for (const r of rep.stuck) L.push(`| ${r.world} ${r.n} | ${r.style} | ${r.seed} | ${r.time} s | ${r.falls} | ${r.pass} |`); }
   L.push("", "## Reckless vs careful", "", "| Level | Reckless: win, time, falls (player) | Careful (same seed): win, time, falls (player) |", "|---|---|---|");
   for (const r of runs.filter(q => q.style === "reckless")) {
     const c = runs.find(q => q.style === "careful" && q.world === r.world && q.n === r.n && q.seed === r.seed);
@@ -335,9 +349,11 @@ async function main() {
     for (const job of extra.upgrades) upgradeRuns.push({ ...(await page.evaluate(runLevel, job)), pass: "upgrades" });
     if (errors.length) throw new Error("page errors:\n" + errors.join("\n"));
     const { levels, targets } = analyse(runs, B, worlds, perWorld);
+    const stuck = stuckRuns([...runs, ...replayRuns, ...upgradeRuns], B);
+    targets.push(stuckTarget(stuck, B));
     const economy = analyseEconomy(runs, replayRuns, upgradeRuns, B, worlds, perWorld, prices);
     const rep = { generated: new Date().toISOString().slice(0, 16).replace("T", " ") + " UTC", durationSec: Math.round((Date.now() - t0) / 1000),
-      step, settings: B, worlds, perWorld, targets, economy, levels, runs, replayRuns, upgradeRuns };
+      step, settings: B, worlds, perWorld, targets, stuck, economy, levels, runs, replayRuns, upgradeRuns };
     fs.mkdirSync(OUT_DIR, { recursive: true });
     // one run per line: small diffs when a spec changes a number
     const { runs: all, replayRuns: rr, upgradeRuns: ur, ...head } = rep;
@@ -355,4 +371,4 @@ async function main() {
 
 if (require.main === module) main().catch(e => { console.error(e); process.exit(1); });
 
-module.exports = { runLevel, analyse, analyseEconomy, economyPlan, spearman, median };
+module.exports = { runLevel, stuckRuns, stuckTarget, analyse, analyseEconomy, economyPlan, spearman, median };
