@@ -22,8 +22,12 @@ import { BIG_SKINS, HAIRS, HATS, JACKETS, PANTS, SLOTS } from "../core/wardrobe.
 import { inDanger, inSafe, seeSolidAt } from "../core/world.js";
 import { detectLang, I18N, L, lang, LANG_NAMES, LANGS } from "../i18n.js";
 import { RULE_ICONS, SCENE_IDS, STORY, TUTORIAL_SCENES } from "../story.js";
-import { ART_NAMES } from "./art-names.js";
-import { art, ART_FALLBACK, artCount, artLoad, artDone, artVersion, EMOJI_ART, FX_ART, HEART_ART, ITEM_ART, mapBgArt, PAPER_BTN, POP_ART, SHOP_TAB_ART, STORY_ART, UPG_ART, WARDROBE_ART, worldArt } from "./art.js";
+import { ART_NAMES, ART_RESIDENT } from "./art-names.js";
+import { cadence, COVERED, newCadence } from "./cadence.js";
+import { qualityFrame, qualityInfo, setQualityMode } from "./adaptive.js";
+import { warmInfo } from "./warm.js";
+import { art, ART_FALLBACK, artBytes, artCount, artLazy, artLoad, artDone, artVersion, EMOJI_ART, FX_ART, HEART_ART, ITEM_ART, mapBgArt, PAPER_BTN, POP_ART, SHOP_TAB_ART, STORY_ART, UPG_ART, WARDROBE_ART, worldArt } from "./art.js";
+import { orderedEvents } from "../core/events.js";
 import { bannerAlpha, chapterOpen, chooseStop, goBack, nextLevel, closeShop, giveReward, lastReward, mapTick, openFriends, openMap, openScene, openShop, openStory, resetMenus, resetWorld, rngDraws, sceneNext, scenePageCount, scenePages, sceneSkip, seedRandom, selectWorld, setLastReward, setMode, setShopTab, shopAfterWin, showBanner, showCard, startGame, tapWorldTab, toHome, toMap } from "./flow.js";
 import { errorLog, reportError } from "./errors.js";
 import { glRestored } from "./lifecycle.js";
@@ -108,7 +112,10 @@ export function installDebug() {
     artTableNames: () => [...Object.values(PAPER_BTN), ...Object.values(ITEM_ART), ...Object.values(UPG_ART), ...Object.values(SHOP_TAB_ART),
       ...Object.values(WARDROBE_ART).flatMap(Object.values), ...Object.values(EMOJI_ART), ...Object.entries(ART_FALLBACK).flat(), ...Object.values(STORY_ART), ...tutorialArtNames(), ...HEART_ART, ...Object.values(FX_ART), ...Object.values(POP_ART),
       ...WORLDS.flatMap(w => [worldArt(w), mapBgArt(w)])], fxBurst: burst, popText,   // SPEC-020: частицы и всплывающие надписи (тест картинок эффектов)
-    art, ART_NAMES, get artInfo() { return { total: ART_NAMES.length, ok: artCount.ok, bad: artCount.bad, done: artDone(), loadingShown: !!document.getElementById("loading") }; },
+    art, ART_NAMES, ART_RESIDENT,
+    // SPEC-040 AC 1: total — every sprite; resident — those loaded at start; ok — resident ones loaded, bad — sprites that failed to load (any); loaded — in memory now (resident + the
+    // non-resident ones a screen is using); pending — non-resident ones still loading; bytes — their decoded RGBA; done — the resident ones settled and nothing pending
+    get artInfo() { const z = artLazy(); return { total: ART_NAMES.length, resident: ART_RESIDENT.length, ok: artCount.ok, bad: artCount.bad + z.bad, loaded: artCount.ok + z.loaded, pending: z.loading, bytes: artBytes(), done: artDone(), loadingShown: !!document.getElementById("loading") }; },
     get mode() { return mode; }, set mode(v) { if (MODES.includes(v)) setMode(v); },   // SPEC-017: только экраны из MODES
     // SPEC-017: экраны меню; wardrobePage — «looks» (наряды) или «friends» (имена друзей) во вкладке «Гардероб»; resetMenus — как при запуске
     MODES, toMap, toHome, resetMenus, shopAfterWin, closeShop, get muted() { return ui.muted; },   // SPEC-030: и магазин после победы → «Готово»
@@ -155,6 +162,10 @@ export function installDebug() {
     save: Object.freeze({ get info() { return saveState(); }, queue: queueSave, flush: flushSaves, code: saveCode, readCode: t => { const r = readCode(t); return { ok: r.ok, error: r.error || null }; },
       KEYS: SAVE_KEYS, OLD_KEYS, VERSION: SAVE_VERSION, validSave, fingerprint, promptsForPersist, outfitsFromIds: v => outfitsOf(v), outfitsToIds: o => outfitsOf(o, true) }),
     // SPEC-025 AC 6: the grown-ups page (open — behind the gate), the gate itself, the open question { a, b, answers } or null
+    // SPEC-040 AC 3: the pure rule of when a frame draws the 3D (a test drives it with fake timestamps): view3D.wanted(view3D.newState(), inputs, ms)
+    get quality() { return qualityInfo(); }, setQuality: setQualityMode, qualityFrame,   // SPEC-040 AC 6 / 7: { tier, mode, probeMs, steps }; setQuality("auto" | "high" | "medium" | "low")
+    get warm() { return warmInfo(); },   // SPEC-040 AC 4: { key, phase: "" | game | map | chars | upload | done, done } of the warm-up behind the level card
+    view3D: Object.freeze({ newState: newCadence, wanted: cadence, COVERED }),
     grownUps: Object.freeze({ open: openGrownUps, parentGate, get gate() { return gateState(); } }),
     // SPEC-012 AC 1f: the menus' state a screen change resets (logic state: the same in sim and rendered pages) and the actions
     // that set it up: the shop, its friends page, the name input of a slot, a map stop or world tab (a locked one shows a hint)
@@ -215,7 +226,7 @@ export function installDebug() {
     itemNames: () => Object.fromEntries(Object.entries({ hair: HAIRS, hat: HATS, jacket: JACKETS, pants: PANTS, big: BIG_SKINS }).map(([k, l]) => [k, l.map(q => ({ ...q.name }))])),
     REWARD, get winPanel() { return ui.winPanel && { ...ui.winPanel }; },   // SPEC-009: числа награды; рамка строк награды на экране победы
     seedRandom,     // SPEC-008: seedRandom(n) — игровая случайность rng() с зерна n; seedRandom() — снова случайно
-    sim, simRun: (seconds, dt) => simRun(seconds, dt, stepGame), get events() { return G.events.map(e => ({ ...e })); },   // SPEC-008: режим симуляции, журнал событий (копии)
+    sim, simRun: (seconds, dt) => simRun(seconds, dt, stepGame), get events() { return orderedEvents().map(e => ({ ...e })); },   // SPEC-008: режим симуляции, журнал событий (копии)
     ledger: () => ledger.map(e => ({ ...e })),   // SPEC-009: события coins за сессию (с загрузки страницы), копии
     get rngDraws() { return rngDraws(); },   // SPEC-008: сколько раз тянули игровую случайность
     setProgress(save) { G.rewardDue = false; setLastReward(null); ui.openedWorld = null; ui.worldBanner = null; setProgress(save); },   // SPEC-008 (баланс): прогресс из сохранения (null — новый), не записывает

@@ -4,8 +4,8 @@
 import * as THREE from "three";
 import { BIG_SKINS } from "../../core/wardrobe.js";
 import { makeLook, skinSel } from "../outfits.js";
-import { CSS_W, PHONE, UH, UW } from "../screen.js";
-import { mode, ui } from "../state.js";
+import { CSS_H, CSS_W, PHONE, UH, UW } from "../screen.js";
+import { inWardrobe, mode, ui } from "../state.js";
 import { buildBigModel, buildLittleModel, modelOf } from "./characters.js";
 import { disposeTree, toon } from "./materials.js";
 import { renderer } from "./setup.js";
@@ -13,7 +13,10 @@ import { phoneSkinCols, progressGeom } from "../ui/layout.js";
 import { G } from "../../core/active.js";
 
 // SPEC-027 (тесты): модель маленького — номер в littles или «p1» / «p2» (превью гардероба, из кэша)
-export const outfitModel = who => (typeof who === "number" ? modelOf(G.littles[who]) : previewCache.get("L" + JSON.stringify(makeLook(skinSel[who]))));
+// SPEC-040 AC 10: a look is a pure function of the four picks (makeLook), so the cache key is made from the picks — nothing is stringified or
+// built per frame; the look itself is made only when its model is (a cache miss)
+const lookKey = o => `L${o.hair}|${o.hat}|${o.jacket}|${o.pants}`;
+export const outfitModel = who => (typeof who === "number" ? modelOf(G.littles[who]) : previewCache.get(lookKey(skinSel[who])));
 // ---------- Превью нарядов (рисуется в «окошки» UI-слоя) ----------
 const previewScene = new THREE.Scene();
 
@@ -34,14 +37,15 @@ const SKIN_KEYS = ["p1", "p2", "big"];   // компьютер; телефон �
 export const skinCx = i => UW / 2 - (SKIN_KEYS.length - 1) * 125 + i * 250;   // центр колонки
 // SPEC-026: на странице «Прогресс» — одно окошко: игрок 1
 export const progressTab = () => mode === "shop" && ui.shopTab === "progress";
+// SPEC-040 AC 3: the previews are on screen (the wardrobe's looks page, the Progress page)
+export const previewsShown = () => (inWardrobe() && ui.wardrobePage === "looks") || progressTab();
 export const skinPanels = () => progressTab() ? [{ key: "p1", ...progressGeom().preview }]
   : PHONE ? phoneSkinCols().map(col => ({ key: col.key, ...col.panel }))
   : SKIN_KEYS.map((key, i) => ({ key, x: skinCx(i) - 95, y: 136, w: 190, h: 140 }));
 export function renderPreviews(t) {
-  const lp1 = makeLook(skinSel.p1), lp2 = makeLook(skinSel.p2);
   const defs = {
-    p1: ["L" + JSON.stringify(lp1), () => buildLittleModel(lp1, false)],
-    p2: ["L" + JSON.stringify(lp2), () => buildLittleModel(lp2, false)],
+    p1: [lookKey(skinSel.p1), () => buildLittleModel(makeLook(skinSel.p1), false)],
+    p2: [lookKey(skinSel.p2), () => buildLittleModel(makeLook(skinSel.p2), false)],
     big: ["B" + skinSel.big, () => buildBigModel(BIG_SKINS[skinSel.big])]
   };
   const s = CSS_W / UW;
@@ -66,8 +70,44 @@ export function renderPreviews(t) {
   renderer.setScissorTest(false);
 }
 
+// ---------- SPEC-040 AC 3: the previews without the world ----------
+// The Character pages cover the 3D, so the world is not drawn there; but the previews are drawn into the same canvas, and a canvas
+// that is drawn into only in some windows shows nothing in the rest (its buffer is cleared after each frame). So the last picture of
+// the world is saved (snapshotWorld: a copy of the framebuffer, taken by the world frame that opens the page) and each preview frame
+// first puts it back with one full-screen draw (blitSnapshot), then draws the previews on it. A resize or a rebuilt scene drops it
+// (invalidateSnapshot: main.js asks cadence.js for a world frame again, which saves a new one).
+let snapTex = null, snapW = 0, snapH = 0, snapValid = false;
+const snapSize = new THREE.Vector2();
+export const snapshotValid = () => snapValid;
+export function invalidateSnapshot() { snapValid = false; }
+export function snapshotWorld() {
+  renderer.getDrawingBufferSize(snapSize);
+  const w = Math.max(1, Math.floor(snapSize.x)), h = Math.max(1, Math.floor(snapSize.y));
+  if (!snapTex || w !== snapW || h !== snapH) {
+    if (snapTex) snapTex.dispose();
+    snapTex = new THREE.FramebufferTexture(w, h); snapTex.minFilter = snapTex.magFilter = THREE.NearestFilter; snapW = w; snapH = h;
+  }
+  renderer.copyFramebufferToTexture(snapTex);
+  snapValid = true;
+}
+// the saved picture drawn as it is (raw colour values: it came out of the framebuffer already encoded)
+const blitMat = new THREE.ShaderMaterial({
+  uniforms: { tMap: { value: null } }, depthTest: false, depthWrite: false, toneMapped: false,
+  vertexShader: "varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }",
+  fragmentShader: "uniform sampler2D tMap; varying vec2 vUv; void main() { gl_FragColor = texture2D(tMap, vUv); }"
+});
+const blitScene = new THREE.Scene(), blitQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), blitMat), blitCam = new THREE.Camera();
+// one frame of the Character pages' previews on the saved world (main.js, when cadence.js says "previews")
+export function previewsOverSnapshot(t) {
+  blitMat.uniforms.tMap.value = snapTex;
+  renderer.setViewport(0, 0, CSS_W, CSS_H);
+  renderer.render(blitScene, blitCam);
+  renderPreviews(t);
+}
+
 // called once by main.js, in the start order of the one-file game
 export function initPreviews() {
+  blitQuad.frustumCulled = false; blitScene.add(blitQuad);
   previewScene.background = new THREE.Color("#9be06f");
   previewScene.add(new THREE.HemisphereLight(0xffffff, 0x5d7f45, 1.7));
   pSun.position.set(2, 5, 4);

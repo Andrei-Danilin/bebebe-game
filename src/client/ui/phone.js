@@ -18,6 +18,7 @@ import { cpx, hudFont, minimapRect, minPx, showMinimap, teamRect } from "./layou
 import { G } from "../../core/active.js";
 import { canKitNow, setMode } from "../flow.js";
 import { gameInv, gloveOf } from "../../core/rules.js";
+import { textW } from "./measure.js";
 
 // верхняя полоса телефона: слева имя Большого и сердечки, дальше уровень/время, пауза, «во весь экран»;
 // справа сверху мини-карта, под ней кружки команды; внизу справа 💋 и рядом рукавицы
@@ -29,7 +30,7 @@ export function drawHUDPhone(t) {
   // уровень и время + кнопки
   const timeTxt = timerText();
   ctx.font = hudFont(main);
-  const tw = (G.tutorialGame ? scaledW(timeTxt) : ctx.measureText(timeTxt).width) + 2 * pad, nBtn = (fsOn ? 2 : 1) + (G.tutorialGame ? 1 : 0), gw = tw + nBtn * (gap + bh);   // SPEC-029: «Тренировка» — с запасом на широкие шрифты; + ⏭
+  const tw = (G.tutorialGame ? scaledW(timeTxt) : textW(timeTxt)) + 2 * pad, nBtn = (fsOn ? 2 : 1) + (G.tutorialGame ? 1 : 0), gw = tw + nBtn * (gap + bh);   // SPEC-029: «Тренировка» — с запасом на широкие шрифты; + ⏭
   // SPEC-022: злость папы (подпись) и облачка-сердечки. Подпись — вся (ширина с LOOK.TEXT_TEST_SCALE: шрифты CI и iPhone шире);
   // не влезает — облачка плотнее (до PHONE_HEART_MIN), и только потом подпись короче
   const bigName = angerLabel(), room = mm.x - gap - m - gw - gap;
@@ -78,7 +79,7 @@ export function drawHUDPhone(t) {
   // подсказка (первые секунды) и «отдыхает» — внизу, левее кнопок
   const bw = rightEdge - m, bcx = m + bw / 2;
   if (G.stats.time < 5) {
-    const hy = UH - m - cpx(16), hs = labelFit(L().touch1, bcx, hy, cpx(17), bw, "#fff", "center", hint), tw2 = Math.min(bw, ctx.measureText(L().touch1).width);
+    const hy = UH - m - cpx(16), hs = labelFit(L().touch1, bcx, hy, cpx(17), bw, "#fff", "center", hint), tw2 = Math.min(bw, textW(L().touch1));
     noteText("hint", hs); ui.hudRects.push({ id: "hint", x: bcx - tw2 / 2, y: hy - hs * 0.7, w: tw2, h: hs * 1.4 });
   }
   const resting = G.littles.filter(l => l.kind === "player" && (l.state === "home" || l.state === "rest"));

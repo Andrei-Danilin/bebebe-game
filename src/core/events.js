@@ -6,6 +6,24 @@ import { G } from "./active.js";
 
 /** @import { GameEvent } from "./game.js" */
 
+// SPEC-040 AC 10 (RR-51): the gameplay log is a fixed-size ring (CFG.EVENT_LOG_MAX events) over plain data — g.events, an array, and g.eventsHead,
+// the index of the oldest event once the log is full (a game stays plain data: structuredClone keeps the ring whole). Every reader (filter,
+// find, some, map, length, for … of) works as before, in time order, while the log has not wrapped; pushEvent overwrites the oldest event once
+// it is full instead of splicing the whole log down at every event. After a wrap the array is not in time order: orderedEvents(g) is (the
+// __bb.events getter and the balance report read that); counting readers (perSlotCounts) do not care. The cap is read at each push (tests change it).
+/** @param {{ events: GameEvent[], eventsHead: number }} g @param {GameEvent} e */
+export function pushEvent(g, e) {
+  const max = CFG.EVENT_LOG_MAX, ev = g.events;
+  if (ev.length > max) { const keep = orderedEvents(g).slice(ev.length - max + 1); ev.length = 0; g.eventsHead = 0; ev.push(...keep); }   // the cap was lowered
+  else if (g.eventsHead && ev.length < max) { const all = orderedEvents(g); ev.length = 0; g.eventsHead = 0; ev.push(...all); }   // the cap was raised again: back in time order
+  if (ev.length < max) { ev.push(e); return; }
+  ev[g.eventsHead] = e;
+  g.eventsHead = (g.eventsHead + 1) % max;
+}
+/** the events oldest first (a copy) @param {{ events: GameEvent[], eventsHead: number }} [g] */
+export function orderedEvents(g = G) { return g.eventsHead === 0 ? g.events.slice() : [...g.events.slice(g.eventsHead), ...g.events.slice(0, g.eventsHead)]; }
+/** @param {{ events: GameEvent[], eventsHead: number }} [g] */
+export function clearEvents(g = G) { g.events.length = 0; g.eventsHead = 0; }
 // SPEC-012 AC 5: an effect for the client (it plays it as today): sfx { name }, burst { kind, x, y, n, color }, pop { key, args, x,
 // y, color, meaning } (an I18N key and its arguments — key null: args[0] is the text itself, a number or a sign), shake { t },
 // wave { x, y, r } (a wide push ring), hint { kind: "kit" | "kitOff" | "heard" | "practice", slot, step }, mood { level }
@@ -19,8 +37,7 @@ export function logEcon(type, data) { const e = logEvent(type, data); if (G.fx) 
 /** @param {string} type @param {object} [data] @returns {GameEvent} */
 export function logEvent(type, data) {
   const e = { t: G.stats.time, type, ...data };
-  G.events.push(e);
-  if (G.events.length > CFG.EVENT_LOG_MAX) G.events.splice(0, G.events.length - CFG.EVENT_LOG_MAX);
+  pushEvent(G, e);                                           // SPEC-040 AC 10: a ring — nothing is moved when the log is full
   if (G.tutorialGame === 2) tutorialNote(e);                 // SPEC-029: подсказки тренировки 2
   return e;
 }

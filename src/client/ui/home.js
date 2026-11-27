@@ -17,6 +17,7 @@ import { drawArt, drawArtCover, drawArtFit } from "./artdraw.js";
 import { menuFrame, phoneFrame, worldStarsOf } from "./menu.js";
 import { fitLine, labelFit, noteText, pLabel, plainText, scaledW } from "./text.js";
 import { cpx, hudFont, minPx } from "./layout.js";
+import { textW } from "./measure.js";
 
 // ---------- SPEC-017/026: главный экран — название, язык и звук в углу, три кнопки столбиком: Играть · История · Персонаж ----------
 // SPEC-026 (решение Андрея): звёзды, миры, бонусные миры, монетки и подсказка «установить на iPhone» ушли с главного (прогресс — на
@@ -110,7 +111,7 @@ export function drawHome() {
     const sz = PHONE ? pLabel("BeBeBe Atrapar", UW / 2, y + lh / 2, "title", H.titleSize, M.title, "center", titleW)
       : labelFit("BeBeBe Atrapar", UW / 2, y + lh / 2, D.titleSize, titleW, M.title, "center", 24);
     ctx.font = hudFont(sz);
-    const tw = Math.min(titleW, ctx.measureText("BeBeBe Atrapar").width);
+    const tw = Math.min(titleW, textW("BeBeBe Atrapar"));
     ui.hudRects.push({ id: "home:title", x: UW / 2 - tw / 2, y: y + lh / 2 - sz * 0.6, w: tw, h: sz * 1.2, text: "BeBeBe Atrapar" });
   }
   y += lh + c(H.logoGap);

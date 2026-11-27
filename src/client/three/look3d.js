@@ -4,7 +4,9 @@
 import * as THREE from "three";
 import { CELL, COLS, ROWS, W } from "../../core/config.js";
 import { charGroup, modelOf } from "./characters.js";
+import { fadeState } from "./batch.js";
 import { houseInfo, houseRoofs } from "./houses.js";
+import { fadeBushes, fadeTrees } from "./map3d.js";
 import { mapGroup } from "./mapstate.js";
 import { disposeTree, gradTex, groundCanvas, groundTex, ownMat, paperMade, paperMat, paperMesh, paperU } from "./materials.js";
 import { camera, renderer, scene, sun } from "./setup.js";
@@ -18,12 +20,13 @@ import { G } from "../../core/active.js";
 const LOOK_PARTS = {
   outline() {
     const ratios = [], colors = new Set(), kinds = {};
-    let hulls = 0, shifted = 0, mapSig = 0;
+    let hulls = 0, shifted = 0, mapSig = 0, castingHulls = 0;
     const kindOf = o => { for (let q = o; q; q = q.parent) { if (q.userData.piece || q.userData.obj) return q.userData.piece || q.userData.obj; if (q === charGroup) return "character"; } return "other"; };
     const under = (o, root) => { for (let q = o; q; q = q.parent) if (q === root) return true; return false; };
     scene.traverse(o => {
       if (!o.isMesh || !o.userData.hull) return;
       hulls++;
+      if (o.castShadow) castingHulls++;                  // SPEC-040 AC 2: a hull never casts a shadow
       const box = o.parent.geometry.boundingBox, sz = new THREE.Vector3(); box.getSize(sz);
       const r = ["x", "y", "z"].map(a => (o.scale[a] - 1) * Math.max(sz[a], 0.02) / 2 / o.userData.hull);
       ratios.push(...r);
@@ -34,7 +37,7 @@ const LOOK_PARTS = {
     });
     ratios.sort((a, b) => a - b);
     const med = ratios[ratios.length >> 1] || 0;
-    return { outline: { colors: [...colors], hulls, k: med, spread: med ? (ratios[ratios.length - 1] - ratios[0]) / med : 0, shifted: hulls ? shifted / hulls : 0, kinds, mapSig: +mapSig.toFixed(6) } };
+    return { outline: { colors: [...colors], hulls, castingHulls, k: med, spread: med ? (ratios[ratios.length - 1] - ratios[0]) / med : 0, shifted: hulls ? shifted / hulls : 0, kinds, mapSig: +mapSig.toFixed(6) } };
   },
   materials() {
     const types = new Set();
@@ -87,6 +90,25 @@ const LOOK_PARTS = {
       const hits = new THREE.Raycaster(camera.position.clone(), dir.normalize(), 0, dist).intersectObjects(houseRoofs.flatMap(hr => hr.meshes), false);
       return hits.some(h => h.object.visible && h.object.material.opacity > 0.5);
     }) }),
+  // SPEC-040 AC 5: the trees, bushes and roofs — how each is drawn now (a: its opacity, fading: drawn from its own transparent meshes, transparent: the
+  // material it is drawn with is transparent, instanced: drawn as an instance of the opaque batch), where it stands (px of the world)
+  fades: () => ({ fades: {
+    trees: fadeTrees.map(f => ({ ...fadeState(f), x: f.o.x, y: f.o.y })),
+    bushes: fadeBushes.map(f => ({ ...fadeState(f), x: f.b.x, y: f.b.y, r: f.b.r })),
+    roofs: houseRoofs.map(r => ({ a: +r.a.toFixed(3), transparent: r.mats.some(m => m.transparent), solid: r.mats.every(m => !m.transparent && !m.userData.outline.transparent), visible: r.g.visible }))
+  } }),
+  // SPEC-040 AC 2: how the map is drawn — instanced batches (and the parts they replace), joined meshes, meshes still drawn one by one
+  batch: () => {
+    let instanced = 0, instances = 0, joined = 0, hidden = 0, drawn = 0, castingHulls = 0;
+    const vis = o => { for (let q = o; q; q = q.parent) if (!q.visible) return false; return true; };
+    mapGroup.traverse(o => {
+      if (!o.isMesh) return;
+      if (o.isInstancedMesh) { instanced++; instances += o.count; } else if (o.userData.joined) joined++;
+      if (o.userData.batched) hidden++; else if (vis(o)) drawn++;
+      if (o.userData.hull && o.castShadow) castingHulls++;
+    });
+    return { batch: { instanced, instances, joined, hidden, drawn, castingHulls } };
+  },
   memory: () => ({ memory: { ...renderer.info.memory } })
 };
 // SPEC-025 AC 15 (tests): disposeTree on a test group — an own material with its own texture map, an own material on the shared

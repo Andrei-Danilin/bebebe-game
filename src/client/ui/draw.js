@@ -23,6 +23,7 @@ import { paperUI } from "./paper.js";
 import { fitText, fmtTime, fz, label, labelStroke, noteText } from "./text.js";
 import { cpx, hudFont, minPx } from "./layout.js";
 import { G } from "../../core/active.js";
+import { textW } from "./measure.js";
 
 // =====================================================================
 //  2D-СЛОЙ: меню, HUD, подписи (поверх 3D)
@@ -285,7 +286,7 @@ export function drawFx() {
     ctx.globalAlpha = Math.max(0, 1 - tx.t / 1.2);
     const boom = tx.meaning && POP_ART[tx.meaning];
     if (boom && art(boom)) {
-      if (tx.w === undefined) { ctx.font = hudFont(sz); tx.w = ctx.measureText(tx.text).width; }   // ширина надписи — один раз
+      if (tx.w === undefined) { ctx.font = hudFont(sz); tx.w = textW(tx.text); }   // ширина надписи — один раз
       drawArt(boom, fxA.x - tx.w * P.popBurst / 2, fxA.y - sz * P.popH / 2, tx.w * P.popBurst, sz * P.popH);
     }
     label(tx.text, fxA.x, fxA.y, sz, tx.color);
@@ -302,7 +303,7 @@ export function addButton(x, y, w, h, text, color, act, size = 24) {
   }
   label(text, x + w / 2, y + h / 2 + 1, size, "#fff");
   if (PHONE) noteText("main", size);
-  const b = { x, y, w, h, act, text, textW: ctx.measureText(text).width };
+  const b = { x, y, w, h, act, text, textW: textW(text) };
   ui.buttons.push(b);
   return b;
 }

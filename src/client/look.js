@@ -39,6 +39,11 @@ export const LOOK = {
   MINIMAP_BG_ALPHA: 0.12,    // прозрачность тёмной подложки (было .35) — только чтобы точки читались на снегу и песке
   MINIMAP_UNDER_ALPHA: 0.2,  // вся мини-карта, когда под ней герой или Большой
   MINIMAP_UNDER_PAD: 12,     // UI px — запас вокруг мини-карты для «под ней»
+  // SPEC-040 AC 3: меню (главная, карта, карточка уровня, победа / поражение) рисуют 3D за собой не чаще MENU_FPS раз в секунду; под полноэкранной
+  // страницей (история, Персонаж, заставка, язык, «для взрослых», «поверни устройство») 3D не рисуется совсем, на паузе — один раз
+  MENU_FPS: 30,
+  TEXT_MEMO_MAX: 6000,       // SPEC-040 AC 9: entries of the text-width and text-fit memos (ui/measure.js) before they are emptied
+  FADE_SETTLED: 0.01,        // SPEC-040: roof / tree / bush fade closer than this to its goal is settled — a frozen scene (pause) is no longer redrawn
   MINIMAP_FADE_TIME: 0.2,    // сек — от полной до бледной (и обратно)
   // как рисуется (UI px и доли): стены — их цвет, смешанный с тёмным на dark; домики — заливка zone и контур zoneLine;
   // кусты, деревья, камни — точки в bush/tree радиуса; точки героев dots (UI px), не меньше dot, контур outline;
@@ -112,8 +117,26 @@ export const LOOK = {
     nameLines: 2, descLines: 4, packLines: 2, shortLines: 1, haveLines: 2, noLines: 2, scan: 1, eps: 0.01,
     RESET_FIT: 1.15 },        // запас для надписи средней кнопки вкладки Персонажа (tabs.js: шрифты CI и iPhone шире наших)
   // SPEC-020: картинки из папки dir (их делает npm run assets из art/); экран загрузки ждёт их не дольше waitMs мс, остальные
-  // появятся, когда догрузятся (до тех пор и при ошибке — рисунок кодом, как раньше)
-  ART: { dir: "assets/", waitMs: 5000 },
+  // появятся, когда догрузятся (до тех пор и при ошибке — рисунок кодом, как раньше). SPEC-040: не постоянную картинку (assets.json "resident": false)
+  // отпускаем, когда её не рисовали releaseMs мс (проверка не чаще sweepMs)
+  ART: { dir: "assets/", waitMs: 5000, releaseMs: 30000, sweepMs: 250, retryMs: 5000 },
+  // SPEC-040 AC 6 / 7 (RR-43, D-4, D-17): quality tiers. high = the picture as it was; medium = a lower pixel ratio, a 1024 shadow map, three
+  // quarters of the background decor; low (D-4: keeps the outlines and the hatching) = pixel ratio 1, no MSAA, no paper grain, a 1024
+  // "basic" (hard-edged) shadow map — one pass that stays a shadow of the right shape; the blob shadows the spec also allowed would need new
+  // drawing for every character, tree and house — and half the background decor (a seeded, positional thinning: the same decor on every
+  // device of the tier; only what is outside the fence). dprCap: a number, or { desktop, touch }. probe: at start the home scene is drawn
+  // 'frames' times at the high tier (the first 'skip' compile the shaders), 'maxMs' at most, the median ms per frame (the GPU waited for)
+  // picks the tier: ≤ highMs high, ≤ mediumMs medium, else low (high 10 ms keeps a 60 fps phone's frame under the iPhone 8 row of D-17,
+  // p95 ≤ 25 ms; 22 ms is what a frame may cost on the weakest row, p95 ≤ 45 ms, after the cuts of the lower tiers). stepDown: in auto mode,
+  // in play, the p95 frame time of the last windowS seconds (≥ minFrames frames; a frame over ignoreMs is a hitch, not counted) over p95Ms
+  // (D-17: the loosest row, the low-end Android's p95 ≤ 45 ms) for afterS seconds drops one tier; never up during a run.
+  QUALITY: {
+    high:   { dprCap: { desktop: 2, touch: 1.5 }, msaa: true,  shadow: 2048, shadowType: "pcf",   grain: true,  decor: 1 },
+    medium: { dprCap: 1.5,                         msaa: true,  shadow: 1024, shadowType: "pcf",   grain: true,  decor: 0.75 },
+    low:    { dprCap: 1,                           msaa: false, shadow: 1024, shadowType: "basic", grain: false, decor: 0.5 },
+    probe: { frames: 8, skip: 2, maxMs: 600, highMs: 10, mediumMs: 22 },
+    stepDown: { p95Ms: 45, afterS: 5, windowS: 3, minFrames: 20, ignoreMs: 500 }
+  },
   // SPEC-020: бумажный вид экранов с картинками: высота логотипа на главном экране (компьютер UI px / телефон CSS px); кусок страницы
   // тетради menu_bg (доли x, y, ширины, высоты) — бумага панелей; скотч на углах панели (ширина, высота в UI px компьютера, цвет,
   // контур); углы бумажных кнопок (доля меньшей стороны кнопки), цвет «выключенной» кнопки (серая бумага), сколько листов бумаги

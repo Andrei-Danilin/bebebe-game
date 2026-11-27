@@ -294,6 +294,90 @@ test("a house roof fades while someone is inside, so it never hides a Little One
   expect(errors).toEqual([]);
 });
 
+// SPEC-040 AC 2 (RR-42): fewer draw calls, the same picture. Every part and its outline hull is still a mesh of the scene graph (hidden
+// when its batch draws it), so the other tests read them as before; the batch (one InstancedMesh per shape and material, hulls included,
+// then meshes joined by material) draws what stands still; a hull never casts a shadow; a shape that was made before is not made again.
+test("SPEC-040 AC 2: the map is drawn in batches, hulls cast no shadow, geometries are shared", async ({ page }) => {
+  test.setTimeout(120_000);
+  const errors = await openGame(page);
+  for (const [w, n, minInstances] of [["park", 3, 300], ["beach", 2, 800]]) {
+    await play(page, w, n);
+    await frames(page);
+    const r = await page.evaluate(() => { const b = window.__bb; return { ...b.look3D("batch"), ...b.look3D("memory"), outline: b.look3D("outline").outline, calls: b.perf().draw.calls }; });
+    expect(r.outline.hulls, w).toBeGreaterThan(300);
+    expect(r.outline.castingHulls, `${w}: hulls that cast a shadow`).toBe(0);
+    expect(r.batch.instanced, `${w}: InstancedMeshes`).toBeGreaterThan(15);
+    expect(r.batch.instances, `${w}: parts drawn as instances`).toBeGreaterThan(minInstances);
+    expect(r.batch.hidden, `${w}: parts the batches replace stay in the graph, hidden`).toBeGreaterThan(r.batch.instances * 0.5);   // (the parts of a tree that is fading at the start are shown again)
+    expect(r.batch.drawn, `${w}: meshes of the map still drawn one by one`).toBeLessThan(150);
+    expect(r.memory.geometries, `${w}: geometries the renderer holds`).toBeLessThan(320);   // ~1300 distinct before
+    expect(r.calls, `${w}: draw calls (colour + shadow), any view`).toBeLessThan(450);
+  }
+  // an unrelated hull-casting write cannot switch a hull's shadow on again
+  expect(await page.evaluate(() => { const b = window.__bb; let n = 0; b.look3D("outline"); const m = b.model(0); m.root.traverse(o => { if (o.isMesh) o.castShadow = true; }); m.root.traverse(o => { if (o.userData.hull && o.castShadow) n++; }); return n; })).toBe(0);
+  expect(errors).toEqual([]);
+});
+
+// SPEC-040 AC 5 (RR-50): trees, bushes and roofs are opaque until a fade starts, transparent while it fades (and while it stays faded), and
+// opaque again when it is fully back. A tree or bush is drawn from the opaque instanced batch until its fade starts, then from its own
+// transparent materials (its instances are zeroed meanwhile), then from the batch again; a roof flips its materials' transparent flag.
+test("SPEC-040 AC 5: trees, bushes and roofs are opaque until a fade starts, transparent while fading, opaque again when back", async ({ page }) => {
+  test.setTimeout(120_000);
+  const errors = await openGame(page);
+  await play(page, "park", 3);
+  await frames(page);
+  const programs = () => page.evaluate(() => window.__bb.perf().programs);
+  const programs0 = await programs();
+  const fades = () => page.evaluate(() => window.__bb.look3D("fades").fades);
+  const settle = async (ok, arg) => { await page.waitForFunction(ok, arg, { timeout: 30_000, polling: 50 }); return fades(); };
+  // the start: every tree and bush opaque and instanced; the roofs faded (everyone is in a house) — transparent
+  let f = await fades();
+  expect(f.trees.length).toBeGreaterThan(3);
+  expect(f.bushes.length).toBeGreaterThan(3);
+  for (const q of [...f.trees, ...f.bushes]) expect(q, "a tree or bush at the start").toMatchObject({ a: 1, fading: false, transparent: false, instanced: true });
+  expect(f.roofs.every(r => r.transparent && !r.solid), "roofs with someone inside are faded").toBe(true);
+  // somebody walks behind tree 0 (the whole team, so only the trees near that spot fade) and into bush 0
+  const stand = (kind, i) => page.evaluate(([kind, i]) => {
+    const b = window.__bb, q = window.__bb.look3D("fades").fades[kind][i];
+    b.mode = "play";
+    b.littles.forEach(l => { l.x = q.x; l.y = kind === "trees" ? q.y - 20 : q.y; });
+    Object.assign(b.big, { x: 20 * 32, y: 12 * 32, state: "look", timer: 999 });
+    b.mode = "pause";
+  }, [kind, i]);
+  const away = () => page.evaluate(() => {
+    const b = window.__bb;
+    b.mode = "play";
+    b.littles.forEach((l, k) => { l.x = 15 * 32 + k * 40; l.y = 10 * 32; });
+    Object.assign(b.big, { x: 20 * 32, y: 12 * 32, state: "look", timer: 999 });
+    b.mode = "pause";
+  });
+  await stand("trees", 0);
+  f = await settle(() => window.__bb.look3D("fades").fades.trees[0].fading);
+  expect(f.trees[0], "the tree with somebody behind it").toMatchObject({ fading: true, transparent: true, instanced: false });
+  expect(f.trees[0].a).toBeLessThan(1);
+  expect(f.trees.filter(q => q.fading).length, "only the trees near that spot fade").toBeLessThan(f.trees.length);
+  f = await settle(() => window.__bb.look3D("fades").fades.trees[0].a < 0.5);
+  expect(f.trees[0]).toMatchObject({ fading: true, transparent: true });
+  await away();
+  f = await settle(() => window.__bb.look3D("fades").fades.trees.every(q => q.a === 1));
+  for (const q of f.trees) expect(q, "every tree is back").toMatchObject({ a: 1, fading: false, transparent: false, instanced: true });
+  await stand("bushes", 0);
+  f = await settle(() => window.__bb.look3D("fades").fades.bushes[0].fading);
+  expect(f.bushes[0], "the bush with somebody in it").toMatchObject({ fading: true, transparent: true, instanced: false });
+  await away();
+  f = await settle(() => window.__bb.look3D("fades").fades.bushes.every(q => q.a === 1));
+  for (const q of f.bushes) expect(q, "every bush is back").toMatchObject({ a: 1, fading: false, transparent: false, instanced: true });
+  // the roofs: nobody inside → solid and opaque; somebody inside the safe house again → faded and transparent
+  f = await settle(() => window.__bb.look3D("fades").fades.roofs.every(r => r.solid && r.a === 1));
+  expect(f.roofs.every(r => !r.transparent && r.visible)).toBe(true);
+  await page.evaluate(() => { const b = window.__bb, z = b.safeZone; b.mode = "play"; b.littles[1].x = z.x + z.w / 2; b.littles[1].y = z.y + z.h / 2; b.mode = "pause"; });
+  f = await settle(() => window.__bb.look3D("fades").fades.roofs.some(r => r.transparent && r.a < 0.5));
+  expect(f.roofs.some(r => r.transparent && !r.solid && r.a < 0.5), "the roof over somebody").toBe(true);
+  // the transparent and opaque shader variants were compiled with the map: no fade made a program during play (no hitch)
+  expect(await programs(), "programs made by the fades").toBe(programs0);
+  expect(errors).toEqual([]);
+});
+
 // AC 9: readability on every ground — the hero's black outline against each world's ground colours (WCAG contrast ratio),
 // the Big One's view cone (looking / chasing) and the safe-zone floor glow against the ground and the floor under them
 // (colour change of the blend, 0–441)

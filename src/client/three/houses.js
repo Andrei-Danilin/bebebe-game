@@ -276,17 +276,26 @@ function roofInside(hr) {
   for (const it of G.items) if (inHouse(it, hr, 0)) return true;
   return false;
 }
+// returns true while a roof is still fading (SPEC-040: a frozen scene is drawn again until it has settled)
 export function fadeRoofs(dt, t) {
   const H = LOOK.HOUSE_LOOK;
+  let moving = false;
   for (const hr of houseRoofs) {
-    hr.a += ((roofInside(hr) ? H.faded : 1) - hr.a) * Math.min(1, dt / H.fade);
+    const target = roofInside(hr) ? H.faded : 1;
+    if (Math.abs(target - hr.a) > LOOK.FADE_SETTLED) moving = true;
+    hr.a += (target - hr.a) * Math.min(1, dt / H.fade);
+    // SPEC-040 AC 5: opaque until a fade starts, transparent while fading, opaque again once fully back (a snaps to 1 within FADE_SETTLED)
+    const solid = target === 1 && 1 - hr.a < LOOK.FADE_SETTLED;
+    if (solid) hr.a = 1;
     hr.g.visible = hr.a > H.hide;                       // почти погасла — не рисуем совсем (на телефоне крыша во весь экран)
     hr.glowNow = hr.glow ? H.kid.glowK * (0.75 + 0.25 * Math.sin(t * 3)) * (hr.a - H.faded) / (1 - H.faded) : 0;   // зелёный свет безопасного дома на крыше
     for (const mt of hr.mats) {
+      if (mt.transparent === solid) { mt.transparent = !solid; mt.userData.outline.transparent = !solid; mt.needsUpdate = true; mt.userData.outline.needsUpdate = true; }
       mt.opacity = hr.a; mt.userData.outline.opacity = hr.a; mt.depthWrite = hr.a > 0.95;
       if (hr.glow && mt.emissive) mt.emissive.setRGB(roofGlow.r * hr.glowNow, roofGlow.g * hr.glowNow, roofGlow.b * hr.glowNow);
     }
   }
+  return moving;
 }
 
 // setters (SPEC-011 AC 5: other modules change this module's state only through them)

@@ -16,6 +16,7 @@ import { drawArtFit } from "../artdraw.js";
 import { pButton } from "../menu.js";
 import { clipRows, fitText, fz, label, priceLabel, noteText, pDraw, pLabel, pRows, wrapText } from "../text.js";
 import { cpx, minPx } from "../layout.js";
+import { textW } from "../measure.js";
 
 // карточки магазина (компьютер и телефон): рукавицы, мега-рукавицы, воздушные поцелуи, спасалка (SPEC-007)
 export const shopCards = () => [
@@ -123,7 +124,7 @@ export function itemsPhone(f) {
   // кто что надевает (на телефоне — только игрок 1)
   const wy = y0 + ch + g, wl = `${L().player1} ${L().wears}:`;
   pLabel(wl, X0 + c(4), wy + B / 2, "main", 17, P_COLORS[0], "left");
-  const lw = ctx.measureText(wl).width;
+  const lw = textW(wl);
   ["none", "mittens", "mega"].forEach((k, j) => {
     const on = progress.equip[0] === k, bw = c(118), bx = X0 + c(4) + lw + c(16) + j * (bw + g);
     addButton(bx, wy, bw, B, k === "none" ? L().none : "", on ? "#ff6fa8" : "#cbd5e1", () => setEquip(0, k), fz(16, "main"));
@@ -145,7 +146,7 @@ export function itemsDesktop() {
     const ok = progress.coins >= c.price, txt = priceLabel(c.price, bw - 12, 14);   // SPEC-033: the same price wording as everywhere (shortened when it does not fit)
     ctx.font = `900 19px system-ui, "Segoe UI", "Arial Rounded MT Bold", Arial, sans-serif`;
     let fs = 19;
-    while (ctx.measureText(txt).width > bw - 12 && fs > 14) { fs -= 0.5; ctx.font = `900 ${fs}px system-ui, "Segoe UI", "Arial Rounded MT Bold", Arial, sans-serif`; }
+    while (textW(txt) > bw - 12 && fs > 14) { fs -= 0.5; ctx.font = `900 ${fs}px system-ui, "Segoe UI", "Arial Rounded MT Bold", Arial, sans-serif`; }
     addButton(cx - bw / 2, y0 + 216, bw, 50, txt, ok ? "#22c55e" : "#cbd5e1", c.buy, fs).id = "buy:" + c.k;
     if (!ok) fitText(L().notEnough, cx, y0 + 279, 12, w - 22, "center", "#ef4444", 700);
   });

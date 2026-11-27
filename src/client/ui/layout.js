@@ -8,6 +8,7 @@ import { L, lang } from "../../i18n.js";
 import { LOOK } from "../look.js";
 import { ctx, PHONE, UH, UW, CSS_W } from "../screen.js";
 import { mode } from "../state.js";
+import { textW } from "./measure.js";
 
 // ---------- CSS px → UI px и шрифт интерфейса ----------
 // CSS px → UI px: на телефоне кнопки и шрифты задаются в CSS px (под палец), рисуем в UI px
@@ -33,7 +34,7 @@ function chipDiameter() {
   if (chipCache.key === key) return chipCache.d;
   const f = ctx.font;
   ctx.font = hudFont(minPx("hint"));
-  const need = Math.max(...[L().me, L().botChip, "1", "2", "88", "z", "!"].map(t => ctx.measureText(t).width)) * LOOK.PHONE_CHIP_FONT;
+  const need = Math.max(...[L().me, L().botChip, "1", "2", "88", "z", "!"].map(t => textW(t))) * LOOK.PHONE_CHIP_FONT;
   ctx.font = f;
   chipCache = { key, d: Math.max(cpx(30), need + cpx(4)) };
   return chipCache.d;

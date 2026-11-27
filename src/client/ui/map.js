@@ -25,6 +25,7 @@ import { menuFrame, phoneFrame, worldStarsOf } from "./menu.js";
 import { fitLine, fz, label, noteRows, noteText, plainText, scaledW } from "./text.js";
 import { cpx, hudFont, minPx } from "./layout.js";
 import { G } from "../../core/active.js";
+import { textW } from "./measure.js";
 
 // ---------- SPEC-017: карта уровней — вкладки шести миров, страница мира с 20 остановками на дорожке змейкой ----------
 // значки миров на вкладках и в заголовке страницы (вкладка — значок на фоне цвета земли мира: имена в узкую вкладку не влезают)
@@ -161,7 +162,7 @@ function drawStop(q, info, t, won) {
   if (badge) {
     numX = q.cx + R * 0.66; numY = cy + R * 0.66;
     ctx.font = hudFont(numSz);
-    const br = Math.max(numSz * 0.72, ctx.measureText(String(q.n)).width * 0.62);
+    const br = Math.max(numSz * 0.72, textW(String(q.n)) * 0.62);
     circle(numX, numY, br); fillStroke(M.pill, 2 * k);
   }
   plainText(String(q.n), numX, numY + (badge ? 1 : 0), numSz, info.locked && !badge ? M.lockedInk : M.ink, "center");

@@ -150,19 +150,30 @@ test("service worker registers and controls the page over http", { tag: "@fast" 
 
 // The browser's own fetches of sw.js and of a controlled page are not routable the way we need, so
 // these tests run their own server instance; override(path) can swap a file's content or status.
-async function withOwnServer(page, override, fn) {
+// quiet: the page is idle before the test starts (its sprites loaded, the render loop stopped). A new worker takes over only when the active
+// one has no request or event in flight, and the page that has just started is still loading its sprites through it while the software
+// renderer (SwiftShader: CI, PW_GPU=0) takes every core — on a loaded machine the takeover of the tests that wait for one (a release, a
+// new build, a half-installed update, a sprite-only update) sometimes did not come for a minute (one run in ten, also before SPEC-040
+// step 2; 0 in 40 with the page idle). These tests are about the worker's downloads and caches, not about drawing.
+async function withOwnServer(page, override, fn, quiet = false) {
   const server = makeServer({ override: p => override.fn(p) });
   await new Promise(r => server.listen(0, r));
   try {
     const base = `http://localhost:${server.address().port}/`;
+    await page.addInitScript(() => { window.__bbQuality = "high"; });   // SPEC-040: not the start probe's tier
     await page.goto(base);
     await page.waitForFunction(() => window.__bbReady === true, null, { timeout: 30_000 });
     await waitForSW(page);
+    if (quiet) {
+      await page.waitForFunction(() => window.__bb.artInfo.done, null, { timeout: 60_000 });
+      await page.evaluate(() => { window.__bb.sim(true); });
+    }
     await fn(base);
   } finally {
     server.close();
   }
 }
+const withQuietServer = (page, override, fn) => withOwnServer(page, override, fn, true);
 const INDEX_SRC = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
 
 // SPEC-025 AC 1 (replaces SPEC-011's "sw.js precaches the same three.js version index.html imports"): the game imports the
@@ -197,7 +208,7 @@ test("old caches are removed on a new build (SW_BUILD)", async ({ page }) => {
   const keys = () => page.evaluate(async () => (await caches.keys()).sort());
   const build = n => SW_SRC.replace(/const SW_BUILD\s*=\s*\d+/, `const SW_BUILD = ${n}`);
   const update = () => page.evaluate(async () => (await navigator.serviceWorker.getRegistration()).update());
-  await withOwnServer(page, ov, async () => {
+  await withQuietServer(page, ov, async () => {
     expect(await keys()).toEqual([CACHE_ASSETS, CACHE_SRC, CACHE_THREE].sort());
     // an old-style name, the old jsDelivr three.js cache (SPEC-025: removed) + another app
     await page.evaluate(() => Promise.all([caches.open("bebebe-v0"), caches.open("bebebe-three-0.187.0"), caches.open("other-pages-app")]));
@@ -223,7 +234,7 @@ test("a release with the same files downloads only index.html and sw.js", async 
     ch.port1.onmessage = e => res(e.data.version);
     navigator.serviceWorker.getRegistration().then(r => r.active.postMessage({ type: "VERSION" }, [ch.port2]));
   }));
-  await withOwnServer(page, ov, async () => {
+  await withQuietServer(page, ov, async () => {
     const names = await keys();
     expect(names).toEqual([CACHE_ASSETS, CACHE_SRC, CACHE_THREE].sort());
     const next = SW_SRC.replace(/const SW_VERSION\s*=\s*"[^"]+"/, 'const SW_VERSION = "bebebe-9.9.9-b' + SW_BUILD + '"');
@@ -331,7 +342,7 @@ test("a broken shell is replaced on the next online launch", async ({ page }) =>
 // launch starts the old version from the old cache — with all its modules
 test("an offline launch after a half-installed update starts the old version", async ({ page, context }) => {
   const ov = { fn: () => null };
-  await withOwnServer(page, ov, async () => {
+  await withQuietServer(page, ov, async () => {
     const v = newVersion();
     const sw = SW_SRC.replace(`const SRC_HASH = "${SRC_HASH}";`, "const SRC_HASH = \"testnew999\";")
       .replace(/"\.\/src\/client\/art-names\.js\?v=[0-9a-f]+"/, "\"./src/client/art-names.js?v=testnew001\", \"./src/client/not-deployed-yet.js?v=0\"");
@@ -362,7 +373,7 @@ test("a sprite-only update keeps the code cache and downloads no module", async 
   const srcState = () => page.evaluate(async n => { const c = await caches.open(n), k = await c.keys(); return { n: k.length, done: !!(await c.match("./__installed__")) }; }, CACHE_SRC);
   const settled = () => page.evaluate(async () => { const r = await navigator.serviceWorker.getRegistration(); return !r.installing && !r.waiting; });
   const update = () => page.evaluate(async () => { try { await (await navigator.serviceWorker.getRegistration()).update(); } catch (e) { /* a failed install */ } });
-  await withOwnServer(page, ov, async () => {
+  await withQuietServer(page, ov, async () => {
     const before = await srcState(), names = await keys();
     expect(before.done).toBe(true);
     const next = SW_SRC.replace(`const ASSETS_HASH = "${ASSETS_HASH}";`, "const ASSETS_HASH = \"testart0001\";");

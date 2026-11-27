@@ -7,13 +7,16 @@ import { mulberry32, vrand } from "../../core/util.js";
 import { LOOK } from "../look.js";
 import { dressHouses, houseRoofs, setHouseInfo } from "./houses.js";
 import { mapGroup, setMapGroup, waves } from "./mapstate.js";
-import { disposeTree, gradTex, groundCanvas, groundTex, ownMat, part, toon, toonH, wobbleSeed } from "./materials.js";
-import { P, scene, WALL_H } from "./setup.js";
+import { batchMap } from "./batch.js";
+import { beginGeoScope, disposeTree, endGeoScope, gradTex, groundCanvas, groundTex, ownMat, part, toon, toonH, wobbleSeed } from "./materials.js";
+import { keepDecor, tierNumbers } from "../quality.js";
+import { camera, P, renderer, scene, WALL_H } from "./setup.js";
 import { adBoards, HEDGE_COLORS, makeBushFor, makeCottage, makeFountain, makePondFor, makeRockFor, makeStreetThing, makeTreeFor, makeWaterFor, mazeDeco, paintPitch, paintStreets, riverBanks, tag, THEMES } from "./themes.js";
 import { circleOn, fillStrokeOn, rrOn } from "../ui/canvas.js";
 import { G } from "../../core/active.js";
 
 export let builtKey = "";
+export const forgetMap = () => { builtKey = ""; };   // SPEC-040: the next rebuild builds the map whatever its key
 export const mapKey = () => { const li = G.levelInfo || {}; return [li.world, li.lv, li.type === "tutorial" ? "tutorial" : "", li.attempt, li.fallback].join(":"); };   // какой уровень построен в 3D (SPEC-029: карта тренировок — свой ключ)
 export const fadeTrees = [], fadeBushes = [];
 export let safeGlow = null, snow = null;
@@ -180,6 +183,7 @@ export function buildMap3D() {
   setMapGroup(new THREE.Group()); scene.add(mapGroup);
   fadeTrees.length = 0; fadeBushes.length = 0; waves.length = 0; snow = null; bigHomeMats.length = 0; houseRoofs.length = 0; setHouseInfo(null);
   builtKey = mapKey();
+  beginGeoScope();                       // SPEC-040 AC 2: one geometry per shape and size while the map is built
   wobbleSeed(0);                         // SPEC-021: одна и та же карта — те же неровные контуры
   scene.background.set(th.bg); scene.fog.color.set(th.bg);
   paintGround(place);
@@ -246,7 +250,7 @@ export function buildMap3D() {
     else if (o.kind === "tree") {
       const t = makeTreeFor(place, o, true); t.g.userData.obj = "tree";   // SPEC-021: obj — что это (тест контуров look3D)
       t.g.position.set(P(o.x), 0, P(o.y)); t.g.traverse(q => { if (q.isMesh) q.castShadow = true; }); mapGroup.add(t.g);
-      fadeTrees.push({ o, mats: t.mats, a: 1 });
+      fadeTrees.push({ o, g: t.g, mats: t.mats, a: 1, fading: false });
     }
   }
   mazeDeco(place, mazeWalls);
@@ -254,7 +258,7 @@ export function buildMap3D() {
   dressHouses(place);                    // SPEC-021: крыши, двери с сердечком, грязный дом папы
   for (const b of G.bushes) {
     const k = makeBushFor(place); k.g.position.set(P(b.x), 0, P(b.y)); mapGroup.add(k.g);
-    fadeBushes.push({ b, mats: k.mats, a: 1 });
+    fadeBushes.push({ b, g: k.g, mats: k.mats, a: 1, fading: false });
   }
   // декорации за забором
   const rng = mulberry32(G.level * 31 + 7);
@@ -263,6 +267,9 @@ export function buildMap3D() {
     if (x > -1.2 && x < COLS + 1.2 && z > -1.2 && z < ROWS + 1.2) continue;
     if (place === "beach" && z > ROWS + 3.5) continue;   // там море
     const fake = { s: 0.9 + rng() * 0.5, v: rng() < 0.6 ? "pine" : "round" };
+    // SPEC-040 AC 6: the tier keeps a share of this decor (medium 3/4, low 1/2) — by its number in the sequence, so every device of a tier draws
+    // the same decor; the seeded sequence itself is drawn in full (the rest of the decor stays where it was) and nothing of the play area is thinned
+    if (!keepDecor(made, tierNumbers().decor)) { if (place === "city" && made % 2) rng(); made++; continue; }
     if (place === "city" && made % 2) {                  // SPEC-016: на улицах за оградой — фонари, гидранты, скамейки, урны
       const thing = makeStreetThing(["lamp", "hydrant", "lamp", "bench", "lamp", "bin"][(made >> 1) % 6], th.deco);
       thing.position.set(x, 0, z); thing.rotation.y = Math.round(rng() * 3) * Math.PI / 2; mapGroup.add(thing); made++; continue;
@@ -295,4 +302,33 @@ export function buildMap3D() {
     const pm = new THREE.PointsMaterial({ color: "#ffffff", size: 0.14, transparent: true, opacity: 0.9, depthWrite: false }); pm.userData.own = true;
     snow = new THREE.Points(g, pm); snow.frustumCulled = false; mapGroup.add(snow);
   }
+  // SPEC-040 AC 2 / 5: what stands still is drawn instanced; trees and bushes are drawn opaque from the instances until a fade starts (batch.js)
+  batchMap(mapGroup, { skip: new Set([...houseRoofs.map(r => r.g), ...waves]), fades: [...fadeTrees, ...fadeBushes] });
+  endGeoScope();
+  if (!compileLater) warmFadeVariants();
+}
+// SPEC-040 AC 4: the warm-up behind the level card compiles the shader variants on its own (compileFadeVariants, without blocking a frame)
+let compileLater = false;
+export const setCompileLater = on => { compileLater = on; };
+// the transparent drawing of a fading tree, bush or roof is a shader variant the first frame does not use (they start opaque): compile it
+// now, with the map, so the first fade in play is not a hitch. renderer.compile draws nothing; it only makes the programs
+function warmFadeVariants() {
+  if (!renderer) return;
+  const set = roofSetter();
+  set(true);
+  renderer.compile(scene, camera);                       // the transparent variants (a fading tree, bush, roof)
+  set(false);
+  renderer.compile(scene, camera);                       // and the opaque roofs (where they start: a = 1)
+}
+const roofSetter = () => { const mats = houseRoofs.flatMap(r => r.mats.flatMap(mt => [mt, mt.userData.outline])); return on => { for (const mt of mats) if (mt.transparent !== on) { mt.transparent = on; mt.needsUpdate = true; } }; };
+// the same without blocking: compileAsync polls the driver (KHR_parallel_shader_compile where there is one) and the promise resolves when the programs are ready
+export async function compileFadeVariants() {
+  if (!renderer) return;
+  const mats = houseRoofs.flatMap(r => r.mats.flatMap(mt => [mt, mt.userData.outline])), was = mats.map(mt => mt.transparent);
+  const to = on => mats.forEach((mt, i) => { const t = on === null ? was[i] : on; if (mt.transparent !== t) { mt.transparent = t; mt.needsUpdate = true; } });
+  to(true);
+  const first = renderer.compileAsync(scene, camera);   // the programs are chosen in this call; only their compiling is waited for below
+  to(null);                                              // so the roofs are back as they were at once: a Play (or a roof that starts fading) during the wait sees no override
+  await first;
+  await renderer.compileAsync(scene, camera);
 }

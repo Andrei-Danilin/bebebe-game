@@ -36,11 +36,11 @@ test("an error on every frame: the loop goes on, one card, one log entry with a 
   await openGame(page);
   await page.evaluate(() => { window.__bb.startGame(1); });
   await frames(page);
-  const r0 = await page.evaluate(() => window.__bb.sim().renders);
+  const r0 = await page.evaluate(() => window.__bb.sim().draws);
   await breakFrames(page, true);
-  // the loop goes on: renders keep advancing while every frame throws (polled, not counted over a fixed time: a SwiftShader
+  // the loop goes on: the 2D frames (sim().draws; SPEC-040: the 3D is not drawn once the game is paused) keep advancing while every frame throws (polled, not counted over a fixed time: a SwiftShader
   // frame on CI is slow, so a 2 s wait saw only 2–3 frames there)
-  await page.waitForFunction(r => window.__bb.sim().renders >= r + 10, r0, { timeout: 60_000, polling: 100 });
+  await page.waitForFunction(r => window.__bb.sim().draws >= r + 10, r0, { timeout: 60_000, polling: 100 });
   await breakFrames(page, false);
   await frames(page);
   const c = await card(page);

@@ -160,10 +160,21 @@ test.describe("installed app", () => {
     await page.reload();
     await page.waitForFunction(() => window.__bbReady === true, null, { timeout: 60_000 });
     expect(await walkGame(page)).toEqual(WALKED);
-    // SPEC-038 AC 6 (RR-39): every sprite came from the cache — none failed to load offline
-    const art = await page.evaluate(() => { const a = window.__bb.artInfo; return { done: a.done, ok: a.ok, total: a.total, bad: a.bad }; });
+    // SPEC-038 AC 6 (RR-39), SPEC-040 AC 1: every sprite is in the cache — the resident ones loaded at start, the walk's screens loaded the
+    // others (story, map pages, wardrobe) as they opened; none failed. "ok" is no longer "every sprite decoded": only the resident ones are
+    const art = await page.evaluate(() => { const a = window.__bb.artInfo; return { done: a.done, ok: a.ok, resident: a.resident, total: a.total, bad: a.bad }; });
     expect(art.total, "the sprite list is not empty").toBeGreaterThan(100);
-    expect(art, "every sprite loaded offline").toEqual({ done: true, ok: art.total, total: art.total, bad: 0 });
+    expect(art, "every resident sprite loaded offline, none failed").toEqual({ done: true, ok: art.resident, resident: art.resident, total: art.total, bad: 0 });
+    // every sprite file is answered offline (the cache holds all of them, resident or not) …
+    const notCached = await page.evaluate(names => Promise.all(names.map(n => fetch("assets/" + n + ".webp").then(r => (r.ok ? null : n), () => n))).then(r => r.filter(Boolean)), await page.evaluate(() => window.__bb.ART_NAMES));
+    expect(notCached, "sprites the offline cache does not answer").toEqual([]);
+    // … and a screen opened offline loads its own pictures from it
+    await page.evaluate(() => { window.__bb.CFG.ART.releaseMs = 100; window.__bb.mode = "home"; });   // what the walk's screens loaded goes first
+    await page.waitForFunction(() => window.__bb.artInfo.loaded === window.__bb.artInfo.resident + 1, null, { timeout: 15_000 });   // the resident ones and the map page
+    const before = await page.evaluate(() => window.__bb.artInfo.loaded);
+    await page.evaluate(() => { window.__bb.openStory("began", "home"); });
+    await frames(page);
+    expect(await page.evaluate(() => ({ ...window.__bb.artInfo, shown: window.__bb.artUse.story_start > 0 }))).toMatchObject({ loaded: before + 1, bad: 0, pending: 0, shown: true });
     expect(remote).toEqual([]);
     expect(errors.filter(e => !e.includes("Failed to load resource"))).toEqual([]);
   });
