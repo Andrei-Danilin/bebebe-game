@@ -30,6 +30,9 @@ function runLevel({ world, n, style, seed, progress = null, dt = null }) {   // 
   let maxGap = 0, last = 0;                             // the longest stretch of game time without any event (stuck?)
   for (const e of ev) { maxGap = Math.max(maxGap, e.t - last); last = e.t; }
   maxGap = Math.max(maxGap, res.time - last);
+  let noHug = 0, lastHug = 0;                           // SPEC-037: the longest stretch of game time with no heart taken (no hug), the run's end included
+  for (const e of ev) if (e.type === "hug") { noHug = Math.max(noHug, e.t - lastHug); lastHug = e.t; }
+  noHug = Math.max(noHug, res.time - lastHug);
   const out = {
     world, n, type: b.levelType(world, n), style, seed, win: res.win, ended: res.ended, time: res.time,
     target: b.fastTarget(world, n),                     // SPEC-016: by the world's difficulty index, as the game's third star
@@ -37,7 +40,7 @@ function runLevel({ world, n, style, seed, progress = null, dt = null }) {   // 
     rescues: count("rescued"), rests: count("rest"), kits: count("kit"), kisses: count("kiss"), bonusStars: count("star"),
     items: count("item"), slips: count("slip"), thrownOut: count("thrownOut"),
     stars: res.win && lr ? lr.stars : 0, coins: coins.reduce((s, c) => s + c.amount, 0), parts: res.win && lr ? lr.parts : [],
-    coinsEvents: coins, events: ev.length, logFull: ev.length >= b.CFG.EVENT_LOG_MAX, maxGap
+    coinsEvents: coins, events: ev.length, logFull: ev.length >= b.CFG.EVENT_LOG_MAX, maxGap, noHug
   };
   b.autopilot(false); b.seedRandom(); b.mode = "home";
   return out;
@@ -66,14 +69,16 @@ function spearman(x, y) {
   return dx && dy ? num / Math.sqrt(dx * dy) : 0;
 }
 
-// SPEC-037 AC 4: a run that is still not won after CFG.BALANCE.STALL.STUCK_TIME s of game time is "stuck" (it hit the time limit: nobody
-// wins, nobody loses); reported with its seed so the game can be replayed from it (balance.json: stuck, balance.md: a section and a target)
+// SPEC-037 AC 4 (decided during the run, check with Andrei): the core has no loss state, so "a run exceeds CFG.BALANCE.STALL.STUCK_TIME s without a
+// win or a loss" is read as: more than that much game time passes with no heart taken (no hug) — no progress — counted to the run's end (a
+// time-out with a long no-hug tail counts; steady slow wins do not). Reported with its seed so the game can be replayed from it
+// (balance.json: stuck, balance.md: a section and a target)
 function stuckRuns(runs, B) {
-  return runs.filter(r => !r.win && r.time > B.STALL.STUCK_TIME)
-    .map(r => ({ world: r.world, n: r.n, style: r.style, seed: r.seed, time: Math.round(r.time), falls: r.falls, pass: r.pass || "main" }));
+  return runs.filter(r => (r.noHug || 0) > B.STALL.STUCK_TIME)
+    .map(r => ({ world: r.world, n: r.n, style: r.style, seed: r.seed, time: Math.round(r.time), noHug: Math.round(r.noHug), win: r.win, falls: r.falls, pass: r.pass || "main" }));
 }
 const stuckTarget = (stuck, B) => ({
-  name: `no run is stuck: still not won after ${B.STALL.STUCK_TIME} s`, value: `${stuck.length} stuck`, want: "0", ok: stuck.length === 0,
+  name: `no run is stuck: no heart taken for more than ${B.STALL.STUCK_TIME} s`, value: `${stuck.length} stuck`, want: "0", ok: stuck.length === 0,
   detail: stuck.map(r => `${r.world} ${r.n} ${r.style} seed ${r.seed}`).join(", ")
 });
 
@@ -290,9 +295,9 @@ function markdown(rep) {
     L.push("", "### Every upgrade maxed (1 seed)", "", "| Level | Without upgrades: win, time | With all upgrades: win, time |", "|---|---|---|");
     for (const r of ec.upgrades) L.push(`| ${r.world} ${r.n} | ${r.baseWin ? "won" : "—"}, ${fmt(r.baseTime)} s | ${r.win ? "won" : "—"}, ${fmt(r.time)} s |`);
   }
-  L.push("", "## Stuck runs (SPEC-037)", "", `A run still not won after ${B.STALL.STUCK_TIME} s of game time (any pass). Replay one from its seed (createGame with that world, level and seed, the autopilot in that style).`, "");
+  L.push("", "## Stuck runs (SPEC-037)", "", `A run with more than ${B.STALL.STUCK_TIME} s of game time and no heart taken (no hug), up to its end (any pass; won or not). Replay one from its seed (createGame with that world, level and seed, the autopilot in that style).`, "");
   if (!rep.stuck || !rep.stuck.length) L.push("None.");
-  else { L.push("| Level | Style | Seed | Time | Falls | Pass |", "|---|---|---|---|---|---|"); for (const r of rep.stuck) L.push(`| ${r.world} ${r.n} | ${r.style} | ${r.seed} | ${r.time} s | ${r.falls} | ${r.pass} |`); }
+  else { L.push("| Level | Style | Seed | Run time | Longest no-hug | Won | Falls | Pass |", "|---|---|---|---|---|---|---|---|"); for (const r of rep.stuck) L.push(`| ${r.world} ${r.n} | ${r.style} | ${r.seed} | ${r.time} s | ${r.noHug} s | ${r.win ? "yes" : "no"} | ${r.falls} | ${r.pass} |`); }
   L.push("", "## Reckless vs careful", "", "| Level | Reckless: win, time, falls (player) | Careful (same seed): win, time, falls (player) |", "|---|---|---|");
   for (const r of runs.filter(q => q.style === "reckless")) {
     const c = runs.find(q => q.style === "careful" && q.world === r.world && q.n === r.n && q.seed === r.seed);
