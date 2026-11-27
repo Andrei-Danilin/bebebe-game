@@ -9,6 +9,11 @@ Decided by:
   - the server runs on **Cloudflare Durable Objects** (one Durable Object per room), replacing the earlier Node + Azure plan;
   - the first version is the web game as it is, but the design must work for the Android and iPhone apps later;
   - only the room creator needs the Full game (SPEC-045); friends join free.
+- **Andrei and the kids (2026-11-27):**
+  - one online mode: friends join the room creator and play through **his** levels together; only his progress (stars, opened levels and worlds) changes;
+  - guests get no stars or unlocks, even when the level is open in their own save (replaces the earlier rule);
+  - the friends' coin bonus and the creator's coin share are SPEC-046;
+  - rooms stay private, by code only.
 
 Protocol, numbers, names, screens, texts: Claude (spec author). The kids may change the rules marked "kids may change".
 
@@ -19,7 +24,7 @@ A new menu item **Online**:
 - in the lobby everybody sees the five kid slots (players and bots) and picks a look; the room creator picks the world and level and taps **Start**;
 - they play together against the AI Dad; empty slots are bots;
 - if somebody's internet drops, a bot takes their place until they reconnect;
-- after the level everybody returns to the lobby, and each kid's coins and stars go into their own save.
+- after the level everybody returns to the lobby; the room creator's stars and unlocks go into his save, and each kid's coins into his own (SPEC-046 adds the friends' bonus and the creator's share).
 
 **Architecture:**
 - a Cloudflare **Worker** (`online/`) routes `/ws?room=CODE` to a **Durable Object `Room`** named by the code;
@@ -72,8 +77,8 @@ A new menu item **Online**:
    - in the lobby and the result screen there is no timer: the Room hibernates between messages;
    - a step that takes more than 8 ms is counted (metric).
 4. **Protocol v1 (JSON, ≤ `CFG.ONLINE.MAX_MSG` 2048 bytes, validated: types, ranges, the input vector clamped to length 1, unknown fields dropped):**
-   - client → server: `hello { protocol: 1, clientVersion, platform: "web"|"ios"|"android", entitlement: "free"|"full", token? }`, `setLook`, `setName { adj, animal }`, `setGear { glove, gloveCharges, kisses, kits, upgrades }`, `setLevel { world, n }` (owner), `lock { on }` (owner), `remove { slot }` (owner), `start` (owner), `input { seq, mx, my, kiss, kit, tiptoe }`, `leave`, `ping`;
-   - server → client: `welcome { token, slot }`, `updateRequired`, `roomState { code, owner, slots, world, n, phase: "lobby"|"play"|"result", locked }`, `snapshot`, `result`, `removed`, `error`, `pong`;
+   - client → server: `hello { protocol: 1, clientVersion, platform: "web"|"ios"|"android", entitlement: "free"|"full", token? }`, `setLook`, `setName { adj, animal }`, `setGear { glove, gloveCharges, kisses, kits, upgrades }`, `setProgress { worlds }` (owner), `setLevel { world, n }` (owner), `lock { on }` (owner), `remove { slot }` (owner), `start` (owner), `input { seq, mx, my, kiss, kit, tiptoe }`, `leave`, `ping`;
+   - server → client: `welcome { token, slot }`, `updateRequired`, `roomState { code, owner, slots, world, n, phase: "lobby"|"play"|"result", locked, map }`, `snapshot`, `result`, `removed`, `error`, `pong`;
    - an unknown `protocol` → `updateRequired`;
    - more than `CFG.ONLINE.MAX_MSG_RATE` (60) messages/s → the socket is closed.
 5. **Leaving and reconnecting:**
@@ -106,9 +111,12 @@ A new menu item **Online**:
     - 🎲 and ◀ ▶ for both parts; saved in the save as `online.name`;
     - typed local names are never sent; the server accepts only valid indices.
 11. **Looks and gear:** each player sends the outfit he has (paid wardrobe items included) and his own gloves, charges, kisses, kits and upgrades. The server trusts them, clamped to the shop maximums.
-12. **Level choice and rewards:**
-    - the owner picks any world and level **he** has open (as in the menu);
-    - every client applies its own part of the `result` through its own ledger and save: coins always; stars and the next level's unlock only if that level is already open in **his** save;
+12. **Level choice and rewards** (Andrei and the kids, 2026-11-27: one mode, play through the owner's game):
+    - the owner sends `setProgress { worlds }` when he becomes owner and after every result: per world its open state and reason (SPEC-045 "purchase" included), `unlocked`, `won` and `stars`, in a compact form that fits `MAX_MSG`. The Room keeps it with the lobby state and sends it to everybody as `roomState.map`; the owner picks any level open on that map (the Room refuses others);
+    - at the result the Room computes the reward with the core's `computeReward(ownerProgress, result)` (headless) and sends `result` per slot. If SPEC-012's result has single-player stats, add per-slot hugs and picked-up star coins;
+    - the owner gets the level's coins, his own hugs and `world` (stars and the next level's unlock), applied to his save as in single play;
+    - every other kid gets only the coins for his own hugs and the stars he picked up — **no stars or unlocks, even when the level is open in his own save**;
+    - SPEC-046 adds the friends' bonus and the owner's coin share on top of this;
     - spent kisses and kits are taken from his own save as they happen.
 
 ### Client
