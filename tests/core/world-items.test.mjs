@@ -230,3 +230,246 @@ test("football: the autopilot does not pick a football up on its own (a world it
   for (let i = 0; i < 60; i++) step(g, DT);
   assert.equal(g.events.filter(e => e.type === "worldItem").length, 0);
 });
+
+// ================= 2b: the cupcake (City) =================
+const hits = (g, effect) => g.events.filter(e => e.type === "worldItem" && e.effect === effect).length;
+test("cupcake: Dad who sees it within 5 cells walks over and eats it for 3 s, huggable from any side, never chases", () => {
+  const g = clearGame("city");
+  addItem(g, "cupcake", 480 + 4 * CELL, 320);                              // 4 cells ahead of him
+  withGame(g, () => { for (let i = 0; i < 300 && g.big.slip <= 0; i++) { updateBig(DT); updateItems(DT); } });
+  assert.equal(g.big.slipKind, "eat");
+  assert.ok(Math.abs(g.big.slip - WI.cupcake.time) < 0.1, `eating ${g.big.slip}`);
+  assert.equal(g.items.filter(i => i.kind === "cupcake").length, 0, "eaten");
+  assert.ok(kinds(g).includes("pop:yum") && kinds(g).includes("sfx:munch"), kinds(g).join());
+  assert.equal(hits(g, "eat"), 1);
+  // a kid right in front of him in plain view: no chase while he eats, and he can be hugged from the front
+  Object.assign(g.littles[1], { x: g.big.x + g.big.r + 12, y: g.big.y, moving: false, task: "attack" });
+  withGame(g, () => { for (let i = 0; i < 30; i++) updateBig(DT); });
+  assert.notEqual(g.big.state, "chase");
+  withGame(g, () => checkContacts());
+  assert.equal(g.stats.hugs, 1);
+});
+test("cupcake: he does not see one farther than 5 cells or behind him, and he chases a kid in his view rather than walk to it", () => {
+  const far = clearGame("city");
+  addItem(far, "cupcake", 480 + 7 * CELL, 320);
+  withGame(far, () => { for (let i = 0; i < 120; i++) { updateBig(DT); updateItems(DT); } });
+  assert.equal(far.big.slip, 0);
+  assert.equal(far.big.cake, 0);
+  const behind = clearGame("city");
+  addItem(behind, "cupcake", 480 - 3 * CELL, 320);
+  withGame(behind, () => { for (let i = 0; i < 30; i++) { updateBig(DT); updateItems(DT); } });
+  assert.equal(behind.big.cake, 0, "behind him: not seen");
+  const kid = clearGame("city");
+  addItem(kid, "cupcake", 480 + 3 * CELL, 320);
+  Object.assign(kid.littles[0], { x: 480 + 6 * CELL, y: 320 });           // a kid straight ahead in view
+  withGame(kid, () => { updateBig(DT); });
+  assert.equal(kid.big.state, "chase", "he chases the kid, not the cake");
+  assert.equal(kid.big.cake, 0);
+});
+test("cupcake: one he cannot reach is given up, and a boss eats for half the time", () => {
+  const g = clearGame("city");
+  const it = addItem(g, "cupcake", 480 + 3 * CELL, 320);
+  g.obstacles = [{ shape: "rect", x: 480 + CELL, y: 0, w: CELL, h: 640, move: true, sight: false }];   // a wall between them (not for the eyes)
+  for (let j = 0; j < 80; j++) for (const i of [16, 17, 18, 19, 20]) { g.moveGrid[j * 120 + 60 + (i - 16)] = 1; g.moveGridBig[j * 120 + 60 + (i - 16)] = 1; }
+  for (let c = 0; c < 20; c++) { g.blocked[c * 30 + 16] = 1; g.blockedBig[c * 30 + 16] = 1; }
+  withGame(g, () => { for (let i = 0; i < Math.ceil((WI.cupcake.giveUp + 2) / DT) && it.t < it.life; i++) { updateBig(DT); updateItems(DT); } });
+  assert.ok(it.t >= it.life, "he gave up waiting for it");
+  assert.equal(g.big.slip, 0);
+  const b = clearGame("city");
+  b.big.boss = "city";
+  addItem(b, "cupcake", 480 + 3 * CELL, 320);
+  withGame(b, () => { for (let i = 0; i < 300 && b.big.slip <= 0; i++) { updateBig(DT); updateItems(DT); } });
+  assert.ok(Math.abs(b.big.slip - WI.cupcake.time * WI.bossMul) < 0.1, `boss eats ${b.big.slip}`);
+});
+test("cupcake: no effect in a practice game", () => {
+  const p = clearGame("city", { practice: 2 });
+  addItem(p, "cupcake", 480 + 2 * CELL, 320);
+  withGame(p, () => { for (let i = 0; i < 120; i++) { updateBig(DT); updateItems(DT); } });
+  assert.equal(p.big.slip, 0);
+  assert.equal(p.items.filter(i => i.kind === "cupcake").length, 1);
+});
+
+// ================= 2c: the paper plane (School) =================
+// Dad at (480, 200) facing down (+y); the plane flies right along y = 320, in front of him
+function planeGame(over = {}) {
+  const g = clearGame("school");
+  Object.assign(g.big, { x: 480, y: 200, dir: Math.PI / 2, ...over });
+  return g;
+}
+function throwPlane(g, tiptoe = false) {
+  const it = addItem(g, "plane", 300, 320);
+  runInto(g, g.littles[0], it, 0, tiptoe ? CFG.TIPTOE_MULT : 1);
+  tick(g);
+  Object.assign(g.littles[0], { x: 100, y: 40, moving: false });
+  return flight(g);
+}
+test("plane: a kid who runs into it sends it 8 cells in his direction (tiptoe too), with a Whee", () => {
+  for (const tip of [false, true]) {
+    const g = planeGame();
+    const path = throwPlane(g, tip);
+    assert.ok(Math.abs(length(path) - WI.plane.cells * CELL) < 16, `flew ${length(path)} px`);
+    assert.ok(kinds(g).includes("pop:whee") && kinds(g).includes("sfx:whee"), kinds(g).join());
+  }
+});
+test("plane: Dad who sees it fly watches it for 2 s facing where it went, sees nobody else and never chases meanwhile; a boss watches 1 s", () => {
+  const g = planeGame();
+  throwPlane(g);
+  assert.ok(Math.abs(g.big.watch - WI.plane.time) < 0.2, `watch ${g.big.watch}`);
+  Object.assign(g.littles[1], { x: g.big.x, y: g.big.y + 4 * CELL, state: "ok" });   // a kid walks into his view
+  let chased = false;
+  withGame(g, () => { for (let i = 0; i < Math.floor((WI.plane.time - 0.3) / DT); i++) { updateBig(DT); if (g.big.state === "chase") chased = true; } });
+  assert.equal(chased, false, "no chase while he watches");
+  assert.ok(g.big.watch > 0);
+  const face = Math.atan2(g.big.watchY - g.big.y, g.big.watchX - g.big.x);
+  assert.ok(Math.abs(Math.atan2(Math.sin(g.big.dir - face), Math.cos(g.big.dir - face))) < 0.2, "facing the plane");
+  withGame(g, () => { for (let i = 0; i < 40; i++) updateBig(DT); });
+  assert.ok(g.big.watch <= 0, "over");
+  const b = planeGame({ boss: "school" });
+  throwPlane(b);
+  assert.ok(Math.abs(b.big.watch - WI.plane.time * WI.bossMul) < 0.2, `boss watch ${b.big.watch}`);
+});
+test("plane: he does not turn for a plane behind him, nor while chasing; it stops at a wall; no effect in practice", () => {
+  const g = planeGame({ dir: -Math.PI / 2 });                              // faces up: the plane flies below, behind him
+  throwPlane(g);
+  assert.equal(g.big.watch, 0);
+  const c = planeGame({ state: "chase", lastSeen: { x: 480, y: 260 } });
+  throwPlane(c);
+  assert.equal(c.big.watch, 0, "a chasing Dad does not look at planes");
+  const w = clearGame("school");
+  Object.assign(w.big, { x: 40, y: 600 });
+  for (let j = 0; j < 80; j++) w.moveGrid[j * 120 + 45] = 1;             // wall at x = 360
+  const path = throwPlane(w);
+  assert.ok(path.at(-1)[0] < 362, "stopped at the wall");
+  const p = clearGame("school", { practice: 2 });
+  const it = addItem(p, "plane", 300, 320);
+  runInto(p, p.littles[0], it, 0);
+  tick(p, 3);
+  assert.equal(p.shots.length, 0);
+});
+
+// ================= 2d: the watermelon slice (Beach) =================
+test("watermelon: Dad who steps on it slides 2 cells the way he walks and lies 3.5 s, huggable from any side", () => {
+  const g = clearGame("beach");
+  Object.assign(g.big, { moving: true, moveDir: 0 });
+  addItem(g, "watermelon", 480, 320);
+  tick(g);
+  assert.equal(g.big.slipKind, "melon");
+  assert.ok(Math.abs(g.big.slip - WI.watermelon.time) < 0.05);
+  assert.equal(g.items.filter(i => i.kind === "watermelon").length, 0);
+  assert.ok(kinds(g).includes("pop:slip") && kinds(g).includes("sfx:slip"), kinds(g).join());
+  const x0 = g.big.x;
+  withGame(g, () => { for (let i = 0; i < 90; i++) updateBig(DT); });
+  assert.ok(Math.abs(g.big.x - x0 - WI.watermelon.slide * CELL) < 3, `slid ${g.big.x - x0}`);
+  assert.ok(Math.abs(g.big.y - 320) < 1);
+  assert.ok(g.big.slip > 0, "still lying (3.5 s)");
+  Object.assign(g.littles[1], { x: g.big.x + g.big.r + 12, y: g.big.y, moving: false, task: "attack" });
+  withGame(g, () => checkContacts());
+  assert.equal(g.stats.hugs, 1);
+});
+test("watermelon: the slide stops at a wall; a boss lies half the time; Dad walking home kind or a practice game: nothing", () => {
+  const g = clearGame("beach");
+  for (let j = 0; j < 80; j++) { g.moveGrid[j * 120 + 64] = 1; g.moveGridBig[j * 120 + 64] = 1; }   // a wall at x = 512
+  g.obstacles = [{ shape: "rect", x: 512, y: 0, w: 32, h: 640, move: true, sight: true }];
+  Object.assign(g.big, { moving: true, moveDir: 0, boss: "beach" });
+  addItem(g, "watermelon", 480, 320);
+  tick(g);
+  assert.ok(Math.abs(g.big.slip - WI.watermelon.time * WI.bossMul) < 0.05, "boss");
+  withGame(g, () => { for (let i = 0; i < 40; i++) updateBig(DT); });
+  assert.ok(g.big.x <= 512 - g.big.r + 0.5, `stopped by the wall at ${g.big.x}`);
+  const k = clearGame("beach");
+  k.big.kind = true;
+  addItem(k, "watermelon", 480, 320);
+  tick(k);
+  assert.equal(k.big.slip, 0);
+  const p = clearGame("beach", { practice: 2 });
+  addItem(p, "watermelon", 480, 320);
+  tick(p);
+  assert.equal(p.big.slip, 0);
+});
+test("watermelon: a bot runs to a lying Dad (the banana's rule: lying Dad, attack)", () => {
+  const g = clearGame("beach");
+  Object.assign(g.big, { moving: true, moveDir: 0 });
+  addItem(g, "watermelon", 480, 320);
+  tick(g);
+  const bot = g.littles.find(q => q.kind === "bot");
+  Object.assign(bot, { x: 480 - 150, y: 320 });
+  for (let i = 0; i < 60; i++) step(g, DT);
+  assert.equal(bot.task, "attack");
+});
+
+// ================= 2e: the snowball pile (Winter) =================
+test("snowball: running into the pile throws a snowball 7 cells in the kid's direction (tiptoe too); a hit freezes Dad 1.5 s, Brrr", () => {
+  const g = clearGame("winter");
+  const it = addItem(g, "snowball", 300, 320), l = g.littles[0];
+  runInto(g, l, it, 0, CFG.TIPTOE_MULT);
+  tick(g);
+  assert.equal(g.shots.length, 1);
+  Object.assign(l, { x: 100, y: 40, moving: false });
+  flight(g);
+  assert.equal(g.big.slipKind, "freeze");
+  assert.ok(Math.abs(g.big.slip - WI.snowball.time) < 0.1, `frozen ${g.big.slip}`);
+  assert.ok(kinds(g).includes("pop:brr") && kinds(g).includes("sfx:freeze"), kinds(g).join());
+  assert.equal(hits(g, "hit"), 1);
+  Object.assign(g.littles[1], { x: g.big.x + g.big.r + 12, y: g.big.y, moving: false, task: "attack" });
+  withGame(g, () => { for (let i = 0; i < 20; i++) updateBig(DT); });
+  assert.notEqual(g.big.state, "chase", "frozen Dad does not chase");
+  withGame(g, () => checkContacts());
+  assert.equal(g.stats.hugs, 1);
+});
+test("snowball: it flies 7 cells and is gone, a wall stops it (no bounce), a boss freezes for half the time, practice has nothing", () => {
+  const g = clearGame("winter");
+  Object.assign(g.big, { x: 40, y: 600 });
+  const it = addItem(g, "snowball", 100, 320);
+  runInto(g, g.littles[0], it, 0);
+  tick(g);
+  const path = flight(g);
+  assert.ok(Math.abs(length(path) - WI.snowball.cells * CELL) < 16, `flew ${length(path)}`);
+  const w = clearGame("winter");
+  Object.assign(w.big, { x: 40, y: 600 });
+  for (let j = 0; j < 80; j++) w.moveGrid[j * 120 + 45] = 1;
+  const it2 = addItem(w, "snowball", 300, 320);
+  runInto(w, w.littles[0], it2, 0);
+  tick(w);
+  assert.ok(flight(w).at(-1)[0] < 362);
+  const b = clearGame("winter");
+  b.big.boss = "winter";
+  const it3 = addItem(b, "snowball", 300, 320);
+  runInto(b, b.littles[0], it3, 0);
+  tick(b); Object.assign(b.littles[0], { x: 100, y: 40, moving: false });
+  flight(b);
+  assert.ok(Math.abs(b.big.slip - WI.snowball.time * WI.bossMul) < 0.1, `boss ${b.big.slip}`);
+  const p = clearGame("winter", { practice: 2 });
+  const it4 = addItem(p, "snowball", 300, 320);
+  runInto(p, p.littles[0], it4, 0);
+  tick(p, 3);
+  assert.equal(p.shots.length, 0);
+});
+test("snowball and plane: a bot or the autopilot runs through one that lies near Dad, in line behind him, and uses it on him", () => {
+  for (const [world, kind, effect] of [["winter", "snowball", "hit"], ["school", "plane", "launch"]]) {
+    for (const who of ["bot", "autopilot"]) {
+      const g = clearGame(world);
+      g.big.hearLook = 99;
+      addItem(g, kind, 400, 320);
+      const l = who === "bot" ? g.littles.find(q => q.kind === "bot") : g.littles[0];
+      Object.assign(l, { x: 330, y: 320, dir: 0 });
+      g.littles.forEach(q => { if (q !== l) Object.assign(q, { x: 60 + 40 * q.id, y: 40 }); });
+      if (who === "autopilot") { g.autoOn = true; g.autoStyle = "careful"; }
+      for (let i = 0; i < 240 && !hits(g, effect); i++) step(g, DT);
+      assert.ok(hits(g, effect) > 0, `${world} ${who}`);
+    }
+  }
+});
+test("same seed, same game: a world-item level plays the same twice, and with WORLD_ITEMS_ON 0 no world item ever appears", () => {
+  const run = on => {
+    const keep = CFG.WORLD_ITEMS_ON; CFG.WORLD_ITEMS_ON = on;
+    try {
+      const g = createGame({ world: "winter", n: 3, seed: 21, fx: false });
+      const seen = new Set();
+      for (let i = 0; i < 3600; i++) { step(g, DT); for (const it of g.items) seen.add(it.kind); }
+      return { sig: JSON.stringify([g.events.map(e => e.type + e.t.toFixed(3)), g.big.x, g.big.y]), seen };
+    } finally { CFG.WORLD_ITEMS_ON = keep; }
+  };
+  assert.equal(run(1).sig, run(1).sig, "deterministic");
+  assert.ok(run(1).seen.has("snowball"), "a snowball pile shows up within a minute of Winter");
+  assert.ok(!run(0).seen.has("snowball"));
+});
