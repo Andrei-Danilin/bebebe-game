@@ -124,7 +124,7 @@ export function settleDecidedWin() {
 // Escape per screen: play → pause, pause → play, a menu → its parent, win / lose → the map; the home screen: the Leave dialog (SPEC-033, D-14)
 export function goBack() {
   if (mode === "map") setMode("home");
-  else if (mode === "levelCard") closeCard();
+  else if (mode === "levelCard") { if (ui.tip) closeTip(); else closeCard(); }
   else if (mode === "story") storyBackKey();
   else if (mode === "scene") sceneSkip();
   else if (mode === "shop") { if (inWardrobe() && ui.wardrobePage === "friends") backToWardrobe(); else closeShop(); }
@@ -258,12 +258,19 @@ export function showCard(n) {
   cardLevel = n;
   ui.warm = n <= worldProgress().unlocked ? { world: G.world, level: n } : null;   // SPEC-040 AC 4: warm.js builds an open level's 3D while the card is shown (never a closed one)
   setMode("levelCard");   // (builds the card's map data first: it fills the level cache, so the warm-up's game stage does not search the level again)
+  ui.tip = null;
+  if (n === 1 && tipDue(G.world)) { ui.tip = G.world; progress.seen["trick_" + G.world] = true; saveProgress(); }   // SPEC-042 AC 11: "New here!" — the first time this world's level 1 card opens
 }
+// SPEC-042 AC 11: the world's trick card has not been shown yet (tests set window.__bbNoTips, like __bbNoIntro: only the tests of the card itself see it)
+export const tipDue = w => window.__bbNoTips !== true && isOpen(w, progress) && !progress.seen["trick_" + w];
+// the ? button of the level card shows it again; OK / ✕ / Back close it (back to the level card)
+export function openTip() { ui.tip = G.world; screenChanged(); }
+export function closeTip() { ui.tip = null; screenChanged(); }
 // вкладка мира: закрытый мир не выбирается — только подсказка (SPEC-030: главный — какой мир пройти)
 // подсказка закрытого мира (по worldOpen): нужен главный мир — «Пройди <его>, чтобы открыть <этот>!», иначе — прежняя строка бонусных
 export const lockedText = w => { const o = worldOpen(w, progress); return o.needs ? L().lockedWorld(o.needs, w) : L().lockedBonus; };
 export function tapWorldTab(w) { if (isOpen(w, progress)) selectWorld(w); else showToast(lockedText(w)); }
-export const closeCard = () => { ui.warm = null; setMode("map"); };
+export const closeCard = () => { ui.warm = null; ui.tip = null; setMode("map"); };
 // «Играть» на карточке: тот же startGame, что и раньше (resetWorld → loadLevel, надпись уровня, камера телефона)
 export function playCard(players) { if (cardLevel > worldProgress().unlocked) { toMap(); return; } G.level = cardLevel; withScene(sceneBefore(G.world, G.level), () => startGame(players)); }   // SPEC-022: сначала заставка, если пора
 // ---------- SPEC-017: история — главы по порядку и страница «Как играть» ----------

@@ -21,7 +21,7 @@ export function wavePhase(t, off = 0) {
   return { up: true, k: s * s * (3 - 2 * s) };
 }
 // a strip on an edge: which edge, where it starts along it (cells) and how long → its rect in cells
-const EDGES = ["bottom", "top", "left", "right"];
+const EDGES = Object.freeze(["bottom", "top", "left", "right"]);
 function rectOf(edge, a, len, depth) {
   if (edge === "bottom") return { x: a, y: ROWS - depth, w: len, h: depth };
   if (edge === "top") return { x: a, y: 0, w: len, h: depth };

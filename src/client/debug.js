@@ -28,7 +28,7 @@ import { qualityFrame, qualityInfo, setQualityMode } from "./adaptive.js";
 import { warmInfo } from "./warm.js";
 import { art, ART_FALLBACK, artBytes, artCount, artLazy, artLoad, artDone, artVersion, EMOJI_ART, FX_ART, HEART_ART, ITEM_ART, mapBgArt, PAPER_BTN, POP_ART, SHOP_TAB_ART, STORY_ART, UPG_ART, WARDROBE_ART, worldArt } from "./art.js";
 import { orderedEvents } from "../core/events.js";
-import { bannerAlpha, chapterOpen, chooseStop, goBack, nextLevel, closeShop, giveReward, lastReward, mapTick, openFriends, openMap, openScene, openShop, openStory, resetMenus, resetWorld, rngDraws, sceneNext, scenePageCount, scenePages, sceneSkip, seedRandom, selectWorld, setLastReward, setMode, setShopTab, shopAfterWin, showBanner, showCard, startGame, tapWorldTab, toHome, toMap } from "./flow.js";
+import { bannerAlpha, chapterOpen, chooseStop, goBack, nextLevel, closeShop, giveReward, lastReward, mapTick, openFriends, openMap, openScene, openShop, openStory, openTip, closeTip, tipDue, resetMenus, resetWorld, rngDraws, sceneNext, scenePageCount, scenePages, sceneSkip, seedRandom, selectWorld, setLastReward, setMode, setShopTab, shopAfterWin, showBanner, showCard, startGame, tapWorldTab, toHome, toMap } from "./flow.js";
 import { errorLog, reportError } from "./errors.js";
 import { glRestored } from "./lifecycle.js";
 import { audioContext } from "./sound.js";
@@ -91,7 +91,7 @@ const CFG_ALL = new Proxy({}, {
 // SPEC-023 AC 5: в sim ничего не рисуется — состояние, которое заполняют drawUI / 3D, устарело или пусто. Чтение бросает
 // ошибку, чтобы визуальный тест, открытый в sim, падал громко, а не проверял пустоту.
 const SIM_DRAWN = ["buttonRects", "buttonNames", "tapButton", "hudRects", "mapInfo", "levelCard", "storyInfo", "textSizes", "minimap",
-  "bannerRect", "bellHud", "rotateShown", "winPanel", "winLine", "bonusNote", "shopLayout", "kitHint", "heardHint", "edgeArrows", "downDrawn", "stickMarks",
+  "bannerRect", "bellHud", "tipCard", "rotateShown", "winPanel", "winLine", "bonusNote", "shopLayout", "kitHint", "heardHint", "edgeArrows", "downDrawn", "stickMarks",
   "tapLines", "textOverflows", "tutorialHint", "homeInfo", "progressInfo", "outfit3D", "bibClear", "hat3D", "capeClear", "cardRect", "mapPieces", "groundColorAt", "camera", "minimapAlpha", "artUse", "sceneInfo", "moodInfo", "bigLook", "look3D", "drawNow", "model",
   "perf", "disposeCheck"];   // SPEC-025 AC 15 / 15b: the renderer's numbers and textures — a rendered page only
 
@@ -280,7 +280,7 @@ export function installDebug() {
     GLOVES, KISSES, get shopLayout() { return ui.shopLayout; },                         // SPEC-007 AC 10
     // SPEC-041: картинка карточки уровня — levelPreview(мир, n) → { canvas, data } (из кеша или построить), previewInfo — сколько построено / взято из кеша / держится
     showCard, levelPreview: (world, lv) => { previewDataOf(world, lv); return levelPreviewOf(world, lv); }, get previewInfo() { return { ...previewStats, size: previewCacheSize() }; }, clearLevelPreviews,
-    levelType, levelReport, get levelInfo() { return G.levelInfo; }, get trick() { return G.trick; }, trickMeshes, get bellHud() { return { bell: ui.bellRect && { ...ui.bellRect }, freeze: ui.freezeRect && { ...ui.freezeRect }, freezeT: ui.freezeT }; }, clearLevelCache: () => { clearLevelCache(); clearLevelPreviews(); },   // SPEC-041: the card previews live with the level cache
+    levelType, levelReport, get levelInfo() { return G.levelInfo; }, get trick() { return G.trick; }, trickMeshes, get tipCard() { return { open: ui.tip, info: ui.tipInfo && { ...ui.tipInfo } }; }, openTip, closeTip, tipDue, get bellHud() { return { bell: ui.bellRect && { ...ui.bellRect }, freeze: ui.freezeRect && { ...ui.freezeRect }, freezeT: ui.freezeT }; }, clearLevelCache: () => { clearLevelCache(); clearLevelPreviews(); },   // SPEC-041: the card previews live with the level cache
      CFG: CFG_ALL, THEMES, look3D, disposeCheck, perf: perfReport, setBigFace,   // SPEC-021: look3D() — как нарисована 3D-сцена
     get banner() { return ui.banner; }, bannerAlpha,
     // всё состояние мира, которое levelReport сохраняет и возвращает (для теста «не трогает идущую игру»)

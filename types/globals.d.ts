@@ -11,6 +11,7 @@ interface Window {
   __bbStrictRng?: boolean;
   __bbNoIntro?: boolean;
   __bbNoTutorial?: boolean;
+  __bbNoTips?: boolean;
   __bbSaveBackend?: any;
   webkitAudioContext?: typeof AudioContext;
 }

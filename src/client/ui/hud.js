@@ -107,6 +107,7 @@ export function drawHUD(t) {
 function drawBellIcon(cx, cy, size, ang) {
   const BL = LOOK.BELL_LOOK, k = size / 20;
   ctx.save(); ctx.translate(cx, cy - size * 0.45); ctx.rotate(ang); ctx.translate(0, size * 0.45);
+  if (drawArtFit("ui_bell", 0, 0, size * 1.2)) { ctx.restore(); return; }   // the picture of sheet 37 (the code-drawn bell below is its fallback)
   ctx.beginPath();
   ctx.moveTo(-9 * k, 8 * k); ctx.quadraticCurveTo(-8 * k, -2 * k, -5 * k, -6 * k); ctx.quadraticCurveTo(0, -12 * k, 5 * k, -6 * k);
   ctx.quadraticCurveTo(8 * k, -2 * k, 9 * k, 8 * k); ctx.closePath();

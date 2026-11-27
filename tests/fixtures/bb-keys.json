@@ -258,5 +258,9 @@
  "qualityFrame": "function",
  "trick": "getter",
  "trickMeshes": "function",
- "bellHud": "getter"
+ "bellHud": "getter",
+ "tipCard": "getter",
+ "openTip": "function",
+ "closeTip": "function",
+ "tipDue": "function"
 }

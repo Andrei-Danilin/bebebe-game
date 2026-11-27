@@ -179,6 +179,12 @@ export const LOOK = {
   FLOOR_LOOK: { wood: ["#f3d9a4", "#e0bf82"], dark: ["#d8a7a2", "#c48f8a"] },
   SAFE_GLOW: { color: "#4ade80", alpha: 0.25 },
   // SPEC-042: the world tricks' 3D pieces (three/tricks3d.js): puddle colours and height; a sprinkler's head, the ring of its reach, the spray (wet ground, drops: count, size, speed, height, reach as a share of the radius) and the drip warning (drops, speed)
+  // SPEC-042 AC 11 / 13: the "New here!" card — the panels of the tip sheets (fractions [x, y, w, h] of art/40 as assets/tips_main: Park, Field, City, School; of art/41 cropped to
+  // its top half as assets/tips_bonus: Beach, Winter; measured on the pictures), the frame and corner of the picture, its height / width, its share of the card
+  // (computer / phone), the icon box (share of the button height) and the fallback's icon (share of the picture), lines per text at most
+  TIP_LOOK: { panels: { tips_main: [[0.0258, 0.0346, 0.4642, 0.4542], [0.5108, 0.0346, 0.4625, 0.4542], [0.0258, 0.5156, 0.4642, 0.4554], [0.5108, 0.5156, 0.4625, 0.4554]],
+      tips_bonus: [[0.0112, 0.029, 0.4784, 0.94], [0.5103, 0.029, 0.4793, 0.94]] },
+    frame: 5, corner: 0.05, ratio: 0.73, deskFrac: 0.5, phoneFrac: 0.44, iconBox: 0.8, iconFrac: 0.34, lines: 6 },
   // SPEC-042: the school bell's HUD: the bell's colours, the plates (warning / ring) and the ink of "Freeze!", the swing (rad) and its speed (rad/s) in the warning and in the ring, the banner's time and fade (s)
   BELL_LOOK: { gold: "#facc15", clapper: "#b45309", plateWarn: "rgba(255,244,200,.92)", plateRing: "rgba(255,214,230,.95)", inkRing: "#d6336c", warnSwing: 0.35, warnHz: 34, ringSwing: 0.42, ringHz: 16, freezeTime: 1.8, freezeFade: 0.3 },
   TRICK_LOOK: { wetSand: "#e0bd78", wetEdge: "#c79a52", water: "#35c6d4", waterAlpha: 0.5, foam: "#ffffff", print: "#8da2c4", printFaded: "#f2f7ff", printY: 0.034, printSize: 1, printLen: 0.25, printWide: 0.14, printSide: 0.1, puddle: "#9fe0f8", puddleRim: "#4cc9f0", puddleShine: "#e6f8ff", puddleY: 0.03, sprayRing: "#c4ecff", headBase: "#8b95a7", headStem: "#b8c0cc", headNozzle: "#38bdf8",
