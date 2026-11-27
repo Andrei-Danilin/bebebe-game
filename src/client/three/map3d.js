@@ -70,7 +70,7 @@ function groundDoodles(ctx, place, th, rnd, streets) {
     ctx.globalAlpha = D.driftA; ctx.strokeStyle = th.doodle; ctx.lineWidth = D.driftW; ctx.stroke(path);
     dots(GL.dots / 3, 1, dark, D.snowA);
   } else if (place === "city") {                         // крапинки на асфальте улиц, штрихи по асфальту
-    for (const r of streets) { markerStrokes(rnd, th.asphaltMarker, r); dots(GL.specks / 2, 1, th.asphaltMarker[0], D.streetA[0], r); dots(GL.specks / 4, 0.9, th.asphaltMarker[1], D.streetA[1], r); }
+    for (const r of streets) { markerStrokes(ctx, rnd, th.asphaltMarker, r); dots(GL.specks / 2, 1, th.asphaltMarker[0], D.streetA[0], r); dots(GL.specks / 4, 0.9, th.asphaltMarker[1], D.streetA[1], r); }
   } else if (place === "school") {                       // асфальт двора в крапинку и меловые каракули: звёздочки, сердечки, спирали
     dots(GL.specks, 1, dark, D.yardA[0]); dots(GL.specks / 2, 0.9, light, D.yardA[1]);
     for (let i = 0; i < GL.chalk; i++) {

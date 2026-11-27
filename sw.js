@@ -27,7 +27,7 @@ const NET_TIMEOUT_MS = 4000;             // weak signal: after this long, a cach
 const SW_BUILD = 11;
 const SW_STRATEGY = "0c8e52b02e";
 const SW_VERSION = "bebebe-1.0.0-dev-b11";
-const SRC_HASH = "180ec4e3ef";
+const SRC_HASH = "2d2e5498b2";
 const PRECACHE_LOCAL = [
   "./", "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512-maskable.png",
   "./icons/icon-512.png", "./icons/icon.svg", "./index.html", "./manifest.webmanifest"
@@ -43,7 +43,7 @@ const PRECACHE_SRC = [
   "./src/client/sound.js?v=57a594910c", "./src/client/state.js?v=3b73591050", "./src/client/storage.js?v=686b11f06c",
   "./src/client/three/bosses.js?v=7814dfb8d4", "./src/client/three/camera.js?v=cd37d1af9d",
   "./src/client/three/characters.js?v=4fbaac5ba1", "./src/client/three/houses.js?v=7b4e722052",
-  "./src/client/three/look3d.js?v=4c30e2da56", "./src/client/three/map3d.js?v=c420d2cfb8",
+  "./src/client/three/look3d.js?v=4c30e2da56", "./src/client/three/map3d.js?v=85a86d80fc",
   "./src/client/three/mapstate.js?v=df23bf049c", "./src/client/three/materials.js?v=bf7b1c0f0f",
   "./src/client/three/pools.js?v=75c81234b2", "./src/client/three/previews.js?v=885473544b",
   "./src/client/three/setup.js?v=f20369215b", "./src/client/three/sync.js?v=91dd0e2f93",
