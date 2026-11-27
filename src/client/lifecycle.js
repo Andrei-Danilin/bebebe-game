@@ -9,7 +9,9 @@ import { CFG } from "../core/config.js";
 import { L } from "../i18n.js";
 import { flushErrorLog, hideCard, showCard } from "./errors.js";
 import { mode, resumeGame, setMode, settleDecidedWin } from "./flow.js";
+import { clearSticks, closeNameInput, nameInput } from "./input.js";
 import { saveProgress } from "./progress.js";
+import { rotateWall } from "./screen.js";
 import { flushSaves } from "./save.js";
 import { suspendAudio } from "./sound.js";
 import { rebuild3D } from "./three/characters.js";
@@ -17,6 +19,15 @@ import { gradTex } from "./three/materials.js";
 import { scene } from "./three/setup.js";
 
 const pauseIfPlaying = () => { if (mode === "play") setMode("pause"); };
+// SPEC-038 AC 2 (RR-72): the phone turned upright ("turn your device" wall): the fingers on the sticks are dropped, an open name
+// input closes (name kept), a level in play pauses — and stays paused when the phone is turned back (the pause menu, no auto-resume).
+// Called by main.js every frame (drawing changes no state, SPEC-012 AC 1f)
+export function pauseForWall() {
+  if (!rotateWall()) return;
+  clearSticks();
+  if (nameInput) closeNameInput(true);
+  pauseIfPlaying();
+}
 // the app goes to the background: the decided win first (queued as it is paid), then the save queue is written (AC 3b: the
 // localStorage backend is synchronous, so it is stored before the page can be killed), then pause and silence
 function onHide() {

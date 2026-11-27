@@ -36,7 +36,9 @@ export function drawPill(p, x, y, maxW) {
   const f = fitLine(p.text, p.size, p.min, w - p.picW - 2 * p.pad);
   plainText(f.text, x + p.pad + p.picW, y + p.h / 2 + 1, f.sz, p.ink || (dim ? M.lockedInk : M.ink));
   if (PHONE) noteText("main", f.sz);
-  ui.hudRects.push({ id: p.id, x, y, w, h: p.h, text: f.text, textW: p.picW + f.w + 2 * p.pad, ...p.extra });
+  const rect = { id: p.id, x, y, w, h: p.h, text: f.text, textW: p.picW + f.w + 2 * p.pad, ...p.extra };
+  ui.hudRects.push(rect);
+  return rect;
 }
 // SPEC-017: кнопки главного экрана — первая крупная («Играть»), остальные под ней; key — клавиши, pad — кнопки геймпада.
 // Одно место для обеих раскладок и для клавиатуры/геймпада (SPEC-013 добавит сюда «Онлайн»). SPEC-026: «Магазин» стал «Персонажем»
@@ -94,8 +96,7 @@ function drawUpdateNote(y, h) {
   const U = LOOK.UPDATE_NOTE, p = homePill("home:update", L().updateReady, h, PHONE ? cpx(U.phoneSize) : U.size, PHONE ? minPx("main") : U.min);
   p.bg = U.bg; p.ink = U.ink;
   const w = Math.min(p.w, UW * U.maxW), x = UW / 2 - w / 2;
-  drawPill(p, x, y, w);
-  const r = ui.hudRects[ui.hudRects.length - 1];
+  const r = drawPill(p, x, y, w);
   regButton(x, y, w, h, r.text, applyUpdate, "home:update", r.textW);
 }
 // одна раскладка для компьютера и телефона (SPEC-026): фон — страница menu_bg «cover» (лишнее срезается поровну), значки в углу,

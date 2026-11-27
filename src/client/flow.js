@@ -36,6 +36,7 @@ export let mode = "home", lastReward = null;
 // card, the name input outside the wardrobe
 export function setMode(v) {
   if (v !== "play") for (const inp of Object.values(G.inputs || {})) { inp.kiss = false; inp.kit = false; inp.act = false; }   // a press never fires after the game left play
+  if (v !== "play") sticks.clear();                         // SPEC-038: a finger of the level (a lost pointerup too) never steers the next one
   mode = v;
   screenChanged();                                          // SPEC-025 AC 7d
   if (mode !== "shop") { ui.shopTab = "items"; ui.wardrobePage = "looks"; }

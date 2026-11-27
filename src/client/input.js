@@ -113,6 +113,7 @@ const endStick = e => sticks.delete(e.pointerId);
 // SPEC-038 AC 1: a player's stick is a stack of his pointers (the Map keeps them in the order they landed): the newest finger
 // steers; lifting it falls back to the previous one; lifting an older one changes nothing; all lifted — the hero stops
 export const activeStick = player => { let a = null; for (const s of sticks.values()) if (s.player === player) a = s; return a; };
+export const clearSticks = () => sticks.clear();   // SPEC-038: the fingers are gone (the "turn your device" wall, a level left)
 export const activeSticks = () => [0, 1].map(activeStick).filter(Boolean);
 
 // Поле ввода имени: HTML <input> ровно поверх прямоугольника на холсте (rect в логических пикселях)

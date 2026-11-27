@@ -9,6 +9,7 @@ One line each: what, where it came from. The spec author turns a line into a spe
 - The lose screen code is unreachable since "no game over" — remove it or reuse it for a "Give up" button.
 - Progress between Safari and the installed iPhone app (separate storage on iOS) — out of scope in SPEC-001.
 - ~~`navigator.storage.persist()` once, so iOS is less likely to clear the home-screen app's progress when the phone is low on space (SPEC-001 architect review).~~ — done in SPEC-025 phase 2 (AC 5: asked once where it never prompts; the answer is kept in `bebebe-save.persist`).
+- (SPEC-038 review) Name the sprite cache by `ASSETS_HASH` alone (`bebebe-assets-<ASSETS_HASH>`): every `SW_BUILD` bump renames it and installed apps fetch all sprites again today.
 - ~~An "update available" hint in the installed app (today a new version shows on the next launch, because `index.html` is network-first) — SPEC-001 run.~~ — done in SPEC-038: a small note on the home screen ("A new version is ready — tap to update") when a new worker is waiting or has taken over; a tap activates it and reloads.
 - SPEC-003 run, open point: a Little One knocked down **inside** the Big One's house can only be rescued by a player (bots leave the house after 2 s, a rescue takes 3 s).
 - SPEC-003 run, open point: the menu rules do not mention the bonus stars and the dangerous Big One's house yet (the six rule lines are full).

@@ -223,6 +223,7 @@
  "tutorialPages": "function",
  "tutorialSkip": "function",
  "uiSize": "getter",
+ "updateChecks": "getter",
  "updateReady": "getter",
  "update": "function",
  "updateCamera": "function",

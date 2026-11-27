@@ -61,12 +61,20 @@ function playArea() {
 
 export let onFit = null;               // телефон: 3D-камера подстраивается под форму холста (задаётся в разделе 3D)
 export let fitCount = 0;               // SPEC-038 AC 2: сколько раз fit() переделал холсты (для теста: пачка resize — один раз)
-// SPEC-038 AC 2 (RR-72): пачка resize / orientationchange за кадр — один fit() в следующем кадре (он пересоздаёт оба холста)
-let fitQueued = false;
+// SPEC-038 AC 2 (RR-72): пачка resize / orientationchange за кадр — один fit() (он пересоздаёт оба холста). Событие только ставит флаг;
+// fit() делает начало следующего кадра игры (runQueuedFit в tick, ДО рисования: кадр не рисуется на старых размерах); rAF — запасной
+// путь, когда цикл кадров не идёт (sim: tick выходит; вкладка скрыта)
+let fitQueued = false, fitFallback = false;
+export function runQueuedFit() {
+  if (!fitQueued) return;
+  fitQueued = false;
+  fit();
+}
 function fitSoon() {
-  if (fitQueued) return;
   fitQueued = true;
-  requestAnimationFrame(() => { fitQueued = false; fit(); });
+  if (fitFallback) return;
+  fitFallback = true;
+  requestAnimationFrame(() => { fitFallback = false; runQueuedFit(); });
 }
 export function fit() {
   fitCount++;

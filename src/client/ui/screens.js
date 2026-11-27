@@ -4,7 +4,7 @@
 import { L } from "../../i18n.js";
 import { paperCache, paperUI } from "../art.js";
 import { backToWardrobe, closeShop, inMenus, mode, openFriends } from "../flow.js";
-import { closeNameInput, nameInput, placeNameInput } from "../input.js";
+import { nameInput, placeNameInput } from "../input.js";
 import { LOOK } from "../look.js";
 import { ctx, PHONE, rotateWall, UH, UW, VIEW } from "../screen.js";
 import { ui } from "../state.js";
@@ -93,7 +93,6 @@ export function drawUI(t) {
   ui.rotateShown = false;
   if (rotateWall()) {                      // SPEC-038 AC 2: под заставкой ничего не нажимается — и вне режима телефона
     ui.buttons = []; ui.rotateShown = true;
-    if (nameInput) closeNameInput(true);
     ctx.fillStyle = "rgba(20,30,25,.92)"; ctx.fillRect(0, 0, UW, UH);
     if (PHONE) {   // телефон: узкий экран — крупно в несколько строк
       const h = pWrap(L().rotate, UW / 2, 0, "title", 30, UW - cpx(32), 3, "#fff", 900);   // мерка

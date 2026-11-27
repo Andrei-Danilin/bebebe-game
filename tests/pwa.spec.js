@@ -463,7 +463,13 @@ function stubWaitingWorker() {
   const real = ServiceWorkerContainer.prototype.register;
   ServiceWorkerContainer.prototype.register = function (...a) {
     real.apply(this, a).catch(() => {});
-    const worker = { state: "installed", postMessage: m => { window.__swPosted(m); setTimeout(() => navigator.serviceWorker.dispatchEvent(new Event("controllerchange")), 20); }, addEventListener() {} };
+    const worker = {
+      state: "installed", addEventListener() {},
+      postMessage: (m, ports) => {
+        if (m.type === "VERSION") { ports[0].postMessage({ srcHash: "another-module-set" }); return; }   // a worker of other modules than the page's
+        window.__swPosted(m); setTimeout(() => navigator.serviceWorker.dispatchEvent(new Event("controllerchange")), 20);
+      }
+    };
     return Promise.resolve({ waiting: worker, installing: null, active: {}, addEventListener() {}, update: () => Promise.resolve() });
   };
 }
@@ -511,35 +517,76 @@ test("no waiting worker: no note", async ({ page }) => {
   expect((await homeNote(page)).rect).toBeNull();
 });
 
-// the real thing: the installed app (controlled page) is online when a new sw.js arrives; the new worker installs, takes over
-// (skipWaiting) and the page runs the old modules until it reloads — that is when the note shows
-test("a new worker taking over a running page shows the note", async ({ page }) => {
+// the real thing: the installed app (controlled page) is online when a new sw.js arrives; the new worker installs and takes over
+// (skipWaiting). The note shows only when its modules differ from the page's (SRC_HASH): index.html is network-first, so a page
+// that was loaded after the deploy already runs them
+const takeover = page => page.evaluate(() => { window.__took = false; navigator.serviceWorker.addEventListener("controllerchange", () => { window.__took = true; }); });
+const updateSw = page => page.evaluate(async () => { try { await (await navigator.serviceWorker.getRegistration()).update(); } catch (e) { /* ok */ } });
+const newModulesSw = () => SW_SRC.replace(`const SRC_HASH = "${SRC_HASH}";`, "const SRC_HASH = \"testnew999\";").replace(/"\.\/src\/client\/art-names\.js\?v=[0-9a-f]+"/, "\"./src/client/art-names.js?v=testnew001\"");
+test("a new worker with other modules taking over a running page shows the note", async ({ page }) => {
   test.slow();
   const ov = { fn: () => null };
-  const version = v => SW_SRC.replace(/const SW_VERSION\s*=\s*"[^"]+"/, `const SW_VERSION = "${v}"`);
   await withOwnServer(page, ov, async () => {
     await page.reload();                                      // now the page is controlled (the note rules start from a controlled page)
     await page.waitForFunction(() => window.__bbReady === true && !!navigator.serviceWorker.controller, null, { timeout: 30_000 });
     await page.evaluate(() => { const b = window.__bb; b.resetMenus(); b.mode = "home"; });
     expect(await page.evaluate(() => window.__bb.updateReady)).toBe(false);
-    ov.fn = p => (p === "/sw.js" ? version("bebebe-test-note") : null);
-    await page.evaluate(async () => { try { await (await navigator.serviceWorker.getRegistration()).update(); } catch (e) { /* ok */ } });
+    const v = newVersion(), sw = newModulesSw();               // other modules: another SRC_HASH, shell and module served to match
+    ov.fn = p => (p === "/sw.js" ? sw : p === "/index.html" ? v.html : p === ART_FILE ? v.art : null);
+    await takeover(page);
+    await updateSw(page);
     await page.waitForFunction(() => window.__bb.updateReady === true, null, { timeout: 60_000 });
     // (a first launch opens the language screen and the comic: back to home until a frame draws the note)
     await page.waitForFunction(() => { const b = window.__bb; if (b.mode !== "home") b.mode = "home"; return b.hudRects.some(h => h.id === "home:update"); }, null, { timeout: 15_000 });
   });
 });
 
+// a worker of the same modules (only SW_VERSION changed: a sprite-only deploy, a strategy change) taking over a page that already
+// runs these modules: nothing to update, no note
+test("a new worker with the same modules shows no note", async ({ page }) => {
+  test.slow();
+  const ov = { fn: () => null };
+  await withOwnServer(page, ov, async () => {
+    await page.reload();
+    await page.waitForFunction(() => window.__bbReady === true && !!navigator.serviceWorker.controller, null, { timeout: 30_000 });
+    await page.evaluate(() => { const b = window.__bb; b.resetMenus(); b.mode = "home"; });
+    const checks0 = await page.evaluate(() => window.__bb.updateChecks);
+    ov.fn = p => (p === "/sw.js" ? SW_SRC.replace(/const SW_VERSION\s*=\s*"[^"]+"/, "const SW_VERSION = \"bebebe-test-same\"") : null);
+    await takeover(page);
+    await updateSw(page);
+    await page.waitForFunction(() => window.__took === true, null, { timeout: 60_000 });                    // the new worker took over
+    await page.waitForFunction(c => window.__bb.updateChecks > c, checks0, { timeout: 15_000 });            // and answered which modules it is
+    await frames(page);
+    expect(await page.evaluate(() => window.__bb.updateReady), "the page already runs these modules").toBe(false);
+    expect((await homeNote(page)).rect).toBeNull();
+  });
+});
+
+// a first visit (no worker at the start): the first install claiming the page is no update; a later takeover with other modules is
+test("a first visit sees a later update", async ({ page }) => {
+  test.slow();
+  const ov = { fn: () => null };
+  await withOwnServer(page, ov, async () => {                  // loaded without a worker; the worker installs and claims the page
+    expect(await page.evaluate(() => window.__bb.updateReady), "the first install is no update").toBe(false);
+    const v = newVersion(), sw = newModulesSw();
+    ov.fn = p => (p === "/sw.js" ? sw : p === "/index.html" ? v.html : p === ART_FILE ? v.art : null);
+    await updateSw(page);                                       // no reload in between
+    await page.waitForFunction(() => window.__bb.updateReady === true, null, { timeout: 60_000 });
+  });
+});
+
 // the note fits one phone screen (667×375) in every language, also with wider fonts (CI and iPhone fonts are wider than Windows):
 // whole text, inside the screen, on no other control
-test.describe("the new-version note on a phone", () => {
-  test.use({ viewport: { width: 667, height: 375 }, hasTouch: true, isMobile: true });
+const NOTE_FIT_SETUPS = [["on a phone", { viewport: { width: 667, height: 375 }, hasTouch: true, isMobile: true }, "?phone=1", "667×375"],
+  ["on the desktop", { viewport: { width: 960, height: 640 } }, "", "960×640"]];
+for (const [name, ctxOpts, query, size] of NOTE_FIT_SETUPS) test.describe(`the new-version note ${name}`, () => {
+  test.use(ctxOpts);
 
-  test("it fits at 667×375 in every language and font scale", async ({ page }) => {
+  test(`it fits at ${size} in every language and font scale`, async ({ page }) => {
     const errors = [];
     await page.exposeFunction("__swPosted", () => {});
     await page.addInitScript(stubWaitingWorker);
-    errors.push(...await openGameHttp(page, { query: "?phone=1" }));
+    errors.push(...await openGameHttp(page, { query }));
     await page.waitForFunction(() => window.__bb.updateReady === true);
     const problems = [];
     for (const l of ["en", "es", "pt", "ru"]) for (const scale of [1, 1.15, 1.3]) {
@@ -553,7 +600,7 @@ test.describe("the new-version note on a phone", () => {
       for (const q of [...d.buttons.filter(b => b.id !== "home:update"), ...d.hud.filter(h => h.id === "home:title")]) {
         if (n.x < q.x + q.w && n.x + n.w > q.x && n.y < q.y + q.h && n.y + n.h > q.y) problems.push(`${at}: the note covers ${q.id}`);
       }
-      if (n.h * d.ui.scale < 28) problems.push(`${at}: the note is ${n.h * d.ui.scale} CSS px tall`);
+      if (name === "on a phone" && n.h * d.ui.scale < 28) problems.push(`${at}: the note is ${n.h * d.ui.scale} CSS px tall`);
     }
     await page.evaluate(() => { window.__bb.CFG.TEXT_TEST_SCALE = 1; });
     expect(problems).toEqual([]);
