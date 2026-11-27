@@ -168,7 +168,8 @@ const withoutStarSlot = e => { if (e.type !== "coins" || e.reason !== "star") re
 // SPEC-032 changed hearing on purpose (HEAR_CHANCE 0.6, HEAR_TURN_TIME 0.35): the recorded game is played with the old hearing,
 // which CFG still reaches (HEAR_CHANCE 1 draws no rng) — so the reference stays the same and proves nothing else changed.
 // SPEC-036 (kids' rule) too: the fallen kid's timer stops while a friend helps (DOWN_PAUSE_HELPED 1); 0 is the old rule
-const OLD_RULES = { HEAR_CHANCE: 1, HEAR_TURN_TIME: 0.15, DOWN_PAUSE_HELPED: 0 };
+// SPEC-037: Dad no longer stands stuck (re-path after BIG_UNSTUCK_TIME s; BIG_DETOUR_COST: a lying friend is a wall for his patrol and search path); 0 and 0 are the game before
+const OLD_RULES = { HEAR_CHANCE: 1, HEAR_TURN_TIME: 0.15, DOWN_PAUSE_HELPED: 0, BIG_UNSTUCK_TIME: 0, BIG_DETOUR_COST: 0 };
 test("same seed, same game after the split", async ({ page }) => {
   test.setTimeout(180_000);
   const errors = await openGame(page, { sim: true });
@@ -184,6 +185,7 @@ async function sameGame(page, errors) {
   const summary = await page.evaluate(runLevel, { world: "park", n: 1, style: BASELINE.style, seed: BASELINE.seed, progress: save, dt: REF_DT });
   // SPEC-012 AC 6 / 10: the events the client acts on that the recorded game did not log (it spent and paid in place) — compared
   // without exactly these types: every recorded event must still come in the same order with the same data
+  delete summary.noHug;   // SPEC-037: the longest no-hug stretch, new in the summary; the recorded one does not have it
   summary.events -= await page.evaluate(types => window.__bb.events.filter(e => types.includes(e.type)).length, NEW_EVENT_TYPES);
   expect(errors).toEqual([]);
   if (RECORD) {

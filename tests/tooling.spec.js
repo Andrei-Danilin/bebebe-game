@@ -66,6 +66,10 @@ test("AC 10: lint, typecheck and core jobs beside the shards; all 4 blob reports
   const tests = read(".github/workflows/tests.yml");
   expect(tests).toMatch(/\n {2}typecheck:\n[\s\S]*?run: npm run typecheck/);
   expect(tests).toMatch(/\n {2}lint:\n[\s\S]*?run: npm run lint/);
+  // SPEC-037 AC 2: the Dad stall guard is its own job (a rollback ref without the script skips it: --if-present)
+  expect(tests, "the stall guard job").toMatch(/\n {2}stall:\n[\s\S]*?run: npm run test:stall --if-present\n\n {2}test:/);
+  expect(PKG.scripts["test:stall"], "the guard has its own script, not in test:core").toMatch(/tests\/stall\//);
+  expect(PKG.scripts["test:core"]).not.toMatch(/stall/);
   expect(tests, "PRs (Dependabot) are tested").toMatch(/\non:\n(?: {2}.*\n|\s*#.*\n)*? {2}pull_request:/);
   // RR-83: the report job fails when a shard's blob report is missing
   const report = tests.slice(tests.indexOf("\n  report:"));

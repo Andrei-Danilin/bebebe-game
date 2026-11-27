@@ -1,6 +1,6 @@
 # SPEC-037 — Dad never stands stuck; the balance autopilot never hangs
 
-Status: ready
+Status: done (merged by "Merge SPEC-037", see git log)
 Complexity: M
 Branch: SPEC-037-dad-unstuck
 Decided by: Andrei (2026-11-26): fix the stalls found in earlier runs. The detection thresholds and the pathing fix: Claude.

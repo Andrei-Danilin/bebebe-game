@@ -24,7 +24,7 @@ function nearestFree(idx, grid = G.blocked) {
   return idx;
 }
 const DIRS = Object.freeze([[1, 0, 1], [-1, 0, 1], [0, 1, 1], [0, -1, 1], [1, 1, 1.414], [1, -1, 1.414], [-1, 1, 1.414], [-1, -1, 1.414]]);
-export function findPath(sx, sy, gx, gy, extraCost, grid = G.blocked) {
+export function findPath(sx, sy, gx, gy, extraCost, grid = G.blocked) {   // grid ≠ G.blocked — сетка Большого (G.blockedBig или она + выученные клетки, SPEC-037)
   const N = COLS * ROWS;
   const s = nearestFree(cellIdx(sx, sy), grid), g = nearestFree(cellIdx(gx, gy), grid);
   const gs = new Float32Array(N).fill(Infinity), fs = new Float32Array(N).fill(Infinity);
@@ -57,7 +57,7 @@ export function findPath(sx, sy, gx, gy, extraCost, grid = G.blocked) {
   let c = g;
   while (c !== s && c !== -1) { pts.push({ x: (c % COLS + 0.5) * CELL, y: (((c / COLS) | 0) + 0.5) * CELL }); c = came[c]; }
   pts.reverse();
-  if (pts.length && !(grid === G.blockedBig ? moveSolidBigAt : moveSolidAt)(gx, gy)) pts[pts.length - 1] = { x: gx, y: gy };
+  if (pts.length && !(grid !== G.blocked ? moveSolidBigAt : moveSolidAt)(gx, gy)) pts[pts.length - 1] = { x: gx, y: gy };
   return pts;
 }
 
@@ -114,8 +114,37 @@ export function inCone(x, y) {
   const dx = x - G.big.x, dy = y - G.big.y, d = Math.hypot(dx, dy);
   return d < CFG.VISION_RANGE + 25 && angDiff(G.big.dir, Math.atan2(dy, dx)) < CFG.VISION_HALF + 0.2;
 }
+// SPEC-037: лежащий друг (state "down") не сдвигается (separate()) — для Большого он стена: расстояние от точки до отрезка и «близко к лежащему»
+function segDist(px, py, ax, ay, bx, by) {
+  const dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy, t = l2 ? clamp(((px - ax) * dx + (py - ay) * dy) / l2, 0, 1) : 0;
+  return Math.hypot(px - ax - dx * t, py - ay - dy * t);
+}
+// «Стена» (лежащий друг) и выученные клетки — только пока Большой гуляет или ищет, не в погоне и не по дороге домой; BIG_DETOUR_COST 0 — нет стены
+const wallOn = () => CFG.BIG_DETOUR_COST > 0 && (G.big.state === "patrol" || G.big.state === "search");
+// запас до лежащего друга для центра клетки: < 0 — клетка «рядом» (его радиус + радиус Большого + полклетки: центр клетки не там, где он встанет);
+// ignore — не считать друзей (последняя попытка уйти, когда он зажат)
+export function downGap(x, y, ignore = false) {
+  let m = Infinity;
+  if (!ignore && wallOn()) for (const l of G.littles) if (l.state === "down") m = Math.min(m, Math.hypot(x - l.x, y - l.y) - (G.big.r + l.r + CELL / 2));
+  return m;
+}
+export const nearDown = (x, y) => downGap(x, y) < 0;
+// сетка Большого для A* и bigReach: уровень + клетки, до которых он не дошёл (G.bigLearned; только гуляя и ища)
+function bigGrid() {
+  if (!wallOn() || !G.bigLearned.some(v => v)) return G.blockedBig;
+  const m = new Uint8Array(G.blockedBig);
+  for (let i = 0; i < m.length; i++) if (G.bigLearned[i]) m[i] = 1;
+  return m;
+}
+// цена клетки рядом с лежащим другом; внутри его самого (где Большой не встанет) — вдвое: выход из тесноты идёт мимо друга, не сквозь него
+function detourCost(x, y) {
+  const gap = downGap(x, y);
+  return gap >= 0 ? 0 : gap < -CELL / 2 ? 2 * CFG.BIG_DETOUR_COST : CFG.BIG_DETOUR_COST;
+}
 function clearTo(e, x, y, avoidCone) {
   if (!losWide(e.x, e.y, x, y, e.r - 1, e.isBig ? moveSolidBigAt : moveSolidAt)) return false;
+  // лежащий друг на отрезке — не прямо (кроме самой цели: к нему идут, поиск начинается у него)
+  if (e.isBig && wallOn() && G.littles.some(l => l.state === "down" && Math.hypot(l.x - x, l.y - y) >= e.r + l.r && segDist(l.x, l.y, e.x, e.y, x, y) < e.r + l.r)) return false;
   if (avoidCone && G.big.stun <= 0 && G.big.blush <= 0) for (let t = 0.2; t <= 1.001; t += 0.2) if (inCone(e.x + (x - e.x) * t, e.y + (y - e.y) * t)) return false;
   return true;
 }
@@ -126,9 +155,9 @@ export function steerPoint(e, gx, gy, dt, avoidCone, repathIn = () => rand(0.3, 
   let tx = gx, ty = gy;
   if (!clearTo(e, gx, gy, avoidCone)) {
     if (e.repath <= 0 || !e.path.length) {
-      const cost = e.isBig ? (avoidCone ? ((x, y) => (inCone(x, y) ? 20 : 0)) : null)
+      const cost = e.isBig ? ((x, y) => (avoidCone && inCone(x, y) ? 20 : 0) + detourCost(x, y))
         : (x, y) => (avoidCone && inCone(x, y) ? 20 : 0) + (inDangerXY(x, y) ? CFG.BOT_DANGER_COST : 0);   // дом Большого — «дорогой»
-      e.path = findPath(e.x, e.y, gx, gy, cost, e.isBig ? G.blockedBig : G.blocked);
+      e.path = findPath(e.x, e.y, gx, gy, cost, e.isBig ? bigGrid() : G.blocked);
       e.repath = repathIn();
     }
     while (e.path.length && Math.hypot(e.path[0].x - e.x, e.path[0].y - e.y) < 8) e.path.shift();
@@ -155,5 +184,33 @@ export function randomFreePoint() {
     if (dist(p, G.big) > 150) return p;
   }
   return { x: W / 2, y: H / 2 };
+}
+// SPEC-037: клетки, куда Большой дойдёт от себя (не стена и не выученная клетка; не рядом с лежащим другом, разве что прочь от него; своя клетка — всегда,
+// даже выученная), и ближайшая из них к точке (x, y) — её центр: цель, которая не достижима, не остаётся. ignoreKids — без лежащих друзей
+export function bigReach(ignoreKids = false) {
+  const grid = bigGrid(), seen = new Uint8Array(COLS * ROWS), q = [cellIdx(G.big.x, G.big.y)];
+  seen[q[0]] = 1;
+  for (let h = 0; h < q.length; h++) {
+    const i = q[h], cx = i % COLS, cy = (i / COLS) | 0;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = cx + dx, ny = cy + dy;
+      if (nx < 0 || ny < 0 || nx >= COLS || ny >= ROWS) continue;
+      const j = ny * COLS + nx;
+      if (seen[j] || grid[j]) continue;
+      const gap = downGap((nx + 0.5) * CELL, (ny + 0.5) * CELL, ignoreKids);
+      if (gap >= 0 || gap > downGap((cx + 0.5) * CELL, (cy + 0.5) * CELL, ignoreKids)) { seen[j] = 1; q.push(j); }   // из «рядом» — только прочь от лежащего
+    }
+  }
+  return seen;
+}
+export function reachableGoal(x, y, ignoreKids = false) {
+  const seen = bigReach(ignoreKids);
+  let best = null, bd = Infinity;
+  for (let cy = 0; cy < ROWS; cy++) for (let cx = 0; cx < COLS; cx++) {
+    if (!seen[cy * COLS + cx] || downGap((cx + 0.5) * CELL, (cy + 0.5) * CELL, ignoreKids) < 0) continue;
+    const px = (cx + 0.5) * CELL, py = (cy + 0.5) * CELL, d = Math.hypot(px - x, py - y);
+    if (d < bd) { bd = d; best = { x: px, y: py }; }
+  }
+  return best || { x: G.big.x, y: G.big.y };
 }
 export const inBush = l => CFG.BUSH_HIDES && G.bushes.some(b => Math.hypot(l.x - b.x, l.y - b.y) < b.r - 6);

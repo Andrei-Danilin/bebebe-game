@@ -8,6 +8,7 @@
     "test:smoke": "playwright test tests/smoke.spec.js",
     "test:fast": "playwright test --grep @fast",
     "test:core": "node --test \"tests/core/*.test.mjs\"",
+    "test:stall": "node --test --test-concurrency=1 \"tests/stall/*.test.mjs\"",
     "bench:core": "node scripts/bench-core.js",
     "test:headed": "playwright test --headed",
     "claude:sync": "node scripts/claude-sync.js",

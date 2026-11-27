@@ -379,6 +379,8 @@ for (const [world, n] of BAL.CI_LEVELS) {
     expect(r.win, `${world} ${n}: won (ended ${r.ended}, ${Math.round(r.time)} s)`).toBe(true);
     expect(r.time).toBeLessThanOrEqual(BAL.TIME_LIMIT);
     expect(r.maxGap, "the longest stretch without any event").toBeLessThan(120);
+    expect(r.noHug, "SPEC-037: the longest stretch with no heart taken is measured and never counts as stuck here").toBeLessThanOrEqual(BAL.STALL.STUCK_TIME);
+    expect(r.noHug).toBeGreaterThan(0);
     expect(r.logFull).toBe(false);
     expect(r.coins, "coins were earned").toBeGreaterThan(0);
   });
