@@ -49,6 +49,7 @@ import { modelOf, rebuild3D, setBigFace } from "./three/characters.js";
 import { disposeCheck, look3D } from "./three/look3d.js";
 import { perfReport } from "./perf.js";
 import { mapGroup } from "./three/mapstate.js";
+import { trickMeshes } from "./three/tricks3d.js";
 import { groundCanvas, OUTLINE } from "./three/materials.js";
 import { outfitModel, skinPanels } from "./three/previews.js";
 import { camera, LITTLE_SCALE } from "./three/setup.js";
@@ -251,7 +252,7 @@ export function installDebug() {
     get heardHint() { return heardHintOn() ? { text: heardHintText(), pi: ui.heardHintPi, rect: ui.heardHintRect && { ...ui.heardHintRect, rows: [...ui.heardHintRect.rows] } } : null; },
     get stickMarks() { return ui.stickMarks.map(q => ({ ...q })); }, get tapLines() { return [...tapLines]; },
     GLOVES, KISSES, get shopLayout() { return ui.shopLayout; },                         // SPEC-007 AC 10
-    levelType, levelReport, get levelInfo() { return G.levelInfo; }, get trick() { return G.trick; }, clearLevelCache, CFG: CFG_ALL, THEMES, look3D, disposeCheck, perf: perfReport, setBigFace,   // SPEC-021: look3D() — как нарисована 3D-сцена
+    levelType, levelReport, get levelInfo() { return G.levelInfo; }, get trick() { return G.trick; }, trickMeshes, clearLevelCache, CFG: CFG_ALL, THEMES, look3D, disposeCheck, perf: perfReport, setBigFace,   // SPEC-021: look3D() — как нарисована 3D-сцена
     get banner() { return ui.banner; }, bannerAlpha,
     // всё состояние мира, которое levelReport сохраняет и возвращает (для теста «не трогает идущую игру»)
     worldState() { return JSON.stringify({ obstacles: G.obstacles, bushes: G.bushes, floors: G.floors, decor: G.decor, trees: G.trees, flowers: G.flowers, safeZone: G.safeZone, dangerZone: G.dangerZone, trick: G.trick && { name: G.trick.name, pieces: G.trick.pieces, meta: G.trick.meta }, spawns: G.spawns, reachable: Array.from(G.reachable).join(""), grids: [G.blocked, G.blockedBig, G.moveGrid, G.seeGrid, G.moveGridBig].map(g => g.join("")) }); },

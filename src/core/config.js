@@ -221,7 +221,7 @@ export const CFG = {
   // SPEC-042: числа хитростей. count — штук на уровень [от, до]; pad — клеток отступа от занятого и друг от друга (при расстановке); cells/сек — как сказано
   TRICKS: {
     puddles: { count: [3, 5], r: 0.5, pad: 1, splashMul: 2, splashTime: 1 },                       // лужи Парка: бегом через лужу — всплеск, слышно в splashMul × HEAR_RADIUS splashTime сек
-    sprinklers: { count: [2, 3], r: 2, pad: 1, cycle: 20, warn: 1, spray: 5 },                     // поливалки Поля: цикл cycle сек — warn сек капли, spray сек брызги радиусом r клеток
+    sprinklers: { count: [2, 3], r: 2, pad: 1, cycle: 20, warn: 1, spray: 5, hideReach: 4, spare: 4, exitPad: 1.2 },                     // поливалки Поля: цикл cycle сек — warn сек капли, spray сек брызги радиусом r клеток; боты и автопилот прячутся в брызгах не дальше hideReach клеток; exitPad — клеток за краем брызг, куда выходит папа, оказавшийся внутри; spare — запасных мест, из которых берутся поливалки, не закрывающие путь между домами
     truck: { w: 2, h: 1, speedMul: 0.5, minLoop: 16 },                                             // грузовик Города: по замкнутой дорожке (≥ minLoop клеток) со скоростью speedMul × шаг маленького
     bell: { every: 30, warn: 2, ring: 3 },                                                         // звонок Школы: раз в every сек — warn сек до звонка, потом ring сек «Замри!»
     waves: { every: 20, depth: 2, time: 6, slowMul: 0.6, pad: 1 },                                 // волны Пляжа: раз в every сек вода выше на depth клеток на time сек; в воде маленькие — slowMul скорости

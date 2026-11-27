@@ -6,7 +6,7 @@ import { levelSeed, levelTier, levelType, placeHomes } from "./generate.js";
 import { LAYOUTS, hWallTo, vWallTo } from "./layouts.js";
 import { cellIdx } from "../grid.js";
 import { buildGrids } from "../world.js";
-import { placeTrick, makeTrick } from "../tricks/index.js";
+import { fitTrick, placeTrick, makeTrick } from "../tricks/index.js";
 import { G } from "../active.js";
 
 // ---------- Сборка уровня ----------
@@ -62,7 +62,6 @@ function layoutLevel(world, lv, attempt) {
 export function applyWorld(gen) {
   G.obstacles = []; G.bushes = []; G.floors = []; G.decor = []; G.trees = []; G.safeZone = null; G.dangerZone = null;
   G.flowers = gen.flowers;
-  G.trick = makeTrick(gen.trick);                            // SPEC-042: null on the practice maps (they have no gen.trick)
   for (const it of gen.items) {
     const px = it.x * CELL, py = it.y * CELL;
     if (it.t === "wall") G.obstacles.push({ shape: "rect", x: px, y: py, w: it.w * CELL, h: it.h * CELL, move: true, sight: true, kind: it.kind });
@@ -79,6 +78,8 @@ export function applyWorld(gen) {
   }
   G.spawns = { small: gen.small.map(([x, y]) => ({ x: x * CELL, y: y * CELL })), big: { x: gen.big[0] * CELL, y: gen.big[1] * CELL } };
   buildGrids();
+  fitTrick(gen);                                             // SPEC-042: a trick that keeps Dad out keeps the pieces that leave the way between the doors
+  G.trick = makeTrick(gen.trick);                            // null on the practice maps (they have no gen.trick)
 }
 
 export function connectivity() {

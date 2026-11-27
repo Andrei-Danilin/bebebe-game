@@ -7,12 +7,13 @@ import { CFG, COLS, ROWS } from "../config.js";
 //   validate(T, gen) → string[]   extra fairness fails of this trick (index.js already checks house / apron / blocked / path)
 //   init(T)                 a game starts (buildGame): T = G.trick, set T.st (the trick's own state: timers, trails) from T.pieces
 //   step(T, dt)             every fixed step, after the kids moved and before Dad decides: timers, splashes, prints; writes T.fx
+//   fit(trick)              applyWorld, once the layout is on the grids and fitTrick dropped what would shut the way: the pieces that are left get their final fields
 //   bigStep(T, dt) → bool   inside updateBig, once Dad can act: may change his state; true = he spent the step (the bell holds him)
 // Everything a trick keeps is plain data in G.trick (SPEC-012: a game is plain data; the server steps the same). Effects the rest of the
 // core asks for are the fields of T.fx, read by query.js — a trick never edits big.js / vision.js / hearing.js itself.
 /** @typedef {{ shape: "circle", cx: number, cy: number, r: number } | { shape: "rect", x: number, y: number, w: number, h: number }} Area   in cells (cx, cy — a centre in cell coordinates) */
 /** @typedef {{ name: string, pieces: any[], meta?: any }} TrickGen   what the generator puts into gen.trick */
-/** @typedef {{ hide: any[], sight: any[], noDad: Uint8Array | null, slow: any[], slowMul: number, loud: Record<number, number> }} TrickFx   the effect fields (areas in px) */
+/** @typedef {{ hide: any[], sight: any[], noDad: Uint8Array | null, slow: any[], slowMul: number, loud: Record<number, number>, quiet: any[], quietRange: number }} TrickFx   the effect fields (areas in px) */
 /** @typedef {{ name: string, pieces: any[], meta: any, st: any, fx: TrickFx, t: number }} Trick   G.trick */
 
 // the effect fields (query.js reads them; a trick's step rewrites the ones it uses, the rest stay empty — a no-op)
@@ -21,7 +22,8 @@ import { CFG, COLS, ROWS } from "../config.js";
 //   noDad     Uint8Array(COLS*ROWS) or null: cells Dad never enters (a spray, a wave)     (world.js moveSolidBigAt, grid.js bigGrid)
 //   slow      areas (px) where a kid moves at slowMul of its speed (the wave)            (rules.js moveSpeed)
 //   loud      { kidId: multiplier } — the kid is heard from multiplier × HEAR_RADIUS      (hearing.js audible)
-export const newFx = () => ({ hide: [], sight: [], noDad: null, slow: [], slowMul: 1, loud: {} });
+//   quiet     areas (px) where a kid tiptoes while Dad is within quietRange px — bots and the careful autopilot (puddles)  (query.js trickQuiet)
+export const newFx = () => ({ hide: [], sight: [], noDad: null, slow: [], slowMul: 1, loud: {}, quiet: [], quietRange: 0 });
 
 // ---------- areas ----------
 // an area in px — { shape: "circle", x, y, r } or { shape: "rect", x, y, w, h } (the fx fields; pieces are in cells, a trick converts)
@@ -78,9 +80,9 @@ export function occupiedCells(gen) {
 }
 // SPEC-042: the context a trick's place() gets. rng — its own seeded stream (never the layout's: a level looks the same with tricks on or off,
 // and never the game's rng()). free(x, y, w, h, m): the w×h cells and m cells around are inside the map and not occupied; take(x, y, w, h)
-// occupies them (the next piece keeps its distance); spot(w, h, m, ok?) — a random free place or null.
+// occupies them (the next piece keeps its distance); spot(w, h, m, ok?) — a random free place or null; bad(piece) — it touches a house or an apron.
 export function placeCtx(world, gen, lv, type, tier, rng) {
-  const occ = occupiedCells(gen), ri = (a, b) => a + Math.floor(rng() * (b - a + 1));
+  const occ = occupiedCells(gen), { house, apron } = forbiddenCells(gen), ri = (a, b) => a + Math.floor(rng() * (b - a + 1));
   const free = (x, y, w, h, m = 0) => {
     for (let yy = y - m; yy < y + h + m; yy++) for (let xx = x - m; xx < x + w + m; xx++) {
       if (xx < 0 || yy < 0 || xx >= COLS || yy >= ROWS) { if (xx >= x && xx < x + w && yy >= y && yy < y + h) return false; continue; }
@@ -96,7 +98,9 @@ export function placeCtx(world, gen, lv, type, tier, rng) {
     }
     return null;
   };
-  return { world, lv, type, tier, rng, ri, items: gen.items, doors: gen.doors, occ, free, take, spot };
+  // bad(piece): the piece touches a house or a door apron (a piece with a wide footprint — a spray — asks it before it takes a spot)
+  const bad = p => cellsOf(p).some(i => house[i] || apron[i]);
+  return { world, lv, type, tier, rng, ri, items: gen.items, doors: gen.doors, occ, free, take, spot, bad };
 }
 // the default (no-op) hooks of a trick module: a module is `{ name, ...NO_HOOKS, place, … }` and overrides what it needs
 export const NO_HOOKS = Object.freeze({
@@ -104,5 +108,6 @@ export const NO_HOOKS = Object.freeze({
   validate: () => [],
   init: () => {},
   step: () => {},
-  bigStep: () => false
+  bigStep: () => false,
+  fit: () => {}
 });

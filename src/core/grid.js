@@ -75,6 +75,22 @@ export function findPath(sx, sy, gx, gy, extraCost, grid = G.blocked) {   // gri
   return pts;
 }
 
+// клетки ряда k перед дверью (k = 1 — сразу за проёмом)
+export const doorFront = (d, k) => { const c = []; for (let yy = 0; yy < d.h; yy++) for (let xx = 0; xx < d.w; xx++) c.push([d.x + xx + d.dx * k, d.y + yy + d.dy * k]); return c; };
+// SPEC-002 / SPEC-042: путь в клетках по сетке grid (Большого) от его двери до клетки перед дверью маленьких: кратчайшая пара дверей, диагональ = √2;
+// −1 — пути нет. validate.js: правило housePath; tricks/index.js: хитрость не должна закрыть этот путь
+export function housePathLen(doors, grid) {
+  let best = Infinity;
+  for (const bd of doors.big) for (const sd of doors.small) {
+    const s = { x: (bd.x + 0.5) * CELL, y: (bd.y + 0.5) * CELL }, [fx0, fy0] = doorFront(sd, 1)[0];
+    const pts = findPath(s.x, s.y, (fx0 + 0.5) * CELL, (fy0 + 0.5) * CELL, null, grid);
+    if (!pts.length) continue;
+    let L = 0, px = s.x, py = s.y;
+    for (const p of pts) { L += Math.hypot(p.x - px, p.y - py) / CELL; px = p.x; py = p.y; }
+    best = Math.min(best, L);
+  }
+  return isFinite(best) ? Math.round(best * 10) / 10 : -1;
+}
 
 // ---------- Ближайшая свободная клетка и выход ----------
 // Ближайшая свободная клетка (не стена и не дом Большого), поиск в ширину

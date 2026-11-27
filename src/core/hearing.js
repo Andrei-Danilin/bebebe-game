@@ -20,9 +20,10 @@ export const bigListens = () => !bigDeaf();
 // к ближнему) за HEAR_TURN_TIME, потом стоит и смотрит туда HEAR_LOOK сек; HEAR_COOLDOWN сек — снова не слышит.
 // насколько слышно бегущего l: 0 — не слышно; 1 — рядом и видно по прямой; HEAR_WALL — через стену (кулдаун и «не слышит» — не здесь)
 export function audible(l) {
-  if (!isRunning(l) || l.fx.cloak > 0 || inSafe(l)) return 0;
+  const loud = trickHearMul(l);                              // SPEC-042: a puddle's splash is heard from loud × HEAR_RADIUS for a second, running or not
+  if ((!isRunning(l) && !(loud > 1 && l.state === "ok")) || l.fx.cloak > 0 || inSafe(l)) return 0;
   const dx = l.x - G.big.x, dy = l.y - G.big.y;
-  if (Math.hypot(dx, dy) > CFG.HEAR_RADIUS * CELL * trickHearMul(l) || angDiff(G.big.dir, Math.atan2(dy, dx)) < CFG.VISION_HALF) return 0;
+  if (Math.hypot(dx, dy) > CFG.HEAR_RADIUS * CELL * loud || angDiff(G.big.dir, Math.atan2(dy, dx)) < CFG.VISION_HALF) return 0;
   return los(G.big.x, G.big.y, l.x, l.y, seeSolidAt) ? 1 : CFG.HEAR_WALL;
 }
 export function hearNoise(dt) {

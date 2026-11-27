@@ -109,17 +109,27 @@ test("validate.js throws out an attempt whose piece is in a house, in a door apr
   });
 });
 
-test("a trick that keeps Dad out (blocksDad) may not cut the path between the houses' doors", () => {
+test("a trick that keeps Dad out (blocksDad) never cuts the path between the houses' doors: fitTrick drops what would, validateTrick still flags it", () => {
   const wall = { blocksDad: true, ground: "none", place: () => [{ shape: "rect", x: 14, y: 0, w: 2, h: ROWS }] };   // a whole column of cells
   quiet(() => {
     withFake(wall, () => {
       const rep = withGame(newGame({ world: "park", n: 3 }), () => buildLevel("park", 3));
-      assert.ok(rep.rejects.length > 0 && rep.rejects.every(r => r.includes("trick:path")), `rejects: ${rep.rejects[0]}`);
-    });
-    // one small blocking piece somewhere free does not
-    withFake({ blocksDad: true, place: ctx => { const s = ctx.spot(1, 1, 1); return s ? [{ shape: "circle", cx: s.x + 0.5, cy: s.y + 0.5, r: 0.5 }] : []; } }, () => {
-      const rep = withGame(newGame({ world: "park", n: 3 }), () => buildLevel("park", 3));
       assert.equal(rep.fallback, false);
+      const keep = CFG.TRICKS_ON;
+      CFG.TRICKS_ON = 0; clearLevelCache();
+      const off = withGame(newGame({ world: "park", n: 3 }), () => buildLevel("park", 3));
+      CFG.TRICKS_ON = keep; clearLevelCache();
+      assert.equal(rep.attempt, off.attempt, "no attempt lost to the trick");
+      const g = createGame({ world: "park", n: 3, seed: 1, fx: false });
+      assert.equal(g.trick.pieces.length, 0, "the piece that closes the way is dropped");
+      // the validator would still fail a trick that got through (a module whose own pieces are forced in)
+      const fails = withGame(g, () => { const gen = generateLevel("park", 3, g.levelInfo.attempt); gen.trick = { name: "puddles", pieces: wall.place(), meta: {} }; return validateTrick(gen); });
+      assert.ok(fails.includes("trick:path"), fails.join());
+    });
+    // one small blocking piece somewhere free stays
+    withFake({ blocksDad: true, place: ctx => { const s = ctx.spot(1, 1, 1); return s ? [{ shape: "circle", cx: s.x + 0.5, cy: s.y + 0.5, r: 0.5 }] : []; } }, () => {
+      const g = createGame({ world: "park", n: 3, seed: 1, fx: false });
+      assert.equal(g.trick.pieces.length, 1);
     });
   });
 });
@@ -271,5 +281,5 @@ test("no trick in the game: every query answers no effect", () => {
 });
 
 test("validateTrick on a level with no trick is no fails", () => {
-  assert.deepEqual(validateTrick({ items: [], doors: { small: [], big: [] }, trick: null }, null), []);
+  assert.deepEqual(validateTrick({ items: [], doors: { small: [], big: [] }, trick: null }), []);
 });

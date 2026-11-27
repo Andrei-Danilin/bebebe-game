@@ -4,6 +4,7 @@
   [
    ["levels.spec.js"],
    ["storyfit.spec.js"],
+   ["tooling.spec.js"],
    ["tutorial.spec.js"]
   ],
   [
@@ -59,8 +60,6 @@
    ["pwa.spec.js"]
   ],
   [
-   ["assets.spec.js"],
-   ["bosses.spec.js"],
    ["menus.spec.js","a screen change in sim mode leaves the same state as in a rendered page"],
    ["menus.spec.js","home fits a phone in every language, also with wider fonts"],
    ["menus.spec.js","home is minimal: the logo, language and sound, Play · Story · Character"],
@@ -76,6 +75,7 @@
    ["menus.spec.js","the wardrobe tab works and fits on a phone, also with wider fonts"],
    ["menus.spec.js","win, lose and pause lead to the map, the shop and home"],
    ["offline.spec.js"],
+   ["site.spec.js"],
    ["story.spec.js","Dad's mood shows: angry red with steam and a dark cloud, mid orange-pink with less steam, kind pink with hearts"],
    ["story.spec.js","each boss wears his own look on the dad model, a bit bigger"],
    ["story.spec.js","SPEC-033: the win title keeps its room from the line under it — desktop 1280×720"],
@@ -141,7 +141,6 @@
    ["phone.spec.js","tablet portrait","an iPad in portrait plays letterboxed, with no rotate wall"]
   ],
   [
-   ["balance.spec.js"],
    ["economy.spec.js"],
    ["invariants.spec.js"],
    ["modules.spec.js"],
@@ -156,9 +155,11 @@
    ["perf.spec.js","SPEC-040 AC 3: a paused level renders once, settles, and then renders nothing"],
    ["perf.spec.js","SPEC-040 AC 3: no render3D while story, scene, Character pages and the grown-ups page cover the 3D"],
    ["perf.spec.js","SPEC-040 AC 3: the menus render at most LOOK.MENU_FPS (30) frames per second"],
-   ["perf.spec.js","SPEC-040 scan: the busiest level of each world is the one in BUSIEST (PERF_SCAN=1)"]
+   ["perf.spec.js","SPEC-040 scan: the busiest level of each world is the one in BUSIEST (PERF_SCAN=1)"],
+   ["tricks.spec.js"]
   ],
   [
+   ["assets.spec.js"],
    ["phone.spec.js","phone banner 844×390","the phone banner never covers the hero (844×390)"],
    ["phone.spec.js","phone banner 932×430","the phone banner never covers the hero (932×430)"],
    ["phone.spec.js","phone banner too wide","the phone banner switches to the short text, and is skipped when nothing fits"],
@@ -187,10 +188,11 @@
    ["story.spec.js","the first launch shows the start comic once"],
    ["story.spec.js","the first School 20 win shows the ending and the thank-you card"],
    ["story.spec.js","the story texts come from Kostya's story (docs/story.md)"],
-   ["story.spec.js","the win title: Dad is kind again (desktop)"],
-   ["tooling.spec.js"]
+   ["story.spec.js","the win title: Dad is kind again (desktop)"]
   ],
   [
+   ["balance.spec.js"],
+   ["bosses.spec.js"],
    ["grownups.spec.js"],
    ["menus.spec.js","CFG.MENU_LOOK has no key twice"],
    ["menus.spec.js","every price button of Items and Upgrades fits in every language, also with wider fonts (desktop)"],
@@ -202,7 +204,6 @@
    ["menus.spec.js","story, rules and the level card fit a phone, also with wider fonts"],
    ["menus.spec.js","the level card starts the level"],
    ["menus.spec.js","the map fits a phone and swipes between worlds"],
-   ["site.spec.js"],
    ["worlds.spec.js"]
   ]
  ]

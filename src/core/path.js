@@ -3,6 +3,7 @@
 import { CFG, H, W } from "./config.js";
 import { clamp, rand } from "./util.js";
 import { bigGrid, detourCost, findPath, wallOn } from "./grid.js";
+import { trickDadSolid } from "./tricks/query.js";
 import { inCone } from "./vision.js";
 import { inDangerXY, losWide, moveSolidAt, moveSolidBigAt } from "./world.js";
 import { G } from "./active.js";
@@ -69,6 +70,7 @@ export function steerPoint(e, gx, gy, dt, avoidCone, repathIn = () => rand(0.3, 
     while (e.path.length && Math.hypot(e.path[0].x - e.x, e.path[0].y - e.y) < 8) e.path.shift();
     while (e.path.length > 1 && clearTo(e, e.path[1].x, e.path[1].y, avoidCone)) e.path.shift();
     if (e.path.length) { tx = e.path[0].x; ty = e.path[0].y; }
+    else if (e.isBig && trickDadSolid(gx, gy)) { tx = e.x; ty = e.y; }   // SPEC-042: no way to a goal inside a spray / a wave (he is already at its edge): he waits, he does not walk in
   } else e.path = [];
   return { tx, ty };
 }

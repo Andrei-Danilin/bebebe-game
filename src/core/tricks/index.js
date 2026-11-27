@@ -4,6 +4,7 @@
 // query.js, the shape of a trick module and the helpers in kit.js. Core module.
 import { CFG, COLS, ROWS } from "../config.js";
 import { mulberry32 } from "../util.js";
+import { housePathLen } from "../grid.js";
 import { G } from "../active.js";
 import { cellOfPiece, cellsOf, forbiddenCells, newFx, placeCtx } from "./kit.js";
 import { bell } from "./bell.js";
@@ -31,8 +32,8 @@ export function placeTrick(world, gen, lv, type, tier, seed) {
 }
 // the validator's call (validate.js validateLevel, after applyWorld): the fairness fails of the trick's pieces — none in a house or its door apron,
 // inside the map, the centre on free ground (a module with `ground: "none"` — the wave's water — is exempt), and a trick that keeps Dad out
-// (`blocksDad`) leaves a path between the houses' doors (housePath(grid) → cells, −1 if none; the same A* as the housePath rule)
-export function validateTrick(gen, housePath) {
+// (`blocksDad`) leaves a path between the houses' doors (grid.js housePathLen: the same A* as the housePath rule)
+export function validateTrick(gen) {
   const t = gen.trick, fails = [];
   if (!t) return fails;
   const mod = TRICK_MODS[t.name];
@@ -46,14 +47,32 @@ export function validateTrick(gen, housePath) {
     if (mod.ground !== "none" && G.blocked[cy * COLS + cx]) fails.push("trick:blocked");
     cells.push(...cs);
   }
-  if (mod.blocksDad && cells.length && housePath) {
-    const grid = Uint8Array.from(G.blockedBig);
-    for (const i of cells) grid[i] = 1;
-    const base = housePath(G.blockedBig), now = housePath(grid);
-    if (now < 0 || (base >= 0 && now > Math.max(base, CFG.HOUSE_PATH[1]))) fails.push("trick:path");
-  }
+  if (mod.blocksDad && cells.length && !pathKept(gen, cells)) fails.push("trick:path");
   for (const f of mod.validate(t, gen) || []) fails.push(f);
   return [...new Set(fails)];
+}
+// with every cell of `cells` shut for Dad at once, a path between the houses' doors is left and not longer than HOUSE_PATH allows (or than it was)
+function pathKept(gen, cells, base = housePathLen(gen.doors, G.blockedBig)) {
+  const grid = Uint8Array.from(G.blockedBig);
+  for (const i of cells) grid[i] = 1;
+  const now = housePathLen(gen.doors, grid);
+  return now >= 0 && !(base >= 0 && now > Math.max(base, CFG.HOUSE_PATH[1]));
+}
+// applyWorld's call (the layout is on the grids): a trick that keeps Dad out keeps the pieces, in the order the generator drew them, that leave
+// the path between the doors — at most meta.want of them. So a level never loses an attempt (and a kids' map never changes) because of its trick.
+export function fitTrick(gen) {
+  const t = gen.trick, mod = t && TRICK_MODS[t.name];
+  if (!mod) return;
+  if (mod.blocksDad) {
+    const want = t.meta.want ?? t.pieces.length, base = housePathLen(gen.doors, G.blockedBig), kept = [], cells = [];
+    for (const p of t.pieces) {
+      if (kept.length >= want) break;
+      const cs = cellsOf(p);
+      if (pathKept(gen, [...cells, ...cs], base)) { kept.push(p); cells.push(...cs); }
+    }
+    t.pieces = kept;
+  }
+  mod.fit(t);
 }
 // applyWorld's call: the game's trick from the generator's — plain data (null: none, the practice and tutorial maps have no gen.trick)
 export function makeTrick(gt) {

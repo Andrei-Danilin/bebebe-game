@@ -4,11 +4,14 @@ import { angDiff, clamp, dist, rand, turnToward } from "./util.js";
 import { bossPower } from "./mood.js";
 import { cellIdx, freeCellNear, nearestExit } from "./grid.js";
 import { steerTo } from "./path.js";
+import { trickHideSpot, trickQuiet } from "./tricks/query.js";
 import { canSee, inCone } from "./vision.js";
 import { canAct, inDanger, inDangerXY, moveSolidAt } from "./world.js";
 import { G } from "./active.js";
 
 function fleePoint(b) {
+  const spray = trickHideSpot(b, CFG.TRICKS.sprinklers.hideReach * CELL);   // SPEC-042: an active sprinkler's spray hides him like a bush
+  if (spray) return spray;
   if (G.safeZone) {                        // домик рядом — бежим в домик
     const home = { x: G.safeZone.x + G.safeZone.w / 2, y: G.safeZone.y + G.safeZone.h / 2 };
     if (dist(b, home) < 260) return home;
@@ -44,7 +47,8 @@ export function updateBots(dt) {
     b.fleeRe -= dt;
     const seen = G.big.stun <= 0 && G.big.slip <= 0 && G.big.noPush <= 0 && G.big.blush <= 0 && canSee(b);
     const wide = wideDanger(b);                           // SPEC-022: перед самым злым папой, пока он может толкнуть — отойти
-    const speed = CFG.BOT_SPEED * (b.fx.boots > 0 ? CFG.BOOTS_MULT : 1);
+    const quiet = trickQuiet(b);                          // SPEC-042: a puddle near Dad that would give him away — tiptoe across it
+    const speed = CFG.BOT_SPEED * (b.fx.boots > 0 ? CFG.BOOTS_MULT : 1) * (quiet ? CFG.TIPTOE_MULT : 1);
     // SPEC-019: подкрадываясь (ближе HEAR_RADIUS + TIPTOE_NEAR клеток) и выжидая там, где он слышит (HEAR_RADIUS), — на цыпочках;
     // убегают и спасают — бегом
     const db = dist(b, G.big), tiptoe = db <= (CFG.HEAR_RADIUS + CFG.TIPTOE_NEAR) * CELL, lurkTip = db <= CFG.HEAR_RADIUS * CELL;
@@ -86,12 +90,13 @@ export function updateBots(dt) {
           moved = steerTo(b, G.big.x + Math.cos(a) * rr, G.big.y + Math.sin(a) * rr, speed * frac, dt, true);
         } else {
           b.task = "lurk";
-          const g = lurkPoint(back + b.offset * 2.2);
+          const g = lurkSpot(lurkPoint(back + b.offset * 2.2));
           frac = lurkTip ? CFG.TIPTOE_MULT : CFG.BOT_LURK_MULT;
           if (Math.hypot(g.x - b.x, g.y - b.y) > 20) moved = steerTo(b, g.x, g.y, speed * frac, dt, true);
         }
       }
     }
+    if (quiet) frac = Math.min(frac, CFG.TIPTOE_MULT);
     b.moving = moved;
     b.speedFrac = moved ? frac : 0;                       // SPEC-019: доля своей скорости (на цыпочках — TIPTOE_MULT, тихо)
     if (moved) b.dir = turnToward(b.dir, b.moveDir, 10 * dt);
@@ -108,6 +113,8 @@ function wideDanger(p, o = null) {
   const keep = (CFG.WIDE_PUSH_R + CFG.BOT_WIDE_KEEP) * CELL + (o ? o.r * 2 : 0);
   return dist(p, G.big) < keep && angDiff(G.big.dir, Math.atan2(p.y - G.big.y, p.x - G.big.x)) <= CFG.WIDE_PUSH_ARC * Math.PI / 360;
 }
+// SPEC-042: a spray near the lurking place — wait inside it (hidden), else where it was
+function lurkSpot(g) { return trickHideSpot(g, CFG.TRICKS.sprinklers.hideReach * CELL) || g; }
 // Где ждать боту: в 170 px за Большим, но не в его доме; точка в стене или за водой — ближайшая свободная клетка
 function lurkPoint(a0) {
   for (const k of [0, 0.5, -0.5, 1, -1, 1.5, -1.5, 2, -2, 2.5, -2.5, Math.PI]) {

@@ -2,7 +2,7 @@
 import { CELL, CFG, COLS, ROWS } from "../config.js";
 import { applyWorld, connectivity, generateLevel } from "./build.js";
 import { levelKey, levelTier, levelType } from "./generate.js";
-import { cellIdx, findPath } from "../grid.js";
+import { cellIdx, doorFront, housePathLen } from "../grid.js";
 import { validateTrick } from "../tricks/index.js";
 import { buildGrids } from "../world.js";
 import { G } from "../active.js";
@@ -26,8 +26,6 @@ function floodCells(start, grid) {
   return seen;
 }
 const allSeen = (grid, seen) => { for (let i = 0; i < COLS * ROWS; i++) if (!grid[i] && !seen[i]) return false; return true; };
-// клетки ряда k перед дверью (k = 1 — сразу за проёмом)
-const doorFront = (d, k) => { const c = []; for (let yy = 0; yy < d.h; yy++) for (let xx = 0; xx < d.w; xx++) c.push([d.x + xx + d.dx * k, d.y + yy + d.dy * k]); return c; };
 const cellFree = (grid, [x, y]) => x >= 0 && y >= 0 && x < COLS && y < ROWS && !grid[y * COLS + x];
 // Тупики на сетке Большого: узлы — «окна» 2×2 свободных клеток (там он помещается), соседи — сдвиг на клетку.
 // Листья обрезаем по одному: обрезанная цепочка — тупиковый коридор, её длина в клетках = окон + 1.
@@ -54,20 +52,6 @@ function deadEndScan(skip = null) {
     longest = Math.max(longest, len[w] + 1);
   }
   return { count, longest };
-}
-// 3: A* по сетке grid (Большого) от его двери до клетки перед дверью маленьких; кратчайшая пара дверей, диагональ = √2; −1 — пути нет.
-// SPEC-042: и для проверки хитростей мира (tricks/index.js validateTrick) — путь между домами, когда хитрость занимает клетки
-function housePathLen(doors, grid) {
-  let best = Infinity;
-  for (const bd of doors.big) for (const sd of doors.small) {
-    const s = { x: (bd.x + 0.5) * CELL, y: (bd.y + 0.5) * CELL }, [fx0, fy0] = doorFront(sd, 1)[0];
-    const pts = findPath(s.x, s.y, (fx0 + 0.5) * CELL, (fy0 + 0.5) * CELL, null, grid);
-    if (!pts.length) continue;
-    let L = 0, px = s.x, py = s.y;
-    for (const p of pts) { L += Math.hypot(p.x - px, p.y - py) / CELL; px = p.x; py = p.y; }
-    best = Math.min(best, L);
-  }
-  return isFinite(best) ? Math.round(best * 10) / 10 : -1;
 }
 export function validateLevel(gen, type) {
   const N = COLS * ROWS, fails = [];
@@ -103,7 +87,7 @@ export function validateLevel(gen, type) {
   if (type === "maze" ? !(before != null && de.count <= Math.floor(before * CFG.MAZE_DEAD_ENDS)) : de.longest > CFG.DEAD_END_MAX) fails.push("deadEnds");
   if (bushes < CFG.BUSH_MIN[type]) fails.push("bushes");
   if (gen.meta && gen.meta.bad) fails.push("layout:" + gen.meta.bad);
-  fails.push(...validateTrick(gen, grid => housePathLen(doors, grid)));   // SPEC-042: the world's trick: nothing in a house or its door apron, the path between the doors stays
+  fails.push(...validateTrick(gen));   // SPEC-042: the world's trick: nothing in a house or its door apron, the path between the doors stays
   return { ok: fails.length === 0, fails, seen: small.seen, freeRatio, bigReachAll, smallReachAll, housePath, doorClear, deadEnds, bushes };
 }
 // Строит уровень: до LEVEL_ATTEMPTS попыток, пока validateLevel не пройдёт; иначе — запасной вариант (живая изгородь в «карманах»).

@@ -3,6 +3,7 @@ import { CELL, CFG } from "./config.js";
 import { angDiff, dist, normAng } from "./util.js";
 import { bigListens } from "./hearing.js";
 import { steerPoint } from "./path.js";
+import { trickHideSpot, trickQuiet } from "./tricks/query.js";
 import { inCone } from "./vision.js";
 import { canUseKit, gameInv, moveSpeed } from "./rules.js";
 import { canAct, inSafe, los, seeSolidAt } from "./world.js";
@@ -51,6 +52,8 @@ function autoGoalCareful(l) {
     if (dist(l, s) < A.itemReach && (!danger || (dist(s, G.big) > A.pickSafe && !inCone(s.x, s.y))) && (!pick || dist(l, s) < dist(l, pick))) pick = s;
   }
   if (pick) return { x: pick.x, y: pick.y, avoid: true, stop: 0 };
+  // SPEC-042: он смотрит сюда (а он может толкнуть) и рядом брызги поливалки — прячемся в них, как в кусте
+  if (danger && inCone(l.x, l.y)) { const h = trickHideSpot(l, CFG.TRICKS.sprinklers.hideReach * CELL); if (h) return { ...h, avoid: false, stop: CFG.TRICKS.sprinklers.r * CELL / 2 }; }
   // обнимашка: близко и перед ним, а он может толкнуть, — обходим сбоку к спине; иначе к спине, издалека — в обход взгляда
   const d = dist(l, G.big), a = Math.atan2(l.y - G.big.y, l.x - G.big.x), side = normAng(a - G.big.dir);
   if (danger && d < A.orbit && Math.abs(side) < CFG.BEHIND_ANGLE) {
@@ -80,7 +83,7 @@ export function autoDecide(l, inp, dt) {
   if (d < A.minStep) return;
   const sp = moveSpeed(l);
   let m = Math.min(1, d / (sp * dt));                  // не проскочить точку
-  if (G.autoStyle === "careful" && autoTiptoe(l)) m = Math.min(m, CFG.TIPTOE_MULT);   // SPEC-019: рядом сзади/сбоку — на цыпочках
+  if (G.autoStyle === "careful" && (autoTiptoe(l) || trickQuiet(l))) m = Math.min(m, CFG.TIPTOE_MULT);   // SPEC-019: рядом сзади/сбоку — на цыпочках
   G.autoMove[l.id] = { x: dx / d * m, y: dy / d * m };
   // 💋: смотрит на Большого, он близко, видно, и поцелуй сработает
   if (G.autoStyle === "careful" && gameInv().kisses > 0 && l.kissCd <= 0 && !inSafe(l) && G.big.stun <= 0 && G.big.blush <= 0 && G.big.hugCd <= 0 &&
