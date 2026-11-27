@@ -29,6 +29,8 @@ The version is `package.json` `version` (shown on the "For grown-ups" page); how
 - The game now runs in fixed 1/60 s steps, so it plays the same on every screen, a slow phone or a fast tablet (SPEC-034).
 - The texts now talk about Dad and the kids: the How to play rules, the lose title ("Dad is still grumpy…") and the
   wardrobe column ("Grumpy dad") no longer say "the Big One" (SPEC-035).
+- The kids' rule: while a friend is helping a fallen kid up, that kid's "go home" timer stops (a green ring shows it), and
+  it goes on from where it stopped if the friend runs away (SPEC-036).
 
 ## [1.0.0-dev] - what is in the game today
 
