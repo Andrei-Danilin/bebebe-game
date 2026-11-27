@@ -104,9 +104,9 @@ function ranOnce(report, tests) {
 }
 const listOf = (plan, n) => plan.entries[n - 1].map(e => e.join(SEP)).join("\n") + "\n";
 
-// times.json: fold the durations of finished tests of unzipped blob reports (report.jsonl) in; the last measure wins
+// times.json: fold the durations of finished tests of unzipped blob reports (report.jsonl) in; several reports → the median per test
 function foldTimes(files) {
-  const times = loadTimes();
+  const times = loadTimes(), samples = {};   // a test measured in several reports (several CI runs) gets the median
   for (const f of files) {
     const lines = fs.readFileSync(f, "utf8").split("\n").filter(Boolean).map(l => JSON.parse(l)), names = {}, seconds = {};
     const walk = (s, file, titles) => {
@@ -119,8 +119,9 @@ function foldTimes(files) {
       if (e.method === "onProject") for (const s of e.params.project.suites) walk(s, s.title, []);
       if (e.method === "onTestEnd" && e.params.result.status !== "skipped") seconds[e.params.test.testId] = (seconds[e.params.test.testId] || 0) + e.params.result.duration / 1000;
     }
-    for (const [id, s] of Object.entries(seconds)) if (names[id]) times[names[id]] = Math.round(s * 10) / 10;
+    for (const [id, s] of Object.entries(seconds)) if (names[id]) (samples[names[id]] ||= []).push(s);
   }
+  for (const [k, v] of Object.entries(samples)) { v.sort((a, b) => a - b); times[k] = Math.round(((v[(v.length - 1) >> 1] + v[v.length >> 1]) / 2) * 10) / 10; }
   return Object.fromEntries(Object.entries(times).sort(([a], [b]) => a.localeCompare(b)));
 }
 const dump = o => JSON.stringify(o, null, 1) + "\n";
