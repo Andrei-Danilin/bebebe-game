@@ -1,91 +1,171 @@
-# SPEC-013 — Online play: server, private rooms, Little Ones vs the AI Big One (mode A)
+# SPEC-013 — Online play on Cloudflare Durable Objects: private rooms, kids vs the AI Dad (mode A)
 
 Status: ready
 Complexity: L
 Branch: SPEC-013-online-rooms
-Decided by: Andrei and the kids (2026-11-22): kids in different apartments play together, each on their own device (phone, tablet, PC); a server computes the game; it is designed from the start for many players because the game will go to Google Play and the App Store. Andrei accepted Claude's defaults: private rooms by code only, no chat, the room creator chooses mode/place/level. Everything else (protocol, numbers, names, screens, texts): Claude (spec author). The kids may change the "kids may change" rules.
+Decided by:
+- **Andrei and the kids (2026-11-22):** kids in different apartments play together on their own devices; designed for many players; private rooms by code only, no chat; the room creator chooses the world and level.
+- **Andrei (2026-11-26):**
+  - the server runs on **Cloudflare Durable Objects** (one Durable Object per room), replacing the earlier Node + Azure plan;
+  - the first version is the web game as it is, but the design must work for the Android and iPhone apps later;
+  - only the room creator needs the Full game (SPEC-045); friends join free.
+
+Protocol, numbers, names, screens, texts: Claude (spec author). The kids may change the rules marked "kids may change".
 
 ## Description
-A new menu item **Online**. One kid taps "Create room" and gets a short code (e.g. `K7QX2`) and a "Share" link; friends tap "Join" and type the code or open the link. In the lobby everybody sees the five Little One slots (kids and bots), picks an outfit, and the room creator picks the world and the level and taps "Start". They play together against the AI Big One; empty slots are bots. If somebody's internet drops, a bot takes their place and they get it back when they reconnect. After the level everybody returns to the lobby; each kid's coins and stars go into their own save.
+A new menu item **Online**:
+- one kid taps **Create room** and gets a short code (e.g. `K7QX2`);
+- friends tap **Join** and type the code (or open the link a grown-up shares);
+- in the lobby everybody sees the five kid slots (players and bots) and picks a look; the room creator picks the world and level and taps **Start**;
+- they play together against the AI Dad; empty slots are bots;
+- if somebody's internet drops, a bot takes their place until they reconnect;
+- after the level everybody returns to the lobby, and each kid's coins and stars go into their own save.
+
+**Architecture:**
+- a Cloudflare **Worker** (`online/`) routes `/ws?room=CODE` to a **Durable Object `Room`** named by the code;
+- the Room runs the headless core (`src/core/`, SPEC-012) at the fixed step (SPEC-034), keeps the lobby state in its storage, and talks WebSocket to the clients;
+- the lobby uses the **WebSocket Hibernation API**, so idle rooms cost nothing.
 
 ## Goal
-- Up to 5 kids on separate devices in different homes play one level smoothly (own hero moves without delay, others move smoothly).
-- The server computes everything (`src/core/`), many rooms per process; nobody can break a room by leaving.
+- Up to 5 kids on separate devices in different homes play one level smoothly: your own hero moves without delay, the others move smoothly.
+- The server computes everything; nobody can break a room by leaving; many rooms run at once with no server to maintain.
 - Single-player and local two-player games are unchanged and still work offline.
-- Child safety: no chat, no free text from other players, no strangers matched.
+- **Child safety:**
+  - no chat, no free text from others, no strangers matched;
+  - no persistent device identifier (RR-56);
+  - sharing a link only behind the parents' gate (RR-55);
+  - the room creator can lock the room and remove a player (RR-63).
+- **Ready for the apps:** server URL and allowed origins from config, including the Capacitor origins; nothing web-only in the protocol.
 
 ## Context
-- After SPEC-012: `createGame({ world, n, seed, mode, slots })`, `useGame`, `step`, `g.inputs[slot]`, `g.events` (gameplay + `sfx`/`burst`/`pop`/`shake`/`banner`), `result`, `spent`; client `drainEvents()`, `progress.js` applies results through the ledger (SPEC-009).
-- Worlds and levels `(world, n)`; `progress.worlds[w].unlocked`; one player per phone (`PHONE`), joystick + 💋 + 🩹 buttons (SPEC-004/005/007); names typed locally in `bebebe-names` (SPEC-003); outfits in `bebebe-outfits`, paid wardrobe (SPEC-009).
-- Name input overlay pattern (`openNameInput`) exists for typing on phones.
-- Node on Andrei's machine: 24; tests: Playwright (`webServer` = `scripts/serve.js`) and `node --test`.
+- After SPEC-012: `createGame({ world, n, seed, mode, slots })`, `step`, `g.inputs[slot]`, `g.events`, `result`, `spent`; client `drainEvents()`; `progress.js` applies results through the ledger (SPEC-009).
+- After SPEC-034: fixed `STEP` 1/60; after SPEC-045: `entitlement()` and `hasFull()`.
+- Phone controls (joystick, 💋, 🩹, 👣); names typed locally (`bebebe-names`); outfits and the paid wardrobe (SPEC-009/027); the grown-ups page and gate (SPEC-025).
+- Cloudflare:
+  - Workers + Durable Objects (SQLite storage backend, available on the Free plan with daily limits; the Workers Paid plan from $5/month removes them);
+  - WebSocket Hibernation;
+  - `wrangler dev` runs locally with no account (Miniflare).
+- Release-review items for online: RR-55, RR-56, RR-57 (SPEC-014), RR-63.
 
 ## Out of scope
-- Deployment, Azure, CI/CD for the server, load test (SPEC-014) — here the server runs locally (`npm run server`) and in tests.
-- The human Big One (SPEC-015).
-- QR code (needs an encoder library — BACKLOG), emotes, chat, public matchmaking, friends lists, accounts and cloud saves (BACKLOG).
-- App store builds (Capacitor) — later; nothing here may block them (server address from config, relative paths).
+- Deploying to Cloudflare, CI/CD, load test: SPEC-014 (here everything runs locally with `wrangler dev` and in tests).
+- A player as Dad: SPEC-015.
+- QR codes, emotes, chat, public matchmaking, friends lists, accounts, cloud saves.
+- Store purchase checks (SPEC-045's later store spec). Here `entitlement` is trusted, and enforcement is off in the beta.
 
 ## Acceptance criteria
-### Server
-1. `server/` (own `package.json`, `type: module`, Node ≥ 20, one runtime dependency `ws`, pinned) imports `../src/core/` directly. `npm run server` (root script) starts it on `PORT` (default 8787): HTTP `/health` → `{ ok, rooms, players, protocol }`, WebSocket on `/ws`. → `tests/server/health.test.mjs`
-2. **Rooms:** `createRoom` → a room with a code of `CFG.ONLINE.CODE_LEN` (5) characters from `CFG.ONLINE.CODE_ALPHABET` (`ABCDEFGHJKMNPQRSTUVWXYZ23456789`, no 0/O/1/I/L); unique among live rooms. Max `CFG.ONLINE.MAX_LITTLES` (5) humans in mode A. The creator is the **owner**. Join a full or unknown room → `error { code: "roomFull" | "roomNotFound" }`. → `tests/server/rooms.test.mjs`
-3. **Simulation:** each playing room runs `step` at `CFG.ONLINE.TICK_HZ` (30) with a fixed dt and sends `snapshot` at `CFG.ONLINE.SNAP_HZ` (20): `{ tick, ackSeq (per client), littles, big, items, stars, kisses, hud, events }` (events since the last snapshot; `pop` keys, not text). One process holds many rooms; a slow room never blocks others for more than one tick (each tick loop measures and the server logs ticks over 15 ms). → `tests/server/sim.test.mjs` "20 rooms tick at 30 Hz"
-4. **Protocol v1 (JSON):** client → `hello { protocol: 1, clientVersion, deviceId, token? }`, `createRoom`, `joinRoom { code }`, `setLook { look, name }`, `setGear { glove, gloveCharges, kisses, kits, upgrades }`, `setLevel { world, n }` (owner), `start` (owner), `input { seq, mx, my, kiss, kit }`, `leave`, `ping`; server → `welcome { token }`, `updateRequired`, `roomState { code, owner, slots, world, n, phase: "lobby" | "play" | "result" }`, `snapshot`, `result`, `error`, `pong`. Unknown `protocol` → `updateRequired`. Every message ≤ `CFG.ONLINE.MAX_MSG` (2048 bytes) and validated (types, ranges, vector clamped to length 1, unknown fields dropped); more than `CFG.ONLINE.MAX_MSG_RATE` (60) messages per second → the connection is closed. → `tests/server/protocol.test.mjs`
-5. **Leaving and reconnecting:** a dropped or leaving player's slot is taken over by a bot at once (same look and name); with the same `token` within `CFG.ONLINE.REJOIN_TIME` (60 s) the player gets the slot back. The owner leaving passes ownership to the longest-connected player; the game goes on. A room with no humans is deleted after `CFG.ONLINE.EMPTY_ROOM_TTL` (120 s); a room in the lobby with no action for `CFG.ONLINE.IDLE_ROOM_TTL` (900 s) is closed. Joining during play takes a bot's slot. → `tests/server/rooms.test.mjs` "drop, bot takes over, rejoin", "owner migration"
-6. **Safety:** the server checks `Origin` against `CFG.ONLINE.ORIGINS` (the Pages site, localhost; app-store origins added later), allows at most `CFG.ONLINE.ROOMS_PER_IP_MIN` (5) new rooms and `CFG.ONLINE.JOINS_PER_IP_MIN` (20) join attempts per IP per minute, keeps IPs only in memory for these counters, logs no IPs and no names. → `tests/server/protocol.test.mjs` "join attempts are limited"
+### Server (Worker + Durable Object)
+1. **`online/` package:**
+   - own `package.json`, `wrangler.toml` with the `Room` Durable Object binding (SQLite backend) and a migration;
+   - `src/worker.js` (routes), `src/room.js` (the `Room` class), `src/protocol.js` (validation), `src/limits.js`;
+   - it imports `../src/core/` directly and bundles it with wrangler; `src/core` must stay free of DOM and Node-only APIs (guard test).
+   - `npm run online:dev` starts `wrangler dev --local` on port 8787.
+   - Routes: `GET /health` → `{ ok, protocol }`; `GET /ws?room=CODE` (WebSocket upgrade) → the `Room` named `CODE`; `POST /rooms` → a new code.
+2. **Room codes:**
+   - `POST /rooms` picks a random code of `CFG.ONLINE.CODE_LEN` (5) from `CFG.ONLINE.CODE_ALPHABET` (`ABCDEFGHJKMNPQRSTUVWXYZ23456789`), asks that Room to `create` (it refuses if already live), retries up to 5 times, and answers `{ code }`;
+   - joining an unknown or closed code → `error { code: "roomNotFound" }`;
+   - a full room → `roomFull`;
+   - a locked room (AC 9) → `roomLocked`.
+3. **Simulation:**
+   - while a level is playing, the Room keeps one game (`createGame`) and steps it at `STEP` from a timer (the Room is awake only during play);
+   - it sends `snapshot` at `CFG.ONLINE.SNAP_HZ` (20): `{ tick, ackSeq (per client), littles, big, items, stars, kisses, hud, events }` (events since the last snapshot; pop keys, not text);
+   - in the lobby and the result screen there is no timer: the Room hibernates between messages;
+   - a step that takes more than 8 ms is counted (metric).
+4. **Protocol v1 (JSON, ≤ `CFG.ONLINE.MAX_MSG` 2048 bytes, validated: types, ranges, the input vector clamped to length 1, unknown fields dropped):**
+   - client → server: `hello { protocol: 1, clientVersion, platform: "web"|"ios"|"android", entitlement: "free"|"full", token? }`, `setLook`, `setName { adj, animal }`, `setGear { glove, gloveCharges, kisses, kits, upgrades }`, `setLevel { world, n }` (owner), `lock { on }` (owner), `remove { slot }` (owner), `start` (owner), `input { seq, mx, my, kiss, kit, tiptoe }`, `leave`, `ping`;
+   - server → client: `welcome { token, slot }`, `updateRequired`, `roomState { code, owner, slots, world, n, phase: "lobby"|"play"|"result", locked }`, `snapshot`, `result`, `removed`, `error`, `pong`;
+   - an unknown `protocol` → `updateRequired`;
+   - more than `CFG.ONLINE.MAX_MSG_RATE` (60) messages/s → the socket is closed.
+5. **Leaving and reconnecting:**
+   - a dropped or leaving player's slot is taken over by a bot at once (same look and name);
+   - with the same `token` within `CFG.ONLINE.REJOIN_TIME` (60 s) the player gets the slot back;
+   - the owner leaving passes ownership to the longest-connected player;
+   - a room with no humans is closed after `CFG.ONLINE.EMPTY_ROOM_TTL` (120 s, a Durable Object alarm), a lobby with no action after `CFG.ONLINE.IDLE_ROOM_TTL` (900 s);
+   - joining during play takes a bot's slot.
+   - The token is random per session, kept only in the Room's memory and the client's memory, **never stored on the device and never a device identifier** (RR-56).
+6. **Lobby state in storage:** the Room writes `{ code, owner, slots (names, looks), world, n, locked }` to its storage on every lobby change. After a deploy or an eviction, the Room restores the lobby and clients reconnect with their token (AC 13). A level in progress at that moment ends and everybody is back in the lobby (coins earned so far are applied as for leaving a level).
+7. **Hosting needs the Full game:**
+   - `POST /rooms` and `create` accept only clients whose `hello.entitlement` is `full` when `CFG.MONETIZATION.enforce` is true (off in the beta: everybody can host);
+   - joining never needs it;
+   - the host's choice decides the world, so a free guest can play any world in a host's room.
+   - The server trusts `entitlement` for now; a store receipt check is a later spec.
+8. **Safety and privacy:**
+   - the Worker checks `Origin` against `CFG.ONLINE.ORIGINS`: the Pages origin, `http://localhost:*`, and for the apps later `capacitor://localhost` and `https://localhost`;
+   - rate limits per client IP: at most `CFG.ONLINE.ROOMS_PER_IP_MIN` (5) rooms and `CFG.ONLINE.JOINS_PER_IP_MIN` (20) join attempts per minute, counted in memory by a small `Limiter` Durable Object keyed by a salted hash of the IP that rotates daily, with nothing stored;
+   - no IPs, names or tokens in any log (test with a log spy).
+
+### Owner controls (RR-63)
+9. **The owner can:**
+   - **lock** the room: no new joins, existing players can still rejoin with their token;
+   - **remove** a player: their slot becomes a bot, they see "You left the room" and can't rejoin that room with the same token.
+   Both show in the lobby (owner only) and work in four languages.
 
 ### Names, looks, gear, rewards
-7. **Online names are picked, not typed** (Claude's decision, kids may change): a name is `{ adj, animal }` indices into `I18N.onlineAdj` / `I18N.onlineAnimal` (16 each), so every client shows it in its own language ("Fast Penguin" / "Pingüino Rápido" / "Быстрый Пингвин"). The lobby has 🎲 and ◀ ▶ for both parts; the choice is saved in `bebebe-names.online`. Typed local names are never sent. The server accepts only valid indices. → `tests/online.spec.js` "online names are picked and shown in each language"
-8. Looks: each player sends the outfit he has (incl. paid wardrobe items from SPEC-009); gear: his own gloves/charges, kisses, kits and upgrades from his own save. The server **trusts** these values (no accounts yet — BACKLOG "server-side progress") but clamps them to the shop's maximums. Bots wear random outfits as today.
-9. **Level choice:** the owner picks any world and level **he** has unlocked (world cards + level selector, as in the menu). **Rewards** (`result`): every client applies its `perSlot` part through its own ledger and save: coins always; stars and the next level's unlock only if that level is already unlocked in **his** save (Claude's decision). Spent kisses/kits (`spent`) are taken from his own save as they happen. → `tests/online.spec.js` "a guest earns coins but unlocks nothing new"
+10. **Online names are picked, not typed** (Claude, kids may change):
+    - a name is `{ adj, animal }` indices into `I18N.onlineAdj` / `I18N.onlineAnimal` (16 each), so every client shows it in its own language ("Fast Penguin" / "Pingüino Rápido" / "Pinguim Rápido" / "Быстрый Пингвин");
+    - 🎲 and ◀ ▶ for both parts; saved in the save as `online.name`;
+    - typed local names are never sent; the server accepts only valid indices.
+11. **Looks and gear:** each player sends the outfit he has (paid wardrobe items included) and his own gloves, charges, kisses, kits and upgrades. The server trusts them, clamped to the shop maximums.
+12. **Level choice and rewards:**
+    - the owner picks any world and level **he** has open (as in the menu);
+    - every client applies its own part of the `result` through its own ledger and save: coins always; stars and the next level's unlock only if that level is already open in **his** save;
+    - spent kisses and kits are taken from his own save as they happen.
 
 ### Client
-10. **Menu → Online** (desktop and phone layouts, keyboard/gamepad/touch): "Create room", "Join" (code typed in the name-input overlay, upper-cased, alphabet-filtered) and a link `…/?room=CODE` that opens the join directly. **Lobby:** big code, "Share" (Web Share API, else copy to clipboard with a "Copied!" pop), five Little One slots (name, outfit preview, 👑 owner, 🤖 bot, 📶 reconnecting), the owner's world/level picker and "Start", "Leave". Everything in en/es/ru; phone texts not below `PHONE_TEXT` sizes. → `tests/online.spec.js` "create, share, join, start" (3 browser contexts against a local server)
-11. **Smooth play:** the own hero is **predicted** with the core's movement code and reconciled with `ackSeq` (correction eased, never a jump over 1 cell unless the server teleported him, e.g. thrown out of the Big One's house); other characters are drawn `CFG.ONLINE.INTERP_MS` (100) behind with interpolation between snapshots. Pushes, hugs, rescues, items, kisses are only what the server says. `?lag=<ms>` adds artificial latency both ways (debug); a small ping badge in the online HUD. → `tests/online.spec.js` "with 150 ms lag the own hero moves without jumps" (prediction error after reconciliation < 8 logic px, measured over 10 s of walking)
-12. **One device = one player** online (also on PC). The phone camera, mini-map, edge arrows, 💋 and 🩹 buttons work as in single play; in the HUD the team chips show online names.
-13. **Server unreachable** (no internet, server down, `updateRequired`): a clear screen in en/es/ru with "Back to menu"; single play unaffected. Server address: `CFG.ONLINE.SERVERS = { local: "ws://localhost:8787/ws", staging: "", prod: "" }`, chosen by `?server=local|staging|prod|<wss-url>`, default `prod` on Pages and `local` on localhost (SPEC-014 fills the URLs). → `tests/online.spec.js` "server down shows a message"
-14. The service worker never caches `/ws` or the server origin; the offline app shows the "server unreachable" screen for Online.
+13. **Screens:** Menu → **Online** (desktop and phone; keyboard, gamepad, touch):
+    - **Create room**; **Join** with the code typed in the name-input overlay (upper-cased, alphabet-filtered);
+    - the link `…/?room=CODE` opens the join directly;
+    - **Lobby:** the big code; five kid slots (name, look preview, 👑 owner, 🤖 bot, 📶 reconnecting); the owner's world/level picker, Lock and Remove, and Start; Leave.
+    - **Share** (Web Share / copy link) is **behind the parents' gate** (RR-55); the child reads the big code aloud.
+    - Auto-reconnect with backoff (1, 2, 4, 8 s) using the session token; "Reconnecting…" banner.
+    - All texts in en / es / pt / ru; phone texts not below `PHONE_TEXT` sizes.
+14. **Smooth play:**
+    - your own hero is predicted with the core's movement code and reconciled with `ackSeq` (correction eased, never a jump over 1 cell unless the server teleported him);
+    - other characters are drawn `CFG.ONLINE.INTERP_MS` (100) behind, interpolated between snapshots;
+    - pushes, hugs, rescues, items and kisses are only what the server says;
+    - `?lag=<ms>` adds artificial latency (debug); a ping badge in the online HUD.
+15. **One device = one player online** (also on PC). Camera, mini-map, arrows and the phone buttons work as in single play; the team chips show online names.
+16. **Server unreachable** (offline, server down, `updateRequired`): a clear screen with "Back to menu"; single play unaffected.
+    - Server address `CFG.ONLINE.SERVERS = { local: "ws://localhost:8787", staging: "", prod: "" }`, chosen by `?server=local|staging|prod` (debug), default `prod` on the site and in the apps, `local` on localhost (SPEC-014 fills the URLs).
+    - The service worker never caches the online origin.
 
 ### Tests and tools
-15. `playwright.config.js` starts the game server as a second `webServer` (`npm run server`, `PORT` 8787, `/health`). `tests/server/*.test.mjs` run with `node --test` (WebSocket clients from `ws`), added to `npm run test:core` → renamed `npm run test:node`, run in `pages.yml`. A tiny `scripts/fake-clients.js` (N rooms × M clients driven by the SPEC-008 autopilot logic on the client side) is used by the sim test and later by SPEC-014's load test.
+17. **Tests:**
+    - `tests/online/*.test.mjs` with `node --test` against `wrangler dev --local` (or Miniflare's API): codes, protocol validation, limits, drop/bot/rejoin, owner migration, lock/remove, lobby restore after a Room restart, hosting with enforce on;
+    - `tests/online.spec.js` (Playwright, 3 browser contexts): create, join, start, play, result;
+    - "with 150 ms lag the own hero moves without jumps" (prediction error after reconciliation < 8 logic px over 10 s);
+    - "server down shows a message".
+    - `scripts/fake-clients.js` (N rooms × M clients driven by the autopilot) for SPEC-014's load test.
+18. **Docs:**
+    - `docs/architecture.md`: Worker, Room, protocol, prediction;
+    - `docs/game-design.md`: online rules;
+    - `README.md`: how to run online locally;
+    - `docs/reviews/release-readiness.md`: RR-55, RR-56, RR-63 done.
 
-## Implementation steps
-1. Server skeleton, `/health`, rooms, codes, protocol validation, limits — Node tests first (AC 1, 2, 4, 6).
-2. Simulation loop with `createGame` per room, snapshots, events (AC 3); leave/rejoin/owner (AC 5).
-3. Client online module (`src/client/online/`: `net.js` socket + protocol, `predict.js`, `interp.js`, `lobby.js` screens): menu item, create/join/link, lobby (AC 10), names (AC 7), gear/looks (AC 8).
-4. Online play: render from snapshots, prediction/interpolation, lag param, ping (AC 11, 12); level choice and rewards (AC 9).
-5. Errors and offline (AC 13, 14); Playwright multi-context tests; `fake-clients.js` (AC 15).
-6. Docs; whole suite + node tests; reviews (code + architect); merge, push, close.
+## Implementation steps (TDD: failing test first in each)
+1. `online/` skeleton, wrangler config, `/health`, `POST /rooms`, `Room` create/join, protocol validation, limits (node tests).
+2. Simulation in the Room, snapshots, events; leave/rejoin/owner; lobby storage and restore; alarms.
+3. Owner controls; hosting entitlement.
+4. Client online module (`src/client/online/`: `net.js`, `predict.js`, `interp.js`, `lobby.js`): menu, create/join/link, lobby, names, gear and looks, gated Share.
+5. Online play: render from snapshots, prediction, interpolation, lag, ping; level choice and rewards.
+6. Errors and offline; Playwright multi-context tests; `fake-clients.js`.
+7. Docs; reviews; merge.
 
 ## Numbers and texts
-| CFG / I18N key | value | en | es | ru |
+| Key | Value / en | es | pt | ru |
 |---|---|---|---|---|
-| `CFG.ONLINE.CODE_LEN` / `CODE_ALPHABET` | 5 / `ABCDEFGHJKMNPQRSTUVWXYZ23456789` | | | |
-| `CFG.ONLINE.MAX_LITTLES` | 5 | | | |
-| `CFG.ONLINE.TICK_HZ` / `SNAP_HZ` / `INTERP_MS` | 30 / 20 / 100 | | | |
-| `CFG.ONLINE.MAX_MSG` / `MAX_MSG_RATE` | 2048 / 60 | | | |
-| `CFG.ONLINE.REJOIN_TIME` / `EMPTY_ROOM_TTL` / `IDLE_ROOM_TTL` | 60 / 120 / 900 s | | | |
-| `CFG.ONLINE.ROOMS_PER_IP_MIN` / `JOINS_PER_IP_MIN` | 5 / 20 | | | |
-| `online` | | Online | Online | Онлайн |
-| `createRoom` | | Create room | Crear sala | Создать комнату |
-| `joinRoom` | | Join | Unirse | Войти |
-| `roomCode` | | Room code | Código de sala | Код комнаты |
-| `share` | | Share | Compartir | Поделиться |
-| `copied` | | Copied! | ¡Copiado! | Скопировано! |
-| `startOnline` | | Start | Empezar | Старт |
-| `leaveRoom` | | Leave | Salir | Выйти |
-| `waitOwner` | | Waiting for {name} to start… | Esperando que {name} empiece… | Ждём, когда {name} начнёт… |
-| `slotBot` | | Bot | Bot | Бот |
-| `reconnecting` | | Reconnecting… | Reconectando… | Переподключаемся… |
-| `roomNotFound` | | No room with this code | No hay ninguna sala con ese código | Комнаты с таким кодом нет |
-| `roomFull` | | The room is full | La sala está llena | В комнате нет мест |
-| `serverDown` | | Can't reach the game server. Check the internet and try again. | No se puede conectar al servidor. Fijate si tenés internet y probá de nuevo. | Не получается связаться с сервером. Проверь интернет и попробуй ещё раз. |
-| `updateRequired` | | Update the game to play online | Actualizá el juego para jugar online | Обнови игру, чтобы играть онлайн |
-| `onlineAdj` (16) | | Fast, Brave, Sneaky, Happy, Tiny, Jolly, Quiet, Lucky, Smiley, Fluffy, Clever, Bouncy, Sleepy, Funny, Shiny, Nimble | Rápido, Valiente, Sigiloso, Feliz, Chiquito, Alegre, Silencioso, Suertudo, Risueño, Peludo, Astuto, Saltarín, Dormilón, Gracioso, Brillante, Ágil | Быстрый, Смелый, Хитрый, Весёлый, Крошечный, Озорной, Тихий, Везучий, Улыбчивый, Пушистый, Умный, Прыгучий, Сонный, Смешной, Блестящий, Ловкий |
-| `onlineAnimal` (16) | | Penguin, Fox, Bear Cub, Owl, Hedgehog, Bunny, Dolphin, Kitten, Puppy, Raccoon, Hamster, Lion Cub, Duckling, Beaver, Tiger Cub, Parrot | Pingüino, Zorro, Osito, Búho, Erizo, Conejo, Delfín, Gatito, Perrito, Mapache, Hámster, Leoncito, Patito, Castor, Tigrecito, Loro | Пингвин, Лис, Медвежонок, Филин, Ёжик, Кролик, Дельфин, Котёнок, Щенок, Енот, Хомяк, Львёнок, Утёнок, Бобёр, Тигрёнок, Попугай |
-
-Name order per language: en "Adj Animal", es "Animal Adj", ru "Adj Animal". Every animal is masculine in es and ru, so every adjective agrees with every animal (keep it so when the lists change).
-
-## Docs to update
-`game-design.md` (new section "Онлайн": modes, rooms, names, rewards, who decided what), `architecture.md` (server, protocol, room lifecycle, client online modules, prediction/interpolation), `CLAUDE.md` (commands `server`, `test:node`; server tests; hard rule: no chat/free text between players), `README.md` (how to play online, how to run the server locally).
+| `CODE_LEN` / `CODE_ALPHABET` | 5 / `ABCDEFGHJKMNPQRSTUVWXYZ23456789` | | | |
+| `MAX_LITTLES` | 5 | | | |
+| `SNAP_HZ` / `INTERP_MS` | 20 / 100 | | | |
+| `MAX_MSG` / `MAX_MSG_RATE` | 2048 / 60 | | | |
+| `REJOIN_TIME` / `EMPTY_ROOM_TTL` / `IDLE_ROOM_TTL` | 60 / 120 / 900 s | | | |
+| `ROOMS_PER_IP_MIN` / `JOINS_PER_IP_MIN` | 5 / 20 | | | |
+| `online` | Online | Online | Online | Онлайн |
+| `createRoom` | Create room | Crear sala | Criar sala | Создать комнату |
+| `joinRoom` | Join | Unirse | Entrar | Войти |
+| `roomCode` | Room code | Código de sala | Código da sala | Код комнаты |
+| `lockRoom` / `unlockRoom` | Lock room / Unlock room | Cerrar sala / Abrir sala | Trancar sala / Abrir sala | Закрыть комнату / Открыть комнату |
+| `removePlayer` | Remove | Sacar | Tirar | Убрать |
+| `waitOwner` | Waiting for {name} to start… | Esperando que {name} empiece… | Esperando {name} começar… | Ждём, когда {name} начнёт… |
+| `reconnecting` | Reconnecting… | Reconectando… | Reconectando… | Переподключаемся… |
+| `removedFromRoom` | You left the room | Saliste de la sala | Você saiu da sala | Ты вышел из комнаты |

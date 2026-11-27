@@ -5,6 +5,8 @@ Complexity: L
 Branch: SPEC-015-big-one-player
 Decided by: Andrei and the kids (2026-11-22): a mode where only players play and one of them is the Big One. Andrei accepted Claude's proposed rules below (what the Big One sees, push button, how he wins, coins, who is the Big One); **the kids may change any of them** — then the spec changes before the run. The turn-speed limit and all numbers: Claude (spec author).
 
+Update (Andrei, 2026-11-26): the server is Cloudflare Durable Objects (SPEC-013/014 rewritten); mode B runs inside the same `Room`. New strings also in pt. "Breaks a leg" wording is gone since SPEC-033 (the kid falls down); the Big One is called Dad in all texts (SPEC-035). Hosting a mode-B room needs the Full game like mode A (SPEC-045, enforced only after the web beta).
+
 ## Description
 In the online lobby the room owner switches the mode to **"Big One — a player"** and picks who is the Big One (or taps 🎲). That kid controls the Big One: he walks, looks around and pushes with a button. He sees only the Little Ones in his view cone, so hiding in bushes and sneaking behind him still works. He wins if he still has a heart when the round timer runs out; the Little Ones win as always by taking all his hearts. Bots fill the empty Little One slots and mostly rescue, as today.
 
