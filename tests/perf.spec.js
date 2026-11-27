@@ -240,12 +240,21 @@ test("SPEC-040 scan: the busiest level of each world is the one in BUSIEST (PERF
 });
 
 // ---------- AC 3: render3D only when needed (RR-47) ----------
-// ui.renders (= __bb.sim().renders) counts render3D calls; ui.draws the 2D layer's frames. A window of real time per screen.
-async function renderWindow(page, ms = 2000) {
-  return page.evaluate(ms => new Promise(resolve => {
+// ui.renders (= __bb.sim().renders) counts render3D calls; ui.draws the frame loop's ticks (the 2D layer draws on every one). The window is
+// a number of TICKS, not of seconds (a SwiftShader frame is 100–300 ms, a GPU one 17 ms): it ends after `ticks` ticks, or after maxSec when
+// given (the menus' cap is a rate, so there the window must not grow without end on a slow machine). A bound on renders is then the same
+// on every machine: "no render in 8 ticks" cannot be met by a machine that is too slow to tick.
+const TICKS = 8;   // enough: today a render comes with every tick, so 8 ticks show 8 renders; the bounds allow 0 or 1
+async function renderWindow(page, { ticks = TICKS, maxSec = 180 } = {}) {
+  return page.evaluate(([ticks, maxSec]) => new Promise(resolve => {
     const b = window.__bb, a = b.sim(), t0 = performance.now();
-    setTimeout(() => { const s = b.sim(), sec = (performance.now() - t0) / 1000; resolve({ renders: s.renders - a.renders, draws: s.draws - a.draws, sec, perSec: (s.renders - a.renders) / sec, fps: (s.draws - a.draws) / sec }); }, ms);
-  }), ms);
+    const poll = () => {
+      const s = b.sim(), sec = (performance.now() - t0) / 1000, d = s.draws - a.draws;
+      if (d >= ticks || sec >= maxSec) resolve({ renders: s.renders - a.renders, draws: d, sec, perSec: (s.renders - a.renders) / sec, fps: d / sec });
+      else setTimeout(poll, 20);
+    };
+    poll();
+  }), [ticks, maxSec]);
 }
 const settle = async page => { await frames(page); await frames(page); };
 test("SPEC-040 AC 3: no render3D while story, scene, Character pages and the grown-ups page cover the 3D", async ({ page }) => {
@@ -265,11 +274,12 @@ test("SPEC-040 AC 3: no render3D while story, scene, Character pages and the gro
   for (const [name, go] of Object.entries(screens)) {
     await page.evaluate(go); await settle(page);
     const r = await renderWindow(page);
-    out[name] = { renders: r.renders, draws: r.draws, sec: round1(r.sec) };
-    if (r.renders > 0) bad.push(`${name}: ${r.renders} renders in ${round1(r.sec)} s`);
+    out[name] = { renders: r.renders, ticks: r.draws, sec: round1(r.sec) };
+    if (r.renders > 0) bad.push(`${name}: ${r.renders} renders in ${r.draws} ticks`);
+    if (r.draws < TICKS) bad.push(`${name}: the frame loop ticked only ${r.draws} times`);
     await page.evaluate(() => { for (const id of ["grownups", "gate"]) document.getElementById(id)?.remove(); window.__bb.mode = "home"; });
   }
-  record("renders on covered screens (2 s each)", out);
+  record("renders on covered screens (8 ticks each)", out);
   expect(bad, `render3D ran under a full-screen page: ${bad.join("; ")}`).toEqual([]);
   expect(errors).toEqual([]);
 });
@@ -281,8 +291,9 @@ test("SPEC-040 AC 3: a paused level renders at most once", async ({ page }) => {
   await page.evaluate(() => { window.__bb.mode = "pause"; });
   await settle(page);
   const r = await renderWindow(page);
-  record("renders while paused (2 s)", { renders: r.renders, draws: r.draws, sec: round1(r.sec) });
-  expect(r.renders, `${r.renders} renders in ${round1(r.sec)} s while paused`).toBeLessThanOrEqual(1);
+  record("renders while paused (8 ticks)", { renders: r.renders, ticks: r.draws, sec: round1(r.sec) });
+  expect(r.draws, "the frame loop ticked").toBeGreaterThanOrEqual(TICKS);
+  expect(r.renders, `${r.renders} renders in ${r.draws} ticks while paused`).toBeLessThanOrEqual(1);
   expect(errors).toEqual([]);
 });
 test("SPEC-040 AC 3: the menus render at most CFG.MENU_FPS (30) frames per second", async ({ page }) => {
@@ -292,7 +303,7 @@ test("SPEC-040 AC 3: the menus render at most CFG.MENU_FPS (30) frames per secon
   const out = {};
   for (const [name, go] of [["home", () => { window.__bb.mode = "home"; }], ["map", () => { window.__bb.mode = "map"; }]]) {
     await page.evaluate(go); await settle(page);
-    const r = await renderWindow(page, 3000);
+    const r = await renderWindow(page, { ticks: 90, maxSec: 3 });
     out[name] = { renders: r.renders, perSec: round1(r.perSec), frameLoopFps: round1(r.fps) };
   }
   record("menu renders per second", out);
@@ -309,8 +320,8 @@ test.describe("rotate overlay", () => {
     await page.waitForFunction(() => window.__bb.rotateShown === true, null, { timeout: 30_000, polling: 100 });
     await settle(page);
     const r = await renderWindow(page);
-    record("renders under the rotate overlay (2 s)", { renders: r.renders, draws: r.draws, sec: round1(r.sec) });
-    expect(r.renders, `${r.renders} renders in ${round1(r.sec)} s under the rotate overlay`).toBe(0);
+    record("renders under the rotate overlay (8 ticks)", { renders: r.renders, ticks: r.draws, sec: round1(r.sec) });
+    expect(r.renders, `${r.renders} renders in ${r.draws} ticks under the rotate overlay`).toBe(0);
     expect(errors).toEqual([]);
   });
 });
@@ -319,7 +330,7 @@ test.describe("rotate overlay", () => {
 // A page-side recorder: the rAF timestamps of the frames after a level starts (startGame included: the first delta holds the
 // build), the programs / geometries / textures three.js made during them (info counts a geometry when it is first drawn), then
 // the next frames as the level's steady state.
-async function levelFrames(page, world, n, { first = 60, steady = 120 } = {}) {
+async function levelFrames(page, world, n, { first = 60, steady = 60 } = {}) {
   return page.evaluate(([w, lv, s, first, steady]) => new Promise(resolve => {
     const b = window.__bb, ts = [performance.now()];
     b.mode = "map"; b.world = w; b.level = lv; b.seedRandom(s);
@@ -358,7 +369,7 @@ for (const [what, world, n] of [["a new world (Beach 3 after Park)", "beach", 3]
     expect(errors).toEqual([]);
   });
 }
-// phone frame time of the busiest levels (p50 / p95 over frames 61–180 of the level): recorded, not gated (times)
+// phone frame time of the busiest levels (p50 / p95 over frames 61–120 of the level): recorded, not gated (times)
 test("SPEC-040 AC 12: phone frame time p50/p95 of the busiest level of Park, Beach and Winter (recorded)", async ({ page }) => {
   test.skip(!!process.env.CI, "a time, recorded on the machine at hand (PERF_OUT), not on CI");
   test.setTimeout(300_000);
@@ -397,15 +408,14 @@ test("SPEC-040 AC 9: measureText calls per frame on the home and Character scree
   const out = {}, bad = [];
   for (const [name, go] of Object.entries(screens)) {
     await page.evaluate(go); await settle(page); await settle(page);
-    const r = await page.evaluate(ms => new Promise(resolve => {
-      const b = window.__bb, d0 = b.sim().draws, m0 = window.__measureCalls;
-      setTimeout(() => { const d = b.sim().draws - d0; resolve({ frames: d, calls: window.__measureCalls - m0 }); }, ms);
-    }), 2000);
+    const m0 = await page.evaluate(() => window.__measureCalls);   // the window is 10 ticks (renderWindow), whatever the frame rate
+    const w = await renderWindow(page, { ticks: 10 });
+    const r = { frames: w.draws, calls: (await page.evaluate(() => window.__measureCalls)) - m0 };
     const perFrame = r.calls / Math.max(1, r.frames);
     out[name] = { frames: r.frames, calls: r.calls, perFrame: round1(perFrame) };
     if (perFrame > MEASURE_BASELINE[name] / 5) bad.push(`${name}: ${round1(perFrame)} per frame, baseline ${MEASURE_BASELINE[name]} / 5`);
   }
-  record("measureText calls per 2D frame", out);
+  record("measureText calls per 2D tick (10 ticks each)", out);
   expect(bad, `measureText per frame: ${bad.join("; ")}`).toEqual([]);
   expect(errors).toEqual([]);
 });
