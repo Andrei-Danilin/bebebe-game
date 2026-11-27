@@ -40,6 +40,8 @@ The version is `package.json` `version` (shown on the "For grown-ups" page); how
 - Lighter on weak phones and tablets: pictures load per screen (a quarter of the memory at start), the 3D draws far fewer
   pieces and only when it can be seen, a new world starts without a stutter, and the picture quality steps down by itself
   on slow devices (Auto / High / Medium / Low on the grown-ups page) (SPEC-040).
+- A richer Upgrades page (bigger pictures, level pips, the effect now → next, a MAX ribbon), a little map of the level on
+  every level card (with the boss on level 20), and the ninja band and overalls straps now look right (SPEC-041).
 
 ## [1.0.0-dev] - what is in the game today
 

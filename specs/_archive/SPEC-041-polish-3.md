@@ -1,6 +1,6 @@
 # SPEC-041 — Polish 3: richer Upgrades tab, a map preview on every level card, the ninja band and overalls look right
 
-Status: ready
+Status: done (merged by "Merge SPEC-041", see git log)
 Complexity: M
 Branch: SPEC-041-polish-3
 Decided by: Andrei (2026-11-26): do these four items. Layouts, numbers and wording: Claude.
