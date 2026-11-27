@@ -379,6 +379,7 @@ What changed: [`CHANGELOG.md`](CHANGELOG.md). Releases, version numbers and roll
 npm run setup          # once: Playwright + three.js for the tests, Chromium, Claude Code agents
 npm run test:fast      # the @fast set while working (~1.5 min)
 npm run test:core      # the headless core in plain Node (node --test tests/core/): whole games, determinism (seconds; also a CI job)
+npm run test:stall     # the Dad stall guard: every level × careful + reckless, 120 s game time each; Dad must never stand still (~1.5 min; its own CI job)
 npm run bench:core     # how fast the core steps 100 games side by side (ms per game step; not a test)
 npx playwright test tests/gameplay.spec.js   # one test file (-g "<name>" for one test)
 npx playwright test    # all tests (smoke, gameplay rules, levels, phone, i18n, PWA; over http — starts scripts/serve.js itself) — normally on CI, see below
