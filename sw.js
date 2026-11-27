@@ -27,7 +27,7 @@ const NET_TIMEOUT_MS = 4000;             // weak signal: after this long, a cach
 const SW_BUILD = 11;
 const SW_STRATEGY = "0c8e52b02e";
 const SW_VERSION = "bebebe-1.0.0-dev-b11";
-const SRC_HASH = "1b5228330a";
+const SRC_HASH = "47e31e01f6";
 const PRECACHE_LOCAL = [
   "./", "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512-maskable.png",
   "./icons/icon-512.png", "./icons/icon.svg", "./index.html", "./manifest.webmanifest"
@@ -59,14 +59,14 @@ const PRECACHE_SRC = [
   "./src/client/ui/grownups.js?v=9cec820d99", "./src/client/ui/home.js?v=718eac14e4",
   "./src/client/ui/hud.js?v=51d68df897", "./src/client/ui/lang.js?v=568a4dc213",
   "./src/client/ui/layout.js?v=d46dd9e8b5", "./src/client/ui/map.js?v=c59a3fc8da",
-  "./src/client/ui/measure.js?v=6139e09e63", "./src/client/ui/menu.js?v=5cdc85b5f1",
+  "./src/client/ui/measure.js?v=7c174e9035", "./src/client/ui/menu.js?v=5cdc85b5f1",
   "./src/client/ui/minimap.js?v=7d23e70a73", "./src/client/ui/paper.js?v=c25342da07",
-  "./src/client/ui/phone.js?v=9aa24cd1ae", "./src/client/ui/screens.js?v=e9f6b31874",
+  "./src/client/ui/phone.js?v=9aa24cd1ae", "./src/client/ui/screens.js?v=525270d29d",
   "./src/client/ui/story.js?v=5f55a5406a", "./src/client/ui/text.js?v=fe5b98f9e4",
   "./src/client/ui/win.js?v=f1b1933411", "./src/client/update.js?v=e702121a73", "./src/client/warm.js?v=6fe3230596",
   "./src/core/active.js?v=70aa836ebd", "./src/core/autopilot.js?v=67ef4c36b5", "./src/core/big.js?v=7e52188e25",
   "./src/core/bots.js?v=d2e5c69d1b", "./src/core/config.js?v=52eff80504", "./src/core/difficulty.js?v=72aff2bd1e",
-  "./src/core/economy.js?v=e3d6023dec", "./src/core/events.js?v=255648971a", "./src/core/game.js?v=3c72d0aaf1",
+  "./src/core/economy.js?v=e3d6023dec", "./src/core/events.js?v=f2627cc22e", "./src/core/game.js?v=3c72d0aaf1",
   "./src/core/grid.js?v=c2af2f71bf", "./src/core/hearing.js?v=fa15ffe834", "./src/core/hooks.js?v=5ceea54c61",
   "./src/core/index.js?v=dde55b7f59", "./src/core/kindwalk.js?v=42ad90dbc0", "./src/core/level/build.js?v=9e143d5222",
   "./src/core/level/generate.js?v=455b2ff4e4", "./src/core/level/layouts.js?v=07d6472d8e",

@@ -80,3 +80,23 @@ test("AC 10: the event log is a ring: a full log is not spliced at every event",
   if (PENDING) assert.ok(splices > 0, "the bound is already met: set PENDING = false in tests/core/garbage.test.mjs (SPEC-040 step 7 done)");
   else assert.equal(splices, 0, "a ring buffer never splices");
 });
+
+// the cap is read at each push (tests lower it and put it back): a lowered cap keeps the newest, a raised one goes on in time order
+test("the event ring follows a lowered and a raised cap", () => {
+  setProgress(null);
+  const g = createGame({ world: "park", n: 1, seed: 5, fx: false }), max0 = CFG.EVENT_LOG_MAX;
+  try {
+    withGame(g, () => {
+      g.events.length = 0; g.eventsHead = 0;
+      CFG.EVENT_LOG_MAX = 3;
+      for (let k = 0; k < 5; k++) logEvent("e", { k });
+      assert.deepEqual(orderedEvents(g).map(e => e.k), [2, 3, 4]);
+      CFG.EVENT_LOG_MAX = max0;
+      for (let k = 5; k < 8; k++) logEvent("e", { k });
+      assert.deepEqual(g.events.map(e => e.k), [2, 3, 4, 5, 6, 7], "back in time order, nothing lost");
+      CFG.EVENT_LOG_MAX = 4;
+      logEvent("e", { k: 8 });
+      assert.deepEqual(orderedEvents(g).map(e => e.k), [5, 6, 7, 8], "lowered: the newest stay");
+    });
+  } finally { CFG.EVENT_LOG_MAX = max0; }
+});

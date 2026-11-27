@@ -82,7 +82,8 @@ function drawOverlay() {
 export function drawUI(t) {
   ui.draws++;
   ui.buttonsGen = ui.screenSeq;                                       // SPEC-025 AC 7d: this frame's buttons belong to the screen now
-  ui.buttons = []; ui.homeInfo = null; ui.progressInfo = null; ui.mapState = null; ui.cardInfo = null; ui.cardRect = null; ui.storyInfo = null; ui.sceneInfo = null; ui.bonusNote = null; ui.winLine = ""; ui.mmShown = false; ui.edgeArrows.length = 0; ui.hudRects.length = 0;   // SPEC-040 AC 10: these two are emptied, not remade (the __bb getters copy them) ui.downDrawn = []; ui.textOverflows = []; ui.textSizes = {}; ui.bannerRect = null; ui.kitHintRect = null; ui.heardHintRect = null; ui.tutorialHintRect = null; ui.stickMarks = []; ui.shopLayout = null; ui.winPanel = null;
+  // SPEC-040 AC 10: edgeArrows and hudRects are emptied, not remade (the __bb getters copy them)
+  ui.buttons = []; ui.homeInfo = null; ui.progressInfo = null; ui.mapState = null; ui.cardInfo = null; ui.cardRect = null; ui.storyInfo = null; ui.sceneInfo = null; ui.bonusNote = null; ui.winLine = ""; ui.mmShown = false; ui.edgeArrows.length = 0; ui.hudRects.length = 0; ui.downDrawn = []; ui.textOverflows = []; ui.textSizes = {}; ui.bannerRect = null; ui.kitHintRect = null; ui.heardHintRect = null; ui.tutorialHintRect = null; ui.stickMarks = []; ui.shopLayout = null; ui.winPanel = null;
   if (!paperUI()) paperCache.length = 0;                           // SPEC-020: и листы бумажных панелей — вне бумажных экранов
   ctx.setTransform(VIEW, 0, 0, VIEW, 0, 0);
   ctx.clearRect(0, 0, UW, UH);

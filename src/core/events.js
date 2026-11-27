@@ -15,6 +15,7 @@ import { G } from "./active.js";
 export function pushEvent(g, e) {
   const max = CFG.EVENT_LOG_MAX, ev = g.events;
   if (ev.length > max) { const keep = orderedEvents(g).slice(ev.length - max + 1); ev.length = 0; g.eventsHead = 0; ev.push(...keep); }   // the cap was lowered
+  else if (g.eventsHead && ev.length < max) { const all = orderedEvents(g); ev.length = 0; g.eventsHead = 0; ev.push(...all); }   // the cap was raised again: back in time order
   if (ev.length < max) { ev.push(e); return; }
   ev[g.eventsHead] = e;
   g.eventsHead = (g.eventsHead + 1) % max;
