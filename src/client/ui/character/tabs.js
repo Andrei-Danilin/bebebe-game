@@ -3,15 +3,17 @@
 
 import { progress } from "../../../core/economy.js";
 import { L } from "../../../i18n.js";
-import { art, artPick, PAPER_BTN, paperUI, SHOP_TAB_ART } from "../../art.js";
+import { art, artPick, PAPER_BTN, SHOP_TAB_ART } from "../../art.js";
+import { paperUI } from "../paper.js";
 import { backToWardrobe, closeShop, openFriends, setShopTab, SHOP_TABS } from "../../flow.js";
 import { LOOK } from "../../look.js";
 import { ctx, OUT, PHONE } from "../../screen.js";
 import { ui } from "../../state.js";
-import { fitButton } from "./wardrobe.js";
-import { coinIcon, drawArt9, drawArtFit, fillStroke, regButton, rr } from "../draw.js";
-import { cpx, hudFont, label, minPx, noteText, pText, scaledW } from "../text.js";
-import { fitLine } from "../win.js";
+import { fitButton, iconOnlyButton } from "../buttons.js";
+import { coinIcon, fillStroke, regButton, rr } from "../draw.js";
+import { drawArt9, drawArtFit } from "../artdraw.js";
+import { fitLine, label, noteText, pText, scaledW } from "../text.js";
+import { cpx, hudFont, minPx } from "../layout.js";
 
 // компьютер: вкладки «Прогресс» · «Вещи» · «Гардероб» · «Улучшения» (SPEC-017, SPEC-026) от x, y, высота h, в ширину maxW (не влезают —
 // все уже поровну); возвращает правый край
@@ -41,16 +43,6 @@ function iconTab(x, y, w, h, icon, text, full, color, act, size, min, id) {
   if (PHONE) noteText("main", f.sz);
   const b = regButton(x, y, w, h, full, act, id, tw);
   b.size = f.sz;
-  return b;
-}
-// SPEC-027: бумажная кнопка без надписи, только значок-картинка (icon или его запасная) на iconOnly высоты; нет картинок — кнопка с эмодзи
-export function iconOnlyButton(x, y, w, h, icon, emoji, color, act, size, min, id) {
-  const paper = PAPER_BTN[color], pic = artPick(icon);
-  if (paperUI() && pic && paper && drawArt9(paper, x, y, w, h, Math.min(w, h) * LOOK.PAPER.btnCorner)) {
-    drawArtFit(pic, x + w / 2, y + h / 2, Math.min(w, h) * LOOK.PAPER.iconOnly);
-    return regButton(x, y, w, h, emoji, act, id, Math.min(w, h) * LOOK.PAPER.iconOnly);
-  }
-  const b = fitButton(x, y, w, h, emoji, color, act, size, min); b.id = id;
   return b;
 }
 // SPEC-017, телефон: верхняя полоса магазина — вкладки, монетки, средняя кнопка («Друзья» в гардеробе, «◀ Гардероб» на странице

@@ -2,9 +2,8 @@
 import { CELL, CFG, COLS, ROWS } from "../config.js";
 import { applyWorld, connectivity, generateLevel } from "./build.js";
 import { levelKey, levelTier, levelType } from "./generate.js";
-import { cellIdx, findPath } from "../path.js";
+import { cellIdx, findPath } from "../grid.js";
 import { buildGrids } from "../world.js";
-import { newGame, withGame } from "../game.js";
 import { G } from "../active.js";
 
 // ---------- Честность уровня (SPEC-002) ----------
@@ -137,5 +136,3 @@ export function buildLevel(world, lv) {
   const { seen, ok, ...report } = rep;
   return { type, tier: levelTier(world, lv), attempt, attempts: tries, fallback, ...report, rejects, ms: performance.now() - t0 };
 }
-// Отчёт о честности уровня (для тестов): строит уровень на пустой карте своей игры (SPEC-012: newGame) — идущая игра не меняется
-export function levelReport(world, lv) { return withGame(newGame({ world, n: lv }), () => buildLevel(world, lv)); }

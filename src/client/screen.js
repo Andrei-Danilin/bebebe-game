@@ -2,11 +2,7 @@
 // (simMode, sim()). Client module (moved out of index.html in Phase C).
 
 import { H, W } from "../core/config.js";
-import { artLoad } from "./art.js";
-import { closeNameInput, nameInput, placeNameInput } from "./input.js";
 import { LOOK } from "./look.js";
-import { ui } from "./state.js";
-import { rebuild3D } from "./three/characters.js";
 import { renderer } from "./three/setup.js";
 
 // =====================================================================
@@ -14,7 +10,7 @@ import { renderer } from "./three/setup.js";
 // =====================================================================
 export const wrap = document.getElementById("wrap");
 export const canvas = /** @type {HTMLCanvasElement} */ (document.getElementById("game"));
-export let ctx = canvas.getContext("2d");
+export const ctx = canvas.getContext("2d");   // SPEC-039: never swapped (the 3D painters pass their own context, ui/canvas.js)
 export const OUT = "#3d2b1f";        // мультяшный контур
 export let VIEW = 1, CSS_W = W, CSS_H = H, DPR = 1;
 export let UW = W, UH = H;             // логический размер слоя интерфейса (на компьютере = миру; на телефоне — свой, SPEC-005)
@@ -59,6 +55,7 @@ function playArea() {
   return { w: w > 0 ? w : window.innerWidth, h: h > 0 ? h : window.innerHeight };
 }
 
+export let afterFit = null;             // SPEC-039: what fit() does last, given the old CSS width (input.js's initInput sets it: the name input)
 export let onFit = null;               // телефон: 3D-камера подстраивается под форму холста (задаётся в разделе 3D)
 export let fitCount = 0;               // SPEC-038 AC 2: сколько раз fit() переделал холсты (для теста: пачка resize — один раз)
 // SPEC-038 AC 2 (RR-72): пачка resize / orientationchange за кадр — один fit() (он пересоздаёт оба холста). Событие только ставит флаг;
@@ -95,18 +92,13 @@ export function fit() {
   VIEW = canvas.width / UW;
   if (renderer) { renderer.setPixelRatio(DPR); renderer.setSize(CSS_W, CSS_H, true); }
   if (onFit) onFit();
-  if (PHONE && nameInput && CSS_W !== oldCSSW) closeNameInput(true);   // телефон повернули — имя сохраняем, поле закрываем (клавиатура меняет только высоту)
-  placeNameInput();
-}
-// sim(on): включить/выключить режим симуляции; без аргумента — только узнать. Выключили — 3D строится заново.
-export function sim(on) {
-  if (typeof on === "boolean" && on !== simMode) { simMode = on; if (!on) { rebuild3D(); artLoad(); } }
-  return { on: simMode, renders: ui.renders, draws: ui.draws, sounds: ui.sounds };
+  if (afterFit) afterFit(oldCSSW);                           // SPEC-039: devices.js's name input (телефон повернули — имя сохраняем, поле закрываем)
 }
 
 // setters (SPEC-011 AC 5: other modules change this module's state only through them)
 export function setOnFit(v) { onFit = v; }
-export function setCtx(v) { ctx = v; }
+export function setAfterFit(v) { afterFit = v; }
+export function setSimMode(v) { simMode = v; }          // SPEC-039: sim() (debug.js) switches it; it rebuilds the 3D and the art itself
 
 // called once by main.js, in the start order of the one-file game
 export function initScreen() {

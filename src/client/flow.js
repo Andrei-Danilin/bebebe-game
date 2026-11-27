@@ -4,40 +4,39 @@
 
 import { G } from "../core/active.js";
 import { BONUS_WORLDS, BOSSES, CFG, levelsPerWorld, MAIN_WORLDS, worldIndex, WORLDS } from "../core/config.js";
-import { addCoins, progress } from "../core/economy.js";
-import { createGame, logEvent, newInput, teamSize, useGame } from "../core/game.js";
+import { addCoins, progress, worldProgress } from "../core/economy.js";
+import { logEvent } from "../core/events.js";
+import { createGame, newInput, teamSize, useGame } from "../core/game.js";
 import { levelType } from "../core/level/generate.js";
 import { bossFor } from "../core/mood.js";
-import { computeReward, isOpen, worldComplete, worldProgress } from "../core/progress-rules.js";
-import { canUseKit, levelResult, throwKiss, useRescueKit } from "../core/rules.js";
+import { computeReward, isOpen, worldComplete, worldOpen } from "../core/progress-rules.js";
+import { canUseKit, levelResult } from "../core/rules.js";
 import { clamp, newRng, seedRandom as seedStream } from "../core/util.js";
 import { BIG_SKINS } from "../core/wardrobe.js";
 import { L, lang, LANGS } from "../i18n.js";
 import { SCENE_IDS, STORY, TUTORIAL_SCENES } from "../story.js";
 import { STORY_ART } from "./art.js";
-import { closeNameInput, nameInput, sticks } from "./input.js";
+import { closeNameInput, nameInput, sticks } from "./devices.js";
 import { LOOK } from "./look.js";
 import { botOutfit, endTryOn, makeLook, skinSel } from "./outfits.js";
 import { saveProgress, setLang } from "./progress.js";
 import { answerLang } from "./save.js";
 import { PHONE } from "./screen.js";
-import { screenChanged, ui } from "./state.js";
+import { inWardrobe, mode, screenChanged, setModeValue, ui } from "./state.js";
 import { camSnap } from "./three/camera.js";
-import { practiceStep, setPracticeStep, setTutorial, tutorialNext, tutorialPages } from "./tutorial.js";
-import { lockedText } from "./ui/map.js";
+import { practiceStep, setPracticeStep, setTutorial, tutorialPages } from "./tutorial-data.js";
 import { rebuild3D } from "./three/characters.js";
-import { runCore } from "./fx.js";
 
 // SPEC-012 AC 1c: the screen is the client's (the core has only the game's phase, G.phase). mode — one of MODES; lastReward — the
 // reward of the last level paid (payLevel's result: the win screen shows it), null after a new game is built
-export let mode = "home", lastReward = null;
+export let lastReward = null;
 // SPEC-012 AC 1f: a screen change resets the menus' state that belongs to the screen left (drawing changes no state): the shop
 // tab and wardrobe page outside the shop, the map's hint outside the map, the world page's background outside the map and its
 // card, the name input outside the wardrobe
 export function setMode(v) {
   if (v !== "play") for (const inp of Object.values(G.inputs || {})) { inp.kiss = false; inp.kit = false; inp.act = false; }   // a press never fires after the game left play
   if (v !== "play") sticks.clear();                         // SPEC-038: a finger of the level (a lost pointerup too) never steers the next one
-  mode = v;
+  setModeValue(v);
   screenChanged();                                          // SPEC-025 AC 7d
   if (mode !== "shop") { ui.shopTab = "items"; ui.wardrobePage = "looks"; }
   if (mode !== "map") ui.toast = null;   // SPEC-017: подсказка карты — только пока карта на экране
@@ -52,9 +51,6 @@ export const canKitNow = l => mode === "play" && canUseKit(l);
 const press = (pi, k) => { const l = G.littles[pi]; if (mode !== "play" || !l || l.kind !== "player") return; (G.inputs[l.slot] || (G.inputs[l.slot] = newInput()))[k] = true; };
 export const pressKiss = pi => press(pi, "kiss");
 export const pressKit = pi => press(pi, "kit");
-// shims for the tests (__bb.throwKiss / useRescueKit): the rule at once, past the input slot
-export const kissNow = pi => runCore(() => mode === "play" && throwKiss(pi));
-export const kitNow = pi => runCore(() => mode === "play" && useRescueKit(pi));
 // ---------- SPEC-012 AC 6 / 6b / 10: the client applies the game's events ----------
 // the local stock follows the saves (one pool for p1/p2; the shop and the tests change progress between steps), and each player
 // wears his saved glove — before every core call (runCore: a step, the shims), every frame and a re-dress; a practice game keeps
@@ -88,13 +84,13 @@ export function applyGameEvent(e) {
   else if (e.type === "spent") { const k = e.kind === "glove" ? e.glove : INV_KEY[e.kind]; progress.inv[k]--; saveProgress(); }
   else if (e.type === "result" && settledGame === G) setMode("win");   // SPEC-025 AC 14b: paid when the app was hidden — not again
   else if (e.type === "result") { lastReward = payLevel(e); setMode("win"); noteOpenedWorld(lastReward); }
-  else if (e.type === "practiceWin") tutorialNext();
+  // SPEC-039: a practice win goes on with the tutorial in fx.js (drainEvents → tutorialNext): flow.js does not import tutorial.js
 }
 
 // выбор мира в меню (карточка, ↑/↓, крестовина геймпада): запоминается, показывается новый открытый уровень мира.
 // SPEC-016/030: закрытый мир выбрать нельзя (__bb.world — без проверки, для тестов и отчёта баланса)
 export function selectWorld(w) {
-  if (!WORLDS.includes(w) || w === G.world || !isOpen(w)) return;
+  if (!WORLDS.includes(w) || w === G.world || !isOpen(w, progress)) return;
   G.world = w; ui.toast = null; ui.worldBanner = null; screenChanged();   // SPEC-017: подсказка карты была про прошлый мир (SPEC-030: и плашка «открыт»)
   progress.lastWorld = G.world; saveProgress();
   G.level = worldProgress().unlocked;
@@ -103,7 +99,7 @@ export function selectWorld(w) {
 // ↑/↓: следующий открытый мир по сюжету (по кругу), закрытые пропускаются
 export function cycleWorld(d) {
   const n = WORLDS.length;
-  for (let k = 1; k < n; k++) { const w = WORLDS[(worldIndex(G.world) + d * k + n * n) % n]; if (isOpen(w)) { selectWorld(w); return; } }
+  for (let k = 1; k < n; k++) { const w = WORLDS[(worldIndex(G.world) + d * k + n * n) % n]; if (isOpen(w, progress)) { selectWorld(w); return; } }
 }
 // выход из идущего уровня до победы (пауза → Меню, перезапуск или другой уровень): платим только обнимашки.
 // Последнее сердечко уже снято (pendingWin идёт) — это победа: засчитываем её, как если бы досмотрели (правило детей: обнял — победил)
@@ -205,13 +201,9 @@ export function nextLevel() { if (G.level >= levelsPerWorld() || G.level + 1 > w
 // home — главный экран; map — карта уровней (levelCard — карточка уровня поверх неё); story — история; shop — магазин с вкладками
 // SPEC-022: scene — заставка истории (комикс в начале, босс, бонусный мир, конец) поверх меню
 // SPEC-032: lang — the language screen of the very first launch (ui/lang.js)
-export const MODES = Object.freeze(["home", "map", "levelCard", "story", "shop", "play", "pause", "win", "lose", "scene", "lang"]);
-const MENU_MODES = Object.freeze(["home", "map", "levelCard", "story", "shop", "scene", "lang"]);
-export const inMenus = () => MENU_MODES.includes(mode);
 // магазин: вкладка (вне магазина снова «items»), страница гардероба (наряды или имена друзей), куда ведёт «Готово»
 export const SHOP_TABS = Object.freeze(["progress", "items", "wardrobe", "upgrades"]);   // SPEC-026: «Прогресс» персонажа — первая
 let shopBack = "home";
-export const inWardrobe = () => mode === "shop" && ui.shopTab === "wardrobe";
 export function setShopTab(k) { if (!SHOP_TABS.includes(k)) return; closeNameInput(true); screenChanged(); ui.shopTab = k; ui.wardrobePage = "looks"; ui.resetArmed = false; }
 // ←/→ и крестовина: вкладки по кругу
 export const switchShopTab = (d = 1) => setShopTab(SHOP_TABS[(SHOP_TABS.indexOf(ui.shopTab) + d + SHOP_TABS.length) % SHOP_TABS.length]);
@@ -228,7 +220,7 @@ export let mapSel = null, cardLevel = 1;
 function showOpenedWorld() {
   const w = ui.openedWorld;
   ui.openedWorld = null;
-  if (!w || !isOpen(w)) return;
+  if (!w || !isOpen(w, progress)) return;
   selectWorld(w); mapSel = null;
   ui.worldBanner = { world: w, t: LOOK.MENU_LOOK.map.openedTime };
 }
@@ -240,8 +232,8 @@ export function nextStop(w = G.world) {
 }
 // карта открывается на последнем мире (progress.lastWorld); если он пройден целиком — на первом открытом мире с невыигранным уровнем
 function mapStartWorld() {
-  const lw = isOpen(progress.lastWorld) ? progress.lastWorld : WORLDS[0];
-  return worldComplete(lw) ? WORLDS.find(w => isOpen(w) && !worldComplete(w)) ?? lw : lw;
+  const lw = isOpen(progress.lastWorld, progress) ? progress.lastWorld : WORLDS[0];
+  return worldComplete(lw, progress) ? WORLDS.find(w => isOpen(w, progress) && !worldComplete(w, progress)) ?? lw : lw;
 }
 export function openMap() { selectWorld(mapStartWorld()); mapSel = null; setMode("map"); showOpenedWorld(); }
 export const mapSelN = () => (mapSel && mapSel.world === G.world ? mapSel.n : nextStop() || levelsPerWorld());
@@ -259,7 +251,9 @@ export function chooseStop(n) {
   cardLevel = n; setMode("levelCard");
 }
 // вкладка мира: закрытый мир не выбирается — только подсказка (SPEC-030: главный — какой мир пройти)
-export function tapWorldTab(w) { if (isOpen(w)) selectWorld(w); else showToast(lockedText(w)); }
+// подсказка закрытого мира (по worldOpen): нужен главный мир — «Пройди <его>, чтобы открыть <этот>!», иначе — прежняя строка бонусных
+export const lockedText = w => { const o = worldOpen(w, progress); return o.needs ? L().lockedWorld(o.needs, w) : L().lockedBonus; };
+export function tapWorldTab(w) { if (isOpen(w, progress)) selectWorld(w); else showToast(lockedText(w)); }
 export const closeCard = () => { setMode("map"); };
 // «Играть» на карточке: тот же startGame, что и раньше (resetWorld → loadLevel, надпись уровня, камера телефона)
 export function playCard(players) { G.level = cardLevel; withScene(sceneBefore(G.world, G.level), () => startGame(players)); }   // SPEC-022: сначала заставка, если пора
@@ -274,7 +268,7 @@ export function setStoryPage(p) { ui.storyPage = p; screenChanged(); }
 export const storyBackKey = () => { if (ui.storyPage === "rules") setStoryPage("chapters"); else closeStory(); };
 // глава видна: начало — всегда; мир — когда он открыт (SPEC-030: worldOpen); конец — после 20-го уровня Школы
 export function chapterOpen(c) {
-  if (WORLDS.includes(c.id)) return isOpen(c.id);
+  if (WORLDS.includes(c.id)) return isOpen(c.id, progress);
   return c.id === "ended" ? progress.worlds.school.won[levelsPerWorld()] === true : true;
 }
 const storyOf = id => STORY.find(c => c.id === id);
@@ -342,7 +336,7 @@ export function toMap() {
   leaveLevel();
   if (endingDue()) { openScene("ending", toMap); return; }   // SPEC-022: сначала финал истории
   const w = ui.openedWorld;                                     // SPEC-030: победа открыла мир — карта переходит в него (selectWorld строит его уровень)
-  if (!(w && w !== G.world && isOpen(w))) resetWorld(G.players);
+  if (!(w && w !== G.world && isOpen(w, progress))) resetWorld(G.players);
   mapSel = null; setMode("map");                               // кольцо — снова на следующем уровне
   showOpenedWorld();
 }

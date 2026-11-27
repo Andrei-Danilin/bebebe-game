@@ -4,11 +4,12 @@
 
 import { clamp } from "../../core/util.js";
 import { L } from "../../i18n.js";
-import { paperUI } from "../art.js";
+import { paperUI } from "./paper.js";
 import { LOOK } from "../look.js";
-import { CSS_H, CSS_W, ctx, OUT, PHONE, UW } from "../screen.js";
+import { CSS_H, CSS_W, ctx, OUT, PHONE } from "../screen.js";
+import { cpx, hudFont, minPx } from "./layout.js";
 import { ui } from "../state.js";
-import { fillT, strokeT } from "./draw.js";
+import { fillT, strokeT } from "./artdraw.js";
 
 export const fmtHearts = n => (Math.floor(n) || (n % 1 ? "" : "0")) + (n % 1 ? "½" : "");   // 2.5 → «2½», 0.5 → «½»
 export const fmtTime = sec => `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, "0")}`;
@@ -98,9 +99,6 @@ export function labelFit(text, x, y, size, maxW, color, align = "center", min = 
 }
 
 // ---------- Телефон (SPEC-005): размеры в CSS px, крупный HUD ----------
-// CSS px → UI px: на телефоне кнопки и шрифты задаются в CSS px (под палец), рисуем в UI px
-export const cpx = n => n * UW / CSS_W;
-export const minPx = cat => cpx(LOOK.PHONE_TEXT[cat]);   // самый мелкий текст этого вида в UI px
 // SPEC-031: масштаб текста истории (главы, подписи заставок, облачка, заголовок главы) от размера экрана — LOOK.STORY_TEXT_SCALE
 function textScale() {
   if (!PHONE) return 1;
@@ -137,7 +135,6 @@ export function titleRows(text, size, min, maxW, lines) {
     if (fit || sz <= min) return { rows, sz, w: Math.min(maxW, w), fit };
   }
 }
-export const hudFont = sz => `900 ${sz}px system-ui, "Segoe UI", "Arial Rounded MT Bold", Arial, sans-serif`;
 // ---------- 2D — МЕНЮ (SPEC-017; телефон — SPEC-005, слой UI 420 px высотой): тексты и кнопки телефона, рамка экрана меню, дальше —
 // миры, карта уровней и карточка уровня, история, гардероб, вкладки магазина, главный экран, вкладка «Гардероб», итоги, пауза ----------
 // размеры в CSS px; текст не мельче PHONE_TEXT своего вида; сжимается под ширину только до этого минимума
@@ -233,4 +230,13 @@ export function sideFit(text, w, h, gap, share, picW, size, min) {
 // SPEC-031: текст истории не влез в своё место и самым мелким — в textOverflows этого кадра (ширина и высота строк, место)
 export function noteUnfit(text, b, maxW, maxH) {
   if (ui.textOverflows.length < 50) ui.textOverflows.push({ text, w: Math.round(b.w), maxW: Math.round(maxW), h: Math.round(b.rows.length * b.sz * 1.2), maxH: Math.round(maxH) });
+}
+// SPEC-039 (from win.js): a line of text fitted into maxW — measured with LOOK.TEXT_TEST_SCALE, shrunk to min, then cut with «…»
+export function fitLine(text, size, min, maxW) {
+  let sz = size;
+  ctx.font = hudFont(sz);
+  while (scaledW(text) > maxW && sz > min) { sz = Math.max(min, sz - 0.5); ctx.font = hudFont(sz); }
+  let chs = Array.from(text);
+  while (chs.length > 1 && scaledW(text) > maxW) { chs = chs.slice(0, -1); text = chs.join("").trimEnd() + "…"; }
+  return { text, sz, w: scaledW(text) };
 }

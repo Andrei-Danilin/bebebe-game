@@ -4,20 +4,21 @@
 import { BONUS_WORLDS, CFG, WORLDS } from "../../core/config.js";
 import { L, lang } from "../../i18n.js";
 import { RULE_ICONS, STORY, TUTORIAL_SCENES } from "../../story.js";
-import { art, artFile, artImgs, STORY_ART, tape } from "../art.js";
-import { cardLevel, chapterOpen, sceneBack, sceneNext, setStoryPage, scenePages, sceneSkip, storyBack, goBack, storyCh, storyStep, watchChapter } from "../flow.js";
+import { art, artFile, artImgs, STORY_ART } from "../art.js";
+import { tape } from "./paper.js";
+import { cardLevel, chapterOpen, goBack, lockedText, sceneBack, sceneNext, scenePages, sceneSkip, setStoryPage, storyBack, storyCh, storyStep, watchChapter } from "../flow.js";
 import { LOOK } from "../look.js";
 import { ctx, PHONE } from "../screen.js";
 import { ui } from "../state.js";
 import { openPictures, openPractice } from "../tutorial.js";
-import { homeButton } from "./home.js";
 import { openGrownUps } from "./grownups.js";
-import { fitButton, rowsAt } from "./character/wardrobe.js";
-import { circle, drawArtFit, fillStroke, fillT, heartPath, noteArt, regButton, rr } from "./draw.js";
-import { lockedText, WORLD_ICONS } from "./map.js";
+import { fitButton, homeButton, rowsAt } from "./buttons.js";
+import { circle, fillStroke, heartPath, regButton, rr } from "./draw.js";
+import { drawArtFit, fillT, noteArt } from "./artdraw.js";
+import { WORLD_ICONS } from "./map.js";
 import { menuFrame } from "./menu.js";
-import { cpx, hudFont, label, minPx, noteRows, noteText, noteUnfit, plainText, scaledW, sideFit, storyMin, storyPx, titleRows } from "./text.js";
-import { fitLine } from "./win.js";
+import { fitLine, label, noteRows, noteText, noteUnfit, plainText, scaledW, sideFit, storyMin, storyPx, titleRows } from "./text.js";
+import { cpx, hudFont, minPx } from "./layout.js";
 
 // SPEC-032 AC 7: значки правил «Как играть» — картинки по порядку RULE_ICONS (❤ 👀 🤝 ⏱ 🏠 🍌 👣); нет картинки — эмодзи
 const RULE_ART = ["heart_full", "ui_eyes", "shop_quick_help", "ui_timer", "house_kids", "item_banana", "ui_tiptoe"];

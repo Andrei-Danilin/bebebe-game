@@ -8,8 +8,9 @@
 import { CFG } from "../core/config.js";
 import { L } from "../i18n.js";
 import { flushErrorLog, hideCard, showCard } from "./errors.js";
-import { mode, resumeGame, setMode, settleDecidedWin } from "./flow.js";
-import { clearSticks, closeNameInput, nameInput } from "./input.js";
+import { resumeGame, setMode, settleDecidedWin } from "./flow.js";
+import { mode } from "./state.js";
+import { clearSticks, closeNameInput, nameInput } from "./devices.js";
 import { saveProgress } from "./progress.js";
 import { rotateWall } from "./screen.js";
 import { flushSaves } from "./save.js";

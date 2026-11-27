@@ -1,16 +1,18 @@
 // SPEC-011 / SPEC-012: the running game — newGame / createGame and the active game (useGame, withGame, step), buildGame,
 // update, simRun. Core module.
 import { CFG, COLS, FH, FW, ROWS, WORLDS } from "./config.js";
+import { emit } from "./events.js";
 import { hooks } from "./hooks.js";
 import { newRng, rand } from "./util.js";
 import { autoDecide } from "./autopilot.js";
 import { updateBig, updateBigPlayer } from "./big.js";
 import { updateBots } from "./bots.js";
 import { difficulty } from "./difficulty.js";
-import { loadLevel } from "./level/build.js";
-import { bossFor, startKindWalk, updateKindWalk } from "./mood.js";
+import { loadLevel } from "./level/load.js";
+import { startKindWalk, updateKindWalk } from "./kindwalk.js";
+import { bossFor } from "./mood.js";
 import { moveEntity } from "./path.js";
-import { applyTutorialMap, tutorialNote, tutorialSetup, updateTutorial } from "./practice.js";
+import { applyTutorialMap, practiceOf, stockOf, tutorialSetup, updateTutorial } from "./practice.js";
 import { checkContacts, moveSpeed, separate, throwKiss, updateDanger, updateDowned, updateHugAnim, updateItems, updateKisses, updateResting, updateStars, useRescueKit, winNow } from "./rules.js";
 import { canAct } from "./world.js";
 import { G, setActiveGame } from "./active.js";
@@ -79,35 +81,6 @@ export function useGame(g) { setActiveGame(g); return g; }
 export function withGame(g, fn) { const prev = setActiveGame(g); try { return fn(); } finally { setActiveGame(prev); } }
 /** @param {Game} g @param {number} dt */
 export function step(g, dt) { useGame(g); update(dt); }
-// SPEC-012 AC 5: an effect for the client (it plays it as today): sfx { name }, burst { kind, x, y, n, color }, pop { key, args, x,
-// y, color, meaning } (an I18N key and its arguments — key null: args[0] is the text itself, a number or a sign), shake { t },
-// wave { x, y, r } (a wide push ring), hint { kind: "kit" | "kitOff" | "heard" | "practice", slot, step }, mood { level }
-/** @param {string} type @param {object} [data] */
-export function emit(type, data) { if (G.fx) G.fx.push({ type, ...data }); }
-// SPEC-012 AC 6 / 6b / 10: the events the client acts on — coins (a star), spent (a kiss, a kit, a glove charge), result (a level
-// won), practiceWin: logged in the gameplay log like any event, and handed to the client in the effect queue ({ type: "game", e })
-// so it applies each exactly once (the economy, the win screen, the next tutorial step)
-/** @param {string} type @param {object} [data] @returns {GameEvent} */
-export function logEcon(type, data) { const e = logEvent(type, data); if (G.fx) G.fx.push({ type: "game", e }); return e; }
-// SPEC-012 AC 2: a game's stock { shared, kisses, kits, gloves: { mittens, mega } } (local play: one pool for p1/p2)
-/** @type {(s: any) => Stock} */
-export const stockOf = s => ({ shared: s?.shared ?? true, kisses: s?.kisses ?? 0, kits: s?.kits ?? 0, gloves: { mittens: s?.gloves?.mittens ?? 0, mega: s?.gloves?.mega ?? 0 } });
-// SPEC-012 AC 10: the practice option — a step (1, 2) or { step, map, hearts, bots, stock, script } (script: an id — "game1" is the
-// scripted push of practice 1, practice.js) → plain data with today's defaults from CFG.TUTORIAL; nothing → null
-export function practiceOf(p) {
-  if (!p) return null;
-  const o = typeof p === "number" ? { step: p } : p, T = CFG.TUTORIAL, s = o.step;
-  return { step: s, map: o.map ?? "tutorial", hearts: o.hearts ?? T["hearts" + s], bots: o.bots ?? T.bots,
-    stock: stockOf(o.stock ?? (s === 2 ? { kisses: T.kisses, kits: T.kits } : null)), script: o.script ?? (s === 1 ? "game1" : null) };
-}
-/** @param {string} type @param {object} [data] @returns {GameEvent} */
-export function logEvent(type, data) {
-  const e = { t: G.stats.time, type, ...data };
-  G.events.push(e);
-  if (G.events.length > CFG.EVENT_LOG_MAX) G.events.splice(0, G.events.length - CFG.EVENT_LOG_MAX);
-  if (G.tutorialGame === 2) tutorialNote(e);                 // SPEC-029: подсказки тренировки 2
-  return e;
-}
 // маленький i из слота s: look — вид от клиента (игра его только носит), upgrades — уровни улучшений игрока (у ботов нет);
 // name, glove, gloveCharges, kisses, kits — данные слота (игра их носит; тратится пока progress, SPEC-012 AC 6b)
 function makeLittle(i, s, botIndex) {

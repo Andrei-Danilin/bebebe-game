@@ -8,7 +8,7 @@ import { saveProgress, writeOutfits } from "./progress.js";
 import { SFX } from "./sound.js";
 import { screenChanged } from "./state.js";
 import { G } from "../core/active.js";
-import { redress } from "./flow.js";
+import { ports } from "./ports.js";
 
 export const P_COLORS = ["#3b82f6", "#22c55e"];        // цвет меток игрока 1 и 2
 export function makeLook(o) {
@@ -82,7 +82,7 @@ export function cycleOutfit(pk, slot, d) {
   const n = SLOTS[slot].length;
   skinSel[pk][slot] = (skinSel[pk][slot] + d + n) % n;
   if (ownsItem(slot, skinSel[pk][slot])) skinKeep[pk][slot] = skinSel[pk][slot];   // своё — сразу запоминается; чужое — только примерка
-  setBuyArmed(null); updateTryOn(); saveSkins(); redress();
+  setBuyArmed(null); updateTryOn(); saveSkins(); ports.redress();
 }
 // случайный вид — только из своего
 export function randomOutfit(pk) {
@@ -90,12 +90,12 @@ export function randomOutfit(pk) {
     const mine = SLOTS[k].map((_, i) => i).filter(i => ownsItem(k, i));
     skinSel[pk][k] = skinKeep[pk][k] = mine[Math.floor(vrand() * mine.length)];
   }
-  setBuyArmed(null); updateTryOn(); saveSkins(); redress();
+  setBuyArmed(null); updateTryOn(); saveSkins(); ports.redress();
 }
 export function cycleBig(d) {
   skinSel.big = (skinSel.big + d + BIG_SKINS.length) % BIG_SKINS.length;
   if (ownsItem("big", skinSel.big)) skinKeep.big = skinSel.big;
-  setBuyArmed(null); updateTryOn(); saveSkins(); redress();
+  setBuyArmed(null); updateTryOn(); saveSkins(); ports.redress();
 }
 // кнопка «Купить N» колонки: не хватает монеток — звук «нет»; первое нажатие только спрашивает, второе покупает всё примеренное
 export function buyLook(key) {
@@ -122,7 +122,7 @@ export function fitOutfitsToOwned() {
   skinSel = cloneSkins(skinKeep); setBuyArmed(null); tryingOn = false; saveSkins();
 }
 // для тестов: стартовые виды, ничего не примерено
-export function resetOutfits() { skinSel = cloneSkins(DEFAULT_SKINS); skinKeep = cloneSkins(DEFAULT_SKINS); setBuyArmed(null); tryingOn = false; saveSkins(); redress(); }
+export function resetOutfits() { skinSel = cloneSkins(DEFAULT_SKINS); skinKeep = cloneSkins(DEFAULT_SKINS); setBuyArmed(null); tryingOn = false; saveSkins(); ports.redress(); }
 
 export const botOutfit = i => ({ hair: (i * 3 + G.level) % HAIRS.length, hat: (i * 5 + G.level * 2 + 1) % HATS.length, jacket: (i * 3 + 2 + G.level) % JACKETS.length, pants: (i * 2 + G.level) % PANTS.length });
 // SPEC-009: надетое в bebebe-outfits становится своим — только для сохранений без owned (до SPEC-009 всё было бесплатно), один раз

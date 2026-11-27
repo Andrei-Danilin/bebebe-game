@@ -1,10 +1,10 @@
 // SPEC-011: the bots — rescue, flee, sneak up one at a time, wait nearby. Core module.
 import { CELL, CFG, COLS, H, W } from "./config.js";
 import { angDiff, clamp, dist, rand, turnToward } from "./util.js";
-import { canSee } from "./big.js";
 import { bossPower } from "./mood.js";
-import { cellIdx, inCone, steerTo } from "./path.js";
-import { freeCellNear } from "./rules.js";
+import { cellIdx, freeCellNear, nearestExit } from "./grid.js";
+import { steerTo } from "./path.js";
+import { canSee, inCone } from "./vision.js";
 import { canAct, inDanger, inDangerXY, moveSolidAt } from "./world.js";
 import { G } from "./active.js";
 
@@ -120,13 +120,5 @@ function freePointNear(p) {
   const i = cellIdx(p.x, p.y);
   if (!G.blocked[i] && G.reachable[i] && !moveSolidAt(p.x, p.y)) return p;
   const c = freeCellNear(i);
-  return { x: (c % COLS + 0.5) * CELL, y: (((c / COLS) | 0) + 0.5) * CELL };
-}
-// Ближайшая точка за дверью дома Большого
-export function nearestExit(p) {
-  let best = null, bd = Infinity;
-  for (const e of (G.dangerZone ? G.dangerZone.exits : [])) { const d = dist(p, e); if (d < bd) { bd = d; best = e; } }
-  if (best) return best;
-  const c = freeCellNear(cellIdx(p.x, p.y));             // дверей не знаем — ближайшая свободная клетка снаружи
   return { x: (c % COLS + 0.5) * CELL, y: (((c / COLS) | 0) + 0.5) * CELL };
 }

@@ -6,14 +6,16 @@
 import { G } from "../core/active.js";
 import { CFG, TAU } from "../core/config.js";
 import { update } from "../core/game.js";
+import { throwKiss, useRescueKit } from "../core/rules.js";
 import { frameSteps, noGameRng, vrand } from "../core/util.js";
 import { L } from "../i18n.js";
 import { fillInputs } from "./input.js";
 import { LOOK } from "./look.js";
 import { simMode } from "./screen.js";
 import { SFX } from "./sound.js";
-import { ui } from "./state.js";
-import { applyGameEvent, mode, syncStock } from "./flow.js";
+import { tutorialNext } from "./tutorial.js";
+import { mode, ui } from "./state.js";
+import { applyGameEvent, syncStock } from "./flow.js";
 
 // ---------- Эффекты клиента ----------
 // meaning — что случилось (SPEC-020: "bang" | "hug" | "mega" | "kiss" | "out"): под надписью рисуется свой взрыв (POP_ART), необязательно
@@ -75,7 +77,7 @@ export function drainEvents() {
   const list = g.fx;
   g.fx = [];
   for (const e of list) {
-    if (e.type === "game") applyGameEvent(e.e);             // SPEC-012 AC 6 / 10: coins, spent, result, practiceWin
+    if (e.type === "game") { if (e.e.type === "practiceWin") tutorialNext(); else applyGameEvent(e.e); }   // SPEC-012 AC 6 / 10: coins, spent, result; a practice win goes on with the tutorial (SPEC-039: here, not in flow.js)
     else noGameRng("fx", () => playEvent(e));
   }
 }
@@ -89,6 +91,9 @@ export function runCore(fn, afterCore = null) {
   drainEvents();
   return r;
 }
+// shims for the tests (__bb.throwKiss / useRescueKit): the rule at once, past the input slot
+export const kissNow = pi => runCore(() => mode === "play" && throwKiss(pi));
+export const kitNow = pi => runCore(() => mode === "play" && useRescueKit(pi));
 // one core step of the local game: the banner timer, the step, the hints' timers (they age before the new ones arrive), the step's
 // effects, the hearts while hugging. No device reading and no view timers: runFrame and stepGame add them
 function coreStep(dt) {

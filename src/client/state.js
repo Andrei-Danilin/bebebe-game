@@ -104,3 +104,14 @@ export const ui = {
 };
 // SPEC-025 AC 7d: the screen changed — the button list drawn before is stale until the next frame draws it again
 export function screenChanged() { ui.screenSeq++; }
+
+// SPEC-012 AC 1c / SPEC-039 (from flow.js): the screen — one of MODES (the core has only the game's phase, G.phase). Held here, below
+// the 3D and the 2D layers, so both read it without importing flow.js; flow.js's setMode is the one writer (setModeValue).
+// home — главный экран; map — карта уровней (levelCard — карточка уровня поверх неё); story — история; shop — магазин с вкладками;
+// SPEC-022: scene — заставка истории (комикс в начале, босс, бонусный мир, конец) поверх меню; SPEC-032: lang — the language screen
+export let mode = "home";
+export function setModeValue(v) { mode = v; return mode; }
+export const MODES = Object.freeze(["home", "map", "levelCard", "story", "shop", "play", "pause", "win", "lose", "scene", "lang"]);
+const MENU_MODES = Object.freeze(["home", "map", "levelCard", "story", "shop", "scene", "lang"]);
+export const inMenus = () => MENU_MODES.includes(mode);
+export const inWardrobe = () => mode === "shop" && ui.shopTab === "wardrobe";

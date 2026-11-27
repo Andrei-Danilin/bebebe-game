@@ -257,3 +257,6 @@ export const LOOK = {
   PERF_LOOK: { frames: 300, overlayMs: 500 },   // SPEC-025 AC 15b: __bb.perf() — кадров в окне; ?perf=1 — обновление панели (мс)
   TEXT_TEST_SCALE: 1,        // только для тестов: ширина текста надписи уровня и карточек магазина на телефоне × это (шрифты CI и iPhone шире)
 };
+// SPEC-021 / SPEC-039 (from ui/draw.js): the radius of a Little One's head in model units (before the head scale): the 3D model and the
+// name tag above it both read it, so it sits here, below both
+export const KID_HEAD_R = 0.27;

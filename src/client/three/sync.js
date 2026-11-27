@@ -4,17 +4,18 @@
 import * as THREE from "three";
 import { CFG } from "../../core/config.js";
 import { bigMood } from "../../core/mood.js";
-import { bigCalm, visionPoly } from "../../core/path.js";
+import { bigCalm, visionPoly } from "../../core/vision.js";
 import { vrand } from "../../core/util.js";
-import { inMenus, inWardrobe, mode } from "../flow.js";
 import { LOOK } from "../look.js";
 import { CSS_H, CSS_W, PHONE } from "../screen.js";
-import { ui } from "../state.js";
+import { inMenus, inWardrobe, mode, ui } from "../state.js";
 import { cam, camDist } from "./camera.js";
 import { bossScale, modelOf, setBigFace, setCloak } from "./characters.js";
 import { fadeRoofs } from "./houses.js";
-import { bigHomeMats, fadeBushes, fadeTrees, safeGlow, snow, waves } from "./map3d.js";
+import { bigHomeMats, fadeBushes, fadeTrees, safeGlow, snow } from "./map3d.js";
+import { waves } from "./mapstate.js";
 import { disposeTree, ownMat, part, sphere, syncPaper, toon } from "./materials.js";
+import { itemGroup, itemMeshes, kissGroup, kissMeshes, starGroup, starMeshes } from "./pools.js";
 import { progressTab, renderPreviews } from "./previews.js";
 import { BIG_SCALE, camBase, camera, LITTLE_SCALE, P, renderer, scene } from "./setup.js";
 import { G } from "../../core/active.js";
@@ -43,9 +44,6 @@ const backMesh = new THREE.Mesh(new THREE.CircleGeometry(P(22 + 20), 20, -(Math.
 
 const backPivot = new THREE.Group();
 // ---------- Предметы в 3D ----------
-let itemGroup = new THREE.Group();
-const itemMeshes = new Map();
-export function clearItemMeshes() { scene.remove(itemGroup); disposeTree(itemGroup); itemGroup = new THREE.Group(); scene.add(itemGroup); itemMeshes.clear(); }
 function makeItemMesh(kind) {
   const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
   if (kind === "boots") {
@@ -90,9 +88,6 @@ function syncItems(t) {
 }
 
 // ---------- Бонусные звёздочки в 3D: золотая пятиконечная, крутится и подпрыгивает ----------
-let starGroup = new THREE.Group();
-const starMeshes = new Map();
-export function clearStarMeshes() { scene.remove(starGroup); disposeTree(starGroup); starGroup = new THREE.Group(); scene.add(starGroup); starMeshes.clear(); }
 function makeStarMesh() {
   const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
   const sh = new THREE.Shape();
@@ -129,9 +124,6 @@ function syncStars(t) {
 
 // ---------- Воздушные поцелуи в 3D: розовое сердечко на высоте груди и искристый хвостик ----------
 const KISS_Y = 0.8;                       // высота полёта (грудь маленького)
-let kissGroup = new THREE.Group();
-const kissMeshes = new Map();
-export function clearKissMeshes() { scene.remove(kissGroup); disposeTree(kissGroup); kissGroup = new THREE.Group(); scene.add(kissGroup); kissMeshes.clear(); }
 function makeKissMesh() {
   const g = new THREE.Group();
   const sh = new THREE.Shape();                          // сердечко

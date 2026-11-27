@@ -14,13 +14,14 @@ import { upgLevel } from "../../shop.js";
 import { ui } from "../../state.js";
 import { SHOP_PICTURES, shopPicture } from "./items.js";
 import { upgPicture } from "./upgrades.js";
-import { rowsAt } from "./wardrobe.js";
-import { drawArtFit, drawStarArt, fillStroke, fillT, rr } from "../draw.js";
+import { rowsAt } from "../buttons.js";
+import { drawStarArt, fillStroke, rr } from "../draw.js";
+import { drawArtFit, fillT } from "../artdraw.js";
 import { mainStars, worldsFinished } from "../home.js";
-import { lockedText } from "../map.js";
-import { menuFrame, phoneFrame, worldPicture, worldStarsOf } from "../menu.js";
-import { cpx, minPx, noteRows, noteText, plainText } from "../text.js";
-import { fitLine } from "../win.js";
+import { lockedText } from "../../flow.js";
+import { worldPicture, worldStarsOf } from "../menu.js";
+import { fitLine, noteRows, noteText, plainText } from "../text.js";
+import { minPx, progressGeom } from "../layout.js";
 
 // ---------- SPEC-026: персонаж — страница «Прогресс» (только смотреть; раскладка — Claude): вид и имя игрока 1, звёзды и пройденные
 // миры, по строке на мир (значок, звёзды, уровни, «Пройдено» или замок), рюкзак, улучшения, гардероб ----------
@@ -32,17 +33,6 @@ export function clothesCount() {
 }
 // уровни мира: пройдено (won) из levelsPerWorld()
 const worldWins = w => Array.from({ length: levelsPerWorld() }, (_, i) => i + 1).filter(n => progress.worlds[w].won[n] === true).length;
-// раскладка: три колонки под вкладками (компьютер — до ряда «Готово»): слева вид и имя игрока 1, посередине
-// звёзды и миры, справа рюкзак, улучшения, гардероб; preview — окошко 3D-вида (его же берёт skinPanels для рендера)
-export function progressGeom() {
-  const L0 = LOOK.MENU_LOOK.progress, P = PHONE ? L0.phone : L0, c = PHONE ? cpx : (n => n);
-  let x0, x1, y0, y1, B;
-  if (PHONE) { const f = phoneFrame(false); x0 = f.X0; x1 = f.X1; y0 = f.Y0 + f.B + f.g; y1 = f.Y1; B = f.B; }
-  else { const f = menuFrame(undefined, false); x0 = f.X0; x1 = f.X1; y0 = L0.top; y1 = L0.bottom; B = f.B; }
-  const g = c(P.gap), lw = c(P.left), rest = x1 - x0 - lw - 2 * g, mw = rest * P.mid, h = y1 - y0, pv = Math.min(lw, c(P.pv));
-  return { P, c, g, B, left: { x: x0, y: y0, w: lw, h }, mid: { x: x0 + lw + g, y: y0, w: mw, h }, right: { x: x0 + lw + 2 * g + mw, y: y0, w: rest - mw, h },
-    preview: { x: x0 + (lw - pv) / 2, y: y0, w: pv, h: pv } };
-}
 export function progressPage() {
   const G = progressGeom(), { P, c, left, mid, right, preview: pv } = G, M = LOOK.MENU_LOOK;
   const min = PHONE ? minPx("main") : LOOK.MENU_LOOK.progress.min, size = c(P.text), tsize = c(P.title);
@@ -66,10 +56,10 @@ export function progressPage() {
   line("progress:name", name, left.x, pv.y + pv.h + c(4), c(P.nameH), left.w, { center: true, color: P_COLORS[0] });
   // ---- посередине: звёзды основных миров и пройденные миры, по строке на мир ----
   const starMax = CFG.STARS_PER_LEVEL * levelsPerWorld() * MAIN_WORLDS.length, wmax = CFG.STARS_PER_LEVEL * levelsPerWorld();
-  const lockedAny = BONUS_WORLDS.some(w => !isOpen(w));
+  const lockedAny = BONUS_WORLDS.some(w => !isOpen(w, progress));
   const note = lockedAny ? noteRows(L().lockedBonus, PHONE ? minPx("hint") : c(14), PHONE ? minPx("hint") : 12, mid.w, 3) : null;   // SPEC-030: до трёх строк, как строка ниже
   // SPEC-030: следующий закрытый главный мир — «Пройди <предыдущий>, чтобы открыть <этот>!» под строками миров (над строкой бонусных)
-  const nextLocked = MAIN_WORLDS.find(w => worldOpen(w).needs);
+  const nextLocked = MAIN_WORLDS.find(w => worldOpen(w, progress).needs);
   const mainNote = nextLocked ? noteRows(lockedText(nextLocked), PHONE ? minPx("hint") : c(14), PHONE ? minPx("hint") : 12, mid.w, 3) : null;   // до трёх строк (шрифты CI шире)
   const noteH = [note, mainNote].reduce((a, n) => a + (n ? n.rows.length * n.sz * 1.2 + c(4) : 0), 0);
   const sumH = c(P.sumH);
@@ -84,7 +74,7 @@ export function progressPage() {
   y += sumH;
   const iconW = rowH, stampW = rowH, nameW = PHONE ? 0 : (mid.w - iconW - stampW) * LOOK.MENU_LOOK.progress.name, colW = (mid.w - iconW - stampW - nameW) / 2;
   const worlds = WORLDS.map(w => {
-    const open = isOpen(w), stars = worldStarsOf(w), wins = worldWins(w), done = wins >= levelsPerWorld();
+    const open = isOpen(w, progress), stars = worldStarsOf(w), wins = worldWins(w), done = wins >= levelsPerWorld();
     const rowY = y, cy = y + rowH / 2, is = rowH * 0.86;
     if (!open) ctx.globalAlpha = 0.45;
     if (!drawArtFit(worldArt(w), mid.x + iconW / 2, cy, is * 1.1)) worldPicture(w, mid.x + iconW / 2 - is / 2, cy - is / 2, is);
@@ -112,7 +102,7 @@ export function progressPage() {
       ui.hudRects.push({ id: "progress:lock:" + w, x: px - ps / 2, y: cy - ps / 2, w: ps, h: ps });
     }
     y += rowH;
-    return { world: w, open, stars, max: wmax, levels: wins, done, reason: worldOpen(w).reason };
+    return { world: w, open, stars, max: wmax, levels: wins, done, reason: worldOpen(w, progress).reason };
   });
   if (mainNote) {
     y += rowsAt("progress:lockText", mainNote, mid.x + mid.w / 2, y + c(4), M.lockedInk) + c(4);

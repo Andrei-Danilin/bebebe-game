@@ -5,23 +5,23 @@ import * as THREE from "three";
 import { CELL, COLS, H, ROWS, TAU, W, WORLD_SEED } from "../../core/config.js";
 import { mulberry32, vrand } from "../../core/util.js";
 import { LOOK } from "../look.js";
-import { ctx, setCtx } from "../screen.js";
 import { dressHouses, houseRoofs, setHouseInfo } from "./houses.js";
+import { mapGroup, setMapGroup, waves } from "./mapstate.js";
 import { disposeTree, gradTex, groundCanvas, groundTex, ownMat, part, toon, toonH, wobbleSeed } from "./materials.js";
 import { P, scene, WALL_H } from "./setup.js";
 import { adBoards, HEDGE_COLORS, makeBushFor, makeCottage, makeFountain, makePondFor, makeRockFor, makeStreetThing, makeTreeFor, makeWaterFor, mazeDeco, paintPitch, paintStreets, riverBanks, tag, THEMES } from "./themes.js";
-import { circle, fillStroke, rr } from "../ui/draw.js";
+import { circleOn, fillStrokeOn, rrOn } from "../ui/canvas.js";
 import { G } from "../../core/active.js";
 
-export let mapGroup = null, builtKey = "";
+export let builtKey = "";
 export const mapKey = () => { const li = G.levelInfo || {}; return [li.world, li.lv, li.type === "tutorial" ? "tutorial" : "", li.attempt, li.fallback].join(":"); };   // какой уровень построен в 3D (SPEC-029: карта тренировок — свой ключ)
-export const fadeTrees = [], fadeBushes = [], waves = [];
+export const fadeTrees = [], fadeBushes = [];
 export let safeGlow = null, snow = null;
 export const bigHomeMats = [];   // материалы стен дома Большого — мигают красным при обратном отсчёте
 
 // SPEC-021: штрихи фломастера по земле — диагональные, своя случайность с зерна уровня (не игровая rng()). Штрихи собраны в
 // несколько путей (цвет × прозрачность): несколько stroke() на всю землю, а не тысячи. rect — где рисовать (по умолчанию вся земля)
-function markerStrokes(rnd, colors, rect = null) {
+function markerStrokes(ctx, rnd, colors, rect = null) {
   const GL = LOOK.GROUND_LOOK, a = GL.angle * Math.PI / 180, dx = Math.cos(a), dy = -Math.sin(a), nx = -dy, ny = dx;
   const x0 = rect ? rect.x : 0, y0 = rect ? rect.y : 0, x1 = rect ? rect.x + rect.w : W, y1 = rect ? rect.y + rect.h : H;
   const corners = [[x0, y0], [x1, y0], [x0, y1], [x1, y1]], ns = corners.map(([x, y]) => x * nx + y * ny), ts = corners.map(([x, y]) => x * dx + y * dy);
@@ -44,7 +44,7 @@ function markerStrokes(rnd, colors, rect = null) {
 }
 // SPEC-021: мелкие рисунки по земле своего мира (одним путём на вид): травинки, крапинки асфальта, точки песка, синие тени на
 // снегу, меловые каракули. Цвета — THEMES[place].marker / doodle
-function groundDoodles(place, th, rnd, streets) {
+function groundDoodles(ctx, place, th, rnd, streets) {
   const GL = LOOK.GROUND_LOOK, D = GL.doodle, [dark, light] = th.marker, path = new Path2D(), dots = (n, r, c, a, rect = null) => {
     const q = new Path2D();
     for (let i = 0; i < n; i++) {
@@ -84,25 +84,24 @@ function groundDoodles(place, th, rnd, streets) {
   ctx.restore();
 }
 function paintGround(place) {
-  const th = THEMES[place], saved = ctx, rnd = mulberry32(LOOK.GROUND_LOOK.seed + WORLD_SEED[place] * 101 + G.level * 7);   // SPEC-021: своя случайность
-  setCtx(groundCanvas.getContext("2d"));
+  const th = THEMES[place], ctx = groundCanvas.getContext("2d"), rnd = mulberry32(LOOK.GROUND_LOOK.seed + WORLD_SEED[place] * 101 + G.level * 7);   // SPEC-021: своя случайность
   ctx.setTransform(2, 0, 0, 2, 0, 0);
   ctx.fillStyle = th.g1; ctx.fillRect(0, 0, W, H);
   ctx.fillStyle = th.g2;
-  if (place === "field") paintPitch(th, () => markerStrokes(rnd, th.marker));   // SPEC-016: полосы травы и разметка (SPEC-021: штрихи под мелом)
+  if (place === "field") paintPitch(ctx, th, () => markerStrokes(ctx, rnd, th.marker));   // SPEC-016: полосы травы и разметка (SPEC-021: штрихи под мелом)
   else {
     for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) if ((x + y) % 2 === 0) ctx.fillRect(x * CELL, y * CELL, CELL, CELL);
-    markerStrokes(rnd, th.marker);                       // SPEC-021: штрихи фломастера поверх клеток
+    markerStrokes(ctx, rnd, th.marker);                    // SPEC-021: штрихи фломастера поверх клеток
   }
-  const streets = place === "city" ? paintStreets(th) : [];   // SPEC-016: улицы, разметка, зебры
-  groundDoodles(place, th, rnd, streets);                // SPEC-021: травинки, крапинки, точки, тени на снегу, мел
+  const streets = place === "city" ? paintStreets(ctx, th) : [];   // SPEC-016: улицы, разметка, зебры
+  groundDoodles(ctx, place, th, rnd, streets);                // SPEC-021: травинки, крапинки, точки, тени на снегу, мел
   if (place === "field") { /* без цветочков: газон */ }
   else if (place === "city") { /* улицы уже нарисованы */ }
   else if (place === "school") {                              // разметка на асфальте и классики
     ctx.strokeStyle = "rgba(255,255,255,.85)"; ctx.lineWidth = 4;
     ctx.strokeRect(9 * CELL, 6 * CELL, 9 * CELL, 8 * CELL);
     ctx.beginPath(); ctx.moveTo(13.5 * CELL, 6 * CELL); ctx.lineTo(13.5 * CELL, 14 * CELL); ctx.stroke();
-    circle(13.5 * CELL, 10 * CELL, 1.4 * CELL); ctx.stroke();
+    circleOn(ctx, 13.5 * CELL, 10 * CELL, 1.4 * CELL); ctx.stroke();
     for (let k = 0; k < 6; k++) {
       const x = 8 * CELL + k * 26, y = 17.2 * CELL;
       ctx.fillStyle = k % 2 ? "#fde68a" : "#fca5a5"; ctx.fillRect(x, y, 24, 24);
@@ -116,11 +115,11 @@ function paintGround(place) {
         if (i % 3 === 0) { ctx.beginPath(); for (let k = 0; k < 10; k++) { const a = k * Math.PI / 5 - Math.PI / 2, r = k % 2 ? 2.2 : 5; ctx.lineTo(f.x + Math.cos(a) * r, f.y + Math.sin(a) * r); } ctx.fill(); }
         else { ctx.beginPath(); ctx.arc(f.x, f.y, 3.5, Math.PI, 0); ctx.fill(); }
       } else if (place === "winter") {
-        ctx.fillStyle = c; circle(f.x, f.y, 1.8); ctx.fill();
+        ctx.fillStyle = c; circleOn(ctx, f.x, f.y, 1.8); ctx.fill();
       } else {
         ctx.fillStyle = c;
-        for (let k = 0; k < 4; k++) { circle(f.x + Math.cos(k * TAU / 4) * 2.5, f.y + Math.sin(k * TAU / 4) * 2.5, 2); ctx.fill(); }
-        ctx.fillStyle = "#f59e0b"; circle(f.x, f.y, 1.6); ctx.fill();
+        for (let k = 0; k < 4; k++) { circleOn(ctx, f.x + Math.cos(k * TAU / 4) * 2.5, f.y + Math.sin(k * TAU / 4) * 2.5, 2); ctx.fill(); }
+        ctx.fillStyle = "#f59e0b"; circleOn(ctx, f.x, f.y, 1.6); ctx.fill();
       }
     });
   }
@@ -147,7 +146,7 @@ function paintGround(place) {
       const [base, stone] = th.square;
       ctx.fillStyle = base; ctx.fillRect(f.x, f.y, f.w, f.h);
       ctx.fillStyle = stone;
-      for (let y = f.y + 6; y < f.y + f.h; y += 12) for (let x = f.x + 6 + ((y - f.y) / 12 % 2) * 6; x < f.x + f.w; x += 12) { circle(x, y, 4); ctx.fill(); }
+      for (let y = f.y + 6; y < f.y + f.h; y += 12) for (let x = f.x + 6 + ((y - f.y) / 12 % 2) * 6; x < f.x + f.w; x += 12) { circleOn(ctx, x, y, 4); ctx.fill(); }
       continue;
     }
     if (f.kind === "tile") {
@@ -163,23 +162,22 @@ function paintGround(place) {
   }
   for (const d of G.decor) {
     if (d.kind === "bed") {
-      rr(d.x + 4, d.y + 3, d.w - 8, d.h - 6, 6); fillStroke(d.c, 2.5);
-      rr(d.x + 7, d.y + 5, d.w - 14, 9, 4); fillStroke("#fff", 2);
+      rrOn(ctx, d.x + 4, d.y + 3, d.w - 8, d.h - 6, 6); fillStrokeOn(ctx, d.c, 2.5);
+      rrOn(ctx, d.x + 7, d.y + 5, d.w - 14, 9, 4); fillStrokeOn(ctx, "#fff", 2);
     } else if (d.kind === "bigbed") {
-      rr(d.x + 4, d.y + 4, d.w - 8, d.h - 8, 8); fillStroke("#7f1d1d", 3);
-      rr(d.x + 8, d.y + 8, d.w - 16, 14, 5); fillStroke("#fff", 2);
+      rrOn(ctx, d.x + 4, d.y + 4, d.w - 8, d.h - 8, 8); fillStrokeOn(ctx, "#7f1d1d", 3);
+      rrOn(ctx, d.x + 8, d.y + 8, d.w - 16, 14, 5); fillStrokeOn(ctx, "#fff", 2);
       ctx.fillStyle = "#fde68a";
       ctx.fillRect(d.x + d.w / 2 - 4, d.y + 26, 8, 26); ctx.fillRect(d.x + d.w / 2 - 13, d.y + 35, 26, 8);
     }
   }
-  setCtx(saved);
   groundTex.needsUpdate = true;
 }
 
 export function buildMap3D() {
   const place = (G.levelInfo && G.levelInfo.world) || G.world, th = THEMES[place];   // место — мир построенного уровня
   if (mapGroup) { scene.remove(mapGroup); disposeTree(mapGroup); }
-  mapGroup = new THREE.Group(); scene.add(mapGroup);
+  setMapGroup(new THREE.Group()); scene.add(mapGroup);
   fadeTrees.length = 0; fadeBushes.length = 0; waves.length = 0; snow = null; bigHomeMats.length = 0; houseRoofs.length = 0; setHouseInfo(null);
   builtKey = mapKey();
   wobbleSeed(0);                         // SPEC-021: одна и та же карта — те же неровные контуры

@@ -1,10 +1,10 @@
-// SPEC-011: building a level into the map (the level cache keeps the accepted attempt). Core module.
+// SPEC-011: building a level into the map — the generator's attempt, applyWorld, connectivity. SPEC-039: the cache and loadLevel moved to
+// load.js (they need validate.js, which needs this file). Core module.
 import { CELL, CFG, COLS, H, ROWS, W } from "../config.js";
 import { mulberry32, noGameRng } from "../util.js";
-import { levelKey, levelSeed, levelTier, levelType, placeHomes } from "./generate.js";
+import { levelSeed, levelTier, levelType, placeHomes } from "./generate.js";
 import { LAYOUTS, hWallTo, vWallTo } from "./layouts.js";
-import { buildLevel, validateLevel } from "./validate.js";
-import { cellIdx } from "../path.js";
+import { cellIdx } from "../grid.js";
 import { buildGrids } from "../world.js";
 import { G } from "../active.js";
 
@@ -94,25 +94,4 @@ export function connectivity() {
   let ok = true;
   for (let i = 0; i < N; i++) if (!G.blocked[i] && !seen[i]) { ok = false; break; }
   return { ok, seen };
-}
-
-// Уровень для игры строится тем же циклом попыток, что проверяет levelReport (validateLevel, запасной вариант)
-// G.levelInfo = { world, lv, type, attempt, fallback, cached, ms } — какой уровень сейчас построен (SPEC-012: в игре)
-// уровень ("мир:n") → принятая попытка: перезапуск и стрелки в меню строят её сразу, без перебора попыток.
-// Если она вдруг не проходит проверку (поменяли CFG) — запись удаляется и уровень строится заново с попытки 0,
-// как в levelReport.
-const levelCache = new Map();
-export const clearLevelCache = () => levelCache.clear();
-export function loadLevel(world, lv) {
-  const t0 = performance.now(), type = levelType(world, lv), key = levelKey(world, lv), c = levelCache.get(key);
-  if (c !== undefined && c < CFG.LEVEL_ATTEMPTS) {
-    const gen = generateLevel(world, lv, c);
-    applyWorld(gen);
-    const rep = validateLevel(gen, type);
-    if (rep.ok) { G.reachable = rep.seen; G.levelInfo = { world, lv, type, attempt: c, fallback: false, cached: true, ms: performance.now() - t0 }; return; }
-  }
-  levelCache.delete(key);
-  const r = buildLevel(world, lv);
-  if (!r.fallback) levelCache.set(key, r.attempt);
-  G.levelInfo = { world, lv, type: r.type, attempt: r.attempt, fallback: r.fallback, cached: false, ms: r.ms };
 }

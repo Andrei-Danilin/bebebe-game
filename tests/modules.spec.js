@@ -369,7 +369,7 @@ const CORE_MODULE_STATE = {
   "src/core/util.js:rngOff": "the gameplay-rng guard: the name of the code that must not draw it (test switch, AC 1)",
   "src/core/util.js:strictRng": "the strict rng guard of the tests (AC 1)",
   "src/core/hooks.js:hookImpl": "the hooks the client registered (AC 1: the hooks)",
-  "src/core/level/build.js:levelCache": "the accepted attempt per level key: pure per key, shared by all games (AC 1)",
+  "src/core/level/load.js:levelCache": "the accepted attempt per level key: pure per key, shared by all games (AC 1)",
   "src/core/economy.js:progress": "the player's economy (AC 1b: session economy data)",
   "src/core/economy.js:ledger": "the session coin book: survives startGame, the shop writes it (AC 1b)",
   // constant tables: data the game reads and never writes (CFG and the price tables are tuned by tests through __bb.CFG / __bb.*)
@@ -753,4 +753,43 @@ test("no script or test reads game code from index.html", { tag: "@fast" }, () =
   // the numbers, the art names and the menus' look come from src/ (AC 8c)
   expect(readRoot("scripts/docs-numbers.js")).toContain("\"src\", \"core\", \"config.js\"");
   expect(readRoot("scripts/assets.js")).toContain("\"src\", \"client\", \"art-names.js\"");
+});
+
+// SPEC-039 AC 5 / 6: no import cycles. The core had a 13-module cycle through game.js (emit, logEvent, newGame came from the hub
+// that imports every rule) and the client a 39-module one (a screen module imports flow.js, flow.js imports the screens). A cycle
+// makes the evaluation order matter and every module in it unusable alone; now the graph of static imports (`import … from`,
+// `export … from`, relative paths only) of src/core + the shared data, and of src/client, are acyclic (Tarjan's components).
+function importCycles(prefix) {
+  const files = allSrc(), deps = {};
+  for (const f of files) {
+    const text = readRoot(f).replace(/\/\*[\s\S]*?\*\//g, "");
+    deps[f] = [...text.matchAll(/^\s*(?:import|export)\b[^;]*?\bfrom\s*["'](\.[^"']+)["']/gm)].map(m => path.posix.normalize(path.posix.join(path.posix.dirname(f), m[1])));
+    for (const d of deps[f]) expect(files.includes(d), `${f} imports ${d}, which exists`).toBe(true);
+  }
+  let idx = 0;
+  const stack = [], on = new Set(), I = {}, low = {}, cycles = [];
+  const visit = v => {
+    I[v] = low[v] = idx++; stack.push(v); on.add(v);
+    for (const w of deps[v]) {
+      if (!(w in I)) { visit(w); low[v] = Math.min(low[v], low[w]); } else if (on.has(w)) low[v] = Math.min(low[v], I[w]);
+    }
+    if (low[v] === I[v]) {
+      const comp = [];
+      let w;
+      do { w = stack.pop(); on.delete(w); comp.push(w); } while (w !== v);
+      if (comp.length > 1 || deps[v].includes(v)) cycles.push(comp.sort());
+    }
+  };
+  files.forEach(f => { if (!(f in I)) visit(f); });
+  return { cycles: cycles.filter(c => c.some(f => f.startsWith(prefix))), modules: files.filter(f => f.startsWith(prefix)).length };
+}
+test("the core's import graph has no cycle", { tag: "@fast" }, () => {
+  const { cycles, modules } = importCycles("src/core/");
+  expect(modules, "the scan sees the core").toBeGreaterThan(15);
+  expect(cycles, "modules that import each other round (a cycle)").toEqual([]);
+});
+test("the client's import graph has no cycle", { tag: "@fast" }, () => {
+  const { cycles, modules } = importCycles("src/client/");
+  expect(modules, "the scan sees the client").toBeGreaterThan(45);
+  expect(cycles, "modules that import each other round (a cycle)").toEqual([]);
 });

@@ -1,32 +1,25 @@
 // SPEC-011: the phone mini-map and the edge arrows (SPEC-005, SPEC-010). Client module (moved out of index.html in Phase C).
 
 import { H, TAU, W } from "../../core/config.js";
-import { bigCalm } from "../../core/path.js";
+import { bigCalm } from "../../core/vision.js";
 import { clamp } from "../../core/util.js";
 import { LOOK } from "../look.js";
 import { P_COLORS } from "../outfits.js";
-import { ctx, PHONE, UH, UW, VIEW } from "../screen.js";
-import { ui } from "../state.js";
+import { ctx, UH, UW, VIEW } from "../screen.js";
+import { mode, ui } from "../state.js";
 import { camHero, camRect, toScreen } from "../three/camera.js";
 import { coneBuf } from "../three/sync.js";
 import { THEMES } from "../three/themes.js";
 import { circle, drawHeart, fillStroke, rr } from "./draw.js";
-import { phoneOccluders } from "./phone.js";
-import { cpx, label } from "./text.js";
+import { label } from "./text.js";
+import { cpx, minimapRect, phoneOccluders, showMinimap } from "./layout.js";
 import { G } from "../../core/active.js";
-import { mode } from "../flow.js";
 
 // ---------- Мини-карта и стрелки у края (SPEC-005, только телефон) ----------
 // mmState — один объект на все кадры; маркеры — переиспользуемые объекты (mmCount штук нарисовано в этом кадре)
 export let mmBase = null, mmKey = "", mmDraws = 0;
 export const mmState = { x: 0, y: 0, w: 0, h: 0, alpha: 1, markers: [] };
 export let mmCount = 0;
-export const showMinimap = () => PHONE && (mode === "play" || mode === "pause");
-// правый верхний угол, ширина MINIMAP_W от ширины интерфейса, 3:2 (как карта 30×20)
-export function minimapRect() {
-  const m = LOOK.MINIMAP_MARGIN, w = Math.round(UW * LOOK.MINIMAP_W), h = w * 2 / 3;
-  return { x: UW - m - w, y: m, w, h };
-}
 // смесь двух цветов "#rrggbb" (f = доля второго)
 function mixHex(a, b, f) {
   if (!/^#[0-9a-f]{6}$/i.test(a) || !/^#[0-9a-f]{6}$/i.test(b)) return a;

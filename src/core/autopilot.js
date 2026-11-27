@@ -2,7 +2,8 @@
 import { CELL, CFG } from "./config.js";
 import { angDiff, dist, normAng } from "./util.js";
 import { bigListens } from "./hearing.js";
-import { inCone, steerPoint } from "./path.js";
+import { steerPoint } from "./path.js";
+import { inCone } from "./vision.js";
 import { canUseKit, gameInv, moveSpeed } from "./rules.js";
 import { canAct, inSafe, los, seeSolidAt } from "./world.js";
 import { G } from "./active.js";

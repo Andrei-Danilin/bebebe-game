@@ -6,7 +6,8 @@
 // "copy" button (initPerf). Client module.
 
 import { G } from "../core/active.js";
-import { artImgs, paperCache } from "./art.js";
+import { artImgs } from "./art.js";
+import { paperCache } from "./ui/paper.js";
 import { LOOK } from "./look.js";
 import { canvas, DPR } from "./screen.js";
 import { ui } from "./state.js";

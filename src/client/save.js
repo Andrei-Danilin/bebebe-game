@@ -18,12 +18,11 @@
 
 import { G } from "../core/active.js";
 import { CFG, levelsPerWorld, WORLDS } from "../core/config.js";
-import { progress, setProgress } from "../core/economy.js";
-import { badProgressFields, loadProgress, worldProgress } from "../core/progress-rules.js";
+import { progress, setProgress, worldProgress } from "../core/economy.js";
+import { badProgressFields, loadProgress } from "../core/progress-rules.js";
 import { BIG_SKINS, HATS, JACKETS, PANTS, SLOTS } from "../core/wardrobe.js";
 import { detectLang, HTML_LANG, lang, LANGS, setCurrentLang } from "../i18n.js";
 import { SEEN_IDS } from "../story.js";
-import { adoptErrorLog } from "./errors.js";
 import { namesFrom, noNames, setNamesTyped, typedNames } from "./names.js";
 import { adoptWorn, cloneSkins, fitOutfitsToOwned, loadOutfits, outfitsFromIds, outfitsToIds, setSkinKeep, setSkinSel, skinKeep } from "./outfits.js";
 import { localBackend, wrapBackend } from "./storage.js";
@@ -316,7 +315,8 @@ export async function loadSave() {
     else { migrateOld(old, false); saveInfo.recovered = "fresh"; noteDue("freshStart"); }
   }
   loading = false; loaded = true;
-  try { adoptErrorLog(errCache); } catch (e) { /* the log never stops the start */ }
+  // SPEC-039: the stored error log is handed to errors.js by main.js (adoptErrorLog(readErrorLog()) right after loadSave) — save.js
+  // must not import errors.js, which imports save.js
   G.world = progress.lastWorld;
   G.level = worldProgress().unlocked;                         // меню открывается на последнем мире, на его новом уровне
   if (dirty && !saveInfo.saveOff) {

@@ -3,11 +3,10 @@
 
 import * as THREE from "three";
 import { CELL, COLS, H, ROWS, TAU, W } from "../../core/config.js";
-import { ctx } from "../screen.js";
-import { mapGroup, waves } from "./map3d.js";
+import { mapGroup, waves } from "./mapstate.js";
 import { INK3, ownMat, part, sphere, toon, toonH } from "./materials.js";
 import { P, WALL_H } from "./setup.js";
-import { circle } from "../ui/draw.js";
+import { circleOn } from "../ui/canvas.js";
 import { G } from "../../core/active.js";
 
 // ---------- Места: оформление поверх одного и того же генератора ----------
@@ -343,7 +342,7 @@ export function adBoards(D) {
   inst.castShadow = true; mapGroup.add(inst);
 }
 // SPEC-016: меловая разметка футбольного поля поверх полос травы (центральный круг, штрафные и вратарские площади, угловые дуги)
-export function paintPitch(th, under = null) {
+export function paintPitch(ctx, th, under = null) {
   ctx.fillStyle = th.g2;
   for (let x = 0; x < COLS; x += 4) ctx.fillRect(x * CELL, 0, 2 * CELL, H);
   if (under) under();                                    // SPEC-021: штрихи фломастера — под меловой разметкой
@@ -351,18 +350,18 @@ export function paintPitch(th, under = null) {
   ctx.strokeStyle = th.deco.chalk; ctx.fillStyle = th.deco.chalk; ctx.lineWidth = 4;
   ctx.strokeRect(m, m, W - 2 * m, H - 2 * m);
   ctx.beginPath(); ctx.moveTo(W / 2, m); ctx.lineTo(W / 2, H - m); ctx.stroke();
-  circle(W / 2, H / 2, 3 * CELL); ctx.stroke(); circle(W / 2, H / 2, 6); ctx.fill();
+  circleOn(ctx, W / 2, H / 2, 3 * CELL); ctx.stroke(); circleOn(ctx, W / 2, H / 2, 6); ctx.fill();
   for (const sd of [-1, 1]) {
     const edge = sd < 0 ? m : W - m;
     ctx.strokeRect(sd < 0 ? edge : edge - 4.5 * CELL, H / 2 - 5.5 * CELL, 4.5 * CELL, 11 * CELL);
     ctx.strokeRect(sd < 0 ? edge : edge - 1.8 * CELL, H / 2 - 2.6 * CELL, 1.8 * CELL, 5.2 * CELL);
-    circle(edge - sd * 3.2 * CELL, H / 2, 5); ctx.fill();
+    circleOn(ctx, edge - sd * 3.2 * CELL, H / 2, 5); ctx.fill();
     ctx.beginPath(); ctx.arc(edge - sd * 3.2 * CELL, H / 2, 2.2 * CELL, sd < 0 ? -0.93 : Math.PI - 0.93, sd < 0 ? 0.93 : Math.PI + 0.93); ctx.stroke();
   }
   for (const [x, y, a] of [[m, m, 0], [W - m, m, Math.PI / 2], [W - m, H - m, Math.PI], [m, H - m, -Math.PI / 2]]) { ctx.beginPath(); ctx.arc(x, y, 0.6 * CELL, a, a + Math.PI / 2); ctx.stroke(); }
 }
 // SPEC-016: две улицы Города (поперёк и вдоль) с бордюром, пунктиром посередине и зебрами у перекрёстка — поверх тротуарной плитки
-export function paintStreets(th) {
+export function paintStreets(ctx, th) {
   const D = th.deco, sy = 9 * CELL, sx = 14 * CELL, sw = 2 * CELL;
   ctx.fillStyle = D.kerb; ctx.fillRect(0, sy - 4, W, sw + 8); ctx.fillRect(sx - 4, 0, sw + 8, H);
   ctx.fillStyle = D.asphalt; ctx.fillRect(0, sy, W, sw); ctx.fillRect(sx, 0, sw, H);

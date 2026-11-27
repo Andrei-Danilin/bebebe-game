@@ -1,64 +1,19 @@
-// SPEC-011: the language (setLang), the save calls of the game (saveProgress — after every change of progress, writeOutfits,
-// writeNames) and the reset of the progress (SPEC-033: its buttons are on the grown-ups page, behind the gate). Client module.
-// SPEC-025 phase 2: storage belongs to the save module (save.js: one key bebebe-save, loaded by loadSave() at start); these
-// calls queue the whole save there. The reset (AC 6b): the first tap arms it (the button shows resetCancel — a tap there
-// cancels) and a separate resetConfirm button appears at another place, which ignores taps for CFG.RESET_CONFIRM_DELAY s;
-// before wiping, the save is kept as bebebe-save-before-reset (undo on the grown-ups page, next to the reset).
+// SPEC-011: the language (setLang) and the save calls of the game (saveProgress — after every change of progress, writeOutfits,
+// writeNames). SPEC-025 phase 2: storage belongs to the save module (save.js: one key bebebe-save, loaded by loadSave() at start); these
+// calls queue the whole save there — through the port ports.queueSave, because save.js reads the names and outfits that call them.
+// SPEC-039: the reset of the progress moved to reset.js (it needs the game's flow, which needs this module). Client module.
 
-import { CFG, WORLDS } from "../core/config.js";
-import { progress, setProgress } from "../core/economy.js";
-import { isOpen, worldProgress } from "../core/progress-rules.js";
 import { HTML_LANG, LANGS, setCurrentLang } from "../i18n.js";
-import { resetWorld, setLastReward } from "./flow.js";
-import { fitOutfitsToOwned } from "./outfits.js";
-import { forgetHeldProgress, queueSave, snapshotBeforeReset } from "./save.js";
-import { screenChanged, ui } from "./state.js";
-import { G } from "../core/active.js";
+import { ports } from "./ports.js";
 
 export function setLang(l) {
   if (!LANGS.includes(l)) return;
   setCurrentLang(l);
   document.documentElement.lang = HTML_LANG[l] || l;
-  queueSave();
+  ports.queueSave();
 }
 // SPEC-012: the client saves after every change of progress it makes (economy events it applies, shop, wardrobe, screens)
-export function saveProgress() { queueSave(); }
+export function saveProgress() { ports.queueSave(); }
 // наряды и имена — тоже в bebebe-save (их зовут outfits.js и names.js)
-export function writeOutfits() { queueSave(); }
-export function writeNames() { queueSave(); }
-
-// ---------- AC 6b: reset progress ----------
-let armedAt = 0;                             // performance.now() of the arming tap
-const setArmed = v => { if (ui.resetArmed !== v) { ui.resetArmed = v; screenChanged(); } };   // SPEC-025 AC 7d: another button
-// the reset button: the first tap arms (resetConfirm appears elsewhere); on the armed button (resetCancel) a tap cancels
-export function armReset() {
-  if (ui.resetArmed) { setArmed(false); return; }
-  armedAt = performance.now();
-  setArmed(true);
-}
-// the confirm button: taps in the first CFG.RESET_CONFIRM_DELAY s are ignored (a double tap or two fingers never reset)
-export const resetConfirmReady = () => ui.resetArmed && performance.now() - armedAt >= CFG.RESET_CONFIRM_DELAY * 1000;
-export function confirmReset() {
-  if (!resetConfirmReady()) return null;
-  return resetProgress();
-}
-// the reset itself (the confirm button; __bb.resetProgress for the tests): the save is kept as bebebe-save-before-reset first
-// → the promise of the copy being written (the grown-ups page shows the undo when it is done)
-export function resetProgress() {
-  setArmed(false);
-  const copy = snapshotBeforeReset();
-  G.rewardDue = false;                         // прогресс заменён целиком: за брошенный уровень не платим
-  setProgress(null); forgetHeldProgress(); ui.openedWorld = null; ui.worldBanner = null;   // новый прогресс
-  if (!isOpen(G.world)) G.world = WORLDS[0];   // SPEC-016/030: после сброса открыт только Парк
-  progress.lastWorld = G.world;
-  fitOutfitsToOwned();                       // SPEC-009: купленные наряды ушли вместе с прогрессом
-  saveProgress(); G.level = 1; resetWorld(G.players);
-  return copy;
-}
-// a whole save replaced the progress (restore a copy, undo a reset, import a code): the menu as after a start
-export function progressReplaced() {
-  G.rewardDue = false; setLastReward(null); ui.openedWorld = null; ui.worldBanner = null;
-  G.world = progress.lastWorld;
-  G.level = worldProgress().unlocked;
-  resetWorld(G.players);
-}
+export function writeOutfits() { ports.queueSave(); }
+export function writeNames() { ports.queueSave(); }

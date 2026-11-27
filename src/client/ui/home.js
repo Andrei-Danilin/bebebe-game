@@ -2,26 +2,28 @@
 // index.html in Phase C).
 
 import { MAIN_WORLDS } from "../../core/config.js";
+import { progress } from "../../core/economy.js";
 import { worldComplete } from "../../core/progress-rules.js";
 import { L, lang } from "../../i18n.js";
-import { art, artPick, PAPER_BTN, paperUI } from "../art.js";
+import { art, PAPER_BTN } from "../art.js";
 import { nextLang, openMap, openShop, openStory, toggleSound } from "../flow.js";
 import { LOOK } from "../look.js";
 import { ctx, PHONE, UH, UW } from "../screen.js";
 import { ui } from "../state.js";
 import { applyUpdate, updateReady } from "../update.js";
-import { fitButton } from "./character/wardrobe.js";
-import { art9Visible, drawArt, drawArt9, drawArtCover, drawArtFit, fillStroke, regButton, rr } from "./draw.js";
+import { fitButton, homeButton } from "./buttons.js";
+import { fillStroke, regButton, rr } from "./draw.js";
+import { drawArt, drawArtCover, drawArtFit } from "./artdraw.js";
 import { menuFrame, phoneFrame, worldStarsOf } from "./menu.js";
-import { cpx, hudFont, label, labelFit, minPx, noteText, pLabel, plainText, scaledW } from "./text.js";
-import { fitLine } from "./win.js";
+import { fitLine, labelFit, noteText, pLabel, plainText, scaledW } from "./text.js";
+import { cpx, hudFont, minPx } from "./layout.js";
 
 // ---------- SPEC-017/026: главный экран — название, язык и звук в углу, три кнопки столбиком: Играть · История · Персонаж ----------
 // SPEC-026 (решение Андрея): звёзды, миры, бонусные миры, монетки и подсказка «установить на iPhone» ушли с главного (прогресс — на
 // странице «Прогресс» персонажа); страница тетради menu_bg видна целиком и на телефоне — рисунки слева и справа, как на компьютере.
 // звёзды основных миров (из STARS_PER_LEVEL × уровней × основных миров) и сколько основных миров пройдено целиком — страница «Прогресс»
 export const mainStars = () => MAIN_WORLDS.reduce((a, w) => a + worldStarsOf(w), 0);
-export const worldsFinished = () => MAIN_WORLDS.filter(w => worldComplete(w)).length;
+export const worldsFinished = () => MAIN_WORLDS.filter(w => worldComplete(w, progress)).length;
 // плашка: { id, text, pic(x, y, s) — картинка слева, open }. Ширина = картинка + текст × LOOK.TEXT_TEST_SCALE + поля (шрифты CI шире)
 export function homePill(id, text, h, size, min, pic, extra = {}) {
   const M = LOOK.MENU_LOOK, pad = PHONE ? cpx(M.phoneHome.pad) : M.home.pad, ps = h * 0.55, picW = pic ? ps * 1.3 + pad * 0.5 : 0;
@@ -66,29 +68,6 @@ function homeIcons(x1, y, langW, w, h, size) {
     if (PHONE) noteText("main", f.sz);
     regButton(lx, y, langW, h, "🌐 " + code, nextLang, "home:lang", ic + sp + f.w).size = f.sz;
   } else fitButton(lx, y, langW, h, "🌐 " + code, M.icon, nextLang, size, PHONE ? minPx("main") : size).id = "home:lang";
-}
-// SPEC-030 AC 8 (сделано в SPEC-027): кнопка главного экрана — значок слева (отступ btnIconGap × hRef от левого края, по центру
-// высоты; hRef — общая высота кнопок «История»/«Персонаж», так значки трёх кнопок в одном столбике и одного размера), надпись по
-// центру всей кнопки: сначала мельчает под всю ширину (fitLine, поля btnPad), потом, если залезает на значок с отступом, сдвигается
-// вправо ровно настолько; мельчает дальше, только если и сдвиг не помог. null — нет картинок (бумаги или значка): рисует вызывающий.
-// Возвращает геометрию для __bb.homeInfo.buttons: { id, x, y, w, h, gap, icon: { x, y, w, h }, label: { x, w, cx, size, shifted } }
-export function homeButton(x, y, w, h, a, size, min) {
-  const D = LOOK.MENU_LOOK.home, paper = PAPER_BTN[a.color], pic = artPick(a.icon), pad = (PHONE ? cpx(1) : 1) * D.btnPad / 2;
-  if (!paperUI() || !paper || !pic || !art(paper)) return null;
-  // SPEC-032 AC 6: от видимого края нарисованной кнопки (не от прозрачного поля картинки) — btnIconGap × её высоты, значок btnIcon × высоты
-  const corner = Math.min(w, h) * LOOK.PAPER.btnCorner, vis = art9Visible(paper, x, y, w, h, corner);
-  const gap = h * D.btnIconGap, ic = h * D.btnIcon, ix = vis.x + gap, clear = ix + ic + h * D.btnLabelGap;   // левее clear надпись не начинается
-  const right = vis.x + vis.w - pad;
-  let f = fitLine(a.text, size, min, w - 2 * pad);
-  if (x + w / 2 - f.w / 2 < clear && clear + f.w > right) f = fitLine(a.text, f.sz, min, right - clear);   // и сдвиг не помог
-  const cx = Math.max(x + w / 2, clear + f.w / 2), shifted = cx > x + w / 2;
-  drawArt9(paper, x, y, w, h, corner);
-  drawArtFit(pic, ix + ic / 2, y + h / 2, ic);
-  label(f.text, cx, y + h / 2 + 1, f.sz, "#fff", "center");
-  if (PHONE) noteText("main", f.sz);
-  const b = regButton(x, y, w, h, a.emoji + a.text, a.act, a.id, ic + gap + f.w);
-  b.size = f.sz;
-  return { id: a.id, x, y, w, h, gap, vis, icon: { x: ix, y: y + h / 2 - ic / 2, w: ic, h: ic }, label: { x: cx - f.w / 2, w: f.w, cx, size: f.sz, shifted } };
 }
 // SPEC-038 AC 5: плашка «Готова новая версия — нажми, чтобы обновить» (жёлтая бумажка): целиком, шире не LOOK.UPDATE_NOTE.maxW экрана;
 // нажатие — applyUpdate() (update.js): рабочий воркер берёт управление и страница перезагружается

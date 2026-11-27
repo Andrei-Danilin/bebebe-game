@@ -4,26 +4,27 @@
 import { CFG, levelsPerWorld, TAU, WORLD_SEED, WORLDS } from "../../core/config.js";
 import { levelType } from "../../core/level/generate.js";
 import { bossFor } from "../../core/mood.js";
-import { isOpen, worldComplete, worldOpen, worldProgress } from "../../core/progress-rules.js";
+import { progress, worldProgress } from "../../core/economy.js";
+import { isOpen, worldComplete } from "../../core/progress-rules.js";
 import { mulberry32 } from "../../core/util.js";
 import { L } from "../../i18n.js";
-import { art, mapBgArt, paperPanel, worldArt } from "../art.js";
+import { art, mapBgArt, worldArt } from "../art.js";
+import { paperPanel } from "./paper.js";
 import { cardLevel, chooseStop, goBack, mapSelN, nextStop, openStory, playCard, tapWorldTab } from "../flow.js";
 import { LOOK } from "../look.js";
 import { ctx, OUT, PHONE, UH, UW, VIEW } from "../screen.js";
 import { ui } from "../state.js";
 import { THEMES } from "../three/themes.js";
-import { iconOnlyButton } from "./character/tabs.js";
-import { coinPlate, fitButton, rowsAt } from "./character/wardrobe.js";
-import { addButton, circle, drawArtFit, drawStar, drawStarArt, fillStroke, fillT, noteArt, regButton, rr } from "./draw.js";
+import { coinPlate } from "./character/wardrobe.js";
+import { fitButton, iconOnlyButton, rowsAt } from "./buttons.js";
+import { addButton, circle, drawStar, drawStarArt, fillStroke, regButton, rr } from "./draw.js";
+import { drawArtFit, fillT, noteArt } from "./artdraw.js";
 import { drawPill, homePill } from "./home.js";
 import { menuFrame, phoneFrame, worldStarsOf } from "./menu.js";
-import { cpx, fz, hudFont, label, minPx, noteRows, noteText, plainText, scaledW } from "./text.js";
-import { fitLine } from "./win.js";
+import { fitLine, fz, label, noteRows, noteText, plainText, scaledW } from "./text.js";
+import { cpx, hudFont, minPx } from "./layout.js";
 import { G } from "../../core/active.js";
 
-// подсказка закрытого мира (по worldOpen): нужен главный мир — «Пройди <его>, чтобы открыть <этот>!», иначе — прежняя строка бонусных
-export const lockedText = w => { const o = worldOpen(w); return o.needs ? L().lockedWorld(o.needs, w) : L().lockedBonus; };
 // ---------- SPEC-017: карта уровней — вкладки шести миров, страница мира с 20 остановками на дорожке змейкой ----------
 // значки миров на вкладках и в заголовке страницы (вкладка — значок на фоне цвета земли мира: имена в узкую вкладку не влезают)
 export const WORLD_ICONS = { park: "🌳", field: "⚽", city: "🏙️", school: "🏫", beach: "🏖️", winter: "❄️" };
@@ -229,7 +230,7 @@ export function drawMap(t) {
   coinPlate(MG.X1 - MG.coinsW, MG.Y0 + 4 * k, MG.coinsW, MG.tabH - 8 * k);
   const tx0 = MG.X0 + MG.backW + MG.g, tw = (MG.X1 - MG.coinsW - MG.g - tx0 - (WORLDS.length - 1) * MG.g) / WORLDS.length, tabs = [];
   WORLDS.forEach((wd, i) => {
-    const x = tx0 + i * (tw + MG.g), locked = !isOpen(wd), sel = wd === w;
+    const x = tx0 + i * (tw + MG.g), locked = !isOpen(wd, progress), sel = wd === w;
     const ic = Math.min(tw, MG.tabH);
     if (art(worldArt(wd))) {                                              // SPEC-020: значок мира из 20_levelmap_parts
       if (locked) ctx.globalAlpha = 0.5;
@@ -242,7 +243,7 @@ export function drawMap(t) {
     tabs.push({ world: wd, locked, selected: sel, x, y: MG.Y0, w: tw, h: MG.tabH });
   });
   // страница мира: фон и дорожка, строка заголовка (или подсказка), остановки
-  const rects = stopRects(MG), next = nextStop(w), done = worldComplete(w), sel = mapSelN();
+  const rects = stopRects(MG), next = nextStop(w), done = worldComplete(w, progress), sel = mapSelN();
   drawMapPage(w, MG, rects);
   const P = MG.page, th = MG.titleH * 0.86, ty = P.y + (MG.titleH - th) / 2 + 4 * k, size = PHONE ? cpx(16) : 18, pad = 8 * k;
   if (!ui.toast && !ui.worldBanner) {
