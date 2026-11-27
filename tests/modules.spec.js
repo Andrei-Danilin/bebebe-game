@@ -297,7 +297,8 @@ const coreCode = () => srcFiles(path.join(ROOT, "src", "core")).map(f => [relNam
 const allSrc = () => srcFiles(path.join(ROOT, "src")).map(relName).sort();
 const readRoot = f => fs.readFileSync(path.join(ROOT, f), "utf8");
 // code without comments and string contents (a comment or a text may name anything)
-const codeOnly = s => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|\s)\/\/.*$/gm, "$1")
+const noComments = s => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|\s)\/\/.*$/gm, "$1");   // SPEC-039: also what the import scan reads
+const codeOnly = s => noComments(s)
   .replace(/"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|`(?:[^`\\]|\\.)*`/g, "\"\"");
 
 // AC 3b: the core reaches the client only through one port, src/core/hooks.js: setHooks({ … }) with no-op defaults (the Node
@@ -760,7 +761,6 @@ test("no script or test reads game code from index.html", { tag: "@fast" }, () =
 // makes the evaluation order matter and every module in it unusable alone; now the graph of static imports (`import … from`,
 // `export … from`, bare `import "./x.js"`, dynamic `import("./x.js")`; relative paths, comments stripped first) of src/core + the shared
 // data, and of src/client, are acyclic (Tarjan's components).
-const noComments = s => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|\s)\/\/.*$/gm, "$1");
 const relImports = text => [...text.matchAll(/^\s*(?:import|export)\b[^;]*?\bfrom\s*["'](\.[^"']+)["']|^\s*import\s*["'](\.[^"']+)["']|\bimport\s*\(\s*["'](\.[^"']+)["']\s*\)/gm)].map(m => m[1] || m[2] || m[3]);
 function importCycles(prefix) {
   const files = allSrc(), deps = {};
@@ -804,4 +804,25 @@ test("the client's import graph has no cycle", { tag: "@fast" }, () => {
 test("only flow.js calls setModeValue", { tag: "@fast" }, () => {
   const users = allSrc().filter(f => f !== "src/client/state.js" && /\bsetModeValue\b/.test(codeOnly(readRoot(f))));
   expect(users, "modules that name setModeValue besides state.js").toEqual(["src/client/flow.js"]);
+});
+
+// SPEC-039 review: the "by depth" lists of architecture.md (longest import path down to a module with no import) are computed here and
+// compared — a new module or a moved import that changes a depth makes the doc say so.
+test("the depth lists in architecture.md are the real depths", { tag: "@fast" }, () => {
+  const files = allSrc(), deps = {};
+  for (const f of files) deps[f] = relImports(noComments(readRoot(f))).map(r => path.posix.normalize(path.posix.join(path.posix.dirname(f), r)));
+  const memo = {};
+  const depth = f => memo[f] ?? (memo[f] = deps[f].length ? 1 + Math.max(...deps[f].map(depth)) : 0);
+  const doc = fs.readFileSync(ARCH, "utf8");
+  for (const [label, prefix] of [["Core", "src/core/"], ["Client", "src/client/"]]) {
+    const line = doc.split("\n").find(l => l.startsWith(`- **${label}, by depth:**`));
+    expect(line, `the "${label}, by depth" line`).toBeTruthy();
+    const written = {};
+    for (const part of line.slice(line.indexOf(":**") + 3).split(" · ")) {
+      const [, n, names] = part.trim().match(/^(\d+) (.*)$/) || [];
+      for (const [, name] of (names || "").matchAll(/`([^`]+)`/g)) written[prefix + name + ".js"] = Number(n);
+    }
+    const real = Object.fromEntries(files.filter(f => f.startsWith(prefix)).map(f => [f, depth(f)]));
+    expect(written, `${label}: the depth of each module`).toEqual(real);
+  }
 });
