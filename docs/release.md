@@ -8,7 +8,7 @@ of those deploys a version number, a changelog entry and a git tag.
 
 - The version is `package.json` `version` ([semver](https://semver.org/)). Between releases it is a pre-release such as
   `1.0.0-dev` or `1.1.0-dev`.
-- `npm run precache` copies it into `src/version.js` (`VERSION`) and derives the service worker's `SW_VERSION`
+- `npm run precache` copies it into the `<meta name="game-version">` of `index.html` (SPEC-039: no module holds it) and derives the service worker's `SW_VERSION`
   (`bebebe-<version>-b<SW_BUILD>`, CLAUDE.md hard rule 8). Nobody edits either by hand.
 - The "For grown-ups" page and the error log show `<version>+<SRC_HASH>`. The hash names the exact module set, because a
   `-dev` version covers many deploys.
@@ -21,9 +21,9 @@ A release runs on its own spec branch, like any other change (CLAUDE.md "Workflo
 
 1. Check that `CHANGELOG.md` **Unreleased** lists what the release brings, in plain words.
 2. `npm run release -- X.Y.Z`. It sets the version in `package.json`, moves the Unreleased lines under
-   `## [X.Y.Z] - <today>` and runs `npm run precache`, which rewrites `src/version.js` and `SW_VERSION`. Use `--dry` first to
+   `## [X.Y.Z] - <today>` and runs `npm run precache`, which rewrites the game-version meta of `index.html` and `SW_VERSION`. Use `--dry` first to
    see what it would do.
-3. Commit (`package.json`, `CHANGELOG.md`, `src/version.js`, `index.html`, `sw.js`), push the branch, and wait for a green
+3. Commit (`package.json`, `CHANGELOG.md`, `index.html`, `sw.js`), push the branch, and wait for a green
    Tests run. Then merge into `master` as usual. The Pages run deploys it.
 4. When the Pages run is green, tag the merge commit and push the tag (a tag only, never a branch):
    `git tag -a vX.Y.Z -m "vX.Y.Z" <merge sha>`, then `git push origin vX.Y.Z`. A release tag is never moved or deleted: the

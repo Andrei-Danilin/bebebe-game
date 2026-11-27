@@ -334,3 +334,38 @@ The Tests runs of the phase A branch (same columns; the `lint` job, ~15 s, runs 
 Against the medians before: wall −11 % / +3 %, longest shard −8 % / +8 %, shards together −7 % / +5 % — within the
 ≤ 10 % growth AC 8b allows (the spread between runs on the shared runners is larger than the change).
 
+
+## SPEC-039: CI under 10 minutes
+
+The spec's budget: at most 10 minutes of wall time per push (the Tests workflow on the branch's last push; the `lint`, `typecheck`,
+`core` and `stall` jobs run beside the shards and are shorter than the slowest shard).
+
+### Before: 4 shards split by test count
+
+Wall time of the last pushes of the SPEC-037 / SPEC-038 branches: 22 min (run 45945751399), 21 min (45933614035), 21 min
+(45925810713), 25 min (45919589391) — **21–25 min**. In run 45925810713 the four shards took 11.5, 9.6, 17.3 and 20.7 min:
+Playwright's `--shard i/4` hands each shard the same number of tests in file order, so the slow files (story, phone, menus,
+tutorial, i18n) landed together. Summed test time of that run: 3417 s (57 min, 565 tests); the count split gave 597 / 594 /
+984 / 1242 s. Once a shard also waited 7 min 48 s for `apt` (`install-deps`).
+
+The slowest files (s, sum over the shards): story 405 · phone 357 · menus 305 · tutorial 254 · i18n 241 · art 214 ·
+gameplay 180 · storyfit 164 · economy 160 · pwa 152 · smoke 134 · grownups 118 · lifecycle 99 · back 97 · perf 90 ·
+look3d 86 · errors 67 · levels 56 · worlds 54 · input-safety 46 · saves 39 · offline 35 · the rest 70.
+
+### The change
+
+- **10 shards packed by measured time** (`scripts/shards.js`, `tests/shards/times.json` → `plan.json`): longest-first into the
+  least loaded shard, a long file cut into pieces — 592 tests, expected **350–361 s of tests per shard** (a perfect 4-shard split
+  would still be 14 min; 10 shards leave room for the 1–2 min each job spends on `npm ci`, the browser cache and `apt`).
+  Playwright's count split of 10 would give 615–675 s for the worst shard on the same times; the packing gives 361 s.
+- The `apt` step has its own name, a 4 min limit and one retry; the shard job has a 20 min limit (was 30).
+- `report` checks that all 10 blob reports came and that every test of the suite ran exactly once.
+- No test was deleted or weakened; no test runs twice in one push. The structural tests the spec lists were already `@fast`.
+
+### After
+
+Tests workflow, last push of the SPEC-039 branch (filled in at the close from the run's jobs):
+
+| run | commit | wall | slowest shard | fastest shard |
+|---|---|---|---|---|
+| _to fill: run id_ | _commit_ | _s (min)_ | _s_ | _s_ |
