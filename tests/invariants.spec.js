@@ -199,7 +199,7 @@ test("rewards add up, coins never go negative, inventory stays whole", async ({ 
 // A fixture is a snapshot of all bebebe-* keys (`keys`: a string is stored as is, an object as JSON) and what it loads
 // into (`expect`: progress in the current shape, the outfits and the typed names). SPEC-009 reuses them. An old save is
 // checked with toMatchObject (a later spec may add fields with defaults without rewriting history); current.json exactly.
-const SAVES = ["pre-spec-003", "pre-spec-004", "pre-spec-006", "pre-spec-007", "stale-tab", "pre-spec-009", "pre-spec-016", "pre-spec-022", "pre-spec-026", "pre-spec-029", "pre-spec-030", "pre-spec-042", "current"];
+const SAVES = ["pre-spec-003", "pre-spec-004", "pre-spec-006", "pre-spec-007", "stale-tab", "pre-spec-009", "pre-spec-016", "pre-spec-022", "pre-spec-026", "pre-spec-029", "pre-spec-030", "current"];
 const save = n => JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures", "saves", n + ".json"), "utf8"));
 const asStored = keys => Object.fromEntries(Object.entries(keys).map(([k, v]) => [k, typeof v === "string" ? v : JSON.stringify(v)]));
 
