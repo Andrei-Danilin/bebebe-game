@@ -1,5 +1,5 @@
 // SPEC-039: the geometry of the screen layers — the HUD and menu boxes as functions of the screen size (UW, UH, CSS_W, PHONE) and LOOK,
-// with no drawing and no game state beyond the screen: CSS px → UI px (cpx), the phone's top bar, mini-map and team chips, the
+// with no drawing (only the team's size and a text measure for the chips): CSS px → UI px (cpx), the phone's top bar, mini-map and team chips, the
 // menu frame, the Character screen's columns, the phone's wardrobe columns. The 3D camera (it keeps the hero out from under the HUD)
 // and the 3D previews (they sit in the menu boxes) read it, and so do the 2D screens that draw into the same boxes — one source, no
 // import of the UI by the 3D. Client module.

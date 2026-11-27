@@ -27,7 +27,7 @@ const NET_TIMEOUT_MS = 4000;             // weak signal: after this long, a cach
 const SW_BUILD = 11;
 const SW_STRATEGY = "0c8e52b02e";
 const SW_VERSION = "bebebe-1.0.0-dev-b11";
-const SRC_HASH = "e425d6412e";
+const SRC_HASH = "180ec4e3ef";
 const PRECACHE_LOCAL = [
   "./", "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512-maskable.png",
   "./icons/icon-512.png", "./icons/icon.svg", "./index.html", "./manifest.webmanifest"
@@ -55,7 +55,7 @@ const PRECACHE_SRC = [
   "./src/client/ui/character/wardrobe.js?v=3fb7e40d1d", "./src/client/ui/draw.js?v=510f1e4a0b",
   "./src/client/ui/grownups.js?v=87e0c3d642", "./src/client/ui/home.js?v=bdcbc2445d",
   "./src/client/ui/hud.js?v=353bbb5527", "./src/client/ui/lang.js?v=568a4dc213",
-  "./src/client/ui/layout.js?v=5ed9c00448", "./src/client/ui/map.js?v=2d635f6a93",
+  "./src/client/ui/layout.js?v=b3868f6e6c", "./src/client/ui/map.js?v=2d635f6a93",
   "./src/client/ui/menu.js?v=92826074d8", "./src/client/ui/minimap.js?v=7d23e70a73",
   "./src/client/ui/paper.js?v=c25342da07", "./src/client/ui/phone.js?v=27e9795943",
   "./src/client/ui/screens.js?v=22db6f2c52", "./src/client/ui/story.js?v=5f55a5406a",
