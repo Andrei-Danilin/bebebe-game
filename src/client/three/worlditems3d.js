@@ -61,12 +61,13 @@ const BUILD = { football, cupcake, plane, watermelon, snowball: pile };
 export function makeWorldItemMesh(kind) {
   if (!BUILD[kind]) return null;
   const g = new THREE.Group(), body = BUILD[kind]();
+  body.scale.setScalar(L().scale);                         // bigger than the pickups: they must read on a phone
   g.add(body); g.userData.body = body; g.userData.kind = kind;
   return g;
 }
 
 // ---------- the flying ones ----------
-function makeShotMesh(kind) { const m = new THREE.Group(); m.add(kind === "snowball" ? snowball() : BUILD[kind]()); m.traverse(o => { if (o.isMesh) o.castShadow = true; }); return m; }
+function makeShotMesh(kind) { const m = new THREE.Group(), o = kind === "snowball" ? snowball() : BUILD[kind](); o.scale.setScalar(L().scale); m.add(o); m.traverse(o => { if (o.isMesh) o.castShadow = true; }); return m; }
 export function syncShots(t) {
   if (!G.shots.length && !shotMeshes.size) return;
   const K = L(), alive = new Set(G.shots.map(s => s.id));

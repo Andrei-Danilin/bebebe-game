@@ -5,6 +5,7 @@ One line each: what, where it came from. The spec author turns a line into a spe
 - Option: gloves bought once and kept forever instead of charges (Claude's choice in the shop; kids may prefer permanent).
 - Progress shared between devices (needs a server-side save; today it is per browser).
 - More items: trampoline, snowballs (winter), water pistol (beach) — Claude's suggestions, not asked yet.
+- World items and numbers (SPEC-043) — Claude, check with the kids (decided during the run): which item is in which world, the effects and their times (football stun 1.5 s, cupcake 3 s, plane look 2 s, watermelon slide 2 cells + 3.5 s, snowball freeze 1.5 s; boss half), the shares (banana 0.1, world item 0.15), the words Bonk / Yum / Brrr / Whee and the placeholder sounds.
 - Hug visibility when the Big One faces the camera (the Little One on his shoulders is partly hidden).
 - The lose screen code is unreachable since "no game over" — remove it or reuse it for a "Give up" button.
 - Progress between Safari and the installed iPhone app (separate storage on iOS) — out of scope in SPEC-001.

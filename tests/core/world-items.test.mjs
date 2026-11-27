@@ -212,7 +212,7 @@ test("football: a bot and the careful autopilot run through a football that lies
     g.big.hearLook = 99;                                                 // he stands looking right, away from the kids
     addItem(g, "football", 400, 320);
     const l = who === "bot" ? g.littles.find(q => q.kind === "bot") : g.littles[0];
-    Object.assign(l, { x: 330, y: 320, dir: 0 });
+    Object.assign(l, { x: 340, y: 320, dir: 0 });
     g.littles.forEach(q => { if (q !== l) Object.assign(q, { x: 60 + 40 * q.id, y: 40 }); });
     if (who === "autopilot") { g.autoOn = true; g.autoStyle = "careful"; }
     for (let i = 0; i < 240 && !g.events.some(e => e.type === "worldItem" && e.effect === "hit"); i++) step(g, DT);
@@ -451,7 +451,7 @@ test("snowball and plane: a bot or the autopilot runs through one that lies near
       g.big.hearLook = 99;
       addItem(g, kind, 400, 320);
       const l = who === "bot" ? g.littles.find(q => q.kind === "bot") : g.littles[0];
-      Object.assign(l, { x: 330, y: 320, dir: 0 });
+      Object.assign(l, { x: 340, y: 320, dir: 0 });
       g.littles.forEach(q => { if (q !== l) Object.assign(q, { x: 60 + 40 * q.id, y: 40 }); });
       if (who === "autopilot") { g.autoOn = true; g.autoStyle = "careful"; }
       for (let i = 0; i < 240 && !hits(g, effect); i++) step(g, DT);

@@ -162,15 +162,15 @@ export function bigStepItem(dt) {
 // ---------- the bots and the autopilot: a lying football / plane / snowball that sends something at Dad ----------
 // where a kid goes to use one on him: first to the spot a little behind it on the line from Dad through it (so that running through it aims at him),
 // then straight through it → { x, y } or null (nothing to use: Dad is not in line within the flight, a wall is in the way, he is lying already,
-// the kid is too far, or the spot is in his view when `hidden` asks to keep out of it)
-export function launcherGoal(l, hidden) {
+// the kid is farther than `reach` px, or the spot is in his view when `hidden` asks to keep out of it)
+export function launcherGoal(l, hidden, reach = CFG.WORLD_ITEMS.kick.reach) {
   const b = G.big, K = CFG.WORLD_ITEMS.kick;
   if (G.tutorialGame || b.kind || b.slip > 0 || b.stun > 0 || b.watch > 0) return null;
   let best = null, bd = Infinity;
   for (const it of G.items) {
     if (!LAUNCH_KINDS.includes(it.kind) || it.t >= it.life) continue;
     const d = dist(l, it), dd = dist(it, b);
-    if (d > K.reach || dd > CFG.WORLD_ITEMS[it.kind].cells * CELL * 0.85 || dd < b.r + 12 || d >= bd) continue;
+    if (d > reach || dd > CFG.WORLD_ITEMS[it.kind].cells * CELL * 0.85 || dd < b.r + 12 || d >= bd) continue;
     if (!los(it.x, it.y, b.x, b.y, moveSolidAt)) continue;
     const ux = (b.x - it.x) / dd, uy = (b.y - it.y) / dd, px = it.x - ux * K.approach, py = it.y - uy * K.approach;
     if (moveSolidAt(px, py) || (hidden && (inCone(px, py) || inCone(it.x, it.y)))) continue;
