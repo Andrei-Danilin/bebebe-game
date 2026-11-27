@@ -70,7 +70,7 @@ function onContextRestored() {
   scene.traverse(o => {
     for (const m of [].concat(o.material || [])) for (const v of Object.values(m)) if (v && v.isTexture) v.needsUpdate = true;
   });
-  rebuild3D();
+  rebuild3D(true);
   glRestored = true;
 }
 

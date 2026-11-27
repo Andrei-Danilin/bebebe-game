@@ -10,7 +10,7 @@ import { P_COLORS } from "../outfits.js";
 import { simMode } from "../screen.js";
 import { dressBoss } from "./bosses.js";
 import { mergeModel } from "./batch.js";
-import { buildMap3D, builtKey, mapKey } from "./map3d.js";
+import { buildMap3D, builtKey, forgetMap, mapKey } from "./map3d.js";
 import { mapGroup } from "./mapstate.js";
 import { capsule, disposeTree, gradTex, INK3, ownMat, part, sphere, toon, wobbleSeed } from "./materials.js";
 import { BIG_SCALE, LITTLE_SCALE, scene } from "./setup.js";
@@ -368,16 +368,38 @@ function buildCharacters() {
 // SPEC-040 AC 3: how many times the scene was rebuilt (a new look, a new level, a restored context): main.js draws the world once after each,
 // even under a full-screen page (the picture on the canvas is stale)
 export const rebuilt = { n: 0 };
-export function rebuild3D() {
-  if (simMode) return;                   // sim: 3D не нужен; sim(false) построит заново
-  rebuilt.n++;
+export const noteRebuilt = () => { rebuilt.n++; };
+// SPEC-040 AC 4: the build in its parts, so the warm-up behind the level card (warm.js) can do them one frame at a time. The map is built
+// when the level is not the one built (mapKey); the characters when their looks (and the Big One's) are not those of the models there —
+// a new game of the same level with the same team (Play after the warm-up, Retry) keeps the models. Both return whether they built.
+export function rebuildMap3D() {
+  if (builtKey === mapKey() && mapGroup) return false;
+  noGameRng("rebuild3D", () => buildMap3D());
+  return true;
+}
+let charsBuilt = "";
+const charsKey = () => G.littles.map(l => l.id + ":" + l.kind + ":" + JSON.stringify(l.look) + ":" + (l.kind === "player" ? gloveOf(l.id) : "")).join("|") + "|" + (G.big.boss || "") + ":" + (G.big.skin && G.big.skin.id);
+export function rebuildChars3D() {
+  const key = charsKey(), did = key !== charsBuilt || !models.size;
   noGameRng("rebuild3D", () => {
-    if (builtKey !== mapKey() || !mapGroup) buildMap3D();
-    buildCharacters();
+    if (did) { buildCharacters(); charsBuilt = key; }
     clearItemMeshes();
     clearStarMeshes();
     clearKissMeshes();
   });
+  return did;
+}
+// show / hide the whole 3D world (the warm-up keeps what it has built hidden until it has uploaded it)
+export function showWorld(on) { if (mapGroup) mapGroup.visible = on; charGroup.visible = on; }
+let deferred = false;                    // the warm-up makes the game of the card's level and builds the 3D itself, a stage at a time
+export const deferRebuild = on => { deferred = on; };
+// force: build everything again whatever the keys say (a restored WebGL context)
+export function rebuild3D(force = false) {
+  if (simMode || deferred) return;
+  if (force) { forgetMap(); charsBuilt = ""; }       // sim: 3D не нужен; sim(false) построит заново
+  const a = rebuildMap3D(), b = rebuildChars3D();
+  if (a || b) rebuilt.n++;               // (nothing rebuilt: the same level and team — the picture on the canvas is still right)
+  showWorld(true);                       // a warm-up that was cut short by Play leaves nothing hidden
 }
 
 // called once by main.js, in the start order of the one-file game

@@ -36,6 +36,7 @@ import { initSync, render3D } from "./three/sync.js";
 import { openFirstTutorial } from "./tutorial.js";
 import { firstTutorial } from "./tutorial-data.js";
 import { initUpdates } from "./update.js";
+import { warmBuild, warmUpload } from "./warm.js";
 import { showDueNote } from "./ui/grownups.js";
 import { updateMinimapFade } from "./ui/minimap.js";
 import { drawUI } from "./ui/screens.js";
@@ -119,6 +120,7 @@ function tick(now) {
   mapTick(dt);
   if (mode === "play") runFrame(Math.max(0, real));           // SPEC-012 / SPEC-034: devices once → the accumulator's whole 1/60 s steps → their effects (the game); the view ages by the frame time
   else { drainEvents(); viewTick(dt); if (inMenus()) ui.menuSpin += dt * 0.8; }   // SPEC-012 AC 1d: the Big One turns in the menus — a view angle, not game state
+  warmBuild();                               // SPEC-040 AC 4: the game and the 3D of the open card's level, a stage a frame (warm.js; it uses the game's rng, so outside the guard)
   noGameRng("render", () => {              // рисование не тянет игровую случайность (SPEC-008: тесты — ошибка, игра — vrand)
     updateCamera(dt);                       // телефон: камера за героем (3D-слой, не логика)
     updateMinimapFade(dt);                  // телефон: мини-карта бледнеет, когда под ней герой или Большой (SPEC-010)
@@ -126,6 +128,7 @@ function tick(now) {
     if (fitCount !== view3D.fit || rebuilt.n !== view3D.built) { invalidateSnapshot(); view3D.fit = fitCount; view3D.built = rebuilt.n; }   // the canvas is empty / stale
     const previews = previewsShown(), draw = cadence(view3D.cadence, { mode, rotated: rotateWall(), page: !!document.getElementById("grownups"), previews,
       snap: snapshotValid(), menuFps: CFG.MENU_FPS, seq: ui.screenSeq, fit: fitCount, builds: rebuilt.n, settling: view3D.settling }, now);
+    warmUpload(draw === "world");            // SPEC-040 AC 4: the world of the open card's level, uploaded a few parts a frame (warm.js)
     if (draw === "world") view3D.settling = render3D(ui.T, previews);
     else if (draw === "previews") previewsOverSnapshot(ui.T);
     drawUI(ui.T);

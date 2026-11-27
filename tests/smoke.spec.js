@@ -19,6 +19,7 @@ const LOGIC_GETTERS = ["errorLog", "glRestored", "mode", "muted", "wardrobePage"
   "tutorial", "tutorialMapRect",    // SPEC-029: the tutorial state, the practice map
   "textFloors",                     // SPEC-031: phone text floors (reads CFG only)
   "game", "screenState",            // SPEC-012: the active game (plain data); the menus' screen state (AC 1f)
+  "warm",                           // SPEC-040 AC 4: the warm-up behind the level card (plain state)
   "tiptoe", "bubbleTextOff", "langSel",
   "acc",    // SPEC-034: the live accumulator (game-time seconds, plain number); SPEC-032: the 👣 toggles, the bubbles-without-letters switch, the language screen's highlight
   "fitCount", "updateReady", "updateChecks"];   // SPEC-038: counters and flags (how many times fit() ran, the new-version hint) — plain numbers, nothing drawn

@@ -127,3 +127,39 @@ with real time); the gate takes the level-start view, which is the same on every
   hitch (max) are the useful numbers. Only SwiftShader frame times are informative as a relative measure (and noisy).
 - *The first-60 p95 rule of AC 4 is weak:* 60 frames' p95 ignores the worst 3 frames, and the hitch is 1–3 frames. The gate that
   catches it is the count of programs / geometries first made in those frames (the test), plus `max` in the report.
+
+## SPEC-040 step 5 — the warm-up behind the level card (AC 4), measured 2026-11-27
+
+**What changed.** Opening a level's card (`chooseStop`) starts `src/client/warm.js`: one stage a frame — the showcase game of that level
+(`game`), its 3D map (`map`: parts, geometries, batches), the fade shader variants (`shaders`: `renderer.compileAsync`), the models
+(`chars`), then the world drawn a few top-level parts a frame into a one-pixel scissor (`upload`: geometry, instance and vertex buffers,
+the ground and hatch textures) — and a last world frame once it is shown again. Play (`startGame`) ends the warm-up and finds the map
+(same `mapKey`) and the models (same looks) already there. If Play is pressed before the end, the normal start builds what is missing
+(never more than before). Retry, a practice game and `__bb.startGame` use the same reuse (the map of the same level and the models of
+the same team stay), but Next builds its level when it is pressed, as before (the win screen shows the finished game, so the next
+level cannot be built under it).
+
+**AC 4 numbers** (phone view 667×375, `?phone=1`, the level started through its card, the warm-up run to its end; programs / geometries /
+textures first made in the first 3 frames after Play, slowest frame of the first 60):
+
+| | before (step 4 code, `startGame` straight) | after |
+|---|---|---|
+| Beach 3 after Park, GPU | first 60 frames made 5 programs, 477 geometries, 0 textures; slowest frame 717 ms | 0 / 0 / 0; slowest frame 16.8 ms (p95 16.7 vs steady 16.8) |
+| first boss (Park 20), GPU | 2 programs, 217 geometries; slowest 383 ms | 0 / 0 / 0; slowest 16.8 ms |
+| Beach 3, SwiftShader | slowest 3700 ms | 0 / 0 / 0; slowest 200 ms (p95 ratio 1.2) |
+| Park 20, SwiftShader | slowest 433 ms | 0 / 0 / 0 in the first 3 frames; slowest 250 ms (5 geometries by frame 60: the items and stars of a game that has run 9 s of game time on a slow machine) |
+
+**Where the time went** (phone, GPU; ms; one fresh level each):
+
+| | Play pressed with nothing warmed (before) | the warm-up, behind the card | Play after the warm-up |
+|---|---|---|---|
+| Park 1 / Beach 3 / Park 20 / Winter 2 / City 5 | `startGame` 65 / 238 / 114 / 113 / 120, then the first frame 108 / 194 / 110 / 174 / 109 | 1.0–1.4 s in 40–55 frames; the longest frame 112 / 168 / 164 / 112 / 196 (`map` stage; Beach was 423 before the shader stage went async) | `startGame` 3–8, first frame 10–15 (Park 1, the first level of the session: 37) |
+| SwiftShader | `startGame` 313–479, first frame 34–479 | 2.6–3.2 s; longest frame 565–812 (the first level of a session: 3107, the shaders) | 4–8 and 12–59 (the first level of a session: 128 and 368) |
+
+Per stage on this machine (GPU, phone): the game of the level 30–120 ms (a first-time level: more), the map 75–195 ms (Beach the most),
+the models 25–30 ms, the upload 110–275 ms in all, split over ~6–12 frames.
+
+**Not done / notes.** A cross-level geometry cache is not needed after step 4's geometry scope: each map joins its parts into new buffers
+anyway, and what is repeated across levels (the instanced shapes) is small. The wardrobe's previews, the minimap and the paper are not
+part of the warm-up. A level started through Next on the win screen still hitches as in step 4 (build + first frame ~100–270 ms GPU):
+warming it would need a second scene or a second map group.

@@ -143,47 +143,47 @@
    ["phone.spec.js","phone sizes 932×430","the world tabs and the bonus note fit at 932×430"],
    ["phone.spec.js","phone tiptoe button 667×375","the 👣 button toggles tiptoe: full tilt is silent at TIPTOE_MULT; off at the next level (667)"],
    ["phone.spec.js","tablet","an iPad-sized touch screen is not a phone"],
-   ["phone.spec.js","tablet portrait","an iPad in portrait plays letterboxed, with no rotate wall"]
+   ["phone.spec.js","tablet portrait","an iPad in portrait plays letterboxed, with no rotate wall"],
+   ["site.spec.js"]
+  ],
+  [
+   ["economy.spec.js"],
+   ["saves.spec.js"],
+   ["story.spec.js","Dad's mood shows: angry red with steam and a dark cloud, mid orange-pink with less steam, kind pink with hearts"],
+   ["story.spec.js","each boss wears his own look on the dad model, a bit bigger"],
+   ["story.spec.js","SPEC-033: the win title keeps its room from the line under it — desktop 1280×720"],
+   ["story.spec.js","SPEC-033: the win title keeps its room from the line under it — phones 568×320 and 667×375"],
+   ["story.spec.js","the anger meter shows Dad's anger (phone 667×375)"],
+   ["story.spec.js","the kind dad smiles, blushes and waves on his way home"],
+   ["story.spec.js","the scenes fit a 667×375 phone"],
+   ["story.spec.js","the win title: Dad is kind again (phone 667×375)"],
+   ["tooling.spec.js"]
   ],
   [
    ["balance.spec.js"],
-   ["economy.spec.js"],
    ["env.spec.js"],
    ["names.spec.js"],
    ["perf.spec.js","rotate overlay","SPEC-040 AC 3: no render3D under the rotate overlay"],
    ["perf.spec.js","SPEC-040 AC 12: phone frame time p50/p95 of the busiest level of Park, Beach and Winter (recorded)"],
    ["perf.spec.js","SPEC-040 AC 3: a resize under a full-screen page, and the way back, leave the world drawn"],
-   ["perf.spec.js","SPEC-040 AC 3: the menus render at most CFG.MENU_FPS (30) frames per second"],
    ["perf.spec.js","SPEC-040 AC 3: the wardrobe previews keep animating while the world behind is not drawn"],
    ["perf.spec.js","SPEC-040 AC 4: the first 60 frames of a new world (Beach 3 after Park) (phone view): p95 ≤ steady × 1.5, no program or geometry first made in them"],
    ["perf.spec.js","SPEC-040 AC 4: the first 60 frames of the first boss (Park 20) (phone view): p95 ≤ steady × 1.5, no program or geometry first made in them"],
+   ["perf.spec.js","SPEC-040 AC 4: the warm-up does not change the game Play starts; Play before its end starts the level; a Retry builds nothing"],
    ["perf.spec.js","SPEC-040 AC 9: measureText calls per frame on the home and Character screens drop at least 5×"],
-   ["tooling.spec.js"]
-  ],
-  [
-   ["assets.spec.js"],
    ["story.spec.js","a bonus world shows its picture before its first level; gamepad A goes on"],
    ["story.spec.js","a boss level shows its boss picture the first time"],
-   ["story.spec.js","Dad's mood shows: angry red with steam and a dark cloud, mid orange-pink with less steam, kind pink with hearts"],
-   ["story.spec.js","each boss wears his own look on the dad model, a bit bigger"],
    ["story.spec.js","every scene can be watched again from the Story"],
    ["story.spec.js","progress.seen: old saves load with every scene unseen, a broken one too"],
    ["story.spec.js","SPEC-026: Dad's bubble lines (4 per language, Andrei's Russian in docs/story.md) and the bubble boxes in CFG"],
    ["story.spec.js","SPEC-026: Dad's lines sit in the comic's bubbles (desktop)"],
    ["story.spec.js","SPEC-026: Dad's lines sit in the comic's bubbles (phone 667×375)"],
    ["story.spec.js","SPEC-033: the Story's How it began page shows panel 1 big with its bubble, ▶ plays the whole comic"],
-   ["story.spec.js","SPEC-033: the win title keeps its room from the line under it — desktop 1280×720"],
-   ["story.spec.js","SPEC-033: the win title keeps its room from the line under it — phones 568×320 and 667×375"],
    ["story.spec.js","the anger meter shows Dad's anger (desktop)"],
-   ["story.spec.js","the anger meter shows Dad's anger (phone 667×375)"],
    ["story.spec.js","the first launch shows the start comic once"],
    ["story.spec.js","the first School 20 win shows the ending and the thank-you card"],
-   ["story.spec.js","the kind dad smiles, blushes and waves on his way home"],
-   ["story.spec.js","the scenes fit a 667×375 phone"],
    ["story.spec.js","the story texts come from Kostya's story (docs/story.md)"],
-   ["story.spec.js","the win title: Dad is kind again (desktop)"],
-   ["story.spec.js","the win title: Dad is kind again (phone 667×375)"],
-   ["worlds.spec.js"]
+   ["story.spec.js","the win title: Dad is kind again (desktop)"]
   ],
   [
    ["fixedstep.spec.js"],
@@ -200,10 +200,12 @@
    ["perf.spec.js","SPEC-040 AC 2: the busiest level of each world draws at most 600 calls on the tablet view"],
    ["perf.spec.js","SPEC-040 AC 3: a paused level renders once, settles, and then renders nothing"],
    ["perf.spec.js","SPEC-040 AC 3: no render3D while story, scene, Character pages and the grown-ups page cover the 3D"],
+   ["perf.spec.js","SPEC-040 AC 3: the menus render at most CFG.MENU_FPS (30) frames per second"],
    ["perf.spec.js","SPEC-040 scan: the busiest level of each world is the one in BUSIEST (PERF_SCAN=1)"],
-   ["site.spec.js"]
+   ["wardrobe.spec.js"]
   ],
   [
+   ["assets.spec.js"],
    ["bosses.spec.js"],
    ["menus.spec.js","CFG.MENU_LOOK has no key twice"],
    ["menus.spec.js","every price button of Items and Upgrades fits in every language, also with wider fonts (desktop)"],
@@ -230,8 +232,7 @@
    ["phone.spec.js","phone shop 844×390","the phone shop fits with wider fonts (844×390)"],
    ["phone.spec.js","phone shop 932×430","the phone shop fits with wider fonts (932×430)"],
    ["phone.spec.js","rotate overlay off the phone mode","it shows and nothing under it reacts"],
-   ["saves.spec.js"],
-   ["wardrobe.spec.js"]
+   ["worlds.spec.js"]
   ]
  ]
 }

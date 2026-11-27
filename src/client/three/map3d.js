@@ -15,6 +15,7 @@ import { circleOn, fillStrokeOn, rrOn } from "../ui/canvas.js";
 import { G } from "../../core/active.js";
 
 export let builtKey = "";
+export const forgetMap = () => { builtKey = ""; };   // SPEC-040: the next rebuild builds the map whatever its key
 export const mapKey = () => { const li = G.levelInfo || {}; return [li.world, li.lv, li.type === "tutorial" ? "tutorial" : "", li.attempt, li.fallback].join(":"); };   // какой уровень построен в 3D (SPEC-029: карта тренировок — свой ключ)
 export const fadeTrees = [], fadeBushes = [];
 export let safeGlow = null, snow = null;
@@ -300,15 +301,28 @@ export function buildMap3D() {
   // SPEC-040 AC 2 / 5: what stands still is drawn instanced; trees and bushes are drawn opaque from the instances until a fade starts (batch.js)
   batchMap(mapGroup, { skip: new Set([...houseRoofs.map(r => r.g), ...waves]), fades: [...fadeTrees, ...fadeBushes] });
   endGeoScope();
-  warmFadeVariants();
+  if (!compileLater) warmFadeVariants();
 }
+// SPEC-040 AC 4: the warm-up behind the level card compiles the shader variants on its own (compileFadeVariants, without blocking a frame)
+let compileLater = false;
+export const setCompileLater = on => { compileLater = on; };
 // the transparent drawing of a fading tree, bush or roof is a shader variant the first frame does not use (they start opaque): compile it
 // now, with the map, so the first fade in play is not a hitch. renderer.compile draws nothing; it only makes the programs
 function warmFadeVariants() {
   if (!renderer) return;
-  const roofMats = houseRoofs.flatMap(r => r.mats.flatMap(mt => [mt, mt.userData.outline])), set = on => { for (const mt of roofMats) if (mt.transparent !== on) { mt.transparent = on; mt.needsUpdate = true; } };
+  const set = roofSetter();
   set(true);
   renderer.compile(scene, camera);                       // the transparent variants (a fading tree, bush, roof)
   set(false);
   renderer.compile(scene, camera);                       // and the opaque roofs (where they start: a = 1)
+}
+const roofSetter = () => { const mats = houseRoofs.flatMap(r => r.mats.flatMap(mt => [mt, mt.userData.outline])); return on => { for (const mt of mats) if (mt.transparent !== on) { mt.transparent = on; mt.needsUpdate = true; } }; };
+// the same without blocking: compileAsync polls the driver (KHR_parallel_shader_compile where there is one) and the promise resolves when the programs are ready
+export async function compileFadeVariants() {
+  if (!renderer) return;
+  const set = roofSetter();
+  set(true);
+  await renderer.compileAsync(scene, camera);
+  set(false);
+  await renderer.compileAsync(scene, camera);
 }

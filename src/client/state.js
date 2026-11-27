@@ -15,6 +15,7 @@ export const ui = {
   // в этот мир и показывает плашку — один раз (showOpenedWorld)
   openedWorld: null,
   worldBanner: null,
+  warm: /** @type {null | { world: string, level: number }} */ (null),   // SPEC-040 AC 4: the level whose card is shown — warm.js builds its 3D behind the card (null: nothing to warm)
   texts: [],
   particles: [],
   muted: false,
