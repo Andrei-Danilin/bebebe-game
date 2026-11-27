@@ -364,7 +364,7 @@ look3d 86 · errors 67 · levels 56 · worlds 54 · input-safety 46 · saves 39 
 
 ### After
 
-Tests workflow, last push of the SPEC-039 branch (filled in at the close from the run's jobs):
+First CI run of the branch: run 45957040604 on `03efd2e`, **wall 9.5 min** (9 of 10 shards green; the test shards took 356–534 s, shard 5 the slowest at 534 s; shard 7 failed in 29 s at `install-deps`: the runner's packages.microsoft.com apt source answered 403, so the step now drops non-Ubuntu apt sources first). The final value comes from the last push of the branch (filled in at the close from the run's jobs):
 
 | run | commit | wall | slowest shard | fastest shard |
 |---|---|---|---|---|

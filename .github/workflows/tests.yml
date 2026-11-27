@@ -137,6 +137,15 @@ jobs:
         run: npx playwright install chromium
       # SPEC-039 AC 2: the apt step once hung for 7m48s on a shard (SPEC-023): it is its own step with a 4 minute limit and one retry,
       # so a hang fails (or is retried) fast and says which step it was
+      # CI 45957040604: `apt-get update` failed on the runner's packages.microsoft.com source (403, "no longer signed") — the browser's
+      # libraries come from Ubuntu's own archive, so every other source list is removed first (never fails when there is none)
+      - name: Drop the runner's third-party apt sources (only Ubuntu's are needed)
+        run: |
+          shopt -s nullglob
+          for f in /etc/apt/sources.list.d/*; do
+            case "$(basename "$f")" in ubuntu*) ;; *) sudo rm -f "$f" ;; esac
+          done
+          true
       - name: Install the system libraries for Chromium (apt, 4 min limit)
         id: deps
         timeout-minutes: 4
@@ -147,6 +156,7 @@ jobs:
         timeout-minutes: 4
         run: |
           sudo dpkg --configure -a || true
+          sleep 5
           npx playwright install-deps chromium
       # a rollback ref from before SPEC-039 (pages.yml `ref`) has no shard plan: Playwright's own count split of 10 runs it
       - name: Run shard ${{ matrix.shard }}/10

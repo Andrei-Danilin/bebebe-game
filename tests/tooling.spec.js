@@ -213,7 +213,12 @@ test("SPEC-039 AC 1: the shard plan runs every test exactly once; the run check 
 test("SPEC-039 AC 2: the install of the system libraries is limited to 4 minutes and retried once; the stall guard stays its own job", { tag: "@fast" }, () => {
   const y = read(".github/workflows/tests.yml");
   expect(y).toMatch(/- name: Install the system libraries for Chromium \(apt, 4 min limit\)\n\s+id: deps\n\s+timeout-minutes: 4\n\s+continue-on-error: true\n\s+run: npx playwright install-deps chromium/);
-  expect(y).toMatch(/- name: Install the system libraries for Chromium \(apt, retry[^\n]*\n\s+if: steps\.deps\.outcome == 'failure'\n\s+timeout-minutes: 4\n\s+run: \|\n\s+sudo dpkg --configure -a \|\| true\n\s+npx playwright install-deps chromium/);
+  expect(y).toMatch(/- name: Install the system libraries for Chromium \(apt, retry[^\n]*\n\s+if: steps\.deps\.outcome == 'failure'\n\s+timeout-minutes: 4\n\s+run: \|\n\s+sudo dpkg --configure -a \|\| true\n\s+sleep 5\n\s+npx playwright install-deps chromium/);
+  // CI 45957040604: a third-party source (packages.microsoft.com, 403) failed `apt-get update`: every list but Ubuntu's goes first, before both attempts
+  const drop = y.indexOf("Drop the runner's third-party apt sources");
+  expect(drop, "the sources step comes before the install steps").toBeGreaterThan(0);
+  expect(drop).toBeLessThan(y.indexOf("(apt, 4 min limit)"));
+  expect(y.slice(drop, y.indexOf("(apt, 4 min limit)"))).toMatch(/\/etc\/apt\/sources\.list\.d\/\*[\s\S]*ubuntu\*\) ;; \*\) sudo rm -f/);
   expect(y, "the browsers still come from a cache").toMatch(/path: ~\/\.cache\/ms-playwright/);
   expect(y, "a shard runs its own test list").toMatch(/node scripts\/shards\.js list \$\{\{ matrix\.shard \}\} > shard-list\.txt/);
   expect(y, "the shard job has a limit that fails a stall").toMatch(/test:\n\s+name: shard[^\n]*\n\s+runs-on: ubuntu-latest\n\s+timeout-minutes: 20/);
