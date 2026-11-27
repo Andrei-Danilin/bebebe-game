@@ -560,3 +560,23 @@ test.describe("the new-version note on a phone", () => {
     expect(errors.filter(e => !e.includes("Failed to load resource"))).toEqual([]);
   });
 });
+
+// SPEC-038 AC 6 (RR-39): a sprite missing from the sprite cache (evicted, or one the install could not fetch) is fetched again on
+// the next online start; the page need not ask for it
+test("an online start re-fetches a sprite missing from the cache", async ({ page }) => {
+  test.slow();
+  await openGameHttp(page);
+  await waitForSW(page);
+  const sprite = HTTP_BASE + "assets/" + swList("PRECACHE_ASSETS")[5].slice(9);
+  const has = () => page.evaluate(async ([n, u]) => !!(await (await caches.open(n)).match(u)), [CACHE_ASSETS, sprite]);
+  expect(await has(), "installed with it").toBe(true);
+  expect(await page.evaluate(async ([n, u]) => (await caches.open(n)).delete(u), [CACHE_ASSETS, sprite])).toBe(true);
+  expect(await has()).toBe(false);
+  // an online start = a navigation the network answers; a plain document (not the game, which would ask for the sprite itself)
+  await page.goto(HTTP_BASE + "icons/icon.svg");
+  expect(await page.evaluate(() => !!navigator.serviceWorker.controller), "still the worker's page").toBe(true);
+  await expect.poll(has, { timeout: 30_000, message: "the worker put the sprite back" }).toBe(true);
+  // and the whole list is there again
+  const art = await page.evaluate(async n => (await (await caches.open(n)).keys()).map(r => r.url), CACHE_ASSETS);
+  expect(swList("PRECACHE_ASSETS").filter(u => !art.includes(HTTP_BASE + u.slice(2)))).toEqual([]);
+});

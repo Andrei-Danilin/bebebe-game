@@ -22,9 +22,9 @@ const CACHE_PREFIX = "bebebe-";          // all Pages projects of the account sh
 const NET_TIMEOUT_MS = 4000;             // weak signal: after this long, a cached copy wins over a slow network
 // SPEC-011: written by npm run precache (scripts/precache.js) — do not edit by hand
 // precache:start
-const SW_BUILD = 8;
-const SW_STRATEGY = "934616d777";
-const SW_VERSION = "bebebe-1.0.0-dev-b8";
+const SW_BUILD = 9;
+const SW_STRATEGY = "e6637f1b4e";
+const SW_VERSION = "bebebe-1.0.0-dev-b9";
 const SRC_HASH = "d508cadf35";
 const PRECACHE_LOCAL = [
   "./", "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512-maskable.png",
@@ -212,6 +212,22 @@ function rememberShell(event, request, response) {
   return response;
 }
 
+// SPEC-038 AC 6 (RR-39): on an online start (a navigation the network answered) every precached sprite missing from this version's
+// sprite cache (evicted by the browser, or one the install could not fetch) is fetched again, one by one: a miss never blocks
+// anything, and one pass runs at a time
+let repairing = false;
+function repairArt(event) {
+  if (repairing) return;
+  repairing = true;
+  const done = (async () => {
+    const art = await caches.open(CACHE_ASSETS);
+    const have = new Set((await art.keys()).map(r => r.url));
+    const missing = PRECACHE_ASSETS.filter(u => !have.has(new URL(u, self.location).href));
+    await Promise.all(missing.map(u => art.add(new Request(u, { cache: "no-cache" })).catch(() => {})));
+  })().catch(() => {}).finally(() => { repairing = false; });
+  try { event.waitUntil(done); } catch (e) { /* the event is over: the pass goes on anyway */ }
+}
+
 // the cached shell: this worker's own version first (its modules are there), then any other copy
 async function cachedShell(request, fallbackUrl) {
   const own = await caches.open(CACHE_SRC);
@@ -254,7 +270,8 @@ self.addEventListener("fetch", event => {
   if (req.mode === "navigate" || atRoot) {
     // a new version of the game shows up as soon as the phone is online
     const fallback = atRoot ? SCOPE_ROOT : null;
-    event.respondWith(networkFirst(event, req, fallback, atRoot ? rememberShell : null, () => cachedShell(req, fallback)));
+    const save = (ev, rq, res) => { if (res.ok) repairArt(ev); return atRoot ? rememberShell(ev, rq, res) : res; };   // SPEC-038 AC 6: online → missing sprites back
+    event.respondWith(networkFirst(event, req, fallback, save, () => cachedShell(req, fallback)));
   } else if (local && url.pathname.includes("/src/") && url.searchParams.has("v")) {
     // a versioned module: the exact URL (its hash) from any of our caches, else the network — never written at runtime
     event.respondWith(cacheFirst(event, req, null, { ignoreVary: true }));
