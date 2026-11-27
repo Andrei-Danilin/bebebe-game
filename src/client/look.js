@@ -39,6 +39,7 @@ export const LOOK = {
   MINIMAP_BG_ALPHA: 0.12,    // прозрачность тёмной подложки (было .35) — только чтобы точки читались на снегу и песке
   MINIMAP_UNDER_ALPHA: 0.2,  // вся мини-карта, когда под ней герой или Большой
   MINIMAP_UNDER_PAD: 12,     // UI px — запас вокруг мини-карты для «под ней»
+  TEXT_MEMO_MAX: 6000,       // SPEC-040 AC 9: entries of the text-width and text-fit memos (ui/measure.js) before they are emptied
   FADE_SETTLED: 0.01,        // SPEC-040: roof / tree / bush fade closer than this to its goal is settled — a frozen scene (pause) is no longer redrawn
   MINIMAP_FADE_TIME: 0.2,    // сек — от полной до бледной (и обратно)
   // как рисуется (UI px и доли): стены — их цвет, смешанный с тёмным на dark; домики — заливка zone и контур zoneLine;

@@ -18,6 +18,7 @@ import { pButton, phoneFrame } from "./menu.js";
 import { clipRows, fitLine, fitText, fmtHearts, fmtTime, label, labelFit, lastFit, noteText, pDraw, pLabel, pRows, pWrap, titleRows } from "./text.js";
 import { cpx } from "./layout.js";
 import { G } from "../../core/active.js";
+import { textW as measuredW } from "./measure.js";
 
 // =====================================================================
 //  ЛОГИКА
@@ -32,7 +33,7 @@ function drawBonusNote(cx, cy, maxW, h, css) {
   const text = "🎁 " + L().bonusUnlocked, padX = PHONE ? cpx(24) : 28;
   const min = PHONE ? cpx(LOOK.PHONE_TEXT.main) : 14, start = PHONE ? Math.max(cpx(css), min) : css;
   const size = fitText(text, -9999, -9999, start, (maxW - padX) / LOOK.TEXT_TEST_SCALE, "center", OUT, 900, min, true);
-  const textW = ctx.measureText(text).width * LOOK.TEXT_TEST_SCALE, w = Math.min(maxW, textW + padX), x = cx - w / 2, y = cy - h / 2;
+  const textW = measuredW(text) * LOOK.TEXT_TEST_SCALE, w = Math.min(maxW, textW + padX), x = cx - w / 2, y = cy - h / 2;
   rr(x, y, w, h, h / 2); fillStroke("#fde047", PHONE ? cpx(3) : 4, "#db2777");
   fitText(text, cx, cy + 1, size, Infinity, "center", "#831843", 900, size);
   if (PHONE) noteText("main", size);

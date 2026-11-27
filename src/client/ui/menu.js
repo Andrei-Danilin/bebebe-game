@@ -8,13 +8,14 @@ import { ctx, OUT, PHONE, UH, UW } from "../screen.js";
 import { THEMES } from "../three/themes.js";
 import { addButton, fillStroke, rr } from "./draw.js";
 import { cpx, hudFont, menuFrameGeom, phoneFrameGeom } from "./layout.js";
+import { textW } from "./measure.js";
 
 // кнопка: надпись сжимается под ширину, но не мельче основного текста
 export function pButton(x, y, w, h, text, color, act, css = 18) {
   const min = cpx(LOOK.PHONE_TEXT.main);
   let sz = Math.max(cpx(css), min);
   ctx.font = hudFont(sz);
-  while (ctx.measureText(text).width > w - cpx(14) && sz > min) { sz = Math.max(min, sz - 0.5); ctx.font = hudFont(sz); }
+  while (textW(text) > w - cpx(14) && sz > min) { sz = Math.max(min, sz - 0.5); ctx.font = hudFont(sz); }
   const b = addButton(x, y, w, h, text, color, act, sz);
   b.size = sz;
   return b;

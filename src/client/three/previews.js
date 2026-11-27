@@ -13,7 +13,10 @@ import { phoneSkinCols, progressGeom } from "../ui/layout.js";
 import { G } from "../../core/active.js";
 
 // SPEC-027 (тесты): модель маленького — номер в littles или «p1» / «p2» (превью гардероба, из кэша)
-export const outfitModel = who => (typeof who === "number" ? modelOf(G.littles[who]) : previewCache.get("L" + JSON.stringify(makeLook(skinSel[who]))));
+// SPEC-040 AC 10: a look is a pure function of the four picks (makeLook), so the cache key is made from the picks — nothing is stringified or
+// built per frame; the look itself is made only when its model is (a cache miss)
+const lookKey = o => `L${o.hair}|${o.hat}|${o.jacket}|${o.pants}`;
+export const outfitModel = who => (typeof who === "number" ? modelOf(G.littles[who]) : previewCache.get(lookKey(skinSel[who])));
 // ---------- Превью нарядов (рисуется в «окошки» UI-слоя) ----------
 const previewScene = new THREE.Scene();
 
@@ -40,10 +43,9 @@ export const skinPanels = () => progressTab() ? [{ key: "p1", ...progressGeom().
   : PHONE ? phoneSkinCols().map(col => ({ key: col.key, ...col.panel }))
   : SKIN_KEYS.map((key, i) => ({ key, x: skinCx(i) - 95, y: 136, w: 190, h: 140 }));
 export function renderPreviews(t) {
-  const lp1 = makeLook(skinSel.p1), lp2 = makeLook(skinSel.p2);
   const defs = {
-    p1: ["L" + JSON.stringify(lp1), () => buildLittleModel(lp1, false)],
-    p2: ["L" + JSON.stringify(lp2), () => buildLittleModel(lp2, false)],
+    p1: [lookKey(skinSel.p1), () => buildLittleModel(makeLook(skinSel.p1), false)],
+    p2: [lookKey(skinSel.p2), () => buildLittleModel(makeLook(skinSel.p2), false)],
     big: ["B" + skinSel.big, () => buildBigModel(BIG_SKINS[skinSel.big])]
   };
   const s = CSS_W / UW;

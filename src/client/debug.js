@@ -26,6 +26,7 @@ import { cadence, COVERED, newCadence } from "./cadence.js";
 import { qualityFrame, qualityInfo, setQualityMode } from "./adaptive.js";
 import { warmInfo } from "./warm.js";
 import { art, ART_FALLBACK, artBytes, artCount, artLazy, artLoad, artDone, artVersion, EMOJI_ART, FX_ART, HEART_ART, ITEM_ART, mapBgArt, PAPER_BTN, POP_ART, SHOP_TAB_ART, STORY_ART, UPG_ART, WARDROBE_ART, worldArt } from "./art.js";
+import { orderedEvents } from "../core/events.js";
 import { bannerAlpha, chapterOpen, chooseStop, goBack, nextLevel, closeShop, giveReward, lastReward, mapTick, openFriends, openMap, openScene, openShop, openStory, resetMenus, resetWorld, rngDraws, sceneNext, scenePageCount, scenePages, sceneSkip, seedRandom, selectWorld, setLastReward, setMode, setShopTab, shopAfterWin, showBanner, startGame, tapWorldTab, toHome, toMap } from "./flow.js";
 import { errorLog, reportError } from "./errors.js";
 import { glRestored } from "./lifecycle.js";
@@ -199,7 +200,7 @@ export function installDebug() {
     itemNames: () => Object.fromEntries(Object.entries({ hair: HAIRS, hat: HATS, jacket: JACKETS, pants: PANTS, big: BIG_SKINS }).map(([k, l]) => [k, l.map(q => ({ ...q.name }))])),
     REWARD, get winPanel() { return ui.winPanel && { ...ui.winPanel }; },   // SPEC-009: числа награды; рамка строк награды на экране победы
     seedRandom,     // SPEC-008: seedRandom(n) — игровая случайность rng() с зерна n; seedRandom() — снова случайно
-    sim, simRun: (seconds, dt) => simRun(seconds, dt, stepGame), get events() { return G.events.map(e => ({ ...e })); },   // SPEC-008: режим симуляции, журнал событий (копии)
+    sim, simRun: (seconds, dt) => simRun(seconds, dt, stepGame), get events() { return orderedEvents().map(e => ({ ...e })); },   // SPEC-008: режим симуляции, журнал событий (копии)
     ledger: () => ledger.map(e => ({ ...e })),   // SPEC-009: события coins за сессию (с загрузки страницы), копии
     get rngDraws() { return rngDraws(); },   // SPEC-008: сколько раз тянули игровую случайность
     setProgress(save) { G.rewardDue = false; setLastReward(null); ui.openedWorld = null; ui.worldBanner = null; setProgress(save); },   // SPEC-008 (баланс): прогресс из сохранения (null — новый), не записывает

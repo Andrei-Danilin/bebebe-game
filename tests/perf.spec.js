@@ -507,7 +507,6 @@ test("SPEC-040 AC 12: phone frame time p50/p95 of the busiest level of Park, Bea
 // SwiftShader — a few frames of its own work in a short window — the Character tabs are the same on both); SPEC-040 AC 9: at least 5× fewer
 const MEASURE_BASELINE = { home: 15, "character progress": 111, "character items": 116, "character wardrobe": 73, "character upgrades": 93 };
 test("SPEC-040 AC 9: measureText calls per frame on the home and Character screens drop at least 5×", async ({ page }) => {
-  test.fail();   // SPEC-040 step 7 turns this on (memoized fitText / wrapText / labelFit)
   test.setTimeout(120_000);
   const errors = await openGame(page);
   await page.evaluate(() => {

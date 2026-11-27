@@ -24,6 +24,7 @@ import { fitText, fmtTime, fz, label, labelFit, lastFit, noteRows, noteText } fr
 import { cpx, hudFont, minimapRect, minPx, phoneTopBar } from "./layout.js";
 import { G } from "../../core/active.js";
 import { gameInv, gloveOf } from "../../core/rules.js";
+import { textW } from "./measure.js";
 
 // Сердечко i в полоске: 1 — целое, 0.5 — половинка, 0 — пустое
 export const heartFill = (i, hp) => clamp(hp - i, 0, 1);
@@ -44,7 +45,7 @@ export function drawHUD(t) {
   const many = G.big.maxHp > 8, lots = G.big.maxHp > 12, hStep = lots ? 15 : many ? 17 : 21, hSize = lots ? 13 : many ? 15 : 18;   // много облачек — плотнее, чтобы влезла подпись
   const bigName = angerLabel(), hearts = G.big.maxHp * hStep, timerX = UW / 2 - 95;
   ctx.font = `900 15px system-ui, "Segoe UI", "Arial Rounded MT Bold", Arial, sans-serif`;
-  const nameW = Math.min(ctx.measureText(bigName).width, timerX - 10 - 8 - 8 - 18 - hearts - 6);
+  const nameW = Math.min(textW(bigName), timerX - 10 - 8 - 8 - 18 - hearts - 6);
   const hx = 18 + nameW + 18, hpW = hx + hearts - 10 - (hStep - hSize / 2) + 9;
   rr(10, 8, hpW, 34, 14); fillStroke("rgba(255,255,255,.8)", 3);
   labelFit(bigName, 18, 25, 15, nameW, "#9b2c3a", "left");
@@ -205,7 +206,7 @@ function heroScreenRect(l) {
   const P = LOOK.PHONE_BANNER, tag = playerNameTag(l), head = tag.hd, feet = toScreen(l.x, l.y);
   const side = P.heroSide * Math.max(Math.abs(toScreen(l.x + l.r, l.y).x - feet.x), Math.abs(toScreen(l.x + l.r, l.y, nameTagH()).x - head.x));
   ctx.font = hudFont(tag.size);
-  const nw = ctx.measureText(nameOf(l)).width + tag.stroke;   // с обводкой
+  const nw = textW(nameOf(l)) + tag.stroke;   // с обводкой
   const x0 = Math.min(feet.x - side, tag.x - nw / 2), x1 = Math.max(feet.x + side, tag.x + nw / 2);
   const y0 = tag.y - tag.size * P.heroText, y1 = feet.y + side * P.heroFeet;
   return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
@@ -220,7 +221,7 @@ function placePhoneBanner() {
   const blocks = [minimapRect(), ...ui.buttons, ...ui.hudRects];
   if (hr) blocks.push(hr);
   ctx.font = `900 ${minPx("title")}px system-ui, "Segoe UI", sans-serif`;
-  const measure = (text, variant) => ({ text, variant, w: ctx.measureText(text).width * LOOK.TEXT_TEST_SCALE + 2 * cpx(P.pad) });
+  const measure = (text, variant) => ({ text, variant, w: textW(text) * LOOK.TEXT_TEST_SCALE + 2 * cpx(P.pad) });
   const tiers = [[measure(ui.banner.text, "full"), measure(ui.banner.short, "short")], [measure(ui.banner.tiny, "tiny")]];
   // самый широкий свободный отрезок по x для плашки на высоте y
   const span = y => {
@@ -262,7 +263,7 @@ export function drawBanner() {
     ctx.restore(); return;
   }
   ctx.font = `900 34px system-ui, "Segoe UI", sans-serif`;
-  const w = Math.min(640, ctx.measureText(ui.banner.text).width) + 60;
+  const w = Math.min(640, textW(ui.banner.text)) + 60;
   rr(UW / 2 - w / 2, 96, w, 62, 26); fillStroke("rgba(255,250,235,.93)", 4);
   fitText(ui.banner.text, UW / 2, 128, 34, 640, "center", "#ff6fa8", 900);
   ctx.restore();

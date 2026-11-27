@@ -41,6 +41,7 @@ import { warmBuild, warmUpload } from "./warm.js";
 import { showDueNote } from "./ui/grownups.js";
 import { updateMinimapFade } from "./ui/minimap.js";
 import { drawUI } from "./ui/screens.js";
+import { initTextMemo } from "./ui/measure.js";
 
 let langDue = false, introDue = false, tutorialDue = false, last = 0;
 async function boot() {
@@ -53,6 +54,7 @@ async function boot() {
   useGame(newGame());                         // SPEC-012: the local game (resetWorld builds it; the saves pick its world and level first)
   if (Number.isFinite(window.__bbSeed)) seedRandom(window.__bbSeed);
   initArt();
+  initTextMemo();
   initScreen();
   // SPEC-011 AC 3b: сторона клиента в порту hooks (Phase C: src/client/main.js) — до загрузки сохранений и до первой игры
   setHooks({ rebuild: rebuild3D });

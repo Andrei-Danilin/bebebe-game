@@ -481,6 +481,7 @@
 | CFG | `MINIMAP_BG_ALPHA` | 0.12 | прозрачность тёмной подложки (было .35) — только чтобы точки читались на снегу и песке |
 | CFG | `MINIMAP_UNDER_ALPHA` | 0.2 | вся мини-карта, когда под ней герой или Большой |
 | CFG | `MINIMAP_UNDER_PAD` | 12 | UI px — запас вокруг мини-карты для «под ней» |
+| CFG | `TEXT_MEMO_MAX` | 6000 | SPEC-040 AC 9: entries of the text-width and text-fit memos (ui/measure.js) before they are emptied |
 | CFG | `FADE_SETTLED` | 0.01 | SPEC-040: roof / tree / bush fade closer than this to its goal is settled — a frozen scene (pause) is no longer redrawn |
 | CFG | `MINIMAP_FADE_TIME` | 0.2 | сек — от полной до бледной (и обратно) |
 | CFG | `MINIMAP_LOOK` | { dark: 0.65, zone: 0.18, zoneLine: 1, bush: 0.3, tree: 0.45, outline: 1, dot: 3, rest: 0.5, cone: 0.35, coneCalm: 0.25, dots: { star: 3.5, item: 3, downed: 4.5, bot: 3.6, big: 5, hero: 4.5 }, ringW: 1.5, frame: 0.6, frameW: 1, frameShade: 0.25, frameShadeW: 3, border: 0.35, borderW: 1, radius: 8 } | как рисуется (UI px и доли): стены — их цвет, смешанный с тёмным на dark; домики — заливка zone и контур zoneLine; кусты, деревья, камни — точки в bush/tree радиуса; точки героев dots (UI px), не мен… |

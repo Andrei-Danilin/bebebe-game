@@ -207,3 +207,37 @@ phone view; GPU). The draw calls are the same in every tier — the decor is ins
 Canvas on the phone view with the 2× screen: high and medium 1000×562 (high stops at 1.5 on touch screens as before), low 667×375. High
 is pixel-identical to the step-5 picture in Park, Field, City, School, Beach (0 differing pixels, 960×640 and 667×375); in Winter 0.3–0.5 %
 of the pixels differ, the snow particles (their start positions come from the view's random stream). Low-tier screenshots: `shots/SPEC-040/step6/`.
+
+## SPEC-040 step 7 — text memo, ring buffer, scratch buffers (AC 9, AC 10), measured 2026-11-27
+
+`ctx.measureText` calls per 2D tick (10-tick windows, the `perf.spec.js` AC 9 test; the baseline is step 1):
+
+| screen | before | after |
+|---|---|---|
+| home | 15 | 0 |
+| Character: progress | 111 | 0 |
+| Character: items | 116 | 0 |
+| Character: wardrobe | 73 | 0 |
+| Character: upgrades | 93 | 0 |
+
+Every measure goes through `textW` (`ui/measure.js`, remembered per font + text) and `fitText` / `wrapText` / `labelFit` remember their
+result per (text, size, weight, width, min); both memos are emptied on a language change, a refit (resize), a finished font load and at
+`LOOK.TEXT_MEMO_MAX` (6000) entries. After the first frame of a screen a menu measures nothing.
+
+Core garbage (`tests/core/garbage.test.mjs`, steps 2–600 of a headless run):
+
+| | before | after |
+|---|---|---|
+| typed arrays allocated, Park 1 (1 player + 4 bots) | 884 | 0 |
+| typed arrays allocated, Winter 18 (5 players) | 452 | 0 |
+| splices of the event log, 100 events on a full log | 100 | 0 |
+
+`npm run bench:core` (100 games × 60 game-s; two runs each, same machine, ms per game step):
+
+| | median | p95 |
+|---|---|---|
+| before, run 1 / run 2 | 0.053 / 0.075 | 0.226 / 0.318 |
+| after, run 1 / run 2 | 0.050 / 0.069 | 0.206 / 0.265 |
+
+Client: `drawUI` empties `hudRects` and `edgeArrows` instead of making new arrays, the wardrobe preview cache key is made from the four
+picks (no `JSON.stringify` per frame), the camera shake uses one scratch vector.

@@ -6,11 +6,11 @@
 import test from "node:test";
 import fs from "node:fs";
 import assert from "node:assert/strict";
-import { CFG, autopilot, createGame, logEvent, setProgress, step, withGame } from "../../src/core/index.js";
+import { CFG, autopilot, createGame, logEvent, orderedEvents, setProgress, step, withGame } from "../../src/core/index.js";
 
 // PERF_OUT=<file>: the numbers are also appended there as JSON lines (like tests/perf.spec.js)
 const record = (key, value) => { console.log(`[perf] ${key}: ${JSON.stringify(value)}`); if (process.env.PERF_OUT) fs.appendFileSync(process.env.PERF_OUT, JSON.stringify({ key, value, gl: "node" }) + "\n"); };
-const PENDING = true;   // SPEC-040 step 7 turns this on (scratch buffers per game, ring buffer for the event log)
+const PENDING = false;   // SPEC-040 step 7: the pathfinder has per-game scratch buffers, the event log is a ring
 const DT = CFG.STEP;
 
 // every typed-array construction (new X(…), X.from, X.of) and every allocating typed-array method (slice, map, filter) while fn runs.
@@ -68,6 +68,15 @@ test("AC 10: the event log is a ring: a full log is not spliced at every event",
   });
   record("splices of the event log in 100 events on a full log", splices);
   assert.ok(g.events.length <= CFG.EVENT_LOG_MAX, "the log stays at its cap");
+  // the ring keeps the newest events, oldest first through orderedEvents, and is plain data (a clone keeps it whole)
+  const i = g.events.length;
+  withGame(g, () => { for (let k = 0; k < 7; k++) logEvent("tail", { k }); });
+  assert.equal(g.events.length, i);
+  assert.deepEqual(orderedEvents(g).slice(-7).map(e => e.k), [0, 1, 2, 3, 4, 5, 6]);
+  assert.ok(orderedEvents(g).every((e, n, a) => !n || a[n - 1].t <= e.t), "oldest first");
+  const copy = structuredClone(g);
+  withGame(copy, () => logEvent("tail", { k: 7 }));
+  assert.equal(orderedEvents(copy).at(-1).k, 7); assert.equal(copy.events.length, i, "a clone is a ring too");
   if (PENDING) assert.ok(splices > 0, "the bound is already met: set PENDING = false in tests/core/garbage.test.mjs (SPEC-040 step 7 done)");
   else assert.equal(splices, 0, "a ring buffer never splices");
 });

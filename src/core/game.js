@@ -8,6 +8,7 @@ import { autoDecide } from "./autopilot.js";
 import { updateBig, updateBigPlayer } from "./big.js";
 import { updateBots } from "./bots.js";
 import { difficulty } from "./difficulty.js";
+import { prepareScratch } from "./grid.js";
 import { loadLevel } from "./level/load.js";
 import { startKindWalk, updateKindWalk } from "./kindwalk.js";
 import { bossFor } from "./mood.js";
@@ -50,7 +51,7 @@ export function newGame(opts = {}) {
     stats: { hugs: 0, time: 0 }, items: [], itemCd: 5, itemSeq: 0, pendingWin: 0,
     // SPEC-008: журнал событий игры { t (сек игры), type, …данные } — для тестов, отчёта баланса и счёта монеток (SPEC-009).
     // Только простые данные; не длиннее CFG.EVENT_LOG_MAX (старые выпадают); очищается в начале уровня (startGame).
-    events: [],
+    events: [], eventsHead: 0,                               // SPEC-040 AC 10: a ring over plain data (events.js pushEvent): eventsHead — the oldest, once full
     bonusStars: [], starCd: 10, starSeq: 0,                  // бонусные звёздочки (отдельно от предметов)
     kisses: [], kissSeq: 0,                                  // летящие воздушные поцелуи
     kitHintDone: false,                                      // подсказка «Нажми 🩹» (SPEC-007): раз за уровень (её время — у клиента)
@@ -63,6 +64,7 @@ export function newGame(opts = {}) {
     obstacles: [], bushes: [], floors: [], decor: [], trees: [], flowers: [],
     blocked: new Uint8Array(N_CELLS), blockedBig: new Uint8Array(N_CELLS), bigLearned: new Uint8Array(N_CELLS), reachable: new Uint8Array(N_CELLS),
     moveGrid: new Uint8Array(N_FINE), seeGrid: new Uint8Array(N_FINE), moveGridBig: new Uint8Array(N_FINE),
+    scratch: null,                                           // SPEC-040 AC 10: the searches' reusable buffers (grid.js), made on first use
     safeZone: null, dangerZone: null, spawns: { small: [], big: { x: 0, y: 0 } }, levelInfo: null,
     // SPEC-029: тренировка (practice.js): её номер (0 — обычный уровень), сценарий и подсказки, свой запас
     // SPEC-012 AC 10: practice — the practice game's option (practiceOf) or null; tutorialGame — its step (0 — a normal level)
@@ -159,7 +161,7 @@ export function createGame(opts = {}) {
   if (opts.keep) Object.assign(g, opts.keep);
   if (opts.practice !== undefined) { g.practice = practiceOf(opts.practice); g.tutorialGame = g.practice ? g.practice.step : 0; }
   const slots = opts.slots || Array.from({ length: opts.players ?? 1 }, (_, i) => ({ slot: "p" + (i + 1), kind: "player" }));
-  withGame(g, () => buildGame(g.world, g.level, slots));
+  withGame(g, () => { buildGame(g.world, g.level, slots); prepareScratch(); });
   return g;
 }
 // SPEC-012 AC 3: the stick of input inp: tiptoe → no longer than TIPTOE_MULT; plus the autopilot's stick ap; length ≤ 1

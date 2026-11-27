@@ -23,6 +23,7 @@ import { G } from "../../core/active.js";
 import { gloveOf } from "../../core/rules.js";
 
 // SPEC-012 AC 1d: where the Big One faces on screen — his dir, plus the client's menu spin while a menu is shown
+const shakeV = new THREE.Vector3();   // SPEC-040 AC 10: the camera shake offset, one scratch vector
 const bigFacing = () => G.big.dir + (inMenus() ? ui.menuSpin : 0);
 // ---------- Конус обзора и «зона обнимашек» ----------
 export const CONE_N = 48, coneBuf = [];
@@ -337,7 +338,7 @@ function syncScene(t) {
   }
   if (safeGlow) safeGlow.material.opacity = 0.18 + Math.sin(t * 2) * 0.08;
   camera.position.copy(camBase);
-  if (ui.shake > 0) camera.position.add(new THREE.Vector3(vrand(-1, 1), vrand(-1, 1), vrand(-1, 1)).multiplyScalar(ui.shake * 0.6 * (PHONE ? camDist / cam.dFull : 1)));   // телефон: камера ближе — трясёт слабее
+  if (ui.shake > 0) camera.position.add(shakeV.set(vrand(-1, 1), vrand(-1, 1), vrand(-1, 1)).multiplyScalar(ui.shake * 0.6 * (PHONE ? camDist / cam.dFull : 1)));   // телефон: камера ближе — трясёт слабее
   return moving;
 }
 

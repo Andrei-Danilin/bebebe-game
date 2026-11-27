@@ -5,7 +5,7 @@
 import { G } from "../core/active.js";
 import { BONUS_WORLDS, BOSSES, CFG, levelsPerWorld, MAIN_WORLDS, worldIndex, WORLDS } from "../core/config.js";
 import { addCoins, progress, worldProgress } from "../core/economy.js";
-import { logEvent } from "../core/events.js";
+import { clearEvents, logEvent } from "../core/events.js";
 import { createGame, newInput, teamSize, useGame } from "../core/game.js";
 import { levelType } from "../core/level/generate.js";
 import { bossFor } from "../core/mood.js";
@@ -146,7 +146,7 @@ export function noteOpenedWorld(r) { if (r && r.worldOpened) ui.openedWorld = r.
 const localRng = newRng();
 export function seedRandom(n) { seedStream(n, localRng); }
 export const rngDraws = () => localRng.draws;
-const KEEP = Object.freeze(["events", "rewardDue", "itemSeq", "starSeq", "kissSeq", "autoOn", "autoStyle"]);
+const KEEP = Object.freeze(["events", "eventsHead", "rewardDue", "itemSeq", "starSeq", "kissSeq", "autoOn", "autoStyle"]);
 // the looks of n players, the bots and the Big One from the wardrobe (the game only carries them)
 const looksFor = (n, practice = G.practice) => ({ players: [makeLook(skinSel.p1), makeLook(skinSel.p2)], bots: Array.from({ length: teamSize(practice) - n }, (_, bi) => makeLook(botOutfit(bi))), big: BIG_SKINS[skinSel.big] });
 // SPEC-012 AC 2: the slots of a local game — n players p1…pn (look, glove, upgrades from the saves), the bots with their looks,
@@ -193,7 +193,7 @@ export function showBanner() {
 export const bannerAlpha = () => !ui.banner ? 0 : clamp(Math.min(ui.banner.t, LOOK.BANNER_TIME - ui.banner.t) / LOOK.BANNER_FADE, 0, 1);
 // camSnap: начало уровня — камера телефона сразу у героя (в resetWorld нельзя: он же открывает меню, где камера показывает всю карту)
 // SPEC-030: начатый уровень снимает плашку и несостоявшийся переход карты в открытый мир (не показывать их игрой позже)
-export function startGame(n) { ui.warm = null; leaveLevel(); ui.openedWorld = null; ui.worldBanner = null; endTryOn(); G.events = []; playWorld(n); setMode("play"); G.rewardDue = true; mapSel = null; showBanner(); camSnap(); }
+export function startGame(n) { ui.warm = null; leaveLevel(); ui.openedWorld = null; ui.worldBanner = null; endTryOn(); clearEvents(); playWorld(n); setMode("play"); G.rewardDue = true; mapSel = null; showBanner(); camSnap(); }
 // следующий уровень того же мира; после последнего мир пройден — на карту уровней
 // SPEC-025 AC 7d: never past the open level (a stale double tap, a test that set the level) — then the map
 export function nextLevel() { if (G.level >= levelsPerWorld() || G.level + 1 > worldProgress().unlocked) { toMap(); return; } G.level = G.level + 1; withScene(sceneBefore(G.world, G.level), () => startGame(G.players)); }
