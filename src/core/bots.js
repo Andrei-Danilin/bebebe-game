@@ -4,7 +4,7 @@ import { angDiff, clamp, dist, rand, turnToward } from "./util.js";
 import { bossPower } from "./mood.js";
 import { cellIdx, freeCellNear, nearestExit } from "./grid.js";
 import { steerTo } from "./path.js";
-import { trickFreeze, trickHideSpot, trickQuiet } from "./tricks/query.js";
+import { trickFreeze, trickHideSpot, trickKidCost, trickQuiet } from "./tricks/query.js";
 import { canSee, inCone } from "./vision.js";
 import { canAct, inDanger, inDangerXY, moveSolidAt } from "./world.js";
 import { G } from "./active.js";
@@ -20,7 +20,7 @@ function fleePoint(b) {
   for (const k of [0, 0.6, -0.6, 1.2, -1.2, 1.8, -1.8]) {
     const a = away + k;
     const x = clamp(b.x + Math.cos(a) * 140, 20, W - 20), y = clamp(b.y + Math.sin(a) * 140, 20, H - 20);
-    if (!moveSolidAt(x, y) && G.reachable[cellIdx(x, y)] && !inCone(x, y) && !inDangerXY(x, y)) return { x, y };   // не за водой и не в «кармане»
+    if (!moveSolidAt(x, y) && G.reachable[cellIdx(x, y)] && !inCone(x, y) && !inDangerXY(x, y) && !trickKidCost(x, y)) return { x, y };   // не за водой и не в «кармане»
   }
   return freePointNear({ x: clamp(b.x + Math.cos(away) * 140, 20, W - 20), y: clamp(b.y + Math.sin(away) * 140, 20, H - 20) });
 }

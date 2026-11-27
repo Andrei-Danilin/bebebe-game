@@ -5,7 +5,7 @@ import * as THREE from "three";
 import { G } from "../../core/active.js";
 import { printAge } from "../../core/tricks/footprints.js";
 import { sprinklerPhase } from "../../core/tricks/sprinklers.js";
-import { CELL, CFG } from "../../core/config.js";
+import { CELL, CFG, COLS, ROWS } from "../../core/config.js";
 import { normAng } from "../../core/util.js";
 import { LOOK } from "../look.js";
 import { mapGroup } from "./mapstate.js";
@@ -15,6 +15,8 @@ import { part, toon } from "./materials.js";
 export const sprays = [];
 /** the ice-cream trucks (one): { g (group), rot (the angle it is drawn at) } */
 export const trucks = [];
+/** the waves: { g (group at the strip's edge line), water, foam, p (the piece) } — one per shore strip, the water scaled by the wave's k */
+export const waveMeshes = [];
 /** Winter's footprints: one pooled InstancedMesh with room for CFG.TRICKS.footprints.max prints, made with the map (so the warm-up has it), shown count prints at a time */
 export const prints3d = { im: null };
 const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _e = new THREE.Euler(), _p = new THREE.Vector3(), _s = new THREE.Vector3(), _c = new THREE.Color(), _from = new THREE.Color(), _to = new THREE.Color();
@@ -39,7 +41,7 @@ const flat = (geo, mat, x, y, z, sx = 1, sz = 1, piece = "") => {
 };
 // → the animated groups (batchMap leaves them alone)
 export function buildTrick3D() {
-  sprays.length = 0; trucks.length = 0; prints3d.im = null;
+  sprays.length = 0; trucks.length = 0; waveMeshes.length = 0; prints3d.im = null;
   const T = G.trick, skip = [];
   if (!T || !mapGroup) return skip;
   const L = LOOK.TRICK_LOOK;
@@ -69,7 +71,26 @@ export function buildTrick3D() {
       sprays.push({ g, disc, pts, p, i });
     });
   }
-  else if (T.name === "footprints") {
+  else if (T.name === "waves") {
+    const d = CFG.TRICKS.waves.depth;
+    T.pieces.forEach((p, i) => {
+      // calm: a strip of wet sand with a darker line along its inner edge — the reach of the wave, readable from above (static, batched)
+      mapGroup.add(flat(new THREE.PlaneGeometry(1, 1), toon(L.wetSand), p.x + p.w / 2, L.puddleY, p.y + p.h / 2, p.w, p.h, "wave"));
+      const horizontal = p.edge === "bottom" || p.edge === "top", inner = p.edge === "bottom" ? p.y : p.edge === "top" ? p.y + p.h : p.edge === "left" ? p.x + p.w : p.x;
+      mapGroup.add(flat(new THREE.PlaneGeometry(1, 1), toon(L.wetEdge), horizontal ? p.x + p.w / 2 : inner, L.puddleY + 0.004, horizontal ? inner : p.y + p.h / 2, horizontal ? p.w : 0.1, horizontal ? 0.1 : p.h, "wave"));
+      // the wave: a sheet of water that rolls in from the edge (its depth follows k), a foam line at its front; one animated group, never batched
+      const ix = p.edge === "left" ? 1 : p.edge === "right" ? -1 : 0, iz = p.edge === "bottom" ? -1 : p.edge === "top" ? 1 : 0;
+      const g = new THREE.Group();
+      g.position.set(p.edge === "left" ? 0 : p.edge === "right" ? COLS : p.x + p.w / 2, 0, p.edge === "top" ? 0 : p.edge === "bottom" ? ROWS : p.y + p.h / 2);
+      g.rotation.y = Math.atan2(-ix, -iz); g.visible = false;
+      const wm = new THREE.MeshBasicMaterial({ color: L.water, transparent: true, opacity: L.waterAlpha, depthWrite: false }); wm.userData.own = true;
+      const water = new THREE.Mesh(new THREE.PlaneGeometry(p.len, 1).rotateX(-Math.PI / 2), wm); water.position.y = L.puddleY + 0.012; g.add(water);
+      const fm = new THREE.MeshBasicMaterial({ color: L.foam, transparent: true, opacity: 0.9, depthWrite: false }); fm.userData.own = true;
+      const foam = new THREE.Mesh(new THREE.PlaneGeometry(p.len, 0.16).rotateX(-Math.PI / 2), fm); foam.position.y = L.puddleY + 0.02; g.add(foam);
+      mapGroup.add(g); skip.push(g);
+      waveMeshes.push({ g, water, foam, p, i, d });
+    });
+  } else if (T.name === "footprints") {
     const geo = new THREE.CircleGeometry(1, 12); geo.rotateX(-Math.PI / 2);
     const im = new THREE.InstancedMesh(geo, toon("#ffffff"), CFG.TRICKS.footprints.max);
     im.count = 0; im.frustumCulled = false; im.receiveShadow = true;
@@ -87,7 +108,7 @@ export function buildTrick3D() {
 export function trickMeshes() {
   let puddles = 0, rings = 0;
   if (mapGroup) mapGroup.traverse(o => { if (o.userData.piece === "puddle") puddles++; else if (o.userData.piece === "sprayRing") rings++; });
-  return { puddles, rings, prints: prints3d.im ? { shown: prints3d.im.count, room: prints3d.im.instanceMatrix.count, batched: prints3d.im.layers.mask !== 1 } : null, trucks: trucks.map(t => ({ x: t.g.position.x * CELL, y: t.g.position.z * CELL, batched: t.g.layers.mask !== 1 || t.g.children.some(c => c.layers.mask !== 1) })), sprays: sprays.map(s => ({ i: s.i, on: s.g.visible, wet: s.disc.visible, batched: [s.g, s.disc, s.pts].some(o => o.layers.mask !== 1) })) };
+  return { puddles, rings, waves: waveMeshes.map(w => ({ i: w.i, on: w.g.visible, k: +w.water.scale.z.toFixed(3), batched: [w.g, w.water, w.foam].some(o => o.layers.mask !== 1) })), prints: prints3d.im ? { shown: prints3d.im.count, room: prints3d.im.instanceMatrix.count, batched: prints3d.im.layers.mask !== 1 } : null, trucks: trucks.map(t => ({ x: t.g.position.x * CELL, y: t.g.position.z * CELL, batched: t.g.layers.mask !== 1 || t.g.children.some(c => c.layers.mask !== 1) })), sprays: sprays.map(s => ({ i: s.i, on: s.g.visible, wet: s.disc.visible, batched: [s.g, s.disc, s.pts].some(o => o.layers.mask !== 1) })) };
 }
 // the prints: every print of the game's trail (oldest first) is an instance; it shrinks a little and fades toward the snow as it ages, and goes
 function syncPrints(T, L) {
@@ -115,6 +136,12 @@ export function syncTrick3D(t) {
     k.g.rotation.y = k.rot;
   }
   if (T.name === "footprints" && prints3d.im) syncPrints(T, L);
+  if (T.name === "waves") for (const w of waveMeshes) {                    // the wave rolls in over the band and runs back; the foam wobbles at its front
+    const k = T.st.k, depth = w.d * k;
+    w.g.visible = k > 0.001;
+    w.water.scale.z = Math.max(depth, 0.0001); w.water.position.z = -depth / 2;
+    w.foam.position.z = -depth; w.foam.scale.x = 0.96 + 0.04 * Math.sin(t * 3 + w.i);
+  }
   if (T.name !== "sprinklers" || !sprays.length) return;
   for (const s of sprays) {
     const ph = sprinklerPhase(s.p, T.t);

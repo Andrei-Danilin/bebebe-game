@@ -35,6 +35,8 @@ export function trickFreeze(l) {
   }
   return T.fx.freeze;
 }
+// the price a kid's path (a bot's, the autopilot's) pays for the point (x, y): fx.kidCost on slow ground (a wave that is up), else 0 — and the straight line to a goal is not taken through it
+export const trickKidCost = (x, y) => { const T = G.trick; return T && T.fx.kidCost && T.fx.slow.length > 0 && anyArea(T.fx.slow, x, y) ? T.fx.kidCost : 0; };
 // the mark the trick puts over Dad ("" — none)
 export const trickMark = () => (G.trick ? G.trick.fx.mark : "");
 // a place for a bot or the autopilot to hide, within maxDist px of p (default fx.hideReach): the middle of an active spray, or the point just behind

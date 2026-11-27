@@ -2,7 +2,6 @@
  "shards": 10,
  "entries": [
   [
-   ["bosses.spec.js"],
    ["quality.spec.js"],
    ["saves.spec.js"],
    ["site.spec.js"],
@@ -20,6 +19,7 @@
    ["tooling.spec.js"]
   ],
   [
+   ["bosses.spec.js"],
    ["errors.spec.js"],
    ["i18n.spec.js","1280×720 desktop","in Portuguese no screen draws an English, Spanish or Russian word (1280×720 desktop)"],
    ["i18n.spec.js","a first launch in a es-AR browser starts in en"],
@@ -60,8 +60,7 @@
    ["menus.spec.js","story chapters unlock with progress"],
    ["menus.spec.js","story, rules and the level card fit a phone, also with wider fonts"],
    ["menus.spec.js","the level card with its preview fits (desktop 1280×720, fonts ×1 / ×1.15 / ×1.3)"],
-   ["menus.spec.js","the level card with its preview fits (phone 568×320, fonts ×1 / ×1.15)"],
-   ["wardrobe.spec.js"]
+   ["menus.spec.js","the level card with its preview fits (phone 568×320, fonts ×1 / ×1.15)"]
   ],
   [
    ["art.spec.js"],
@@ -75,6 +74,7 @@
    ["story.spec.js","the kind dad smiles, blushes and waves on his way home"],
    ["story.spec.js","the scenes fit a 667×375 phone"],
    ["story.spec.js","the win title: Dad is kind again (phone 667×375)"],
+   ["wardrobe.spec.js"],
    ["worlds.spec.js"]
   ],
   [

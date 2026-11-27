@@ -13,7 +13,7 @@ import { CFG, COLS, ROWS } from "../config.js";
 // core asks for are the fields of T.fx, read by query.js — a trick never edits big.js / vision.js / hearing.js itself.
 /** @typedef {{ shape: "circle", cx: number, cy: number, r: number } | { shape: "rect", x: number, y: number, w: number, h: number }} Area   in cells (cx, cy — a centre in cell coordinates) */
 /** @typedef {{ name: string, pieces: any[], meta?: any }} TrickGen   what the generator puts into gen.trick */
-/** @typedef {{ hide: any[], sight: any[], noDad: Uint8Array | null, slow: any[], slowMul: number, loud: Record<number, number>, quiet: any[], quietRange: number, hideReach: number, freeze: number, mark: string }} TrickFx   the effect fields (areas in px) */
+/** @typedef {{ hide: any[], sight: any[], noDad: Uint8Array | null, slow: any[], slowMul: number, loud: Record<number, number>, quiet: any[], quietRange: number, hideReach: number, freeze: number, mark: string, kidCost: number }} TrickFx   the effect fields (areas in px) */
 /** @typedef {{ name: string, pieces: any[], meta: any, st: any, fx: TrickFx, t: number }} Trick   G.trick */
 
 // the effect fields (query.js reads them; a trick's step rewrites the ones it uses, the rest stay empty — a no-op)
@@ -25,8 +25,9 @@ import { CFG, COLS, ROWS } from "../config.js";
 //   quiet     areas (px) where a kid tiptoes while Dad is within quietRange px — bots and the careful autopilot (puddles)  (query.js trickQuiet)
 //   hideReach px: how near a bot looks for a place to hide (query.js trickHideSpot: the middle of an active spray, the far side of a sight blocker from Dad)
 //   freeze    0 | 1 | 2: the bell — 1 warning (bots tiptoe), 2 ringing (bots stand still) while they are near Dad or in his sight  (query.js trickFreeze)
+//   kidCost   the price of a cell of fx.slow in the kids' A* and a reason for them to go round it (the wave)                        (path.js)
 //   mark      a mark over Dad's head while the trick holds him ("🔔")                                                     (hearing.js bigMark)
-export const newFx = () => ({ hide: [], sight: [], noDad: null, slow: [], slowMul: 1, loud: {}, quiet: [], quietRange: 0, hideReach: 0, freeze: 0, mark: "" });
+export const newFx = () => ({ hide: [], sight: [], noDad: null, slow: [], slowMul: 1, loud: {}, quiet: [], quietRange: 0, hideReach: 0, freeze: 0, mark: "", kidCost: 0 });
 
 // ---------- areas ----------
 // an area in px — { shape: "circle", x, y, r } or { shape: "rect", x, y, w, h } (the fx fields; pieces are in cells, a trick converts)

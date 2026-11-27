@@ -20,7 +20,7 @@ test("the Park's puddles are in the 3D map: three parts each, and none in the pr
   expect(sprinklerWorld, "no puddles in the Field").toBe(0);
   const practice = await page.evaluate(() => { const b = window.__bb; b.tutorialSkip(); b.seedRandom(3); b.openTutorial("map", "game1"); return { trick: b.trick, mesh: b.trickMeshes() }; });
   expect(practice.trick).toBeNull();
-  expect(practice.mesh).toEqual({ puddles: 0, rings: 0, prints: null, trucks: [], sprays: [] });
+  expect(practice.mesh).toEqual({ puddles: 0, rings: 0, waves: [], prints: null, trucks: [], sprays: [] });
   expect(errors).toEqual([]);
 });
 
@@ -142,5 +142,20 @@ test("Winter's footprints are one pooled instanced mesh made with the map: none 
   const r1 = await page.evaluate(() => ({ core: window.__bb.trick.st.prints.length, m: window.__bb.trickMeshes().prints }));
   expect(r1.m.shown).toBe(Math.min(r1.core, r0.max));
   expect(r1.m.batched).toBe(false);
+  expect(errors).toEqual([]);
+});
+
+test("the Beach's waves: a wet-sand strip per band (batched), and a water sheet per strip that is its own group, shown and sized by the wave", async ({ page }) => {
+  const errors = await openGame(page);
+  const r0 = await page.evaluate(() => { const b = window.__bb; b.world = "beach"; b.level = 4; b.startGame(1); b.big.stun = 99; return { n: b.trick.pieces.length, d: b.CFG.TRICKS.waves.depth, off: b.trick.meta.off, m: b.trickMeshes() }; });
+  await frames(page);
+  expect(r0.n).toBeGreaterThan(0);
+  expect(r0.m.waves.length).toBe(r0.n);
+  expect(r0.m.waves.every(w => !w.batched), "the water is drawn by itself").toBe(true);
+  const at = async t => { await page.evaluate(t0 => { window.__bb.trick.t = t0; }, t - r0.off + 40);   // t — where in the cycle the wave is (the band has its own phase)
+    await frames(page); return page.evaluate(() => window.__bb.trickMeshes().waves); };
+  for (const w of await at(5)) expect([w.on, w.k]).toEqual([false, 0]);
+  for (const w of await at(17)) { expect(w.on).toBe(true); expect(w.k).toBeCloseTo(r0.d, 1); }
+  for (const w of await at(14.3)) { expect(w.on).toBe(true); expect(w.k).toBeGreaterThan(0); expect(w.k).toBeLessThan(r0.d); }
   expect(errors).toEqual([]);
 });

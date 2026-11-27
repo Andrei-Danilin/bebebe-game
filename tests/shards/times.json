@@ -643,5 +643,6 @@
  "tricks.spec.js › school bell, desktop › the Freeze! banner shows on the first ring of a level only, fits, and fades (960×640)": 3,
  "tricks.spec.js › school bell, phone 667 › the school bell in the HUD: the warning shows 2, 1 and the ring says Freeze! in every language, inside the screen and clear of the timer (phone 667×375)": 3.5,
  "tricks.spec.js › school bell, phone 667 › the Freeze! banner shows on the first ring of a level only, fits, and fades (phone 667×375)": 2.5,
- "tricks.spec.js › Winter's footprints are one pooled instanced mesh made with the map: none shown at the start, count follows the game, never batched": 4
+ "tricks.spec.js › Winter's footprints are one pooled instanced mesh made with the map: none shown at the start, count follows the game, never batched": 4,
+ "tricks.spec.js › the Beach's waves: a wet-sand strip per band (batched), and a water sheet per strip that is its own group, shown and sized by the wave": 4
 }

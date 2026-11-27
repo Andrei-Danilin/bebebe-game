@@ -41,6 +41,7 @@ export const SFX = {
   out: () => { beep(330, 0.2, "triangle", 0.08); beep(220, 0.35, "triangle", 0.08, 0.18); },
   alert: () => beep(990, 0.07, "square", 0.04),
   bell: () => { beep(1568, 0.5, "sine", 0.07); beep(2093, 0.35, "sine", 0.04, 0.01); beep(1568, 0.5, "sine", 0.05, 0.28); },   // SPEC-042: the school bell (placeholder tones)
+  wave: () => { beep(260, 0.25, "sine", 0.05); beep(330, 0.3, "sine", 0.035, 0.12); },   // SPEC-042: a wave comes up (placeholder)
   crunch: () => beep(160, 0.04, "square", 0.012),                  // SPEC-042: a step in the snow (placeholder)
   splash: () => { beep(420, 0.07, "sine", 0.06); beep(640, 0.09, "sine", 0.05, 0.04); beep(300, 0.12, "triangle", 0.04, 0.09); },   // SPEC-042: a puddle's splash (placeholder tones)
   item: () => [660, 880, 1175].forEach((f, i) => beep(f, 0.09, "square", 0.05, i * 0.06)),
