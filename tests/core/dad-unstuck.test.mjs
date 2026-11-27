@@ -121,3 +121,46 @@ test("detector: the long check flags 15+ s standing across look and patrol, not 
   assert.equal(watch(S.LONG_TIME + 3, { state: "chase" }).length, 0, "a chase is not standing");
   assert.equal(watch(S.LONG_TIME + 3, { stun: 1 }).length, 0);
 });
+
+// pressed against a fallen friend in his direction of travel he stands and looks the same way (no spinning: the kids' hug from behind stays as hard
+// as before), he does not learn a wall cell; a friend touching his back is no reason to stop: the normal re-path
+function pressTest(kidAhead) {
+  setProgress(null);
+  const g = createGame({ world: "park", n: 1, seed: 5, fx: false, slots: [{ slot: "p1", kind: "player" }] });
+  return withGame(g, () => {
+    // an open spot: 9 × 3 free cells in a row
+    let spot = null;
+    for (let cy = 1; cy < 19 && !spot; cy++) for (let cx = 1; cx < 21 && !spot; cx++) {
+      let free = true;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = 0; dx < 9; dx++) if (g.blockedBig[(cy + dy) * 30 + cx + dx]) free = false;
+      if (free) spot = { x: (cx + 1.5) * CELL, y: (cy + 0.5) * CELL };
+    }
+    assert.ok(spot, "an open spot");
+    const keep = CFG.BIG_DETOUR_COST;
+    CFG.BIG_DETOUR_COST = 0;   // no wall: the old walk straight into the friend is what presses him
+    try {
+      const kid = g.littles[0];
+      g.littles.slice(1).forEach(l => Object.assign(l, { state: "down", downTimer: CFG.DOWN_TIME, x: 30 + 20 * l.id, y: 620 }));
+      Object.assign(g.big, { state: "patrol", x: spot.x, y: spot.y, dir: 0, moveDir: 0, path: [], repath: 0, patrolT: 10, noPush: 0, pushCd: 0, stun: 0, hearLook: 0, hearTurnT: 0, goal: { x: spot.x + 4 * CELL, y: spot.y } });
+      const gap = g.big.r + kid.r + 1;
+      Object.assign(kid, { state: "down", downTimer: CFG.DOWN_TIME, x: spot.x + (kidAhead ? gap : -gap), y: spot.y });
+      const learned = Array.from(g.bigLearned), dir0 = g.big.dir;
+      let looked = false, dirMoved = false;
+      for (let i = 0, N = Math.round(1.1 / DT); i < N; i++) {
+        step(g, DT);
+        if (g.big.state === "look") { looked = true; if (g.big.dir !== dir0) dirMoved = true; }
+      }
+      const state = g.big.state;
+      for (let i = 0, N = Math.round(0.6 / DT); i < N && looked; i++) { step(g, DT); if (g.big.state === "look" && Math.abs(g.big.dir - dir0) > 1e-9) dirMoved = true; }
+      return { looked: looked || state === "look", dirMoved, learnedSame: JSON.stringify(Array.from(g.bigLearned)) === JSON.stringify(learned), state };
+    } finally { CFG.BIG_DETOUR_COST = keep; }
+  });
+}
+test("pressed against a fallen friend ahead: he looks without turning and learns no cell; a friend at his back: normal re-path, no look", () => {
+  const ahead = pressTest(true);
+  assert.ok(ahead.looked, "he stood and looked: " + JSON.stringify(ahead));
+  assert.ok(!ahead.dirMoved, "he kept his facing");
+  assert.ok(ahead.learnedSame, "no learned cell");
+  const behind = pressTest(false);
+  assert.ok(!behind.looked, "a friend at his back does not stop him: " + JSON.stringify(behind));
+});

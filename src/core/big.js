@@ -46,8 +46,9 @@ function bigStuck(dt) {
   return p.t >= CFG.BIG_UNSTUCK_TIME;
 }
 const unstuck = () => { G.big.prog.last = -1; };   // новая цель — окно с нуля
-// упёрся в лежащего друга: стоит вплотную к нему (separate() держит их на r + r)
-const pressedByFriend = () => G.littles.some(l => l.state === "down" && dist(G.big, l) < G.big.r + l.r + CELL / 16);
+// упёрся в лежащего друга: стоит вплотную к нему (separate() держит их на r + r) и друг — по ходу движения (не за спиной)
+const pressedByFriend = () => G.littles.some(l => l.state === "down" && dist(G.big, l) < G.big.r + l.r + CELL / 16 &&
+  angDiff(G.big.moveDir, Math.atan2(l.y - G.big.y, l.x - G.big.x)) < Math.PI / 2);
 // SPEC-037: клетка пути, до которой он не дошёл (дерево у края, щель уже его ширины — A* считает клетку свободной), для него стена на этот уровень
 // (G.bigLearned, не данные уровня; только гуляя и ища). Не когда он упёрся в лежащего друга — тот встанет; и не если клетка отрезала бы от него другие клетки
 function learnBlocked() {
@@ -147,8 +148,8 @@ export function updateBig(dt) {
   G.big.moving = steerTo(G.big, G.big.goal.x, G.big.goal.y, speed.patrol, dt, false);
   if (G.big.moving) G.big.dir = turnToward(G.big.dir, G.big.moveDir, 5 * dt);
   if (G.big.moving && bigStuck(dt)) {                         // SPEC-037: упёрся — новая достижимая точка прогулки
-    if (pressedByFriend()) {                                    // зажат лежащими друзьями — не лезет сквозь них, осматривается, пока они не встанут
-      G.big.state = "look"; G.big.timer = rand(1, 2.2); G.big.lookSign = rng() < 0.5 ? -1 : 1; G.big.goal = null; G.big.path = []; unstuck();
+    if (pressedByFriend()) {                                    // упёрся в лежащего друга — не лезет сквозь него, стоит и смотрит туда же (не крутится), пока тот не встанет
+      G.big.state = "look"; G.big.timer = rand(1, 2.2); G.big.hearLook = G.big.timer; G.big.goal = null; G.big.path = []; unstuck();
       return;
     }
     learnBlocked();
