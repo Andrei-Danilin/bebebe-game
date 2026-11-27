@@ -76,7 +76,7 @@ export function fitTrick(gen) {
 }
 // applyWorld's call: the game's trick from the generator's — plain data (null: none, the practice and tutorial maps have no gen.trick)
 export function makeTrick(gt) {
-  return gt ? { name: gt.name, pieces: structuredClone(gt.pieces), meta: structuredClone(gt.meta || {}), st: {}, fx: newFx(), t: 0 } : null;
+  return gt ? { name: gt.name, pieces: structuredClone(gt.pieces), meta: structuredClone(gt.meta || {}), st: {}, fx: newFx(), t: 0, keepsOut: !!TRICK_MODS[gt.name]?.blocksDad } : null;
 }
 // buildGame's call (the stats are reset, the practice map has no trick): the trick starts from zero
 export function initTrick() {

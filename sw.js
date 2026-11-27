@@ -27,7 +27,7 @@ const NET_TIMEOUT_MS = 4000;             // weak signal: after this long, a cach
 const SW_BUILD = 11;
 const SW_STRATEGY = "0c8e52b02e";
 const SW_VERSION = "bebebe-1.0.0-dev-b11";
-const SRC_HASH = "191f774eae";
+const SRC_HASH = "f686aca827";
 const PRECACHE_LOCAL = [
   "./", "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512-maskable.png",
   "./icons/icon-512.png", "./icons/icon.svg", "./index.html", "./manifest.webmanifest"
@@ -67,7 +67,7 @@ const PRECACHE_SRC = [
   "./src/client/ui/text.js?v=fe5b98f9e4", "./src/client/ui/tip.js?v=e276e1e479", "./src/client/ui/win.js?v=f1b1933411",
   "./src/client/update.js?v=e702121a73", "./src/client/warm.js?v=6a2d57b991", "./src/core/active.js?v=70aa836ebd",
   "./src/core/autopilot.js?v=bbb6cdf462", "./src/core/big.js?v=56702d1baa", "./src/core/bots.js?v=10f916d36e",
-  "./src/core/config.js?v=fa13472f5f", "./src/core/difficulty.js?v=72aff2bd1e", "./src/core/economy.js?v=e3d6023dec",
+  "./src/core/config.js?v=011d92750f", "./src/core/difficulty.js?v=72aff2bd1e", "./src/core/economy.js?v=e3d6023dec",
   "./src/core/events.js?v=f2627cc22e", "./src/core/game.js?v=013a08a230", "./src/core/grid.js?v=a38c7b977b",
   "./src/core/hearing.js?v=91ba775f39", "./src/core/hooks.js?v=5ceea54c61", "./src/core/index.js?v=0276e83466",
   "./src/core/kindwalk.js?v=42ad90dbc0", "./src/core/level/build.js?v=3d663d2628",
@@ -75,10 +75,10 @@ const PRECACHE_SRC = [
   "./src/core/level/load.js?v=d7e6940cc5", "./src/core/level/report.js?v=a2d244a0ab",
   "./src/core/level/validate.js?v=5137b0bd7a", "./src/core/mood.js?v=65a5548f9d", "./src/core/path.js?v=3b439f4444",
   "./src/core/practice.js?v=807c98cf2e", "./src/core/progress-rules.js?v=7c34b4f903",
-  "./src/core/rules.js?v=09a3971d89", "./src/core/tricks/aware.js?v=d70aa68ca3",
+  "./src/core/rules.js?v=34c4e011fa", "./src/core/tricks/aware.js?v=d70aa68ca3",
   "./src/core/tricks/bell.js?v=122c102149", "./src/core/tricks/footprints.js?v=0a24914236",
-  "./src/core/tricks/index.js?v=f68a93944c", "./src/core/tricks/kit.js?v=471c96087c",
-  "./src/core/tricks/puddles.js?v=18cc245880", "./src/core/tricks/query.js?v=d6b2d59287",
+  "./src/core/tricks/index.js?v=bd87555130", "./src/core/tricks/kit.js?v=d7fcfb99ab",
+  "./src/core/tricks/puddles.js?v=18cc245880", "./src/core/tricks/query.js?v=f5070ac764",
   "./src/core/tricks/sprinklers.js?v=d0d67dc091", "./src/core/tricks/truck.js?v=6da8d905c4",
   "./src/core/tricks/waves.js?v=2bc3aa5809", "./src/core/util.js?v=b56133239e", "./src/core/vision.js?v=6d97f49e93",
   "./src/core/wardrobe.js?v=011be2182f", "./src/core/world.js?v=7ffe232fac", "./src/i18n.js?v=088eb4c0a3",

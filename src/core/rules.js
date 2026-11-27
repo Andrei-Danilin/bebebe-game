@@ -7,7 +7,7 @@ import { cellIdx, freeCellNear, nearestExit } from "./grid.js";
 import { bigMood, bossPower } from "./mood.js";
 import { resolveWalls, steerTo } from "./path.js";
 import { fastTarget } from "./progress-rules.js";
-import { trickSpeedMul } from "./tricks/query.js";
+import { trickKeepsDadOut, trickSpeedMul } from "./tricks/query.js";
 import { canAct, inDanger, inSafe, los, moveSolidAt, seeSolidAt } from "./world.js";
 import { G } from "./active.js";
 
@@ -184,17 +184,32 @@ export function updateHugAnim(dt) {
   }
 }
 // ---------- Предметы ----------
+// SPEC-043: the world's own item (CFG.WORLD_ITEM) or null — the Park's is the banana that every world has; none in a practice game or with WORLD_ITEMS_ON 0
+export function worldItemKind() {
+  const k = CFG.WORLD_ITEMS_ON && !G.tutorialGame ? CFG.WORLD_ITEM[G.world] : null;
+  return k && k !== "banana" ? k : null;
+}
+// SPEC-043 AC 1: the kind of a normal item from one draw r: boots, cloak, shield, banana — and in a world with its own item (the top `world` share) that item
+function normalKind(r) {
+  const S = CFG.WORLD_ITEMS.shares, own = worldItemKind();
+  if (r < S.boots) return "boots";
+  if (r < S.boots + S.cloak) return "cloak";
+  if (r < S.boots + S.cloak + S.shield) return "shield";
+  return own && r >= 1 - S.world ? own : "banana";
+}
+// SPEC-043: items that lie where they are and wait for Dad (the banana, the watermelon, the cupcake) stay longer
+export const itemLife = kind => CFG.ITEM_LIFE + (kind === "banana" ? 8 : kind === "watermelon" || kind === "cupcake" ? CFG.WORLD_ITEMS.lyingLife : 0);
 export function spawnItem() {
   const r = rng(), T = CFG.TUTORIAL, o = (1 - T.bananaShare) / 3;
   // SPEC-029: в тренировке — бананов bananaShare, остальное поровну (сапоги, плащ, щит); бананов меньше bananaMin — сразу банан
   const kind = G.tutorialGame ? (r < T.bananaShare || G.items.filter(it => it.kind === "banana").length < T.bananaMin ? "banana" : r < T.bananaShare + o ? "boots" : r < T.bananaShare + 2 * o ? "cloak" : "shield")
-    : r < 0.3 ? "boots" : r < 0.55 ? "cloak" : r < 0.75 ? "shield" : "banana";
+    : normalKind(r);
   for (let k = 0; k < 80; k++) {
     const cx = 1 + Math.floor(rng() * (COLS - 2)), cy = 1 + Math.floor(rng() * (ROWS - 2));
     if (G.blocked[cy * COLS + cx] || (G.tutorialGame && !G.reachable[cy * COLS + cx])) continue;   // SPEC-029: не за изгородь тренировки
     const p = { x: (cx + 0.5) * CELL, y: (cy + 0.5) * CELL };
-    if (inSafe(p) || dist(p, G.big) < 90 || G.littles.some(l => dist(l, p) < 50) || G.items.some(it => dist(it, p) < 64)) continue;
-    G.items.push({ id: (G.itemSeq = G.itemSeq + 1), kind, x: p.x, y: p.y, t: 0, life: kind === "banana" ? CFG.ITEM_LIFE + 8 : CFG.ITEM_LIFE });
+    if (inSafe(p) || dist(p, G.big) < 90 || G.littles.some(l => dist(l, p) < 50) || G.items.some(it => dist(it, p) < 64) || trickKeepsDadOut(p.x, p.y)) continue;   // SPEC-043: not where a spray or a wave keeps Dad out
+    G.items.push({ id: (G.itemSeq = G.itemSeq + 1), kind, x: p.x, y: p.y, t: 0, life: itemLife(kind) });
     return;
   }
 }

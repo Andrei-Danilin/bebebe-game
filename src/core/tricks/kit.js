@@ -14,7 +14,7 @@ import { CFG, COLS, ROWS } from "../config.js";
 /** @typedef {{ shape: "circle", cx: number, cy: number, r: number } | { shape: "rect", x: number, y: number, w: number, h: number }} Area   in cells (cx, cy — a centre in cell coordinates) */
 /** @typedef {{ name: string, pieces: any[], meta?: any }} TrickGen   what the generator puts into gen.trick */
 /** @typedef {{ hide: any[], sight: any[], noDad: Uint8Array | null, slow: any[], slowMul: number, loud: Record<number, number>, quiet: any[], quietRange: number, hideReach: number, freeze: number, mark: string, kidCost: number }} TrickFx   the effect fields (areas in px) */
-/** @typedef {{ name: string, pieces: any[], meta: any, st: any, fx: TrickFx, t: number }} Trick   G.trick */
+/** @typedef {{ name: string, pieces: any[], meta: any, st: any, fx: TrickFx, t: number, keepsOut?: boolean }} Trick   G.trick (keepsOut: the pieces are ground Dad never enters while they are up: sprays, waves) */
 
 // the effect fields (query.js reads them; a trick's step rewrites the ones it uses, the rest stay empty — a no-op)
 //   hide      areas (px) where a kid is hidden from Dad's eyes, like in a bush           (vision.js canSee)
