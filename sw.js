@@ -25,7 +25,7 @@ const NET_TIMEOUT_MS = 4000;             // weak signal: after this long, a cach
 const SW_BUILD = 7;
 const SW_STRATEGY = "463855aec6";
 const SW_VERSION = "bebebe-1.0.0-dev-b7";
-const SRC_HASH = "ac8d34dee4";
+const SRC_HASH = "225a4649ea";
 const PRECACHE_LOCAL = [
   "./", "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512-maskable.png",
   "./icons/icon-512.png", "./icons/icon.svg", "./index.html", "./manifest.webmanifest"
@@ -53,14 +53,14 @@ const PRECACHE_SRC = [
   "./src/client/ui/phone.js?v=8f5b6fdf9a", "./src/client/ui/screens.js?v=fbb3472d0a",
   "./src/client/ui/story.js?v=2161f3118f", "./src/client/ui/text.js?v=9282c2557e",
   "./src/client/ui/win.js?v=39875a8f61", "./src/core/active.js?v=70aa836ebd", "./src/core/autopilot.js?v=528edb53f9",
-  "./src/core/big.js?v=07e1944d2e", "./src/core/bots.js?v=fc04a520e3", "./src/core/config.js?v=1f3508ec82",
-  "./src/core/difficulty.js?v=72aff2bd1e", "./src/core/economy.js?v=6c6ac20714", "./src/core/game.js?v=812febd16e",
+  "./src/core/big.js?v=cda6fd9413", "./src/core/bots.js?v=fc04a520e3", "./src/core/config.js?v=f3ac2f052c",
+  "./src/core/difficulty.js?v=72aff2bd1e", "./src/core/economy.js?v=6c6ac20714", "./src/core/game.js?v=79c95b3179",
   "./src/core/hearing.js?v=02c8023238", "./src/core/hooks.js?v=5ceea54c61", "./src/core/index.js?v=2ac6418608",
   "./src/core/level/build.js?v=fc9509a62b", "./src/core/level/generate.js?v=455b2ff4e4",
   "./src/core/level/layouts.js?v=07d6472d8e", "./src/core/level/validate.js?v=3f3743eb46",
-  "./src/core/mood.js?v=8dcad43e22", "./src/core/path.js?v=72859f86e9", "./src/core/practice.js?v=dff6db8024",
+  "./src/core/mood.js?v=8dcad43e22", "./src/core/path.js?v=85a51244fe", "./src/core/practice.js?v=dff6db8024",
   "./src/core/progress-rules.js?v=a9deff0bda", "./src/core/rules.js?v=ebb66b0e27", "./src/core/util.js?v=b56133239e",
-  "./src/core/wardrobe.js?v=011be2182f", "./src/core/world.js?v=68fa838aaf", "./src/i18n.js?v=0b27cd61e2",
+  "./src/core/wardrobe.js?v=011be2182f", "./src/core/world.js?v=4c89ba327c", "./src/i18n.js?v=0b27cd61e2",
   "./src/story.js?v=0cd3381a6e", "./src/version.js?v=6d0844555e"
 ];
 const THREE_VERSION = "r187";

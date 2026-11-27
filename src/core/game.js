@@ -59,7 +59,7 @@ export function newGame(opts = {}) {
     rewardDue: false,                                        // уровень начат и ещё не оплачен (startGame → true; награда, сброс или замена прогресса → false)
     // карта уровня (world.js): препятствия, кусты, домики, сетки движения и взгляда; levelInfo — какой уровень построен (build.js)
     obstacles: [], bushes: [], floors: [], decor: [], trees: [], flowers: [],
-    blocked: new Uint8Array(N_CELLS), blockedBig: new Uint8Array(N_CELLS), reachable: new Uint8Array(N_CELLS),
+    blocked: new Uint8Array(N_CELLS), blockedBig: new Uint8Array(N_CELLS), bigLearned: new Uint8Array(N_CELLS), reachable: new Uint8Array(N_CELLS),
     moveGrid: new Uint8Array(N_FINE), seeGrid: new Uint8Array(N_FINE), moveGridBig: new Uint8Array(N_FINE),
     safeZone: null, dangerZone: null, spawns: { small: [], big: { x: 0, y: 0 } }, levelInfo: null,
     // SPEC-029: тренировка (practice.js): её номер (0 — обычный уровень), сценарий и подсказки, свой запас
@@ -156,7 +156,7 @@ export function buildGame(world, n, slots) {
   const maxHp = G.tutorialGame ? G.practice.hearts : difficulty(world, n).hearts;   // SPEC-029: тренировка — свои сердечки
   G.big = {
     isBig: true, x: G.spawns.big.x, y: G.spawns.big.y, r: 22, dir: -Math.PI / 2, hp: maxHp, maxHp,
-    state: "look", timer: 4, lookSign: 1, lastSeen: null, goal: null, patrolT: 0, prog: null,
+    state: "look", timer: 4, lookSign: 1, lastSeen: null, goal: null, patrolT: 0, prog: { x: 0, y: 0, t: 0, last: -1 },
     path: [], repath: 0, moveDir: 0, walk: 0, moving: false, stun: 0, stunFace: 0, stunTurn: 0, pushCd: 0, noPush: 0, hugCd: 0, flash: 0, slip: 0,
     blush: 0, blushBy: 0,   // покраснел после поцелуя: сколько ещё сек и кто бросил (индекс игрока)
     kind: false,            // SPEC-022: злость кончилась — подобрел и идёт домой (pendingWin — сколько ещё идёт)

@@ -59,9 +59,9 @@ export const CFG = {
   KIND_WALK: 3,              // сек — дольше не идёт (дошёл раньше — победа сразу); часы уровня в это время стоят
   // SPEC-037: Большой не стоит на месте. Идёт (patrol / search), а за BIG_UNSTUCK_TIME сек сдвинулся меньше BIG_UNSTUCK_MOVE клеток — новая достижимая цель
   // (поиск: ближайшая достижимая клетка к месту, где он видел / слышал; прогулка: новая точка). Лежащий друг не сдвигается — для Большого он «стена»
-  BIG_UNSTUCK_TIME: 1,       // SPEC-037: сек — идёт, а не сдвинулся (упёрся в стену, лежащего друга) — меняет цель; 0 — игра до SPEC-037
-  BIG_UNSTUCK_MOVE: 0.25,    // SPEC-037: клеток — меньше этого за BIG_UNSTUCK_TIME сек значит «не сдвинулся»
-  BIG_DETOUR_COST: 1000,     // SPEC-037: цена клетки рядом с лежащим другом в A* Большого (почти стена: путь идёт в обход)
+  BIG_UNSTUCK_TIME: 1,       // SPEC-037: сек — идёт, а не сдвинулся (упёрся в стену, лежащего друга) — меняет цель; 0 — без этого (только таймер; стена — BIG_DETOUR_COST)
+  BIG_UNSTUCK_MOVE: 0.5,     // SPEC-037: клеток — меньше этого за BIG_UNSTUCK_TIME сек значит «не сдвинулся»
+  BIG_DETOUR_COST: 1000,     // SPEC-037: цена клетки рядом с лежащим другом в A* Большого, пока он гуляет или ищет (почти стена: путь идёт в обход); 0 — нет стены (игра до SPEC-037, вместе с BIG_UNSTUCK_TIME 0)
   KIND_SPEED: 110,           // px/с — шаг подобревшего папы
   KIND_TURN: 6,              // рад/с — как быстро он поворачивается по дороге (и маленькие — к нему)
   KIND_ARRIVE: 12,           // px — ближе к точке у двери — дошёл
@@ -188,8 +188,8 @@ export const CFG = {
   // SPEC-029: Andrei, one heart fewer everywhere (measured 0.4752) — TREND_RHO_WORLD: своя цель мира вместо TREND_RHO (Город 0,475)
   // SPEC-032: Dad hears less (kids) — measured school 0.4286 → TREND_RHO_WORLD.school 0.428 (на измеренное; правила под цель не подгоняются)
   // SPEC-037: STALL — страж «папа не стоит»: окно TIME сек, в котором он сдвинулся меньше MOVE_CELLS клеток (patrol / search) — стоит (tests/stall/);
-  // STUCK_TIME — забег без победы дольше стольких сек игры отчёт баланса помечает «stuck» (scripts/balance.js); GUARD_TIME — сколько играет страж на уровень
-  BALANCE: { SEEDS: 3, TIME_LIMIT: 480, WIN_SEEDS: 2, STALL: { TIME: 3, MOVE_CELLS: 0.5, STUCK_TIME: 240, GUARD_TIME: 120 }, TREND_RHO: 0.5, TREND_RHO_WORLD: { city: 0.475, school: 0.428 }, LATE_VS_EARLY: 1.5, RESCUE_RATE: [0.5, 0.9],
+  // LONG_TIME — то же, но patrol + search + look вместе (дольше — стоит на месте, tests/stall/); STUCK_TIME — забег, где дольше стольких сек игры не снято ни одно сердечко (ни одной обнимашки; до конца забега), отчёт баланса помечает «stuck» (scripts/balance.js); GUARD_TIME — сколько играет страж на уровень
+  BALANCE: { SEEDS: 3, TIME_LIMIT: 480, WIN_SEEDS: 2, STALL: { TIME: 3, MOVE_CELLS: 0.5, LONG_TIME: 15, STUCK_TIME: 240, GUARD_TIME: 120 }, TREND_RHO: 0.5, TREND_RHO_WORLD: { city: 0.475, school: 0.428 }, LATE_VS_EARLY: 1.5, RESCUE_RATE: [0.5, 0.9],
     RESTS_MAX: 2, RECKLESS_EVERY: 5, EARLY: [1, 5], MAZE: [17, 20],
     CI_LEVELS: [["park", 3], ["park", 18], ["field", 4], ["field", 19], ["city", 2], ["city", 18], ["school", 2], ["school", 19], ["beach", 4], ["beach", 17],
       ["winter", 5], ["winter", 20]],

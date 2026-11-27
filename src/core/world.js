@@ -24,7 +24,7 @@ function covers(o, x, y, sight) {
 // Сетки строятся «растеризацией»: каждое препятствие отмечает только клетки своего прямоугольника (быстро — уровень
 // строится до LEVEL_ATTEMPTS раз). Правила те же, что у covers(): мелкая сетка — по центрам клеток FINE, крупная — по пересечению.
 export function buildGrids() {
-  G.moveGrid.fill(0); G.seeGrid.fill(0); G.blocked.fill(0);
+  G.moveGrid.fill(0); G.seeGrid.fill(0); G.blocked.fill(0); G.bigLearned.fill(0);   // SPEC-037: выученные клетки Большого — на уровень
   for (const o of G.obstacles) {
     if (!o.move && !o.sight) continue;
     const ext = o.shape === "rect" ? 0 : Math.max(o.r, o.sr || 0);
