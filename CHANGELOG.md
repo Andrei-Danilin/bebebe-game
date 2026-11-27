@@ -42,6 +42,9 @@ The version is `package.json` `version` (shown on the "For grown-ups" page); how
   on slow devices (Auto / High / Medium / Low on the grown-ups page) (SPEC-040).
 - A richer Upgrades page (bigger pictures, level pips, the effect now → next, a MAX ribbon), a little map of the level on
   every level card (with the boss on level 20), and the ninja band and overalls straps now look right (SPEC-041).
+- Every world has its own trick: splashy puddles in the Park, sprinklers in the Field, an ice-cream truck to hide behind
+  in the City, a school bell that makes everyone freeze, waves on the Beach and footprints in the Winter snow, with a
+  "New here!" card the first time and a ? button on the level card (SPEC-042).
 
 ## [1.0.0-dev] - what is in the game today
 

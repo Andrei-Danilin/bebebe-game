@@ -1,6 +1,6 @@
 {
- "generated": "2026-11-27 21:32 UTC",
- "durationSec": 66,
+ "generated": "2026-11-27 22:02 UTC",
+ "durationSec": 75,
  "step": 0.016666666666666666,
  "settings": {
   "SEEDS": 3,
@@ -148,7 +148,7 @@
   },
   {
    "name": "city: median time grows with the level (Spearman ρ)",
-   "value": "0.73",
+   "value": "0.69",
    "want": "≥ 0.475",
    "ok": true,
    "detail": ""
@@ -190,17 +190,17 @@
   },
   {
    "name": "city: the maze block (17–20) is the slowest block",
-   "value": "maze 172 s",
-   "want": "slowest (now: maze 172 s)",
+   "value": "maze 165 s",
+   "want": "slowest (now: maze 165 s)",
    "ok": true,
-   "detail": "classic 94, meadow 29, village 43, river 43, rooms 103, arena 58, maze 172"
+   "detail": "classic 94, meadow 29, village 48, river 39, rooms 103, arena 59, maze 165"
   },
   {
    "name": "school: the maze block (17–20) is the slowest block",
-   "value": "maze 171 s",
-   "want": "slowest (now: maze 171 s)",
+   "value": "maze 172 s",
+   "want": "slowest (now: maze 172 s)",
    "ok": true,
-   "detail": "classic 64, meadow 45, village 52, river 54, rooms 77, arena 53, maze 171"
+   "detail": "classic 64, meadow 45, village 52, river 54, rooms 77, arena 53, maze 172"
   },
   {
    "name": "beach: the maze block (17–20) is the slowest block",
@@ -232,24 +232,24 @@
   },
   {
    "name": "rescue rate (rescued / falls, all Little Ones)",
-   "value": "77 % (2707/3498)",
+   "value": "77 % (2717/3527)",
    "want": "50 %–90 %",
    "ok": true,
-   "detail": "park 78 %, field 77 %, city 73 %, school 80 %, beach 77 %, winter 79 %"
+   "detail": "park 78 %, field 77 %, city 72 %, school 79 %, beach 77 %, winter 79 %"
   },
   {
    "name": "median rests per level ≤ 2",
-   "value": "97/120 levels",
+   "value": "96/120 levels",
    "want": "every level",
    "ok": false,
-   "detail": "park 12 (5), park 18 (5), field 17 (5), field 18 (5), field 19 (5), city 1 (5), city 12 (10), city 16 (5), city 17 (10), city 19 (5), city 20 (10), school 17 (5), school 19 (5), school 20 (7), beach 16 (5), beach 20 (5), winter 7 (5), winter 8 (5), winter 10 (5), winter 13 (5), winter 16 (5), winter 17 (10), winter 19 (5)"
+   "detail": "park 12 (5), park 18 (5), field 17 (5), field 18 (5), field 19 (5), city 1 (5), city 7 (5), city 12 (5), city 14 (5), city 16 (5), city 17 (10), city 20 (5), school 17 (5), school 19 (5), school 20 (7), beach 16 (5), beach 20 (5), winter 7 (5), winter 8 (5), winter 10 (5), winter 13 (5), winter 16 (5), winter 17 (10), winter 19 (5)"
   },
   {
    "name": "reckless wins less often or slower than careful (every 5th level)",
-   "value": "reckless 100 % wins, median 69 s; careful 99 %, 63 s",
+   "value": "reckless 96 % wins, median 60 s; careful 99 %, 63 s",
    "want": "reckless fewer wins or slower",
    "ok": true,
-   "detail": "player falls per run: reckless 3.6, careful 2.4; all falls: reckless 10.1, careful 10.4"
+   "detail": "player falls per run: reckless 3.5, careful 2.4; all falls: reckless 10.6, careful 10.3"
   },
   {
    "name": "no run's event log is full (CFG.EVENT_LOG_MAX)",
@@ -319,14 +319,14 @@
    },
    {
     "name": "each world's first-win income ≥ a 150-coin item + 10 cheapest packs",
-    "value": "park 712, field 858, city 931, school 1171, beach 1179, winter 1266",
+    "value": "park 712, field 858, city 936, school 1171, beach 1179, winter 1266",
     "want": "≥ 350",
     "ok": true,
     "detail": ""
    },
    {
     "name": "all upgrades (2700) ≤ 116 % of the first 60 levels' income",
-    "value": "2700 vs 2501 (108 %)",
+    "value": "2700 vs 2506 (108 %)",
     "want": "≤ 116 %",
     "ok": true,
     "detail": ""
@@ -412,30 +412,30 @@
    },
    {
     "world": "city",
-    "total": 931,
-    "median": 48.5,
+    "total": 936,
+    "median": 49.5,
     "streak": 163,
     "perLevel": [
      27,
      45,
      46,
      45,
-     48,
+     51,
      49,
-     49,
+     32,
      51,
-     52,
+     53,
      51,
      51,
-     29,
-     56,
+     34,
      57,
+     40,
      58,
      38,
      29,
      64,
-     48,
-     38
+     65,
+     50
     ]
    },
    {
@@ -525,7 +525,7 @@
   ],
   "pace": {
    "parkMedian": 36,
-   "earlyMedian": 42.5,
+   "earlyMedian": 41.5,
    "packs": [
     {
      "k": "mittens",
@@ -552,22 +552,22 @@
     {
      "level": 1,
      "price": 150,
-     "levels": 3.5294117647058822
+     "levels": 3.6144578313253013
     },
     {
      "level": 2,
      "price": 300,
-     "levels": 7.0588235294117645
+     "levels": 7.228915662650603
     },
     {
      "level": 3,
      "price": 450,
-     "levels": 10.588235294117647
+     "levels": 10.843373493975903
     }
    ],
    "allUpgrades": {
     "price": 2700,
-    "levels": 63.529411764705884
+    "levels": 65.06024096385542
    }
   },
   "replay": [
@@ -831,7 +831,7 @@
     "win": true,
     "time": 47.349999999998595,
     "baseWin": true,
-    "baseTime": 118.3833333333279
+    "baseTime": 119.16666666666119
    },
    {
     "world": "city",
@@ -853,9 +853,9 @@
     "world": "city",
     "n": 20,
     "win": true,
-    "time": 145.31666666667445,
+    "time": 107.21666666666187,
     "baseWin": true,
-    "baseTime": 205.60000000005576
+    "baseTime": 85.68333333332976
    },
    {
     "world": "school",
@@ -877,7 +877,7 @@
     "world": "school",
     "n": 15,
     "win": true,
-    "time": 176.43333333336588,
+    "time": 168.10000000002591,
     "baseWin": true,
     "baseTime": 53.01666666666494
    },
@@ -2187,22 +2187,23 @@
    "time": 39.366666666665715,
    "winTimes": [
     39.366666666665715,
-    42.29999999999888,
+    180.6500000000359,
     29.48333333333294
    ],
    "hugs": 7,
    "playerHugs": 5.666666666666667,
-   "pushes": 3.6666666666666665,
-   "falls": 3.6666666666666665,
-   "rescueRate": 1,
+   "pushes": 8.333333333333334,
+   "falls": 8.333333333333334,
+   "rescueRate": 0.56,
    "rests": 0,
-   "stars": 3,
-   "coins": 45.666666666666664,
+   "stars": 2.3333333333333335,
+   "coins": 35.666666666666664,
    "parts": {
     "firstWin": 26,
-    "newStars": 13,
+    "newStars": 10,
     "hugs": 5.666666666666667,
-    "star": 1
+    "star": 1,
+    "rests": -7
    },
    "bonusStars": 0.3333333333333333
   },
@@ -2271,28 +2272,28 @@
    "target": 155,
    "runs": 3,
    "wins": 3,
-   "time": 41.933333333332236,
+   "time": 45.866666666665346,
    "winTimes": [
-    118.3833333333279,
+    119.16666666666119,
     37.9166666666658,
-    41.933333333332236
+    45.866666666665346
    ],
    "hugs": 8,
    "playerHugs": 6.666666666666667,
    "pushes": 6.666666666666667,
-   "falls": 6.333333333333333,
-   "rescueRate": 0.7368421052631579,
+   "falls": 6,
+   "rescueRate": 0.7222222222222222,
    "rests": 0,
    "stars": 2.6666666666666665,
-   "coins": 43,
+   "coins": 44,
    "parts": {
     "firstWin": 28,
     "newStars": 11.333333333333332,
-    "star": 2,
+    "star": 3,
     "hugs": 6.666666666666668,
     "rests": -5
    },
-   "bonusStars": 0.6666666666666666
+   "bonusStars": 1
   },
   {
    "world": "city",
@@ -2301,27 +2302,26 @@
    "target": 170,
    "runs": 3,
    "wins": 3,
-   "time": 43.38333333333215,
+   "time": 39.0333333333324,
    "winTimes": [
     38.233333333332446,
-    43.38333333333215,
+    39.0333333333324,
     49.96666666666511
    ],
    "hugs": 8,
    "playerHugs": 7.333333333333333,
-   "pushes": 4.333333333333333,
-   "falls": 4.333333333333333,
-   "rescueRate": 0.9230769230769231,
+   "pushes": 4.666666666666667,
+   "falls": 4.666666666666667,
+   "rescueRate": 1,
    "rests": 0,
    "stars": 3,
-   "coins": 50.333333333333336,
+   "coins": 49.333333333333336,
    "parts": {
     "firstWin": 29,
     "newStars": 13,
-    "hugs": 7.333333333333334,
-    "star": 1
+    "hugs": 7.333333333333334
    },
-   "bonusStars": 0.3333333333333333
+   "bonusStars": 0
   },
   {
    "world": "city",
@@ -2330,26 +2330,28 @@
    "target": 185,
    "runs": 3,
    "wins": 3,
-   "time": 54.03333333333155,
+   "time": 111.66666666666161,
    "winTimes": [
-    54.03333333333155,
-    36.916666666665854,
-    58.566666666664624
+    47.583333333331915,
+    111.66666666666161,
+    114.26666666666146
    ],
    "hugs": 8,
    "playerHugs": 7,
-   "pushes": 8.666666666666666,
-   "falls": 8.666666666666666,
-   "rescueRate": 0.9230769230769231,
-   "rests": 0,
-   "stars": 3,
-   "coins": 49,
+   "pushes": 10,
+   "falls": 9.666666666666666,
+   "rescueRate": 0.6206896551724138,
+   "rests": 5,
+   "stars": 2.3333333333333335,
+   "coins": 36.666666666666664,
    "parts": {
     "firstWin": 29,
-    "newStars": 13,
-    "hugs": 7
+    "newStars": 9.666666666666666,
+    "hugs": 7,
+    "star": 1,
+    "rests": -10
    },
-   "bonusStars": 0
+   "bonusStars": 0.3333333333333333
   },
   {
    "world": "city",
@@ -2387,24 +2389,25 @@
    "target": 215,
    "runs": 3,
    "wins": 3,
-   "time": 42.949999999998845,
+   "time": 36.53333333333254,
    "winTimes": [
-    42.949999999998845,
-    47.51666666666525,
-    38.199999999999115
+    141.0500000000044,
+    36.53333333333254,
+    30.916666666666192
    ],
    "hugs": 9,
-   "playerHugs": 7.666666666666667,
-   "pushes": 6.333333333333333,
-   "falls": 6.333333333333333,
-   "rescueRate": 0.9473684210526315,
+   "playerHugs": 8.666666666666666,
+   "pushes": 8.666666666666666,
+   "falls": 8.666666666666666,
+   "rescueRate": 0.8076923076923077,
    "rests": 0,
-   "stars": 3,
-   "coins": 51.666666666666664,
+   "stars": 2.6666666666666665,
+   "coins": 46,
    "parts": {
     "firstWin": 31,
-    "newStars": 13,
-    "hugs": 7.666666666666666
+    "newStars": 11.333333333333332,
+    "hugs": 8.666666666666666,
+    "rests": -5
    },
    "bonusStars": 0
   },
@@ -2415,28 +2418,28 @@
    "target": 230,
    "runs": 3,
    "wins": 3,
-   "time": 52.249999999998316,
+   "time": 51.48333333333169,
    "winTimes": [
     36.41666666666588,
-    52.249999999998316,
-    111.51666666666162
+    51.48333333333169,
+    115.5166666666614
    ],
    "hugs": 9,
    "playerHugs": 7.333333333333333,
-   "pushes": 10,
-   "falls": 9.666666666666666,
-   "rescueRate": 0.7586206896551724,
+   "pushes": 8.666666666666666,
+   "falls": 8.333333333333334,
+   "rescueRate": 0.76,
    "rests": 0,
    "stars": 2.6666666666666665,
-   "coins": 48.666666666666664,
+   "coins": 47.666666666666664,
    "parts": {
     "firstWin": 32,
     "newStars": 11.333333333333332,
     "hugs": 7.333333333333332,
-    "star": 3,
+    "star": 2,
     "rests": -5
    },
-   "bonusStars": 1
+   "bonusStars": 0.6666666666666666
   },
   {
    "world": "city",
@@ -2474,28 +2477,28 @@
    "target": 260,
    "runs": 3,
    "wins": 3,
-   "time": 194.18333333338,
+   "time": 132.01666666666387,
    "winTimes": [
-    194.18333333338,
-    205.43333333338896,
+    110.1166666666617,
+    192.2833333333785,
     132.01666666666387
    ],
    "hugs": 9,
    "playerHugs": 7.666666666666667,
-   "pushes": 19.666666666666668,
-   "falls": 19,
-   "rescueRate": 0.5087719298245614,
-   "rests": 10,
+   "pushes": 13,
+   "falls": 12.666666666666666,
+   "rescueRate": 0.42105263157894735,
+   "rests": 5,
    "stars": 2,
-   "coins": 29,
+   "coins": 31.333333333333332,
    "parts": {
     "firstWin": 33,
     "newStars": 8,
-    "star": 4,
+    "star": 2,
     "hugs": 7.666666666666666,
-    "rests": -23.666666666666668
+    "rests": -19.333333333333336
    },
-   "bonusStars": 1.3333333333333333
+   "bonusStars": 0.6666666666666666
   },
   {
    "world": "city",
@@ -2504,28 +2507,26 @@
    "target": 275,
    "runs": 3,
    "wins": 3,
-   "time": 79.88333333333009,
+   "time": 60.91666666666449,
    "winTimes": [
-    79.88333333333009,
-    133.71666666666522,
+    114.03333333332814,
+    60.91666666666449,
     45.93333333333201
    ],
    "hugs": 10,
-   "playerHugs": 9.333333333333334,
-   "pushes": 12.666666666666666,
-   "falls": 12.666666666666666,
-   "rescueRate": 0.7631578947368421,
+   "playerHugs": 9.666666666666666,
+   "pushes": 12.333333333333334,
+   "falls": 12.333333333333334,
+   "rescueRate": 0.8648648648648649,
    "rests": 0,
-   "stars": 2.6666666666666665,
-   "coins": 48.666666666666664,
+   "stars": 3,
+   "coins": 56.666666666666664,
    "parts": {
     "firstWin": 34,
-    "newStars": 11.333333333333332,
-    "star": 1,
-    "hugs": 9.333333333333334,
-    "rests": -7
+    "newStars": 13,
+    "hugs": 9.666666666666668
    },
-   "bonusStars": 0.3333333333333333
+   "bonusStars": 0
   },
   {
    "world": "city",
@@ -2534,28 +2535,28 @@
    "target": 290,
    "runs": 3,
    "wins": 3,
-   "time": 59.19999999999792,
+   "time": 168.73333333335975,
    "winTimes": [
-    385.2833333333116,
+    375.5833333333204,
     59.19999999999792,
-    45.56666666666536
+    168.73333333335975
    ],
    "hugs": 10,
-   "playerHugs": 9.666666666666666,
-   "pushes": 17.666666666666668,
-   "falls": 17.333333333333332,
-   "rescueRate": 0.7115384615384616,
-   "rests": 0,
-   "stars": 2.3333333333333335,
-   "coins": 50,
+   "playerHugs": 9,
+   "pushes": 21.333333333333332,
+   "falls": 20.666666666666668,
+   "rescueRate": 0.5806451612903226,
+   "rests": 5,
+   "stars": 2,
+   "coins": 40.666666666666664,
    "parts": {
     "firstWin": 34,
-    "newStars": 10,
-    "star": 6,
-    "hugs": 9.666666666666668,
-    "rests": -9.666666666666666
+    "newStars": 8.333333333333332,
+    "star": 4,
+    "hugs": 9,
+    "rests": -14.666666666666666
    },
-   "bonusStars": 2
+   "bonusStars": 1.3333333333333333
   },
   {
    "world": "city",
@@ -2564,17 +2565,17 @@
    "target": 305,
    "runs": 3,
    "wins": 3,
-   "time": 44.94999999999873,
+   "time": 53.11666666666493,
    "winTimes": [
     44.94999999999873,
     58.449999999997964,
-    38.583333333332426
+    53.11666666666493
    ],
    "hugs": 10,
    "playerHugs": 9.666666666666666,
-   "pushes": 3.6666666666666665,
-   "falls": 3.6666666666666665,
-   "rescueRate": 1,
+   "pushes": 5.666666666666667,
+   "falls": 5.666666666666667,
+   "rescueRate": 0.9411764705882353,
    "rests": 0,
    "stars": 3,
    "coins": 57.666666666666664,
@@ -2596,13 +2597,13 @@
    "winTimes": [
     56.849999999998055,
     109.54999999999507,
-    141.56666666667147
+    142.00000000000514
    ],
    "hugs": 10,
    "playerHugs": 9,
-   "pushes": 12,
-   "falls": 11.666666666666666,
-   "rescueRate": 0.6571428571428571,
+   "pushes": 12.333333333333334,
+   "falls": 12,
+   "rescueRate": 0.6388888888888888,
    "rests": 5,
    "stars": 2.3333333333333335,
    "coins": 44.666666666666664,
@@ -2684,24 +2685,24 @@
    "winTimes": [
     159.50000000001907,
     130.29999999999583,
-    120.83333333332776
+    60.666666666664504
    ],
    "hugs": 11,
    "playerHugs": 9.333333333333334,
-   "pushes": 18,
-   "falls": 17.666666666666668,
-   "rescueRate": 0.7924528301886793,
-   "rests": 5,
-   "stars": 2.3333333333333335,
-   "coins": 53,
+   "pushes": 17.333333333333332,
+   "falls": 17,
+   "rescueRate": 0.8823529411764706,
+   "rests": 0,
+   "stars": 2.6666666666666665,
+   "coins": 58.666666666666664,
    "parts": {
     "firstWin": 38,
-    "newStars": 9.666666666666666,
-    "star": 6,
+    "newStars": 11.333333333333332,
+    "star": 5,
     "hugs": 9.333333333333332,
-    "rests": -10
+    "rests": -5
    },
-   "bonusStars": 2
+   "bonusStars": 1.6666666666666667
   },
   {
    "world": "city",
@@ -2712,24 +2713,24 @@
    "wins": 3,
    "time": 235.633333333413,
    "winTimes": [
-    205.60000000005576,
+    85.68333333332976,
     235.633333333413,
     261.300000000091
    ],
    "hugs": 13,
-   "playerHugs": 11.666666666666666,
-   "pushes": 30.666666666666668,
-   "falls": 30,
-   "rescueRate": 0.7222222222222222,
-   "rests": 10,
-   "stars": 2,
-   "coins": 38.666666666666664,
+   "playerHugs": 11.333333333333334,
+   "pushes": 29,
+   "falls": 28.333333333333332,
+   "rescueRate": 0.8,
+   "rests": 5,
+   "stars": 2.3333333333333335,
+   "coins": 50,
    "parts": {
     "firstWin": 39,
-    "newStars": 8,
-    "hugs": 11.666666666666666,
-    "rests": -25,
-    "star": 5
+    "newStars": 9.666666666666666,
+    "hugs": 11.333333333333334,
+    "star": 5,
+    "rests": -15
    },
    "bonusStars": 1.6666666666666667
   },
@@ -3269,24 +3270,24 @@
    "winTimes": [
     112.48333333332823,
     55.18333333333148,
-    209.31666666672538
+    373.5166666666556
    ],
    "hugs": 12,
    "playerHugs": 11.333333333333334,
-   "pushes": 13.333333333333334,
-   "falls": 13,
-   "rescueRate": 0.6153846153846154,
+   "pushes": 20,
+   "falls": 19.333333333333332,
+   "rescueRate": 0.6206896551724138,
    "rests": 5,
    "stars": 2.3333333333333335,
-   "coins": 54,
+   "coins": 51.666666666666664,
    "parts": {
     "firstWin": 45,
     "newStars": 9.666666666666666,
     "hugs": 11.333333333333332,
-    "rests": -15,
-    "star": 3
+    "rests": -18.333333333333336,
+    "star": 4
    },
-   "bonusStars": 1
+   "bonusStars": 1.3333333333333333
   },
   {
    "world": "school",
@@ -4633,7 +4634,7 @@
 {"world":"city","n":1,"type":"classic","style":"careful","seed":601035,"win":true,"ended":true,"time":93.81666666666263,"target":95,"hugs":7,"playerHugs":5,"pushes":8,"falls":8,"playerFalls":2,"rescues":2,"rests":5,"kits":0,"kisses":0,"bonusStars":0,"items":0,"slips":2,"thrownOut":0,"stars":2,"coins":23,"parts":[{"reason":"firstWin","amount":25},{"reason":"newStars","amount":8},{"reason":"hugs","amount":5},{"reason":"rests","amount":-15}],"coinsEvents":[{"t":93.81666666666263,"reason":"firstWin","amount":25},{"t":93.81666666666263,"reason":"newStars","amount":8},{"t":93.81666666666263,"reason":"hugs","amount":5},{"t":93.81666666666263,"reason":"rests","amount":-15}],"events":49,"logFull":false,"maxGap":22.433333333332058,"noHug":71.28333333333057},
 {"world":"city","n":1,"type":"classic","style":"careful","seed":601042,"win":true,"ended":true,"time":26.416666666666448,"target":95,"hugs":7,"playerHugs":6,"pushes":2,"falls":2,"playerFalls":1,"rescues":2,"rests":0,"kits":0,"kisses":0,"bonusStars":0,"items":0,"slips":0,"thrownOut":0,"stars":3,"coins":44,"parts":[{"reason":"firstWin","amount":25},{"reason":"newStars","amount":13},{"reason":"hugs","amount":6}],"coinsEvents":[{"t":26.416666666666448,"reason":"firstWin","amount":25},{"t":26.416666666666448,"reason":"newStars","amount":13},{"t":26.416666666666448,"reason":"hugs","amount":6}],"events":19,"logFull":false,"maxGap":4.199999999999985,"noHug":7.09999999999998},
 {"world":"city","n":2,"type":"meadow","style":"careful","seed":602037,"win":true,"ended":true,"time":39.366666666665715,"target":110,"hugs":7,"playerHugs":6,"pushes":4,"falls":4,"playerFalls":1,"rescues":4,"rests":0,"kits":0,"kisses":0,"bonusStars":0,"items":2,"slips":0,"thrownOut":0,"stars":3,"coins":45,"parts":[{"reason":"firstWin","amount":26},{"reason":"newStars","amount":13},{"reason":"hugs","amount":6}],"coinsEvents":[{"t":39.366666666665715,"reason":"firstWin","amount":26},{"t":39.366666666665715,"reason":"newStars","amount":13},{"t":39.366666666665715,"reason":"hugs","amount":6}],"events":39,"logFull":false,"maxGap":6.449999999999982,"noHug":16.749999999999922},
-{"world":"city","n":2,"type":"meadow","style":"careful","seed":602044,"win":true,"ended":true,"time":42.29999999999888,"target":110,"hugs":7,"playerHugs":5,"pushes":5,"falls":5,"playerFalls":1,"rescues":5,"rests":0,"kits":0,"kisses":0,"bonusStars":1,"items":0,"slips":0,"thrownOut":0,"stars":3,"coins":47,"parts":[{"reason":"firstWin","amount":26},{"reason":"newStars","amount":13},{"reason":"star","amount":3},{"reason":"hugs","amount":5}],"coinsEvents":[{"t":38.349999999999106,"reason":"star","amount":3},{"t":42.29999999999888,"reason":"firstWin","amount":26},{"t":42.29999999999888,"reason":"newStars","amount":13},{"t":42.29999999999888,"reason":"hugs","amount":5}],"events":42,"logFull":false,"maxGap":8.31666666666666,"noHug":18.266666666666076},
+{"world":"city","n":2,"type":"meadow","style":"careful","seed":602044,"win":true,"ended":true,"time":180.6500000000359,"target":110,"hugs":7,"playerHugs":5,"pushes":19,"falls":19,"playerFalls":4,"rescues":8,"rests":10,"kits":0,"kisses":0,"bonusStars":1,"items":0,"slips":1,"thrownOut":0,"stars":1,"coins":17,"parts":[{"reason":"firstWin","amount":26},{"reason":"newStars","amount":4},{"reason":"star","amount":3},{"reason":"hugs","amount":5},{"reason":"rests","amount":-21}],"coinsEvents":[{"t":99.29999999999565,"reason":"star","amount":3},{"t":180.6500000000359,"reason":"firstWin","amount":26},{"t":180.6500000000359,"reason":"newStars","amount":4},{"t":180.6500000000359,"reason":"hugs","amount":5},{"t":180.6500000000359,"reason":"rests","amount":-21}],"events":115,"logFull":false,"maxGap":22.633333333332054,"noHug":65.93333333332959},
 {"world":"city","n":2,"type":"meadow","style":"careful","seed":602051,"win":true,"ended":true,"time":29.48333333333294,"target":110,"hugs":7,"playerHugs":6,"pushes":2,"falls":2,"playerFalls":0,"rescues":2,"rests":0,"kits":0,"kisses":0,"bonusStars":0,"items":0,"slips":0,"thrownOut":0,"stars":3,"coins":45,"parts":[{"reason":"firstWin","amount":26},{"reason":"newStars","amount":13},{"reason":"hugs","amount":6}],"coinsEvents":[{"t":29.48333333333294,"reason":"firstWin","amount":26},{"t":29.48333333333294,"reason":"newStars","amount":13},{"t":29.48333333333294,"reason":"hugs","amount":6}],"events":18,"logFull":false,"maxGap":8.483333333333334,"noHug":8.483333333333334},
 {"world":"city","n":3,"type":"meadow","style":"careful","seed":603046,"win":true,"ended":true,"time":26.59999999999977,"target":125,"hugs":7,"playerHugs":6,"pushes":0,"falls":0,"playerFalls":0,"rescues":0,"rests":0,"kits":0,"kisses":0,"bonusStars":0,"items":0,"slips":0,"thrownOut":0,"stars":3,"coins":46,"parts":[{"reason":"firstWin","amount":27},{"reason":"newStars","amount":13},{"reason":"hugs","amount":6}],"coinsEvents":[{"t":26.59999999999977,"reason":"firstWin","amount":27},{"t":26.59999999999977,"reason":"newStars","amount":13},{"t":26.59999999999977,"reason":"hugs","amount":6}],"events":26,"logFull":false,"maxGap":6.599999999999982,"noHug":8.71666666666668},
 {"world":"city","n":3,"type":"meadow","style":"careful","seed":603053,"win":true,"ended":true,"time":27.933333333333028,"target":125,"hugs":7,"playerHugs":6,"pushes":1,"falls":1,"playerFalls":0,"rescues":1,"rests":0,"kits":0,"kisses":0,"bonusStars":0,"items":0,"slips":0,"thrownOut":0,"stars":3,"coins":46,"parts":[{"reason":"firstWin","amount":27},{"reason":"newStars","amount":13},{"reason":"hugs","amount":6}],"coinsEvents":[{"t":27.933333333333028,"reason":"firstWin","amount":27},{"t":27.933333333333028,"reason":"newStars","amount":13},{"t":27.933333333333028,"reason":"hugs","amount":6}],"events":15,"logFull":false,"maxGap":10.050000000000079,"noHug":10.050000000000079},
@@ -4641,45 +4642,45 @@
 {"world":"city","n":4,"type":"meadow","style":"careful","seed":604055,"win":true,"ended":true,"time":41.98333333333223,"target":140,"hugs":7,"playerHugs":5,"pushes":9,"falls":9,"playerFalls":2,"rescues":8,"rests":0,"kits":0,"kisses":0,"bonusStars":0,"items":0,"slips":0,"thrownOut":0,"stars":3,"coins":45,"parts":[{"reason":"firstWin","amount":27},{"reason":"newStars","amount":13},{"reason":"hugs","amount":5}],"coinsEvents":[{"t":41.98333333333223,"reason":"firstWin","amount":27},{"t":41.98333333333223,"reason":"newStars","amount":13},{"t":41.98333333333223,"reason":"hugs","amount":5}],"events":45,"logFull":false,"maxGap":3.583333333333491,"noHug":12.133333333333514},
 {"world":"city","n":4,"type":"meadow","style":"careful","seed":604062,"win":true,"ended":true,"time":35.99999999999924,"target":140,"hugs":7,"playerHugs":5,"pushes":3,"falls":3,"playerFalls":1,"rescues":3,"rests":0,"kits":0,"kisses":0,"bonusStars":0,"items":1,"slips":0,"thrownOut":0,"stars":3,"coins":45,"parts":[{"reason":"firstWin","amount":27},{"reason":"newStars","amount":13},{"reason":"hugs","amount":5}],"coinsEvents":[{"t":35.99999999999924,"reason":"firstWin","amount":27},{"t":35.99999999999924,"reason":"newStars","amount":13},{"t":35.99999999999924,"reason":"hugs","amount":5}],"events":33,"logFull":false,"maxGap":5.233333333333455,"noHug":10.633333333333441},
 {"world":"city","n":4,"type":"meadow","style":"careful","seed":604069,"win":true,"ended":true,"time":27.483333333333054,"target":140,"hugs":7,"playerHugs":5,"pushes":1,"falls":1,"playerFalls":0,"rescues":1,"rests":0,"kits":0,"kisses":0,"bonusStars":1,"items":0,"slips":0,"thrownOut":0,"stars":3,"coins":48,"parts":[{"reason":"firstWin","amount":27},{"reason":"newStars","amount":13},{"reason":"star","amount":3},{"reason":"hugs","amount":5}],"coinsEvents":[{"t":13.383333333333578,"reason":"star","amount":3},{"t":27.483333333333054,"reason":"firstWin","amount":27},{"t":27.483333333333054,"reason":"newStars","amount":13},{"t":27.483333333333054,"reason":"hugs","amount":5}],"events":21,"logFull":false,"maxGap":6.683333333333371,"noHug":9.133333333333367},
-{"world":"city","n":5,"type":"village","style":"careful","seed":605064,"win":true,"ended":true,"time":118.3833333333279,"target":155,"hugs":8,"playerHugs":6,"pushes":12,"falls":12,"playerFalls":3,"rescues":7,"rests":5,"kits":0,"kisses":0,"bonusStars":1,"items":3,"slips":0,"thrownOut":0,"stars":2,"coins":30,"parts":[{"reason":"firstWin","amount":28},{"reason":"newStars","amount":8},{"reason":"star","amount":3},{"reason":"hugs","amount":6},{"reason":"rests","amount":-15}],"coinsEvents":[{"t":14.30000000000029,"reason":"star","amount":3},{"t":118.3833333333279,"reason":"firstWin","amount":28},{"t":118.3833333333279,"reason":"newStars","amount":8},{"t":118.3833333333279,"reason":"hugs","amount":6},{"t":118.3833333333279,"reason":"rests","amount":-15}],"events":91,"logFull":false,"maxGap":18.583333333332277,"noHug":71.41666666666262},
+{"world":"city","n":5,"type":"village","style":"careful","seed":605064,"win":true,"ended":true,"time":119.16666666666119,"target":155,"hugs":8,"playerHugs":6,"pushes":12,"falls":12,"playerFalls":3,"rescues":7,"rests":5,"kits":0,"kisses":0,"bonusStars":1,"items":3,"slips":0,"thrownOut":0,"stars":2,"coins":30,"parts":[{"reason":"firstWin","amount":28},{"reason":"newStars","amount":8},{"reason":"star","amount":3},{"reason":"hugs","amount":6},{"reason":"rests","amount":-15}],"coinsEvents":[{"t":14.30000000000029,"reason":"star","amount":3},{"t":119.16666666666119,"reason":"firstWin","amount":28},{"t":119.16666666666119,"reason":"newStars","amount":8},{"t":119.16666666666119,"reason":"hugs","amount":6},{"t":119.16666666666119,"reason":"rests","amount":-15}],"events":91,"logFull":false,"maxGap":18.583333333332277,"noHug":72.41666666666256},
 {"world":"city","n":5,"type":"village","style":"careful","seed":605071,"win":true,"ended":true,"time":37.9166666666658,"target":155,"hugs":8,"playerHugs":7,"pushes":2,"falls":1,"playerFalls":0,"rescues":1,"rests":0,"kits":0,"kisses":0,"bonusStars":1,"items":2,"slips":0,"thrownOut":0,"stars":3,"coins":51,"parts":[{"reason":"firstWin","amount":28},{"reason":"newStars","amount":13},{"reason":"star","amount":3},{"reason":"hugs","amount":7}],"coinsEvents":[{"t":23.033333333333307,"reason":"star","amount":3},{"t":37.9166666666658,"reason":"firstWin","amount":28},{"t":37.9166666666658,"reason":"newStars","amount":13},{"t":37.9166666666658,"reason":"hugs","amount":7}],"events":27,"logFull":false,"maxGap":5.449999999999986,"noHug":12.866666666666886},
-{"world":"city","n":5,"type":"village","style":"careful","seed":605078,"win":true,"ended":true,"time":41.933333333332236,"target":155,"hugs":8,"playerHugs":7,"pushes":6,"falls":6,"playerFalls":0,"rescues":6,"rests":0,"kits":0,"kisses":0,"bonusStars":0,"items":0,"slips":0,"thrownOut":0,"stars":3,"coins":48,"parts":[{"reason":"firstWin","amount":28},{"reason":"newStars","amount":13},{"reason":"hugs","amount":7}],"coinsEvents":[{"t":41.933333333332236,"reason":"firstWin","amount":28},{"t":41.933333333332236,"reason":"newStars","amount":13},{"t":41.933333333332236,"reason":"hugs","amount":7}],"events":56,"logFull":false,"maxGap":6.466666666666649,"noHug":14.266666666666955},
-{"world":"city","n":5,"type":"village","style":"reckless","seed":605064,"win":true,"ended":true,"time":71.3166666666639,"target":155,"hugs":8,"playerHugs":7,"pushes":10,"falls":10,"playerFalls":5,"rescues":7,"rests":0,"kits":0,"kisses":0,"bonusStars":0,"items":2,"slips":0,"thrownOut":0,"stars":3,"coins":48,"parts":[{"reason":"firstWin","amount":28},{"reason":"newStars","amount":13},{"reason":"hugs","amount":7}],"coinsEvents":[{"t":71.3166666666639,"reason":"firstWin","amount":28},{"t":71.3166666666639,"reason":"newStars","amount":13},{"t":71.3166666666639,"reason":"hugs","amount":7}],"events":68,"logFull":false,"maxGap":6.116666666666319,"noHug":25.333333333331893},
+{"world":"city","n":5,"type":"village","style":"careful","seed":605078,"win":true,"ended":true,"time":45.866666666665346,"target":155,"hugs":8,"playerHugs":7,"pushes":6,"falls":5,"playerFalls":0,"rescues":5,"rests":0,"kits":0,"kisses":0,"bonusStars":1,"items":1,"slips":0,"thrownOut":0,"stars":3,"coins":51,"parts":[{"reason":"firstWin","amount":28},{"reason":"newStars","amount":13},{"reason":"star","amount":3},{"reason":"hugs","amount":7}],"coinsEvents":[{"t":15.316666666667007,"reason":"star","amount":3},{"t":45.866666666665346,"reason":"firstWin","amount":28},{"t":45.866666666665346,"reason":"newStars","amount":13},{"t":45.866666666665346,"reason":"hugs","amount":7}],"events":79,"logFull":false,"maxGap":6.466666666666649,"noHug":12.666666666666876},
+{"world":"city","n":5,"type":"village","style":"reckless","seed":605064,"win":true,"ended":true,"time":47.466666666665255,"target":155,"hugs":8,"playerHugs":7,"pushes":7,"falls":7,"playerFalls":2,"rescues":7,"rests":0,"kits":0,"kisses":0,"bonusStars":2,"items":0,"slips":0,"thrownOut":0,"stars":3,"coins":54,"parts":[{"reason":"firstWin","amount":28},{"reason":"newStars","amount":13},{"reason":"star","amount":6},{"reason":"hugs","amount":7}],"coinsEvents":[{"t":14.250000000000288,"reason":"star","amount":3},{"t":37.24999999999917,"reason":"star","amount":3},{"t":47.466666666665255,"reason":"firstWin","amount":28},{"t":47.466666666665255,"reason":"newStars","amount":13},{"t":47.466666666665255,"reason":"hugs","amount":7}],"events":64,"logFull":false,"maxGap":3.7499999999999916,"noHug":16.866666666666056},
 {"world":"city","n":6,"type":"village","style":"careful","seed":606073,"win":true,"ended":true,"time":38.233333333332446,"target":170,"hugs":8,"playerHugs":7,"pushes":2,"falls":2,"playerFalls":0,"rescues":2,"rests":0,"kits":0,"kisses":0,"bonusStars":0,"items":0,"slips":0,"thrownOut":0,"stars":3,"coins":49,"parts":[{"reason":"firstWin","amount":29},{"reason":"newStars","amount":13},{"reason":"hugs","amount":7}],"coinsEvents":[{"t":38.233333333332446,"reason":"firstWin","amount":29},{"t":38.233333333332446,"reason":"newStars","amount":13},{"t":38.233333333332446,"reason":"hugs","amount":7}],"events":23,"logFull":false,"maxGap":9.866666666666736,"noHug":10.483333333332741},
-{"world":"city","n":6,"type":"village","style":"careful","seed":606080,"win":true,"ended":true,"time":43.38333333333215,"target":170,"hugs":8,"playerHugs":8,"pushes":4,"falls":4,"playerFalls":1,"rescues":3,"rests":0,"kits":0,"kisses":0,"bonusStars":1,"items":2,"slips":0,"thrownOut":0,"stars":3,"coins":53,"parts":[{"reason":"firstWin","amount":29},{"reason":"newStars","amount":13},{"reason":"star","amount":3},{"reason":"hugs","amount":8}],"coinsEvents":[{"t":27.699999999999708,"reason":"star","amount":3},{"t":43.38333333333215,"reason":"firstWin","amount":29},{"t":43.38333333333215,"reason":"newStars","amount":13},{"t":43.38333333333215,"reason":"hugs","amount":8}],"events":49,"logFull":false,"maxGap":6.783333333333315,"noHug":17.250000000000302},
+{"world":"city","n":6,"type":"village","style":"careful","seed":606080,"win":true,"ended":true,"time":39.0333333333324,"target":170,"hugs":8,"playerHugs":8,"pushes":5,"falls":5,"playerFalls":1,"rescues":5,"rests":0,"kits":0,"kisses":0,"bonusStars":0,"items":2,"slips":0,"thrownOut":0,"stars":3,"coins":50,"parts":[{"reason":"firstWin","amount":29},{"reason":"newStars","amount":13},{"reason":"hugs","amount":8}],"coinsEvents":[{"t":39.0333333333324,"reason":"firstWin","amount":29},{"t":39.0333333333324,"reason":"newStars","amount":13},{"t":39.0333333333324,"reason":"hugs","amount":8}],"events":48,"logFull":false,"maxGap":6.783333333333315,"noHug":15.550000000000352},
 {"world":"city","n":6,"type":"village","style":"careful","seed":606087,"win":true,"ended":true,"time":49.96666666666511,"target":170,"hugs":8,"playerHugs":7,"pushes":7,"falls":7,"playerFalls":1,"rescues":7,"rests":0,"kits":0,"kisses":0,"bonusStars":0,"items":1,"slips":0,"thrownOut":0,"stars":3,"coins":49,"parts":[{"reason":"firstWin","amount":29},{"reason":"newStars","amount":13},{"reason":"hugs","amount":7}],"coinsEvents":[{"t":49.96666666666511,"reason":"firstWin","amount":29},{"t":49.96666666666511,"reason":"newStars","amount":13},{"t":49.96666666666511,"reason":"hugs","amount":7}],"events":49,"logFull":false,"maxGap":12.63333333333354,"noHug":15.616666666666088},
-{"world":"city","n":7,"type":"village","style":"careful","seed":607082,"win":true,"ended":true,"time":54.03333333333155,"target":185,"hugs":8,"playerHugs":7,"pushes":10,"falls":10,"playerFalls":2,"rescues":9,"rests":0,"kits":0,"kisses":0,"bonusStars":0,"items":1,"slips":0,"thrownOut":0,"stars":3,"coins":49,"parts":[{"reason":"firstWin","amount":29},{"reason":"newStars","amount":13},{"reason":"hugs","amount":7}],"coinsEvents":[{"t":54.03333333333155,"reason":"firstWin","amount":29},{"t":54.03333333333155,"reason":"newStars","amount":13},{"t":54.03333333333155,"reason":"hugs","amount":7}],"events":73,"logFull":false,"maxGap":4.699999999999989,"noHug":14.64999999999917},
-{"world":"city","n":7,"type":"village","style":"careful","seed":607089,"win":true,"ended":true,"time":36.916666666665854,"target":185,"hugs":8,"playerHugs":7,"pushes":4,"falls":4,"playerFalls":1,"rescues":4,"rests":0,"kits":0,"kisses":0,"bonusStars":0,"items":0,"slips":0,"thrownOut":0,"stars":3,"coins":49,"parts":[{"reason":"firstWin","amount":29},{"reason":"newStars","amount":13},{"reason":"hugs","amount":7}],"coinsEvents":[{"t":36.916666666665854,"reason":"firstWin","amount":29},{"t":36.916666666665854,"reason":"newStars","amount":13},{"t":36.916666666665854,"reason":"hugs","amount":7}],"events":46,"logFull":false,"maxGap":4.616666666666656,"noHug":9.650000000000059},
-{"world":"city","n":7,"type":"village","style":"careful","seed":607096,"win":true,"ended":true,"time":58.566666666664624,"target":185,"hugs":8,"playerHugs":7,"pushes":12,"falls":12,"playerFalls":3,"rescues":11,"rests":0,"kits":0,"kisses":0,"bonusStars":0,"items":0,"slips":0,"thrownOut":0,"stars":3,"coins":49,"parts":[{"reason":"firstWin","amount":29},{"reason":"newStars","amount":13},{"reason":"hugs","amount":7}],"coinsEvents":[{"t":58.566666666664624,"reason":"firstWin","amount":29},{"t":58.566666666664624,"reason":"newStars","amount":13},{"t":58.566666666664624,"reason":"hugs","amount":7}],"events":73,"logFull":false,"maxGap":4.716666666666655,"noHug":21.216666666666743},
+{"world":"city","n":7,"type":"village","style":"careful","seed":607082,"win":true,"ended":true,"time":47.583333333331915,"target":185,"hugs":8,"playerHugs":7,"pushes":7,"falls":7,"playerFalls":2,"rescues":7,"rests":0,"kits":0,"kisses":0,"bonusStars":0,"items":1,"slips":0,"thrownOut":0,"stars":3,"coins":49,"parts":[{"reason":"firstWin","amount":29},{"reason":"newStars","amount":13},{"reason":"hugs","amount":7}],"coinsEvents":[{"t":47.583333333331915,"reason":"firstWin","amount":29},{"t":47.583333333331915,"reason":"newStars","amount":13},{"t":47.583333333331915,"reason":"hugs","amount":7}],"events":66,"logFull":false,"maxGap":4.699999999999989,"noHug":10.683333333333328},
+{"world":"city","n":7,"type":"village","style":"careful","seed":607089,"win":true,"ended":true,"time":111.66666666666161,"target":185,"hugs":8,"playerHugs":7,"pushes":11,"falls":11,"playerFalls":3,"rescues":6,"rests":5,"kits":0,"kisses":0,"bonusStars":1,"items":0,"slips":0,"thrownOut":0,"stars":2,"coins":32,"parts":[{"reason":"firstWin","amount":29},{"reason":"newStars","amount":8},{"reason":"star","amount":3},{"reason":"hugs","amount":7},{"reason":"rests","amount":-15}],"coinsEvents":[{"t":90.41666666666282,"reason":"star","amount":3},{"t":111.66666666666161,"reason":"firstWin","amount":29},{"t":111.66666666666161,"reason":"newStars","amount":8},{"t":111.66666666666161,"reason":"hugs","amount":7},{"t":111.66666666666161,"reason":"rests","amount":-15}],"events":91,"logFull":false,"maxGap":24.149999999998634,"noHug":65.71666666666295},
+{"world":"city","n":7,"type":"village","style":"careful","seed":607096,"win":true,"ended":true,"time":114.26666666666146,"target":185,"hugs":8,"playerHugs":7,"pushes":12,"falls":11,"playerFalls":2,"rescues":5,"rests":5,"kits":0,"kisses":0,"bonusStars":0,"items":1,"slips":1,"thrownOut":0,"stars":2,"coins":29,"parts":[{"reason":"firstWin","amount":29},{"reason":"newStars","amount":8},{"reason":"hugs","amount":7},{"reason":"rests","amount":-15}],"coinsEvents":[{"t":114.26666666666146,"reason":"firstWin","amount":29},{"t":114.26666666666146,"reason":"newStars","amount":8},{"t":114.26666666666146,"reason":"hugs","amount":7},{"t":114.26666666666146,"reason":"rests","amount":-15}],"events":86,"logFull":false,"maxGap":20.89999999999882,"noHug":55.03333333333022},
 {"world":"city","n":8,"type":"river","style":"careful","seed":608091,"win":true,"ended":true,"time":39.38333333333238,"target":200,"hugs":8,"playerHugs":8,"pushes":5,"falls":5,"playerFalls":0,"rescues":5,"rests":0,"kits":0,"kisses":0,"bonusStars":0,"items":2,"slips":0,"thrownOut":0,"stars":3,"coins":51,"parts":[{"reason":"firstWin","amount":30},{"reason":"newStars","amount":13},{"reason":"hugs","amount":8}],"coinsEvents":[{"t":39.38333333333238,"reason":"firstWin","amount":30},{"t":39.38333333333238,"reason":"newStars","amount":13},{"t":39.38333333333238,"reason":"hugs","amount":8}],"events":31,"logFull":false,"maxGap":10.066666666666746,"noHug":12.450000000000198},
 {"world":"city","n":8,"type":"river","style":"careful","seed":608098,"win":true,"ended":true,"time":28.566666666666325,"target":200,"hugs":8,"playerHugs":7,"pushes":1,"falls":1,"playerFalls":0,"rescues":1,"rests":0,"kits":0,"kisses":0,"bonusStars":1,"items":0,"slips":0,"thrownOut":0,"stars":3,"coins":53,"parts":[{"reason":"firstWin","amount":30},{"reason":"newStars","amount":13},{"reason":"star","amount":3},{"reason":"hugs","amount":7}],"coinsEvents":[{"t":10.250000000000089,"reason":"star","amount":3},{"t":28.566666666666325,"reason":"firstWin","amount":30},{"t":28.566666666666325,"reason":"newStars","amount":13},{"t":28.566666666666325,"reason":"hugs","amount":7}],"events":18,"logFull":false,"maxGap":7.866666666666644,"noHug":7.866666666666644},
 {"world":"city","n":8,"type":"river","style":"careful","seed":608105,"win":true,"ended":true,"time":46.683333333331966,"target":200,"hugs":8,"playerHugs":7,"pushes":10,"falls":10,"playerFalls":2,"rescues":10,"rests":0,"kits":0,"kisses":0,"bonusStars":0,"items":1,"slips":0,"thrownOut":0,"stars":3,"coins":50,"parts":[{"reason":"firstWin","amount":30},{"reason":"newStars","amount":13},{"reason":"hugs","amount":7}],"coinsEvents":[{"t":46.683333333331966,"reason":"firstWin","amount":30},{"t":46.683333333331966,"reason":"newStars","amount":13},{"t":46.683333333331966,"reason":"hugs","amount":7}],"events":49,"logFull":false,"maxGap":5.883333333333318,"noHug":10.150000000000084},
-{"world":"city","n":9,"type":"river","style":"careful","seed":609100,"win":true,"ended":true,"time":42.949999999998845,"target":215,"hugs":9,"playerHugs":8,"pushes":7,"falls":7,"playerFalls":1,"rescues":7,"rests":0,"kits":0,"kisses":0,"bonusStars":0,"items":0,"slips":0,"thrownOut":0,"stars":3,"coins":52,"parts":[{"reason":"firstWin","amount":31},{"reason":"newStars","amount":13},{"reason":"hugs","amount":8}],"coinsEvents":[{"t":42.949999999998845,"reason":"firstWin","amount":31},{"t":42.949999999998845,"reason":"newStars","amount":13},{"t":42.949999999998845,"reason":"hugs","amount":8}],"events":49,"logFull":false,"maxGap":5.399999999999986,"noHug":13.850000000000268},
-{"world":"city","n":9,"type":"river","style":"careful","seed":609107,"win":true,"ended":true,"time":47.51666666666525,"target":215,"hugs":9,"playerHugs":7,"pushes":7,"falls":7,"playerFalls":2,"rescues":7,"rests":0,"kits":0,"kisses":0,"bonusStars":0,"items":1,"slips":0,"thrownOut":0,"stars":3,"coins":51,"parts":[{"reason":"firstWin","amount":31},{"reason":"newStars","amount":13},{"reason":"hugs","amount":7}],"coinsEvents":[{"t":47.51666666666525,"reason":"firstWin","amount":31},{"t":47.51666666666525,"reason":"newStars","amount":13},{"t":47.51666666666525,"reason":"hugs","amount":7}],"events":60,"logFull":false,"maxGap":5.466666666666653,"noHug":15.133333333333665},
-{"world":"city","n":9,"type":"river","style":"careful","seed":609114,"win":true,"ended":true,"time":38.199999999999115,"target":215,"hugs":9,"playerHugs":8,"pushes":5,"falls":5,"playerFalls":0,"rescues":4,"rests":0,"kits":0,"kisses":0,"bonusStars":0,"items":0,"slips":0,"thrownOut":0,"stars":3,"coins":52,"parts":[{"reason":"firstWin","amount":31},{"reason":"newStars","amount":13},{"reason":"hugs","amount":8}],"coinsEvents":[{"t":38.199999999999115,"reason":"firstWin","amount":31},{"t":38.199999999999115,"reason":"newStars","amount":13},{"t":38.199999999999115,"reason":"hugs","amount":8}],"events":38,"logFull":false,"maxGap":5.516666666666652,"noHug":11.916666666666838},
+{"world":"city","n":9,"type":"river","style":"careful","seed":609100,"win":true,"ended":true,"time":141.0500000000044,"target":215,"hugs":9,"playerHugs":8,"pushes":22,"falls":22,"playerFalls":4,"rescues":17,"rests":5,"kits":0,"kisses":0,"bonusStars":0,"items":2,"slips":1,"thrownOut":0,"stars":2,"coins":32,"parts":[{"reason":"firstWin","amount":31},{"reason":"newStars","amount":8},{"reason":"hugs","amount":8},{"reason":"rests","amount":-15}],"coinsEvents":[{"t":141.0500000000044,"reason":"firstWin","amount":31},{"t":141.0500000000044,"reason":"newStars","amount":8},{"t":141.0500000000044,"reason":"hugs","amount":8},{"t":141.0500000000044,"reason":"rests","amount":-15}],"events":119,"logFull":false,"maxGap":13.749999999999218,"noHug":61.73333333332983},
+{"world":"city","n":9,"type":"river","style":"careful","seed":609107,"win":true,"ended":true,"time":36.53333333333254,"target":215,"hugs":9,"playerHugs":9,"pushes":3,"falls":3,"playerFalls":1,"rescues":3,"rests":0,"kits":0,"kisses":0,"bonusStars":0,"items":0,"slips":0,"thrownOut":0,"stars":3,"coins":53,"parts":[{"reason":"firstWin","amount":31},{"reason":"newStars","amount":13},{"reason":"hugs","amount":9}],"coinsEvents":[{"t":36.53333333333254,"reason":"firstWin","amount":31},{"t":36.53333333333254,"reason":"newStars","amount":13},{"t":36.53333333333254,"reason":"hugs","amount":9}],"events":40,"logFull":false,"maxGap":5.466666666666653,"noHug":13.016666666666893},
+{"world":"city","n":9,"type":"river","style":"careful","seed":609114,"win":true,"ended":true,"time":30.916666666666192,"target":215,"hugs":9,"playerHugs":9,"pushes":1,"falls":1,"playerFalls":0,"rescues":1,"rests":0,"kits":0,"kisses":0,"bonusStars":0,"items":0,"slips":0,"thrownOut":0,"stars":3,"coins":53,"parts":[{"reason":"firstWin","amount":31},{"reason":"newStars","amount":13},{"reason":"hugs","amount":9}],"coinsEvents":[{"t":30.916666666666192,"reason":"firstWin","amount":31},{"t":30.916666666666192,"reason":"newStars","amount":13},{"t":30.916666666666192,"reason":"hugs","amount":9}],"events":39,"logFull":false,"maxGap":5.516666666666652,"noHug":7.399999999999979},
 {"world":"city","n":10,"type":"river","style":"careful","seed":610109,"win":true,"ended":true,"time":36.41666666666588,"target":230,"hugs":9,"playerHugs":6,"pushes":5,"falls":5,"playerFalls":2,"rescues":4,"rests":0,"kits":0,"kisses":0,"bonusStars":0,"items":1,"slips":0,"thrownOut":0,"stars":3,"coins":51,"parts":[{"reason":"firstWin","amount":32},{"reason":"newStars","amount":13},{"reason":"hugs","amount":6}],"coinsEvents":[{"t":36.41666666666588,"reason":"firstWin","amount":32},{"t":36.41666666666588,"reason":"newStars","amount":13},{"t":36.41666666666588,"reason":"hugs","amount":6}],"events":35,"logFull":false,"maxGap":5.783333333333318,"noHug":7.98333333333331},
-{"world":"city","n":10,"type":"river","style":"careful","seed":610116,"win":true,"ended":true,"time":52.249999999998316,"target":230,"hugs":9,"playerHugs":8,"pushes":12,"falls":11,"playerFalls":2,"rescues":10,"rests":0,"kits":0,"kisses":0,"bonusStars":2,"items":3,"slips":0,"thrownOut":0,"stars":3,"coins":59,"parts":[{"reason":"firstWin","amount":32},{"reason":"newStars","amount":13},{"reason":"star","amount":6},{"reason":"hugs","amount":8}],"coinsEvents":[{"t":27.549999999999716,"reason":"star","amount":3},{"t":42.866666666665516,"reason":"star","amount":3},{"t":52.249999999998316,"reason":"firstWin","amount":32},{"t":52.249999999998316,"reason":"newStars","amount":13},{"t":52.249999999998316,"reason":"hugs","amount":8}],"events":68,"logFull":false,"maxGap":5.899999999999984,"noHug":19.449999999998898},
-{"world":"city","n":10,"type":"river","style":"careful","seed":610123,"win":true,"ended":true,"time":111.51666666666162,"target":230,"hugs":9,"playerHugs":8,"pushes":13,"falls":13,"playerFalls":2,"rescues":8,"rests":5,"kits":0,"kisses":0,"bonusStars":1,"items":1,"slips":0,"thrownOut":0,"stars":2,"coins":36,"parts":[{"reason":"firstWin","amount":32},{"reason":"newStars","amount":8},{"reason":"star","amount":3},{"reason":"hugs","amount":8},{"reason":"rests","amount":-15}],"coinsEvents":[{"t":71.93333333333054,"reason":"star","amount":3},{"t":111.51666666666162,"reason":"firstWin","amount":32},{"t":111.51666666666162,"reason":"newStars","amount":8},{"t":111.51666666666162,"reason":"hugs","amount":8},{"t":111.51666666666162,"reason":"rests","amount":-15}],"events":145,"logFull":false,"maxGap":27.699999999998433,"noHug":73.56666666666378},
+{"world":"city","n":10,"type":"river","style":"careful","seed":610116,"win":true,"ended":true,"time":51.48333333333169,"target":230,"hugs":9,"playerHugs":8,"pushes":11,"falls":10,"playerFalls":2,"rescues":10,"rests":0,"kits":0,"kisses":0,"bonusStars":2,"items":2,"slips":0,"thrownOut":0,"stars":3,"coins":59,"parts":[{"reason":"firstWin","amount":32},{"reason":"newStars","amount":13},{"reason":"star","amount":6},{"reason":"hugs","amount":8}],"coinsEvents":[{"t":27.549999999999716,"reason":"star","amount":3},{"t":42.88333333333218,"reason":"star","amount":3},{"t":51.48333333333169,"reason":"firstWin","amount":32},{"t":51.48333333333169,"reason":"newStars","amount":13},{"t":51.48333333333169,"reason":"hugs","amount":8}],"events":64,"logFull":false,"maxGap":5.899999999999984,"noHug":18.383333333332292},
+{"world":"city","n":10,"type":"river","style":"careful","seed":610123,"win":true,"ended":true,"time":115.5166666666614,"target":230,"hugs":9,"playerHugs":8,"pushes":10,"falls":10,"playerFalls":2,"rescues":5,"rests":5,"kits":0,"kisses":0,"bonusStars":0,"items":1,"slips":0,"thrownOut":0,"stars":2,"coins":33,"parts":[{"reason":"firstWin","amount":32},{"reason":"newStars","amount":8},{"reason":"hugs","amount":8},{"reason":"rests","amount":-15}],"coinsEvents":[{"t":115.5166666666614,"reason":"firstWin","amount":32},{"t":115.5166666666614,"reason":"newStars","amount":8},{"t":115.5166666666614,"reason":"hugs","amount":8},{"t":115.5166666666614,"reason":"rests","amount":-15}],"events":118,"logFull":false,"maxGap":21.066666666665476,"noHug":91.99999999999606},
 {"world":"city","n":10,"type":"river","style":"reckless","seed":610109,"win":true,"ended":true,"time":36.23333333333256,"target":230,"hugs":9,"playerHugs":9,"pushes":3,"falls":3,"playerFalls":1,"rescues":3,"rests":0,"kits":0,"kisses":0,"bonusStars":0,"items":0,"slips":0,"thrownOut":0,"stars":3,"coins":54,"parts":[{"reason":"firstWin","amount":32},{"reason":"newStars","amount":13},{"reason":"hugs","amount":9}],"coinsEvents":[{"t":36.23333333333256,"reason":"firstWin","amount":32},{"t":36.23333333333256,"reason":"newStars","amount":13},{"t":36.23333333333256,"reason":"hugs","amount":9}],"events":99,"logFull":false,"maxGap":5.533333333333319,"noHug":12.716666666666878},
 {"world":"city","n":11,"type":"rooms","style":"careful","seed":611118,"win":true,"ended":true,"time":33.7333333333327,"target":245,"hugs":9,"playerHugs":6,"pushes":5,"falls":5,"playerFalls":2,"rescues":4,"rests":0,"kits":0,"kisses":0,"bonusStars":0,"items":0,"slips":0,"thrownOut":0,"stars":3,"coins":51,"parts":[{"reason":"firstWin","amount":32},{"reason":"newStars","amount":13},{"reason":"hugs","amount":6}],"coinsEvents":[{"t":33.7333333333327,"reason":"firstWin","amount":32},{"t":33.7333333333327,"reason":"newStars","amount":13},{"t":33.7333333333327,"reason":"hugs","amount":6}],"events":28,"logFull":false,"maxGap":5.949999999999984,"noHug":8.18333333333332},
 {"world":"city","n":11,"type":"rooms","style":"careful","seed":611125,"win":true,"ended":true,"time":60.26666666666453,"target":245,"hugs":9,"playerHugs":9,"pushes":14,"falls":14,"playerFalls":4,"rescues":12,"rests":0,"kits":0,"kisses":0,"bonusStars":0,"items":1,"slips":0,"thrownOut":0,"stars":3,"coins":54,"parts":[{"reason":"firstWin","amount":32},{"reason":"newStars","amount":13},{"reason":"hugs","amount":9}],"coinsEvents":[{"t":60.26666666666453,"reason":"firstWin","amount":32},{"t":60.26666666666453,"reason":"newStars","amount":13},{"t":60.26666666666453,"reason":"hugs","amount":9}],"events":58,"logFull":false,"maxGap":5.949999999999984,"noHug":14.183333333332987},
 {"world":"city","n":11,"type":"rooms","style":"careful","seed":611132,"win":true,"ended":true,"time":103.14999999999543,"target":245,"hugs":9,"playerHugs":8,"pushes":12,"falls":12,"playerFalls":2,"rescues":6,"rests":5,"kits":0,"kisses":0,"bonusStars":0,"items":0,"slips":1,"thrownOut":0,"stars":2,"coins":33,"parts":[{"reason":"firstWin","amount":32},{"reason":"newStars","amount":8},{"reason":"hugs","amount":8},{"reason":"rests","amount":-15}],"coinsEvents":[{"t":103.14999999999543,"reason":"firstWin","amount":32},{"t":103.14999999999543,"reason":"newStars","amount":8},{"t":103.14999999999543,"reason":"hugs","amount":8},{"t":103.14999999999543,"reason":"rests","amount":-15}],"events":60,"logFull":false,"maxGap":23.49999999999867,"noHug":67.66666666666315},
-{"world":"city","n":12,"type":"rooms","style":"careful","seed":612127,"win":true,"ended":true,"time":194.18333333338,"target":260,"hugs":9,"playerHugs":7,"pushes":23,"falls":22,"playerFalls":4,"rescues":11,"rests":10,"kits":0,"kisses":0,"bonusStars":3,"items":1,"slips":0,"thrownOut":0,"stars":2,"coins":29,"parts":[{"reason":"firstWin","amount":33},{"reason":"newStars","amount":8},{"reason":"star","amount":9},{"reason":"hugs","amount":7},{"reason":"rests","amount":-28}],"coinsEvents":[{"t":87.216666666663,"reason":"star","amount":3},{"t":88.11666666666295,"reason":"star","amount":3},{"t":187.81666666670827,"reason":"star","amount":3},{"t":194.18333333338,"reason":"firstWin","amount":33},{"t":194.18333333338,"reason":"newStars","amount":8},{"t":194.18333333338,"reason":"hugs","amount":7},{"t":194.18333333338,"reason":"rests","amount":-28}],"events":141,"logFull":false,"maxGap":24.10000000001918,"noHug":85.9000000000483},
-{"world":"city","n":12,"type":"rooms","style":"careful","seed":612134,"win":true,"ended":true,"time":205.43333333338896,"target":260,"hugs":9,"playerHugs":8,"pushes":21,"falls":21,"playerFalls":4,"rescues":10,"rests":10,"kits":0,"kisses":0,"bonusStars":1,"items":3,"slips":0,"thrownOut":0,"stars":2,"coins":24,"parts":[{"reason":"firstWin","amount":33},{"reason":"newStars","amount":8},{"reason":"star","amount":3},{"reason":"hugs","amount":8},{"reason":"rests","amount":-28}],"coinsEvents":[{"t":23.349999999999955,"reason":"star","amount":3},{"t":205.43333333338896,"reason":"firstWin","amount":33},{"t":205.43333333338896,"reason":"newStars","amount":8},{"t":205.43333333338896,"reason":"hugs","amount":8},{"t":205.43333333338896,"reason":"rests","amount":-28}],"events":161,"logFull":false,"maxGap":16.016666666665756,"noHug":166.15000000005574},
+{"world":"city","n":12,"type":"rooms","style":"careful","seed":612127,"win":true,"ended":true,"time":110.1166666666617,"target":260,"hugs":9,"playerHugs":7,"pushes":8,"falls":8,"playerFalls":2,"rescues":3,"rests":5,"kits":0,"kisses":0,"bonusStars":1,"items":1,"slips":0,"thrownOut":0,"stars":2,"coins":36,"parts":[{"reason":"firstWin","amount":33},{"reason":"newStars","amount":8},{"reason":"star","amount":3},{"reason":"hugs","amount":7},{"reason":"rests","amount":-15}],"coinsEvents":[{"t":87.11666666666301,"reason":"star","amount":3},{"t":110.1166666666617,"reason":"firstWin","amount":33},{"t":110.1166666666617,"reason":"newStars","amount":8},{"t":110.1166666666617,"reason":"hugs","amount":7},{"t":110.1166666666617,"reason":"rests","amount":-15}],"events":63,"logFull":false,"maxGap":14.266666666665856,"noHug":58.64999999999668},
+{"world":"city","n":12,"type":"rooms","style":"careful","seed":612134,"win":true,"ended":true,"time":192.2833333333785,"target":260,"hugs":9,"playerHugs":8,"pushes":16,"falls":16,"playerFalls":3,"rescues":5,"rests":10,"kits":0,"kisses":0,"bonusStars":1,"items":3,"slips":0,"thrownOut":0,"stars":2,"coins":24,"parts":[{"reason":"firstWin","amount":33},{"reason":"newStars","amount":8},{"reason":"star","amount":3},{"reason":"hugs","amount":8},{"reason":"rests","amount":-28}],"coinsEvents":[{"t":23.349999999999955,"reason":"star","amount":3},{"t":192.2833333333785,"reason":"firstWin","amount":33},{"t":192.2833333333785,"reason":"newStars","amount":8},{"t":192.2833333333785,"reason":"hugs","amount":8},{"t":192.2833333333785,"reason":"rests","amount":-28}],"events":127,"logFull":false,"maxGap":16.016666666665756,"noHug":153.00000000004528},
 {"world":"city","n":12,"type":"rooms","style":"careful","seed":612141,"win":true,"ended":true,"time":132.01666666666387,"target":260,"hugs":9,"playerHugs":8,"pushes":15,"falls":14,"playerFalls":3,"rescues":8,"rests":5,"kits":0,"kisses":0,"bonusStars":0,"items":2,"slips":0,"thrownOut":0,"stars":2,"coins":34,"parts":[{"reason":"firstWin","amount":33},{"reason":"newStars","amount":8},{"reason":"hugs","amount":8},{"reason":"rests","amount":-15}],"coinsEvents":[{"t":132.01666666666387,"reason":"firstWin","amount":33},{"t":132.01666666666387,"reason":"newStars","amount":8},{"t":132.01666666666387,"reason":"hugs","amount":8},{"t":132.01666666666387,"reason":"rests","amount":-15}],"events":107,"logFull":false,"maxGap":27.98333333333175,"noHug":77.91666666666225},
-{"world":"city","n":13,"type":"rooms","style":"careful","seed":613136,"win":true,"ended":true,"time":79.88333333333009,"target":275,"hugs":10,"playerHugs":10,"pushes":14,"falls":14,"playerFalls":3,"rescues":14,"rests":0,"kits":0,"kisses":0,"bonusStars":1,"items":0,"slips":0,"thrownOut":0,"stars":3,"coins":60,"parts":[{"reason":"firstWin","amount":34},{"reason":"newStars","amount":13},{"reason":"star","amount":3},{"reason":"hugs","amount":10}],"coinsEvents":[{"t":78.24999999999685,"reason":"star","amount":3},{"t":79.88333333333009,"reason":"firstWin","amount":34},{"t":79.88333333333009,"reason":"newStars","amount":13},{"t":79.88333333333009,"reason":"hugs","amount":10}],"events":103,"logFull":false,"maxGap":9.733333333333396,"noHug":22.583333333332057},
-{"world":"city","n":13,"type":"rooms","style":"careful","seed":613143,"win":true,"ended":true,"time":133.71666666666522,"target":275,"hugs":10,"playerHugs":9,"pushes":17,"falls":17,"playerFalls":4,"rescues":9,"rests":7,"kits":0,"kisses":0,"bonusStars":0,"items":2,"slips":0,"thrownOut":0,"stars":2,"coins":30,"parts":[{"reason":"firstWin","amount":34},{"reason":"newStars","amount":8},{"reason":"hugs","amount":9},{"reason":"rests","amount":-21}],"coinsEvents":[{"t":133.71666666666522,"reason":"firstWin","amount":34},{"t":133.71666666666522,"reason":"newStars","amount":8},{"t":133.71666666666522,"reason":"hugs","amount":9},{"t":133.71666666666522,"reason":"rests","amount":-21}],"events":118,"logFull":false,"maxGap":12.883333333332601,"noHug":83.24999999999528},
+{"world":"city","n":13,"type":"rooms","style":"careful","seed":613136,"win":true,"ended":true,"time":114.03333333332814,"target":275,"hugs":10,"playerHugs":10,"pushes":19,"falls":19,"playerFalls":6,"rescues":17,"rests":0,"kits":0,"kisses":0,"bonusStars":0,"items":2,"slips":0,"thrownOut":0,"stars":3,"coins":57,"parts":[{"reason":"firstWin","amount":34},{"reason":"newStars","amount":13},{"reason":"hugs","amount":10}],"coinsEvents":[{"t":114.03333333332814,"reason":"firstWin","amount":34},{"t":114.03333333332814,"reason":"newStars","amount":13},{"t":114.03333333332814,"reason":"hugs","amount":10}],"events":124,"logFull":false,"maxGap":9.733333333333396,"noHug":41.19999999999767},
+{"world":"city","n":13,"type":"rooms","style":"careful","seed":613143,"win":true,"ended":true,"time":60.91666666666449,"target":275,"hugs":10,"playerHugs":10,"pushes":11,"falls":11,"playerFalls":2,"rescues":9,"rests":0,"kits":0,"kisses":0,"bonusStars":0,"items":1,"slips":0,"thrownOut":0,"stars":3,"coins":57,"parts":[{"reason":"firstWin","amount":34},{"reason":"newStars","amount":13},{"reason":"hugs","amount":10}],"coinsEvents":[{"t":60.91666666666449,"reason":"firstWin","amount":34},{"t":60.91666666666449,"reason":"newStars","amount":13},{"t":60.91666666666449,"reason":"hugs","amount":10}],"events":79,"logFull":false,"maxGap":10.516666666666769,"noHug":14.683333333332499},
 {"world":"city","n":13,"type":"rooms","style":"careful","seed":613150,"win":true,"ended":true,"time":45.93333333333201,"target":275,"hugs":10,"playerHugs":9,"pushes":7,"falls":7,"playerFalls":2,"rescues":6,"rests":0,"kits":0,"kisses":0,"bonusStars":0,"items":1,"slips":0,"thrownOut":0,"stars":3,"coins":56,"parts":[{"reason":"firstWin","amount":34},{"reason":"newStars","amount":13},{"reason":"hugs","amount":9}],"coinsEvents":[{"t":45.93333333333201,"reason":"firstWin","amount":34},{"t":45.93333333333201,"reason":"newStars","amount":13},{"t":45.93333333333201,"reason":"hugs","amount":9}],"events":38,"logFull":false,"maxGap":7.0833333333333135,"noHug":9.816666666666734},
-{"world":"city","n":14,"type":"arena","style":"careful","seed":614145,"win":true,"ended":true,"time":385.2833333333116,"target":290,"hugs":10,"playerHugs":9,"pushes":45,"falls":45,"playerFalls":14,"rescues":30,"rests":15,"kits":0,"kisses":0,"bonusStars":5,"items":4,"slips":2,"thrownOut":0,"stars":1,"coins":33,"parts":[{"reason":"firstWin","amount":34},{"reason":"newStars","amount":4},{"reason":"star","amount":15},{"reason":"hugs","amount":9},{"reason":"rests","amount":-29}],"coinsEvents":[{"t":236.1166666667467,"reason":"star","amount":3},{"t":327.5666666666974,"reason":"star","amount":3},{"t":340.1833333333526,"reason":"star","amount":3},{"t":341.4166666666848,"reason":"star","amount":3},{"t":375.1333333333208,"reason":"star","amount":3},{"t":385.2833333333116,"reason":"firstWin","amount":34},{"t":385.2833333333116,"reason":"newStars","amount":4},{"t":385.2833333333116,"reason":"hugs","amount":9},{"t":385.2833333333116,"reason":"rests","amount":-29}],"events":246,"logFull":false,"maxGap":30.100000000023954,"noHug":218.99999999996987},
+{"world":"city","n":14,"type":"arena","style":"careful","seed":614145,"win":true,"ended":true,"time":375.5833333333204,"target":290,"hugs":10,"playerHugs":7,"pushes":38,"falls":38,"playerFalls":11,"rescues":18,"rests":20,"kits":0,"kisses":0,"bonusStars":2,"items":4,"slips":1,"thrownOut":0,"stars":1,"coins":22,"parts":[{"reason":"firstWin","amount":34},{"reason":"newStars","amount":4},{"reason":"star","amount":6},{"reason":"hugs","amount":7},{"reason":"rests","amount":-29}],"coinsEvents":[{"t":236.1166666667467,"reason":"star","amount":3},{"t":371.16666666665776,"reason":"star","amount":3},{"t":375.5833333333204,"reason":"firstWin","amount":34},{"t":375.5833333333204,"reason":"newStars","amount":4},{"t":375.5833333333204,"reason":"hugs","amount":7},{"t":375.5833333333204,"reason":"rests","amount":-29}],"events":214,"logFull":false,"maxGap":30.100000000023954,"noHug":208.8833333333124},
 {"world":"city","n":14,"type":"arena","style":"careful","seed":614152,"win":true,"ended":true,"time":59.19999999999792,"target":290,"hugs":10,"playerHugs":10,"pushes":5,"falls":5,"playerFalls":2,"rescues":5,"rests":0,"kits":0,"kisses":0,"bonusStars":1,"items":1,"slips":1,"thrownOut":0,"stars":3,"coins":60,"parts":[{"reason":"firstWin","amount":34},{"reason":"newStars","amount":13},{"reason":"star","amount":3},{"reason":"hugs","amount":10}],"coinsEvents":[{"t":53.699999999998234,"reason":"star","amount":3},{"t":59.19999999999792,"reason":"firstWin","amount":34},{"t":59.19999999999792,"reason":"newStars","amount":13},{"t":59.19999999999792,"reason":"hugs","amount":10}],"events":35,"logFull":false,"maxGap":5.783333333333005,"noHug":23.966666666665308},
-{"world":"city","n":14,"type":"arena","style":"careful","seed":614159,"win":true,"ended":true,"time":45.56666666666536,"target":290,"hugs":10,"playerHugs":10,"pushes":3,"falls":2,"playerFalls":0,"rescues":2,"rests":0,"kits":0,"kisses":0,"bonusStars":0,"items":2,"slips":0,"thrownOut":0,"stars":3,"coins":57,"parts":[{"reason":"firstWin","amount":34},{"reason":"newStars","amount":13},{"reason":"hugs","amount":10}],"coinsEvents":[{"t":45.56666666666536,"reason":"firstWin","amount":34},{"t":45.56666666666536,"reason":"newStars","amount":13},{"t":45.56666666666536,"reason":"hugs","amount":10}],"events":43,"logFull":false,"maxGap":8.983333333333611,"noHug":13.800000000000265},
+{"world":"city","n":14,"type":"arena","style":"careful","seed":614159,"win":true,"ended":true,"time":168.73333333335975,"target":290,"hugs":10,"playerHugs":10,"pushes":21,"falls":19,"playerFalls":4,"rescues":13,"rests":5,"kits":0,"kisses":0,"bonusStars":1,"items":5,"slips":0,"thrownOut":0,"stars":2,"coins":40,"parts":[{"reason":"firstWin","amount":34},{"reason":"newStars","amount":8},{"reason":"star","amount":3},{"reason":"hugs","amount":10},{"reason":"rests","amount":-15}],"coinsEvents":[{"t":29.36666666666628,"reason":"star","amount":3},{"t":168.73333333335975,"reason":"firstWin","amount":34},{"t":168.73333333335975,"reason":"newStars","amount":8},{"t":168.73333333335975,"reason":"hugs","amount":10},{"t":168.73333333335975,"reason":"rests","amount":-15}],"events":119,"logFull":false,"maxGap":22.766666666680678,"noHug":81.45000000002626},
 {"world":"city","n":15,"type":"arena","style":"careful","seed":615154,"win":true,"ended":true,"time":44.94999999999873,"target":305,"hugs":10,"playerHugs":9,"pushes":6,"falls":6,"playerFalls":1,"rescues":6,"rests":0,"kits":0,"kisses":0,"bonusStars":0,"items":0,"slips":0,"thrownOut":0,"stars":3,"coins":57,"parts":[{"reason":"firstWin","amount":35},{"reason":"newStars","amount":13},{"reason":"hugs","amount":9}],"coinsEvents":[{"t":44.94999999999873,"reason":"firstWin","amount":35},{"t":44.94999999999873,"reason":"newStars","amount":13},{"t":44.94999999999873,"reason":"hugs","amount":9}],"events":34,"logFull":false,"maxGap":9.966666666666741,"noHug":16.566666666667007},
 {"world":"city","n":15,"type":"arena","style":"careful","seed":615161,"win":true,"ended":true,"time":58.449999999997964,"target":305,"hugs":10,"playerHugs":10,"pushes":3,"falls":3,"playerFalls":1,"rescues":3,"rests":0,"kits":0,"kisses":0,"bonusStars":0,"items":1,"slips":0,"thrownOut":0,"stars":3,"coins":58,"parts":[{"reason":"firstWin","amount":35},{"reason":"newStars","amount":13},{"reason":"hugs","amount":10}],"coinsEvents":[{"t":58.449999999997964,"reason":"firstWin","amount":35},{"t":58.449999999997964,"reason":"newStars","amount":13},{"t":58.449999999997964,"reason":"hugs","amount":10}],"events":36,"logFull":false,"maxGap":12.716666666666878,"noHug":20.049999999998864},
-{"world":"city","n":15,"type":"arena","style":"careful","seed":615168,"win":true,"ended":true,"time":38.583333333332426,"target":305,"hugs":10,"playerHugs":10,"pushes":2,"falls":2,"playerFalls":0,"rescues":2,"rests":0,"kits":0,"kisses":0,"bonusStars":0,"items":1,"slips":0,"thrownOut":0,"stars":3,"coins":58,"parts":[{"reason":"firstWin","amount":35},{"reason":"newStars","amount":13},{"reason":"hugs","amount":10}],"coinsEvents":[{"t":38.583333333332426,"reason":"firstWin","amount":35},{"t":38.583333333332426,"reason":"newStars","amount":13},{"t":38.583333333332426,"reason":"hugs","amount":10}],"events":42,"logFull":false,"maxGap":8.299999999999992,"noHug":12.250000000000188},
+{"world":"city","n":15,"type":"arena","style":"careful","seed":615168,"win":true,"ended":true,"time":53.11666666666493,"target":305,"hugs":10,"playerHugs":10,"pushes":8,"falls":8,"playerFalls":2,"rescues":7,"rests":0,"kits":0,"kisses":0,"bonusStars":0,"items":2,"slips":0,"thrownOut":0,"stars":3,"coins":58,"parts":[{"reason":"firstWin","amount":35},{"reason":"newStars","amount":13},{"reason":"hugs","amount":10}],"coinsEvents":[{"t":53.11666666666493,"reason":"firstWin","amount":35},{"t":53.11666666666493,"reason":"newStars","amount":13},{"t":53.11666666666493,"reason":"hugs","amount":10}],"events":66,"logFull":false,"maxGap":8.299999999999992,"noHug":17.349999999999014},
 {"world":"city","n":15,"type":"arena","style":"reckless","seed":615154,"win":true,"ended":true,"time":33.63333333333271,"target":305,"hugs":10,"playerHugs":10,"pushes":2,"falls":2,"playerFalls":0,"rescues":2,"rests":0,"kits":0,"kisses":0,"bonusStars":0,"items":0,"slips":0,"thrownOut":0,"stars":3,"coins":58,"parts":[{"reason":"firstWin","amount":35},{"reason":"newStars","amount":13},{"reason":"hugs","amount":10}],"coinsEvents":[{"t":33.63333333333271,"reason":"firstWin","amount":35},{"t":33.63333333333271,"reason":"newStars","amount":13},{"t":33.63333333333271,"reason":"hugs","amount":10}],"events":26,"logFull":false,"maxGap":3.6999999999999917,"noHug":7.299999999999979},
 {"world":"city","n":16,"type":"arena","style":"careful","seed":616163,"win":true,"ended":true,"time":56.849999999998055,"target":320,"hugs":10,"playerHugs":9,"pushes":8,"falls":7,"playerFalls":2,"rescues":6,"rests":0,"kits":0,"kisses":0,"bonusStars":0,"items":1,"slips":0,"thrownOut":0,"stars":3,"coins":58,"parts":[{"reason":"firstWin","amount":36},{"reason":"newStars","amount":13},{"reason":"hugs","amount":9}],"coinsEvents":[{"t":56.849999999998055,"reason":"firstWin","amount":36},{"t":56.849999999998055,"reason":"newStars","amount":13},{"t":56.849999999998055,"reason":"hugs","amount":9}],"events":40,"logFull":false,"maxGap":9.766666666666731,"noHug":13.683333333332618},
 {"world":"city","n":16,"type":"arena","style":"careful","seed":616170,"win":true,"ended":true,"time":109.54999999999507,"target":320,"hugs":10,"playerHugs":9,"pushes":11,"falls":11,"playerFalls":1,"rescues":5,"rests":5,"kits":0,"kisses":0,"bonusStars":0,"items":3,"slips":1,"thrownOut":0,"stars":2,"coins":38,"parts":[{"reason":"firstWin","amount":36},{"reason":"newStars","amount":8},{"reason":"hugs","amount":9},{"reason":"rests","amount":-15}],"coinsEvents":[{"t":109.54999999999507,"reason":"firstWin","amount":36},{"t":109.54999999999507,"reason":"newStars","amount":8},{"t":109.54999999999507,"reason":"hugs","amount":9},{"t":109.54999999999507,"reason":"rests","amount":-15}],"events":79,"logFull":false,"maxGap":18.48333333333229,"noHug":60.88333333332989},
-{"world":"city","n":16,"type":"arena","style":"careful","seed":616177,"win":true,"ended":true,"time":141.56666666667147,"target":320,"hugs":10,"playerHugs":9,"pushes":17,"falls":17,"playerFalls":4,"rescues":12,"rests":5,"kits":0,"kisses":0,"bonusStars":0,"items":2,"slips":0,"thrownOut":0,"stars":2,"coins":38,"parts":[{"reason":"firstWin","amount":36},{"reason":"newStars","amount":8},{"reason":"hugs","amount":9},{"reason":"rests","amount":-15}],"coinsEvents":[{"t":141.56666666667147,"reason":"firstWin","amount":36},{"t":141.56666666667147,"reason":"newStars","amount":8},{"t":141.56666666667147,"reason":"hugs","amount":9},{"t":141.56666666667147,"reason":"rests","amount":-15}],"events":108,"logFull":false,"maxGap":22.11666666666541,"noHug":93.5999999999947},
+{"world":"city","n":16,"type":"arena","style":"careful","seed":616177,"win":true,"ended":true,"time":142.00000000000514,"target":320,"hugs":10,"playerHugs":9,"pushes":18,"falls":18,"playerFalls":4,"rescues":12,"rests":5,"kits":0,"kisses":0,"bonusStars":0,"items":2,"slips":0,"thrownOut":0,"stars":2,"coins":38,"parts":[{"reason":"firstWin","amount":36},{"reason":"newStars","amount":8},{"reason":"hugs","amount":9},{"reason":"rests","amount":-15}],"coinsEvents":[{"t":142.00000000000514,"reason":"firstWin","amount":36},{"t":142.00000000000514,"reason":"newStars","amount":8},{"t":142.00000000000514,"reason":"hugs","amount":9},{"t":142.00000000000514,"reason":"rests","amount":-15}],"events":116,"logFull":false,"maxGap":22.11666666666541,"noHug":93.5999999999947},
 {"world":"city","n":17,"type":"maze","style":"careful","seed":617172,"win":true,"ended":true,"time":366.7166666666618,"target":335,"hugs":11,"playerHugs":8,"pushes":34,"falls":33,"playerFalls":8,"rescues":12,"rests":20,"kits":0,"kisses":0,"bonusStars":4,"items":2,"slips":0,"thrownOut":0,"stars":1,"coins":29,"parts":[{"reason":"firstWin","amount":36},{"reason":"newStars","amount":4},{"reason":"star","amount":12},{"reason":"hugs","amount":8},{"reason":"rests","amount":-31}],"coinsEvents":[{"t":19.033333333333534,"reason":"star","amount":3},{"t":198.71666666671695,"reason":"star","amount":3},{"t":274.3333333334125,"reason":"star","amount":3},{"t":287.78333333340026,"reason":"star","amount":3},{"t":366.7166666666618,"reason":"firstWin","amount":36},{"t":366.7166666666618,"reason":"newStars","amount":4},{"t":366.7166666666618,"reason":"hugs","amount":8},{"t":366.7166666666618,"reason":"rests","amount":-31}],"events":155,"logFull":false,"maxGap":25.249999999998572,"noHug":148.96666666674798},
 {"world":"city","n":17,"type":"maze","style":"careful","seed":617179,"win":true,"ended":true,"time":173.1666666666966,"target":335,"hugs":11,"playerHugs":8,"pushes":23,"falls":23,"playerFalls":8,"rescues":18,"rests":5,"kits":0,"kisses":0,"bonusStars":2,"items":1,"slips":1,"thrownOut":0,"stars":2,"coins":43,"parts":[{"reason":"firstWin","amount":36},{"reason":"newStars","amount":8},{"reason":"star","amount":6},{"reason":"hugs","amount":8},{"reason":"rests","amount":-15}],"coinsEvents":[{"t":15.116666666666998,"reason":"star","amount":3},{"t":157.53333333335084,"reason":"star","amount":3},{"t":173.1666666666966,"reason":"firstWin","amount":36},{"t":173.1666666666966,"reason":"newStars","amount":8},{"t":173.1666666666966,"reason":"hugs","amount":8},{"t":173.1666666666966,"reason":"rests","amount":-15}],"events":104,"logFull":false,"maxGap":33.98333333333141,"noHug":81.38333333332872},
 {"world":"city","n":17,"type":"maze","style":"careful","seed":617186,"win":true,"ended":true,"time":197.56666666671603,"target":335,"hugs":11,"playerHugs":11,"pushes":18,"falls":17,"playerFalls":3,"rescues":7,"rests":10,"kits":0,"kisses":0,"bonusStars":0,"items":1,"slips":0,"thrownOut":0,"stars":2,"coins":25,"parts":[{"reason":"firstWin","amount":36},{"reason":"newStars","amount":8},{"reason":"hugs","amount":11},{"reason":"rests","amount":-30}],"coinsEvents":[{"t":197.56666666671603,"reason":"firstWin","amount":36},{"t":197.56666666671603,"reason":"newStars","amount":8},{"t":197.56666666671603,"reason":"hugs","amount":11},{"t":197.56666666671603,"reason":"rests","amount":-30}],"events":85,"logFull":false,"maxGap":36.650000000029166,"noHug":82.68333333337648},
@@ -4688,11 +4689,11 @@
 {"world":"city","n":18,"type":"maze","style":"careful","seed":618195,"win":true,"ended":true,"time":51.749999999998344,"target":350,"hugs":11,"playerHugs":11,"pushes":3,"falls":3,"playerFalls":0,"rescues":1,"rests":0,"kits":0,"kisses":0,"bonusStars":1,"items":2,"slips":0,"thrownOut":0,"stars":3,"coins":64,"parts":[{"reason":"firstWin","amount":37},{"reason":"newStars","amount":13},{"reason":"star","amount":3},{"reason":"hugs","amount":11}],"coinsEvents":[{"t":22.500000000000004,"reason":"star","amount":3},{"t":51.749999999998344,"reason":"firstWin","amount":37},{"t":51.749999999998344,"reason":"newStars","amount":13},{"t":51.749999999998344,"reason":"hugs","amount":11}],"events":33,"logFull":false,"maxGap":6.499999999999982,"noHug":13.516666666666918},
 {"world":"city","n":19,"type":"maze","style":"careful","seed":619190,"win":true,"ended":true,"time":159.50000000001907,"target":365,"hugs":11,"playerHugs":9,"pushes":23,"falls":22,"playerFalls":5,"rescues":17,"rests":5,"kits":0,"kisses":0,"bonusStars":2,"items":2,"slips":0,"thrownOut":0,"stars":2,"coins":46,"parts":[{"reason":"firstWin","amount":38},{"reason":"newStars","amount":8},{"reason":"star","amount":6},{"reason":"hugs","amount":9},{"reason":"rests","amount":-15}],"coinsEvents":[{"t":24.249999999999904,"reason":"star","amount":3},{"t":136.58333333333417,"reason":"star","amount":3},{"t":159.50000000001907,"reason":"firstWin","amount":38},{"t":159.50000000001907,"reason":"newStars","amount":8},{"t":159.50000000001907,"reason":"hugs","amount":9},{"t":159.50000000001907,"reason":"rests","amount":-15}],"events":130,"logFull":false,"maxGap":28.99999999999835,"noHug":67.73333333332948},
 {"world":"city","n":19,"type":"maze","style":"careful","seed":619197,"win":true,"ended":true,"time":130.29999999999583,"target":365,"hugs":11,"playerHugs":8,"pushes":21,"falls":21,"playerFalls":7,"rescues":20,"rests":0,"kits":0,"kisses":0,"bonusStars":2,"items":2,"slips":0,"thrownOut":0,"stars":3,"coins":65,"parts":[{"reason":"firstWin","amount":38},{"reason":"newStars","amount":13},{"reason":"star","amount":6},{"reason":"hugs","amount":8}],"coinsEvents":[{"t":14.883333333333653,"reason":"star","amount":3},{"t":27.116666666666408,"reason":"star","amount":3},{"t":130.29999999999583,"reason":"firstWin","amount":38},{"t":130.29999999999583,"reason":"newStars","amount":13},{"t":130.29999999999583,"reason":"hugs","amount":8}],"events":101,"logFull":false,"maxGap":8.38333333333333,"noHug":37.13333333333251},
-{"world":"city","n":19,"type":"maze","style":"careful","seed":619204,"win":true,"ended":true,"time":120.83333333332776,"target":365,"hugs":11,"playerHugs":11,"pushes":10,"falls":10,"playerFalls":2,"rescues":5,"rests":5,"kits":0,"kisses":0,"bonusStars":2,"items":0,"slips":1,"thrownOut":0,"stars":2,"coins":48,"parts":[{"reason":"firstWin","amount":38},{"reason":"newStars","amount":8},{"reason":"star","amount":6},{"reason":"hugs","amount":11},{"reason":"rests","amount":-15}],"coinsEvents":[{"t":13.416666666666913,"reason":"star","amount":3},{"t":110.19999999999503,"reason":"star","amount":3},{"t":120.83333333332776,"reason":"firstWin","amount":38},{"t":120.83333333332776,"reason":"newStars","amount":8},{"t":120.83333333332776,"reason":"hugs","amount":11},{"t":120.83333333332776,"reason":"rests","amount":-15}],"events":94,"logFull":false,"maxGap":26.583333333331822,"noHug":75.63333333332903},
-{"world":"city","n":20,"type":"maze","style":"careful","seed":620199,"win":true,"ended":true,"time":205.60000000005576,"target":380,"hugs":13,"playerHugs":11,"pushes":23,"falls":23,"playerFalls":6,"rescues":13,"rests":10,"kits":0,"kisses":0,"bonusStars":0,"items":4,"slips":1,"thrownOut":0,"stars":2,"coins":28,"parts":[{"reason":"firstWin","amount":39},{"reason":"newStars","amount":8},{"reason":"hugs","amount":11},{"reason":"rests","amount":-30}],"coinsEvents":[{"t":205.60000000005576,"reason":"firstWin","amount":39},{"t":205.60000000005576,"reason":"newStars","amount":8},{"t":205.60000000005576,"reason":"hugs","amount":11},{"t":205.60000000005576,"reason":"rests","amount":-30}],"events":141,"logFull":false,"maxGap":15.799999999999102,"noHug":132.85000000005294},
+{"world":"city","n":19,"type":"maze","style":"careful","seed":619204,"win":true,"ended":true,"time":60.666666666664504,"target":365,"hugs":11,"playerHugs":11,"pushes":8,"falls":8,"playerFalls":2,"rescues":8,"rests":0,"kits":0,"kisses":0,"bonusStars":1,"items":0,"slips":0,"thrownOut":0,"stars":3,"coins":65,"parts":[{"reason":"firstWin","amount":38},{"reason":"newStars","amount":13},{"reason":"star","amount":3},{"reason":"hugs","amount":11}],"coinsEvents":[{"t":13.416666666666913,"reason":"star","amount":3},{"t":60.666666666664504,"reason":"firstWin","amount":38},{"t":60.666666666664504,"reason":"newStars","amount":13},{"t":60.666666666664504,"reason":"hugs","amount":11}],"events":68,"logFull":false,"maxGap":7.383333333333312,"noHug":16.86666666666699},
+{"world":"city","n":20,"type":"maze","style":"careful","seed":620199,"win":true,"ended":true,"time":85.68333333332976,"target":380,"hugs":13,"playerHugs":10,"pushes":18,"falls":18,"playerFalls":4,"rescues":16,"rests":0,"kits":0,"kisses":0,"bonusStars":0,"items":3,"slips":0,"thrownOut":0,"stars":3,"coins":62,"parts":[{"reason":"firstWin","amount":39},{"reason":"newStars","amount":13},{"reason":"hugs","amount":10}],"coinsEvents":[{"t":85.68333333332976,"reason":"firstWin","amount":39},{"t":85.68333333332976,"reason":"newStars","amount":13},{"t":85.68333333332976,"reason":"hugs","amount":10}],"events":106,"logFull":false,"maxGap":11.150000000000134,"noHug":18.233333333332304},
 {"world":"city","n":20,"type":"maze","style":"careful","seed":620206,"win":true,"ended":true,"time":235.633333333413,"target":380,"hugs":13,"playerHugs":12,"pushes":21,"falls":20,"playerFalls":5,"rescues":10,"rests":10,"kits":0,"kisses":0,"bonusStars":3,"items":3,"slips":0,"thrownOut":0,"stars":2,"coins":38,"parts":[{"reason":"firstWin","amount":39},{"reason":"newStars","amount":8},{"reason":"star","amount":9},{"reason":"hugs","amount":12},{"reason":"rests","amount":-30}],"coinsEvents":[{"t":14.23333333333362,"reason":"star","amount":3},{"t":182.18333333337046,"reason":"star","amount":3},{"t":218.63333333339946,"reason":"star","amount":3},{"t":235.633333333413,"reason":"firstWin","amount":39},{"t":235.633333333413,"reason":"newStars","amount":8},{"t":235.633333333413,"reason":"hugs","amount":12},{"t":235.633333333413,"reason":"rests","amount":-30}],"events":154,"logFull":false,"maxGap":27.916666666665087,"noHug":158.90000000002834},
 {"world":"city","n":20,"type":"maze","style":"careful","seed":620213,"win":true,"ended":true,"time":261.300000000091,"target":380,"hugs":13,"playerHugs":12,"pushes":48,"falls":47,"playerFalls":13,"rescues":42,"rests":5,"kits":0,"kisses":0,"bonusStars":2,"items":1,"slips":1,"thrownOut":0,"stars":2,"coins":50,"parts":[{"reason":"firstWin","amount":39},{"reason":"newStars","amount":8},{"reason":"star","amount":6},{"reason":"hugs","amount":12},{"reason":"rests","amount":-15}],"coinsEvents":[{"t":28.399999999999668,"reason":"star","amount":3},{"t":174.36666666669757,"reason":"star","amount":3},{"t":261.300000000091,"reason":"firstWin","amount":39},{"t":261.300000000091,"reason":"newStars","amount":8},{"t":261.300000000091,"reason":"hugs","amount":12},{"t":261.300000000091,"reason":"rests","amount":-15}],"events":218,"logFull":false,"maxGap":24.666666666686297,"noHug":94.11666666671313},
-{"world":"city","n":20,"type":"maze","style":"reckless","seed":620199,"win":true,"ended":true,"time":141.60000000000483,"target":380,"hugs":13,"playerHugs":13,"pushes":15,"falls":15,"playerFalls":9,"rescues":13,"rests":0,"kits":0,"kisses":0,"bonusStars":0,"items":1,"slips":0,"thrownOut":0,"stars":3,"coins":65,"parts":[{"reason":"firstWin","amount":39},{"reason":"newStars","amount":13},{"reason":"hugs","amount":13}],"coinsEvents":[{"t":141.60000000000483,"reason":"firstWin","amount":39},{"t":141.60000000000483,"reason":"newStars","amount":13},{"t":141.60000000000483,"reason":"hugs","amount":13}],"events":185,"logFull":false,"maxGap":8.350000000000309,"noHug":93.16666666666266},
+{"world":"city","n":20,"type":"maze","style":"reckless","seed":620199,"win":true,"ended":true,"time":131.4833333333301,"target":380,"hugs":13,"playerHugs":12,"pushes":12,"falls":12,"playerFalls":9,"rescues":12,"rests":0,"kits":0,"kisses":0,"bonusStars":0,"items":2,"slips":0,"thrownOut":0,"stars":3,"coins":64,"parts":[{"reason":"firstWin","amount":39},{"reason":"newStars","amount":13},{"reason":"hugs","amount":12}],"coinsEvents":[{"t":131.4833333333301,"reason":"firstWin","amount":39},{"t":131.4833333333301,"reason":"newStars","amount":13},{"t":131.4833333333301,"reason":"hugs","amount":12}],"events":103,"logFull":false,"maxGap":8.350000000000309,"noHug":93.16666666666266},
 {"world":"school","n":1,"type":"classic","style":"careful","seed":201016,"win":true,"ended":true,"time":32.26666666666612,"target":105,"hugs":8,"playerHugs":8,"pushes":1,"falls":1,"playerFalls":1,"rescues":1,"rests":0,"kits":0,"kisses":0,"bonusStars":0,"items":1,"slips":0,"thrownOut":0,"stars":3,"coins":53,"parts":[{"reason":"firstWin","amount":32},{"reason":"newStars","amount":13},{"reason":"hugs","amount":8}],"coinsEvents":[{"t":32.26666666666612,"reason":"firstWin","amount":32},{"t":32.26666666666612,"reason":"newStars","amount":13},{"t":32.26666666666612,"reason":"hugs","amount":8}],"events":20,"logFull":false,"maxGap":5.366666666666662,"noHug":11.566666666666821},
 {"world":"school","n":1,"type":"classic","style":"careful","seed":201023,"win":true,"ended":true,"time":105.61666666666196,"target":105,"hugs":8,"playerHugs":7,"pushes":13,"falls":13,"playerFalls":4,"rescues":8,"rests":5,"kits":0,"kisses":0,"bonusStars":1,"items":0,"slips":0,"thrownOut":0,"stars":1,"coins":31,"parts":[{"reason":"firstWin","amount":32},{"reason":"newStars","amount":4},{"reason":"star","amount":3},{"reason":"hugs","amount":7},{"reason":"rests","amount":-15}],"coinsEvents":[{"t":15.600000000000355,"reason":"star","amount":3},{"t":105.61666666666196,"reason":"firstWin","amount":32},{"t":105.61666666666196,"reason":"newStars","amount":4},{"t":105.61666666666196,"reason":"hugs","amount":7},{"t":105.61666666666196,"reason":"rests","amount":-15}],"events":73,"logFull":false,"maxGap":7.133333333332928,"noHug":58.28333333333003},
 {"world":"school","n":1,"type":"classic","style":"careful","seed":201030,"win":true,"ended":true,"time":64.3666666666643,"target":105,"hugs":8,"playerHugs":7,"pushes":10,"falls":10,"playerFalls":3,"rescues":9,"rests":1,"kits":0,"kisses":0,"bonusStars":0,"items":0,"slips":0,"thrownOut":0,"stars":2,"coins":44,"parts":[{"reason":"firstWin","amount":32},{"reason":"newStars","amount":8},{"reason":"hugs","amount":7},{"reason":"rests","amount":-3}],"coinsEvents":[{"t":64.3666666666643,"reason":"firstWin","amount":32},{"t":64.3666666666643,"reason":"newStars","amount":8},{"t":64.3666666666643,"reason":"hugs","amount":7},{"t":64.3666666666643,"reason":"rests","amount":-3}],"events":57,"logFull":false,"maxGap":3.0166666666667785,"noHug":43.66666666666547},
@@ -4724,7 +4725,7 @@
 {"world":"school","n":10,"type":"river","style":"careful","seed":210097,"win":true,"ended":true,"time":59.48333333333124,"target":240,"hugs":10,"playerHugs":9,"pushes":6,"falls":6,"playerFalls":2,"rescues":6,"rests":0,"kits":0,"kisses":0,"bonusStars":0,"items":0,"slips":0,"thrownOut":0,"stars":3,"coins":61,"parts":[{"reason":"firstWin","amount":39},{"reason":"newStars","amount":13},{"reason":"hugs","amount":9}],"coinsEvents":[{"t":59.48333333333124,"reason":"firstWin","amount":39},{"t":59.48333333333124,"reason":"newStars","amount":13},{"t":59.48333333333124,"reason":"hugs","amount":9}],"events":40,"logFull":false,"maxGap":5.733333333333318,"noHug":17.966666666666928},
 {"world":"school","n":10,"type":"river","style":"careful","seed":210104,"win":true,"ended":true,"time":41.21666666666561,"target":240,"hugs":10,"playerHugs":10,"pushes":3,"falls":3,"playerFalls":1,"rescues":3,"rests":0,"kits":0,"kisses":0,"bonusStars":1,"items":0,"slips":0,"thrownOut":0,"stars":3,"coins":65,"parts":[{"reason":"firstWin","amount":39},{"reason":"newStars","amount":13},{"reason":"star","amount":3},{"reason":"hugs","amount":10}],"coinsEvents":[{"t":14.533333333333635,"reason":"star","amount":3},{"t":41.21666666666561,"reason":"firstWin","amount":39},{"t":41.21666666666561,"reason":"newStars","amount":13},{"t":41.21666666666561,"reason":"hugs","amount":10}],"events":30,"logFull":false,"maxGap":5.783333333333318,"noHug":14.883333333333653},
 {"world":"school","n":10,"type":"river","style":"careful","seed":210111,"win":true,"ended":true,"time":82.34999999999661,"target":240,"hugs":10,"playerHugs":9,"pushes":13,"falls":13,"playerFalls":3,"rescues":13,"rests":0,"kits":0,"kisses":0,"bonusStars":0,"items":1,"slips":0,"thrownOut":0,"stars":3,"coins":61,"parts":[{"reason":"firstWin","amount":39},{"reason":"newStars","amount":13},{"reason":"hugs","amount":9}],"coinsEvents":[{"t":82.34999999999661,"reason":"firstWin","amount":39},{"t":82.34999999999661,"reason":"newStars","amount":13},{"t":82.34999999999661,"reason":"hugs","amount":9}],"events":66,"logFull":false,"maxGap":5.749999999999985,"noHug":55.74999999999812},
-{"world":"school","n":10,"type":"river","style":"reckless","seed":210097,"win":true,"ended":true,"time":68.31666666666408,"target":240,"hugs":10,"playerHugs":10,"pushes":12,"falls":12,"playerFalls":4,"rescues":11,"rests":0,"kits":0,"kisses":0,"bonusStars":0,"items":0,"slips":0,"thrownOut":0,"stars":3,"coins":62,"parts":[{"reason":"firstWin","amount":39},{"reason":"newStars","amount":13},{"reason":"hugs","amount":10}],"coinsEvents":[{"t":68.31666666666408,"reason":"firstWin","amount":39},{"t":68.31666666666408,"reason":"newStars","amount":13},{"t":68.31666666666408,"reason":"hugs","amount":10}],"events":63,"logFull":false,"maxGap":5.583333333333016,"noHug":19.949999999998866},
+{"world":"school","n":10,"type":"river","style":"reckless","seed":210097,"win":true,"ended":true,"time":61.08333333333115,"target":240,"hugs":10,"playerHugs":10,"pushes":10,"falls":10,"playerFalls":3,"rescues":9,"rests":0,"kits":0,"kisses":0,"bonusStars":1,"items":0,"slips":0,"thrownOut":0,"stars":3,"coins":65,"parts":[{"reason":"firstWin","amount":39},{"reason":"newStars","amount":13},{"reason":"star","amount":3},{"reason":"hugs","amount":10}],"coinsEvents":[{"t":45.56666666666536,"reason":"star","amount":3},{"t":61.08333333333115,"reason":"firstWin","amount":39},{"t":61.08333333333115,"reason":"newStars","amount":13},{"t":61.08333333333115,"reason":"hugs","amount":10}],"events":57,"logFull":false,"maxGap":5.616666666666347,"noHug":16.16666666666703},
 {"world":"school","n":11,"type":"rooms","style":"careful","seed":211106,"win":true,"ended":true,"time":42.016666666665564,"target":255,"hugs":10,"playerHugs":10,"pushes":2,"falls":2,"playerFalls":0,"rescues":2,"rests":0,"kits":0,"kisses":0,"bonusStars":0,"items":1,"slips":0,"thrownOut":0,"stars":3,"coins":62,"parts":[{"reason":"firstWin","amount":39},{"reason":"newStars","amount":13},{"reason":"hugs","amount":10}],"coinsEvents":[{"t":42.016666666665564,"reason":"firstWin","amount":39},{"t":42.016666666665564,"reason":"newStars","amount":13},{"t":42.016666666665564,"reason":"hugs","amount":10}],"events":26,"logFull":false,"maxGap":9.783333333333399,"noHug":15.616666666667022},
 {"world":"school","n":11,"type":"rooms","style":"careful","seed":211113,"win":true,"ended":true,"time":84.81666666666314,"target":255,"hugs":10,"playerHugs":8,"pushes":11,"falls":11,"playerFalls":4,"rescues":11,"rests":0,"kits":0,"kisses":0,"bonusStars":0,"items":2,"slips":0,"thrownOut":0,"stars":3,"coins":60,"parts":[{"reason":"firstWin","amount":39},{"reason":"newStars","amount":13},{"reason":"hugs","amount":8}],"coinsEvents":[{"t":84.81666666666314,"reason":"firstWin","amount":39},{"t":84.81666666666314,"reason":"newStars","amount":13},{"t":84.81666666666314,"reason":"hugs","amount":8}],"events":59,"logFull":false,"maxGap":10.400000000000096,"noHug":36.733333333331245},
 {"world":"school","n":11,"type":"rooms","style":"careful","seed":211120,"win":true,"ended":true,"time":46.533333333331974,"target":255,"hugs":10,"playerHugs":9,"pushes":6,"falls":6,"playerFalls":2,"rescues":5,"rests":0,"kits":0,"kisses":0,"bonusStars":0,"items":1,"slips":0,"thrownOut":0,"stars":3,"coins":61,"parts":[{"reason":"firstWin","amount":39},{"reason":"newStars","amount":13},{"reason":"hugs","amount":9}],"coinsEvents":[{"t":46.533333333331974,"reason":"firstWin","amount":39},{"t":46.533333333331974,"reason":"newStars","amount":13},{"t":46.533333333331974,"reason":"hugs","amount":9}],"events":38,"logFull":false,"maxGap":9.150000000000034,"noHug":9.299999999999471},
@@ -4752,11 +4753,11 @@
 {"world":"school","n":18,"type":"maze","style":"careful","seed":218183,"win":true,"ended":true,"time":211.40000000006037,"target":360,"hugs":12,"playerHugs":11,"pushes":33,"falls":33,"playerFalls":8,"rescues":29,"rests":2,"kits":0,"kisses":0,"bonusStars":1,"items":5,"slips":1,"thrownOut":0,"stars":2,"coins":60,"parts":[{"reason":"firstWin","amount":44},{"reason":"newStars","amount":8},{"reason":"star","amount":3},{"reason":"hugs","amount":11},{"reason":"rests","amount":-6}],"coinsEvents":[{"t":15.03333333333366,"reason":"star","amount":3},{"t":211.40000000006037,"reason":"firstWin","amount":44},{"t":211.40000000006037,"reason":"newStars","amount":8},{"t":211.40000000006037,"reason":"hugs","amount":11},{"t":211.40000000006037,"reason":"rests","amount":-6}],"events":154,"logFull":false,"maxGap":15.099999999999142,"noHug":56.68333333333011},
 {"world":"school","n":19,"type":"maze","style":"careful","seed":219178,"win":true,"ended":true,"time":112.48333333332823,"target":375,"hugs":12,"playerHugs":12,"pushes":10,"falls":10,"playerFalls":1,"rescues":5,"rests":5,"kits":0,"kisses":0,"bonusStars":0,"items":1,"slips":0,"thrownOut":0,"stars":2,"coins":50,"parts":[{"reason":"firstWin","amount":45},{"reason":"newStars","amount":8},{"reason":"hugs","amount":12},{"reason":"rests","amount":-15}],"coinsEvents":[{"t":112.48333333332823,"reason":"firstWin","amount":45},{"t":112.48333333332823,"reason":"newStars","amount":8},{"t":112.48333333332823,"reason":"hugs","amount":12},{"t":112.48333333332823,"reason":"rests","amount":-15}],"events":65,"logFull":false,"maxGap":13.916666666665883,"noHug":72.716666666663},
 {"world":"school","n":19,"type":"maze","style":"careful","seed":219185,"win":true,"ended":true,"time":55.18333333333148,"target":375,"hugs":12,"playerHugs":11,"pushes":8,"falls":7,"playerFalls":1,"rescues":7,"rests":0,"kits":0,"kisses":0,"bonusStars":1,"items":1,"slips":0,"thrownOut":0,"stars":3,"coins":72,"parts":[{"reason":"firstWin","amount":45},{"reason":"newStars","amount":13},{"reason":"star","amount":3},{"reason":"hugs","amount":11}],"coinsEvents":[{"t":15.883333333333702,"reason":"star","amount":3},{"t":55.18333333333148,"reason":"firstWin","amount":45},{"t":55.18333333333148,"reason":"newStars","amount":13},{"t":55.18333333333148,"reason":"hugs","amount":11}],"events":47,"logFull":false,"maxGap":12.216666666666853,"noHug":14.70000000000031},
-{"world":"school","n":19,"type":"maze","style":"careful","seed":219192,"win":true,"ended":true,"time":209.31666666672538,"target":375,"hugs":12,"playerHugs":11,"pushes":22,"falls":22,"playerFalls":5,"rescues":12,"rests":10,"kits":0,"kisses":0,"bonusStars":2,"items":2,"slips":0,"thrownOut":0,"stars":2,"coins":40,"parts":[{"reason":"firstWin","amount":45},{"reason":"newStars","amount":8},{"reason":"star","amount":6},{"reason":"hugs","amount":11},{"reason":"rests","amount":-30}],"coinsEvents":[{"t":91.3499999999961,"reason":"star","amount":3},{"t":116.0999999999947,"reason":"star","amount":3},{"t":209.31666666672538,"reason":"firstWin","amount":45},{"t":209.31666666672538,"reason":"newStars","amount":8},{"t":209.31666666672538,"reason":"hugs","amount":11},{"t":209.31666666672538,"reason":"rests","amount":-30}],"events":131,"logFull":false,"maxGap":23.999999999998643,"noHug":79.71666666666215},
+{"world":"school","n":19,"type":"maze","style":"careful","seed":219192,"win":true,"ended":true,"time":373.5166666666556,"target":375,"hugs":12,"playerHugs":11,"pushes":42,"falls":41,"playerFalls":8,"rescues":24,"rests":16,"kits":0,"kisses":0,"bonusStars":3,"items":4,"slips":1,"thrownOut":0,"stars":2,"coins":33,"parts":[{"reason":"firstWin","amount":45},{"reason":"newStars","amount":8},{"reason":"star","amount":9},{"reason":"hugs","amount":11},{"reason":"rests","amount":-40}],"coinsEvents":[{"t":91.3499999999961,"reason":"star","amount":3},{"t":116.0999999999947,"reason":"star","amount":3},{"t":357.70000000000334,"reason":"star","amount":3},{"t":373.5166666666556,"reason":"firstWin","amount":45},{"t":373.5166666666556,"reason":"newStars","amount":8},{"t":373.5166666666556,"reason":"hugs","amount":11},{"t":373.5166666666556,"reason":"rests","amount":-40}],"events":220,"logFull":false,"maxGap":23.999999999998643,"noHug":188.1166666666338},
 {"world":"school","n":20,"type":"maze","style":"careful","seed":220187,"win":false,"ended":false,"time":479.9999999998921,"target":390,"hugs":9,"playerHugs":8,"pushes":47,"falls":44,"playerFalls":9,"rescues":22,"rests":21,"kits":0,"kisses":0,"bonusStars":5,"items":8,"slips":4,"thrownOut":0,"stars":0,"coins":15,"parts":[],"coinsEvents":[{"t":24.58333333333322,"reason":"star","amount":3},{"t":52.76666666666495,"reason":"star","amount":3},{"t":223.81666666673692,"reason":"star","amount":3},{"t":234.1333333334118,"reason":"star","amount":3},{"t":335.9500000000231,"reason":"star","amount":3}],"events":287,"logFull":false,"maxGap":24.999999999977263,"noHug":178.0333333333561},
 {"world":"school","n":20,"type":"maze","style":"careful","seed":220194,"win":true,"ended":true,"time":215.06666666672996,"target":390,"hugs":15,"playerHugs":14,"pushes":17,"falls":15,"playerFalls":2,"rescues":14,"rests":1,"kits":0,"kisses":0,"bonusStars":2,"items":9,"slips":0,"thrownOut":0,"stars":2,"coins":71,"parts":[{"reason":"firstWin","amount":46},{"reason":"newStars","amount":8},{"reason":"star","amount":6},{"reason":"hugs","amount":14},{"reason":"rests","amount":-3}],"coinsEvents":[{"t":183.08333333337117,"reason":"star","amount":3},{"t":195.90000000004804,"reason":"star","amount":3},{"t":215.06666666672996,"reason":"firstWin","amount":46},{"t":215.06666666672996,"reason":"newStars","amount":8},{"t":215.06666666672996,"reason":"hugs","amount":14},{"t":215.06666666672996,"reason":"rests","amount":-3}],"events":118,"logFull":false,"maxGap":14.383333333333628,"noHug":110.84999999999499},
 {"world":"school","n":20,"type":"maze","style":"careful","seed":220201,"win":true,"ended":true,"time":301.4166666667212,"target":390,"hugs":15,"playerHugs":15,"pushes":23,"falls":22,"playerFalls":7,"rescues":13,"rests":7,"kits":0,"kisses":0,"bonusStars":3,"items":5,"slips":2,"thrownOut":0,"stars":2,"coins":57,"parts":[{"reason":"firstWin","amount":46},{"reason":"newStars","amount":8},{"reason":"star","amount":9},{"reason":"hugs","amount":15},{"reason":"rests","amount":-21}],"coinsEvents":[{"t":14.983333333333658,"reason":"star","amount":3},{"t":140.18333333333703,"reason":"star","amount":3},{"t":175.03333333336477,"reason":"star","amount":3},{"t":301.4166666667212,"reason":"firstWin","amount":46},{"t":301.4166666667212,"reason":"newStars","amount":8},{"t":301.4166666667212,"reason":"hugs","amount":15},{"t":301.4166666667212,"reason":"rests","amount":-21}],"events":164,"logFull":false,"maxGap":15.699999999999111,"noHug":158.1333333334154},
-{"world":"school","n":20,"type":"maze","style":"reckless","seed":220187,"win":true,"ended":true,"time":310.5833333333795,"target":390,"hugs":15,"playerHugs":13,"pushes":26,"falls":25,"playerFalls":10,"rescues":13,"rests":11,"kits":0,"kisses":0,"bonusStars":1,"items":6,"slips":2,"thrownOut":0,"stars":2,"coins":37,"parts":[{"reason":"firstWin","amount":46},{"reason":"newStars","amount":8},{"reason":"star","amount":3},{"reason":"hugs","amount":13},{"reason":"rests","amount":-33}],"coinsEvents":[{"t":282.1666666667387,"reason":"star","amount":3},{"t":310.5833333333795,"reason":"firstWin","amount":46},{"t":310.5833333333795,"reason":"newStars","amount":8},{"t":310.5833333333795,"reason":"hugs","amount":13},{"t":310.5833333333795,"reason":"rests","amount":-33}],"events":186,"logFull":false,"maxGap":22.81666666667317,"noHug":124.61666666668677},
+{"world":"school","n":20,"type":"maze","style":"reckless","seed":220187,"win":false,"ended":false,"time":479.9999999998921,"target":390,"hugs":12,"playerHugs":10,"pushes":46,"falls":46,"playerFalls":12,"rescues":17,"rests":27,"kits":0,"kisses":0,"bonusStars":0,"items":3,"slips":4,"thrownOut":0,"stars":0,"coins":0,"parts":[],"coinsEvents":[],"events":289,"logFull":false,"maxGap":17.13333333333236,"noHug":195.89999999986674},
 {"world":"beach","n":1,"type":"classic","style":"careful","seed":301019,"win":true,"ended":true,"time":29.04999999999963,"target":105,"hugs":8,"playerHugs":7,"pushes":3,"falls":3,"playerFalls":1,"rescues":3,"rests":0,"kits":0,"kisses":0,"bonusStars":0,"items":0,"slips":0,"thrownOut":0,"stars":3,"coins":52,"parts":[{"reason":"firstWin","amount":32},{"reason":"newStars","amount":13},{"reason":"hugs","amount":7}],"coinsEvents":[{"t":29.04999999999963,"reason":"firstWin","amount":32},{"t":29.04999999999963,"reason":"newStars","amount":13},{"t":29.04999999999963,"reason":"hugs","amount":7}],"events":26,"logFull":false,"maxGap":3.33333333333334,"noHug":8.349999999999994},
 {"world":"beach","n":1,"type":"classic","style":"careful","seed":301026,"win":true,"ended":true,"time":50.499999999998415,"target":105,"hugs":8,"playerHugs":6,"pushes":9,"falls":9,"playerFalls":3,"rescues":9,"rests":0,"kits":0,"kisses":0,"bonusStars":0,"items":0,"slips":0,"thrownOut":0,"stars":3,"coins":51,"parts":[{"reason":"firstWin","amount":32},{"reason":"newStars","amount":13},{"reason":"hugs","amount":6}],"coinsEvents":[{"t":50.499999999998415,"reason":"firstWin","amount":32},{"t":50.499999999998415,"reason":"newStars","amount":13},{"t":50.499999999998415,"reason":"hugs","amount":6}],"events":48,"logFull":false,"maxGap":4.499999999999744,"noHug":11.516666666666012},
 {"world":"beach","n":1,"type":"classic","style":"careful","seed":301033,"win":true,"ended":true,"time":107.91666666666183,"target":105,"hugs":8,"playerHugs":7,"pushes":11,"falls":11,"playerFalls":3,"rescues":5,"rests":5,"kits":0,"kisses":0,"bonusStars":1,"items":1,"slips":0,"thrownOut":0,"stars":1,"coins":31,"parts":[{"reason":"firstWin","amount":32},{"reason":"newStars","amount":4},{"reason":"star","amount":3},{"reason":"hugs","amount":7},{"reason":"rests","amount":-15}],"coinsEvents":[{"t":105.43333333332863,"reason":"star","amount":3},{"t":107.91666666666183,"reason":"firstWin","amount":32},{"t":107.91666666666183,"reason":"newStars","amount":4},{"t":107.91666666666183,"reason":"hugs","amount":7},{"t":107.91666666666183,"reason":"rests","amount":-15}],"events":69,"logFull":false,"maxGap":13.999999999999204,"noHug":68.61666666666278},
@@ -4910,10 +4911,10 @@
 {"world":"city","n":5,"type":"village","style":"careful","seed":605064,"win":true,"ended":true,"time":47.349999999998595,"target":155,"hugs":8,"playerHugs":8,"pushes":3,"falls":2,"playerFalls":1,"rescues":2,"rests":0,"kits":0,"kisses":0,"bonusStars":0,"items":1,"slips":0,"thrownOut":0,"stars":3,"coins":49,"parts":[{"reason":"firstWin","amount":28},{"reason":"newStars","amount":13},{"reason":"hugs","amount":8}],"coinsEvents":[{"t":47.349999999998595,"reason":"firstWin","amount":28},{"t":47.349999999998595,"reason":"newStars","amount":13},{"t":47.349999999998595,"reason":"hugs","amount":8}],"events":29,"logFull":false,"maxGap":6.099999999999653,"noHug":13.533333333333585,"pass":"upgrades"},
 {"world":"city","n":10,"type":"river","style":"careful","seed":610109,"win":true,"ended":true,"time":42.46666666666554,"target":230,"hugs":9,"playerHugs":9,"pushes":2,"falls":2,"playerFalls":1,"rescues":2,"rests":0,"kits":0,"kisses":0,"bonusStars":0,"items":1,"slips":0,"thrownOut":0,"stars":3,"coins":54,"parts":[{"reason":"firstWin","amount":32},{"reason":"newStars","amount":13},{"reason":"hugs","amount":9}],"coinsEvents":[{"t":42.46666666666554,"reason":"firstWin","amount":32},{"t":42.46666666666554,"reason":"newStars","amount":13},{"t":42.46666666666554,"reason":"hugs","amount":9}],"events":32,"logFull":false,"maxGap":6.016666666666651,"noHug":18.950000000000205,"pass":"upgrades"},
 {"world":"city","n":15,"type":"arena","style":"careful","seed":615154,"win":true,"ended":true,"time":56.36666666666475,"target":305,"hugs":10,"playerHugs":8,"pushes":11,"falls":11,"playerFalls":4,"rescues":10,"rests":0,"kits":0,"kisses":0,"bonusStars":1,"items":1,"slips":0,"thrownOut":0,"stars":3,"coins":59,"parts":[{"reason":"firstWin","amount":35},{"reason":"newStars","amount":13},{"reason":"star","amount":3},{"reason":"hugs","amount":8}],"coinsEvents":[{"t":47.616666666665246,"reason":"star","amount":3},{"t":56.36666666666475,"reason":"firstWin","amount":35},{"t":56.36666666666475,"reason":"newStars","amount":13},{"t":56.36666666666475,"reason":"hugs","amount":8}],"events":52,"logFull":false,"maxGap":7.133333333333313,"noHug":13.466666666665901,"pass":"upgrades"},
-{"world":"city","n":20,"type":"maze","style":"careful","seed":620199,"win":true,"ended":true,"time":145.31666666667445,"target":380,"hugs":13,"playerHugs":11,"pushes":17,"falls":16,"playerFalls":3,"rescues":11,"rests":5,"kits":0,"kisses":0,"bonusStars":2,"items":2,"slips":0,"thrownOut":0,"stars":2,"coins":49,"parts":[{"reason":"firstWin","amount":39},{"reason":"newStars","amount":8},{"reason":"star","amount":6},{"reason":"hugs","amount":11},{"reason":"rests","amount":-15}],"coinsEvents":[{"t":35.41666666666594,"reason":"star","amount":3},{"t":132.86666666666454,"reason":"star","amount":3},{"t":145.31666666667445,"reason":"firstWin","amount":39},{"t":145.31666666667445,"reason":"newStars","amount":8},{"t":145.31666666667445,"reason":"hugs","amount":11},{"t":145.31666666667445,"reason":"rests","amount":-15}],"events":107,"logFull":false,"maxGap":20.783333333332152,"noHug":80.23333333332877,"pass":"upgrades"},
+{"world":"city","n":20,"type":"maze","style":"careful","seed":620199,"win":true,"ended":true,"time":107.21666666666187,"target":380,"hugs":13,"playerHugs":12,"pushes":15,"falls":15,"playerFalls":4,"rescues":14,"rests":0,"kits":0,"kisses":0,"bonusStars":1,"items":1,"slips":0,"thrownOut":0,"stars":3,"coins":67,"parts":[{"reason":"firstWin","amount":39},{"reason":"newStars","amount":13},{"reason":"star","amount":3},{"reason":"hugs","amount":12}],"coinsEvents":[{"t":84.66666666666315,"reason":"star","amount":3},{"t":107.21666666666187,"reason":"firstWin","amount":39},{"t":107.21666666666187,"reason":"newStars","amount":13},{"t":107.21666666666187,"reason":"hugs","amount":12}],"events":96,"logFull":false,"maxGap":11.133333333333466,"noHug":49.48333333333054,"pass":"upgrades"},
 {"world":"school","n":5,"type":"village","style":"careful","seed":205052,"win":true,"ended":true,"time":45.38333333333204,"target":165,"hugs":9,"playerHugs":8,"pushes":7,"falls":7,"playerFalls":1,"rescues":7,"rests":0,"kits":0,"kisses":0,"bonusStars":0,"items":0,"slips":0,"thrownOut":0,"stars":3,"coins":56,"parts":[{"reason":"firstWin","amount":35},{"reason":"newStars","amount":13},{"reason":"hugs","amount":8}],"coinsEvents":[{"t":45.38333333333204,"reason":"firstWin","amount":35},{"t":45.38333333333204,"reason":"newStars","amount":13},{"t":45.38333333333204,"reason":"hugs","amount":8}],"events":38,"logFull":false,"maxGap":12.283333333333523,"noHug":12.283333333333523,"pass":"upgrades"},
 {"world":"school","n":10,"type":"river","style":"careful","seed":210097,"win":true,"ended":true,"time":70.13333333333064,"target":240,"hugs":10,"playerHugs":8,"pushes":15,"falls":15,"playerFalls":4,"rescues":15,"rests":0,"kits":0,"kisses":0,"bonusStars":0,"items":0,"slips":0,"thrownOut":0,"stars":3,"coins":60,"parts":[{"reason":"firstWin","amount":39},{"reason":"newStars","amount":13},{"reason":"hugs","amount":8}],"coinsEvents":[{"t":70.13333333333064,"reason":"firstWin","amount":39},{"t":70.13333333333064,"reason":"newStars","amount":13},{"t":70.13333333333064,"reason":"hugs","amount":8}],"events":71,"logFull":false,"maxGap":5.466666666666653,"noHug":27.016666666665138,"pass":"upgrades"},
-{"world":"school","n":15,"type":"arena","style":"careful","seed":215142,"win":true,"ended":true,"time":176.43333333336588,"target":315,"hugs":11,"playerHugs":10,"pushes":22,"falls":21,"playerFalls":5,"rescues":16,"rests":5,"kits":0,"kisses":0,"bonusStars":5,"items":4,"slips":1,"thrownOut":0,"stars":2,"coins":60,"parts":[{"reason":"firstWin","amount":42},{"reason":"newStars","amount":8},{"reason":"star","amount":15},{"reason":"hugs","amount":10},{"reason":"rests","amount":-15}],"coinsEvents":[{"t":35.5333333333326,"reason":"star","amount":3},{"t":40.69999999999897,"reason":"star","amount":3},{"t":120.74999999999443,"reason":"star","amount":3},{"t":150.38333333334515,"reason":"star","amount":3},{"t":165.63333333335729,"reason":"star","amount":3},{"t":176.43333333336588,"reason":"firstWin","amount":42},{"t":176.43333333336588,"reason":"newStars","amount":8},{"t":176.43333333336588,"reason":"hugs","amount":10},{"t":176.43333333336588,"reason":"rests","amount":-15}],"events":127,"logFull":false,"maxGap":14.250000000000288,"noHug":77.89999999999557,"pass":"upgrades"},
+{"world":"school","n":15,"type":"arena","style":"careful","seed":215142,"win":true,"ended":true,"time":168.10000000002591,"target":315,"hugs":11,"playerHugs":10,"pushes":20,"falls":19,"playerFalls":4,"rescues":14,"rests":5,"kits":0,"kisses":0,"bonusStars":5,"items":3,"slips":1,"thrownOut":0,"stars":2,"coins":60,"parts":[{"reason":"firstWin","amount":42},{"reason":"newStars","amount":8},{"reason":"star","amount":15},{"reason":"hugs","amount":10},{"reason":"rests","amount":-15}],"coinsEvents":[{"t":35.5333333333326,"reason":"star","amount":3},{"t":40.69999999999897,"reason":"star","amount":3},{"t":120.74999999999443,"reason":"star","amount":3},{"t":150.5000000000119,"reason":"star","amount":3},{"t":160.01666666668615,"reason":"star","amount":3},{"t":168.10000000002591,"reason":"firstWin","amount":42},{"t":168.10000000002591,"reason":"newStars","amount":8},{"t":168.10000000002591,"reason":"hugs","amount":10},{"t":168.10000000002591,"reason":"rests","amount":-15}],"events":116,"logFull":false,"maxGap":14.250000000000288,"noHug":77.89999999999557,"pass":"upgrades"},
 {"world":"school","n":20,"type":"maze","style":"careful","seed":220187,"win":true,"ended":true,"time":237.98333333341486,"target":390,"hugs":15,"playerHugs":15,"pushes":24,"falls":22,"playerFalls":4,"rescues":12,"rests":10,"kits":0,"kisses":0,"bonusStars":0,"items":7,"slips":0,"thrownOut":0,"stars":2,"coins":39,"parts":[{"reason":"firstWin","amount":46},{"reason":"newStars","amount":8},{"reason":"hugs","amount":15},{"reason":"rests","amount":-30}],"coinsEvents":[{"t":237.98333333341486,"reason":"firstWin","amount":46},{"t":237.98333333341486,"reason":"newStars","amount":8},{"t":237.98333333341486,"reason":"hugs","amount":15},{"t":237.98333333341486,"reason":"rests","amount":-30}],"events":146,"logFull":false,"maxGap":21.249999999998792,"noHug":84.25000000000512,"pass":"upgrades"},
 {"world":"beach","n":5,"type":"village","style":"careful","seed":305055,"win":true,"ended":true,"time":75.08333333333036,"target":165,"hugs":9,"playerHugs":7,"pushes":15,"falls":15,"playerFalls":6,"rescues":14,"rests":0,"kits":0,"kisses":0,"bonusStars":2,"items":2,"slips":0,"thrownOut":0,"stars":3,"coins":61,"parts":[{"reason":"firstWin","amount":35},{"reason":"newStars","amount":13},{"reason":"star","amount":6},{"reason":"hugs","amount":7}],"coinsEvents":[{"t":44.549999999998754,"reason":"star","amount":3},{"t":73.03333333333048,"reason":"star","amount":3},{"t":75.08333333333036,"reason":"firstWin","amount":35},{"t":75.08333333333036,"reason":"newStars","amount":13},{"t":75.08333333333036,"reason":"hugs","amount":7}],"events":78,"logFull":false,"maxGap":5.866666666666651,"noHug":23.049999999998697,"pass":"upgrades"},
 {"world":"beach","n":10,"type":"river","style":"careful","seed":310100,"win":true,"ended":true,"time":45.483333333332034,"target":240,"hugs":10,"playerHugs":9,"pushes":6,"falls":6,"playerFalls":1,"rescues":6,"rests":0,"kits":0,"kisses":0,"bonusStars":1,"items":0,"slips":0,"thrownOut":0,"stars":3,"coins":64,"parts":[{"reason":"firstWin","amount":39},{"reason":"newStars","amount":13},{"reason":"star","amount":3},{"reason":"hugs","amount":9}],"coinsEvents":[{"t":28.08333333333302,"reason":"star","amount":3},{"t":45.483333333332034,"reason":"firstWin","amount":39},{"t":45.483333333332034,"reason":"newStars","amount":13},{"t":45.483333333332034,"reason":"hugs","amount":9}],"events":43,"logFull":false,"maxGap":7.833333333333355,"noHug":11.68333333333267,"pass":"upgrades"},

@@ -1,9 +1,10 @@
 # SPEC-042 — Every world has its own trick: puddles, sprinklers, the ice-cream truck, the school bell, waves, footprints
 
-Status: ready (art 37, 40, 41 on master, checked by Claude 2026-11-26:
+Status: done (merged by "Merge SPEC-042", see git log)
+Art notes (art 37, 40, 41, checked by Claude 2026-11-26):
 - **sheet 37** has 13 icons, not 10: Gemini repeated the wave, the football and the plane. In reading order: `ui_puddle`, `ui_sprinkler`, `ui_truck`, `ui_bell`, `ui_wave`, `item_football`, `item_paperplane`, (wave again: drop), `ui_snowprints`, (football again: drop), (plane again: drop), `item_watermelon`, `item_snowball`. Motion lines and drops are separate small regions: merge them into their icon.
 - **sheet 40** is a clean 2×2 page (Park, Field, City, School) like `8_start`: same panel crops.
-- **sheet 41** has its two panels side by side in the **top half** only; the lower half is an empty notebook page. Crop each panel (about x 0.03–0.49 and 0.51–0.97, y 0.08–0.56; measure) and ignore the rest.)
+- **sheet 41** has its two panels side by side in the **top half** only; the lower half is an empty notebook page. Crop each panel (about x 0.03–0.49 and 0.51–0.97, y 0.08–0.56; measure) and ignore the rest.
 Complexity: L
 Branch: SPEC-042-world-tricks
 Decided by: Andrei (2026-11-26): each world gets one special mechanic (idea 1 of "how to make the worlds different"). Which trick goes to which world, the numbers and the "new here" card: Claude, check with the kids. Art: sheets 37 (icons) and 40 / 41 (world tip pictures) from Andrei.
