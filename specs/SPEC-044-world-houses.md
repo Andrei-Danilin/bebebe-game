@@ -1,6 +1,9 @@
 # SPEC-044 — Every world has its own houses: treehouse, dugout, shop, school bus, beach hut, igloo — and Dad's messy versions
 
-Status: ready
+Status: ready (art 38, 39 on master, checked by Claude 2026-11-26:
+- **38**: top row kids' Park treehouse, Field changing room with flags (flat open top), City shop with awning, School bus; bottom row Dad's red shed with rake and sock, groundskeeper hut with mower, boots and trash, garage with pizza boxes, caretaker room with leaking pipe and mop.
+- **39**: kids' striped beach hut on stilts, kids' igloo (heart above the door), Dad's shabby beach hut with torn umbrella and pizza boxes, Dad's snowy log cabin with socks and trash.
+The sprites have white sticker edges and small ground patches: keep them in the cut-out.)
 Complexity: M
 Branch: SPEC-044-world-houses
 Decided by: Andrei (2026-11-26): the kids' house and Dad's house look different in every world (idea 3). Which house per world: Claude, from the art sheets 38 / 39 that Andrei generates.
