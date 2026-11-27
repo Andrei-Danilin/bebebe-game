@@ -276,10 +276,14 @@ function roofInside(hr) {
   for (const it of G.items) if (inHouse(it, hr, 0)) return true;
   return false;
 }
+// returns true while a roof is still fading (SPEC-040: a frozen scene is drawn again until it has settled)
 export function fadeRoofs(dt, t) {
   const H = LOOK.HOUSE_LOOK;
+  let moving = false;
   for (const hr of houseRoofs) {
-    hr.a += ((roofInside(hr) ? H.faded : 1) - hr.a) * Math.min(1, dt / H.fade);
+    const target = roofInside(hr) ? H.faded : 1;
+    if (Math.abs(target - hr.a) > LOOK.FADE_SETTLED) moving = true;
+    hr.a += (target - hr.a) * Math.min(1, dt / H.fade);
     hr.g.visible = hr.a > H.hide;                       // почти погасла — не рисуем совсем (на телефоне крыша во весь экран)
     hr.glowNow = hr.glow ? H.kid.glowK * (0.75 + 0.25 * Math.sin(t * 3)) * (hr.a - H.faded) / (1 - H.faded) : 0;   // зелёный свет безопасного дома на крыше
     for (const mt of hr.mats) {
@@ -287,6 +291,7 @@ export function fadeRoofs(dt, t) {
       if (hr.glow && mt.emissive) mt.emissive.setRGB(roofGlow.r * hr.glowNow, roofGlow.g * hr.glowNow, roofGlow.b * hr.glowNow);
     }
   }
+  return moving;
 }
 
 // setters (SPEC-011 AC 5: other modules change this module's state only through them)

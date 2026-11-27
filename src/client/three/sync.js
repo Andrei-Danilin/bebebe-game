@@ -8,7 +8,7 @@ import { bigCalm, visionPoly } from "../../core/vision.js";
 import { vrand } from "../../core/util.js";
 import { LOOK } from "../look.js";
 import { CSS_H, CSS_W, PHONE } from "../screen.js";
-import { inMenus, inWardrobe, mode, ui } from "../state.js";
+import { inMenus, mode, ui } from "../state.js";
 import { cam, camDist } from "./camera.js";
 import { bossScale, modelOf, setBigFace, setCloak } from "./characters.js";
 import { fadeRoofs } from "./houses.js";
@@ -16,7 +16,7 @@ import { bigHomeMats, fadeBushes, fadeTrees, safeGlow, snow } from "./map3d.js";
 import { waves } from "./mapstate.js";
 import { disposeTree, ownMat, part, sphere, syncPaper, toon } from "./materials.js";
 import { itemGroup, itemMeshes, kissGroup, kissMeshes, starGroup, starMeshes } from "./pools.js";
-import { progressTab, renderPreviews } from "./previews.js";
+import { previewsShown, renderPreviews, snapshotWorld } from "./previews.js";
 import { BIG_SCALE, camBase, camera, LITTLE_SCALE, P, renderer, scene } from "./setup.js";
 import { G } from "../../core/active.js";
 import { gloveOf } from "../../core/rules.js";
@@ -284,6 +284,7 @@ function syncBig(b, t) {
   if (m.blink) m.blink.material.emissiveIntensity = Math.floor(t * 3) % 2 ? 1 : 0.2;
 }
 let lastSyncT = 0;
+// returns true while a fade (roof, tree, bush) is still moving: a frozen scene (the pause menu) is drawn again until it has settled
 function syncScene(t) {
   const dt = Math.min(0.05, Math.max(0, t - lastSyncT)); lastSyncT = t;
   for (const l of G.littles) syncLittle(l, t);
@@ -300,16 +301,20 @@ function syncScene(t) {
   backPivot.rotation.y = -(G.big.dir + Math.PI);
   backPivot.visible = G.big.stun <= 0 && G.big.slip <= 0 && !inMenus();
   backMat.opacity = 0.3 + Math.sin(t * 5) * 0.1;
-  fadeRoofs(dt, t);                       // SPEC-021: крыша не прячет тех, кто в доме; у безопасного — зелёный свет
+  let moving = fadeRoofs(dt, t);          // SPEC-021: крыша не прячет тех, кто в доме; у безопасного — зелёный свет
   for (const ft of fadeTrees) {
     const o = ft.o;
     const behind = G.littles.some(l => l.y < o.y + 4 && l.y > o.y - 80 && Math.abs(l.x - o.x) < 30) || (G.big.y < o.y + 4 && G.big.y > o.y - 90 && Math.abs(G.big.x - o.x) < 40);
-    ft.a += ((behind ? 0.35 : 1) - ft.a) * 0.2;
+    const goal = behind ? 0.35 : 1;
+    if (Math.abs(goal - ft.a) > LOOK.FADE_SETTLED) moving = true;
+    ft.a += (goal - ft.a) * 0.2;
     for (const mt of ft.mats) { mt.opacity = ft.a; mt.userData.outline.opacity = ft.a; mt.depthWrite = ft.a > 0.95; }
   }
   for (const fb of fadeBushes) {
     const inside = G.littles.some(l => l.kind === "player" && Math.hypot(l.x - fb.b.x, l.y - fb.b.y) < fb.b.r + 4);
-    fb.a += ((inside ? 0.45 : 1) - fb.a) * 0.2;
+    const goal = inside ? 0.45 : 1;
+    if (Math.abs(goal - fb.a) > LOOK.FADE_SETTLED) moving = true;
+    fb.a += (goal - fb.a) * 0.2;
     for (const mt of fb.mats) { mt.opacity = fb.a; mt.userData.outline.opacity = fb.a; mt.depthWrite = fb.a > 0.95; }
   }
   for (const [i, wv] of waves.entries()) wv.position.y = (wv.userData.baseY ?? 0.04) + Math.sin(t * 2 + i) * 0.01, wv.rotation.z = Math.sin(t + i) * 0.3;
@@ -324,16 +329,21 @@ function syncScene(t) {
   if (safeGlow) safeGlow.material.opacity = 0.18 + Math.sin(t * 2) * 0.08;
   camera.position.copy(camBase);
   if (ui.shake > 0) camera.position.add(new THREE.Vector3(vrand(-1, 1), vrand(-1, 1), vrand(-1, 1)).multiplyScalar(ui.shake * 0.6 * (PHONE ? camDist / cam.dFull : 1)));   // телефон: камера ближе — трясёт слабее
+  return moving;
 }
 
-export function render3D(t) {
+// SPEC-040 AC 3: draws the world (main.js asks cadence.js first); returns true while a fade is still moving. snap — the picture is also
+// saved for the wardrobe's previews (previews.js), which then draw on it without drawing the world again
+export function render3D(t, snap = false) {
   ui.renders++;
   syncPaper();
-  syncScene(t);
+  const moving = syncScene(t);
   renderer.setViewport(0, 0, CSS_W, CSS_H);
   renderer.render(scene, camera);
   ui.mainPass.calls = renderer.info.render.calls; ui.mainPass.triangles = renderer.info.render.triangles;   // SPEC-025 AC 15b
-  if ((inWardrobe() && ui.wardrobePage === "looks") || progressTab()) renderPreviews(t);   // SPEC-026: и на странице «Прогресс»
+  if (snap) snapshotWorld();
+  if (previewsShown()) renderPreviews(t);   // SPEC-026: и на странице «Прогресс»
+  return moving;
 }
 
 // called once by main.js, in the start order of the one-file game

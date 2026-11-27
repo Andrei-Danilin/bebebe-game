@@ -5,11 +5,13 @@
 // startFailed with Try again, index.html); the frame loop schedules the next frame first and runs inside a guard.
 
 import { G } from "../core/active.js";
+import { CFG } from "../core/config.js";
 import { progress } from "../core/economy.js";
 import { newGame, useGame } from "../core/game.js";
 import { setHooks } from "../core/hooks.js";
 import { noGameRng, setStrictRng } from "../core/util.js";
 import { artGate, artKeep, artSweep, initArt, mapBgArt } from "./art.js";
+import { cadence, newCadence } from "./cadence.js";
 import { installDebug } from "./debug.js";
 import { adoptErrorLog, failStart, initErrors, reportError } from "./errors.js";
 import { mapTick, openScene, redress, resetWorld, seedRandom, syncStock } from "./flow.js";
@@ -23,12 +25,12 @@ import { initPerf, noteFrame } from "./perf.js";
 import { setPorts } from "./ports.js";
 import { langPending, loadSave, queueSave, readErrorLog } from "./save.js";
 import { openLangScreen } from "./ui/lang.js";
-import { fit, initScreen, runQueuedFit, simMode } from "./screen.js";
+import { fit, fitCount, initScreen, rotateWall, runQueuedFit, simMode } from "./screen.js";
 import { inMenus, inWardrobe, mode, ui } from "./state.js";
 import { initCamera, updateCamera } from "./three/camera.js";
-import { initCharacters, rebuild3D } from "./three/characters.js";
+import { initCharacters, rebuild3D, rebuilt } from "./three/characters.js";
 import { initMaterials } from "./three/materials.js";
-import { initPreviews } from "./three/previews.js";
+import { initPreviews, invalidateSnapshot, previewsOverSnapshot, previewsShown, snapshotValid } from "./three/previews.js";
 import { hasWebGL2, initScene, initThree } from "./three/setup.js";
 import { initSync, render3D } from "./three/sync.js";
 import { openFirstTutorial } from "./tutorial.js";
@@ -97,6 +99,7 @@ function frame(now) {
   requestAnimationFrame(frame);
   try { tick(now); } catch (e) { reportError(e); }
 }
+const view3D = { cadence: newCadence(), settling: false, fit: -1, built: -1 };   // what the last frame knew about the 3D (cadence.js)
 function tick(now) {
   // первая метка rAF бывает раньше performance.now() при запуске: dt < 0 раскачивал тряску камеры (shake − dt) — не меньше 0
   const real = (now - last) / 1000, dt = Math.max(0, Math.min(LOOK.VIEW_DT_MAX, real));   // dt — the frame time of the view; the game takes real through the accumulator (SPEC-034)
@@ -119,7 +122,12 @@ function tick(now) {
   noGameRng("render", () => {              // рисование не тянет игровую случайность (SPEC-008: тесты — ошибка, игра — vrand)
     updateCamera(dt);                       // телефон: камера за героем (3D-слой, не логика)
     updateMinimapFade(dt);                  // телефон: мини-карта бледнеет, когда под ней герой или Большой (SPEC-010)
-    render3D(ui.T);
+    // SPEC-040 AC 3: the world is drawn only when the screen shows it (cadence.js); drawUI, the logic and the camera run on every frame
+    if (fitCount !== view3D.fit || rebuilt.n !== view3D.built) { invalidateSnapshot(); view3D.fit = fitCount; view3D.built = rebuilt.n; }   // the canvas is empty / stale
+    const previews = previewsShown(), draw = cadence(view3D.cadence, { mode, rotated: rotateWall(), page: !!document.getElementById("grownups"), previews,
+      snap: snapshotValid(), menuFps: CFG.MENU_FPS, seq: ui.screenSeq, fit: fitCount, builds: rebuilt.n, settling: view3D.settling }, now);
+    if (draw === "world") view3D.settling = render3D(ui.T, previews);
+    else if (draw === "previews") previewsOverSnapshot(ui.T);
     drawUI(ui.T);
   });
 }

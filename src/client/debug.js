@@ -22,6 +22,7 @@ import { inDanger, inSafe, seeSolidAt } from "../core/world.js";
 import { detectLang, I18N, L, lang, LANG_NAMES, LANGS } from "../i18n.js";
 import { RULE_ICONS, SCENE_IDS, STORY, TUTORIAL_SCENES } from "../story.js";
 import { ART_NAMES, ART_RESIDENT } from "./art-names.js";
+import { cadence, COVERED, newCadence } from "./cadence.js";
 import { art, ART_FALLBACK, artBytes, artCount, artLazy, artLoad, artDone, artVersion, EMOJI_ART, FX_ART, HEART_ART, ITEM_ART, mapBgArt, PAPER_BTN, POP_ART, SHOP_TAB_ART, STORY_ART, UPG_ART, WARDROBE_ART, worldArt } from "./art.js";
 import { bannerAlpha, chapterOpen, chooseStop, goBack, nextLevel, closeShop, giveReward, lastReward, mapTick, openFriends, openMap, openScene, openShop, openStory, resetMenus, resetWorld, rngDraws, sceneNext, scenePageCount, scenePages, sceneSkip, seedRandom, selectWorld, setLastReward, setMode, setShopTab, shopAfterWin, showBanner, startGame, tapWorldTab, toHome, toMap } from "./flow.js";
 import { errorLog, reportError } from "./errors.js";
@@ -155,6 +156,8 @@ export function installDebug() {
     save: Object.freeze({ get info() { return saveState(); }, queue: queueSave, flush: flushSaves, code: saveCode, readCode: t => { const r = readCode(t); return { ok: r.ok, error: r.error || null }; },
       KEYS: SAVE_KEYS, OLD_KEYS, VERSION: SAVE_VERSION, validSave, fingerprint, promptsForPersist, outfitsFromIds: v => outfitsOf(v), outfitsToIds: o => outfitsOf(o, true) }),
     // SPEC-025 AC 6: the grown-ups page (open — behind the gate), the gate itself, the open question { a, b, answers } or null
+    // SPEC-040 AC 3: the pure rule of when a frame draws the 3D (a test drives it with fake timestamps): view3D.wanted(view3D.newState(), inputs, ms)
+    view3D: Object.freeze({ newState: newCadence, wanted: cadence, COVERED }),
     grownUps: Object.freeze({ open: openGrownUps, parentGate, get gate() { return gateState(); } }),
     // SPEC-012 AC 1f: the menus' state a screen change resets (logic state: the same in sim and rendered pages) and the actions
     // that set it up: the shop, its friends page, the name input of a slot, a map stop or world tab (a locked one shows a hint)

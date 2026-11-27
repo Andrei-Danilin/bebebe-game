@@ -360,8 +360,12 @@ function buildCharacters() {
   charGroup.add(bm.root);
   models.set("big", bm);
 }
+// SPEC-040 AC 3: how many times the scene was rebuilt (a new look, a new level, a restored context): main.js draws the world once after each,
+// even under a full-screen page (the picture on the canvas is stale)
+export const rebuilt = { n: 0 };
 export function rebuild3D() {
   if (simMode) return;                   // sim: 3D не нужен; sim(false) построит заново
+  rebuilt.n++;
   noGameRng("rebuild3D", () => {
     if (builtKey !== mapKey() || !mapGroup) buildMap3D();
     buildCharacters();

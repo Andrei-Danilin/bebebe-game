@@ -242,5 +242,6 @@
  "worldComplete": "function",
  "worldDifficulty": "function",
  "worldOpen": "function",
- "worldState": "function"
+ "worldState": "function",
+ "view3D": "value"
 }

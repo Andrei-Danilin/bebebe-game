@@ -117,8 +117,8 @@ test("the real loop feeds nothing while paused (rendered page)", async ({ page }
   try {
     await page.evaluate(() => { const b = window.__bb; b.world = "park"; b.level = 5; b.startGame(1); });
     await page.waitForFunction(() => window.__bb.stats.time > 0.05, null, { timeout: 30_000, polling: 50 });
-    const before = await page.evaluate(() => { const b = window.__bb; b.mode = "pause"; return { acc: b.acc, time: b.stats.time, rafs: b.sim().renders }; });
-    await page.waitForFunction(r => window.__bb.sim().renders >= r + 5, before.rafs, { timeout: 30_000, polling: 50 });   // frames passed while paused
+    const before = await page.evaluate(() => { const b = window.__bb; b.mode = "pause"; return { acc: b.acc, time: b.stats.time, rafs: b.sim().draws }; });
+    await page.waitForFunction(r => window.__bb.sim().draws >= r + 5, before.rafs, { timeout: 30_000, polling: 50 });   // frames passed while paused
     const during = await page.evaluate(() => ({ acc: window.__bb.acc, time: window.__bb.stats.time }));
     expect(during, "frames in pause change neither the accumulator nor the game time").toEqual({ acc: before.acc, time: before.time });
     await page.evaluate(() => { window.__bb.mode = "play"; });

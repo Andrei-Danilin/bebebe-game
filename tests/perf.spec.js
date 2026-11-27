@@ -254,7 +254,6 @@ async function renderWindow(page, { ticks = TICKS, maxSec = 180 } = {}) {
 }
 const settle = async page => { await frames(page); await frames(page); };
 test("SPEC-040 AC 3: no render3D while story, scene, Character pages and the grown-ups page cover the 3D", async ({ page }) => {
-  test.fail();   // SPEC-040 step 3 turns this on (the wardrobe's preview renders keep their own path)
   test.setTimeout(120_000);
   const errors = await openGame(page);
   const screens = {
@@ -264,11 +263,14 @@ test("SPEC-040 AC 3: no render3D while story, scene, Character pages and the gro
     "character items": () => { window.__bb.openShop("home", "items"); },
     "character wardrobe": () => { window.__bb.openShop("home", "wardrobe"); },
     "character upgrades": () => { window.__bb.openShop("home", "upgrades"); },
-    "grown-ups": () => { window.__bb.mode = "home"; window.__bb.grownUps.open(); }
+    "grown-ups": () => { window.__bb.mode = "story"; window.__bb.grownUps.open(); }   // + the gate answered below: the page is what covers
   };
   const out = {}, bad = [];
   for (const [name, go] of Object.entries(screens)) {
-    await page.evaluate(go); await settle(page);
+    await page.evaluate(go);
+    if (name === "grown-ups") await page.evaluate(() => { const g = window.__bb.grownUps.gate, want = g.a * g.b; [...document.querySelectorAll("#gate button[data-act=answer]")].find(b => Number(b.textContent) === want).click(); });
+    await settle(page);
+    if (name === "grown-ups" && !(await page.evaluate(() => !!document.getElementById("grownups")))) bad.push("grown-ups: the page did not open");
     const r = await renderWindow(page);
     out[name] = { renders: r.renders, ticks: r.draws, sec: round1(r.sec) };
     if (r.renders > 0) bad.push(`${name}: ${r.renders} renders in ${r.draws} ticks`);
@@ -279,21 +281,31 @@ test("SPEC-040 AC 3: no render3D while story, scene, Character pages and the gro
   expect(bad, `render3D ran under a full-screen page: ${bad.join("; ")}`).toEqual([]);
   expect(errors).toEqual([]);
 });
-test("SPEC-040 AC 3: a paused level renders at most once", async ({ page }) => {
-  test.fail();   // SPEC-040 step 3 turns this on
+// The pause menu: the world is drawn when the pause starts, and again only while a roof / tree / bush fade is still moving (a few
+// frames: it must not freeze half way); then not at all.
+test("SPEC-040 AC 3: a paused level renders once, settles, and then renders nothing", async ({ page }) => {
   const errors = await openGame(page);
   await playLevel(page, "park", 3);
   await step(page, 1); await settle(page);
+  const r0 = await page.evaluate(() => window.__bb.sim().renders);
   await page.evaluate(() => { window.__bb.mode = "pause"; });
   await settle(page);
-  const r = await renderWindow(page);
-  record("renders while paused (8 ticks)", { renders: r.renders, ticks: r.draws, sec: round1(r.sec) });
-  expect(r.draws, "the frame loop ticked").toBeGreaterThanOrEqual(TICKS);
-  expect(r.renders, `${r.renders} renders in ${r.draws} ticks while paused`).toBeLessThanOrEqual(1);
+  // quiet = no render in 8 ticks (fades move for a few dozen frames at most)
+  let quiet = null;
+  for (let i = 0; i < 12 && !quiet; i++) { const w = await renderWindow(page); if (w.renders === 0) quiet = w; }
+  const since = (await page.evaluate(() => window.__bb.sim().renders)) - r0;
+  record("renders from the pause until it is quiet", { renders: since });
+  expect(quiet, "the paused scene stops rendering").not.toBe(null);
+  expect(quiet.draws, "the frame loop ticked").toBeGreaterThanOrEqual(TICKS);
+  expect(since, "the world was drawn when the pause started").toBeGreaterThanOrEqual(1);
+  expect(since, "and only while a fade was moving").toBeLessThanOrEqual(40);
+  // something changes: another screen (a new seq) and a resized canvas each draw the frozen scene once
+  const w2 = await page.evaluate(() => { const b = window.__bb, a = b.sim().renders; b.mode = "play"; b.mode = "pause"; return a; });
+  await settle(page);
+  expect((await page.evaluate(() => window.__bb.sim().renders)) - w2, "a changed screen draws the frozen scene").toBeGreaterThanOrEqual(1);
   expect(errors).toEqual([]);
 });
 test("SPEC-040 AC 3: the menus render at most CFG.MENU_FPS (30) frames per second", async ({ page }) => {
-  test.fail();   // SPEC-040 step 3 turns this on (CFG.MENU_FPS)
   test.setTimeout(120_000);
   const errors = await openGame(page);
   const out = {};
@@ -311,7 +323,6 @@ test("SPEC-040 AC 3: the menus render at most CFG.MENU_FPS (30) frames per secon
 test.describe("rotate overlay", () => {
   test.use({ hasTouch: true, viewport: { width: 375, height: 667 } });   // a phone held upright
   test("SPEC-040 AC 3: no render3D under the rotate overlay", async ({ page }) => {
-    test.fail();   // SPEC-040 step 3 turns this on
     const errors = await openGame(page, { query: "?phone=1" });
     await page.waitForFunction(() => window.__bb.rotateShown === true, null, { timeout: 30_000, polling: 100 });
     await settle(page);
@@ -320,6 +331,66 @@ test.describe("rotate overlay", () => {
     expect(r.renders, `${r.renders} renders in ${r.draws} ticks under the rotate overlay`).toBe(0);
     expect(errors).toEqual([]);
   });
+});
+
+// The canvas keeps its last picture while nothing is drawn; a resize empties it. The way back from a full-screen page and a resize under
+// it must leave the world drawn, not a black or empty frame. The 2D layer is hidden for the check, so only the 3D canvas is seen: a
+// strip of ground (green) at the bottom of the screen, left of the Big One's house.
+const sharp = require("sharp");
+async function groundStrip(page) {
+  const vp = page.viewportSize();
+  await page.evaluate(() => { document.getElementById("game").style.visibility = "hidden"; });
+  const png = await page.screenshot({ clip: { x: 300, y: vp.height - 60, width: 300, height: 24 } });
+  await page.evaluate(() => { document.getElementById("game").style.visibility = ""; });
+  const { data, info } = await sharp(png).raw().toBuffer({ resolveWithObject: true });
+  const m = [0, 0, 0], n = data.length / info.channels;
+  for (let i = 0; i < data.length; i += info.channels) for (let k = 0; k < 3; k++) m[k] += data[i + k];
+  return m.map(v => Math.round(v / n));
+}
+const isGround = rgb => rgb[1] > 70 && rgb[1] > rgb[0] + 10 && rgb[1] > rgb[2] + 10;   // green; the page behind the canvas is not
+test("SPEC-040 AC 3: a resize under a full-screen page, and the way back, leave the world drawn", async ({ page }) => {
+  test.setTimeout(120_000);
+  const errors = await openGame(page);
+  await playLevel(page, "park", 3);
+  await step(page, 1); await frames(page);
+  await page.evaluate(() => { window.__bb.mode = "pause"; });
+  await frames(page);
+  const seen = [];
+  const check = async what => { const g = await groundStrip(page); seen.push(`${what} ${g}`); return isGround(g); };
+  expect(await check("the pause menu over a level"), seen.join(" | ")).toBe(true);
+  await page.evaluate(() => { window.__bb.mode = "story"; });          // a full-screen page: nothing is drawn, the canvas keeps the picture
+  await frames(page);
+  expect(await check("under the story page"), seen.join(" | ")).toBe(true);
+  await page.setViewportSize({ width: 800, height: 600 });            // the canvas is resized under the page: empty until a world frame
+  await frames(page);
+  expect(await check("under the story page, resized"), seen.join(" | ")).toBe(true);
+  await page.evaluate(() => { window.__bb.mode = "pause"; });
+  await frames(page);
+  expect(await check("back to the pause menu"), seen.join(" | ")).toBe(true);
+  await page.setViewportSize({ width: 960, height: 640 });            // and a resize while paused
+  await frames(page);
+  expect(await check("paused, resized"), seen.join(" | ")).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+// The wardrobe's previews are drawn on the saved picture of the world: they go on turning while the world itself is not drawn.
+test("SPEC-040 AC 3: the wardrobe previews keep animating while the world behind is not drawn", async ({ page }) => {
+  test.setTimeout(120_000);
+  const errors = await openGame(page);                                   // 960×640: the first player's window is (135, 136, 190, 140) in UI px = CSS px
+  await page.evaluate(() => { window.__bb.openShop("home", "wardrobe"); });
+  await frames(page);
+  const shot = () => page.screenshot({ clip: { x: 135, y: 136, width: 190, height: 140 } });
+  const r0 = await page.evaluate(() => window.__bb.sim().renders);
+  const first = await shot();
+  let moved = false;
+  for (let i = 0; i < 20 && !moved; i++) { await page.waitForTimeout(150); moved = !(await shot()).equals(first); }
+  expect(moved, "the preview of player 1 turned").toBe(true);
+  expect((await page.evaluate(() => window.__bb.sim().renders)) - r0, "and the world was not drawn meanwhile").toBe(0);
+  // the same on the Progress page (one window)
+  await page.evaluate(() => { window.__bb.openShop("home", "progress"); });
+  await frames(page);
+  expect((await page.evaluate(() => ({ shown: window.__bb.screenState.shopTab }))).shown).toBe("progress");
+  expect(errors).toEqual([]);
 });
 
 // ---------- AC 4: the first 60 frames of a new world / the first boss (RR-48) ----------
