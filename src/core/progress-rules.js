@@ -131,15 +131,22 @@ const worldHasProgress = (w, p) => { const v = p?.worlds?.[w]; return !!v && (v.
 // когда пройден предыдущий («previous»); бонусные — когда пройдены все главные («bonus»); мир, где уже есть прогресс, открыт всегда
 // («played»: старые сохранения времён «все миры открыты» ничего не теряют); иначе «locked» и needs — что пройти: главный мир перед
 // ним или null (бонусный — все главные; неизвестный мир). Сюда же — другая причина (и что для неё нужно), если появится
-export function worldOpen(world, p) {
+// SPEC-045: entitlement "free" (the third argument; default "full" = nothing is bought-only) closes every world outside CFG.MONETIZATION.freeWorlds
+// with the reason "purchase", even when the progress would open it (the progress keeps counting: buying opens what was earned); `needs` is still what the
+// progress asks for (null when the progress would open it), so a screen can tell the two apart
+export function worldOpen(world, p, entitlement = "full") {
   const i = MAIN_WORLDS.indexOf(world);
+  if (entitlement !== "full" && WORLDS.includes(world) && !CFG.MONETIZATION.freeWorlds.includes(world)) {
+    const by = worldOpen(world, p);
+    return { open: false, reason: "purchase", needs: by.open ? null : by.needs };
+  }
   if (i === 0) return { open: true, reason: "start" };
   if (i > 0 && worldComplete(MAIN_WORLDS[i - 1], p)) return { open: true, reason: "previous" };
   if (BONUS_WORLDS.includes(world) && bonusUnlocked(p)) return { open: true, reason: "bonus" };
   if (WORLDS.includes(world) && worldHasProgress(world, p)) return { open: true, reason: "played" };
   return { open: false, reason: "locked", needs: i > 0 ? MAIN_WORLDS[i - 1] : null };
 }
-export const isOpen = (w, p) => worldOpen(w, p).open;
+export const isOpen = (w, p, entitlement = "full") => worldOpen(w, p, entitlement).open;
 // SPEC-009: основа награды уровня n мира (SPEC-016: по индексу сложности мира, 0–4)
 const rewardBase = (world, n) => REWARD.BASE + REWARD.PER_LEVEL * n + REWARD.PER_WORLD * worldDifficulty(world);
 // SPEC-026: строка победы × REWARD.WIN_SCALE и округление (toFixed убирает хвост дробей: 45 × 0,7 = 31,4999… → 31,5 → 32)
@@ -151,7 +158,7 @@ export const fastTarget = (world, n) => CFG.FAST_TIME(n) + worldDifficulty(world
 // { reward — награда (клиент хранит её как lastReward), lines — строки в книгу (addCoins по порядку; кроме звёздочек — они уже в
 // копилке с подбора; нулевых нет), world — что победа меняет в мире { name, n, stars, unlocked } (или null) }. Клиент применяет
 // её (flow.js payLevel). Числа те же, что раньше у payReward
-export function computeReward(p, result) {
+export function computeReward(p, result, entitlement = "full") {   // SPEC-045: entitlement — what worldOpened counts as open (a purchase-locked world is not "opened" by a win)
   const st = result.stats, starCoins = st.starCoins;        // монетки за звёздочки уже в копилке (начислены при подборе)
   const partsOf = list => list.filter(([, a]) => a !== 0).map(([reason, amount]) => ({ reason, amount }));
   const hugs = st.playerHugs * REWARD.PER_HUG;
@@ -166,7 +173,7 @@ export function computeReward(p, result) {
   const min = first ? REWARD.FIRST_MIN : REWARD.REPLAY_MIN;
   const line = Math.max(winScale(first ? base : Math.floor(base / 2)), min);   // повтор — половина основы; SPEC-026: × WIN_SCALE
   const restCut = Math.min(st.rests * CFG.COINS_PER_REST, line - min);   // отдых срезается до пола: строки всегда сходятся с итогом
-  const prevStars = wp.stars[n] || 0, newStars = Math.max(0, stars - prevStars), bonusBefore = bonusUnlocked(q), openBefore = MAIN_WORLDS.filter(x => isOpen(x, q));
+  const prevStars = wp.stars[n] || 0, newStars = Math.max(0, stars - prevStars), bonusBefore = bonusUnlocked(q), openBefore = MAIN_WORLDS.filter(x => isOpen(x, q, entitlement));
   const parts = partsOf([[first ? "firstWin" : "replay", line], ["newStars", winScale(newStars * REWARD.NEW_STAR)], ["star", starCoins], ["hugs", hugs], ["rests", -restCut]]);
   wp.stars[n] = Math.max(prevStars, stars);
   wp.won[n] = true;
@@ -175,6 +182,6 @@ export function computeReward(p, result) {
   const reward = { win: true, coins: parts.reduce((s2, x) => s2 + x.amount, 0), starCoins, stars, nobodyOut, fast, target, first, base, newStars,
     newBest: stars > prevStars, world: w, level: n, worldDone: n >= levelsPerWorld(), parts,
     bonusUnlocked: !bonusBefore && bonusUnlocked(q),   // SPEC-016: эта победа открыла бонусные миры — сказать один раз
-    worldOpened: MAIN_WORLDS.find(x => !openBefore.includes(x) && isOpen(x, q)) ?? null };   // SPEC-030: эта победа открыла следующий главный мир
+    worldOpened: MAIN_WORLDS.find(x => !openBefore.includes(x) && isOpen(x, q, entitlement)) ?? null };   // SPEC-030: эта победа открыла следующий главный мир
   return { reward, lines: parts.filter(x => x.reason !== "star"), world: { name: w, n, stars: wp.stars[n], unlocked: wp.unlocked } };
 }
