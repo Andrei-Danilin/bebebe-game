@@ -7,8 +7,8 @@
 // offline) plays `theme` until it is, then crossfades; one that fails stays on `theme` (and is tried again after AUDIO.MUSIC_RETRY s). The bus is at MUSIC_MENU in
 // menus, MUSIC_PLAY in play, MUSIC_PAUSE in pause, and dips to JINGLE_DIP under a jingle. Nothing in sim mode, nothing before the first gesture (no context),
 // nothing in a hidden tab, nothing with the music off (musicOn).
-// iOS plays an element only when a gesture started it once, and refuses play() from a frame or an event: so a small pool of elements (AUDIO.POOL) is started and
-// stopped inside the first gesture (unlockMusic) and reused for every track (only their src changes); and every later gesture plays again what should be playing
+// iOS plays an element only when a gesture started it once (and counts only a release, not the touch), and refuses play() from a frame or an event: so a small pool of
+// elements (AUDIO.POOL) is started and stopped inside a gesture (unlockMusic, at every gesture, for the elements not yet unlocked) and reused for every track (only their src changes); and every later gesture plays again what should be playing
 // (nudgeMusic): a refused play() never leaves the music stopped for good. Client module.
 import { G } from "../../core/active.js";
 import { levelsPerWorld } from "../../core/config.js";
@@ -65,7 +65,7 @@ function fade(param, to, sec, now) {
 const play = part => {
   part.want = true;
   const p = part.el.play();
-  if (p && p.catch) p.catch(() => { /* refused (iOS outside a gesture, autoplay): part.want stays, the next gesture plays it (nudgeMusic) */ });
+  if (p && p.then) p.then(() => { part.unlocked = true; }, () => { /* refused (iOS outside a gesture, autoplay): part.want stays, the next gesture plays it (nudgeMusic) */ });
 };
 
 // ---------- the pool of unlocked elements ----------
@@ -74,7 +74,7 @@ function newPart(ctx) {
   el.preload = "auto"; el.loop = false;
   const src = ctx.createMediaElementSource(el);
   g.gain.value = 0; src.connect(g);
-  const part = { el, g, src, want: false, owner: null, free: true };
+  const part = { el, g, src, want: false, owner: null, free: true, unlocked: false, unlocking: false };
   // one set of listeners for the element's whole life: they act for the track that owns it now
   el.addEventListener("canplaythrough", () => { if (part.owner && part.owner.parts[0] === part) part.owner.ready = true; });
   el.addEventListener("error", () => { if (part.owner && part.owner.parts[0] === part) part.owner.failed = true; });
@@ -82,18 +82,33 @@ function newPart(ctx) {
   el.addEventListener("timeupdate", () => { if (part.owner) loopCheck(part.owner); });
   return part;
 }
-// called inside the first gesture (sound.js initAudio): the pool's elements play an empty file and stop, so iOS lets them play later without a gesture
+// WebKit counts only a release (pointerup, touchend, a key) as a user activation, never the touch itself: so every gesture calls this (sound.js initAudio), and each
+// element is played once inside one that works — the pool's free ones with an empty file, one a track already owns (the standby, which no gesture plays) muted — and then
+// plays later without a gesture. A part is unlocked when that play() resolves; one that was refused (the touch) is tried again at the next gesture.
 export function unlockMusic() {
   const ctx = context();
-  if (simMode || !ctx || pool.length) return;
-  for (let i = 0; i < A.POOL; i++) {
-    const part = newPart(ctx);
-    part.el.src = SILENT;
-    const p = part.el.play();
-    const done = () => { if (part.free) { try { part.el.pause(); part.el.removeAttribute("src"); part.el.load(); } catch (e) { /* gone */ } } };
-    if (p && p.then) p.then(done, done); else done();
-    pool.push(part);
-  }
+  if (simMode || !ctx) return;
+  while (pool.length < A.POOL) pool.push(newPart(ctx));
+  for (const part of pool) if (!part.unlocked && !part.unlocking) unlockPart(part);
+}
+function unlockPart(part) {
+  if (part.want || !part.el.paused) return;                          // it is playing (or about to be): a refused play is nudgeMusic's, a playing one is unlocked already
+  const el = part.el, bare = !el.getAttribute("src"), at = el.currentTime;
+  if (bare) el.src = SILENT;
+  part.unlocking = true;
+  const clean = ok => {
+    part.unlocking = false;
+    if (ok) part.unlocked = true;
+    if (part.want) return;                                           // a track started it meanwhile: leave it
+    try {
+      el.pause();
+      if (el.getAttribute("src") === SILENT) { el.removeAttribute("src"); el.load(); }   // (a src the owner set since stays)
+      else if (!bare && ok) el.currentTime = at;
+    } catch (e) { /* gone */ }
+  };
+  let p;
+  try { p = el.play(); } catch (e) { clean(false); return; }
+  if (p && p.then) p.then(() => clean(true), () => clean(false)); else clean(true);
 }
 function takePart(ctx) {
   const part = pool.find(p => p.free) || (pool.push(newPart(ctx)), pool[pool.length - 1]);   // an extra one is made when the pool runs dry (not unlocked)
@@ -227,7 +242,7 @@ export function resumeMusic() {
 export function nudgeMusic() {
   const ctx = context(), t = tracks.get(current);
   if (simMode || !ctx || paused || !t) return;
-  for (const p of t.parts) if (p.want && p.el.paused && p.el.getAttribute("src") && !p.el.ended) { const r = p.el.play(); if (r && r.catch) r.catch(() => {}); }
+  for (const p of t.parts) if (p.want && p.el.paused && p.el.getAttribute("src") && !p.el.ended) play(p);
   const a = t.parts[t.active];
   if (!t.once && !t.xfade && a.el.ended) { t.loopWait = 0; loopCheck(t); }
   if (t.once && a.el.ended) t.ended = true;
@@ -291,13 +306,13 @@ function tick() {
 // ---------- for the tests (__bb.audio) ----------
 export const currentTrack = () => current;
 export const musicPaused = () => paused;
-const withSrc = t => t.parts.filter(p => p.el.getAttribute("src") && p.el.getAttribute("src") !== SILENT);
+const withSrc = t => t.parts.filter(p => p.owner === t && p.el.getAttribute("src") && p.el.getAttribute("src") !== SILENT);
 // the sounding pair: { track, id, time (s of the playing element), dur, pair (its elements with a file: 1 while it loads / for the song, else 2), elements (all alive),
 // playing (elements that are playing now, of all tracks), crossing (the loop crossfade is on) }
 export function musicInfo() {
   const t = tracks.get(current);
   let elements = 0, playing = 0;
-  for (const x of tracks.values()) { elements += withSrc(x).length; playing += x.parts.filter(p => !p.el.paused && p.el.getAttribute("src")).length; }
+  for (const x of tracks.values()) { elements += withSrc(x).length; playing += x.parts.filter(p => p.owner === x && !p.el.paused && p.el.getAttribute("src")).length; }
   return t ? { track: t.name, id: t.id, time: t.parts[t.active].el.currentTime, dur: lengthOf(t), pair: withSrc(t).length, elements, playing, crossing: !!t.xfade }
     : { track: null, id: 0, time: 0, dur: 0, pair: 0, elements, playing, crossing: false };
 }

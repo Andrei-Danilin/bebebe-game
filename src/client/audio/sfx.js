@@ -88,7 +88,8 @@ export function playSfx(name, opts = {}, fallback = null) {
     return true;
   }
   voices = voices.filter(v => v.end > now);
-  // at most MAX_VOICES sounding at once: the oldest voice that has STARTED is stopped (a scheduled one — the win screen's stars and coins — does not count until it starts, and is never stolen); its log entry says stolen
+  // MAX_VOICES is soft for scheduled voices: they do not count until they start, so a few more can sound at once for a moment.
+  // At most MAX_VOICES sounding at once: the oldest voice that has STARTED is stopped (a scheduled one — the win screen's stars and coins — does not count until it starts, and is never stolen); its log entry says stolen
   const sounding = voices.filter(v => v.start <= now).sort((p, q) => p.start - q.start);
   for (let i = 0; i <= sounding.length - A.MAX_VOICES; i++) { stopVoice(sounding[i], now); sounding[i].entry.stolen = true; voices = voices.filter(v => v !== sounding[i]); }
   const src = ctx.createBufferSource(), gain = ctx.createGain();

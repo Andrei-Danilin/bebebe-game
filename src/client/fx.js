@@ -100,7 +100,6 @@ export const kitNow = pi => runCore(() => mode === "play" && useRescueKit(pi));
 function coreStep(dt) {
   runCore(() => { bannerTick(dt); update(dt); }, () => hintTick(dt));
   // (the loops of the level follow the game in sound.js audioTick, called by main.js every frame)
-  /* */                      // SPEC-047: the loops of this step (rescue, dizzy, danger tick, steps): the engine starts and stops the ones that came or went
   for (const l of G.littles) if (l.hugAnim > 0 && vrand() < dt * 6) burst(G.big.x, G.big.y - 20, "heart", "#ff4d8d", 1);   // сердечки, пока обнимает
 }
 // one step of the local game by the dt the caller gives (__bb.update and the tests): the players' devices into their slots, the

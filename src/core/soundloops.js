@@ -1,5 +1,5 @@
 // SPEC-047 AC 8: the sound loops of a level — a pure query of the game state (no rng, nothing written), so the core stays deterministic
-// and online play can ask it of any snapshot. The client asks every step (src/client/audio/sfx.js setLoops) and starts or stops the
+// and online play can ask it of any snapshot. The client asks once per frame (src/client/sound.js audioTick → audio/sfx.js setLoops) and starts or stops the
 // loops that came or went. The one-shot sounds are `sfx` effect events (events.js emit). Core module.
 import { CELL, CFG } from "./config.js";
 import { dist } from "./util.js";

@@ -169,3 +169,47 @@ test("a world without a track in the manifest plays theme and never asks for a f
   expect(await page.evaluate(() => window.__bb.audio.track)).toBe("theme");
   expect(asked, "no request for the missing track").toEqual([]);
 });
+
+// WebKit counts only a release (pointerup, touchend) as a user activation, never the touch itself. The stub below is that browser: an element may play() only inside a
+// pointerup, or once it has played inside one. The first gesture of a touch is a pointerdown, so the first unlock attempt is refused; the release unlocks, and from then on
+// every track change and every loop crossfade (the standby element, which no gesture plays) must work with no further gesture.
+test("the touch does not unlock the music elements, the release does: afterwards a loop crossfade and a track change play with no further gesture", async ({ page }) => {
+  await page.addInitScript(() => {
+    const orig = HTMLMediaElement.prototype.play, unlocked = new WeakSet();
+    let inRelease = false;
+    window.__refusedTouch = 0;
+    window.addEventListener("pointerup", () => { inRelease = true; }, true);      // capture: before the game's handler
+    window.addEventListener("pointerup", () => { inRelease = false; });           // bubble: after it
+    HTMLMediaElement.prototype.play = function (...a) {
+      if (!inRelease && !unlocked.has(this)) { window.__refusedTouch++; return Promise.reject(new DOMException("needs a release", "NotAllowedError")); }
+      if (inRelease) unlocked.add(this);
+      return orig.apply(this, a);
+    };
+  });
+  const errors = await openGame(page);
+  await page.mouse.move(5, 5);
+  await page.mouse.down();                                                         // the touch: the engine starts, nothing can play yet
+  await page.waitForFunction(() => { const a = window.__bb.audioContext(); return !!a && a.state === "running"; });
+  await untilTrack(page, "theme");
+  await page.waitForTimeout(800);
+  expect(await page.evaluate(() => window.__refusedTouch), "the touch was refused").toBeGreaterThan(0);
+  expect((await info(page)).playing, "silent until the release").toBe(0);
+  await page.mouse.up();                                                           // the release
+  await advancing(page, 0);
+  // no more gestures from here on
+  await page.waitForFunction(() => window.__bb.audio.music.dur > 60 && window.__bb.audio.music.elements === 2, null, { timeout: 15_000 });
+  await page.waitForTimeout(500);
+  const { id, dur } = await info(page);
+  await page.evaluate(d => window.__bb.audio.seekMusic(d - 2.6), dur);
+  await page.waitForFunction(() => window.__bb.audio.music.crossing, null, { timeout: 10_000 });
+  await page.waitForFunction(() => !window.__bb.audio.music.crossing && window.__bb.audio.music.time < 10, null, { timeout: 15_000 });
+  expect(await info(page), "the loop crossfade worked without a gesture").toMatchObject({ id, track: "theme", playing: 1 });
+  const t0 = (await info(page)).time;
+  await advancing(page, t0);
+  await play(page, "field", 3);
+  await untilTrack(page, "world_field", 30_000);
+  const t1 = (await info(page)).time;
+  await advancing(page, t1);                                                       // the new track plays with no gesture
+  await expect.poll(async () => (await info(page)).playing, { timeout: 10_000 }).toBe(1);   // the old track has faded out and gone
+  expect(errors).toEqual([]);
+});

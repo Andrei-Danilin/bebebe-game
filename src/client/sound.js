@@ -24,10 +24,11 @@ export function initAudio() {
   if (simMode) return;
   if (!actx) {                                                   // SPEC-047: the context, its buses, the sounds' files, the music's elements — nothing exists before this
     actx = startEngine();
-    if (actx) { onContextState(s => { if (s === "interrupted") pauseMusic(); }); loadSfx(); unlockMusic(); }   // a call on iOS: the music pauses, the next gesture plays it again
+    if (actx) { onContextState(s => { if (s === "interrupted") pauseMusic(); }); loadSfx(); }   // a call on iOS: the music pauses, the next gesture plays it again
   } else if (actx.state !== "running" && actx.state !== "closed") {
     try { const p = actx.resume(); if (p && p.catch) p.catch(() => { /* SPEC-025 AC 7c: not allowed yet — the next gesture tries again */ }); } catch (e) { /* ok */ }
   }
+  unlockMusic();                                                 // SPEC-047: every gesture unlocks the music elements that are not unlocked yet (WebKit: only a release counts, not the touch)
   resumeMusic();                                                 // SPEC-047 AC 10: after the background / a call the first gesture plays the paused music again
   nudgeMusic();                                                  // and every gesture plays what should be playing but is not (a refused play(), an element the system paused)
 }
@@ -112,7 +113,13 @@ export function winCountSounds(reward) {
 
 // ---------- who is on this device, loops, the frame (SPEC-047) ----------
 // the slots of the players on this device: their sounds are full volume; a bot's, Dad's and (online) a friend's play at AUDIO.OTHERS
-const localSlots = () => (G && G.littles ? G.littles.filter(l => l.kind === "player").map(l => l.slot) : []);
+// (and "big" when a player moves Dad on this device: G.big.player)
+const localSlots = () => {
+  if (!G || !G.littles) return [];
+  const slots = G.littles.filter(l => l.kind === "player").map(l => l.slot);
+  if (G.big && G.big.player) slots.push("big");
+  return slots;
+};
 export const isOther = slot => !!slot && !localSlots().includes(slot);
 // the one owner of the audio's per-frame work (main.js calls it every frame): the music follows the screen, the loops follow the level (none outside play).
 // An audio failure is logged once and never stops the frame
