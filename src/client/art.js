@@ -74,6 +74,11 @@ export function art(name) {
   if (a.state === "idle") artRequest(a, name);
   return null;
 }
+// SPEC-044: the picture is known to be missing (the assets folder is not there, or its file failed to load — even while it is asked for again), not just still loading
+export function artFailed(name) {
+  const a = artImgs.get(name);
+  return !a || a.state === "bad" || (!!a.failedAt && a.state !== "ok");
+}
 // не постоянная картинка: попросили — грузим (не раньше старта загрузки и ответа пробы; нет папки assets/ — «bad», рисунок кодом)
 function artRequest(a, name) {
   a.seen = performance.now();

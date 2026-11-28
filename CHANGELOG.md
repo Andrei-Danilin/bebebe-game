@@ -47,6 +47,8 @@ The version is `package.json` `version` (shown on the "For grown-ups" page); how
   "New here!" card the first time and a ? button on the level card (SPEC-042).
 - Every world has its own item next to the banana: a football to kick at Dad, a cupcake he stops to eat, a paper plane
   he turns to watch, a slippery watermelon slice and snowballs that freeze him for a moment (SPEC-043).
+- Every world has its own houses: a treehouse, a team dugout, a corner shop, a school bus, a beach hut and an igloo for
+  the kids, and a messy shed, hut, garage, caretaker's room, shack and log cabin for Dad (SPEC-044).
 
 ## [1.0.0-dev] - what is in the game today
 

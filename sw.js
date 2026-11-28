@@ -27,17 +27,17 @@ const NET_TIMEOUT_MS = 4000;             // weak signal: after this long, a cach
 const SW_BUILD = 11;
 const SW_STRATEGY = "0c8e52b02e";
 const SW_VERSION = "bebebe-1.0.0-dev-b11";
-const SRC_HASH = "8526978f9b";
+const SRC_HASH = "5f31597888";
 const PRECACHE_LOCAL = [
   "./", "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512-maskable.png",
   "./icons/icon-512.png", "./icons/icon.svg", "./index.html", "./manifest.webmanifest"
 ];
 const PRECACHE_SRC = [
-  "./src/client/adaptive.js?v=5487878407", "./src/client/art-names.js?v=c95b54939f",
-  "./src/client/art.js?v=8c81ec746c", "./src/client/back.js?v=2bbaab7f17", "./src/client/cadence.js?v=6fc971a515",
+  "./src/client/adaptive.js?v=5487878407", "./src/client/art-names.js?v=53a55ace1a",
+  "./src/client/art.js?v=dee97c538e", "./src/client/back.js?v=2bbaab7f17", "./src/client/cadence.js?v=6fc971a515",
   "./src/client/debug.js?v=8fcada08ff", "./src/client/devices.js?v=892965ff6f", "./src/client/errors.js?v=7b215fb847",
   "./src/client/flow.js?v=6fb99ab1f9", "./src/client/fx.js?v=7a3aaf4fc8", "./src/client/input.js?v=9b767266f2",
-  "./src/client/lifecycle.js?v=42d6c088ba", "./src/client/look.js?v=6ccc30311a", "./src/client/main.js?v=bfa3b146b5",
+  "./src/client/lifecycle.js?v=42d6c088ba", "./src/client/look.js?v=3ae1af9f97", "./src/client/main.js?v=bfa3b146b5",
   "./src/client/names.js?v=dff85cded6", "./src/client/outfits.js?v=e814941367", "./src/client/perf.js?v=2462f1b4ae",
   "./src/client/ports.js?v=4285602733", "./src/client/preview-data.js?v=89f11bb2ea",
   "./src/client/progress.js?v=38515d7fe6", "./src/client/quality.js?v=1fa1c771b3",
@@ -45,8 +45,9 @@ const PRECACHE_SRC = [
   "./src/client/shop.js?v=743773a108", "./src/client/sound.js?v=10116727f9", "./src/client/state.js?v=a1a3946757",
   "./src/client/storage.js?v=686b11f06c", "./src/client/three/batch.js?v=72814fddc1",
   "./src/client/three/bosses.js?v=7814dfb8d4", "./src/client/three/camera.js?v=cd37d1af9d",
-  "./src/client/three/characters.js?v=cdf38dba20", "./src/client/three/houses.js?v=cc24238c90",
-  "./src/client/three/look3d.js?v=bed183f8c6", "./src/client/three/map3d.js?v=75c5f2307a",
+  "./src/client/three/characters.js?v=cdf38dba20", "./src/client/three/housekit.js?v=c97a1bd9fd",
+  "./src/client/three/houses-worlds.js?v=43e7dca263", "./src/client/three/houses.js?v=5d21b8a0b2",
+  "./src/client/three/look3d.js?v=137477ce46", "./src/client/three/map3d.js?v=2a90b55a5b",
   "./src/client/three/mapstate.js?v=df23bf049c", "./src/client/three/materials.js?v=b97d638913",
   "./src/client/three/pools.js?v=a68f4e4b14", "./src/client/three/previews.js?v=230afb25d5",
   "./src/client/three/setup.js?v=3cb458f3c6", "./src/client/three/sync.js?v=5fb10ceeef",
@@ -60,7 +61,7 @@ const PRECACHE_SRC = [
   "./src/client/ui/draw.js?v=527ecbf8be", "./src/client/ui/grownups.js?v=9cec820d99",
   "./src/client/ui/home.js?v=718eac14e4", "./src/client/ui/hud.js?v=d25af0ceeb",
   "./src/client/ui/lang.js?v=568a4dc213", "./src/client/ui/layout.js?v=d46dd9e8b5",
-  "./src/client/ui/level-preview.js?v=85d8838a16", "./src/client/ui/map.js?v=464261adf6",
+  "./src/client/ui/level-preview.js?v=698fb9c64c", "./src/client/ui/map.js?v=464261adf6",
   "./src/client/ui/measure.js?v=7c174e9035", "./src/client/ui/menu.js?v=5cdc85b5f1",
   "./src/client/ui/minimap.js?v=e900bbfee9", "./src/client/ui/paper.js?v=c25342da07",
   "./src/client/ui/phone.js?v=c718f7078d", "./src/client/ui/screens.js?v=e98bfff809",
@@ -92,7 +93,7 @@ const PRECACHE_THREE = [
 // precache:end
 // SPEC-020: written by npm run assets (scripts/assets.js) — do not edit by hand
 // assets:start
-const ASSETS_HASH = "1c3b987eae59";
+const ASSETS_HASH = "068e87308196";
 const PRECACHE_ASSETS = [
   "./assets/main_tile.webp", "./assets/menu_bg.webp", "./assets/map_bg_park.webp", "./assets/map_bg_field.webp",
   "./assets/map_bg_city.webp", "./assets/map_bg_school.webp", "./assets/map_bg_beach.webp",
@@ -106,6 +107,10 @@ const PRECACHE_ASSETS = [
   "./assets/round_sound.webp", "./assets/round_restart.webp", "./assets/cloud_heart_full.webp",
   "./assets/cloud_heart_half.webp", "./assets/cloud_heart_fading.webp", "./assets/cloud_heart_empty.webp",
   "./assets/coin_badge.webp", "./assets/ribbon_star.webp", "./assets/house_messy.webp", "./assets/house_kids.webp",
+  "./assets/house_park_kids.webp", "./assets/house_field_kids.webp", "./assets/house_city_kids.webp",
+  "./assets/house_school_kids.webp", "./assets/house_park_dad.webp", "./assets/house_field_dad.webp",
+  "./assets/house_city_dad.webp", "./assets/house_school_dad.webp", "./assets/house_beach_kids.webp",
+  "./assets/house_winter_kids.webp", "./assets/house_beach_dad.webp", "./assets/house_winter_dad.webp",
   "./assets/stop_empty.webp", "./assets/stop_current.webp", "./assets/stop_locked.webp", "./assets/stop_boss.webp",
   "./assets/star_gold.webp", "./assets/star_empty.webp", "./assets/stamp_done.webp", "./assets/padlock.webp",
   "./assets/world_park.webp", "./assets/world_field.webp", "./assets/world_city.webp", "./assets/world_school.webp",

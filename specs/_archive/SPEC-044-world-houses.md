@@ -1,12 +1,14 @@
 # SPEC-044 — Every world has its own houses: treehouse, dugout, shop, school bus, beach hut, igloo — and Dad's messy versions
 
-Status: ready (art 38, 39 on master, checked by Claude 2026-11-26:
+Status: done (merged by "Merge SPEC-044", see git log)
+Art notes (art 38, 39, checked by Claude 2026-11-26):
 - **38**: top row kids' Park treehouse, Field changing room with flags (flat open top), City shop with awning, School bus; bottom row Dad's red shed with rake and sock, groundskeeper hut with mower, boots and trash, garage with pizza boxes, caretaker room with leaking pipe and mop.
 - **39**: kids' striped beach hut on stilts, kids' igloo (heart above the door), Dad's shabby beach hut with torn umbrella and pizza boxes, Dad's snowy log cabin with socks and trash.
-The sprites have white sticker edges and small ground patches: keep them in the cut-out.)
+The sprites have white sticker edges and small ground patches: keep them in the cut-out.
 Complexity: M
 Branch: SPEC-044-world-houses
 Decided by: Andrei (2026-11-26): the kids' house and Dad's house look different in every world (idea 3). Which house per world: Claude, from the art sheets 38 / 39 that Andrei generates.
+Decisions during the run: Andrei (2026-11-27): the art budget is raised instead of shrinking art — `scripts/assets.json` `budget.totalKB` 4096 → 5120 (`backgroundKB` stays 250; SPEC-040's 25 MB decoded memory at home is unchanged, the house sprites are non-resident); the pinned value in `tests/assets.spec.js` follows, the backlog line "Art budget (SPEC-042)" is gone. Claude: the rules page (`ui/story.js` `RULE_ART`) keeps `house_kids` on purpose — it explains the game, it is not tied to a world; the level card is the one place that shows the current world's pair.
 
 ## Description
 Today both houses look the same in every world: a light-blue kids' house and a faded-red messy Dad's house (only the roof gets snow in Winter; backlog SPEC-021). Each world now gets its own pair, modelled in 3D in the comic style from the concept sheets:

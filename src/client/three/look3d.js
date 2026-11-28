@@ -5,7 +5,7 @@ import * as THREE from "three";
 import { CELL, COLS, ROWS, W } from "../../core/config.js";
 import { charGroup, modelOf } from "./characters.js";
 import { fadeState } from "./batch.js";
-import { houseInfo, houseRoofs } from "./houses.js";
+import { HOUSE_BUILDS, houseInfo, houseRoofs } from "./houses.js";
 import { fadeBushes, fadeTrees } from "./map3d.js";
 import { mapGroup } from "./mapstate.js";
 import { disposeTree, gradTex, groundCanvas, groundTex, ownMat, paperMade, paperMat, paperMesh, paperU } from "./materials.js";
@@ -13,6 +13,14 @@ import { camera, renderer, scene, sun } from "./setup.js";
 import { HATCHED } from "./themes.js";
 import { G } from "../../core/active.js";
 
+// луч от камеры к голове героя: упирается ли в непрозрачную крышу
+function roofHides(e) {
+  const m = modelOf(e);
+  if (!m) return false;
+  const head = m.head.getWorldPosition(new THREE.Vector3()), dir = head.clone().sub(camera.position), dist = dir.length();
+  const hits = new THREE.Raycaster(camera.position.clone(), dir.normalize(), 0, dist).intersectObjects(houseRoofs.flatMap(hr => hr.meshes), false);
+  return hits.some(h => h.object.visible && h.object.material.opacity > 0.5);
+}
 // SPEC-021 (тесты): как нарисована 3D-сцена. look3D() — всё; look3D("houses") и т. п. — только эта часть (дёшево, для опроса):
 // outline — контуры (цвета, во сколько раз толще просьбы детали, неровность, сдвиг, у кого контур, подпись карты), materials — тона
 // заливки, типы материалов, тень солнца; paper — бумажное зерно; ground — штрихи земли; hatch — штриховка; houses — домики, крыши
@@ -83,13 +91,10 @@ const LOOK_PARTS = {
     houses: houseInfo && { snow: houseInfo.snow,
       kid: houseInfo.kid && { ...houseInfo.kid, fade: undefined, alpha: houseInfo.kid.fade.a, glow: houseInfo.kid.fade.glowNow || 0 },
       big: houseInfo.big && { ...houseInfo.big, fade: undefined, alpha: houseInfo.big.fade.a } },
-    roofHides: G.littles.map(l => {                       // луч от камеры к голове маленького: упирается ли в непрозрачную крышу
-      const m = modelOf(l);
-      if (!m) return false;
-      const head = m.head.getWorldPosition(new THREE.Vector3()), dir = head.clone().sub(camera.position), dist = dir.length();
-      const hits = new THREE.Raycaster(camera.position.clone(), dir.normalize(), 0, dist).intersectObjects(houseRoofs.flatMap(hr => hr.meshes), false);
-      return hits.some(h => h.object.visible && h.object.material.opacity > 0.5);
-    }) }),
+    roofHides: G.littles.map(roofHides),
+    bigHides: roofHides(G.big),
+    roofBoxes: houseRoofs.map(hr => { const b = new THREE.Box3().setFromObject(hr.g); return { x0: b.min.x, x1: b.max.x, z0: b.min.z, z1: b.max.z }; }),   // where each roof is (cells; kids' first)                           // SPEC-044: the same for the Big One
+    builders: HOUSE_BUILDS }),
   // SPEC-040 AC 5: the trees, bushes and roofs — how each is drawn now (a: its opacity, fading: drawn from its own transparent meshes, transparent: the
   // material it is drawn with is transparent, instanced: drawn as an instance of the opaque batch), where it stands (px of the world)
   fades: () => ({ fades: {

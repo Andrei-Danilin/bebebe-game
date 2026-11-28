@@ -833,8 +833,9 @@ test("the level card draws the preview with both houses; level 20 has the boss f
   expect(open.card.preview, "an open level: no boss, not closed").toEqual({ boss: false, locked: false });
   expect(open.hud, "the picture has its rectangle on the card").toBeTruthy();
   expect(open.hud.w / open.hud.h, "3:2 (the map is 30 × 20 cells) plus the frame").toBeGreaterThan(1.3);
-  expect(open.use.house_kids, "the kids' house on the map").toBeGreaterThanOrEqual(1);
-  expect(open.use.house_messy, "Dad's house on the map").toBeGreaterThanOrEqual(1);
+  const world = await page.evaluate(() => window.__bb.world);   // SPEC-044: the houses of the card's world (tests/houses.spec.js: the fallback)
+  expect(open.use[`house_${world}_kids`], "the kids' house on the map").toBeGreaterThanOrEqual(1);
+  expect(open.use[`house_${world}_dad`], "Dad's house on the map").toBeGreaterThanOrEqual(1);
   expect(closed.card.preview).toEqual({ boss: false, locked: true });
   expect(closed.use.padlock, "a closed level: the padlock over its preview (the map's closed stops draw theirs too)").toBeGreaterThan(open.use.padlock || 0);
   // the boss level: the boss face (stop_boss) one more time than the map alone draws it

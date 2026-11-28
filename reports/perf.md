@@ -283,3 +283,27 @@ Nothing else regresses beyond noise: the GPU frame is vsync-bound at 16.7 ms on 
 | 667×375 | Park / Field / City / School / Beach / Winter | 1.68 / 1.24 / 1.19 / 1.52 / 1.84 / 1.87 % | 0.000 / 0.000 / 0.000 / 0.000 / 0.000 / 0.057 % | 40 / 34 / 40 / 38 / 40 / 205 | 0.30 / 0.21 / 0.23 / 0.25 / 0.28 / 0.40 |
 
 The differences are thin shadow edges (the joined and instanced pieces rasterise a pixel differently) and, in Winter, the self-shadow of the rocks (max 205–211, 0.06–0.10 % of the pixels). Low-tier pictures of the same levels, both sizes: `low-desk-<world>.png`, `low-phone-<world>.png` in the same folder.
+
+## SPEC-044 — the houses of every world (AC 3), measured 2026-11-27
+
+**Draw calls per house** (`tests/houses.spec.js`, a gate): desktop view 960×640 (the whole map in view: no camera or culling decides the count), the busiest level of each world, the game frozen in the pause in the same state (everyone away, roofs solid, one frame drawn per variant — on a moving game the SwiftShader frames of CI differ by other things and the counts were negative), a house's calls (colour + shadow) = the scene's minus the scene without that house (`LOOK.HOUSE_STYLE` `none`). The world's house against today's (`classic`), kids' / Dad's, identical on the GPU and on SwiftShader:
+
+| world | kids' house | Dad's house |
+|---|---|---|
+| Park | 16 / 20 | 27 / 23 |
+| Field | 10 / 20 | 23 / 23 |
+| City | 10 / 20 | 27 / 23 |
+| School | 17 / 20 | 19 / 23 |
+| Beach | 14 / 20 | 23 / 23 |
+| Winter | 3 / 47 | 54 / 50 |
+
+(Dad's roof mess — sock, trash heap, stink lines — costs a few calls; the sock and the heap have no outline pass so that Park and City stay under today's +30%.)
+
+**Frame time**, `node scripts/perf.js --base master --rounds 5 --level 3` (paired A/B, local GPU, `master` dd349ce against the branch with the houses; Park 3, the Big One looking away; JS = the game's rAF callback, GPU = the same + a 1-pixel readPixels):
+
+| view | JS A → B | GPU A → B |
+|---|---|---|
+| phone 844×390 | 2 → 2 ms (×1.00) | 6.7 → 6.7 ms (×1.01) |
+| desktop 960×640 | 2.6 → 2.5 ms (×0.96) | 9.7 → 9.8 ms (×1.01) |
+
+Unchanged within noise. The steady frame of the `perf.spec.js` tests is vsync-bound on the GPU (16.7 ms on both sides) and is only recorded on CI (SwiftShader), so no frame-time gate was added: it would flake there.
