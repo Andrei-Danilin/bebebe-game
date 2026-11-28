@@ -37,7 +37,8 @@ export function screenArt() {
     const c = STORY[storyCh], rules = ui.storyPage === "rules";
     return { sig: `story:${ui.storyPage}:${storyCh}`, now: rules ? ["tutorial_a"] : c && chapterOpen(c) && STORY_ART[c.id] ? [STORY_ART[c.id]] : [], next: [] };
   }
-  if (mode === "map") return { sig: `map:${G.world}`, now: [mapBgArt(G.world)], next: [...cardArt(G.world), ...(tipDue(G.world) ? tipArt(G.world) : [])] };
+  // (the world tabs change the map's page, not the screen: no wait, a swipe through the worlds is never swallowed; a page that is not in yet fades in)
+  if (mode === "map") return { sig: "map", now: [mapBgArt(G.world)], next: [...cardArt(G.world), ...(tipDue(G.world) ? tipArt(G.world) : [])] };
   if (mode === "levelCard") {
     if (ui.tip) return { sig: `tip:${ui.tip}`, now: tipArt(ui.tip), next: [] };
     return { sig: `levelCard:${G.world}:${cardLevel}`, now: cardArt(G.world), next: cardLevel === 1 && tipDue(G.world) ? tipArt(G.world) : [] };
@@ -66,6 +67,7 @@ export function screenGate(now, fitN) {
     else { if (!holdSince) holdSince = now; draw = false; }
   }
   if (draw) { if (late) artLate(s.now); shown = s.sig; shownFit = fitN; holdSince = 0; }
+  if (draw && !late) artLate(s.now);   // the same screen asks for a picture that is not in yet (the map's world changed): no wait, it fades in when it comes
   holding = !draw;
   if (rec.on && rec.log.length < 2000) rec.log.push({ n: frameNo, t: Math.round(now), screen: shown, target: s.sig, held: !draw, late, fade: draw ? Math.round(100 * Math.min(1, ...s.now.map(artFade))) / 100 : 1, missing: draw ? s.now.filter(n => !artReady([n])) : [] });
   frameNo++;
