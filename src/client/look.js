@@ -340,6 +340,14 @@ export const LOOK = {
   NAME_TAG: { up: 10, size: 15, rest: 16 },
   BANNER_SAVE_NOTE: 6,       // SPEC-025 phase 2: сек — заметка о сохранении (восстановили / новая игра / не сохраняет) внизу меню
   PERF_LOOK: { frames: 300, overlayMs: 500 },   // SPEC-025 AC 15b: __bb.perf() — кадров в окне; ?perf=1 — обновление панели (мс)
+  // SPEC-047 (sound and music; the numbers are Claude's, the kids tune the volumes after listening): the audio engine and the audio
+  // pipeline (scripts/audio.js reads JINGLE_MAX, tests/audio the budgets). MASTER / MUSIC_*: bus gains (all, menus, play, pause);
+  // OTHERS: bots' and Dad's sounds as a share of the local players'; *_XFADE: seconds; MAX_VOICES / RETRIGGER: polyphony and the
+  // same-sound gap (s); JINGLE_MAX: a longer jingle is cut (s); PRECACHE_KINDS + PRECACHE_MUSIC: what the service worker caches at
+  // install (the rest on first play); PRECACHE_MAX and the *_MAX are budgets in bytes (a sfx / loop, a jingle, a music track, all of assets/audio).
+  AUDIO: { MASTER: 0.8, MUSIC_MENU: 0.7, MUSIC_PLAY: 0.35, MUSIC_PAUSE: 0.25, OTHERS: 0.7, SCREEN_XFADE: 1, LOOP_XFADE: 2, MAX_VOICES: 8, RETRIGGER: 0.05,
+    JINGLE_MAX: 5, PRECACHE_KINDS: ["sfx", "loop", "jingle"], PRECACHE_MUSIC: ["theme", "story"],
+    PRECACHE_MAX: 3.5 * 1024 * 1024, SFX_MAX: 60 * 1024, JINGLE_FILE_MAX: 120 * 1024, MUSIC_MAX: 1.8 * 1024 * 1024, TOTAL_MAX: 13 * 1024 * 1024 },
   TEXT_TEST_SCALE: 1,        // только для тестов: ширина текста надписи уровня и карточек магазина на телефоне × это (шрифты CI и iPhone шире)
 };
 // SPEC-021 / SPEC-039 (from ui/draw.js): the radius of a Little One's head in model units (before the head scale): the 3D model and the
