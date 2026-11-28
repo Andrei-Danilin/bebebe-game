@@ -24,8 +24,7 @@ import { botOutfit, endTryOn, makeLook, skinSel } from "./outfits.js";
 import { saveProgress, setLang } from "./progress.js";
 import { answerLang, setSoundSetting } from "./save.js";
 import { PHONE } from "./screen.js";
-import { cancelPending } from "./audio/sfx.js";
-import { playSound, winCountSounds } from "./sound.js";
+import { cancelPending, playSound, winCountSounds } from "./sound.js";
 import { inWardrobe, mode, screenChanged, setModeValue, ui } from "./state.js";
 import { camSnap } from "./three/camera.js";
 import { practiceStep, setPracticeStep, setTutorial, tutorialPages } from "./tutorial-data.js";
@@ -130,7 +129,7 @@ export function settleDecidedWin() {
 // SPEC-025 AC 14d: the one "back" (Escape, the back buttons, __bb.goBack; later the system Back of a native wrapper) — today's
 // Escape per screen: play → pause, pause → play, a menu → its parent, win / lose → the map; the home screen: the Leave dialog (SPEC-033, D-14)
 export function goBack() {
-  if (mode !== "play" && mode !== "home") playSound("back");   // SPEC-047: a menu goes back (the Leave dialog and the pause are not a "back")
+  if (mode !== "play" && mode !== "home") playSound("back");   // SPEC-047: a menu goes back, and so does leaving the pause (playing the level is not a back, the home screen opens the Leave dialog)
   if (mode === "map") setMode("home");
   else if (mode === "levelCard") { if (ui.tip) closeTip(); else closeCard(); }
   else if (mode === "story") storyBackKey();

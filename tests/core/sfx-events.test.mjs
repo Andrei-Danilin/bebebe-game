@@ -32,10 +32,10 @@ function scene(opts = {}) {
 const sfx = g => g.fx.filter(e => e.type === "sfx").map(e => e.name);
 const take = g => { const out = g.fx.filter(e => e.type === "sfx"); g.fx.length = 0; return out; };
 
-test("hug: hug, with mittens (power 2+) hug_mega; a bot's hug carries other: true", () => {
+test("hug: hug, with mittens (power 2+) hug_mega; every event carries the slot of who made it (a bot's is its own slot)", () => {
   const { g } = scene();
   withGame(g, () => { checkContacts(); });
-  assert.deepEqual(take(g), [{ type: "sfx", name: "hug" }]);
+  assert.deepEqual(take(g), [{ type: "sfx", name: "hug", slot: "p1" }]);
   const m = scene();
   withGame(m.g, () => { m.g.stock.gloves.mittens = 3; m.g.littles[0].glove = "mittens"; checkContacts(); });
   assert.deepEqual(take(m.g).map(e => e.name), ["hug_mega"]);
@@ -46,16 +46,18 @@ test("hug: hug, with mittens (power 2+) hug_mega; a bot's hug carries other: tru
     Object.assign(b.g.littles[0], { state: "home" });
     checkContacts();
   });
-  assert.deepEqual(take(b.g), [{ type: "sfx", name: "hug", other: true }]);
+  assert.deepEqual(take(b.g), [{ type: "sfx", name: "hug", slot: b.g.littles[1].slot }]);
+  assert.equal(b.g.littles[1].kind, "bot");
 });
 
-test("push: push + fall 0.25 s later; every 3rd push of a level also growls; a wide push is one wide_push", () => {
+test("push: push + fall; every 3rd push of a level also growls; a wide push is one wide_push", () => {
   const { g } = scene();
   const push = () => withGame(g, () => { const l = g.littles[0]; Object.assign(l, { state: "ok", invuln: 0 }); l.fx.shield = 0; pushHit(l); return take(g); });
   const first = push();
   assert.deepEqual(first.map(e => e.name).sort(), ["fall", "push"]);
-  assert.deepEqual(first.find(e => e.name === "fall"), { type: "sfx", name: "fall", delay: 0.25 }, "the kid sits down 0.25 s after the push");
-  assert.equal(CFG.SFX_FALL_DELAY, 0.25);
+  assert.deepEqual(first.find(e => e.name === "fall"), { type: "sfx", name: "fall", slot: "p1" }, "the pushed kid's fall is the kid's (the client delays it by LOOK.AUDIO.DELAY.fall)");
+  assert.deepEqual(first.find(e => e.name === "push"), { type: "sfx", name: "push", slot: "big" }, "the push is Dad's");
+  assert.equal(CFG.SFX_FALL_DELAY, undefined, "the delay is a sound number: LOOK.AUDIO.DELAY");
   assert.deepEqual(push().map(e => e.name).sort(), ["fall", "push"], "2nd push: no growl");
   assert.deepEqual(push().map(e => e.name).sort(), ["fall", "growl", "push"], "3rd push growls");
   assert.deepEqual(push().map(e => e.name).sort(), ["fall", "push"]);
@@ -70,7 +72,7 @@ test("push: push + fall 0.25 s later; every 3rd push of a level also growls; a w
 test("a shield stops a push: shield (no push, no fall)", () => {
   const { g } = scene();
   withGame(g, () => { const l = g.littles[0]; l.fx.shield = 5; pushHit(l); });
-  assert.deepEqual(take(g), [{ type: "sfx", name: "shield" }]);
+  assert.deepEqual(take(g), [{ type: "sfx", name: "shield", slot: "p1" }]);
 });
 
 test("kiss: kiss when thrown, kiss_hit when it hits; kit: kit; thrown_out when Dad's house throws a kid out", () => {
@@ -196,4 +198,33 @@ test("wantedLoops: dizzy while Dad lies; danger_tick for a player inside his hou
   assert.deepEqual(loops(), ["danger_tick"]);
   withGame(g, () => { g.phase = "won"; });
   assert.deepEqual(loops(), [], "none after the win");
+});
+
+// Dad's sounds carry his slot "big": push, wide_push, growl, alert, heard, slip, kind (the client plays everything that is not from a slot on this device at AUDIO.OTHERS)
+test("Dad's sounds carry the slot \"big\": push, growl, wide_push, alert, heard, slip, kind", () => {
+  const { g } = scene();
+  const dad = [];
+  withGame(g, () => {
+    for (let i = 0; i < 3; i++) { const l = g.littles[0]; Object.assign(l, { state: "ok", invuln: 0 }); l.fx.shield = 0; pushHit(l); }
+    dad.push(...take(g));
+    g.big.boss = "school"; Object.assign(g.littles[0], { state: "ok", invuln: 0 }); pushHit(g.littles[0]); dad.push(...take(g));
+    g.big.boss = null;
+    Object.assign(g.big, { dir: Math.PI, state: "look", timer: 999, pushCd: 0, noPush: 0, stun: 0 });
+    Object.assign(g.littles[0], { state: "ok", invuln: 0, x: g.big.x - (g.big.r + g.littles[0].r), y: g.big.y });
+    update(DT); dad.push(...take(g));
+    startKindWalk(); dad.push(...take(g));
+  });
+  const slots = name => [...new Set(dad.filter(e => e.name === name).map(e => e.slot))];
+  for (const n of ["push", "growl", "wide_push", "alert", "kind"]) assert.deepEqual(slots(n), ["big"], n);
+  const h = scene();
+  withGame(h.g, () => {
+    Object.assign(h.g.big, { dir: 0, state: "look", timer: 999, noise: CFG.NOISE_TURN, hearCd: 0 });
+    Object.assign(h.g.littles[0], { x: h.p.x - 100, state: "ok", moving: true, speedFrac: 1 }); h.g.littles[0].fx.cloak = 0;
+    const keep = CFG.HEAR_CHANCE; CFG.HEAR_CHANCE = 1;
+    try { hearNoise(DT); } finally { CFG.HEAR_CHANCE = keep; }
+  });
+  assert.deepEqual(h.g.fx.filter(e => e.name === "heard").map(e => e.slot), ["big"]);
+  const s = scene();
+  withGame(s.g, () => { s.g.items.length = 0; s.g.items.push({ id: 5, kind: "banana", x: s.g.big.x, y: s.g.big.y, t: 0, life: 99 }); updateItems(DT); });
+  assert.deepEqual(s.g.fx.filter(e => e.name === "slip").map(e => e.slot), ["big"]);
 });

@@ -15,7 +15,7 @@ export function startKindWalk() {
   G.pendingWin = CFG.KIND_WALK; G.phase = "kindWalk";
   emit("burst", { kind: "heart", x: G.big.x, y: G.big.y - 30, n: CFG.KIND_HEARTS, color: "#ff4d8d" });
   for (const l of G.littles) if (l.state === "ok") emit("pop", { key: "cheer", args: [], x: l.x, y: l.y - 40, color: "#facc15" });
-  emit("sfx", { name: "kind" });                           // SPEC-047: Dad turns kind (before the win jingle)
+  emit("sfx", { name: "kind", slot: "big" });                           // SPEC-047: Dad turns kind (before the win jingle)
 }
 export function updateKindWalk(dt) {
   for (const l of G.littles) { l.moving = false; l.speedFrac = 0; if (l.state === "ok" && l.hugAnim <= 0) l.dir = turnToward(l.dir, Math.atan2(G.big.y - l.y, G.big.x - l.x), CFG.KIND_TURN * dt); }

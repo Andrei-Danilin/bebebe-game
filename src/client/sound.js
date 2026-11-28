@@ -2,11 +2,17 @@
 // its buses, sfx.js: the files); playSound(name) plays a name's file and, when it is not loaded or failed, its beep from here (or nothing, if it
 // has none). The context starts on the first gesture (initAudio). Client module (moved out of index.html in Phase C).
 
-import { startEngine, sfxOut } from "./audio/engine.js";
-import { pauseMusic, resumeMusic } from "./audio/music.js";
-import { loadSfx, playSfx, sfxOn } from "./audio/sfx.js";
+// The single entry point to src/client/audio/: flow, fx, main and debug use the audio through the names exported here, never the audio folder directly.
+import { wantedLoops } from "../core/soundloops.js";
+import { G } from "../core/active.js";
+import { levels as busLevels, onContextState, sfxOut, startEngine } from "./audio/engine.js";
+import { currentTrack, musicInfo, musicPaused, musicTick, nudgeMusic, pauseMusic, resumeMusic, seekMusic, unlockMusic } from "./audio/music.js";
+import { cancelPending, decodedBytes, failedNames, loadedNames, loadSfx, loopRegion, loopsPlaying, playLog, playSfx, setLoops, sfxOn, voiceCount } from "./audio/sfx.js";
 import { LOOK } from "./look.js";
 import { simMode } from "./screen.js";
+import { mode, ui } from "./state.js";
+
+export { cancelPending };
 
 // =====================================================================
 //  ЗВУК
@@ -16,11 +22,14 @@ let actx = null;
 // running (SPEC-025 AC 14: "suspended" after a hide, iOS "interrupted" after a call)
 export function initAudio() {
   if (simMode) return;
-  resumeMusic();                                                 // SPEC-047 AC 10: after the background / a call the first gesture plays the paused music again
-  if (!actx) { actx = startEngine(); loadSfx(); }                // SPEC-047: the context, its buses, the sounds' files — nothing exists before this
-  else if (actx.state !== "running" && actx.state !== "closed") {
+  if (!actx) {                                                   // SPEC-047: the context, its buses, the sounds' files, the music's elements — nothing exists before this
+    actx = startEngine();
+    if (actx) { onContextState(s => { if (s === "interrupted") pauseMusic(); }); loadSfx(); unlockMusic(); }   // a call on iOS: the music pauses, the next gesture plays it again
+  } else if (actx.state !== "running" && actx.state !== "closed") {
     try { const p = actx.resume(); if (p && p.catch) p.catch(() => { /* SPEC-025 AC 7c: not allowed yet — the next gesture tries again */ }); } catch (e) { /* ok */ }
   }
+  resumeMusic();                                                 // SPEC-047 AC 10: after the background / a call the first gesture plays the paused music again
+  nudgeMusic();                                                  // and every gesture plays what should be playing but is not (a refused play(), an element the system paused)
 }
 // SPEC-025 AC 14: the app went to the background — silence until the next gesture
 export function suspendAudio() {
@@ -100,3 +109,25 @@ export function winCountSounds(reward) {
   for (let k = 1; k <= Math.min(3, reward.stars || 0); k++, t += W.star) playSound("star_" + k, { delay: t, tag: "win" });
   for (let i = 0; i < Math.min(W.coinMax, reward.coins || 0); i++, t += W.coin) playSound("coin", { delay: t, tag: "win" });
 }
+
+// ---------- who is on this device, loops, the frame (SPEC-047) ----------
+// the slots of the players on this device: their sounds are full volume; a bot's, Dad's and (online) a friend's play at AUDIO.OTHERS
+const localSlots = () => (G && G.littles ? G.littles.filter(l => l.kind === "player").map(l => l.slot) : []);
+export const isOther = slot => !!slot && !localSlots().includes(slot);
+// the one owner of the audio's per-frame work (main.js calls it every frame): the music follows the screen, the loops follow the level (none outside play).
+// An audio failure is logged once and never stops the frame
+let tickLogged = false;
+export function audioTick() {
+  if (simMode) return;
+  try {
+    musicTick();
+    setLoops(mode === "play" ? wantedLoops(localSlots()) : []);
+  } catch (e) { if (!tickLogged) { tickLogged = true; console.error("audio:", e); } }
+}
+// for the tests (__bb.audio): getters over the audio's state, and tick() = one audioTick (a test that moves the game by hand asks for the loops this way)
+export const audioDebug = {
+  get log() { return playLog(); }, get track() { return currentTrack(); }, get music() { return musicInfo(); }, get levels() { return busLevels(); },
+  get loaded() { return loadedNames(); }, get failed() { return failedNames(); }, get loops() { return loopsPlaying(); }, get voices() { return voiceCount(); },
+  get settings() { return { music: ui.music, sfx: ui.sfx }; }, get musicPaused() { return musicPaused(); }, get decodedBytes() { return decodedBytes(); },
+  loopRegion, seekMusic, tick: audioTick
+};

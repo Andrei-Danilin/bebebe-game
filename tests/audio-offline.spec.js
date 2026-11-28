@@ -5,7 +5,7 @@
 const { test, expect } = require("./pw");
 const fs = require("fs");
 const path = require("path");
-const { openGameHttp, reloadGame, ROOT } = require("./helpers");
+const { openGameHttp, reloadGame, softly, ROOT } = require("./helpers");
 const { makeServer } = require("../scripts/serve");
 
 test.use({ serviceWorkers: "allow" });
@@ -43,7 +43,9 @@ test("the install caches the sounds and the music of the menus, not the other tr
   const cached = await pathsIn(page, CACHE_AUDIO);
   expect(cached.sort()).toEqual(swList("PRECACHE_AUDIO").map(u => "/" + u.slice(2)).sort());
   expect(cached).toEqual(expect.arrayContaining(["/assets/audio/manifest.json", "/assets/audio/theme.mp3", "/assets/audio/story.mp3", "/assets/audio/tap.mp3", "/assets/audio/win.mp3", "/assets/audio/rescue_loop.mp3"]));
-  for (const n of ["boss", "theme_song", "world_field", "world_city", "world_school", "world_beach", "world_winter"]) expect(cached, n).not.toContain(`/assets/audio/${n}.mp3`);
+  const soft = softly();
+  for (const n of ["boss", "theme_song", "world_field", "world_city", "world_school", "world_beach", "world_winter"]) soft(cached.includes(`/assets/audio/${n}.mp3`), n + " is cached on first play, not at install").toBe(false);
+  soft.done();
   expect((await pathsIn(page, CACHE_ASSETS)).filter(u => u.includes("/audio/")), "no audio in the sprite cache").toEqual([]);
   const bytes = await page.evaluate(async n => { const c = await caches.open(n); let s = 0; for (const r of await c.keys()) s += (await (await c.match(r)).arrayBuffer()).byteLength; return s; }, CACHE_AUDIO);
   expect(bytes, "AUDIO.PRECACHE_MAX (3.5 MB)").toBeLessThanOrEqual(3.5 * 1024 * 1024);
@@ -138,4 +140,20 @@ test("the sounds' caches are named by the build and the content, and the last tw
     await update();
     await expect.poll(keys, { timeout: 60_000 }).toEqual([CACHE_ASSETS, named("testaudio001"), named("testaudio002"), CACHE_SRC, CACHE_THREE].sort());
   } finally { server.close(); }
+});
+
+test("requests that come together for a track not cached yet share one download", async ({ page, context }) => {
+  const asked = [];
+  await context.route("**/assets/audio/world_school.mp3", async route => { asked.push(route.request().url()); await route.continue(); });
+  await openGameHttp(page);
+  await waitForSW(page);
+  const size = FILES.find(f => f.name === "world_school").bytes;
+  const got = await page.evaluate(async () => {
+    const ask = range => fetch("assets/audio/world_school.mp3", { headers: { Range: range } }).then(async r => ({ status: r.status, cr: r.headers.get("content-range"), len: (await r.arrayBuffer()).byteLength }));
+    return Promise.all([ask("bytes=0-"), ask("bytes=0-99"), ask("bytes=5000-5999"), ask("bytes=-10")]);
+  });
+  expect(got.map(g => g.status)).toEqual([206, 206, 206, 206]);
+  expect(got.map(g => g.len)).toEqual([size, 100, 1000, 10]);
+  expect(asked.length, "one request reached the network").toBe(1);
+  await expect.poll(() => pathsIn(page, CACHE_TRACKS), { timeout: 15_000 }).toEqual(["/assets/audio/world_school.mp3"]);
 });

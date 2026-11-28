@@ -29,7 +29,7 @@ test("no audio element before the first gesture; then theme streams in the menu,
   await recordDecodes(page);
   await openGame(page);
   await page.waitForTimeout(600);
-  expect(await info(page), "nothing before a gesture").toEqual({ track: null, id: 0, time: 0, dur: 0, pair: 0, elements: 0, crossing: false });
+  expect(await info(page), "nothing before a gesture").toEqual({ track: null, id: 0, time: 0, dur: 0, pair: 0, elements: 0, playing: 0, crossing: false });
   await gesture(page);
   await untilTrack(page, "theme");
   const a = await info(page);
@@ -177,7 +177,7 @@ test("with the music off no track plays and no element exists; switching it on b
   expect(await page.evaluate(() => window.__bb.audio.settings.music)).toBe(false);
   await gesture(page);
   await page.waitForTimeout(1200);
-  expect(await info(page), "off: nothing").toEqual({ track: null, id: 0, time: 0, dur: 0, pair: 0, elements: 0, crossing: false });
+  expect(await info(page), "off: nothing").toEqual({ track: null, id: 0, time: 0, dur: 0, pair: 0, elements: 0, playing: 0, crossing: false });
   await page.evaluate(() => window.__bb.tapButton("home:music"));            // on
   await untilTrack(page, "theme");
   await page.evaluate(() => window.__bb.tapButton("home:music"));            // off again: it fades out and is let go

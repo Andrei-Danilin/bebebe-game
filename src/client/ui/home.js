@@ -62,11 +62,11 @@ function homeIcons(x1, y, langW, w, h, size) {
   if (drawArtFit(snd, x1 - w / 2, y + h / 2, Math.min(w, h) * 1.05)) regButton(x1 - w, y, w, h, ui.sfx ? "🔊" : "🔇", toggleSound, "home:sound", Math.min(w, h));
   else fitButton(x1 - w, y, w, h, ui.sfx ? "🔊" : "🔇", M.icon, toggleSound, size, size).id = "home:sound";
   // the music switch: an emoji button until there is a picture of its own; off — crossed out with a red stroke
-  const mx = x1 - w - gap - w;
-  fitButton(mx, y, w, h, "🎵", M.icon, toggleMusic, Math.max(size, h * 0.62), Math.max(size, h * 0.62)).id = "home:music";
+  const mx = x1 - w - gap - w, K = M.home.musicIcon, glyph = Math.max(size, h * K.glyph);
+  fitButton(mx, y, w, h, "🎵", M.icon, toggleMusic, glyph, glyph).id = "home:music";
   if (!ui.music) {
-    ctx.save(); ctx.strokeStyle = "#dc2626"; ctx.lineWidth = Math.max(3, h * 0.09); ctx.lineCap = "round";
-    ctx.beginPath(); ctx.moveTo(mx + w * 0.2, y + h * 0.84); ctx.lineTo(mx + w * 0.8, y + h * 0.16); ctx.stroke(); ctx.restore();
+    ctx.save(); ctx.strokeStyle = K.ink; ctx.lineWidth = Math.max(K.lineMin, h * K.line); ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(mx + w * K.x0, y + h * K.y0); ctx.lineTo(mx + w * K.x1, y + h * K.y1); ctx.stroke(); ctx.restore();
   }
   const lx = mx - gap - langW, code = lang.toUpperCase(), sp = PHONE ? cpx(4) : 4;
   if (art("ui_globe")) {

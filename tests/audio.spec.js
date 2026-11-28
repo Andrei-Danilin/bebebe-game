@@ -70,10 +70,36 @@ test("every event of the core plays its sound (the file, not the beep); a bot's 
   // a bot's sound is marked (it plays at AUDIO.OTHERS), a delayed one starts later
   await wait(page);
   const n2 = await mark(page);
-  await emit(page, [{ name: "hug", other: true }, { name: "fall", delay: 0.25 }]);
+  await emit(page, [{ name: "hug", slot: "bot1" }, { name: "fall", slot: "p1" }]);   // a bot's hug (other), the player's own fall (delayed by LOOK.AUDIO.DELAY.fall)
   const [hug, fall] = await since(page, n2);
   expect([hug.name, hug.other, fall.name]).toEqual(["hug", true, "fall"]);
   expect(fall.at - hug.at, "the fall comes 0.25 s after").toBeCloseTo(0.25, 1);
+  expect(fall.other, "the player's own fall is full volume").toBeUndefined();
+  // Dad's sounds are "other" too (his slot is "big", not on this device); a sound with no slot, and a local player's, are not
+  await wait(page);
+  const n3 = await mark(page);
+  await emit(page, [{ name: "push", slot: "big" }, { name: "kiss", slot: "p1" }, { name: "alert", slot: "big" }, { name: "star" }]);
+  const got = Object.fromEntries((await since(page, n3)).map(e => [e.name, e.other === true]));
+  expect(got).toEqual({ push: true, kiss: false, alert: true, star: false });
+});
+
+test("scheduled sounds are never stolen: the win screen's stars and 12 coins play, only started voices make room; a steal is marked in the log", async ({ page }) => {
+  await openGame(page);
+  await ready(page);
+  await calm(page);
+  const n0 = await mark(page);
+  const count = [{ name: "star_1", delay: 0.9 }, { name: "star_2", delay: 1.35 }, { name: "star_3", delay: 1.8 }, ...Array.from({ length: 12 }, (_, i) => ({ name: "coin", delay: 2.2 + i * 0.07 }))];
+  await emit(page, count);
+  const busy = ONE_SHOTS.filter(n => !/^(star|coin|fall)/.test(n)).slice(0, 12);
+  await emit(page, busy);                                       // 12 sounds start at once: more than the 8 voices
+  const log = await since(page, n0);
+  const scheduled = log.filter(e => /^(star_|coin)/.test(e.name));
+  expect(scheduled.map(e => e.name), "star_1..3 and the coins that the RETRIGGER gap allows").toEqual(expect.arrayContaining(["star_1", "star_2", "star_3", "coin"]));
+  expect(scheduled.filter(e => e.stolen), "no scheduled sound was stolen before it started").toEqual([]);
+  const stolen = log.filter(e => e.stolen);
+  expect(stolen.length, "12 + 1 sounds over 8 voices: the oldest started ones were stopped").toBeGreaterThan(0);
+  expect(stolen.every(e => busy.includes(e.name)), "only sounds that had started were stolen: " + stolen.map(e => e.name)).toBe(true);
+  expect(await page.evaluate(() => window.__bb.audio.voices), "the count of sounding voices is within AUDIO.MAX_VOICES, the scheduled ones aside").toBeGreaterThan(0);
 });
 
 test("the same sound is not started twice within RETRIGGER, the coin once per 0.06 s, and a 9th voice stops the oldest", async ({ page }) => {
@@ -89,7 +115,7 @@ test("the same sound is not started twice within RETRIGGER, the coin once per 0.
   const coins = await since(page, n1);
   expect(coins.map(e => e.name)).toEqual(["coin", "coin", "coin"]);
   for (let i = 1; i < coins.length; i++) expect(coins[i].at - coins[i - 1].at, "one coin per 0.06 s").toBeGreaterThanOrEqual(0.06 - 1e-6);
-  await wait(page);
+  await page.waitForTimeout(800);                                 // the coins scheduled above have started and ended (a scheduled voice is not counted until it starts)
   const n2 = await mark(page);
   await emit(page, ["hug", "push", "kiss", "star", "alert", "rescue", "boots", "cloak", "shield", "slip", "out", "back"]);
   expect((await since(page, n2)).length).toBe(12);
@@ -206,7 +232,7 @@ test("loops follow the game: rescue_loop only while a player helps, dizzy while 
   await openGame(page);
   await ready(page);
   await calm(page, 2);
-  const loops = () => page.evaluate(() => window.__bb.audio.loops);
+  const loops = () => page.evaluate(() => { window.__bb.audio.tick(); return window.__bb.audio.loops; });   // tick(): the frame's audioTick, asked for by hand
   expect(await loops()).toEqual([]);
   // player 2 stands by player 1, who lies
   await page.evaluate(() => { const b = window.__bb, [a, h] = b.littles; Object.assign(a, { state: "down", downTimer: 99, x: 300, y: 300 }); Object.assign(h, { state: "ok", x: 320, y: 300, invuln: 5 }); b.update(b.CFG.STEP); });
@@ -223,6 +249,10 @@ test("loops follow the game: rescue_loop only while a player helps, dizzy while 
   await page.evaluate(() => { window.__bb.mode = "play"; });
   await page.evaluate(() => { const b = window.__bb; b.update(b.CFG.STEP); });
   expect(await loops(), "back in play: Dad still lies").toEqual(["dizzy"]);
+  const log = await page.evaluate(() => window.__bb.audio.log.filter(e => e.loop));
+  expect(log.filter(e => e.name === "dizzy").length, "dizzy started").toBeGreaterThan(0);
+  expect(log.filter(e => e.name === "dizzy").every(e => e.other), "Dad's dizzy plays at AUDIO.OTHERS; the helper's rescue_loop is a player's own").toBe(true);
+  expect(log.find(e => e.name === "rescue_loop").other).toBeUndefined();
   // a kid running near Dad (D), a kid tiptoeing near Dad (Shift + D), and standing still: no steps
   await page.evaluate(() => {
     const b = window.__bb, g = b.grid, free = (x, y) => !g.seeSolid(x, y) && !b.inSafe({ x, y }) && !b.inDanger({ x, y });
@@ -307,6 +337,13 @@ test("the interface sounds: tap, back, page, buy, nope, unlock-less locked level
   await page.evaluate(() => { window.__bb.openMap(); });
   await wait(page);
   expect(await names(() => window.__bb.chooseStop(15)), "a locked level").toEqual(["nope"]);
+  await wait(page);
+  expect(await names(() => window.__bb.tapButton("stop:15")), "pressing a locked stop: the press (tap), then the refusal").toEqual(["tap", "nope"]);
+  await page.evaluate(() => { window.__bb.toHome(); window.__bb.startGame(1); window.__bb.mode = "pause"; });
+  await wait(page);
+  expect(await names(() => window.__bb.goBack()), "leaving the pause is a back").toEqual(["back"]);
+  expect(await page.evaluate(() => window.__bb.mode)).toBe("play");
+  await page.evaluate(() => { window.__bb.toHome(); window.__bb.openMap(); });
   // the card before the boss
   expect(await names(() => window.__bb.openScene("boss_park", null, { mark: false })), "the boss card").toEqual(["boss_sting"]);
 });

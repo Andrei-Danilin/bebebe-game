@@ -601,6 +601,10 @@ test("SPEC-047 AC 12: with music playing the memory numbers hold — sprites at 
   const d = await page.evaluate(() => ({ decoded: window.__decoded, elements: window.__bb.audio.music.elements, loaded: window.__bb.audio.loaded }));
   record("music memory", { tracks: seen, elements: d.elements, sounds: d.decoded.length, longestSound: round1(Math.max(...d.decoded)) });
   expect(Math.max(...d.decoded), "every decoded buffer is a short sound").toBeLessThan(10);
+  const bytes = await page.evaluate(() => ({ decoded: window.__bb.audio.decodedBytes, max: window.__bb.CFG.AUDIO.DECODED_MAX }));
+  record("decoded sounds", { MB: round1(bytes.decoded / MB), maxMB: round1(bytes.max / MB) });
+  expect(bytes.decoded, "the decoded sounds, loops and jingles: about 12.5 MB, never music").toBeGreaterThan(5 * MB);
+  expect(bytes.decoded, "AUDIO.DECODED_MAX").toBeLessThanOrEqual(bytes.max);
   expect(d.loaded.filter(n => ["theme", "story", "boss", "theme_song"].includes(n) || n.startsWith("world_") && n !== "world_open")).toEqual([]);
   expect(errors).toEqual([]);
 });

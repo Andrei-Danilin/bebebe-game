@@ -1,12 +1,15 @@
 // SPEC-047 AC 6 / 7: the music — streamed, never decoded: every track is two HTMLAudioElements (A and B) through MediaElementSourceNodes into
 // one gain per track, into the music bus. The two play alternately: B starts under the end of A and the two cross over AUDIO.LOOP_XFADE (2 s,
 // equal power) before A's last AUDIO.LOOP_XFADE seconds, so MP3 padding never makes a gap. The loop point is the shipped length (manifest `dur`, else the element's
-// own); the check runs every frame and on the element's timeupdate, and the fade itself is scheduled on the audio clock.
+// own); the check runs on the element's timeupdate and every frame, and the fade itself is scheduled on the audio clock.
 // Which track plays where: wantedTrack() (the table of AC 7). A change of screen crossfades over AUDIO.SCREEN_XFADE (the old track fades out,
 // the new one in); the same track goes on across screens (menu → map → a Park level). A track that is not loaded yet (a world not heard before,
-// offline) plays `theme` until it is, then crossfades; one that fails stays on `theme`. The bus is at MUSIC_MENU in menus, MUSIC_PLAY in play,
-// MUSIC_PAUSE in pause, and dips to JINGLE_DIP under a jingle. Nothing in sim mode, nothing before the first gesture (no context), nothing in a hidden tab,
-// nothing with the music off (musicOn: the one place the Music switch changes, step 4). Client module.
+// offline) plays `theme` until it is, then crossfades; one that fails stays on `theme` (and is tried again after AUDIO.MUSIC_RETRY s). The bus is at MUSIC_MENU in
+// menus, MUSIC_PLAY in play, MUSIC_PAUSE in pause, and dips to JINGLE_DIP under a jingle. Nothing in sim mode, nothing before the first gesture (no context),
+// nothing in a hidden tab, nothing with the music off (musicOn).
+// iOS plays an element only when a gesture started it once, and refuses play() from a frame or an event: so a small pool of elements (AUDIO.POOL) is started and
+// stopped inside the first gesture (unlockMusic) and reused for every track (only their src changes); and every later gesture plays again what should be playing
+// (nudgeMusic): a refused play() never leaves the music stopped for good. Client module.
 import { G } from "../../core/active.js";
 import { levelsPerWorld } from "../../core/config.js";
 import { LOOK } from "../look.js";
@@ -15,24 +18,30 @@ import { mode, ui } from "../state.js";
 import { context, musicOut } from "./engine.js";
 
 const A = LOOK.AUDIO;
+const SILENT = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";   // an empty wav: what the pool's elements play in the gesture
 const tracks = new Map();          // name → a loaded or loading track (see makeTrack)
-const failedAt = new Map();        // name → the context time its load failed (tried again after AUDIO.MUSIC_RETRY s)
 const lengths = new Map();         // name → the shipped length in s (manifest), set by sfx.js when the manifest arrives
+const pool = [];                   // parts (an element + its source node + its gain) unlocked in the first gesture; free ones wait here
 let current = null;                // the track that sounds (fading in or in): its name
 let songFor = null;                // the ending scene (ui.storyScene) whose song has played to its end: this visit goes on with theme
 let applied = "";                  // the bus level last set (level + duck end)
 let duckEnd = 0;                   // the context time the jingle in progress ends
 let paused = false;                // the app is in the background (or a call): the elements are paused until the next gesture
 let ids = 0;                       // every element pair gets its own number (tests: the same track is the same pair)
+let logged = false;                // one error line for an audio failure in musicTick (it never stops the frame)
 
 // the Music switch (the home screen, key N, the grown-ups page; saved as settings.music)
 export const musicOn = () => ui.music;
 
-// the manifest's lengths: loop points come from the shipped file, not from what a browser says
+// the manifest's lengths: loop points come from the shipped file, not from what a browser says; also which tracks exist (levelTrack)
 export function setMusicInfo(files) { for (const f of files) if (f.kind === "music" || f.kind === "song") lengths.set(f.name, f.dur); }
+const exists = name => lengths.size === 0 || lengths.has(name);      // before the manifest is there every track is taken to exist
 
 // ---------- which track plays where (AC 7) ----------
-const levelTrack = () => (G.level === levelsPerWorld() ? "boss" : G.world === "park" ? "theme" : "world_" + G.world);
+const levelTrack = () => {
+  if (G.level === levelsPerWorld() && exists("boss")) return "boss";
+  return G.world !== "park" && exists("world_" + G.world) ? "world_" + G.world : "theme";   // a world without a track of its own plays theme
+};
 export function wantedTrack() {
   if (mode === "scene") {                                     // the cards: "How it began", the tutorial pictures, the boss / bonus cards → story; the ending → its song, once
     const id = ui.storyScene && ui.storyScene.id;
@@ -53,31 +62,62 @@ function fade(param, to, sec, now) {
   param.setValueAtTime(from, now);
   if (sec > 0 && from !== to) param.setValueCurveAtTime(c, now, sec); else param.setValueAtTime(to, now);
 }
+const play = part => {
+  part.want = true;
+  const p = part.el.play();
+  if (p && p.catch) p.catch(() => { /* refused (iOS outside a gesture, autoplay): part.want stays, the next gesture plays it (nudgeMusic) */ });
+};
+
+// ---------- the pool of unlocked elements ----------
+function newPart(ctx) {
+  const el = new Audio(), g = ctx.createGain();
+  el.preload = "auto"; el.loop = false;
+  const src = ctx.createMediaElementSource(el);
+  g.gain.value = 0; src.connect(g);
+  const part = { el, g, src, want: false, owner: null, free: true };
+  // one set of listeners for the element's whole life: they act for the track that owns it now
+  el.addEventListener("canplaythrough", () => { if (part.owner && part.owner.parts[0] === part) part.owner.ready = true; });
+  el.addEventListener("error", () => { if (part.owner && part.owner.parts[0] === part) part.owner.failed = true; });
+  el.addEventListener("ended", () => { if (part.owner) part.owner.ended = true; });
+  el.addEventListener("timeupdate", () => { if (part.owner) loopCheck(part.owner); });
+  return part;
+}
+// called inside the first gesture (sound.js initAudio): the pool's elements play an empty file and stop, so iOS lets them play later without a gesture
+export function unlockMusic() {
+  const ctx = context();
+  if (simMode || !ctx || pool.length) return;
+  for (let i = 0; i < A.POOL; i++) {
+    const part = newPart(ctx);
+    part.el.src = SILENT;
+    const p = part.el.play();
+    const done = () => { if (part.free) { try { part.el.pause(); part.el.removeAttribute("src"); part.el.load(); } catch (e) { /* gone */ } } };
+    if (p && p.then) p.then(done, done); else done();
+    pool.push(part);
+  }
+}
+function takePart(ctx) {
+  const part = pool.find(p => p.free) || (pool.push(newPart(ctx)), pool[pool.length - 1]);   // an extra one is made when the pool runs dry (not unlocked)
+  part.free = false; part.want = false;
+  try { part.el.pause(); } catch (e) { /* ok */ }
+  return part;
+}
+function releasePart(part) {
+  part.owner = null; part.want = false; part.free = true;
+  try { part.el.pause(); part.el.removeAttribute("src"); part.el.load(); part.g.gain.cancelScheduledValues(0); part.g.gain.value = 0; part.g.disconnect(); } catch (e) { /* gone */ }
+}
 
 // ---------- tracks ----------
 function makeTrack(name, ctx) {
   const out = ctx.createGain();
   out.gain.value = 0; out.connect(musicOut());
-  const parts = [0, 1].map(() => {
-    const el = new Audio(), g = ctx.createGain();   // was: it played when the app went to the background (pauseMusic)
-    el.preload = "auto"; el.loop = false;
-    const src = ctx.createMediaElementSource(el);
-    g.gain.value = 0; src.connect(g); g.connect(out);
-    return { el, g, src, was: false };
-  });
-  const t = { name, id: ++ids, out, parts, active: 0, ready: false, once: name === "theme_song", ended: false, xfade: 0, disposeAt: 0, blocked: 0, standby: false };
-  const a = parts[0].el;
-  a.src = A.dir + name + ".mp3";
-  a.addEventListener("canplaythrough", () => { t.ready = true; });
-  a.addEventListener("error", () => { t.failed = true; });
-  a.addEventListener("ended", () => { t.ended = true; });
-  a.addEventListener("timeupdate", () => loopCheck(t));
-  parts[1].el.addEventListener("timeupdate", () => loopCheck(t));
-  parts[1].el.addEventListener("ended", () => { t.ended = true; });
+  const parts = [takePart(ctx), takePart(ctx)];
+  const t = { name, id: ++ids, out, parts, active: 0, ready: false, failed: false, failedAt: 0, once: name === "theme_song", ended: false, xfade: 0, loopWait: 0, disposeAt: 0, standby: false };
+  for (const p of parts) { p.owner = t; p.g.connect(out); p.g.gain.value = 0; }
+  parts[0].el.src = A.dir + name + ".mp3";
   return t;
 }
 function disposeTrack(t) {
-  for (const p of t.parts) { try { p.el.pause(); p.el.removeAttribute("src"); p.el.load(); p.src.disconnect(); p.g.disconnect(); } catch (e) { /* gone */ } }
+  for (const p of t.parts) if (p.owner === t) releasePart(p);
   try { t.out.disconnect(); } catch (e) { /* gone */ }
   tracks.delete(t.name);
 }
@@ -87,44 +127,64 @@ const lengthOf = t => lengths.get(t.name) ?? t.parts[t.active].el.duration;
 function prepareStandby(t) {
   if (t.once || t.standby) return;
   t.standby = true;
-  const b = t.parts[1 - t.active].el;
-  b.src = A.dir + t.name + ".mp3";
+  t.parts[1 - t.active].el.src = A.dir + t.name + ".mp3";
 }
-// the end of the active element is near: the other one starts from 0 and the two cross over (equal power); then the old one rests at 0
+// the end of the active element is near: the other one starts from 0 and the two cross over (equal power); then the old one rests at 0.
+// A refused play() of the other one takes the crossfade back (the active one goes on) and is tried again after AUDIO.BLOCKED_WAIT s or at the next gesture
 function loopCheck(t) {
   const ctx = context();
-  if (!ctx || t.once || t.name !== current || t.xfade) return;
-  const a = t.parts[t.active].el, dur = lengthOf(t);
-  if (!(dur > A.LOOP_XFADE * 2) || a.currentTime < dur - A.LOOP_XFADE) return;
+  if (!ctx || t.once || t.name !== current || t.xfade || paused) return;
+  const a = t.parts[t.active].el, dur = lengthOf(t), now = ctx.currentTime;
+  if (!(dur > A.LOOP_XFADE * 2) || a.currentTime < dur - A.LOOP_XFADE || now < t.loopWait) return;
   const b = t.parts[1 - t.active];
-  if (b.el.readyState < 2 && a.currentTime < dur - 0.2) return;           // the standby is not there yet: wait for the last moment, then go without
-  const now = ctx.currentTime, f = Math.max(0.2, Math.min(A.LOOP_XFADE, dur - a.currentTime));
+  if (b.el.readyState < 2 && a.currentTime < dur - A.STANDBY_LAST) return;     // the standby is not there yet: wait for the last moment, then go without
+  const f = Math.max(A.XFADE_MIN, Math.min(A.LOOP_XFADE, dur - a.currentTime));
   try { b.el.currentTime = 0; } catch (e) { /* not seekable yet */ }
+  b.want = true;
   const p = b.el.play();
-  if (p && p.catch) p.catch(() => { t.blocked = now; });
+  if (p && p.catch) p.catch(() => abortLoop(t, b));
   fade(b.g.gain, 1, f, now);
   fade(t.parts[t.active].g.gain, 0, f, now);
-  t.xfade = now + f + 0.05;
+  t.xfade = now + f + A.XFADE_PAD;
+}
+function abortLoop(t, b) {
+  const ctx = context();
+  if (!ctx || !t.xfade) return;
+  const now = ctx.currentTime;
+  b.want = false;
+  try { b.el.pause(); } catch (e) { /* ok */ }
+  fade(t.parts[t.active].g.gain, 1, A.ABORT_FADE, now);
+  fade(b.g.gain, 0, A.ABORT_FADE, now);
+  t.xfade = 0; t.loopWait = now + A.BLOCKED_WAIT;
 }
 function finishLoop(t, ctx) {
   const old = t.parts[t.active];
-  old.el.pause();
+  old.want = false; old.el.pause();
   try { old.el.currentTime = 0; } catch (e) { /* ok */ }
   old.g.gain.cancelScheduledValues(ctx.currentTime); old.g.gain.value = 0;
   t.active = 1 - t.active; t.xfade = 0; t.ended = false;
 }
+// (re)starts a track from its beginning on part 0: whatever it was doing — fading out, in the middle of a loop crossfade — is taken back first
 function startTrack(t, ctx, now) {
-  const a = t.parts[0];
-  t.active = 0; t.xfade = 0; t.ended = false; t.disposeAt = 0;   // (a track that was fading out and is wanted again starts over)
+  for (let i = 0; i < 2; i++) if (t.parts[i].owner !== t) {      // the resting element went back to the pool while the track faded out: take one again
+    const p = takePart(ctx);
+    p.owner = t; p.g.connect(t.out); p.g.gain.value = 0; t.parts[i] = p; t.standby = false;
+  }
+  const [a, b] = t.parts;
+  if (!a.el.getAttribute("src")) a.el.src = A.dir + t.name + ".mp3";
+  t.active = 0; t.xfade = 0; t.ended = false; t.disposeAt = 0; t.loopWait = 0;
+  for (const p of t.parts) p.g.gain.cancelScheduledValues(now);
+  b.want = false; try { b.el.pause(); b.el.currentTime = 0; } catch (e) { /* ok */ }
+  b.g.gain.value = 0;
   a.g.gain.value = 1;
   try { a.el.currentTime = 0; } catch (e) { /* ok */ }
-  const p = a.el.play();
-  if (p && p.catch) p.catch(() => { t.blocked = now; });
+  play(a);
   fade(t.out.gain, 1, A.SCREEN_XFADE, now);
 }
 function fadeOutTrack(t, ctx, now) {
+  if (!t.xfade && t.parts[1 - t.active].owner === t) { releasePart(t.parts[1 - t.active]); t.standby = false; }   // the resting element is not needed while it fades: back to the pool at once
   fade(t.out.gain, 0, A.SCREEN_XFADE, now);
-  t.disposeAt = now + A.SCREEN_XFADE + 0.1;
+  t.disposeAt = now + A.SCREEN_XFADE + A.DISPOSE_PAD;
 }
 
 // ---------- the bus ----------
@@ -137,7 +197,7 @@ function applyLevel(ctx) {
   g.setValueAtTime(g.value, now);
   if (duckEnd > now) {
     const low = Math.min(target, A.JINGLE_DIP);
-    g.linearRampToValueAtTime(low, now + 0.05);
+    g.linearRampToValueAtTime(low, now + A.DUCK_IN);
     g.setValueAtTime(low, duckEnd);
     g.linearRampToValueAtTime(target, duckEnd + A.JINGLE_BACK);
   } else g.linearRampToValueAtTime(target, now + A.LEVEL_RAMP);
@@ -150,27 +210,40 @@ export function duck(at, len) {
   if (ctx && !simMode) applyLevel(ctx);
 }
 
-// the app went to the background / a call: the elements that play pause (the context is suspended by sound.js: the fades on its clock wait too);
+// the app went to the background / a call (or the context was interrupted): the elements that play pause (the context is suspended by sound.js: the fades on its clock wait too);
 // the first gesture after it plays them again (SPEC-047 AC 10)
 export function pauseMusic() {
   if (paused) return;
   paused = true;
-  for (const t of tracks.values()) for (const p of t.parts) { p.was = !p.el.paused && !!p.el.getAttribute("src"); if (p.was) p.el.pause(); }
+  for (const t of tracks.values()) for (const p of t.parts) { try { p.el.pause(); } catch (e) { /* ok */ } }
 }
 export function resumeMusic() {
   if (!paused) return;
   paused = false;
-  for (const t of tracks.values()) for (const p of t.parts) if (p.was) { p.was = false; const r = p.el.play(); if (r && r.catch) r.catch(() => { t.blocked = context() ? context().currentTime : 0; }); }
+  nudgeMusic();
+}
+// every gesture: whatever of the sounding track should be playing but is not (play() was refused, the element was paused by the system) plays again;
+// a track whose active element has run out starts its loop crossfade (the standby is unlocked: it plays outside a gesture too, this is the safety net)
+export function nudgeMusic() {
+  const ctx = context(), t = tracks.get(current);
+  if (simMode || !ctx || paused || !t) return;
+  for (const p of t.parts) if (p.want && p.el.paused && p.el.getAttribute("src") && !p.el.ended) { const r = p.el.play(); if (r && r.catch) r.catch(() => {}); }
+  const a = t.parts[t.active];
+  if (!t.once && !t.xfade && a.el.ended) { t.loopWait = 0; loopCheck(t); }
+  if (t.once && a.el.ended) t.ended = true;
 }
 
 // ---------- every frame ----------
-// called by main.js every frame (and nothing else): chooses the track, starts, crossfades and disposes, keeps the bus level and the loops going
+// called by sound.js audioTick every frame: chooses the track, starts, crossfades and disposes, keeps the bus level going. An audio failure is logged once and never stops the frame
 export function musicTick() {
+  try { tick(); } catch (e) { if (!logged) { logged = true; console.error("music:", e); } }
+}
+function tick() {
   const ctx = context();
   if (simMode || !ctx || paused || ctx.state !== "running") return;   // nothing in the background, a call or before the context runs
   const now = ctx.currentTime;
   applyLevel(ctx);
-  for (const t of tracks.values()) {
+  for (const t of [...tracks.values()]) {
     if (t.xfade && now >= t.xfade) finishLoop(t, ctx);
     else if (t.ended && !t.xfade && !t.once && t.name === current) loopCheck(t);
     if (t.disposeAt && now >= t.disposeAt) disposeTrack(t);
@@ -185,17 +258,23 @@ export function musicTick() {
     }
     return;
   }
-  // a track that is wanted loads (a failed one is tried again after a while)
+  // a track that is wanted loads (a failed one is tried again after AUDIO.MUSIC_RETRY s: its record goes with it)
   const load = name => {
     const t = tracks.get(name);
-    if (t && t.failed) { if (!failedAt.has(name)) failedAt.set(name, now); if (now - failedAt.get(name) > A.MUSIC_RETRY) { disposeTrack(t); failedAt.delete(name); } return null; }
-    if (!t && !failedAt.has(name)) { const n = makeTrack(name, ctx); tracks.set(name, n); return n; }
-    return t || null;
+    if (t && t.failed) {
+      if (!t.failedAt) t.failedAt = now;
+      if (now - t.failedAt > A.MUSIC_RETRY) disposeTrack(t);
+      return null;
+    }
+    if (t) return t;
+    const n = makeTrack(name, ctx);
+    tracks.set(name, n);
+    return n;
   };
   const wanted = load(want);
   const fallback = want !== "theme" && !(wanted && wanted.ready && !wanted.failed);   // theme is kept loaded only while the wanted track is not there yet
   // the track to play: the wanted one once it is loaded, else theme (when it is)
-  const ready = t => t && t.ready && !t.failed && (!t.blocked || now - t.blocked > 1);
+  const ready = t => t && t.ready && !t.failed;
   if (fallback) load("theme");
   const pick = ready(wanted) ? wanted : want !== "theme" && ready(tracks.get("theme")) ? tracks.get("theme") : null;
   if (pick && pick.name !== current) {
@@ -206,19 +285,21 @@ export function musicTick() {
   const playing = tracks.get(current);
   if (playing && !playing.once) prepareStandby(playing);
   // tracks nobody needs any more go (not the one sounding or fading, not the wanted one, not theme)
-  for (const [name, t] of tracks) if (name !== current && name !== want && !(name === "theme" && fallback) && !t.disposeAt) disposeTrack(t);
+  for (const [name, t] of [...tracks]) if (name !== current && name !== want && !(name === "theme" && fallback) && !t.disposeAt) disposeTrack(t);
 }
 
 // ---------- for the tests (__bb.audio) ----------
 export const currentTrack = () => current;
 export const musicPaused = () => paused;
-// the sounding pair: { track, id, time (s of the playing element), dur, pair (its elements with a file: 1 while it loads / for the song, else 2), elements (all alive), crossing (the loop crossfade is on) }
+const withSrc = t => t.parts.filter(p => p.el.getAttribute("src") && p.el.getAttribute("src") !== SILENT);
+// the sounding pair: { track, id, time (s of the playing element), dur, pair (its elements with a file: 1 while it loads / for the song, else 2), elements (all alive),
+// playing (elements that are playing now, of all tracks), crossing (the loop crossfade is on) }
 export function musicInfo() {
   const t = tracks.get(current);
-  let elements = 0;
-  for (const x of tracks.values()) elements += x.parts.filter(p => p.el.getAttribute("src")).length;
-  const pair = t ? t.parts.filter(p => p.el.getAttribute("src")).length : 0;
-  return t ? { track: t.name, id: t.id, time: t.parts[t.active].el.currentTime, dur: lengthOf(t), pair, elements, crossing: !!t.xfade } : { track: null, id: 0, time: 0, dur: 0, pair, elements, crossing: false };
+  let elements = 0, playing = 0;
+  for (const x of tracks.values()) { elements += withSrc(x).length; playing += x.parts.filter(p => !p.el.paused && p.el.getAttribute("src")).length; }
+  return t ? { track: t.name, id: t.id, time: t.parts[t.active].el.currentTime, dur: lengthOf(t), pair: withSrc(t).length, elements, playing, crossing: !!t.xfade }
+    : { track: null, id: 0, time: 0, dur: 0, pair: 0, elements, playing, crossing: false };
 }
 // seeks the playing element (the ending's song is 80 s long: a test goes to its last seconds)
 export function seekMusic(sec) { const t = tracks.get(current); if (t) t.parts[t.active].el.currentTime = sec; }

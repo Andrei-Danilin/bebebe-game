@@ -4,7 +4,9 @@
 import { LOOK } from "../look.js";
 
 const A = LOOK.AUDIO;
-let ctx = null, master = null, music = null, sfx = null;
+let ctx = null, master = null, music = null, sfx = null, stateHook = null;
+// who hears of the context changing state (sound.js: "interrupted" — a call on iOS — pauses the music); one listener
+export const onContextState = fn => { stateHook = fn; };
 
 // the context and its buses (made once; null where Web Audio is missing or refused)
 export function startEngine() {
@@ -15,6 +17,7 @@ export function startEngine() {
     master = ctx.createGain(); master.gain.value = A.MASTER; master.connect(ctx.destination);
     music = ctx.createGain(); music.gain.value = A.MUSIC_MENU; music.connect(master);
     sfx = ctx.createGain(); sfx.gain.value = 1; sfx.connect(master);
+    ctx.onstatechange = () => { if (stateHook) stateHook(ctx.state); };
   } catch (e) { ctx = master = music = sfx = null; }
   return ctx;
 }

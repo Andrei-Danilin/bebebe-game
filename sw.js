@@ -27,26 +27,26 @@ const CACHE_PREFIX = "bebebe-";          // all Pages projects of the account sh
 const NET_TIMEOUT_MS = 4000;             // weak signal: after this long, a cached copy wins over a slow network
 // SPEC-011: written by npm run precache (scripts/precache.js) — do not edit by hand
 // precache:start
-const SW_BUILD = 12;
-const SW_STRATEGY = "95197fdd64";
-const SW_VERSION = "bebebe-1.0.0-dev-b12";
-const SRC_HASH = "780023ba82";
+const SW_BUILD = 13;
+const SW_STRATEGY = "3d1b3b7316";
+const SW_VERSION = "bebebe-1.0.0-dev-b13";
+const SRC_HASH = "46fe711fba";
 const PRECACHE_LOCAL = [
   "./", "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512-maskable.png",
   "./icons/icon-512.png", "./icons/icon.svg", "./index.html", "./manifest.webmanifest"
 ];
 const PRECACHE_SRC = [
   "./src/client/adaptive.js?v=5487878407", "./src/client/art-names.js?v=53a55ace1a",
-  "./src/client/art.js?v=dee97c538e", "./src/client/audio/engine.js?v=2f74833d27",
-  "./src/client/audio/music.js?v=d2ae6946a1", "./src/client/audio/sfx.js?v=48be300b36",
-  "./src/client/back.js?v=2bbaab7f17", "./src/client/cadence.js?v=6fc971a515", "./src/client/debug.js?v=6da946695d",
-  "./src/client/devices.js?v=892965ff6f", "./src/client/errors.js?v=7b215fb847", "./src/client/flow.js?v=d070a260af",
-  "./src/client/fx.js?v=3561544479", "./src/client/input.js?v=2e9e9003bd", "./src/client/lifecycle.js?v=42d6c088ba",
-  "./src/client/look.js?v=966ac08b21", "./src/client/main.js?v=7be38e070f", "./src/client/names.js?v=dff85cded6",
+  "./src/client/art.js?v=dee97c538e", "./src/client/audio/engine.js?v=f0713c3094",
+  "./src/client/audio/music.js?v=3cb9a93809", "./src/client/audio/sfx.js?v=0b675e80d1",
+  "./src/client/back.js?v=2bbaab7f17", "./src/client/cadence.js?v=6fc971a515", "./src/client/debug.js?v=bae92d35eb",
+  "./src/client/devices.js?v=892965ff6f", "./src/client/errors.js?v=7b215fb847", "./src/client/flow.js?v=0078825b94",
+  "./src/client/fx.js?v=7f1f78d567", "./src/client/input.js?v=2e9e9003bd", "./src/client/lifecycle.js?v=42d6c088ba",
+  "./src/client/look.js?v=e51b63d3fe", "./src/client/main.js?v=7385738385", "./src/client/names.js?v=dff85cded6",
   "./src/client/outfits.js?v=892a6a1d6e", "./src/client/perf.js?v=2462f1b4ae", "./src/client/ports.js?v=4285602733",
   "./src/client/preview-data.js?v=89f11bb2ea", "./src/client/progress.js?v=38515d7fe6",
   "./src/client/quality.js?v=1fa1c771b3", "./src/client/reset.js?v=30ccdd527d", "./src/client/save.js?v=21615d74c2",
-  "./src/client/screen.js?v=576f0ce0af", "./src/client/shop.js?v=df2d3c5976", "./src/client/sound.js?v=8f8ef118a3",
+  "./src/client/screen.js?v=576f0ce0af", "./src/client/shop.js?v=df2d3c5976", "./src/client/sound.js?v=bb1ef038e4",
   "./src/client/state.js?v=1e73c36796", "./src/client/storage.js?v=686b11f06c",
   "./src/client/three/batch.js?v=72814fddc1", "./src/client/three/bosses.js?v=7814dfb8d4",
   "./src/client/three/camera.js?v=cd37d1af9d", "./src/client/three/characters.js?v=cdf38dba20",
@@ -63,7 +63,7 @@ const PRECACHE_SRC = [
   "./src/client/ui/character/items.js?v=2ff7462142", "./src/client/ui/character/progress.js?v=46b61d937e",
   "./src/client/ui/character/tabs.js?v=bd6c90ad68", "./src/client/ui/character/upgrades.js?v=5358a5860d",
   "./src/client/ui/character/wardrobe.js?v=83a8b8206a", "./src/client/ui/draw.js?v=527ecbf8be",
-  "./src/client/ui/grownups.js?v=6ebdf23b79", "./src/client/ui/home.js?v=6b39c8c846",
+  "./src/client/ui/grownups.js?v=6ebdf23b79", "./src/client/ui/home.js?v=943aa709ec",
   "./src/client/ui/hud.js?v=d25af0ceeb", "./src/client/ui/lang.js?v=568a4dc213",
   "./src/client/ui/layout.js?v=d46dd9e8b5", "./src/client/ui/level-preview.js?v=698fb9c64c",
   "./src/client/ui/map.js?v=464261adf6", "./src/client/ui/measure.js?v=7c174e9035",
@@ -72,23 +72,23 @@ const PRECACHE_SRC = [
   "./src/client/ui/screens.js?v=e98bfff809", "./src/client/ui/story.js?v=5f55a5406a",
   "./src/client/ui/text.js?v=fe5b98f9e4", "./src/client/ui/tip.js?v=531dcecde9", "./src/client/ui/win.js?v=f1b1933411",
   "./src/client/update.js?v=e702121a73", "./src/client/warm.js?v=6a2d57b991", "./src/core/active.js?v=70aa836ebd",
-  "./src/core/autopilot.js?v=6895dd7bfd", "./src/core/big.js?v=bde8c57cb6", "./src/core/bots.js?v=32defc7e5b",
-  "./src/core/config.js?v=0e3f4a49c8", "./src/core/difficulty.js?v=72aff2bd1e", "./src/core/economy.js?v=e3d6023dec",
-  "./src/core/events.js?v=ea40a1a75c", "./src/core/game.js?v=0d95287186", "./src/core/grid.js?v=a38c7b977b",
-  "./src/core/hearing.js?v=1ebd354178", "./src/core/hooks.js?v=5ceea54c61", "./src/core/index.js?v=0efe704e7d",
-  "./src/core/kindwalk.js?v=e05daf307b", "./src/core/level/build.js?v=3d663d2628",
+  "./src/core/autopilot.js?v=6895dd7bfd", "./src/core/big.js?v=608f5e2f6f", "./src/core/bots.js?v=32defc7e5b",
+  "./src/core/config.js?v=4c133730b0", "./src/core/difficulty.js?v=72aff2bd1e", "./src/core/economy.js?v=e3d6023dec",
+  "./src/core/events.js?v=ad8c019d6e", "./src/core/game.js?v=0d95287186", "./src/core/grid.js?v=a38c7b977b",
+  "./src/core/hearing.js?v=f5acc0f0ca", "./src/core/hooks.js?v=5ceea54c61", "./src/core/index.js?v=0efe704e7d",
+  "./src/core/kindwalk.js?v=71745973b0", "./src/core/level/build.js?v=3d663d2628",
   "./src/core/level/generate.js?v=455b2ff4e4", "./src/core/level/layouts.js?v=07d6472d8e",
   "./src/core/level/load.js?v=d7e6940cc5", "./src/core/level/report.js?v=a2d244a0ab",
   "./src/core/level/validate.js?v=5137b0bd7a", "./src/core/mood.js?v=65a5548f9d", "./src/core/path.js?v=3b439f4444",
   "./src/core/practice.js?v=807c98cf2e", "./src/core/progress-rules.js?v=7c34b4f903",
-  "./src/core/rules.js?v=e94590cee9", "./src/core/soundloops.js?v=ed204dda96",
-  "./src/core/tricks/aware.js?v=d70aa68ca3", "./src/core/tricks/bell.js?v=122c102149",
+  "./src/core/rules.js?v=ca1bb0b29f", "./src/core/soundloops.js?v=ed204dda96",
+  "./src/core/tricks/aware.js?v=d70aa68ca3", "./src/core/tricks/bell.js?v=d44f4fab96",
   "./src/core/tricks/footprints.js?v=0a24914236", "./src/core/tricks/index.js?v=bd87555130",
   "./src/core/tricks/kit.js?v=d7fcfb99ab", "./src/core/tricks/puddles.js?v=18cc245880",
   "./src/core/tricks/query.js?v=f5070ac764", "./src/core/tricks/sprinklers.js?v=d0d67dc091",
   "./src/core/tricks/truck.js?v=6da8d905c4", "./src/core/tricks/waves.js?v=2bc3aa5809",
   "./src/core/util.js?v=b56133239e", "./src/core/vision.js?v=17866d5575", "./src/core/wardrobe.js?v=011be2182f",
-  "./src/core/world.js?v=7ffe232fac", "./src/core/worlditems.js?v=77bc64a54d", "./src/i18n.js?v=f50020a150",
+  "./src/core/world.js?v=7ffe232fac", "./src/core/worlditems.js?v=247983d670", "./src/i18n.js?v=f50020a150",
   "./src/story.js?v=d4c2c3d810"
 ];
 const THREE_VERSION = "r187";
@@ -340,16 +340,27 @@ async function sliceOf(res, header) {
     "Content-Type": res.headers.get("Content-Type") || "audio/mpeg", "Content-Length": String(r.end - r.start + 1),
     "Content-Range": "bytes " + r.start + "-" + r.end + "/" + size, "Accept-Ranges": "bytes" } });
 }
+// the whole-file fetches of tracks not cached yet, by URL: the requests that come together (the element's bytes=0-, the standby's, a seek) share one download.
+// `cache: "no-cache"` asks the server (not the HTTP cache), so an old copy of a track never goes into this version's cache
+const audioFlights = new Map();
+function wholeTrack(event, key) {
+  let flight = audioFlights.get(key);
+  if (!flight) {
+    flight = fetch(key, { cache: "no-cache" }).then(async res => {
+      if (res.ok && res.status === 200 && res.type === "basic") await caches.open(CACHE_TRACKS).then(c => c.put(key, res.clone())).catch(() => {});
+      return res;
+    }).finally(() => audioFlights.delete(key));
+    audioFlights.set(key, flight);
+    try { event.waitUntil(flight.catch(() => {})); } catch (e) { /* the event is over: the download goes on anyway */ }
+  }
+  return flight;
+}
 async function audioFetch(event, req) {
   const key = req.url, range = req.headers.get("range");
   let hit = await (await caches.open(CACHE_AUDIO)).match(key, MATCH);
   if (!hit && await caches.has(CACHE_TRACKS)) hit = await (await caches.open(CACHE_TRACKS)).match(key, MATCH);
   if (hit) return range ? sliceOf(hit, range) : hit;
-  const res = await fetch(key);                                // the whole file, whatever the page asked for
-  if (res.ok && res.status === 200 && res.type === "basic") {
-    const saved = caches.open(CACHE_TRACKS).then(c => c.put(key, res.clone())).catch(() => {});
-    try { event.waitUntil(saved); } catch (e) { /* saving goes on anyway */ }
-  }
+  const res = (await wholeTrack(event, key)).clone();          // the whole file, whatever the page asked for
   return range && res.status === 200 ? sliceOf(res, range) : res;
 }
 

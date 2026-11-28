@@ -18,7 +18,8 @@ const last = new Map();            // name → the start time of its latest play
 const loops = new Map();           // name → { src, gain } — the loops sounding now
 const plays = [];                  // the last AUDIO.LOG_MAX plays: { name, at, n, synth?, loop?, other? }
 let voices = [];                   // one-shots not finished: { name, src, gain, start, end, tag }
-let loading = false, seq = 0;      // seq: the number of plays so far (each log entry's n: tests read what came after n)
+let loading = false, seq = 0, decoded = 0;   // decoded: the bytes of the decoded buffers (4 bytes a sample), checked against AUDIO.DECODED_MAX
+const bytesOf = buf => buf.length * buf.numberOfChannels * 4;      // seq: the number of plays so far (each log entry's n: tests read what came after n)
 
 // the Sounds switch (the home screen, key M, the grown-ups page; saved as settings.sfx)
 export const sfxOn = () => ui.sfx;
@@ -38,6 +39,7 @@ async function loadOne(f) {
     const r = await fetch(A.dir + f.file);
     if (!r.ok) throw new Error("HTTP " + r.status);
     const buf = await context().decodeAudioData(await r.arrayBuffer());
+    decoded += bytesOf(buf);
     bufs.set(f.name, { buf, region: f.loop ? loopRegion(buf) : null, jingle: f.kind === "jingle" });
   } catch (e) { failed.add(f.name); }
 }
@@ -58,8 +60,10 @@ export function loadSfx() {
 
 // ---------- playing ----------
 function record(name, at, extra) {
-  plays.push({ name, at, n: ++seq, ...extra });
+  const entry = { name, at, n: ++seq, ...extra };
+  plays.push(entry);
   if (plays.length > A.LOG_MAX) plays.shift();
+  return entry;
 }
 // stops a voice with a short fade (a click-free steal)
 function stopVoice(v, now) {
@@ -68,31 +72,33 @@ function stopVoice(v, now) {
     v.gain.gain.linearRampToValueAtTime(0, now + A.STEAL_FADE); v.src.stop(now + A.STEAL_FADE + 0.01);
   } catch (e) { /* already stopped */ }
 }
-// Plays `name` once. opts: delay (s), gain (× — default 1), other (a bot's or Dad's sound: × AUDIO.OTHERS), tag (cancelPending). Counts the request
+// Plays `name` once. opts: delay (s; default AUDIO.DELAY[name]), gain (× — default 1), other (the sound of a slot that is not on this device — a bot, Dad, a friend online: × AUDIO.OTHERS), tag (cancelPending). Counts the request
 // (not in sim); then: sounds off / no context → nothing; the name's gap since its last start → nothing; no buffer → fallback() (its beep: true when played).
 export function playSfx(name, opts = {}, fallback = null) {
   if (simMode) return false;
   ui.sounds++;
   const ctx = context();
   if (!sfxOn() || !ctx) return false;
-  const now = ctx.currentTime, when = now + (opts.delay || 0), gap = A.GAP[name] ?? A.RETRIGGER, prev = last.get(name);
+  const now = ctx.currentTime, delay = opts.delay ?? A.DELAY[name] ?? 0, when = now + delay, gap = A.GAP[name] ?? A.RETRIGGER, prev = last.get(name);
   if (prev !== undefined && Math.abs(when - prev) < gap) return false;
   const b = bufs.get(name);
   if (!b) {
-    if (!fallback || opts.delay || !fallback()) return false;           // a beep has no delay: a delayed sound without its file stays silent
+    if (!fallback || delay || !fallback()) return false;           // a beep has no delay: a delayed sound without its file stays silent
     last.set(name, when); record(name, when, { synth: true });
     return true;
   }
   voices = voices.filter(v => v.end > now);
-  while (voices.length >= A.MAX_VOICES) stopVoice(voices.shift(), now);       // the oldest first
+  // at most MAX_VOICES sounding at once: the oldest voice that has STARTED is stopped (a scheduled one — the win screen's stars and coins — does not count until it starts, and is never stolen); its log entry says stolen
+  const sounding = voices.filter(v => v.start <= now).sort((p, q) => p.start - q.start);
+  for (let i = 0; i <= sounding.length - A.MAX_VOICES; i++) { stopVoice(sounding[i], now); sounding[i].entry.stolen = true; voices = voices.filter(v => v !== sounding[i]); }
   const src = ctx.createBufferSource(), gain = ctx.createGain();
   src.buffer = b.buf; gain.gain.value = (opts.other ? A.OTHERS : 1) * (opts.gain ?? 1);
   src.connect(gain); gain.connect(sfxOut());
   src.start(when);
   if (b.jingle) duck(when, b.buf.duration);                                    // the music dips under a jingle
-  voices.push({ name, src, gain, start: when, end: when + b.buf.duration, tag: opts.tag });
+  const entry = record(name, when, opts.other ? { other: true } : {});
+  voices.push({ name, src, gain, start: when, end: when + b.buf.duration, tag: opts.tag, entry });
   last.set(name, when);
-  record(name, when, opts.other ? { other: true } : {});
   return true;
 }
 // stops the sounds with this tag that have not started yet (the win screen's count, when the screen is left)
@@ -109,11 +115,11 @@ function startLoop(name, b, ctx) {
   const src = ctx.createBufferSource(), gain = ctx.createGain(), now = ctx.currentTime;
   src.buffer = b.buf; src.loop = true;
   if (b.region) { src.loopStart = b.region[0]; src.loopEnd = b.region[1]; }
-  gain.gain.setValueAtTime(0, now); gain.gain.linearRampToValueAtTime(1, now + A.LOOP_FADE);
+  gain.gain.setValueAtTime(0, now); gain.gain.linearRampToValueAtTime(A.OTHER_LOOPS.includes(name) ? A.OTHERS : 1, now + A.LOOP_FADE);   // Dad's dizzy is not a local player's sound
   src.connect(gain); gain.connect(sfxOut());
   src.start(now, b.region ? b.region[0] : 0);
   loops.set(name, { src, gain });
-  record(name, now, { loop: true });
+  record(name, now, A.OTHER_LOOPS.includes(name) ? { loop: true, other: true } : { loop: true });
 }
 function stopLoop(l, ctx) {
   const now = ctx.currentTime;
@@ -135,4 +141,6 @@ export const playLog = () => plays.map(p => ({ ...p }));
 export const loadedNames = () => [...bufs.keys()].sort();
 export const failedNames = () => [...failed].sort();
 export const loopsPlaying = () => [...loops.keys()].sort();
-export const voiceCount = () => { const ctx = context(); return ctx ? voices.filter(v => v.end > ctx.currentTime).length : 0; };
+export const decodedBytes = () => decoded;
+// sounding now (a scheduled voice is not counted until it starts)
+export const voiceCount = () => { const ctx = context(); return ctx ? voices.filter(v => v.start <= ctx.currentTime && v.end > ctx.currentTime).length : 0; };

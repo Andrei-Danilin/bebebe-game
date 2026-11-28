@@ -73,7 +73,7 @@ test("every sfx event name the core emits has a manifest entry or a synth fallba
   for (const f of files) {
     // emit("sfx", { name: "x" }) and emit("sfx", { name: cond ? "a" : "b" }): the quoted names after the condition
     const code = fs.readFileSync(path.join(ROOT, "src", "core", f), "utf8").split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
-    for (const m of code.matchAll(/emit\(\s*"sfx"\s*,\s*\{\s*name:\s*([^}]*)\}/g)) {
+    for (const m of code.matchAll(/emit\(\s*"sfx"\s*,\s*\{\s*name:\s*([^,}]*)/g)) {
       const expr = m[1].includes("?") ? m[1].slice(m[1].indexOf("?")) : m[1];
       for (const q of expr.matchAll(/"([a-z_0-9]+)"/g)) emitted.add(q[1]);
     }
