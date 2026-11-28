@@ -56,7 +56,8 @@ export class MessageRate {
 // the Limiter is named by a salted hash of the client IP that changes every UTC day: the same child gets a new name each day, and the
 // address itself is never stored or logged (SPEC-013 AC 8, RR-56)
 export const dayKey = (now = Date.now()) => new Date(now).toISOString().slice(0, 10);
-export async function ipKey(ip, salt, now = Date.now()) {
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${salt}|${dayKey(now)}|${ip}`));
+export async function sha256Hex(text) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
   return [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, "0")).join("");
 }
+export const ipKey = (ip, salt, now = Date.now()) => sha256Hex(`${salt}|${dayKey(now)}|${ip}`);

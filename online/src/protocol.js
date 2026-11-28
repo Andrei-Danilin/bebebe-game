@@ -70,9 +70,11 @@ const NORMALISE = {
     if (m.protocol !== PROTOCOL) return undefined;
     const clientVersion = typeof m.clientVersion === "string" && VERSION_RE.test(m.clientVersion) ? m.clientVersion : undefined;
     const platform = oneOf(m.platform, PLATFORMS), entitlement = oneOf(m.entitlement, ENTITLEMENTS);
-    const token = m.token === undefined ? undefined : typeof m.token === "string" && TOKEN_RE.test(m.token) ? m.token : null;
-    if ([clientVersion, platform, entitlement].includes(undefined) || token === null) return undefined;
-    return token === undefined ? { protocol: PROTOCOL, clientVersion, platform, entitlement } : { protocol: PROTOCOL, clientVersion, platform, entitlement, token };
+    // token (a rejoin) and ownerKey (the creator's one-time key from POST /rooms) are optional, both random strings of the same shape
+    const opt = v => (v === undefined ? undefined : typeof v === "string" && TOKEN_RE.test(v) ? v : null);
+    const token = opt(m.token), ownerKey = opt(m.ownerKey);
+    if ([clientVersion, platform, entitlement].includes(undefined) || token === null || ownerKey === null) return undefined;
+    return { protocol: PROTOCOL, clientVersion, platform, entitlement, ...(token === undefined ? {} : { token }), ...(ownerKey === undefined ? {} : { ownerKey }) };
   },
   setLook(m) { const l = look(m.look); return l && { look: l }; },
   setName(m) {

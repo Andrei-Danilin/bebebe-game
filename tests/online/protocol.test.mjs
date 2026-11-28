@@ -31,6 +31,8 @@ test("hello: valid, token optional, unknown fields dropped", () => {
   assert.deepEqual(ok(HELLO), { type: "hello", protocol: 1, clientVersion: "1.0.0", platform: "web", entitlement: "free" });
   const token = "A".repeat(32);
   assert.equal(ok({ ...HELLO, token, extra: "x", platform: "ios", entitlement: "full" }).token, token);
+  assert.equal(ok({ ...HELLO, ownerKey: token }).ownerKey, token, "the creator's one-time key");
+  bad({ ...HELLO, ownerKey: "short" });
   assert.deepEqual(Object.keys(ok({ ...HELLO, extra: 1, name: "Ann", deviceId: "d" })).sort(), ["clientVersion", "entitlement", "platform", "protocol", "type"]);
   for (const patch of [{ platform: "tv" }, { entitlement: "gold" }, { clientVersion: 1 }, { clientVersion: "" }, { token: "short" }, { token: 7 }, { token: "!".repeat(32) }, { protocol: undefined }, { protocol: "1" }])
     bad({ ...HELLO, ...patch });

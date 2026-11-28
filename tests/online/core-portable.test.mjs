@@ -5,9 +5,8 @@
 // `localStorage` as property reads too. Comments and string contents are ignored.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -66,12 +65,13 @@ test("the guard sees what it guards against", () => {
 
 // the real thing: the whole core (src/core/index.js, the file the Room will import) goes through esbuild — wrangler's own bundler — as a worker
 // bundle would take it: no Node platform, so a Node-only import or an unresolvable specifier fails here. Needs online/node_modules (npm ci --prefix online)
-const ESBUILD = path.join(ROOT, "online", "node_modules", "esbuild", "bin", "esbuild");
-test("the whole core bundles for a Worker with esbuild (platform neutral)", { skip: !existsSync(ESBUILD) && "online/node_modules is not installed" }, () => {
-  const dir = mkdtempSync(path.join(tmpdir(), "bebebe-core-bundle-")), out = path.join(dir, "core.js");
-  try {
-    execFileSync(process.execPath, [ESBUILD, path.join(ROOT, "src", "core", "index.js"), "--bundle", "--format=esm", "--platform=neutral", "--log-level=error", `--outfile=${out}`], { stdio: "pipe" });
-    assert.ok(statSync(out).size > 100_000, "the bundle holds the core");
-    assert.ok(/createGame/.test(readFileSync(out, "utf8")));
-  } finally { rmSync(dir, { recursive: true, force: true }); }
+// (esbuild's JS API, not its bin file: on Linux that file is the native binary, not JavaScript)
+const ESBUILD = path.join(ROOT, "online", "node_modules", "esbuild", "lib", "main.js");
+test("the whole core bundles for a Worker with esbuild (platform neutral)", { skip: !existsSync(ESBUILD) && "online/node_modules is not installed" }, async () => {
+  const { build } = createRequire(import.meta.url)(ESBUILD);
+  const r = await build({ entryPoints: [path.join(ROOT, "src", "core", "index.js")], bundle: true, format: "esm", platform: "neutral", write: false, logLevel: "silent" });
+  const text = r.outputFiles[0].text;
+  assert.equal(r.errors.length, 0);
+  assert.ok(text.length > 100_000, "the bundle holds the core");
+  assert.ok(/createGame/.test(text));
 });

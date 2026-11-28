@@ -31,11 +31,13 @@ async function allowed(env, request, url, kind) {
   return env.LIMITER.get(env.LIMITER.idFromName(key)).hit(kind);
 }
 
+// → { code, ownerKey } (the key is shown to the creator once: the hello that presents it becomes the owner), or null after ROOM_TRIES live codes
 async function createRoom(env, url) {
   const forced = env.TEST_HOOKS === "1" ? (url.searchParams.get("_codes") ?? "").split(",").filter(Boolean) : [];   // tests: the codes to try, in order
   for (let i = 0; i < ROOM_TRIES; i++) {
     const code = forced.length ? forced[Math.min(i, forced.length - 1)] : randomCode();
-    if (await env.ROOM.get(env.ROOM.idFromName(code)).create(code)) return code;
+    const ownerKey = await env.ROOM.get(env.ROOM.idFromName(code)).create(code);
+    if (ownerKey) return { code, ownerKey };
   }
   return null;
 }
@@ -52,8 +54,8 @@ export default {
 
     if (url.pathname === "/rooms" && request.method === "POST") {
       if (!(await allowed(env, request, url, "room"))) { log("rate_limited_rooms"); return json({ error: "rateLimited" }, 429, headers); }
-      const code = await createRoom(env, url);
-      return code ? json({ code }, 200, headers) : json({ error: "busy" }, 503, headers);
+      const room = await createRoom(env, url);
+      return room ? json(room, 200, headers) : json({ error: "busy" }, 503, headers);
     }
 
     if (url.pathname === "/ws" && request.method === "GET") {

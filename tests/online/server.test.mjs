@@ -36,9 +36,11 @@ test("POST /rooms gives a code of the alphabet, and a different one each time", 
 test("POST /rooms retries when the Room is live (up to 5 codes) and gives up after that", async () => {
   const who = ip(2);
   const first = await post(server, "/rooms", { ip: who, query: "_codes=QQQQQ" });
-  assert.deepEqual(await first.json(), { code: "QQQQQ" });
+  const made = await first.json();
+  assert.equal(made.code, "QQQQQ");
+  assert.match(made.ownerKey, /^[A-Za-z0-9_-]{32}$/, "the creator's one-time key");
   const again = await post(server, "/rooms", { ip: who, query: "_codes=QQQQQ,QQQQQ,RRRRR" });
-  assert.deepEqual(await again.json(), { code: "RRRRR" }, "QQQQQ is live, the third try is free");
+  assert.equal((await again.json()).code, "RRRRR", "QQQQQ is live, the third try is free");
   const none = await post(server, "/rooms", { ip: who, query: "_codes=QQQQQ" });
   assert.equal(none.status, 503, "five live codes in a row");
   assert.deepEqual(await none.json(), { error: "busy" });
@@ -115,7 +117,7 @@ test("the owner leaving passes ownership to the longest-connected player", async
   let s = await b.c.recv("roomState");
   while (s.owner !== 1) s = await b.c.recv("roomState");
   assert.equal(s.owner, 1, "slot 1 joined before slot 2");
-  assert.equal(s.slots[0].kind, "bot");
+  assert.deepEqual([s.slots[0].kind, s.slots[0].connected], ["human", false], "the dropped kid's slot waits for his token (a bot plays it in a level)");
   b.c.send({ type: "leave" });
   await b.c.closed;
   s = await d.c.recv("roomState");

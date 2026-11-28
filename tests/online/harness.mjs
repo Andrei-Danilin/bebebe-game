@@ -19,8 +19,10 @@ const freePort = () => new Promise((resolve, reject) => {
 export const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 /**
- * Start the Worker. `vars` are extra --var values (TEST_HOOKS=1 is always on: ?_ip= and ?_codes= in the tests).
- * Returns { http, ws, logs() (everything wrangler printed), stop() }.
+ * Start the Worker. `vars` are extra --var values (TEST_HOOKS=1 is always on: ?_ip= and ?_codes= in the tests; with it the Room also reads
+ * TEST_REJOIN_TIME / TEST_EMPTY_TTL / TEST_IDLE_TTL in seconds, TEST_SPEED (a game clock multiplier) and TEST_AUTO=1 (the autopilot plays the kids)).
+ * Returns { http, ws, logs() (everything wrangler printed, across restarts), restart() (kills the process and starts it again on the same port with
+ * the same Durable Object state: a deploy or an eviction), stop() }.
  */
 export async function startServer({ vars = {} } = {}) {
   if (!existsSync(WRANGLER)) throw new Error("online/node_modules is missing: run `npm ci --prefix online`");
@@ -28,45 +30,58 @@ export async function startServer({ vars = {} } = {}) {
   const state = mkdtempSync(path.join(tmpdir(), "bebebe-online-"));   // a fresh Durable Object state per server: no room survives from an earlier run
   const args = [WRANGLER, "dev", "--local", "--port", String(port), "--inspector-port", String(inspector), "--persist-to", state];
   for (const [k, v] of Object.entries({ TEST_HOOKS: "1", ...vars })) args.push("--var", `${k}:${v}`);
-  let out = "";
-  const child = spawn(process.execPath, args, {
-    cwd: ONLINE, stdio: ["ignore", "pipe", "pipe"], windowsHide: true, detached: process.platform !== "win32",
-    env: { ...process.env, NO_COLOR: "1", WRANGLER_SEND_METRICS: "false", CI: "1" }
-  });
-  child.stdout.on("data", d => { out += d; });
-  child.stderr.on("data", d => { out += d; });
-  let exited = false;
-  child.on("exit", () => { exited = true; });
-  const stop = async () => {
-    if (!exited) {
+  const http = `http://127.0.0.1:${port}`;
+  let out = "", child = null, exited = true;
+  const kill = async () => {
+    if (child && !exited) {
       try {
         if (process.platform === "win32") execFileSync("taskkill", ["/pid", String(child.pid), "/T", "/F"], { stdio: "ignore" });
         else process.kill(-child.pid, "SIGKILL");
       } catch { /* already gone */ }
     }
-    await sleep(200);
+    await sleep(500);
+  };
+  const launch = async () => {
+    exited = false;
+    const c = child = spawn(process.execPath, args, {
+      cwd: ONLINE, stdio: ["ignore", "pipe", "pipe"], windowsHide: true, detached: process.platform !== "win32",
+      env: { ...process.env, NO_COLOR: "1", WRANGLER_SEND_METRICS: "false", CI: "1" }
+    });
+    c.stdout.on("data", d => { out += d; });
+    c.stderr.on("data", d => { out += d; });
+    c.on("exit", () => { if (c === child) exited = true; });
+    const deadline = Date.now() + 90_000;
+    for (;;) {
+      if (exited) { await stop(); throw new Error(`wrangler exited early:
+${out}`); }
+      try { if ((await fetch(`${http}/health`)).ok) return; } catch { /* not listening yet */ }
+      if (Date.now() > deadline) { await stop(); throw new Error(`wrangler did not start in 90 s:
+${out}`); }
+      await sleep(300);
+    }
+  };
+  const stop = async () => {
+    await kill();
     try { rmSync(state, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }); } catch { /* a locked temp dir is not a test failure */ }
   };
-  const http = `http://127.0.0.1:${port}`;
-  const deadline = Date.now() + 90_000;
-  for (;;) {
-    if (exited) { await stop(); throw new Error(`wrangler exited early:\n${out}`); }
-    try { if ((await fetch(`${http}/health`)).ok) break; } catch { /* not listening yet */ }
-    if (Date.now() > deadline) { await stop(); throw new Error(`wrangler did not start in 90 s:\n${out}`); }
-    await sleep(300);
-  }
-  return { http, ws: `ws://127.0.0.1:${port}`, logs: () => out, stop };
+  const restart = async () => { await kill(); await launch(); };
+  await launch();
+  return { http, ws: `ws://127.0.0.1:${port}`, logs: () => out, restart, stop };
 }
 
 export const post = (server, p, { ip, headers = {}, query = "" } = {}) =>
   fetch(`${server.http}${p}?${ip ? `_ip=${ip}&` : ""}${query}`, { method: "POST", headers });
 
-/** POST /rooms → the code (the room is created) */
+const ownerKeys = new Map();   // room code → the creator's one-time key (the first join() of that code presents it)
+/** POST /rooms → the code (the room is created); its ownerKey is kept for the first join() */
 export async function newRoom(server, ip) {
   const r = await post(server, "/rooms", { ip });
   if (r.status !== 200) throw new Error(`POST /rooms ${r.status}`);
-  return (await r.json()).code;
+  const { code, ownerKey } = await r.json();
+  ownerKeys.set(code, ownerKey);
+  return code;
 }
+export const takeOwnerKey = code => { const k = ownerKeys.get(code); ownerKeys.delete(code); return k; };
 
 /**
  * A WebSocket client: send(obj | text), recv(type?, ms) → the next message (of that type), closed → { code, reason }.
@@ -100,13 +115,30 @@ export function connect(server, room, { ip, headers } = {}) {
 export const issuedTokens = [];   // every session token a test was given (the log spy looks for them)
 export const HELLO = { type: "hello", protocol: 1, clientVersion: "1.0.0", platform: "web", entitlement: "full" };
 
-/** connect and say hello → { c, welcome, state } */
-export async function join(server, room, { ip, hello = {} } = {}) {
+/** connect and say hello → { c, welcome, state }; the first join of a room created by newRoom() is the creator (it presents the ownerKey) unless `guest` */
+export async function join(server, room, { ip, hello = {}, guest = false } = {}) {
   const c = connect(server, room, { ip });
   await c.opened;
-  c.send({ ...HELLO, ...hello });
+  const ownerKey = guest ? undefined : takeOwnerKey(room.toUpperCase());
+  c.send({ ...HELLO, ...(ownerKey ? { ownerKey } : {}), ...hello });
   const welcome = await c.recv("welcome");
   issuedTokens.push(welcome.token);
   const state = await c.recv("roomState");
   return { c, welcome, state };
+}
+
+/** take every message of `type` out of the client inbox (the others stay) */
+export function drain(c, type) {
+  const out = c.inbox.filter(m => m.type === type);
+  for (const m of out) c.inbox.splice(c.inbox.indexOf(m), 1);
+  return out;
+}
+/** wait until a message of `type` that `ok` accepts arrives (messages that do not match are dropped on the way) */
+export async function until(c, type, ok, ms = 8000) {
+  const end = Date.now() + ms;
+  for (;;) {
+    const m = await c.recv(type, Math.max(50, end - Date.now()));
+    if (ok(m)) return m;
+    if (Date.now() > end) throw new Error(`no matching ${type} in ${ms} ms`);
+  }
 }
