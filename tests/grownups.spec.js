@@ -85,7 +85,7 @@ test("every adult action calls the gate", { tag: "@fast" }, () => {
   // every button of the page but OK is made by act(…), which runs its action through parentGate
   const made = [...[...body.matchAll(/\bact\([^,]+, "(\w+)"/g)].map(m => ["act", m[1]]), ...[...body.matchAll(/\bbutton\(row, [^,]+, [^,]+, "(\w+)"\)/g)].map(m => ["button", m[1]])];
   expect(made.filter(([how, name]) => how !== "act" && name !== "close" && !SWITCHES.includes(name)), "page actions not behind the gate").toEqual([]);
-  expect(made.map(([, n]) => n).sort()).toEqual(["close", "copyCode", "errorLog", "music", "pasteCode", "quality", "resetProgress", "restoreCopy", "sounds", "undoReset"].sort());   // SPEC-047: + the two switches   // SPEC-040: + quality   // SPEC-033: + resetProgress
+  expect(made.map(([, n]) => n).sort()).toEqual(["close", "copyCode", "errorLog", "fullGame", "music", "pasteCode", "quality", "resetProgress", "restoreCopy", "sounds", "undoReset"].sort());   // SPEC-047: + the two switches   // SPEC-040: + quality   // SPEC-033: + resetProgress
   // review fix: erasing everything asks the gate again even with the page open (askGate, not the page's pass)
   expect(body).toMatch(/button\(\s*row,\s*L\(\)\.eraseAll,[^\n]*\baskGate\(\s*confirmErase\b[^\n]*"eraseAll"\s*\)/);
   expect(body).toMatch(/const act = \(label, name, fn\) => button\(row, label, \(\) => parentGate\(fn\), name\);/);
