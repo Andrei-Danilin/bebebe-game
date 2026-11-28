@@ -14,7 +14,7 @@ import { openPictures, openPractice } from "../tutorial.js";
 import { openGrownUps } from "./grownups.js";
 import { fitButton, homeButton, rowsAt } from "./buttons.js";
 import { circle, fillStroke, heartPath, regButton, rr } from "./draw.js";
-import { drawArtFit, fillT, noteArt } from "./artdraw.js";
+import { drawArtFit, fadeIn, fadeOut, fillT, noteArt } from "./artdraw.js";
 import { WORLD_ICONS } from "./map.js";
 import { menuFrame } from "./menu.js";
 import { fitLine, label, noteRows, noteText, noteUnfit, plainText, scaledW, sideFit, storyMin, storyPx, titleRows } from "./text.js";
@@ -104,8 +104,10 @@ export function drawStory() {
     imgRect = [ix, iy, iw, ih];
     picBox = { x: ix - fr - 1.5 * k, y: iy - fr - 1.5 * k, w: iw + 2 * fr + 3 * k, h: ih + 2 * fr + 3 * k };   // SPEC-031: с рамкой (и половиной её линии)
     rr(ix - fr, iy - fr, iw + 2 * fr, ih + 2 * fr, 6 * k); fillStroke(S.paper, 3 * k);   // бумажная рамка
+    const ga = artName ? fadeIn(artName) : ctx.globalAlpha;
     ctx.drawImage(img, img.width * cr[0], img.height * cr[1], sw, sh, ix, iy, iw, ih);
     if (artName) noteArt(artName);
+    fadeOut(ga);
     tape(ix + 6 * k, iy + 2 * k, -0.7, k * 0.8); tape(ix + iw - 6 * k, iy + 2 * k, 0.7, k * 0.8);
   } else storyPlaceholder(pic, !open);
   // SPEC-026 / SPEC-033: слова папы клетки 1 в её облачке (только буквы, SPEC-032); остальные три облачка — в комиксе по ▶
@@ -176,7 +178,9 @@ function drawRulesPage(c, open, title, top, { X0, X1, Y1, g, B }, minMain, minHi
     const fr = R.frame * k, sc = Math.min((pic.w - 2 * fr) / img.width, (pic.h - 2 * fr) / img.height), iw = img.width * sc, ih = img.height * sc;
     const ix = pic.x + (pic.w - iw) / 2, iy = pic.y + (pic.h - ih) / 2;
     rr(ix - fr, iy - fr, iw + 2 * fr, ih + 2 * fr, R.frameR * k); fillStroke(S.paper, 3 * k);   // бумажная рамка, как в «Истории»
+    const ga = fadeIn("tutorial_a");
     ctx.drawImage(img, ix, iy, iw, ih);
+    fadeOut(ga);
     noteArt("tutorial_a");
     tape(ix + R.tapeIn * k, iy + 2 * k, -0.7, k * 0.8); tape(ix + iw - R.tapeIn * k, iy + 2 * k, 0.7, k * 0.8);
     picBox = { x: ix - fr - 1.5 * k, y: iy - fr - 1.5 * k, w: iw + 2 * fr + 3 * k, h: ih + 2 * fr + 3 * k };
@@ -272,8 +276,10 @@ function paperPicture(img, cr, pic, name) {
   const k = PHONE ? cpx(1) : 1, fr = 5 * k, sw = img.width * cr[2], sh = img.height * cr[3];
   const sc = Math.min((pic.w - 2 * fr) / sw, (pic.h - 2 * fr) / sh), iw = sw * sc, ih = sh * sc, ix = pic.x + (pic.w - iw) / 2, iy = pic.y + (pic.h - ih) / 2;
   rr(ix - fr, iy - fr, iw + 2 * fr, ih + 2 * fr, 6 * k); fillStroke(LOOK.MENU_LOOK.story.paper, 3 * k);   // бумажная рамка, как в «Истории»
+  const ga = fadeIn(name);
   ctx.drawImage(img, img.width * cr[0], img.height * cr[1], sw, sh, ix, iy, iw, ih);
   noteArt(name);
+  fadeOut(ga);
   tape(ix + 6 * k, iy + 2 * k, -0.7, k * 0.8); tape(ix + iw - 6 * k, iy + 2 * k, 0.7, k * 0.8);
   return { ix, iy, iw, ih, box: { x: ix - fr - 1.5 * k, y: iy - fr - 1.5 * k, w: iw + 2 * fr + 3 * k, h: ih + 2 * fr + 3 * k } };
 }

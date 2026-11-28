@@ -2,7 +2,7 @@
 // nine-piece paper buttons) and the labels with the emoji replaced by pictures (fillT / strokeT), with the count of what was drawn
 // (artUse). They sit below the text, the paper and the screens, which all draw sprites; they need only the art and the screen's
 // context. Client module.
-import { art, artInset, artPick, EMOJI_ART, EMOJI_RE } from "../art.js";
+import { art, artFade, artInset, artPick, EMOJI_ART, EMOJI_RE } from "../art.js";
 import { LOOK } from "../look.js";
 import { ctx } from "../screen.js";
 import { textW } from "./measure.js";
@@ -13,11 +13,16 @@ import { textW } from "./measure.js";
 export const artUse = {};
 export function noteArt(name) { artUse[name] = (artUse[name] || 0) + 1; }
 export function resetArtUse() { for (const k in artUse) delete artUse[k]; }
+// SPEC-048 AC 3: a picture the screen change stopped waiting for fades in over LOOK.ART_FADE s: fadeIn(name) sets the alpha, fadeOut(a) puts it back
+export const fadeIn = name => { const a = ctx.globalAlpha, k = artFade(name); if (k < 1) ctx.globalAlpha = a * k; return a; };
+export const fadeOut = a => { ctx.globalAlpha = a; };
 // растянуть в прямоугольник
 export function drawArt(name, x, y, w, h) {
   const img = art(name);
   if (!img) return false;
+  const ga = fadeIn(name);
   ctx.drawImage(img, x, y, w, h); noteArt(name);
+  fadeOut(ga);
   return true;
 }
 // вписать по центру (cx, cy) в квадрат size, пропорции картинки сохраняются
@@ -25,7 +30,9 @@ export function drawArtFit(name, cx, cy, size) {
   const img = art(name);
   if (!img) return false;
   const s = size / Math.max(img.naturalWidth, img.naturalHeight), w = img.naturalWidth * s, h = img.naturalHeight * s;
+  const ga = fadeIn(name);
   ctx.drawImage(img, cx - w / 2, cy - h / 2, w, h); noteArt(name);
+  fadeOut(ga);
   return true;
 }
 
@@ -64,7 +71,9 @@ export function drawArtCover(name, x, y, w, h, fx = 0, fy = 0, fw = 1, fh = 1) {
   const img = art(name);
   if (!img) return false;
   const sw = img.naturalWidth * fw, sh = img.naturalHeight * fh, k = Math.min(sw / w, sh / h);
+  const ga = fadeIn(name);
   ctx.drawImage(img, img.naturalWidth * fx + (sw - w * k) / 2, img.naturalHeight * fy + (sh - h * k) / 2, w * k, h * k, x, y, w, h); noteArt(name);
+  fadeOut(ga);
   return true;
 }
 // бумажная кнопка «девятью кусками»: углы картинки (доля cut) — в размер c без искажения, края и середина тянутся
@@ -78,7 +87,7 @@ export function art9Visible(name, x, y, w, h, c) {
 export function drawArt9(name, x, y, w, h, c, cut = ART9_CUT) {
   const img = art(name);
   if (!img) return false;
-  const iw = img.naturalWidth, ih = img.naturalHeight, sx = iw * cut, sy = ih * cut;
+  const iw = img.naturalWidth, ih = img.naturalHeight, sx = iw * cut, sy = ih * cut, ga = fadeIn(name);
   c = Math.min(c, w / 2, h / 2);
   for (let j = 0; j < 3; j++) for (let i = 0; i < 3; i++) {
     const s0 = i === 0 ? 0 : i === 1 ? sx : iw - sx, sw = i === 1 ? iw - 2 * sx : sx;
@@ -88,5 +97,6 @@ export function drawArt9(name, x, y, w, h, c, cut = ART9_CUT) {
     if (dw > 0 && eh > 0) ctx.drawImage(img, s0, t0, sw, th, d0, e0, dw, eh);
   }
   noteArt(name);
+  fadeOut(ga);
   return true;
 }

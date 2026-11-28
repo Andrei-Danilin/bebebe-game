@@ -5,7 +5,7 @@
 import { CFG, H, W } from "../../core/config.js";
 import { L } from "../../i18n.js";
 import { itemEmoji, itemIcon, TIP_ART, TRICK_EMOJI, TRICK_ICON } from "../art.js";
-import { closeTip } from "../flow.js";
+import { closeTip, okTip } from "../flow.js";
 import { LOOK } from "../look.js";
 import { ctx, OUT, PHONE, UH, UW } from "../screen.js";
 import { ui } from "../state.js";
@@ -64,6 +64,6 @@ export function drawTipCard() {
     if (PHONE) noteText("hint", b.sz);
     yy += heights[i] + g;
   });
-  fitButton(x + pad, y + ch - pad - BH, cw - 2 * pad, BH, L().ok, M.play, closeTip, PHONE ? cpx(22) : 24, minMain).id = "tip:ok";
+  fitButton(x + pad, y + ch - pad - BH, cw - 2 * pad, BH, L().ok, M.play, okTip, PHONE ? cpx(22) : 24, minMain).id = "tip:ok";
   ui.tipInfo = { world, fallback: pic.fallback, title, rect: { x, y, w: cw, h: ch }, picture: { x: pic.x, y: pic.y, w: pic.w, h: pic.h } };
 }

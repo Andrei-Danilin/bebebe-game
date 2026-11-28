@@ -24,6 +24,7 @@ export const ui = {
   // SPEC-012 AC 5: the client's timers of the core's hints (who, how long still) and the wide-push rings { x, y, t, r }
   kitHintT: 0, kitHintPi: 0, heardHintT: 0, heardHintPi: 0, waves: [],
   tip: /** @type {null | string} */ (null), tipInfo: null,   // SPEC-042 AC 11: the "New here!" card is open for this world (ui/tip.js; it stands in the level card's place) and what it drew (the probe)
+  tipPlay: /** @type {null | number} */ (null),   // SPEC-048 AC 6: the tip card came after Play (the number of players the level starts with): OK starts the level, Back goes to the map; null: the ? button's card
   freezeT: 0, bellRect: null, freezeRect: null,   // SPEC-042: the "Freeze!" banner's time left and the drawn bell / banner (the probes)
   tiptoe: [false, false],   // SPEC-032 AC 1: кнопка 👣 каждого игрока (касания) — на цыпочках включено; в начале уровня — выключено
   bubbleTextOff: false,     // SPEC-032 AC 12 (тесты): облачка меряются, но букв не рисуют — кадр без них сравнивается с обычным

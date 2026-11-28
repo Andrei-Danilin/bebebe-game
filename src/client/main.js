@@ -140,8 +140,8 @@ function tick(now) {
     warmUpload(draw === "world");            // SPEC-040 AC 4: the world of the open card's level, uploaded a few parts a frame (warm.js)
     if (draw === "world") view3D.settling = render3D(ui.T, previews);
     else if (draw === "previews") previewsOverSnapshot(ui.T);
-    screenGate(now, fitCount);               // SPEC-048: the pictures of the screen (the recorder; the wait and the prefetch)
-    drawUI(ui.T);
+    // SPEC-048: the screen's pictures are asked for (and the next screen's); a change to a screen whose pictures are not in yet keeps the old canvas for ≤ ART_WAIT s
+    if (screenGate(now, fitCount)) drawUI(ui.T);
   });
 }
 

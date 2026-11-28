@@ -268,5 +268,7 @@
  "tipCard": "getter",
  "openTip": "function",
  "closeTip": "function",
+ "okTip": "function",
+ "playCard": "function",
  "tipDue": "function"
 }

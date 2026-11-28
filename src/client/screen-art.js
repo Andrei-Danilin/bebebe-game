@@ -8,7 +8,7 @@
 import { G } from "../core/active.js";
 import { CFG } from "../core/config.js";
 import { progress } from "../core/economy.js";
-import { artReady, itemIcon, mapBgArt, STORY_ART, TIP_ART, TRICK_ICON } from "./art.js";
+import { artFade, artLate, artPrefetch, artReady, itemIcon, mapBgArt, STORY_ART, TIP_ART, TRICK_ICON } from "./art.js";
 import { cardLevel, chapterOpen, scenePages, storyCh, tipDue } from "./flow.js";
 import { LOOK } from "./look.js";
 import { mode, ui } from "./state.js";
@@ -43,8 +43,8 @@ export function screenArt() {
     return { sig: `levelCard:${G.world}:${cardLevel}`, now: cardArt(G.world), next: cardLevel === 1 && tipDue(G.world) ? tipArt(G.world) : [] };
   }
   if (mode === "play") return { sig: "play", now: [], next: G.tutorialGame === 1 ? ["tutorial_b"] : G.tutorialGame === 2 ? ["story_win"] : [] };
-  if (mode === "win") return { sig: "win", now: [], next: [mapBgArt(G.world)] };
-  if (mode === "home") return { sig: "home", now: [], next: progress.seen.intro ? [] : ["story_start"] };
+  if (mode === "win") return { sig: "win", now: [], next: cardArt(G.world) };   // the next level's card
+  if (mode === "home") return { sig: "home", now: [], next: progress.seen.intro || window.__bbNoIntro === true ? [] : ["story_start"] }   // (the first launch's comic comes next);
   return { sig: mode, now: [], next: [] };
 }
 
@@ -52,15 +52,22 @@ let shown = null, shownFit = -1, holdSince = 0, holding = false, frameNo = 0;
 export const artHolding = () => holding;
 const rec = { on: false, log: /** @type {any[]} */ ([]) };
 // SPEC-048 AC 9: the recorder — each frame the loop ran: the screen on the canvas, whether the frame was held (nothing drawn), the screen the game is
-// at, and (for a frame that drew) the listed pictures the screen lacked and whether the wait had run out (`late`)
+// at, and (for a frame that drew) the listed pictures the screen lacked, whether the wait had run out (`late`) and how far a late picture has faded in (`fade`, 0…1)
 export function recordFrames(on) { rec.on = !!on; if (on) rec.log = []; }
 export const frameLog = () => rec.log.map(f => ({ ...f, missing: [...f.missing] }));
-// the frame loop (main.js, before drawUI): the recorder only, for now (the wait and the prefetch come with the next step)
+// the frame loop (main.js, before drawUI): asks for the pictures, decides whether this frame draws → true: draw the 2D layer, false: keep the canvas
 export function screenGate(now, fitN) {
   const s = screenArt();
-  if (shown !== null && s.sig !== shown) { /* the screen changed */ }
-  shown = s.sig; shownFit = fitN;
-  if (rec.on && rec.log.length < 2000) rec.log.push({ n: frameNo, screen: shown, target: s.sig, held: false, late: false, missing: s.now.filter(n => !artReady([n])) });
+  artPrefetch(s.now); artPrefetch(s.next);
+  let draw = true, late = false;
+  if (shown !== null && s.sig !== shown) {
+    const waited = holdSince > 0 && now - holdSince >= LOOK.ART_WAIT * 1000;
+    if (artReady(s.now) || fitN !== shownFit || waited || LOOK.ART_WAIT <= 0) late = !artReady(s.now);   // (a resize emptied the canvas: nothing to keep)
+    else { if (!holdSince) holdSince = now; draw = false; }
+  }
+  if (draw) { if (late) artLate(s.now); shown = s.sig; shownFit = fitN; holdSince = 0; }
+  holding = !draw;
+  if (rec.on && rec.log.length < 2000) rec.log.push({ n: frameNo, t: Math.round(now), screen: shown, target: s.sig, held: !draw, late, fade: draw ? Math.round(100 * Math.min(1, ...s.now.map(artFade))) / 100 : 1, missing: draw ? s.now.filter(n => !artReady([n])) : [] });
   frameNo++;
-  return true;
+  return draw;
 }

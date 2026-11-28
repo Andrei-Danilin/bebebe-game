@@ -2,7 +2,7 @@
 // (SPEC-012: the players' input slots). Client module (moved out of index.html in Phase C).
 
 import { CFG } from "../core/config.js";
-import { backToWardrobe, chooseStop, closeCard, closeTip, goBack, closeShop, cycleWorld, mapSelN, moveMapSel, nextLang, nextLevel, openStory, openTip, playCard, pressKiss, pressKit, resumeGame, retryLevel, sceneNext, scenePrev, sceneSkip, setMode, setStoryPage, storyBackKey, storyStep, switchShopTab, toggleMusic, toggleSound, toMap, watchChapter } from "./flow.js";
+import { backToWardrobe, chooseStop, closeCard, closeTip, okTip, goBack, closeShop, cycleWorld, mapSelN, moveMapSel, nextLang, nextLevel, openStory, openTip, playCard, pressKiss, pressKit, resumeGame, retryLevel, sceneNext, scenePrev, sceneSkip, setMode, setStoryPage, storyBackKey, storyStep, switchShopTab, toggleMusic, toggleSound, toMap, watchChapter } from "./flow.js";
 import { LOOK } from "./look.js";
 import { activeStick, closeNameInput, nameInput, stickR, sticks, afterFit } from "./devices.js";
 import { randomOutfit } from "./outfits.js";
@@ -17,6 +17,7 @@ import { chooseLang, moveLangSel } from "./ui/lang.js";
 import { cpx } from "./ui/layout.js";
 import { G } from "../core/active.js";
 import { newInput } from "../core/game.js";
+import { artHolding } from "./screen-art.js";
 
 // =====================================================================
 //  УПРАВЛЕНИЕ: клавиатура, касания (джойстики), геймпад
@@ -45,7 +46,7 @@ function onKey(code) {
     if (code === "Enter" || code === "NumpadEnter" || code === "Space") { tap(); chooseStop(mapSelN()); }
   } else if (mode === "levelCard") {
     if (ui.tip) {                                              // SPEC-042: the "New here!" card stands in the level card's place: Enter / Space / H close it (Escape too, goBack), nothing else acts under it
-      if (code === "Enter" || code === "NumpadEnter" || code === "Space" || code === "KeyH") closeTip();
+      if (code === "Enter" || code === "NumpadEnter" || code === "Space" || code === "KeyH") okTip();   // SPEC-048: after Play OK starts the level (Escape goes back)
       return;
     }
     if (code === "Enter" || code === "NumpadEnter" || code === "Space" || code === "Digit1" || code === "Numpad1") { tap(); playCard(1); }
@@ -155,7 +156,7 @@ function padLost(pi) {
   if (G.players === 1 ? !padSlots.some(s => s.connected) : pi < G.players) setMode("pause");
 }
 function onPadButton(b, pad = 0) {
-  if (nameInput) return;
+  if (nameInput || artHolding()) return;   // SPEC-048 AC 3: nothing while a screen change waits for its pictures
   if (cardOpen()) {                         // SPEC-025: a card over the game — D-pad ←/→ pick its button, A / Start press it, nothing else
     if (b === 14 || b === 15) moveCardFocus(b === 14 ? -1 : 1);
     else if (b === 0 || b === 9) pressCard();
@@ -181,7 +182,7 @@ function onPadButton(b, pad = 0) {
     if (b === 1) setMode("home");
   } else if (mode === "levelCard") {
     if (ui.tip) {                                              // SPEC-042: A / B / Start / the tip button close the "New here!" card, not the level card
-      if (b === 0 || b === 1 || b === 9 || b === LOOK.PAD_TIP) closeTip();
+      if (b === 0 || b === 9 || b === LOOK.PAD_TIP) okTip(); else if (b === 1) closeTip();   // SPEC-048: A / Start / RB — OK (after Play it starts the level), B — back
       return;
     }
     if (b === LOOK.PAD_TIP) openTip();                         // SPEC-042: RB — what is new in this world
@@ -282,7 +283,7 @@ export function initInput() {
     if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"].includes(e.code)) e.preventDefault();
     if (e.code === "Slash" && mode === "play") e.preventDefault();   // SPEC-019: «/» — на цыпочках игрока 2 (в Firefox «/» — быстрый поиск)
     initAudio();
-    if (!keys.has(e.code)) onKey(e.code);
+    if (!keys.has(e.code) && !artHolding()) onKey(e.code);   // SPEC-048 AC 3: a screen change is waiting for its pictures — a key goes to nothing (no double press into the next screen)
     keys.add(e.code);
   });
   window.addEventListener("keyup", e => keys.delete(e.code));
@@ -291,6 +292,7 @@ export function initInput() {
   canvas.addEventListener("pointerdown", e => {
     e.preventDefault();
     if (rotateWall()) return;                          // SPEC-038 AC 2: the "turn your device" overlay is on — nothing under it reacts
+    if (artHolding()) { e.preventDefault(); return; }   // SPEC-048 AC 3: a screen change waits for its pictures — a tap goes to nothing
     initAudio();
     if (nameInput) { closeNameInput(true); return; }   // тап мимо поля — имя сохраняется
     // SPEC-025 AC 7d: in the frame that changed the screen the drawn buttons (and the screen-wide taps: next comic page, resume,

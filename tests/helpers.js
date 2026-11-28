@@ -152,7 +152,7 @@ async function frames(page) {
     const raf = () => new Promise(r => requestAnimationFrame(r));
     await raf(); await raf();
     let waited = false;
-    for (const t0 = performance.now(); (window.__bb ? window.__bb.artInfo.pending : 0) > 0 && performance.now() - t0 < 20000;) { waited = true; await raf(); }
+    for (const t0 = performance.now(); window.__bb && (window.__bb.artInfo.pending > 0 || window.__bb.artInfo.holding) && performance.now() - t0 < 20000;) { waited = true; await raf(); }   // SPEC-048: and for a screen change that waits for its pictures (it holds the old canvas ≤ ART_WAIT s)
     if (waited) { await raf(); await raf(); }
   });
 }
