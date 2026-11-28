@@ -1,6 +1,6 @@
 # SPEC-048 — No flashes between screens; the tip card on its own; padding after Dad's hearts
 
-Status: ready
+Status: done (merged by "Merge SPEC-048", see git log)
 Complexity: M
 Branch: SPEC-048-no-flashes
 Decided by:
