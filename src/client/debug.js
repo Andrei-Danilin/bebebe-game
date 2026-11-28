@@ -26,6 +26,7 @@ import { ART_NAMES, ART_RESIDENT } from "./art-names.js";
 import { cadence, COVERED, newCadence } from "./cadence.js";
 import { qualityFrame, qualityInfo, setQualityMode } from "./adaptive.js";
 import { warmInfo } from "./warm.js";
+import { artHolding, frameLog, recordFrames, screenArt } from "./screen-art.js";
 import { art, ART_FALLBACK, artBytes, artCount, artLazy, artLoad, artDone, artVersion, EMOJI_ART, FX_ART, HEART_ART, ITEM_ART, mapBgArt, PAPER_BTN, POP_ART, SHOP_TAB_ART, STORY_ART, UPG_ART, WARDROBE_ART, worldArt } from "./art.js";
 import { orderedEvents } from "../core/events.js";
 import { bannerAlpha, chapterOpen, chooseStop, goBack, nextLevel, closeShop, giveReward, lastReward, mapTick, openFriends, openMap, openScene, openShop, openStory, openTip, closeTip, tipDue, resetMenus, resetWorld, rngDraws, sceneNext, scenePageCount, scenePages, sceneSkip, seedRandom, selectWorld, setLastReward, setMode, setShopTab, shopAfterWin, showBanner, showCard, startGame, tapWorldTab, toHome, toMap } from "./flow.js";
@@ -93,7 +94,7 @@ const CFG_ALL = new Proxy({}, {
 // ошибку, чтобы визуальный тест, открытый в sim, падал громко, а не проверял пустоту.
 const SIM_DRAWN = ["buttonRects", "buttonNames", "tapButton", "hudRects", "mapInfo", "levelCard", "storyInfo", "textSizes", "minimap",
   "bannerRect", "bellHud", "tipCard", "trickMeshes", "worldItemMeshes", "rotateShown", "winPanel", "winLine", "bonusNote", "shopLayout", "kitHint", "heardHint", "edgeArrows", "downDrawn", "stickMarks",
-  "tapLines", "textOverflows", "tutorialHint", "homeInfo", "progressInfo", "outfit3D", "bibClear", "hat3D", "capeClear", "cardRect", "mapPieces", "groundColorAt", "camera", "minimapAlpha", "artUse", "sceneInfo", "moodInfo", "bigLook", "look3D", "drawNow", "model",
+  "tapLines", "textOverflows", "tutorialHint", "homeInfo", "progressInfo", "outfit3D", "bibClear", "hat3D", "capeClear", "cardRect", "mapPieces", "groundColorAt", "camera", "minimapAlpha", "artUse", "frameLog", "sceneInfo", "moodInfo", "bigLook", "look3D", "drawNow", "model",
   "perf", "disposeCheck"];   // SPEC-025 AC 15 / 15b: the renderer's numbers and textures — a rendered page only
 
 
@@ -117,7 +118,9 @@ export function installDebug() {
     art, ART_NAMES, ART_RESIDENT,
     // SPEC-040 AC 1: total — every sprite; resident — those loaded at start; ok — resident ones loaded, bad — sprites that failed to load (any); loaded — in memory now (resident + the
     // non-resident ones a screen is using); pending — non-resident ones still loading; bytes — their decoded RGBA; done — the resident ones settled and nothing pending
-    get artInfo() { const z = artLazy(); return { total: ART_NAMES.length, resident: ART_RESIDENT.length, ok: artCount.ok, bad: artCount.bad + z.bad, loaded: artCount.ok + z.loaded, pending: z.loading, bytes: artBytes(), done: artDone(), loadingShown: !!document.getElementById("loading") }; },
+    get artInfo() { const z = artLazy(); return { total: ART_NAMES.length, resident: ART_RESIDENT.length, ok: artCount.ok, bad: artCount.bad + z.bad, loaded: artCount.ok + z.loaded, pending: z.loading, bytes: artBytes(), done: artDone(), holding: artHolding(), loadingShown: !!document.getElementById("loading") }; },
+    // SPEC-048 AC 9: the frame recorder (recordFrames(true) starts it, false stops it; frameLog = the frames: { n, screen, target, held, late, missing }) and the pictures of the screen now
+    recordFrames, get frameLog() { return frameLog(); }, get screenArt() { return screenArt(); },
     get mode() { return mode; }, set mode(v) { if (MODES.includes(v)) setMode(v); },   // SPEC-017: только экраны из MODES
     // SPEC-017: экраны меню; wardrobePage — «looks» (наряды) или «friends» (имена друзей) во вкладке «Гардероб»; resetMenus — как при запуске
     MODES, toMap, toHome, resetMenus, shopAfterWin, closeShop, get muted() { return !ui.sfx; },   // SPEC-030: и магазин после победы → «Готово»

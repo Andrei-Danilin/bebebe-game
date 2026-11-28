@@ -41,6 +41,7 @@ import { warmBuild, warmUpload } from "./warm.js";
 import { showDueNote } from "./ui/grownups.js";
 import { updateMinimapFade } from "./ui/minimap.js";
 import { drawUI } from "./ui/screens.js";
+import { screenGate } from "./screen-art.js";
 import { initTextMemo } from "./ui/measure.js";
 
 let langDue = false, introDue = false, tutorialDue = false, last = 0;
@@ -139,6 +140,7 @@ function tick(now) {
     warmUpload(draw === "world");            // SPEC-040 AC 4: the world of the open card's level, uploaded a few parts a frame (warm.js)
     if (draw === "world") view3D.settling = render3D(ui.T, previews);
     else if (draw === "previews") previewsOverSnapshot(ui.T);
+    screenGate(now, fitCount);               // SPEC-048: the pictures of the screen (the recorder; the wait and the prefetch)
     drawUI(ui.T);
   });
 }

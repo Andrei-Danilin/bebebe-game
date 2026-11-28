@@ -37,7 +37,7 @@ export const artDone = () => residentDone() && lazyLoading === 0;
 function artSettle(a, ok, name) {
   if (a.state !== "loading") return;
   a.state = ok ? "ok" : "bad";
-  if (ok) artVersion++;
+  if (ok) { artVersion++; a.okAt = performance.now(); }
   if (a.lazy) { lazyLoading--; if (ok) lazyOk.add(name); else { a.img = null; lazyBad++; a.failedAt = performance.now(); } }
   else if (!a.own) { artCount[ok ? "ok" : "bad"]++; artProgress(); }
 }
@@ -79,6 +79,33 @@ export function artFailed(name) {
   const a = artImgs.get(name);
   return !a || a.state === "bad" || (!!a.failedAt && a.state !== "ok");
 }
+// SPEC-048 AC 1: every picture of the list is in memory or known to be missing (a failed picture never blocks: the screen draws its fallback)
+export function artReady(names) {
+  for (const n of names) {
+    const a = artImgs.get(n);
+    if (!a || a.state === "ok" || artRoot === "bad" || artFailed(n)) continue;
+    return false;
+  }
+  return true;
+}
+// SPEC-048 AC 1: starts loading the pictures of the next screen and keeps them (main.js asks every frame, so artSweep, which releases what was not
+// asked for, never takes them while the screen they are for is on the way)
+export function artPrefetch(names) { for (const n of names) art(n); }
+// SPEC-048 AC 3: a picture the screen change stopped waiting for (ART_WAIT ran out) fades in over LOOK.ART_FADE s when it arrives (artFade: 0…1)
+let lateN = 0;
+function lateOff(a) { if (a.late) { a.late = false; lateN--; } }
+export function artLate(names) {
+  for (const n of names) { const a = artImgs.get(n); if (a && a.state !== "ok" && !a.late && !artFailed(n)) { a.late = true; lateN++; } }
+}
+export function artFade(name) {
+  if (!lateN) return 1;
+  const a = artImgs.get(name);
+  if (!a || !a.late || a.state !== "ok") return 1;
+  const k = (performance.now() - a.okAt) / (LOOK.ART_FADE * 1000);
+  if (k >= 1) { lateOff(a); return 1; }
+  return Math.max(0, k);
+}
+export const artLateCount = () => lateN;
 // не постоянная картинка: попросили — грузим (не раньше старта загрузки и ответа пробы; нет папки assets/ — «bad», рисунок кодом)
 function artRequest(a, name) {
   a.seen = performance.now();
@@ -99,7 +126,7 @@ export function artSweep(now = performance.now()) {
     const a = artImgs.get(name);
     if (now - a.seen < LOOK.ART.releaseMs) continue;
     lazyOk.delete(name); insetCache.delete(name);
-    a.img = null; a.state = "idle";
+    a.img = null; a.state = "idle"; lateOff(a);
   }
 }
 // SPEC-032 AC 6: прозрачные поля картинки (доли её ширины / высоты): l, r — по средней трети строк, t, b — по средней трети столбцов

@@ -121,6 +121,8 @@ export const LOOK = {
   // появятся, когда догрузятся (до тех пор и при ошибке — рисунок кодом, как раньше). SPEC-040: не постоянную картинку (assets.json "resident": false)
   // отпускаем, когда её не рисовали releaseMs мс (проверка не чаще sweepMs)
   ART: { dir: "assets/", waitMs: 5000, releaseMs: 30000, sweepMs: 250, retryMs: 5000 },
+  // SPEC-048: a screen change waits for its big pictures up to ART_WAIT s (the old screen stays drawn; then the new one shows with its fallback), a picture that comes late fades in over ART_FADE s
+  ART_WAIT: 0.6, ART_FADE: 0.15,
   // SPEC-040 AC 6 / 7 (RR-43, D-4, D-17): quality tiers. high = the picture as it was; medium = a lower pixel ratio, a 1024 shadow map, three
   // quarters of the background decor; low (D-4: keeps the outlines and the hatching) = pixel ratio 1, no MSAA, no paper grain, a 1024
   // "basic" (hard-edged) shadow map — one pass that stays a shadow of the right shape; the blob shadows the spec also allowed would need new
