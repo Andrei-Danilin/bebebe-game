@@ -16,8 +16,10 @@ test("AC 1: HOUSE_LOOK has a kids' and a Dad's builder for each world, and look3
   for (const w of WORLDS) {
     await play(page, w, 1);
     await frames(page);
-    const h = (await page.evaluate(() => window.__bb.look3D("houses"))).houses;
-    expect([h.kid.build, h.big.build], `${w}: builders`).toEqual(table[w]);
+    const L = await page.evaluate(() => window.__bb.look3D("houses")), h = L.houses;
+    expect([h.kid.build, h.big.build], `${w}: builders (the one that ran, "classic" for a name that is not a builder)`).toEqual(table[w]);
+    expect(L.builders.kids.includes(table[w][0]), `${w}: the kids builder is in the table of builders`).toBe(true);
+    expect(L.builders.dad.includes(table[w][1]), `${w}: Dad builder is in the table of builders`).toBe(true);
   }
   expect(errors).toEqual([]);
 });
@@ -60,7 +62,7 @@ const clearHouses = page => page.evaluate(() => {
   b.littles.forEach((l, i) => { l.x = 15 * 32 + i * 40; l.y = 10 * 32; });
   Object.assign(b.big, { x: 20 * 32, y: 12 * 32, state: "look", timer: 9999 });
 });
-const solidRoofs = page => page.waitForFunction(() => { const h = window.__bb.look3D("houses").houses; return h.kid.alpha > 0.95 && h.big.alpha > 0.95; }, null, { timeout: 20_000 });
+const solidRoofs = page => page.waitForFunction(() => { const h = window.__bb.look3D("houses").houses; return (!h.kid || h.kid.alpha > 0.95) && (!h.big || h.big.alpha > 0.95); }, null, { timeout: 20_000 });
 
 test("AC 2: the heart on the door of the kids' house shows in the picture of every world (pixels), and Dad's roof carries his mess", async ({ page }) => {
   test.setTimeout(180_000);
@@ -96,34 +98,77 @@ test("AC 2: the heart on the door of the kids' house shows in the picture of eve
 });
 
 // ---------- AC 3: draw calls per house ----------
-// The busiest level of each world on the phone view (tests/perf.spec.js BUSIEST), roofs solid, everyone away: the houses' own draw calls (colour + shadow)
-// are the scene's calls minus those of a scene without houses (HOUSE_LOOK.style "none"); the world's pair must cost at most 1.3 × today's (style "classic").
-test("AC 3: a world's pair of houses draws at most 30% more calls than today's pair (phone view, the busiest levels)", async ({ page }) => {
-  test.setTimeout(240_000);
+// The busiest level of each world on the phone view (tests/perf.spec.js BUSIEST), roofs solid, everyone away. A house's own draw calls (colour + shadow) are the
+// scene's calls minus those of a scene without that house (LOOK.HOUSE_STYLE "none"); the world's house must cost at most 1.3 × today's (style "classic"), the
+// kids' house and Dad's each on its own.
+test("AC 3: each house of a world draws at most 30% more calls than today's house (phone view, the busiest levels)", async ({ page }) => {
+  test.setTimeout(300_000);
   await page.setViewportSize({ width: 667, height: 375 });
   const errors = await openGame(page, { query: "?phone=1" });
   const BUSIEST = { park: 3, field: 3, city: 3, school: 3, beach: 3, winter: 2 };
-  const calls = async (w, style) => {
+  const calls = async (w, kids, dad) => {
     // another level first: the same level is not rebuilt, and the style is read when the map is built
-    await page.evaluate(([w, st, lv]) => { const b = window.__bb; b.CFG.HOUSE_LOOK.style = st; b.mode = "map"; b.world = w; b.level = lv === 1 ? 2 : 1; b.seedRandom(5); b.startGame(1); }, [w, style, BUSIEST[w]]);
+    await page.evaluate(([w, k, d, lv]) => { const b = window.__bb; Object.assign(b.CFG.HOUSE_STYLE, { kids: k, dad: d }); b.mode = "map"; b.world = w; b.level = lv === 1 ? 2 : 1; b.seedRandom(5); b.startGame(1); }, [w, kids, dad, BUSIEST[w]]);
     await play(page, w, BUSIEST[w]);
     await clearHouses(page);
-    if (style !== "none") await solidRoofs(page);
+    await solidRoofs(page);
     await frames(page); await frames(page); await frames(page);
     return page.evaluate(() => window.__bb.perf().draw.calls);
   };
   const out = {}, over = [];
   try {
     for (const w of WORLDS) {
-      const none = await calls(w, "none"), classic = await calls(w, "classic"), world = await calls(w, "world");
-      out[w] = { none, classic, world, houses: world - none, today: classic - none };
-      if (world - none > 1.3 * (classic - none)) over.push(`${w}: ${world - none} calls for the houses, today's pair ${classic - none}`);
-      if (world > 300) over.push(`${w}: ${world} calls in all (SPEC-040: 300 on the phone)`);
+      const none = await calls(w, "none", "none"), r = { none };
+      for (const [who, mk] of [["kids", s => [s, "none"]], ["dad", s => ["none", s]]]) {
+        const classic = (await calls(w, ...mk("classic"))) - none, world = (await calls(w, ...mk("world"))) - none;
+        r[who] = { world, today: classic };
+        if (world > 1.3 * classic) over.push(`${w} ${who}: ${world} calls, today's house ${classic}`);
+      }
+      const all = await calls(w, "world", "world");
+      r.all = all;
+      if (all > 300) over.push(`${w}: ${all} calls in all (SPEC-040: 300 on the phone)`);
+      out[w] = r;
     }
   } finally {
-    await page.evaluate(() => { window.__bb.CFG.HOUSE_LOOK.style = "world"; });
+    await page.evaluate(() => { Object.assign(window.__bb.CFG.HOUSE_STYLE, { kids: "world", dad: "world" }); });
   }
   console.log("[houses] draw calls " + JSON.stringify(out));
   expect(over).toEqual([]);
+  expect(errors).toEqual([]);
+});
+
+// ---------- the crown of the treehouse and the dome of the igloo stay within the roof's frame ----------
+// A roof fades only for someone inside its frame (or the player next to it): so nothing of it may hang over the ground outside — a kid or the Big One at a door
+// must not stand under a solid ball of leaves. (1) the roof of every kids' house reaches at most OVER cells past its frame on the sides and the front (behind it
+// the roof also fades for someone up to LOOK.HOUSE_LOOK.behind cells away); (2) the Big One and a bot standing out there, the player far away, are seen.
+test("the roof of a kids' house does not cover the ground outside it: the Big One and a bot beside it are seen", async ({ page }) => {
+  test.setTimeout(240_000);
+  const OVER = 0.45;
+  const errors = await openGame(page);
+  const problems = [];
+  for (const w of WORLDS) {
+    await play(page, w, 1);
+    await clearHouses(page); await solidRoofs(page);
+    const L = await page.evaluate(() => window.__bb.look3D("houses")), F = L.houses.kid.frame, box = L.roofBoxes[0];
+    const over = { west: F.x - box.x0, east: box.x1 - (F.x + F.w), south: box.z1 - (F.y + F.h) };
+    for (const [side, v] of Object.entries(over)) if (v > OVER) problems.push(`${w} (${L.houses.kid.build}): the roof reaches ${v.toFixed(2)} cells past the ${side} side`);
+    // beside the frame (east, west, south), middle of the side, 0.15 / 0.4 cells out
+    const spots = [];
+    for (const out of [0.15, 0.4]) spots.push([F.x - out, F.y + F.h / 2], [F.x + F.w + out, F.y + F.h / 2], [F.x + F.w / 2, F.y + F.h + out], [F.x - out, F.y + F.h * 0.75], [F.x + F.w + out, F.y + F.h * 0.25]);
+    for (const [x, z] of spots) {
+      if (x < 0.3 || z < 0.3 || x > 29.7 || z > 19.7) continue;                       // outside the map
+      await page.evaluate(([p]) => {
+        const b = window.__bb;
+        b.mode = "play";
+        Object.assign(b.big, { x: p.x, y: p.y, state: "look", timer: 9999 });
+        const l = b.littles[1]; l.x = p.x; l.y = p.y;
+        b.mode = "pause";                                   // frozen: the bot stays where it is, the scene still renders
+      }, [{ x: x * 32, y: z * 32 }]);
+      await frames(page); await frames(page);
+      const H = await page.evaluate(() => { const b = window.__bb.look3D("houses"); return { big: b.bigHides, kid: b.roofHides[1], alpha: b.houses.kid.alpha }; });
+      if (H.big || H.kid) problems.push(`${w}: at ${x.toFixed(2)},${z.toFixed(2)}: Big One hidden ${H.big}, bot hidden ${H.kid} (roof alpha ${H.alpha.toFixed(2)})`);
+    }
+  }
+  expect(problems).toEqual([]);
   expect(errors).toEqual([]);
 });

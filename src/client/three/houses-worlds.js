@@ -39,8 +39,11 @@ function patch(x, z, rx, rz, color, ry = 0) {
   m.rotation.x = -Math.PI / 2; m.scale.set(rx, rz, 1);
   const g = grp(m); g.position.set(x, 0.014, z); g.rotation.y = ry; m.castShadow = false; mapGroup.add(g);
 }
-// balls of leaves on a roof (instanced: the fill and its outline are one call each; they fade with the roof): [{ x, y, z, r, c }] in the roof's frame
-function blobs(roof, list) {
+// balls of leaves on a roof (instanced: the fill and its outline are one call each; they fade with the roof): [{ x, y, z, r, c }] in the roof's frame.
+// A ball never reaches more than `over` cells past the roof's edge (a roof only fades for someone inside its frame: nobody may stand under a solid ball outside it)
+function blobs(roof, list, over = 0.3) {
+  const clamp = (v, half, r) => Math.max(-(half + over - r), Math.min(half + over - r, v));
+  for (const b of list) { b.x = clamp(b.x, roof.len / 2, b.r); b.z = clamp(b.z, roof.span / 2, b.r); }
   const mat = ownMat("#ffffff", true), geo = sphere(1, 12, 8), im = new THREE.InstancedMesh(geo, mat, list.length), hm = new THREE.InstancedMesh(geo, mat.userData.outline, list.length);
   const mtx = new THREE.Matrix4(), q = new THREE.Quaternion(), p = new THREE.Vector3(), s = new THREE.Vector3(), col = new THREE.Color();
   list.forEach((b, i) => {
@@ -103,7 +106,7 @@ const VISIBLE = ["bottom", "left", "right"];           // the faces the camera s
 // ---------- the kids' house: a roof that fades (and glows green while solid), the walls' decals, the door with hearts ----------
 // o: roof(KR, K, place) → roof; extras(roof, KR, K); walls(KR, doors, K, rnd); doors(doors, K) → hearts (default: leaves with hearts and a heart mat)
 function kidsHouse(c, o) {
-  const { place, rnd, info, look: K } = c, KR = houseRect("home");
+  const { place, build, rnd, info, look: K } = c, KR = houseRect("home");
   if (!KR) return;
   const { doors } = houseDoors("home", KR), roof = o.roof(KR, K, place);
   if (o.extras) o.extras(roof, KR, K);
@@ -111,11 +114,11 @@ function kidsHouse(c, o) {
   const fade = addRoofFade(KR, roof); fade.glow = true;
   if (o.walls) o.walls(KR, doors, K, rnd, roof);
   const heartPts = (o.doors || kidsDoors)(doors, K, KR), flowers = K.flowerN ? kidsFlowers(KR, doors, K, rnd) : 0;
-  info.kid = { build: K.build, roof: true, hearts: heartPts.length, heartPts, flowers, clean: true, fade };
+  info.kid = { build, roof: true, hearts: heartPts.length, heartPts, doors: doors.map(d => ({ x: d.x, z: d.z, nx: d.nx, nz: d.nz, len: d.len })), frame: KR, flowers, clean: true, fade };
   if (THEMES[place].snow) info.snow++;
 }
-const hipRoof = (KR, K, place) => houseRoof(KR, K.roof, place, 0, { roofH: K.roofH, side: K.roofSide, snow: K.snow, eave: K.eave });
-const slabRoof = (KR, K) => flatRoof(KR, { color: K.roof, side: K.roofSide ?? shade(K.roof, 0.78), panel: K.panel, panelPad: K.panelPad, thick: K.thick, eave: K.eave });
+const hipRoof = (KR, K, place) => houseRoof(KR, K.roof, place, 0, { roofH: K.roofH, side: K.roofShade, snow: K.snow, eave: K.eave });
+const slabRoof = (KR, K) => flatRoof(KR, { color: K.roof, side: K.roofSide ?? shade(K.roof, K.roofShade ?? 0.78), panel: K.panel, panelPad: K.panelPad, thick: K.thick, eave: K.eave });
 // vertical plank lines on the faces
 function plankLines(KR, doors, K) {
   for (const side of VISIBLE) {
@@ -174,8 +177,8 @@ const KIDS = {
           put(s, p.x, WALL_H - 0.04, p.z);
         }
       }
-      for (const [a, b] of f.runs) if (b - a >= 1.1) windowDecal(f, (a + b) / 2, 0.42, Math.min(1.1, b - a - 0.3), 0.45, "#ffffff", K.glass);
-      for (const side of ["left", "right"]) { const s = wallFace(KR, doors, side), r = longest(s); if (r && r[1] - r[0] > 1) { const t = (r[0] + r[1]) / 2; disc(s, t, 0.5, 0.26, "#ffffff"); disc(s, t, 0.5, 0.19, K.glass, 0.045); } }
+      for (const [a, b] of f.runs) if (b - a >= 1.1) windowDecal(f, (a + b) / 2, 0.42, Math.min(1.1, b - a - 0.3), 0.45, K.winFrame, K.glass);
+      for (const side of ["left", "right"]) { const s = wallFace(KR, doors, side), r = longest(s); if (r && r[1] - r[0] > 1) { const t = (r[0] + r[1]) / 2; disc(s, t, 0.5, 0.26, K.winFrame); disc(s, t, 0.5, 0.19, K.glass, 0.045); } }
     }
   }),
   // School: a yellow school bus — a black stripe, round windows, wheels, headlights and a bumper
@@ -235,7 +238,7 @@ const KIDS = {
   igloo: c => kidsHouse(c, {
     roof: (KR, K) => domeRoof(KR, { color: K.roof, line: K.line, roofH: K.roofH, k: K.k }),
     doors(doors, K, KR) {
-      const pts = [], cx = KR.x + KR.w / 2, cz = KR.y + KR.h / 2, y0 = 0.5, f = Math.sqrt(1 - (y0 / K.roofH) ** 2);   // the heart sits on the dome, half a cell above its foot
+      const pts = [], cx = KR.x + KR.w / 2, cz = KR.y + KR.h / 2, y0 = K.domeHeart, f = Math.sqrt(1 - (y0 / K.roofH) ** 2);   // the heart sits on the dome, K.domeHeart above its foot
       for (const d of doors) {
         const arch = part(new THREE.TorusGeometry(d.len / 2 - 0.1, 0.13, 8, 18, Math.PI), K.arch, 0.015);
         arch.scale.set(1, 0.85, 1); put(grp(arch), d.x + d.nx * 0.5, 0, d.z + d.nz * 0.5, Math.atan2(d.nx, d.nz));
@@ -252,7 +255,7 @@ const KIDS = {
 // o: roof(BR, B, place) → roof; patches (n) / chimney on a hip roof; roofExtras(roof, BR, B); walls(BR, doors, B); mess (what dadMess leaves out);
 // props(mess, BR, doors, B, rnd) → { sock: true } when it hung a sock
 function dadHouse(c, o) {
-  const { place, rnd, info, look: B } = c, BR = houseRect("bighome");
+  const { place, build, rnd, info, look: B } = c, BR = houseRect("bighome");
   if (!BR) return;
   const { doors, wallAt } = houseDoors("bighome", BR), roof = o.roof(BR, B, place);
   if (B.crook && roof.flat) roof.g.rotation.set(B.crook * 0.4, 0, B.crook);
@@ -264,11 +267,11 @@ function dadHouse(c, o) {
   const fade = addRoofFade(BR, roof);
   if (o.walls) o.walls(BR, doors, B);
   const mess = dadMess(BR, doors, wallAt, B, rnd, o.mess), more = (o.props && o.props(mess, BR, doors, B, rnd)) || {}, items = mess.done();
-  info.big = { build: B.build, roof: true, crooked: Math.abs(roof.g.rotation.z) > 0.01, patches, stains: mess.stains, ...items, sock: items.laundry.includes("sock") || !!more.sock, trash: items.bin, messy: true, roofMess: roofMessInfo, fade };
+  info.big = { build, roof: true, crooked: Math.abs(roof.g.rotation.z) > 0.01, patches, stains: mess.stains, ...items, sock: items.laundry.includes("sock") || !!more.sock, trash: items.bin, messy: true, roofMess: roofMessInfo, fade };
   if (THEMES[place].snow) info.snow++;
 }
 const hipDad = (BR, B, place) => houseRoof(BR, B.roof, place, B.crook, { roofH: B.roofH, snow: B.snow, eave: B.eave });
-const slabDad = (BR, B) => flatRoof(BR, { color: B.roof, side: B.roofSide ?? shade(B.roof, 0.78), thick: B.thick, eave: B.eave });
+const slabDad = (BR, B) => flatRoof(BR, { color: B.roof, side: B.roofSide ?? shade(B.roof, B.roofShade ?? 0.78), thick: B.thick, eave: B.eave });
 // a window with a sock hung on its sill: the window on the biggest stretch of the front face
 function windowSock(BR, doors, B) {
   const f = wallFace(BR, doors, "bottom"), r = longest(f);

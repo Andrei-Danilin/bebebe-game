@@ -11,11 +11,12 @@ import { addRoofFade, dadMess, roofChimney, roofPatches, houseDoors, houseRect, 
 
 import { DAD_WORLD, KIDS_WORLD } from "./houses-worlds.js";
 
-export { fadeRoofs, houseRoofs } from "./housekit.js";   // SPEC-044: the roofs and their fade live in housekit.js
+export { fadeRoofs, houseRoofs, houseWallColors } from "./housekit.js";   // SPEC-044: the roofs and their fade live in housekit.js
 
 export let houseInfo = null;           // что построено (тест look3D)
+const doorInfo = d => ({ x: d.x, z: d.z, nx: d.nx, nz: d.nz, len: d.len });
 // builder «classic»: домик маленьких как в art/15_houses (голубой, синяя крыша с трубой)
-// c = { place, H (общие числа), look (K: kids / B: dad — HOUSE_LOOK[place] поверх HOUSE_LOOK.kid / .big), rnd, info }
+// c = { place, build (имя строителя, который работает), look (K: kids / B: dad — HOUSE_LOOK[place] поверх HOUSE_LOOK.kid / .big), rnd, info }
 function classicKids(c) {
   const { place, rnd, info, look: K } = c;
   // домик маленьких: голубой, синяя крыша с трубой, створки дверей с сердечком, цветы у стены
@@ -33,7 +34,7 @@ function classicKids(c) {
     mapGroup.add(roof.g);
     const fade = addRoofFade(KR, roof); fade.glow = true;
     const heartPts = kidsDoors(doors, K), hearts = heartPts.length, flowers = kidsFlowers(KR, doors, K, rnd);
-    info.kid = { build: K.build, roof: true, hearts, heartPts, flowers, fade };
+    info.kid = { build: c.build, roof: true, hearts, heartPts, doors: doors.map(doorInfo), frame: KR, flowers, fade };
     if (THEMES[place].snow) info.snow++;
   }
 }
@@ -49,20 +50,25 @@ function classicDad(c) {
     mapGroup.add(roof.g);
     const fade = addRoofFade(BR, roof);
     const mess = dadMess(BR, doors, wallAt, B, rnd), { stains } = mess, items = mess.done();
-    info.big = { build: B.build, roof: true, crooked: Math.abs(roof.g.rotation.z) > 0.01, patches, stains, ...items, fade };
+    info.big = { build: c.build, roof: true, crooked: Math.abs(roof.g.rotation.z) > 0.01, patches, stains, ...items, fade };
     if (THEMES[place].snow) info.snow++;
   }
 }
 // SPEC-044: у каждого мира свои дома — HOUSE_LOOK[мир].kids / .dad = { build: имя строителя, …числа поверх HOUSE_LOOK.kid / .big };
 // строитель без имени в таблице (или без таблицы мира) — classic, дом как до SPEC-044
 const KIDS_BUILDERS = { classic: classicKids, ...KIDS_WORLD }, DAD_BUILDERS = { classic: classicDad, ...DAD_WORLD };
+export const HOUSE_BUILDS = { kids: Object.keys(KIDS_BUILDERS), dad: Object.keys(DAD_BUILDERS) };   // the names a HOUSE_LOOK[world] may use (look3D, for the tests)
 export function dressHouses(place) {
-  const H = LOOK.HOUSE_LOOK, W = H[place] || {}, rnd = mulberry32(LOOK.GROUND_LOOK.seed + 77 + G.level), info = { kid: null, big: null, snow: 0 };
-  if (H.style === "none") { houseInfo = info; return; }   // for the draw-call measure (tests): no houses at all
-  const world = H.style === "world";                      // "classic": every world gets today's houses (for the measure)
-  const kl = { ...H.kid, ...(world && W.kids) }, dl = { ...H.big, ...(world && W.dad) };
-  (KIDS_BUILDERS[kl.build] || classicKids)({ place, H, rnd, info, look: kl });
-  (DAD_BUILDERS[dl.build] || classicDad)({ place, H, rnd, info, look: dl });
+  const H = LOOK.HOUSE_LOOK, S = LOOK.HOUSE_STYLE, W = H[place] || {}, rnd = mulberry32(LOOK.GROUND_LOOK.seed + 77 + G.level), info = { kid: null, big: null, snow: 0 };
+  // LOOK.HOUSE_STYLE (tests): per house "world" (the table of the world), "classic" (today's pair) or "none"; the builder that runs is the one the name says,
+  // classic when the name is not in the table — and info says which one ran
+  const make = (who, base, builders) => {
+    if (S[who] === "none") return;
+    const look = { ...base, ...(S[who] === "world" && W[who]) }, build = builders[look.build] ? look.build : "classic";
+    builders[build]({ place, build, rnd, info, look });
+  };
+  make("kids", H.kid, KIDS_BUILDERS);
+  make("dad", H.big, DAD_BUILDERS);
   houseInfo = info;
 }
 // setters (SPEC-011 AC 5: other modules change this module's state only through them)

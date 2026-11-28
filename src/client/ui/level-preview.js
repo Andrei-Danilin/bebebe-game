@@ -5,6 +5,7 @@
 // the cached map. Drawing never builds a level. Client module.
 
 import { H, W } from "../../core/config.js";
+import { artFailed } from "../art.js";
 import { LOOK } from "../look.js";
 import { peekPreviewData } from "../preview-data.js";
 import { ctx, VIEW } from "../screen.js";
@@ -41,11 +42,16 @@ export function drawLevelPreview(world, lv, x, y, w, opts = {}) {
   const data = entry.data;
   ctx.drawImage(entry.canvas, x, y, w, h);
   // the houses of the kids and of Dad, over their zones; on the last level of a world with a boss his face sits on Dad's house
-  // SPEC-044: the picture of this world's house (house_<world>_kids / _dad), until it has loaded or if it is missing the one of every world
+  // SPEC-044: the picture of this world's house (house_<world>_kids / _dad); the one of every world only when that picture is missing (not while it loads)
   const house = (z, names, emoji, size) => {
     if (!z) return;
     const cx = x + (z.x + z.w / 2) * s, cy = y + (z.y + z.h / 2) * s, d = Math.min(z.w, z.h) * s * size;
-    if (![].concat(names).some(name => drawArtFit(name, cx, cy, d))) { ctx.font = `${d}px system-ui, "Segoe UI Emoji", "Apple Color Emoji", sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; fillT(emoji, cx, cy); }
+    const list = [].concat(names);
+    for (let i = 0; i < list.length; i++) {
+      if (drawArtFit(list[i], cx, cy, d)) return;
+      if (!artFailed(list[i])) return;                      // still loading: nothing yet
+    }
+    { ctx.font = `${d}px system-ui, "Segoe UI Emoji", "Apple Color Emoji", sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; fillT(emoji, cx, cy); }
   };
   house(data.safeZone, [`house_${world}_kids`, "house_kids"], "🏠", P.house);
   house(data.dangerZone, [`house_${world}_dad`, "house_messy"], "🏚", P.house);

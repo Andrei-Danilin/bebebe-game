@@ -7,7 +7,7 @@ import { CELL, COLS, ROWS, TAU } from "../../core/config.js";
 import { mulberry32 } from "../../core/util.js";
 import { LOOK } from "../look.js";
 import { mapGroup } from "./mapstate.js";
-import { INK3, ownMat, part, sphere, toon } from "./materials.js";
+import { INK3, ownMat, part, sharedTex, sphere, toon } from "./materials.js";
 import { WALL_H } from "./setup.js";
 import { tag, THEMES } from "./themes.js";
 import { G } from "../../core/active.js";
@@ -138,7 +138,7 @@ export function fadeRoofs(dt, t) {
 // ---------- SPEC-044: walls, roofs and decals of a world's houses ----------
 // the wall colours of a house in this world: HOUSE_LOOK[place].kids / .dad .wall = [wall, cap], or null (the theme's own)
 export function houseWallColors(place, kind) {
-  const W = LOOK.HOUSE_LOOK[place], l = W && (kind === "home" ? W.kids : kind === "bighome" ? W.dad : null);
+  const W = LOOK.HOUSE_LOOK[place], who = kind === "home" ? "kids" : kind === "bighome" ? "dad" : null, l = W && who && LOOK.HOUSE_STYLE[who] === "world" ? W[who] : null;   // not when the style is classic / none
   return l && l.wall ? l.wall : null;
 }
 // a roof of the same shape as houseRoof's (the fade code reads g, mats, meshes), made of boxes: a slab with an apron of the side colour
@@ -171,7 +171,7 @@ function blocksTex(base, line) {
     c.beginPath(); c.moveTo(0, y1); c.lineTo(512, y1); c.stroke();
     for (let i = 0; i < n; i++) { const x = (i + (r % 2) * 0.5) * 512 / n + (rnd() - 0.5) * 3; c.beginPath(); c.moveTo(x, y0); c.lineTo(x, y1); c.stroke(); }
   }
-  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.userData.shared = true;
+  const t = sharedTex(new THREE.CanvasTexture(cv)); t.colorSpace = THREE.SRGBColorSpace;
   return (domeTex[k] = t);
 }
 // a dome over the house (an igloo): a half ball scaled over the frame, with a block texture. o: color, line, k (how far it spreads over the frame), roofH
