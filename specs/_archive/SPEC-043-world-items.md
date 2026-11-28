@@ -1,6 +1,7 @@
 # SPEC-043 — Every world has its own item: football, cupcake, paper plane, watermelon, snowball
 
-Status: ready (art 37 on master: map it as SPEC-042's status line says — `item_football`, `item_paperplane`, `item_watermelon`, `item_snowball`; the duplicates are dropped)
+Status: done (merged by "Merge SPEC-043", see git log)
+Art notes: art 37 on master, mapped as SPEC-042's status line says — `item_football`, `item_paperplane`, `item_watermelon`, `item_snowball`; the duplicates are dropped
 Complexity: M
 Branch: SPEC-043-world-items
 Decided by: Andrei (2026-11-26): each world gets its own item, next to the banana (idea 4). Which item, its effect and numbers: Claude, check with the kids. Art: icon sheet 37 from Andrei.

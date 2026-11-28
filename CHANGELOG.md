@@ -45,6 +45,8 @@ The version is `package.json` `version` (shown on the "For grown-ups" page); how
 - Every world has its own trick: splashy puddles in the Park, sprinklers in the Field, an ice-cream truck to hide behind
   in the City, a school bell that makes everyone freeze, waves on the Beach and footprints in the Winter snow, with a
   "New here!" card the first time and a ? button on the level card (SPEC-042).
+- Every world has its own item next to the banana: a football to kick at Dad, a cupcake he stops to eat, a paper plane
+  he turns to watch, a slippery watermelon slice and snowballs that freeze him for a moment (SPEC-043).
 
 ## [1.0.0-dev] - what is in the game today
 
