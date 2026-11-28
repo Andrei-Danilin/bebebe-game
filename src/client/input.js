@@ -46,7 +46,7 @@ function onKey(code) {
     if (code === "Enter" || code === "NumpadEnter" || code === "Space") { tap(); chooseStop(mapSelN()); }
   } else if (mode === "levelCard") {
     if (ui.tip) {                                              // SPEC-042: the "New here!" card stands in the level card's place: Enter / Space / H close it (Escape too, goBack), nothing else acts under it
-      if (code === "Enter" || code === "NumpadEnter" || code === "Space" || code === "KeyH") okTip();   // SPEC-048: after Play OK starts the level (Escape goes back)
+      if (code === "Enter" || code === "NumpadEnter" || code === "Space" || code === "KeyH") { if (ui.tipPlay) tap(); okTip(); }   // SPEC-048: after Play OK starts the level (Escape goes back)
       return;
     }
     if (code === "Enter" || code === "NumpadEnter" || code === "Space" || code === "Digit1" || code === "Numpad1") { tap(); playCard(1); }
@@ -182,7 +182,7 @@ function onPadButton(b, pad = 0) {
     if (b === 1) setMode("home");
   } else if (mode === "levelCard") {
     if (ui.tip) {                                              // SPEC-042: A / B / Start / the tip button close the "New here!" card, not the level card
-      if (b === 0 || b === 9 || b === LOOK.PAD_TIP) okTip(); else if (b === 1) closeTip();   // SPEC-048: A / Start / RB — OK (after Play it starts the level), B — back
+      if (b === 0 || b === 9 || b === LOOK.PAD_TIP) { if (ui.tipPlay) tap(); okTip(); } else if (b === 1) closeTip();   // SPEC-048: A / Start / RB — OK (after Play it starts the level), B — back
       return;
     }
     if (b === LOOK.PAD_TIP) openTip();                         // SPEC-042: RB — what is new in this world
@@ -292,7 +292,7 @@ export function initInput() {
   canvas.addEventListener("pointerdown", e => {
     e.preventDefault();
     if (rotateWall()) return;                          // SPEC-038 AC 2: the "turn your device" overlay is on — nothing under it reacts
-    if (artHolding()) { e.preventDefault(); return; }   // SPEC-048 AC 3: a screen change waits for its pictures — a tap goes to nothing
+    if (artHolding()) return;   // SPEC-048 AC 3: a screen change waits for its pictures — a tap goes to nothing
     initAudio();
     if (nameInput) { closeNameInput(true); return; }   // тап мимо поля — имя сохраняется
     // SPEC-025 AC 7d: in the frame that changed the screen the drawn buttons (and the screen-wide taps: next comic page, resume,

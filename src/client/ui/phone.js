@@ -35,15 +35,21 @@ export function drawHUDPhone(t) {
   // не влезает — облачка плотнее (до PHONE_HEART_MIN), и только потом подпись короче
   const bigName = angerLabel(), room = mm.x - gap - m - gw - gap;
   let hStep = cpx(21), hSize = cpx(18), nameW = scaledW(bigName);
-  // SPEC-048 AC 7: the plate ends `pad` (the padding left of the text) after the last cloud's visible edge
-  const plateW = () => pad + nameW + pad * 0.6 + hStep / 2 + (G.big.maxHp - 1) * hStep + cloudHalf(hSize, hStep) + pad;
-  for (; plateW() > room && hStep > cpx(LOOK.PHONE_HEART_MIN); ) { hStep = Math.max(cpx(LOOK.PHONE_HEART_MIN), hStep - cpx(0.5)); hSize = Math.min(hSize, hStep * 0.95); }
+  // SPEC-048 AC 7: the plate ends `pp` (the padding left of the text) after the last cloud's visible edge. Not enough room: the clouds come closer
+  // (to PHONE_HEART_MIN), then the padding (both sides alike, to phonePadMin), then the clouds again (to phoneHeartFloor of that), and only then the name is cut
+  const HP = LOOK.HUD_PLATE;
+  let pp = pad;
+  const plateW = () => pp + nameW + pp * 0.6 + hStep / 2 + (G.big.maxHp - 1) * hStep + cloudHalf(hSize, hStep) + pp;
+  const closer = floor => { for (; plateW() > room && hStep > cpx(floor); ) { hStep = Math.max(cpx(floor), hStep - cpx(HP.phoneStep)); hSize = Math.min(hSize, hStep * 0.95); } };
+  closer(LOOK.PHONE_HEART_MIN);
+  for (; plateW() > room && pp > cpx(HP.phonePadMin); ) pp = Math.max(cpx(HP.phonePadMin), pp - cpx(HP.phoneStep));
+  closer(LOOK.PHONE_HEART_MIN * HP.phoneHeartFloor);
   if (plateW() > room) nameW = Math.max(cpx(36), nameW - (plateW() - room));
   const pw = plateW();
   plate("hearts", m, top, pw, bh);
-  noteText("main", labelFit(bigName, m + pad, top + bh / 2, main, nameW / LOOK.TEXT_TEST_SCALE + 0.01, "#9b2c3a", "left", main, true));   // + 0.01: × и ÷ масштаба не точны
-  const hx = m + pad + nameW + pad * 0.6 + hStep / 2;
-  Object.assign(ui.hudRects.find(r => r.id === "hearts"), { label: lastFit.text, labelX: m + pad, labelW: lastFit.w * LOOK.TEXT_TEST_SCALE, lastX: hx + (G.big.maxHp - 1) * hStep, cloud: Math.max(hSize, hStep) * LOOK.PAPER.heart });   // SPEC-022: подпись злости — в плашке hearts; SPEC-048: where the last cloud is
+  noteText("main", labelFit(bigName, m + pp, top + bh / 2, main, nameW / LOOK.TEXT_TEST_SCALE + 0.01, "#9b2c3a", "left", main, true));   // + 0.01: × и ÷ масштаба не точны
+  const hx = m + pp + nameW + pp * 0.6 + hStep / 2;
+  Object.assign(ui.hudRects.find(r => r.id === "hearts"), { label: lastFit.text, labelX: m + pp, labelW: lastFit.w * LOOK.TEXT_TEST_SCALE, lastX: hx + (G.big.maxHp - 1) * hStep, cloud: Math.max(hSize, hStep) * LOOK.PAPER.heart });   // SPEC-022: подпись злости — в плашке hearts; SPEC-048: where the last cloud is
   for (let i = 0; i < G.big.maxHp; i++) hpHeart(hx + i * hStep, top + bh / 2 - hSize / 2 - 1, hSize, heartFill(i, G.big.hp), hStep);
   // группа по центру свободного места
   const gx = m + pw + Math.max(gap, (mm.x - gap - (m + pw) - gw) / 2);

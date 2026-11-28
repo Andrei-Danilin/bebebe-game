@@ -122,7 +122,10 @@ export const LOOK = {
   // отпускаем, когда её не рисовали releaseMs мс (проверка не чаще sweepMs)
   ART: { dir: "assets/", waitMs: 5000, releaseMs: 30000, sweepMs: 250, retryMs: 5000 },
   // SPEC-048: a screen change waits for its big pictures up to ART_WAIT s (the old screen stays drawn; then the new one shows with its fallback), a picture that comes late fades in over ART_FADE s
-  ART_WAIT: 0.6, ART_FADE: 0.15,
+  ART_WAIT: 0.6, ART_FADE: 0.15, ART_LOG_MAX: 2000,   // ART_LOG_MAX: frames the recorder (__bb.recordFrames) keeps
+  // SPEC-048 AC 7: the anger plate on a computer: padDesk — the padding left of its text and right of the last heart cloud (px), minName — the shortest the name is cut to,
+  // gapNext — the gap to the timer's plate; chipW — one chip of the team plate (px); phoneStep — how much the phone's hearts (or the plate's padding, both sides alike) come closer per try (CSS px), phonePadMin — the least that padding gets, phoneHeartFloor — how close (× PHONE_HEART_MIN) the hearts may get before the name is cut
+  HUD_PLATE: { padDesk: 8, minName: 20, gapNext: 6, chipW: 32, phoneStep: 0.5, phonePadMin: 5, phoneHeartFloor: 0.75 },
   // SPEC-040 AC 6 / 7 (RR-43, D-4, D-17): quality tiers. high = the picture as it was; medium = a lower pixel ratio, a 1024 shadow map, three
   // quarters of the background decor; low (D-4: keeps the outlines and the hatching) = pixel ratio 1, no MSAA, no paper grain, a 1024
   // "basic" (hard-edged) shadow map — one pass that stays a shadow of the right shape; the blob shadows the spec also allowed would need new
@@ -339,7 +342,7 @@ export const LOOK = {
   // имя игрока над головой (drawMarkers; его же обходит надпись уровня на телефоне): подъём имени над точкой над головой (UI px),
   // кегль (на телефоне не мельче PHONE_TEXT.main), подпись отдыхающего ниже на rest px мира. SPEC-021: сама точка — nameTagH()
   // (верх головы с шапкой по CFG.KID_LOOK)
-  NAME_TAG: { up: 10, size: 15, rest: 16 },
+  NAME_TAG: { up: 10, size: 15, rest: 16, below: 1.1, box: 1.3 },   // SPEC-048 AC 8: Dad's tag below his feet (× the text size) and its box (× the text size, high)
   BANNER_SAVE_NOTE: 6,       // SPEC-025 phase 2: сек — заметка о сохранении (восстановили / новая игра / не сохраняет) внизу меню
   PERF_LOOK: { frames: 300, overlayMs: 500 },   // SPEC-025 AC 15b: __bb.perf() — кадров в окне; ?perf=1 — обновление панели (мс)
   // SPEC-047 (sound and music; the numbers are Claude's, the kids tune the volumes after listening): the audio engine and the audio

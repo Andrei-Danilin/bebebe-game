@@ -167,8 +167,9 @@ test.describe("a picture that is slow, late or gone", () => {
 
   test("a double tap or key during a wait goes to nothing: no page is skipped", async ({ page }) => {
     test.setTimeout(90_000);
-    await page.route(/\/assets\/tutorial_c\.webp$/, async route => { await new Promise(r => setTimeout(r, 6000)); await route.continue(); });   // later than the wait, and than a slow software frame
+    await page.route(/\/assets\/tutorial_c\.webp$/, async route => { await new Promise(r => setTimeout(r, 3000)); await route.continue(); });   // the wait (ART_WAIT, set to 5 s below) ends when it arrives: the test does not depend on a 600 ms window on a loaded runner
     const errors = await openGame(page, { query: "?phone=1", quality: "low" });
+    await page.evaluate(() => { window.__bb.CFG.ART_WAIT = 5; });
     await page.evaluate(() => { const b = window.__bb; b.openTutorial("map", "b"); for (let i = 0; i < 3; i++) b.sceneNext(); });   // B4 (the sheet of C is on its way)
     await page.waitForFunction(() => window.__bb.sceneInfo && window.__bb.sceneInfo.art === "image" && window.__bb.artInfo.holding === false, null, { timeout: 10000 });   // B4 is drawn (not frames(): it would wait for C's slow sheet too)
     const page0 = await page.evaluate(() => window.__bb.scene);
@@ -183,13 +184,14 @@ test.describe("a picture that is slow, late or gone", () => {
     expect([s.scene.id, s.scene.page], "still on the first page of C").toEqual(["tutorial_c", 0]);
     await press(page, "Enter");                                        // a press after the change goes on as usual
     expect(await page.evaluate(() => window.__bb.scene.page)).toBe(1);
+    await page.evaluate(() => { window.__bb.CFG.ART_WAIT = 0.6; });   // restored
     expect(errors).toEqual([]);
   });
 });
 
 // ---------- the anger plate (AC 7) and Dad's name tag (AC 8) ----------
 // the plate's padding left of its text equals the padding right of the last heart cloud's visible edge (measured here from the picture's own alpha, not from the game's
-// number), at every heart count — halves included — in two languages, on desktop and phone; the plate never reaches the timer's plate
+// number), at every heart count — halves included — in all four languages, on desktop and phone; the plate never reaches the timer's plate
 async function plateProblems(page, phone) {
   return page.evaluate(([phoneMode]) => {
     const b = window.__bb, out = [], ui = b.uiSize;
@@ -203,7 +205,7 @@ async function plateProblems(page, phone) {
       return { share: (cv.width - 1 - r) / cv.width, w: cv.width, h: cv.height };
     };
     b.world = "park"; b.level = 1; b.startGame(1);
-    for (const lang of ["en", "ru"]) for (const [n, hp] of [[6, 6], [6, 5.5], [9, 9], [10, 9.5], [12, 12], [12, 2.5], [15, 15]]) {
+    for (const lang of ["en", "es", "pt", "ru"]) for (const [n, hp] of [[6, 6], [6, 5.5], [9, 9], [10, 9.5], [12, 12], [12, 2.5], [15, 15]]) {
       b.setLang(lang);
       b.big.maxHp = n; b.big.hp = hp;
       b.drawNow();
@@ -223,7 +225,7 @@ async function plateProblems(page, phone) {
 test.describe("the Dad's anger plate has the same padding on both sides", () => {
   test.describe("desktop 960×640", () => {
     test.use({ viewport: { width: 960, height: 640 } });
-    test("6 to 15 hearts, halves, en and ru", async ({ page }) => {
+    test("6 to 15 hearts, halves, all four languages", async ({ page }) => {
       const errors = await openGame(page, { quality: "low" });
       await frames(page);
       const fails = await plateProblems(page, false);
@@ -233,7 +235,7 @@ test.describe("the Dad's anger plate has the same padding on both sides", () => 
   });
   test.describe("phone 667×375", () => {
     test.use(PHONE);
-    test("6 to 15 hearts, halves, en and ru", async ({ page }) => {
+    test("6 to 15 hearts, halves, all four languages", async ({ page }) => {
       const errors = await openGame(page, { quality: "low", query: "?phone=1" });
       await frames(page);
       const fails = await plateProblems(page, true);
@@ -287,5 +289,120 @@ test.describe("Dad's name tag stays off the team chips and the mini-map", () => 
       expect(fails.slice(0, 8), fails.length + " problems").toEqual([]);
       expect(errors).toEqual([]);
     });
+  });
+});
+
+// ---------- AC 4: prefetch one step ahead ----------
+// The network is slower (1 s) than ART_WAIT (0.6 s), so only a picture asked for BEFORE its screen opens can be there in time: showing a screen long enough
+// for its `next` pictures to arrive and then changing to the next one shows no held frame, no late picture and no missing one. (Without the `next` lists
+// every change below waits ART_WAIT and then shows its fallback.)
+const noWait = log => [...log.filter(f => f.held).map(f => `held ${f.screen} -> ${f.target}`), ...log.filter(f => f.late).map(f => `late ${f.screen}`), ...missingFrames(log)];
+const nextMissing = page => page.evaluate(() => { const b = window.__bb; return b.screenArt.next.filter(n => !b.art(n)); });
+test.describe("prefetch one step ahead", () => {
+  test.use(PHONE);
+
+  test("the tutorial: card, A, practice, B, C each open in one clean change, their pictures asked for a screen before", async ({ page }) => {
+    test.setTimeout(120_000);
+    await slowNet(page, 1000);
+    const errors = await openGame(page, { query: "?phone=1", quality: "low" });
+    await page.evaluate(() => window.__bb.openFirstTutorial());          // the How to play card: it waits for its own picture (not recorded)
+    await settle(page);
+    expect(await nextMissing(page), "on the card page A is already in").toEqual([]);
+    await page.evaluate(() => window.__bb.recordFrames(true));
+    await press(page, "Enter");                                           // A1
+    expect(await nextMissing(page), "on A1 the next sheet is already in").toEqual([]);
+    for (let i = 0; i < 3; i++) await press(page, "Enter");              // A2..A4
+    await press(page, "Enter");                                           // practice game 1
+    await winPractice(page);                                              // B1 (its sheet came while A and the game were on)
+    expect(await nextMissing(page)).toEqual([]);
+    for (let i = 0; i < 3; i++) await press(page, "Enter");              // B2..B4
+    await press(page, "Enter");                                           // C1
+    const log = await page.evaluate(() => { const b = window.__bb; b.recordFrames(false); return b.frameLog; });
+    expect(noWait(log), "no wait, no late or missing picture").toEqual([]);
+    expect(changes(log).filter(s => s.startsWith("scene:tutorial_")).length, "the pages were shown").toBe(4 + 4 + 1);
+    expect(errors).toEqual([]);
+  });
+
+  test("the map, the level card, the tip, the level: the card's, the tip's and the level start's pictures asked for a screen before", async ({ page }) => {
+    test.setTimeout(120_000);
+    await slowNet(page, 1000);
+    const errors = await openGame(page, { query: "?phone=1", quality: "low", tips: true });
+    await page.evaluate(() => { window.__bb.mode = "map"; });
+    await settle(page);
+    expect(await nextMissing(page), "on the map the card's, the tip's and the level start's pictures are in").toEqual([]);
+    await page.evaluate(() => window.__bb.recordFrames(true));
+    await page.evaluate(() => window.__bb.showCard(1));
+    await settle(page);
+    expect(await nextMissing(page), "on the card the tip and the level start's pictures are in").toEqual([]);
+    await tap(page, "card:play");                                         // the tip
+    await settle(page);
+    await tap(page, "tip:ok");                                            // the level
+    await settle(page);
+    const log = await page.evaluate(() => { const b = window.__bb; b.recordFrames(false); return b.frameLog; });
+    expect(noWait(log), "no wait, no late or missing picture").toEqual([]);
+    const got = changes(log);
+    expect(got.slice(got.indexOf("levelCard:park:1")), "the card, the tip, the level").toEqual(["levelCard:park:1", "tip:park", "play"]);
+    // a level that is not the first: the level start's pictures (the trick's and the item's icon) are in on its card too
+    await page.evaluate(() => { const b = window.__bb; b.resetMenus(); b.mode = "map"; b.showCard(2); });
+    await settle(page);
+    expect(await page.evaluate(() => { const b = window.__bb; return b.screenArt.next.length > 0 && b.screenArt.next.every(n => !!b.art(n)); }), "level 2's card: the level start's pictures are listed and in").toBe(true);
+    expect(errors).toEqual([]);
+  });
+
+  test("the story: the neighbouring chapters' pictures are asked for, and a flip of the chapter is no screen change", async ({ page }) => {
+    test.setTimeout(120_000);
+    await slowNet(page, 1000);
+    const errors = await openGame(page, { query: "?phone=1", quality: "low" });
+    await page.evaluate(() => { const b = window.__bb; for (const w of b.MAIN_WORLDS) Object.assign(b.progress.worlds[w], { unlocked: 20, won: { 1: true } }); b.openStory("park", "home"); });
+    await settle(page);
+    expect(await nextMissing(page), "the chapter before and the one after are in").toEqual([]);
+    expect(await page.evaluate(() => window.__bb.screenArt.next.length), "and listed").toBe(2);
+    await page.evaluate(() => window.__bb.recordFrames(true));
+    await press(page, "ArrowRight");                                      // the next chapter: its picture is there
+    await press(page, "ArrowLeft");
+    const log = await page.evaluate(() => { const b = window.__bb; b.recordFrames(false); return b.frameLog; });
+    expect(noWait(log), "no wait, no late or missing picture").toEqual([]);
+    expect(changes(log), "the story stays one screen").toEqual(["story:chapters"]);
+    expect(errors).toEqual([]);
+  });
+});
+
+// ---------- one definition per screen: what a screen draws is what screenArt lists ----------
+test.describe("the list of a screen covers what it draws", () => {
+  test.use({ viewport: { width: 960, height: 640 } });
+  test("every lazy picture a listed screen drew is in screenArt().now", async ({ page }) => {
+    test.setTimeout(180_000);
+    const errors = await openGame(page, { quality: "low", tips: true });
+    const fails = [];
+    const lazy = await page.evaluate(() => { const b = window.__bb, r = new Set(b.ART_RESIDENT); return b.ART_NAMES.filter(n => !r.has(n)); });
+    const cases = await page.evaluate(() => {
+      const b = window.__bb, out = [];
+      for (const w of b.MAIN_WORLDS) Object.assign(b.progress.worlds[w], { unlocked: 20, won: Object.fromEntries(Array.from({ length: 20 }, (_, i) => [i + 1, true])) });
+      for (const c of b.STORY) out.push(["story", c.id]);
+      out.push(["rules", ""]);
+      for (const id of b.SCENE_IDS) out.push(["scene", id]);
+      for (const s of ["intro", "a", "b", "c", "ready"]) out.push(["tutorial", s]);
+      for (const w of b.WORLDS) out.push(["map", w], ["card", w + ":1"], ["card", w + ":2"], ["tip", w]);
+      return out;
+    });
+    for (const [kind, arg] of cases) {
+      await page.evaluate(([k, a]) => {
+        const b = window.__bb;
+        b.resetMenus(); b.mode = "home";
+        if (k === "story") b.openStory(a, "home");
+        else if (k === "rules") { b.openStory("park", "home"); b.tapButton("story:rules"); }
+        else if (k === "scene") b.openScene(a, null, { mark: false });
+        else if (k === "tutorial") b.openTutorial("map", a);
+        else if (k === "map") { b.world = a; b.mode = "map"; }
+        else if (k === "card") { const [w, n] = a.split(":"); b.world = w; b.mode = "map"; b.showCard(Number(n)); }
+        else if (k === "tip") { b.world = a; b.mode = "map"; b.showCard(1); b.openTip(); }
+      }, [kind, arg]);
+      await frames(page);
+      const r = await page.evaluate(() => { const b = window.__bb; b.resetArtUse(); b.drawNow(); return { now: b.screenArt.now, used: Object.keys(b.artUse) }; });
+      const strays = r.used.filter(n => lazy.includes(n) && !r.now.includes(n));
+      if (strays.length) fails.push(`${kind} ${arg}: drew ${strays.join()}, listed ${r.now.join() || "nothing"}`);
+    }
+    expect(fails, fails.join("\n")).toEqual([]);
+    expect(errors).toEqual([]);
   });
 });

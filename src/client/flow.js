@@ -273,7 +273,10 @@ export const tipDue = w => window.__bbNoTips !== true && trickOf(w) !== null && 
 // the ? button of the level card shows it again; OK / ✕ / Back close it (back to the level card)
 // SPEC-048 AC 6: after Play on a world's level 1 (playCard) it comes alone — the level card closed first, the level loads behind it (ui.warm stays): OK
 // (okTip) starts the level; Back / Esc / ✕ (closeTip) go to the map and the tip stays due (seen is taken back: the kids did not see it)
-export function openTip() { ui.tip = G.world; ui.tipPlay = null; screenChanged(); }
+export function openTip() {
+  ui.tip = G.world; ui.tipPlay = null; screenChanged();
+  if (!progress.seen["trick_" + G.world]) { progress.seen["trick_" + G.world] = true; saveProgress(); }   // shown through the ? button: seen (AC 6), so Play does not show it again
+}
 export function closeTip() {
   if (ui.tipPlay) { const w = ui.tip; ui.tip = null; ui.tipPlay = null; progress.seen["trick_" + w] = false; saveProgress(); closeCard(); return; }
   ui.tip = null; screenChanged();

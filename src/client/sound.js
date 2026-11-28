@@ -98,7 +98,7 @@ const OWN_SOUND = /^(buy:|buy-look:|upg:|kiss:|kit:|scene:)/, BACK_ACT = /^(clos
 export function clickSound(hit) {
   const id = hit.id || "", fn = hit.act ? hit.act.name : "";
   if (OWN_SOUND.test(id) || fn === "goBack") return false;
-  if (/^(back:|card:close|tip:close|tip:ok)/.test(id) || BACK_ACT.test(fn)) return playSound("back");
+  if (/^(back:|card:close|tip:close)/.test(id) || (id === "tip:ok" && !ui.tipPlay) || BACK_ACT.test(fn)) return playSound("back");
   return playSound(PAGE_ID.test(id) ? "page" : "tap");
 }
 // the win screen counts its reward in sound (the screen shows the numbers at once): after the jingle starts, each star (star_1, star_2, star_3)

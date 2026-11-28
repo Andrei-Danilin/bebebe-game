@@ -248,10 +248,15 @@ export function drawMarkers(t) {
     // SPEC-048 AC 8: over the team's chips (or the mini-map) the name goes below his feet instead (his marks stay above)
     const nm = nameFor("big"), sz = fz(14, "main");
     ctx.font = hudFont(sz);
-    const w = textW(nm) + 2 * labelStroke(sz), h = sz * 1.3, up = { x: bh.x - w / 2, y: bh.y - 34 - h / 2, w, h };
+    const w = textW(nm) + 2 * labelStroke(sz), h = sz * LOOK.NAME_TAG.box;
     const blocks = PHONE ? (showMinimap() ? [minimapRect(), teamRect()] : []) : [deskTeamRect()];
-    const under = blocks.some(b => up.x < b.x + b.w && b.x < up.x + up.w && up.y < b.y + b.h && b.y < up.y + up.h);
-    const feet = toScreen(G.big.x, G.big.y, 0), at = under ? { x: feet.x, y: feet.y + sz * 1.1 } : { x: bh.x, y: bh.y - 34 };
+    const hits = (x, y) => blocks.find(b => x - w / 2 < b.x + b.w && b.x < x + w / 2 && y - h / 2 < b.y + b.h && b.y < y + h / 2);
+    const feet = toScreen(G.big.x, G.big.y, 0), above = { x: bh.x, y: bh.y - 34 }, beneath = { x: feet.x, y: feet.y + sz * LOOK.NAME_TAG.below };
+    let at = above, under = false;
+    if (hits(above.x, above.y)) {
+      if (!hits(beneath.x, beneath.y)) { at = beneath; under = true; }
+      else { const b = hits(above.x, above.y); at = { x: Math.min(above.x, b.x - 4 - w / 2), y: above.y }; }   // both are on them: beside them, left
+    }
     label(nm, at.x, at.y, sz, "#ff4d4d");
     ui.bigTag = { x: at.x - w / 2, y: at.y - h / 2, w, h, below: under };
     ctx.restore();

@@ -38,7 +38,7 @@ function artSettle(a, ok, name) {
   if (a.state !== "loading") return;
   a.state = ok ? "ok" : "bad";
   if (ok) { artVersion++; a.okAt = performance.now(); }
-  if (a.lazy) { lazyLoading--; if (ok) lazyOk.add(name); else { a.img = null; lazyBad++; a.failedAt = performance.now(); } }
+  if (a.lazy) { lazyLoading--; if (ok) lazyOk.add(name); else { a.img = null; lazyBad++; a.failedAt = performance.now(); lateOff(a); } }
   else if (!a.own) { artCount[ok ? "ok" : "bad"]++; artProgress(); }
 }
 function artFetch(a, src, then, name) {
@@ -209,6 +209,18 @@ export const TRICK_EMOJI = { puddles: "💦", sprinklers: "🚿", truck: "🍦",
 export const WORLD_ITEM_ART = { banana: ["item_banana", "🍌"], football: ["item_football", "⚽"], cupcake: ["icon_cupcake", "🧁"], plane: ["item_paperplane", "✈️"], watermelon: ["item_watermelon", "🍉"], snowball: ["item_snowball", "❄️"] };
 export const itemIcon = world => (WORLD_ITEM_ART[CFG.WORLD_ITEM[world]] || WORLD_ITEM_ART.banana)[0];
 export const itemEmoji = world => (WORLD_ITEM_ART[CFG.WORLD_ITEM[world]] || WORLD_ITEM_ART.banana)[1];
+// SPEC-048 AC 2: ONE definition of the lazy pictures each big screen shows — the screens draw them through these (houseArt, tipArt) and `screen-art.js`
+// lists the same names, so a picture a screen starts to draw cannot be forgotten there (a test compares what a screen drew with its list)
+export const houseArt = (world, side) => `house_${world}_${side}`;   // side: "kids" | "dad" — the level card's preview (ui/level-preview.js)
+// what the level start shows from the lazy sprites: the world's trick icon and its item icon (HUD, the tip's lines)
+export const levelArt = world => [TRICK_ICON[CFG.WORLD_TRICK[world]], itemIcon(world)].filter(Boolean);
+// the "New here!" card: { sheet, trick, item } and the list of the three
+export const tipPics = world => ({ sheet: TIP_ART[world]?.[0], trick: TRICK_ICON[CFG.WORLD_TRICK[world]], item: itemIcon(world) });
+export const tipArt = world => Object.values(tipPics(world)).filter(Boolean);
+// the level card: the map page behind it and the houses of its preview
+export const cardArt = world => [mapBgArt(world), houseArt(world, "kids"), houseArt(world, "dad")];
+// SPEC-032 AC 7: the icons of the rules on the How to play page, in the order of RULE_ICONS (one definition: the page draws them, screen-art.js lists them)
+export const RULE_ART = ["heart_full", "ui_eyes", "shop_quick_help", "ui_timer", "house_kids", "item_banana", "ui_tiptoe"];
 // комиксы глав (8_start, 9_1…9_4, 26_1/26_2, 10_end)
 export const STORY_ART = { began: "story_start", park: "story_park", field: "story_field", city: "story_city", school: "story_school",
   beach: "story_beach", winter: "story_winter", ended: "story_end" };

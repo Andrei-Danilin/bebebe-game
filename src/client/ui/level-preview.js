@@ -5,7 +5,7 @@
 // the cached map. Drawing never builds a level. Client module.
 
 import { H, W } from "../../core/config.js";
-import { artFailed } from "../art.js";
+import { artFailed, houseArt } from "../art.js";
 import { LOOK } from "../look.js";
 import { peekPreviewData } from "../preview-data.js";
 import { ctx, VIEW } from "../screen.js";
@@ -53,8 +53,8 @@ export function drawLevelPreview(world, lv, x, y, w, opts = {}) {
     }
     { ctx.font = `${d}px system-ui, "Segoe UI Emoji", "Apple Color Emoji", sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; fillT(emoji, cx, cy); }
   };
-  house(data.safeZone, [`house_${world}_kids`, "house_kids"], "🏠", P.house);
-  house(data.dangerZone, [`house_${world}_dad`, "house_messy"], "🏚", P.house);
+  house(data.safeZone, [houseArt(world, "kids"), "house_kids"], "🏠", P.house);
+  house(data.dangerZone, [houseArt(world, "dad"), "house_messy"], "🏚", P.house);
   if (opts.boss) house(data.dangerZone, "stop_boss", "😠", P.boss);
   if (opts.locked) {
     ctx.fillStyle = P.dim; ctx.fillRect(x, y, w, h);

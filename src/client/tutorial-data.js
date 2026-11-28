@@ -27,17 +27,25 @@ export const tutorialStep = () => (tutorial ? tutorial.steps[tutorial.i] : null)
 // само открывается только при настоящем первом запуске: комикс ещё не видели, обучение тоже, и ни одного выигранного уровня
 // (старое сохранение, где уже играют, — нет; его предлагает «Как играть»)
 export const firstTutorial = p => !p.seen.intro && !p.seen.tutorial && !WORLDS.some(w => Object.keys(p.worlds[w].won).length > 0);
+// SPEC-048: ONE definition of the tutorial's pictures: a step's sheet (a, b, c → tutorial_<step>), the card before it and the last page; the order they come in
+// (the practice games play between) is what screen-art.js prefetches by
+export const HOWTO_ART = "howto_card", READY_ART = "story_win";
+export const sheetArt = sh => "tutorial_" + sh;
+export const stepArt = step => (step === "intro" ? HOWTO_ART : step === "ready" ? READY_ART : ["a", "b", "c"].includes(step) ? sheetArt(step) : null);
+const SHEET_ORDER = [HOWTO_ART, ...["a", "b", "c"].map(sheetArt), READY_ART];
+// the picture of the step after the one that shows `name` (null at the end, or for a picture that is no step's)
+export const sheetAfter = name => (SHEET_ORDER.includes(name) ? SHEET_ORDER[SHEET_ORDER.indexOf(name) + 1] ?? null : null);
 // страницы листа sh («a», «b», «c»: четыре клетки картинки tutorial_<sh>, подпись под каждой) или «ready» (одна страница)
 export function tutorialPages(sh) {
   if (sh === "pics") return ["a", "b", "c"].flatMap(tutorialPages);   // SPEC-032 AC 8: «Картинки» — все страницы листов A1…C4 подряд
   const T = L().tut, F = CFG.TUTORIAL_LOOK.pages;
-  if (sh === "intro") return [{ card: true, art: "howto_card", crop: null, title: L().howToPlay, text: T.introLine, art2: "tutorial_a", crop2: LOOK.MENU_LOOK.scene.panels[0], fallback: F.a[0] }];   // SPEC-033 AC 2: нет howto_card — клетка A1
-  if (sh === "ready") return [{ art: "story_win", crop: null, text: T.ready, fallback: F.ready }];   // дети и подобревший папа
+  if (sh === "intro") return [{ card: true, art: HOWTO_ART, crop: null, title: L().howToPlay, text: T.introLine, art2: sheetArt("a"), crop2: LOOK.MENU_LOOK.scene.panels[0], fallback: F.a[0] }];   // SPEC-033 AC 2: нет howto_card — клетка A1
+  if (sh === "ready") return [{ art: READY_ART, crop: null, text: T.ready, fallback: F.ready }];   // дети и подобревший папа
   const texts = sh === "a" ? T.a(PHONE || isTouch ? T.tiptoeTouch : T.tiptoeKey) : T[sh];
-  return LOOK.MENU_LOOK.scene.panels.map((crop, i) => ({ art: "tutorial_" + sh, crop, text: texts[i], fallback: F[sh][i] }));   // клетка листа (как комикс в начале)
+  return LOOK.MENU_LOOK.scene.panels.map((crop, i) => ({ art: sheetArt(sh), crop, text: texts[i], fallback: F[sh][i] }));   // клетка листа (как комикс в начале)
 }
 // все картинки, которые может нарисовать обучение (листы, последняя страница, фигурки и значки запасных страниц)
-export const tutorialArtNames = () => [...["a", "b", "c"].map(s => "tutorial_" + s), "story_win", "howto_card", ...Object.values(CFG.TUTORIAL_LOOK.figures).map(f => f[0]),
+export const tutorialArtNames = () => [...["a", "b", "c"].map(sheetArt), READY_ART, HOWTO_ART, ...Object.values(CFG.TUTORIAL_LOOK.figures).map(f => f[0]),
   ...Object.values(CFG.TUTORIAL_LOOK.pages).flat(2).filter(n => !Object.hasOwn(CFG.TUTORIAL_LOOK.figures, n))];
 // текст подсказки тренировки (или null); управление — по устройству, как на странице A4
 export function tutorialHintText() {

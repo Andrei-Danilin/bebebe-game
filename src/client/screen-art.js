@@ -6,51 +6,62 @@
 // in (artLate / artFade). The recorder (`__bb.recordFrames` / `__bb.frameLog`) logs per frame the screen shown and the listed pictures it lacked.
 // Logic never waits: the game state changes at once (a test reads it at once); only what is drawn waits. Client module.
 import { G } from "../core/active.js";
-import { CFG } from "../core/config.js";
-import { progress } from "../core/economy.js";
-import { artFade, artLate, artPrefetch, artReady, itemIcon, mapBgArt, STORY_ART, TIP_ART, TRICK_ICON } from "./art.js";
+import { artFade, artLate, artPrefetch, artReady, cardArt, levelArt, mapBgArt, RULE_ART, STORY_ART, tipArt } from "./art.js";
 import { cardLevel, chapterOpen, scenePages, storyCh, tipDue } from "./flow.js";
 import { LOOK } from "./look.js";
 import { mode, ui } from "./state.js";
+import { sheetAfter, sheetArt, stepArt, tutorial, tutorialPages } from "./tutorial-data.js";
 import { STORY } from "../story.js";
 
-// the "New here!" card's pictures: the world's sheet, its trick's icon and its item's icon (the lazy ones; the rest are resident)
-const tipArt = world => [TIP_ART[world]?.[0], TRICK_ICON[CFG.WORLD_TRICK[world]], itemIcon(world)].filter(Boolean);
-// the level card's pictures: the map page behind it and the houses of its preview
-const cardArt = world => [mapBgArt(world), `house_${world}_kids`, `house_${world}_dad`];
+// The lists below name nothing themselves: the pictures of the card, the tip, the level start and the tutorial come from art.js / tutorial-data.js, the
+// same functions the screens draw with (a test compares what each screen drew with its `now`).
+// RULE: what the player flips quickly on a screen (the map's world tabs, the story's chapters, the level arrows) is never in the screen key `sig`: such a
+// flip is no screen change, never waits and never swallows a press — its picture is prefetched (`next`) and, if it is late, fades in.
 const pageArt = pg => (pg && !pg.thanks && pg.art ? [pg.art] : []);
-// the sheet that follows a tutorial sheet (the practice game plays between a and b, and between c and the last page)
-const NEXT_SHEET = { tutorial_a: "tutorial_b", tutorial_b: "tutorial_c", tutorial_c: "story_win" };
 function sceneArt(sc) {
-  const pages = scenePages(sc.id), pg = pages[sc.page] || null, now = pageArt(pg);
-  let next = pageArt(pages[sc.page + 1]);
-  if (sc.id === "intro") next = ["howto_card", "tutorial_a"];   // How it began → the How to play card and page A
-  else if (sc.id === "tutorial_intro") next = ["tutorial_a"];
-  else if (pg && NEXT_SHEET[pg.art]) next = [NEXT_SHEET[pg.art]];
+  const pages = scenePages(sc.id), pg = pages[sc.page] || null, now = pageArt(pg), after = pg && sheetAfter(pg.art);
+  let next = after ? [after] : pageArt(pages[sc.page + 1]);   // the card → sheet a → b → c → the last page (the practice games play between)
+  if (sc.id === "intro") { const p = tutorialPages("intro")[0]; next = [p.art, p.art2]; }   // How it began → the How to play card and page A
   return { sig: `scene:${sc.id}:${sc.page}`, now, next };
+}
+// the picture of the chapter i if it is open
+const chapterArt = i => { const c = STORY[i]; return c && chapterOpen(c) && STORY_ART[c.id] ? [STORY_ART[c.id]] : []; };
+// the picture of the first step after the running one that has one (the practice game plays on, its picture comes next)
+function nextStepArt() {
+  if (!tutorial) return [];
+  for (let i = tutorial.i + 1; i < tutorial.steps.length; i++) { const a = stepArt(tutorial.steps[i]); if (a) return [a]; }
+  return [];
 }
 // → { sig, now, next }: the screen (a string that changes when the screen does: the mode, the page, the card), the pictures it shows and the ones the
 // next screen shows
 export function screenArt() {
   if (mode === "scene" && ui.storyScene) return sceneArt(ui.storyScene);
   if (mode === "story") {
-    const c = STORY[storyCh], rules = ui.storyPage === "rules";
-    return { sig: `story:${ui.storyPage}:${storyCh}`, now: rules ? ["tutorial_a"] : c && chapterOpen(c) && STORY_ART[c.id] ? [STORY_ART[c.id]] : [], next: [] };
+    const rules = ui.storyPage === "rules";
+    return { sig: `story:${ui.storyPage}`, now: rules ? [sheetArt("a"), ...RULE_ART] : chapterArt(storyCh), next: rules ? [] : [...chapterArt(storyCh - 1), ...chapterArt(storyCh + 1)] };
   }
-  // (the world tabs change the map's page, not the screen: no wait, a swipe through the worlds is never swallowed; a page that is not in yet fades in)
-  if (mode === "map") return { sig: "map", now: [mapBgArt(G.world)], next: [...cardArt(G.world), ...(tipDue(G.world) ? tipArt(G.world) : [])] };
+  if (mode === "map") return { sig: "map", now: [mapBgArt(G.world)], next: [...cardArt(G.world), ...levelArt(G.world), ...(tipDue(G.world) ? tipArt(G.world) : [])] };
   if (mode === "levelCard") {
-    if (ui.tip) return { sig: `tip:${ui.tip}`, now: tipArt(ui.tip), next: [] };
-    return { sig: `levelCard:${G.world}:${cardLevel}`, now: cardArt(G.world), next: cardLevel === 1 && tipDue(G.world) ? tipArt(G.world) : [] };
+    if (ui.tip) return { sig: `tip:${ui.tip}`, now: [mapBgArt(ui.tip), ...tipArt(ui.tip)], next: [] };   // (the map page is under the dimmed card)
+    return { sig: `levelCard:${G.world}:${cardLevel}`, now: cardArt(G.world), next: [...levelArt(G.world), ...(cardLevel === 1 && tipDue(G.world) ? tipArt(G.world) : [])] };
   }
-  if (mode === "play") return { sig: "play", now: [], next: G.tutorialGame === 1 ? ["tutorial_b"] : G.tutorialGame === 2 ? ["story_win"] : [] };
-  if (mode === "win") return { sig: "win", now: [], next: cardArt(G.world) };   // the next level's card
-  if (mode === "home") return { sig: "home", now: [], next: progress.seen.intro || window.__bbNoIntro === true ? [] : ["story_start"] }   // (the first launch's comic comes next);
+  if (mode === "play") return { sig: "play", now: [], next: G.tutorialGame ? nextStepArt() : [] };
+  if (mode === "win") return { sig: "win", now: [], next: [...cardArt(G.world), ...levelArt(G.world)] };   // the next level's card
+  if (mode === "home") return { sig: "home", now: [], next: ui.introDue ? ["story_start"] : [] };   // the first launch's comic comes next
   return { sig: mode, now: [], next: [] };
 }
 
 let shown = null, shownFit = -1, holdSince = 0, holding = false, frameNo = 0;
-export const artHolding = () => holding;
+// a key, a pad button or a tap goes to nothing while a screen change waits for its pictures — for at most ART_WAIT, and also in the frame of the change itself,
+// before the loop has seen it (a second key within that frame must not reach the new screen)
+export function artHolding() {
+  if (holding) return performance.now() - holdSince < LOOK.ART_WAIT * 1000;
+  if (shown === null) return false;
+  const s = screenArt();
+  return s.sig !== shown && !artReady(s.now);
+}
+// a frame that threw must not leave input dead (main.js frame())
+export function clearHold() { holding = false; shown = null; holdSince = 0; }
 const rec = { on: false, log: /** @type {any[]} */ ([]) };
 // SPEC-048 AC 9: the recorder — each frame the loop ran: the screen on the canvas, whether the frame was held (nothing drawn), the screen the game is
 // at, and (for a frame that drew) the listed pictures the screen lacked, whether the wait had run out (`late`) and how far a late picture has faded in (`fade`, 0…1)
@@ -69,7 +80,7 @@ export function screenGate(now, fitN) {
   if (draw) { if (late) artLate(s.now); shown = s.sig; shownFit = fitN; holdSince = 0; }
   if (draw && !late) artLate(s.now);   // the same screen asks for a picture that is not in yet (the map's world changed): no wait, it fades in when it comes
   holding = !draw;
-  if (rec.on && rec.log.length < 2000) rec.log.push({ n: frameNo, t: Math.round(now), screen: shown, target: s.sig, held: !draw, late, fade: draw ? Math.round(100 * Math.min(1, ...s.now.map(artFade))) / 100 : 1, missing: draw ? s.now.filter(n => !artReady([n])) : [] });
+  if (rec.on && rec.log.length < LOOK.ART_LOG_MAX) rec.log.push({ n: frameNo, t: Math.round(now), screen: shown, target: s.sig, held: !draw, late, fade: draw ? Math.round(100 * Math.min(1, ...s.now.map(artFade))) / 100 : 1, missing: draw ? s.now.filter(n => !artReady([n])) : [] });
   frameNo++;
   return draw;
 }
