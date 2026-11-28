@@ -100,12 +100,14 @@ function heartGeo(s) {
   return new THREE.ShapeGeometry(h);
 }
 const faceTo = (m, d) => { m.rotation.y = Math.atan2(d.nx, d.nz); return m; };
-export function dressHouses(place) {
-  const H = LOOK.HOUSE_LOOK, rnd = mulberry32(LOOK.GROUND_LOOK.seed + 77 + G.level), info = { kid: null, big: null, snow: 0 };
+// builder «classic»: домик маленьких как в art/15_houses (голубой, синяя крыша с трубой)
+// c = { place, H (общие числа), look (K: kids / B: dad — HOUSE_LOOK[place] поверх HOUSE_LOOK.kid / .big), rnd, info }
+function classicKids(c) {
+  const { place, rnd, info, look: K } = c;
   // домик маленьких: голубой, синяя крыша с трубой, створки дверей с сердечком, цветы у стены
   const KR = houseRect("home");
   if (KR) {
-    const K = H.kid, { doors } = houseDoors("home", KR), roof = houseRoof(KR, K.roof, place, 0);
+    const { doors } = houseDoors("home", KR), roof = houseRoof(KR, K.roof, place, 0);
     const cm = ownMat(K.chimney, true), chim = roof.add(part(new THREE.BoxGeometry(0.34, 0.6, 0.34), "", 0.02, cm), cm), cs = slopeAt(roof, 0.62, roof.len / 5);
     chim.position.set(cs.x, cs.y + 0.22, cs.z);
     const pm = ownMat(K.plank, true), planks = roof.add(new THREE.InstancedMesh(new THREE.BoxGeometry(0.035, 0.012, roof.span * 0.52), pm, K.planks - 1), pm);
@@ -150,13 +152,17 @@ export function dressHouses(place) {
       });
       mapGroup.add(stems, mids, petals);
     }
-    info.kid = { roof: true, hearts, flowers, fade };
+    info.kid = { build: K.build, roof: true, hearts, flowers, fade };
     if (THEMES[place].snow) info.snow++;
   }
+}
+// builder «classic»: грязный дом папы как в art/15_houses (кривая коричневая крыша, пятна, бельё, бак, пицца)
+function classicDad(c) {
+  const { place, rnd, info, look: B } = c;
   // дом папы: кривая коричневая крыша с заплатками и трубой, грязь на стенах, бельё, бак, пицца, игрушки
   const BR = houseRect("bighome");
   if (BR) {
-    const B = H.big, { doors, wallAt } = houseDoors("bighome", BR), roof = houseRoof(BR, B.roof, place, B.crook);
+    const { doors, wallAt } = houseDoors("bighome", BR), roof = houseRoof(BR, B.roof, place, B.crook);
     let patches = 0;
     const fm = ownMat(B.stitch, true);                     // «строчка» заплаток — один материал на крышу
     for (let i = 0; i < 3; i++) {                          // заплатки на переднем скате — плоские, вразброс вдоль ската
@@ -260,9 +266,18 @@ export function dressHouses(place) {
       }
     }
     for (const q of props) q.traverse(o => { o.castShadow = false; });   // мелочь у дома — без теней (меньше вызовов в проходе тени)
-    info.big = { roof: true, crooked: Math.abs(roof.g.rotation.z) > 0.01, patches, stains, ...items, fade };
+    info.big = { build: B.build, roof: true, crooked: Math.abs(roof.g.rotation.z) > 0.01, patches, stains, ...items, fade };
     if (THEMES[place].snow) info.snow++;
   }
+}
+// SPEC-044: у каждого мира свои дома — HOUSE_LOOK[мир].kids / .dad = { build: имя строителя, …числа поверх HOUSE_LOOK.kid / .big };
+// строитель без имени в таблице (или без таблицы мира) — classic, дом как до SPEC-044
+const KIDS_BUILDERS = { classic: classicKids }, DAD_BUILDERS = { classic: classicDad };
+export function dressHouses(place) {
+  const H = LOOK.HOUSE_LOOK, W = H[place] || {}, rnd = mulberry32(LOOK.GROUND_LOOK.seed + 77 + G.level), info = { kid: null, big: null, snow: 0 };
+  const kl = { ...H.kid, ...W.kids }, dl = { ...H.big, ...W.dad };
+  (KIDS_BUILDERS[kl.build] || classicKids)({ place, H, rnd, info, look: kl });
+  (DAD_BUILDERS[dl.build] || classicDad)({ place, H, rnd, info, look: dl });
   houseInfo = info;
 }
 // SPEC-021: крыша гаснет, пока в доме кто-то есть (рамка чуть шире к дальней стороне), а у игрока — и когда он рядом; без новых объектов

@@ -227,7 +227,14 @@ export const LOOK = {
     kid: { glow: "#4ade80", glowK: 0.35, roof: "#3f86d1", plank: "#2f6db0", planks: 7, chimney: "#9fd3f5", door: "#4a90d9", heart: "#ff7eb3", mat: 0.22, flowers: ["#f472b6", "#facc15", "#ffffff", "#c084fc"], flowerN: 6, leaf: "#3f8a24" },
     big: { roof: "#7b5b49", crook: 0.08, patches: ["#8fa3b8", "#5e4434", "#9a8a62"], stitch: "#2b1d14", chimney: "#b5483a", mud: "#6b4a2b", stains: 4, sock: "#e5e7eb", sockToe: "#9ca3af",
       shirt: "#cbd5e1", line: "#5b4636", bin: "#8a939b", trash: ["#65a30d", "#a16207", "#64748b", "#f59e0b", "#ef4444"], stink: "#7c9a5a", stinkN: 3,
-      pizza: "#e8c48f", pizzaTop: "#f97316", toyCar: "#3b82f6", tyre: "#1f2937", bone: "#f5f5f4", ground: "rgba(107,74,43,.55)", groundN: 26 } },
+      pizza: "#e8c48f", pizzaTop: "#f97316", toyCar: "#3b82f6", tyre: "#1f2937", bone: "#f5f5f4", ground: "rgba(107,74,43,.55)", groundN: 26 },
+    // SPEC-044: дома каждого мира — kids / dad = { build: имя строителя в houses.js, …числа поверх kid / big выше }
+    park: { kids: { build: "classic" }, dad: { build: "classic" } },
+    field: { kids: { build: "classic" }, dad: { build: "classic" } },
+    city: { kids: { build: "classic" }, dad: { build: "classic" } },
+    school: { kids: { build: "classic" }, dad: { build: "classic" } },
+    beach: { kids: { build: "classic" }, dad: { build: "classic" } },
+    winter: { kids: { build: "classic" }, dad: { build: "classic" } } },
   // SPEC-021: штриховка стен и крыш на теневой стороне (единицы 3D): штрихов на единицу, толщина штриха (доля шага), насколько темнее;
   // грани, к солнцу повёрнутые меньше side (cos), штрихуются — бока стен; повёрнутые к солнцу (0…side) — светлее (доля lit)
   HATCH_LOOK: { freq: 3, width: 0.32, dark: 0.3, side: 0.45, lit: 0.6 },
