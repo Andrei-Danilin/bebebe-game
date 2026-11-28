@@ -17,6 +17,7 @@ import { adoptErrorLog, failStart, initErrors, reportError } from "./errors.js";
 import { mapTick, openScene, redress, resetWorld, seedRandom, syncStock } from "./flow.js";
 import { drainEvents, runFrame, viewTick } from "./fx.js";
 import { audioTick } from "./sound.js";
+import { initEntitlement } from "./entitlement.js";
 import { initInput, pollPads } from "./input.js";
 import { initBack } from "./back.js";
 import { initLifecycle, pauseForWall } from "./lifecycle.js";
@@ -25,6 +26,7 @@ import { LOOK } from "./look.js";
 import { initPerf, noteFrame } from "./perf.js";
 import { setPorts } from "./ports.js";
 import { langPending, loadSave, queueSave, readErrorLog } from "./save.js";
+import { openFullCard } from "./ui/grownups.js";
 import { openLangScreen } from "./ui/lang.js";
 import { fit, fitCount, initScreen, rotateWall, runQueuedFit, simMode } from "./screen.js";
 import { inMenus, inWardrobe, mode, ui } from "./state.js";
@@ -46,9 +48,11 @@ import { initTextMemo } from "./ui/measure.js";
 
 let langDue = false, tutorialDue = false, last = 0;
 async function boot() {
-  setPorts({ redress, queueSave });             // SPEC-039: the calls the wardrobe and the save make up the stack (ports.js) — before anything can call them
+  setPorts({ redress, queueSave, openFullCard });             // SPEC-039: the calls the wardrobe and the save make up the stack (ports.js) — before anything can call them
   // SPEC-025 AC 7: errors are logged (and, once ready, shown) from here on
   initErrors();
+  // SPEC-045: ?full=0|1 (debug)
+  initEntitlement();
   if (!hasWebGL2()) { failStart("noWebGL"); return; }   // SPEC-025 AC 7b: three.js r187 needs WebGL2
   // SPEC-008 / SPEC-011 AC 8d: тесты включают строгую игровую случайность и задают зерно запуска (init-скрипт до игры)
   setStrictRng(window.__bbStrictRng === true);

@@ -271,5 +271,6 @@
  "closeTip": "function",
  "okTip": "function",
  "playCard": "function",
- "tipDue": "function"
+ "tipDue": "function",
+ "entitlement": "value"
 }

@@ -15,7 +15,7 @@ import { levelReport } from "../core/level/report.js";
 import { bigMood, bossFor } from "../core/mood.js";
 import { bigCalm } from "../core/vision.js";
 import { tutorialMapRect } from "../core/practice.js";
-import { bonusUnlocked, fastTarget, loadProgress, worldComplete, worldOpen } from "../core/progress-rules.js";
+import { bonusUnlocked, fastTarget, loadProgress, worldComplete } from "../core/progress-rules.js";
 import { spawnItem, spawnStar } from "../core/rules.js";
 import { clamp, setStrictRng, strictRng } from "../core/util.js";
 import { BIG_SKINS, HAIRS, HATS, JACKETS, PANTS, SLOTS } from "../core/wardrobe.js";
@@ -69,7 +69,8 @@ import { heardHintOn, heardHintText, heartFill, timerText } from "./ui/hud.js";
 import { mmAlpha, mmCount, mmDraws, mmState, updateMinimapFade } from "./ui/minimap.js";
 import { clearLevelPreviews, previewCacheSize, previewDataOf, previewStats } from "./preview-data.js";
 import { levelPreviewOf } from "./ui/level-preview.js";
-import { gateState, openGrownUps, parentGate } from "./ui/grownups.js";
+import { gateState, openFullCard, openGrownUps, parentGate } from "./ui/grownups.js";
+import { canHost, entitlement, entitlementInfo, hasFull, helloFields, initEntitlement, setEntitlement, worldOpenNow } from "./entitlement.js";
 import { drawUI } from "./ui/screens.js";
 import { fmtHearts, storyPx } from "./ui/text.js";
 import { winTitle, loseTitle } from "./ui/win.js";
@@ -132,7 +133,7 @@ export function installDebug() {
     // SPEC-016: списки миров, сиды по имени, индекс сложности, время третьей звезды, бонусные миры (p — прогресс, по умолчанию текущий)
     MAIN_WORLDS, BONUS_WORLDS, WORLD_SEED, worldDifficulty, fastTarget, chapterOpen,
     // SPEC-039: the progress rules are stateless — here p is the current progress when the test gives none, w the active game's world
-    bonusUnlocked: (p = progress) => bonusUnlocked(p), worldOpen: (w, p = progress) => worldOpen(w, p), worldComplete: (w = G.world, p = progress) => worldComplete(w, p),
+    bonusUnlocked: (p = progress) => bonusUnlocked(p), worldOpen: (w, p = progress) => worldOpenNow(w, p), worldComplete: (w = G.world, p = progress) => worldComplete(w, p),
     get bonusNote() { return ui.bonusNote && { ...ui.bonusNote }; },   // SPEC-016: плашка «Открылись бонусные миры!» этого кадра (или null)
     get winLine() { return ui.winLine; }, selectWorld,
     // SPEC-017: карта этого кадра, подсказка, карточка уровня; tapButton(id) — нажать кнопку этого кадра (как пальцем)
@@ -175,6 +176,8 @@ export function installDebug() {
     get warm() { return warmInfo(); },   // SPEC-040 AC 4: { key, phase: "" | game | map | chars | upload | done, done } of the warm-up behind the level card
     view3D: Object.freeze({ newState: newCadence, wanted: cadence, COVERED }),
     grownUps: Object.freeze({ open: openGrownUps, parentGate, get gate() { return gateState(); } }),
+    // SPEC-045: the Full game — value / info (live), hasFull, set(value, source) (a test's purchase), the online seam (hello, canHost), the child's card
+    entitlement: Object.freeze({ get value() { return entitlement(); }, get info() { return entitlementInfo(); }, hasFull, set: setEntitlement, get hello() { return helloFields(); }, canHost, openCard: openFullCard, init: initEntitlement }),
     // SPEC-012 AC 1f: the menus' state a screen change resets (logic state: the same in sim and rendered pages) and the actions
     // that set it up: the shop, its friends page, the name input of a slot, a map stop or world tab (a locked one shows a hint)
     get screenState() { return { mode, shopTab: ui.shopTab, wardrobePage: ui.wardrobePage, toast: ui.toast && ui.toast.text, mapBgCache: !!ui.mapBgCache, nameInput: !!nameInput }; },

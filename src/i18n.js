@@ -40,6 +40,10 @@ export const I18N = {
     musicOn: "Music: on", musicOff: "Music: off", soundsOn: "Sounds: on", soundsOff: "Sounds: off",   // SPEC-047 AC 9: the switches on the grown-ups page
     quality: "Picture quality", qualityAuto: "Auto", qualityHigh: "High", qualityMedium: "Medium", qualityLow: "Low",
     qualityLine: (mode, now) => `Picture quality: ${mode}${now ? ` (now ${now})` : ""}`,
+    // SPEC-045: the Full game (the child's card and the grown-ups section; no price anywhere: the stores set it)
+    moreWorlds: "More worlds are waiting! Ask a grown-up.", fullGame: "Full game", fullGameOpens: ["All the worlds", "The bonus worlds", "Hosting online games"],
+    fullGameTerms: "One purchase, no ads, no subscriptions", fullGameFriends: "Friends with the free version can still join your online games.", fullGameOwned: "✓ This device has the Full game",
+    getFull: "Get the full game", restorePurchase: "Restore purchase", soonInApp: "Available in the app soon",
     forGrownUps: "For grown-ups", copyCode: "Copy my progress code", pasteCode: "Paste a code", codeCopied: "Code copied",
     importConfirm: "Replace the progress on this device with the code?", codeTooNew: "This code is from a newer version of the game", codeBad: "This code doesn't work. Check it and try again",
     undoReset: "Bring back erased progress", resetAsk: "Reset all progress?", leaveAsk: "Leave the game?", yes: "Yes", no: "No", restoreCopy: "Restore an older copy", eraseAll: "Erase all data on this device", errorLog: "Error log", copy: "Copy", version: "Version",
@@ -148,6 +152,10 @@ export const I18N = {
     musicOn: "Música: sí", musicOff: "Música: no", soundsOn: "Sonidos: sí", soundsOff: "Sonidos: no",
     quality: "Calidad de imagen", qualityAuto: "Auto", qualityHigh: "Alta", qualityMedium: "Media", qualityLow: "Baja",
     qualityLine: (mode, now) => `Calidad de imagen: ${mode}${now ? ` (ahora: ${now})` : ""}`,
+    // SPEC-045: el Juego completo
+    moreWorlds: "¡Te esperan más mundos! Pedile a un adulto.", fullGame: "Juego completo", fullGameOpens: ["Todos los mundos", "Los mundos extra", "Crear partidas en línea"],
+    fullGameTerms: "Una sola compra, sin anuncios ni suscripciones", fullGameFriends: "Tus amigos con la versión gratis igual pueden unirse a tus partidas en línea.", fullGameOwned: "✓ Este dispositivo tiene el Juego completo",
+    getFull: "Conseguir el juego completo", restorePurchase: "Restaurar compra", soonInApp: "Pronto disponible en la app",
     forGrownUps: "Para adultos", copyCode: "Copiar mi código", pasteCode: "Pegar un código", codeCopied: "Código copiado",
     importConfirm: "¿Reemplazar el progreso de este dispositivo con el código?", codeTooNew: "Este código es de una versión más nueva del juego", codeBad: "Este código no funciona. Revisalo y probá de nuevo",
     undoReset: "Recuperar el progreso borrado", resetAsk: "¿Borrar todo el progreso?", leaveAsk: "¿Salir del juego?", yes: "Sí", no: "No", restoreCopy: "Volver a una copia anterior", eraseAll: "Borrar todos los datos de este dispositivo", errorLog: "Registro de errores", copy: "Copiar", version: "Versión",
@@ -247,6 +255,10 @@ export const I18N = {
     musicOn: "Música: ligada", musicOff: "Música: desligada", soundsOn: "Sons: ligados", soundsOff: "Sons: desligados",
     quality: "Qualidade da imagem", qualityAuto: "Auto", qualityHigh: "Alta", qualityMedium: "Média", qualityLow: "Baixa",
     qualityLine: (mode, now) => `Qualidade da imagem: ${mode}${now ? ` (agora: ${now})` : ""}`,
+    // SPEC-045: o Jogo completo
+    moreWorlds: "Mais mundos esperam por você! Peça a um adulto.", fullGame: "Jogo completo", fullGameOpens: ["Todos os mundos", "Os mundos extras", "Criar partidas online"],
+    fullGameTerms: "Uma única compra, sem anúncios nem assinaturas", fullGameFriends: "Amigos com a versão grátis ainda podem entrar nas suas partidas online.", fullGameOwned: "✓ Este dispositivo tem o Jogo completo",
+    getFull: "Obter o jogo completo", restorePurchase: "Restaurar compra", soonInApp: "Em breve disponível no app",
     forGrownUps: "Para adultos", copyCode: "Copiar meu código de progresso", pasteCode: "Colar um código", codeCopied: "Código copiado",
     importConfirm: "Substituir o progresso deste aparelho pelo do código?", codeTooNew: "Este código é de uma versão mais nova do jogo", codeBad: "Este código não funciona. Confira e tente de novo",
     undoReset: "Recuperar o progresso apagado", resetAsk: "Apagar todo o progresso?", leaveAsk: "Sair do jogo?", yes: "Sim", no: "Não", restoreCopy: "Voltar para uma cópia anterior", eraseAll: "Apagar todos os dados deste aparelho", errorLog: "Registro de erros", copy: "Copiar", version: "Versão",
@@ -345,6 +357,10 @@ export const I18N = {
     musicOn: "Музыка: вкл", musicOff: "Музыка: выкл", soundsOn: "Звуки: вкл", soundsOff: "Звуки: выкл",
     quality: "Качество картинки", qualityAuto: "Авто", qualityHigh: "Высокое", qualityMedium: "Среднее", qualityLow: "Низкое",
     qualityLine: (mode, now) => `Качество картинки: ${mode}${now ? ` (сейчас: ${now})` : ""}`,
+    // SPEC-045: «Полная игра»
+    moreWorlds: "Тебя ждут другие миры! Попроси взрослого.", fullGame: "Полная игра", fullGameOpens: ["Все миры", "Бонусные миры", "Создание онлайн-игр"],
+    fullGameTerms: "Одна покупка, без рекламы и подписок", fullGameFriends: "Друзья с бесплатной версией всё равно смогут зайти в твои онлайн-игры.", fullGameOwned: "✓ На этом устройстве есть Полная игра",
+    getFull: "Получить полную игру", restorePurchase: "Восстановить покупку", soonInApp: "Скоро будет в приложении",
     forGrownUps: "Для взрослых", copyCode: "Скопировать код прогресса", pasteCode: "Вставить код", codeCopied: "Код скопирован",
     importConfirm: "Заменить прогресс на этом устройстве прогрессом из кода?", codeTooNew: "Этот код из более новой версии игры", codeBad: "Этот код не подходит. Проверьте его и попробуйте ещё раз",
     undoReset: "Вернуть стёртый прогресс", resetAsk: "Сбросить весь прогресс?", leaveAsk: "Выйти из игры?", yes: "Да", no: "Нет", restoreCopy: "Вернуть более старую копию", eraseAll: "Стереть все данные на этом устройстве", errorLog: "Журнал ошибок", copy: "Копировать", version: "Версия",

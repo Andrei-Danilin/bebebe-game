@@ -2,10 +2,10 @@
 
 import { BONUS_WORLDS, CFG, levelsPerWorld, MAIN_WORLDS, UPGRADES, upgTop, WORLDS } from "../../../core/config.js";
 import { progress } from "../../../core/economy.js";
-import { isOpen, worldOpen } from "../../../core/progress-rules.js";
 import { BIG_SKINS, SLOTS } from "../../../core/wardrobe.js";
 import { L } from "../../../i18n.js";
 import { ITEM_ART, UPG_ART, worldArt } from "../../art.js";
+import { worldOpenNow } from "../../entitlement.js";
 import { LOOK } from "../../look.js";
 import { nameFor } from "../../names.js";
 import { LOOK_SLOTS, ownsItem, P_COLORS } from "../../outfits.js";
@@ -15,10 +15,10 @@ import { ui } from "../../state.js";
 import { SHOP_PICTURES, shopPicture } from "./items.js";
 import { upgPicture } from "./upgrades.js";
 import { rowsAt } from "../buttons.js";
-import { drawStarArt, fillStroke, rr } from "../draw.js";
+import { drawStarArt, fillStroke, regButton, rr } from "../draw.js";
 import { drawArtFit, fillT } from "../artdraw.js";
 import { mainStars, worldsFinished } from "../home.js";
-import { lockedText } from "../../flow.js";
+import { lockedText, tapWorldTab } from "../../flow.js";
 import { worldPicture, worldStarsOf } from "../menu.js";
 import { fitLine, noteRows, noteText, plainText } from "../text.js";
 import { minPx, progressGeom } from "../layout.js";
@@ -56,11 +56,13 @@ export function progressPage() {
   line("progress:name", name, left.x, pv.y + pv.h + c(4), c(P.nameH), left.w, { center: true, color: P_COLORS[0] });
   // ---- посередине: звёзды основных миров и пройденные миры, по строке на мир ----
   const starMax = CFG.STARS_PER_LEVEL * levelsPerWorld() * MAIN_WORLDS.length, wmax = CFG.STARS_PER_LEVEL * levelsPerWorld();
-  const lockedAny = BONUS_WORLDS.some(w => !isOpen(w, progress));
+  const gifted = WORLDS.some(w => worldOpenNow(w).reason === "purchase");   // SPEC-045: worlds only the Full game opens: one friendly line instead of the progress hints
+  const lockedAny = !gifted && BONUS_WORLDS.some(w => !worldOpenNow(w).open);
   const note = lockedAny ? noteRows(L().lockedBonus, PHONE ? minPx("hint") : c(14), PHONE ? minPx("hint") : 12, mid.w, 3) : null;   // SPEC-030: до трёх строк, как строка ниже
   // SPEC-030: следующий закрытый главный мир — «Пройди <предыдущий>, чтобы открыть <этот>!» под строками миров (над строкой бонусных)
-  const nextLocked = MAIN_WORLDS.find(w => worldOpen(w, progress).needs);
-  const mainNote = nextLocked ? noteRows(lockedText(nextLocked), PHONE ? minPx("hint") : c(14), PHONE ? minPx("hint") : 12, mid.w, 3) : null;   // до трёх строк (шрифты CI шире)
+  const nextLocked = gifted ? null : MAIN_WORLDS.find(w => worldOpenNow(w).needs);
+  const giftNote = gifted ? noteRows(L().moreWorlds, PHONE ? minPx("hint") : c(14), PHONE ? minPx("hint") : 12, mid.w, 3) : null;
+  const mainNote = giftNote ?? (nextLocked ? noteRows(lockedText(nextLocked), PHONE ? minPx("hint") : c(14), PHONE ? minPx("hint") : 12, mid.w, 3) : null);   // до трёх строк (шрифты CI шире); SPEC-045: или строка про Полную игру
   const noteH = [note, mainNote].reduce((a, n) => a + (n ? n.rows.length * n.sz * 1.2 + c(4) : 0), 0);
   const sumH = c(P.sumH);
   let rowH = c(P.rowH);
@@ -74,7 +76,7 @@ export function progressPage() {
   y += sumH;
   const iconW = rowH, stampW = rowH, nameW = PHONE ? 0 : (mid.w - iconW - stampW) * LOOK.MENU_LOOK.progress.name, colW = (mid.w - iconW - stampW - nameW) / 2;
   const worlds = WORLDS.map(w => {
-    const open = isOpen(w, progress), stars = worldStarsOf(w), wins = worldWins(w), done = wins >= levelsPerWorld();
+    const wo = worldOpenNow(w), open = wo.open, gift = wo.reason === "purchase", stars = worldStarsOf(w), wins = worldWins(w), done = wins >= levelsPerWorld();
     const rowY = y, cy = y + rowH / 2, is = rowH * 0.86;
     if (!open) ctx.globalAlpha = 0.45;
     if (!drawArtFit(worldArt(w), mid.x + iconW / 2, cy, is * 1.1)) worldPicture(w, mid.x + iconW / 2 - is / 2, cy - is / 2, is);
@@ -98,11 +100,12 @@ export function progressPage() {
       }
     } else {
       const ps = rowH * 0.8, px = x + ps / 2;
-      if (!drawArtFit("padlock", px, cy, ps)) emoji("🔒")(px, cy, ps);
-      ui.hudRects.push({ id: "progress:lock:" + w, x: px - ps / 2, y: cy - ps / 2, w: ps, h: ps });
+      if (!drawArtFit(gift ? "ui_gift" : "padlock", px, cy, ps)) emoji(gift ? "🎁" : "🔒")(px, cy, ps);
+      ui.hudRects.push({ id: (gift ? "progress:gift:" : "progress:lock:") + w, x: px - ps / 2, y: cy - ps / 2, w: ps, h: ps });
+      if (gift) regButton(mid.x, rowY, mid.w, rowH, "🎁", () => tapWorldTab(w), "progress:world:" + w, ps);   // SPEC-045: the row opens the "Full game" card
     }
     y += rowH;
-    return { world: w, open, stars, max: wmax, levels: wins, done, reason: worldOpen(w, progress).reason };
+    return { world: w, open, stars, max: wmax, levels: wins, done, reason: wo.reason };
   });
   if (mainNote) {
     y += rowsAt("progress:lockText", mainNote, mid.x + mid.w / 2, y + c(4), M.lockedInk) + c(4);

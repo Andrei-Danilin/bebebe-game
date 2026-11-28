@@ -6,7 +6,7 @@
 import { G } from "../core/active.js";
 import { CFG, WORLDS } from "../core/config.js";
 import { progress, setProgress, worldProgress } from "../core/economy.js";
-import { isOpen } from "../core/progress-rules.js";
+import { isOpenNow } from "./entitlement.js";
 import { resetWorld, setLastReward } from "./flow.js";
 import { fitOutfitsToOwned } from "./outfits.js";
 import { saveProgress } from "./progress.js";
@@ -35,7 +35,7 @@ export function resetProgress() {
   const copy = snapshotBeforeReset();
   G.rewardDue = false;                         // прогресс заменён целиком: за брошенный уровень не платим
   setProgress(null); forgetHeldProgress(); ui.openedWorld = null; ui.worldBanner = null;   // новый прогресс
-  if (!isOpen(G.world, progress)) G.world = WORLDS[0];   // SPEC-016/030: после сброса открыт только Парк
+  if (!isOpenNow(G.world)) G.world = WORLDS[0];   // SPEC-016/030: после сброса открыт только Парк
   progress.lastWorld = G.world;
   fitOutfitsToOwned();                       // SPEC-009: купленные наряды ушли вместе с прогрессом
   saveProgress(); G.level = 1; resetWorld(G.players);

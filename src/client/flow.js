@@ -9,7 +9,7 @@ import { clearEvents, logEvent } from "../core/events.js";
 import { createGame, newInput, teamSize, useGame } from "../core/game.js";
 import { levelType } from "../core/level/generate.js";
 import { bossFor } from "../core/mood.js";
-import { computeReward, isOpen, worldComplete, worldOpen } from "../core/progress-rules.js";
+import { computeReward, worldComplete } from "../core/progress-rules.js";
 import { trickOf } from "../core/tricks/index.js";
 import { canUseKit, levelResult } from "../core/rules.js";
 import { clamp, newRng, seedRandom as seedStream } from "../core/util.js";
@@ -18,7 +18,9 @@ import { L, lang, LANGS } from "../i18n.js";
 import { SCENE_IDS, STORY, TUTORIAL_SCENES } from "../story.js";
 import { STORY_ART } from "./art.js";
 import { closeNameInput, nameInput, sticks } from "./devices.js";
+import { entitlement, isOpenNow, worldOpenNow } from "./entitlement.js";
 import { LOOK } from "./look.js";
+import { ports } from "./ports.js";
 import { previewDataOf } from "./preview-data.js";
 import { botOutfit, endTryOn, makeLook, skinSel } from "./outfits.js";
 import { saveProgress, setLang } from "./progress.js";
@@ -76,7 +78,7 @@ const INV_KEY = Object.freeze({ kiss: "kisses", kit: "rescues" });
 function payLevel(result) {
   G.rewardDue = false;
   if (G.tutorialGame) return null;                          // SPEC-029: тренировка не платит и ничего не открывает
-  const c = computeReward(progress, result);
+  const c = computeReward(progress, result, entitlement());
   if (c.world) {
     const wp = progress.worlds[c.world.name];
     if (c.world.unlocked > wp.unlocked) unlockDue = true;   // SPEC-047: the map plays the unlock sound when it shows the new level
@@ -99,7 +101,7 @@ export function applyGameEvent(e) {
 // выбор мира в меню (карточка, ↑/↓, крестовина геймпада): запоминается, показывается новый открытый уровень мира.
 // SPEC-016/030: закрытый мир выбрать нельзя (__bb.world — без проверки, для тестов и отчёта баланса)
 export function selectWorld(w) {
-  if (!WORLDS.includes(w) || w === G.world || !isOpen(w, progress)) return;
+  if (!WORLDS.includes(w) || w === G.world || !isOpenNow(w)) return;
   G.world = w; ui.toast = null; ui.worldBanner = null; screenChanged();   // SPEC-017: подсказка карты была про прошлый мир (SPEC-030: и плашка «открыт»)
   progress.lastWorld = G.world; saveProgress();
   G.level = worldProgress().unlocked;
@@ -108,7 +110,7 @@ export function selectWorld(w) {
 // ↑/↓: следующий открытый мир по сюжету (по кругу), закрытые пропускаются
 export function cycleWorld(d) {
   const n = WORLDS.length;
-  for (let k = 1; k < n; k++) { const w = WORLDS[(worldIndex(G.world) + d * k + n * n) % n]; if (isOpen(w, progress)) { selectWorld(w); return; } }
+  for (let k = 1; k < n; k++) { const w = WORLDS[(worldIndex(G.world) + d * k + n * n) % n]; if (isOpenNow(w)) { selectWorld(w); return; } }
 }
 // выход из идущего уровня до победы (пауза → Меню, перезапуск или другой уровень): платим только обнимашки.
 // Последнее сердечко уже снято (pendingWin идёт) — это победа: засчитываем её, как если бы досмотрели (правило детей: обнял — победил)
@@ -230,7 +232,7 @@ export let mapSel = null, cardLevel = 1;
 function showOpenedWorld() {
   const w = ui.openedWorld, unlocked = unlockDue;
   ui.openedWorld = null; unlockDue = false;
-  if (!w || !isOpen(w, progress)) { if (unlocked) playSound("unlock"); return; }   // SPEC-047: a new level (unlock) or a new world (world_open) on the map
+  if (!w || !isOpenNow(w)) { if (unlocked) playSound("unlock"); return; }   // SPEC-047: a new level (unlock) or a new world (world_open) on the map
   selectWorld(w); mapSel = null;
   ui.worldBanner = { world: w, t: LOOK.MENU_LOOK.map.openedTime };
   playSound("world_open");
@@ -243,8 +245,8 @@ export function nextStop(w = G.world) {
 }
 // карта открывается на последнем мире (progress.lastWorld); если он пройден целиком — на первом открытом мире с невыигранным уровнем
 function mapStartWorld() {
-  const lw = isOpen(progress.lastWorld, progress) ? progress.lastWorld : WORLDS[0];
-  return worldComplete(lw, progress) ? WORLDS.find(w => isOpen(w, progress) && !worldComplete(w, progress)) ?? lw : lw;
+  const lw = isOpenNow(progress.lastWorld) ? progress.lastWorld : WORLDS[0];
+  return worldComplete(lw, progress) ? WORLDS.find(w => isOpenNow(w) && !worldComplete(w, progress)) ?? lw : lw;
 }
 export function openMap() { selectWorld(mapStartWorld()); mapSel = null; setMode("map"); showOpenedWorld(); }
 export const mapSelN = () => (mapSel && mapSel.world === G.world ? mapSel.n : nextStop() || levelsPerWorld());
@@ -269,7 +271,7 @@ export function showCard(n) {
   ui.tip = null; ui.tipPlay = null;   // SPEC-048 AC 6: the "New here!" card no longer comes with the level card: it comes after Play (playCard), alone
 }
 // SPEC-042 AC 11: the world's trick card has not been shown yet (tests set window.__bbNoTips, like __bbNoIntro: only the tests of the card itself see it)
-export const tipDue = w => window.__bbNoTips !== true && trickOf(w) !== null && isOpen(w, progress) && !progress.seen["trick_" + w];   // (TRICKS_ON 0: no trick, no card)
+export const tipDue = w => window.__bbNoTips !== true && trickOf(w) !== null && isOpenNow(w) && !progress.seen["trick_" + w];   // (TRICKS_ON 0: no trick, no card)
 // the ? button of the level card shows it again; OK / ✕ / Back close it (back to the level card)
 // SPEC-048 AC 6: after Play on a world's level 1 (playCard) it comes alone — the level card closed first, the level loads behind it (ui.warm stays): OK
 // (okTip) starts the level; Back / Esc / ✕ (closeTip) go to the map and the tip stays due (seen is taken back: the kids did not see it)
@@ -288,8 +290,13 @@ export function okTip() {
 }
 // вкладка мира: закрытый мир не выбирается — только подсказка (SPEC-030: главный — какой мир пройти)
 // подсказка закрытого мира (по worldOpen): нужен главный мир — «Пройди <его>, чтобы открыть <этот>!», иначе — прежняя строка бонусных
-export const lockedText = w => { const o = worldOpen(w, progress); return o.needs ? L().lockedWorld(o.needs, w) : L().lockedBonus; };
-export function tapWorldTab(w) { if (isOpen(w, progress)) selectWorld(w); else showToast(lockedText(w)); }
+// SPEC-045: a world only the Full game opens → "More worlds are waiting! Ask a grown-up." (no price, no word about buying)
+export const lockedText = w => { const o = worldOpenNow(w); return o.reason === "purchase" ? L().moreWorlds : o.needs ? L().lockedWorld(o.needs, w) : L().lockedBonus; };
+// SPEC-045 AC 3: a purchase-locked tab opens the "Full game" card (ui/fullgame.js, through the port), not a toast
+export function tapWorldTab(w) {
+  const o = worldOpenNow(w);
+  if (o.open) selectWorld(w); else if (o.reason === "purchase") ports.openFullCard(); else showToast(lockedText(w));
+}
 export const closeCard = () => { ui.warm = null; ui.tip = null; ui.tipPlay = null; setMode("map"); };
 // «Играть» на карточке: тот же startGame, что и раньше (resetWorld → loadLevel, надпись уровня, камера телефона)
 function startCardLevel(players) { G.level = cardLevel; withScene(sceneBefore(G.world, G.level), () => startGame(players)); }   // SPEC-022: сначала заставка, если пора
@@ -310,7 +317,7 @@ export function setStoryPage(p) { ui.storyPage = p; screenChanged(); }
 export const storyBackKey = () => { if (ui.storyPage === "rules") setStoryPage("chapters"); else closeStory(); };
 // глава видна: начало — всегда; мир — когда он открыт (SPEC-030: worldOpen); конец — после 20-го уровня Школы
 export function chapterOpen(c) {
-  if (WORLDS.includes(c.id)) return isOpen(c.id, progress);
+  if (WORLDS.includes(c.id)) return isOpenNow(c.id);
   return c.id === "ended" ? progress.worlds.school.won[levelsPerWorld()] === true : true;
 }
 const storyOf = id => STORY.find(c => c.id === id);
@@ -379,7 +386,7 @@ export function toMap() {
   leaveLevel();
   if (endingDue()) { openScene("ending", toMap); return; }   // SPEC-022: сначала финал истории
   const w = ui.openedWorld;                                     // SPEC-030: победа открыла мир — карта переходит в него (selectWorld строит его уровень)
-  if (!(w && w !== G.world && isOpen(w, progress))) resetWorld(G.players);
+  if (!(w && w !== G.world && isOpenNow(w))) resetWorld(G.players);
   mapSel = null; setMode("map");                               // кольцо — снова на следующем уровне
   showOpenedWorld();
 }

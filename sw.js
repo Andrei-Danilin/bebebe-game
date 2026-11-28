@@ -30,7 +30,7 @@ const NET_TIMEOUT_MS = 4000;             // weak signal: after this long, a cach
 const SW_BUILD = 13;
 const SW_STRATEGY = "3d1b3b7316";
 const SW_VERSION = "bebebe-1.0.0-dev-b13";
-const SRC_HASH = "c8c1bc88a3";
+const SRC_HASH = "5d2ccd649c";
 const PRECACHE_LOCAL = [
   "./", "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512-maskable.png",
   "./icons/icon-512.png", "./icons/icon.svg", "./index.html", "./manifest.webmanifest"
@@ -39,13 +39,14 @@ const PRECACHE_SRC = [
   "./src/client/adaptive.js?v=5487878407", "./src/client/art-names.js?v=53a55ace1a",
   "./src/client/art.js?v=280dc50152", "./src/client/audio/engine.js?v=f0713c3094",
   "./src/client/audio/music.js?v=bdf6f33945", "./src/client/audio/sfx.js?v=6073da3a31",
-  "./src/client/back.js?v=2bbaab7f17", "./src/client/cadence.js?v=6fc971a515", "./src/client/debug.js?v=ec9e4fb922",
-  "./src/client/devices.js?v=892965ff6f", "./src/client/errors.js?v=7b215fb847", "./src/client/flow.js?v=094a034a8b",
-  "./src/client/fx.js?v=3bceabb270", "./src/client/input.js?v=b3548978b6", "./src/client/lifecycle.js?v=42d6c088ba",
-  "./src/client/look.js?v=c502de3730", "./src/client/main.js?v=2a937ffcaa", "./src/client/names.js?v=dff85cded6",
-  "./src/client/outfits.js?v=892a6a1d6e", "./src/client/perf.js?v=2462f1b4ae", "./src/client/ports.js?v=4285602733",
+  "./src/client/back.js?v=2bbaab7f17", "./src/client/cadence.js?v=6fc971a515", "./src/client/debug.js?v=32ed3d36fc",
+  "./src/client/devices.js?v=892965ff6f", "./src/client/entitlement.js?v=ee889ff7aa",
+  "./src/client/errors.js?v=7b215fb847", "./src/client/flow.js?v=d4c498e1d4", "./src/client/fx.js?v=3bceabb270",
+  "./src/client/input.js?v=b3548978b6", "./src/client/lifecycle.js?v=42d6c088ba", "./src/client/look.js?v=c502de3730",
+  "./src/client/main.js?v=dcf266a592", "./src/client/names.js?v=dff85cded6", "./src/client/outfits.js?v=892a6a1d6e",
+  "./src/client/perf.js?v=2462f1b4ae", "./src/client/ports.js?v=f57acde97d",
   "./src/client/preview-data.js?v=89f11bb2ea", "./src/client/progress.js?v=38515d7fe6",
-  "./src/client/quality.js?v=1fa1c771b3", "./src/client/reset.js?v=30ccdd527d", "./src/client/save.js?v=21615d74c2",
+  "./src/client/quality.js?v=1fa1c771b3", "./src/client/reset.js?v=b374284a23", "./src/client/save.js?v=f01dfc0714",
   "./src/client/screen-art.js?v=be6a82eed6", "./src/client/screen.js?v=576f0ce0af",
   "./src/client/shop.js?v=df2d3c5976", "./src/client/sound.js?v=c303c54cb1", "./src/client/state.js?v=043fd63752",
   "./src/client/storage.js?v=686b11f06c", "./src/client/three/batch.js?v=72814fddc1",
@@ -61,19 +62,19 @@ const PRECACHE_SRC = [
   "./src/client/tutorial-data.js?v=af543736b2", "./src/client/tutorial.js?v=d366f16b03",
   "./src/client/ui/artdraw.js?v=33befe7bde", "./src/client/ui/buttons.js?v=67b41b2f83",
   "./src/client/ui/canvas.js?v=697f7d0db5", "./src/client/ui/character/items.js?v=2ff7462142",
-  "./src/client/ui/character/progress.js?v=46b61d937e", "./src/client/ui/character/tabs.js?v=bd6c90ad68",
+  "./src/client/ui/character/progress.js?v=4fe73c181b", "./src/client/ui/character/tabs.js?v=bd6c90ad68",
   "./src/client/ui/character/upgrades.js?v=5358a5860d", "./src/client/ui/character/wardrobe.js?v=83a8b8206a",
-  "./src/client/ui/draw.js?v=b968e6465c", "./src/client/ui/grownups.js?v=6ebdf23b79",
+  "./src/client/ui/draw.js?v=b968e6465c", "./src/client/ui/grownups.js?v=c18f5bf5b3",
   "./src/client/ui/home.js?v=943aa709ec", "./src/client/ui/hud.js?v=cdd0378b28",
   "./src/client/ui/lang.js?v=568a4dc213", "./src/client/ui/layout.js?v=834fe7f487",
-  "./src/client/ui/level-preview.js?v=5df4dce907", "./src/client/ui/map.js?v=defbdd0b3e",
+  "./src/client/ui/level-preview.js?v=5df4dce907", "./src/client/ui/map.js?v=9a7d56ece2",
   "./src/client/ui/measure.js?v=7c174e9035", "./src/client/ui/menu.js?v=5cdc85b5f1",
   "./src/client/ui/minimap.js?v=e900bbfee9", "./src/client/ui/paper.js?v=c25342da07",
   "./src/client/ui/phone.js?v=10df6a6f47", "./src/client/ui/screens.js?v=e98bfff809",
   "./src/client/ui/story.js?v=54e26452a0", "./src/client/ui/text.js?v=fe5b98f9e4",
   "./src/client/ui/tip.js?v=99f9efd06a", "./src/client/ui/win.js?v=f1b1933411", "./src/client/update.js?v=e702121a73",
   "./src/client/warm.js?v=6a2d57b991", "./src/core/active.js?v=70aa836ebd", "./src/core/autopilot.js?v=6895dd7bfd",
-  "./src/core/big.js?v=608f5e2f6f", "./src/core/bots.js?v=32defc7e5b", "./src/core/config.js?v=4c133730b0",
+  "./src/core/big.js?v=608f5e2f6f", "./src/core/bots.js?v=32defc7e5b", "./src/core/config.js?v=c3d5a75f98",
   "./src/core/difficulty.js?v=72aff2bd1e", "./src/core/economy.js?v=e3d6023dec", "./src/core/events.js?v=ad8c019d6e",
   "./src/core/game.js?v=0d95287186", "./src/core/grid.js?v=a38c7b977b", "./src/core/hearing.js?v=f5acc0f0ca",
   "./src/core/hooks.js?v=5ceea54c61", "./src/core/index.js?v=0efe704e7d", "./src/core/kindwalk.js?v=71745973b0",
@@ -81,7 +82,7 @@ const PRECACHE_SRC = [
   "./src/core/level/layouts.js?v=07d6472d8e", "./src/core/level/load.js?v=d7e6940cc5",
   "./src/core/level/report.js?v=a2d244a0ab", "./src/core/level/validate.js?v=5137b0bd7a",
   "./src/core/mood.js?v=65a5548f9d", "./src/core/path.js?v=3b439f4444", "./src/core/practice.js?v=807c98cf2e",
-  "./src/core/progress-rules.js?v=7c34b4f903", "./src/core/rules.js?v=ca1bb0b29f",
+  "./src/core/progress-rules.js?v=8eb93efed4", "./src/core/rules.js?v=ca1bb0b29f",
   "./src/core/soundloops.js?v=e0783ba66c", "./src/core/tricks/aware.js?v=d70aa68ca3",
   "./src/core/tricks/bell.js?v=d44f4fab96", "./src/core/tricks/footprints.js?v=0a24914236",
   "./src/core/tricks/index.js?v=bd87555130", "./src/core/tricks/kit.js?v=d7fcfb99ab",
@@ -89,7 +90,7 @@ const PRECACHE_SRC = [
   "./src/core/tricks/sprinklers.js?v=d0d67dc091", "./src/core/tricks/truck.js?v=6da8d905c4",
   "./src/core/tricks/waves.js?v=2bc3aa5809", "./src/core/util.js?v=b56133239e", "./src/core/vision.js?v=17866d5575",
   "./src/core/wardrobe.js?v=011be2182f", "./src/core/world.js?v=7ffe232fac", "./src/core/worlditems.js?v=247983d670",
-  "./src/i18n.js?v=f50020a150", "./src/story.js?v=d4c2c3d810"
+  "./src/i18n.js?v=07721719b9", "./src/story.js?v=d4c2c3d810"
 ];
 const THREE_VERSION = "r187";
 const PRECACHE_THREE = [

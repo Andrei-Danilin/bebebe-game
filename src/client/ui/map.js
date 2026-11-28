@@ -5,13 +5,14 @@ import { CFG, H, levelsPerWorld, TAU, W, WORLD_SEED, WORLDS } from "../../core/c
 import { levelType } from "../../core/level/generate.js";
 import { bossFor } from "../../core/mood.js";
 import { progress, worldProgress } from "../../core/economy.js";
-import { isOpen, worldComplete } from "../../core/progress-rules.js";
+import { worldComplete } from "../../core/progress-rules.js";
 import { mulberry32 } from "../../core/util.js";
 import { L } from "../../i18n.js";
 import { art, artFade, mapBgArt, worldArt } from "../art.js";
 import { paperPanel } from "./paper.js";
 import { cardLevel, chooseStop, goBack, mapSelN, nextStop, openStory, openTip, playCard, tapWorldTab } from "../flow.js";
 import { LOOK } from "../look.js";
+import { worldOpenNow } from "../entitlement.js";
 import { ctx, OUT, PHONE, UH, UW, VIEW } from "../screen.js";
 import { ui } from "../state.js";
 import { THEMES } from "../three/themes.js";
@@ -235,17 +236,17 @@ export function drawMap(t) {
   coinPlate(MG.X1 - MG.coinsW, MG.Y0 + 4 * k, MG.coinsW, MG.tabH - 8 * k);
   const tx0 = MG.X0 + MG.backW + MG.g, tw = (MG.X1 - MG.coinsW - MG.g - tx0 - (WORLDS.length - 1) * MG.g) / WORLDS.length, tabs = [];
   WORLDS.forEach((wd, i) => {
-    const x = tx0 + i * (tw + MG.g), locked = !isOpen(wd, progress), sel = wd === w;
+    const x = tx0 + i * (tw + MG.g), o = worldOpenNow(wd), locked = !o.open, gift = o.reason === "purchase", mark = gift ? "🎁" : "🔒", sel = wd === w;   // SPEC-045: a gift badge (not a padlock) on a world only the Full game opens
     const ic = Math.min(tw, MG.tabH);
     if (art(worldArt(wd))) {                                              // SPEC-020: значок мира из 20_levelmap_parts
       if (locked) ctx.globalAlpha = 0.5;
       drawArtFit(worldArt(wd), x + tw / 2, MG.Y0 + MG.tabH / 2, ic * 1.06);
       ctx.globalAlpha = 1;
-      if (locked) drawArtFit("padlock", x + tw / 2 + ic * 0.3, MG.Y0 + MG.tabH * 0.66, ic * 0.5);
-      regButton(x, MG.Y0, tw, MG.tabH, locked ? "🔒" : WORLD_ICONS[wd], () => tapWorldTab(wd), "maptab:" + wd, ic);
-    } else addButton(x, MG.Y0, tw, MG.tabH, locked ? "🔒" : WORLD_ICONS[wd], locked ? A.closed : THEMES[wd].g1, () => tapWorldTab(wd), PHONE ? fz(24, "main") : 30).id = "maptab:" + wd;
+      if (locked) drawArtFit(gift ? "ui_gift" : "padlock", x + tw / 2 + ic * 0.3, MG.Y0 + MG.tabH * 0.66, ic * 0.5);
+      regButton(x, MG.Y0, tw, MG.tabH, locked ? mark : WORLD_ICONS[wd], () => tapWorldTab(wd), "maptab:" + wd, ic);
+    } else addButton(x, MG.Y0, tw, MG.tabH, locked ? mark : WORLD_ICONS[wd], locked ? A.closed : THEMES[wd].g1, () => tapWorldTab(wd), PHONE ? fz(24, "main") : 30).id = "maptab:" + wd;
     if (sel) { rr(x - 3 * k, MG.Y0 - 3 * k, tw + 6 * k, MG.tabH + 6 * k, 20 * k); ctx.lineWidth = A.ringW * k; ctx.strokeStyle = A.ring; ctx.stroke(); }
-    tabs.push({ world: wd, locked, selected: sel, x, y: MG.Y0, w: tw, h: MG.tabH });
+    tabs.push({ world: wd, locked, reason: o.reason, selected: sel, x, y: MG.Y0, w: tw, h: MG.tabH });
   });
   // страница мира: фон и дорожка, строка заголовка (или подсказка), остановки
   const rects = stopRects(MG), next = nextStop(w), done = worldComplete(w, progress), sel = mapSelN();
