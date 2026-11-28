@@ -59,13 +59,13 @@ gain pushes a peak over −0.1 dBFS); for music and the song it moves the loudne
 - `engine.js`: the one `AudioContext` (made on the first gesture; nothing exists before) and its buses master (`MASTER` 0.8) → music bus + sfx bus. On iPhone
   `navigator.audioSession.type = "ambient"` is set when the engine starts, so the silent switch mutes the game.
 - `sfx.js`: the sounds, loops and jingles are decoded `AudioBuffer`s, loaded after the first gesture (manifest → sounds and loops → jingles). At most `AUDIO.MAX_VOICES` (8) one-shots at
-  once (the oldest is stopped first), the same sound not twice within `AUDIO.RETRIGGER` (0.05 s; the coin: one per 0.06 s). A sound that is not loaded (yet), failed to load or to decode
-  asks its beep from `sound.js` (`SYNTH_OF`; none for the new sounds without an old beep). A bot's or Dad's sound plays at `AUDIO.OTHERS` (0.7). A loop buffer's ends under
+  once (the oldest voice that has STARTED is stopped, its log entry marked `stolen`; a scheduled voice — the win screen's stars and coins — does not count until it starts and is never stolen), the same sound not twice within `AUDIO.RETRIGGER` (0.05 s; the coin: one per 0.06 s). A sound that is not loaded (yet), failed to load or to decode
+  asks its beep from `sound.js` (`SYNTH_OF`; none for the new sounds without an old beep). A sound from a slot that is not on this device — a bot, **Dad**, a friend online — plays at `AUDIO.OTHERS` (0.7; the spec read literally: check with the kids): the core puts the actor's `slot` on the event (a Little One's slot, `"big"` for Dad) and the client (`sound.js` `isOther`) decides from its own player slots; Dad's dizzy loop is at `OTHERS` too (`LOOK.AUDIO.OTHER_LOOPS`). A sound that starts later than its event (the fall after a push) has its delay in `LOOK.AUDIO.DELAY` (by name). A loop buffer's ends under
   −60 dBFS (the decoder's padding) stay outside `loopStart` / `loopEnd`, so a looped buffer has no gap. Nothing plays in sim mode; the requests are counted for the sim test.
-- `music.js`: music is **streamed, never decoded**: a track is two `HTMLAudioElement`s through `MediaElementSource`s; B starts under A's last `AUDIO.LOOP_XFADE` (2 s) and the two cross over
+- `music.js`: music is **streamed, never decoded**: a track is two `HTMLAudioElement`s through `MediaElementSource`s (taken from a **pool** of `AUDIO.POOL` elements that the first gesture plays and stops once — iOS plays only elements a gesture started — and reused for every track; only `src` changes); B starts under A's last `AUDIO.LOOP_XFADE` (2 s) and the two cross over
   equal-power (the loop point is the manifest `dur`). Screens crossfade over `AUDIO.SCREEN_XFADE` (1 s); the same track goes on across screens. A track not loaded yet (or failed, or
-  offline and never cached) plays `theme`. Bus: `MUSIC_MENU` 0.7 in menus, `MUSIC_PLAY` 0.35 in play, `MUSIC_PAUSE` 0.25 in pause; it dips to 0.1 under a jingle and returns over 0.5 s.
-- `sound.js` keeps `initAudio` / `suspendAudio`, the synth beeps (only the fallback now) and `playSound(name, { delay, gain, other, tag })`.
+  offline and never cached) plays `theme`; a failed track is loaded again after `AUDIO.MUSIC_RETRY` s (or the next time that world is entered); a world with no track in the manifest plays `theme` and asks for no file. A `play()` that the browser refuses (iOS outside a gesture) never leaves the music stopped: every gesture plays again what should be playing (`nudgeMusic`), a refused loop crossfade is taken back (the track goes on, the other element is tried again), a context `interrupted` by a call pauses the music and the next gesture resumes it. Bus: `MUSIC_MENU` 0.7 in menus, `MUSIC_PLAY` 0.35 in play, `MUSIC_PAUSE` 0.25 in pause; it dips to 0.1 under a jingle and returns over 0.5 s.
+- `sound.js` is the single entry point: flow, fx, main and debug use the audio only through the names it exports. It keeps `initAudio` / `suspendAudio`, the synth beeps (only the fallback now), `playSound(name, { delay, gain, other, tag })`, `isOther(slot)`, `clickSound`, `winCountSounds` and `audioTick()` — **the one owner of the per-frame work** (main.js calls it every frame: `musicTick`, and `setLoops(wantedLoops(localSlots))` in play, none outside it; a failure is logged once and never stops the frame).
 
 ### Which track plays where (Andrei's decision for `theme`, `theme_song` and the covers; the rest Claude's)
 
@@ -79,19 +79,19 @@ gain pushes a peak over −0.1 dBFS); for music and the song it moves the loudne
 | "How it all ended" and the thanks card | `theme_song`, once, to the end; then `theme` (a new visit plays it again) |
 | win / lose screens | the level's track, dipped under the jingle |
 
-### Which sound plays when (Claude's mapping; the core emits `{ type: "sfx", name, delay?, other? }` in `g.fx`, so online play gets the same events)
+### Which sound plays when (Claude's mapping; the core emits `{ type: "sfx", name, slot? }` in `g.fx`, so online play gets the same events)
 
 | Event | Sound | Where |
 |---|---|---|
-| hug (1 heart) / with mittens (power ≥ 2) | `hug` / `hug_mega` | core (`rules.js`; a bot's has `other: true`) |
+| hug (1 heart) / with mittens (power ≥ 2) | `hug` / `hug_mega` | core (`rules.js`; `slot` = the hugger's) |
 | Dad pushes a kid / the grumpiest dad's wide push | `push` (+ `growl` on every 3rd push of a level, `CFG.SFX_GROWL_EVERY`) / `wide_push` | core |
-| the pushed kid sits down | `fall`, `CFG.SFX_FALL_DELAY` (0.25 s) after the push (`delay`) | core |
+| the pushed kid sits down | `fall` (the pushed kid's slot), 0.25 s after the push (`LOOK.AUDIO.DELAY.fall`, applied by the client) | core |
 | a friend is helped up | `rescue` | core |
 | while a player helps one who lies | `rescue_loop` (loop) | core query `wantedLoops` |
 | a kid goes home to rest | `out` | core |
 | Dad sees a kid / hears steps and turns | `alert` / `heard` | core |
 | Dad becomes kind (0 hearts), before the win jingle | `kind` | core |
-| boots / cloak / shield picked up | `boots` / `cloak` / `pickup` | core (bot: `other`) |
+| boots / cloak / shield picked up | `boots` / `cloak` / `pickup` | core (`slot` = the kid's) |
 | the shield stops a push | `shield` | core |
 | Dad slips on a banana (or a melon) / lies there | `slip` / `dizzy` (loop) | core / `wantedLoops` |
 | a kiss thrown / a kiss hits | `kiss` / `kiss_hit` | core |
@@ -112,7 +112,7 @@ A banana is never picked up by a kid (only Dad slips on it), so the banana `pick
 
 **The loop protocol.** Loops are not events but a pure query of the game state, `wantedLoops(localSlots?)` in `src/core/soundloops.js` (no rng, nothing written; `[]` outside play):
 `rescue_loop` — a *player* (not a bot) stands by a kid who lies; `dizzy` — Dad lies; `danger_tick` — a player is inside Dad's house; `run_steps` / `tiptoe_steps` — a player runs / tiptoes
-within `HEAR_RADIUS` of Dad. `fx.js` asks it after every step and `sfx.js` `setLoops(names)` starts the loops that came and stops the ones that went (a fade of 50 ms); `main.js` stops them
+within `HEAR_RADIUS` of Dad. `sound.js` `audioTick` asks it every frame (the players of this device as `localSlots`) and `sfx.js` `setLoops(names)` starts the loops that came and stops the ones that went (a fade of 50 ms); `audioTick` stops them
 all outside play. Loops are not counted in the 8 voices.
 
 ## Switches, save, background
