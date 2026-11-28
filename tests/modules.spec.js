@@ -65,7 +65,8 @@ test("three.js comes from the import map only", { tag: "@fast" }, () => {
   const code = [["index.html", html.replace(maps[0][0], "")], ...srcFiles(path.join(ROOT, "src")).map(f => [path.relative(ROOT, f), fs.readFileSync(f, "utf8")])];
   const bad = [];
   for (const [name, text] of code) {
-    if (/\bhttps?:\/\/(?!localhost|127\.0\.0\.1)/.test(text)) bad.push(`${name}: names a remote URL`);   // SPEC-025: no CDN, no other host
+    // SPEC-025: no CDN, no other host (SPEC-013: except the game's own Pages origin, a whole string in CFG.ONLINE.ORIGINS)
+    if (/\bhttps?:\/\/(?!localhost|127\.0\.0\.1|andrei-danilin\.github\.io")/.test(text)) bad.push(`${name}: names a remote URL`);
     for (const m of text.matchAll(/\bfrom\s+["']([^"']+)["']/g)) if (/^https?:/.test(m[1]) || /(^|\/)three(\.module)?\.js$/.test(m[1])) bad.push(`${name}: imports ${m[1]}`);
   }
   expect(bad).toEqual([]);

@@ -14,6 +14,8 @@ const { openGame, openGameHttp, frames, step, setupHug, ROOT } = require("./help
 const { buildSite } = require("../scripts/site");
 
 const LOCAL_HOSTS = ["localhost", "127.0.0.1"];
+// SPEC-013: the game's own published origin, which CFG.ONLINE.ORIGINS lists as an origin the online server accepts (a name in a table, never a request target)
+const OWN_ORIGINS = ["https://andrei-danilin.github.io"];
 // XML namespace names (three.js creates elements in the XHTML namespace, the SVG icon declares its own): identifiers that are
 // never fetched, not addresses of a host
 const NAMESPACES = /^http:\/\/www\.w3\.org\/(1999\/xhtml|2000\/svg|1999\/xlink)$/;
@@ -43,7 +45,9 @@ function remoteUrls(file, text) {
     }
     scan(html, file);
   } else scan(text, file);
-  return found.filter(f => { const u = new URL(f.url); return !LOCAL_HOSTS.includes(u.hostname) && !NAMESPACES.test(f.url); });
+  return found.filter(f => { const u = new URL(f.url.replace(/:\*$/, ""));   // SPEC-013: "http://localhost:*" in CFG.ONLINE.ORIGINS = any port
+    return !LOCAL_HOSTS.includes(u.hostname) && !NAMESPACES.test(f.url) && !OWN_ORIGINS.includes(u.origin);
+  });
 }
 
 test("the shipped files name no other host", { tag: "@fast" }, () => {
