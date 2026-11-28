@@ -9,3 +9,6 @@ playwright-report/
 _site/
 # SPEC-047: WAV masters of the game audio stay on the machine (MP3 copies are in audio/src/)
 audio/wav/
+# SPEC-013: the online/ package (Cloudflare Worker, wrangler): its dependencies and its local dev state stay on the machine
+online/node_modules/
+online/.wrangler/

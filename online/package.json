@@ -1,0 +1,14 @@
+{
+  "name": "bebebe-online",
+  "version": "1.0.0-dev",
+  "private": true,
+  "type": "module",
+  "description": "BeBeBe Atrapar online rooms (SPEC-013): a Cloudflare Worker + Durable Objects. Dev and tests only: nothing here is part of the site.",
+  "scripts": {
+    "dev": "wrangler dev --local --port 8787",
+    "test": "node --test --test-concurrency=1 \"../tests/online/*.test.mjs\""
+  },
+  "devDependencies": {
+    "wrangler": "4.169.0"
+  }
+}

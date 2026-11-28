@@ -1,0 +1,17 @@
+# SPEC-013 AC 1: the online rooms Worker. `npm run online:dev` = wrangler dev --local (Miniflare, no Cloudflare account); deploying is SPEC-014.
+# No account id here (SPEC-014 adds the environments and the secrets: IP_SALT).
+name = "bebebe-online"
+main = "src/worker.js"
+compatibility_date = "2026-10-01"
+
+[[durable_objects.bindings]]
+name = "ROOM"
+class_name = "Room"
+
+[[durable_objects.bindings]]
+name = "LIMITER"
+class_name = "Limiter"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Room", "Limiter"]

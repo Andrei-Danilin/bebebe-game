@@ -10,6 +10,8 @@
     "test:core": "node --test \"tests/core/*.test.mjs\" \"tests/audio/*.test.mjs\"",
     "test:audio": "node --test \"tests/audio/*.test.mjs\"",
     "test:stall": "node --test --test-concurrency=1 \"tests/stall/*.test.mjs\"",
+    "test:online": "node --test --test-concurrency=1 \"tests/online/*.test.mjs\"",
+    "online:dev": "npm --prefix online run dev",
     "bench:core": "node scripts/bench-core.js",
     "test:headed": "playwright test --headed",
     "claude:sync": "node scripts/claude-sync.js",
