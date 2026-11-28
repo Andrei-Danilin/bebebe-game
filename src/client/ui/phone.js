@@ -11,7 +11,7 @@ import { tutorialSkip } from "../tutorial.js";
 import { tutorialHintOn, tutorialHintText } from "../tutorial-data.js";
 import { addButton, circle, drawMitten, drawSticks, fillStroke, hpHeart, iconButton, rr, toggleFullscreen } from "./draw.js";
 import { drawArtFit } from "./artdraw.js";
-import { angerLabel, chipFill, chipInk, chipText, drawBellHud, drawFreeze, noteChip, drawHeardHint, drawKitHint, heardHintOn, heartFill, hintPlate, kissButton, kitButton, kitHintOn, restText, timerText, tiptoeBtnRect, tiptoeButton } from "./hud.js";
+import { angerLabel, cloudHalf, chipFill, chipInk, chipText, drawBellHud, drawFreeze, noteChip, drawHeardHint, drawKitHint, heardHintOn, heartFill, hintPlate, kissButton, kitButton, kitHintOn, restText, timerText, tiptoeBtnRect, tiptoeButton } from "./hud.js";
 import { drawEdgeArrows, drawMinimap } from "./minimap.js";
 import { fitText, fz, labelFit, lastFit, noteText, scaledW } from "./text.js";
 import { cpx, hudFont, minimapRect, minPx, showMinimap, teamRect } from "./layout.js";
@@ -35,14 +35,15 @@ export function drawHUDPhone(t) {
   // не влезает — облачка плотнее (до PHONE_HEART_MIN), и только потом подпись короче
   const bigName = angerLabel(), room = mm.x - gap - m - gw - gap;
   let hStep = cpx(21), hSize = cpx(18), nameW = scaledW(bigName);
-  const plateW = () => pad + nameW + pad * 0.6 + G.big.maxHp * hStep + pad * 0.4;
-  if (plateW() > room) { hStep = Math.max(cpx(LOOK.PHONE_HEART_MIN), (room - pad * 2 - nameW) / G.big.maxHp); hSize = Math.min(hSize, hStep * 0.95); }
-  if (plateW() > room) nameW = Math.max(cpx(36), room - pad * 2 - G.big.maxHp * hStep);
+  // SPEC-048 AC 7: the plate ends `pad` (the padding left of the text) after the last cloud's visible edge
+  const plateW = () => pad + nameW + pad * 0.6 + hStep / 2 + (G.big.maxHp - 1) * hStep + cloudHalf(hSize, hStep) + pad;
+  for (; plateW() > room && hStep > cpx(LOOK.PHONE_HEART_MIN); ) { hStep = Math.max(cpx(LOOK.PHONE_HEART_MIN), hStep - cpx(0.5)); hSize = Math.min(hSize, hStep * 0.95); }
+  if (plateW() > room) nameW = Math.max(cpx(36), nameW - (plateW() - room));
   const pw = plateW();
   plate("hearts", m, top, pw, bh);
   noteText("main", labelFit(bigName, m + pad, top + bh / 2, main, nameW / LOOK.TEXT_TEST_SCALE + 0.01, "#9b2c3a", "left", main, true));   // + 0.01: × и ÷ масштаба не точны
-  Object.assign(ui.hudRects.find(r => r.id === "hearts"), { label: lastFit.text, labelX: m + pad, labelW: lastFit.w * LOOK.TEXT_TEST_SCALE });   // SPEC-022: подпись злости — в плашке hearts
   const hx = m + pad + nameW + pad * 0.6 + hStep / 2;
+  Object.assign(ui.hudRects.find(r => r.id === "hearts"), { label: lastFit.text, labelX: m + pad, labelW: lastFit.w * LOOK.TEXT_TEST_SCALE, lastX: hx + (G.big.maxHp - 1) * hStep, cloud: Math.max(hSize, hStep) * LOOK.PAPER.heart });   // SPEC-022: подпись злости — в плашке hearts; SPEC-048: where the last cloud is
   for (let i = 0; i < G.big.maxHp; i++) hpHeart(hx + i * hStep, top + bh / 2 - hSize / 2 - 1, hSize, heartFill(i, G.big.hp), hStep);
   // группа по центру свободного места
   const gx = m + pw + Math.max(gap, (mm.x - gap - (m + pw) - gw) / 2);

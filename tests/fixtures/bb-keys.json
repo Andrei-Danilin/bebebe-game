@@ -52,6 +52,7 @@
  "bigBoost": "function",
  "bigCalm": "function",
  "bigLook": "function",
+ "bigTag": "getter",
  "bigMark": "getter",
  "bigMood": "function",
  "bigSpeeds": "function",

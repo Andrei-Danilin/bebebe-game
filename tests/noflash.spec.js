@@ -3,7 +3,7 @@
 // the same padding on both sides and Dad's name tag stays off the team chips. The transition tests run on a phone viewport with an empty cache, a 4x CPU slowdown
 // (CDP Emulation.setCPUThrottlingRate) and a slow network (each big picture waits SLOW_MS), with the game's frame recorder (__bb.recordFrames / __bb.frameLog).
 const { test, expect } = require("./pw");
-const { openGame, step } = require("./helpers");
+const { openGame, frames, step } = require("./helpers");
 
 const PHONE = { viewport: { width: 667, height: 375 }, hasTouch: true, isMobile: true };
 const SLOW_MS = 250;                                  // under LOOK.ART_WAIT (600 ms): every picture is reachable within the wait
@@ -182,5 +182,108 @@ test.describe("a picture that is slow, late or gone", () => {
     await press(page, "Enter");                                        // a press after the change goes on as usual
     expect(await page.evaluate(() => window.__bb.scene.page)).toBe(1);
     expect(errors).toEqual([]);
+  });
+});
+
+// ---------- the anger plate (AC 7) and Dad's name tag (AC 8) ----------
+// the plate's padding left of its text equals the padding right of the last heart cloud's visible edge (measured here from the picture's own alpha, not from the game's
+// number), at every heart count — halves included — in two languages, on desktop and phone; the plate never reaches the timer's plate
+async function plateProblems(page, phone) {
+  return page.evaluate(([phoneMode]) => {
+    const b = window.__bb, out = [], ui = b.uiSize;
+    const visibleRight = name => {   // the share of the picture's width right of its last visible pixel (alpha above PAPER.insetAlpha), of all rows
+      const img = b.art(name), cv = document.createElement("canvas");
+      cv.width = img.naturalWidth; cv.height = img.naturalHeight;
+      const g = cv.getContext("2d"); g.drawImage(img, 0, 0);
+      const d = g.getImageData(0, 0, cv.width, cv.height).data;
+      let r = -1;
+      for (let y = 0; y < cv.height; y++) for (let x = cv.width - 1; x > r; x--) if (d[(y * cv.width + x) * 4 + 3] > b.CFG.PAPER.insetAlpha) { r = x; break; }
+      return { share: (cv.width - 1 - r) / cv.width, w: cv.width, h: cv.height };
+    };
+    b.world = "park"; b.level = 1; b.startGame(1);
+    for (const lang of ["en", "ru"]) for (const [n, hp] of [[6, 6], [6, 5.5], [9, 9], [10, 9.5], [12, 12], [12, 2.5], [15, 15]]) {
+      b.setLang(lang);
+      b.big.maxHp = n; b.big.hp = hp;
+      b.drawNow();
+      const h = b.hudRects.find(r => r.id === "hearts"), t = b.hudRects.find(r => r.id === "timer"), at = `${phoneMode ? "phone" : "desktop"} ${lang} ${n} hearts, hp ${hp}`;
+      if (!h) { out.push(`${at}: no plate`); continue; }
+      const fill = Math.max(0, Math.min(1, hp - (n - 1))), name = ["cloud_heart_empty", "cloud_heart_half", "cloud_heart_full"][fill >= 1 ? 2 : fill > 0 ? 1 : 0];
+      const v = visibleRight(name), drawnW = v.w * h.cloud / Math.max(v.w, v.h);
+      const edge = h.lastX - drawnW / 2 + drawnW * (1 - v.share), left = h.labelX - h.x, right = h.x + h.w - edge;
+      if (Math.abs(left - right) > 1) out.push(`${at}: left ${left.toFixed(1)} right ${right.toFixed(1)}`);
+      const next = phoneMode ? t.x : ui.w / 2 - 95;
+      if (h.x + h.w > next - 0.01) out.push(`${at}: the plate (to ${(h.x + h.w).toFixed(1)}) reaches the next plate (${next.toFixed(1)})`);
+    }
+    b.setLang("en");
+    return out;
+  }, [phone]);
+}
+test.describe("the Dad's anger plate has the same padding on both sides", () => {
+  test.describe("desktop 960×640", () => {
+    test.use({ viewport: { width: 960, height: 640 } });
+    test("6 to 15 hearts, halves, en and ru", async ({ page }) => {
+      const errors = await openGame(page, { quality: "low" });
+      await frames(page);
+      const fails = await plateProblems(page, false);
+      expect(fails, fails.join("\n")).toEqual([]);
+      expect(errors).toEqual([]);
+    });
+  });
+  test.describe("phone 667×375", () => {
+    test.use(PHONE);
+    test("6 to 15 hearts, halves, en and ru", async ({ page }) => {
+      const errors = await openGame(page, { quality: "low", query: "?phone=1" });
+      await frames(page);
+      const fails = await plateProblems(page, true);
+      expect(fails, fails.join("\n")).toEqual([]);
+      expect(errors).toEqual([]);
+    });
+  });
+});
+
+// Dad's name tag never sits on the team's chips or the mini-map: wherever he stands, the tag drawn above his head (or, over them, below his feet) misses them
+async function tagProblems(page, phone) {
+  return page.evaluate(([phoneMode]) => {
+    const b = window.__bb, out = [], ui = b.uiSize, C = b.CFG;
+    b.world = "park"; b.level = 1; b.startGame(1);
+    b.setLang("ru");   // the widest name
+    const hit = (a, r) => a.x < r.x + r.w - 0.01 && r.x < a.x + a.w - 0.01 && a.y < r.y + r.h - 0.01 && r.y < a.y + a.h - 0.01;
+    let below = 0, above = 0;
+    for (let y = 40; y < 640; y += 40) for (let x = 40; x < 960; x += 40) {
+      Object.assign(b.big, { x, y, state: "look", timer: 999, stun: 0, slip: 0 });
+      b.drawNow();
+      const tag = b.bigTag;
+      if (!tag) continue;
+      const m = C.MINIMAP_MARGIN, mw = Math.round(ui.w * C.MINIMAP_W);
+      const blocks = phoneMode ? [b.hudRects.find(r => r.id === "team"), { x: ui.w - m - mw, y: m, w: mw, h: mw * 2 / 3 }] : [{ x: ui.w - (b.littles.length * 32 + 14) - 10, y: 8, w: b.littles.length * 32 + 14, h: 34 }];
+      if (tag.below) below++; else above++;
+      for (const r of blocks) if (r && hit(tag, r)) out.push(`Dad at ${x},${y}: the tag (${tag.below ? "below" : "above"}) is on ${JSON.stringify(r)}`);
+    }
+    if (!below) out.push("no position put the tag below his feet (the test would prove nothing)");
+    if (!above) out.push("the tag is never above his head");
+    b.setLang("en");
+    return out;
+  }, [phone]);
+}
+test.describe("Dad's name tag stays off the team chips and the mini-map", () => {
+  test.describe("desktop 960×640", () => {
+    test.use({ viewport: { width: 960, height: 640 } });
+    test("every place he can stand", async ({ page }) => {
+      const errors = await openGame(page, { quality: "low" });
+      await frames(page);
+      const fails = await tagProblems(page, false);
+      expect(fails.slice(0, 8), fails.length + " problems").toEqual([]);
+      expect(errors).toEqual([]);
+    });
+  });
+  test.describe("phone 667×375", () => {
+    test.use(PHONE);
+    test("every place he can stand", async ({ page }) => {
+      const errors = await openGame(page, { quality: "low", query: "?phone=1" });
+      await frames(page);
+      const fails = await tagProblems(page, true);
+      expect(fails.slice(0, 8), fails.length + " problems").toEqual([]);
+      expect(errors).toEqual([]);
+    });
   });
 });

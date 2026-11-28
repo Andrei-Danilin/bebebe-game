@@ -21,7 +21,7 @@ import { drawArt, drawArt9, drawArtFit, fillT } from "./artdraw.js";
 import { circleOn, ellipseOn, fillStrokeOn, rrOn } from "./canvas.js";
 import { paperUI } from "./paper.js";
 import { fitText, fmtTime, fz, label, labelStroke, noteText } from "./text.js";
-import { cpx, hudFont, minPx } from "./layout.js";
+import { cpx, deskTeamRect, hudFont, minimapRect, minPx, showMinimap, teamRect } from "./layout.js";
 import { G } from "../../core/active.js";
 import { textW } from "./measure.js";
 
@@ -242,9 +242,18 @@ export function drawMarkers(t) {
     }
   }
   const bh = toScreen(G.big.x, G.big.y, 134);
+  ui.bigTag = null;
   if (G.big.slip <= 0) {                                    // имя Большого над головой — выше значков «!», «?!», «💦» (они на bh.y − 18…+14)
     ctx.save(); if (inBush(G.big)) ctx.globalAlpha = 0.4;
-    label(nameFor("big"), bh.x, bh.y - 34, fz(14, "main"), "#ff4d4d");
+    // SPEC-048 AC 8: over the team's chips (or the mini-map) the name goes below his feet instead (his marks stay above)
+    const nm = nameFor("big"), sz = fz(14, "main");
+    ctx.font = hudFont(sz);
+    const w = textW(nm) + 2 * labelStroke(sz), h = sz * 1.3, up = { x: bh.x - w / 2, y: bh.y - 34 - h / 2, w, h };
+    const blocks = PHONE ? (showMinimap() ? [minimapRect(), teamRect()] : []) : [deskTeamRect()];
+    const under = blocks.some(b => up.x < b.x + b.w && b.x < up.x + up.w && up.y < b.y + b.h && b.y < up.y + up.h);
+    const feet = toScreen(G.big.x, G.big.y, 0), at = under ? { x: feet.x, y: feet.y + sz * 1.1 } : { x: bh.x, y: bh.y - 34 };
+    label(nm, at.x, at.y, sz, "#ff4d4d");
+    ui.bigTag = { x: at.x - w / 2, y: at.y - h / 2, w, h, below: under };
     ctx.restore();
   }
   const mark = bigMark();

@@ -44,6 +44,12 @@ export function teamRect() {
   return { x: mm.x + mm.w - w, y: mm.y + mm.h + cpx(LOOK.PHONE_BTN_GAP), w, h, cd, cw };
 }
 
+// SPEC-048 AC 8: the team's chips plate of the desktop HUD (top right): the chips are CHIP_W wide, 7 px of plate on each side
+export const DESK_CHIP_W = 32;
+export function deskTeamRect() {
+  const w = G.littles.length * DESK_CHIP_W + 14;
+  return { x: UW - w - 10, y: 8, w, h: 34 };
+}
 // места экрана, где героя не видно: верхняя полоса и угол мини-карты с кружками (pad — запас);
 // sides — ещё полосы у левого и правого края (для камеры: герой с именем целиком на экране)
 export function phoneOccluders(pad = 0, sides = 0) {

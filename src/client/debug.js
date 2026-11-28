@@ -94,7 +94,7 @@ const CFG_ALL = new Proxy({}, {
 // ошибку, чтобы визуальный тест, открытый в sim, падал громко, а не проверял пустоту.
 const SIM_DRAWN = ["buttonRects", "buttonNames", "tapButton", "hudRects", "mapInfo", "levelCard", "storyInfo", "textSizes", "minimap",
   "bannerRect", "bellHud", "tipCard", "trickMeshes", "worldItemMeshes", "rotateShown", "winPanel", "winLine", "bonusNote", "shopLayout", "kitHint", "heardHint", "edgeArrows", "downDrawn", "stickMarks",
-  "tapLines", "textOverflows", "tutorialHint", "homeInfo", "progressInfo", "outfit3D", "bibClear", "hat3D", "capeClear", "cardRect", "mapPieces", "groundColorAt", "camera", "minimapAlpha", "artUse", "frameLog", "sceneInfo", "moodInfo", "bigLook", "look3D", "drawNow", "model",
+  "tapLines", "textOverflows", "tutorialHint", "homeInfo", "progressInfo", "outfit3D", "bibClear", "hat3D", "capeClear", "cardRect", "mapPieces", "groundColorAt", "camera", "minimapAlpha", "artUse", "bigTag", "frameLog", "sceneInfo", "moodInfo", "bigLook", "look3D", "drawNow", "model",
   "perf", "disposeCheck"];   // SPEC-025 AC 15 / 15b: the renderer's numbers and textures — a rendered page only
 
 
@@ -149,7 +149,7 @@ export function installDebug() {
     FIRST_STEPS, openTutorial, openFirstTutorial, tutorialSkip, firstTutorial, openPictures, openPractice,   // SPEC-032 AC 8: «Картинки» и «Тренировка» на «Как играть»
     // SPEC-029: клетки поляны тренировок { x, y, w, h }; подпись времени в HUD; подсказка тренировки этого кадра (плашка) или null
     get tutorialMapRect() { return tutorialMapRect(); }, timerText, loseTitle, get tutorialHint() { return ui.tutorialHintRect && { ...ui.tutorialHintRect, rows: [...ui.tutorialHintRect.rows] }; }, winTitle, get pushWaves() { return ui.waves.map(w => ({ ...w })); }, get scene() { return ui.storyScene && { id: ui.storyScene.id, page: ui.storyScene.page, pages: scenePageCount() }; },
-    get sceneInfo() { return ui.sceneInfo && { ...ui.sceneInfo }; }, drawNow() { drawUI(ui.T); }, bossFor,   // SPEC-031: drawNow — нарисовать слой интерфейса сейчас (тест раскладки рисует много экранов за один evaluate)
+    get bigTag() { return ui.bigTag && { ...ui.bigTag }; }, get sceneInfo() { return ui.sceneInfo && { ...ui.sceneInfo }; }, drawNow() { drawUI(ui.T); }, bossFor,   // SPEC-031: drawNow — нарисовать слой интерфейса сейчас (тест раскладки рисует много экранов за один evaluate)
     BOSSES, BOSS_LOOKS, bigCalm, KID_HEAD_R, LITTLE_SCALE,   // SPEC-021 размеры героев (тест look3d)
     // SPEC-022: вид Большого в 3D (для тестов): образ, босс и его детали, масштаб, цвета футболки и штанов
     bigLook() { const m = modelOf(G.big); return m ? { look: m.look, boss: m.boss || null, parts: Object.keys(m.bossParts || {}), scale: m.rig.scale.x,

@@ -2,24 +2,24 @@
  "shards": 10,
  "entries": [
   [
-   ["assets.spec.js"],
    ["balance.spec.js"],
+   ["fixedstep.spec.js"],
    ["houses.spec.js","AC 1: HOUSE_LOOK has a kids' and a Dad's builder for each world, and look3D says which one built the houses @fast"],
    ["houses.spec.js","AC 2: the heart on the door of the kids' house shows in the picture of every world (pixels), and Dad's roof carries his mess"],
    ["houses.spec.js","AC 3: each house of a world draws at most 30% more calls than today's house (desktop view, the busiest levels)"],
    ["houses.spec.js","AC 4: sheets 38 and 39 give house_<world>_kids / _dad; the level card shows the world's pair, today's pair when the picture is missing"],
-   ["modules.spec.js"]
+   ["modules.spec.js"],
+   ["site.spec.js"]
   ],
   [
-   ["fixedstep.spec.js"],
    ["lifecycle.spec.js"],
-   ["saves.spec.js"],
+   ["music-resilience.spec.js"],
    ["story.spec.js"],
    ["worlditems.spec.js"]
   ],
   [
    ["levels.spec.js"],
-   ["music-resilience.spec.js"],
+   ["noflash.spec.js"],
    ["phone.spec.js","desktop","?phone=0 keeps desktop mode"],
    ["phone.spec.js","desktop","an early first frame timestamp does not shake the camera"],
    ["phone.spec.js","desktop","desktop camera and layout are unchanged"],
@@ -69,23 +69,25 @@
    ["quality.spec.js"]
   ],
   [
+   ["audio-offline.spec.js"],
    ["back.spec.js"],
    ["gameplay.spec.js"],
-   ["offline.spec.js"],
    ["smoke.spec.js"],
-   ["tooling.spec.js"]
+   ["wardrobe.spec.js"]
   ],
   [
    ["i18n.spec.js"],
    ["look3d.spec.js"],
-   ["noflash.spec.js"],
-   ["tricks.spec.js"],
-   ["wardrobe.spec.js"]
+   ["offline.spec.js"],
+   ["tooling.spec.js"],
+   ["tricks.spec.js"]
   ],
   [
    ["art.spec.js"],
+   ["bosses.spec.js"],
    ["env.spec.js"],
    ["grownups.spec.js"],
+   ["invariants.spec.js"],
    ["menus.spec.js","CFG.MENU_LOOK has no key twice"],
    ["menus.spec.js","every price button of Items and Upgrades fits in every language, also with wider fonts (desktop)"],
    ["menus.spec.js","every price shows the coin picture (phone 667×375)"],
@@ -102,8 +104,7 @@
    ["menus.spec.js","the level card with its preview fits (phone 568×320, fonts ×1 / ×1.15)"],
    ["menus.spec.js","the level card with its preview fits (phone 667×375, fonts ×1 / ×1.15)"],
    ["menus.spec.js","the level card's preview paints the generated level's map (every world: walls dark, water blue, free ground the place's colour)"],
-   ["names.spec.js"],
-   ["site.spec.js"]
+   ["names.spec.js"]
   ],
   [
    ["economy.spec.js"],
@@ -112,10 +113,8 @@
    ["tip.spec.js"]
   ],
   [
-   ["audio-offline.spec.js"],
-   ["bosses.spec.js"],
+   ["assets.spec.js"],
    ["houses.spec.js","the roof of a kids' house does not cover the ground outside it: the Big One and a bot beside it are seen"],
-   ["invariants.spec.js"],
    ["menus.spec.js","a screen change in sim mode leaves the same state as in a rendered page"],
    ["menus.spec.js","home fits a phone in every language, also with wider fonts"],
    ["menus.spec.js","home is minimal: the logo, language and sound, Play · Story · Character"],
@@ -132,7 +131,8 @@
    ["menus.spec.js","the shop holds the wardrobe"],
    ["menus.spec.js","the wardrobe tab works and fits on a phone, also with wider fonts"],
    ["menus.spec.js","win, lose and pause lead to the map, the shop and home"],
-   ["pwa.spec.js"]
+   ["pwa.spec.js"],
+   ["saves.spec.js"]
   ],
   [
    ["errors.spec.js"],
