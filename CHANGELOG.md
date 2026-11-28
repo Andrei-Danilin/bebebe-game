@@ -54,6 +54,8 @@ The version is `package.json` `version` (shown on the "For grown-ups" page); how
 - No more flashing pictures between screens: a screen waits a moment for its picture and the next one loads ahead; the
   "New here!" card now shows on its own after Play; even padding on Dad's anger plate; Dad's name tag no longer hides
   under the team chips (SPEC-048).
+- Groundwork for a "Full game" in the future apps (the Park free, one purchase for the rest): switched off on the web,
+  where everything stays free; a grown-ups section shows what it will open, with the buttons disabled (SPEC-045).
 
 ## [1.0.0-dev] - what is in the game today
 

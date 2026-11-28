@@ -1,6 +1,6 @@
 # SPEC-045 — "Full game" groundwork: the Park is free, one purchase opens the rest (switched off in the web beta)
 
-Status: ready
+Status: done (merged by "Merge SPEC-045", see git log)
 Complexity: M
 Branch: SPEC-045-full-game
 Decided by: Andrei (2026-11-26):
