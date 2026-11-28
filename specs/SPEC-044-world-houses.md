@@ -7,6 +7,7 @@ The sprites have white sticker edges and small ground patches: keep them in the 
 Complexity: M
 Branch: SPEC-044-world-houses
 Decided by: Andrei (2026-11-26): the kids' house and Dad's house look different in every world (idea 3). Which house per world: Claude, from the art sheets 38 / 39 that Andrei generates.
+Decisions during the run: Andrei (2026-11-27): the art budget is raised instead of shrinking art — `scripts/assets.json` `budget.totalKB` 4096 → 5120 (`backgroundKB` stays 250; SPEC-040's 25 MB decoded memory at home is unchanged, the house sprites are non-resident); the pinned value in `tests/assets.spec.js` follows, the backlog line "Art budget (SPEC-042)" is gone.
 
 ## Description
 Today both houses look the same in every world: a light-blue kids' house and a faded-red messy Dad's house (only the roof gets snow in Winter; backlog SPEC-021). Each world now gets its own pair, modelled in 3D in the comic style from the concept sheets:

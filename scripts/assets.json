@@ -1,6 +1,6 @@
 {
   "sizes": { "icon": 256, "button": 512, "logo": 1024, "background": 1600, "tip": 1000 },
-  "budget": { "totalKB": 4096, "backgroundKB": 250 },
+  "budget": { "totalKB": 5120, "backgroundKB": 250 },
   "encode": { "quality": 86, "alphaQuality": 100, "paperQuality": 80, "effort": 4 },
   "pad": 4,
   "sources": [
@@ -37,6 +37,9 @@
                  "cloud_heart_full": { "coreFrac": 0.6, "distFrac": 0.5, "edge": 20 }, "cloud_heart_half": { "coreFrac": 0.6, "distFrac": 0.5, "edge": 20 },
                  "cloud_heart_fading": { "coreFrac": 0.6, "distFrac": 0.5, "edge": 20 }, "cloud_heart_empty": { "coreFrac": 0.6, "distFrac": 0.5, "edge": 20 } } },
     { "src": "15_houses.webp", "resident": false, "mode": "sheet", "size": "button", "names": ["house_messy", "house_kids"] },
+    { "src": "38_houses_main.webp", "resident": false, "mode": "sheet", "size": "button",
+      "names": ["house_park_kids", "house_field_kids", "house_city_kids", "house_school_kids", "house_park_dad", "house_field_dad", "house_city_dad", "house_school_dad"] },
+    { "src": "39_houses_bonus.webp", "resident": false, "mode": "sheet", "size": "button", "names": ["house_beach_kids", "house_winter_kids", "house_beach_dad", "house_winter_dad"] },
     { "src": "20_levelmap_parts.webp", "resident": true, "mode": "sheet", "size": "icon",
       "names": ["stop_empty", "stop_current", "stop_locked", "stop_boss", "star_gold", "star_empty", "stamp_done", "padlock",
                 "world_park", "world_field", "world_city", "world_school", "world_beach", "world_winter"],

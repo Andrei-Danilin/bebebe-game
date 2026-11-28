@@ -21,3 +21,32 @@ test("AC 1: HOUSE_LOOK has a kids' and a Dad's builder for each world, and look3
   }
   expect(errors).toEqual([]);
 });
+
+// AC 4: the sprites house_<world>_kids / _dad of the sheets 38 / 39 are in the manifest, and the level card draws the world's pair —
+// the one of every world (house_kids / house_messy) when the picture is missing
+test("AC 4: sheets 38 and 39 give house_<world>_kids / _dad; the level card shows the world's pair, today's pair when the picture is missing", async ({ page }) => {
+  test.setTimeout(120_000);
+  const errors = await openGame(page);
+  const manifest = JSON.parse(require("fs").readFileSync(require("path").join(__dirname, "..", "scripts", "assets.json"), "utf8"));
+  const names = src => manifest.sources.find(q => q.src === src).names;
+  expect(names("38_houses_main.webp")).toEqual(["park", "field", "city", "school"].map(w => `house_${w}_kids`).concat(["park", "field", "city", "school"].map(w => `house_${w}_dad`)));
+  expect(names("39_houses_bonus.webp")).toEqual(["house_beach_kids", "house_winter_kids", "house_beach_dad", "house_winter_dad"]);
+  await page.route("**/assets/house_winter_*.webp", r => r.abort());          // Winter's pair is missing: today's pair
+  const draw = async (w, lv) => {
+    await page.evaluate(([w, lv]) => { const b = window.__bb; b.progress.worlds[w].unlocked = Math.max(b.progress.worlds[w].unlocked || 1, lv); b.world = w; b.mode = "map"; }, [w, lv]);
+    await frames(page);
+    await page.evaluate(n => { window.__bb.showCard(n); window.__bb.drawNow(); }, lv);
+    await page.waitForFunction(() => window.__bb.artInfo.pending === 0, null, { timeout: 60_000 });
+    return page.evaluate(() => { const b = window.__bb; b.drawNow(); b.resetArtUse(); b.drawNow(); return b.artUse; });
+  };
+  for (const w of WORLDS.filter(w => w !== "winter")) {
+    const use = await draw(w, 3);
+    expect(use[`house_${w}_kids`], `${w}: the kids' house of the world`).toBeGreaterThanOrEqual(1);
+    expect(use[`house_${w}_dad`], `${w}: Dad's house of the world`).toBeGreaterThanOrEqual(1);
+  }
+  const use = await draw("winter", 4);
+  expect(use.house_kids, "no house_winter_kids: today's kids' house").toBeGreaterThanOrEqual(1);
+  expect(use.house_messy, "no house_winter_dad: today's Dad's house").toBeGreaterThanOrEqual(1);
+  expect(use.house_winter_kids).toBeUndefined();
+  expect(errors.filter(e => !/house_winter|Failed to load resource|net::ERR/.test(e))).toEqual([]);
+});

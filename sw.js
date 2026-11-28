@@ -27,13 +27,13 @@ const NET_TIMEOUT_MS = 4000;             // weak signal: after this long, a cach
 const SW_BUILD = 11;
 const SW_STRATEGY = "0c8e52b02e";
 const SW_VERSION = "bebebe-1.0.0-dev-b11";
-const SRC_HASH = "6d059992aa";
+const SRC_HASH = "5241f8b934";
 const PRECACHE_LOCAL = [
   "./", "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512-maskable.png",
   "./icons/icon-512.png", "./icons/icon.svg", "./index.html", "./manifest.webmanifest"
 ];
 const PRECACHE_SRC = [
-  "./src/client/adaptive.js?v=5487878407", "./src/client/art-names.js?v=c95b54939f",
+  "./src/client/adaptive.js?v=5487878407", "./src/client/art-names.js?v=53a55ace1a",
   "./src/client/art.js?v=8c81ec746c", "./src/client/back.js?v=2bbaab7f17", "./src/client/cadence.js?v=6fc971a515",
   "./src/client/debug.js?v=8fcada08ff", "./src/client/devices.js?v=892965ff6f", "./src/client/errors.js?v=7b215fb847",
   "./src/client/flow.js?v=6fb99ab1f9", "./src/client/fx.js?v=7a3aaf4fc8", "./src/client/input.js?v=9b767266f2",
@@ -61,7 +61,7 @@ const PRECACHE_SRC = [
   "./src/client/ui/draw.js?v=527ecbf8be", "./src/client/ui/grownups.js?v=9cec820d99",
   "./src/client/ui/home.js?v=718eac14e4", "./src/client/ui/hud.js?v=d25af0ceeb",
   "./src/client/ui/lang.js?v=568a4dc213", "./src/client/ui/layout.js?v=d46dd9e8b5",
-  "./src/client/ui/level-preview.js?v=85d8838a16", "./src/client/ui/map.js?v=464261adf6",
+  "./src/client/ui/level-preview.js?v=7c4ed6b602", "./src/client/ui/map.js?v=464261adf6",
   "./src/client/ui/measure.js?v=7c174e9035", "./src/client/ui/menu.js?v=5cdc85b5f1",
   "./src/client/ui/minimap.js?v=e900bbfee9", "./src/client/ui/paper.js?v=c25342da07",
   "./src/client/ui/phone.js?v=c718f7078d", "./src/client/ui/screens.js?v=e98bfff809",
@@ -93,7 +93,7 @@ const PRECACHE_THREE = [
 // precache:end
 // SPEC-020: written by npm run assets (scripts/assets.js) — do not edit by hand
 // assets:start
-const ASSETS_HASH = "1c3b987eae59";
+const ASSETS_HASH = "068e87308196";
 const PRECACHE_ASSETS = [
   "./assets/main_tile.webp", "./assets/menu_bg.webp", "./assets/map_bg_park.webp", "./assets/map_bg_field.webp",
   "./assets/map_bg_city.webp", "./assets/map_bg_school.webp", "./assets/map_bg_beach.webp",
@@ -107,6 +107,10 @@ const PRECACHE_ASSETS = [
   "./assets/round_sound.webp", "./assets/round_restart.webp", "./assets/cloud_heart_full.webp",
   "./assets/cloud_heart_half.webp", "./assets/cloud_heart_fading.webp", "./assets/cloud_heart_empty.webp",
   "./assets/coin_badge.webp", "./assets/ribbon_star.webp", "./assets/house_messy.webp", "./assets/house_kids.webp",
+  "./assets/house_park_kids.webp", "./assets/house_field_kids.webp", "./assets/house_city_kids.webp",
+  "./assets/house_school_kids.webp", "./assets/house_park_dad.webp", "./assets/house_field_dad.webp",
+  "./assets/house_city_dad.webp", "./assets/house_school_dad.webp", "./assets/house_beach_kids.webp",
+  "./assets/house_winter_kids.webp", "./assets/house_beach_dad.webp", "./assets/house_winter_dad.webp",
   "./assets/stop_empty.webp", "./assets/stop_current.webp", "./assets/stop_locked.webp", "./assets/stop_boss.webp",
   "./assets/star_gold.webp", "./assets/star_empty.webp", "./assets/stamp_done.webp", "./assets/padlock.webp",
   "./assets/world_park.webp", "./assets/world_field.webp", "./assets/world_city.webp", "./assets/world_school.webp",

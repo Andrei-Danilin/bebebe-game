@@ -105,7 +105,7 @@ test("assets fit the budget @fast", async () => {
   }
   expect(over).toEqual([]);
   expect(total).toBeLessThanOrEqual(manifest.budget.totalKB * 1024);
-  expect(manifest.budget).toEqual({ totalKB: 4096, backgroundKB: 250 });
+  expect(manifest.budget).toEqual({ totalKB: 5120, backgroundKB: 250 });
   // never upscaled: sprites stay within their size class
   const tooBig = [];
   for (const s of manifest.sources) {
