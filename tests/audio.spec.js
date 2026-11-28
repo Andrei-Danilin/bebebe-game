@@ -47,8 +47,9 @@ test("no audio context and no request for a file before the first gesture; the f
   await ready(page);
   expect(await page.evaluate(() => window.__bb.audio.failed)).toEqual([]);
   expect(await page.evaluate(() => window.__bb.audio.loaded)).toEqual([...LOADED].sort());
+  await page.waitForFunction(() => Math.abs(window.__bb.audio.levels.music - 0.35) < 0.002, null, { timeout: 10_000 });   // the bus moves to the play level over LEVEL_RAMP s
   const lv = await page.evaluate(() => window.__bb.audio.levels);                                     // gains are 32-bit floats
-  expect([lv.master, lv.music, lv.sfx], "master → music + sfx").toEqual([expect.closeTo(0.8, 5), expect.closeTo(0.7, 5), 1]);
+  expect([lv.master, lv.music, lv.sfx], "master → music (0.35: this page is in play, music.spec has the menu level) + sfx").toEqual([expect.closeTo(0.8, 5), expect.closeTo(0.35, 5), 1]);
   expect(requests.some(u => u.endsWith("/manifest.json"))).toBe(true);
 });
 

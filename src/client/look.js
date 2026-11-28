@@ -349,9 +349,12 @@ export const LOOK = {
   // LOAD_PARALLEL — files fetched at once; LOOP_EDGE — a loop buffer's ends under this amplitude (-60 dBFS) are the decoder's padding and stay outside loopStart / loopEnd;
   // LOOP_FADE / STEAL_FADE — s: a loop's fade in / out, the fade of a sound stopped to make room (MAX_VOICES); WIN_COUNT — the win screen's count: first star after start s, a star every star s,
   // a coin every coin s (at most coinMax coins).
+  // Step 3 (music): JINGLE_DIP — the music bus under a jingle; JINGLE_BACK — s to come back; LEVEL_RAMP — s to move to another screen's level; MUSIC_RETRY — s before a track that failed to load is tried again;
+  // CURVE_N — points of an equal-power fade curve.
   AUDIO: { MASTER: 0.8, MUSIC_MENU: 0.7, MUSIC_PLAY: 0.35, MUSIC_PAUSE: 0.25, OTHERS: 0.7, SCREEN_XFADE: 1, LOOP_XFADE: 2, MAX_VOICES: 8, RETRIGGER: 0.05,
     dir: "assets/audio/", GAP: { coin: 0.06 }, LOG_MAX: 50, LOAD_PARALLEL: 4, LOOP_EDGE: 0.001, LOOP_FADE: 0.05, STEAL_FADE: 0.02,
     WIN_COUNT: { start: 0.9, star: 0.45, coin: 0.07, coinMax: 12 },
+    JINGLE_DIP: 0.1, JINGLE_BACK: 0.5, LEVEL_RAMP: 0.3, MUSIC_RETRY: 20, CURVE_N: 64,
     JINGLE_MAX: 5, PRECACHE_KINDS: ["sfx", "loop", "jingle"], PRECACHE_MUSIC: ["theme", "story"],
     PRECACHE_MAX: 3.5 * 1024 * 1024, SFX_MAX: 60 * 1024, JINGLE_FILE_MAX: 120 * 1024, MUSIC_MAX: 1.8 * 1024 * 1024, TOTAL_MAX: 13 * 1024 * 1024 },
   TEXT_TEST_SCALE: 1,        // только для тестов: ширина текста надписи уровня и карточек магазина на телефоне × это (шрифты CI и iPhone шире)

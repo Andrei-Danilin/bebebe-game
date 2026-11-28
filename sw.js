@@ -27,7 +27,7 @@ const NET_TIMEOUT_MS = 4000;             // weak signal: after this long, a cach
 const SW_BUILD = 11;
 const SW_STRATEGY = "0c8e52b02e";
 const SW_VERSION = "bebebe-1.0.0-dev-b11";
-const SRC_HASH = "7ee808a947";
+const SRC_HASH = "51148656b9";
 const PRECACHE_LOCAL = [
   "./", "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512-maskable.png",
   "./icons/icon-512.png", "./icons/icon.svg", "./index.html", "./manifest.webmanifest"
@@ -35,12 +35,12 @@ const PRECACHE_LOCAL = [
 const PRECACHE_SRC = [
   "./src/client/adaptive.js?v=5487878407", "./src/client/art-names.js?v=53a55ace1a",
   "./src/client/art.js?v=dee97c538e", "./src/client/audio/engine.js?v=b9b6dadc62",
-  "./src/client/audio/sfx.js?v=2aab8d85fb", "./src/client/back.js?v=2bbaab7f17",
-  "./src/client/cadence.js?v=6fc971a515", "./src/client/debug.js?v=7ecdda0fe3", "./src/client/devices.js?v=892965ff6f",
-  "./src/client/errors.js?v=7b215fb847", "./src/client/flow.js?v=0c03ef7cce", "./src/client/fx.js?v=3561544479",
-  "./src/client/input.js?v=df0594412e", "./src/client/lifecycle.js?v=42d6c088ba", "./src/client/look.js?v=a956a23d8d",
-  "./src/client/main.js?v=4f1db6ccbb", "./src/client/names.js?v=dff85cded6", "./src/client/outfits.js?v=892a6a1d6e",
-  "./src/client/perf.js?v=2462f1b4ae", "./src/client/ports.js?v=4285602733",
+  "./src/client/audio/music.js?v=720864abb5", "./src/client/audio/sfx.js?v=0f198cf884",
+  "./src/client/back.js?v=2bbaab7f17", "./src/client/cadence.js?v=6fc971a515", "./src/client/debug.js?v=bf30180a4d",
+  "./src/client/devices.js?v=892965ff6f", "./src/client/errors.js?v=7b215fb847", "./src/client/flow.js?v=0c03ef7cce",
+  "./src/client/fx.js?v=3561544479", "./src/client/input.js?v=df0594412e", "./src/client/lifecycle.js?v=42d6c088ba",
+  "./src/client/look.js?v=966ac08b21", "./src/client/main.js?v=7be38e070f", "./src/client/names.js?v=dff85cded6",
+  "./src/client/outfits.js?v=892a6a1d6e", "./src/client/perf.js?v=2462f1b4ae", "./src/client/ports.js?v=4285602733",
   "./src/client/preview-data.js?v=89f11bb2ea", "./src/client/progress.js?v=38515d7fe6",
   "./src/client/quality.js?v=1fa1c771b3", "./src/client/reset.js?v=30ccdd527d", "./src/client/save.js?v=ef4b513256",
   "./src/client/screen.js?v=576f0ce0af", "./src/client/shop.js?v=df2d3c5976", "./src/client/sound.js?v=f11972ea98",

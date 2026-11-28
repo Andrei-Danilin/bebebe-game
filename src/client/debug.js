@@ -33,6 +33,7 @@ import { errorLog, reportError } from "./errors.js";
 import { glRestored } from "./lifecycle.js";
 import { audioContext, clickSound } from "./sound.js";
 import { levels as audioLevels } from "./audio/engine.js";
+import { currentTrack, musicInfo, seekMusic } from "./audio/music.js";
 import { failedNames, loadedNames, loopRegion, loopsPlaying, playLog, voiceCount } from "./audio/sfx.js";
 import { burst, kissNow, kitNow, popText, runCore, runFrame, stepGame } from "./fx.js";
 import { resetPads, toGame } from "./input.js";
@@ -163,7 +164,7 @@ export function installDebug() {
     resetPads, goBack, audioContext, get glRestored() { return glRestored; },
     // SPEC-047: the audio, for the tests — log: the last 50 plays { name, at, synth?, loop?, other? }, track: the music playing (step 3), levels: the bus gains (null
     // before the first gesture), loaded / failed: the sounds' files, loops: the loops sounding, loopRegion(buffer): the loop's [start, end] in seconds
-    audio: { get log() { return playLog(); }, get track() { return null; }, get levels() { return audioLevels(); }, get loaded() { return loadedNames(); }, get failed() { return failedNames(); }, get loops() { return loopsPlaying(); }, get voices() { return voiceCount(); }, loopRegion },
+    audio: { get log() { return playLog(); }, get track() { return currentTrack(); }, get music() { return musicInfo(); }, seekMusic, get levels() { return audioLevels(); }, get loaded() { return loadedNames(); }, get failed() { return failedNames(); }, get loops() { return loopsPlaying(); }, get voices() { return voiceCount(); }, loopRegion },
     // SPEC-025 phase 2: the save module — info (noSave, notes, copies, persist, pending writes), queue / flush the whole save, the
     // parents' code (code(), readCode(text) → { ok, error }), the keys, the pure helpers (validSave, fingerprint, outfits by id ↔ indexes)
     save: Object.freeze({ get info() { return saveState(); }, queue: queueSave, flush: flushSaves, code: saveCode, readCode: t => { const r = readCode(t); return { ok: r.ok, error: r.error || null }; },

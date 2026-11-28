@@ -9,6 +9,7 @@ import { LOOK } from "../look.js";
 import { simMode } from "../screen.js";
 import { ui } from "../state.js";
 import { context, sfxOut } from "./engine.js";
+import { duck, setMusicInfo } from "./music.js";
 
 const A = LOOK.AUDIO;
 const bufs = new Map();            // name → { buf, region: [start, end] seconds | null } — loaded and decoded
@@ -37,7 +38,7 @@ async function loadOne(f) {
     const r = await fetch(A.dir + f.file);
     if (!r.ok) throw new Error("HTTP " + r.status);
     const buf = await context().decodeAudioData(await r.arrayBuffer());
-    bufs.set(f.name, { buf, region: f.loop ? loopRegion(buf) : null });
+    bufs.set(f.name, { buf, region: f.loop ? loopRegion(buf) : null, jingle: f.kind === "jingle" });
   } catch (e) { failed.add(f.name); }
 }
 async function loadAll(list) {
@@ -50,6 +51,7 @@ export function loadSfx() {
   if (loading || !context()) return;
   loading = true;
   fetch(A.dir + "manifest.json").then(r => (r.ok ? r.json() : Promise.reject(new Error("HTTP " + r.status))))
+    .then(m => { setMusicInfo(m.files); return m; })      // the music tracks' shipped lengths (loop points)
     .then(m => loadAll(m.files.filter(f => f.kind === "sfx" || f.kind === "loop")).then(() => loadAll(m.files.filter(f => f.kind === "jingle"))))
     .catch(() => { /* no manifest: every sound plays its beep */ });
 }
@@ -87,6 +89,7 @@ export function playSfx(name, opts = {}, fallback = null) {
   src.buffer = b.buf; gain.gain.value = (opts.other ? A.OTHERS : 1) * (opts.gain ?? 1);
   src.connect(gain); gain.connect(sfxOut());
   src.start(when);
+  if (b.jingle) duck(when, b.buf.duration);                                    // the music dips under a jingle
   voices.push({ name, src, gain, start: when, end: when + b.buf.duration, tag: opts.tag });
   last.set(name, when);
   record(name, when, opts.other ? { other: true } : {});
