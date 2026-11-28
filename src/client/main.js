@@ -5,7 +5,8 @@
 // startFailed with Try again, index.html); the frame loop schedules the next frame first and runs inside a guard.
 
 import { G } from "../core/active.js";
-import { progress } from "../core/economy.js";
+import { WORLDS } from "../core/config.js";
+import { progress, worldProgress } from "../core/economy.js";
 import { newGame, useGame } from "../core/game.js";
 import { setHooks } from "../core/hooks.js";
 import { noGameRng, setStrictRng } from "../core/util.js";
@@ -17,7 +18,7 @@ import { adoptErrorLog, failStart, initErrors, reportError } from "./errors.js";
 import { mapTick, openScene, redress, resetWorld, seedRandom, syncStock } from "./flow.js";
 import { drainEvents, runFrame, viewTick } from "./fx.js";
 import { audioTick } from "./sound.js";
-import { initEntitlement } from "./entitlement.js";
+import { initEntitlement, isOpenNow } from "./entitlement.js";
 import { initInput, pollPads } from "./input.js";
 import { initBack } from "./back.js";
 import { initLifecycle, pauseForWall } from "./lifecycle.js";
@@ -65,6 +66,7 @@ async function boot() {
   setHooks({ rebuild: rebuild3D });
   // SPEC-025 AC 3b: the save module loads (and migrates, recovers) the save before the first level is built (storage is async)
   await loadSave();
+  if (!isOpenNow(G.world)) { G.world = WORLDS[0]; G.level = worldProgress().unlocked; }   // SPEC-045: a saved last world the purchase closes (a free device): the menu opens on the Park
   try { adoptErrorLog(readErrorLog()); } catch (e) { /* the log never stops the start */ }   // SPEC-039: the stored log joins this run's (was inside loadSave)
   initInput();
   earlyQuality();                             // SPEC-040 AC 7: the tier the renderer is made with (a pinned or saved one; MSAA is part of it)

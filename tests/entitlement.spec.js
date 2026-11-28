@@ -292,3 +292,94 @@ for (const [name, ctxOpts, query] of [["667×375", { viewport: { width: 667, hei
     expect(errors).toEqual([]);
   });
 }
+
+// ---------- review fixes ----------
+test("the test source works only while CFG.MONETIZATION.debugParam is on: it is neither accepted nor honoured otherwise; a store record never needs it", async ({ page }) => {
+  await openGame(page, { sim: true });
+  try {
+    await enforce(page);
+    await page.evaluate(() => { window.__bb.CFG.MONETIZATION.debugParam = false; });
+    expect(await page.evaluate(() => window.__bb.entitlement.set("full", "test")), "refused").toBe(false);
+    expect((await ent(page)).value).toBe("free");
+    expect(await page.evaluate(() => window.__bb.entitlement.set("full", "store")), "a store grant is fine").toBe(true);
+    expect(await ent(page)).toMatchObject({ value: "full", source: "store" });
+    // a test record already in the save is ignored in a build without the debug door
+    await putSave(page, "s.entitlement = { value: 'full', source: 'test', at: 1 };"); await enforce(page);
+    await page.evaluate(() => { window.__bb.CFG.MONETIZATION.debugParam = false; });
+    expect((await ent(page)).value, "ignored").toBe("free");
+    await page.evaluate(() => { window.__bb.CFG.MONETIZATION.debugParam = true; });
+    expect(await ent(page), "honoured again in debug").toMatchObject({ value: "full", source: "test" });
+  } finally { await page.evaluate(() => { window.__bb.CFG.MONETIZATION.debugParam = true; }); await enforce(page, false); }
+});
+
+test("cycleWorld: free → the ring lands on every 🎁 tab (the page stays); full → progress-locked worlds are skipped as before; a purchase opens the one the ring is on", async ({ page }) => {
+  await openGame(page, { sim: true });
+  const cyc = d => page.evaluate(d0 => { const b = window.__bb; b.cycleWorld(d0); return [b.world, b.mapTab]; }, d);
+  try {
+    await enforce(page);
+    await parkDone(page);
+    await page.evaluate(() => { window.__bb.mode = "map"; });
+    const seen = [];
+    for (let i = 0; i < 6; i++) seen.push(await cyc(1));
+    expect(seen, "Field, City, School, Beach, Winter, then back to the Park (open: selected, ring off)").toEqual([["park", "field"], ["park", "city"], ["park", "school"], ["park", "beach"], ["park", "winter"], ["park", null]]);
+    expect(await cyc(-1), "backwards from the Park").toEqual(["park", "winter"]);
+    await page.evaluate(() => window.__bb.entitlement.set("full", "test"));
+    await page.evaluate(() => { window.__bb.mode = "map"; window.__bb.selectWorld("park"); });   // (the ring was on the Winter tab)
+    expect(await cyc(1), "after buying: the Field is a normal world again").toEqual(["field", null]);
+    expect(await cyc(1), "the City is closed by the progress: skipped (it wraps to the Park)").toEqual(["park", null]);
+  } finally { await enforce(page, false); }
+  // the beta: nothing changes
+  await page.evaluate(() => { window.__bb.mode = "map"; window.__bb.setProgress(null); });
+  expect(await cyc(1), "fresh progress: nothing else is open").toEqual(["park", null]);
+});
+
+test("keyboard and gamepad reach the Full game card: ←/→ put the ring on a 🎁 tab, Enter / A open the card", async ({ page }) => {
+  const errors = await openGame(page);
+  try {
+    await enforce(page);
+    await parkDone(page);
+    await page.evaluate(() => window.__bb.openMap());
+    await page.waitForFunction(() => window.__bb.mapInfo && window.__bb.mapInfo.tabs.length === 6);
+    const ring = () => page.evaluate(() => ({ tab: window.__bb.mapTab, selected: window.__bb.mapInfo.tabs.filter(t => t.selected).map(t => t.world) }));
+    await page.keyboard.press("ArrowRight");
+    await page.waitForFunction(() => window.__bb.mapTab === "field");
+    expect(await ring()).toEqual({ tab: "field", selected: ["field"] });
+    await page.keyboard.press("ArrowRight");
+    expect((await ring()).tab).toBe("city");
+    await page.keyboard.press("ArrowUp");
+    expect((await ring()).tab, "↑ goes back to the stops").toBe(null);
+    await page.keyboard.press("ArrowRight");
+    expect((await ring()).tab, "→ again: the Field").toBe("field");
+    await page.keyboard.press("Enter");
+    expect(await page.evaluate(() => [!!document.getElementById("fullgame"), !!document.getElementById("gate")]), "the key opened the card only: its own click did not press For grown-ups").toEqual([true, false]);
+    expect((await cardInfo(page))?.buttons.map(b => b.act), "Enter on the tab opens the card").toEqual(["forGrownUps", "close"]);
+    expect(await page.evaluate(() => window.__bb.mode), "the map stays under it").toBe("map");
+    await page.click("#fullgame [data-act=close]");
+    // the pad: the D-pad → moves the ring, A opens the card
+    await page.evaluate(() => {
+      const pad = down => ({ index: 0, mapping: "standard", axes: [0, 0], buttons: Array.from({ length: 17 }, (_, k) => ({ pressed: down === k, value: 0 })) });
+      window.__pads = [pad(-1)];
+      Object.defineProperty(navigator, "getGamepads", { configurable: true, value: () => window.__pads });
+      window.__padHold = k => { window.__pads = [pad(k)]; };
+    });
+    await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
+    await page.evaluate(() => window.__padHold(15));
+    await page.waitForFunction(() => window.__bb.mapTab !== null, null, { timeout: 5000 });
+    await page.evaluate(() => window.__padHold(-1));
+    await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
+    await page.evaluate(() => window.__padHold(0));
+    await page.waitForFunction(() => !!document.getElementById("fullgame"), null, { timeout: 5000 });
+    await page.evaluate(() => { window.__pads = []; delete navigator.getGamepads; });
+  } finally { await enforce(page, false); }
+  expect(errors).toEqual([]);
+});
+
+test("a saved last world the purchase closes: the menu opens on the Park; a restored copy too", async ({ page }) => {
+  await openGame(page, { sim: true });
+  try {
+    await enforce(page);
+    await parkDone(page);
+    await page.evaluate(() => { window.__bb.progress.lastWorld = "field"; window.__bb.world = "field"; });
+    expect(await page.evaluate(() => { const b = window.__bb; b.mode = "home"; b.openMap(); return b.world; }), "the map opens on the Park").toBe("park");
+  } finally { await enforce(page, false); }
+});

@@ -29,7 +29,7 @@ import { warmInfo } from "./warm.js";
 import { artHolding, frameLog, recordFrames, screenArt } from "./screen-art.js";
 import { art, ART_FALLBACK, artBytes, artCount, artLazy, artLoad, artDone, artVersion, EMOJI_ART, FX_ART, HEART_ART, ITEM_ART, mapBgArt, PAPER_BTN, POP_ART, SHOP_TAB_ART, STORY_ART, UPG_ART, WARDROBE_ART, worldArt } from "./art.js";
 import { orderedEvents } from "../core/events.js";
-import { bannerAlpha, chapterOpen, chooseStop, goBack, nextLevel, closeShop, giveReward, lastReward, mapTick, openFriends, openMap, openScene, openShop, openStory, openTip, closeTip, okTip, playCard, tipDue, resetMenus, resetWorld, rngDraws, sceneNext, scenePageCount, scenePages, sceneSkip, seedRandom, selectWorld, setLastReward, setMode, setShopTab, shopAfterWin, showBanner, showCard, startGame, tapWorldTab, toHome, toMap } from "./flow.js";
+import { bannerAlpha, chapterOpen, chooseStop, cycleWorld, goBack, nextLevel, closeShop, giveReward, lastReward, mapTick, openFriends, openMap, openScene, openShop, openStory, openTip, closeTip, okTip, playCard, tipDue, resetMenus, resetWorld, rngDraws, sceneNext, scenePageCount, scenePages, sceneSkip, seedRandom, selectWorld, setLastReward, setMode, setShopTab, shopAfterWin, showBanner, showCard, startGame, tapWorldTab, toHome, toMap } from "./flow.js";
 import { errorLog, reportError } from "./errors.js";
 import { glRestored } from "./lifecycle.js";
 import { audioContext, audioDebug, clickSound } from "./sound.js";
@@ -135,11 +135,12 @@ export function installDebug() {
     // SPEC-039: the progress rules are stateless — here p is the current progress when the test gives none, w the active game's world
     bonusUnlocked: (p = progress) => bonusUnlocked(p), worldOpen: (w, p = progress) => worldOpenNow(w, p), worldComplete: (w = G.world, p = progress) => worldComplete(w, p),
     get bonusNote() { return ui.bonusNote && { ...ui.bonusNote }; },   // SPEC-016: плашка «Открылись бонусные миры!» этого кадра (или null)
-    get winLine() { return ui.winLine; }, selectWorld,
+    get winLine() { return ui.winLine; }, selectWorld, cycleWorld,
     // SPEC-017: карта этого кадра, подсказка, карточка уровня; tapButton(id) — нажать кнопку этого кадра (как пальцем)
     get mapInfo() { return ui.mapState && JSON.parse(JSON.stringify(ui.mapState)); }, get toast() { return ui.toast && { ...ui.toast }; },
     // SPEC-030: мир, который карта покажет при входе (или null); плашка «<мир> открыт!» { world, t, text } (или null)
-    get openedWorld() { return ui.openedWorld; }, mapTick, get worldBanner() { return ui.worldBanner && { ...ui.worldBanner, text: L().worldOpened(ui.worldBanner.world) }; },
+    get openedWorld() { return ui.openedWorld; }, get mapTab() { return ui.mapTab; },   // SPEC-045: the 🎁 tab the ring is on (or null)
+     mapTick, get worldBanner() { return ui.worldBanner && { ...ui.worldBanner, text: L().worldOpened(ui.worldBanner.world) }; },
     get levelCard() { return ui.cardInfo && { ...ui.cardInfo }; }, get cardRect() { return ui.cardRect && { ...ui.cardRect }; }, openMap,
     RULE_ICONS, STORY, openStory, get storyInfo() { return ui.storyInfo && { ...ui.storyInfo }; },
     // SPEC-022: заставки (scene — логика: { id, page, pages } или null; sceneInfo — нарисованное в этом кадре), боссы уровней

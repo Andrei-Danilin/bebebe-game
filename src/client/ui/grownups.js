@@ -12,15 +12,15 @@
 import { CFG, WORLDS } from "../../core/config.js";
 import { vrand } from "../../core/util.js";
 import { L, lang } from "../../i18n.js";
+import { worldArt } from "../art.js";
 import { entitlementInfo } from "../entitlement.js";
 import { toggleMusic, toggleSound } from "../flow.js";
 import { qualityInfo, setQualityMode } from "../adaptive.js";
 import { buildVersion, errorLog, hideCard } from "../errors.js";
 import { armReset, confirmReset, progressReplaced, resetConfirmReady } from "../reset.js";
 import { eraseAll, importSave, listCopies, readCode, restoreCopy, saveCode, saveInfo, takeNote } from "../save.js";
-import { LOOK } from "../look.js";
+import { LOOK, WORLD_ICONS } from "../look.js";
 import { ui } from "../state.js";
-import { WORLD_ICONS } from "./map.js";
 
 // ---------- the gate ----------
 let gate = null;                             // the open question { a, b, answers, wait } (or null)
@@ -174,17 +174,18 @@ export function openFullCard() {
   const el = card("fullgame", [L().fullGame, L().moreWorlds]), box = /** @type {HTMLElement} */ (el.firstChild), row = el.querySelector(".row");
   /** @type {HTMLElement} */ (box.firstChild).className = "title";
   const pics = document.createElement("div");
-  pics.className = "worlds"; pics.style.cssText = "display:flex;gap:10px;justify-content:center;flex-wrap:wrap";
+  pics.className = "worlds";   // (index.html: .bb-card .worlds)
   for (const w of WORLDS.filter(x => !CFG.MONETIZATION.freeWorlds.includes(x))) {
-    const img = document.createElement("img"), fallback = () => { const s = document.createElement("span"); s.textContent = WORLD_ICONS[w]; s.style.fontSize = "40px"; img.replaceWith(s); };
-    img.src = LOOK.ART.dir + "world_" + w + ".webp"; img.alt = ""; img.dataset.world = w; img.style.cssText = "height:56px;width:auto";
+    const img = document.createElement("img"), fallback = () => { const s = document.createElement("span"); s.textContent = WORLD_ICONS[w]; img.replaceWith(s); };
+    img.src = LOOK.ART.dir + worldArt(w) + ".webp"; img.alt = ""; img.dataset.world = w;
     img.addEventListener("error", fallback);
     pics.append(img);
   }
   box.insertBefore(pics, box.children[1]);
   button(row, L().forGrownUps, () => { hideCard("fullgame"); parentGate(showFullGame); }, "forGrownUps");
   button(row, "✕", () => hideCard("fullgame"), "close");
-  focusFirst(el);
+  // the highlight only, no DOM focus: this card can open on a key press (Enter / Space on a 🎁 tab) and a focused button would take that key's own click (straight into the gate)
+  el.querySelector("button").classList.add("hl");
 }
 // the grown-ups' section (behind the gate): what it opens, the terms, and the two store buttons — disabled until the store spec ("Available in the app soon")
 function showFullGame() {
@@ -194,10 +195,11 @@ function showFullGame() {
   const v = subView(lines, [[L().getFull, "getFull", () => { /* the store comes later */ }], [L().restorePurchase, "restorePurchase", () => { /* the store comes later */ }], [L().ok, "back", () => showPage()]]);
   for (const name of ["getFull", "restorePurchase"]) {
     const b = /** @type {HTMLButtonElement} */ (v.el.querySelector(`[data-act=${name}]`));
-    b.disabled = true; b.style.opacity = "0.5"; b.style.cursor = "default";
+    b.disabled = true;   // (index.html: .bb-card.tight button:disabled)
   }
   const box = /** @type {HTMLElement} */ (v.el.firstElementChild);
-  box.style.gap = "6px"; [...box.children].find(d => d.textContent === L().fullGameFriends)?.classList.add("small");   // the friends line: small, and the gaps tighter (the phone page must not scroll)
+  v.el.classList.add("tight");   // (index.html: .bb-card.tight)
+  [...box.children].find(d => d.textContent === L().fullGameFriends)?.classList.add("small");   // the friends line: small, and the gaps tighter (the phone page must not scroll)
   const note = document.createElement("div");
   note.className = "small"; note.dataset.note = "soonInApp"; note.textContent = L().soonInApp;
   v.el.firstChild.insertBefore(note, v.el.querySelector(".row"));

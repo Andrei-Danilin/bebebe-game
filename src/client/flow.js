@@ -101,16 +101,30 @@ export function applyGameEvent(e) {
 // выбор мира в меню (карточка, ↑/↓, крестовина геймпада): запоминается, показывается новый открытый уровень мира.
 // SPEC-016/030: закрытый мир выбрать нельзя (__bb.world — без проверки, для тестов и отчёта баланса)
 export function selectWorld(w) {
+  ui.mapTab = null;
   if (!WORLDS.includes(w) || w === G.world || !isOpenNow(w)) return;
   G.world = w; ui.toast = null; ui.worldBanner = null; screenChanged();   // SPEC-017: подсказка карты была про прошлый мир (SPEC-030: и плашка «открыт»)
   progress.lastWorld = G.world; saveProgress();
   G.level = worldProgress().unlocked;
   playWorld(G.players);
 }
-// ↑/↓: следующий открытый мир по сюжету (по кругу), закрытые пропускаются
+// ←/→: следующий открытый мир по сюжету (по кругу), закрытые пропускаются. SPEC-045: мир, закрытый покупкой (🎁), не пропускается — кольцо встаёт на его вкладку
+// (ui.mapTab; страницу показать нечего), Enter / A открывают карточку «Полная игра» (openMapTab); а закрытый прогрессом — пропускается, как раньше
 export function cycleWorld(d) {
-  const n = WORLDS.length;
-  for (let k = 1; k < n; k++) { const w = WORLDS[(worldIndex(G.world) + d * k + n * n) % n]; if (isOpenNow(w)) { selectWorld(w); return; } }
+  const n = WORLDS.length, from = ui.mapTab ?? G.world;
+  for (let k = 1; k < n; k++) {
+    const w = WORLDS[(worldIndex(from) + d * k + n * n) % n], o = worldOpenNow(w);
+    if (o.open) { ui.mapTab = null; selectWorld(w); return; }
+    if (o.reason === "purchase") { ui.mapTab = w; ui.toast = null; return; }
+  }
+}
+// Enter / pad A on the map: the tab the ring stands on (a 🎁 one: the Full game card), else the level of the selection (→ false: the caller opens the stop)
+export function openMapTab() {
+  const w = ui.mapTab;
+  if (!w) return false;
+  ui.mapTab = null;
+  tapWorldTab(w);
+  return true;
 }
 // выход из идущего уровня до победы (пауза → Меню, перезапуск или другой уровень): платим только обнимашки.
 // Последнее сердечко уже снято (pendingWin идёт) — это победа: засчитываем её, как если бы досмотрели (правило детей: обнял — победил)
@@ -250,7 +264,7 @@ function mapStartWorld() {
 }
 export function openMap() { selectWorld(mapStartWorld()); mapSel = null; setMode("map"); showOpenedWorld(); }
 export const mapSelN = () => (mapSel && mapSel.world === G.world ? mapSel.n : nextStop() || levelsPerWorld());
-export function moveMapSel(d) { mapSel = { world: G.world, n: clamp(mapSelN() + d, 1, levelsPerWorld()) }; }
+export function moveMapSel(d) { ui.mapTab = null; mapSel = { world: G.world, n: clamp(mapSelN() + d, 1, levelsPerWorld()) }; }
 function showToast(text) { ui.toast = { text, t: LOOK.MENU_LOOK.map.toastTime }; }
 // время подсказок карты (кадр меню; тесты шагают его __bb.mapTick): подсказка гаснет сама; SPEC-030: «<мир> открыт!» — тоже, пока видна карта
 export function mapTick(dt) {
@@ -292,7 +306,7 @@ export function okTip() {
 // подсказка закрытого мира (по worldOpen): нужен главный мир — «Пройди <его>, чтобы открыть <этот>!», иначе — прежняя строка бонусных
 // SPEC-045: a world only the Full game opens → "More worlds are waiting! Ask a grown-up." (no price, no word about buying)
 export const lockedText = w => { const o = worldOpenNow(w); return o.reason === "purchase" ? L().moreWorlds : o.needs ? L().lockedWorld(o.needs, w) : L().lockedBonus; };
-// SPEC-045 AC 3: a purchase-locked tab opens the "Full game" card (ui/fullgame.js, through the port), not a toast
+// SPEC-045 AC 3: a purchase-locked tab opens the "Full game" card (ui/grownups.js openFullCard, through the port), not a toast
 export function tapWorldTab(w) {
   const o = worldOpenNow(w);
   if (o.open) selectWorld(w); else if (o.reason === "purchase") ports.openFullCard(); else showToast(lockedText(w));

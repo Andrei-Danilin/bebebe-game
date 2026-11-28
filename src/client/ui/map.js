@@ -11,7 +11,7 @@ import { L } from "../../i18n.js";
 import { art, artFade, mapBgArt, worldArt } from "../art.js";
 import { paperPanel } from "./paper.js";
 import { cardLevel, chooseStop, goBack, mapSelN, nextStop, openStory, openTip, playCard, tapWorldTab } from "../flow.js";
-import { LOOK } from "../look.js";
+import { LOOK, WORLD_ICONS } from "../look.js";
 import { worldOpenNow } from "../entitlement.js";
 import { ctx, OUT, PHONE, UH, UW, VIEW } from "../screen.js";
 import { ui } from "../state.js";
@@ -31,7 +31,6 @@ import { textW } from "./measure.js";
 
 // ---------- SPEC-017: карта уровней — вкладки шести миров, страница мира с 20 остановками на дорожке змейкой ----------
 // значки миров на вкладках и в заголовке страницы (вкладка — значок на фоне цвета земли мира: имена в узкую вкладку не влезают)
-export const WORLD_ICONS = { park: "🌳", field: "⚽", city: "🏙️", school: "🏫", beach: "🏖️", winter: "❄️" };
 // где что на карте: верхний ряд (◀, вкладки, монетки), страница мира (строка заголовка, ниже остановки); k — UI px на единицу CFG
 function mapGeom() {
   const A = LOOK.MENU_LOOK.map;
@@ -236,7 +235,7 @@ export function drawMap(t) {
   coinPlate(MG.X1 - MG.coinsW, MG.Y0 + 4 * k, MG.coinsW, MG.tabH - 8 * k);
   const tx0 = MG.X0 + MG.backW + MG.g, tw = (MG.X1 - MG.coinsW - MG.g - tx0 - (WORLDS.length - 1) * MG.g) / WORLDS.length, tabs = [];
   WORLDS.forEach((wd, i) => {
-    const x = tx0 + i * (tw + MG.g), o = worldOpenNow(wd), locked = !o.open, gift = o.reason === "purchase", mark = gift ? "🎁" : "🔒", sel = wd === w;   // SPEC-045: a gift badge (not a padlock) on a world only the Full game opens
+    const x = tx0 + i * (tw + MG.g), o = worldOpenNow(wd), locked = !o.open, gift = o.reason === "purchase", mark = gift ? "🎁" : "🔒", sel = wd === (ui.mapTab ?? w);   // SPEC-045: a gift badge (not a padlock) on a world only the Full game opens
     const ic = Math.min(tw, MG.tabH);
     if (art(worldArt(wd))) {                                              // SPEC-020: значок мира из 20_levelmap_parts
       if (locked) ctx.globalAlpha = 0.5;
@@ -249,7 +248,7 @@ export function drawMap(t) {
     tabs.push({ world: wd, locked, reason: o.reason, selected: sel, x, y: MG.Y0, w: tw, h: MG.tabH });
   });
   // страница мира: фон и дорожка, строка заголовка (или подсказка), остановки
-  const rects = stopRects(MG), next = nextStop(w), done = worldComplete(w, progress), sel = mapSelN();
+  const rects = stopRects(MG), next = nextStop(w), done = worldComplete(w, progress), sel = ui.mapTab ? null : mapSelN();   // SPEC-045: the ring is on a 🎁 tab: none on the stops
   drawMapPage(w, MG, rects);
   const P = MG.page, th = MG.titleH * 0.86, ty = P.y + (MG.titleH - th) / 2 + 4 * k, size = PHONE ? cpx(16) : 18, pad = 8 * k;
   if (!ui.toast && !ui.worldBanner) {

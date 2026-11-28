@@ -272,5 +272,7 @@
  "okTip": "function",
  "playCard": "function",
  "tipDue": "function",
- "entitlement": "value"
+ "entitlement": "value",
+ "mapTab": "getter",
+ "cycleWorld": "function"
 }

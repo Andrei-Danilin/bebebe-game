@@ -236,6 +236,8 @@ function useSave(s) {
   langAsked = typeof s.langAsked === "boolean" ? s.langAsked : null;
   qualityPref = MODES.includes(s.quality) ? s.quality : null;
   settings = settingsOf(s);
+  // a record that is an object is kept whole (its unknown fields too); anything else of this version (7, "full") is no record — free, and not written back, like a quality that is no tier;
+  // a NEWER version's invalid one is held unchanged by holdSave (TOP_VALID)
   entitlementRaw = plainObj(s.entitlement) ? { ...s.entitlement } : null;
   applySettings();
   setProgress(s.progress);

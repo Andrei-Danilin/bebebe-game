@@ -117,13 +117,15 @@ export function loadProgress(pv) {
   }
   // старые сохранения без поцелуев и спасалок (или испорченные) → 0; SPEC-025 AC 3d: каждый заряд — целый 0…SAVE_MAX_CHARGES
   for (const key of INV_KEYS) out.inv[key] = wholeCharges(out.inv[key]);
-  if (!isOpen(out.lastWorld, out)) out.lastWorld = WORLDS[0];   // SPEC-016/030: закрытый мир → меню открывается на Парке
+  if (!rulesOpen(out.lastWorld, out)) out.lastWorld = WORLDS[0];   // SPEC-016/030: закрытый мир → меню открывается на Парке
   return out;
 }
 // мир пройден: выиграны все его уровни (20-й, босс, открывается последним — значит, «20-й выигран»); p — прогресс (SPEC-039: всегда явный — модуль без состояния; текущий — progress из economy.js)
 // (сохранение может быть неполным — нет мира или полей: значит, не выиграно и прогресса нет)
 export const worldComplete = (w, p) => { const won = p?.worlds?.[w]?.won ?? {}; for (let n = 1; n <= levelsPerWorld(); n++) if (won[n] !== true) return false; return true; };
 // SPEC-016: бонусные миры открываются, когда пройдены все главные миры
+// SPEC-045: progress only — it knows nothing of the purchase (a free device that finishes the main worlds still gets reward.bonusUnlocked; the bonus worlds then show the gift).
+// SPEC-046 will revisit what the bonus announcement says on a free device
 export const bonusUnlocked = p => MAIN_WORLDS.every(w => worldComplete(w, p));
 // в мире есть прогресс: открыт дальше 1-го уровня или есть победа/звёзды
 const worldHasProgress = (w, p) => { const v = p?.worlds?.[w]; return !!v && (v.unlocked > 1 || Object.keys(v.won ?? {}).length > 0 || Object.keys(v.stars ?? {}).length > 0); };
@@ -131,22 +133,39 @@ const worldHasProgress = (w, p) => { const v = p?.worlds?.[w]; return !!v && (v.
 // когда пройден предыдущий («previous»); бонусные — когда пройдены все главные («bonus»); мир, где уже есть прогресс, открыт всегда
 // («played»: старые сохранения времён «все миры открыты» ничего не теряют); иначе «locked» и needs — что пройти: главный мир перед
 // ним или null (бонусный — все главные; неизвестный мир). Сюда же — другая причина (и что для неё нужно), если появится
-// SPEC-045: entitlement "free" (the third argument; default "full" = nothing is bought-only) closes every world outside CFG.MONETIZATION.freeWorlds
-// with the reason "purchase", even when the progress would open it (the progress keeps counting: buying opens what was earned); `needs` is still what the
-// progress asks for (null when the progress would open it), so a screen can tell the two apart
-export function worldOpen(world, p, entitlement = "full") {
+// SPEC-045 (Andrei's model: the Park is free, one purchase opens the rest): the entitlement — "full" | "free" — is what the caller says the device (or, on a
+// server, the room's HOST) has; "free" closes every world outside CFG.MONETIZATION.freeWorlds with the reason "purchase", even when the progress would open
+// it (the progress keeps counting: buying opens what was earned); `needs` is still what the progress asks for (null when the progress would open it).
+// FULL is the default (nothing is bought-only), so a caller that must enforce MUST pass the entitlement itself: the client through entitlement.js
+// (worldOpenNow / isOpenNow), the SPEC-013 server with the host's entitlement (a joiner's never enters the check). rulesOpen is the progress-only question.
+export const FULL = "full", FREE = "free";
+function progressOpen(world, p) {
   const i = MAIN_WORLDS.indexOf(world);
-  if (entitlement !== "full" && WORLDS.includes(world) && !CFG.MONETIZATION.freeWorlds.includes(world)) {
-    const by = worldOpen(world, p);
-    return { open: false, reason: "purchase", needs: by.open ? null : by.needs };
-  }
   if (i === 0) return { open: true, reason: "start" };
   if (i > 0 && worldComplete(MAIN_WORLDS[i - 1], p)) return { open: true, reason: "previous" };
   if (BONUS_WORLDS.includes(world) && bonusUnlocked(p)) return { open: true, reason: "bonus" };
   if (WORLDS.includes(world) && worldHasProgress(world, p)) return { open: true, reason: "played" };
   return { open: false, reason: "locked", needs: i > 0 ? MAIN_WORLDS[i - 1] : null };
 }
-export const isOpen = (w, p, entitlement = "full") => worldOpen(w, p, entitlement).open;
+export function worldOpen(world, p, entitlement = FULL) {
+  if (entitlement !== FULL && WORLDS.includes(world) && !CFG.MONETIZATION.freeWorlds.includes(world)) {
+    const by = progressOpen(world, p);
+    return { open: false, reason: "purchase", needs: by.open ? null : by.needs };
+  }
+  return progressOpen(world, p);
+}
+export const isOpen = (w, p, entitlement = FULL) => worldOpen(w, p, entitlement).open;
+export const rulesOpen = (w, p) => progressOpen(w, p).open;   // the progress rules alone (the save's lastWorld, a stored world): never the purchase
+// SPEC-045: what the Full game is for a given record. `record` = the stored { value, source, at } (or anything: junk is "free"), `cfg` = CFG.MONETIZATION.
+// enforce off (the web beta) → FULL for everyone; else only a stored "full" record from the store counts (and from "test" only while cfg.debugParam is on:
+// a build that enforces turns the debug door off). Stateless, so the SPEC-013 server can use it
+export function effectiveEntitlement(record, cfg = CFG.MONETIZATION) {
+  if (!cfg.enforce) return FULL;
+  const sources = cfg.debugParam ? ["store", "test"] : ["store"];
+  return record && typeof record === "object" && record.value === FULL && sources.includes(record.source) ? FULL : FREE;
+}
+// hosting an online room needs the Full game when enforced; joining never asks (the SPEC-013 server passes the HOST's entitlement)
+export const canHost = (entitlement, cfg = CFG.MONETIZATION) => !cfg.enforce || entitlement === FULL;
 // SPEC-009: основа награды уровня n мира (SPEC-016: по индексу сложности мира, 0–4)
 const rewardBase = (world, n) => REWARD.BASE + REWARD.PER_LEVEL * n + REWARD.PER_WORLD * worldDifficulty(world);
 // SPEC-026: строка победы × REWARD.WIN_SCALE и округление (toFixed убирает хвост дробей: 45 × 0,7 = 31,4999… → 31,5 → 32)
@@ -158,7 +177,7 @@ export const fastTarget = (world, n) => CFG.FAST_TIME(n) + worldDifficulty(world
 // { reward — награда (клиент хранит её как lastReward), lines — строки в книгу (addCoins по порядку; кроме звёздочек — они уже в
 // копилке с подбора; нулевых нет), world — что победа меняет в мире { name, n, stars, unlocked } (или null) }. Клиент применяет
 // её (flow.js payLevel). Числа те же, что раньше у payReward
-export function computeReward(p, result, entitlement = "full") {   // SPEC-045: entitlement — what worldOpened counts as open (a purchase-locked world is not "opened" by a win)
+export function computeReward(p, result, entitlement = FULL) {   // SPEC-045: entitlement — what worldOpened counts as open (a purchase-locked world is not "opened" by a win)
   const st = result.stats, starCoins = st.starCoins;        // монетки за звёздочки уже в копилке (начислены при подборе)
   const partsOf = list => list.filter(([, a]) => a !== 0).map(([reason, amount]) => ({ reason, amount }));
   const hugs = st.playerHugs * REWARD.PER_HUG;

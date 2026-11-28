@@ -44,7 +44,7 @@ export function resetProgress() {
 // a whole save replaced the progress (restore a copy, undo a reset, import a code): the menu as after a start
 export function progressReplaced() {
   G.rewardDue = false; setLastReward(null); ui.openedWorld = null; ui.worldBanner = null;
-  G.world = progress.lastWorld;
+  G.world = isOpenNow(progress.lastWorld) ? progress.lastWorld : WORLDS[0];   // SPEC-045: a world the purchase closes is not the menu's world
   G.level = worldProgress().unlocked;
   resetWorld(G.players);
 }
