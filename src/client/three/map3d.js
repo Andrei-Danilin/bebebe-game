@@ -6,6 +6,7 @@ import { CELL, COLS, H, ROWS, TAU, W, WORLD_SEED } from "../../core/config.js";
 import { mulberry32, vrand } from "../../core/util.js";
 import { LOOK } from "../look.js";
 import { dressHouses, houseRoofs, setHouseInfo } from "./houses.js";
+import { houseWallColors } from "./housekit.js";
 import { mapGroup, setMapGroup, waves } from "./mapstate.js";
 import { batchMap } from "./batch.js";
 import { buildTrick3D } from "./tricks3d.js";
@@ -224,7 +225,7 @@ export function buildMap3D() {
     else if (o.kind === "water") makeWaterFor(place, o);
     else if (o.kind === "pond" && o.fountain) makeFountain(place, o);
     else if (o.shape === "rect" && o.kind !== "pond") {
-      const w = P(o.w), d = P(o.h), [c0, c1] = o.kind === "hedge" ? HEDGE_COLORS : o.kind === "maze" ? [th.maze.wall, th.maze.cap] : th.walls[o.kind];
+      const w = P(o.w), d = P(o.h), [c0, c1] = o.kind === "hedge" ? HEDGE_COLORS : o.kind === "maze" ? [th.maze.wall, th.maze.cap] : houseWallColors(place, o.kind) || th.walls[o.kind];   // SPEC-044: a house's walls — its world's colours
       if (o.kind === "maze") mazeWalls.push(o);
       let wm = null;
       if (o.kind === "bighome") { wm = ownMat(c0, false, true); wm.emissive = new THREE.Color("#000000"); bigHomeMats.push(wm); }

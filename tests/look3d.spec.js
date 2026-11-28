@@ -230,8 +230,9 @@ test("the dad: bald with stubble, small eyes, heavy brows, big nose, red t-shirt
   expect(errors).toEqual([]);
 });
 
-// AC 7: both houses in every world — the messy house of the dad, the blue house with a heart on the door; snow on the roofs in Winter
-test("the dad's house is the messy little house and the kids' house the blue one with a heart, in every world", async ({ page }) => {
+// AC 7 (SPEC-021) / SPEC-044 AC 1, 2: both houses in every world — Dad's messy one (stains, a sock, trash with stink lines) and the kids' clean one with
+// a heart on the door; each world has its own pair (tests/houses.spec.js: which); snow on the roofs in Winter
+test("the dad's house is the messy little house and the kids' house the clean one with a heart, in every world", async ({ page }) => {
   test.setTimeout(120_000);
   const errors = await openGame(page);
   const r = await page.evaluate(() => {
@@ -239,22 +240,23 @@ test("the dad's house is the messy little house and the kids' house the blue one
     for (const w of b.WORLDS) { b.world = w; b.level = 1; b.startGame(1); out[w] = b.look3D().houses; }
     // SPEC-022 (from SPEC-021's check): the laundry line finds a free spot on other levels too (it used to drop on ~half of them)
     out.laundry = [];
-    for (const w of b.WORLDS) for (const n of [5, 10]) { b.world = w; b.level = n; b.startGame(1); out.laundry.push([w + " " + n, [...b.look3D().houses.big.laundry].sort().join(",")]); }
+    for (const w of b.WORLDS) for (const n of [5, 10]) { b.world = w; b.level = n; b.startGame(1); const h = b.look3D().houses.big; out.laundry.push([w + " " + n, h.build, [...h.laundry].sort().join(",")]); }
     return out;
   });
-  for (const [at, l] of r.laundry) expect(l, `${at}: sock and t-shirt`).toBe("shirt,sock");
+  const LINE = ["shed", "garage", "cabin"];                 // the builders that hang washing on a line (the others hang a sock in a window or on a tap)
+  for (const [at, build, l] of r.laundry) if (LINE.includes(build)) expect(l, `${at}: sock and t-shirt`).toBe("shirt,sock");
   delete r.laundry;
   for (const [w, h] of Object.entries(r)) {
     expect(h.kid.roof, `${w} kids' roof`).toBe(true);
+    expect(h.kid.clean, `${w} the kids' house is clean`).toBe(true);
     expect(h.kid.hearts, `${w} heart on a door`).toBeGreaterThanOrEqual(1);
-    expect(h.kid.flowers, `${w} flowers`).toBeGreaterThanOrEqual(3);
-    expect(h.big.roof && h.big.crooked, `${w} crooked roof`).toBe(true);
-    expect(h.big.patches, `${w} roof patches`).toBeGreaterThanOrEqual(2);
+    expect(h.big.roof && (h.big.crooked || h.big.build === "caretaker"), `${w} crooked roof`).toBe(true);
+    expect(h.big.messy, `${w} Dad's house is messy`).toBe(true);
     expect(h.big.stains, `${w} mud stains`).toBeGreaterThanOrEqual(5);
-    expect([...h.big.laundry].sort(), `${w} sock and t-shirt`).toEqual(["shirt", "sock"]);
-    expect(h.big.bin && h.big.stink >= 2, `${w} overflowing bin with stink lines`).toBe(true);
-    expect(h.big.pizza, `${w} pizza boxes`).toBeGreaterThanOrEqual(2);
-    expect(h.big.toys, `${w} toys`).toBeGreaterThanOrEqual(1);
+    expect(h.big.sock, `${w} a sock`).toBe(true);
+    expect(h.big.bin && h.big.trash && h.big.stink >= 2, `${w} overflowing bin with stink lines`).toBe(true);
+    if (LINE.includes(h.big.build)) expect([...h.big.laundry].sort(), `${w} sock and t-shirt`).toEqual(["shirt", "sock"]);
+    if (["shed", "garage", "shack"].includes(h.big.build)) expect(h.big.pizza, `${w} pizza boxes`).toBeGreaterThanOrEqual(2);
     expect(h.snow, `${w} roof snow`).toBe(w === "winter" ? 2 : 0);
   }
   expect(errors).toEqual([]);

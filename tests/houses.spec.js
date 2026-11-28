@@ -5,12 +5,14 @@ const { test, expect } = require("./pw");
 const { openGame, frames } = require("./helpers");
 
 const WORLDS = ["park", "field", "city", "school", "beach", "winter"];
+// the pair of each world (the spec's table): kids' builder, Dad's builder
+const PAIRS = { park: ["treehouse", "shed"], field: ["dugout", "hut"], city: ["shop", "garage"], school: ["bus", "caretaker"], beach: ["hut", "shack"], winter: ["igloo", "cabin"] };
 const play = (page, world, level) => page.evaluate(([w, n]) => { const b = window.__bb; b.mode = "map"; b.world = w; b.level = n; b.startGame(1); }, [world, level]);
 
 test("AC 1: HOUSE_LOOK has a kids' and a Dad's builder for each world, and look3D says which one built the houses @fast", async ({ page }) => {
   const errors = await openGame(page);
   const table = await page.evaluate(() => { const H = window.__bb.CFG.HOUSE_LOOK; return Object.fromEntries(["park", "field", "city", "school", "beach", "winter"].map(w => [w, [H[w] && H[w].kids && H[w].kids.build, H[w] && H[w].dad && H[w].dad.build]])); });
-  for (const w of WORLDS) for (const b of table[w]) expect(typeof b, `${w}: builder name`).toBe("string");
+  for (const w of WORLDS) expect(table[w], `${w}: the pair`).toEqual(PAIRS[w]);
   for (const w of WORLDS) {
     await play(page, w, 1);
     await frames(page);
