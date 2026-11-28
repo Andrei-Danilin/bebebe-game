@@ -247,7 +247,7 @@ export const LOOK = {
         fringe: "#c9a24a", flowerN: 0 },
       dad: { build: "shack", wall: ["#bba98a", "#dccfae"], roof: "#8a7c68", crook: 0.1, eave: 0.1, plank: "#4d4437", bands: ["#c9a8a8", "#a9bfa7"], umbrella: ["#d94a3a", "#3b6fd4"], pole: "#7c5a3a",
         sand: "#e6cf94", winFrame: "#6b4a2b", win: "#3a4a5e" } },
-    winter: { kids: { build: "igloo", wall: ["#cfe4f3", "#ffffff"], roof: "#eaf5fc", line: "#8dbbdb", roofH: 1.7, k: 1.07, arch: "#e3f1fa", door: "#e3f1fa", heartS: 0.22, domeHeart: 0.5, flowerN: 0 },
+    winter: { kids: { build: "igloo", wall: ["#cfe4f3", "#ffffff"], roof: "#eaf5fc", line: "#8dbbdb", roofH: 1.7, k: 1.04, arch: "#e3f1fa", door: "#e3f1fa", heartS: 0.22, domeHeart: 0.5, flowerN: 0 },
       dad: { build: "cabin", wall: ["#7b5a3c", "#ffffff"], roof: "#7a5638", crook: 0.08, eave: 0.1, log: "#46301e", icicle: "#e8f6ff" } } },
   // SPEC-044: только для тестов — какие дома строятся, у каждого: "world" (дом мира из HOUSE_LOOK), "classic" (старый дом SPEC-021) или "none" (без дома):
   // тест вызовов отрисовки (tests/houses.spec.js) строит один и тот же уровень каждым способом

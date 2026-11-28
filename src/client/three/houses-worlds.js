@@ -41,7 +41,7 @@ function patch(x, z, rx, rz, color, ry = 0) {
 }
 // balls of leaves on a roof (instanced: the fill and its outline are one call each; they fade with the roof): [{ x, y, z, r, c }] in the roof's frame.
 // A ball never reaches more than `over` cells past the roof's edge (a roof only fades for someone inside its frame: nobody may stand under a solid ball outside it)
-function blobs(roof, list, over = 0.3) {
+function blobs(roof, list, over = 0.05, hull = true) {
   const clamp = (v, half, r) => Math.max(-(half + over - r), Math.min(half + over - r, v));
   for (const b of list) { b.x = clamp(b.x, roof.len / 2, b.r); b.z = clamp(b.z, roof.span / 2, b.r); }
   const mat = ownMat("#ffffff", true), geo = sphere(1, 12, 8), im = new THREE.InstancedMesh(geo, mat, list.length), hm = new THREE.InstancedMesh(geo, mat.userData.outline, list.length);
@@ -51,7 +51,8 @@ function blobs(roof, list, over = 0.3) {
     im.setMatrixAt(i, mtx.compose(p, q, s.set(b.r, b.r * 0.85, b.r))); im.setColorAt(i, col.set(b.c));
     hm.setMatrixAt(i, mtx.compose(p, q, s.set(b.r + 0.07, b.r * 0.85 + 0.07, b.r + 0.07)));
   });
-  roof.add(im, mat); roof.g.add(hm);
+  roof.add(im, mat);
+  if (hull) roof.g.add(hm);
 }
 // a row of instanced pieces on a roof (thatch ends, icicles): [{ x, y, z, rx }]
 function strands(roof, geo, color, list) {
@@ -74,14 +75,14 @@ function plankStrips(roof, color, n) {
 // (the sock and the trash are own transparent parts: they fade with the roof; the stink lines are one instanced tube)
 function roofMess(roof, B) {
   const spot = (t, x) => (roof.flat ? { x, y: roof.rh + 0.01, z: roof.span / 2 * (1 - t * 1.4), rx: 0 } : slopeAt(roof, t, x));
-  const a = ownMat(B.sock, true), b = ownMat(B.sockToe, true), leg = part(new THREE.BoxGeometry(0.22, 0.03, 0.6), "", 0.008, a), toe = part(new THREE.BoxGeometry(0.32, 0.03, 0.2), "", 0.008, b), sg = new THREE.Group();
+  const a = ownMat(B.sock, true), b = ownMat(B.sockToe, true), leg = part(new THREE.BoxGeometry(0.22, 0.03, 0.6), "", 0, a), toe = part(new THREE.BoxGeometry(0.32, 0.03, 0.2), "", 0, b), sg = new THREE.Group();
   toe.position.set(0.06, 0, 0.38); sg.add(leg, toe);
   const s = spot(0.3, -roof.len * 0.3);
   sg.position.set(s.x, s.y + 0.03, s.z); sg.rotation.set(s.rx, 0.6, 0);
   leg.castShadow = toe.castShadow = false; roof.g.add(sg); roof.mats.push(a, b); roof.meshes.push(leg, toe);
   const heap = [], t0 = spot(0.3, roof.len * 0.24);
   [[0, 0, 0.17], [0.24, 0.1, 0.14], [-0.2, 0.12, 0.15], [0.08, -0.22, 0.13], [-0.1, -0.2, 0.12]].forEach(([dx, dz, r], i) => heap.push({ x: t0.x + dx, y: t0.y + r * 0.5, z: t0.z + dz, r, c: B.trash[i % B.trash.length] }));
-  blobs(roof, heap);
+  blobs(roof, heap, 0.05, false);                            // (no outline on the sock and the heap: a draw call each saved — they are small)
   const pts = [];
   for (let k = 0; k <= 8; k++) pts.push(new THREE.Vector3(Math.sin(k * 1.3) * 0.15, k * 0.18, 0));
   const tube = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 20, 0.05, 5), base = roof.rh + 0.1;
