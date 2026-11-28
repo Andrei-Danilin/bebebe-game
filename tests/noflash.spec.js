@@ -408,33 +408,33 @@ test.describe("the list of a screen covers what it draws", () => {
   });
 });
 
-// blocked above AND below (below is moved onto the chips here): the tag stands beside them, to their left
+// blocked above AND below (below is moved onto the chips here): the tag stands beside them, to their left. The chips' rect and the tag's size are the drawer's own (bigTag.blocks / .sz)
 test.describe("Dad's name tag blocked above and below", () => {
   test.use({ viewport: { width: 960, height: 640 } });
   test("stands beside the team chips", async ({ page }) => {
-  const errors = await openGame(page, { quality: "low" });
-  await frames(page);
-  const r = await page.evaluate(() => {
-    const b = window.__bb, T = b.CFG.NAME_TAG, keep = T.below, ui = b.uiSize, out = { found: false };
-    b.world = "park"; b.level = 1; b.startGame(1);
-    const chips = { x: ui.w - (b.littles.length * 32 + 14) - 10, y: 8, w: b.littles.length * 32 + 14, h: 34 };
-    for (let y = 40; y < 640 && !out.found; y += 40) for (let x = 600; x < 960 && !out.found; x += 40) {
-      Object.assign(b.big, { x, y, state: "look", timer: 999, stun: 0, slip: 0 });
-      b.drawNow();
-      if (!b.bigTag || !b.bigTag.below) continue;                       // here the tag above is on the chips
-      const feet = b.toScreen(x, y, 0), sz = 14;
-      T.below = (chips.y + chips.h / 2 - feet.y) / sz;                  // now the place below is on them too
-      b.drawNow();
-      const tag = b.bigTag;
-      out.found = true; out.tag = tag; out.chips = chips; out.below = tag.below;
-      out.overlap = tag.x < chips.x + chips.w && chips.x < tag.x + tag.w && tag.y < chips.y + chips.h && chips.y < tag.y + tag.h;
-    }
-    T.below = keep;
-    return out;
+    const errors = await openGame(page, { quality: "low" });
+    await frames(page);
+    const r = await page.evaluate(() => {
+      const b = window.__bb, T = b.CFG.NAME_TAG, keep = T.below, out = { found: false };
+      b.world = "park"; b.level = 1; b.startGame(1);
+      const hit = (t, c) => t.x < c.x + c.w && c.x < t.x + t.w && t.y < c.y + c.h && c.y < t.y + t.h;
+      for (let y = 40; y < 640 && !out.found; y += 40) for (let x = 600; x < 960 && !out.found; x += 40) {
+        Object.assign(b.big, { x, y, state: "look", timer: 999, stun: 0, slip: 0 });
+        b.drawNow();
+        if (!b.bigTag || !b.bigTag.below) continue;                       // here the tag above is on the chips
+        const chips = b.bigTag.blocks[0], feet = b.toScreen(x, y, 0), sz = b.bigTag.sz;
+        if (feet.x < chips.x || feet.x > chips.x + chips.w) continue;      // (his feet are under the chips too, not only his head: the tag below stands at his feet)
+        T.below = (chips.y + chips.h / 2 - feet.y) / sz;                  // now the place below is on them too
+        b.drawNow();
+        const tag = b.bigTag;
+        out.found = true; out.tag = tag; out.chips = chips; out.below = tag.below; out.overlap = hit(tag, chips);
+      }
+      T.below = keep;
+      return out;
+    });
+    expect(r.found, "a place where the tag above is on the chips").toBe(true);
+    expect(r.below, `not below (that is on them too): ${JSON.stringify(r)}`).toBe(false);
+    expect(r.overlap, `beside them: ${JSON.stringify(r.tag)} vs ${JSON.stringify(r.chips)}`).toBe(false);
+    expect(errors).toEqual([]);
   });
-  expect(r.found, "a place where the tag above is on the chips").toBe(true);
-  expect(r.below, "not below (that is on them too)").toBe(false);
-  expect(r.overlap, `beside them: ${JSON.stringify(r.tag)} vs ${JSON.stringify(r.chips)}`).toBe(false);
-  expect(errors).toEqual([]);
-});
 });
