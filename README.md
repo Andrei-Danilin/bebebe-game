@@ -67,7 +67,7 @@ On the very first launch the game asks for the **language** first: four big butt
 never see this screen; the 🌐 icon still changes the language any time.
 
 The **home screen** shows the logo and three big buttons in a column, each with a drawn icon: **Play**, **Story**, **Character**. The small
-🌐 and 🔊 icons in the corner switch the language and the sound. Your stars, worlds, coins and things are on the
+🌐, 🎵 and 🔊 icons in the corner switch the language, the music and the sounds (`N` / `M`; also on the grown-ups page; saved). Your stars, worlds, coins and things are on the
 Character's **Progress** page.
 
 1. **Play** opens the **level map**: one page per world, the six worlds as tabs at the top (🌳 Park, ⚽ Football field,
@@ -151,7 +151,7 @@ No build step. Works on desktop, tablet and phone. **How to play locally:** `npm
 | Tiptoe 👣 — touch | tap the 👣 button next to 💋 (on / off), or push the joystick only a little (inside the dashed inner ring) | the same |
 | Tiptoe 👣 — gamepad | tilt the stick only part of the way | the same on pad 2 |
 
-`P` — pause, `M` — sound, `L` — language (English / Español (AR) / Português (BR) / Русский). On the very first launch a language screen asks first (English highlighted: arrows / D-pad move, `Enter` / A / a tap picks, `Esc` keeps English).
+`P` — pause, `M` — sounds, `N` — music, `L` — language (English / Español (AR) / Português (BR) / Русский). On the very first launch a language screen asks first (English highlighted: arrows / D-pad move, `Enter` / A / a tap picks, `Esc` keeps English).
 
 Menus:
 
@@ -389,6 +389,7 @@ npm run serve          # the game over http on http://localhost:8123/ (service w
 npm run precache       # after a change to src/: module hashes in the import map of index.html and in sw.js (SPEC-011)
 npm run vendor:three   # re-create vendor/three/ from the three.js version pinned in package.json (then runs precache)
 npm run assets         # art/ → assets/*.webp sprites (+ the sprite lists in src/client/art-names.js and sw.js), prints sizes and the budget
+npm run audio          # audio/src/*.mp3 → assets/audio/ (sounds, loops, jingles, music) + manifest.json + the audio list in sw.js; NEEDS ffmpeg on PATH (SPEC-047, docs/audio.md); the generated files are committed, CI never runs it
 npm run icons          # art/2_icon.webp → the PNG app icons and the icon.svg favicon
 npm run docs:numbers   # rewrite the generated numbers table in docs/game-design.md from src/core/config.js and src/client/look.js (-- --check: only check)
 npm run balance        # play every level with the autopilot in sim mode → reports/balance.md + reports/balance.json
