@@ -224,6 +224,15 @@ export const CFG = {
   // версией покупка не нужна). enforce false — веб-бета: у всех всё открыто, как раньше (включается вместе с приложениями); freeWorlds — миры без покупки; product — id товара
   // в магазинах; debugParam — разрешён ли ?full=0|1 (в релизной сборке false). Цену ставят магазины, в игре её нет
   MONETIZATION: { enforce: false, freeWorlds: ["park"], product: "full_game", debugParam: true },
+  // SPEC-013: онлайн-комнаты (Cloudflare Worker + Durable Object, online/; протокол и числа придумал Claude). CODE_LEN / CODE_ALPHABET — код комнаты (без похожих
+  // знаков: I, L, O, 0, 1); MAX_LITTLES — детей в комнате; SNAP_HZ — снимков игры в секунду, INTERP_MS — на сколько мс позади рисуются чужие; MAX_MSG — байт в сообщении,
+  // MAX_MSG_RATE — сообщений в секунду, больше — сокет закрывается; REJOIN_TIME — сек, пока место ждёт вернувшегося по токену; EMPTY_ROOM_TTL / IDLE_ROOM_TTL — сек до
+  // закрытия комнаты без людей / лобби без действий; ROOMS_PER_IP_MIN / JOINS_PER_IP_MIN — комнат и входов в минуту с одного адреса; ORIGINS — откуда сервер
+  // принимает запросы (* вместо порта — любой); SERVERS — адреса серверов (?server=local|staging|prod; staging и prod заполнит SPEC-014)
+  ONLINE: { CODE_LEN: 5, CODE_ALPHABET: "ABCDEFGHJKMNPQRSTUVWXYZ23456789", MAX_LITTLES: 5, SNAP_HZ: 20, INTERP_MS: 100, MAX_MSG: 2048, MAX_MSG_RATE: 60,
+    REJOIN_TIME: 60, EMPTY_ROOM_TTL: 120, IDLE_ROOM_TTL: 900, ROOMS_PER_IP_MIN: 5, JOINS_PER_IP_MIN: 20,
+    ORIGINS: ["https://andrei-danilin.github.io", "http://localhost:*", "capacitor://localhost", "https://localhost"],
+    SERVERS: { local: "ws://localhost:8787", staging: "", prod: "" } },
   // SPEC-043: в каждом мире свой предмет рядом с бананом (придумал Claude, проверить с детьми). WORLD_ITEMS_ON 0 — ни в одном мире (игра до SPEC-043);
   // в тренировках их нет всегда. WORLD_ITEM — предмет мира (парк — банан, он и так везде); числа — в WORLD_ITEMS (меняется число — ничего не кэшируется)
   WORLD_ITEMS_ON: 1,         // SPEC-043: 1 — миры спавнят свой предмет (WORLD_ITEM), 0 — как до спеки
