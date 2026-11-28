@@ -77,7 +77,7 @@ export const bell = Object.freeze({
       if (!st.spotted[l.id]) {
         st.spotted[l.id] = true;
         logEvent("bellSpot", { who: l.id, kind: l.kind });
-        if (Object.keys(st.spotted).length === 1) { emit("pop", { key: null, args: ["!"], x: b.x, y: b.y - 75, color: "#ff3b30" }); emit("sfx", { name: "alert" }); }
+        if (Object.keys(st.spotted).length === 1) { emit("pop", { key: null, args: ["!"], x: b.x, y: b.y - 75, color: "#ff3b30" }); emit("sfx", { name: "alert", slot: "big" }); }
       }
     }
     return true;

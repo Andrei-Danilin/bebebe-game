@@ -9,6 +9,8 @@ The version is `package.json` `version` (shown on the "For grown-ups" page); how
 
 ### Added
 
+- Sound and music: real cartoon sounds for everything that happens, jingles on the result screens, music in the menus and in every world that changes smoothly between screens and is
+  quieter during play, Music and Sounds switches on the home screen (also keys `N` / `M` and the grown-ups page), and it all works offline after the first visit (SPEC-047).
 - The game works offline from the very first launch, shows a calm "Oops" card instead of freezing, keeps
   safer saves with backups, and has a "For grown-ups" page with the progress code and the game's version (SPEC-025).
 - Code checks on every push: ESLint over the game, the scripts and the tests, Prettier for the configs and docs, and type

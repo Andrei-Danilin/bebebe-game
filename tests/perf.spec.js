@@ -574,3 +574,37 @@ test("SPEC-040 AC 9: measureText calls per frame on the home and Character scree
   expect(bad, `measureText per frame: ${bad.join("; ")}`).toEqual([]);
   expect(errors).toEqual([]);
 });
+
+// ---------- SPEC-047 AC 12: the music streams, it is never decoded ----------
+// With a track playing at the home screen and after the music went through every world's track: the decoded sprites stay within SPEC-040 AC 1's 25 MB,
+// no AudioBuffer is a music track (the longest sound is 5 s, the shortest track 63 s), and the elements of the tracks left behind are let go.
+test("SPEC-047 AC 12: with music playing the memory numbers hold — sprites at most 25 MB, no music AudioBuffer, old tracks let go", async ({ page }) => {
+  test.setTimeout(180_000);
+  await page.addInitScript(() => {
+    const orig = BaseAudioContext.prototype.decodeAudioData;
+    window.__decoded = [];
+    BaseAudioContext.prototype.decodeAudioData = function (...a) { return Promise.resolve(orig.apply(this, a)).then(b => { window.__decoded.push(b.duration); return b; }); };
+  });
+  const errors = await openGame(page);
+  await page.mouse.click(5, 5);
+  await page.waitForFunction(() => window.__bb.audio.track === "theme", null, { timeout: 30_000 });
+  const r = await homeSprites(page);
+  expect(r.loaded, "the art folder is there").toBeGreaterThan(100);
+  expect(r.bytes / MB, `decoded sprites at home with music playing: ${round1(r.bytes / MB)} MB`).toBeLessThanOrEqual(25);
+  const seen = [];
+  for (const [world, n, track] of [["field", 3, "world_field"], ["city", 20, "boss"], ["school", 3, "world_school"], ["beach", 3, "world_beach"], ["winter", 3, "world_winter"], ["park", 2, "theme"]]) {
+    await page.evaluate(([w, lv]) => { const b = window.__bb; b.world = w; b.level = lv; b.startGame(1); }, [world, n]);
+    await page.waitForFunction(t => window.__bb.audio.track === t, track, { timeout: 30_000 });
+    seen.push(track);
+  }
+  await page.waitForFunction(() => window.__bb.audio.music.elements <= 2, null, { timeout: 10_000 });
+  const d = await page.evaluate(() => ({ decoded: window.__decoded, elements: window.__bb.audio.music.elements, loaded: window.__bb.audio.loaded }));
+  record("music memory", { tracks: seen, elements: d.elements, sounds: d.decoded.length, longestSound: round1(Math.max(...d.decoded)) });
+  expect(Math.max(...d.decoded), "every decoded buffer is a short sound").toBeLessThan(10);
+  const bytes = await page.evaluate(() => ({ decoded: window.__bb.audio.decodedBytes, max: window.__bb.CFG.AUDIO.DECODED_MAX }));
+  record("decoded sounds", { MB: round1(bytes.decoded / MB), maxMB: round1(bytes.max / MB) });
+  expect(bytes.decoded, "the decoded sounds, loops and jingles: about 12.5 MB, never music").toBeGreaterThan(5 * MB);
+  expect(bytes.decoded, "AUDIO.DECODED_MAX").toBeLessThanOrEqual(bytes.max);
+  expect(d.loaded.filter(n => ["theme", "story", "boss", "theme_song"].includes(n) || n.startsWith("world_") && n !== "world_open")).toEqual([]);
+  expect(errors).toEqual([]);
+});

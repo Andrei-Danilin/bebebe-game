@@ -286,7 +286,7 @@ export const LOOK = {
     friends: "#a78bfa", friendsTitle: "#8b5cf6", dice: "#fbbf24", note: "#64748b", lockNote: "#b45309", soft: "#475569", bigInk: "#9b2c3a",
     frame: { w: 880, y: 26, h: 590, r: 30, padX: 15, padY: 14, g: 10, B: 50, tabsW: 655 },
     home: { w: 660, y: 40, h: 560, r: 30, titleSize: 54, pad: 14, gap: 12, col: 0.4, colW: 320, top: 24, logoGap: 26, btnGap: 14, logoW: 1.4, logoBand: 0.5,
-      playH: 84, playSize: 34, subH: 62, subSize: 26, iconW: 56, langW: 92, iconH: 44, iconSize: 18, iconPad: 16,
+      playH: 84, playSize: 34, subH: 62, subSize: 26, iconW: 56, langW: 92, musicIcon: { glyph: 0.62, line: 0.09, lineMin: 3, ink: "#dc2626", x0: 0.2, y0: 0.84, x1: 0.8, y1: 0.16 }, iconH: 44, iconSize: 18, iconPad: 16,
       btnIconGap: 0.3, btnIcon: 0.8, btnLabelGap: 0.1, btnPad: 14 },   // SPEC-032 AC 6 (придумал Claude): значок — от видимого левого края нарисованной кнопки на btnIconGap × её высоты, размер btnIcon × её высоты; надпись — не ближе btnLabelGap × высоты к значку; btnPad — поля надписи (px; телефон — cpx)
     phoneHome: { col: 0.4, colMax: 300, titleSize: 30, pad: 12, logoGap: 10, logoMin: 56, playH: 64, playSize: 26, subH: 52, subSize: 20, langW: 76 },
     wardrobe: { preview: 110, colBottom: 548, rowY: 558, rowH: 46 },
@@ -340,6 +340,29 @@ export const LOOK = {
   NAME_TAG: { up: 10, size: 15, rest: 16 },
   BANNER_SAVE_NOTE: 6,       // SPEC-025 phase 2: сек — заметка о сохранении (восстановили / новая игра / не сохраняет) внизу меню
   PERF_LOOK: { frames: 300, overlayMs: 500 },   // SPEC-025 AC 15b: __bb.perf() — кадров в окне; ?perf=1 — обновление панели (мс)
+  // SPEC-047 (sound and music; the numbers are Claude's, the kids tune the volumes after listening): the audio engine and the audio
+  // pipeline (scripts/audio.js reads JINGLE_MAX, tests/audio the budgets). MASTER / MUSIC_*: bus gains (all, menus, play, pause);
+  // OTHERS: bots' and Dad's sounds as a share of the local players'; *_XFADE: seconds; MAX_VOICES / RETRIGGER: polyphony and the
+  // same-sound gap (s); JINGLE_MAX: a longer jingle is cut (s); PRECACHE_KINDS + PRECACHE_MUSIC: what the service worker caches at
+  // install (the rest on first play); PRECACHE_MAX and the *_MAX are budgets in bytes (a sfx / loop, a jingle, a music track, all of assets/audio).
+  // Step 2: dir — where the files are; GAP — a name's own gap between two starts (s; coin: one per 0.06 s on the win screen), the rest use RETRIGGER; LOG_MAX — plays kept in __bb.audio.log;
+  // LOAD_PARALLEL — files fetched at once; LOOP_EDGE — a loop buffer's ends under this amplitude (-60 dBFS) are the decoder's padding and stay outside loopStart / loopEnd;
+  // LOOP_FADE / STEAL_FADE — s: a loop's fade in / out, the fade of a sound stopped to make room (MAX_VOICES); WIN_COUNT — the win screen's count: first star after start s, a star every star s,
+  // a coin every coin s (at most coinMax coins).
+  // Step 3 (music): JINGLE_DIP — the music bus under a jingle; JINGLE_BACK — s to come back; LEVEL_RAMP — s to move to another screen's level; MUSIC_RETRY — s before a track that failed to load is tried again;
+  // CURVE_N — points of an equal-power fade curve.
+  // Review fixes: DELAY — a sound that starts later than its event (s, by name; the fall comes 0.25 s after the push); OTHER_LOOPS — loops that are not a local player's (Dad's dizzy: × OTHERS);
+  // POOL — HTMLAudioElements unlocked in the first gesture and reused for the music (iOS plays only elements a gesture started once); DUCK_IN — s to dip under a jingle; DISPOSE_PAD — s a faded track
+  // lives on; XFADE_MIN / XFADE_PAD — the shortest loop crossfade and the pause after it; STANDBY_LAST — s before the end the loop goes on without a loaded standby; ABORT_FADE — s to take a refused loop
+  // crossfade back; BLOCKED_WAIT — s before a refused loop is tried again; DECODED_MAX — the decoded sounds' memory (bytes) must stay under this.
+  AUDIO: { MASTER: 0.8, MUSIC_MENU: 0.7, MUSIC_PLAY: 0.35, MUSIC_PAUSE: 0.25, OTHERS: 0.7, SCREEN_XFADE: 1, LOOP_XFADE: 2, MAX_VOICES: 8, RETRIGGER: 0.05,
+    dir: "assets/audio/", GAP: { coin: 0.06 }, LOG_MAX: 50, LOAD_PARALLEL: 4, LOOP_EDGE: 0.001, LOOP_FADE: 0.05, STEAL_FADE: 0.02,
+    WIN_COUNT: { start: 0.9, star: 0.45, coin: 0.07, coinMax: 12 },
+    JINGLE_DIP: 0.1, JINGLE_BACK: 0.5, LEVEL_RAMP: 0.3, MUSIC_RETRY: 20, CURVE_N: 64,
+    DELAY: { fall: 0.25 }, OTHER_LOOPS: ["dizzy"], POOL: 8, DUCK_IN: 0.05, DISPOSE_PAD: 0.1, XFADE_MIN: 0.2, XFADE_PAD: 0.05, STANDBY_LAST: 0.2, ABORT_FADE: 0.1, BLOCKED_WAIT: 1,
+    DECODED_MAX: 14 * 1024 * 1024,
+    JINGLE_MAX: 5, PRECACHE_KINDS: ["sfx", "loop", "jingle"], PRECACHE_MUSIC: ["theme", "story"],
+    PRECACHE_MAX: 3.5 * 1024 * 1024, SFX_MAX: 60 * 1024, JINGLE_FILE_MAX: 120 * 1024, MUSIC_MAX: 1.8 * 1024 * 1024, TOTAL_MAX: 13 * 1024 * 1024 },
   TEXT_TEST_SCALE: 1,        // только для тестов: ширина текста надписи уровня и карточек магазина на телефоне × это (шрифты CI и iPhone шире)
 };
 // SPEC-021 / SPEC-039 (from ui/draw.js): the radius of a Little One's head in model units (before the head scale): the 3D model and the

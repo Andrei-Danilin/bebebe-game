@@ -152,7 +152,7 @@ export function buildGame(world, n, slots) {
   G.kisses = [];
   G.kitHintDone = false; G.heardHintDone = false;
   G.attackToken = null; G.prevToken = null; G.botAttackCd = rand(3, 5);
-  G.stats = { hugs: 0, time: 0, playerHugs: 0, rests: 0, starCoins: 0 };
+  G.stats = { hugs: 0, time: 0, playerHugs: 0, rests: 0, starCoins: 0, pushes: 0 };
   G.autoNavs = {}; G.autoMove = [];
   initTrick();                                               // SPEC-042: the level's trick starts from zero (a practice game has none)
   if (G.tutorialGame) tutorialSetup();                       // SPEC-029: тренировка — папа на поляне, сценарий, подсказки, свой запас

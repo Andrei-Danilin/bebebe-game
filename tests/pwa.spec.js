@@ -17,11 +17,14 @@ const SW_VERSION = (SW_SRC.match(/const SW_VERSION\s*=\s*"([^"]+)"/) || [])[1];
 const SW_BUILD = (SW_SRC.match(/const SW_BUILD\s*=\s*(\d+)/) || [])[1];
 // SPEC-020: the hash of the art sprites (npm run assets); SPEC-011 AC 9: the hash of the module set (npm run precache)
 const ASSETS_HASH = (SW_SRC.match(/const ASSETS_HASH\s*=\s*"([^"]+)"/) || [])[1];
+const AUDIO_HASH = (SW_SRC.match(/const AUDIO_HASH = "([^"]+)"/) || [])[1], TRACKS_HASH = (SW_SRC.match(/const TRACKS_HASH = "([^"]+)"/) || [])[1];   // SPEC-047: npm run audio
 const SRC_HASH = (SW_SRC.match(/const SRC_HASH\s*=\s*"([^"]+)"/) || [])[1];
 const THREE_VERSION = (SW_SRC.match(/const THREE_VERSION\s*=\s*"([^"]+)"/) || [])[1];
 // SPEC-011 AC 9: three caches — the shell + modules by SRC_HASH, the sprites by ASSETS_HASH, three.js by its version. SPEC-039 AC 3: the
 // first two are named by the build counter and the content hash, never by the game's semver — a release keeps them
 const CACHE_SRC = `bebebe-b${SW_BUILD}-src-${SRC_HASH}`, CACHE_ASSETS = `bebebe-b${SW_BUILD}-assets-${ASSETS_HASH}`, CACHE_THREE = "bebebe-three-" + THREE_VERSION;
+// SPEC-047: the sounds + the music of the menus at install (named by the manifest's hash); the other tracks, stored whole when first played (named by their hashes; made on first use)
+const CACHE_AUDIO = `bebebe-b${SW_BUILD}-audio-${AUDIO_HASH}`, CACHE_TRACKS = `bebebe-b${SW_BUILD}-tracks-${TRACKS_HASH}`;
 const PKG_VERSION = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8")).version;
 // the string items of a `const NAME = [ … ];` list in sw.js
 const swList = name => { const m = SW_SRC.match(new RegExp(`const ${name} = \\[([\\s\\S]*?)\\];`)); return m ? [...m[1].matchAll(/"([^"]+)"/g)].map(x => x[1]) : []; };
@@ -129,9 +132,9 @@ test("service worker registers and controls the page over http", { tag: "@fast" 
   // SPEC-025 AC 12: derived by npm run precache — the game version + the build counter (tests/tooling.spec.js)
   expect(SW_VERSION).toBe(`bebebe-${JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8")).version}-b${(SW_SRC.match(/const SW_BUILD = (\d+);/) || [])[1]}`);
   expect(ASSETS_HASH && SRC_HASH && THREE_VERSION).toBeTruthy();
-  // SPEC-011 AC 9: exactly the three caches
-  expect((await page.evaluate(() => caches.keys())).sort()).toEqual([CACHE_ASSETS, CACHE_SRC, CACHE_THREE].sort());
-  expect([CACHE_SRC, CACHE_ASSETS].filter(n => n.includes(PKG_VERSION)), "no cache name carries the game version (SPEC-039 AC 3)").toEqual([]);
+  // SPEC-011 AC 9 (+ SPEC-047: the audio cache): exactly these caches (the tracks cache is made when a track first plays)
+  expect((await page.evaluate(() => caches.keys())).sort()).toEqual([CACHE_ASSETS, CACHE_AUDIO, CACHE_SRC, CACHE_THREE].sort());
+  expect([CACHE_SRC, CACHE_ASSETS, CACHE_AUDIO, CACHE_TRACKS].filter(n => n.includes(PKG_VERSION)), "no cache name carries the game version (SPEC-039 AC 3)").toEqual([]);
   const keysOf = name => page.evaluate(async v => (await (await caches.open(v)).keys()).map(r => r.url), name);
   const src = await keysOf(CACHE_SRC), three = await keysOf(CACHE_THREE), art = await keysOf(CACHE_ASSETS);
   for (const u of ["", "index.html", "manifest.webmanifest", "icons/icon.svg", "icons/apple-touch-icon.png",
@@ -209,16 +212,16 @@ test("old caches are removed on a new build (SW_BUILD)", async ({ page }) => {
   const build = n => SW_SRC.replace(/const SW_BUILD\s*=\s*\d+/, `const SW_BUILD = ${n}`);
   const update = () => page.evaluate(async () => (await navigator.serviceWorker.getRegistration()).update());
   await withQuietServer(page, ov, async () => {
-    expect(await keys()).toEqual([CACHE_ASSETS, CACHE_SRC, CACHE_THREE].sort());
+    expect(await keys()).toEqual([CACHE_ASSETS, CACHE_AUDIO, CACHE_SRC, CACHE_THREE].sort());
     // an old-style name, the old jsDelivr three.js cache (SPEC-025: removed) + another app
     await page.evaluate(() => Promise.all([caches.open("bebebe-v0"), caches.open("bebebe-three-0.187.0"), caches.open("other-pages-app")]));
     ov.fn = p => (p === "/sw.js" ? build(9001) : null);
     await update();
-    const v2 = ["bebebe-b9001-assets-" + ASSETS_HASH, "bebebe-b9001-src-" + SRC_HASH];
-    await expect.poll(keys, { timeout: 60_000 }).toEqual([...v2, CACHE_ASSETS, CACHE_SRC, CACHE_THREE, "other-pages-app"].sort());
+    const v2 = ["bebebe-b9001-assets-" + ASSETS_HASH, "bebebe-b9001-audio-" + AUDIO_HASH, "bebebe-b9001-src-" + SRC_HASH];
+    await expect.poll(keys, { timeout: 60_000 }).toEqual([...v2, CACHE_ASSETS, CACHE_AUDIO, CACHE_SRC, CACHE_THREE, "other-pages-app"].sort());
     ov.fn = p => (p === "/sw.js" ? build(9002) : null);
     await update();
-    await expect.poll(keys, { timeout: 60_000 }).toEqual(["bebebe-b9002-assets-" + ASSETS_HASH, "bebebe-b9002-src-" + SRC_HASH, ...v2, CACHE_THREE, "other-pages-app"].sort());
+    await expect.poll(keys, { timeout: 60_000 }).toEqual(["bebebe-b9002-assets-" + ASSETS_HASH, "bebebe-b9002-audio-" + AUDIO_HASH, "bebebe-b9002-src-" + SRC_HASH, ...v2, CACHE_THREE, "other-pages-app"].sort());
   });
 });
 
@@ -236,7 +239,7 @@ test("a release with the same files downloads only index.html and sw.js", async 
   }));
   await withQuietServer(page, ov, async () => {
     const names = await keys();
-    expect(names).toEqual([CACHE_ASSETS, CACHE_SRC, CACHE_THREE].sort());
+    expect(names).toEqual([CACHE_ASSETS, CACHE_AUDIO, CACHE_SRC, CACHE_THREE].sort());
     const next = SW_SRC.replace(/const SW_VERSION\s*=\s*"[^"]+"/, 'const SW_VERSION = "bebebe-9.9.9-b' + SW_BUILD + '"');
     expect(next, "only the version differs").not.toBe(SW_SRC);
     ov.fn = p => { if (p !== "/sw.js") asked.push(p); return p === "/sw.js" ? next : null; };
@@ -487,7 +490,7 @@ test.describe("on iPhone Safari", () => {
     expect(d.texts.every(x => !x), "no language has installHint").toBe(true);
     expect(d.flag).toBe(false);
     expect(d.mode).toBe("home");
-    expect(d.ids).toEqual(["home:lang", "home:play", "home:shop", "home:sound", "home:story"]);
+    expect(d.ids).toEqual(["home:lang", "home:music", "home:play", "home:shop", "home:sound", "home:story"]);
     expect(d.hud).toEqual(["home:title"]);
     expect(errors.filter(e => !e.includes("Failed to load resource"))).toEqual([]);
   });

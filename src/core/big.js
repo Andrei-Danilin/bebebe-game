@@ -109,7 +109,7 @@ export function updateBig(dt) {
   if (target) {
     G.big.hearTurnT = 0; G.big.hearLook = 0;                 // видит — топот уже не важен; шум тает
     G.big.noise = Math.max(0, G.big.noise - CFG.NOISE_DECAY * dt);
-    if (G.big.state !== "chase") { emit("pop", { key: null, args: ["!"], x: G.big.x, y: G.big.y - 75, color: "#ff3b30" }); emit("sfx", { name: "alert" }); }
+    if (G.big.state !== "chase") { emit("pop", { key: null, args: ["!"], x: G.big.x, y: G.big.y - 75, color: "#ff3b30" }); emit("sfx", { name: "alert", slot: "big" }); }
     G.big.state = "chase";
     G.big.lastSeen = { x: target.x, y: target.y };
     G.big.moving = steerTo(G.big, target.x, target.y, speed.chase, dt, false);

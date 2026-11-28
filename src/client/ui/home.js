@@ -6,7 +6,7 @@ import { progress } from "../../core/economy.js";
 import { worldComplete } from "../../core/progress-rules.js";
 import { L, lang } from "../../i18n.js";
 import { art, PAPER_BTN } from "../art.js";
-import { nextLang, openMap, openShop, openStory, toggleSound } from "../flow.js";
+import { nextLang, openMap, openShop, openStory, toggleMusic, toggleSound } from "../flow.js";
 import { LOOK } from "../look.js";
 import { ctx, PHONE, UH, UW } from "../screen.js";
 import { ui } from "../state.js";
@@ -55,13 +55,20 @@ export const homeActions = () => {
     { id: "home:shop", icon: "menu_character", emoji: "🎒 ", text: L().character, color: M.shop, act: () => openShop("home", "progress"), keys: ["KeyB"], pad: [3] }
   ];
 };
-// маленькие значки звука (справа, w × h) и языка (слева от него, langW × h); x1 — правый край.
+// маленькие значки звука (справа, w × h), музыки (слева от него) и языка (ещё левее, langW × h); x1 — правый край. SPEC-047: два переключателя — 🎵 музыка и 🔊 звуки; выключенный зачёркнут
 // SPEC-020: с картинками — круглые значки 21_icons_ui; у языка рядом с глобусом код языка
 function homeIcons(x1, y, langW, w, h, size) {
-  const M = LOOK.MENU_LOOK, gap = PHONE ? cpx(LOOK.PHONE_BTN_GAP) : M.home.gap, snd = ui.muted ? "ui_sound_off" : "ui_sound_on";
-  if (drawArtFit(snd, x1 - w / 2, y + h / 2, Math.min(w, h) * 1.05)) regButton(x1 - w, y, w, h, ui.muted ? "🔇" : "🔊", toggleSound, "home:sound", Math.min(w, h));
-  else fitButton(x1 - w, y, w, h, ui.muted ? "🔇" : "🔊", M.icon, toggleSound, size, size).id = "home:sound";
-  const lx = x1 - w - gap - langW, code = lang.toUpperCase(), sp = PHONE ? cpx(4) : 4;
+  const M = LOOK.MENU_LOOK, gap = PHONE ? cpx(LOOK.PHONE_BTN_GAP) : M.home.gap, snd = ui.sfx ? "ui_sound_on" : "ui_sound_off";
+  if (drawArtFit(snd, x1 - w / 2, y + h / 2, Math.min(w, h) * 1.05)) regButton(x1 - w, y, w, h, ui.sfx ? "🔊" : "🔇", toggleSound, "home:sound", Math.min(w, h));
+  else fitButton(x1 - w, y, w, h, ui.sfx ? "🔊" : "🔇", M.icon, toggleSound, size, size).id = "home:sound";
+  // the music switch: an emoji button until there is a picture of its own; off — crossed out with a red stroke
+  const mx = x1 - w - gap - w, K = M.home.musicIcon, glyph = Math.max(size, h * K.glyph);
+  fitButton(mx, y, w, h, "🎵", M.icon, toggleMusic, glyph, glyph).id = "home:music";
+  if (!ui.music) {
+    ctx.save(); ctx.strokeStyle = K.ink; ctx.lineWidth = Math.max(K.lineMin, h * K.line); ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(mx + w * K.x0, y + h * K.y0); ctx.lineTo(mx + w * K.x1, y + h * K.y1); ctx.stroke(); ctx.restore();
+  }
+  const lx = mx - gap - langW, code = lang.toUpperCase(), sp = PHONE ? cpx(4) : 4;
   if (art("ui_globe")) {
     const ic = Math.min(h, langW * 0.6), f = fitLine(code, size, PHONE ? minPx("main") : size, langW - ic - sp);
     drawArtFit("ui_globe", lx + ic / 2, y + h / 2, ic * 1.05);

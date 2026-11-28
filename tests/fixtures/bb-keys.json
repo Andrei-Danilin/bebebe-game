@@ -34,6 +34,7 @@
  "artTableNames": "function",
  "artUse": "getter",
  "artVersion": "getter",
+ "audio": "value",
  "audioContext": "function",
  "autoStick": "function",
  "autoThink": "function",

@@ -18,7 +18,7 @@ export const ui = {
   warm: /** @type {null | { world: string, level: number }} */ (null),   // SPEC-040 AC 4: the level whose card is shown — warm.js builds its 3D behind the card (null: nothing to warm)
   texts: [],
   particles: [],
-  muted: false,
+  music: true, sfx: true,    // SPEC-047 AC 9: the Music and Sounds switches (the save's settings.music / settings.sfx: save.js writes them at load, setSoundSetting changes them)
   shake: 0,
   acc: 0,                    // SPEC-034: the game-time accumulator of live play (s; < CFG.STEP between frames); a new game starts it at CFG.STEP_PHASE × CFG.STEP
   // SPEC-012 AC 5: the client's timers of the core's hints (who, how long still) and the wide-push rings { x, y, t, r }

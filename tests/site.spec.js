@@ -36,6 +36,10 @@ test("the built site has the listed files and everything sw.js precaches", { tag
   expect(local && local.length, "PRECACHE_LOCAL read from sw.js").toBeGreaterThan(3);
   expect(art && art.length, "PRECACHE_ASSETS read from sw.js").toBeGreaterThan(10);
   expect([...local, ...art].filter(rel => !fs.existsSync(fileOf(rel))), "precached but missing from the site").toEqual([]);
+  // SPEC-047: the sounds (and manifest.json) the worker caches at install, and every track the manifest names, are in the site
+  const audio = swList(sw, "PRECACHE_AUDIO"), tracks = JSON.parse(fs.readFileSync(fileOf("./assets/audio/manifest.json"), "utf8")).files.map(f => "./assets/audio/" + f.file);
+  expect(audio && audio.length, "PRECACHE_AUDIO read from sw.js").toBeGreaterThan(30);
+  expect([...audio, ...tracks].filter(rel => !fs.existsSync(fileOf(rel))), "audio missing from the site").toEqual([]);
   // SPEC-011 AC 10: the ES modules are deployed — every versioned module sw.js precaches and every module the shell's import
   // map names is a file of the site
   const mods = swList(sw, "PRECACHE_SRC");

@@ -25,6 +25,7 @@ import { detectLang, HTML_LANG, lang, LANGS, setCurrentLang } from "../i18n.js";
 import { SEEN_IDS } from "../story.js";
 import { namesFrom, noNames, setNamesTyped, typedNames } from "./names.js";
 import { MODES } from "./quality.js";
+import { ui } from "./state.js";
 import { adoptWorn, cloneSkins, fitOutfitsToOwned, loadOutfits, outfitsFromIds, outfitsToIds, setSkinKeep, setSkinSel, skinKeep } from "./outfits.js";
 import { localBackend, wrapBackend } from "./storage.js";
 
@@ -43,7 +44,7 @@ export const SAVE_KEYS = Object.freeze({ save: "bebebe-save", backup: "bebebe-sa
   migration: "bebebe-save-before-migration", reset: "bebebe-save-before-reset", reset2: "bebebe-save-before-reset-2", import: "bebebe-save-before-import", restore: "bebebe-save-before-restore", errors: "bebebe-errors", probe: "bebebe-probe" });
 export const OLD_KEYS = Object.freeze(["bebebe-progress", "bebebe-outfits", "bebebe-names", "bebebe-lang"]);
 export const COPY_NAMES = Object.freeze(["backup", "session", "migration", "reset", "reset2", "import", "restore"]);   // backup → session → snapshots (newest first)
-const KNOWN_TOP = ["version", "progress", "outfits", "names", "lang", "migrated", "persist", "langAsked", "quality"];
+const KNOWN_TOP = ["version", "progress", "outfits", "names", "lang", "migrated", "persist", "langAsked", "quality", "settings"];
 const OWN_LISTS = { hats: HATS, jackets: JACKETS, pants: PANTS, big: BIG_SKINS };
 const WORLD_FIELDS = ["unlocked", "stars", "won"];
 
@@ -62,6 +63,9 @@ let langAsked = null;
 // SPEC-040 AC 7: the picture quality a grown-up chose on the grown-ups page — "auto" | "high" | "medium" | "low"; null: no field (never chosen: auto).
 // A device's setting: a code or an import does not carry it, a restore keeps this device's
 let qualityPref = null;
+// SPEC-047 AC 9: the Music and Sounds switches — { music, sfx, … } (default on; null: no field yet, every switch on). A device's setting like the quality: a code or an import
+// does not carry it, a restore keeps this device's. An old save with `muted: true` (and no settings) turns both off; its `muted` stays as it was written. ui.music / ui.sfx follow it
+let settings = null;
 let errCache = null;                       // the stored error log (read by loadSave)
 // what the grown-ups page and the tests read: storage failed (noSave), the notes due / shown, the copies stored
 // saveOff (review fix): the probe failed or the stored save could not be read — this session never writes bebebe-save or a copy
@@ -79,7 +83,7 @@ export function fingerprint(t) {
 }
 // the root of a save: a plain object with a whole version ≥ 1 and a progress object (else broken)
 export const validSave = s => plainObj(s) && Number.isInteger(s.version) && s.version >= 1 && plainObj(s.progress);
-const TOP_VALID = { version: v => Number.isInteger(v) && v >= 1, progress: plainObj, outfits: plainObj, names: plainObj, lang: v => LANGS.includes(v), migrated: plainObj, persist: plainObj, langAsked: v => typeof v === "boolean", quality: v => MODES.includes(v) };
+const TOP_VALID = { version: v => Number.isInteger(v) && v >= 1, progress: plainObj, outfits: plainObj, names: plainObj, lang: v => LANGS.includes(v), migrated: plainObj, persist: plainObj, langAsked: v => typeof v === "boolean", quality: v => MODES.includes(v), settings: plainObj };
 const navLangs = () => (navigator.languages && navigator.languages.length ? [...navigator.languages] : [navigator.language]);
 function applyLang(l) { setCurrentLang(l); document.documentElement.lang = HTML_LANG[l] || l; }
 function emptyHeld() { return { top: {}, progress: {}, worlds: {}, worldFields: {}, worldOver: {}, owned: {}, ownedKeys: {}, upgrades: {}, seen: {}, outfits: [] }; }
@@ -150,6 +154,7 @@ function saveObject() {
   if (persist) out.persist = { ...persist };
   if (langAsked !== null) out.langAsked = langAsked;
   if (qualityPref !== null) out.quality = qualityPref;
+  if (settings !== null) out.settings = { ...settings };
   if (future) for (const k of KNOWN_TOP) if (Object.hasOwn(held.top, k)) out[k] = held.top[k];
   return out;
 }
@@ -226,6 +231,8 @@ function useSave(s) {
   persist = plainObj(s.persist) ? { ...s.persist } : null;
   langAsked = typeof s.langAsked === "boolean" ? s.langAsked : null;
   qualityPref = MODES.includes(s.quality) ? s.quality : null;
+  settings = settingsOf(s);
+  applySettings();
   setProgress(s.progress);
   const o = outfitsFromIds(s.outfits);
   setSkinSel(o); setSkinKeep(cloneSkins(o));
@@ -240,6 +247,7 @@ function migrateOld(old, gifts, first = false) {
   future = false; futureVersion = SAVE_VERSION; persist = null;
   langAsked = first ? false : null;           // SPEC-032 AC 13: nothing stored at all → the language screen asks (until answered)
   qualityPref = null;
+  settings = null; applySettings();
   held = emptyHeld();
   setProgress(pv);
   holdProgress(held, pv, false);
@@ -354,6 +362,16 @@ export const langPending = () => langAsked === false;
 // SPEC-040 AC 7: the grown-ups' choice of picture quality (null: never chosen = auto); written through the save queue like everything else
 export const qualityChoice = () => qualityPref;
 export function setQualityChoice(m) { if (MODES.includes(m) && qualityPref !== m) { qualityPref = m; queueSave(); } }
+// SPEC-047 AC 9: the switches of a stored save: settings.music / settings.sfx (anything but false is on); no settings and `muted: true` (an old save): both off
+const settingsOf = s => (plainObj(s.settings) ? { ...s.settings, music: s.settings.music !== false, sfx: s.settings.sfx !== false } : s.muted === true ? { music: false, sfx: false } : null);
+const applySettings = () => { ui.music = settings ? settings.music !== false : true; ui.sfx = settings ? settings.sfx !== false : true; };
+// a grown-up or a child switched the music or the sounds: kept in the save
+export function setSoundSetting(key, on) {
+  if (key !== "music" && key !== "sfx") return;
+  ui[key] = !!on;
+  settings = { ...settings, music: ui.music, sfx: ui.sfx };
+  queueSave();
+}
 export function answerLang() { if (langAsked === false) { langAsked = true; queueSave(); } }
 
 // ---------- copies for the grown-ups page (AC 4, 6b) ----------
@@ -373,11 +391,11 @@ async function copySave(name) {
 }
 // a whole save replaces the game's (restore, undo, import): this device's migration record, persist and language-screen answers stay
 function replaceWith(s) {
-  const keepMigrated = migrated, keepPersist = persist, keepAsked = langAsked, keepQuality = qualityPref;
+  const keepMigrated = migrated, keepPersist = persist, keepAsked = langAsked, keepQuality = qualityPref, keepSettings = settings;
   loading = true;
   useSave(s);
   loading = false;
-  migrated = keepMigrated; persist = keepPersist; langAsked = keepAsked; qualityPref = keepQuality;
+  migrated = keepMigrated; persist = keepPersist; langAsked = keepAsked; qualityPref = keepQuality; settings = keepSettings; applySettings();
 }
 // a grown-up restored or reset: the broken copy is no longer needed
 const clearBroken = () => remove(SAVE_KEYS.broken);
@@ -437,7 +455,7 @@ const unb64url = s => { const bin = atob(s.replace(/-/g, "+").replace(/_/g, "/")
 export function saveCode() {
   flushSaves();
   const s = saveObject();
-  delete s.migrated; delete s.persist; delete s.langAsked; delete s.quality;
+  delete s.migrated; delete s.persist; delete s.langAsked; delete s.quality; delete s.settings;
   const json = JSON.stringify(s);
   return `BB1.${b64url(json)}.${fingerprint(json)}`;
 }

@@ -35,6 +35,7 @@ export * from "./big.js";
 export * from "./mood.js";
 export * from "./kindwalk.js";
 export * from "./hearing.js";
+export * from "./soundloops.js";
 export * from "./autopilot.js";
 export * from "./practice.js";
 export * from "./economy.js";

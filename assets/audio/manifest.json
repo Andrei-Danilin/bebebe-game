@@ -1,0 +1,445 @@
+{
+  "files": [
+    {
+      "name": "alert",
+      "kind": "sfx",
+      "file": "alert.mp3",
+      "dur": 0.453,
+      "bytes": 6269,
+      "loop": false,
+      "srcHash": "6969ee7b670cadfe"
+    },
+    {
+      "name": "back",
+      "kind": "sfx",
+      "file": "back.mp3",
+      "dur": 0.256,
+      "bytes": 3761,
+      "loop": false,
+      "srcHash": "8217560654e8c6e5"
+    },
+    {
+      "name": "boots",
+      "kind": "sfx",
+      "file": "boots.mp3",
+      "dur": 0.57,
+      "bytes": 7523,
+      "loop": false,
+      "srcHash": "6b422858d8ecde66"
+    },
+    {
+      "name": "boss",
+      "kind": "music",
+      "file": "boss.mp3",
+      "dur": 74.72,
+      "bytes": 1047039,
+      "loop": false,
+      "srcHash": "2e5632b8873ed60d"
+    },
+    {
+      "name": "boss_sting",
+      "kind": "jingle",
+      "file": "boss_sting.mp3",
+      "dur": 4.091,
+      "bytes": 58148,
+      "loop": false,
+      "srcHash": "2dfbb85ee6f76b19"
+    },
+    {
+      "name": "buy",
+      "kind": "sfx",
+      "file": "buy.mp3",
+      "dur": 0.762,
+      "bytes": 10031,
+      "loop": false,
+      "srcHash": "20481a85c02a68ba"
+    },
+    {
+      "name": "cloak",
+      "kind": "sfx",
+      "file": "cloak.mp3",
+      "dur": 0.713,
+      "bytes": 9404,
+      "loop": false,
+      "srcHash": "d44460549f57117a"
+    },
+    {
+      "name": "coin",
+      "kind": "sfx",
+      "file": "coin.mp3",
+      "dur": 0.361,
+      "bytes": 5015,
+      "loop": false,
+      "srcHash": "970abb8d658b92e2"
+    },
+    {
+      "name": "danger_tick",
+      "kind": "loop",
+      "file": "danger_tick.mp3",
+      "dur": 0.95,
+      "bytes": 12225,
+      "loop": true,
+      "srcHash": "4d5adbbfdcffaa87"
+    },
+    {
+      "name": "dizzy",
+      "kind": "loop",
+      "file": "dizzy.mp3",
+      "dur": 2.43,
+      "bytes": 30093,
+      "loop": true,
+      "srcHash": "bb8d752f4bdda658"
+    },
+    {
+      "name": "fall",
+      "kind": "sfx",
+      "file": "fall.mp3",
+      "dur": 0.952,
+      "bytes": 12225,
+      "loop": false,
+      "srcHash": "061324951949dc86"
+    },
+    {
+      "name": "growl",
+      "kind": "sfx",
+      "file": "growl.mp3",
+      "dur": 1.044,
+      "bytes": 13165,
+      "loop": false,
+      "srcHash": "1efe16074d305495"
+    },
+    {
+      "name": "heard",
+      "kind": "sfx",
+      "file": "heard.mp3",
+      "dur": 0.42,
+      "bytes": 5955,
+      "loop": false,
+      "srcHash": "f71d77cdefc9a727"
+    },
+    {
+      "name": "hug",
+      "kind": "sfx",
+      "file": "hug.mp3",
+      "dur": 1.852,
+      "bytes": 22883,
+      "loop": false,
+      "srcHash": "71bd13fc61717132"
+    },
+    {
+      "name": "hug_mega",
+      "kind": "sfx",
+      "file": "hug_mega.mp3",
+      "dur": 2.829,
+      "bytes": 34795,
+      "loop": false,
+      "srcHash": "909c0943338eb44a"
+    },
+    {
+      "name": "kind",
+      "kind": "sfx",
+      "file": "kind.mp3",
+      "dur": 2.134,
+      "bytes": 26331,
+      "loop": false,
+      "srcHash": "eab07663124f25bd"
+    },
+    {
+      "name": "kiss",
+      "kind": "sfx",
+      "file": "kiss.mp3",
+      "dur": 0.529,
+      "bytes": 7209,
+      "loop": false,
+      "srcHash": "8078913897a01e37"
+    },
+    {
+      "name": "kiss_hit",
+      "kind": "sfx",
+      "file": "kiss_hit.mp3",
+      "dur": 0.821,
+      "bytes": 10658,
+      "loop": false,
+      "srcHash": "7181bfdeb7c5a21a"
+    },
+    {
+      "name": "kit",
+      "kind": "sfx",
+      "file": "kit.mp3",
+      "dur": 0.424,
+      "bytes": 5955,
+      "loop": false,
+      "srcHash": "08289f51e3223427"
+    },
+    {
+      "name": "lose",
+      "kind": "jingle",
+      "file": "lose.mp3",
+      "dur": 4.135,
+      "bytes": 58879,
+      "loop": false,
+      "srcHash": "1d5c88d5aa24b175"
+    },
+    {
+      "name": "nope",
+      "kind": "sfx",
+      "file": "nope.mp3",
+      "dur": 0.413,
+      "bytes": 5642,
+      "loop": false,
+      "srcHash": "479e6e0030cacc6c"
+    },
+    {
+      "name": "out",
+      "kind": "sfx",
+      "file": "out.mp3",
+      "dur": 1.48,
+      "bytes": 18494,
+      "loop": false,
+      "srcHash": "d2dec444c7c01e2f"
+    },
+    {
+      "name": "page",
+      "kind": "sfx",
+      "file": "page.mp3",
+      "dur": 0.487,
+      "bytes": 6582,
+      "loop": false,
+      "srcHash": "9bc59a088db37af2"
+    },
+    {
+      "name": "pickup",
+      "kind": "sfx",
+      "file": "pickup.mp3",
+      "dur": 0.464,
+      "bytes": 6269,
+      "loop": false,
+      "srcHash": "3d8a776dedd20e7d"
+    },
+    {
+      "name": "push",
+      "kind": "sfx",
+      "file": "push.mp3",
+      "dur": 1.165,
+      "bytes": 14733,
+      "loop": false,
+      "srcHash": "2e0f03658e6952d1"
+    },
+    {
+      "name": "rescue",
+      "kind": "sfx",
+      "file": "rescue.mp3",
+      "dur": 0.88,
+      "bytes": 11284,
+      "loop": false,
+      "srcHash": "8385e76d421374d3"
+    },
+    {
+      "name": "rescue_loop",
+      "kind": "loop",
+      "file": "rescue_loop.mp3",
+      "dur": 2.95,
+      "bytes": 36049,
+      "loop": true,
+      "srcHash": "954ec5ccb2ddbb1a"
+    },
+    {
+      "name": "run_steps",
+      "kind": "loop",
+      "file": "run_steps.mp3",
+      "dur": 1.95,
+      "bytes": 24137,
+      "loop": true,
+      "srcHash": "b6c537fdacaf9db1"
+    },
+    {
+      "name": "shield",
+      "kind": "sfx",
+      "file": "shield.mp3",
+      "dur": 0.398,
+      "bytes": 5642,
+      "loop": false,
+      "srcHash": "29513e72e58962cb"
+    },
+    {
+      "name": "slip",
+      "kind": "sfx",
+      "file": "slip.mp3",
+      "dur": 0.506,
+      "bytes": 6896,
+      "loop": false,
+      "srcHash": "4d4aec567ca8c721"
+    },
+    {
+      "name": "star",
+      "kind": "sfx",
+      "file": "star.mp3",
+      "dur": 0.609,
+      "bytes": 8150,
+      "loop": false,
+      "srcHash": "1f10605e6de361d9"
+    },
+    {
+      "name": "star_1",
+      "kind": "sfx",
+      "file": "star_1.mp3",
+      "dur": 0.34,
+      "bytes": 5015,
+      "loop": false,
+      "srcHash": "fffec2e8eec118ea"
+    },
+    {
+      "name": "star_2",
+      "kind": "sfx",
+      "file": "star_2.mp3",
+      "dur": 0.407,
+      "bytes": 5642,
+      "loop": false,
+      "srcHash": "f2c247a18a500d91"
+    },
+    {
+      "name": "star_3",
+      "kind": "sfx",
+      "file": "star_3.mp3",
+      "dur": 0.422,
+      "bytes": 5955,
+      "loop": false,
+      "srcHash": "f036e8e09bd1ce06"
+    },
+    {
+      "name": "story",
+      "kind": "music",
+      "file": "story.mp3",
+      "dur": 80.9,
+      "bytes": 1133348,
+      "loop": false,
+      "srcHash": "de1c18d84d356c6c"
+    },
+    {
+      "name": "tap",
+      "kind": "sfx",
+      "file": "tap.mp3",
+      "dur": 0.2,
+      "bytes": 3134,
+      "loop": false,
+      "srcHash": "9af3eff155f45616"
+    },
+    {
+      "name": "theme",
+      "kind": "music",
+      "file": "theme.mp3",
+      "dur": 82.4,
+      "bytes": 1154559,
+      "loop": false,
+      "srcHash": "24661852f2a2fa92"
+    },
+    {
+      "name": "theme_song",
+      "kind": "song",
+      "file": "theme_song.mp3",
+      "dur": 79.6,
+      "bytes": 1115428,
+      "loop": false,
+      "srcHash": "e5a4fded21f44db3"
+    },
+    {
+      "name": "thrown_out",
+      "kind": "sfx",
+      "file": "thrown_out.mp3",
+      "dur": 0.797,
+      "bytes": 10344,
+      "loop": false,
+      "srcHash": "412d8d57ec3bb82d"
+    },
+    {
+      "name": "tiptoe_steps",
+      "kind": "loop",
+      "file": "tiptoe_steps.mp3",
+      "dur": 1.95,
+      "bytes": 24137,
+      "loop": true,
+      "srcHash": "d0a8a9c60daf2b81"
+    },
+    {
+      "name": "unlock",
+      "kind": "sfx",
+      "file": "unlock.mp3",
+      "dur": 0.509,
+      "bytes": 6896,
+      "loop": false,
+      "srcHash": "178f55159a9ff3a1"
+    },
+    {
+      "name": "wide_push",
+      "kind": "sfx",
+      "file": "wide_push.mp3",
+      "dur": 1.2,
+      "bytes": 15046,
+      "loop": false,
+      "srcHash": "00b6bc1a162288bc"
+    },
+    {
+      "name": "win",
+      "kind": "jingle",
+      "file": "win.mp3",
+      "dur": 4.602,
+      "bytes": 65462,
+      "loop": false,
+      "srcHash": "912c062441c7e55d"
+    },
+    {
+      "name": "world_beach",
+      "kind": "music",
+      "file": "world_beach.mp3",
+      "dur": 115.2,
+      "bytes": 1613530,
+      "loop": false,
+      "srcHash": "8d8c58a87b33531a"
+    },
+    {
+      "name": "world_city",
+      "kind": "music",
+      "file": "world_city.mp3",
+      "dur": 72.4,
+      "bytes": 1014490,
+      "loop": false,
+      "srcHash": "91e4bb2ba4293cc8"
+    },
+    {
+      "name": "world_field",
+      "kind": "music",
+      "file": "world_field.mp3",
+      "dur": 78.8,
+      "bytes": 1104090,
+      "loop": false,
+      "srcHash": "fb2f9c79ebb4b7a2"
+    },
+    {
+      "name": "world_open",
+      "kind": "jingle",
+      "file": "world_open.mp3",
+      "dur": 3.962,
+      "bytes": 56319,
+      "loop": false,
+      "srcHash": "294714eae39737a2"
+    },
+    {
+      "name": "world_school",
+      "kind": "music",
+      "file": "world_school.mp3",
+      "dur": 63.1,
+      "bytes": 884296,
+      "loop": false,
+      "srcHash": "5d775e9e893fa605"
+    },
+    {
+      "name": "world_winter",
+      "kind": "music",
+      "file": "world_winter.mp3",
+      "dur": 84.7,
+      "bytes": 1186742,
+      "loop": false,
+      "srcHash": "42dd4f0f02805edd"
+    }
+  ]
+}

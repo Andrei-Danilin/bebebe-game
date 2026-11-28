@@ -24,7 +24,8 @@ export function pushEvent(g, e) {
 export function orderedEvents(g = G) { return g.eventsHead === 0 ? g.events.slice() : [...g.events.slice(g.eventsHead), ...g.events.slice(0, g.eventsHead)]; }
 /** @param {{ events: GameEvent[], eventsHead: number }} [g] */
 export function clearEvents(g = G) { g.events.length = 0; g.eventsHead = 0; }
-// SPEC-012 AC 5: an effect for the client (it plays it as today): sfx { name }, burst { kind, x, y, n, color }, pop { key, args, x,
+// SPEC-012 AC 5: an effect for the client (it plays it as today): sfx { name, slot? } (SPEC-047: a sound of assets/audio or an old beep; slot — who made it:
+// a Little One's slot or "big" — the client plays the sounds of slots that are not on this device quieter), burst { kind, x, y, n, color }, pop { key, args, x,
 // y, color, meaning } (an I18N key and its arguments — key null: args[0] is the text itself, a number or a sign), shake { t },
 // wave { x, y, r } (a wide push ring), hint { kind: "kit" | "kitOff" | "heard" | "practice", slot, step }, mood { level }
 /** @param {string} type @param {object} [data] */

@@ -63,7 +63,7 @@ function melon(it) {
   emit("pop", { key: "slip", args: [], x: b.x, y: b.y - 70, color: "#fb7185" });
   emit("burst", { kind: "star", x: b.x, y: b.y, n: 12, color: "#fb7185" });
   emit("shake", { t: 0.2 });
-  emit("sfx", { name: "slip" });
+  emit("sfx", { name: "slip", slot: "big" });
 }
 function eat(it) {
   const b = G.big;
@@ -72,7 +72,7 @@ function eat(it) {
   logEvent("worldItem", { kind: "cupcake", effect: "eat" });
   emit("pop", { key: "yum", args: [], x: b.x, y: b.y - 70, color: "#f9a8d4" });
   emit("burst", { kind: "heart", x: b.x, y: b.y - 20, n: 8, color: "#f9a8d4" });
-  emit("sfx", { name: "munch" });
+  emit("sfx", { name: "munch", slot: "big" });
 }
 // the kid's direction: a bot's own steering, a player's stick (l.dir is set by it)
 const runDir = l => (l.kind === "bot" ? l.moveDir : l.dir);
@@ -83,7 +83,7 @@ function launch(it, l) {
   logEvent("worldItem", { kind: it.kind, effect: "launch", who: l.id });
   if (it.kind === "plane") emit("pop", { key: "whee", args: [], x: l.x, y: l.y - 40, color: "#bae6fd" });
   emit("burst", { kind: "star", x: it.x, y: it.y, n: 8, color: "#fde047" });
-  emit("sfx", { name: it.kind === "plane" ? "whee" : "kick" });
+  emit("sfx", { name: it.kind === "plane" ? "whee" : "kick", slot: l.slot });
 }
 // ---------- the flights ----------
 // Dad sees the point (x, y) from where he stands, facing where he faces
@@ -100,7 +100,7 @@ function hitDad(s) {
   else emit("pop", { key: "bonk", args: [], x: b.x, y: b.y - 70, color: "#fde047" });
   emit("burst", { kind: "star", x: b.x, y: b.y, n: 12, color: snow ? "#e0f2fe" : "#fde047" });
   emit("shake", { t: 0.2 });
-  emit("sfx", { name: snow ? "freeze" : "bonk" });
+  emit("sfx", { name: snow ? "freeze" : "bonk", slot: "big" });
 }
 function flyStep(s, px) {
   const nx = s.x + s.dx * px, ny = s.y + s.dy * px;

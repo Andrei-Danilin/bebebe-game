@@ -98,7 +98,8 @@ test("assets fit the budget @fast", async () => {
   const bg = new Set(manifest.sources.filter(s => s.size === "background").map(s => s.name));
   let total = 0;
   const over = [];
-  for (const f of fs.readdirSync(ASSETS)) {
+  // SPEC-047: assets/audio/ is a folder of its own with its own budgets (tests/audio): the art budget counts the art files only
+  for (const f of fs.readdirSync(ASSETS, { withFileTypes: true }).filter(e => e.isFile()).map(e => e.name)) {
     const size = fs.statSync(path.join(ASSETS, f)).size;
     total += size;
     if (bg.has(f.replace(/\.webp$/, "")) && size > manifest.budget.backgroundKB * 1024) over.push(`${f}: ${size}`);

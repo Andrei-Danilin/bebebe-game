@@ -19,7 +19,8 @@ const TYPES = {
   ".json": "application/json",
   ".png": "image/png",
   ".svg": "image/svg+xml",
-  ".webp": "image/webp"
+  ".webp": "image/webp",
+  ".mp3": "audio/mpeg"
 };
 
 // SPEC-011 review: every response says which tree it serves (X-Bebebe-Root: a short hash of the served folder), so the test
@@ -47,7 +48,17 @@ function makeServer({ override = null, root = ROOT } = {}) {
     }
     fs.stat(file, (err, st) => {
       if (err || !st.isFile()) { res.writeHead(404, { "Content-Type": "text/plain" }); res.end("not found"); return; }
-      res.writeHead(200, { "Content-Type": type, "Content-Length": st.size, "Cache-Control": "no-cache" });
+      // SPEC-047: byte ranges, as every real host answers them — an audio element seeks and streams with them
+      const m = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range || "");
+      if (m && (m[1] || m[2])) {
+        const start = m[1] ? Number(m[1]) : Math.max(0, st.size - Number(m[2])), end = m[1] && m[2] ? Math.min(Number(m[2]), st.size - 1) : st.size - 1;
+        if (start > end || start >= st.size) { res.writeHead(416, { "Content-Range": "bytes */" + st.size }); res.end(); return; }
+        res.writeHead(206, { "Content-Type": type, "Content-Length": end - start + 1, "Content-Range": `bytes ${start}-${end}/${st.size}`, "Accept-Ranges": "bytes", "Cache-Control": "no-cache" });
+        if (req.method === "HEAD") { res.end(); return; }
+        fs.createReadStream(file, { start, end }).pipe(res);
+        return;
+      }
+      res.writeHead(200, { "Content-Type": type, "Content-Length": st.size, "Accept-Ranges": "bytes", "Cache-Control": "no-cache" });
       if (req.method === "HEAD") { res.end(); return; }
       fs.createReadStream(file).pipe(res);
     });

@@ -28,7 +28,7 @@ const test = base.test.extend({
 test.afterAll(async () => { await shared.close(); });
 
 const overlaps = (a, b, pad = 0) => a.x < b.x + b.w + pad - 0.01 && a.x + a.w + pad > b.x + 0.01 && a.y < b.y + b.h + pad - 0.01 && a.y + a.h + pad > b.y + 0.01;
-const HOME_BUTTONS = ["home:lang", "home:play", "home:shop", "home:sound", "home:story"];
+const HOME_BUTTONS = ["home:lang", "home:music", "home:play", "home:shop", "home:sound", "home:story"];
 const all20 = () => Object.fromEntries(Array.from({ length: 20 }, (_, i) => [i + 1, true]));
 
 // a real click on a button registered this frame (by id), desktop or phone
@@ -103,9 +103,9 @@ test("home is minimal: the logo, language and sound, Play · Story · Character"
   expect([hp >= 90 && hp <= 160, hs >= 300 && hs <= 350, hc >= 20 && hc <= 45], `fallback colours ${d.home.colors}`).toEqual([true, true, true]);
   expect(btn("home:shop").text, "the Character button").toBe("🎒 Character");
   // the language and sound icons small, in the top right corner
-  for (const id of ["home:lang", "home:sound"]) {
+  for (const id of ["home:lang", "home:music", "home:sound"]) {   // SPEC-047: the music switch sits between them
     expect(btn(id).w * btn(id).h, `${id} small`).toBeLessThan(col[1].w * col[1].h);
-    expect(btn(id).x, `${id} on the right`).toBeGreaterThan(d.ui.w * 0.75);
+    expect(btn(id).x, `${id} on the right`).toBeGreaterThan(d.ui.w * 0.7);
     expect(btn(id).y + btn(id).h, `${id} at the top`).toBeLessThan(col[0].y);
   }
   // the label in every language (SPEC-026)

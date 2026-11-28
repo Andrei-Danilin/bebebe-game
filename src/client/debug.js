@@ -31,7 +31,7 @@ import { orderedEvents } from "../core/events.js";
 import { bannerAlpha, chapterOpen, chooseStop, goBack, nextLevel, closeShop, giveReward, lastReward, mapTick, openFriends, openMap, openScene, openShop, openStory, openTip, closeTip, tipDue, resetMenus, resetWorld, rngDraws, sceneNext, scenePageCount, scenePages, sceneSkip, seedRandom, selectWorld, setLastReward, setMode, setShopTab, shopAfterWin, showBanner, showCard, startGame, tapWorldTab, toHome, toMap } from "./flow.js";
 import { errorLog, reportError } from "./errors.js";
 import { glRestored } from "./lifecycle.js";
-import { audioContext } from "./sound.js";
+import { audioContext, audioDebug, clickSound } from "./sound.js";
 import { burst, kissNow, kitNow, popText, runCore, runFrame, stepGame } from "./fx.js";
 import { resetPads, toGame } from "./input.js";
 import { nameInput, openNameInput, stickR, sticks } from "./devices.js";
@@ -120,7 +120,7 @@ export function installDebug() {
     get artInfo() { const z = artLazy(); return { total: ART_NAMES.length, resident: ART_RESIDENT.length, ok: artCount.ok, bad: artCount.bad + z.bad, loaded: artCount.ok + z.loaded, pending: z.loading, bytes: artBytes(), done: artDone(), loadingShown: !!document.getElementById("loading") }; },
     get mode() { return mode; }, set mode(v) { if (MODES.includes(v)) setMode(v); },   // SPEC-017: только экраны из MODES
     // SPEC-017: экраны меню; wardrobePage — «looks» (наряды) или «friends» (имена друзей) во вкладке «Гардероб»; resetMenus — как при запуске
-    MODES, toMap, toHome, resetMenus, shopAfterWin, closeShop, get muted() { return ui.muted; },   // SPEC-030: и магазин после победы → «Готово»
+    MODES, toMap, toHome, resetMenus, shopAfterWin, closeShop, get muted() { return !ui.sfx; },   // SPEC-030: и магазин после победы → «Готово»
     get wardrobePage() { return ui.wardrobePage; }, set wardrobePage(v) { if (v === "looks" || v === "friends") ui.wardrobePage = v; },
     get littles() { return G.littles; }, get big() { return G.big; }, get stats() { return G.stats; },
     get level() { return G.level; }, set level(v) { G.level = clamp(Math.floor(v) || 1, 1, levelsPerWorld()); },
@@ -159,6 +159,9 @@ export function installDebug() {
     get errorLog() { return errorLog(); }, reportError, nextLevel,
     // SPEC-025: forget every pad (AC 7e: the tests' gamepad stubs); the one "back" (AC 14d); the audio context (AC 14); restored (AC 14c)
     resetPads, goBack, audioContext, get glRestored() { return glRestored; },
+    // SPEC-047: the audio, for the tests (sound.js audioDebug): log — the last 50 plays { name, at, n, synth?, loop?, other?, stolen? }, track — the music that sounds, music — its pair, levels — the bus gains
+    // (null before the first gesture), loaded / failed / loops / voices, settings, musicPaused, decodedBytes, loopRegion(buffer), seekMusic(s), tick() — one audioTick
+    audio: audioDebug,
     // SPEC-025 phase 2: the save module — info (noSave, notes, copies, persist, pending writes), queue / flush the whole save, the
     // parents' code (code(), readCode(text) → { ok, error }), the keys, the pure helpers (validSave, fingerprint, outfits by id ↔ indexes)
     save: Object.freeze({ get info() { return saveState(); }, queue: queueSave, flush: flushSaves, code: saveCode, readCode: t => { const r = readCode(t); return { ok: r.ok, error: r.error || null }; },
@@ -173,7 +176,7 @@ export function installDebug() {
     // that set it up: the shop, its friends page, the name input of a slot, a map stop or world tab (a locked one shows a hint)
     get screenState() { return { mode, shopTab: ui.shopTab, wardrobePage: ui.wardrobePage, toast: ui.toast && ui.toast.text, mapBgCache: !!ui.mapBgCache, nameInput: !!nameInput }; },
     openShop, openFriends, chooseStop, tapWorldTab, openNameInput: slot => openNameInput({ x: 0, y: 0, w: 100, h: 30 }, slot),
-    tapButton(id) { const q = ui.buttons.find(r => (r.id || r.act.name) === id); if (q) q.act(); return !!q; },
+    tapButton(id) { const q = ui.buttons.find(r => (r.id || r.act.name) === id); if (q) { clickSound(q); q.act(); } return !!q; },
     LANGS, detectLang, get lang() { return lang; },   // SPEC-028: языки по порядку значка 🌐, язык при запуске (чистая), текущий язык
     update: stepGame, frame: runFrame, inSafe, I18N, startGame, resetWorld, cycleOutfit, randomOutfit, cycleBig, setLang, toScreen,
     get items() { return G.items; }, get progress() { return progress; }, buyGloves, setEquip, get lastReward() { return lastReward; }, spawnItem,

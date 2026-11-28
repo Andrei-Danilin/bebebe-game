@@ -33,7 +33,7 @@ const ENTRY = "./src/client/main.js";
 const ENTRY_RE = /<script type="module" src="\.\/src\/client\/main\.js(?:\?v=[0-9a-f]*)?"><\/script>/;
 const THREE_DIR = "vendor/three";
 const THREE_ENTRY = "./vendor/three/three.module.js";
-const SW_BLOCKS = [MARK, ["// assets:start", "// assets:end"]];   // generated: not part of the cache strategy
+const SW_BLOCKS = [MARK, ["// assets:start", "// assets:end"], ["// audio:start", "// audio:end"]];   // generated: not part of the cache strategy
 const TEXT_SHELL = /\.(svg|webmanifest|json)$/;
 const hashOf = text => crypto.createHash("sha256").update(text).digest("hex").slice(0, 10);
 // a module's hash: of its text with LF line ends (a Windows checkout with CRLF gives the same hash as CI and Pages)

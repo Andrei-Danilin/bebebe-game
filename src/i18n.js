@@ -37,6 +37,7 @@ export const I18N = {
     // SPEC-025 phase 2: the save notes, the parents' gate and the grown-ups page (the reset's armed texts sure / sureShort are retired)
     saveRecovered: "We fixed your save from a backup", freshStart: "We couldn't read your save, so we started a new game", noSave: "This device isn't keeping progress",
     parentsGate: (a, b) => `For grown-ups: what is ${a} times ${b}?`, numberWords: ["three", "four", "five", "six", "seven", "eight", "nine"], gateWrong: "Not quite. Here is another one",
+    musicOn: "Music: on", musicOff: "Music: off", soundsOn: "Sounds: on", soundsOff: "Sounds: off",   // SPEC-047 AC 9: the switches on the grown-ups page
     quality: "Picture quality", qualityAuto: "Auto", qualityHigh: "High", qualityMedium: "Medium", qualityLow: "Low",
     qualityLine: (mode, now) => `Picture quality: ${mode}${now ? ` (now ${now})` : ""}`,
     forGrownUps: "For grown-ups", copyCode: "Copy my progress code", pasteCode: "Paste a code", codeCopied: "Code copied",
@@ -144,6 +145,7 @@ export const I18N = {
     // SPEC-025 phase 2: las notas del guardado, la pregunta para adultos y la página para adultos
     saveRecovered: "Arreglamos tu partida con una copia", freshStart: "No pudimos leer tu partida, así que empezamos una nueva", noSave: "Este dispositivo no está guardando el progreso",
     parentsGate: (a, b) => `Para adultos: ¿cuánto es ${a} por ${b}?`, numberWords: ["tres", "cuatro", "cinco", "seis", "siete", "ocho", "nueve"], gateWrong: "No es así. Probá con esta otra",
+    musicOn: "Música: sí", musicOff: "Música: no", soundsOn: "Sonidos: sí", soundsOff: "Sonidos: no",
     quality: "Calidad de imagen", qualityAuto: "Auto", qualityHigh: "Alta", qualityMedium: "Media", qualityLow: "Baja",
     qualityLine: (mode, now) => `Calidad de imagen: ${mode}${now ? ` (ahora: ${now})` : ""}`,
     forGrownUps: "Para adultos", copyCode: "Copiar mi código", pasteCode: "Pegar un código", codeCopied: "Código copiado",
@@ -242,6 +244,7 @@ export const I18N = {
     // SPEC-025 phase 2: os avisos do progresso salvo, a pergunta para adultos e a página para adultos
     saveRecovered: "Recuperamos seu progresso de uma cópia", freshStart: "Não conseguimos ler seu progresso, então começamos um jogo novo", noSave: "Este aparelho não está salvando o progresso",
     parentsGate: (a, b) => `Para adultos: quanto é ${a} vezes ${b}?`, numberWords: ["três", "quatro", "cinco", "seis", "sete", "oito", "nove"], gateWrong: "Não é bem isso. Tente esta aqui",
+    musicOn: "Música: ligada", musicOff: "Música: desligada", soundsOn: "Sons: ligados", soundsOff: "Sons: desligados",
     quality: "Qualidade da imagem", qualityAuto: "Auto", qualityHigh: "Alta", qualityMedium: "Média", qualityLow: "Baixa",
     qualityLine: (mode, now) => `Qualidade da imagem: ${mode}${now ? ` (agora: ${now})` : ""}`,
     forGrownUps: "Para adultos", copyCode: "Copiar meu código de progresso", pasteCode: "Colar um código", codeCopied: "Código copiado",
@@ -339,6 +342,7 @@ export const I18N = {
     // SPEC-025 phase 2: заметки о сохранении, вопрос для взрослых и страница для взрослых
     saveRecovered: "Мы восстановили сохранение из копии", freshStart: "Не получилось прочитать сохранение, поэтому начали новую игру", noSave: "Это устройство не сохраняет прогресс",
     parentsGate: (a, b) => `Для взрослых: сколько будет ${a} умножить на ${b}?`, numberWords: ["три", "четыре", "пять", "шесть", "семь", "восемь", "девять"], gateWrong: "Не совсем. Вот другой пример",
+    musicOn: "Музыка: вкл", musicOff: "Музыка: выкл", soundsOn: "Звуки: вкл", soundsOff: "Звуки: выкл",
     quality: "Качество картинки", qualityAuto: "Авто", qualityHigh: "Высокое", qualityMedium: "Среднее", qualityLow: "Низкое",
     qualityLine: (mode, now) => `Качество картинки: ${mode}${now ? ` (сейчас: ${now})` : ""}`,
     forGrownUps: "Для взрослых", copyCode: "Скопировать код прогресса", pasteCode: "Вставить код", codeCopied: "Код скопирован",
