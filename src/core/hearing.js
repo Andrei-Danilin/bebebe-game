@@ -51,6 +51,7 @@ export function hearNoise(dt) {
   G.big.hearLook = rand(CFG.HEAR_LOOK[0], CFG.HEAR_LOOK[1]);
   G.big.state = "look"; G.big.timer = Math.max(G.big.timer, CFG.HEAR_TURN_TIME + G.big.hearLook); G.big.goal = null; G.big.path = [];
   logEvent("heard", { who: loud.id, kind: loud.kind });
+  emit("sfx", { name: "heard" });                           // SPEC-047
   if (loud.kind === "player" && !G.heardHintDone) { G.heardHintDone = true; emit("hint", { kind: "heard", slot: loud.slot }); }
 }
 const SLIP_MARK = Object.freeze({ banana: "🍌💫", melon: "🍉💫", ball: "💫", eat: "🧁💗", freeze: "🧊" });   // SPEC-043

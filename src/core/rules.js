@@ -16,7 +16,11 @@ import { G } from "./active.js";
 const playerBonus = (l, k) => (l.upg ? upgBonus(k, l.upg[k] || 0) : 0);
 // скорость маленького-игрока: обычная × «быстрые ноги» × сапоги (CFG.PLAYER_SPEED не меняется — предел Большого от неё)
 export const moveSpeed = l => CFG.PLAYER_SPEED * (1 + playerBonus(l, "fastFeet")) * (l.fx.boots > 0 ? CFG.BOOTS_MULT : 1) * trickSpeedMul(l);   // SPEC-042: × the wave
-const helps = (o, l) => o !== l && o.state === "ok" && dist(o, l) < o.r + l.r + 12;   // o стоит рядом с упавшим l и поднимает его
+// SPEC-047: a bot's sound plays quieter (AUDIO.OTHERS): its event carries other: true
+const sfxOf = (name, l) => (l && l.kind === "bot" ? { name, other: true } : { name });
+// SPEC-047: every SFX_GROWL_EVERY-th push of a level (a wide push counts once) also growls
+function countPush() { G.stats.pushes = (G.stats.pushes ?? 0) + 1; if (G.stats.pushes % CFG.SFX_GROWL_EVERY === 0) emit("sfx", { name: "growl" }); }
+export const helps = (o, l) => o !== l && o.state === "ok" && dist(o, l) < o.r + l.r + 12;   // o стоит рядом с упавшим l и поднимает его
 // SPEC-022: толчок того, кого Большой поймал: самый злой папа (Школа 20) толкает широко — всех рядом перед собой
 export function pushHit(t) { if (bossPower(G.big.boss) === "wide") widePush(t); else push(t); }
 // широкий толчок: все маленькие (ok, могут действовать, не неуязвимы, не невидимки, не в домике) ближе WIDE_PUSH_R клеток в угле
@@ -33,7 +37,8 @@ function widePush(t) {
   emit("wave", { x: G.big.x, y: G.big.y, r: reach });
   emit("pop", { key: "whoosh", args: [], x: G.big.x + Math.cos(G.big.dir) * G.big.r * 2, y: G.big.y + Math.sin(G.big.dir) * G.big.r * 2 - G.big.r * 2, color: "#fde047", meaning: "whoosh" });
   emit("shake", { t: CFG.WIDE_PUSH_SHAKE });
-  emit("sfx", { name: "push" });
+  emit("sfx", { name: "wide_push" });
+  countPush();
 }
 // SPEC-029: передышка папы после толчка; в тренировке 2 он слабее — × TUTORIAL.pushCooldownMult
 const pushRecover = () => CFG.PUSH_RECOVER * (G.tutorialGame === 2 ? CFG.TUTORIAL.pushCooldownMult : 1);
@@ -60,10 +65,12 @@ function push(t, wide = false) {
   G.big.pushCd = CFG.PUSH_STAND;
   G.big.noPush = pushRecover();             // передышка: какое-то время никого не толкает (SPEC-029: в тренировке 2 — дольше)
   emit("burst", { kind: "dust", x: t.x, y: t.y, n: 10, color: "#e5d3a1" });
+  emit("sfx", { name: "fall", delay: CFG.SFX_FALL_DELAY });   // SPEC-047: the kid sits down a moment after the push
   if (wide) return;                         // SPEC-022: широкий толчок — одно «ВЖУХ!» на всех (widePush)
   emit("shake", { t: 0.25 });
   emit("pop", { key: "bang", args: [], x: t.x, y: t.y - 40, color: "#ffcc00", meaning: "bang" });
   emit("sfx", { name: "push" });
+  countPush();
 }
 function hug(l, a) {
   let power = 1;
@@ -84,7 +91,7 @@ function hug(l, a) {
   emit("pop", { key: power > 1 ? "megaHug" : "hug", args: power > 1 ? [power] : [], x: G.big.x, y: G.big.y - 70, color: power > 1 ? "#facc15" : "#ff6fa8", meaning: power > 1 ? "mega" : "hug" });
   emit("burst", { kind: "heart", x: G.big.x, y: G.big.y - 30, n: 12 * power, color: "#ff4d8d" });
   if (power > 1) emit("shake", { t: 0.3 });
-  emit("sfx", { name: "hug" });
+  emit("sfx", sfxOf(power > 1 ? "hug_mega" : "hug", l));
   if (l.kind === "bot") {
     if (G.attackToken === l) G.attackToken = null;
     l.lurkT = rand(3, 6); l.fleeT = 1.3; l.fleeGoal = null;
@@ -142,6 +149,7 @@ export function throwKiss(pi) {
   return true;
 }
 function kissHit(k) {
+  emit("sfx", { name: "kiss_hit" });                       // SPEC-047: every hit, with or without the blush
   emit("burst", { kind: "heart", x: G.big.x, y: G.big.y - 30, n: 10, color: "#ff4d8d" });
   const blush = !(G.pendingWin > 0 || G.big.stun > 0 || G.big.hugCd > 0 || G.big.blush > 0);   // SPEC-022: победа уже идёт — только сердечки
   logEvent("kiss", { who: k.owner, result: "hit", blush });
@@ -153,7 +161,6 @@ function kissHit(k) {
   G.big.pushCd = 0; G.big.path = []; G.big.moving = false; G.big.flash = 0.2;
   emit("pop", { key: "kissHit", args: [], x: G.big.x, y: G.big.y - 40, color: "#ff6fa8", meaning: "kiss" });
   emit("pop", { key: "blush", args: [], x: G.big.x, y: G.big.y - 112, color: "#fda4af" });   // выше имени Большого
-  emit("sfx", { name: "mwah" });
   if (G.big.hp <= 0) winSoon();                            // последнее полсердечка — победа, как после обнимашки
 }
 export function updateKisses(dt) {
@@ -288,7 +295,7 @@ export function updateItems(dt) {
       l.fx[it.kind] = base * (1 + playerBonus(l, "longItems"));   // SPEC-009: игроку дольше («долгие вещи»)
       emit("pop", { key: "items", args: [it.kind], x: l.x, y: l.y - 40, color: "#c4b5fd" });
       emit("burst", { kind: "star", x: l.x, y: l.y, n: 10, color: "#fde047" });
-      emit("sfx", { name: "item" });
+      emit("sfx", sfxOf(it.kind === "boots" ? "boots" : it.kind === "cloak" ? "cloak" : "pickup", l));   // SPEC-047: the shield is a plain pickup
     }
   }
   G.items = G.items.filter(it => it.t < it.life);
@@ -347,7 +354,7 @@ export function useRescueKit(pi) {
   l.kissCd = Math.max(l.kissCd, CFG.KIT_SLOT_LOCK);      // второй тап по тому же месту (там уже 💋) не бросает поцелуй
   emit("pop", { key: "kitUsed", args: [], x: l.x, y: l.y - 40, color: "#7CFC9A" });
   emit("burst", { kind: "star", x: l.x, y: l.y - 10, n: 14, color: "#fde68a" });
-  emit("sfx", { name: "rescue" });
+  emit("sfx", { name: "kit" });
   return true;
 }
 export function updateDowned(dt) {
@@ -397,7 +404,7 @@ function throwOut(l) {
   emit("shake", { t: 0.2 });
   emit("pop", { key: "thrownOut", args: [], x: l.x, y: l.y - 40, color: "#fca5a5", meaning: "out" });
   emit("burst", { kind: "star", x: l.x, y: l.y - 10, n: 10, color: "#fde047" });
-  emit("sfx", { name: "thrown" });
+  emit("sfx", { name: "thrown_out" });
 }
 export function updateResting(dt) {
   for (const l of G.littles) {

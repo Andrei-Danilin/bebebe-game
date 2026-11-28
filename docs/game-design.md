@@ -362,6 +362,8 @@
 | CFG | `BEHIND_ANGLE` | 2.2 | насколько «сзади» надо быть для обнимашки (~126°) |
 | CFG | `TIPTOE_MAX` | 0.85 | доля скорости (и наклона стика): до неё — на цыпочках (тихо), больше — бегом; SPEC-019 баланс: 0.6 → 0.85 |
 | CFG | `TIPTOE_MULT` | 0.8 | на цыпочках (Shift / неполный наклон стика) — эта доля скорости (с сапогами тоже); SPEC-019 баланс: 0.55 → 0.8 |
+| CFG | `SFX_FALL_DELAY` | 0.25 | SPEC-047 (звук; придумал Claude): упавший маленький «садится» через SFX_FALL_DELAY сек после толчка (звук fall); каждый SFX_GROWL_EVERY-й толчок уровня ещё и рычит (growl) |
+| CFG | `SFX_GROWL_EVERY` | 3 | SPEC-047 (звук; придумал Claude): упавший маленький «садится» через SFX_FALL_DELAY сек после толчка (звук fall); каждый SFX_GROWL_EVERY-й толчок уровня ещё и рычит (growl) |
 | CFG | `HEAR_RADIUS` | 5 | клеток — ближе этого Большой слышит бегущих вне своего взгляда |
 | CFG | `NOISE_RATE` | 1 | шума в сек от одного бегущего рядом |
 | CFG | `NOISE_DECAY` | 0.8 | шум тает в сек, пока рядом никто не бежит |
@@ -571,7 +573,7 @@
 | CFG | `NAME_TAG` | { up: 10, size: 15, rest: 16 } | имя игрока над головой (drawMarkers; его же обходит надпись уровня на телефоне): подъём имени над точкой над головой (UI px), кегль (на телефоне не мельче PHONE_TEXT.main), подпись отдыхающего ниже н… |
 | CFG | `BANNER_SAVE_NOTE` | 6 | SPEC-025 phase 2: сек — заметка о сохранении (восстановили / новая игра / не сохраняет) внизу меню |
 | CFG | `PERF_LOOK` | { frames: 300, overlayMs: 500 } | SPEC-025 AC 15b: __bb.perf() — кадров в окне; ?perf=1 — обновление панели (мс) |
-| CFG | `AUDIO` | { MASTER: 0.8, MUSIC_MENU: 0.7, MUSIC_PLAY: 0.35, MUSIC_PAUSE: 0.25, OTHERS: 0.7, SCREEN_XFADE: 1, LOOP_XFADE: 2, MAX_VOICES: 8, RETRIGGER: 0.05, JINGLE_MAX: 5, PRECACHE_KINDS: ["sfx", "loop", "jingle"], PRECACHE_MUSIC: ["theme", "story"], PRECACHE_MAX: 3670016, SFX_MAX: 61440, JINGLE_FILE_MAX: 122880, MUSIC_MAX: 1887440, TOTAL_MAX: 13631488 } | SPEC-047 (sound and music; the numbers are Claude's, the kids tune the volumes after listening): the audio engine and the audio pipeline (scripts/audio.js reads JINGLE_MAX, tests/audio the budgets).… |
+| CFG | `AUDIO` | { MASTER: 0.8, MUSIC_MENU: 0.7, MUSIC_PLAY: 0.35, MUSIC_PAUSE: 0.25, OTHERS: 0.7, SCREEN_XFADE: 1, LOOP_XFADE: 2, MAX_VOICES: 8, RETRIGGER: 0.05, dir: "assets/audio/", GAP: { coin: 0.06 }, LOG_MAX: 50, LOAD_PARALLEL: 4, LOOP_EDGE: 0.001, LOOP_FADE: 0.05, STEAL_FADE: 0.02, WIN_COUNT: { start: 0.9, star: 0.45, coin: 0.07, coinMax: 12 }, JINGLE_MAX: 5, PRECACHE_KINDS: ["sfx", "loop", "jingle"], PRECACHE_MUSIC: ["theme", "story"], PRECACHE_MAX: 3670016, SFX_MAX: 61440, JINGLE_FILE_MAX: 122880, MUSIC_MAX: 1887440, TOTAL_MAX: 13631488 } | SPEC-047 (sound and music; the numbers are Claude's, the kids tune the volumes after listening): the audio engine and the audio pipeline (scripts/audio.js reads JINGLE_MAX, tests/audio the budgets).… |
 | CFG | `TEXT_TEST_SCALE` | 1 | только для тестов: ширина текста надписи уровня и карточек магазина на телефоне × это (шрифты CI и iPhone шире) |
 | GLOVES | `mittens` | { power: 2, price: 30, charges: 3, color: "#ef4444", cuff: "#ffffff" } | Рукавицы из магазина: сколько сердечек забирает одна обнимашка, цена и сколько сильных обнимашек в наборе |
 | GLOVES | `mega` | { power: 3, price: 60, charges: 3, color: "#f472b6", cuff: "#facc15" } | Рукавицы из магазина: сколько сердечек забирает одна обнимашка, цена и сколько сильных обнимашек в наборе |
