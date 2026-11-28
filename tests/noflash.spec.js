@@ -147,13 +147,14 @@ test.describe("a picture that is slow, late or gone", () => {
       b.recordFrames(true);
       const t0 = performance.now();
       b.openFirstTutorial();
-      for (let i = 0; i < 600 && !(b.sceneInfo && b.sceneInfo.art === "image" && b.frameLog.at(-1).fade === 1); i++) await new Promise(r => requestAnimationFrame(r));
+      for (const t1 = performance.now(); performance.now() - t1 < 30000 && !(b.sceneInfo && b.sceneInfo.art === "image" && b.frameLog.at(-1).fade === 1);) await new Promise(r => requestAnimationFrame(r));   // (by time: software frames can be slow)
       const log = b.frameLog;
       return { wait, fade: b.CFG.ART_FADE * 1000, t0, log, art: b.sceneInfo && b.sceneInfo.art, gap: Math.max(...log.slice(1).map((q, i) => q.t - log[i].t)) };
     });
     const first = shownAt(r.log, "scene:tutorial_intro:0");
     expect(first, "the card was drawn").toBeTruthy();
-    expect(first.late, "drawn when the wait ran out, with the picture missing").toBe(true);
+    // (a frame has to fall into the wait to see the picture missing: when software frames are longer than the wait, none does)
+    if (r.gap < r.wait) expect(first.late, "drawn when the wait ran out, with the picture missing").toBe(true);
     expect(first.t - r.t0, "after ART_WAIT, not before and not much after").toBeGreaterThanOrEqual(r.wait - 50);
     expect(first.t - r.t0).toBeLessThanOrEqual(r.wait + 2 * r.gap + 200);   // (+ the frames: a software-GL frame can take a second)
     expect(r.log.filter(f => f.held).length, "the old screen stayed on meanwhile").toBeGreaterThan(0);
@@ -171,11 +172,11 @@ test.describe("a picture that is slow, late or gone", () => {
     const errors = await openGame(page, { query: "?phone=1", quality: "low" });
     await page.evaluate(() => { window.__bb.CFG.ART_WAIT = 5; });
     await page.evaluate(() => { const b = window.__bb; b.openTutorial("map", "b"); for (let i = 0; i < 3; i++) b.sceneNext(); });   // B4 (the sheet of C is on its way)
-    await page.waitForFunction(() => window.__bb.sceneInfo && window.__bb.sceneInfo.art === "image" && window.__bb.artInfo.holding === false, null, { timeout: 10000 });   // B4 is drawn (not frames(): it would wait for C's slow sheet too)
+    await page.waitForFunction(() => window.__bb.sceneInfo && window.__bb.sceneInfo.art === "image" && window.__bb.artInfo.holding === false, null, { timeout: 30000 });   // B4 is drawn (not frames(): it would wait for C's slow sheet too)
     const page0 = await page.evaluate(() => window.__bb.scene);
     expect([page0.id, page0.page]).toEqual(["tutorial_b", 3]);
     await tap(page, "scene:next");                                     // → C1: the sheet is not in, the wait starts
-    await page.waitForFunction(() => window.__bb.artInfo.holding, null, { timeout: 10000, polling: 20 });
+    await page.waitForFunction(() => window.__bb.artInfo.holding, null, { timeout: 30000, polling: 20 });
     await tap(page, "scene:next");                                     // the double tap: goes to nothing
     await page.keyboard.press("Enter");                                // and so does a key
     await page.keyboard.press("Space");
@@ -319,7 +320,7 @@ test.describe("prefetch one step ahead", () => {
     await press(page, "Enter");                                           // C1
     const log = await page.evaluate(() => { const b = window.__bb; b.recordFrames(false); return b.frameLog; });
     expect(noWait(log), "no wait, no late or missing picture").toEqual([]);
-    expect(changes(log).filter(s => s.startsWith("scene:tutorial_")).length, "the pages were shown").toBe(4 + 4 + 1);
+    expect(changes(log).filter(s => s.startsWith("scene:tutorial_") && !s.startsWith("scene:tutorial_intro")).length, "the pages were shown (A1-A4, B1-B4, C1)").toBe(4 + 4 + 1);
     expect(errors).toEqual([]);
   });
 
@@ -405,4 +406,35 @@ test.describe("the list of a screen covers what it draws", () => {
     expect(fails, fails.join("\n")).toEqual([]);
     expect(errors).toEqual([]);
   });
+});
+
+// blocked above AND below (below is moved onto the chips here): the tag stands beside them, to their left
+test.describe("Dad's name tag blocked above and below", () => {
+  test.use({ viewport: { width: 960, height: 640 } });
+  test("stands beside the team chips", async ({ page }) => {
+  const errors = await openGame(page, { quality: "low" });
+  await frames(page);
+  const r = await page.evaluate(() => {
+    const b = window.__bb, T = b.CFG.NAME_TAG, keep = T.below, ui = b.uiSize, out = { found: false };
+    b.world = "park"; b.level = 1; b.startGame(1);
+    const chips = { x: ui.w - (b.littles.length * 32 + 14) - 10, y: 8, w: b.littles.length * 32 + 14, h: 34 };
+    for (let y = 40; y < 640 && !out.found; y += 40) for (let x = 600; x < 960 && !out.found; x += 40) {
+      Object.assign(b.big, { x, y, state: "look", timer: 999, stun: 0, slip: 0 });
+      b.drawNow();
+      if (!b.bigTag || !b.bigTag.below) continue;                       // here the tag above is on the chips
+      const feet = b.toScreen(x, y, 0), sz = 14;
+      T.below = (chips.y + chips.h / 2 - feet.y) / sz;                  // now the place below is on them too
+      b.drawNow();
+      const tag = b.bigTag;
+      out.found = true; out.tag = tag; out.chips = chips; out.below = tag.below;
+      out.overlap = tag.x < chips.x + chips.w && chips.x < tag.x + tag.w && tag.y < chips.y + chips.h && chips.y < tag.y + tag.h;
+    }
+    T.below = keep;
+    return out;
+  });
+  expect(r.found, "a place where the tag above is on the chips").toBe(true);
+  expect(r.below, "not below (that is on them too)").toBe(false);
+  expect(r.overlap, `beside them: ${JSON.stringify(r.tag)} vs ${JSON.stringify(r.chips)}`).toBe(false);
+  expect(errors).toEqual([]);
+});
 });

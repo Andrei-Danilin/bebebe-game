@@ -21,7 +21,7 @@
   [
    ["errors.spec.js"],
    ["levels.spec.js"],
-   ["music-resilience.spec.js"],
+   ["music.spec.js"],
    ["phone.spec.js","desktop","?phone=0 keeps desktop mode"],
    ["phone.spec.js","desktop","an early first frame timestamp does not shake the camera"],
    ["phone.spec.js","desktop","desktop camera and layout are unchanged"],
@@ -64,17 +64,16 @@
    ["phone.spec.js","tablet portrait","an iPad in portrait plays letterboxed, with no rotate wall"]
   ],
   [
-   ["noflash.spec.js"],
+   ["houses.spec.js","the roof of a kids' house does not cover the ground outside it: the Big One and a bot beside it are seen"],
    ["perf.spec.js"],
    ["quality.spec.js"],
-   ["worlditems.spec.js"]
+   ["switches.spec.js"]
   ],
   [
-   ["assets.spec.js"],
    ["back.spec.js"],
    ["gameplay.spec.js"],
-   ["saves.spec.js"],
-   ["smoke.spec.js"]
+   ["smoke.spec.js"],
+   ["storyfit.spec.js"]
   ],
   [
    ["audio-offline.spec.js"],
@@ -108,13 +107,13 @@
    ["wardrobe.spec.js"]
   ],
   [
+   ["assets.spec.js"],
    ["economy.spec.js"],
    ["input-safety.spec.js"],
-   ["music.spec.js"],
+   ["saves.spec.js"],
    ["tip.spec.js"]
   ],
   [
-   ["houses.spec.js","the roof of a kids' house does not cover the ground outside it: the Big One and a bot beside it are seen"],
    ["menus.spec.js","a screen change in sim mode leaves the same state as in a rendered page"],
    ["menus.spec.js","home fits a phone in every language, also with wider fonts"],
    ["menus.spec.js","home is minimal: the logo, language and sound, Play · Story · Character"],
@@ -131,8 +130,9 @@
    ["menus.spec.js","the shop holds the wardrobe"],
    ["menus.spec.js","the wardrobe tab works and fits on a phone, also with wider fonts"],
    ["menus.spec.js","win, lose and pause lead to the map, the shop and home"],
-   ["pwa.spec.js"],
-   ["storyfit.spec.js"]
+   ["music-resilience.spec.js"],
+   ["noflash.spec.js"],
+   ["pwa.spec.js"]
   ],
   [
    ["audio.spec.js"],
@@ -151,8 +151,8 @@
    ["phone.spec.js","phone shop 844×390","the phone shop fits with wider fonts (844×390)"],
    ["phone.spec.js","phone shop 932×430","the phone shop fits with wider fonts (932×430)"],
    ["phone.spec.js","rotate overlay off the phone mode","it shows and nothing under it reacts"],
-   ["switches.spec.js"],
-   ["tutorial.spec.js"]
+   ["tutorial.spec.js"],
+   ["worlditems.spec.js"]
   ]
  ]
 }

@@ -9,6 +9,7 @@ import { G } from "../core/active.js";
 import { artFade, artLate, artPrefetch, artReady, cardArt, levelArt, mapBgArt, RULE_ART, STORY_ART, tipArt } from "./art.js";
 import { cardLevel, chapterOpen, scenePages, storyCh, tipDue } from "./flow.js";
 import { LOOK } from "./look.js";
+import { simMode } from "./screen.js";
 import { mode, ui } from "./state.js";
 import { sheetAfter, sheetArt, stepArt, tutorial, tutorialPages } from "./tutorial-data.js";
 import { STORY } from "../story.js";
@@ -51,17 +52,20 @@ export function screenArt() {
   return { sig: mode, now: [], next: [] };
 }
 
-let shown = null, shownFit = -1, holdSince = 0, holding = false, frameNo = 0;
+let shown = null, shownFit = -1, holdSince = 0, pendingSince = 0, holding = false, frameNo = 0;
 // a key, a pad button or a tap goes to nothing while a screen change waits for its pictures — for at most ART_WAIT, and also in the frame of the change itself,
 // before the loop has seen it (a second key within that frame must not reach the new screen)
 export function artHolding() {
-  if (holding) return performance.now() - holdSince < LOOK.ART_WAIT * 1000;
-  if (shown === null) return false;
+  const cap = LOOK.ART_WAIT * 1000, now = performance.now();
+  if (holding) return now - holdSince < cap;
+  if (simMode || shown === null) return false;   // (sim draws nothing: `shown` goes stale there and no picture would ever load)
   const s = screenArt();
-  return s.sig !== shown && !artReady(s.now);
+  if (s.sig === shown || artReady(s.now)) { pendingSince = 0; return false; }
+  if (!pendingSince) pendingSince = now;
+  return now - pendingSince < cap;
 }
 // a frame that threw must not leave input dead (main.js frame())
-export function clearHold() { holding = false; shown = null; holdSince = 0; }
+export function clearHold() { holding = false; shown = null; holdSince = 0; pendingSince = 0; }
 const rec = { on: false, log: /** @type {any[]} */ ([]) };
 // SPEC-048 AC 9: the recorder — each frame the loop ran: the screen on the canvas, whether the frame was held (nothing drawn), the screen the game is
 // at, and (for a frame that drew) the listed pictures the screen lacked, whether the wait had run out (`late`) and how far a late picture has faded in (`fade`, 0…1)
@@ -79,7 +83,7 @@ export function screenGate(now, fitN) {
   }
   if (draw) { if (late) artLate(s.now); shown = s.sig; shownFit = fitN; holdSince = 0; }
   if (draw && !late) artLate(s.now);   // the same screen asks for a picture that is not in yet (the map's world changed): no wait, it fades in when it comes
-  holding = !draw;
+  holding = !draw; pendingSince = 0;
   if (rec.on && rec.log.length < LOOK.ART_LOG_MAX) rec.log.push({ n: frameNo, t: Math.round(now), screen: shown, target: s.sig, held: !draw, late, fade: draw ? Math.round(100 * Math.min(1, ...s.now.map(artFade))) / 100 : 1, missing: draw ? s.now.filter(n => !artReady([n])) : [] });
   frameNo++;
   return draw;

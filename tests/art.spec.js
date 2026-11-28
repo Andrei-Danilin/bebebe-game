@@ -143,8 +143,12 @@ test("a story picture loads when its page opens and is released after the page c
   await page.evaluate(() => { window.__bb.openStory("park", "home"); });
   await frames(page);                                                  // frames() also waits for what the frames asked for
   const story = await info();
-  expect(story.loaded, "story_park came in").toBe(home.loaded + 1);
-  expect(story.bytes - home.bytes, "its decoded size").toBe(1024 * 572 * 4);
+  // SPEC-048: the page also asks for what the next screen shows (screenArt().next: the neighbouring chapters), so what came in is its picture and exactly those
+  const lists = await page.evaluate(() => { const b = window.__bb, s = b.screenArt, size = n => { const i = b.art(n); return i ? i.naturalWidth * i.naturalHeight * 4 : -1; }; return { now: s.now, next: s.next, bytes: [...s.now, ...s.next].map(size), park: size("story_park") }; });
+  expect(lists.now, "the page shows the chapter's picture").toEqual(["story_park"]);
+  expect(story.loaded, "story_park came in, and the pictures of screenArt().next").toBe(home.loaded + lists.now.length + lists.next.length);
+  expect(lists.park, "its decoded size").toBe(1024 * 572 * 4);
+  expect(story.bytes - home.bytes, "the decoded size of them all").toBe(lists.bytes.reduce((a, b) => a + b, 0));
   expect(await page.evaluate(() => window.__bb.artUse.story_park > 0)).toBe(true);
   await page.evaluate(() => { window.__bb.mode = "home"; });
   await page.waitForFunction(h => window.__bb.artInfo.loaded === h, home.loaded, { timeout: 10_000 });   // released

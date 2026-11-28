@@ -174,7 +174,10 @@ test.describe("installed app", () => {
     const before = await page.evaluate(() => window.__bb.artInfo.loaded);
     await page.evaluate(() => { window.__bb.openStory("began", "home"); });
     await frames(page);
-    expect(await page.evaluate(() => ({ ...window.__bb.artInfo, shown: window.__bb.artUse.story_start > 0 }))).toMatchObject({ loaded: before + 1, bad: 0, pending: 0, shown: true });
+    // (SPEC-048: the page also asks for what the next screen shows — screenArt().next — so those came from the cache too)
+    expect(await page.evaluate(() => { const b = window.__bb, s = b.screenArt; return { ...b.artInfo, shown: b.artUse.story_start > 0, now: s.now, next: s.next, nextIn: s.next.every(n => !!b.art(n)) }; }))
+      .toMatchObject({ bad: 0, pending: 0, shown: true, now: ["story_start"], nextIn: true });
+    expect(await page.evaluate(() => window.__bb.artInfo.loaded), "its picture and exactly those of the next screen").toBe(before + 1 + (await page.evaluate(() => window.__bb.screenArt.next.length)));
     expect(remote).toEqual([]);
     expect(errors.filter(e => !e.includes("Failed to load resource"))).toEqual([]);
   });

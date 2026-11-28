@@ -255,7 +255,7 @@ export function drawMarkers(t) {
     let at = above, under = false;
     if (hits(above.x, above.y)) {
       if (!hits(beneath.x, beneath.y)) { at = beneath; under = true; }
-      else { const b = hits(above.x, above.y); at = { x: Math.min(above.x, b.x - 4 - w / 2), y: above.y }; }   // both are on them: beside them, left
+      else { const b = hits(above.x, above.y); at = { x: Math.min(above.x, b.x - LOOK.NAME_TAG.beside - w / 2), y: above.y }; }   // both are on them: beside them, left
     }
     label(nm, at.x, at.y, sz, "#ff4d4d");
     ui.bigTag = { x: at.x - w / 2, y: at.y - h / 2, w, h, below: under };

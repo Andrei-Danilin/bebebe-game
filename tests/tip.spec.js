@@ -289,3 +289,17 @@ test("with the tricks switched off (TRICKS_ON 0) no card comes by itself", async
   expect((await playTip(page, "park")).open).toBe("park");
   expect(errors).toEqual([]);
 });
+
+// the ? button shows the card too: it counts as seen (AC 6: set when shown), so Play does not show it again
+test("? then Play: the tip is not shown a second time", async ({ page }) => {
+  const errors = await openGame(page, { tips: true });
+  await page.evaluate(openAll);
+  await showTip(page, "city");
+  expect(await page.evaluate(() => [window.__bb.progress.seen.trick_city, window.__bb.tipDue("city")]), "seen by the ? button").toEqual([true, false]);
+  await page.evaluate(() => window.__bb.closeTip());
+  await frames(page);
+  await page.evaluate(() => window.__bb.playCard(1));
+  await frames(page);
+  expect(await page.evaluate(() => ({ tip: window.__bb.tipCard.open, mode: window.__bb.mode })), "Play starts the level").toEqual({ tip: null, mode: "play" });
+  expect(errors).toEqual([]);
+});

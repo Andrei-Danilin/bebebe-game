@@ -30,7 +30,7 @@ const NET_TIMEOUT_MS = 4000;             // weak signal: after this long, a cach
 const SW_BUILD = 13;
 const SW_STRATEGY = "3d1b3b7316";
 const SW_VERSION = "bebebe-1.0.0-dev-b13";
-const SRC_HASH = "06ce594642";
+const SRC_HASH = "a430c42485";
 const PRECACHE_LOCAL = [
   "./", "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512-maskable.png",
   "./icons/icon-512.png", "./icons/icon.svg", "./index.html", "./manifest.webmanifest"
@@ -42,11 +42,11 @@ const PRECACHE_SRC = [
   "./src/client/back.js?v=2bbaab7f17", "./src/client/cadence.js?v=6fc971a515", "./src/client/debug.js?v=6af1038680",
   "./src/client/devices.js?v=892965ff6f", "./src/client/errors.js?v=7b215fb847", "./src/client/flow.js?v=094a034a8b",
   "./src/client/fx.js?v=3bceabb270", "./src/client/input.js?v=ab74e5f674", "./src/client/lifecycle.js?v=42d6c088ba",
-  "./src/client/look.js?v=6ee2877518", "./src/client/main.js?v=2a937ffcaa", "./src/client/names.js?v=dff85cded6",
+  "./src/client/look.js?v=c502de3730", "./src/client/main.js?v=2a937ffcaa", "./src/client/names.js?v=dff85cded6",
   "./src/client/outfits.js?v=892a6a1d6e", "./src/client/perf.js?v=2462f1b4ae", "./src/client/ports.js?v=4285602733",
   "./src/client/preview-data.js?v=89f11bb2ea", "./src/client/progress.js?v=38515d7fe6",
   "./src/client/quality.js?v=1fa1c771b3", "./src/client/reset.js?v=30ccdd527d", "./src/client/save.js?v=21615d74c2",
-  "./src/client/screen-art.js?v=70863b5125", "./src/client/screen.js?v=576f0ce0af",
+  "./src/client/screen-art.js?v=be6a82eed6", "./src/client/screen.js?v=576f0ce0af",
   "./src/client/shop.js?v=df2d3c5976", "./src/client/sound.js?v=c303c54cb1", "./src/client/state.js?v=b728586a32",
   "./src/client/storage.js?v=686b11f06c", "./src/client/three/batch.js?v=72814fddc1",
   "./src/client/three/bosses.js?v=7814dfb8d4", "./src/client/three/camera.js?v=cd37d1af9d",
@@ -63,7 +63,7 @@ const PRECACHE_SRC = [
   "./src/client/ui/canvas.js?v=697f7d0db5", "./src/client/ui/character/items.js?v=2ff7462142",
   "./src/client/ui/character/progress.js?v=46b61d937e", "./src/client/ui/character/tabs.js?v=bd6c90ad68",
   "./src/client/ui/character/upgrades.js?v=5358a5860d", "./src/client/ui/character/wardrobe.js?v=83a8b8206a",
-  "./src/client/ui/draw.js?v=00ebc43aa4", "./src/client/ui/grownups.js?v=6ebdf23b79",
+  "./src/client/ui/draw.js?v=80e4166f8b", "./src/client/ui/grownups.js?v=6ebdf23b79",
   "./src/client/ui/home.js?v=943aa709ec", "./src/client/ui/hud.js?v=cdd0378b28",
   "./src/client/ui/lang.js?v=568a4dc213", "./src/client/ui/layout.js?v=834fe7f487",
   "./src/client/ui/level-preview.js?v=5df4dce907", "./src/client/ui/map.js?v=defbdd0b3e",
