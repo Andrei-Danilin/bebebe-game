@@ -115,6 +115,31 @@ export function fillSlots(slots) {
   while (out.length < team) out.push({ slot: "bot" + ++k, kind: "bot" });
   return out;
 }
+// SPEC-013 (the online Room): hands Little One i of a running game to a player (a kid joined or came back: his input slot appears) or back to a bot
+// (he left or dropped: the slot's input goes, the AI takes over from where he stands). data: look / name (carried by the game; the client draws them)
+// and, for a player, upgrades (his levels; a bot has none). The step is untouched: a game with no switches plays exactly as before.
+// → true when the kind changed
+/** @param {Game} g @param {number} i @param {"player" | "bot"} kind @param {{ look?: any, name?: string | null, upgrades?: Record<string, number> }} [data] */
+export function setSlotKind(g, i, kind, data = {}) {
+  const l = g.littles[i];
+  if (!l) return false;
+  if (data.look !== undefined) l.look = data.look;
+  if (data.name !== undefined) l.name = data.name;
+  if (l.kind === kind) return false;
+  l.kind = kind;
+  if (kind === "player") {
+    g.inputs[l.slot] = newInput();
+    l.upg = { ...(data.upgrades || {}) };
+    l.botIndex = -1;
+  } else {
+    delete g.inputs[l.slot];
+    l.upg = null;
+    l.botIndex = Math.max(-1, ...g.littles.map(q => q.botIndex)) + 1;
+    Object.assign(l, { task: "idle", path: [], repath: 0, fleeT: 0, fleeGoal: null, botWait: 0, moving: false, speedFrac: 0 });
+  }
+  g.players = g.littles.filter(q => q.kind === "player").length;
+  return true;
+}
 // SPEC-011 AC 3c / SPEC-012 AC 2: новая игра из простых данных, без клиента: уровень n мира world, слоты slots — маленькие
 // { slot: "p1".."p5" | "bot1".."bot4", kind: "player" | "bot", look, name, glove, gloveCharges, kisses, kits, upgrades } (недостающие —
 // боты до teamSize()) и Большой { slot: "big", kind: "bot" | "player", skin, name, boss } (boss — по умолчанию bossFor). Виды игра
