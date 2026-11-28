@@ -1,6 +1,6 @@
 # SPEC-047 — Sound and music: real sounds, jingles and music in place of the synth beeps
 
-Status: ready
+Status: done (merged by "Merge SPEC-047", see git log)
 Complexity: L
 Branch: SPEC-047-sound-music
 Decided by:
