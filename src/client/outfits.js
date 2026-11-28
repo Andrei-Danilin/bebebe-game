@@ -5,7 +5,7 @@ import { progress, spendCoins } from "../core/economy.js";
 import { clamp, vrand } from "../core/util.js";
 import { BIG_SKINS, HAIRS, HATS, JACKETS, PANTS, SLOTS } from "../core/wardrobe.js";
 import { saveProgress, writeOutfits } from "./progress.js";
-import { SFX } from "./sound.js";
+import { playSound } from "./sound.js";
 import { screenChanged } from "./state.js";
 import { G } from "../core/active.js";
 import { ports } from "./ports.js";
@@ -101,12 +101,12 @@ export function cycleBig(d) {
 export function buyLook(key) {
   const items = lockedItems(key), total = lockedPrice(key);
   if (!items.length) return;
-  if (progress.coins < total) { setBuyArmed(null); SFX.out(); return; }
+  if (progress.coins < total) { setBuyArmed(null); playSound("nope"); return; }
   if (buyArmed !== key) { setBuyArmed(key); return; }
   setBuyArmed(null);
   for (const it of items) if (spendCoins(it.slot + ":" + it.id, it.price)) progress.owned[OWN_KEY[it.slot]].push(it.id);
   for (const it of items) if (ownsItem(it.slot, it.idx)) { if (key === "big") skinKeep.big = it.idx; else skinKeep[key][it.slot] = it.idx; }
-  updateTryOn(); saveProgress(); saveSkins(); SFX.item();
+  updateTryOn(); saveProgress(); saveSkins(); playSound("buy");
 }
 // конец примерки (ушли с экрана нарядов, началась игра): снова последний свой вид. true — что-то поменялось
 export function endTryOn() {

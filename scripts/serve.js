@@ -19,7 +19,8 @@ const TYPES = {
   ".json": "application/json",
   ".png": "image/png",
   ".svg": "image/svg+xml",
-  ".webp": "image/webp"
+  ".webp": "image/webp",
+  ".mp3": "audio/mpeg"
 };
 
 // SPEC-011 review: every response says which tree it serves (X-Bebebe-Root: a short hash of the served folder), so the test

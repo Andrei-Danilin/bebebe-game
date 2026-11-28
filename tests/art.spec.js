@@ -2,7 +2,9 @@
 // art(name) is the picture or null, and null means "draw it with code as before" — so the game must work without art/
 // (the claude.ai single page has no assets/ folder, a phone may lose a file).
 const { test, expect } = require("./pw");   // SPEC-023: @playwright/test + failure screenshots
-const { LANGS, openGame, frames, step, gameSource } = require("./helpers");
+const fs = require("fs");
+const path = require("path");
+const { LANGS, openGame, frames, step, gameSource, ROOT } = require("./helpers");
 
 const failedLoads = e => e.includes("Failed to load resource") || e.includes("ERR_");
 const INDEX_SRC = gameSource();   // SPEC-011 AC 8c: src/** (the game code)
@@ -19,7 +21,9 @@ test("every art name the game can draw is a sprite of the manifest @fast", async
   expect(r.table.length).toBeGreaterThan(40);
   expect(lit.length).toBeGreaterThan(15);
   expect(lit2.length).toBeGreaterThan(40);
-  expect([...new Set([...r.table, ...lit, ...lit2])].filter(n => !r.names.includes(n))).toEqual([]);
+  // SPEC-047: a sound is not a sprite — the names of assets/audio (world_open looks like a world_<id> icon) are not asked of the art
+  const sounds = JSON.parse(fs.readFileSync(path.join(ROOT, "assets", "audio", "manifest.json"), "utf8")).files.map(f => f.name);
+  expect([...new Set([...r.table, ...lit, ...lit2])].filter(n => !r.names.includes(n) && !sounds.includes(n))).toEqual([]);
 });
 
 // Every screen once (desktop): home, map, level card, story, the shop tabs, play, pause, win, lose.

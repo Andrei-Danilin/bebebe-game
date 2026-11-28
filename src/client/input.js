@@ -9,7 +9,7 @@ import { randomOutfit } from "./outfits.js";
 import { canvas, PHONE, rotateWall, setAfterFit, UH, UW } from "./screen.js";
 import { leaveCancel } from "./back.js";
 import { cardOpen, moveCardFocus, pressCard } from "./errors.js";
-import { initAudio } from "./sound.js";
+import { clickSound, initAudio } from "./sound.js";
 import { inWardrobe, mode, ui } from "./state.js";
 import { openPictures, openPractice, tutorialSkip } from "./tutorial.js";
 import { homeActions } from "./ui/home.js";
@@ -105,6 +105,8 @@ export function toGame(e) {
 // screenChanged) — a pointer then does nothing until the next frame draws the screen shown now
 const staleButtons = () => ui.buttonsGen !== ui.screenSeq;
 const hitButton = p => ui.buttons.find(b => p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h);
+// SPEC-047: a button press — its click sound (tap / back / page), then its action
+const press = hit => { clickSound(hit); hit.act(); };
 let pendingUp = null;   // кнопка, которая срабатывает на отпускании (поле имени: iOS даёт фокус только в pointerup/click)
 
 const endStick = e => sticks.delete(e.pointerId);
@@ -302,7 +304,7 @@ export function initInput() {
     if (stale && mode !== "play") return;
     if (mode === "levelCard" && !hit && ui.cardRect && !(p.x >= ui.cardRect.x && p.x <= ui.cardRect.x + ui.cardRect.w && p.y >= ui.cardRect.y && p.y <= ui.cardRect.y + ui.cardRect.h)) { if (ui.tip) closeTip(); else closeCard(); return; }   // SPEC-042: a tap beside the "New here!" card closes only it
     if (hit && hit.onUp) { pendingUp = { id: hit.id, pointerId: e.pointerId }; return; }
-    if (hit) { hit.act(); return; }
+    if (hit) { press(hit); return; }
     if (mode === "scene") { sceneNext(); return; }      // SPEC-022: тап по заставке — дальше
     if (mode === "play" && e.pointerType !== "mouse") {
       if (PHONE && p.x > UW * LOOK.STICK_ZONE) return;   // телефон: справа — только кнопки
@@ -337,13 +339,13 @@ export function initInput() {
         return;
       }
       const h = stale ? null : hitButton(p);
-      if (h && sw.hit && h.id === sw.hit) h.act();
+      if (h && sw.hit && h.id === sw.hit) press(h);
       return;
     }
     const pu = pendingUp; pendingUp = null;
     if (!pu || pu.pointerId !== e.pointerId || stale) return;
     const hit = hitButton(toGame(e));
-    if (hit && hit.id === pu.id) hit.act();              // тот же жест — фокус в поле, клавиатура на iOS открывается
+    if (hit && hit.id === pu.id) press(hit);              // тот же жест — фокус в поле, клавиатура на iOS открывается
   });
   canvas.addEventListener("pointercancel", e => { endStick(e); ui.mapSwipe = null; });
   canvas.addEventListener("lostpointercapture", endStick);   // SPEC-038 AC 1: a pointer the browser no longer follows leaves the stack

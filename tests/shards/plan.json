@@ -2,6 +2,7 @@
  "shards": 10,
  "entries": [
   [
+   ["assets.spec.js"],
    ["bosses.spec.js"],
    ["houses.spec.js","AC 1: HOUSE_LOOK has a kids' and a Dad's builder for each world, and look3D says which one built the houses @fast"],
    ["houses.spec.js","AC 2: the heart on the door of the kids' house shows in the picture of every world (pixels), and Dad's roof carries his mess"],
@@ -11,43 +12,44 @@
   [
    ["input-safety.spec.js"],
    ["lifecycle.spec.js"],
-   ["offline.spec.js"],
-   ["perf.spec.js"]
+   ["perf.spec.js"],
+   ["saves.spec.js"]
   ],
   [
    ["gameplay.spec.js"],
    ["houses.spec.js","the roof of a kids' house does not cover the ground outside it: the Big One and a bot beside it are seen"],
    ["levels.spec.js"],
-   ["saves.spec.js"]
+   ["storyfit.spec.js"]
   ],
   [
    ["grownups.spec.js"],
    ["i18n.spec.js"],
-   ["names.spec.js"],
+   ["modules.spec.js"],
    ["quality.spec.js"],
-   ["site.spec.js"]
+   ["tooling.spec.js"]
   ],
   [
    ["art.spec.js"],
-   ["balance.spec.js"],
-   ["fixedstep.spec.js"],
+   ["env.spec.js"],
    ["smoke.spec.js"],
    ["story.spec.js","Dad's mood shows: angry red with steam and a dark cloud, mid orange-pink with less steam, kind pink with hearts"],
    ["story.spec.js","each boss wears his own look on the dad model, a bit bigger"],
    ["story.spec.js","the anger meter shows Dad's anger (phone 667×375)"],
    ["story.spec.js","the kind dad smiles, blushes and waves on his way home"],
    ["story.spec.js","the scenes fit a 667×375 phone"],
-   ["story.spec.js","the win title: Dad is kind again (phone 667×375)"]
+   ["story.spec.js","the win title: Dad is kind again (phone 667×375)"],
+   ["wardrobe.spec.js"]
   ],
   [
    ["economy.spec.js"],
-   ["env.spec.js"],
+   ["fixedstep.spec.js"],
    ["invariants.spec.js"],
    ["look3d.spec.js"],
+   ["names.spec.js"],
    ["tricks.spec.js"]
   ],
   [
-   ["assets.spec.js"],
+   ["balance.spec.js"],
    ["menus.spec.js","CFG.MENU_LOOK has no key twice"],
    ["menus.spec.js","every price button of Items and Upgrades fits in every language, also with wider fonts (desktop)"],
    ["menus.spec.js","every price shows the coin picture (phone 667×375)"],
@@ -78,7 +80,7 @@
    ["phone.spec.js","phone shop 932×430","the phone shop fits with wider fonts (932×430)"],
    ["phone.spec.js","rotate overlay off the phone mode","it shows and nothing under it reacts"],
    ["pwa.spec.js"],
-   ["wardrobe.spec.js"]
+   ["site.spec.js"]
   ],
   [
    ["errors.spec.js"],
@@ -105,11 +107,11 @@
    ["phone.spec.js","phone sizes 844×390","the world tabs and the bonus note fit at 844×390"],
    ["phone.spec.js","phone sizes 932×430","every phone button is big enough at 932×430"],
    ["phone.spec.js","phone sizes 932×430","the world tabs and the bonus note fit at 932×430"],
-   ["storyfit.spec.js"]
+   ["worlditems.spec.js"]
   ],
   [
    ["back.spec.js"],
-   ["modules.spec.js"],
+   ["offline.spec.js"],
    ["story.spec.js","a bonus world shows its picture before its first level; gamepad A goes on"],
    ["story.spec.js","a boss level shows its boss picture the first time"],
    ["story.spec.js","every scene can be watched again from the Story"],
@@ -125,10 +127,10 @@
    ["story.spec.js","the first School 20 win shows the ending and the thank-you card"],
    ["story.spec.js","the story texts come from Kostya's story (docs/story.md)"],
    ["story.spec.js","the win title: Dad is kind again (desktop)"],
-   ["tip.spec.js"],
-   ["tooling.spec.js"]
+   ["tip.spec.js"]
   ],
   [
+   ["audio.spec.js"],
    ["phone.spec.js","desktop","?phone=0 keeps desktop mode"],
    ["phone.spec.js","desktop","an early first frame timestamp does not shake the camera"],
    ["phone.spec.js","desktop","desktop camera and layout are unchanged"],
@@ -165,7 +167,6 @@
    ["phone.spec.js","tablet","an iPad-sized touch screen is not a phone"],
    ["phone.spec.js","tablet portrait","an iPad in portrait plays letterboxed, with no rotate wall"],
    ["tutorial.spec.js"],
-   ["worlditems.spec.js"],
    ["worlds.spec.js"]
   ]
  ]

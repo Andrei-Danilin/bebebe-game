@@ -12,7 +12,9 @@ import { L } from "../i18n.js";
 import { fillInputs } from "./input.js";
 import { LOOK } from "./look.js";
 import { simMode } from "./screen.js";
-import { SFX } from "./sound.js";
+import { setLoops } from "./audio/sfx.js";
+import { wantedLoops } from "../core/soundloops.js";
+import { playSound } from "./sound.js";
 import { tutorialNext } from "./tutorial.js";
 import { mode, ui } from "./state.js";
 import { applyGameEvent, syncStock } from "./flow.js";
@@ -54,7 +56,7 @@ function popWords(e) {
   return typeof v === "function" ? v(...e.args) : v && typeof v === "object" ? v[e.args[0]] : v;
 }
 function playEvent(e) {
-  if (e.type === "sfx") SFX[e.name]();
+  if (e.type === "sfx") playSound(e.name, { delay: e.delay, other: e.other });   // SPEC-047: the file, else its beep; a bot's sound quieter, a delayed one (fall) a moment later
   else if (e.type === "burst") burst(e.x, e.y, e.kind, e.color, e.n);
   else if (e.type === "pop") popText(e.x, e.y, popWords(e), e.color, e.meaning);
   else if (e.type === "shake") ui.shake = e.t;
@@ -99,6 +101,7 @@ export const kitNow = pi => runCore(() => mode === "play" && useRescueKit(pi));
 // effects, the hearts while hugging. No device reading and no view timers: runFrame and stepGame add them
 function coreStep(dt) {
   runCore(() => { bannerTick(dt); update(dt); }, () => hintTick(dt));
+  if (!simMode) setLoops(wantedLoops());                      // SPEC-047: the loops of this step (rescue, dizzy, danger tick, steps): the engine starts and stops the ones that came or went
   for (const l of G.littles) if (l.hugAnim > 0 && vrand() < dt * 6) burst(G.big.x, G.big.y - 20, "heart", "#ff4d8d", 1);   // сердечки, пока обнимает
 }
 // one step of the local game by the dt the caller gives (__bb.update and the tests): the players' devices into their slots, the

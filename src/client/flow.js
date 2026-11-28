@@ -24,6 +24,8 @@ import { botOutfit, endTryOn, makeLook, skinSel } from "./outfits.js";
 import { saveProgress, setLang } from "./progress.js";
 import { answerLang } from "./save.js";
 import { PHONE } from "./screen.js";
+import { cancelPending } from "./audio/sfx.js";
+import { playSound, winCountSounds } from "./sound.js";
 import { inWardrobe, mode, screenChanged, setModeValue, ui } from "./state.js";
 import { camSnap } from "./three/camera.js";
 import { practiceStep, setPracticeStep, setTutorial, tutorialPages } from "./tutorial-data.js";
@@ -37,6 +39,8 @@ export let lastReward = null;
 // tab and wardrobe page outside the shop, the map's hint outside the map, the world page's background outside the map and its
 // card, the name input outside the wardrobe
 export function setMode(v) {
+  if (mode === "win" && v !== "win") cancelPending("win");   // SPEC-047: the stars and coins of the win screen stop with it
+  if (v === "lose" && mode !== "lose") playSound("lose");   // SPEC-047: the lose jingle (the game has no loss today: this screen is only opened by tests)
   if (v !== "play") for (const inp of Object.values(G.inputs || {})) { inp.kiss = false; inp.kit = false; inp.act = false; }   // a press never fires after the game left play
   if (v !== "play") sticks.clear();                         // SPEC-038: a finger of the level (a lost pointerup too) never steers the next one
   setModeValue(v);
@@ -66,6 +70,7 @@ export function syncStock() {
   s.kisses = inv.kisses; s.kits = inv.rescues; s.gloves.mittens = inv.mittens; s.gloves.mega = inv.mega;
   for (const l of G.littles) if (l.kind === "player") l.glove = progress.equip[l.id] ?? "none";
 }
+let unlockDue = false;   // a level opened with the last win: the map's `unlock` sound is due (showOpenedWorld)
 const INV_KEY = Object.freeze({ kiss: "kisses", kit: "rescues" });
 // the level ended (the result event, or leaving early): the reward — computeReward, applied to progress and the coin book line by
 // line (each saved, as before); → the reward the win screen shows, or null (a practice game pays nothing)
@@ -75,6 +80,7 @@ function payLevel(result) {
   const c = computeReward(progress, result);
   if (c.world) {
     const wp = progress.worlds[c.world.name];
+    if (c.world.unlocked > wp.unlocked) unlockDue = true;   // SPEC-047: the map plays the unlock sound when it shows the new level
     wp.stars[c.world.n] = c.world.stars; wp.won[c.world.n] = true; wp.unlocked = c.world.unlocked;
     progress.lastWorld = c.world.name;
   }
@@ -87,7 +93,7 @@ export function applyGameEvent(e) {
   if (e.type === "coins") { addCoins(e.reason, e.amount, e); saveProgress(); }
   else if (e.type === "spent") { const k = e.kind === "glove" ? e.glove : INV_KEY[e.kind]; progress.inv[k]--; saveProgress(); }
   else if (e.type === "result" && settledGame === G) setMode("win");   // SPEC-025 AC 14b: paid when the app was hidden — not again
-  else if (e.type === "result") { lastReward = payLevel(e); setMode("win"); noteOpenedWorld(lastReward); }
+  else if (e.type === "result") { lastReward = payLevel(e); setMode("win"); noteOpenedWorld(lastReward); winCountSounds(lastReward); }   // SPEC-047: the stars and coins are counted in sound
   // SPEC-039: a practice win goes on with the tutorial in fx.js (drainEvents → tutorialNext): flow.js does not import tutorial.js
 }
 
@@ -124,6 +130,7 @@ export function settleDecidedWin() {
 // SPEC-025 AC 14d: the one "back" (Escape, the back buttons, __bb.goBack; later the system Back of a native wrapper) — today's
 // Escape per screen: play → pause, pause → play, a menu → its parent, win / lose → the map; the home screen: the Leave dialog (SPEC-033, D-14)
 export function goBack() {
+  if (mode !== "play" && mode !== "home") playSound("back");   // SPEC-047: a menu goes back (the Leave dialog and the pause are not a "back")
   if (mode === "map") setMode("home");
   else if (mode === "levelCard") { if (ui.tip) closeTip(); else closeCard(); }
   else if (mode === "story") storyBackKey();
@@ -222,11 +229,12 @@ export function backToWardrobe() { closeNameInput(true); ui.wardrobePage = "look
 // cardLevel — уровень открытой карточки; mapSwipe — палец/мышь, нажатые на карте (смена мира — на отпускании)
 export let mapSel = null, cardLevel = 1;
 function showOpenedWorld() {
-  const w = ui.openedWorld;
-  ui.openedWorld = null;
-  if (!w || !isOpen(w, progress)) return;
+  const w = ui.openedWorld, unlocked = unlockDue;
+  ui.openedWorld = null; unlockDue = false;
+  if (!w || !isOpen(w, progress)) { if (unlocked) playSound("unlock"); return; }   // SPEC-047: a new level (unlock) or a new world (world_open) on the map
   selectWorld(w); mapSel = null;
   ui.worldBanner = { world: w, t: LOOK.MENU_LOOK.map.openedTime };
+  playSound("world_open");
 }
 // следующий уровень мира: первый открытый, ещё не выигранный (0 — такого нет)
 export function nextStop(w = G.world) {
@@ -251,7 +259,7 @@ export function mapTick(dt) {
 // остановка: открытая — карточка уровня, закрытая — «Сначала пройди уровень n − 1»
 export function chooseStop(n) {
   mapSel = { world: G.world, n };
-  if (n > worldProgress().unlocked) { showToast(L().lockedLevel(n - 1)); return; }
+  if (n > worldProgress().unlocked) { showToast(L().lockedLevel(n - 1)); playSound("nope"); return; }   // SPEC-047: locked
   showCard(n);
 }
 // SPEC-041: открыть карточку уровня n (chooseStop — для открытых; закрытый уровень карточка тоже умеет нарисовать — затемнённая картинка с замком; тест)
@@ -303,6 +311,7 @@ export function scenePages(id) {
 // SPEC-029: opts.skip — своё «Пропустить» (обучение: сразу в конец; кнопка на каждой странице), а «Дальше» после последней — then
 export function openScene(id, then = null, opts = {}) {
   if (!SCENE_IDS.includes(id) && !TUTORIAL_SCENES.includes(id)) return false;
+  if (id.startsWith("boss_")) playSound("boss_sting");   // SPEC-047: the card before a boss
   ui.storyScene = { id, page: 0, then, mark: opts.mark !== false && SCENE_IDS.includes(id), play: !!opts.play, skip: opts.skip || null, back: !!opts.back };
   setMode("scene");
   return true;
@@ -322,8 +331,8 @@ export function sceneSkip() {
   if (sc && sc.skip) { ui.storyScene = null; sc.skip(); } else sceneDone();
 }
 // дальше (Enter, пробел, A, тап, «Дальше» / «Играть» / «Готово»): следующая страница, после последней — к тому, что дальше
-export function sceneNext() { if (ui.storyScene && ui.storyScene.page < scenePageCount() - 1) { ui.storyScene.page++; screenChanged(); } else sceneDone(); }
-export function scenePrev() { if (ui.storyScene && ui.storyScene.page > 0) { ui.storyScene.page--; screenChanged(); } }
+export function sceneNext() { if (ui.storyScene && ui.storyScene.page < scenePageCount() - 1) { ui.storyScene.page++; screenChanged(); playSound("page"); } else sceneDone(); }
+export function scenePrev() { if (ui.storyScene && ui.storyScene.page > 0) { ui.storyScene.page--; screenChanged(); playSound("page"); } }
 // SPEC-032 AC 8: «◀ Назад» листалки (opts.back): страница назад, на первой — выход (как «Пропустить»)
 export function sceneBack() { if (ui.storyScene && ui.storyScene.page > 0) scenePrev(); else sceneSkip(); }
 // заставка перед уровнем (мир, n), если её ещё не показывали: босс — перед 20-м уровнем основного мира, бонусный мир — перед

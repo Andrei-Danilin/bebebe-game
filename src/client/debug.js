@@ -31,7 +31,9 @@ import { orderedEvents } from "../core/events.js";
 import { bannerAlpha, chapterOpen, chooseStop, goBack, nextLevel, closeShop, giveReward, lastReward, mapTick, openFriends, openMap, openScene, openShop, openStory, openTip, closeTip, tipDue, resetMenus, resetWorld, rngDraws, sceneNext, scenePageCount, scenePages, sceneSkip, seedRandom, selectWorld, setLastReward, setMode, setShopTab, shopAfterWin, showBanner, showCard, startGame, tapWorldTab, toHome, toMap } from "./flow.js";
 import { errorLog, reportError } from "./errors.js";
 import { glRestored } from "./lifecycle.js";
-import { audioContext } from "./sound.js";
+import { audioContext, clickSound } from "./sound.js";
+import { levels as audioLevels } from "./audio/engine.js";
+import { failedNames, loadedNames, loopRegion, loopsPlaying, playLog, voiceCount } from "./audio/sfx.js";
 import { burst, kissNow, kitNow, popText, runCore, runFrame, stepGame } from "./fx.js";
 import { resetPads, toGame } from "./input.js";
 import { nameInput, openNameInput, stickR, sticks } from "./devices.js";
@@ -159,6 +161,9 @@ export function installDebug() {
     get errorLog() { return errorLog(); }, reportError, nextLevel,
     // SPEC-025: forget every pad (AC 7e: the tests' gamepad stubs); the one "back" (AC 14d); the audio context (AC 14); restored (AC 14c)
     resetPads, goBack, audioContext, get glRestored() { return glRestored; },
+    // SPEC-047: the audio, for the tests — log: the last 50 plays { name, at, synth?, loop?, other? }, track: the music playing (step 3), levels: the bus gains (null
+    // before the first gesture), loaded / failed: the sounds' files, loops: the loops sounding, loopRegion(buffer): the loop's [start, end] in seconds
+    audio: { get log() { return playLog(); }, get track() { return null; }, get levels() { return audioLevels(); }, get loaded() { return loadedNames(); }, get failed() { return failedNames(); }, get loops() { return loopsPlaying(); }, get voices() { return voiceCount(); }, loopRegion },
     // SPEC-025 phase 2: the save module — info (noSave, notes, copies, persist, pending writes), queue / flush the whole save, the
     // parents' code (code(), readCode(text) → { ok, error }), the keys, the pure helpers (validSave, fingerprint, outfits by id ↔ indexes)
     save: Object.freeze({ get info() { return saveState(); }, queue: queueSave, flush: flushSaves, code: saveCode, readCode: t => { const r = readCode(t); return { ok: r.ok, error: r.error || null }; },
@@ -173,7 +178,7 @@ export function installDebug() {
     // that set it up: the shop, its friends page, the name input of a slot, a map stop or world tab (a locked one shows a hint)
     get screenState() { return { mode, shopTab: ui.shopTab, wardrobePage: ui.wardrobePage, toast: ui.toast && ui.toast.text, mapBgCache: !!ui.mapBgCache, nameInput: !!nameInput }; },
     openShop, openFriends, chooseStop, tapWorldTab, openNameInput: slot => openNameInput({ x: 0, y: 0, w: 100, h: 30 }, slot),
-    tapButton(id) { const q = ui.buttons.find(r => (r.id || r.act.name) === id); if (q) q.act(); return !!q; },
+    tapButton(id) { const q = ui.buttons.find(r => (r.id || r.act.name) === id); if (q) { clickSound(q); q.act(); } return !!q; },
     LANGS, detectLang, get lang() { return lang; },   // SPEC-028: языки по порядку значка 🌐, язык при запуске (чистая), текущий язык
     update: stepGame, frame: runFrame, inSafe, I18N, startGame, resetWorld, cycleOutfit, randomOutfit, cycleBig, setLang, toScreen,
     get items() { return G.items; }, get progress() { return progress; }, buyGloves, setEquip, get lastReward() { return lastReward; }, spawnItem,

@@ -16,6 +16,7 @@ import { installDebug } from "./debug.js";
 import { adoptErrorLog, failStart, initErrors, reportError } from "./errors.js";
 import { mapTick, openScene, redress, resetWorld, seedRandom, syncStock } from "./flow.js";
 import { drainEvents, runFrame, viewTick } from "./fx.js";
+import { setLoops } from "./audio/sfx.js";
 import { initInput, pollPads } from "./input.js";
 import { initBack } from "./back.js";
 import { initLifecycle, pauseForWall } from "./lifecycle.js";
@@ -125,7 +126,7 @@ function tick(now) {
   pauseForWall();                           // SPEC-038 AC 2: the phone turned upright — the sticks go, a level pauses (turned back: the pause menu, no auto-resume)
   mapTick(dt);
   if (mode === "play") runFrame(Math.max(0, real));           // SPEC-012 / SPEC-034: devices once → the accumulator's whole 1/60 s steps → their effects (the game); the view ages by the frame time
-  else { drainEvents(); viewTick(dt); if (inMenus()) ui.menuSpin += dt * 0.8; }   // SPEC-012 AC 1d: the Big One turns in the menus — a view angle, not game state
+  else { drainEvents(); viewTick(dt); setLoops([]); if (inMenus()) ui.menuSpin += dt * 0.8; }   // SPEC-047: no level, no loops   // SPEC-012 AC 1d: the Big One turns in the menus — a view angle, not game state
   warmBuild();                               // SPEC-040 AC 4: the game and the 3D of the open card's level, a stage a frame (warm.js; it uses the game's rng, so outside the guard)
   noGameRng("render", () => {              // рисование не тянет игровую случайность (SPEC-008: тесты — ошибка, игра — vrand)
     updateCamera(dt);                       // телефон: камера за героем (3D-слой, не логика)
