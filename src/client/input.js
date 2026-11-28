@@ -24,6 +24,7 @@ import { artHolding } from "./screen-art.js";
 // =====================================================================
 const keys = new Set();
 
+const TOGGLE_KEYS = ["KeyM", "KeyN", "KeyL"];   // the keys that change no screen (sounds, music, language): they pass a screen's picture wait (SPEC-048 regression)
 function onKey(code) {
   if (code === "KeyM") { toggleSound(); return; }              // SPEC-047 AC 9: M — the sounds, N — the music
   if (code === "KeyN") { toggleMusic(); return; }
@@ -283,7 +284,7 @@ export function initInput() {
     if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"].includes(e.code)) e.preventDefault();
     if (e.code === "Slash" && mode === "play") e.preventDefault();   // SPEC-019: «/» — на цыпочках игрока 2 (в Firefox «/» — быстрый поиск)
     initAudio();
-    if (!keys.has(e.code) && !artHolding()) onKey(e.code);   // SPEC-048 AC 3: a screen change is waiting for its pictures — a key goes to nothing (no double press into the next screen)
+    if (!keys.has(e.code) && (!artHolding() || TOGGLE_KEYS.includes(e.code))) onKey(e.code);   // SPEC-048 AC 3: a screen change is waiting for its pictures — a key goes to nothing (no double press into the next screen); M / N / L change no screen, so they always work
     keys.add(e.code);
   });
   window.addEventListener("keyup", e => keys.delete(e.code));

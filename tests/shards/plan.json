@@ -21,7 +21,6 @@
   [
    ["errors.spec.js"],
    ["levels.spec.js"],
-   ["music.spec.js"],
    ["phone.spec.js","desktop","?phone=0 keeps desktop mode"],
    ["phone.spec.js","desktop","an early first frame timestamp does not shake the camera"],
    ["phone.spec.js","desktop","desktop camera and layout are unchanged"],
@@ -61,13 +60,14 @@
    ["phone.spec.js","phone sizes 932×430","the world tabs and the bonus note fit at 932×430"],
    ["phone.spec.js","phone tiptoe button 667×375","the 👣 button toggles tiptoe: full tilt is silent at TIPTOE_MULT; off at the next level (667)"],
    ["phone.spec.js","tablet","an iPad-sized touch screen is not a phone"],
-   ["phone.spec.js","tablet portrait","an iPad in portrait plays letterboxed, with no rotate wall"]
+   ["phone.spec.js","tablet portrait","an iPad in portrait plays letterboxed, with no rotate wall"],
+   ["worlditems.spec.js"]
   ],
   [
    ["houses.spec.js","the roof of a kids' house does not cover the ground outside it: the Big One and a bot beside it are seen"],
+   ["music.spec.js"],
    ["perf.spec.js"],
-   ["quality.spec.js"],
-   ["switches.spec.js"]
+   ["quality.spec.js"]
   ],
   [
    ["back.spec.js"],
@@ -151,8 +151,8 @@
    ["phone.spec.js","phone shop 844×390","the phone shop fits with wider fonts (844×390)"],
    ["phone.spec.js","phone shop 932×430","the phone shop fits with wider fonts (932×430)"],
    ["phone.spec.js","rotate overlay off the phone mode","it shows and nothing under it reacts"],
-   ["tutorial.spec.js"],
-   ["worlditems.spec.js"]
+   ["switches.spec.js"],
+   ["tutorial.spec.js"]
   ]
  ]
 }
