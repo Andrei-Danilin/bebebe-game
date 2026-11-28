@@ -43,19 +43,19 @@ const play = (world, n, style, seed, seconds) => {
 
 // AC 4: the hangs of the balance report (seeds of its runs) — Dad stood in "search" / "patrol" against a wall or a fallen friend for ever
 test("the balance hangs are gone: School 20 reckless, Field 17 careful, Beach 19 careful are won within the time limit", () => {
-  const keep = CFG.TRICKS_ON;
-  CFG.TRICKS_ON = 0;   // SPEC-042: the hangs were recorded on the maps without the world tricks; a trick changes which game a seed plays (the bell's stands, the sprays), so the guard replays them as they were — Dad never stalling WITH the tricks is the stall guard's job (tests/stall)
+  const keep = [CFG.TRICKS_ON, CFG.WORLD_ITEMS_ON];
+  CFG.TRICKS_ON = 0; CFG.WORLD_ITEMS_ON = 0;   // SPEC-043: nor the world items (they change which game a seed plays) // SPEC-042: the hangs were recorded on the maps without the world tricks; a trick changes which game a seed plays (the bell's stands, the sprays), so the guard replays them as they were — Dad never stalling WITH the tricks is the stall guard's job (tests/stall)
   try {
     for (const [world, n, style, seed] of [["school", 20, "reckless", 220187], ["field", 17, "careful", 517176], ["beach", 19, "careful", 319188]]) {
       const g = play(world, n, style, seed, CFG.BALANCE.TIME_LIMIT);
       assert.equal(g.phase, "won", `${world} ${n} ${style} seed ${seed} was won (time ${g.stats.time.toFixed(0)} s)`);
     }
-  } finally { CFG.TRICKS_ON = keep; }
+  } finally { [CFG.TRICKS_ON, CFG.WORLD_ITEMS_ON] = keep; }
 });
 test("BIG_UNSTUCK_TIME 0 and BIG_DETOUR_COST 0 are the game before SPEC-037: School 20 reckless hangs again (the test sees the cause)", () => {
-  const keep = [CFG.BIG_UNSTUCK_TIME, CFG.BIG_DETOUR_COST, CFG.TRICKS_ON];
-  CFG.BIG_UNSTUCK_TIME = 0; CFG.BIG_DETOUR_COST = 0; CFG.TRICKS_ON = 0;   // SPEC-042: and no school bell — the recorded game had none (the bell's stands change which game hangs)
-  try { assert.notEqual(play("school", 20, "reckless", 220187, CFG.BALANCE.TIME_LIMIT).phase, "won"); } finally { [CFG.BIG_UNSTUCK_TIME, CFG.BIG_DETOUR_COST, CFG.TRICKS_ON] = keep; }
+  const keep = [CFG.BIG_UNSTUCK_TIME, CFG.BIG_DETOUR_COST, CFG.TRICKS_ON, CFG.WORLD_ITEMS_ON];
+  CFG.BIG_UNSTUCK_TIME = 0; CFG.BIG_DETOUR_COST = 0; CFG.TRICKS_ON = 0; CFG.WORLD_ITEMS_ON = 0;   // SPEC-042: and no school bell — the recorded game had none (the bell's stands change which game hangs)
+  try { assert.notEqual(play("school", 20, "reckless", 220187, CFG.BALANCE.TIME_LIMIT).phase, "won"); } finally { [CFG.BIG_UNSTUCK_TIME, CFG.BIG_DETOUR_COST, CFG.TRICKS_ON, CFG.WORLD_ITEMS_ON] = keep; }
 });
 
 // AC 3: a lying friend does not move, so for Dad he is a wall — a goal behind him is not reachable, and the nearest reachable cell to a spot

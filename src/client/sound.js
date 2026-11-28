@@ -44,6 +44,11 @@ export const SFX = {
   sprinkler: () => [880, 1046, 1318].forEach((f, i) => beep(f, 0.05, "sine", 0.03, i * 0.05)),   // SPEC-042: a sprinkler starts to spray (placeholder)
   truck: () => [659, 784, 659, 523].forEach((f, i) => beep(f, 0.13, "triangle", 0.04, i * 0.14)),   // SPEC-042: the ice-cream truck's tune (placeholder)
   wave: () => { beep(260, 0.25, "sine", 0.05); beep(330, 0.3, "sine", 0.035, 0.12); },   // SPEC-042: a wave comes up (placeholder)
+  kick: () => { beep(140, 0.08, "triangle", 0.09); beep(210, 0.06, "square", 0.04, 0.03); },   // SPEC-043: a ball is kicked / bounces (placeholder tones)
+  bonk: () => { beep(330, 0.06, "square", 0.08); beep(110, 0.18, "triangle", 0.09, 0.05); },   // SPEC-043: the ball bonks Dad
+  whee: () => [784, 988, 1175, 1568].forEach((f, i) => beep(f, 0.08, "sine", 0.04, i * 0.05)),   // SPEC-043: the paper plane takes off
+  munch: () => [220, 180, 240, 190].forEach((f, i) => beep(f, 0.07, "triangle", 0.05, i * 0.1)),   // SPEC-043: Dad eats the cupcake
+  freeze: () => { beep(1760, 0.1, "sine", 0.05); beep(1318, 0.14, "sine", 0.04, 0.07); beep(988, 0.2, "triangle", 0.03, 0.14); },   // SPEC-043: the snowball freezes Dad
   crunch: () => beep(160, 0.04, "square", 0.012),                  // SPEC-042: a step in the snow (placeholder)
   splash: () => { beep(420, 0.07, "sine", 0.06); beep(640, 0.09, "sine", 0.05, 0.04); beep(300, 0.12, "triangle", 0.04, 0.09); },   // SPEC-042: a puddle's splash (placeholder tones)
   item: () => [660, 880, 1175].forEach((f, i) => beep(f, 0.09, "square", 0.05, i * 0.06)),

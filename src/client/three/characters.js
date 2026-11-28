@@ -14,7 +14,7 @@ import { buildMap3D, builtKey, forgetMap, mapKey } from "./map3d.js";
 import { mapGroup } from "./mapstate.js";
 import { capsule, disposeTree, gradTex, INK3, ownMat, part, sphere, toon, wobbleSeed } from "./materials.js";
 import { BIG_SCALE, LITTLE_SCALE, scene } from "./setup.js";
-import { clearItemMeshes, clearKissMeshes, clearStarMeshes } from "./pools.js";
+import { clearItemMeshes, clearKissMeshes, clearShotMeshes, clearStarMeshes } from "./pools.js";
 import { G } from "../../core/active.js";
 import { gloveOf } from "../../core/rules.js";
 
@@ -388,6 +388,7 @@ export function rebuildChars3D() {
     clearItemMeshes();
     clearStarMeshes();
     clearKissMeshes();
+    clearShotMeshes();
   });
   return did;
 }

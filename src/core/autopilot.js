@@ -7,6 +7,7 @@ import { trickFreeze } from "./tricks/aware.js";
 import { trickHideSpot, trickQuiet } from "./tricks/query.js";
 import { canSee, inCone } from "./vision.js";
 import { canUseKit, gameInv, moveSpeed } from "./rules.js";
+import { launcherGoal, WORLD_KINDS } from "./worlditems.js";
 import { canAct, inSafe, los, seeSolidAt } from "./world.js";
 import { G } from "./active.js";
 
@@ -48,8 +49,10 @@ function autoGoalCareful(l) {
     if (!down || dist(l, d) < dist(l, down)) down = d;
   }
   if (down) return { x: down.x, y: down.y, avoid: true, stop: l.r + down.r + A.arrive };
+  const kick = launcherGoal(l, danger, CFG.WORLD_ITEMS.kick.autoReach);                  // SPEC-043: a football / plane / snowball near and Dad in line: run through it at him
+  if (kick) return { x: kick.x, y: kick.y, avoid: danger, stop: 0 };
   let pick = null;                                       // звёздочка или предмет рядом, пока он туда не смотрит
-  for (const s of [...G.bonusStars, ...G.items.filter(it => it.kind !== "banana")]) {
+  for (const s of [...G.bonusStars, ...G.items.filter(it => it.kind !== "banana" && !WORLD_KINDS.includes(it.kind))]) {   // SPEC-043: the world items are not picked up
     if (dist(l, s) < A.itemReach && (!danger || (dist(s, G.big) > A.pickSafe && !inCone(s.x, s.y))) && (!pick || dist(l, s) < dist(l, pick))) pick = s;
   }
   if (pick) return { x: pick.x, y: pick.y, avoid: true, stop: 0 };

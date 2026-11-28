@@ -22,7 +22,7 @@ export const I18N = {
       `Other kids run over and stand next to you for ${CFG.RESCUE_TIME} seconds to help you up`,
       `If nobody helps you up within ${n} s, you go home to rest for ${CFG.REST_TIME} s`,
       "Bushes hide you. The kids' house is safe: Dad can't get in",
-      "Grab items: speed boots, invisibility, shield — and a banana Dad slips on!",
+      "Grab items: boots, invisibility, shield, a banana for Dad to slip on — and in each world its own surprise!",
       I18N.en.ruleTiptoe
     ],
     // SPEC-019: на цыпочках; подсказка, когда Большой впервые обернулся на топот игрока (клавиша — отдельно, как у спасалки)
@@ -44,7 +44,7 @@ export const I18N = {
     undoReset: "Bring back erased progress", resetAsk: "Reset all progress?", leaveAsk: "Leave the game?", yes: "Yes", no: "No", restoreCopy: "Restore an older copy", eraseAll: "Erase all data on this device", errorLog: "Error log", copy: "Copy", version: "Version",
     win: "YOU WIN!", winSub: "You hugged him lots of times, and he went home!", next: n => `Level ${n} ▶`,
     // SPEC-022: заголовок победы — папа (босс, набранное имя) снова добрый; «Ура!» друзей, пока он идёт домой; имена боссов
-    kindAgain: n => `${n} is kind again!`, cheer: "Yay!", whoosh: "WHOOSH!", splash: "SPLASH!", freeze: "Freeze!",
+    kindAgain: n => `${n} is kind again!`, cheer: "Yay!", whoosh: "WHOOSH!", splash: "SPLASH!", freeze: "Freeze!", bonk: "Bonk!", yum: "Yum!", brr: "Brrr!", whee: "Whee!",
     bossNames: { park: "The park boss", field: "The coach", city: "The builder", school: "The grumpiest dad" },
     lose: n => `${n} is still grumpy…`, loseSub: (h, m) => `Hearts taken: ${h} of ${m}. Try again?`, again: "Try again",
     big: "Grumpy dad", hug: "Hug! -1", bang: "BAM!", saved: "Saved!", out: "Going home to rest", back: "Back in the game!", resting: (n, t) => `${n}: resting… back in ${t}`, help: n => `${n}: HELP!`,
@@ -61,7 +61,7 @@ export const I18N = {
       city: "A slow ice-cream truck drives around. Dad can't see through it — sneak along behind it!", school: "When the bell rings — freeze! Dad looks everywhere and sees anyone running.",
       beach: "Waves roll up the beach. They slow you down — and Dad won't go into the water!", winter: "Running leaves footprints in the snow, and Dad follows them. Tiptoe leaves none!" },
     tipItem: { park: "Lead Dad onto a banana peel: he slips and you can hug him from any side!", field: "Run into the football: it rolls away and bonks Dad!",
-      city: "Leave a cupcake out: Dad can't resist and stops to eat it!", school: "Run into a paper plane: it flies off, and Dad turns to watch it!",
+      city: "Find a cupcake: Dad can't resist and stops to eat it!", school: "Run into a paper plane: it flies off, and Dad turns to watch it!",
       beach: "Lead Dad onto the watermelon slice: he slides and falls!", winter: "Run into the snowballs: one flies at Dad and he freezes — Brrr!" },
     bonus: "Bonus", bonusUnlocked: "Bonus worlds unlocked!",
     items: { boots: "Speed boots!", cloak: "Invisible!", shield: "Shield!" }, blocked: "Blocked!", slip: "Whoops!",
@@ -130,7 +130,7 @@ export const I18N = {
       `Los otros chicos vienen y se quedan ${CFG.RESCUE_TIME} segundos al lado tuyo para ayudarte a levantarte`,
       `Si nadie te ayuda a levantarte en ${n} segundos, te vas a casa a descansar ${CFG.REST_TIME} segundos`,
       "En los arbustos no te ve. La casa de los chicos es segura: Papá no puede entrar",
-      "Agarrá cosas: zapatillas veloces, invisibilidad, escudo ¡y una banana para que Papá se resbale!",
+      "Agarrá cosas: zapatillas, invisibilidad, escudo, banana para que Papá se resbale ¡y en cada mundo, su sorpresa!",
       I18N.es.ruleTiptoe
     ],
     ruleTiptoe: "Si corrés cerca de papá, te escucha: ¡andá en puntitas de pie!",
@@ -150,7 +150,7 @@ export const I18N = {
     importConfirm: "¿Reemplazar el progreso de este dispositivo con el código?", codeTooNew: "Este código es de una versión más nueva del juego", codeBad: "Este código no funciona. Revisalo y probá de nuevo",
     undoReset: "Recuperar el progreso borrado", resetAsk: "¿Borrar todo el progreso?", leaveAsk: "¿Salir del juego?", yes: "Sí", no: "No", restoreCopy: "Volver a una copia anterior", eraseAll: "Borrar todos los datos de este dispositivo", errorLog: "Registro de errores", copy: "Copiar", version: "Versión",
     win: "¡GANARON!", winSub: "¡Lo abrazaron muchas veces y se fue a su casa!", next: n => `Nivel ${n} ▶`,
-    kindAgain: n => `¡${n} volvió a ser bueno!`, cheer: "¡Bien!", whoosh: "¡FIUUU!", splash: "¡CHAPA!", freeze: "¡Quietos!",
+    kindAgain: n => `¡${n} volvió a ser bueno!`, cheer: "¡Bien!", whoosh: "¡FIUUU!", splash: "¡CHAPA!", freeze: "¡Quietos!", bonk: "¡Toc!", yum: "¡Ñam!", brr: "¡Brrr!", whee: "¡Wiii!",
     bossNames: { park: "El jefe del parque", field: "El entrenador", city: "El albañil", school: "El papá más enojado" },
     lose: n => `${n} sigue enojado…`, loseSub: (h, m) => `Corazones: ${h} de ${m}. ¿Otra vez?`, again: "Otra vez",
     big: "Papá gruñón", hug: "¡Abrazo! -1", bang: "¡PUM!", saved: "¡Salvado!", out: "Me voy a descansar", back: "¡De vuelta!", resting: (n, t) => `${n}: descansando… volvés en ${t}`, help: n => `${n}: ¡AYUDA!`,
@@ -165,7 +165,7 @@ export const I18N = {
       city: "Un camión de helados pasa despacito. Papá no ve a través de él: ¡andá escondido detrás!", school: "Cuando suena la campana, ¡quietos! Papá mira por todos lados y ve a cualquiera que corra.",
       beach: "Las olas suben por la playa. Te frenan, ¡y Papá no se mete en el agua!", winter: "Si corrés dejás huellas en la nieve, y Papá las sigue. ¡En puntitas no dejás ninguna!" },
     tipItem: { park: "Hacé que Papá pise una cáscara de banana: se resbala y podés abrazarlo desde cualquier lado.", field: "Corré hacia la pelota: sale rodando y le pega a Papá.",
-      city: "Dejá un cupcake: ¡Papá no se resiste y para a comérselo!", school: "Corré hacia el avioncito de papel: sale volando y Papá se da vuelta a mirarlo.",
+      city: "Encontrá un cupcake: ¡Papá no se resiste y para a comérselo!", school: "Corré hacia el avioncito de papel: sale volando y Papá se da vuelta a mirarlo.",
       beach: "Hacé que Papá pise la sandía: ¡se resbala y se cae!", winter: "Corré hacia las bolas de nieve: una le da a Papá y se congela. ¡Brrr!" },
     bonus: "Bonus", bonusUnlocked: "¡Se abrieron los mundos bonus!",
     items: { boots: "¡Zapatillas veloces!", cloak: "¡Invisible!", shield: "¡Escudo!" }, blocked: "¡Bloqueado!", slip: "¡Upa!",
@@ -227,7 +227,7 @@ export const I18N = {
       `As outras crianças vêm e ficam ${CFG.RESCUE_TIME} segundos do seu lado para te levantar`,
       `Se ninguém te ajudar a levantar em ${n} s, você vai para casa descansar ${CFG.REST_TIME} s`,
       "Nos arbustos ele não te vê. A casa das crianças é segura: o Papai não entra",
-      "Pegue itens: botas rápidas, invisibilidade, escudo — e uma banana para o Papai escorregar!",
+      "Pegue itens: botas, invisibilidade, escudo, banana para o Papai escorregar — e em cada mundo uma surpresa!",
       I18N.pt.ruleTiptoe
     ],
     ruleTiptoe: "Correu perto do Papai? Ele escuta — ande na ponta dos pés!",
@@ -248,7 +248,7 @@ export const I18N = {
     importConfirm: "Substituir o progresso deste aparelho pelo do código?", codeTooNew: "Este código é de uma versão mais nova do jogo", codeBad: "Este código não funciona. Confira e tente de novo",
     undoReset: "Recuperar o progresso apagado", resetAsk: "Apagar todo o progresso?", leaveAsk: "Sair do jogo?", yes: "Sim", no: "Não", restoreCopy: "Voltar para uma cópia anterior", eraseAll: "Apagar todos os dados deste aparelho", errorLog: "Registro de erros", copy: "Copiar", version: "Versão",
     win: "VOCÊS GANHARAM!", winSub: "Vocês deram muitos abraços nele, e ele foi para casa!", next: n => `Fase ${n} ▶`,
-    kindAgain: n => `${n} ficou bonzinho!`, cheer: "Eba!", whoosh: "VUUUSH!", splash: "PLOFT!", freeze: "Parados!",   // SPEC-028: kindAgain без «de novo» — длинное имя босса не влезало (шрифты CI)
+    kindAgain: n => `${n} ficou bonzinho!`, cheer: "Eba!", whoosh: "VUUUSH!", splash: "PLOFT!", freeze: "Parados!", bonk: "Toc!", yum: "Nham!", brr: "Brrr!", whee: "Uhuu!",   // SPEC-028: kindAgain без «de novo» — длинное имя босса не влезало (шрифты CI)
     bossNames: { park: "O chefe do parque", field: "O treinador", city: "O construtor", school: "O papai mais bravo" },
     lose: n => `${n} ainda está bravo…`, loseSub: (h, m) => `Corações: ${h} de ${m}. Mais uma vez?`, again: "De novo",
     big: "Papai bravo", hug: "Abraço! -1", bang: "BUM!", saved: "Salvo!", out: "Vou descansar", back: "De volta ao jogo!", resting: (n, t) => `${n}: descansando… volta em ${t}`, help: n => `${n}: SOCORRO!`,
@@ -263,7 +263,7 @@ export const I18N = {
       city: "Um carrinho de sorvete passa devagar. O Papai não enxerga através dele — vá escondido atrás!", school: "Quando o sinal tocar — congele! O Papai olha para todo lado e vê quem estiver correndo.",
       beach: "As ondas sobem pela praia. Elas atrasam você — e o Papai não entra na água!", winter: "Correr deixa pegadas na neve, e o Papai segue elas. Na ponta dos pés você não deixa nenhuma!" },
     tipItem: { park: "Faça o Papai pisar numa casca de banana: ele escorrega e você pode abraçá-lo por qualquer lado!", field: "Corra na bola de futebol: ela rola e acerta o Papai!",
-      city: "Deixe um cupcake: o Papai não resiste e para para comer!", school: "Corra no aviãozinho de papel: ele sai voando e o Papai vira para olhar!",
+      city: "Ache um cupcake: o Papai não resiste e para para comer!", school: "Corra no aviãozinho de papel: ele sai voando e o Papai vira para olhar!",
       beach: "Faça o Papai pisar na fatia de melancia: ele escorrega e cai!", winter: "Corra nas bolas de neve: uma voa no Papai e ele congela — Brrr!" },
     // артикль по миру: a Cidade, a Escola, a Praia; o Parque, o Campo de futebol, o Inverno
     worldDone: (w, key) => `Você terminou ${key === "city" || key === "school" || key === "beach" ? "a" : "o"} ${w}!`,
@@ -325,7 +325,7 @@ export const I18N = {
       `Другие дети подбегают и стоят рядом ${CFG.RESCUE_TIME} сек — ты снова в игре`,
       `Никто не помог встать за ${n} сек — идёшь домой отдыхать ${CFG.REST_TIME} сек`,
       "В кустах папа не видит. Домик детей — безопасная зона, папа туда не зайдёт",
-      "Собирай предметы: сапоги-скороходы, невидимку, щит — и банан, на котором папа поскользнётся!",
+      "Собирай: сапоги, невидимку, щит, банан для папы — а в каждом мире своя неожиданность!",
       I18N.ru.ruleTiptoe
     ],
     ruleTiptoe: "Бежишь рядом с папой — он слышит. Иди на цыпочках!",
@@ -345,7 +345,7 @@ export const I18N = {
     importConfirm: "Заменить прогресс на этом устройстве прогрессом из кода?", codeTooNew: "Этот код из более новой версии игры", codeBad: "Этот код не подходит. Проверьте его и попробуйте ещё раз",
     undoReset: "Вернуть стёртый прогресс", resetAsk: "Сбросить весь прогресс?", leaveAsk: "Выйти из игры?", yes: "Да", no: "Нет", restoreCopy: "Вернуть более старую копию", eraseAll: "Стереть все данные на этом устройстве", errorLog: "Журнал ошибок", copy: "Копировать", version: "Версия",
     win: "ПОБЕДА!", winSub: "Его обняли много раз, и он ушёл домой!", next: n => `Уровень ${n} ▶`,
-    kindAgain: n => `${n} снова добрый!`, cheer: "Ура!", whoosh: "ВЖУХ!", splash: "ПЛЮХ!", freeze: "Замри!",
+    kindAgain: n => `${n} снова добрый!`, cheer: "Ура!", whoosh: "ВЖУХ!", splash: "ПЛЮХ!", freeze: "Замри!", bonk: "Бом!", yum: "Ням!", brr: "Брр!", whee: "Уиии!",
     bossNames: { park: "Босс парка", field: "Тренер", city: "Строитель", school: "Самый злой папа" },
     lose: n => `${n} всё ещё сердится…`, loseSub: (h, m) => `Сердечек забрали: ${h} из ${m}. Ещё разок?`, again: "Ещё раз",
     big: "Злой папа", hug: "Обнимашки! -1", bang: "БАХ!", saved: "Спасён!", out: "Иду отдыхать", back: "Снова в игре!", resting: (n, t) => `${n}: отдых… вернёшься через ${t}`, help: n => `${n}: ПОМОГИТЕ!`,
@@ -360,7 +360,7 @@ export const I18N = {
       city: "По улице медленно едет грузовик с мороженым. Папа не видит сквозь него — пробирайся за ним!", school: "Когда звенит звонок — замри! Папа смотрит по сторонам и видит всех, кто бежит.",
       beach: "Волны накатывают на пляж. Они замедляют тебя — а Папа в воду не пойдёт!", winter: "Бегущий оставляет следы на снегу, и Папа идёт по ним. На цыпочках следов нет!" },
     tipItem: { park: "Заведи Папу на банановую кожуру: он поскользнётся, и его можно обнять с любой стороны!", field: "Набеги на мяч: он покатится и стукнет Папу!",
-      city: "Оставь кексик: Папа не удержится и остановится поесть!", school: "Набеги на бумажный самолётик: он улетит, а Папа обернётся посмотреть!",
+      city: "Найди кексик: Папа не удержится и остановится поесть!", school: "Набеги на бумажный самолётик: он улетит, а Папа обернётся посмотреть!",
       beach: "Заведи Папу на ломтик арбуза: он поскользнётся и упадёт!", winter: "Набеги на снежки: один полетит в Папу, и он замёрзнет — Брр!" },
     // род по миру: Футбольное поле пройдено, Школа/Зима пройдена, Парк/Город/Пляж пройден
     worldDone: (w, key) => `${w} ${key === "field" ? "пройдено" : key === "school" || key === "winter" ? "пройдена" : "пройден"}!`,

@@ -97,16 +97,16 @@ test("SPEC-035: the How to play rules speak of Dad and the kids (en, es, pt, ru)
   const want = {
     en: ["Sneak up BEHIND Dad and hug him: he loses an angry heart", "If Dad SEES you (yellow beam), he pushes you and you fall down",
       `Other kids run over and stand next to you for ${R} seconds to help you up`, `If nobody helps you up within ${n} s, you go home to rest for ${T} s`,
-      "Bushes hide you. The kids' house is safe: Dad can't get in", "Grab items: speed boots, invisibility, shield — and a banana Dad slips on!"],
+      "Bushes hide you. The kids' house is safe: Dad can't get in", "Grab items: boots, invisibility, shield, a banana for Dad to slip on — and in each world its own surprise!"],
     es: ["Acercate a Papá POR DETRÁS y abrazalo: pierde un corazón enojado", "Si Papá te VE (rayo amarillo), te empuja y te caés",
       `Los otros chicos vienen y se quedan ${R} segundos al lado tuyo para ayudarte a levantarte`, `Si nadie te ayuda a levantarte en ${n} segundos, te vas a casa a descansar ${T} segundos`,
-      "En los arbustos no te ve. La casa de los chicos es segura: Papá no puede entrar", "Agarrá cosas: zapatillas veloces, invisibilidad, escudo ¡y una banana para que Papá se resbale!"],
+      "En los arbustos no te ve. La casa de los chicos es segura: Papá no puede entrar", "Agarrá cosas: zapatillas, invisibilidad, escudo, banana para que Papá se resbale ¡y en cada mundo, su sorpresa!"],
     pt: ["Chegue POR TRÁS do Papai e dê um abraço: ele perde um coração bravo", "Se o Papai te VÊ (raio amarelo), ele te empurra e você cai",
       `As outras crianças vêm e ficam ${R} segundos do seu lado para te levantar`, `Se ninguém te ajudar a levantar em ${n} s, você vai para casa descansar ${T} s`,
-      "Nos arbustos ele não te vê. A casa das crianças é segura: o Papai não entra", "Pegue itens: botas rápidas, invisibilidade, escudo — e uma banana para o Papai escorregar!"],
+      "Nos arbustos ele não te vê. A casa das crianças é segura: o Papai não entra", "Pegue itens: botas, invisibilidade, escudo, banana para o Papai escorregar — e em cada mundo uma surpresa!"],
     ru: ["Подкрадись к папе СЗАДИ и обними — у него минус злое сердечко", "Папа увидит тебя (жёлтый луч) — толкнёт, и ты упадёшь",
       `Другие дети подбегают и стоят рядом ${R} сек — ты снова в игре`, `Никто не помог встать за ${n} сек — идёшь домой отдыхать ${T} сек`,
-      "В кустах папа не видит. Домик детей — безопасная зона, папа туда не зайдёт", "Собирай предметы: сапоги-скороходы, невидимку, щит — и банан, на котором папа поскользнётся!"]
+      "В кустах папа не видит. Домик детей — безопасная зона, папа туда не зайдёт", "Собирай: сапоги, невидимку, щит, банан для папы — а в каждом мире своя неожиданность!"]
   };
   for (const l of LANGS) expect(r.out[l].rules, l).toEqual([...want[l], r.out[l].tiptoe]);
 });

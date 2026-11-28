@@ -16,6 +16,7 @@ import { moveEntity } from "./path.js";
 import { applyTutorialMap, practiceOf, stockOf, tutorialSetup, updateTutorial } from "./practice.js";
 import { checkContacts, moveSpeed, separate, throwKiss, updateDanger, updateDowned, updateHugAnim, updateItems, updateKisses, updateResting, updateStars, useRescueKit, winNow } from "./rules.js";
 import { calmTrick, initTrick, stepTrick } from "./tricks/index.js";
+import { updateShots } from "./worlditems.js";
 import { canAct } from "./world.js";
 import { G, setActiveGame } from "./active.js";
 
@@ -50,6 +51,7 @@ export function newGame(opts = {}) {
     phase: "play",
     littles: [], big: null, botAttackCd: 0, prevToken: null, attackToken: null,
     stats: { hugs: 0, time: 0 }, items: [], itemCd: 5, itemSeq: 0, pendingWin: 0,
+    shots: [], shotSeq: 0,                                   // SPEC-043: the launched world items (football, plane, snowball): { id, kind, x, y, dx, dy, left, bounces, t, by, seen }
     // SPEC-008: журнал событий игры { t (сек игры), type, …данные } — для тестов, отчёта баланса и счёта монеток (SPEC-009).
     // Только простые данные; не длиннее CFG.EVENT_LOG_MAX (старые выпадают); очищается в начале уровня (startGame).
     events: [], eventsHead: 0,                               // SPEC-040 AC 10: a ring over plain data (events.js pushEvent): eventsHead — the oldest, once full
@@ -135,6 +137,8 @@ export function buildGame(world, n, slots) {
     isBig: true, x: G.spawns.big.x, y: G.spawns.big.y, r: 22, dir: -Math.PI / 2, hp: maxHp, maxHp,
     state: "look", timer: 4, lookSign: 1, lastSeen: null, goal: null, patrolT: 0, prog: { x: 0, y: 0, t: 0, last: -1 },
     path: [], repath: 0, moveDir: 0, walk: 0, moving: false, stun: 0, stunFace: 0, stunTurn: 0, pushCd: 0, noPush: 0, hugCd: 0, flash: 0, slip: 0,
+    slipKind: "banana", slideX: 0, slideY: 0, slideT: 0,   // SPEC-043: what laid him down (banana / ball / eat / freeze / melon) and the watermelon's slide
+    watch: 0, watchX: 0, watchY: 0, cake: 0, cakeT: 0, cakeStuck: 0, cakeX: 0, cakeY: 0,   // SPEC-043: watching the plane (s left, where) and the walk to a cupcake (its id, s walked, s without progress, where the progress is measured from)
     blush: 0, blushBy: 0,   // покраснел после поцелуя: сколько ещё сек и кто бросил (индекс игрока)
     kind: false,            // SPEC-022: злость кончилась — подобрел и идёт домой (pendingWin — сколько ещё идёт)
     boss: G.tutorialGame ? null : bs.boss !== undefined ? bs.boss : bossFor(world, n),   // SPEC-022: босс уровня (мир из BOSSES) или null; в тренировке — нет
@@ -143,7 +147,7 @@ export function buildGame(world, n, slots) {
     skin: bs.skin ?? null, name: bs.name ?? null,
     player: bs.kind === "player"   // SPEC-012 AC 4: a player moves him (G.inputs.big), his AI does not run
   };
-  G.items = []; G.itemCd = rand(4, 7); G.pendingWin = 0;
+  G.items = []; G.shots = []; G.itemCd = rand(4, 7); G.pendingWin = 0;
   G.bonusStars = []; G.starCd = rand(CFG.STAR_EVERY[0], CFG.STAR_EVERY[1]);
   G.kisses = [];
   G.kitHintDone = false; G.heardHintDone = false;
@@ -224,6 +228,7 @@ export function update(dt) {
   else { readInputs(dt); updatePlayers(dt); updateBots(dt); stepTrick(dt); if (G.big.player) updateBigPlayer(dt); else updateBig(dt); }
   updateHugAnim(dt);
   updateKisses(dt);
+  updateShots(dt);
   separate();
   checkContacts();
   updateDowned(dt);

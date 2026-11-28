@@ -18,6 +18,7 @@ import { waves } from "./mapstate.js";
 import { syncTrick3D } from "./tricks3d.js";
 import { disposeTree, ownMat, part, sphere, syncPaper, toon } from "./materials.js";
 import { itemGroup, itemMeshes, kissGroup, kissMeshes, starGroup, starMeshes } from "./pools.js";
+import { bigWorldPose, LYING_KINDS, lyingPose, makeWorldItemMesh, syncShots } from "./worlditems3d.js";
 import { previewsShown, renderPreviews, snapshotWorld } from "./previews.js";
 import { BIG_SCALE, camBase, camera, LITTLE_SCALE, P, renderer, scene } from "./setup.js";
 import { G } from "../../core/active.js";
@@ -48,6 +49,15 @@ const backMesh = new THREE.Mesh(new THREE.CircleGeometry(P(22 + 20), 20, -(Math.
 const backPivot = new THREE.Group();
 // ---------- Предметы в 3D ----------
 function makeItemMesh(kind) {
+  const own = makeWorldItemMesh(kind);                   // SPEC-043: the world's own item
+  if (own) {
+    if (!LYING_KINDS.includes(kind)) {                   // the ones you run into hover on a ring, like the pickups
+      const rm = new THREE.MeshBasicMaterial({ color: "#ffffff", transparent: true, opacity: 0.55, depthWrite: false }); rm.userData.own = true;
+      const ring = new THREE.Mesh(new THREE.RingGeometry(0.3, 0.4, 24), rm); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.03; own.add(ring); own.userData.ring = ring;
+    }
+    own.traverse(o => { if (o.isMesh) o.castShadow = true; });
+    return own;
+  }
   const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
   if (kind === "boots") {
     const shaft = part(new THREE.BoxGeometry(0.2, 0.32, 0.18), "#ef4444", 0.025); shaft.position.y = 0.05; body.add(shaft);
@@ -83,7 +93,7 @@ function syncItems(t) {
     if (!g) { g = makeItemMesh(it.kind); itemGroup.add(g); itemMeshes.set(it.id, g); }
     g.position.set(P(it.x), 0, P(it.y));
     const body = g.userData.body;
-    if (it.kind === "banana") { body.position.y = 0.08; body.rotation.y = it.id; }
+    if (it.kind === "banana" || LYING_KINDS.includes(it.kind)) { body.position.y = it.kind === "banana" ? 0.08 : 0; body.rotation.y = it.id; }
     else { body.position.y = 0.5 + Math.sin(t * 3 + it.id) * 0.08; body.rotation.y = t * 2; }
     if (g.userData.ring) g.userData.ring.material.opacity = 0.35 + Math.sin(t * 4) * 0.2;
     g.visible = !(it.life - it.t < 3 && Math.floor(t * 8) % 2);
@@ -249,7 +259,7 @@ function syncBig(b, t) {
   m.root.rotation.y = Math.PI / 2 - bigFacing();
   const slipped = b.slip > 0, shocked = b.stun > 0 || slipped, resting = b.noPush > 0 && !shocked;
   const hugged = G.littles.some(l => l.hugAnim > 0);
-  if (slipped) {                                         // упал на спину после банана
+  if (lyingPose(b)) {                                    // упал на спину после банана (SPEC-043: или арбуза)
     m.rig.rotation.set(-1.3, 0, 0); m.rig.position.set(0, 0.55, 0.9);
     m.legs[0].rotation.x = -0.6 + Math.sin(t * 10) * 0.4; m.legs[1].rotation.x = -0.6 - Math.sin(t * 10) * 0.4;
   } else {
@@ -285,6 +295,7 @@ function syncBig(b, t) {
     m.arms[1].rotation.x = b.moving ? Math.sin(b.walk) * 0.5 : 0; m.arms[1].rotation.z = 0.25;
   } else { m.arms[0].rotation.z = -0.25; m.arms[1].rotation.z = 0.25; }   // как при постройке (k × 0.25)
   if (m.blink) m.blink.material.emissiveIntensity = Math.floor(t * 3) % 2 ? 1 : 0.2;
+  bigWorldPose(m, b, t);                                 // SPEC-043: the cupcake in his hands, the ice, the plane look — over the pose above
 }
 // SPEC-040 AC 5: a tree or bush is the opaque instanced drawing until its fade starts; while it fades (and while it stays faded) it is drawn
 // from its own transparent materials; once fully back (a within FADE_SETTLED of 1, nothing behind it) it snaps to 1 and is instanced again
@@ -303,6 +314,7 @@ function syncScene(t) {
   syncItems(t);
   syncStars(t);
   syncKisses(t);
+  syncShots(t);
   updateCone();
   // обратный отсчёт у игрока в доме Большого — стены мигают красным
   const warn = mode === "play" && G.littles.some(l => l.kind === "player" && l.state === "ok" && l.dangerT > CFG.DANGER_TIME - LOOK.DANGER_WARN);

@@ -51,6 +51,7 @@ import { disposeCheck, look3D } from "./three/look3d.js";
 import { perfReport } from "./perf.js";
 import { mapGroup } from "./three/mapstate.js";
 import { trickMeshes } from "./three/tricks3d.js";
+import { worldItemMeshes } from "./three/worlditems3d.js";
 import { groundCanvas, OUTLINE } from "./three/materials.js";
 import { outfitModel, skinPanels } from "./three/previews.js";
 import { camera, LITTLE_SCALE } from "./three/setup.js";
@@ -91,7 +92,7 @@ const CFG_ALL = new Proxy({}, {
 // SPEC-023 AC 5: в sim ничего не рисуется — состояние, которое заполняют drawUI / 3D, устарело или пусто. Чтение бросает
 // ошибку, чтобы визуальный тест, открытый в sim, падал громко, а не проверял пустоту.
 const SIM_DRAWN = ["buttonRects", "buttonNames", "tapButton", "hudRects", "mapInfo", "levelCard", "storyInfo", "textSizes", "minimap",
-  "bannerRect", "bellHud", "tipCard", "trickMeshes", "rotateShown", "winPanel", "winLine", "bonusNote", "shopLayout", "kitHint", "heardHint", "edgeArrows", "downDrawn", "stickMarks",
+  "bannerRect", "bellHud", "tipCard", "trickMeshes", "worldItemMeshes", "rotateShown", "winPanel", "winLine", "bonusNote", "shopLayout", "kitHint", "heardHint", "edgeArrows", "downDrawn", "stickMarks",
   "tapLines", "textOverflows", "tutorialHint", "homeInfo", "progressInfo", "outfit3D", "bibClear", "hat3D", "capeClear", "cardRect", "mapPieces", "groundColorAt", "camera", "minimapAlpha", "artUse", "sceneInfo", "moodInfo", "bigLook", "look3D", "drawNow", "model",
   "perf", "disposeCheck"];   // SPEC-025 AC 15 / 15b: the renderer's numbers and textures — a rendered page only
 
@@ -266,7 +267,7 @@ export function installDebug() {
     // сетка карты (до SPEC-006 называлась world)
     grid: { COLS, ROWS, CELL, get blocked() { return Array.from(G.blocked); }, get blockedBig() { return Array.from(G.blockedBig); }, seeSolid: seeSolidAt, get bushes() { return G.bushes.map(q => ({ ...q })); },
       get obstacles() { return G.obstacles.map(o => ({ kind: o.kind, shape: o.shape, x: o.x, y: o.y, w: o.w, h: o.h, r: o.r, move: o.move, sight: o.sight })); } },
-    get kisses() { return G.kisses; }, throwKiss: kissNow, buyKisses, resetProgress, heartFill, bigBoost, fmtHearts,
+    get kisses() { return G.kisses; }, get shots() { return G.shots; }, throwKiss: kissNow, buyKisses, resetProgress, heartFill, bigBoost, fmtHearts,
     RESCUE_KIT, buyRescueKit, useRescueKit: kitNow, get kitHint() { return ui.kitHintRect; },   // SPEC-007
     // SPEC-019: бежит ли маленький i (true/false); значок над Большим; подсказка «услышал топот» (текст, чья, плашка этого кадра) или null;
     // джойстики этого кадра с кольцом «на цыпочках»
@@ -280,7 +281,7 @@ export function installDebug() {
     GLOVES, KISSES, get shopLayout() { return ui.shopLayout; },                         // SPEC-007 AC 10
     // SPEC-041: картинка карточки уровня — levelPreview(мир, n) → { canvas, data } (из кеша или построить), previewInfo — сколько построено / взято из кеша / держится
     showCard, levelPreview: (world, lv) => { previewDataOf(world, lv); return levelPreviewOf(world, lv); }, get previewInfo() { return { ...previewStats, size: previewCacheSize() }; }, clearLevelPreviews,
-    levelType, levelReport, get levelInfo() { return G.levelInfo; }, get trick() { return G.trick; }, trickMeshes, get tipCard() { return { open: ui.tip, info: ui.tipInfo && { ...ui.tipInfo } }; }, openTip, closeTip, tipDue, get bellHud() { return { bell: ui.bellRect && { ...ui.bellRect }, freeze: ui.freezeRect && { ...ui.freezeRect }, freezeT: ui.freezeT }; }, clearLevelCache: () => { clearLevelCache(); clearLevelPreviews(); },   // SPEC-041: the card previews live with the level cache
+    levelType, levelReport, get levelInfo() { return G.levelInfo; }, get trick() { return G.trick; }, trickMeshes, worldItemMeshes, get tipCard() { return { open: ui.tip, info: ui.tipInfo && { ...ui.tipInfo } }; }, openTip, closeTip, tipDue, get bellHud() { return { bell: ui.bellRect && { ...ui.bellRect }, freeze: ui.freezeRect && { ...ui.freezeRect }, freezeT: ui.freezeT }; }, clearLevelCache: () => { clearLevelCache(); clearLevelPreviews(); },   // SPEC-041: the card previews live with the level cache
      CFG: CFG_ALL, THEMES, look3D, disposeCheck, perf: perfReport, setBigFace,   // SPEC-021: look3D() — как нарисована 3D-сцена
     get banner() { return ui.banner; }, bannerAlpha,
     // всё состояние мира, которое levelReport сохраняет и возвращает (для теста «не трогает идущую игру»)

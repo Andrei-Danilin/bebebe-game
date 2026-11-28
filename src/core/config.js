@@ -218,6 +218,24 @@ export const CFG = {
   // тренировки и обучение — без хитростей всегда. Числа ниже — по мере того, как хитрости приходят (TRICKS); меняется число — clearLevelCache()
   TRICKS_ON: 1,              // SPEC-042: 1 — миры играют со своей хитростью (WORLD_TRICK), 0 — как до спеки
   WORLD_TRICK: { park: "puddles", field: "sprinklers", city: "truck", school: "bell", beach: "waves", winter: "footprints" },   // SPEC-042: хитрость мира
+  // SPEC-043: в каждом мире свой предмет рядом с бананом (придумал Claude, проверить с детьми). WORLD_ITEMS_ON 0 — ни в одном мире (игра до SPEC-043);
+  // в тренировках их нет всегда. WORLD_ITEM — предмет мира (парк — банан, он и так везде); числа — в WORLD_ITEMS (меняется число — ничего не кэшируется)
+  WORLD_ITEMS_ON: 1,         // SPEC-043: 1 — миры спавнят свой предмет (WORLD_ITEM), 0 — как до спеки
+  WORLD_ITEM: { park: "banana", field: "football", city: "cupcake", school: "plane", beach: "watermelon", winter: "snowball" },   // SPEC-043: предмет мира
+  // SPEC-043: доли предметов в мирах со своим предметом (в Парке — как раньше: сапоги 0,3, плащ 0,25, щит 0,2, остальное банан); lyingLife — на сколько сек дольше
+  // лежат предметы-ловушки (арбуз, кекс; у банана своё bananaLife); bossMul — на сколько умножается время эффекта у босса (уровень 20); by — тип остальных чисел: cells — клеток полёта
+  // (в направлении бега, на цыпочках так же), speed — клеток/сек полёта, hit — px сверх радиуса папы для попадания, time — сек эффекта на папе
+  // Остальные числа: touch — px сверх радиуса ребёнка, чтобы тронуть предмет; stepPx / maxSteps — полёт считается шагами не длиннее stepPx px (не больше maxSteps за шаг игры);
+  // bananaLife — на сколько сек дольше лежит банан, lyingLife — арбуз и кекс
+  WORLD_ITEMS: {
+    shares: { boots: 0.3, cloak: 0.25, shield: 0.2, banana: 0.1, world: 0.15 }, bananaLife: 8, lyingLife: 8, bossMul: 0.5, touch: 16, stepPx: 4, maxSteps: 64,
+    football: { cells: 6, speed: 14, hit: 8, time: 1.5, bounces: 1 },                    // мяч катится cells клеток, один раз отскакивает от стены; попал — папа оглушён time сек
+    cupcake: { see: 5, time: 3, near: 14, turn: 5, giveUp: 12, stuck: 1.5, stuckCells: 0.5 },   // кекс: папа видит его ближе see клеток и может дойти — идёт (поворот turn рад/с) и ест time сек (подошёл на near px к краю; не дошёл за giveUp сек или сдвинулся меньше stuckCells клеток за stuck сек — кекс пропал)
+    plane: { cells: 8, speed: 8, time: 2, turn: 6, after: 0.5 },                           // самолётик летит cells клеток; увидевший его папа смотрит на него time сек (turn рад/с), потом ещё after сек осматривается
+    watermelon: { slide: 2, slideTime: 0.4, time: 3.5, touch: 8 },                        // арбуз: папа проезжает slide клеток за slideTime сек и лежит всего time сек; наступил — ближе touch px к краю
+    snowball: { cells: 7, speed: 12, hit: 8, time: 1.5 },                                 // снежок летит cells клеток; попал — папа замёрз на time сек
+    kick: { reach: 140, autoReach: 70, approach: 36, line: 0.3, past: 30, range: 0.85, minGap: 12, lineNear: 2.5 }   // боты берутся за мяч / самолётик / снежок не дальше reach px, автопилот — не дальше autoReach (короткий крюк); встают на approach px за ним на линии к папе (line рад — «на линии», ближе lineNear × approach), потом бегут сквозь него (на past px дальше); папа в пределах range полёта и дальше minGap px от края
+  },
   // SPEC-042: числа хитростей. count — штук на уровень [от, до]; pad — клеток отступа от занятого и друг от друга (при расстановке); cells/сек — как сказано
   // SPEC-042: hideSpot — где боты и автопилот прячутся за тем, что закрывает папе обзор (грузовик): на behind px за его краем, не дальше side px вбок, не ближе edge px к краю карты, подходят на stop px
   TRICKS: {

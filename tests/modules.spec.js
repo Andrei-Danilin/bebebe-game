@@ -170,7 +170,7 @@ const withoutStarSlot = e => { if (e.type !== "coins" || e.reason !== "star") re
 // SPEC-036 (kids' rule) too: the fallen kid's timer stops while a friend helps (DOWN_PAUSE_HELPED 1); 0 is the old rule
 // SPEC-037: Dad no longer stands stuck (re-path after BIG_UNSTUCK_TIME s; BIG_DETOUR_COST: a lying friend is a wall for his patrol and search path); 0 and 0 are the game before
 // SPEC-042: TRICKS_ON 0 — the worlds have no trick (puddles in the Park would change the recorded game); 0 is the game before
-const OLD_RULES = { HEAR_CHANCE: 1, HEAR_TURN_TIME: 0.15, DOWN_PAUSE_HELPED: 0, BIG_UNSTUCK_TIME: 0, BIG_DETOUR_COST: 0, TRICKS_ON: 0 };
+const OLD_RULES = { HEAR_CHANCE: 1, HEAR_TURN_TIME: 0.15, DOWN_PAUSE_HELPED: 0, BIG_UNSTUCK_TIME: 0, BIG_DETOUR_COST: 0, TRICKS_ON: 0, WORLD_ITEMS_ON: 0 };
 test("same seed, same game after the split", async ({ page }) => {
   test.setTimeout(180_000);
   const errors = await openGame(page, { sim: true });

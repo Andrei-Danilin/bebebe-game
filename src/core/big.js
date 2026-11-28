@@ -7,7 +7,8 @@ import { bigReach, cellIdx, randomFreePoint, reachableGoal } from "./grid.js";
 import { moveEntity, steerTo } from "./path.js";
 import { pushHit } from "./rules.js";
 import { bigStepTrick } from "./tricks/index.js";
-import { canSee } from "./vision.js";
+import { bigStepItem, slideStep } from "./worlditems.js";
+import { canSee, isPrey } from "./vision.js";
 import { G } from "./active.js";
 import { emit } from "./events.js";
 
@@ -18,7 +19,7 @@ export function updateBigPlayer(dt) {
   b.flash = Math.max(0, b.flash - dt); b.hugCd = Math.max(0, b.hugCd - dt); b.noPush = Math.max(0, b.noPush - dt);
   b.pushCd = Math.max(0, b.pushCd - dt); b.blush = Math.max(0, b.blush - dt);
   b.moving = false;
-  if (b.slip > 0) { b.slip -= dt; return; }
+  if (b.slip > 0) { slideStep(dt); b.slip -= dt; return; }
   if (b.stun > 0) { b.stun -= dt; b.dir = turnToward(b.dir, b.stunFace, b.stunTurn * dt); return; }
   if (b.blush > 0 || !inp) return;
   let x = inp.mx, y = inp.my;
@@ -81,7 +82,7 @@ export function updateBig(dt) {
       return;
     }
   }
-  if (G.big.slip > 0) { G.big.slip -= dt; G.big.moving = false; if (G.big.slip <= 0) { G.big.state = "look"; G.big.timer = 0.8; } return; }
+  if (G.big.slip > 0) { slideStep(dt); G.big.slip -= dt; G.big.moving = false; if (G.big.slip <= 0) { G.big.state = "look"; G.big.timer = 0.8; } return; }
   if (G.big.stun > 0) { G.big.stun -= dt; G.big.dir = turnToward(G.big.dir, G.big.stunFace, G.big.stunTurn * dt); return; }
   if (G.big.blush > 0) return;                             // стоит красный и никого не толкает
   if (G.big.pushCd > 0) {
@@ -96,12 +97,13 @@ export function updateBig(dt) {
     if (b.state === "ok" && dist(G.big, b) < G.big.r + b.r + CFG.TUTORIAL.scriptPushPad) pushHit(b);
     return;
   }
+  if (bigStepItem(dt)) return;                                // SPEC-043: the plane look and the walk to a cupcake (above the trick: he never chases then)
   if (bigStepTrick(dt)) return;                               // SPEC-042: the world trick may take his step (the school bell holds him)
   const speed = bigSpeeds();
   let target = null, td = Infinity;
   for (const l of G.littles) {
     if (G.big.noPush > 0) break;               // отдыхает — никого не ловит
-    if (l.state !== "ok" || l.invuln > 0 || l.dizzy > 0) continue;   // с кружащейся головой не трогает
+    if (!isPrey(l)) continue;                  // с кружащейся головой не трогает
     if (canSee(l)) { const d = dist(G.big, l); if (d < td) { td = d; target = l; } }
   }
   if (target) {

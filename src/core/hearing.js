@@ -53,13 +53,17 @@ export function hearNoise(dt) {
   logEvent("heard", { who: loud.id, kind: loud.kind });
   if (loud.kind === "player" && !G.heardHintDone) { G.heardHintDone = true; emit("hint", { kind: "heard", slot: loud.slot }); }
 }
+const SLIP_MARK = Object.freeze({ banana: "🍌💫", melon: "🍉💫", ball: "💫", eat: "🧁💗", freeze: "🧊" });   // SPEC-043
+export const SLIP_MARKS = Object.freeze(Object.values(SLIP_MARK));   // every mark of the things that lay him down (draw.js puts them all at the same spot)
 // значок над Большим (тот же порядок, что рисуется): 🍌💫, ?!, 💗, ❓ (обернулся на топот), 👂 (слышит), 💦, !
 export function bigMark() {
   if (G.big.kind) return "💗";                               // SPEC-022: подобрел — не «!» и не «👂»
-  if (G.big.slip > 0) return "🍌💫";
+  if (G.big.slip > 0) return SLIP_MARK[G.big.slipKind] || "🍌💫";   // SPEC-043: the mark follows what laid him down
   if (G.big.stun > 0) return "?!";
   if (G.big.blush > 0) return "💗";
   if (trickMark()) return trickMark();                     // SPEC-042: the school bell holds him: 🔔
+  if (G.big.watch > 0) return "✈";                          // SPEC-043: watching the paper plane
+  if (G.big.cake > 0) return "🧁";                          // SPEC-043: walking to a cupcake
   if (G.big.state === "look" && (G.big.hearTurnT > 0 || G.big.hearLook > 0)) return "❓";
   if (G.big.noise >= CFG.NOISE_WARN) return "👂";
   if (G.big.noPush > 0) return "💦";

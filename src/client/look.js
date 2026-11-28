@@ -188,6 +188,14 @@ export const LOOK = {
     frame: 5, corner: 0.05, ratio: 0.73, deskFrac: 0.5, phoneFrac: 0.44, iconBox: 0.8, iconFrac: 0.34, lines: 6 },
   // SPEC-042: the school bell's HUD: the bell's colours, the plates (warning / ring) and the ink of "Freeze!", the swing (rad) and its speed (rad/s) in the warning and in the ring, the banner's time and fade (s)
   BELL_LOOK: { gold: "#facc15", clapper: "#b45309", plateWarn: "rgba(255,244,200,.92)", plateRing: "rgba(255,214,230,.95)", inkRing: "#d6336c", warnSwing: 0.35, warnHz: 34, ringSwing: 0.42, ringHz: 16, freezeTime: 1.8, freezeFade: 0.3, freezePlate: "rgba(255,250,235,.95)", freezeInk: "#ff6fa8" },
+  // SPEC-043: the world items' 3D: the size of the items (scale), the colours of each (football, cupcake, paper plane, watermelon slice, snowball pile) and how they fly —
+  // the football: height, hop (height, rad/s) and roll (rad/s); the plane: height, bob (height, rad/s), bank (rad, rad/s) and pitch; the snowball: height, arc and spin (rad/s about
+  // two axes) — and how Dad looks under them: the ice tint (emissive colour, strength), the shiver of the whole rig (rad, rad/s), the arms (forward angle, sideways angle) while
+  // he eats and while he is frozen, the head up for the plane, the cupcake held in his hands (height, forward, size) and the chewing nod (rad, rad/s)
+  WORLD_ITEM_LOOK: { scale: 1.6, football: { ball: "#ffffff", patch: "#1f2937", y: 0.2, hop: 0.05, hopSpeed: 18, roll: 29.4 }, cupcake: { cup: "#c084fc", icing: "#fbcfe8", icing2: "#f9a8d4", cherry: "#ef4444" },
+    plane: { paper: "#ffffff", fold: "#93c5fd", alt: 0.9, bob: 0.05, bobSpeed: 6, bank: 0.35, bankSpeed: 5, pitch: -0.12 }, melon: { rind: "#16a34a", rindIn: "#bbf7d0", flesh: "#f43f5e", seed: "#1f2937" },
+    snow: { snow: "#ffffff", shade: "#bfdbfe", y: 0.3, arc: 0.4, spin: [9, 7] }, ice: "#38bdf8", iceK: 0.8, shiver: 0.04, shiverSpeed: 60, eatArms: [-1.2, 0.3], freezeArms: [-0.9, 0.5], watchHead: -0.25,
+    held: { y: 1.55, z: 0.8, s: 1.9 }, chew: 0.12, chewSpeed: 14 },
   TRICK_LOOK: { wetSand: "#e0bd78", wetEdge: "#c79a52", water: "#35c6d4", waterAlpha: 0.5, foam: "#ffffff", print: "#8da2c4", printFaded: "#f2f7ff", printY: 0.034, printSize: 1, printLen: 0.25, printWide: 0.14, printSide: 0.1, puddle: "#9fe0f8", puddleRim: "#4cc9f0", puddleShine: "#e6f8ff", puddleY: 0.03, sprayRing: "#c4ecff", headBase: "#8b95a7", headStem: "#b8c0cc", headNozzle: "#38bdf8",
     sprayWet: "#4cc9f0", sprayWetAlpha: 0.32, sprayDrop: "#8fe3ff", dropN: 72, dropSize: 0.14, dropSpeed: 0.9, dropH: 1.3, reach: 0.96, dripN: 6, dripSpeed: 1.6,
     // the ice-cream truck (City): body, cabin, stripe, roof, window, wheel, cone and scoop colours; the turn follows the way it points at this share per frame; the bounce while it drives (height, speed)
