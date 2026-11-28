@@ -1,6 +1,7 @@
 # SPEC-023: the whole Playwright suite in parallel shards (SPEC-039: 10, packed by the measured time of each test — scripts/shards.js,
 # tests/shards/plan.json — so the slowest shard is about as long as the fastest; SPEC-011: plus one lint job; SPEC-012: plus one
-# Node core job; SPEC-025 AC 10: plus one typecheck job; SPEC-037: plus one stall-guard job — every job must be green).
+# Node core job; SPEC-025 AC 10: plus one typecheck job; SPEC-037: plus one stall-guard job; SPEC-013: plus one online-rooms job —
+# every job must be green).
 # - on every push of a spec branch (SPEC-*): the orchestrator merges only when this run is green;
 # - on pull requests into master (SPEC-025 AC 11: Dependabot's PRs; CLAUDE.md "Dependabot");
 # - by hand (workflow_dispatch);
@@ -88,6 +89,28 @@ jobs:
         with:
           node-version: "24"
       - run: npm run test:core
+
+  # SPEC-013 AC 17: the online rooms server in plain Node (npm run test:online = tests/online/*.test.mjs: the protocol and limit units, the guard that
+  # src/core stays bundleable, and the real Worker under `wrangler dev --local` — no Cloudflare account). wrangler lives only in online/ (npm ci
+  # --prefix online); the site and the rest of the suite never see it. Once per run; called from pages.yml it blocks the deploy like the other jobs
+  online:
+    name: online (Node + wrangler)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref || '' }}
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+      # a rollback ref from before SPEC-013 (pages.yml `ref`, docs/release.md) has no online/ folder: both steps are skipped for it
+      - name: Install wrangler (online/)
+        if: ${{ hashFiles('online/package.json') != '' }}
+        run: npm ci --prefix online
+      - name: Online tests
+        if: ${{ hashFiles('online/package.json') != '' }}
+        run: npm run test:online
 
   # SPEC-037 AC 2: the Dad stall guard in plain Node (npm run test:stall = tests/stall/: every level of every world with the careful and the
   # reckless autopilot, 120 s of game time each; a Big One that stands still while he patrols or searches fails the run) once per run, as

@@ -351,6 +351,25 @@ test("core tests run in Node on every Tests run", { tag: "@fast" }, () => {
   expect(files).toEqual(expect.arrayContaining(["inputs.test.mjs", "instances.test.mjs", "practice.test.mjs", "result.test.mjs", "run.test.mjs"]));
 });
 
+// SPEC-013 AC 1 / 17: the online rooms server (online/, wrangler only there) is tested in plain Node on every Tests run: `npm run test:online` runs
+// tests/online/*.test.mjs (Playwright never loads them), the `online` job installs wrangler from online/ alone, and the root package.json stays free of it
+test("online tests run in Node on every Tests run", { tag: "@fast" }, () => {
+  const root = JSON.parse(readRoot("package.json"));
+  expect(root.scripts["test:online"]).toBe("node --test --test-concurrency=1 \"tests/online/*.test.mjs\"");
+  expect(root.scripts["online:dev"]).toBe("npm --prefix online run dev");
+  expect(readRoot(".github/workflows/tests.yml"), "an online job installs online/ and runs npm run test:online").toMatch(/\n {2}online:\n[\s\S]*?npm ci --prefix online[\s\S]*?run: npm run test:online/);
+  const online = JSON.parse(readRoot("online/package.json"));
+  expect(Object.keys(online.devDependencies), "wrangler is the only dependency of online/").toEqual(["wrangler"]);
+  expect(online.devDependencies.wrangler, "wrangler is pinned to an exact 4.x").toMatch(/^4\.\d+\.\d+$/);
+  expect(online.scripts.dev).toBe("wrangler dev --local --port 8787");
+  expect(Object.keys({ ...root.dependencies, ...root.devDependencies }), "no wrangler in the root package.json").not.toContain("wrangler");
+  const toml = readRoot("online/wrangler.toml");
+  expect(toml).toMatch(/main = "src\/worker\.js"/);
+  expect(toml).toMatch(/new_sqlite_classes = \["Room", "Limiter"\]/);
+  expect(toml, "no Cloudflare account id in the repo").not.toMatch(/account_id/);
+  expect(readRoot(".gitignore")).toMatch(/online\/node_modules\//);
+});
+
 // SPEC-012 AC 1c: the core never reads or writes the client's screen — no `mode` identifier in src/core/ (code, not comments or
 // texts); the game has its own phase G.phase ("play" | "hugEnd" | "kindWalk" | "won"), set only by the core
 test("no `mode` identifier in src/core/", { tag: "@fast" }, () => {

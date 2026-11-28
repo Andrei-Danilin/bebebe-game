@@ -29,7 +29,7 @@ const CORE_FORBIDDEN = ["document", "window", "localStorage", "sessionStorage", 
 const CORE_GLOBALS = Object.fromEntries(Object.entries(globals["shared-node-browser"]).filter(([k]) => !CORE_FORBIDDEN.includes(k)));
 
 module.exports = [
-  { ignores: ["node_modules/**", "v1-2d/**", "vendor/**", "_site/**", "test-results/**", "playwright-report/**", "blob-report/**", "assets/**", "art/**", "icons/**", "types/**"] },
+  { ignores: ["node_modules/**", "v1-2d/**", "vendor/**", "_site/**", "test-results/**", "playwright-report/**", "blob-report/**", "assets/**", "art/**", "icons/**", "types/**", "online/node_modules/**", "online/.wrangler/**"] },
   // the core: no browser-only and no Node-only globals
   {
     files: ["src/core/**/*.js", "src/i18n.js", "src/story.js"],
@@ -54,6 +54,12 @@ module.exports = [
   {
     files: ["tests/**/*.js"],
     languageOptions: { ...COMMONJS, globals: { ...globals.node, ...globals.browser } },
+    rules: RULES
+  },
+  // SPEC-013: the online rooms Worker (online/src: Cloudflare Workers globals; "cloudflare:workers" is not a file, so no local/imports rule here)
+  {
+    files: ["online/src/**/*.js"],
+    languageOptions: { ...MODULE, globals: { ...globals.serviceworker, WebSocketPair: "readonly" } },
     rules: RULES
   },
   // the core's Node tests (SPEC-012: node --test)

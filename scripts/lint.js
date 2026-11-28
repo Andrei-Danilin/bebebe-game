@@ -11,7 +11,7 @@ const path = require("path");
 const { ESLint } = require("eslint");
 
 const ROOT = path.resolve(__dirname, "..");
-const ESLINT_TARGETS = ["src", "scripts", "tests", "eslint.config.js", "playwright.config.js"];
+const ESLINT_TARGETS = ["src", "scripts", "tests", "online/src", "eslint.config.js", "playwright.config.js"];
 // files and folders (every .yml / .json / .md inside) Prettier formats
 const PRETTIER = [".github", "jsconfig.json", "jsconfig.core.json", ".prettierrc.json", "package.json", "CHANGELOG.md", "docs/release.md"];
 const PRETTIER_EXT = /\.(ya?ml|json|md)$/;
