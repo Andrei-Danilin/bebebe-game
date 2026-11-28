@@ -41,9 +41,10 @@ import { warmBuild, warmUpload } from "./warm.js";
 import { showDueNote } from "./ui/grownups.js";
 import { updateMinimapFade } from "./ui/minimap.js";
 import { drawUI } from "./ui/screens.js";
+import { clearHold, screenGate } from "./screen-art.js";
 import { initTextMemo } from "./ui/measure.js";
 
-let langDue = false, introDue = false, tutorialDue = false, last = 0;
+let langDue = false, tutorialDue = false, last = 0;
 async function boot() {
   setPorts({ redress, queueSave });             // SPEC-039: the calls the wardrobe and the save make up the stack (ports.js) — before anything can call them
   // SPEC-025 AC 7: errors are logged (and, once ready, shown) from here on
@@ -84,7 +85,7 @@ async function boot() {
   artGate();                                  // SPEC-020: экран загрузки ждёт картинки (недолго); игра уже готова
   // SPEC-022: самый первый запуск (и старое сохранение без seen: история новая для всех) — комикс «Как всё началось» (под экраном
   // загрузки, пока он есть). Тесты его пропускают: их init-скрипт ставит window.__bbNoIntro (кроме теста первого запуска)
-  introDue = !progress.seen.intro && window.__bbNoIntro !== true;   // открывается в frame(), когда экрана загрузки уже нет
+  ui.introDue = !progress.seen.intro && window.__bbNoIntro !== true;   // открывается в frame(), когда экрана загрузки уже нет
   // SPEC-032 AC 13: самый первый запуск (ничего не сохранено) — сначала экран языка, пока на него не ответили (langAsked: false в
   // сохранении — закрыли приложение на нём, спросит снова); тесты пропускают его вместе с комиксом
   langDue = langPending() && window.__bbNoIntro !== true;
@@ -104,7 +105,7 @@ boot().catch(e => failStart(e && e.noWebGL ? "noWebGL" : "startFailed", e));   /
 // SPEC-025 AC 7: the next frame is asked for first, so an error in this one never stops the loop; the error → reportError
 function frame(now) {
   requestAnimationFrame(frame);
-  try { tick(now); } catch (e) { reportError(e); }
+  try { tick(now); } catch (e) { clearHold(); reportError(e); }
 }
 const view3D = { cadence: newCadence(), settling: false, fit: -1, built: -1 };   // what the last frame knew about the 3D (cadence.js)
 function tick(now) {
@@ -117,7 +118,7 @@ function tick(now) {
   qualityFrame(real, mode, now);             // SPEC-040 AC 7: in play, a p95 over the D-17 threshold for 5 s drops a quality tier
   artKeep(mapBgArt(G.world)); artSweep(now);   // SPEC-040 AC 1: фон карты текущего мира в памяти; остальные не постоянные картинки уходят, когда их не рисуют
   if (langDue && mode === "home" && !document.getElementById("loading")) { langDue = false; openLangScreen(); }   // SPEC-032: язык — до комикса
-  if (introDue && mode === "home" && !document.getElementById("loading")) { introDue = false; openScene("intro", tutorialDue ? openFirstTutorial : null); }   // SPEC-022: первый запуск (SPEC-029: потом обучение; SPEC-033: сначала карточка «Как играть»)
+  if (ui.introDue && mode === "home" && !document.getElementById("loading")) { ui.introDue = false; openScene("intro", tutorialDue ? openFirstTutorial : null); }   // SPEC-022: первый запуск (SPEC-029: потом обучение; SPEC-033: сначала карточка «Как играть»)
   if (inMenus() && !document.getElementById("loading")) showDueNote(now);   // SPEC-025 AC 4 / 4b: a save note, once, in the menus
   ui.T += dt;
   pollPads();
@@ -139,7 +140,8 @@ function tick(now) {
     warmUpload(draw === "world");            // SPEC-040 AC 4: the world of the open card's level, uploaded a few parts a frame (warm.js)
     if (draw === "world") view3D.settling = render3D(ui.T, previews);
     else if (draw === "previews") previewsOverSnapshot(ui.T);
-    drawUI(ui.T);
+    // SPEC-048: the screen's pictures are asked for (and the next screen's); a change to a screen whose pictures are not in yet keeps the old canvas for ≤ ART_WAIT s
+    if (screenGate(now, fitCount)) drawUI(ui.T);
   });
 }
 

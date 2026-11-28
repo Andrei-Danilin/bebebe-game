@@ -37,8 +37,8 @@ export const artDone = () => residentDone() && lazyLoading === 0;
 function artSettle(a, ok, name) {
   if (a.state !== "loading") return;
   a.state = ok ? "ok" : "bad";
-  if (ok) artVersion++;
-  if (a.lazy) { lazyLoading--; if (ok) lazyOk.add(name); else { a.img = null; lazyBad++; a.failedAt = performance.now(); } }
+  if (ok) { artVersion++; a.okAt = performance.now(); }
+  if (a.lazy) { lazyLoading--; if (ok) lazyOk.add(name); else { a.img = null; lazyBad++; a.failedAt = performance.now(); lateOff(a); } }
   else if (!a.own) { artCount[ok ? "ok" : "bad"]++; artProgress(); }
 }
 function artFetch(a, src, then, name) {
@@ -79,6 +79,33 @@ export function artFailed(name) {
   const a = artImgs.get(name);
   return !a || a.state === "bad" || (!!a.failedAt && a.state !== "ok");
 }
+// SPEC-048 AC 1: every picture of the list is in memory or known to be missing (a failed picture never blocks: the screen draws its fallback)
+export function artReady(names) {
+  for (const n of names) {
+    const a = artImgs.get(n);
+    if (!a || a.state === "ok" || artRoot === "bad" || artFailed(n)) continue;
+    return false;
+  }
+  return true;
+}
+// SPEC-048 AC 1: starts loading the pictures of the next screen and keeps them (main.js asks every frame, so artSweep, which releases what was not
+// asked for, never takes them while the screen they are for is on the way)
+export function artPrefetch(names) { for (const n of names) art(n); }
+// SPEC-048 AC 3: a picture the screen change stopped waiting for (ART_WAIT ran out) fades in over LOOK.ART_FADE s when it arrives (artFade: 0…1)
+let lateN = 0;
+function lateOff(a) { if (a.late) { a.late = false; lateN--; } }
+export function artLate(names) {
+  for (const n of names) { const a = artImgs.get(n); if (a && a.state !== "ok" && !a.late && !artFailed(n)) { a.late = true; lateN++; } }
+}
+export function artFade(name) {
+  if (!lateN) return 1;
+  const a = artImgs.get(name);
+  if (!a || !a.late || a.state !== "ok") return 1;
+  const k = (performance.now() - a.okAt) / (LOOK.ART_FADE * 1000);
+  if (k >= 1) { lateOff(a); return 1; }
+  return Math.max(0, k);
+}
+export const artLateCount = () => lateN;
 // не постоянная картинка: попросили — грузим (не раньше старта загрузки и ответа пробы; нет папки assets/ — «bad», рисунок кодом)
 function artRequest(a, name) {
   a.seen = performance.now();
@@ -99,7 +126,7 @@ export function artSweep(now = performance.now()) {
     const a = artImgs.get(name);
     if (now - a.seen < LOOK.ART.releaseMs) continue;
     lazyOk.delete(name); insetCache.delete(name);
-    a.img = null; a.state = "idle";
+    a.img = null; a.state = "idle"; lateOff(a);
   }
 }
 // SPEC-032 AC 6: прозрачные поля картинки (доли её ширины / высоты): l, r — по средней трети строк, t, b — по средней трети столбцов
@@ -182,6 +209,18 @@ export const TRICK_EMOJI = { puddles: "💦", sprinklers: "🚿", truck: "🍦",
 export const WORLD_ITEM_ART = { banana: ["item_banana", "🍌"], football: ["item_football", "⚽"], cupcake: ["icon_cupcake", "🧁"], plane: ["item_paperplane", "✈️"], watermelon: ["item_watermelon", "🍉"], snowball: ["item_snowball", "❄️"] };
 export const itemIcon = world => (WORLD_ITEM_ART[CFG.WORLD_ITEM[world]] || WORLD_ITEM_ART.banana)[0];
 export const itemEmoji = world => (WORLD_ITEM_ART[CFG.WORLD_ITEM[world]] || WORLD_ITEM_ART.banana)[1];
+// SPEC-048 AC 2: ONE definition of the lazy pictures each big screen shows — the screens draw them through these (houseArt, tipArt) and `screen-art.js`
+// lists the same names, so a picture a screen starts to draw cannot be forgotten there (a test compares what a screen drew with its list)
+export const houseArt = (world, side) => `house_${world}_${side}`;   // side: "kids" | "dad" — the level card's preview (ui/level-preview.js)
+// what the level start shows from the lazy sprites: the world's trick icon and its item icon (HUD, the tip's lines)
+export const levelArt = world => [TRICK_ICON[CFG.WORLD_TRICK[world]], itemIcon(world)].filter(Boolean);
+// the "New here!" card: { sheet, trick, item } and the list of the three
+export const tipPics = world => ({ sheet: TIP_ART[world]?.[0], trick: TRICK_ICON[CFG.WORLD_TRICK[world]], item: itemIcon(world) });
+export const tipArt = world => Object.values(tipPics(world)).filter(Boolean);
+// the level card: the map page behind it and the houses of its preview
+export const cardArt = world => [mapBgArt(world), houseArt(world, "kids"), houseArt(world, "dad")];
+// SPEC-032 AC 7: the icons of the rules on the How to play page, in the order of RULE_ICONS (one definition: the page draws them, screen-art.js lists them)
+export const RULE_ART = ["heart_full", "ui_eyes", "shop_quick_help", "ui_timer", "house_kids", "item_banana", "ui_tiptoe"];
 // комиксы глав (8_start, 9_1…9_4, 26_1/26_2, 10_end)
 export const STORY_ART = { began: "story_start", park: "story_park", field: "story_field", city: "story_city", school: "story_school",
   beach: "story_beach", winter: "story_winter", ended: "story_end" };

@@ -1,4 +1,4 @@
-// SPEC-042 AC 11–13: the "New here!" card of a world — shown the first time its level 1 card opens (a new save field progress.seen.trick_<world>), again
+// SPEC-042 AC 11–13: the "New here!" card of a world — SPEC-048: shown after Play is tapped on the first time its level 1 card opens (a new save field progress.seen.trick_<world>), again
 // from the ? button, four languages that fit every screen size, the tip pictures (sheets 40 / 41) and the fallback without them.
 const { test, expect } = require("./pw");
 const { openGame, frames, storedSave } = require("./helpers");
@@ -12,21 +12,44 @@ const showCard = async (page, world, n = 1) => {
   await frames(page);
   return page.evaluate(() => ({ ...window.__bb.tipCard, mode: window.__bb.mode }));
 };
+// the level card, then the card by the ? button (the picture and the lines on their own, as SPEC-042 had them)
+const showTip = async (page, world) => {
+  await showCard(page, world, 1);
+  await page.evaluate(() => window.__bb.openTip());
+  await frames(page);
+  return page.evaluate(() => ({ ...window.__bb.tipCard, mode: window.__bb.mode }));
+};
+// Play on the level card (SPEC-048 AC 6): the tip comes first when it is due
+const playTip = async (page, world, players = 1) => {
+  await showCard(page, world, 1);
+  await page.evaluate(n => window.__bb.playCard(n), players);
+  await frames(page);
+  return page.evaluate(() => ({ ...window.__bb.tipCard, mode: window.__bb.mode }));
+};
 
-test("the card shows once per world — on level 1 only — and again from the ? button; it is saved as progress.seen.trick_<world>", async ({ page }) => {
+test("the card shows once per world — after Play on level 1 only — and again from the ? button; it is saved as progress.seen.trick_<world>", async ({ page }) => {
   const errors = await openGame(page, { tips: true });
   await page.evaluate(openAll);
   expect(await page.evaluate(() => window.__bb.progress.seen.trick_park), "a new save field, false at the start").toBe(false);
   for (const w of WORLDS) {
-    expect((await showCard(page, w, 2)).open, `${w}: level 2 first: no card`).toBeNull();
-    const a = await showCard(page, w, 1);
-    expect([a.open, a.mode], `${w}: level 1 shows it`).toEqual([w, "levelCard"]);
+    await page.evaluate(() => { const b = window.__bb; b.resetMenus(); b.mode = "map"; });
+    const c1 = await showCard(page, w, 1);
+    expect([c1.open, c1.mode], `${w}: the level 1 card itself comes without the tip`).toEqual([null, "levelCard"]);
+    expect(await page.evaluate(k => window.__bb.progress.seen["trick_" + k], w), `${w}: not seen yet`).toBe(false);
+    expect((await showCard(page, w, 2)).open, `${w}: level 2: no card`).toBeNull();
+    await page.evaluate(() => { const b = window.__bb; b.resetMenus(); b.mode = "map"; });
+    const a = await playTip(page, w);
+    expect([a.open, a.mode], `${w}: Play on level 1 shows it, the game has not started`).toEqual([w, "levelCard"]);
     expect(a.info.title.length).toBeGreaterThan(5);
     expect(await page.evaluate(k => window.__bb.progress.seen["trick_" + k], w), `${w}: seen`).toBe(true);
     await page.evaluate(() => window.__bb.tapButton("tip:ok"));
     await frames(page);
-    expect((await page.evaluate(() => window.__bb.tipCard)).open, `${w}: OK closes it`).toBeNull();
-    expect((await showCard(page, w, 1)).open, `${w}: the second time it does not come by itself`).toBeNull();
+    const started = await page.evaluate(() => ({ tip: window.__bb.tipCard.open, mode: window.__bb.mode }));
+    expect(started.tip, `${w}: OK closes it`).toBeNull();
+    expect(["play", "scene"], `${w}: and starts the level (a bonus world's comic first)`).toContain(started.mode);
+    await page.evaluate(() => { const b = window.__bb; b.resetMenus(); b.mode = "map"; });
+    expect(await page.evaluate(k => window.__bb.tipDue(k), w), `${w}: the second time it is not due`).toBe(false);
+    await showCard(page, w, 1);
     await page.evaluate(() => window.__bb.tapButton("card:tip"));
     await frames(page);
     expect((await page.evaluate(() => window.__bb.tipCard)).open, `${w}: the ? button shows it again`).toBe(w);
@@ -41,6 +64,31 @@ test("the card shows once per world — on level 1 only — and again from the ?
   expect(errors).toEqual([]);
 });
 
+// SPEC-048 AC 6: Play → the level card closes first, the tip card is the only dialog on the dimmed map while the level loads behind it; OK starts the level,
+// Back / Esc / ✕ go back to the map and the tip stays due; the ? button's card (no Play behind it) goes back to the level card
+test("Play on level 1: the tip card alone, OK starts the level, Back returns to the map with the tip still due", async ({ page }) => {
+  const errors = await openGame(page, { tips: true });
+  await page.evaluate(openAll);
+  const a = await playTip(page, "school");
+  expect([a.open, a.mode, a.play]).toEqual(["school", "levelCard", 1]);
+  const ids = await page.evaluate(() => ({ buttons: window.__bb.buttonRects.map(q => q.id), card: window.__bb.levelCard, info: window.__bb.tipCard.info && window.__bb.tipCard.info.rect }));
+  expect(ids.card, "the level card is not drawn under or beside it").toBeNull();
+  expect(ids.buttons.filter(i => i.startsWith("card:") || i.startsWith("tip:")).sort(), "its own buttons only").toEqual(["tip:close", "tip:ok"]);
+  expect(await page.evaluate(() => window.__bb.warm), "the level is built behind it (the warm-up of the card)").toBeTruthy();
+  // ✕ and Esc are Back
+  for (const back of [() => window.__bb.tapButton("tip:close"), () => window.__bb.goBack()]) {
+    await page.evaluate(back);
+    await frames(page);
+    expect(await page.evaluate(() => ({ open: window.__bb.tipCard.open, mode: window.__bb.mode, due: window.__bb.tipDue("school"), seen: window.__bb.progress.seen.trick_school })),
+      "Back: the map, the tip due again").toEqual({ open: null, mode: "map", due: true, seen: false });
+    await playTip(page, "school");
+  }
+  await page.evaluate(() => window.__bb.tapButton("tip:ok"));
+  await frames(page);
+  expect(await page.evaluate(() => ({ open: window.__bb.tipCard.open, mode: window.__bb.mode, seen: window.__bb.progress.seen.trick_school, level: window.__bb.level })), "OK starts level 1").toEqual({ open: null, mode: "play", seen: true, level: 1 });
+  expect(errors).toEqual([]);
+});
+
 test("an old save with no seen.trick_* fields loads and shows the card; a newer save's unknown seen keys survive", async ({ page }) => {
   const errors = await openGame(page, { tips: true });
   const r = await page.evaluate(() => {
@@ -52,7 +100,7 @@ test("an old save with no seen.trick_* fields loads and shows the card; a newer 
   for (const w of WORLDS) expect(r["trick_" + w], `${w} loads as false`).toBe(false);
   expect(r.tutorial).toBe(true);
   await page.evaluate(() => { const b = window.__bb; b.setProgress(b.loadProgress({ worlds: { park: { unlocked: 3, stars: {}, won: { 1: true } } }, seen: { tutorial: true } })); });
-  expect((await showCard(page, "park", 1)).open, "an old save sees it once").toBe("park");
+  expect((await playTip(page, "park")).open, "an old save sees it once").toBe("park");
   // a newer save's unknown seen keys survive (fields are only added)
   const keep = await page.evaluate(() => window.__bb.loadProgress({ seen: { trick_park: true, trick_future: true, boss_moon: true } }).seen);
   expect(keep.trick_park).toBe(true);
@@ -64,7 +112,7 @@ test("the tip picture is a panel of the tip sheet; without the art it is the wor
   const errors = await openGame(page, { tips: true });
   await page.evaluate(openAll);
   for (const w of WORLDS) {
-    const t = await showCard(page, w, 1);
+    const t = await showTip(page, w);
     expect(t.info.fallback, `${w}: no tip art → the map preview`).toBe(true);
     expect(t.info.picture.w).toBeGreaterThan(100);
     await page.evaluate(() => window.__bb.closeTip());
@@ -75,7 +123,7 @@ test("with the tip art the card draws the panel (not the preview) for every worl
   const errors = await openGame(page, { tips: true });
   await page.evaluate(openAll);
   for (const w of WORLDS) {
-    await showCard(page, w, 1);
+    await showTip(page, w);
     await page.waitForFunction(() => window.__bb.artInfo.pending === 0, null, { timeout: 15000 });
     await frames(page);
     const t = await page.evaluate(() => window.__bb.tipCard);
@@ -155,18 +203,21 @@ const padPress = async (page, b) => {
   await page.evaluate(() => { window.__pads = [window.__pad(0, [])]; });
   await frames(page);
 };
-test("keyboard: Enter / Space / H close the New here! card (Play does not start), H opens it from the level card, Escape closes only it", async ({ page }) => {
+test("keyboard: H opens the card from the level card, Enter / Space / H close it (back to the level card), Escape closes only it; Enter on the level card = Play: the tip, then OK", async ({ page }) => {
   const errors = await openGame(page, { tips: true });
   await page.evaluate(openAll);
-  expect((await showCard(page, "school", 1)).open).toBe("school");
+  await page.evaluate(() => { window.__bb.progress.seen.trick_school = true; });   // seen: Play starts the level, the ? card is the one to test
+  expect((await showCard(page, "school", 1)).open).toBeNull();
   for (const key of ["Enter", "Space", "KeyH"]) {
+    await page.keyboard.press("KeyH");
+    await frames(page);
+    expect((await tipState(page)).open, "H shows it").toBe("school");
     await page.keyboard.press(key);
     await frames(page);
     expect(await tipState(page), `${key} closes the card, the level card stays`).toEqual({ open: null, mode: "levelCard" });
-    await page.keyboard.press("KeyH");
-    await frames(page);
-    expect((await tipState(page)).open, "H shows it again").toBe("school");
   }
+  await page.keyboard.press("KeyH");
+  await frames(page);
   await page.keyboard.press("Escape");
   await frames(page);
   expect(await tipState(page), "Escape closes only the card").toEqual({ open: null, mode: "levelCard" });
@@ -175,6 +226,21 @@ test("keyboard: Enter / Space / H close the New here! card (Play does not start)
   await page.keyboard.press("Digit1");                            // nothing acts under the card
   await frames(page);
   expect(await tipState(page), "1 does not start a game under the card").toEqual({ open: "school", mode: "levelCard" });
+  // the tip due: Enter on the level card is Play → the tip; Escape → the map, still due; Enter, Enter → the level
+  await page.evaluate(() => { const b = window.__bb; b.resetMenus(); b.progress.seen.trick_school = false; b.mode = "map"; });
+  await showCard(page, "school", 1);
+  await page.keyboard.press("Enter");
+  await frames(page);
+  expect(await tipState(page), "Enter on the level card = Play: the tip").toEqual({ open: "school", mode: "levelCard" });
+  await page.keyboard.press("Escape");
+  await frames(page);
+  expect(await page.evaluate(() => ({ mode: window.__bb.mode, due: window.__bb.tipDue("school") })), "Escape: the map, the tip still due").toEqual({ mode: "map", due: true });
+  await showCard(page, "school", 1);
+  await page.keyboard.press("Enter");
+  await frames(page);
+  await page.keyboard.press("Enter");                             // OK
+  await frames(page);
+  expect(await tipState(page), "OK starts the level").toEqual({ open: null, mode: "play" });
   expect(errors).toEqual([]);
 });
 test("gamepad: A / B / Start close the New here! card, not the level card or the game; RB opens it", async ({ page }) => {
@@ -202,7 +268,7 @@ test("gamepad: A / B / Start close the New here! card, not the level card or the
 test("touch: a tap beside the New here! card closes only it", async ({ page }) => {
   const errors = await openGame(page, { tips: true });
   await page.evaluate(openAll);
-  await showCard(page, "winter", 1);
+  await showTip(page, "winter");
   const box = await page.locator("#game").boundingBox();
   await page.mouse.click(box.x + 4, box.y + 4);                  // the corner: outside the card
   await frames(page);
@@ -217,9 +283,23 @@ test("with the tricks switched off (TRICKS_ON 0) no card comes by itself", async
   const errors = await openGame(page, { tips: true });
   await page.evaluate(openAll);
   await page.evaluate(() => { window.__bb.CFG.TRICKS_ON = 0; });
-  expect((await showCard(page, "park", 1)).open, "no trick, no card").toBeNull();
-  expect(await page.evaluate(() => window.__bb.progress.seen.trick_park), "and nothing is marked seen").toBe(false);
-  await page.evaluate(() => { window.__bb.CFG.TRICKS_ON = 1; window.__bb.clearLevelCache(); });
-  expect((await showCard(page, "park", 1)).open).toBe("park");
+  expect((await playTip(page, "park")).open, "no trick, no card: Play starts the level").toBeNull();
+  expect(await page.evaluate(() => [window.__bb.mode, window.__bb.progress.seen.trick_park]), "and nothing is marked seen").toEqual(["play", false]);
+  await page.evaluate(() => { const b = window.__bb; b.CFG.TRICKS_ON = 1; b.clearLevelCache(); b.resetMenus(); b.mode = "map"; });
+  expect((await playTip(page, "park")).open).toBe("park");
+  expect(errors).toEqual([]);
+});
+
+// the ? button shows the card too: it counts as seen (AC 6: set when shown), so Play does not show it again
+test("? then Play: the tip is not shown a second time", async ({ page }) => {
+  const errors = await openGame(page, { tips: true });
+  await page.evaluate(openAll);
+  await showTip(page, "city");
+  expect(await page.evaluate(() => [window.__bb.progress.seen.trick_city, window.__bb.tipDue("city")]), "seen by the ? button").toEqual([true, false]);
+  await page.evaluate(() => window.__bb.closeTip());
+  await frames(page);
+  await page.evaluate(() => window.__bb.playCard(1));
+  await frames(page);
+  expect(await page.evaluate(() => ({ tip: window.__bb.tipCard.open, mode: window.__bb.mode })), "Play starts the level").toEqual({ tip: null, mode: "play" });
   expect(errors).toEqual([]);
 });

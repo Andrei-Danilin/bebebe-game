@@ -592,7 +592,7 @@ test("the map switches worlds", { tag: "@fast" }, async ({ page }) => {
   expect(s.hud.map(h => h.id)).toContain("toast");
   // ←/→ walk the worlds in the story order (round), skipping the locked ones
   const seq = [];
-  for (const k of ["ArrowRight", "ArrowRight", "ArrowLeft", "ArrowLeft", "ArrowLeft"]) { await page.keyboard.press(k); seq.push(await page.evaluate(() => window.__bb.world)); }
+  for (const k of ["ArrowRight", "ArrowRight", "ArrowLeft", "ArrowLeft", "ArrowLeft"]) { await page.keyboard.press(k); await frames(page); seq.push(await page.evaluate(() => window.__bb.world)); }
   expect(seq).toEqual(["field", "school", "field", "park", "school"]);
   // the gamepad: D-pad ←/→ and the shoulder buttons (CFG.PAD_PREV_WORLD / PAD_NEXT_WORLD)
   const C = await page.evaluate(() => [window.__bb.CFG.PAD_PREV_WORLD, window.__bb.CFG.PAD_NEXT_WORLD]);

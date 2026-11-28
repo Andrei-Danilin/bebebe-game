@@ -26,9 +26,10 @@ import { ART_NAMES, ART_RESIDENT } from "./art-names.js";
 import { cadence, COVERED, newCadence } from "./cadence.js";
 import { qualityFrame, qualityInfo, setQualityMode } from "./adaptive.js";
 import { warmInfo } from "./warm.js";
+import { artHolding, frameLog, recordFrames, screenArt } from "./screen-art.js";
 import { art, ART_FALLBACK, artBytes, artCount, artLazy, artLoad, artDone, artVersion, EMOJI_ART, FX_ART, HEART_ART, ITEM_ART, mapBgArt, PAPER_BTN, POP_ART, SHOP_TAB_ART, STORY_ART, UPG_ART, WARDROBE_ART, worldArt } from "./art.js";
 import { orderedEvents } from "../core/events.js";
-import { bannerAlpha, chapterOpen, chooseStop, goBack, nextLevel, closeShop, giveReward, lastReward, mapTick, openFriends, openMap, openScene, openShop, openStory, openTip, closeTip, tipDue, resetMenus, resetWorld, rngDraws, sceneNext, scenePageCount, scenePages, sceneSkip, seedRandom, selectWorld, setLastReward, setMode, setShopTab, shopAfterWin, showBanner, showCard, startGame, tapWorldTab, toHome, toMap } from "./flow.js";
+import { bannerAlpha, chapterOpen, chooseStop, goBack, nextLevel, closeShop, giveReward, lastReward, mapTick, openFriends, openMap, openScene, openShop, openStory, openTip, closeTip, okTip, playCard, tipDue, resetMenus, resetWorld, rngDraws, sceneNext, scenePageCount, scenePages, sceneSkip, seedRandom, selectWorld, setLastReward, setMode, setShopTab, shopAfterWin, showBanner, showCard, startGame, tapWorldTab, toHome, toMap } from "./flow.js";
 import { errorLog, reportError } from "./errors.js";
 import { glRestored } from "./lifecycle.js";
 import { audioContext, audioDebug, clickSound } from "./sound.js";
@@ -93,7 +94,7 @@ const CFG_ALL = new Proxy({}, {
 // ошибку, чтобы визуальный тест, открытый в sim, падал громко, а не проверял пустоту.
 const SIM_DRAWN = ["buttonRects", "buttonNames", "tapButton", "hudRects", "mapInfo", "levelCard", "storyInfo", "textSizes", "minimap",
   "bannerRect", "bellHud", "tipCard", "trickMeshes", "worldItemMeshes", "rotateShown", "winPanel", "winLine", "bonusNote", "shopLayout", "kitHint", "heardHint", "edgeArrows", "downDrawn", "stickMarks",
-  "tapLines", "textOverflows", "tutorialHint", "homeInfo", "progressInfo", "outfit3D", "bibClear", "hat3D", "capeClear", "cardRect", "mapPieces", "groundColorAt", "camera", "minimapAlpha", "artUse", "sceneInfo", "moodInfo", "bigLook", "look3D", "drawNow", "model",
+  "tapLines", "textOverflows", "tutorialHint", "homeInfo", "progressInfo", "outfit3D", "bibClear", "hat3D", "capeClear", "cardRect", "mapPieces", "groundColorAt", "camera", "minimapAlpha", "artUse", "bigTag", "frameLog", "sceneInfo", "moodInfo", "bigLook", "look3D", "drawNow", "model",
   "perf", "disposeCheck"];   // SPEC-025 AC 15 / 15b: the renderer's numbers and textures — a rendered page only
 
 
@@ -117,7 +118,9 @@ export function installDebug() {
     art, ART_NAMES, ART_RESIDENT,
     // SPEC-040 AC 1: total — every sprite; resident — those loaded at start; ok — resident ones loaded, bad — sprites that failed to load (any); loaded — in memory now (resident + the
     // non-resident ones a screen is using); pending — non-resident ones still loading; bytes — their decoded RGBA; done — the resident ones settled and nothing pending
-    get artInfo() { const z = artLazy(); return { total: ART_NAMES.length, resident: ART_RESIDENT.length, ok: artCount.ok, bad: artCount.bad + z.bad, loaded: artCount.ok + z.loaded, pending: z.loading, bytes: artBytes(), done: artDone(), loadingShown: !!document.getElementById("loading") }; },
+    get artInfo() { const z = artLazy(); return { total: ART_NAMES.length, resident: ART_RESIDENT.length, ok: artCount.ok, bad: artCount.bad + z.bad, loaded: artCount.ok + z.loaded, pending: z.loading, bytes: artBytes(), done: artDone(), holding: artHolding(), loadingShown: !!document.getElementById("loading") }; },
+    // SPEC-048 AC 9: the frame recorder (recordFrames(true) starts it, false stops it; frameLog = the frames: { n, screen, target, held, late, missing }) and the pictures of the screen now
+    recordFrames, get frameLog() { return frameLog(); }, get screenArt() { return screenArt(); },
     get mode() { return mode; }, set mode(v) { if (MODES.includes(v)) setMode(v); },   // SPEC-017: только экраны из MODES
     // SPEC-017: экраны меню; wardrobePage — «looks» (наряды) или «friends» (имена друзей) во вкладке «Гардероб»; resetMenus — как при запуске
     MODES, toMap, toHome, resetMenus, shopAfterWin, closeShop, get muted() { return !ui.sfx; },   // SPEC-030: и магазин после победы → «Готово»
@@ -146,7 +149,7 @@ export function installDebug() {
     FIRST_STEPS, openTutorial, openFirstTutorial, tutorialSkip, firstTutorial, openPictures, openPractice,   // SPEC-032 AC 8: «Картинки» и «Тренировка» на «Как играть»
     // SPEC-029: клетки поляны тренировок { x, y, w, h }; подпись времени в HUD; подсказка тренировки этого кадра (плашка) или null
     get tutorialMapRect() { return tutorialMapRect(); }, timerText, loseTitle, get tutorialHint() { return ui.tutorialHintRect && { ...ui.tutorialHintRect, rows: [...ui.tutorialHintRect.rows] }; }, winTitle, get pushWaves() { return ui.waves.map(w => ({ ...w })); }, get scene() { return ui.storyScene && { id: ui.storyScene.id, page: ui.storyScene.page, pages: scenePageCount() }; },
-    get sceneInfo() { return ui.sceneInfo && { ...ui.sceneInfo }; }, drawNow() { drawUI(ui.T); }, bossFor,   // SPEC-031: drawNow — нарисовать слой интерфейса сейчас (тест раскладки рисует много экранов за один evaluate)
+    get bigTag() { return ui.bigTag && { ...ui.bigTag, blocks: ui.bigTag.blocks.map(b => ({ ...b })) }; }, get sceneInfo() { return ui.sceneInfo && { ...ui.sceneInfo }; }, drawNow() { drawUI(ui.T); }, bossFor,   // SPEC-031: drawNow — нарисовать слой интерфейса сейчас (тест раскладки рисует много экранов за один evaluate)
     BOSSES, BOSS_LOOKS, bigCalm, KID_HEAD_R, LITTLE_SCALE,   // SPEC-021 размеры героев (тест look3d)
     // SPEC-022: вид Большого в 3D (для тестов): образ, босс и его детали, масштаб, цвета футболки и штанов
     bigLook() { const m = modelOf(G.big); return m ? { look: m.look, boss: m.boss || null, parts: Object.keys(m.bossParts || {}), scale: m.rig.scale.x,
@@ -284,7 +287,7 @@ export function installDebug() {
     GLOVES, KISSES, get shopLayout() { return ui.shopLayout; },                         // SPEC-007 AC 10
     // SPEC-041: картинка карточки уровня — levelPreview(мир, n) → { canvas, data } (из кеша или построить), previewInfo — сколько построено / взято из кеша / держится
     showCard, levelPreview: (world, lv) => { previewDataOf(world, lv); return levelPreviewOf(world, lv); }, get previewInfo() { return { ...previewStats, size: previewCacheSize() }; }, clearLevelPreviews,
-    levelType, levelReport, get levelInfo() { return G.levelInfo; }, get trick() { return G.trick; }, trickMeshes, worldItemMeshes, get tipCard() { return { open: ui.tip, info: ui.tipInfo && { ...ui.tipInfo } }; }, openTip, closeTip, tipDue, get bellHud() { return { bell: ui.bellRect && { ...ui.bellRect }, freeze: ui.freezeRect && { ...ui.freezeRect }, freezeT: ui.freezeT }; }, clearLevelCache: () => { clearLevelCache(); clearLevelPreviews(); },   // SPEC-041: the card previews live with the level cache
+    levelType, levelReport, get levelInfo() { return G.levelInfo; }, get trick() { return G.trick; }, trickMeshes, worldItemMeshes, get tipCard() { return { open: ui.tip, play: ui.tipPlay, info: ui.tipInfo && { ...ui.tipInfo } }; }, openTip, closeTip, okTip, playCard, tipDue, get bellHud() { return { bell: ui.bellRect && { ...ui.bellRect }, freeze: ui.freezeRect && { ...ui.freezeRect }, freezeT: ui.freezeT }; }, clearLevelCache: () => { clearLevelCache(); clearLevelPreviews(); },   // SPEC-041: the card previews live with the level cache
      CFG: CFG_ALL, THEMES, look3D, disposeCheck, perf: perfReport, setBigFace,   // SPEC-021: look3D() — как нарисована 3D-сцена
     get banner() { return ui.banner; }, bannerAlpha,
     // всё состояние мира, которое levelReport сохраняет и возвращает (для теста «не трогает идущую игру»)

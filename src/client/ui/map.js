@@ -8,7 +8,7 @@ import { progress, worldProgress } from "../../core/economy.js";
 import { isOpen, worldComplete } from "../../core/progress-rules.js";
 import { mulberry32 } from "../../core/util.js";
 import { L } from "../../i18n.js";
-import { art, mapBgArt, worldArt } from "../art.js";
+import { art, artFade, mapBgArt, worldArt } from "../art.js";
 import { paperPanel } from "./paper.js";
 import { cardLevel, chooseStop, goBack, mapSelN, nextStop, openStory, openTip, playCard, tapWorldTab } from "../flow.js";
 import { LOOK } from "../look.js";
@@ -132,6 +132,8 @@ function drawMapPage(w, MG, rects) {
   }
   ctx.drawImage(ui.mapBgCache.cv, P.x, P.y, P.w, P.h);
   if (art(bgName)) noteArt(bgName);
+  const fk = artFade(bgName);   // SPEC-048 AC 3: the page picture came late — the plain page fades into it (a veil of the page colour that thins out)
+  if (fk < 1) { ctx.globalAlpha = 1 - fk; ctx.fillStyle = THEMES[w].g1; ctx.fillRect(P.x, P.y, P.w, P.h); ctx.globalAlpha = 1; }
   rr(P.x, P.y, P.w, P.h, (PHONE ? cpx(1) : 1) * LOOK.MENU_LOOK.map.pageR); ctx.lineWidth = 3; ctx.strokeStyle = OUT; ctx.stroke();
 }
 // одна остановка: кружок с номером (закрытая — серая с 🔒), звёзды под ней, следующая подпрыгивает, выбранная — в кольце;

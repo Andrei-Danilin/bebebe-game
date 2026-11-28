@@ -6,7 +6,7 @@ import { progress } from "../../core/economy.js";
 import { clamp } from "../../core/util.js";
 import { canAct, inSafe } from "../../core/world.js";
 import { L } from "../../i18n.js";
-import { ITEM_ART } from "../art.js";
+import { art, artInset, HEART_ART, ITEM_ART } from "../art.js";
 import { bannerAlpha, canKitNow, pressKiss, pressKit, setMode } from "../flow.js";
 import { chipName } from "../devices.js";
 import { LOOK } from "../look.js";
@@ -21,7 +21,7 @@ import { fitButton } from "./buttons.js";
 import { circle, drawKiss, drawKit, drawMitten, drawSticks, fillStroke, hpHeart, iconButton, nameTagH, playerNameTag, rr, toggleFullscreen } from "./draw.js";
 import { drawArtFit, fillT } from "./artdraw.js";
 import { fitText, fmtTime, fz, label, labelFit, lastFit, noteRows, noteText } from "./text.js";
-import { cpx, hudFont, minimapRect, minPx, phoneTopBar } from "./layout.js";
+import { cpx, deskTeamRect, hudFont, minimapRect, minPx, phoneTopBar } from "./layout.js";
 import { G } from "../../core/active.js";
 import { gameInv, gloveOf } from "../../core/rules.js";
 import { bellPhase } from "../../core/tricks/bell.js";
@@ -29,6 +29,15 @@ import { textW } from "./measure.js";
 
 // Сердечко i в полоске: 1 — целое, 0.5 — половинка, 0 — пустое
 export const heartFill = (i, hp) => clamp(hp - i, 0, 1);
+// SPEC-048 AC 7: how far the visible edge of a heart cloud reaches to the right of its centre (the cloud picture is fitted into a square of
+// max(size, step) × PAPER.heart and has a transparent margin of artInset(…).r of its width; the code-drawn heart is `size` wide). The anger plate ends
+// this far after the last cloud plus the padding it has on the left of its text, so the two paddings are equal
+export function cloudHalf(size, step) {
+  const name = HEART_ART[2], img = art(name);
+  if (!img) return size / 2;
+  const w = img.naturalWidth * Math.max(size, step) * LOOK.PAPER.heart / Math.max(img.naturalWidth, img.naturalHeight);
+  return w * (0.5 - artInset(name).r);
+}
 // ---------- Общие тексты HUD (компьютер и телефон) ----------
 // SPEC-022: подпись злости: «Злость папы»; набранное имя — «<имя> злится» (на всех уровнях, и у боссов)
 export const angerLabel = () => (typedName("big") ? L().angerOf(typedName("big")) : L().anger);
@@ -44,16 +53,17 @@ export const restText = l => "💤 " + L().resting(nameOf(l), fmtTime(Math.max(0
 export function drawHUD(t) {
   // SPEC-022: злость папы (подпись + облачка-сердечки); полоска не налезает на таймер в центре
   const many = G.big.maxHp > 8, lots = G.big.maxHp > 12, hStep = lots ? 15 : many ? 17 : 21, hSize = lots ? 13 : many ? 15 : 18;   // много облачек — плотнее, чтобы влезла подпись
-  const bigName = angerLabel(), hearts = G.big.maxHp * hStep, timerX = UW / 2 - 95;
+  // SPEC-048 AC 7: the plate is 8 px (the left padding, 18 − 10) wider than the last cloud's visible edge, and never reaches the timer's plate (6 px gap)
+  const bigName = angerLabel(), lastOff = (G.big.maxHp - 1) * hStep, half = cloudHalf(hSize, hStep), HP = LOOK.HUD_PLATE, padX = HP.padDesk, timerX = UW / 2 - 95;
   ctx.font = `900 15px system-ui, "Segoe UI", "Arial Rounded MT Bold", Arial, sans-serif`;
-  const nameW = Math.min(textW(bigName), timerX - 10 - 8 - 8 - 18 - hearts - 6);
-  const hx = 18 + nameW + 18, hpW = hx + hearts - 10 - (hStep - hSize / 2) + 9;
+  const nameW = Math.max(HP.minName, Math.min(textW(bigName), timerX - HP.gapNext - padX - half - lastOff - 18 - 18));
+  const hx = 18 + nameW + 18, hpW = hx + lastOff + half + padX - 10;
   rr(10, 8, hpW, 34, 14); fillStroke("rgba(255,255,255,.8)", 3);
   labelFit(bigName, 18, 25, 15, nameW, "#9b2c3a", "left");
-  ui.hudRects.push({ id: "hearts", x: 10, y: 8, w: hpW, h: 34, label: lastFit.text, labelX: 18, labelW: lastFit.w });   // SPEC-022: + подпись злости
+  ui.hudRects.push({ id: "hearts", x: 10, y: 8, w: hpW, h: 34, label: lastFit.text, labelX: 18, labelW: lastFit.w, lastX: hx + lastOff, cloud: Math.max(hSize, hStep) * LOOK.PAPER.heart });   // SPEC-022: + подпись злости; SPEC-048: where the last cloud is (the test measures its edge)
   for (let i = 0; i < G.big.maxHp; i++) hpHeart(hx + i * hStep, 25 - hSize / 2 - 1, hSize, heartFill(i, G.big.hp), hStep);
 
-  const chipW = 32, totalW = G.littles.length * chipW + 14, x0 = UW - totalW - 10;
+  const chipW = LOOK.HUD_PLATE.chipW, { x: x0, w: totalW } = deskTeamRect();
   rr(x0, 8, totalW, 34, 14); fillStroke("rgba(255,255,255,.8)", 3);
   G.littles.forEach((l, i) => {
     const cx = x0 + 7 + i * chipW + chipW / 2, cy = 25;

@@ -51,6 +51,9 @@ The version is `package.json` `version` (shown on the "For grown-ups" page); how
   he turns to watch, a slippery watermelon slice and snowballs that freeze him for a moment (SPEC-043).
 - Every world has its own houses: a treehouse, a team dugout, a corner shop, a school bus, a beach hut and an igloo for
   the kids, and a messy shed, hut, garage, caretaker's room, shack and log cabin for Dad (SPEC-044).
+- No more flashing pictures between screens: a screen waits a moment for its picture and the next one loads ahead; the
+  "New here!" card now shows on its own after Play; even padding on Dad's anger plate; Dad's name tag no longer hides
+  under the team chips (SPEC-048).
 
 ## [1.0.0-dev] - what is in the game today
 

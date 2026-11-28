@@ -45,6 +45,7 @@ test("drawUI empties every per-frame drawn field at the start of a frame", { tag
 const LOGIC_GETTERS = ["errorLog", "glRestored", "mode", "muted", "wardrobePage", "littles", "big", "stats", "level", "world", "toast", "openedWorld", "worldBanner", "items", "shots", "progress",
   "lastReward", "upgrades", "shopTab", "outfits", "events", "rngDraws", "strictRng", "shake", "sticks", "uiSize", "names", "stars",
   "dangerZone", "safeZone", "texts", "kisses", "bigMark", "levelInfo", "banner", "artInfo", "artVersion", "scene", "pushWaves", "lang",   // SPEC-028: lang
+  "screenArt",                      // SPEC-048: the pictures of the screen now (a read of the logic state)
   "tutorial", "tutorialMapRect",    // SPEC-029: the tutorial state, the practice map
   "textFloors",                     // SPEC-031: phone text floors (reads CFG only)
   "game", "screenState",            // SPEC-012: the active game (plain data); the menus' screen state (AC 1f)

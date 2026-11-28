@@ -266,21 +266,39 @@ export function showCard(n) {
   cardLevel = n;
   ui.warm = n <= worldProgress().unlocked ? { world: G.world, level: n } : null;   // SPEC-040 AC 4: warm.js builds an open level's 3D while the card is shown (never a closed one)
   setMode("levelCard");   // (builds the card's map data first: it fills the level cache, so the warm-up's game stage does not search the level again)
-  ui.tip = null;
-  if (n === 1 && tipDue(G.world)) { ui.tip = G.world; progress.seen["trick_" + G.world] = true; saveProgress(); }   // SPEC-042 AC 11: "New here!" — the first time this world's level 1 card opens
+  ui.tip = null; ui.tipPlay = null;   // SPEC-048 AC 6: the "New here!" card no longer comes with the level card: it comes after Play (playCard), alone
 }
 // SPEC-042 AC 11: the world's trick card has not been shown yet (tests set window.__bbNoTips, like __bbNoIntro: only the tests of the card itself see it)
 export const tipDue = w => window.__bbNoTips !== true && trickOf(w) !== null && isOpen(w, progress) && !progress.seen["trick_" + w];   // (TRICKS_ON 0: no trick, no card)
 // the ? button of the level card shows it again; OK / ✕ / Back close it (back to the level card)
-export function openTip() { ui.tip = G.world; screenChanged(); }
-export function closeTip() { ui.tip = null; screenChanged(); }
+// SPEC-048 AC 6: after Play on a world's level 1 (playCard) it comes alone — the level card closed first, the level loads behind it (ui.warm stays): OK
+// (okTip) starts the level; Back / Esc / ✕ (closeTip) go to the map and the tip stays due (seen is taken back: the kids did not see it)
+export function openTip() {
+  ui.tip = G.world; ui.tipPlay = null; screenChanged();
+  if (!progress.seen["trick_" + G.world]) { progress.seen["trick_" + G.world] = true; saveProgress(); }   // shown through the ? button: seen (AC 6), so Play does not show it again
+}
+export function closeTip() {
+  if (ui.tipPlay) { const w = ui.tip; ui.tip = null; ui.tipPlay = null; progress.seen["trick_" + w] = false; saveProgress(); closeCard(); return; }
+  ui.tip = null; screenChanged();
+}
+export function okTip() {
+  const players = ui.tipPlay;
+  ui.tip = null; ui.tipPlay = null;
+  if (players) startCardLevel(players); else screenChanged();
+}
 // вкладка мира: закрытый мир не выбирается — только подсказка (SPEC-030: главный — какой мир пройти)
 // подсказка закрытого мира (по worldOpen): нужен главный мир — «Пройди <его>, чтобы открыть <этот>!», иначе — прежняя строка бонусных
 export const lockedText = w => { const o = worldOpen(w, progress); return o.needs ? L().lockedWorld(o.needs, w) : L().lockedBonus; };
 export function tapWorldTab(w) { if (isOpen(w, progress)) selectWorld(w); else showToast(lockedText(w)); }
-export const closeCard = () => { ui.warm = null; ui.tip = null; setMode("map"); };
+export const closeCard = () => { ui.warm = null; ui.tip = null; ui.tipPlay = null; setMode("map"); };
 // «Играть» на карточке: тот же startGame, что и раньше (resetWorld → loadLevel, надпись уровня, камера телефона)
-export function playCard(players) { if (cardLevel > worldProgress().unlocked) { toMap(); return; } G.level = cardLevel; withScene(sceneBefore(G.world, G.level), () => startGame(players)); }   // SPEC-022: сначала заставка, если пора
+function startCardLevel(players) { G.level = cardLevel; withScene(sceneBefore(G.world, G.level), () => startGame(players)); }   // SPEC-022: сначала заставка, если пора
+export function playCard(players) {
+  if (cardLevel > worldProgress().unlocked) { toMap(); return; }
+  // SPEC-048 AC 6 (SPEC-042 AC 11): "New here!" — the first Play of this world's level 1: the tip card alone first (progress.seen.trick_<world> is set as it shows)
+  if (cardLevel === 1 && tipDue(G.world)) { ui.tip = G.world; ui.tipPlay = players; progress.seen["trick_" + G.world] = true; saveProgress(); screenChanged(); return; }
+  startCardLevel(players);
+}
 // ---------- SPEC-017: история — главы по порядку и страница «Как играть» ----------
 // storyCh — глава на экране; storyBack — куда ведёт «назад» (главный экран или карточка уровня); storyPage — «chapters» или «rules»
 export let storyCh = 0, storyBack = "home";
@@ -354,7 +372,7 @@ export function watchChapter() {
 // всё состояние экранов меню — как при запуске (тесты: resetGame); SPEC-029: и обучения нет
 export function resetMenus() {
   document.getElementById("leave")?.remove();   // SPEC-033: the Leave dialog (back.js) is not left over a reset menu
-  closeNameInput(false); ui.shopTab = "items"; ui.wardrobePage = "looks"; shopBack = "home"; mapSel = null; ui.toast = null; cardLevel = 1; ui.mapSwipe = null; ui.openedWorld = null; ui.worldBanner = null;
+  closeNameInput(false); ui.tip = null; ui.tipPlay = null; ui.shopTab = "items"; ui.wardrobePage = "looks"; shopBack = "home"; mapSel = null; ui.toast = null; cardLevel = 1; ui.mapSwipe = null; ui.openedWorld = null; ui.worldBanner = null;
   storyCh = 0; storyBack = "home"; ui.storyPage = "chapters"; ui.storyScene = null; setTutorial(null); setPracticeStep(0);
 }
 export function toMap() {

@@ -33,6 +33,9 @@
  "artInfo": "getter",
  "artTableNames": "function",
  "artUse": "getter",
+ "frameLog": "getter",
+ "recordFrames": "function",
+ "screenArt": "getter",
  "artVersion": "getter",
  "audio": "value",
  "audioContext": "function",
@@ -49,6 +52,7 @@
  "bigBoost": "function",
  "bigCalm": "function",
  "bigLook": "function",
+ "bigTag": "getter",
  "bigMark": "getter",
  "bigMood": "function",
  "bigSpeeds": "function",
@@ -265,5 +269,7 @@
  "tipCard": "getter",
  "openTip": "function",
  "closeTip": "function",
+ "okTip": "function",
+ "playCard": "function",
  "tipDue": "function"
 }
