@@ -64,10 +64,12 @@ test("the City's ice-cream truck is an animated group: one per level, not batche
   expect(r0.m.trucks.length).toBe(1);
   expect(r0.m.trucks[0].batched, "the truck is drawn by itself").toBe(false);
   expect(r0.m.puddles + r0.m.sprays.length).toBe(0);
-  const r1 = await page.evaluate(() => { const b = window.__bb; for (let i = 0; i < 90; i++) b.update(1 / 60); return { st: { ...b.trick.st }, nodes: b.trick.pieces[0].nodes.length }; });
+  // the game is frozen (pause) in the same evaluate that reads the core: the frames that draw the picture then show exactly this state (a live truck keeps driving
+  // between the read and the mesh, and a slow software frame widens the gap)
+  const r1 = await page.evaluate(() => { const b = window.__bb; for (let i = 0; i < 90; i++) b.update(1 / 60); const st = { ...b.trick.st }; b.mode = "pause"; return { st, nodes: b.trick.pieces[0].nodes.length }; });
   await frames(page);
   const m = await page.evaluate(() => window.__bb.trickMeshes());
-  expect(Math.hypot(m.trucks[0].x - r1.st.x, m.trucks[0].y - r1.st.y), "drawn where the core has it (a few live steps apart)").toBeLessThan(12);
+  expect(Math.hypot(m.trucks[0].x - r1.st.x, m.trucks[0].y - r1.st.y), "drawn where the core has it (frozen: the same state)").toBeLessThan(12);
   expect(r1.nodes).toBeGreaterThanOrEqual(16);
   expect(errors).toEqual([]);
 });
