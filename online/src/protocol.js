@@ -7,7 +7,8 @@ import { HAIRS, HATS, JACKETS, PANTS } from "../../src/core/wardrobe.js";
 export const PROTOCOL = 1;
 export const PLATFORMS = Object.freeze(["web", "ios", "android"]);
 export const ENTITLEMENTS = Object.freeze(["free", "full"]);
-export const PHASES = Object.freeze(["lobby", "play", "result"]);
+// the Room is a lobby again as soon as the level's `result` is sent: there is no "result" phase (decided during the run; the client shows its result screen on the message)
+export const PHASES = Object.freeze(["lobby", "play"]);
 // why a world is open or closed on the owner's map (progress-rules.js worldOpen: start, previous, bonus, played, locked; SPEC-045: purchase)
 export const MAP_REASONS = Object.freeze(["start", "previous", "bonus", "played", "locked", "purchase"]);
 export const NAME_PARTS = 16;               // I18N.onlineAdj / I18N.onlineAnimal: 16 each (SPEC-013 AC 10)

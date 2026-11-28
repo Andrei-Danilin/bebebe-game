@@ -13,9 +13,10 @@ import { DurableObject } from "cloudflare:workers";
 import { CFG } from "../../src/core/config.js";
 import { MessageRate, sha256Hex } from "./limits.js";
 import { log } from "./log.js";
+import { canHost } from "../../src/core/index.js";
 import { OWNER_TYPES, PROTOCOL, errorMsg, parseClientMessage } from "./protocol.js";
 import { refusedSocket } from "./refuse.js";
-import { applyInput, drainEvents, humanGone, humanJoined, isOver, makeGame, resultOf, snapshotOf, stepGame } from "./sim.js";
+import { applyInput, drainEvents, humanGone, humanJoined, isOver, levelOpen, makeGame, resultOf, snapshotOf, stepGame } from "./sim.js";
 
 const TIMER_MS = 16;                 // the game timer's period; the steps are counted from the elapsed time, so a late timer catches up (up to MAX_CATCHUP steps)
 const MAX_CATCHUP = 8;
@@ -33,7 +34,9 @@ const att = ws => ws.deserializeAttachment() ?? { slot: null };
 function timing(env) {
   const o = CFG.ONLINE, t = env.TEST_HOOKS === "1", num = (v, dflt) => (t && v !== undefined && Number.isFinite(Number(v)) ? Number(v) : dflt);
   return { rejoin: num(env.TEST_REJOIN_TIME, o.REJOIN_TIME), empty: num(env.TEST_EMPTY_TTL, o.EMPTY_ROOM_TTL), idle: num(env.TEST_IDLE_TTL, o.IDLE_ROOM_TTL),
-    speed: num(env.TEST_SPEED, 1), auto: t && env.TEST_AUTO === "1" };
+    speed: num(env.TEST_SPEED, 1), auto: t && env.TEST_AUTO === "1",
+    // SPEC-045 / AC 7: the Full game rules; a test server (TEST_HOOKS=1 and TEST_ENFORCE=1) turns enforcement on, the shipped value is CFG.MONETIZATION
+    mon: t && env.TEST_ENFORCE === "1" ? { ...CFG.MONETIZATION, enforce: true } : CFG.MONETIZATION };
 }
 
 export class Room extends DurableObject {
@@ -62,6 +65,7 @@ export class Room extends DurableObject {
   async reconcile() {
     const L = this.lobby, now = Date.now(), live = new Set(this.ctx.getWebSockets().map(ws => att(ws).slot).filter(s => s !== null));
     let changed = false;
+    if (!L.banned) { L.banned = []; changed = true; }
     L.slots.forEach((s, i) => {
       if (!s) return;
       if (live.has(i) && s.awayUntil !== null) { s.awayUntil = null; changed = true; }
@@ -112,7 +116,7 @@ export class Room extends DurableObject {
     if (this.lobby) return null;
     const ownerKey = randomString(), now = Date.now();
     this.lobby = { code, owner: null, slots: Array(CFG.ONLINE.MAX_LITTLES).fill(null), world: "park", n: 1, locked: false, phase: "lobby", map: null, seq: 0,
-      lastAction: now, emptySince: now, ownerKeyHash: await sha256Hex(ownerKey) };
+      lastAction: now, emptySince: now, ownerKeyHash: await sha256Hex(ownerKey), banned: [] };
     await this.save();
     await this.schedule();
     log("room_created");
@@ -142,6 +146,13 @@ export class Room extends DurableObject {
     const freshHash = await sha256Hex(fresh), keyHash = msg.ownerKey ? await sha256Hex(msg.ownerKey) : null;
     const L = this.lobby;
     if (!L) return this.refuse(ws, "roomNotFound");
+    if (hash && L.banned.includes(hash)) {                              // the owner removed this kid: his token does not open this room again
+      send(ws, { type: "removed" });
+      this.closing.add(ws);
+      try { ws.close(1000, "removed"); } catch { /* gone */ }
+      return;
+    }
+    if (keyHash && keyHash === L.ownerKeyHash && !canHost(msg.entitlement, this.t.mon)) return this.refuse(ws, "needFull");   // AC 7: the host needs the Full game when enforced
     let slot = hash ? L.slots.findIndex(s => s && s.tokenHash === hash) : -1, token = msg.token;
     if (slot >= 0) {                                                  // the same kid back, within REJOIN_TIME (or from a second tab: the old socket goes)
       for (const other of this.ctx.getWebSockets()) if (other !== ws && att(other).slot === slot) { other.serializeAttachment({ slot: null }); this.closing.add(other); try { other.close(1000, "replaced"); } catch { /* gone */ } }
@@ -238,10 +249,43 @@ export class Room extends DurableObject {
       case "setProgress": L.map = msg.worlds; break;   // what the owner can play (AC 12); the Room picks levels from it in a later step
       case "leave": return this.drop(ws, "leave");
       case "start": return this.startPlay(ws);
-      default: return;   // setLevel, lock, remove (owner controls) arrive with step 3
+      case "setLevel":
+        if (L.phase !== "lobby") return send(ws, errorMsg("badPhase"));
+        if (!levelOpen(L.map, msg.world, msg.n, this.hostEntitlement())) return send(ws, errorMsg("levelLocked"));
+        L.world = msg.world; L.n = msg.n;
+        break;
+      case "lock": L.locked = msg.on; break;   // no new joins; the kids who are in rejoin with their token as before
+      case "remove": return this.removeKid(ws, msg.slot);
+      default: return;
     }
     this.touch();
     if (this.game && (msg.type === "setLook" || msg.type === "setName")) humanJoined(this.game, me.slot, mine);   // the game carries the look and name
+    await this.changed();
+  }
+
+  // the HOST's entitlement (the owner's hello): the Full game's rules apply to the room through him, a joiner's never counts (AC 7); everything is open unless enforced
+  hostEntitlement() {
+    const L = this.lobby, owner = L.owner === null ? null : L.slots[L.owner];
+    return this.t.mon.enforce ? owner?.entitlement ?? "free" : "full";
+  }
+  // the owner takes a kid out (AC 9): he gets `removed` and his socket closes, his slot is a bot (in a level) or empty (in the lobby), and his token is banned for
+  // this room. The owner cannot remove himself, nor an empty slot
+  async removeKid(ws, slot) {
+    const L = this.lobby, target = L.slots[slot];
+    if (!target || slot === L.owner) return send(ws, errorMsg("badSlot"));
+    L.banned.push(target.tokenHash);
+    if (L.banned.length > 200) L.banned.shift();
+    for (const other of this.ctx.getWebSockets()) {
+      if (att(other).slot !== slot) continue;
+      send(other, { type: "removed" });
+      other.serializeAttachment({ slot: null });
+      this.closing.add(other);
+      try { other.close(1000, "removed"); } catch { /* gone */ }
+    }
+    if (this.game) humanGone(this.game, slot);
+    L.slots[slot] = null;
+    this.touch();
+    log("player_removed", { slot });
     await this.changed();
   }
 
@@ -249,6 +293,7 @@ export class Room extends DurableObject {
   async startPlay(ws) {
     const L = this.lobby;
     if (L.phase !== "lobby" || this.game) return send(ws, errorMsg("badPhase"));
+    if (!levelOpen(L.map, L.world, L.n, this.hostEntitlement())) return send(ws, errorMsg("levelLocked"));   // the map may have changed since the choice
     try { this.game = makeGame(L, { seed: crypto.getRandomValues(new Uint32Array(1))[0], auto: this.t.auto }); }
     catch { log("start_failed"); this.game = null; return send(ws, errorMsg("startFailed")); }
     this.tick = 0; this.acc = 0; this.ack = Array(L.slots.length).fill(0); this.metrics = { steps: 0, slow: 0 };

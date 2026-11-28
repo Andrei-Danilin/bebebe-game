@@ -2,10 +2,11 @@
 // named by the code). Every request first passes the Origin check (CFG.ONLINE.ORIGINS) and, for rooms and joins, the per-IP limit kept by the
 // Limiter Durable Object (named by a salted daily hash of the IP; nothing stored). Nothing here logs an IP, a name or a token (log.js).
 import { CFG } from "../../src/core/config.js";
+import { canHost } from "../../src/core/progress-rules.js";
 import { Limiter } from "./limiter.js";
 import { ipKey, normaliseCode, originAllowed, randomCode, validCode } from "./limits.js";
 import { log } from "./log.js";
-import { PROTOCOL } from "./protocol.js";
+import { ENTITLEMENTS, PROTOCOL } from "./protocol.js";
 import { refusedSocket } from "./refuse.js";
 import { Room } from "./room.js";
 
@@ -31,6 +32,16 @@ async function allowed(env, request, url, kind) {
   return env.LIMITER.get(env.LIMITER.idFromName(key)).hit(kind);
 }
 
+// the creator's entitlement from the POST body ({ "entitlement": "free" | "full" }); anything else, or no body, is undefined
+async function bodyEntitlement(request) {
+  try {
+    const text = await request.text();
+    if (text.length > 256) return undefined;
+    const e = JSON.parse(text)?.entitlement;
+    return ENTITLEMENTS.includes(e) ? e : undefined;
+  } catch { return undefined; }
+}
+
 // → { code, ownerKey } (the key is shown to the creator once: the hello that presents it becomes the owner), or null after ROOM_TRIES live codes
 async function createRoom(env, url) {
   const forced = env.TEST_HOOKS === "1" ? (url.searchParams.get("_codes") ?? "").split(",").filter(Boolean) : [];   // tests: the codes to try, in order
@@ -53,6 +64,10 @@ export default {
     if (url.pathname === "/health" && request.method === "GET") return json({ ok: true, protocol: PROTOCOL }, 200, headers);
 
     if (url.pathname === "/rooms" && request.method === "POST") {
+      // AC 7: hosting needs the Full game when CFG.MONETIZATION.enforce (off in the beta). POST /rooms has no hello, so the body says { entitlement }; the creator's
+      // first hello says it again (room.js). Trusted for now: a store receipt check is a later spec
+      const mon = env.TEST_HOOKS === "1" && env.TEST_ENFORCE === "1" ? { ...CFG.MONETIZATION, enforce: true } : CFG.MONETIZATION;
+      if (!canHost(await bodyEntitlement(request), mon)) { log("host_refused"); return json({ error: "needFull" }, 403, headers); }
       if (!(await allowed(env, request, url, "room"))) { log("rate_limited_rooms"); return json({ error: "rateLimited" }, 429, headers); }
       const room = await createRoom(env, url);
       return room ? json(room, 200, headers) : json({ error: "busy" }, 503, headers);

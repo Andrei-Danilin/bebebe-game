@@ -69,13 +69,13 @@ ${out}`); }
   return { http, ws: `ws://127.0.0.1:${port}`, logs: () => out, restart, stop };
 }
 
-export const post = (server, p, { ip, headers = {}, query = "" } = {}) =>
-  fetch(`${server.http}${p}?${ip ? `_ip=${ip}&` : ""}${query}`, { method: "POST", headers });
+export const post = (server, p, { ip, headers = {}, query = "", body } = {}) =>
+  fetch(`${server.http}${p}?${ip ? `_ip=${ip}&` : ""}${query}`, { method: "POST", headers: body === undefined ? headers : { "Content-Type": "application/json", ...headers }, body: body === undefined ? undefined : typeof body === "string" ? body : JSON.stringify(body) });
 
 const ownerKeys = new Map();   // room code → the creator's one-time key (the first join() of that code presents it)
 /** POST /rooms → the code (the room is created); its ownerKey is kept for the first join() */
-export async function newRoom(server, ip) {
-  const r = await post(server, "/rooms", { ip });
+export async function newRoom(server, ip, entitlement = "full") {
+  const r = await post(server, "/rooms", { ip, body: { entitlement } });
   if (r.status !== 200) throw new Error(`POST /rooms ${r.status}`);
   const { code, ownerKey } = await r.json();
   ownerKeys.set(code, ownerKey);

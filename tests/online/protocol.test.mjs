@@ -2,7 +2,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { CFG, WORLDS, levelsPerWorld } from "../../src/core/config.js";
-import { CLIENT_TYPES, OWNER_TYPES, PROTOCOL, clampVector, parseClientMessage } from "../../online/src/protocol.js";
+import { CLIENT_TYPES, OWNER_TYPES, PHASES, PROTOCOL, clampVector, parseClientMessage } from "../../online/src/protocol.js";
 import { MessageRate, SlidingLimit, dayKey, ipKey, normaliseCode, originAllowed, randomCode, validCode } from "../../online/src/limits.js";
 
 const parse = m => parseClientMessage(typeof m === "string" ? m : JSON.stringify(m));
@@ -25,6 +25,7 @@ test("every client message type of AC 4 has a validator, and only the owner ones
   assert.deepEqual([...CLIENT_TYPES].sort(), ["hello", "input", "leave", "lock", "ping", "remove", "setGear", "setLevel", "setLook", "setName", "setProgress", "start"].sort());
   assert.deepEqual([...OWNER_TYPES].sort(), ["lock", "remove", "setLevel", "setProgress", "start"]);
   assert.equal(PROTOCOL, 1);
+  assert.deepEqual([...PHASES], ["lobby", "play"], "no result phase: the Room is a lobby again once the result is sent");
 });
 
 test("hello: valid, token optional, unknown fields dropped", () => {

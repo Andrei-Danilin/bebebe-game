@@ -3,7 +3,7 @@
 // Compactness (snapshot size): positions are rounded to a tenth of a pixel, every key is short, and only what a client draws is sent — the level
 // itself is not (a client builds it from world + n with its own core, the same deterministic generator) and neither are the world trick's
 // pieces (static: the same generator); the trick's moving state is a later step's decision (measure it first).
-import { CFG, createGame, levelResult, setSlotKind, step, withGame } from "../../src/core/index.js";
+import { CFG, FULL, WORLDS, createGame, freshProgress, levelResult, levelsPerWorld, setSlotKind, step, withGame, worldOpen } from "../../src/core/index.js";
 
 export const slotName = i => "p" + (i + 1);
 const r1 = v => Math.round(v * 10) / 10;
@@ -83,4 +83,32 @@ export function resultOf(game, i) {
   const r = withGame(game, () => levelResult(game.phase === "won"));
   const { perSlot, ...level } = r;
   return { type: "result", slot: i, ...level, mine: perSlot[slotName(i)] ?? null };
+}
+
+// ---------- the owner's level choice (AC 12) ----------
+// the owner's compact map (setProgress: per world { open, reason, unlocked, won (bit mask), stars (digits) }) as the core's progress, so the core's own
+// rule decides what is open — never the map's word alone
+export function progressOfMap(map) {
+  const p = freshProgress(), levels = levelsPerWorld();
+  for (const w of WORLDS) {
+    const m = map?.[w];
+    if (!m) continue;
+    const wp = p.worlds[w];
+    wp.unlocked = m.unlocked;
+    for (let n = 1; n <= levels; n++) {
+      if (m.won & (1 << (n - 1))) wp.won[n] = true;
+      const st = Number(m.stars[n - 1]);
+      if (st > 0) { wp.stars[n] = st; wp.won[n] = true; }
+    }
+  }
+  return p;
+}
+// may the room play level n of a world? The map must call the world open and the level unlocked, and the core must agree for the HOST's entitlement
+// (a free host has only the free worlds when the Full game is enforced; a joiner's entitlement never enters). No map yet: a fresh progress (the Park).
+export function levelOpen(map, world, n, entitlement = FULL) {
+  if (!WORLDS.includes(world) || !Number.isInteger(n) || n < 1 || n > levelsPerWorld()) return false;
+  const claim = map?.[world];
+  if (claim && !claim.open) return false;
+  if (n > (claim ? claim.unlocked : 1)) return false;
+  return worldOpen(world, progressOfMap(map), entitlement).open;
 }
