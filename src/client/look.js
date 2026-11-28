@@ -226,7 +226,7 @@ export const LOOK = {
   HOUSE_LOOK: { style: "world", roofH: 1.3, eave: 0.2, side: 0.72, snowN: 9, faded: 0.1, hide: 0.13, fade: 0.25, behind: 1.5, near: 1.5,
     kid: { glow: "#4ade80", glowK: 0.35, roof: "#3f86d1", plank: "#2f6db0", planks: 7, chimney: "#9fd3f5", door: "#4a90d9", leafW: 0.9, leafH: 0.66, heart: "#ff7eb3", heartS: 0.11, heartY: 0.42, mat: 0.22, flowers: ["#f472b6", "#facc15", "#ffffff", "#c084fc"], flowerN: 6, leaf: "#3f8a24" },
     big: { roof: "#7b5b49", crook: 0.08, patches: ["#8fa3b8", "#5e4434", "#9a8a62"], stitch: "#2b1d14", chimney: "#b5483a", mud: "#6b4a2b", stains: 4, sock: "#e5e7eb", sockToe: "#9ca3af",
-      shirt: "#cbd5e1", line: "#5b4636", bin: "#8a939b", trash: ["#65a30d", "#a16207", "#64748b", "#f59e0b", "#ef4444"], stink: "#7c9a5a", stinkN: 3,
+      shirt: "#cbd5e1", line: "#5b4636", bin: "#8a939b", trash: ["#65a30d", "#a16207", "#64748b", "#f59e0b", "#ef4444"], stink: "#6f9a45", stinkN: 3,
       pizza: "#e8c48f", pizzaTop: "#f97316", toyCar: "#3b82f6", tyre: "#1f2937", bone: "#f5f5f4", ground: "rgba(107,74,43,.55)", groundN: 26 },
     // SPEC-044: дома каждого мира — kids / dad = { build: имя строителя в houses.js, …числа поверх kid / big выше }; style: "world" (так) / "classic" (во всех мирах дома SPEC-021)
     // / "none" (без домов) — для замера вызовов отрисовки в тесте
@@ -247,7 +247,7 @@ export const LOOK = {
         fringe: "#c9a24a", flowerN: 0 },
       dad: { build: "shack", wall: ["#bba98a", "#dccfae"], roof: "#8a7c68", crook: 0.1, eave: 0.1, plank: "#4d4437", bands: ["#c9a8a8", "#a9bfa7"], umbrella: ["#d94a3a", "#3b6fd4"], pole: "#7c5a3a",
         sand: "#e6cf94", winFrame: "#6b4a2b", win: "#3a4a5e" } },
-    winter: { kids: { build: "igloo", wall: ["#cfe4f3", "#ffffff"], roof: "#eaf5fc", line: "#8dbbdb", roofH: 1.7, k: 1.15, arch: "#e3f1fa", door: "#e3f1fa", heartS: 0.15, heartY: 0.95, flowerN: 0 },
+    winter: { kids: { build: "igloo", wall: ["#cfe4f3", "#ffffff"], roof: "#eaf5fc", line: "#8dbbdb", roofH: 1.7, k: 1.15, arch: "#e3f1fa", door: "#e3f1fa", heartS: 0.22, heartY: 0.95, flowerN: 0 },
       dad: { build: "cabin", wall: ["#7b5a3c", "#ffffff"], roof: "#7a5638", crook: 0.08, eave: 0.1, log: "#46301e", icicle: "#e8f6ff" } } },
   // SPEC-021: штриховка стен и крыш на теневой стороне (единицы 3D): штрихов на единицу, толщина штриха (доля шага), насколько темнее;
   // грани, к солнцу повёрнутые меньше side (cos), штрихуются — бока стен; повёрнутые к солнцу (0…side) — светлее (доля lit)

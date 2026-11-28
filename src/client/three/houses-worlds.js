@@ -67,6 +67,24 @@ function plankStrips(roof, color, n) {
   for (let i = 0; i < n; i++) im.setMatrixAt(i, mtx.makeTranslation((i / n - 0.5) * (roof.len - 0.6), roof.rh * 0.42 + 0.03, roof.span / 2 * 0.58).multiply(rot.makeRotationX(Math.atan2(roof.rh, roof.span / 2))));
   roof.add(im, mat);
 }
+// SPEC-044 AC 2: Dad's mess on the roof, where the top-down camera sees it: a sock lying on it, a heap of trash, wavy stink lines over it
+// (the sock and the trash are own transparent parts: they fade with the roof; the stink lines are one instanced tube)
+function roofMess(roof, B) {
+  const spot = (t, x) => (roof.flat ? { x, y: roof.rh + 0.01, z: roof.span / 2 * (1 - t * 1.4), rx: 0 } : slopeAt(roof, t, x));
+  const a = ownMat(B.sock, true), b = ownMat(B.sockToe, true), leg = part(new THREE.BoxGeometry(0.22, 0.03, 0.6), "", 0.008, a), toe = part(new THREE.BoxGeometry(0.32, 0.03, 0.2), "", 0.008, b), sg = new THREE.Group();
+  toe.position.set(0.06, 0, 0.38); sg.add(leg, toe);
+  const s = spot(0.3, -roof.len * 0.3);
+  sg.position.set(s.x, s.y + 0.03, s.z); sg.rotation.set(s.rx, 0.6, 0);
+  leg.castShadow = toe.castShadow = false; roof.g.add(sg); roof.mats.push(a, b); roof.meshes.push(leg, toe);
+  const heap = [], t0 = spot(0.3, roof.len * 0.24);
+  [[0, 0, 0.17], [0.24, 0.1, 0.14], [-0.2, 0.12, 0.15], [0.08, -0.22, 0.13], [-0.1, -0.2, 0.12]].forEach(([dx, dz, r], i) => heap.push({ x: t0.x + dx, y: t0.y + r * 0.5, z: t0.z + dz, r, c: B.trash[i % B.trash.length] }));
+  blobs(roof, heap);
+  const pts = [];
+  for (let k = 0; k <= 8; k++) pts.push(new THREE.Vector3(Math.sin(k * 1.3) * 0.15, k * 0.18, 0));
+  const tube = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 20, 0.05, 5), base = roof.rh + 0.1;
+  strands(roof, tube, B.stink, [-0.34, 0, 0.34].map(f => ({ x: f * roof.len * 0.35, y: base, z: -roof.span * 0.12 })));
+  return { sock: true, trash: heap.length, stink: 3 };
+}
 // strips of a clipped run: the stretches of the runs of a face that stay `gap` away from the doors' leaves (the open leaves stand beside the door)
 function clearRuns(face, doors, gap) {
   const out = [];
@@ -92,7 +110,7 @@ function kidsHouse(c, o) {
   mapGroup.add(roof.g);
   const fade = addRoofFade(KR, roof); fade.glow = true;
   if (o.walls) o.walls(KR, doors, K, rnd, roof);
-  const heartPts = (o.doors || kidsDoors)(doors, K), flowers = K.flowerN ? kidsFlowers(KR, doors, K, rnd) : 0;
+  const heartPts = (o.doors || kidsDoors)(doors, K, KR), flowers = K.flowerN ? kidsFlowers(KR, doors, K, rnd) : 0;
   info.kid = { build: K.build, roof: true, hearts: heartPts.length, heartPts, flowers, clean: true, fade };
   if (THEMES[place].snow) info.snow++;
 }
@@ -216,13 +234,13 @@ const KIDS = {
   // Winter: an igloo — ice blocks on a round dome, round doors (an arch in every gap) with a heart above
   igloo: c => kidsHouse(c, {
     roof: (KR, K) => domeRoof(KR, { color: K.roof, line: K.line, roofH: K.roofH, k: K.k }),
-    doors(doors, K) {
-      const pts = [];
+    doors(doors, K, KR) {
+      const pts = [], cx = KR.x + KR.w / 2, cz = KR.y + KR.h / 2, y0 = 0.5, f = Math.sqrt(1 - (y0 / K.roofH) ** 2);   // the heart sits on the dome, half a cell above its foot
       for (const d of doors) {
         const arch = part(new THREE.TorusGeometry(d.len / 2 - 0.1, 0.13, 8, 18, Math.PI), K.arch, 0.015);
         arch.scale.set(1, 0.85, 1); put(grp(arch), d.x + d.nx * 0.5, 0, d.z + d.nz * 0.5, Math.atan2(d.nx, d.nz));
         const ht = faceTo(new THREE.Mesh(heartGeo(K.heartS), toon(K.heart)), d);
-        ht.position.set(d.x + d.nx * 0.62, K.heartY, d.z + d.nz * 0.62); mapGroup.add(ht); pts.push({ x: ht.position.x, y: K.heartY, z: ht.position.z });
+        ht.position.set(d.nx ? cx + d.nx * (KR.w / 2 * K.k * f + 0.04) : d.x, WALL_H + y0, d.nz ? cz + d.nz * (KR.h / 2 * K.k * f + 0.04) : d.z); mapGroup.add(ht); pts.push({ x: ht.position.x, y: ht.position.y, z: ht.position.z });
         const mat = new THREE.Mesh(heartGeo(K.mat), toon(K.heart)); mat.rotation.x = -Math.PI / 2; mat.position.set(d.x + d.nx * 1.05, 0.012, d.z + d.nz * 1.05); mapGroup.add(mat);
       }
       return pts;
@@ -241,11 +259,12 @@ function dadHouse(c, o) {
   const patches = o.patches ? roofPatches(roof, B, rnd, o.patches) : 0;
   if (o.chimney) roofChimney(roof, B);
   if (o.roofExtras) o.roofExtras(roof, BR, B);
+  const roofMessInfo = roofMess(roof, B);
   mapGroup.add(roof.g);
   const fade = addRoofFade(BR, roof);
   if (o.walls) o.walls(BR, doors, B);
   const mess = dadMess(BR, doors, wallAt, B, rnd, o.mess), more = (o.props && o.props(mess, BR, doors, B, rnd)) || {}, items = mess.done();
-  info.big = { build: B.build, roof: true, crooked: Math.abs(roof.g.rotation.z) > 0.01, patches, stains: mess.stains, ...items, sock: items.laundry.includes("sock") || !!more.sock, trash: items.bin, messy: true, fade };
+  info.big = { build: B.build, roof: true, crooked: Math.abs(roof.g.rotation.z) > 0.01, patches, stains: mess.stains, ...items, sock: items.laundry.includes("sock") || !!more.sock, trash: items.bin, messy: true, roofMess: roofMessInfo, fade };
   if (THEMES[place].snow) info.snow++;
 }
 const hipDad = (BR, B, place) => houseRoof(BR, B.roof, place, B.crook, { roofH: B.roofH, snow: B.snow, eave: B.eave });

@@ -2,23 +2,24 @@
  "shards": 10,
  "entries": [
   [
-   ["balance.spec.js"],
+   ["fixedstep.spec.js"],
    ["quality.spec.js"],
    ["saves.spec.js"],
    ["tutorial.spec.js"],
    ["worlds.spec.js"]
   ],
   [
-   ["assets.spec.js"],
    ["gameplay.spec.js"],
    ["i18n.spec.js","1280×720 desktop","every wardrobe name fits its row, en and pt (1280×720 desktop)"],
    ["i18n.spec.js","667×375 phone","every wardrobe name fits its row, en and pt (667×375 phone)"],
    ["i18n.spec.js","667×375 phone","in Portuguese no screen draws an English, Spanish or Russian word (667×375 phone)"],
    ["levels.spec.js"],
+   ["site.spec.js"],
    ["tricks.spec.js"]
   ],
   [
    ["errors.spec.js"],
+   ["houses.spec.js"],
    ["i18n.spec.js","1280×720 desktop","in Portuguese no screen draws an English, Spanish or Russian word (1280×720 desktop)"],
    ["i18n.spec.js","a first launch in a es-AR browser starts in en"],
    ["i18n.spec.js","a first launch in a fr-FR browser starts in en"],
@@ -58,8 +59,7 @@
    ["menus.spec.js","story chapters unlock with progress"],
    ["menus.spec.js","story, rules and the level card fit a phone, also with wider fonts"],
    ["menus.spec.js","the level card with its preview fits (desktop 1280×720, fonts ×1 / ×1.15 / ×1.3)"],
-   ["menus.spec.js","the level card with its preview fits (phone 568×320, fonts ×1 / ×1.15)"],
-   ["modules.spec.js"]
+   ["menus.spec.js","the level card with its preview fits (phone 568×320, fonts ×1 / ×1.15)"]
   ],
   [
    ["art.spec.js"],
@@ -89,12 +89,13 @@
    ["economy.spec.js","the Upgrades tab fits (phone 568×320)"],
    ["economy.spec.js","the Upgrades tab fits (phone 844×390)"],
    ["economy.spec.js","the Upgrades tab fits (phone 932×430)"],
-   ["env.spec.js"],
+   ["invariants.spec.js"],
    ["names.spec.js"],
    ["pwa.spec.js"],
    ["tip.spec.js"]
   ],
   [
+   ["bosses.spec.js"],
    ["lifecycle.spec.js"],
    ["menus.spec.js","a screen change in sim mode leaves the same state as in a rendered page"],
    ["menus.spec.js","level stops show number, stars and locks"],
@@ -149,7 +150,7 @@
    ["phone.spec.js","tablet portrait","an iPad in portrait plays letterboxed, with no rotate wall"]
   ],
   [
-   ["bosses.spec.js"],
+   ["assets.spec.js"],
    ["input-safety.spec.js"],
    ["look3d.spec.js"],
    ["story.spec.js","a bonus world shows its picture before its first level; gamepad A goes on"],
@@ -169,6 +170,7 @@
   ],
   [
    ["back.spec.js"],
+   ["balance.spec.js"],
    ["grownups.spec.js"],
    ["perf.spec.js","rotate overlay","SPEC-040 AC 3: no render3D under the rotate overlay"],
    ["perf.spec.js","SPEC-040 AC 12: phone frame time p50/p95 of the busiest level of Park, Beach and Winter (recorded)"],
@@ -178,8 +180,7 @@
    ["perf.spec.js","SPEC-040 AC 4: the first 60 frames of a new world (Beach 3 after Park) (phone view): p95 ≤ steady × 1.5, no program or geometry first made in them"],
    ["perf.spec.js","SPEC-040 AC 4: the first 60 frames of the first boss (Park 20) (phone view): p95 ≤ steady × 1.5, no program or geometry first made in them"],
    ["perf.spec.js","SPEC-040 AC 4: the warm-up does not change the game Play starts; Play before its end starts the level; a Retry builds nothing"],
-   ["perf.spec.js","SPEC-040 AC 9: measureText calls per frame on the home and Character screens drop at least 5×"],
-   ["site.spec.js"]
+   ["perf.spec.js","SPEC-040 AC 9: measureText calls per frame on the home and Character screens drop at least 5×"]
   ],
   [
    ["economy.spec.js","every coin change is in the ledger"],
@@ -204,7 +205,7 @@
    ["economy.spec.js","the win screen lists each reward line and fits (phone 667×375)"],
    ["economy.spec.js","upgrades apply to players only and stop at level 3"],
    ["economy.spec.js","upgrades are saved, merged with defaults and cleaned"],
-   ["fixedstep.spec.js"],
+   ["env.spec.js"],
    ["phone.spec.js","phone banner 844×390","the phone banner never covers the hero (844×390)"],
    ["phone.spec.js","phone banner 932×430","the phone banner never covers the hero (932×430)"],
    ["phone.spec.js","phone banner too wide","the phone banner switches to the short text, and is skipped when nothing fits"],
@@ -223,7 +224,6 @@
    ["smoke.spec.js"]
   ],
   [
-   ["invariants.spec.js"],
    ["menus.spec.js","home fits a phone in every language, also with wider fonts"],
    ["menus.spec.js","home is minimal: the logo, language and sound, Play · Story · Character"],
    ["menus.spec.js","SPEC-026: Character — tabs Progress · Items · Wardrobe · Upgrades; home opens Progress, the end screens Items"],
@@ -236,6 +236,7 @@
    ["menus.spec.js","the shop holds the wardrobe"],
    ["menus.spec.js","the wardrobe tab works and fits on a phone, also with wider fonts"],
    ["menus.spec.js","win, lose and pause lead to the map, the shop and home"],
+   ["modules.spec.js"],
    ["perf.spec.js","AC 15: 30 levels in all six worlds and 10 wardrobe opens: three.js counts, caches and heap stay flat"],
    ["perf.spec.js","AC 15: disposeTree frees the textures of own materials, never a shared one"],
    ["perf.spec.js","AC 15b: __bb.perf() has every field after 2 s of play"],
