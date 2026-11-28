@@ -12,6 +12,7 @@
 import { CFG } from "../../core/config.js";
 import { vrand } from "../../core/util.js";
 import { L, lang } from "../../i18n.js";
+import { toggleMusic, toggleSound } from "../flow.js";
 import { qualityInfo, setQualityMode } from "../adaptive.js";
 import { buildVersion, errorLog, hideCard } from "../errors.js";
 import { armReset, confirmReset, progressReplaced, resetConfirmReady } from "../reset.js";
@@ -96,6 +97,9 @@ function showPage(note = null) {
   act(L().pasteCode, "pasteCode", pasteCode);
   act(L().reset, "resetProgress", askReset);   // SPEC-033 AC 10: the same safe flow as before — arm, confirm elsewhere after a delay, undo
   if (saveInfo.copies.reset) act(L().undoReset, "undoReset", () => restoreAndShow("reset"));
+  // SPEC-047 AC 9: the Music and Sounds switches (the home screen has them too); the page is drawn again with the new words
+  button(row, ui.music ? L().musicOn : L().musicOff, () => { toggleMusic(); showPage(note); }, "music");
+  button(row, ui.sfx ? L().soundsOn : L().soundsOff, () => { toggleSound(); showPage(note); }, "sounds");
   act(L().quality, "quality", showQuality);
   act(L().restoreCopy, "restoreCopy", showCopies);
   act(L().errorLog, "errorLog", showLog);

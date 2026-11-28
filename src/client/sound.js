@@ -3,6 +3,7 @@
 // has none). The context starts on the first gesture (initAudio). Client module (moved out of index.html in Phase C).
 
 import { startEngine, sfxOut } from "./audio/engine.js";
+import { pauseMusic, resumeMusic } from "./audio/music.js";
 import { loadSfx, playSfx, sfxOn } from "./audio/sfx.js";
 import { LOOK } from "./look.js";
 import { simMode } from "./screen.js";
@@ -15,6 +16,7 @@ let actx = null;
 // running (SPEC-025 AC 14: "suspended" after a hide, iOS "interrupted" after a call)
 export function initAudio() {
   if (simMode) return;
+  resumeMusic();                                                 // SPEC-047 AC 10: after the background / a call the first gesture plays the paused music again
   if (!actx) { actx = startEngine(); loadSfx(); }                // SPEC-047: the context, its buses, the sounds' files — nothing exists before this
   else if (actx.state !== "running" && actx.state !== "closed") {
     try { const p = actx.resume(); if (p && p.catch) p.catch(() => { /* SPEC-025 AC 7c: not allowed yet — the next gesture tries again */ }); } catch (e) { /* ok */ }
@@ -22,6 +24,7 @@ export function initAudio() {
 }
 // SPEC-025 AC 14: the app went to the background — silence until the next gesture
 export function suspendAudio() {
+  pauseMusic();                                                  // SPEC-047 AC 10: the music's elements pause with the context
   if (!actx || actx.state !== "running") return;
   try { const p = actx.suspend(); if (p && p.catch) p.catch(() => {}); } catch (e) { /* ok */ }
 }

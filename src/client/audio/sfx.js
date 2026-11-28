@@ -20,8 +20,8 @@ const plays = [];                  // the last AUDIO.LOG_MAX plays: { name, at, 
 let voices = [];                   // one-shots not finished: { name, src, gain, start, end, tag }
 let loading = false, seq = 0;      // seq: the number of plays so far (each log entry's n: tests read what came after n)
 
-// sounds are on? (step 4 replaces this with the Sounds switch)
-export const sfxOn = () => !ui.muted;
+// the Sounds switch (the home screen, key M, the grown-ups page; saved as settings.sfx)
+export const sfxOn = () => ui.sfx;
 
 // the samples of a loop buffer that carry sound: [start, end] seconds of the first and last sample above AUDIO.LOOP_EDGE (-60 dBFS)
 export function loopRegion(buf) {

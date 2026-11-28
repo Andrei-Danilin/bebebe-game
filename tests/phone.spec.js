@@ -1236,7 +1236,7 @@ for (const [vw, vh] of PHONE_SIZES) {
           expect(d.buttons.map(q => q.id).filter(id => /^progress:(reset|confirm)$/.test(String(id))), `${label}: reset is on the grown-ups page`).toEqual([]);
           expect(d.hud.map(h => h.id), label).toEqual(expect.arrayContaining(["progress:stars", "progress:worlds", "progress:bag:rescues", "progress:upg:fastFeet", "progress:clothes", "coins"]));
         }
-        if (name === "home") expect(d.buttons.map(q => q.id).sort()).toEqual(["home:lang", "home:play", "home:shop", "home:sound", "home:story"]);
+        if (name === "home") expect(d.buttons.map(q => q.id).sort()).toEqual(["home:lang", "home:music", "home:play", "home:shop", "home:sound", "home:story"]);
         if (name === "play") {
           expect(d.texts.main, "play: main texts recorded").toBeTruthy();
           expect(d.texts.hint, "play: hint text recorded").toBeTruthy();

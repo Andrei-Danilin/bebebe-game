@@ -9,6 +9,7 @@ let ctx = null, master = null, music = null, sfx = null;
 // the context and its buses (made once; null where Web Audio is missing or refused)
 export function startEngine() {
   if (ctx) return ctx;
+  try { const s = /** @type {any} */ (navigator).audioSession; if (s) s.type = "ambient"; } catch (e) { /* not on this browser */ }   // SPEC-047 AC 10: on iPhone the game's audio follows the silent switch
   try {
     ctx = new (window.AudioContext || window.webkitAudioContext)();
     master = ctx.createGain(); master.gain.value = A.MASTER; master.connect(ctx.destination);

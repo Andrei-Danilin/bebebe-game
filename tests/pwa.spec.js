@@ -487,7 +487,7 @@ test.describe("on iPhone Safari", () => {
     expect(d.texts.every(x => !x), "no language has installHint").toBe(true);
     expect(d.flag).toBe(false);
     expect(d.mode).toBe("home");
-    expect(d.ids).toEqual(["home:lang", "home:play", "home:shop", "home:sound", "home:story"]);
+    expect(d.ids).toEqual(["home:lang", "home:music", "home:play", "home:shop", "home:sound", "home:story"]);
     expect(d.hud).toEqual(["home:title"]);
     expect(errors.filter(e => !e.includes("Failed to load resource"))).toEqual([]);
   });

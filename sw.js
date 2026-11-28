@@ -27,24 +27,24 @@ const NET_TIMEOUT_MS = 4000;             // weak signal: after this long, a cach
 const SW_BUILD = 11;
 const SW_STRATEGY = "0c8e52b02e";
 const SW_VERSION = "bebebe-1.0.0-dev-b11";
-const SRC_HASH = "51148656b9";
+const SRC_HASH = "780023ba82";
 const PRECACHE_LOCAL = [
   "./", "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512-maskable.png",
   "./icons/icon-512.png", "./icons/icon.svg", "./index.html", "./manifest.webmanifest"
 ];
 const PRECACHE_SRC = [
   "./src/client/adaptive.js?v=5487878407", "./src/client/art-names.js?v=53a55ace1a",
-  "./src/client/art.js?v=dee97c538e", "./src/client/audio/engine.js?v=b9b6dadc62",
-  "./src/client/audio/music.js?v=720864abb5", "./src/client/audio/sfx.js?v=0f198cf884",
-  "./src/client/back.js?v=2bbaab7f17", "./src/client/cadence.js?v=6fc971a515", "./src/client/debug.js?v=bf30180a4d",
-  "./src/client/devices.js?v=892965ff6f", "./src/client/errors.js?v=7b215fb847", "./src/client/flow.js?v=0c03ef7cce",
-  "./src/client/fx.js?v=3561544479", "./src/client/input.js?v=df0594412e", "./src/client/lifecycle.js?v=42d6c088ba",
+  "./src/client/art.js?v=dee97c538e", "./src/client/audio/engine.js?v=2f74833d27",
+  "./src/client/audio/music.js?v=d2ae6946a1", "./src/client/audio/sfx.js?v=48be300b36",
+  "./src/client/back.js?v=2bbaab7f17", "./src/client/cadence.js?v=6fc971a515", "./src/client/debug.js?v=6da946695d",
+  "./src/client/devices.js?v=892965ff6f", "./src/client/errors.js?v=7b215fb847", "./src/client/flow.js?v=d070a260af",
+  "./src/client/fx.js?v=3561544479", "./src/client/input.js?v=2e9e9003bd", "./src/client/lifecycle.js?v=42d6c088ba",
   "./src/client/look.js?v=966ac08b21", "./src/client/main.js?v=7be38e070f", "./src/client/names.js?v=dff85cded6",
   "./src/client/outfits.js?v=892a6a1d6e", "./src/client/perf.js?v=2462f1b4ae", "./src/client/ports.js?v=4285602733",
   "./src/client/preview-data.js?v=89f11bb2ea", "./src/client/progress.js?v=38515d7fe6",
-  "./src/client/quality.js?v=1fa1c771b3", "./src/client/reset.js?v=30ccdd527d", "./src/client/save.js?v=ef4b513256",
-  "./src/client/screen.js?v=576f0ce0af", "./src/client/shop.js?v=df2d3c5976", "./src/client/sound.js?v=f11972ea98",
-  "./src/client/state.js?v=a1a3946757", "./src/client/storage.js?v=686b11f06c",
+  "./src/client/quality.js?v=1fa1c771b3", "./src/client/reset.js?v=30ccdd527d", "./src/client/save.js?v=21615d74c2",
+  "./src/client/screen.js?v=576f0ce0af", "./src/client/shop.js?v=df2d3c5976", "./src/client/sound.js?v=8f8ef118a3",
+  "./src/client/state.js?v=1e73c36796", "./src/client/storage.js?v=686b11f06c",
   "./src/client/three/batch.js?v=72814fddc1", "./src/client/three/bosses.js?v=7814dfb8d4",
   "./src/client/three/camera.js?v=cd37d1af9d", "./src/client/three/characters.js?v=cdf38dba20",
   "./src/client/three/housekit.js?v=c97a1bd9fd", "./src/client/three/houses-worlds.js?v=43e7dca263",
@@ -60,7 +60,7 @@ const PRECACHE_SRC = [
   "./src/client/ui/character/items.js?v=2ff7462142", "./src/client/ui/character/progress.js?v=46b61d937e",
   "./src/client/ui/character/tabs.js?v=bd6c90ad68", "./src/client/ui/character/upgrades.js?v=5358a5860d",
   "./src/client/ui/character/wardrobe.js?v=83a8b8206a", "./src/client/ui/draw.js?v=527ecbf8be",
-  "./src/client/ui/grownups.js?v=9cec820d99", "./src/client/ui/home.js?v=718eac14e4",
+  "./src/client/ui/grownups.js?v=6ebdf23b79", "./src/client/ui/home.js?v=6b39c8c846",
   "./src/client/ui/hud.js?v=d25af0ceeb", "./src/client/ui/lang.js?v=568a4dc213",
   "./src/client/ui/layout.js?v=d46dd9e8b5", "./src/client/ui/level-preview.js?v=698fb9c64c",
   "./src/client/ui/map.js?v=464261adf6", "./src/client/ui/measure.js?v=7c174e9035",
@@ -85,7 +85,7 @@ const PRECACHE_SRC = [
   "./src/core/tricks/query.js?v=f5070ac764", "./src/core/tricks/sprinklers.js?v=d0d67dc091",
   "./src/core/tricks/truck.js?v=6da8d905c4", "./src/core/tricks/waves.js?v=2bc3aa5809",
   "./src/core/util.js?v=b56133239e", "./src/core/vision.js?v=17866d5575", "./src/core/wardrobe.js?v=011be2182f",
-  "./src/core/world.js?v=7ffe232fac", "./src/core/worlditems.js?v=77bc64a54d", "./src/i18n.js?v=9201e51ae8",
+  "./src/core/world.js?v=7ffe232fac", "./src/core/worlditems.js?v=77bc64a54d", "./src/i18n.js?v=f50020a150",
   "./src/story.js?v=d4c2c3d810"
 ];
 const THREE_VERSION = "r187";

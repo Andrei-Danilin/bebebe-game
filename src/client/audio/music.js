@@ -22,10 +22,11 @@ let current = null;                // the track that sounds (fading in or in): i
 let songFor = null;                // the ending scene (ui.storyScene) whose song has played to its end: this visit goes on with theme
 let applied = "";                  // the bus level last set (level + duck end)
 let duckEnd = 0;                   // the context time the jingle in progress ends
+let paused = false;                // the app is in the background (or a call): the elements are paused until the next gesture
 let ids = 0;                       // every element pair gets its own number (tests: the same track is the same pair)
 
-// the Music switch (step 4 makes it its own setting)
-export const musicOn = () => !ui.muted;
+// the Music switch (the home screen, key N, the grown-ups page; saved as settings.music)
+export const musicOn = () => ui.music;
 
 // the manifest's lengths: loop points come from the shipped file, not from what a browser says
 export function setMusicInfo(files) { for (const f of files) if (f.kind === "music" || f.kind === "song") lengths.set(f.name, f.dur); }
@@ -58,11 +59,11 @@ function makeTrack(name, ctx) {
   const out = ctx.createGain();
   out.gain.value = 0; out.connect(musicOut());
   const parts = [0, 1].map(() => {
-    const el = new Audio(), g = ctx.createGain();
+    const el = new Audio(), g = ctx.createGain();   // was: it played when the app went to the background (pauseMusic)
     el.preload = "auto"; el.loop = false;
     const src = ctx.createMediaElementSource(el);
     g.gain.value = 0; src.connect(g); g.connect(out);
-    return { el, g, src };
+    return { el, g, src, was: false };
   });
   const t = { name, id: ++ids, out, parts, active: 0, ready: false, once: name === "theme_song", ended: false, xfade: 0, disposeAt: 0, blocked: 0, standby: false };
   const a = parts[0].el;
@@ -149,11 +150,24 @@ export function duck(at, len) {
   if (ctx && !simMode) applyLevel(ctx);
 }
 
+// the app went to the background / a call: the elements that play pause (the context is suspended by sound.js: the fades on its clock wait too);
+// the first gesture after it plays them again (SPEC-047 AC 10)
+export function pauseMusic() {
+  if (paused) return;
+  paused = true;
+  for (const t of tracks.values()) for (const p of t.parts) { p.was = !p.el.paused && !!p.el.getAttribute("src"); if (p.was) p.el.pause(); }
+}
+export function resumeMusic() {
+  if (!paused) return;
+  paused = false;
+  for (const t of tracks.values()) for (const p of t.parts) if (p.was) { p.was = false; const r = p.el.play(); if (r && r.catch) r.catch(() => { t.blocked = context() ? context().currentTime : 0; }); }
+}
+
 // ---------- every frame ----------
 // called by main.js every frame (and nothing else): chooses the track, starts, crossfades and disposes, keeps the bus level and the loops going
 export function musicTick() {
   const ctx = context();
-  if (simMode || !ctx) return;
+  if (simMode || !ctx || paused || ctx.state !== "running") return;   // nothing in the background, a call or before the context runs
   const now = ctx.currentTime;
   applyLevel(ctx);
   for (const t of tracks.values()) {
@@ -197,6 +211,7 @@ export function musicTick() {
 
 // ---------- for the tests (__bb.audio) ----------
 export const currentTrack = () => current;
+export const musicPaused = () => paused;
 // the sounding pair: { track, id, time (s of the playing element), dur, pair (its elements with a file: 1 while it loads / for the song, else 2), elements (all alive), crossing (the loop crossfade is on) }
 export function musicInfo() {
   const t = tracks.get(current);

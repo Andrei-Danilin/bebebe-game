@@ -22,7 +22,7 @@ import { LOOK } from "./look.js";
 import { previewDataOf } from "./preview-data.js";
 import { botOutfit, endTryOn, makeLook, skinSel } from "./outfits.js";
 import { saveProgress, setLang } from "./progress.js";
-import { answerLang } from "./save.js";
+import { answerLang, setSoundSetting } from "./save.js";
 import { PHONE } from "./screen.js";
 import { cancelPending } from "./audio/sfx.js";
 import { playSound, winCountSounds } from "./sound.js";
@@ -380,4 +380,5 @@ export function shopAfterWin() {
 }
 export function shopAfterLose() { resetWorld(G.players); openShop("map"); }
 export const nextLang = () => setLang(LANGS[(LANGS.indexOf(lang) + 1) % LANGS.length]);
-export const toggleSound = () => { ui.muted = !ui.muted; };
+export const toggleSound = () => setSoundSetting("sfx", !ui.sfx);     // SPEC-047 AC 9: the Sounds switch (key M)
+export const toggleMusic = () => setSoundSetting("music", !ui.music);   // the Music switch (key N)

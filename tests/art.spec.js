@@ -275,6 +275,7 @@ test.describe("on a phone", () => {
 const EMOJI_OK = {
   "▶": "the Play / Next / ▶ arrow is a navigation glyph drawn in the button's ink (font text, not a picture)",
   "◀": "the Back / previous arrow, the same navigation glyph as ▶",
+  "🎵": "the home screen's Music switch (SPEC-047): no music picture in our sheets yet — an emoji button, crossed out when off (BACKLOG: draw one)",
   "⏭": "the practice's Skip button (SPEC-029): a navigation glyph like ▶; no skip picture in our sheets yet (BACKLOG: draw one)"
 };
 const ANY_EMOJI = /\p{Extended_Pictographic}/gu;

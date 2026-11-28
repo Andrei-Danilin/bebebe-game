@@ -2,14 +2,14 @@
 // (SPEC-012: the players' input slots). Client module (moved out of index.html in Phase C).
 
 import { CFG } from "../core/config.js";
-import { backToWardrobe, chooseStop, closeCard, closeTip, goBack, closeShop, cycleWorld, mapSelN, moveMapSel, nextLang, nextLevel, openStory, openTip, playCard, pressKiss, pressKit, resumeGame, retryLevel, sceneNext, scenePrev, sceneSkip, setMode, setStoryPage, storyBackKey, storyStep, switchShopTab, toggleSound, toMap, watchChapter } from "./flow.js";
+import { backToWardrobe, chooseStop, closeCard, closeTip, goBack, closeShop, cycleWorld, mapSelN, moveMapSel, nextLang, nextLevel, openStory, openTip, playCard, pressKiss, pressKit, resumeGame, retryLevel, sceneNext, scenePrev, sceneSkip, setMode, setStoryPage, storyBackKey, storyStep, switchShopTab, toggleMusic, toggleSound, toMap, watchChapter } from "./flow.js";
 import { LOOK } from "./look.js";
 import { activeStick, closeNameInput, nameInput, stickR, sticks, afterFit } from "./devices.js";
 import { randomOutfit } from "./outfits.js";
 import { canvas, PHONE, rotateWall, setAfterFit, UH, UW } from "./screen.js";
 import { leaveCancel } from "./back.js";
 import { cardOpen, moveCardFocus, pressCard } from "./errors.js";
-import { clickSound, initAudio } from "./sound.js";
+import { clickSound, initAudio, playSound } from "./sound.js";
 import { inWardrobe, mode, ui } from "./state.js";
 import { openPictures, openPractice, tutorialSkip } from "./tutorial.js";
 import { homeActions } from "./ui/home.js";
@@ -24,31 +24,32 @@ import { newInput } from "../core/game.js";
 const keys = new Set();
 
 function onKey(code) {
-  if (code === "KeyM") { toggleSound(); return; }
+  if (code === "KeyM") { toggleSound(); return; }              // SPEC-047 AC 9: M — the sounds, N — the music
+  if (code === "KeyN") { toggleMusic(); return; }
   if (code === "KeyL") { if (mode !== "lang") nextLang(); return; }   // SPEC-032: not under the language screen
   if (code === "Escape") { goBack(); return; }                // SPEC-025 AC 14d: the one "back" (flow.js)
   if (mode === "lang") {                                      // SPEC-032: the language screen — arrows move, Enter / Space pick
     if (code === "ArrowLeft") moveLangSel(-1);
     if (code === "ArrowRight") moveLangSel(1);
     if (code === "ArrowUp" || code === "ArrowDown") moveLangSel(2);
-    if (code === "Enter" || code === "NumpadEnter" || code === "Space") chooseLang();
+    if (code === "Enter" || code === "NumpadEnter" || code === "Space") { tap(); chooseLang(); }
   } else if (mode === "home") {
     const a = homeActions().find(q => q.keys.includes(code));   // SPEC-017: Enter = «Играть», S — история, B — магазин
-    if (a) a.act();
+    if (a) { tap(); a.act(); }
   } else if (mode === "map") {
     // SPEC-017: ←/→ — миры, ↑/↓ — остановка с кольцом, Enter — её карточка (решено в ходе работы, проверить с Андреем)
     if (code === "ArrowLeft") cycleWorld(-1);
     if (code === "ArrowRight") cycleWorld(1);
     if (code === "ArrowUp") moveMapSel(-1);
     if (code === "ArrowDown") moveMapSel(1);
-    if (code === "Enter" || code === "NumpadEnter" || code === "Space") chooseStop(mapSelN());
+    if (code === "Enter" || code === "NumpadEnter" || code === "Space") { tap(); chooseStop(mapSelN()); }
   } else if (mode === "levelCard") {
     if (ui.tip) {                                              // SPEC-042: the "New here!" card stands in the level card's place: Enter / Space / H close it (Escape too, goBack), nothing else acts under it
       if (code === "Enter" || code === "NumpadEnter" || code === "Space" || code === "KeyH") closeTip();
       return;
     }
-    if (code === "Enter" || code === "NumpadEnter" || code === "Space" || code === "Digit1" || code === "Numpad1") playCard(1);
-    if (code === "Digit2" || code === "Numpad2") playCard(2);
+    if (code === "Enter" || code === "NumpadEnter" || code === "Space" || code === "Digit1" || code === "Numpad1") { tap(); playCard(1); }
+    if (code === "Digit2" || code === "Numpad2") { tap(); playCard(2); }
     if (code === "KeyS") openStory(G.world, "levelCard");
     if (code === "KeyH") openTip();                           // SPEC-042: H — what is new in this world (the ? button)
   } else if (mode === "story") {
@@ -76,10 +77,10 @@ function onKey(code) {
     if (code === "KeyP") resumeGame();
     if (code === "KeyQ") (G.tutorialGame ? tutorialSkip : toMap)();   // SPEC-029: в тренировке Q — пропустить обучение
   } else if (mode === "win") {
-    if (code === "Enter" || code === "Space") nextLevel();
+    if (code === "Enter" || code === "Space") { tap(); nextLevel(); }
     if (code === "KeyQ") toMap();
   } else if (mode === "lose") {
-    if (code === "Enter" || code === "Space") retryLevel();
+    if (code === "Enter" || code === "Space") { tap(); retryLevel(); }
     if (code === "KeyQ") toMap();
   }
 }
@@ -105,6 +106,8 @@ export function toGame(e) {
 // screenChanged) — a pointer then does nothing until the next frame draws the screen shown now
 const staleButtons = () => ui.buttonsGen !== ui.screenSeq;
 const hitButton = p => ui.buttons.find(b => p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h);
+// SPEC-047: a key (Enter, Space, a letter) or the pad's A pressing a menu button sounds like a pointer press
+const tap = () => playSound("tap");
 // SPEC-047: a button press — its click sound (tap / back / page), then its action
 const press = hit => { clickSound(hit); hit.act(); };
 let pendingUp = null;   // кнопка, которая срабатывает на отпускании (поле имени: iOS даёт фокус только в pointerup/click)
@@ -164,17 +167,17 @@ function onPadButton(b, pad = 0) {
     if (b === 14) moveLangSel(-1);
     if (b === 15) moveLangSel(1);
     if (b === 12 || b === 13) moveLangSel(2);
-    if (b === 0 || b === 9) chooseLang();
+    if (b === 0 || b === 9) { tap(); chooseLang(); }
   } else if (mode === "home") {
     const a = homeActions().find(q => q.pad.includes(b));   // SPEC-017: A — «Играть», X — история, Y — магазин
-    if (a) a.act();
+    if (a) { tap(); a.act(); }
     else if (b === 1) goBack();                              // SPEC-033: B — как Escape: «Выйти из игры?»
   } else if (mode === "map") {
     if (b === 14 || b === LOOK.PAD_PREV_WORLD) cycleWorld(-1);   // крестовина ←/→ и бамперы — миры
     if (b === 15 || b === LOOK.PAD_NEXT_WORLD) cycleWorld(1);
     if (b === 12) moveMapSel(-1);                  // крестовина ↑/↓ — остановки
     if (b === 13) moveMapSel(1);
-    if (b === 0) chooseStop(mapSelN());
+    if (b === 0) { tap(); chooseStop(mapSelN()); }
     if (b === 1) setMode("home");
   } else if (mode === "levelCard") {
     if (ui.tip) {                                              // SPEC-042: A / B / Start / the tip button close the "New here!" card, not the level card
@@ -182,8 +185,8 @@ function onPadButton(b, pad = 0) {
       return;
     }
     if (b === LOOK.PAD_TIP) openTip();                         // SPEC-042: RB — what is new in this world
-    if (b === 0 || b === 9) playCard(1);
-    if (b === 2) playCard(2);                      // X — вдвоём (на телефоне startGame сам оставит одного игрока)
+    if (b === 0 || b === 9) { tap(); playCard(1); }
+    if (b === 2) { tap(); playCard(2); }                      // X — вдвоём (на телефоне startGame сам оставит одного игрока)
     if (b === 3) openStory(G.world, "levelCard"); // Y — 📖 глава мира
     if (b === 1) closeCard();
   } else if (mode === "story") {
@@ -215,8 +218,8 @@ function onPadButton(b, pad = 0) {
     if (b === LOOK.PAD_KIT && (G.players === 1 || pad < G.players)) pressKit(G.players === 1 ? 0 : pad);
   }
   else if (mode === "pause") { if (b === 9 || b === 0) resumeGame(); if (b === 1) (G.tutorialGame ? tutorialSkip : toMap)(); }
-  else if (mode === "win") { if (b === 0 || b === 9) nextLevel(); if (b === 1) toMap(); }
-  else if (mode === "lose") { if (b === 0 || b === 9) retryLevel(); if (b === 1) toMap(); }
+  else if (mode === "win") { if (b === 0 || b === 9) { tap(); nextLevel(); } if (b === 1) toMap(); }
+  else if (mode === "lose") { if (b === 0 || b === 9) { tap(); retryLevel(); } if (b === 1) toMap(); }
 }
 
 // SPEC-019: на цыпочках с клавиатуры: один игрок — любой Shift (в подсказке — левый: правый Shift в Windows — залипание);

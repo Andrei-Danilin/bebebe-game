@@ -173,16 +173,16 @@ test("a jingle dips the music to 0.1 and it comes back over 0.5 s", async ({ pag
 test("with the music off no track plays and no element exists; switching it on brings theme back; a hidden tab never starts music", async ({ page }) => {
   await openGame(page);
   await page.evaluate(() => window.__bb.toHome());
-  await page.evaluate(() => window.__bb.tapButton("home:sound"));            // off (until step 4 the one switch)
-  expect(await page.evaluate(() => window.__bb.muted)).toBe(true);
+  await page.evaluate(() => window.__bb.tapButton("home:music"));            // off
+  expect(await page.evaluate(() => window.__bb.audio.settings.music)).toBe(false);
   await gesture(page);
   await page.waitForTimeout(1200);
   expect(await info(page), "off: nothing").toEqual({ track: null, id: 0, time: 0, dur: 0, pair: 0, elements: 0, crossing: false });
-  await page.evaluate(() => window.__bb.tapButton("home:sound"));            // on
+  await page.evaluate(() => window.__bb.tapButton("home:music"));            // on
   await untilTrack(page, "theme");
-  await page.evaluate(() => window.__bb.tapButton("home:sound"));            // off again: it fades out and is let go
+  await page.evaluate(() => window.__bb.tapButton("home:music"));            // off again: it fades out and is let go
   await page.waitForFunction(() => window.__bb.audio.track === null && window.__bb.audio.music.elements === 0, null, { timeout: 10_000 });
-  await page.evaluate(() => window.__bb.tapButton("home:sound"));
+  await page.evaluate(() => window.__bb.tapButton("home:music"));
   await untilTrack(page, "theme");
 });
 
