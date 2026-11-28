@@ -376,3 +376,5 @@ export const LOOK = {
 // SPEC-021 / SPEC-039 (from ui/draw.js): the radius of a Little One's head in model units (before the head scale): the 3D model and the
 // name tag above it both read it, so it sits here, below both
 export const KID_HEAD_R = 0.27;
+// SPEC-045 (moved from ui/map.js: the map, the story and the Full game card all use it): the emoji of each world — the fallback of its picture (world_<name>)
+export const WORLD_ICONS = { park: "🌳", field: "⚽", city: "🏙️", school: "🏫", beach: "🏖️", winter: "❄️" };

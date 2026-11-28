@@ -55,6 +55,7 @@ export const ui = {
   // cardLevel — уровень открытой карточки; mapSwipe — палец/мышь, нажатые на карте (смена мира — на отпускании)
   toast: null,
   mapSwipe: null,
+  mapTab: null,   // SPEC-045: the world tab the keys / pad stand on when it is a 🎁 one (a purchase-locked world has no page to show: ←/→ move the ring, Enter / A open the Full game card); null: the world of the page
   // ---------- SPEC-017: история — главы по порядку и страница «Как играть» ----------
   // storyCh — глава на экране; storyBack — куда ведёт «назад» (главный экран или карточка уровня); storyPage — «chapters» или «rules»
   storyPage: "chapters",

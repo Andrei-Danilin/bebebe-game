@@ -36,7 +36,7 @@ import { localBackend, wrapBackend } from "./storage.js";
  * @typedef {{ hair?: string, hat?: string, jacket?: string, pants?: string, [slot: string]: any }} OutfitIds   one Little One's outfit by item id (AC 3c)
  * @typedef {{ version: number, progress: Progress,
  *   outfits: { p1: OutfitIds, p2: OutfitIds, big: string }, names: { p1: string, p2: string, big: string, bots: string[] },
- *   lang: string, migrated: Record<string, string | null>, persist?: { asked: boolean, granted: boolean }, langAsked?: boolean, quality?: string,
+ *   lang: string, migrated: Record<string, string | null>, persist?: { asked: boolean, granted: boolean }, langAsked?: boolean, quality?: string, entitlement?: { value: string, source: string, at: number },
  *   [field: string]: any }} Save   bebebe-save
  */
 export const SAVE_VERSION = 1;              // the shape of bebebe-save (a schema id, not a tunable number)
@@ -44,7 +44,7 @@ export const SAVE_KEYS = Object.freeze({ save: "bebebe-save", backup: "bebebe-sa
   migration: "bebebe-save-before-migration", reset: "bebebe-save-before-reset", reset2: "bebebe-save-before-reset-2", import: "bebebe-save-before-import", restore: "bebebe-save-before-restore", errors: "bebebe-errors", probe: "bebebe-probe" });
 export const OLD_KEYS = Object.freeze(["bebebe-progress", "bebebe-outfits", "bebebe-names", "bebebe-lang"]);
 export const COPY_NAMES = Object.freeze(["backup", "session", "migration", "reset", "reset2", "import", "restore"]);   // backup → session → snapshots (newest first)
-const KNOWN_TOP = ["version", "progress", "outfits", "names", "lang", "migrated", "persist", "langAsked", "quality", "settings"];
+const KNOWN_TOP = ["version", "progress", "outfits", "names", "lang", "migrated", "persist", "langAsked", "quality", "settings", "entitlement"];
 const OWN_LISTS = { hats: HATS, jackets: JACKETS, pants: PANTS, big: BIG_SKINS };
 const WORLD_FIELDS = ["unlocked", "stars", "won"];
 
@@ -66,6 +66,9 @@ let qualityPref = null;
 // SPEC-047 AC 9: the Music and Sounds switches — { music, sfx, … } (default on; null: no field yet, every switch on). A device's setting like the quality: a code or an import
 // does not carry it, a restore keeps this device's. An old save with `muted: true` (and no settings) turns both off; its `muted` stays as it was written. ui.music / ui.sfx follow it
 let settings = null;
+// SPEC-045 AC 1: the Full game — { value: "full" | "free", source: "beta" | "store" | "test", at } as stored (null: no field = free). A device's purchase like the
+// quality: a code or an import does not carry it, a restore keeps this device's. Written by entitlement.js's setEntitlement only (never for the web beta's open access)
+let entitlementRaw = null;
 let errCache = null;                       // the stored error log (read by loadSave)
 // what the grown-ups page and the tests read: storage failed (noSave), the notes due / shown, the copies stored
 // saveOff (review fix): the probe failed or the stored save could not be read — this session never writes bebebe-save or a copy
@@ -83,7 +86,7 @@ export function fingerprint(t) {
 }
 // the root of a save: a plain object with a whole version ≥ 1 and a progress object (else broken)
 export const validSave = s => plainObj(s) && Number.isInteger(s.version) && s.version >= 1 && plainObj(s.progress);
-const TOP_VALID = { version: v => Number.isInteger(v) && v >= 1, progress: plainObj, outfits: plainObj, names: plainObj, lang: v => LANGS.includes(v), migrated: plainObj, persist: plainObj, langAsked: v => typeof v === "boolean", quality: v => MODES.includes(v), settings: plainObj };
+const TOP_VALID = { version: v => Number.isInteger(v) && v >= 1, progress: plainObj, outfits: plainObj, names: plainObj, lang: v => LANGS.includes(v), migrated: plainObj, persist: plainObj, langAsked: v => typeof v === "boolean", quality: v => MODES.includes(v), settings: plainObj, entitlement: plainObj };
 const navLangs = () => (navigator.languages && navigator.languages.length ? [...navigator.languages] : [navigator.language]);
 function applyLang(l) { setCurrentLang(l); document.documentElement.lang = HTML_LANG[l] || l; }
 function emptyHeld() { return { top: {}, progress: {}, worlds: {}, worldFields: {}, worldOver: {}, owned: {}, ownedKeys: {}, upgrades: {}, seen: {}, outfits: [] }; }
@@ -155,6 +158,7 @@ function saveObject() {
   if (langAsked !== null) out.langAsked = langAsked;
   if (qualityPref !== null) out.quality = qualityPref;
   if (settings !== null) out.settings = { ...settings };
+  if (entitlementRaw !== null) out.entitlement = { ...entitlementRaw };
   if (future) for (const k of KNOWN_TOP) if (Object.hasOwn(held.top, k)) out[k] = held.top[k];
   return out;
 }
@@ -232,6 +236,9 @@ function useSave(s) {
   langAsked = typeof s.langAsked === "boolean" ? s.langAsked : null;
   qualityPref = MODES.includes(s.quality) ? s.quality : null;
   settings = settingsOf(s);
+  // a record that is an object is kept whole (its unknown fields too); anything else of this version (7, "full") is no record — free, and not written back, like a quality that is no tier;
+  // a NEWER version's invalid one is held unchanged by holdSave (TOP_VALID)
+  entitlementRaw = plainObj(s.entitlement) ? { ...s.entitlement } : null;
   applySettings();
   setProgress(s.progress);
   const o = outfitsFromIds(s.outfits);
@@ -248,6 +255,7 @@ function migrateOld(old, gifts, first = false) {
   langAsked = first ? false : null;           // SPEC-032 AC 13: nothing stored at all → the language screen asks (until answered)
   qualityPref = null;
   settings = null; applySettings();
+  entitlementRaw = null;
   held = emptyHeld();
   setProgress(pv);
   holdProgress(held, pv, false);
@@ -372,6 +380,9 @@ export function setSoundSetting(key, on) {
   settings = { ...settings, music: ui.music, sfx: ui.sfx };
   queueSave();
 }
+// SPEC-045 AC 1: the stored Full-game record (a copy; null: none) and its writer (entitlement.js validates the words)
+export const entitlementField = () => (entitlementRaw ? { ...entitlementRaw } : null);
+export function setEntitlementField(value, source, at) { entitlementRaw = { ...entitlementRaw, value, source, at }; queueSave(); }
 export function answerLang() { if (langAsked === false) { langAsked = true; queueSave(); } }
 
 // ---------- copies for the grown-ups page (AC 4, 6b) ----------
@@ -391,11 +402,11 @@ async function copySave(name) {
 }
 // a whole save replaces the game's (restore, undo, import): this device's migration record, persist and language-screen answers stay
 function replaceWith(s) {
-  const keepMigrated = migrated, keepPersist = persist, keepAsked = langAsked, keepQuality = qualityPref, keepSettings = settings;
+  const keepMigrated = migrated, keepPersist = persist, keepAsked = langAsked, keepQuality = qualityPref, keepSettings = settings, keepEntitlement = entitlementRaw;
   loading = true;
   useSave(s);
   loading = false;
-  migrated = keepMigrated; persist = keepPersist; langAsked = keepAsked; qualityPref = keepQuality; settings = keepSettings; applySettings();
+  migrated = keepMigrated; persist = keepPersist; langAsked = keepAsked; qualityPref = keepQuality; settings = keepSettings; entitlementRaw = keepEntitlement; applySettings();
 }
 // a grown-up restored or reset: the broken copy is no longer needed
 const clearBroken = () => remove(SAVE_KEYS.broken);
@@ -455,7 +466,7 @@ const unb64url = s => { const bin = atob(s.replace(/-/g, "+").replace(/_/g, "/")
 export function saveCode() {
   flushSaves();
   const s = saveObject();
-  delete s.migrated; delete s.persist; delete s.langAsked; delete s.quality; delete s.settings;
+  delete s.migrated; delete s.persist; delete s.langAsked; delete s.quality; delete s.settings; delete s.entitlement;
   const json = JSON.stringify(s);
   return `BB1.${b64url(json)}.${fingerprint(json)}`;
 }

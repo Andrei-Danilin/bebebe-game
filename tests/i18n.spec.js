@@ -206,7 +206,9 @@ test("no text says Buy, Comprar, Купить or shows a 🛒 (en, es, pt, ru)",
   await openGame(page, { sim: true });
   const hits = await page.evaluate(([langs, src, fn]) => {
     const re = new RegExp(src, "iu"), all = new Function("return " + fn)()(langs), out = [];
-    for (const l of langs) for (const [path, t] of all[l]) if (re.test(t)) out.push(`${path}: ${t}`);
+    // SPEC-045: the grown-ups' Full game section (behind the gate) is the one place that says purchase: "One purchase, no ads…", "Restore purchase" (no price, nothing for a child)
+    const grownUpsOnly = /\.(fullGameTerms|restorePurchase)$/;
+    for (const l of langs) for (const [path, t] of all[l]) if (re.test(t) && !grownUpsOnly.test(path)) out.push(`${path}: ${t}`);
     return out;
   }, [LANGS, String.raw`\bbuy|\bbought|compr(ar|á|e|a|o)\b|купи|покуп|🛒`, allTexts.toString()]);
   expect(hits).toEqual([]);

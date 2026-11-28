@@ -9,15 +9,17 @@
 // - The save notes (saveRecovered, freshStart, noSave): shown once each, in the menus, as a small note that goes away by itself.
 // DOM (class bb-card like the other cards: keys and pad reach it, not the game). Client module.
 
-import { CFG } from "../../core/config.js";
+import { CFG, WORLDS } from "../../core/config.js";
 import { vrand } from "../../core/util.js";
 import { L, lang } from "../../i18n.js";
+import { worldArt } from "../art.js";
+import { entitlementInfo } from "../entitlement.js";
 import { toggleMusic, toggleSound } from "../flow.js";
 import { qualityInfo, setQualityMode } from "../adaptive.js";
 import { buildVersion, errorLog, hideCard } from "../errors.js";
 import { armReset, confirmReset, progressReplaced, resetConfirmReady } from "../reset.js";
 import { eraseAll, importSave, listCopies, readCode, restoreCopy, saveCode, saveInfo, takeNote } from "../save.js";
-import { LOOK } from "../look.js";
+import { LOOK, WORLD_ICONS } from "../look.js";
 import { ui } from "../state.js";
 
 // ---------- the gate ----------
@@ -79,7 +81,7 @@ function button(parent, label, act, act2) {
   parent.append(b);
   return b;
 }
-function focusFirst(el) { const b = el.querySelector("button"); if (b) { b.classList.add("hl"); b.focus({ preventScroll: true }); } }
+function focusFirst(el) { const b = el.querySelector("button:not(:disabled)"); if (b) { b.classList.add("hl"); b.focus({ preventScroll: true }); } }
 
 // ---------- the grown-ups page ----------
 // opened from How to play, behind the gate
@@ -101,6 +103,7 @@ function showPage(note = null) {
   button(row, ui.music ? L().musicOn : L().musicOff, () => { toggleMusic(); showPage(note); }, "music");
   button(row, ui.sfx ? L().soundsOn : L().soundsOff, () => { toggleSound(); showPage(note); }, "sounds");
   act(L().quality, "quality", showQuality);
+  act(L().fullGame, "fullGame", showFullGame);   // SPEC-045 AC 5: what the Full game opens (the purchase itself comes with the app packaging spec)
   act(L().restoreCopy, "restoreCopy", showCopies);
   act(L().errorLog, "errorLog", showLog);
   // review fix: erasing everything always asks the gate again (also with the page open)
@@ -164,6 +167,44 @@ function showLog() {
   const text = errorLog().map(e => `${e.message}${e.count > 1 ? " ×" + e.count : ""} · ${e.mode} · ${e.level} · ${e.version}${e.stack ? "\n" + e.stack : ""}`).join("\n\n");
   const v = subView([L().errorLog], [[L().copy, "copyLog", () => { v.area.select(); try { navigator.clipboard.writeText(text).catch(() => { /* selected */ }); } catch (e) { /* no clipboard */ } }], [L().ok, "back", () => showPage()]], text);
   v.area.readOnly = true;
+}
+// ---------- SPEC-045: the Full game ----------
+// the child's card (a locked world was tapped): the pictures of the worlds waiting, a friendly line, no price, no buy button — one button to the grown-ups, behind the gate
+export function openFullCard() {
+  const el = card("fullgame", [L().fullGame, L().moreWorlds]), box = /** @type {HTMLElement} */ (el.firstChild), row = el.querySelector(".row");
+  /** @type {HTMLElement} */ (box.firstChild).className = "title";
+  const pics = document.createElement("div");
+  pics.className = "worlds";   // (index.html: .bb-card .worlds)
+  for (const w of WORLDS.filter(x => !CFG.MONETIZATION.freeWorlds.includes(x))) {
+    const img = document.createElement("img"), fallback = () => { const s = document.createElement("span"); s.textContent = WORLD_ICONS[w]; img.replaceWith(s); };
+    img.src = LOOK.ART.dir + worldArt(w) + ".webp"; img.alt = ""; img.dataset.world = w;
+    img.addEventListener("error", fallback);
+    pics.append(img);
+  }
+  box.insertBefore(pics, box.children[1]);
+  button(row, L().forGrownUps, () => { hideCard("fullgame"); parentGate(showFullGame); }, "forGrownUps");
+  button(row, "✕", () => hideCard("fullgame"), "close");
+  // the highlight only, no DOM focus: this card can open on a key press (Enter / Space on a 🎁 tab) and a focused button would take that key's own click (straight into the gate)
+  el.querySelector("button").classList.add("hl");
+}
+// the grown-ups' section (behind the gate): what it opens, the terms, and the two store buttons — disabled until the store spec ("Available in the app soon")
+function showFullGame() {
+  const info = entitlementInfo(), owned = info.value === "full" && info.source !== "beta";
+  const lines = [L().fullGame, L().fullGameOpens.map(t => "✔ " + t).join("   "), L().fullGameTerms, L().fullGameFriends];   // (the three things on one line: the phone page must not scroll)
+  if (owned) lines.push(L().fullGameOwned);
+  const v = subView(lines, [[L().getFull, "getFull", () => { /* the store comes later */ }], [L().restorePurchase, "restorePurchase", () => { /* the store comes later */ }], [L().ok, "back", () => showPage()]]);
+  for (const name of ["getFull", "restorePurchase"]) {
+    const b = /** @type {HTMLButtonElement} */ (v.el.querySelector(`[data-act=${name}]`));
+    b.disabled = true;   // (index.html: .bb-card.tight button:disabled)
+  }
+  const box = /** @type {HTMLElement} */ (v.el.firstElementChild);
+  v.el.classList.add("tight");   // (index.html: .bb-card.tight)
+  [...box.children].find(d => d.textContent === L().fullGameFriends)?.classList.add("small");   // the friends line: small, and the gaps tighter (the phone page must not scroll)
+  const note = document.createElement("div");
+  note.className = "small"; note.dataset.note = "soonInApp"; note.textContent = L().soonInApp;
+  v.el.firstChild.insertBefore(note, v.el.querySelector(".row"));
+  const ok = v.el.querySelector("[data-act=back]");
+  v.el.querySelectorAll("button").forEach(b => b.classList.remove("hl")); ok.classList.add("hl"); /** @type {HTMLElement} */ (ok).focus({ preventScroll: true });
 }
 // ---------- reset progress (SPEC-025 AC 6b, moved here by SPEC-033 AC 10) ----------
 // the first tap arms the reset (progress.js: armReset) and shows the question on its own view — the confirm is at another place and

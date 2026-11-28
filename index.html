@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="BeBeBe">
 <meta name="theme-color" content="#faf4e2">
-<meta name="src-hash" content="a2696300b8">
+<meta name="src-hash" content="ce8e89bd35">
 <meta name="game-version" content="1.0.0-dev">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
@@ -42,6 +42,9 @@
   .bb-card.page > div { max-width: 90%; max-height: 90%; overflow-y: auto; gap: 10px; padding: 16px 20px; font-size: 19px; }
   .bb-card.page button { font-size: 18px; min-height: 48px; padding: 8px 16px; }
   .bb-card .title { font-size: 26px; } .bb-card .small { font-size: 15px; font-weight: 600; } .bb-card .note { color: #b45309; }
+  .bb-card.tight button:disabled { opacity: .5; cursor: default; }   /* SPEC-045: the Full game section: the store buttons until the app */
+  .bb-card .worlds { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; } .bb-card .worlds img { height: 56px; width: auto; } .bb-card .worlds span { font-size: 40px; }   /* SPEC-045: the Full game card's world pictures */
+  .bb-card.tight > div { gap: 6px; }   /* SPEC-045: the Full game section: the phone page must not scroll */
   .bb-card textarea { box-sizing: border-box; width: min(560px, 100%); font: 14px ui-monospace, monospace; -webkit-user-select: text; user-select: text; }
   .bb-note { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 9; pointer-events: none; max-width: 80%; padding: 10px 18px; border: 3px solid #3d2b1f; border-radius: 14px; background: #faf4e2; color: #2f3f8f; font: 800 18px system-ui, sans-serif; text-align: center; }
 </style>
@@ -110,29 +113,30 @@
   "./src/client/audio/sfx.js": "./src/client/audio/sfx.js?v=6073da3a31",
   "./src/client/back.js": "./src/client/back.js?v=2bbaab7f17",
   "./src/client/cadence.js": "./src/client/cadence.js?v=6fc971a515",
-  "./src/client/debug.js": "./src/client/debug.js?v=ec9e4fb922",
+  "./src/client/debug.js": "./src/client/debug.js?v=1d86ddd247",
   "./src/client/devices.js": "./src/client/devices.js?v=892965ff6f",
+  "./src/client/entitlement.js": "./src/client/entitlement.js?v=02818e38e5",
   "./src/client/errors.js": "./src/client/errors.js?v=7b215fb847",
-  "./src/client/flow.js": "./src/client/flow.js?v=094a034a8b",
+  "./src/client/flow.js": "./src/client/flow.js?v=abe23e6eeb",
   "./src/client/fx.js": "./src/client/fx.js?v=3bceabb270",
-  "./src/client/input.js": "./src/client/input.js?v=ab74e5f674",
+  "./src/client/input.js": "./src/client/input.js?v=c7bd63f62e",
   "./src/client/lifecycle.js": "./src/client/lifecycle.js?v=42d6c088ba",
-  "./src/client/look.js": "./src/client/look.js?v=c502de3730",
-  "./src/client/main.js": "./src/client/main.js?v=2a937ffcaa",
+  "./src/client/look.js": "./src/client/look.js?v=52eb02a4bf",
+  "./src/client/main.js": "./src/client/main.js?v=d7845fafb1",
   "./src/client/names.js": "./src/client/names.js?v=dff85cded6",
   "./src/client/outfits.js": "./src/client/outfits.js?v=892a6a1d6e",
   "./src/client/perf.js": "./src/client/perf.js?v=2462f1b4ae",
-  "./src/client/ports.js": "./src/client/ports.js?v=4285602733",
+  "./src/client/ports.js": "./src/client/ports.js?v=f57acde97d",
   "./src/client/preview-data.js": "./src/client/preview-data.js?v=89f11bb2ea",
   "./src/client/progress.js": "./src/client/progress.js?v=38515d7fe6",
   "./src/client/quality.js": "./src/client/quality.js?v=1fa1c771b3",
-  "./src/client/reset.js": "./src/client/reset.js?v=30ccdd527d",
-  "./src/client/save.js": "./src/client/save.js?v=21615d74c2",
+  "./src/client/reset.js": "./src/client/reset.js?v=c5dcf2bc09",
+  "./src/client/save.js": "./src/client/save.js?v=d9670e70b4",
   "./src/client/screen-art.js": "./src/client/screen-art.js?v=be6a82eed6",
   "./src/client/screen.js": "./src/client/screen.js?v=576f0ce0af",
   "./src/client/shop.js": "./src/client/shop.js?v=df2d3c5976",
   "./src/client/sound.js": "./src/client/sound.js?v=c303c54cb1",
-  "./src/client/state.js": "./src/client/state.js?v=043fd63752",
+  "./src/client/state.js": "./src/client/state.js?v=e3687282e2",
   "./src/client/storage.js": "./src/client/storage.js?v=686b11f06c",
   "./src/client/three/batch.js": "./src/client/three/batch.js?v=72814fddc1",
   "./src/client/three/bosses.js": "./src/client/three/bosses.js?v=7814dfb8d4",
@@ -159,25 +163,25 @@
   "./src/client/ui/buttons.js": "./src/client/ui/buttons.js?v=67b41b2f83",
   "./src/client/ui/canvas.js": "./src/client/ui/canvas.js?v=697f7d0db5",
   "./src/client/ui/character/items.js": "./src/client/ui/character/items.js?v=2ff7462142",
-  "./src/client/ui/character/progress.js": "./src/client/ui/character/progress.js?v=46b61d937e",
+  "./src/client/ui/character/progress.js": "./src/client/ui/character/progress.js?v=4fe73c181b",
   "./src/client/ui/character/tabs.js": "./src/client/ui/character/tabs.js?v=bd6c90ad68",
   "./src/client/ui/character/upgrades.js": "./src/client/ui/character/upgrades.js?v=5358a5860d",
   "./src/client/ui/character/wardrobe.js": "./src/client/ui/character/wardrobe.js?v=83a8b8206a",
   "./src/client/ui/draw.js": "./src/client/ui/draw.js?v=b968e6465c",
-  "./src/client/ui/grownups.js": "./src/client/ui/grownups.js?v=6ebdf23b79",
+  "./src/client/ui/grownups.js": "./src/client/ui/grownups.js?v=68aef86cf1",
   "./src/client/ui/home.js": "./src/client/ui/home.js?v=943aa709ec",
   "./src/client/ui/hud.js": "./src/client/ui/hud.js?v=cdd0378b28",
   "./src/client/ui/lang.js": "./src/client/ui/lang.js?v=568a4dc213",
   "./src/client/ui/layout.js": "./src/client/ui/layout.js?v=834fe7f487",
   "./src/client/ui/level-preview.js": "./src/client/ui/level-preview.js?v=5df4dce907",
-  "./src/client/ui/map.js": "./src/client/ui/map.js?v=defbdd0b3e",
+  "./src/client/ui/map.js": "./src/client/ui/map.js?v=a0bb9d31ca",
   "./src/client/ui/measure.js": "./src/client/ui/measure.js?v=7c174e9035",
   "./src/client/ui/menu.js": "./src/client/ui/menu.js?v=5cdc85b5f1",
   "./src/client/ui/minimap.js": "./src/client/ui/minimap.js?v=e900bbfee9",
   "./src/client/ui/paper.js": "./src/client/ui/paper.js?v=c25342da07",
   "./src/client/ui/phone.js": "./src/client/ui/phone.js?v=10df6a6f47",
   "./src/client/ui/screens.js": "./src/client/ui/screens.js?v=e98bfff809",
-  "./src/client/ui/story.js": "./src/client/ui/story.js?v=54e26452a0",
+  "./src/client/ui/story.js": "./src/client/ui/story.js?v=f5644b4621",
   "./src/client/ui/text.js": "./src/client/ui/text.js?v=fe5b98f9e4",
   "./src/client/ui/tip.js": "./src/client/ui/tip.js?v=99f9efd06a",
   "./src/client/ui/win.js": "./src/client/ui/win.js?v=f1b1933411",
@@ -187,7 +191,7 @@
   "./src/core/autopilot.js": "./src/core/autopilot.js?v=6895dd7bfd",
   "./src/core/big.js": "./src/core/big.js?v=608f5e2f6f",
   "./src/core/bots.js": "./src/core/bots.js?v=32defc7e5b",
-  "./src/core/config.js": "./src/core/config.js?v=4c133730b0",
+  "./src/core/config.js": "./src/core/config.js?v=c3d5a75f98",
   "./src/core/difficulty.js": "./src/core/difficulty.js?v=72aff2bd1e",
   "./src/core/economy.js": "./src/core/economy.js?v=e3d6023dec",
   "./src/core/events.js": "./src/core/events.js?v=ad8c019d6e",
@@ -206,7 +210,7 @@
   "./src/core/mood.js": "./src/core/mood.js?v=65a5548f9d",
   "./src/core/path.js": "./src/core/path.js?v=3b439f4444",
   "./src/core/practice.js": "./src/core/practice.js?v=807c98cf2e",
-  "./src/core/progress-rules.js": "./src/core/progress-rules.js?v=7c34b4f903",
+  "./src/core/progress-rules.js": "./src/core/progress-rules.js?v=ea518d9b2a",
   "./src/core/rules.js": "./src/core/rules.js?v=ca1bb0b29f",
   "./src/core/soundloops.js": "./src/core/soundloops.js?v=e0783ba66c",
   "./src/core/tricks/aware.js": "./src/core/tricks/aware.js?v=d70aa68ca3",
@@ -224,10 +228,10 @@
   "./src/core/wardrobe.js": "./src/core/wardrobe.js?v=011be2182f",
   "./src/core/world.js": "./src/core/world.js?v=7ffe232fac",
   "./src/core/worlditems.js": "./src/core/worlditems.js?v=247983d670",
-  "./src/i18n.js": "./src/i18n.js?v=f50020a150",
+  "./src/i18n.js": "./src/i18n.js?v=f6099e2f6c",
   "./src/story.js": "./src/story.js?v=d4c2c3d810"
 } }
 </script>
-<script type="module" src="./src/client/main.js?v=2a937ffcaa"></script>
+<script type="module" src="./src/client/main.js?v=d7845fafb1"></script>
 </body>
 </html>

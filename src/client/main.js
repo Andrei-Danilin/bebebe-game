@@ -5,7 +5,8 @@
 // startFailed with Try again, index.html); the frame loop schedules the next frame first and runs inside a guard.
 
 import { G } from "../core/active.js";
-import { progress } from "../core/economy.js";
+import { WORLDS } from "../core/config.js";
+import { progress, worldProgress } from "../core/economy.js";
 import { newGame, useGame } from "../core/game.js";
 import { setHooks } from "../core/hooks.js";
 import { noGameRng, setStrictRng } from "../core/util.js";
@@ -17,6 +18,7 @@ import { adoptErrorLog, failStart, initErrors, reportError } from "./errors.js";
 import { mapTick, openScene, redress, resetWorld, seedRandom, syncStock } from "./flow.js";
 import { drainEvents, runFrame, viewTick } from "./fx.js";
 import { audioTick } from "./sound.js";
+import { initEntitlement, isOpenNow } from "./entitlement.js";
 import { initInput, pollPads } from "./input.js";
 import { initBack } from "./back.js";
 import { initLifecycle, pauseForWall } from "./lifecycle.js";
@@ -25,6 +27,7 @@ import { LOOK } from "./look.js";
 import { initPerf, noteFrame } from "./perf.js";
 import { setPorts } from "./ports.js";
 import { langPending, loadSave, queueSave, readErrorLog } from "./save.js";
+import { openFullCard } from "./ui/grownups.js";
 import { openLangScreen } from "./ui/lang.js";
 import { fit, fitCount, initScreen, rotateWall, runQueuedFit, simMode } from "./screen.js";
 import { inMenus, inWardrobe, mode, ui } from "./state.js";
@@ -46,9 +49,11 @@ import { initTextMemo } from "./ui/measure.js";
 
 let langDue = false, tutorialDue = false, last = 0;
 async function boot() {
-  setPorts({ redress, queueSave });             // SPEC-039: the calls the wardrobe and the save make up the stack (ports.js) — before anything can call them
+  setPorts({ redress, queueSave, openFullCard });             // SPEC-039: the calls the wardrobe and the save make up the stack (ports.js) — before anything can call them
   // SPEC-025 AC 7: errors are logged (and, once ready, shown) from here on
   initErrors();
+  // SPEC-045: ?full=0|1 (debug)
+  initEntitlement();
   if (!hasWebGL2()) { failStart("noWebGL"); return; }   // SPEC-025 AC 7b: three.js r187 needs WebGL2
   // SPEC-008 / SPEC-011 AC 8d: тесты включают строгую игровую случайность и задают зерно запуска (init-скрипт до игры)
   setStrictRng(window.__bbStrictRng === true);
@@ -61,6 +66,7 @@ async function boot() {
   setHooks({ rebuild: rebuild3D });
   // SPEC-025 AC 3b: the save module loads (and migrates, recovers) the save before the first level is built (storage is async)
   await loadSave();
+  if (!isOpenNow(G.world)) { G.world = WORLDS[0]; G.level = worldProgress().unlocked; }   // SPEC-045: a saved last world the purchase closes (a free device): the menu opens on the Park
   try { adoptErrorLog(readErrorLog()); } catch (e) { /* the log never stops the start */ }   // SPEC-039: the stored log joins this run's (was inside loadSave)
   initInput();
   earlyQuality();                             // SPEC-040 AC 7: the tier the renderer is made with (a pinned or saved one; MSAA is part of it)

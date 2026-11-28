@@ -59,6 +59,27 @@ test("keys M (sounds) and N (music) toggle the switches on any screen", async ({
   expect((await storedSave(page)).settings).toEqual({ music: true, sfx: true });
 });
 
+// SPEC-048 regression (master's Pages run): a screen waits for its picture (artHolding drops navigation keys), but M / N / L change no screen: they always work
+test("keys M, N and L work while a screen waits for its picture; navigation keys do not", async ({ page }) => {
+  await page.route(/\/assets\/map_bg_[a-z]*\.webp$/, async route => { await new Promise(r => setTimeout(r, 2500)); await route.continue(); });   // the map page arrives late
+  await openGame(page);
+  const wait = await page.evaluate(() => window.__bb.CFG.ART_WAIT);
+  await page.evaluate(() => { window.__bb.CFG.ART_WAIT = 4; window.__bb.openMap(); });
+  try {
+    expect(await page.evaluate(() => window.__bb.artInfo.holding), "the map is held for its picture").toBe(true);
+    await page.keyboard.press("KeyM");
+    expect(await settings(page), "M works during the hold").toEqual({ music: true, sfx: false });
+    await page.keyboard.press("KeyN");
+    expect(await settings(page), "N works during the hold").toEqual({ music: false, sfx: false });
+    const lang = await page.evaluate(() => window.__bb.lang);
+    await page.keyboard.press("KeyL");
+    expect(await page.evaluate(() => window.__bb.lang), "L (the language) works during the hold").not.toBe(lang);
+    expect(await page.evaluate(() => window.__bb.artInfo.holding), "still held: no screen changed").toBe(true);
+    await page.keyboard.press("Escape");
+    expect(await page.evaluate(() => window.__bb.mode), "a navigation key is still dropped by the hold").toBe("map");
+  } finally { await page.evaluate(w => { window.__bb.CFG.ART_WAIT = w; }, wait); }
+});
+
 test("an old save with muted: true turns both off; settings, when there, win; unknown settings are kept", async ({ page }) => {
   await openGame(page);
   const put = fn => page.evaluate(f => { const s = JSON.parse(localStorage.getItem("bebebe-save")); new Function("s", f)(s); localStorage.setItem("bebebe-save", JSON.stringify(s)); }, fn);

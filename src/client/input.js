@@ -2,7 +2,7 @@
 // (SPEC-012: the players' input slots). Client module (moved out of index.html in Phase C).
 
 import { CFG } from "../core/config.js";
-import { backToWardrobe, chooseStop, closeCard, closeTip, okTip, goBack, closeShop, cycleWorld, mapSelN, moveMapSel, nextLang, nextLevel, openStory, openTip, playCard, pressKiss, pressKit, resumeGame, retryLevel, sceneNext, scenePrev, sceneSkip, setMode, setStoryPage, storyBackKey, storyStep, switchShopTab, toggleMusic, toggleSound, toMap, watchChapter } from "./flow.js";
+import { backToWardrobe, chooseStop, closeCard, closeTip, okTip, goBack, closeShop, cycleWorld, mapSelN, moveMapSel, nextLang, nextLevel, openMapTab, openStory, openTip, playCard, pressKiss, pressKit, resumeGame, retryLevel, sceneNext, scenePrev, sceneSkip, setMode, setStoryPage, storyBackKey, storyStep, switchShopTab, toggleMusic, toggleSound, toMap, watchChapter } from "./flow.js";
 import { LOOK } from "./look.js";
 import { activeStick, closeNameInput, nameInput, stickR, sticks, afterFit } from "./devices.js";
 import { randomOutfit } from "./outfits.js";
@@ -24,6 +24,7 @@ import { artHolding } from "./screen-art.js";
 // =====================================================================
 const keys = new Set();
 
+const TOGGLE_KEYS = ["KeyM", "KeyN", "KeyL"];   // the keys that change no screen (sounds, music, language): they pass a screen's picture wait (SPEC-048 regression)
 function onKey(code) {
   if (code === "KeyM") { toggleSound(); return; }              // SPEC-047 AC 9: M — the sounds, N — the music
   if (code === "KeyN") { toggleMusic(); return; }
@@ -43,7 +44,7 @@ function onKey(code) {
     if (code === "ArrowRight") cycleWorld(1);
     if (code === "ArrowUp") moveMapSel(-1);
     if (code === "ArrowDown") moveMapSel(1);
-    if (code === "Enter" || code === "NumpadEnter" || code === "Space") { tap(); chooseStop(mapSelN()); }
+    if (code === "Enter" || code === "NumpadEnter" || code === "Space") { tap(); if (!openMapTab()) chooseStop(mapSelN()); }   // SPEC-045: on a 🎁 tab → the Full game card
   } else if (mode === "levelCard") {
     if (ui.tip) {                                              // SPEC-042: the "New here!" card stands in the level card's place: Enter / Space / H close it (Escape too, goBack), nothing else acts under it
       if (code === "Enter" || code === "NumpadEnter" || code === "Space" || code === "KeyH") { if (ui.tipPlay) tap(); okTip(); }   // SPEC-048: after Play OK starts the level (Escape goes back)
@@ -178,7 +179,7 @@ function onPadButton(b, pad = 0) {
     if (b === 15 || b === LOOK.PAD_NEXT_WORLD) cycleWorld(1);
     if (b === 12) moveMapSel(-1);                  // крестовина ↑/↓ — остановки
     if (b === 13) moveMapSel(1);
-    if (b === 0) { tap(); chooseStop(mapSelN()); }
+    if (b === 0) { tap(); if (!openMapTab()) chooseStop(mapSelN()); }
     if (b === 1) setMode("home");
   } else if (mode === "levelCard") {
     if (ui.tip) {                                              // SPEC-042: A / B / Start / the tip button close the "New here!" card, not the level card
@@ -283,7 +284,7 @@ export function initInput() {
     if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"].includes(e.code)) e.preventDefault();
     if (e.code === "Slash" && mode === "play") e.preventDefault();   // SPEC-019: «/» — на цыпочках игрока 2 (в Firefox «/» — быстрый поиск)
     initAudio();
-    if (!keys.has(e.code) && !artHolding()) onKey(e.code);   // SPEC-048 AC 3: a screen change is waiting for its pictures — a key goes to nothing (no double press into the next screen)
+    if (!keys.has(e.code) && (!artHolding() || TOGGLE_KEYS.includes(e.code))) onKey(e.code);   // SPEC-048 AC 3: a screen change is waiting for its pictures — a key goes to nothing (no double press into the next screen); M / N / L change no screen, so they always work
     keys.add(e.code);
   });
   window.addEventListener("keyup", e => keys.delete(e.code));
