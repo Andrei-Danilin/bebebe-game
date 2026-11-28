@@ -27,7 +27,7 @@ const NET_TIMEOUT_MS = 4000;             // weak signal: after this long, a cach
 const SW_BUILD = 11;
 const SW_STRATEGY = "0c8e52b02e";
 const SW_VERSION = "bebebe-1.0.0-dev-b11";
-const SRC_HASH = "c8c359836f";
+const SRC_HASH = "8526978f9b";
 const PRECACHE_LOCAL = [
   "./", "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512-maskable.png",
   "./icons/icon-512.png", "./icons/icon.svg", "./index.html", "./manifest.webmanifest"
@@ -67,7 +67,7 @@ const PRECACHE_SRC = [
   "./src/client/ui/story.js?v=5f55a5406a", "./src/client/ui/text.js?v=fe5b98f9e4",
   "./src/client/ui/tip.js?v=531dcecde9", "./src/client/ui/win.js?v=f1b1933411", "./src/client/update.js?v=e702121a73",
   "./src/client/warm.js?v=6a2d57b991", "./src/core/active.js?v=70aa836ebd", "./src/core/autopilot.js?v=6895dd7bfd",
-  "./src/core/big.js?v=bde8c57cb6", "./src/core/bots.js?v=32defc7e5b", "./src/core/config.js?v=517055c770",
+  "./src/core/big.js?v=bde8c57cb6", "./src/core/bots.js?v=32defc7e5b", "./src/core/config.js?v=b09be84214",
   "./src/core/difficulty.js?v=72aff2bd1e", "./src/core/economy.js?v=e3d6023dec", "./src/core/events.js?v=f2627cc22e",
   "./src/core/game.js?v=787c0b78ff", "./src/core/grid.js?v=a38c7b977b", "./src/core/hearing.js?v=a00c49e557",
   "./src/core/hooks.js?v=5ceea54c61", "./src/core/index.js?v=ff5975de4d", "./src/core/kindwalk.js?v=caa3127c7c",

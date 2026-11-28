@@ -296,11 +296,9 @@ test("cupcake: one he cannot reach is ignored (he does not walk to it), so he ne
 test("cupcake: a walk that gets nowhere (pressed on a wall) is given up after `stuck` s, by the way he went, not by whether he moves", () => {
   const { g, it } = walledCake();
   g.big.cake = it.id;                                                      // he is already on his way (a wall appeared, a friend fell in the way…)
-  const t0 = g.stats.time;
   assert.ok(longestStill(g, WI.cupcake.giveUp + 3) <= CFG.BALANCE.STALL.TIME, "no stall");
   assert.ok(it.t >= it.life, "he gave the cupcake up");
   assert.equal(g.big.cake, 0);
-  void t0;
 });
 test("cupcake: a boss eats for half the time", () => {
   const b = clearGame("city");
