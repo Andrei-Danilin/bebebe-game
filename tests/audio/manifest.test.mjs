@@ -85,3 +85,25 @@ test("every sfx event name the core emits has a manifest entry or a synth fallba
   const missing = [...emitted].filter(n => !byName.has(n) && !synth.has(n));
   assert.deepEqual(missing, []);
 });
+
+// SPEC-047 AC 11: sw.js precaches manifest.json + every sound, loop and jingle + theme and story (AUDIO.PRECACHE_*), named by the manifest's hash; the other
+// tracks (a world's music, boss, theme_song) are not in the list — they are stored whole on first play (TRACKS_HASH names that cache)
+test("sw.js lists the precached audio and its hashes (run npm run audio)", () => {
+  const sw = fs.readFileSync(path.join(ROOT, "sw.js"), "utf8"), text = fs.readFileSync(path.join(OUT, "manifest.json"), "utf8");
+  assert.equal(A.swBetween(sw), A.swBlock(manifest.files, text), "the audio block of sw.js is stale");
+  const list = [...A.swBetween(sw).matchAll(/"\.\/assets\/audio\/([^"]+)"/g)].map(m => m[1]);
+  const want = ["manifest.json", ...manifest.files.filter(f => ["sfx", "loop", "jingle"].includes(f.kind) || ["theme", "story"].includes(f.name)).map(f => f.file)];
+  assert.deepEqual(list, want);
+  for (const n of ["boss", "theme_song", "world_field", "world_city", "world_school", "world_beach", "world_winter"]) assert.ok(!list.includes(n + ".mp3"), n + " is cached on first play, not at install");
+  assert.ok(list.includes("theme.mp3") && list.includes("story.mp3") && list.includes("win.mp3") && list.includes("rescue_loop.mp3"));
+  assert.match(sw, /const CACHE_AUDIO = CACHE_PREFIX \+ "b" \+ SW_BUILD \+ "-audio-" \+ AUDIO_HASH/);
+  assert.match(sw, /const CACHE_TRACKS = CACHE_PREFIX \+ "b" \+ SW_BUILD \+ "-tracks-" \+ TRACKS_HASH/);
+  // a changed sound changes AUDIO_HASH; a changed track also TRACKS_HASH, a changed sound does not
+  const hashes = (files, t) => A.swBlock(files, t).split("\n").slice(0, 2);
+  const [a0, t0] = hashes(manifest.files, text);
+  const bumped = f => manifest.files.map(e => (e.name === f ? { ...e, srcHash: "changed" } : e));
+  const [a1, t1] = hashes(bumped("tap"), text + " ");
+  assert.ok(a1 !== a0 && t1 === t0, "a sound: new AUDIO_HASH, same TRACKS_HASH");
+  const [a2, t2] = hashes(bumped("world_field"), text + " ");
+  assert.ok(a2 !== a0 && t2 !== t0, "a track: both change");
+});

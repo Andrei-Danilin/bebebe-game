@@ -24,6 +24,8 @@ const ROOT = path.resolve(__dirname, "..");
 const SRC_DIR = path.join(ROOT, "audio", "src");
 const OUT_DIR = path.join(ROOT, "assets", "audio");
 const CONFIG = path.join(__dirname, "audio.json");
+const SW_FILE = path.join(ROOT, "sw.js");
+const SW_MARK = ["// audio:start", "// audio:end"];
 const NL = "\n";
 const RATE = 44100;
 const ALGO = 1;   // part of every srcHash: bump when the processing below changes, so every file is made again
@@ -256,6 +258,39 @@ function checkBudgets(entries) {
 }
 const precachedBytes = entries => entries.filter(e => AUDIO.PRECACHE_KINDS.includes(e.kind) || AUDIO.PRECACHE_MUSIC.includes(e.name)).reduce((s, e) => s + e.bytes, 0);
 
+// ---------- the service worker's list (SPEC-047 AC 11) ----------
+// What sw.js keeps: PRECACHE_AUDIO = manifest.json + every sound, loop and jingle + the music of the menus (AUDIO.PRECACHE_KINDS + PRECACHE_MUSIC), cached at install under
+// AUDIO_HASH (the hash of the whole manifest text: any change of a sound — bytes, length, srcHash — makes the installed apps fetch them again; the code cache is not touched);
+// TRACKS_HASH names the cache the other tracks are stored in when they first play (the hash of their names and srcHashes: a changed track empties it).
+const NLN = "\n";
+const isPrecached = e => AUDIO.PRECACHE_KINDS.includes(e.kind) || AUDIO.PRECACHE_MUSIC.includes(e.name);
+const sha = text => crypto.createHash("sha256").update(text).digest("hex").slice(0, 12);
+function swBlock(files, manifestText) {
+  const urls = ["./assets/audio/manifest.json", ...files.filter(isPrecached).map(e => "./assets/audio/" + e.file)];
+  const tracks = files.filter(e => !isPrecached(e)).map(e => e.name + " " + e.srcHash).join(NLN);
+  const lines = []; let cur = "";
+  for (const it of urls.map(u => JSON.stringify(u))) {
+    if (cur && ("  " + cur + it).length > 118) { lines.push("  " + cur.trimEnd()); cur = ""; }
+    cur += it + ", ";
+  }
+  if (cur) lines.push("  " + cur.slice(0, -2));
+  return [`const AUDIO_HASH = "${sha(manifestText.split("\r\n").join(NLN))}";`, `const TRACKS_HASH = "${sha(tracks)}";`, "const PRECACHE_AUDIO = [", ...lines, "];"].join(NLN);
+}
+// the text between the markers of sw.js (LF line ends; null when the markers are missing)
+function swBetween(text) {
+  text = text.split("\r\n").join(NLN);
+  const i = text.indexOf(SW_MARK[0]), j = text.indexOf(SW_MARK[1]);
+  return i < 0 || j < i ? null : text.slice(text.indexOf(NLN, i) + 1, j).trimEnd();
+}
+function writeSwBlock(files, manifestText, swFile = SW_FILE) {
+  const text = fs.readFileSync(swFile, "utf8");
+  if (swBetween(text) === null) throw new Error(`sw.js: markers ${SW_MARK[0]} … ${SW_MARK[1]} not found`);
+  const eol = text.includes("\r\n") ? "\r\n" : NLN, i = text.indexOf(NLN, text.indexOf(SW_MARK[0])) + 1, j = text.indexOf(SW_MARK[1]);
+  const next = text.slice(0, i) + (swBlock(files, manifestText) + NLN).split(NLN).join(eol) + text.slice(j);
+  if (next !== text) fs.writeFileSync(swFile, next);
+  return next !== text;
+}
+
 // ---------- the run ----------
 const stats = (d, ch) => ({ dur: d.length / ch / RATE, peak: db(peakOf(d)), rms: db(rmsOf(d)) });
 
@@ -322,7 +357,7 @@ function report({ rows, warnings, manifest, bad }) {
 }
 
 module.exports = {
-  build, report, loadConfig, srcHash, readManifest, checkBudgets, precachedBytes, ffmpegAvailable, ffmpegVersion, decode, encode, measureLoudness,
+  swBlock, swBetween, writeSwBlock, isPrecached, build, report, loadConfig, srcHash, readManifest, checkBudgets, precachedBytes, ffmpegAvailable, ffmpegVersion, decode, encode, measureLoudness,
   processPcm, trimSilence, fadeOut, cutLong, normalizePeak, bakeLoop, findEndingFade, peakOf, rmsOf, ff, db, lin,
   KINDS, TRIM, ENDING, LOUD, RATE, ALGO, AUDIO, SRC_DIR, OUT_DIR, CONFIG, ROOT
 };
@@ -334,6 +369,7 @@ if (require.main === module) {
     console.log(v);
     const res = build({ force: process.argv.includes("--force"), log: console.log });
     console.log(report(res));
+    if (writeSwBlock(res.manifest, fs.readFileSync(path.join(OUT_DIR, "manifest.json"), "utf8"))) console.log("sw.js PRECACHE_AUDIO / AUDIO_HASH / TRACKS_HASH updated");
     if (res.bad.length) process.exitCode = 1;
   } catch (e) { console.error(e.message || e); process.exit(1); }
 }

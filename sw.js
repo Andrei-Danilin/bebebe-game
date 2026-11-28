@@ -4,6 +4,9 @@
 //   bebebe-b<SW_BUILD>-src-<SRC_HASH>     the shell (index.html, manifest, icons) + the game's ES modules, written only at install
 //                                   (plus the shell rule below); complete when its "installed" marker is there;
 //   bebebe-b<SW_BUILD>-assets-<ASSETS_HASH>  the art sprites (assets/, listed by npm run assets);
+//   bebebe-b<SW_BUILD>-audio-<AUDIO_HASH>    SPEC-047: the sounds, loops, jingles and the music of the menus (assets/audio/, listed by npm run audio:
+//                                   every sound + theme + story + manifest.json), written at install, one by one;
+//   bebebe-b<SW_BUILD>-tracks-<TRACKS_HASH>  SPEC-047: the other tracks (a world's music, boss, theme_song), stored whole the first time they play;
 // SPEC-039: the two names carry the build counter and the content hash, never the game's semver: a release (SW_VERSION changes, the
 // files do not) finds both caches complete and downloads nothing but index.html and this worker.
 //   bebebe-three-<THREE_VERSION>    the vendored three.js (vendor/three/, SPEC-025 AC 1), by its version: a code deploy
@@ -24,9 +27,9 @@ const CACHE_PREFIX = "bebebe-";          // all Pages projects of the account sh
 const NET_TIMEOUT_MS = 4000;             // weak signal: after this long, a cached copy wins over a slow network
 // SPEC-011: written by npm run precache (scripts/precache.js) — do not edit by hand
 // precache:start
-const SW_BUILD = 11;
-const SW_STRATEGY = "0c8e52b02e";
-const SW_VERSION = "bebebe-1.0.0-dev-b11";
+const SW_BUILD = 12;
+const SW_STRATEGY = "95197fdd64";
+const SW_VERSION = "bebebe-1.0.0-dev-b12";
 const SRC_HASH = "780023ba82";
 const PRECACHE_LOCAL = [
   "./", "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512-maskable.png",
@@ -152,9 +155,30 @@ const PRECACHE_ASSETS = [
   "./assets/heart_half.webp", "./assets/heart_empty.webp"
 ];
 // assets:end
+// SPEC-047: written by npm run audio (scripts/audio.js) — do not edit by hand
+// audio:start
+const AUDIO_HASH = "b39d5f091b10";
+const TRACKS_HASH = "e0fe325a3773";
+const PRECACHE_AUDIO = [
+  "./assets/audio/manifest.json", "./assets/audio/alert.mp3", "./assets/audio/back.mp3", "./assets/audio/boots.mp3",
+  "./assets/audio/boss_sting.mp3", "./assets/audio/buy.mp3", "./assets/audio/cloak.mp3", "./assets/audio/coin.mp3",
+  "./assets/audio/danger_tick.mp3", "./assets/audio/dizzy.mp3", "./assets/audio/fall.mp3", "./assets/audio/growl.mp3",
+  "./assets/audio/heard.mp3", "./assets/audio/hug.mp3", "./assets/audio/hug_mega.mp3", "./assets/audio/kind.mp3",
+  "./assets/audio/kiss.mp3", "./assets/audio/kiss_hit.mp3", "./assets/audio/kit.mp3", "./assets/audio/lose.mp3",
+  "./assets/audio/nope.mp3", "./assets/audio/out.mp3", "./assets/audio/page.mp3", "./assets/audio/pickup.mp3",
+  "./assets/audio/push.mp3", "./assets/audio/rescue.mp3", "./assets/audio/rescue_loop.mp3",
+  "./assets/audio/run_steps.mp3", "./assets/audio/shield.mp3", "./assets/audio/slip.mp3", "./assets/audio/star.mp3",
+  "./assets/audio/star_1.mp3", "./assets/audio/star_2.mp3", "./assets/audio/star_3.mp3", "./assets/audio/story.mp3",
+  "./assets/audio/tap.mp3", "./assets/audio/theme.mp3", "./assets/audio/thrown_out.mp3",
+  "./assets/audio/tiptoe_steps.mp3", "./assets/audio/unlock.mp3", "./assets/audio/wide_push.mp3",
+  "./assets/audio/win.mp3", "./assets/audio/world_open.mp3"
+];
+// audio:end
 const srcCacheName = hash => CACHE_PREFIX + "b" + SW_BUILD + "-src-" + hash;   // SPEC-039: no semver in the name
 const CACHE_SRC = srcCacheName(SRC_HASH);
 const CACHE_ASSETS = CACHE_PREFIX + "b" + SW_BUILD + "-assets-" + ASSETS_HASH;
+const CACHE_AUDIO = CACHE_PREFIX + "b" + SW_BUILD + "-audio-" + AUDIO_HASH;       // SPEC-047: named by the content, like the sprites: a changed sound is fetched again, the code is not
+const CACHE_TRACKS = CACHE_PREFIX + "b" + SW_BUILD + "-tracks-" + TRACKS_HASH;
 const CACHE_THREE = CACHE_PREFIX + "three-" + THREE_VERSION;
 const SCOPE_ROOT = new URL("./", self.location).href;
 const INSTALLED = new URL("./__installed__", self.location).href;   // the marker of a complete src cache
@@ -196,6 +220,9 @@ self.addEventListener("install", event => {
     // the art: one by one, a missing sprite never blocks the install (the game draws it with code)
     const art = await caches.open(CACHE_ASSETS);
     await Promise.all(PRECACHE_ASSETS.map(async u => { if (!(await art.match(u))) await art.add(new Request(u, { cache: "no-cache" })).catch(() => {}); }));
+    // the sounds: one by one, a missing file never blocks the install (it plays its beep; the music stays on what is there)
+    const audio = await caches.open(CACHE_AUDIO);
+    await Promise.all(PRECACHE_AUDIO.map(async u => { if (!(await audio.match(u))) await audio.add(new Request(u, { cache: "no-cache" })).catch(() => {}); }));
     await self.skipWaiting();
   })());
 });
@@ -210,10 +237,10 @@ self.addEventListener("message", event => {
 });
 
 // the kind of one of our caches ("src", "assets", "three") or null (an old name: deleted)
-const kindOf = name => (/-src-[^-]+$/.test(name) ? "src" : /-assets-[^-]+$/.test(name) ? "assets" : name.startsWith(CACHE_PREFIX + "three-") ? "three" : null);
+const kindOf = name => (/-src-[^-]+$/.test(name) ? "src" : /-assets-[^-]+$/.test(name) ? "assets" : /-audio-[^-]+$/.test(name) ? "audio" : /-tracks-[^-]+$/.test(name) ? "tracks" : name.startsWith(CACHE_PREFIX + "three-") ? "three" : null);
 self.addEventListener("activate", event => {
   event.waitUntil((async () => {
-    const mine = [CACHE_SRC, CACHE_ASSETS, CACHE_THREE];
+    const mine = [CACHE_SRC, CACHE_ASSETS, CACHE_AUDIO, CACHE_TRACKS, CACHE_THREE];
     const names = (await caches.keys()).filter(n => n.startsWith(CACHE_PREFIX) && !mine.includes(n));   // in creation order
     const keep = new Set();
     // the previous src cache kept is a complete one (with its marker): an unfinished install's cache is useless to an old page
@@ -221,6 +248,7 @@ self.addEventListener("activate", event => {
     for (const n of names.filter(x => kindOf(x) === "src")) if (await isComplete(n)) complete.push(n);
     complete.slice(-(KEEP - 1)).forEach(n => keep.add(n));
     names.filter(n => kindOf(n) === "assets").slice(-(KEEP - 1)).forEach(n => keep.add(n));
+    for (const kind of ["audio", "tracks"]) names.filter(n => kindOf(n) === kind).slice(-(KEEP - 1)).forEach(n => keep.add(n));   // SPEC-047
     // three.js: only the vendored caches (bebebe-three-r<REVISION>, SPEC-025) are kept; the old jsDelivr one goes
     names.filter(n => kindOf(n) === "three" && n.startsWith(CACHE_PREFIX + "three-r")).slice(-(KEEP - 1)).forEach(n => keep.add(n));
     await Promise.all(names.filter(n => !keep.has(n)).map(n => caches.delete(n)));
@@ -294,6 +322,37 @@ async function networkFirst(event, request, fallbackUrl, save, fromCache) {
   }
 }
 
+// SPEC-047: the sounds and the music. A cached sound (the install's, or a track stored when it first played) answers from the cache; a range request
+// (a media element asks for bytes=0- and for every seek) gets a correct 206 slice of the whole cached file. A track that is not cached is fetched WHOLE
+// (never as the piece the element asked for), stored whole (a 206 is never stored), and the element's range is cut from it; offline that fetch fails and
+// the element reports an error (the game stays on theme). Nothing but our own origin is ever cached.
+const rangeOf = (header, size) => {
+  const m = /^bytes=(\d*)-(\d*)$/.exec(header || "");
+  if (!m || (!m[1] && !m[2])) return null;                     // not a single range: the whole file answers
+  const start = m[1] ? Number(m[1]) : Math.max(0, size - Number(m[2])), end = m[1] && m[2] ? Math.min(Number(m[2]), size - 1) : size - 1;
+  return { start, end };
+};
+async function sliceOf(res, header) {
+  const bytes = await res.clone().arrayBuffer(), size = bytes.byteLength, r = rangeOf(header, size);
+  if (!r) return res;
+  if (r.start > r.end || r.start >= size) return new Response(null, { status: 416, headers: { "Content-Range": "bytes */" + size } });
+  return new Response(bytes.slice(r.start, r.end + 1), { status: 206, headers: {
+    "Content-Type": res.headers.get("Content-Type") || "audio/mpeg", "Content-Length": String(r.end - r.start + 1),
+    "Content-Range": "bytes " + r.start + "-" + r.end + "/" + size, "Accept-Ranges": "bytes" } });
+}
+async function audioFetch(event, req) {
+  const key = req.url, range = req.headers.get("range");
+  let hit = await (await caches.open(CACHE_AUDIO)).match(key, MATCH);
+  if (!hit && await caches.has(CACHE_TRACKS)) hit = await (await caches.open(CACHE_TRACKS)).match(key, MATCH);
+  if (hit) return range ? sliceOf(hit, range) : hit;
+  const res = await fetch(key);                                // the whole file, whatever the page asked for
+  if (res.ok && res.status === 200 && res.type === "basic") {
+    const saved = caches.open(CACHE_TRACKS).then(c => c.put(key, res.clone())).catch(() => {});
+    try { event.waitUntil(saved); } catch (e) { /* saving goes on anyway */ }
+  }
+  return range && res.status === 200 ? sliceOf(res, range) : res;
+}
+
 async function cacheFirst(event, request, cacheName, match = { ignoreVary: true }) {
   const hit = await caches.match(request, match);
   if (hit) return hit;
@@ -324,6 +383,8 @@ self.addEventListener("fetch", event => {
     // the vendored three.js (versioned URLs from the import map): cache-first from the cache the install filled; never written
     // at runtime (a URL the install did not cache comes from the network)
     event.respondWith(cacheFirst(event, req, null));
+  } else if (local && url.pathname.includes("/assets/audio/")) {
+    event.respondWith(audioFetch(event, req));                  // SPEC-047: before the sprites' rule below
   } else if (local && url.pathname.includes("/assets/")) {
     event.respondWith(cacheFirst(event, req, CACHE_ASSETS));
   } else if (local && url.pathname.includes("/icons/")) {
